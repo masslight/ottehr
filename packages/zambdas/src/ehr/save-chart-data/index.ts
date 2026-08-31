@@ -1,27 +1,35 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { CodeableConcept, DocumentReference, Encounter, FhirResource, List, Patient, Practitioner } from 'fhir/r4b';
 import {
-  addEmptyArrOperation,
+  CodeableConcept,
+  Communication,
+  DocumentReference,
+  Encounter,
+  FhirResource,
+  List,
+  Patient,
+  Practitioner,
+} from 'fhir/r4b';
+import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { addEmptyArrOperation } from 'utils/lib/helpers/operations';
+import { Secrets } from 'utils/lib/secrets';
+import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   ChartDataResources,
-  createCodingCode,
-  DispositionFollowUpType,
   ExamObservationDTO,
-  getPatchBinary,
-  OTTEHR_MODULE,
   PATIENT_VITALS_META_SYSTEM,
-  SCHOOL_WORK_NOTE,
-  Secrets,
-  userMe,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { createCodeableConcept } from 'utils/lib/types/api/chart-data/exam-fields-map';
+import { SCHOOL_WORK_NOTE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import {
-  checkOrCreateM2MClientToken,
+  createAccidentCondition,
   createDispositionServiceRequest,
-  createOystehrClient,
   createProcedureServiceRequest,
   followUpToPerformerMap,
+  followUpTypeFromPerformerType,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
   makeClinicalImpressionResource,
@@ -34,22 +42,28 @@ import {
   makeNoteResource,
   makeObservationResource,
   makeProcedureResource,
+  makeRosObservationResource,
   makeSchoolWorkDR,
   makeServiceRequestResource,
-  saveOrUpdateResourceRequest,
+  prepareAddendumNotes,
   updateEncounterAddendumNote,
   updateEncounterAddToVisitNote,
   updateEncounterDiagnosis,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+  updateEncounterReasonForVisit,
+} from '../../shared/chart-data';
+import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
+import { getMyPractitionerId } from '../../shared/practitioners';
+import { saveOrUpdateResourceRequest } from '../../shared/resources.helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   createExamObservationComments,
-  createExamObservations,
+  getAllExamFieldsMetadata,
 } from '../../subscriptions/appointment/appointment-chart-data-prefilling/helpers';
 import { deleteResourceRequest } from '../delete-chart-data/helpers';
 import {
@@ -65,419 +79,439 @@ const ZAMBDA_NAME = 'save-chart-data';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log(`Input: ${JSON.stringify(input)}`);
-    console.log('Validating input');
-    const {
-      encounterId,
-      chiefComplaint,
-      ros,
-      conditions,
-      medications,
-      allergies,
-      surgicalHistoryNote,
-      surgicalHistory,
-      episodeOfCare,
-      observations,
-      secrets,
-      examObservations,
-      medicalDecision,
-      cptCodes,
-      emCode,
-      instructions,
-      disposition,
-      diagnosis,
-      newSchoolWorkNote,
-      schoolWorkNotes,
-      patientInfoConfirmed,
-      addendumNote,
-      addToVisitNote,
-      notes,
-      vitalsObservations,
-      birthHistory,
-      userToken,
-      procedures,
-    } = validateRequestParameters(input);
+  console.log(`Input: ${JSON.stringify(input)}`);
+  console.log('Validating input');
+  const {
+    encounterId,
+    chiefComplaint,
+    historyOfPresentIllness,
+    mechanismOfInjury,
+    ros,
+    conditions,
+    medications,
+    allergies,
+    surgicalHistoryNote,
+    surgicalHistory,
+    episodeOfCare,
+    observations,
+    secrets,
+    examObservations,
+    rosObservations,
+    medicalDecision,
+    cptCodes,
+    emCode,
+    instructions,
+    disposition,
+    diagnosis,
+    newSchoolWorkNote,
+    schoolWorkNotes,
+    patientInfoConfirmed,
+    addendumNote,
+    addToVisitNote,
+    notes,
+    vitalsObservations,
+    birthHistory,
+    userToken,
+    procedures,
+    reasonForVisit,
+    accident,
+  } = validateRequestParameters(input);
 
-    console.time('time');
-    console.timeLog('time', 'before creating fhir client and token resources');
-    console.log('Getting token');
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  console.time('time');
+  console.timeLog('time', 'before creating fhir client and token resources');
+  console.log('Getting token');
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    console.timeLog('time', 'before fetching resources');
-    // get encounter and resources
-    console.log(`Getting encounter ${encounterId}`);
-    // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
-    // const [allResources, currentPractitioner, chartDataBeforeUpdate] = await Promise.all([
-    //   getEncounterAndRelatedResources(oystehr, encounterId),
-    //   getUserPractitioner(oystehr, oystehrCurrentUser),
-    //   getChartData(oystehr, encounterId),
-    // ]);
+  console.timeLog('time', 'before fetching resources');
+  console.log(`Getting encounter ${encounterId}`);
+  // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
+  // const [allResources, currentPractitioner, chartDataBeforeUpdate] = await Promise.all([
+  //   getEncounterAndRelatedResources(oystehr, encounterId),
+  //   getUserPractitioner(oystehr, userToken, secrets),
+  //   getChartData(oystehr, encounterId),
+  // ]);
 
-    const [allResources, currentPractitioner] = await Promise.all([
-      getEncounterAndRelatedResources(oystehr, encounterId),
-      getUserPractitioner(oystehr, userToken, secrets),
-    ]);
+  const [allResources, currentPractitioner] = await Promise.all([
+    getEncounterAndRelatedResources(oystehr, encounterId),
+    getUserPractitioner(oystehr, userToken, secrets),
+  ]);
 
-    const encounter = allResources.filter((resource) => resource.resourceType === 'Encounter')[0] as Encounter;
-    if (encounter === undefined) throw new Error(`Encounter with ID ${encounterId} must exist... `);
-    const patient = allResources.filter((resource) => resource.resourceType === 'Patient')[0] as Patient;
-    const listResources = allResources.filter((res) => res.resourceType === 'List') as List[];
-    const appointment = allResources.find((res) => res.resourceType === 'Appointment');
-    console.log(`Got encounter with id ${encounter.id}`);
+  const encounter = allResources.filter((resource) => resource.resourceType === 'Encounter')[0] as Encounter;
+  if (encounter === undefined) throw new Error(`Encounter with ID ${encounterId} must exist... `);
+  const patient = allResources.filter((resource) => resource.resourceType === 'Patient')[0] as Patient;
+  const listResources = allResources.filter((res) => res.resourceType === 'List') as List[];
+  const appointment = allResources.find((res) => res.resourceType === 'Appointment');
+  console.log(`Got encounter with id ${encounter.id}`);
 
-    // validate that patient from encounter exists
-    if (patient?.id === undefined) throw new Error(`Encounter ${encounter.id} must be associated with a patient... `);
-    console.log(`Got patient with id ${patient.id}`);
-    console.timeLog('time', 'after fetching resources');
+  if (patient?.id === undefined) throw new Error(`Encounter ${encounter.id} must be associated with a patient... `);
+  console.log(`Got patient with id ${patient.id}`);
+  console.timeLog('time', 'after fetching resources');
 
-    const saveOrUpdateRequests: (
-      | BatchInputPostRequest<ChartDataResources>
-      | BatchInputPutRequest<ChartDataResources>
-      | BatchInputRequest<ChartDataResources>
-    )[] = [];
-    const updateEncounterOperations: Operation[] = [];
-    const additionalResourcesForResponse: FhirResource[] = [];
+  const saveOrUpdateRequests: (
+    | BatchInputPostRequest<ChartDataResources>
+    | BatchInputPutRequest<ChartDataResources>
+    | BatchInputRequest<ChartDataResources>
+  )[] = [];
+  const updateEncounterOperations: Operation[] = [];
+  const additionalResourcesForResponse: FhirResource[] = [];
 
-    if (chiefComplaint) {
-      // convert chief complaint Medical Conditions to Conditions preserve FHIR resource ID, add to encounter
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id, chiefComplaint, 'chief-complaint'))
-      );
-    }
-
-    if (ros) {
-      // convert ROS to Conditions preserve FHIR resource ID, add to encounter
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id, ros, 'ros'))
-      );
-    }
-
-    // convert Medical Conditions [] to Conditions [] and preserve FHIR resource IDs
-    conditions?.forEach((condition) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id!, condition, 'medical-condition'))
-      );
-    });
-
-    // convert Medications [] to MedicationStatement+Medication [] and preserve FHIR resource IDs
-    medications?.forEach((medication) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(
-          makeMedicationResource(encounterId, patient.id!, currentPractitioner.id!, medication, 'current-medication')
-        )
-      );
-    });
-
-    // convert Allergy [] to AllergyIntolerance [] and preserve FHIR resource IDs
-    allergies?.forEach((allergy) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeAllergyResource(encounterId, patient.id!, allergy, 'known-allergy'))
-      );
-    });
-
-    episodeOfCare?.forEach((hosp) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeHospitalizationResource(patient.id!, hosp, 'hospitalization'))
-      );
-    });
-
-    surgicalHistory?.forEach((procedure) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, procedure, 'surgical-history'))
-      );
-    });
-
-    if (surgicalHistoryNote) {
-      // convert Procedure to Procedure (FHIR) and preserve FHIR resource IDs
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(
-          makeProcedureResource(encounterId, patient.id!, surgicalHistoryNote, 'surgical-history-note')
-        )
-      );
-    }
-
-    // convert Observation[] to Observation (FHIR) [] and preserve FHIR resource IDs
-    observations?.forEach((element) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(
-          makeObservationResource(
-            encounterId,
-            patient.id!,
-            currentPractitioner.id!,
-            element,
-            ADDITIONAL_QUESTIONS_META_SYSTEM,
-            patient.birthDate,
-            patient.gender
-          )
-        )
-      );
-    });
-
-    vitalsObservations?.forEach((element) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(
-          makeObservationResource(
-            encounterId,
-            patient.id!,
-            currentPractitioner.id!,
-            element,
-            PATIENT_VITALS_META_SYSTEM,
-            patient.birthDate,
-            patient.gender
-          )
-        )
-      );
-    });
-
-    const isInPersonAppointment = !!appointment?.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
-
-    // convert ExamObservation[] to Observation(FHIR)[] and preserve FHIR resource IDs
-    examObservations?.forEach((element) => {
-      const examObservations = createExamObservations(isInPersonAppointment);
-      const examObservationComments = createExamObservationComments(isInPersonAppointment);
-
-      const observation = examObservations.find((observation) => observation.field === element.field);
-      const comment = examObservationComments.find((comment) => comment.field === element.field);
-
-      if (!observation && !comment) {
-        throw new Error(`Exam observation with field ${element.field} not found`);
-      }
-      const { code, bodySite, label } = (observation || comment) as ExamObservationDTO & {
-        code?: CodeableConcept;
-        bodySite?: CodeableConcept;
-        label?: string;
-      };
-
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(
-          makeExamObservationResource(encounterId, patient.id!, element, code ? { code, bodySite } : undefined, label)
-        )
-      );
-    });
-
-    // 9. convert Medical Decision to ClinicalImpression (FHIR) and preserve FHIR resource IDs
-    if (medicalDecision) {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(
-          makeClinicalImpressionResource(encounterId, patient.id, medicalDecision, 'medical-decision')
-        )
-      );
-    }
-
-    // 10 convert CPT code to Procedure (FHIR) and preserve FHIR resource IDs
-    cptCodes?.forEach((element) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, element, 'cpt-code'))
-      );
-    });
-
-    if (emCode) {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, emCode, 'em-code'))
-      );
-    }
-
-    // 11 convert provider instructions to Communication (FHIR) and preserve FHIR resource IDs
-    instructions?.forEach((element) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeCommunicationResource(encounterId, patient.id!, element, 'patient-instruction'))
-      );
-    });
-
-    // 12 convert disposition to Encounter.hospitalization (FHIR) update
-    // and ServiceRequest (FHIR) resource creation
-    if (disposition) {
-      saveOrUpdateRequests.push(
-        createDispositionServiceRequest({
-          disposition,
-          encounterId,
-          followUpId: filterServiceRequestsFromFhir(allResources, 'disposition-follow-up')[0]?.id,
-          patientId: patient.id,
-        })
-      );
-
-      updateEncounterOperations.push(updateEncounterDischargeDisposition(encounter, disposition));
-
-      // creating sub followUps for disposition
-      const subFollowUpCode: CodeableConcept = createCodingCode('185389009', 'Follow-up visit (procedure)');
-      const subFollowUpMetaTag = 'sub-follow-up';
-      disposition.followUp?.forEach((followUp) => {
-        const followUpPerformer = followUpToPerformerMap[followUp.type];
-        const lurieCtOrderDetail = createCodingCode('77477000', 'Computed tomography (procedure)');
-        const existedSubFollowUpId = filterServiceRequestsFromFhir(
-          allResources,
-          subFollowUpMetaTag,
-          followUpPerformer?.coding?.[0]
-        )[0]?.id;
-
-        saveOrUpdateRequests.push(
-          saveOrUpdateResourceRequest(
-            makeServiceRequestResource({
-              resourceId: existedSubFollowUpId,
-              encounterId,
-              patientId: patient.id!,
-              metaName: subFollowUpMetaTag,
-              code: subFollowUpCode,
-              orderDetail: followUp.type === 'lurie-ct' ? [lurieCtOrderDetail] : undefined,
-              performerType: followUpPerformer,
-              note: followUp.type === 'other' ? followUp.note : undefined,
-            })
-          )
-        );
-      });
-
-      // remove sub follow-ups that are not in the current request
-      const existingSubFollowUps = filterServiceRequestsFromFhir(allResources, subFollowUpMetaTag);
-      existingSubFollowUps.forEach((subFollowUp) => {
-        const subFollowUpType = Object.keys(followUpToPerformerMap).find(
-          (key) =>
-            followUpToPerformerMap[key as DispositionFollowUpType]?.coding?.[0].code ===
-            subFollowUp.performerType?.coding?.[0].code
-        );
-        if (subFollowUpType && !disposition.followUp?.some((f) => f.type === subFollowUpType)) {
-          saveOrUpdateRequests.push(deleteResourceRequest('ServiceRequest', subFollowUp.id!));
-        }
-      });
-    }
-
-    // 13 convert diagnosis to Condition (FHIR) resources and mention them in Encounter.diagnosis
-    if (diagnosis) {
-      if (!encounter.diagnosis) {
-        updateEncounterOperations.push(addEmptyArrOperation('/diagnosis'));
-      }
-      for (const element of diagnosis) {
-        const conditionResource = makeDiagnosisConditionResource(encounterId, patient.id!, element, 'diagnosis');
-        const condition = element.resourceId
-          ? await oystehr.fhir.update(conditionResource)
-          : await oystehr.fhir.create(conditionResource);
-        additionalResourcesForResponse.push(condition);
-        updateEncounterOperations.push(...updateEncounterDiagnosis(encounter, condition.id!, element));
-      }
-    }
-
-    // convert BooleanValue to Condition (FHIR) resource and mention them in Encounter.extension
-    if (patientInfoConfirmed) {
-      updateEncounterOperations.push(...updateEncounterPatientInfoConfirmed(encounter, patientInfoConfirmed));
-    }
-
-    // convert BooleanValue to Condition (FHIR) resource and mention them in Encounter.extension
-    if (addToVisitNote) {
-      updateEncounterOperations.push(...updateEncounterAddToVisitNote(encounter, addToVisitNote));
-    }
-
-    // convert FreeTextNote to Condition (FHIR) resource and mention them in Encounter.extension
-    if (addendumNote) {
-      updateEncounterOperations.push(...updateEncounterAddendumNote(encounter, addendumNote));
-    }
-
-    // 14 convert work-school note to pdf file, upload it to z3 bucket and create DocumentReference (FHIR) for it
-    if (newSchoolWorkNote) {
-      if (appointment?.id === undefined) throw new Error(`No appointment found for encounterId: ${encounterId}`);
-      const pdfInfo = await createSchoolWorkNotePDF(newSchoolWorkNote, patient, secrets, m2mToken);
-      additionalResourcesForResponse.push(
-        await makeSchoolWorkDR(
-          oystehr,
-          pdfInfo,
-          patient.id,
-          appointment?.id,
-          encounterId,
-          newSchoolWorkNote.type,
-          SCHOOL_WORK_NOTE,
-          listResources
-        )
-      );
-    }
-    // updating schoolWork note DocumentReference status 'published' | 'unpublished'
-    if (schoolWorkNotes) {
-      const documentReferences = allResources.filter(
-        (resource) => resource.resourceType === 'DocumentReference'
-      ) as DocumentReference[];
-      schoolWorkNotes.forEach((element) => {
-        const schoolWorkDR = documentReferences.find((dr) => dr.id === element.id);
-        if (schoolWorkDR) {
-          schoolWorkDR.docStatus = element.published
-            ? PdfDocumentReferencePublishedStatuses.published
-            : PdfDocumentReferencePublishedStatuses.unpublished;
-          saveOrUpdateRequests.push(saveOrUpdateResourceRequest(schoolWorkDR));
-        }
-      });
-    }
-
-    if (updateEncounterOperations.length > 0) {
-      saveOrUpdateRequests.push(
-        getPatchBinary({
-          resourceId: encounterId,
-          resourceType: 'Encounter',
-          patchOperations: updateEncounterOperations,
-        })
-      );
-    }
-
-    // convert notes to Communication (FHIR) resources
-    notes?.forEach((element) => {
-      const note = makeNoteResource(encounterId, patient.id!, element);
-      const request = saveOrUpdateResourceRequest(note);
-      saveOrUpdateRequests.push(request);
-    });
-
-    // convert birth history to Observation (FHIR) resources
-    birthHistory?.forEach((element) => {
-      const birthHistoryElement = makeBirthHistoryObservationResource(
-        encounterId,
-        patient.id!,
-        element,
-        'birth-history'
-      );
-      const request = saveOrUpdateResourceRequest(birthHistoryElement);
-      saveOrUpdateRequests.push(request);
-    });
-
-    if (procedures) {
-      procedures?.forEach((procedure) => {
-        saveOrUpdateRequests.push(createProcedureServiceRequest(procedure, encounterId, patient.id!));
-      });
-      additionalResourcesForResponse.push(encounter);
-    }
-
-    console.log('Starting a transaction update of chart data...');
-
-    console.timeLog('time', 'before saving resources');
-    const transactionBundle = await oystehr.fhir.transaction({
-      requests: saveOrUpdateRequests,
-    });
-    console.timeLog('time', 'after saving resources');
-
-    console.log('Updated chart data as a transaction');
-
-    console.timeLog('time', 'before sorting resources');
-    const output = validateBundleAndExtractSavedChartData(
-      transactionBundle,
-      patient.id!,
-      encounterId,
-      additionalResourcesForResponse
+  if (chiefComplaint) {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id, chiefComplaint, 'chief-complaint'))
     );
-    console.timeLog('time', 'after sorting resources');
-
-    // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
-    // console.timeLog('time', 'before creating auditEvent');
-    // const auditEvent = createAuditEvent(chartDataBeforeUpdate.chartResources, output.chartResources);
-    // await oystehr.fhir.create(auditEvent);
-    // console.timeLog('time', 'after creating auditEvent');
-
-    console.timeEnd('time');
-    return {
-      body: JSON.stringify(output),
-      statusCode: 200,
-    };
-  } catch (error) {
-    console.log(JSON.stringify(error, null, 2));
-    return {
-      body: JSON.stringify({ message: 'Error saving encounter data...' }),
-      statusCode: 500,
-    };
   }
+
+  if (historyOfPresentIllness) {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(
+        makeConditionResource(encounterId, patient.id, historyOfPresentIllness, 'history-of-present-illness')
+      )
+    );
+  }
+
+  if (mechanismOfInjury) {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(
+        makeConditionResource(encounterId, patient.id, mechanismOfInjury, 'mechanism-of-injury')
+      )
+    );
+  }
+
+  if (ros) {
+    saveOrUpdateRequests.push(saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id, ros, 'ros')));
+  }
+
+  conditions?.forEach((condition) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id!, condition, 'medical-condition'))
+    );
+  });
+
+  medications?.forEach((medication) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(
+        makeMedicationResource(encounterId, patient.id!, currentPractitioner.id!, medication, 'current-medication')
+      )
+    );
+  });
+
+  allergies?.forEach((allergy) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeAllergyResource(encounterId, patient.id!, allergy, 'known-allergy'))
+    );
+  });
+
+  episodeOfCare?.forEach((hosp) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeHospitalizationResource(patient.id!, hosp, 'hospitalization'))
+    );
+  });
+
+  surgicalHistory?.forEach((procedure) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, procedure, 'surgical-history'))
+    );
+  });
+
+  if (surgicalHistoryNote) {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(
+        makeProcedureResource(encounterId, patient.id!, surgicalHistoryNote, 'surgical-history-note')
+      )
+    );
+  }
+
+  observations?.forEach((element) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(
+        makeObservationResource(
+          encounterId,
+          patient.id!,
+          currentPractitioner.id!,
+          undefined,
+          element,
+          ADDITIONAL_QUESTIONS_META_SYSTEM,
+          patient.birthDate,
+          patient.gender
+        )
+      )
+    );
+  });
+
+  vitalsObservations?.forEach((element) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(
+        makeObservationResource(
+          encounterId,
+          patient.id!,
+          currentPractitioner.id!,
+          undefined,
+          element,
+          PATIENT_VITALS_META_SYSTEM,
+          patient.birthDate,
+          patient.gender
+        )
+      )
+    );
+  });
+
+  examObservations?.forEach((element) => {
+    const allExamFields = getAllExamFieldsMetadata();
+    const examObservationComments = createExamObservationComments();
+
+    const observation = allExamFields.find((observation) => observation.field === element.field);
+    const comment = examObservationComments.find((comment) => comment.field === element.field);
+
+    if (!observation && !comment) {
+      throw new Error(`Exam observation with field ${element.field} not found`);
+    }
+    const { code, bodySite, label } = (observation || comment) as ExamObservationDTO & {
+      code?: CodeableConcept;
+      bodySite?: CodeableConcept;
+      label?: string;
+    };
+
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(
+        makeExamObservationResource(encounterId, patient.id!, element, code ? { code, bodySite } : undefined, label)
+      )
+    );
+  });
+
+  rosObservations?.forEach((element) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeRosObservationResource(encounterId, patient.id!, element))
+    );
+  });
+
+  if (medicalDecision) {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(
+        makeClinicalImpressionResource(encounterId, patient.id, medicalDecision, 'medical-decision')
+      )
+    );
+  }
+
+  cptCodes?.forEach((element) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, element, 'cpt-code'))
+    );
+  });
+
+  if (emCode) {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, emCode, 'em-code'))
+    );
+  }
+
+  instructions?.forEach((element) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeCommunicationResource(encounterId, patient.id!, element, 'patient-instruction'))
+    );
+  });
+
+  if (disposition) {
+    saveOrUpdateRequests.push(
+      createDispositionServiceRequest({
+        disposition,
+        encounterId,
+        followUpId: filterServiceRequestsFromFhir(allResources, 'disposition-follow-up')[0]?.id,
+        patientId: patient.id,
+      })
+    );
+
+    updateEncounterOperations.push(updateEncounterDischargeDisposition(encounter, disposition));
+
+    const subFollowUpCode: CodeableConcept = createCodeableConcept(
+      [
+        {
+          code: '185389009',
+          display: 'Follow-up visit (procedure)',
+          system: 'http://snomed.info/sct',
+        },
+      ],
+      'Follow-up visit (procedure)'
+    );
+    const subFollowUpMetaTag = 'sub-follow-up';
+    disposition.followUp?.forEach((followUp) => {
+      const followUpPerformer = followUpToPerformerMap[followUp.type];
+      const lurieCtOrderDetail = createCodeableConcept(
+        [
+          {
+            code: '77477000',
+            display: 'Computed tomography (procedure)',
+            system: 'http://snomed.info/sct',
+          },
+        ],
+        'Computed tomography (procedure)'
+      );
+      // Match the existing ServiceRequest by resolved follow-up type (coding code OR text) —
+      // filtering by coding alone matches nothing for the coding-less 'other'/'lurie-ct'
+      // performer types and would grab the first sub-follow-up of any type.
+      const existedSubFollowUpId = filterServiceRequestsFromFhir(allResources, subFollowUpMetaTag).find(
+        (subFollowUp) => followUpTypeFromPerformerType(subFollowUp.performerType) === followUp.type
+      )?.id;
+
+      saveOrUpdateRequests.push(
+        saveOrUpdateResourceRequest(
+          makeServiceRequestResource({
+            resourceId: existedSubFollowUpId,
+            encounterId,
+            patientId: patient.id!,
+            metaName: subFollowUpMetaTag,
+            code: subFollowUpCode,
+            orderDetail: followUp.type === 'lurie-ct' ? [lurieCtOrderDetail] : undefined,
+            performerType: followUpPerformer,
+            note: followUp.type === 'other' ? followUp.note : undefined,
+          })
+        )
+      );
+    });
+
+    // remove sub follow-ups that are not in the current request
+    const existingSubFollowUps = filterServiceRequestsFromFhir(allResources, subFollowUpMetaTag);
+    existingSubFollowUps.forEach((subFollowUp) => {
+      const subFollowUpType = followUpTypeFromPerformerType(subFollowUp.performerType);
+      if (subFollowUpType && !disposition.followUp?.some((f) => f.type === subFollowUpType)) {
+        saveOrUpdateRequests.push(deleteResourceRequest('ServiceRequest', subFollowUp.id!));
+      }
+    });
+  }
+
+  if (diagnosis) {
+    if (!encounter.diagnosis) {
+      updateEncounterOperations.push(addEmptyArrOperation('/diagnosis'));
+    }
+    for (const element of diagnosis) {
+      const conditionResource = makeDiagnosisConditionResource(encounterId, patient.id!, element, 'diagnosis');
+      const condition = element.resourceId
+        ? await oystehr.fhir.update(conditionResource)
+        : await oystehr.fhir.create(conditionResource);
+      additionalResourcesForResponse.push(condition);
+      updateEncounterOperations.push(...updateEncounterDiagnosis(encounter, condition.id!, element));
+    }
+  }
+
+  if (patientInfoConfirmed) {
+    updateEncounterOperations.push(...updateEncounterPatientInfoConfirmed(encounter, patientInfoConfirmed));
+  }
+
+  if (addToVisitNote) {
+    updateEncounterOperations.push(...updateEncounterAddToVisitNote(encounter, addToVisitNote));
+  }
+
+  if (addendumNote) {
+    updateEncounterOperations.push(...updateEncounterAddendumNote(encounter, addendumNote));
+  }
+
+  if (reasonForVisit) {
+    updateEncounterOperations.push(...updateEncounterReasonForVisit(encounter, reasonForVisit));
+  }
+
+  if (newSchoolWorkNote) {
+    if (appointment?.id === undefined) throw new Error(`No appointment found for encounterId: ${encounterId}`);
+    const pdfInfo = await createSchoolWorkNotePDF(newSchoolWorkNote, patient, secrets, m2mToken);
+    additionalResourcesForResponse.push(
+      await makeSchoolWorkDR(
+        oystehr,
+        pdfInfo,
+        patient.id,
+        appointment?.id,
+        encounterId,
+        newSchoolWorkNote.type,
+        SCHOOL_WORK_NOTE,
+        listResources
+      )
+    );
+  }
+  if (schoolWorkNotes) {
+    const documentReferences = allResources.filter(
+      (resource) => resource.resourceType === 'DocumentReference'
+    ) as DocumentReference[];
+    schoolWorkNotes.forEach((element) => {
+      const schoolWorkDR = documentReferences.find((dr) => dr.id === element.id);
+      if (schoolWorkDR) {
+        schoolWorkDR.docStatus = element.published
+          ? PdfDocumentReferencePublishedStatuses.published
+          : PdfDocumentReferencePublishedStatuses.unpublished;
+        saveOrUpdateRequests.push(saveOrUpdateResourceRequest(schoolWorkDR));
+      }
+    });
+  }
+
+  if (updateEncounterOperations.length > 0) {
+    saveOrUpdateRequests.push(
+      getPatchBinary({
+        resourceId: encounterId,
+        resourceType: 'Encounter',
+        patchOperations: updateEncounterOperations,
+      })
+    );
+  }
+
+  let existingByAddendumId = new Map<string, Communication>();
+  if (notes && notes.length > 0) {
+    const practitionerDisplay = getProviderNameWithProfession(currentPractitioner);
+    existingByAddendumId = await prepareAddendumNotes(oystehr, notes, currentPractitioner.id!, practitionerDisplay);
+  }
+
+  notes?.forEach((element) => {
+    const existing = element.resourceId ? existingByAddendumId.get(element.resourceId) : undefined;
+    const note = makeNoteResource(encounterId, patient.id!, element, existing);
+    const request = saveOrUpdateResourceRequest(note);
+    saveOrUpdateRequests.push(request);
+  });
+
+  birthHistory?.forEach((element) => {
+    const birthHistoryElement = makeBirthHistoryObservationResource(encounterId, patient.id!, element, 'birth-history');
+    const request = saveOrUpdateResourceRequest(birthHistoryElement);
+    saveOrUpdateRequests.push(request);
+  });
+
+  if (procedures) {
+    procedures?.forEach((procedure) => {
+      saveOrUpdateRequests.push(createProcedureServiceRequest(procedure, encounterId, patient.id!));
+    });
+    additionalResourcesForResponse.push(encounter);
+  }
+
+  if (accident) {
+    saveOrUpdateRequests.push(createAccidentCondition(accident, encounterId, patient.id!));
+  }
+
+  console.log('Starting a transaction update of chart data...');
+
+  console.timeLog('time', 'before saving resources');
+  const transactionBundle = await oystehr.fhir.transaction({
+    requests: saveOrUpdateRequests,
+  });
+  console.timeLog('time', 'after saving resources');
+
+  console.log('Updated chart data as a transaction');
+
+  await runChartDataPostChangeTasks(oystehr, addendumNote, notes, encounter, appointment?.id);
+
+  console.timeLog('time', 'before sorting resources');
+  const output = validateBundleAndExtractSavedChartData(
+    transactionBundle,
+    patient.id!,
+    encounterId,
+    additionalResourcesForResponse
+  );
+  console.timeLog('time', 'after sorting resources');
+
+  // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
+  // console.timeLog('time', 'before creating auditEvent');
+  // const auditEvent = createAuditEvent(chartDataBeforeUpdate.chartResources, output.chartResources);
+  // await oystehr.fhir.create(auditEvent);
+  // console.timeLog('time', 'after creating auditEvent');
+
+  console.timeEnd('time');
+  return {
+    body: JSON.stringify(output),
+    statusCode: 200,
+  };
 });
 
 // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
@@ -553,11 +587,7 @@ async function getUserPractitioner(
   secrets: Secrets | null
 ): Promise<Practitioner> {
   try {
-    const getUserResponse = await userMe(userToken, secrets);
-    const userProfile = getUserResponse.profile;
-    console.log(`User Profile: ${JSON.stringify(userProfile)}`);
-    const userProfileString = userProfile.split('/');
-    const practitionerId = userProfileString[1];
+    const practitionerId = await getMyPractitionerId(userToken, secrets);
     return await oystehr.fhir.get<Practitioner>({
       resourceType: 'Practitioner',
       id: practitionerId,

@@ -1,0 +1,885 @@
+import { LoadingButton } from '@mui/lab';
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  TextField as MuiTextField,
+  Typography,
+} from '@mui/material';
+import { Medication } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
+import React, { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+  createInHouseMedicationQuickPick,
+  getInHouseMedicationQuickPicks,
+  updateInHouseMedicationQuickPick,
+} from 'src/api/api';
+import DeleteDialog from 'src/components/dialogs/DeleteDialog';
+import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
+import { MedicationWithTypeDTO, useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
+import { ERXStatus } from 'src/features/visits/shared/components/ERX';
+import { ERXInteractionsReadiness } from 'src/features/visits/shared/components/ERXInteractionsReadiness';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { sortQuickPicks, useMergedInHouseMedicationQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
+import { useInHouseMedicationOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
+import {
+  computeBillableUnits,
+  getMedicationName,
+  medicationExtendedToMedicationData,
+} from 'utils/lib/fhir/medication-administration';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { MEDICAL_HISTORY_CONFIG } from 'utils/lib/ottehr-config/medical-history';
+import { IN_HOUSE_CONTAINED_MEDICATION_ID } from 'utils/lib/types/api/medication-administration.constants';
+import {
+  ExtendedMedicationDataForResponse,
+  MedicationData,
+  MedicationInteractions,
+  MedicationOrderStatusesType,
+  UpdateMedicationOrderInput,
+} from 'utils/lib/types/api/medication-administration.types';
+import { InHouseMedicationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import {
+  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
+  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM_FOR_INTERACTIONS,
+} from 'utils/lib/types/constants';
+import { OrderFieldsSelectsOptions, useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
+import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
+import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
+import { InPersonModal } from '../../InPersonModal';
+import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
+import { interactionsSummary } from '../util';
+import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
+import { InteractionsMessage, MedicationCardView } from './MedicationCardView';
+import {
+  ConfirmSaveModalConfig,
+  findPrescriptionsForInteractions,
+  getConfirmSaveModalConfigs,
+  getFieldType,
+  getInitialAutoFilledFields,
+  getSaveButtonText,
+  interactionsUnresolved,
+  isUnsavedMedicationData,
+  medicationInteractionsFromErxResponse,
+  validateAllMedicationFields,
+} from './utils';
+
+interface InteractionsCheckState {
+  status: 'in-progress' | 'done' | 'error';
+  medicationId?: string;
+  medicationName?: string;
+  interactions?: MedicationInteractions;
+}
+
+const INTERACTIONS_CHECK_STATE_ERROR: InteractionsCheckState = {
+  status: 'error',
+  interactions: undefined,
+};
+
+export const EditableMedicationCard: React.FC<{
+  medication?: ExtendedMedicationDataForResponse;
+  type: MedicationOrderType;
+  onNavigateToMar?: () => void;
+}> = ({ medication, type: typeFromProps, onNavigateToMar }) => {
+  const [isOrderUpdating, setIsOrderUpdating] = useState<boolean>(false);
+  const { id: appointmentId } = useParams();
+  const navigate = useNavigate();
+  const autoFilledFieldsRef = useRef<Partial<MedicationData>>({});
+  const [isConfirmSaveModalOpen, setIsConfirmSaveModalOpen] = useState(false);
+  const confirmedMedicationUpdateRequestRef = useRef<Partial<UpdateMedicationOrderInput>>({});
+  const [confirmationModalConfig, setConfirmationModalConfig] = useState<ConfirmSaveModalConfig | null>(null);
+  const [isReasonSelected, setIsReasonSelected] = useState(true);
+  const { mappedData, resources } = useAppointmentData();
+  const selectsOptions = useFieldsSelectsOptions();
+  const encounterId = resources.encounter?.id ?? '';
+  const isCreating = typeFromProps === 'order-new';
+  const { setDraft, clearDraft, hasDraft, getDraft } = useInHouseMedicationOrderStore();
+  const draft = getDraft(encounterId);
+  const [erxStatus, setERXStatus] = useState(ERXStatus.LOADING);
+  const [interactionsCheckState, setInteractionsCheckState] = useState<InteractionsCheckState>({ status: 'done' });
+  const { oystehr, oystehrZambda } = useApiClients();
+  const [showInteractionAlerts, setShowInteractionAlerts] = useState(false);
+  const [erxEnabled, setErxEnabled] = useState(isCreating && !!draft?.medicationId);
+  const { isLoading: isMedicationHistoryLoading, medicationHistory, refetchHistory } = useMedicationHistory();
+  const currentUser = useEvolveUser();
+  const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
+  const {
+    quickPicks: fhirQuickPicks,
+    loading: fhirQuickPicksLoading,
+    refetch: refetchQuickPicks,
+  } = useMergedInHouseMedicationQuickPicks();
+  const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
+  const [quickPickName, setQuickPickName] = useState('');
+  const [existingQuickPicksForDialog, setExistingQuickPicksForDialog] = useState<InHouseMedicationQuickPickData[]>([]);
+  const [quickPickSaving, setQuickPickSaving] = useState(false);
+  const [overwriteTarget, setOverwriteTarget] = useState<InHouseMedicationQuickPickData | null>(null);
+
+  // There are dynamic form config which depend on what button was clicked:
+  // - If "administered" was clicked, then "dispense" form config should be used
+  // - If "not-administered" was clicked, then "dispense-not-administered" form config will be used
+  // See: https://github.com/masslight/ottehr/issues/2799
+  const typeRef = useRef<MedicationOrderType>(typeFromProps);
+
+  const [localValues, setLocalValues] = useState<Partial<MedicationData>>(
+    medication
+      ? {
+          ...medicationExtendedToMedicationData(medication),
+          ...getInitialAutoFilledFields(medication, autoFilledFieldsRef),
+        }
+      : isCreating && draft
+      ? draft
+      : {}
+  );
+  const localValuesRef = useRef(localValues);
+  localValuesRef.current = localValues;
+
+  const { updateMedication, getMedicationFieldValue, getIsMedicationEditable, deleteMedication } =
+    useMedicationManagement();
+  const [currentStatus, setCurrentStatus] = useState<MedicationOrderStatusesType>(medication?.status || 'pending');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
+  const [showErrors, setShowErrors] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const isSavedRef = useRef(false);
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+
+  useMarkDraftNavigatedAway({ encounterId: isCreating ? encounterId : '', setDraft, hasDraft });
+
+  const handleBack = (): void => {
+    if (isCreating && encounterId) clearDraft(encounterId);
+    if (onNavigateToMar) {
+      onNavigateToMar();
+      return;
+    }
+    navigate(getInHouseMedicationMARUrl(appointmentId!));
+  };
+
+  const handleClearForm = (): void => {
+    clearDraft(encounterId);
+    wasProvidedByFieldTouched.current = false;
+    setLocalValues({});
+  };
+
+  const handleUnsavedStatusChange = async (newStatus: MedicationOrderStatusesType): Promise<void> => {
+    isSavedRef.current = false;
+    setCurrentStatus(newStatus);
+  };
+
+  const handleDeleteClick = (): void => {
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteCancel = (): void => {
+    setIsDeleteDialogOpen(false);
+  };
+
+  const handleDeleteConfirm = async (): Promise<void> => {
+    if (!medication?.id) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteMedication(medication.id);
+      void refetchHistory();
+      enqueueSnackbar('Medication deleted successfully', { variant: 'success' });
+      setIsDeleteDialogOpen(false);
+      isSavedRef.current = true;
+      if (onNavigateToMar) {
+        onNavigateToMar();
+      } else if (appointmentId) {
+        navigate(getInHouseMedicationMARUrl(appointmentId));
+      }
+    } catch (error) {
+      const errorMessage = getApiError({ error, defaultError: 'Failed to delete medication. Please try again.' });
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleFieldValueChange = <Field extends keyof MedicationData>(
+    field: Field,
+    value: MedicationData[Field]
+  ): void => {
+    isSavedRef.current = false;
+    const newValues = { ...localValues, [field]: field === 'dose' ? Number(value) : value };
+    setLocalValues(newValues);
+    if (isCreating && encounterId) setDraft(encounterId, newValues);
+    if (field === 'medicationId' && value !== '' && (typeFromProps === 'order-new' || typeFromProps === 'order-edit')) {
+      setErxEnabled(true);
+    }
+  };
+
+  const isOrderType = typeFromProps === 'order-new' || typeFromProps === 'order-edit';
+
+  const handleQuickPickSelect = useCallback(
+    (quickPick: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number]): void => {
+      const { ndcToMedicationId, medispanCodeToMedicationId } = selectsOptions.medicationId;
+      const medicationId: string | undefined =
+        (quickPick.ndc && ndcToMedicationId?.[quickPick.ndc]) ??
+        (quickPick.dosespotId != null ? medispanCodeToMedicationId?.[String(quickPick.dosespotId)] : undefined);
+      const newValues: Partial<MedicationData> = {
+        ...localValuesRef.current,
+        medicationId,
+        ...(quickPick.dose != null && { dose: quickPick.dose }),
+        ...(quickPick.units != null && { units: quickPick.units }),
+        ...(quickPick.route != null && { route: quickPick.route }),
+        ...(quickPick.instructions != null && { instructions: quickPick.instructions }),
+      };
+      setLocalValues(newValues);
+      if (isCreating && encounterId) setDraft(encounterId, newValues);
+      if (isOrderType) setErxEnabled(true);
+    },
+    [selectsOptions.medicationId, isOrderType, isCreating, encounterId, setDraft]
+  );
+
+  const handleFhirQuickPickSelect = useCallback(
+    (quickPick: InHouseMedicationQuickPickData): void => {
+      // Resolve medicationId: use the stored ID, or look up by name if not available
+      let resolvedMedicationId = quickPick.medicationId;
+      if (!resolvedMedicationId && quickPick.medicationName) {
+        resolvedMedicationId = selectsOptions.medicationId.options.find((o) => o.label === quickPick.medicationName)
+          ?.value;
+      }
+      const newValues: Partial<MedicationData> = {
+        ...localValuesRef.current,
+        ...(resolvedMedicationId && { medicationId: resolvedMedicationId }),
+        dose: quickPick.dose,
+        units: quickPick.units,
+        route: quickPick.route,
+        location: quickPick.location,
+        manufacturer: quickPick.manufacturer,
+        // Don't apply associatedDx from quick pick — it's a Condition resource ID
+        // that is encounter-specific and won't be valid on other encounters
+        instructions: quickPick.instructions,
+        lotNumber: quickPick.lotNumber,
+        ndc: quickPick.ndc,
+        expDate: quickPick.expDate,
+        cptCodes: quickPick.cptCodes ?? [],
+      };
+      setLocalValues(newValues);
+      if (isCreating && encounterId) setDraft(encounterId, newValues);
+      // Only enable ERX on order pages — the ERX component isn't rendered for dispense/completed-edit
+      if (resolvedMedicationId && isOrderType) setErxEnabled(true);
+    },
+    [isOrderType, selectsOptions.medicationId.options, isCreating, encounterId, setDraft]
+  );
+
+  const commandPaletteItems = useMemo(() => {
+    if (typeFromProps !== 'order-new' || isReadOnly) {
+      return [];
+    }
+
+    return fhirQuickPicks.map((quickPick) => ({
+      id: `in-house-medication-${quickPick.id ?? quickPick.name}`,
+      label: `${quickPick.name} (In-house)`,
+      category: 'Add Medication',
+      onSelect: () => handleFhirQuickPickSelect(quickPick),
+    }));
+  }, [fhirQuickPicks, handleFhirQuickPickSelect, isReadOnly, typeFromProps]);
+  useCommandPaletteSource('in-house-medication-quick-picks', commandPaletteItems);
+
+  const handlePendingInHouseMedication = useCallback(
+    (payload: InHouseMedicationQuickPickData) => {
+      if (isReadOnly) {
+        return;
+      }
+
+      handleFhirQuickPickSelect(payload);
+    },
+    [handleFhirQuickPickSelect, isReadOnly]
+  );
+  usePendingQuickPick('in-house-medications', handlePendingInHouseMedication);
+
+  const openQuickPickDialog = async (): Promise<void> => {
+    if (!oystehrZambda) return;
+    try {
+      const response = await getInHouseMedicationQuickPicks(oystehrZambda);
+      setExistingQuickPicksForDialog([...response.quickPicks].sort(sortQuickPicks));
+    } catch (error) {
+      console.error('Failed to load existing quick picks:', error);
+      setExistingQuickPicksForDialog(fhirQuickPicks);
+    }
+    // Suggest a name from current form values: "Medication | Dose | Units | Route | exp: date | lot: number"
+    const medName =
+      medication?.medicationName ||
+      selectsOptions.medicationId.options.find((o) => o.value === localValues.medicationId)?.label ||
+      '';
+    const routeLabel = selectsOptions.route.options.find((o) => o.value === localValues.route)?.label || '';
+    const parts: string[] = [medName, localValues.dose, localValues.units, routeLabel].filter(Boolean) as string[];
+    if (localValues.expDate) parts.push(`exp: ${localValues.expDate.slice(0, 10)}`);
+    if (localValues.lotNumber) parts.push(`lot: ${localValues.lotNumber}`);
+    setQuickPickName(parts.join(' | '));
+    setOverwriteTarget(null);
+    setQuickPickDialogOpen(true);
+  };
+
+  const buildQuickPickFromCurrentState = (): Omit<InHouseMedicationQuickPickData, 'id'> => ({
+    name: quickPickName.trim(),
+    // Don't save the contained-medication sentinel — it's not a real FHIR resource ID
+    medicationId: localValues.medicationId !== IN_HOUSE_CONTAINED_MEDICATION_ID ? localValues.medicationId : undefined,
+    medicationName:
+      medication?.medicationName ||
+      selectsOptions.medicationId.options.find((o) => o.value === localValues.medicationId)?.label,
+    dose: localValues.dose,
+    units: localValues.units,
+    route: localValues.route,
+    location: localValues.location,
+    manufacturer: localValues.manufacturer,
+    // associatedDx is not saved — it's a Condition resource ID that is encounter-specific
+    instructions: localValues.instructions,
+    lotNumber: localValues.lotNumber,
+    ndc: localValues.ndc,
+    expDate: localValues.expDate,
+    // Recompute billable units against the current dose so saved billing data stays consistent
+    cptCodes: localValues.cptCodes?.map((cptCode) =>
+      cptCode.billableUnitSize != null
+        ? { ...cptCode, billableUnits: computeBillableUnits(localValues.dose, cptCode.billableUnitSize) }
+        : cptCode
+    ),
+  });
+
+  const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
+    if (!quickPickName.trim()) {
+      enqueueSnackbar('Quick pick name is required', { variant: 'error' });
+      return;
+    }
+    if (!oystehrZambda) throw new Error('oystehrZambda was null');
+
+    setQuickPickSaving(true);
+    try {
+      const quickPickData = buildQuickPickFromCurrentState();
+      if (overwriteId) {
+        await updateInHouseMedicationQuickPick(oystehrZambda, overwriteId, quickPickData);
+        enqueueSnackbar(`Quick pick "${quickPickName}" updated`, { variant: 'success' });
+      } else {
+        await createInHouseMedicationQuickPick(oystehrZambda, { quickPick: quickPickData });
+        enqueueSnackbar(`Quick pick "${quickPickName}" created`, { variant: 'success' });
+      }
+      await refetchQuickPicks();
+      setQuickPickDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to save quick pick:', error);
+      enqueueSnackbar('Failed to save quick pick', { variant: 'error' });
+    } finally {
+      setQuickPickSaving(false);
+    }
+  };
+
+  const updateOrCreateOrder = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
+    // set type dynamically after user click corresponding button to use correct form config https://github.com/masslight/ottehr/issues/2799
+    if (updatedRequestInput.newStatus === 'administered' || updatedRequestInput.newStatus === 'administered-partly') {
+      typeRef.current = 'dispense';
+    } else if (updatedRequestInput.newStatus === 'administered-not') {
+      typeRef.current = 'dispense-not-administered';
+    }
+
+    const { isValid, missingFields } = validateAllMedicationFields(
+      localValues,
+      medication,
+      typeRef.current,
+      setFieldErrors
+    );
+
+    // we check that have not empty required fields
+    if (!isValid) {
+      setMissingFields(missingFields);
+      setIsModalOpen(true);
+      setShowErrors(true);
+      return;
+    }
+
+    /**
+     * Using ref to store data that will be:
+     * 1. Displayed in confirmation modal for user review
+     * 2. May be changed during confirmation process (the reason will be specified)
+     * 3. Used in save callback after user confirmation
+     *
+     * This approach ensures that the exact data shown to and confirmed by the user
+     * will be sent to the endpoint and saved.
+     * We can't use async useState value here, because we should save value synchronously after user confirmation.
+     */
+
+    confirmedMedicationUpdateRequestRef.current = {
+      ...(updatedRequestInput.orderId ? { orderId: updatedRequestInput.orderId } : {}),
+
+      ...(updatedRequestInput.orderId && updatedRequestInput.newStatus && updatedRequestInput.newStatus !== 'pending'
+        ? { newStatus: updatedRequestInput.newStatus }
+        : {}),
+
+      orderData: {
+        ...(medication ? medicationExtendedToMedicationData(medication) : {}),
+        ...updatedRequestInput.orderData,
+        patient: resources.patient?.id || '',
+        encounterId: resources.encounter?.id || '',
+      } as MedicationData,
+      interactions: interactionsCheckState.interactions,
+    };
+
+    // for order creating, editing, or completed editing we don't have to show confirmation modal, so we can save it immediately
+    if (typeRef.current === 'order-new' || typeRef.current === 'order-edit' || typeRef.current === 'completed-edit') {
+      await handleConfirmSave(confirmedMedicationUpdateRequestRef);
+      return;
+    }
+
+    if (
+      (typeRef.current === 'dispense' || typeRef.current === 'dispense-not-administered') &&
+      (updatedRequestInput.newStatus === 'administered' ||
+        updatedRequestInput.newStatus === 'administered-partly' ||
+        updatedRequestInput.newStatus === 'administered-not')
+    ) {
+      const medicationName = medication?.medicationName ?? '';
+
+      const routeName =
+        selectsOptions.route.options.find((option) => option.value === updatedRequestInput?.orderData?.route)?.label ||
+        '';
+
+      const confirmSaveModalConfigs = getConfirmSaveModalConfigs({
+        medicationName,
+        routeName,
+        patientName: mappedData.patientName || '',
+        newStatus: updatedRequestInput.newStatus,
+        updateRequestInputRef: confirmedMedicationUpdateRequestRef,
+        setIsReasonSelected,
+      });
+
+      setConfirmationModalConfig(confirmSaveModalConfigs[updatedRequestInput.newStatus] as ConfirmSaveModalConfig);
+      setIsConfirmSaveModalOpen(true);
+    }
+  };
+
+  const handleConfirmSave = async (
+    medicationUpdateRequestInputRefRef: React.MutableRefObject<UpdateMedicationOrderInput>
+  ): Promise<void> => {
+    if (!medicationUpdateRequestInputRefRef.current.orderData) return;
+
+    // modal window on close will clear the medicationUpdateRequest ref,
+    // so we need to save the new status to make it possible to set
+    // the correct state if the user closes the modal during the updating
+    const newStatus = medicationUpdateRequestInputRefRef.current?.newStatus;
+
+    try {
+      setIsOrderUpdating(true);
+
+      await updateMedication(medicationUpdateRequestInputRefRef.current);
+      isSavedRef.current = true;
+      if (isCreating && encounterId) clearDraft(encounterId);
+
+      if (newStatus) {
+        setCurrentStatus(newStatus);
+      }
+
+      if (
+        typeRef.current === 'order-new' ||
+        typeRef.current === 'dispense' ||
+        typeRef.current === 'dispense-not-administered'
+      ) {
+        if (onNavigateToMar) {
+          onNavigateToMar();
+        } else {
+          navigate(getInHouseMedicationMARUrl(appointmentId!));
+        }
+      }
+
+      void refetchHistory();
+    } catch (error) {
+      console.error('handleConfirmSave error:', error);
+      console.error('Request data:', JSON.stringify(medicationUpdateRequestInputRefRef.current, null, 2));
+      const errorMessage = getApiError({ error, defaultError: 'Failed to save medication. Please try again.' });
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+      setIsOrderUpdating(false);
+      setIsConfirmSaveModalOpen(false);
+      setConfirmationModalConfig(null);
+      return;
+    }
+    setIsOrderUpdating(false);
+    setShowErrors(false);
+    setLocalValues({});
+    setFieldErrors({});
+    setIsConfirmSaveModalOpen(false);
+    medicationUpdateRequestInputRefRef.current = {};
+    setConfirmationModalConfig(null);
+  };
+
+  const getFieldValue = useCallback(
+    <Field extends keyof MedicationData>(field: Field, type = 'text'): MedicationData[Field] | '' | undefined => {
+      // user touched the field (incl. explicitly cleared to `undefined`)
+      if (field in localValues) {
+        return localValues[field];
+      }
+
+      // not touched yet — fall back to the saved order
+      if (medication) {
+        return getMedicationFieldValue(medication || {}, field, type);
+      }
+
+      // new order, nothing entered yet
+      return undefined;
+    },
+    [localValues, medication, getMedicationFieldValue]
+  );
+
+  const isUnsavedData = isUnsavedMedicationData(
+    medication,
+    localValues,
+    currentStatus,
+    getMedicationFieldValue,
+    autoFilledFieldsRef,
+    interactionsCheckState.interactions
+  );
+
+  const saveButtonText = getSaveButtonText(
+    medication?.status || 'pending',
+    typeRef.current,
+    currentStatus,
+    isUnsavedData
+  );
+
+  const hasNotEditableStatus = currentStatus !== 'pending' && typeRef.current !== 'completed-edit';
+  const isCreatingOrEditingOrder = typeRef.current === 'order-new' || typeRef.current === 'order-edit';
+  const isCreatingOrEditingOrderAndNothingToSave = isCreatingOrEditingOrder && !isUnsavedData;
+  const isErxLoading = erxEnabled && erxStatus === ERXStatus.LOADING;
+  const hasInprogressOrUnresolvedInteractions =
+    interactionsCheckState.status === 'in-progress' || interactionsUnresolved(interactionsCheckState.interactions);
+
+  const isCardSaveButtonDisabled =
+    isOrderUpdating ||
+    hasNotEditableStatus ||
+    isCreatingOrEditingOrderAndNothingToSave ||
+    isErxLoading ||
+    hasInprogressOrUnresolvedInteractions ||
+    isReadOnly;
+  const isModalSaveButtonDisabled =
+    confirmedMedicationUpdateRequestRef.current.newStatus === 'administered' ? false : isReasonSelected;
+
+  useEffect(() => {
+    if (typeRef.current === 'order-new') {
+      Object.entries(fieldsConfig[typeRef.current]).map(([field]) => {
+        const defaultOption = selectsOptions[field as keyof OrderFieldsSelectsOptions]?.defaultOption?.value;
+        if (defaultOption) {
+          const value = getFieldValue(field as keyof MedicationData);
+          if (!value || (typeof value === 'number' && value < 0))
+            setLocalValues((prev) => ({ ...prev, [field]: defaultOption }));
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const defaultProviderValue = selectsOptions.providerId.defaultOption?.value;
+  const currentProviderValue = getFieldValue('providerId');
+  const wasProvidedByFieldTouched = useRef(false);
+  if (currentProviderValue) wasProvidedByFieldTouched.current = true;
+  useEffect(() => {
+    if (!wasProvidedByFieldTouched.current && !currentProviderValue && defaultProviderValue) {
+      setLocalValues((prev) => ({ ...prev, providerId: defaultProviderValue }));
+    }
+  }, [defaultProviderValue, currentProviderValue]);
+
+  const runInteractionsCheck = useCallback(
+    async (medicationId: string, medicationHistory: MedicationWithTypeDTO[]) => {
+      if (oystehr == null) {
+        setInteractionsCheckState(INTERACTIONS_CHECK_STATE_ERROR);
+        console.error('oystehr is missing');
+        return;
+      }
+      const patientId = resources.patient?.id;
+      if (patientId == null) {
+        setInteractionsCheckState(INTERACTIONS_CHECK_STATE_ERROR);
+        console.error('patientId is missing');
+        return;
+      }
+      setInteractionsCheckState({
+        status: 'in-progress',
+        medicationId: medicationId,
+      });
+      try {
+        const medication = await oystehr.fhir.get<Medication>({
+          resourceType: 'Medication',
+          id: medicationId,
+        });
+        const medispanId = medication.code?.coding?.find(
+          (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
+        )?.code;
+        const medispanIdForInteractions = medication.code?.coding?.find(
+          (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM_FOR_INTERACTIONS
+        )?.code;
+        const interactionsCheckResponse = await oystehr.erx.checkPrecheckInteractions({
+          patientId,
+          drugId: medispanIdForInteractions ?? medispanId ?? '',
+        });
+        const prescriptions = await findPrescriptionsForInteractions(
+          resources.patient?.id,
+          interactionsCheckResponse,
+          oystehr
+        );
+        setInteractionsCheckState({
+          status: 'done',
+          interactions: medicationInteractionsFromErxResponse(
+            interactionsCheckResponse,
+            medicationHistory,
+            prescriptions
+          ),
+          medicationId: medicationId,
+          medicationName: getMedicationName(medication),
+        });
+      } catch (e) {
+        setInteractionsCheckState(INTERACTIONS_CHECK_STATE_ERROR);
+        console.error(e);
+      }
+    },
+    [oystehr, resources.patient?.id]
+  );
+
+  const medicationHistoryJson = JSON.stringify(medicationHistory);
+  useEffect(() => {
+    const medicationId = localValues.medicationId;
+    if (medicationId && erxStatus === ERXStatus.READY && !isMedicationHistoryLoading) {
+      void runInteractionsCheck(medicationId, JSON.parse(medicationHistoryJson));
+    }
+  }, [localValues.medicationId, runInteractionsCheck, erxStatus, isMedicationHistoryLoading, medicationHistoryJson]);
+
+  useEffect(() => {
+    if (medication) {
+      if (medication.interactions != null) {
+        setInteractionsCheckState({
+          status: 'done',
+          interactions: medication.interactions,
+          medicationId: medication.medicationId,
+          medicationName: medication.medicationName,
+        });
+      } else {
+        setInteractionsCheckState({
+          status: 'error',
+          medicationId: medication.medicationId,
+          medicationName: medication.medicationName,
+        });
+      }
+    }
+  }, [medication]);
+
+  const interactionsMessage: InteractionsMessage | undefined = useMemo(() => {
+    if (
+      (!localValues.medicationId && !medication) ||
+      (erxEnabled &&
+        erxStatus === ERXStatus.READY &&
+        interactionsCheckState.status !== 'error' &&
+        interactionsCheckState.medicationId !== localValues.medicationId)
+    ) {
+      return undefined;
+    }
+    if (
+      (erxEnabled && erxStatus === ERXStatus.LOADING && (!medication || medication.id !== localValues.medicationId)) ||
+      interactionsCheckState.status === 'in-progress' ||
+      (erxEnabled && isMedicationHistoryLoading)
+    ) {
+      return {
+        style: 'loading',
+        message: 'checking...',
+      };
+    } else if (erxStatus === ERXStatus.ERROR || interactionsCheckState.status === 'error') {
+      return {
+        style: 'warning',
+        message: 'Drug-to-Drug and Drug-Allergy interaction check failed. Please review manually.',
+      };
+    } else if (interactionsCheckState.status === 'done') {
+      if (
+        interactionsCheckState.interactions &&
+        (interactionsCheckState.interactions.drugInteractions.length > 0 ||
+          interactionsCheckState.interactions.allergyInteractions.length > 0)
+      ) {
+        return {
+          style: 'warning',
+          message: interactionsSummary(interactionsCheckState.interactions),
+        };
+      }
+      return {
+        style: 'success',
+        message: 'not found',
+      };
+    }
+    return undefined;
+  }, [erxEnabled, erxStatus, interactionsCheckState, localValues.medicationId, medication, isMedicationHistoryLoading]);
+
+  return (
+    <>
+      {isCreating && hasDraft(encounterId) && (
+        <UnsavedDraftWarning
+          message={
+            draft.hasNavigatedAway
+              ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
+              : 'You have a medication order in progress. Your draft will be saved.'
+          }
+        />
+      )}
+      <MedicationCardView
+        isEditable={getIsMedicationEditable(typeRef.current, medication)}
+        type={typeRef.current}
+        onSave={updateOrCreateOrder}
+        medication={medication}
+        fieldsConfig={fieldsConfig[typeRef.current]}
+        localValues={localValues}
+        selectedStatus={currentStatus}
+        isUpdating={isOrderUpdating}
+        onFieldValueChange={handleFieldValueChange}
+        onStatusSelect={handleUnsavedStatusChange}
+        getFieldValue={getFieldValue}
+        showErrors={showErrors}
+        fieldErrors={fieldErrors}
+        getFieldType={getFieldType}
+        saveButtonText={saveButtonText}
+        isSaveButtonDisabled={isCardSaveButtonDisabled}
+        selectsOptions={selectsOptions}
+        interactionsMessage={interactionsMessage}
+        onInteractionsMessageClick={() => {
+          if (
+            interactionsCheckState.status === 'done' &&
+            interactionsCheckState.interactions &&
+            (interactionsCheckState.interactions.drugInteractions.length > 0 ||
+              interactionsCheckState.interactions.allergyInteractions.length > 0)
+          ) {
+            setShowInteractionAlerts(true);
+          }
+        }}
+        onDelete={medication?.id && medication?.status !== 'cancelled' ? handleDeleteClick : undefined}
+        isReadOnly={isReadOnly}
+        onBack={
+          isCreating
+            ? handleBack
+            : typeFromProps === 'order-edit' || typeFromProps === 'completed-edit'
+            ? onNavigateToMar
+            : undefined
+        }
+        onClearForm={isCreating && hasDraft(encounterId) ? handleClearForm : undefined}
+        onQuickPickSelect={
+          typeFromProps === 'order-new' || typeFromProps === 'order-edit' ? handleQuickPickSelect : undefined
+        }
+        fhirQuickPicks={fhirQuickPicks}
+        fhirQuickPicksLoading={fhirQuickPicksLoading}
+        onFhirQuickPickSelect={handleFhirQuickPickSelect}
+        showQuickPickAddOption
+        isAdmin={isAdmin}
+        onQuickPickAddOrUpdate={() => void openQuickPickDialog()}
+      />
+      <InPersonModal
+        icon={null}
+        color="error.main"
+        open={isModalOpen}
+        handleClose={() => setIsModalOpen(false)}
+        title="Missing Required Fields"
+        description={`Please fill in the following required fields: ${missingFields.join(', ')}`}
+        handleConfirm={() => setIsModalOpen(false)}
+        confirmText="OK"
+        closeButtonText="Close"
+      />
+      {confirmationModalConfig ? (
+        <InPersonModal
+          entity={confirmedMedicationUpdateRequestRef}
+          showEntityPreview={false}
+          disabled={isModalSaveButtonDisabled}
+          open={isConfirmSaveModalOpen}
+          handleClose={() => {
+            setIsConfirmSaveModalOpen(false);
+            confirmedMedicationUpdateRequestRef.current = {};
+            typeRef.current = typeFromProps;
+          }}
+          handleConfirm={handleConfirmSave}
+          description={''}
+          {...confirmationModalConfig}
+          ContentComponent={confirmationModalConfig.ContentComponent?.({}) as ReactElement}
+        />
+      ) : null}
+      {showInteractionAlerts && interactionsCheckState.interactions ? (
+        <InteractionAlertsDialog
+          medicationName={interactionsCheckState.medicationName ?? medication?.medicationName ?? ''}
+          interactions={interactionsCheckState.interactions}
+          onCancel={() => setShowInteractionAlerts(false)}
+          onContinue={(interactions: MedicationInteractions) => {
+            setShowInteractionAlerts(false);
+            setInteractionsCheckState({
+              status: 'done',
+              medicationId: localValues.medicationId,
+              medicationName: interactionsCheckState.medicationName,
+              interactions,
+            });
+          }}
+          readonly={typeFromProps !== 'order-new' && typeFromProps !== 'order-edit'}
+        />
+      ) : null}
+      {(typeFromProps === 'order-new' || typeFromProps === 'order-edit') && erxEnabled ? (
+        <ERXInteractionsReadiness onStatusChanged={setERXStatus} />
+      ) : null}
+      {medication?.id && (
+        <DeleteDialog
+          open={isDeleteDialogOpen}
+          handleClose={handleDeleteCancel}
+          handleDelete={handleDeleteConfirm}
+          title="Delete Medication"
+          description={`Are you sure you want to delete "${medication?.medicationName || 'this medication'}"?`}
+          closeButtonText="Keep"
+          deleteButtonText="Delete Medication"
+          loadingDelete={isDeleting}
+        />
+      )}
+
+      <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Save as Quick Pick</DialogTitle>
+        <DialogContent>
+          <MuiTextField
+            autoFocus
+            label="Quick pick name"
+            fullWidth
+            value={quickPickName}
+            onChange={(e) => setQuickPickName(e.target.value)}
+            sx={{ mt: 1 }}
+          />
+          {existingQuickPicksForDialog.length > 0 && (
+            <>
+              <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+                Or overwrite an existing quick pick:
+              </Typography>
+              <List dense sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                {existingQuickPicksForDialog.map((qp) => (
+                  <ListItem key={qp.id} disablePadding>
+                    <ListItemButton
+                      selected={overwriteTarget?.id === qp.id}
+                      onClick={() => {
+                        setOverwriteTarget(qp);
+                        setQuickPickName(qp.name);
+                      }}
+                    >
+                      <ListItemText primary={qp.name} />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setQuickPickDialogOpen(false)}>Cancel</Button>
+          <LoadingButton
+            loading={quickPickSaving}
+            variant="contained"
+            onClick={() => void onSaveAsQuickPick(overwriteTarget?.id)}
+          >
+            {overwriteTarget ? 'Overwrite' : 'Save'}
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+};

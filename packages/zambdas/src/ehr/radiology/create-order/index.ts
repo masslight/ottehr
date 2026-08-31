@@ -1,35 +1,57 @@
-import Oystehr, { BatchInputPutRequest, User } from '@oystehr/sdk';
+import Oystehr, { BatchInputPutRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Patient, Practitioner, Procedure, ServiceRequest } from 'fhir/r4b';
+import {
+  CodeableConcept,
+  ContactPoint,
+  Encounter,
+  Extension,
+  HumanName,
+  Organization,
+  Patient,
+  Practitioner,
+  Procedure,
+  Reference,
+  ServiceRequest,
+} from 'fhir/r4b';
 import { ServiceRequest as ServiceRequestR5 } from 'fhir/r5';
 import { DateTime } from 'luxon';
 import randomstring from 'randomstring';
-import {
-  CreateRadiologyZambdaOrderInput,
-  CreateRadiologyZambdaOrderOutput,
-  getSecret,
-  RoleType,
-  Secrets,
-  SecretsKeys,
-  userMe,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, fillMeta, wrapHandler, ZambdaInput } from '../../../shared';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
   FILLER_ORDER_NUMBER_CODE_SYSTEM,
+  getAdvaPACSLocationForAppointmentOrEncounter,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_FILLER_ORDER_NUMBER,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_PLACER_ORDER_NUMBER,
   ORDER_TYPE_CODE_SYSTEM,
   PLACER_ORDER_NUMBER_CODE_SYSTEM,
+  RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID,
+  RADIOLOGY_PERFORMING_ORGANIZATION_IDENTIFIER_SYSTEM,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
-} from '../shared';
+} from 'utils/lib/fhir/radiology';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import {
+  CreateRadiologyZambdaOrderInput,
+  CreateRadiologyZambdaOrderOutput,
+  RadiologyPerformingOrganization,
+  RadiologySafetyFlag,
+} from 'utils/lib/types/api/radiology';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { makeCptModifierExtension } from '../../../shared/candid';
+import { makeCPTCodeDTO } from '../../../shared/chart-data';
+import { createClinicalOystehrClient, fillMeta } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -51,10 +73,12 @@ export interface ValidatedInput {
 }
 
 export interface EnhancedBody
-  extends Omit<CreateRadiologyZambdaOrderInput, 'encounterId' | 'diagnosisCode' | 'cptCode'> {
+  extends Omit<CreateRadiologyZambdaOrderInput, 'encounterId' | 'diagnosisCodes' | 'cptCode' | 'clinicalHistory'> {
   encounter: Encounter;
-  diagnosis: ValidatedICD10Code;
+  diagnoses: ValidatedICD10Code[];
   cpt: ValidatedCPTCode;
+  // Normalized during validation: absent clinical history becomes ''.
+  clinicalHistory: string;
 }
 
 // Constants
@@ -70,44 +94,24 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'create-radiology-order';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const secrets = validateSecrets(unsafeInput.secrets);
+  console.log('Input body and headers', unsafeInput.body, unsafeInput.headers);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  const secrets = validateSecrets(unsafeInput.secrets);
 
-    const validatedInput = await validateInput(unsafeInput, secrets, oystehr);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    const callerUser = await getCallerUserWithAccessToken(validatedInput.callerAccessToken, secrets);
-    await accessCheck(callerUser);
+  const validatedInput = await validateInput(unsafeInput, oystehr);
 
-    const output = await performEffect(validatedInput, callerUser.profile, secrets, oystehr);
+  const callerUser = await userMe(validatedInput.callerAccessToken, secrets);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ output }),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
-  }
+  const output = await performEffect(validatedInput, callerUser.profile, secrets, oystehr);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(output),
+  };
 });
-
-const accessCheck = async (callerUser: User): Promise<void> => {
-  if (callerUser.profile.indexOf('Practitioner/') === -1) {
-    throw new Error('Caller does not have a practitioner profile');
-  }
-  if (callerUser.roles?.find((role) => role.name === RoleType.Provider) === undefined) {
-    throw new Error('Caller does not have provider role');
-  }
-};
-
-const getCallerUserWithAccessToken = async (token: string, secrets: Secrets): Promise<User> => {
-  return userMe(token, secrets);
-};
 
 const performEffect = async (
   validatedInput: ValidatedInput,
@@ -129,18 +133,163 @@ const performEffect = async (
     throw new Error('Error creating service request, id is missing');
   }
 
-  await writeOurProcedure(ourServiceRequest, secrets, oystehr);
+  // External (print-only) orders are documented locally and printed/faxed — never transmitted to
+  // AdvaPACS — and the outside facility performs and bills for the study. We therefore write no
+  // billing Procedure, which keeps the CPT off the chart's Assessment / Payment Considerations.
+  if (body.external) {
+    return {
+      serviceRequestId: ourServiceRequest.id,
+      cptCodesSaved: undefined,
+    };
+  }
+
+  const { cptCodeDTO, procedure } = await writeOurProcedure(ourServiceRequest, body, secrets, oystehr);
+
+  // Grab advapacs location id from schedule owner extension if any
+  const advaPACSLocationId = await getAdvaPACSLocationForAppointmentOrEncounter(
+    { encounterId: body.encounter.id },
+    oystehr
+  );
 
   // Send the order to AdvaPACS
   try {
-    await writeAdvaPacsTransaction(ourServiceRequest, ourPractitioner, secrets, oystehr);
+    await writeAdvaPacsTransaction(ourServiceRequest, ourPractitioner, advaPACSLocationId, secrets, oystehr);
   } catch (error) {
+    captureException(error);
     console.error('Error sending order to AdvaPACS: ', error);
     await rollbackOurServiceRequest(ourServiceRequest, oystehr);
+    await rollbackOurProcedure(procedure, oystehr);
+    // The order no longer exists — surface the failure instead of returning its id as a success.
+    throw error;
   }
 
   return {
     serviceRequestId: ourServiceRequest.id,
+    cptCodesSaved: cptCodeDTO ? [cptCodeDTO] : undefined,
+  };
+};
+
+// Validated fields needed to build the mutable content of a radiology ServiceRequest.
+// Shared by create-order and update-order so both stay consistent.
+export interface RadiologyOrderContentInput {
+  diagnoses: ValidatedICD10Code[];
+  cpt: ValidatedCPTCode;
+  lateralityModifier?: { display: string; code: string };
+  stat: boolean;
+  clinicalHistory: string;
+  studyName?: string;
+  consentObtained: boolean;
+  external?: boolean;
+  performingOrganization?: RadiologyPerformingOrganization;
+  timeWindow?: string;
+  safetyFlags?: RadiologySafetyFlag[];
+}
+
+export interface RadiologyOrderContent {
+  code: CodeableConcept;
+  priority: 'routine' | 'stat';
+  reasonCode: CodeableConcept[];
+  orderDetail: CodeableConcept[];
+  contained?: Organization[];
+  performer?: Reference[];
+  /** all managed extensions except the requested-time extension (which is set once at create time) */
+  contentExtensions: Extension[];
+}
+
+// AdvaPACS-oriented order-detail parameters, stored as nested pre-release extensions.
+const makeOrderDetailExtension = (code: string, valueString: string): Extension => ({
+  url: SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
+  extension: [
+    {
+      url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
+      extension: [
+        {
+          url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
+          valueCodeableConcept: {
+            coding: [{ system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL, code }],
+          },
+        },
+        {
+          url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
+          valueString,
+        },
+      ],
+    },
+  ],
+});
+
+export const buildRadiologyOrderContent = (input: RadiologyOrderContentInput): RadiologyOrderContent => {
+  const {
+    diagnoses,
+    cpt,
+    lateralityModifier,
+    stat,
+    clinicalHistory,
+    studyName,
+    consentObtained,
+    external,
+    performingOrganization,
+    timeWindow,
+    safetyFlags,
+  } = input;
+
+  const srCodeCoding = lateralityModifier
+    ? {
+        code: `${cpt.code}-${lateralityModifier.code}`,
+        display: `${cpt.display} - ${lateralityModifier.display}`,
+        system: cpt.system,
+      }
+    : cpt;
+
+  const contentExtensions: Extension[] = [makeOrderDetailExtension('modality', 'DX')];
+  const trimmedClinicalHistory = clinicalHistory?.trim();
+  if (trimmedClinicalHistory) {
+    contentExtensions.push(makeOrderDetailExtension('clinical-history', trimmedClinicalHistory));
+  }
+  contentExtensions.push(
+    makeOrderDetailExtension('requested-procedure-description', studyName ?? srCodeCoding.display)
+  );
+  contentExtensions.push({ url: FHIR_EXTENSION.ServiceRequest.consentObtained.url, valueBoolean: consentObtained });
+
+  if (external) {
+    contentExtensions.push({ url: FHIR_EXTENSION.ServiceRequest.externalRadiologyOrder.url, valueBoolean: true });
+    if (timeWindow) {
+      contentExtensions.push({ url: FHIR_EXTENSION.ServiceRequest.radiologyTimeWindow.url, valueString: timeWindow });
+    }
+    (safetyFlags ?? []).forEach((flag) => {
+      contentExtensions.push({ url: FHIR_EXTENSION.ServiceRequest.radiologySafetyFlag.url, valueCode: flag });
+    });
+  }
+
+  // Free-text performing organization is stored as a contained resource referenced by `performer`.
+  let performingOrg: Organization | undefined;
+  if (external && performingOrganization) {
+    const telecom: ContactPoint[] = [];
+    if (performingOrganization.phone) {
+      telecom.push({ system: 'phone', value: performingOrganization.phone });
+    }
+    if (performingOrganization.fax) {
+      telecom.push({ system: 'fax', value: performingOrganization.fax });
+    }
+    performingOrg = {
+      resourceType: 'Organization',
+      id: RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID,
+      // Satisfies org-1 even when only phone/fax (no name) was supplied.
+      identifier: [{ system: RADIOLOGY_PERFORMING_ORGANIZATION_IDENTIFIER_SYSTEM, value: 'external' }],
+      name: performingOrganization.name,
+      address: performingOrganization.address ? [{ text: performingOrganization.address }] : undefined,
+      telecom: telecom.length > 0 ? telecom : undefined,
+    };
+  }
+
+  return {
+    code: { coding: [srCodeCoding] },
+    priority: stat ? 'stat' : 'routine',
+    reasonCode: diagnoses.map((diagnosis) => ({ coding: [diagnosis] })),
+    orderDetail: [{ coding: [{ system: 'http://dicom.nema.org/resources/ontology/DCM', code: 'DX' }] }],
+    contained: performingOrg ? [performingOrg] : undefined,
+    performer: performingOrg ? [{ reference: `#${RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID}` }] : undefined,
+    contentExtensions,
   };
 };
 
@@ -149,8 +298,10 @@ const writeOurServiceRequest = (
   practitionerRelativeReference: string,
   oystehr: Oystehr
 ): Promise<ServiceRequest> => {
-  const { encounter, diagnosis, cpt, stat, clinicalHistory } = validatedBody;
+  const { encounter } = validatedBody;
   const now = DateTime.now();
+
+  const content = buildRadiologyOrderContent(validatedBody);
 
   const fillerAndPlacerOrderNumber = randomstring.generate({
     length: 22,
@@ -228,110 +379,85 @@ const writeOurServiceRequest = (
     requester: {
       reference: practitionerRelativeReference,
     },
-    priority: stat ? 'stat' : 'routine',
-    code: {
-      coding: [cpt],
-    },
-    orderDetail: [
-      {
-        coding: [
-          {
-            system: 'http://dicom.nema.org/resources/ontology/DCM',
-            code: 'DX',
-          },
-        ],
-      },
-    ],
-    reasonCode: [
-      {
-        coding: [diagnosis],
-      },
-    ],
+    priority: content.priority,
+    code: content.code,
+    orderDetail: content.orderDetail,
+    // Omit reasonCode entirely when there is no diagnosis (optional at order time).
+    reasonCode: content.reasonCode.length > 0 ? content.reasonCode : undefined,
     authoredOn: now.toISO(),
     occurrenceDateTime: now.toISO(),
+    contained: content.contained,
+    performer: content.performer,
     extension: [
-      {
-        url: SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
-        extension: [
-          {
-            url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
-            extension: [
-              {
-                url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
-                valueCodeableConcept: {
-                  coding: [
-                    {
-                      system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
-                      code: 'modality',
-                    },
-                  ],
-                },
-              },
-              {
-                url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
-                valueString: 'DX',
-              },
-            ],
-          },
-        ],
-      },
-      {
-        url: SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
-        extension: [
-          {
-            url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
-            extension: [
-              {
-                url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
-                valueCodeableConcept: {
-                  coding: [
-                    {
-                      system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
-                      code: 'clinical-history',
-                    },
-                  ],
-                },
-              },
-              {
-                url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
-                valueString: clinicalHistory,
-              },
-            ],
-          },
-        ],
-      },
-      {
-        url: SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
-        valueDateTime: now.toISO(),
-      },
+      ...content.contentExtensions,
+      { url: SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL, valueDateTime: now.toISO() },
     ],
   };
+
   return oystehr.fhir.create<ServiceRequest>(serviceRequest);
 };
 
 // This Procedure holds the CPT code for billing purposes
 const writeOurProcedure = async (
   ourServiceRequest: ServiceRequest,
+  validatedBody: EnhancedBody,
   secrets: Secrets,
   oystehr: Oystehr
-): Promise<void> => {
+): Promise<{ cptCodeDTO: CPTCodeDTO | undefined; procedure: Procedure }> => {
+  const { cpt, lateralityModifier } = validatedBody;
+
+  const modifierExtension = lateralityModifier ? { extension: [makeCptModifierExtension([lateralityModifier])] } : {};
+
+  const procedureCode = {
+    coding: [
+      {
+        ...cpt,
+        ...modifierExtension,
+      },
+    ],
+  };
+
   const procedureConfig: Procedure = {
     resourceType: 'Procedure',
     status: 'completed',
     subject: ourServiceRequest.subject,
     encounter: ourServiceRequest.encounter,
-    performer: ourServiceRequest.performer?.map((performer) => ({
-      actor: performer,
-    })),
-    code: ourServiceRequest.code,
+    // Ties this billing Procedure to its order so update-order can keep the CPT in sync on edit.
+    basedOn: [{ reference: `ServiceRequest/${ourServiceRequest.id}` }],
+    // ServiceRequest.performer, when present, references the contained external performing Organization —
+    // not a valid actor for this billing Procedure — so it is intentionally not copied here.
+    code: procedureCode,
     meta: fillMeta('cpt-code', 'cpt-code'), // This is necessary to get the Assessment part of the chart showing the CPT codes. It is some kind of save-chart-data feature that this meta is used to find and save the CPT codes instead of just looking at the FHIR Procedure resources code values.
   };
-  await oystehr.fhir.create<Procedure>(procedureConfig);
+
+  const fhirProcedure = await oystehr.fhir.create<Procedure>(procedureConfig);
+  console.log(`cpt code procedure successfully created: Procedure/${fhirProcedure.id}`);
+
+  const cptCodeDTO = makeCPTCodeDTO(fhirProcedure);
+
+  return { cptCodeDTO, procedure: fhirProcedure };
 };
+
+const getOrderDetailValue = (serviceRequest: ServiceRequest, code: string): string | undefined =>
+  serviceRequest.extension
+    ?.filter((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
+    ?.find((orderDetailExt) => {
+      const parameterExt = orderDetailExt.extension?.find(
+        (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
+      );
+      const codeExt = parameterExt?.extension?.find(
+        (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL
+      );
+      return codeExt?.valueCodeableConcept?.coding?.[0]?.code === code;
+    })
+    ?.extension?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL)
+    ?.extension?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL)
+    ?.valueString;
 
 const writeAdvaPacsTransaction = async (
   ourServiceRequest: ServiceRequest,
   ourPractitioner: Practitioner,
+  advaPACSLocationId: string | undefined,
   secrets: Secrets,
   oystehr: Oystehr
 ): Promise<void> => {
@@ -344,6 +470,16 @@ const writeAdvaPacsTransaction = async (
     const ourPatientId = ourPatient.id;
     const ourRequestingPractitionerId = ourServiceRequest.requester?.reference?.split('/')[1];
 
+    // Advapacs supports only a single name: send first official if there is one otherwise grab the first
+    const bestNameToSendForActor = (resource: Patient | Practitioner): HumanName[] | undefined => {
+      let nameToSend: HumanName[] | undefined = resource.name;
+      if (resource.name && resource.name.length > 0) {
+        const officialName = resource.name.find((name) => name.use === 'official');
+        nameToSend = officialName ? [officialName] : [resource.name[0]];
+      }
+      return nameToSend;
+    };
+
     const patientToCreate: BatchInputPutRequest<Patient> = {
       method: 'PUT',
       url: `Patient?identifier=${PERSON_IDENTIFIER_CODE_SYSTEM}|${ourPatientId}`,
@@ -355,7 +491,7 @@ const writeAdvaPacsTransaction = async (
             value: ourPatientId,
           },
         ],
-        name: ourPatient.name,
+        name: bestNameToSendForActor(ourPatient),
         birthDate: ourPatient.birthDate,
         gender: ourPatient.gender,
       },
@@ -372,7 +508,7 @@ const writeAdvaPacsTransaction = async (
             value: ourRequestingPractitionerId,
           },
         ],
-        name: ourPractitioner.name,
+        name: bestNameToSendForActor(ourPractitioner),
         birthDate: ourPractitioner.birthDate,
         gender: ourPractitioner.gender,
       },
@@ -414,21 +550,7 @@ const writeAdvaPacsTransaction = async (
                     },
                   ],
                 },
-                valueString: ourServiceRequest.extension
-                  ?.filter((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
-                  ?.find((orderDetailExt) => {
-                    const parameterExt = orderDetailExt.extension?.find(
-                      (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
-                    );
-                    const codeExt = parameterExt?.extension?.find(
-                      (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL
-                    );
-                    return codeExt?.valueCodeableConcept?.coding?.[0]?.code === 'modality';
-                  })
-                  ?.extension?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL)
-                  ?.extension?.find(
-                    (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL
-                  )?.valueString,
+                valueString: getOrderDetailValue(ourServiceRequest, 'modality'),
               },
               {
                 code: {
@@ -439,27 +561,33 @@ const writeAdvaPacsTransaction = async (
                     },
                   ],
                 },
-                valueString: ourServiceRequest.extension
-                  ?.filter((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
-                  ?.find((orderDetailExt) => {
-                    const parameterExt = orderDetailExt.extension?.find(
-                      (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
-                    );
-                    const codeExt = parameterExt?.extension?.find(
-                      (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL
-                    );
-                    return codeExt?.valueCodeableConcept?.coding?.[0]?.code === 'clinical-history';
-                  })
-                  ?.extension?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL)
-                  ?.extension?.find(
-                    (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL
-                  )?.valueString,
+                valueString: getOrderDetailValue(ourServiceRequest, 'clinical-history'),
+              },
+              {
+                code: {
+                  coding: [
+                    {
+                      system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
+                      code: 'requested-procedure-description',
+                    },
+                  ],
+                },
+                valueString: getOrderDetailValue(ourServiceRequest, 'requested-procedure-description'),
               },
             ],
           },
         ],
         authoredOn: ourServiceRequest.authoredOn,
         occurrenceDateTime: ourServiceRequest.occurrenceDateTime,
+        location: advaPACSLocationId
+          ? [
+              {
+                reference: {
+                  reference: `Location/${advaPACSLocationId}`,
+                },
+              },
+            ]
+          : undefined,
       },
     };
 
@@ -526,5 +654,18 @@ const rollbackOurServiceRequest = async (ourServiceRequest: ServiceRequest, oyst
   await oystehr.fhir.delete<ServiceRequest>({
     resourceType: 'ServiceRequest',
     id: ourServiceRequest.id,
+  });
+};
+
+const rollbackOurProcedure = async (procedure: Procedure, oystehr: Oystehr): Promise<void> => {
+  console.log('rolling back our cpt code procedure');
+
+  if (!procedure.id) {
+    throw new Error('rollbackOurProcedure: Procedure id is missing');
+  }
+
+  await oystehr.fhir.delete<Procedure>({
+    resourceType: 'Procedure',
+    id: procedure.id,
   });
 };

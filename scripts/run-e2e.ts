@@ -1,14 +1,24 @@
 import { execSync, spawn } from 'child_process';
+import fs from 'fs';
 import { DateTime } from 'luxon';
 import path from 'path';
 
+const isCI = Boolean(process.env.CI);
 const ENV = process.env.ENV?.trim?.() || 'local';
-const INTEGRATION_TEST = process.env.INTEGRATION_TEST || 'false';
+const SMOKE_TEST = process.env.SMOKE_TEST || 'false';
 const isUI = process.argv.includes('--ui');
 const isLoginOnly = process.argv.includes('--login-only');
 const isSpecsOnly = process.argv.includes('--specs-only');
-const isLocal = ENV === 'local';
-const isCI = Boolean(process.env.CI);
+const isEnvWithZambdaLocalServer =
+  ENV === 'local' || ENV === 'e2e' || ENV === 'e2e2' || ENV === 'e2e3' || ENV === 'e2e4' || ENV === 'e2e5';
+const isEnvWithFrontendLocalServer =
+  ENV === 'local' || ENV === 'e2e' || ENV === 'e2e2' || ENV === 'e2e3' || ENV === 'e2e4' || ENV === 'e2e5' || isCI;
+const testFileArg = process.argv.find((arg) => arg.startsWith('--test-file='));
+const testFile = testFileArg ? testFileArg.split('=')[1] : undefined;
+const repeatEachArg = process.argv.find((arg) => arg.startsWith('--repeat-each='));
+const repeatEach = repeatEachArg ? parseInt(repeatEachArg.split('=')[1], 10) : undefined;
+const grepArg = process.argv.find((arg) => arg.startsWith('--grep='));
+const grepPattern = grepArg ? grepArg.split('=').slice(1).join('=') : undefined;
 const supportedApps = ['ehr', 'intake'] as const;
 
 const ports = {
@@ -24,6 +34,11 @@ const envMapping = {
     development: 'development',
     staging: 'staging',
     testing: 'testing',
+    e2e: 'e2e',
+    e2e2: 'e2e2',
+    e2e3: 'e2e3',
+    e2e4: 'e2e4',
+    e2e5: 'e2e5',
   },
   intake: {
     local: 'default',
@@ -31,6 +46,11 @@ const envMapping = {
     development: 'development',
     staging: 'staging',
     testing: 'testing',
+    e2e: 'e2e',
+    e2e2: 'e2e2',
+    e2e3: 'e2e3',
+    e2e4: 'e2e4',
+    e2e5: 'e2e5',
   },
 } as const;
 
@@ -84,24 +104,96 @@ const waitForApp = async (app: (typeof supportedApps)[number]): Promise<void> =>
 };
 
 const startZambdas = (): void => {
-  spawn('cross-env', [`ENV=${envMapping['ehr'][ENV]}`, 'npm', 'run', `zambdas:start`], {
+  spawn('cross-env', [`ENV=${envMapping['ehr'][ENV]}`, 'npm', 'run', `zambdas:start:iac`], {
     shell: true,
     stdio: 'inherit',
     env: { ...process.env, ENV: envMapping['ehr'][ENV] },
   });
 };
 
+// In CI the app is served to a fixed set of tests and never edited, so the dev server buys nothing
+// and costs a lot: it serves first-party source as unbundled ESM, transforming each module on demand
+// (~1,500 of them for the EHR). Playwright gives every test a fresh browser context with a cold HTTP
+// cache, so that request volume is re-paid per test rather than amortized, all through one Node
+// process shared by every worker. Measured on the EHR suite, switching to a production build halved
+// total test time, with the gain on each spec proportional to how page-load-dominated it was. A
+// production build is also the artifact that actually ships. Local runs keep the dev server for HMR.
+const shouldServeProductionBuild = (_app: (typeof supportedApps)[number]): boolean => isCI;
+
+// A CI job can hand us a bundle built elsewhere — see the build-<app>-bundle jobs, which build
+// alongside the terraform apply so this job doesn't wait for them. Anything already in the app's build
+// directory is used as-is; that job is responsible for only leaving one there when it is valid for
+// this environment.
+const prebuiltBundleExists = (app: (typeof supportedApps)[number]): boolean =>
+  fs.existsSync(path.join(process.cwd(), 'apps', app, 'build', 'index.html'));
+
+// How the app under test is being served, surfaced to the perf reporter so it prints alongside the
+// timings it explains. That placement is the point: the handoff happens minutes before the tests
+// start, and a chatty suite pushes those early log lines out of reach of a tail-limited log fetch —
+// which is exactly how a run once left it unknowable whether the prebuilt bundle had been used.
+const recordServeMode = (mode: string): void => {
+  process.env.E2E_SERVE_MODE = mode;
+  console.log(`Serving the app under test from: ${mode}`);
+};
+
+const buildApp = (app: (typeof supportedApps)[number]): void => {
+  const appEnv = envMapping[app][ENV];
+  if (prebuiltBundleExists(app)) {
+    recordServeMode(`the ${app} production bundle built earlier in this run`);
+    return;
+  }
+  console.log(`Building ${app} (${appEnv}) to serve as a production build...`);
+  const startedAt = Date.now();
+  // The dev server resolves workspace packages without building them (turbo's start:iac task has no
+  // dependsOn), but a production build needs their build output and type declarations. Build the
+  // app's dependencies first; `<pkg>^...` selects dependencies only, not the app itself.
+  execSync(`npx turbo run build --filter=${app}-ui^...`, {
+    stdio: 'inherit',
+    env: { ...process.env, ENV: appEnv },
+  });
+  // build-bundle, not build:<env>: the latter goes through build-skeleton, which typechecks first.
+  // That typecheck took ~54s of a 135s build here and is redundant — the lint-and-build job
+  // typechecks the same code in parallel, and serving the app doesn't depend on it.
+  execSync('npm run build-bundle', {
+    stdio: 'inherit',
+    cwd: path.join(process.cwd(), `apps/${app}`),
+    env: {
+      ...process.env,
+      ENV: appEnv,
+      // The build is memory hungry on this module count; the e2e4/e2e5 build scripts already raise
+      // the heap for the same reason.
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --max-old-space-size=8192`.trim(),
+    },
+  });
+  const buildSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+  console.log(`Built ${app} in ${buildSeconds}s`);
+  recordServeMode(`an ${app} production bundle built in this job (${buildSeconds}s)`);
+};
+
 const startApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
+  if (shouldServeProductionBuild(app)) {
+    buildApp(app);
+  } else {
+    recordServeMode('the vite dev server');
+  }
   return new Promise((resolve, reject) => {
-    const childProcess = spawn(
-      'cross-env',
-      [`ENV=${envMapping[app][ENV]}`, 'VITE_NO_OPEN=true', 'npm', 'run', `${app}:start`, '--', '--verbosity=2'],
-      {
-        shell: true,
-        stdio: 'inherit',
-        env: { ...process.env, ENV: envMapping[app][ENV] },
-      }
-    );
+    const childProcess = shouldServeProductionBuild(app)
+      ? // --strictPort so a busy port fails loudly instead of serving somewhere wait-on isn't looking.
+        spawn('npm', ['run', 'preview', '--', '--strictPort'], {
+          shell: true,
+          stdio: 'inherit',
+          cwd: path.join(process.cwd(), `apps/${app}`),
+          env: { ...process.env, ENV: envMapping[app][ENV] },
+        })
+      : spawn(
+          'cross-env',
+          [`ENV=${envMapping[app][ENV]}`, 'VITE_NO_OPEN=true', 'npm', 'run', `${app}:start:iac`, '--', '--verbosity=2'],
+          {
+            shell: true,
+            stdio: 'inherit',
+            env: { ...process.env, ENV: envMapping[app][ENV] },
+          }
+        );
 
     childProcess.on('error', (err) => {
       console.error(`App start error for ${app}:`, err);
@@ -117,23 +209,43 @@ const startApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
   });
 };
 
+// A run targets exactly one app, so only that app's dependencies, config and dev server are needed.
+// Setting up and serving the other one costs ~30s of startup and then leaves a Vite dev server
+// competing with the workers and the zambda server for the runner's cores for the whole run.
+const appsToPrepare = [appName] as const;
+
 const setupTestDeps = async (): Promise<void> => {
-  for (const app of supportedApps) {
+  for (const app of appsToPrepare) {
     try {
       execSync(`node --experimental-vm-modules setup-test-deps.js`, {
         stdio: 'inherit',
         env: { ...process.env },
         cwd: path.join(process.cwd(), `apps/${app}`),
       });
-
-      // Run the e2e-test-setup.sh script with skip-prompts and current environment
-      console.log(`Running e2e-test-setup.sh for ${app} with environment ${ENV}...`);
-      execSync(`bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV}`, {
-        stdio: 'inherit',
-        env: { ...process.env, ENV },
-      });
     } catch (error) {
       console.error(`Failed to run setup-test-deps.js for ${app}`);
+      console.error(error?.message);
+      console.error(error?.stack);
+      clearPorts();
+      process.exit(1);
+    }
+  }
+
+  for (const app of appsToPrepare) {
+    try {
+      // Run the e2e-test-setup.sh script with skip-prompts and current environment
+      console.log(`Running e2e-test-setup.sh for ${app} with environment ${ENV}...`);
+      execSync(
+        `bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV} ${
+          SMOKE_TEST === 'true' && '--mode smoke'
+        }`,
+        {
+          stdio: 'inherit',
+          env: { ...process.env, ENV },
+        }
+      );
+    } catch (error) {
+      console.error(`Failed to run e2e-test-setup.js for ${app}`);
       console.error(error?.message);
       console.error(error?.stack);
       clearPorts();
@@ -161,26 +273,86 @@ const waitForZambdas = async (): Promise<void> => {
 };
 
 const startApps = async (): Promise<void> => {
-  startZambdas();
-  console.log('Waiting for zambdas to be ready...');
-  await waitForZambdas();
-  console.log('Zambdas are ready');
-  for (const app of supportedApps) {
+  if (isEnvWithZambdaLocalServer) {
+    startZambdas();
+    console.log('Waiting for zambdas to be ready...');
+    await waitForZambdas();
+    console.log('Zambdas are ready');
+  }
+
+  for (const app of appsToPrepare) {
     console.log(`Starting ${app} application...`);
     await startApp(app);
   }
 };
 
 function createTestProcess(testType: 'login' | 'specs', appName: string): any {
+  // If a specific test file is provided, run it directly with Playwright
+  if (testFile && testType === 'specs') {
+    const playwrightArgs = ['test', testFile];
+    if (isUI) {
+      playwrightArgs.push('--ui');
+    }
+    // Tests run headless by default. Pass --headed manually if you want to see browser windows
+
+    console.log('SMOKE_TEST value:', SMOKE_TEST);
+
+    if (SMOKE_TEST === 'true') {
+      playwrightArgs.push('--grep', '@smoke');
+    }
+
+    if (grepPattern) {
+      playwrightArgs.push('--grep', grepPattern);
+    }
+
+    if (repeatEach) {
+      playwrightArgs.push('--repeat-each', String(repeatEach));
+    }
+
+    return spawn('env-cmd', ['-f', `./env/tests.${ENV}.json`, 'npx', 'playwright', ...playwrightArgs], {
+      shell: true,
+      stdio: 'inherit',
+      cwd: path.join(process.cwd(), `apps/${appName}`),
+      env: {
+        ...process.env,
+        ENV,
+        SMOKE_TEST,
+      },
+    });
+  }
+
+  // --log-order=stream: turbo's default in CI is "grouped", which withholds a task's output until it
+  // exits. That made every line of a five-minute Playwright run carry the same timestamp — the flush
+  // — so the job log could say what happened but never when, and a slow phase was indistinguishable
+  // from a slow run. Only one task produces output here, so there is no interleaving to avoid.
+  const logOrder = '--log-order=stream';
   const commands = {
-    login: ['run', 'e2e:login', `--filter=${appName}-ui`, '--verbosity=2'],
-    specs: ['run', isUI ? 'e2e:specs:ui' : 'e2e:specs', `--filter=${appName}-ui`, '--verbosity=2'],
+    login: ['run', 'e2e:login', `--filter=${appName}-ui`, '--verbosity=2', logOrder],
+    specs: ['run', isUI ? 'e2e:specs:ui' : 'e2e:specs', `--filter=${appName}-ui`, '--verbosity=2', logOrder],
   };
 
   const baseArgs = commands[testType];
-  const extraArgs = isUI ? [] : ['--', '--headed=false'];
+  const extraArgs: string[] = [];
 
-  return spawn('turbo', [...baseArgs, ...extraArgs], {
+  // By default, tests run headless (no browser windows)
+  // If you want to see browser windows, pass --headed manually via PLAYWRIGHT_EXTRA_ARGS
+
+  if (SMOKE_TEST === 'true' && testType !== 'login') {
+    extraArgs.push('--grep', '@smoke');
+  }
+
+  if (grepPattern && testType !== 'login') {
+    extraArgs.push('--grep', grepPattern);
+  }
+
+  if (repeatEach && testType !== 'login') {
+    extraArgs.push('--repeat-each', String(repeatEach));
+  }
+
+  // Build the playwright args as an environment variable for turbo to pass through
+  const playwrightArgs = extraArgs.length > 0 ? extraArgs.join(' ') : '';
+
+  return spawn('turbo', baseArgs, {
     shell: true,
     stdio: 'inherit',
     env: {
@@ -188,7 +360,8 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
       ENV,
       PLAYWRIGHT_REPORT_SUFFIX: testType === 'login' ? '-login' : '',
       IS_LOGIN_TEST: testType === 'login' ? 'true' : 'false',
-      ...(testType === 'specs' && { INTEGRATION_TEST }),
+      SMOKE_TEST,
+      PLAYWRIGHT_EXTRA_ARGS: playwrightArgs,
     },
   });
 }
@@ -235,7 +408,7 @@ async function main(): Promise<void> {
   clearPorts();
   await setupTestDeps();
 
-  if (isLocal || isCI) {
+  if (isEnvWithFrontendLocalServer) {
     await startApps();
   }
 

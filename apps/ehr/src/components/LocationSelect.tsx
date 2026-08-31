@@ -4,22 +4,33 @@ import { Location, Schedule } from 'fhir/r4b';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import { isLocationVirtual } from 'utils';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
 import { dataTestIds } from '../constants/data-test-ids';
 import { sortLocationsByLabel } from '../helpers';
 import { useApiClients } from '../hooks/useAppClients';
+
+export enum LocationType {
+  IN_PERSON,
+  VIRTUAL,
+  ALL,
+}
 
 type CustomFormEventHandler = (event: React.FormEvent<HTMLFormElement>, value: any, field: string) => void;
 
 interface LocationSelectProps {
   location?: LocationWithWalkinSchedule | undefined;
   setLocation: (location: LocationWithWalkinSchedule | undefined) => void;
+  setLocations?: (locations: LocationWithWalkinSchedule[]) => void;
   updateURL?: boolean;
   storeLocationInLocalStorage?: boolean;
   required?: boolean;
   queryParams?: URLSearchParams;
   handleSubmit?: CustomFormEventHandler;
   renderInputProps?: Partial<AutocompleteRenderInputParams>;
+  locationType?: LocationType[];
+  error?: boolean;
+  helperText?: string;
 }
 
 enum LoadingState {
@@ -33,10 +44,14 @@ export default function LocationSelect({
   location,
   handleSubmit,
   setLocation,
+  setLocations: setExternalLocations,
   updateURL,
   storeLocationInLocalStorage,
   required,
   renderInputProps,
+  locationType = [LocationType.IN_PERSON],
+  error,
+  helperText,
 }: LocationSelectProps): ReactElement {
   const { oystehr } = useApiClients();
   const [locations, setLocations] = useState<LocationWithWalkinSchedule[]>([]);
@@ -59,18 +74,14 @@ export default function LocationSelect({
       setLoadingState(LoadingState.loading);
 
       try {
-        const searchResults = (
-          await oystehr.fhir.search<Location | Schedule>({
+        const searchResults = await getAllFhirSearchPages<Location | Schedule>(
+          {
             resourceType: 'Location',
-            params: [
-              { name: '_count', value: '1000' },
-              { name: '_revinclude', value: 'Schedule:actor:Location' },
-            ],
-          })
-        ).unbundle();
-        const locationsResults = searchResults.filter(
-          (loc) => loc.resourceType === 'Location' && !isLocationVirtual(loc)
+            params: [{ name: '_revinclude', value: 'Schedule:actor:Location' }],
+          },
+          oystehr
         );
+        const locationsResults = searchResults.filter((loc) => loc.resourceType === 'Location');
         const mappedLocations: LocationWithWalkinSchedule[] = locationsResults.map((locationTemp) => {
           const location = locationTemp as LocationWithWalkinSchedule;
           const schedule = searchResults.find((scheduleTemp) => {
@@ -82,6 +93,7 @@ export default function LocationSelect({
           return { ...location, walkinSchedule: schedule };
         });
         setLocations(mappedLocations);
+        setExternalLocations?.(mappedLocations);
       } catch (e) {
         console.error('error loading locations', e);
       } finally {
@@ -92,26 +104,31 @@ export default function LocationSelect({
     if (oystehr && loadingState === LoadingState.initial) {
       void getLocationsResults(oystehr);
     }
-  }, [oystehr, loadingState]);
+  }, [oystehr, loadingState, setExternalLocations]);
 
   const getLocationLabel = (location: LocationWithWalkinSchedule): string => {
     if (!location.name) {
-      console.log('Location name is undefined', location);
       return 'Unknown Location';
     }
     return location.address?.state ? `${location.address.state.toUpperCase()} - ${location.name}` : location.name;
   };
 
   const options = useMemo(() => {
-    const allLocations = locations.map((location) => {
-      return {
-        label: getLocationLabel(location),
-        value: location.id,
-      };
-    });
+    const allLocations = locations
+      .filter(
+        (location) =>
+          (locationType.includes(LocationType.IN_PERSON) && isLocationInPerson(location)) ||
+          (locationType.includes(LocationType.VIRTUAL) && isLocationVirtual(location))
+      )
+      .map((location) => {
+        return {
+          label: getLocationLabel(location),
+          value: location.id,
+        };
+      });
 
     return sortLocationsByLabel(allLocations as { label: string; value: string }[]);
-  }, [locations]);
+  }, [locationType, locations]);
 
   const handleLocationChange = (event: any, newValue: any): void => {
     const selectedLocation = newValue
@@ -137,6 +154,7 @@ export default function LocationSelect({
     <Autocomplete
       data-testid={dataTestIds.dashboard.locationSelect}
       disabled={renderInputProps?.disabled}
+      size={renderInputProps?.size}
       value={
         location
           ? {
@@ -157,7 +175,15 @@ export default function LocationSelect({
       }}
       fullWidth
       renderInput={(params) => (
-        <TextField placeholder="Search location" name="location" {...params} label="Location" required={required} />
+        <TextField
+          placeholder="Search location"
+          name="location"
+          {...params}
+          label="Location"
+          required={required}
+          error={error}
+          helperText={error ? helperText : undefined}
+        />
       )}
     />
   );

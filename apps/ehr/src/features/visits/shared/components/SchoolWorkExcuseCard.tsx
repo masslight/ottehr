@@ -1,0 +1,210 @@
+import { Box, Divider, Grid, Typography } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
+import { FC, useState } from 'react';
+import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
+import { SCHOOL_WORK_NOTE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { getSupportPhoneFor } from 'utils/lib/utils/support-dialog';
+import { AccordionCard } from '../../../../components/AccordionCard';
+import { DoubleColumnContainer } from '../../../../components/DoubleColumnContainer';
+import { useSupportPhonesMap } from '../../../../hooks/useLocationSupportPhones';
+import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
+import { usePatientProvidedExcusePresignedFiles } from '../hooks/usePatientProvidedExcusePresignedFiles';
+import {
+  useAppointmentData,
+  useChartData,
+  useDeleteChartData,
+  useSaveChartData,
+} from '../stores/appointment/appointment.store';
+import { getStringAnswer } from '../stores/appointment/parser/extractors';
+import { ExcuseCard } from './plan-tab/components/ExcuseCard';
+import { ExcuseLink } from './plan-tab/components/ExcuseLink';
+import { GenerateExcuseDialog } from './plan-tab/components/GenerateExcuseDialog';
+
+export type SchoolWorkExcuseCardProps = {
+  /**
+   * Optional location identifier used for support phone resolving.
+   * Unknown / undefined locations will fall back to branding default.
+   */
+  locationName?: string;
+};
+
+export const SchoolWorkExcuseCard: FC<SchoolWorkExcuseCardProps> = ({ locationName }) => {
+  const [collapsed, setCollapsed] = useState(false);
+  const [generateWorkTemplateOpen, setGenerateWorkTemplateOpen] = useState(false);
+  const [generateWorkFreeOpen, setGenerateWorkFreeOpen] = useState(false);
+  const [generateSchoolTemplateOpen, setGenerateSchoolTemplateOpen] = useState(false);
+  const [generateSchoolFreeOpen, setGenerateSchoolFreeOpen] = useState(false);
+  const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
+  const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
+  const isLoading = isSaveLoading || isDeleteLoading;
+  const { questionnaireResponse } = useAppointmentData();
+  const { chartData, setPartialChartData } = useChartData();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const presignedFiles = useExcusePresignedFiles(chartData?.schoolWorkNotes);
+  const { patientSchoolPresignedUrl, patientWorkPresignedUrl } = usePatientProvidedExcusePresignedFiles();
+
+  const workExcuse = presignedFiles.find((file) => file.type === 'work');
+  const schoolExcuse = presignedFiles.find((file) => file.type === 'school');
+
+  const { phonesByLocationName } = useSupportPhonesMap();
+  const supportPhoneNumber = getSupportPhoneFor(locationName, phonesByLocationName);
+  const onDelete = (id: string): void => {
+    const schoolWorkNotes = chartData?.schoolWorkNotes || [];
+    const note = schoolWorkNotes.find((note) => note.id === id)!;
+    const previousSchoolWorkNotes = [...schoolWorkNotes];
+
+    // Optimistic update
+    setPartialChartData(
+      {
+        schoolWorkNotes: schoolWorkNotes.filter((note) => note.id !== id),
+      },
+      { invalidateQueries: false }
+    );
+    deleteChartData(
+      {
+        schoolWorkNotes: [note],
+      },
+      {
+        onError: () => {
+          enqueueSnackbar('An error has occurred while deleting excuse. Please try again.', {
+            variant: 'error',
+          });
+          // Rollback to previous state
+          setPartialChartData({
+            schoolWorkNotes: previousSchoolWorkNotes,
+          });
+        },
+        onSuccess: () => {
+          // No need to update again, optimistic update already applied
+        },
+      }
+    );
+  };
+
+  const schoolWorkNoteChoice = getStringAnswer(questionnaireResponse, `${SCHOOL_WORK_NOTE}-choice`);
+
+  let title = '';
+  switch (schoolWorkNoteChoice) {
+    case 'School only':
+      title = 'School';
+      break;
+    case 'Work only':
+      title = 'Work';
+      break;
+    case 'Both school and work notes':
+      title = 'School & Work';
+      break;
+    default:
+      // case 'Neither'
+      title = 'Neither';
+      break;
+  }
+
+  const numTemplatesUploaded = +Boolean(patientSchoolPresignedUrl) + +Boolean(patientWorkPresignedUrl);
+
+  return (
+    <>
+      <AccordionCard
+        label="School / Work Excuse"
+        collapsed={collapsed}
+        onSwitch={() => setCollapsed((prevState) => !prevState)}
+      >
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box>
+            <Typography display="inline">Patient requested excuse from:</Typography>&nbsp;
+            <Typography display="inline" fontWeight={500}>
+              {title}
+            </Typography>
+          </Box>
+          {numTemplatesUploaded !== 0 && (
+            <>
+              <Typography>{`Attached template${numTemplatesUploaded === 2 ? 's' : ''}:`}</Typography>
+              <Grid container columnSpacing={3} sx={{ position: 'relative' }}>
+                {patientSchoolPresignedUrl && (
+                  <Grid item xs={6}>
+                    {/* TODO extension should match extension uploaded */}
+                    <ExcuseLink label={`School excuse note template${'.pdf'}`} to={patientSchoolPresignedUrl} />
+                  </Grid>
+                )}
+                {patientWorkPresignedUrl && (
+                  <Grid item xs={6}>
+                    {/* TODO extension should match extension uploaded */}
+                    <ExcuseLink label={`Work excuse note template${'.pdf'}`} to={patientWorkPresignedUrl} />
+                  </Grid>
+                )}
+              </Grid>
+            </>
+          )}
+        </Box>
+
+        <Divider />
+
+        <DoubleColumnContainer
+          leftColumn={
+            <ExcuseCard
+              label="School excuse"
+              type="school"
+              excuse={schoolExcuse}
+              onDelete={onDelete}
+              isLoading={isLoading || isReadOnly}
+              generateTemplateOpen={setGenerateSchoolTemplateOpen}
+              generateFreeOpen={setGenerateSchoolFreeOpen}
+              disabled={isReadOnly}
+            />
+          }
+          rightColumn={
+            <ExcuseCard
+              label="Work excuse"
+              type="work"
+              excuse={workExcuse}
+              onDelete={onDelete}
+              isLoading={isLoading}
+              generateTemplateOpen={setGenerateWorkTemplateOpen}
+              generateFreeOpen={setGenerateWorkFreeOpen}
+              disabled={isReadOnly}
+            />
+          }
+          divider
+          padding
+        />
+      </AccordionCard>
+
+      {generateWorkTemplateOpen && (
+        <GenerateExcuseDialog
+          type="workTemplate"
+          open={generateWorkTemplateOpen}
+          onClose={() => setGenerateWorkTemplateOpen(false)}
+          generate={saveChartData}
+          supportPhoneNumber={supportPhoneNumber}
+        />
+      )}
+      {generateWorkFreeOpen && (
+        <GenerateExcuseDialog
+          type="workFree"
+          open={generateWorkFreeOpen}
+          onClose={() => setGenerateWorkFreeOpen(false)}
+          generate={saveChartData}
+          supportPhoneNumber={supportPhoneNumber}
+        />
+      )}
+      {generateSchoolTemplateOpen && (
+        <GenerateExcuseDialog
+          type="schoolTemplate"
+          open={generateSchoolTemplateOpen}
+          onClose={() => setGenerateSchoolTemplateOpen(false)}
+          generate={saveChartData}
+          supportPhoneNumber={supportPhoneNumber}
+        />
+      )}
+      {generateSchoolFreeOpen && (
+        <GenerateExcuseDialog
+          type="schoolFree"
+          open={generateSchoolFreeOpen}
+          onClose={() => setGenerateSchoolFreeOpen(false)}
+          generate={saveChartData}
+          supportPhoneNumber={supportPhoneNumber}
+        />
+      )}
+    </>
+  );
+};

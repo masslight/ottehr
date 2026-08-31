@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { createFilesDocumentReferences } from 'utils';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { PdfInfo } from '../pdf-utils';
 
 export async function makeVisitNotePdfDocumentReference(
@@ -25,10 +25,10 @@ export async function makeVisitNotePdfDocumentReference(
         {
           system: 'http://loinc.org',
           code: '75498-6',
-          display: 'Telehealth Summary note',
+          display: 'Visit details',
         },
       ],
-      text: 'Telemed document',
+      text: 'Visit details',
     },
     references: {
       subject: {

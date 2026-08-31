@@ -1,7 +1,7 @@
 import { Table, TableBody, TableCell, TableRow, Typography } from '@mui/material';
 import React from 'react';
-import { formatDateForLabs } from 'utils';
 import { InHouseOrderDetailPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
+import { formatDateForLabs } from 'utils/lib/utils/dateUtils';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 
 interface InHouseLabOrderHistoryProps {
@@ -21,7 +21,7 @@ export const InHouseLabOrderHistory: React.FC<InHouseLabOrderHistoryProps> = ({ 
       }}
     >
       <TableBody>
-        {testDetails.orderHistory.map(({ date, providerName, status }) => (
+        {testDetails.orderHistory.map(({ date, providerName, status, statusSubtitle }) => (
           <TableRow
             key={date + providerName + status}
             sx={{
@@ -39,6 +39,11 @@ export const InHouseLabOrderHistory: React.FC<InHouseLabOrderHistoryProps> = ({ 
               }}
             >
               <InHouseLabsStatusChip status={status} />
+              {statusSubtitle && (
+                <Typography variant="caption" sx={{ ml: '8px' }}>
+                  {statusSubtitle}
+                </Typography>
+              )}
             </TableCell>
             <TableCell
               sx={{

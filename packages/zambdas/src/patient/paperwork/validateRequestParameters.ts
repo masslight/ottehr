@@ -1,17 +1,20 @@
 import Oystehr from '@oystehr/sdk';
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import { getQuestionnaireItemsAndProgress } from 'utils/lib/helpers/paperwork/paperwork';
 import {
-  getQuestionnaireItemsAndProgress,
+  filterDisabledPages,
   makeValidationSchema,
-  PatchPaperworkParameters,
-  QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
   recursiveGroupTransform,
-} from 'utils';
+} from 'utils/lib/helpers/paperwork/validation';
+import { qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { PatchPaperworkParameters } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { QUESTIONNAIRE_RESPONSE_INVALID_ERROR } from 'utils/lib/types/errors';
 import { ValidationError } from 'yup';
-import { ZambdaInput } from '../../shared';
+import { z } from 'zod';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 interface BasicInput extends PatchPaperworkParameters {
-  ipAddress: string;
   appointmentId?: string;
 }
 interface PatchPaperworkZambdaInput extends Omit<BasicInput, 'answers'> {
@@ -23,10 +26,12 @@ interface SubmitPaperworkZambdaInput extends Omit<BasicInput, 'answers'>, Zambda
 }
 
 export interface PatchPaperworkEffectInput {
+  submittedAnswer: QuestionnaireResponseItem;
   updatedAnswers: QuestionnaireResponseItem[];
   patchIndex: number;
   questionnaireResponseId: string;
   currentQRStatus: QuestionnaireResponse['status'];
+  appointmentId?: string;
 }
 
 export interface SubmitPaperworkEffectInput extends Omit<BasicInput, 'answers'>, ZambdaInput {
@@ -34,47 +39,27 @@ export interface SubmitPaperworkEffectInput extends Omit<BasicInput, 'answers'>,
   updatedAnswers: QuestionnaireResponseItem[];
   questionnaireResponseId: string;
   currentQRStatus: QuestionnaireResponse['status'];
+  createReviewTaskAndPdf: boolean;
 }
+
+const PaperworkBodySchema = z.object({
+  answers: z.unknown(),
+  questionnaireResponseId: z.string().uuid(),
+  appointmentId: z.string().uuid().optional(),
+});
 
 const basicValidation = (input: ZambdaInput): BasicInput => {
   if (!input.body) {
     throw new Error('No request body provided');
   }
-  const inputJSON = JSON.parse(input.body);
-  const { answers, questionnaireResponseId, appointmentId } = inputJSON;
+  const inputJSON = safeJsonParse(input.body);
+  const { answers, questionnaireResponseId, appointmentId } = safeValidate(PaperworkBodySchema, inputJSON);
 
   if (!answers) {
     throw new Error(`"answers" is a required param`);
   }
-  if (questionnaireResponseId == undefined) {
-    throw new Error(`"questionnaireResponseId" is a required param`);
-  }
-  if (typeof questionnaireResponseId !== 'string') {
-    throw new Error(`"questionnaireResponseId" must be a string`);
-  }
 
-  if (appointmentId && typeof appointmentId !== 'string') {
-    throw new Error(`"appointmentId" must be a string`);
-  }
-
-  let ipAddress = '';
-  const environment = process.env.ENVIRONMENT || input.secrets?.ENVIRONMENT;
-  console.log('Environment: ', environment);
-  switch (environment) {
-    case 'local':
-      ipAddress = 'Unknown';
-      break;
-    case 'dev':
-    case 'testing':
-    case 'staging':
-    case 'production':
-      ipAddress = input?.headers?.['cf-connecting-ip'] ? input.headers['cf-connecting-ip'] : 'Unknown';
-      break;
-    default:
-      ipAddress = 'Unknown';
-  }
-
-  return { answers, questionnaireResponseId, ipAddress, appointmentId };
+  return { answers: answers as QuestionnaireResponseItem, questionnaireResponseId, appointmentId };
 };
 
 const itemAnswerHasValue = (item: QuestionnaireResponseItem): boolean => {
@@ -152,7 +137,10 @@ const complexSubmitValidation = async (
   const validationSchema = makeValidationSchema(items, undefined);
   console.log('answersToValidate', JSON.stringify(updatedAnswers));
   try {
-    await validationSchema.validate(updatedAnswers, { abortEarly: false });
+    await validationSchema.validate(updatedAnswers, {
+      abortEarly: false,
+      context: { questionnaireResponse: fullQRResource },
+    });
   } catch (e) {
     const validationErrors = (e as any).inner as ValidationError[];
     if (Array.isArray(validationErrors)) {
@@ -203,11 +191,16 @@ const complexSubmitValidation = async (
 
   console.log('validation succeeded');
 
+  // Filter out items from disabled pages before saving
+  const filteredAnswers = filterDisabledPages(items, updatedAnswers, fullQRResource);
+  console.log('filtered disabled pages', JSON.stringify(filteredAnswers));
+
   return {
     ...input,
     questionnaireResponseId,
-    updatedAnswers,
+    updatedAnswers: filteredAnswers,
     currentQRStatus: fullQRResource.status,
+    createReviewTaskAndPdf: qrSentManually(fullQRResource),
   };
 };
 const complexPatchValidation = async (
@@ -215,7 +208,7 @@ const complexPatchValidation = async (
   oystehr: Oystehr
 ): Promise<PatchPaperworkEffectInput> => {
   // we should return QR id and use it to get both appointment Id and Questionnaire
-  const { answers: itemToPatch, questionnaireResponseId } = input;
+  const { answers: itemToPatch, questionnaireResponseId, appointmentId } = input;
   const qrAndQItems = await getQuestionnaireItemsAndProgress(questionnaireResponseId, oystehr);
 
   if (!qrAndQItems) {
@@ -251,9 +244,11 @@ const complexPatchValidation = async (
 
   return {
     questionnaireResponseId,
+    submittedAnswer: itemToPatch,
     updatedAnswers: [...currentAnswersToKeep, ...submittedAnswers],
     patchIndex: updatedAnswerIndex,
     currentQRStatus: fullQRResource.status,
+    appointmentId,
   };
 };
 
@@ -274,6 +269,7 @@ export const validateSubmitInputs = async (
 ): Promise<SubmitPaperworkEffectInput> => {
   const basic = basicValidation(input);
   const { answers } = basic;
+
   if (!Array.isArray(answers)) {
     throw new Error(`"answers" must be an array`);
   }
@@ -285,5 +281,5 @@ export const validateSubmitInputs = async (
   });
   const submitInput = { ...basic, ...input, answers: answers };
   const complex = await complexSubmitValidation(submitInput, oystehr);
-  return { ...complex, ...input, ipAddress: basic.ipAddress };
+  return { ...complex, ...input };
 };

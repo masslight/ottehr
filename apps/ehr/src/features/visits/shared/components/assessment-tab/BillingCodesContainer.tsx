@@ -1,0 +1,489 @@
+import { AddCircleOutline, ExpandMore, InfoOutlined } from '@mui/icons-material';
+import { Autocomplete, Box, Collapse, Divider, IconButton, TextField, Tooltip, Typography } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
+import { enqueueSnackbar } from 'notistack';
+import { FC, useState } from 'react';
+import { ActionsList } from 'src/components/ActionsList';
+import { AssessmentTitle } from 'src/components/AssessmentTitle';
+import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
+import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
+import { CHART_DATA_QUERY_KEY } from 'src/constants';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { useDebounce } from 'src/shared/hooks/useDebounce';
+import { makeCptCodeDisplay } from 'utils/lib/fhir/helpers';
+import { CPTCodeOption } from 'utils/lib/types/common';
+import { APIErrorCode } from 'utils/lib/types/errors';
+import { useEMCodes } from '../../hooks/useEMCodes';
+import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
+import { useGetCPTHCPCSSearch } from '../../stores/appointment/appointment.queries';
+import {
+  useAppointmentData,
+  useChartData,
+  useDeleteChartData,
+  useSaveChartData,
+} from '../../stores/appointment/appointment.store';
+import { AiSectionContainer } from '../AiSection';
+
+export const useAddCptCode = (): { onAdd: (value: CPTCodeOption) => void; isPending: boolean } => {
+  const { chartData, setPartialChartData } = useChartData();
+  const { mutate: saveCPTChartData, isPending } = useSaveChartData();
+  const cptCodes = chartData?.cptCodes || [];
+
+  const onAdd = (value: CPTCodeOption): void => {
+    // Optimistic update
+    setPartialChartData({ cptCodes: [...cptCodes, value] }, { invalidateQueries: false });
+    saveCPTChartData(
+      {
+        cptCodes: [value],
+      },
+      {
+        onSuccess: (data) => {
+          const cptCode = data.chartData?.cptCodes?.[0];
+          if (cptCode) {
+            setPartialChartData({
+              cptCodes: [...cptCodes, cptCode],
+            });
+          }
+        },
+        onError: () => {
+          enqueueSnackbar('An error has occurred while adding CPT code. Please try again.', { variant: 'error' });
+          // Rollback to previous state
+          setPartialChartData({
+            cptCodes: cptCodes,
+          });
+        },
+      }
+    );
+  };
+
+  return { onAdd, isPending };
+};
+
+export const useUpdateEMCode = (): {
+  onEMCodeChange: (value: CPTCodeOption | null) => void;
+  isSaveEMLoading: boolean;
+  isDeleteEMLoading: boolean;
+} => {
+  const { chartData, setPartialChartData } = useChartData();
+  const { mutate: saveEMChartData, isPending: isSaveEMLoading } = useSaveChartData();
+  const { mutate: deleteEMChartData, isPending: isDeleteEMLoading } = useDeleteChartData();
+  const emCode = chartData?.emCode;
+
+  const onEMCodeChange = (value: CPTCodeOption | null): void => {
+    if (value) {
+      const prevValue = emCode ? { ...emCode } : undefined;
+
+      // Optimistic update
+      setPartialChartData({ emCode: { ...emCode, ...value } }, { invalidateQueries: false });
+      saveEMChartData(
+        { emCode: { ...emCode, ...value } },
+        {
+          onSuccess: (data) => {
+            const saved = data.chartData?.emCode;
+            console.log(data);
+
+            if (saved) {
+              setPartialChartData({ emCode: saved });
+            }
+          },
+          onError: () => {
+            enqueueSnackbar('An error has occurred while saving E&M code. Please try again.', { variant: 'error' });
+            // Rollback to previous state
+            setPartialChartData({ emCode: prevValue || undefined });
+          },
+        }
+      );
+    } else if (emCode) {
+      const prevValue = { ...emCode };
+
+      // Optimistic update
+      setPartialChartData({ emCode: undefined }, { invalidateQueries: false });
+      deleteEMChartData(
+        { emCode },
+        {
+          onSuccess: async () => {
+            // No need to update again, optimistic update already applied
+          },
+          onError: () => {
+            enqueueSnackbar('An error has occurred while deleting E&M code. Please try again.', { variant: 'error' });
+            // Rollback to previous state
+            setPartialChartData({ emCode: prevValue });
+          },
+        }
+      );
+    }
+  };
+  return { onEMCodeChange, isSaveEMLoading, isDeleteEMLoading };
+};
+
+const AiEmCodeSuggestionsList: FC<{
+  emCodes: { code: string; description: string; upcodingSuggestion: string }[];
+  isReadOnly: boolean;
+  onUse: (value: { code: string; description: string }) => void;
+}> = ({ emCodes, isReadOnly, onUse }) => {
+  const [expandedCode, setExpandedCode] = useState<string | null>(null);
+
+  const toggleExpand = (code: string): void => {
+    setExpandedCode((prev) => (prev === code ? null : code));
+  };
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {emCodes.map((emCode, index) => (
+        <Box key={emCode.code}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+            <Typography>{emCode.description}</Typography>
+            {!isReadOnly && (
+              <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                <Tooltip title="Use this E&M code">
+                  <IconButton size="small" onClick={() => onUse(emCode)}>
+                    <AddCircleOutline sx={{ fontSize: '17px' }} />
+                  </IconButton>
+                </Tooltip>
+                {emCode.upcodingSuggestion && (
+                  <IconButton
+                    size="small"
+                    onClick={() => toggleExpand(emCode.code)}
+                    aria-label="Show upcoding suggestion"
+                    aria-expanded={expandedCode === emCode.code}
+                  >
+                    <ExpandMore
+                      sx={{
+                        fontSize: '17px',
+                        transform: expandedCode === emCode.code ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.2s',
+                      }}
+                    />
+                  </IconButton>
+                )}
+              </Box>
+            )}
+          </Box>
+          {emCode.upcodingSuggestion && (
+            <Collapse in={expandedCode === emCode.code}>
+              {(() => {
+                const sampleMdmPattern = /\*{0,2}Sample MDM[^:]*:\*{0,2}\s*/i;
+                const mdmLabelPattern = /MDM:\s*/i;
+                const forExamplePattern = /(?=For example,?\s)/i;
+                const sampleMdmMatch = emCode.upcodingSuggestion.match(sampleMdmPattern);
+                const mdmLabelMatch = !sampleMdmMatch && emCode.upcodingSuggestion.match(mdmLabelPattern);
+                const splitPattern = sampleMdmMatch
+                  ? sampleMdmPattern
+                  : mdmLabelMatch
+                  ? mdmLabelPattern
+                  : forExamplePattern;
+                const mdmMatch = sampleMdmMatch || mdmLabelMatch;
+                const parts = emCode.upcodingSuggestion.split(splitPattern);
+                const hasTwoParts = parts.length > 1 && parts[1].trim().length > 0;
+                return (
+                  <Box sx={{ mt: 1, ml: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      {parts[0].trim()}
+                    </Typography>
+                    {hasTwoParts && (
+                      <>
+                        {mdmMatch && (
+                          <Typography variant="body2" color="textSecondary" sx={{ fontWeight: 700 }}>
+                            {sampleMdmMatch ? 'Sample MDM Paragraph for Higher Complexity:' : 'MDM:'}
+                          </Typography>
+                        )}
+                        <Typography variant="body2" color="textSecondary">
+                          {parts[1].trim()}
+                        </Typography>
+                      </>
+                    )}
+                  </Box>
+                );
+              })()}
+            </Collapse>
+          )}
+          {index + 1 !== emCodes.length && <Divider sx={{ pt: 1 }} />}
+        </Box>
+      ))}
+    </Box>
+  );
+};
+
+interface BillingCodesContainerProps {
+  aiSuggestedCptCodes?: { code: string; description: string; reason: string }[];
+  aiSuggestedEmCodes?: { code: string; description: string; upcodingSuggestion: string }[];
+  aiSuggestionsLoading?: boolean;
+}
+
+export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
+  aiSuggestedCptCodes,
+  aiSuggestedEmCodes,
+  aiSuggestionsLoading,
+}) => {
+  const queryClient = useQueryClient();
+  const { encounter } = useAppointmentData();
+  const { chartData, setPartialChartData } = useChartData();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const cptCodes = chartData?.cptCodes || [];
+  const emCode = Array.isArray(chartData?.emCode) ? null : chartData?.emCode;
+
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const {
+    isFetching: isSearching,
+    data,
+    error: icdSearchError,
+  } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
+  const cptSearchOptions = data?.codes || [];
+
+  const { emCodes, isLoading: emCodesLoading } = useEMCodes();
+  const { onEMCodeChange, isSaveEMLoading, isDeleteEMLoading } = useUpdateEMCode();
+  const { mutate: deleteCPTChartData, isPending: isDeleteCPTLoading } = useDeleteChartData();
+
+  const { onAdd, isPending: isSaveCPTLoading } = useAddCptCode();
+  const disabledEM = Boolean(isSaveEMLoading || isDeleteEMLoading || emCodesLoading || (emCode && !emCode.resourceId));
+  const disabledCPT = Boolean(isSaveCPTLoading || isDeleteCPTLoading);
+
+  const { debounce } = useDebounce(800);
+
+  const debouncedHandleInputChange = (data: string): void => {
+    debounce(() => {
+      setDebouncedSearchTerm(data);
+    });
+  };
+
+  const onInternalChange = (_e: unknown, data: CPTCodeOption | null): void => {
+    if (data) {
+      onAdd(data);
+    }
+  };
+
+  const onDelete = async (resourceId: string): Promise<void> => {
+    const preparedValue = cptCodes.find((item) => item.resourceId === resourceId)!;
+    const prevCodes = [...cptCodes];
+    const queryKey = [CHART_DATA_QUERY_KEY, encounter?.id];
+
+    // Cancel any outgoing refetches (from MDM field) to prevent race condition
+    await queryClient.cancelQueries({ queryKey });
+
+    // Optimistic update
+    setPartialChartData(
+      { cptCodes: cptCodes.filter((i) => i.resourceId !== resourceId) },
+      { invalidateQueries: false }
+    );
+
+    deleteCPTChartData(
+      {
+        cptCodes: [preparedValue],
+      },
+      {
+        onSuccess: () => {
+          // Get fresh data from cache after cancellation and apply the filter again
+          const currentData = queryClient.getQueryData<any>(queryKey);
+          if (currentData?.cptCodes) {
+            setPartialChartData(
+              { cptCodes: currentData.cptCodes.filter((i: any) => i.resourceId !== resourceId) },
+              { invalidateQueries: false }
+            );
+          }
+        },
+        onError: () => {
+          enqueueSnackbar('An error has occurred while deleting CPT code. Please try again.', { variant: 'error' });
+          // Rollback to previous state
+          setPartialChartData({ cptCodes: prevCodes });
+        },
+      }
+    );
+  };
+
+  const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
+
+  const handleSetup = (): void => {
+    window.open('https://docs.oystehr.com/ottehr/setup/terminology/', '_blank');
+  };
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box sx={{ color: '#0F347C' }}>
+          <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
+            <AssessmentTitle>Billing</AssessmentTitle>
+          </TooltipWrapper>
+        </Box>
+        {!isReadOnly && (
+          <>
+            <Autocomplete
+              options={emCodes}
+              disabled={disabledEM}
+              isOptionEqualToValue={(option, value) => option.code === value.code}
+              value={emCode ? { display: emCode.display, code: emCode.code } : null}
+              getOptionLabel={(option) => option.display}
+              onChange={(_e, value) => onEMCodeChange(value)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  size="small"
+                  label="E&M code"
+                  placeholder="Search E&M code"
+                  data-testid={dataTestIds.assessmentCard.emCodeDropdown}
+                />
+              )}
+            />
+            <AiSectionContainer isLoading={aiSuggestionsLoading}>
+              {!aiSuggestionsLoading && aiSuggestedEmCodes && aiSuggestedEmCodes.length > 0 && (
+                <AiEmCodeSuggestionsList
+                  emCodes={aiSuggestedEmCodes}
+                  isReadOnly={isReadOnly}
+                  onUse={(value) => onEMCodeChange({ code: value.code, display: value.description })}
+                />
+              )}
+              {!aiSuggestionsLoading && (!aiSuggestedEmCodes || aiSuggestedEmCodes.length === 0) && (
+                <Typography color="secondary.light">No suggestions</Typography>
+              )}
+            </AiSectionContainer>
+            <Autocomplete
+              fullWidth
+              blurOnSelect
+              disabled={disabledCPT}
+              options={cptSearchOptions}
+              noOptionsText={
+                debouncedSearchTerm && cptSearchOptions.length === 0
+                  ? 'Nothing found for this search criteria'
+                  : 'Start typing to load results'
+              }
+              autoComplete
+              includeInputInList
+              disableClearable
+              filterOptions={(x) => x}
+              value={null as unknown as undefined}
+              isOptionEqualToValue={(option, value) => value.code === option.code}
+              loading={isSearching}
+              onChange={onInternalChange}
+              getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  size="small"
+                  label="Additional CPT codes"
+                  placeholder="Search CPT code"
+                  onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                  data-testid={dataTestIds.assessmentCard.cptCodeField}
+                />
+              )}
+            />
+          </>
+        )}
+      </Box>
+
+      {nlmApiKeyMissing && <CompleteConfiguration handleSetup={handleSetup} />}
+
+      {emCode && (
+        <Box
+          sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+          data-testid={dataTestIds.billingContainer.container}
+        >
+          <AssessmentTitle>E&M code</AssessmentTitle>
+          <ActionsList
+            data={[emCode]}
+            getKey={(value, index) => value.resourceId || index}
+            renderItem={(value) => (
+              <Typography>
+                {value.display} {value.code}
+              </Typography>
+            )}
+            renderActions={
+              isReadOnly
+                ? undefined
+                : () => (
+                    <DeleteIconButton
+                      dataTestId={dataTestIds.billingContainer.deleteButton}
+                      disabled={disabledEM}
+                      onClick={() => onEMCodeChange(null)}
+                    />
+                  )
+            }
+          />
+        </Box>
+      )}
+
+      {cptCodes.length > 0 && (
+        <Box
+          data-testid={dataTestIds.billingContainer.cptCodeContainer}
+          sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+        >
+          <AssessmentTitle>Additional CPT codes</AssessmentTitle>
+          <ActionsList
+            data={cptCodes}
+            dataTestId={dataTestIds.billingContainer.container}
+            getKey={(value, index) => value.resourceId || index}
+            renderItem={(value) => (
+              <Box>
+                <Typography data-testid={dataTestIds.billingContainer.cptCodeEntry(value.code)}>
+                  {makeCptCodeDisplay(value)}
+                </Typography>
+                {(value.ndcCode || value.dose != null || value.billableUnits != null) && (
+                  <Typography variant="body2" color="textSecondary">
+                    {[
+                      value.ndcCode ? `NDC: ${value.ndcCode}` : undefined,
+                      value.dose != null
+                        ? `Dose: ${value.dose}${value.doseUnits ? ` ${value.doseUnits}` : ''}`
+                        : undefined,
+                      `Billable Units: ${value.billableUnits ?? 1}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' • ')}
+                  </Typography>
+                )}
+              </Box>
+            )}
+            renderActions={
+              isReadOnly
+                ? undefined
+                : (value) => (
+                    <DeleteIconButton
+                      dataTestId={dataTestIds.billingContainer.deleteCptCodeButton(value.code)}
+                      disabled={!value.resourceId || disabledCPT}
+                      onClick={() => onDelete(value.resourceId!)}
+                    />
+                  )
+            }
+          />
+        </Box>
+      )}
+
+      <AiSectionContainer isLoading={aiSuggestionsLoading}>
+        {!aiSuggestionsLoading && aiSuggestedCptCodes && aiSuggestedCptCodes.length > 0 && (
+          <ActionsList
+            data={aiSuggestedCptCodes}
+            getKey={(value) => value.code}
+            renderItem={(value) => (
+              <Typography>
+                {value.description} {value.code}
+              </Typography>
+            )}
+            renderActions={
+              isReadOnly
+                ? undefined
+                : (value) => (
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <Tooltip title={value.reason}>
+                        <IconButton size="small">
+                          <InfoOutlined sx={{ fontSize: '17px' }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Add CPT code">
+                        <IconButton
+                          size="small"
+                          onClick={() => onAdd({ code: value.code, display: value.description })}
+                        >
+                          <AddCircleOutline sx={{ fontSize: '17px' }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  )
+            }
+            divider
+          />
+        )}
+        {!aiSuggestionsLoading && (!aiSuggestedCptCodes || aiSuggestedCptCodes.length === 0) && (
+          <Typography color="secondary.light">No suggestions</Typography>
+        )}
+      </AiSectionContainer>
+    </Box>
+  );
+};

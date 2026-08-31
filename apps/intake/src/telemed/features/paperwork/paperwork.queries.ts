@@ -1,10 +1,11 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
-import { QuestionnaireItemAnswerOption, QuestionnaireResponseItem } from 'fhir/r4b';
-import { OystehrAPIClient } from 'ui-components';
-import { useSuccessQuery } from 'utils';
-import { GetAnswerOptionsRequest, isNullOrUndefined, PromiseReturnType } from 'utils';
-import { useOystehrAPIClient } from '../../utils';
-import { useAppointmentStore } from '../appointments';
+import { QuestionnaireResponseItem } from 'fhir/r4b';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
+import { OystehrAPIClient } from 'ui-components/lib/data/oystehrApi';
+import { useSuccessQuery } from 'utils/lib/frontend';
+import { PromiseReturnType } from 'utils/lib/types/common';
+import { isNullOrUndefined } from 'utils/lib/validation/helper';
 
 export const useGetPaperwork = (
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaperwork']>> | null) => void,
@@ -63,36 +64,10 @@ export const useUpdatePaperworkMutation = () => {
   });
 };
 
-export const useAnswerOptionsQuery = (
-  enabled = true,
-  params: GetAnswerOptionsRequest | undefined,
-  onSuccess?: (data: QuestionnaireItemAnswerOption[] | null) => void
-): UseQueryResult<QuestionnaireItemAnswerOption[], Error> => {
-  const apiClient = useOystehrAPIClient();
-
-  const queryResult = useQuery({
-    queryKey: ['insurances', { apiClient }],
-
-    queryFn: async () => {
-      if (!apiClient) {
-        throw new Error('App client is not provided');
-      }
-
-      const resources = await apiClient.getAnswerOptions(params as GetAnswerOptionsRequest);
-      return resources;
-    },
-
-    enabled: !!apiClient && enabled && params !== undefined,
-  });
-
-  useSuccessQuery(queryResult.data, onSuccess);
-
-  return queryResult;
-};
-
 interface GetPaymentMethodsParams {
   setupCompleted: boolean;
   beneficiaryPatientId: string | undefined;
+  appointmentId: string | undefined;
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaymentMethods']>> | null) => void;
 }
 
@@ -100,22 +75,23 @@ export const useGetPaymentMethods = (
   input: GetPaymentMethodsParams
 ): UseQueryResult<PromiseReturnType<ReturnType<OystehrAPIClient['getPaymentMethods']>>, Error> => {
   const apiClient = useOystehrAPIClient();
-  const { beneficiaryPatientId, setupCompleted, onSuccess } = input;
+  const { beneficiaryPatientId, appointmentId, setupCompleted, onSuccess } = input;
 
   const queryResult = useQuery({
-    queryKey: ['payment-methods', beneficiaryPatientId],
+    queryKey: ['payment-methods', beneficiaryPatientId, appointmentId],
 
     queryFn: () => {
-      if (apiClient && beneficiaryPatientId) {
+      if (apiClient && beneficiaryPatientId && appointmentId) {
         return apiClient.getPaymentMethods({
           beneficiaryPatientId,
+          appointmentId,
         });
       }
 
       throw new Error('api client not defined or patient id is not provided');
     },
 
-    enabled: Boolean(beneficiaryPatientId) && setupCompleted && Boolean(apiClient),
+    enabled: Boolean(beneficiaryPatientId) && setupCompleted && Boolean(apiClient) && Boolean(appointmentId),
   });
 
   useSuccessQuery(queryResult.data, onSuccess);
@@ -125,6 +101,7 @@ export const useGetPaymentMethods = (
 
 export const useSetupPaymentMethod = (
   beneficiaryPatientId: string | undefined,
+  appointmentId: string | undefined,
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['setupPaymentMethod']>> | null) => void
 ): UseQueryResult<PromiseReturnType<ReturnType<OystehrAPIClient['setupPaymentMethod']>>, Error> => {
   const apiClient = useOystehrAPIClient();
@@ -133,16 +110,17 @@ export const useSetupPaymentMethod = (
     queryKey: ['payment-methods-setup', beneficiaryPatientId],
 
     queryFn: () => {
-      if (apiClient && beneficiaryPatientId) {
+      if (apiClient && beneficiaryPatientId && appointmentId) {
         return apiClient.setupPaymentMethod({
           beneficiaryPatientId,
+          appointmentId,
         });
       }
 
       throw new Error('api client not defined or patient id is not provided');
     },
 
-    enabled: Boolean(apiClient && beneficiaryPatientId),
+    enabled: Boolean(apiClient && beneficiaryPatientId && appointmentId),
   });
 
   useSuccessQuery(queryResult.data, onSuccess);
@@ -151,7 +129,8 @@ export const useSetupPaymentMethod = (
 };
 
 export const useDeletePaymentMethod = (
-  beneficiaryPatientId: string | undefined
+  beneficiaryPatientId: string | undefined,
+  appointmentId: string | undefined
 ): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrAPIClient['deletePaymentMethod']>>,
   Error,
@@ -161,55 +140,15 @@ export const useDeletePaymentMethod = (
 
   return useMutation({
     mutationFn: ({ paymentMethodId }: { paymentMethodId: string }) => {
-      if (apiClient && beneficiaryPatientId) {
+      if (apiClient && beneficiaryPatientId && appointmentId) {
         return apiClient.deletePaymentMethod({
           beneficiaryPatientId,
           paymentMethodId,
+          appointmentId,
         });
       }
 
       throw new Error('api client not defined or patient id is not provided');
     },
-  });
-};
-
-export interface SetDefaultPaymentMethodParams {
-  paymentMethodId: string;
-  onSuccess?: () => void;
-  onError?: (error: unknown) => void;
-}
-export const useSetDefaultPaymentMethod = (
-  beneficiaryPatientId: string | undefined
-): UseMutationResult<
-  PromiseReturnType<ReturnType<OystehrAPIClient['setDefaultPaymentMethod']>>,
-  Error,
-  SetDefaultPaymentMethodParams
-> => {
-  const apiClient = useOystehrAPIClient();
-
-  return useMutation({
-    mutationFn: ({ paymentMethodId, onSuccess, onError }: SetDefaultPaymentMethodParams) => {
-      if (apiClient && beneficiaryPatientId) {
-        return apiClient
-          .setDefaultPaymentMethod({
-            beneficiaryPatientId,
-            paymentMethodId,
-          })
-          .then(() => {
-            if (onSuccess) {
-              onSuccess();
-            }
-          })
-          .catch((error) => {
-            if (onError) {
-              onError(error);
-            }
-          });
-      }
-
-      throw new Error('api client not defined or patient id is not provided');
-    },
-    retry: 2,
-    retryDelay: 1000,
   });
 };

@@ -1,24 +1,8 @@
 import React from 'react';
-import { AutocompleteInput } from './AutocompleteInput';
-import { Option } from './Option';
+import { AutocompleteInput, AutocompleteInputProps } from './AutocompleteInput';
 
-type Props = {
-  name: string;
-  label: string;
-  options: Option[] | undefined;
-  loading?: boolean;
-  required?: boolean;
-};
+type Props<Value> = Omit<AutocompleteInputProps<Value>, 'selectOnly'>;
 
-export const SelectInput: React.FC<Props> = ({ name, label, options, loading, required }) => {
-  return (
-    <AutocompleteInput
-      name={name}
-      label={label}
-      options={options}
-      loading={loading}
-      required={required}
-      selectOnly={true}
-    />
-  );
-};
+export function SelectInput<Value>(props: Props<Value>): React.JSX.Element {
+  return <AutocompleteInput {...props} />;
+}

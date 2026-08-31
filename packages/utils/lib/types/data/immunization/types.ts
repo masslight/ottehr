@@ -11,8 +11,16 @@ export interface ImmunizationOrderDetails {
   };
   orderedDateTime: string;
   route?: string;
-  location?: string;
+  location?: {
+    name: string;
+    code: string;
+  };
   instructions?: string;
+  associatedDx?: {
+    resourceId: string;
+    display: string;
+  };
+  manufacturer?: string;
 }
 
 export interface ImmunizationEmergencyContact {
@@ -26,7 +34,7 @@ export interface ImmunizationOrderAdministrationDetails {
   expDate: string;
   mvx: string;
   cvx: string;
-  cpt?: string;
+  cptCodes?: { code: string; display: string }[];
   ndc: string;
   administeredProvider: {
     id: string;
@@ -43,13 +51,10 @@ export interface ImmunizationOrder {
   reason?: string;
   details: ImmunizationOrderDetails;
   administrationDetails?: ImmunizationOrderAdministrationDetails;
+  encounterId: string;
 }
 
-export interface InputImmunizationOrderDetails
-  extends Omit<ImmunizationOrderDetails, 'orderedDateTime' | 'medication' | 'orderedProvider'> {
-  medicationId: string;
-  orderedProviderId: string;
-}
+export type InputImmunizationOrderDetails = Omit<ImmunizationOrderDetails, 'orderedDateTime'>;
 
 export interface CreateUpdateImmunizationOrderRequest {
   orderId?: string;
@@ -64,6 +69,7 @@ export interface CreateUpdateImmunizationOrderResponse {
 export interface GetImmunizationOrdersRequest {
   orderId?: string;
   patientId?: string;
+  encounterIds?: string[];
 }
 
 export interface GetImmunizationOrdersResponse {

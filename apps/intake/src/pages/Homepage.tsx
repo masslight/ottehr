@@ -1,47 +1,90 @@
+import { useAuth0 } from '@auth0/auth0-react';
 import CloseIcon from '@mui/icons-material/Close';
 import LiveHelpOutlinedIcon from '@mui/icons-material/LiveHelpOutlined';
 import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined';
+import MedicalInformationOutlinedIcon from '@mui/icons-material/MedicalInformationOutlined';
 import VideoCameraFrontOutlinedIcon from '@mui/icons-material/VideoCameraFrontOutlined';
 import { Box, Button, Skeleton, Typography } from '@mui/material';
-import { pastVisits } from '@theme/icons';
+import { HomepageOptions } from 'config-types';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { PROJECT_NAME, ServiceMode } from 'utils';
+import { CancelVisitDialog } from 'src/telemed/components/CancelVisitDialog';
+import { useGetAppointments } from 'src/telemed/features/appointments/appointment.queries';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import { findActiveAppointment } from 'src/telemed/features/appointments/appointments.helpers';
+import { useAppointmentsData } from 'src/telemed/features/appointments/hooks/useAppointmentsData';
+import { CustomContainer } from 'src/telemed/features/common/CustomContainer';
+import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
+import {
+  serviceCategorySupportsContext,
+  shouldShowServiceCategorySelectionPage,
+} from 'utils/lib/config-helpers/booking';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { ServiceMode } from 'utils/lib/types/common';
 import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../App';
+import { getWelcomeTitle } from '../branding/welcomeTitle';
 import HomepageOption from '../components/HomepageOption';
 import { dataTestIds } from '../helpers/data-test-ids';
+import { useServiceCategories } from '../hooks/useServiceCategories';
 import { otherColors } from '../IntakeThemeProvider';
-import { CancelVisitDialog } from '../telemed/components';
-import {
-  findActiveAppointment,
-  useAppointmentsData,
-  useAppointmentStore,
-  useGetAppointments,
-} from '../telemed/features/appointments';
-import { CustomContainer, useIntakeCommonStore } from '../telemed/features/common';
-import { useOystehrAPIClient } from '../telemed/utils';
-
-const DEFAULT_WALKIN_LOCATION_NAME = import.meta.env.VITE_APP_DEFAULT_WALKIN_LOCATION_NAME;
 
 const Homepage = (): JSX.Element => {
+  const { isAuthenticated } = useAuth0();
   const apiClient = useOystehrAPIClient();
+  const mayUserAccessAppointments = Boolean(isAuthenticated && apiClient);
   const navigate = useNavigate();
   const [isCancelVisitDialogOpen, setCancelVisitDialogOpen] = useState<boolean>(false);
-  const { isAppointmentsFetching, refetchAppointments, appointments } = useAppointmentsData();
+
+  const { isAppointmentsFetching, refetchAppointments, appointments } = useAppointmentsData({
+    enabled: Boolean(mayUserAccessAppointments),
+  });
+
   const activeAppointment = useMemo(() => findActiveAppointment(appointments), [appointments]);
   const isAppointmentStatusProposed = activeAppointment?.appointmentStatus === 'proposed';
   const appointmentID = activeAppointment?.id || '';
-  const { refetch } = useGetAppointments(apiClient, Boolean(apiClient));
+  const { refetch } = useGetAppointments(apiClient, Boolean(mayUserAccessAppointments));
+  const { serviceCategories } = useServiceCategories();
 
   useEffect(() => {
-    if (apiClient) {
-      // TODO research option invalidate cache on the place to rid of useEffects with manually refetching
-      void refetch();
+    if (!mayUserAccessAppointments) {
+      return;
     }
-  }, [refetch, apiClient]);
+
+    // TODO research option invalidate cache on the place to rid of useEffects with manually refetching
+    void refetch();
+  }, [refetch, mayUserAccessAppointments]);
+
+  // When exactly one service category matches the given mode+visitType, return
+  // its code so we can inject it as ?serviceCategory=<code> when skipping the
+  // picker. Otherwise return undefined. Uses the shared support-context check
+  // so this stays in sync with shouldShowServiceCategorySelectionPage — they
+  // must agree about what counts as a "match" or the picker decision and the
+  // single-match URL stamp will silently disagree (e.g., one says "two
+  // matches, show picker" while the other says "no single match, no stamp").
+  const singleCategoryCodeFor = (serviceMode: string, visitType: string): string | undefined => {
+    const matches = serviceCategories.filter((sc) => serviceCategorySupportsContext(sc, serviceMode, visitType));
+    return matches.length === 1 ? matches[0].category.code ?? undefined : undefined;
+  };
+
+  const withServiceCategoryParam = (path: string, code: string | undefined): string => {
+    if (!code) return path;
+    const separator = path.includes('?') ? '&' : '?';
+    return `${path}${separator}serviceCategory=${encodeURIComponent(code)}`;
+  };
 
   const handleRequestVisit = (): void => {
-    navigate(intakeFlowPageRoute.StartVirtualVisit.path);
+    const shouldSelectServiceCategory = shouldShowServiceCategorySelectionPage({
+      serviceMode: ServiceMode.virtual,
+      visitType: 'walk-in',
+      serviceCategories,
+    });
+    if (shouldSelectServiceCategory) {
+      navigate(intakeFlowPageRoute.SelectServiceCategoryStartVirtual.path);
+    } else {
+      const code = singleCategoryCodeFor(ServiceMode.virtual, 'walk-in');
+      navigate(withServiceCategoryParam(intakeFlowPageRoute.StartVirtualVisit.path, code));
+    }
   };
 
   const handleWalkIn = (): void => {
@@ -50,12 +93,24 @@ const Homepage = (): JSX.Element => {
       link to register for a walk-in visit. this might be something a front desk person texts to the individual after getting
       their phone number, or maybe a link the user opens by scanning a QR code made available at the location. 
     */
-
-    const basePath = generatePath(intakeFlowPageRoute.WalkinLandingByLocationName.path, {
-      name: DEFAULT_WALKIN_LOCATION_NAME,
+    const shouldSelectServiceCategory = shouldShowServiceCategorySelectionPage({
+      serviceMode: ServiceMode['in-person'],
+      visitType: 'walk-in',
+      serviceCategories,
     });
 
-    navigate(basePath);
+    if (shouldSelectServiceCategory) {
+      const basePath = generatePath(intakeFlowPageRoute.SelectServiceCategoryWalkin.path, {
+        name: BOOKING_CONFIG.defaultWalkinLocationName!,
+      });
+      navigate(basePath);
+    } else {
+      const basePath = generatePath(intakeFlowPageRoute.WalkinLandingByLocationName.path, {
+        name: BOOKING_CONFIG.defaultWalkinLocationName!,
+      });
+      const code = singleCategoryCodeFor(ServiceMode['in-person'], 'walk-in');
+      navigate(withServiceCategoryParam(basePath, code));
+    }
   };
 
   const handleReturnToCall = (): void => {
@@ -81,21 +136,66 @@ const Homepage = (): JSX.Element => {
   };
 
   const handleInPerson = (): void => {
-    const destination = `${intakeFlowPageRoute.PrebookVisitDynamic.path.replace(
-      `:${BOOKING_SERVICE_MODE_PARAM}`,
-      ServiceMode['in-person']
-    )}?bookingOn=visit-followup-group&scheduleType=group`;
+    const shouldSelectServiceCategory = shouldShowServiceCategorySelectionPage({
+      serviceMode: ServiceMode['in-person'],
+      visitType: 'prebook',
+      serviceCategories,
+    });
+    let destination = '';
+    if (shouldSelectServiceCategory) {
+      destination = intakeFlowPageRoute.SelectServiceCategory.path.replace(
+        `:${BOOKING_SERVICE_MODE_PARAM}`,
+        ServiceMode['in-person']
+      );
+    } else {
+      destination = intakeFlowPageRoute.PrebookVisitDynamic.path.replace(
+        `:${BOOKING_SERVICE_MODE_PARAM}`,
+        ServiceMode['in-person']
+      );
+    }
+
+    destination += resolvePrebookInPersonPathQueryParams();
+    if (!shouldSelectServiceCategory) {
+      const code = singleCategoryCodeFor(ServiceMode['in-person'], 'prebook');
+      destination = withServiceCategoryParam(destination, code);
+    }
     navigate(destination);
   };
 
   const handleScheduleVirtual = (): void => {
-    navigate(
-      intakeFlowPageRoute.PrebookVisitDynamic.path.replace(`:${BOOKING_SERVICE_MODE_PARAM}`, ServiceMode['virtual'])
-    );
+    const shouldSelectServiceCategory = shouldShowServiceCategorySelectionPage({
+      serviceMode: ServiceMode.virtual,
+      visitType: 'prebook',
+      serviceCategories,
+    });
+    if (shouldSelectServiceCategory) {
+      navigate(
+        intakeFlowPageRoute.SelectServiceCategory.path.replace(`:${BOOKING_SERVICE_MODE_PARAM}`, ServiceMode['virtual'])
+      );
+    } else {
+      const code = singleCategoryCodeFor(ServiceMode.virtual, 'prebook');
+      const path = intakeFlowPageRoute.PrebookVisitDynamic.path.replace(
+        `:${BOOKING_SERVICE_MODE_PARAM}`,
+        ServiceMode['virtual']
+      );
+      navigate(withServiceCategoryParam(path, code));
+    }
   };
 
+  const { homepageOptions } = BOOKING_CONFIG;
+  const showScheduleVirtualOption = homepageOptions.some((opt) => opt.id === HomepageOptions.ScheduleVirtualVisit);
+  const showStartVirtualOption = homepageOptions.some((opt) => opt.id === HomepageOptions.StartVirtualVisit);
+  const showScheduleInPersonOption = homepageOptions.some((opt) => opt.id === HomepageOptions.ScheduleInPersonVisit);
+  const showStartInPersonOption = homepageOptions.some((opt) => opt.id === HomepageOptions.StartInPersonVisit);
+
+  // Get labels from config
+  const scheduleVirtualLabel = homepageOptions.find((opt) => opt.id === HomepageOptions.ScheduleVirtualVisit)?.label;
+  const startVirtualLabel = homepageOptions.find((opt) => opt.id === HomepageOptions.StartVirtualVisit)?.label;
+  const scheduleInPersonLabel = homepageOptions.find((opt) => opt.id === HomepageOptions.ScheduleInPersonVisit)?.label;
+  const startInPersonLabel = homepageOptions.find((opt) => opt.id === HomepageOptions.StartInPersonVisit)?.label;
+
   return (
-    <CustomContainer title={`Welcome to ${PROJECT_NAME}`} description="" isFirstPage={true}>
+    <CustomContainer title={getWelcomeTitle()} description="" isFirstPage={true}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {isAppointmentsFetching ? (
           <Skeleton
@@ -107,77 +207,79 @@ const Homepage = (): JSX.Element => {
             }}
           />
         ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {activeAppointment && (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-start' }}>
-                <HomepageOption
-                  title={isAppointmentStatusProposed ? 'Continue Virtual Visit Request' : 'Return to Call'}
-                  icon={<VideoCameraFrontOutlinedIcon />}
-                  handleClick={isAppointmentStatusProposed ? handleContinueRequest : handleReturnToCall}
-                  subSlot={
-                    isAppointmentStatusProposed ? undefined : (
-                      <Typography
-                        variant="overline"
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'center',
-                          backgroundColor: '#FFD271',
-                          color: '#A67100',
-                          borderRadius: 1,
-                          px: 1,
-                        }}
-                      >
-                        Active call
-                      </Typography>
-                    )
-                  }
-                />
-                {isAppointmentStatusProposed && (
-                  <Button onClick={() => setCancelVisitDialogOpen(true)} startIcon={<CloseIcon />}>
-                    Cancel this request
-                  </Button>
-                )}
-              </Box>
-            )}
-
-            {/*{!isAppointmentStatusReady && (*/}
-            {/*  <HomepageOption title="Request a Virtual Visit" icon={requestVisit} handleClick={handleRequestVisit} />*/}
-            {/*)}*/}
-
-            <HomepageOption
-              title="Schedule a Virtual Visit"
-              icon={<VideoCameraFrontOutlinedIcon />}
-              handleClick={handleScheduleVirtual}
-              dataTestId={dataTestIds.scheduleVirtualVisitButton}
-            />
-            <HomepageOption
-              title="Schedule an In-Person Visit"
-              icon={<LocalHospitalOutlinedIcon />}
-              handleClick={handleInPerson}
-              dataTestId={dataTestIds.scheduleInPersonVisitButton}
-            />
-            <HomepageOption
-              title="Virtual Visit Check-In"
-              icon={<VideoCameraFrontOutlinedIcon />}
-              handleClick={handleRequestVisit}
-              dataTestId={dataTestIds.startVirtualVisitButton}
-            />
-
-            <HomepageOption
-              title="In-Person Check-In"
-              icon={<LocalHospitalOutlinedIcon />}
-              handleClick={handleWalkIn}
-              dataTestId={dataTestIds.startInPersonVisitButton}
-            />
-            <HomepageOption
-              title="Past Visits"
-              icon={pastVisits}
-              handleClick={handlePastVisits}
-              subtitle="School/Work Notes and Prescriptions"
-              dataTestId={dataTestIds.navigatePastVisitsButton}
-            />
-          </Box>
+          activeAppointment && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-start' }}>
+              <HomepageOption
+                title={isAppointmentStatusProposed ? 'Continue Virtual Visit Request' : 'Return to Call'}
+                icon={<VideoCameraFrontOutlinedIcon />}
+                handleClick={isAppointmentStatusProposed ? handleContinueRequest : handleReturnToCall}
+                subSlot={
+                  isAppointmentStatusProposed ? undefined : (
+                    <Typography
+                      variant="overline"
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        backgroundColor: '#FFD271',
+                        color: '#A67100',
+                        borderRadius: 1,
+                        px: 1,
+                      }}
+                    >
+                      Active call
+                    </Typography>
+                  )
+                }
+              />
+              {isAppointmentStatusProposed && (
+                <Button onClick={() => setCancelVisitDialogOpen(true)} startIcon={<CloseIcon />}>
+                  Cancel this request
+                </Button>
+              )}
+            </Box>
+          )
         )}
+
+        {showScheduleVirtualOption ? (
+          <HomepageOption
+            title={scheduleVirtualLabel ?? 'Schedule a Virtual Visit'}
+            icon={<VideoCameraFrontOutlinedIcon />}
+            handleClick={handleScheduleVirtual}
+            dataTestId={dataTestIds.scheduleVirtualVisitButton}
+          />
+        ) : null}
+        {showScheduleInPersonOption ? (
+          <HomepageOption
+            title={scheduleInPersonLabel ?? 'Schedule an In-Person Visit'}
+            icon={<LocalHospitalOutlinedIcon />}
+            handleClick={handleInPerson}
+            dataTestId={dataTestIds.scheduleInPersonVisitButton}
+          />
+        ) : null}
+        {showStartVirtualOption ? (
+          <HomepageOption
+            title={startVirtualLabel ?? 'Virtual Visit Check-In'}
+            icon={<VideoCameraFrontOutlinedIcon />}
+            handleClick={handleRequestVisit}
+            dataTestId={dataTestIds.startVirtualVisitButton}
+          />
+        ) : null}
+
+        {showStartInPersonOption ? (
+          <HomepageOption
+            title={startInPersonLabel ?? 'In-Person Check-In'}
+            icon={<LocalHospitalOutlinedIcon />}
+            handleClick={handleWalkIn}
+            dataTestId={dataTestIds.startInPersonVisitButton}
+          />
+        ) : null}
+        <HomepageOption
+          title="Past Visits"
+          icon={<MedicalInformationOutlinedIcon />}
+          handleClick={handlePastVisits}
+          subtitle="School/Work Notes and Prescriptions"
+          dataTestId={dataTestIds.navigatePastVisitsButton}
+        />
 
         <HomepageOption
           title="Contact Support"
@@ -197,6 +299,13 @@ const Homepage = (): JSX.Element => {
       ) : null}
     </CustomContainer>
   );
+};
+
+const resolvePrebookInPersonPathQueryParams = (): string => {
+  if (!BOOKING_CONFIG.inPersonPrebookRoutingParams?.length) {
+    return '';
+  }
+  return '?' + BOOKING_CONFIG.inPersonPrebookRoutingParams.map((param) => `${param.key}=${param.value}`).join('&');
 };
 
 export default Homepage;

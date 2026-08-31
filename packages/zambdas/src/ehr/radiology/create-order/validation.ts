@@ -1,15 +1,21 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter } from 'fhir/r4b';
-import { CODE_SYSTEM_ICD_10, getSecret, Secrets, SecretsKeys } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { Secrets } from 'utils/lib/secrets';
+import {
+  CreateRadiologyZambdaOrderInputSchema,
+  RADIOLOGY_SAFETY_FLAGS,
+  RadiologyPerformingOrganization,
+  RadiologySafetyFlag,
+} from 'utils/lib/types/api/radiology';
+import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { validateJsonBody } from '../../../shared/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
 import { EnhancedBody, ValidatedCPTCode, ValidatedICD10Code, ValidatedInput } from '.';
 
-export const validateInput = async (
-  input: ZambdaInput,
-  secrets: Secrets,
-  oystehr: Oystehr
-): Promise<ValidatedInput> => {
-  const validatedBody = await validateBody(input, secrets, oystehr);
+export const validateInput = async (input: ZambdaInput, oystehr: Oystehr): Promise<ValidatedInput> => {
+  const validatedBody = await validateBody(input, oystehr);
 
   const callerAccessToken = input.headers.Authorization.replace('Bearer ', '');
   if (callerAccessToken == null) {
@@ -22,32 +28,91 @@ export const validateInput = async (
   };
 };
 
-const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oystehr): Promise<EnhancedBody> => {
-  const { diagnosisCode, cptCode, encounterId, stat, clinicalHistory } = validateJsonBody(input);
+const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<EnhancedBody> => {
+  // Schema validates shape; terminology lookups, encounter existence, and the in-house
+  // clinical-history rule are business checks that run below.
+  const {
+    diagnosisCodes,
+    cptCode,
+    lateralityModifier,
+    encounterId,
+    stat,
+    clinicalHistory,
+    studyName,
+    consentObtained,
+    external,
+    performingOrganization,
+    timeWindow,
+    safetyFlags,
+  } = safeValidate(CreateRadiologyZambdaOrderInputSchema, validateJsonBody(input));
 
-  const diagnosis = await validateICD10Code(diagnosisCode, secrets);
-  const cpt = await validateCPTCode(cptCode, secrets);
+  const isExternal = external === true;
+
+  const diagnoses = await validateICD10Codes(diagnosisCodes, oystehr);
+  const cpt = await validateCPTCode(cptCode, oystehr);
   const encounter = await fetchEncounter(encounterId, oystehr);
 
-  if (typeof stat !== 'boolean') {
-    throw new Error('Stat is required and must be a boolean');
-  }
+  const trimmedClinicalHistory = clinicalHistory?.trim() ?? '';
 
-  if (!clinicalHistory || typeof clinicalHistory !== 'string') {
+  // Clinical history is required for in-house orders, optional for external ones.
+  if (!isExternal && !trimmedClinicalHistory) {
     throw new Error('Clinical history is required and must be a string');
   }
 
-  if (clinicalHistory.length > 255) {
-    throw new Error('Clinical history must be 255 characters or less');
-  }
-
   return {
-    diagnosis,
+    diagnoses,
     cpt,
+    lateralityModifier,
     encounter,
     stat,
-    clinicalHistory,
+    clinicalHistory: trimmedClinicalHistory,
+    studyName: studyName?.trim() || undefined,
+    consentObtained,
+    external: isExternal,
+    performingOrganization: validatePerformingOrganization(performingOrganization),
+    timeWindow: timeWindow?.trim() || undefined,
+    safetyFlags: validateSafetyFlags(safetyFlags),
   };
+};
+
+export const validatePerformingOrganization = (value: unknown): RadiologyPerformingOrganization | undefined => {
+  if (value == null) {
+    return undefined;
+  }
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw INVALID_INPUT_ERROR('performingOrganization must be an object');
+  }
+  const { name, address, phone, fax } = value as Record<string, unknown>;
+  for (const [key, field] of Object.entries({ name, address, phone, fax })) {
+    if (field != null && typeof field !== 'string') {
+      throw INVALID_INPUT_ERROR(`performingOrganization.${key} must be a string`);
+    }
+  }
+  const normalize = (field: unknown): string | undefined =>
+    typeof field === 'string' ? field.trim() || undefined : undefined;
+  const org: RadiologyPerformingOrganization = {
+    name: normalize(name),
+    address: normalize(address),
+    phone: normalize(phone),
+    fax: normalize(fax),
+  };
+  // Drop entirely-empty organizations so we don't create an empty contained resource.
+  return org.name || org.address || org.phone || org.fax ? org : undefined;
+};
+
+export const validateSafetyFlags = (value: unknown): RadiologySafetyFlag[] | undefined => {
+  if (value == null) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    throw INVALID_INPUT_ERROR('safetyFlags must be an array');
+  }
+  for (const flag of value) {
+    if (!RADIOLOGY_SAFETY_FLAGS.includes(flag as RadiologySafetyFlag)) {
+      throw INVALID_INPUT_ERROR(`Invalid safety flag: ${String(flag)}`);
+    }
+  }
+  return value.length > 0 ? (value as RadiologySafetyFlag[]) : undefined;
 };
 
 export const validateSecrets = (secrets: Secrets | null): Secrets => {
@@ -62,20 +127,21 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     AUTH0_CLIENT,
     AUTH0_SECRET,
     AUTH0_AUDIENCE,
-    NLM_API_KEY,
     FHIR_API,
     PROJECT_API,
+    ENVIRONMENT,
   } = secrets;
+  // ADVAPACS_* are intentionally NOT required here: external (print-only) orders never transmit to
+  // AdvaPACS. In-house orders that need it will fail later in writeAdvaPacsTransaction (and roll back)
+  // if the creds are absent — same effective behavior as before, but without blocking external orders.
   if (
-    !ADVAPACS_CLIENT_ID ||
-    !ADVAPACS_CLIENT_SECRET ||
     !AUTH0_ENDPOINT ||
     !AUTH0_CLIENT ||
     !AUTH0_SECRET ||
     !AUTH0_AUDIENCE ||
-    !NLM_API_KEY ||
     !FHIR_API ||
-    !PROJECT_API
+    !PROJECT_API ||
+    !ENVIRONMENT
   ) {
     throw new Error('Missing required secrets');
   }
@@ -86,63 +152,61 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     AUTH0_CLIENT,
     AUTH0_SECRET,
     AUTH0_AUDIENCE,
-    NLM_API_KEY,
     FHIR_API,
     PROJECT_API,
+    ENVIRONMENT,
   };
 };
 
-const validateICD10Code = async (diagnosisCode: unknown, secrets: Secrets): Promise<ValidatedICD10Code> => {
-  let icdResponseBody: {
-    pageSize: number;
-    pageNumber: number;
-    result: {
-      results: {
-        ui: string;
-        name: string;
-      }[];
-      recCount: number;
-    };
-  } | null = null;
-
-  // The shortest length ICD-10 code is A00, which represents Cholera.
-  if (diagnosisCode == null || typeof diagnosisCode !== 'string' || diagnosisCode.length < 3) {
-    throw new Error('diagnosisCode is required and must be a string of length 3 or more');
+export const validateICD10Codes = async (diagnosisCodes: unknown, oystehr: Oystehr): Promise<ValidatedICD10Code[]> => {
+  // Diagnosis is optional at order time — an absent list yields no diagnoses. Callers that require
+  // at least one diagnosis (e.g. saving a preliminary read) enforce that before calling this helper.
+  if (diagnosisCodes == null) {
+    return [];
   }
 
-  try {
-    const apiKey = getSecret(SecretsKeys.NLM_API_KEY, secrets);
+  if (!Array.isArray(diagnosisCodes)) {
+    throw INVALID_INPUT_ERROR('diagnosisCodes must be an array');
+  }
 
-    const icdResponse = await fetch(
-      `https://uts-ws.nlm.nih.gov/rest/search/current?apiKey=${apiKey}&pageSize=50&returnIdType=code&inputType=sourceUi&string=${diagnosisCode}&sabs=ICD10CM&searchType=exact`
-    );
-    if (!icdResponse.ok) {
-      throw new Error(icdResponse.statusText);
-    }
-    icdResponseBody = (await icdResponse.json()) as {
-      pageSize: number;
-      pageNumber: number;
-      result: {
-        results: {
-          ui: string;
-          name: string;
-        }[];
-        recCount: number;
-      };
-    };
+  // Validate each code sequentially so terminology lookups don't hammer the service in parallel
+  const diagnoses: ValidatedICD10Code[] = [];
+  for (const diagnosisCode of diagnosisCodes) {
+    diagnoses.push(await validateICD10Code(diagnosisCode, oystehr));
+  }
+  return diagnoses;
+};
+
+const validateICD10Code = async (diagnosisCode: unknown, oystehr: Oystehr): Promise<ValidatedICD10Code> => {
+  // validate diagnosisCode is a string
+  if (diagnosisCode == null) {
+    throw MISSING_REQUIRED_PARAMETERS(['diagnosisCode']);
+  }
+
+  if (typeof diagnosisCode !== 'string') {
+    throw INVALID_INPUT_ERROR('diagnosisCode must be a string');
+  }
+
+  let terminologyResponse;
+  try {
+    terminologyResponse = await oystehr.terminology.searchIcd10({
+      searchType: 'code',
+      strictMatch: true,
+      query: diagnosisCode,
+    });
   } catch {
     throw new Error('Error while trying to validate ICD-10 code');
   }
 
-  if (icdResponseBody.result.recCount < 1) {
-    throw new Error('ICD-10 code is invalid');
-  } else if (icdResponseBody.result.recCount > 1) {
-    throw new Error('ICD-10 code is ambiguous');
+  if (terminologyResponse.codes.length < 1) {
+    throw INVALID_INPUT_ERROR('ICD-10 code is invalid');
+  } else if (terminologyResponse.codes.length > 1) {
+    throw INVALID_INPUT_ERROR('ICD-10 code is ambiguous');
   }
 
   const dx = {
     code: diagnosisCode,
-    display: icdResponseBody.result.results[0].name,
+    display: terminologyResponse.codes[0].display,
     system: CODE_SYSTEM_ICD_10,
   };
 
@@ -151,58 +215,37 @@ const validateICD10Code = async (diagnosisCode: unknown, secrets: Secrets): Prom
   return dx;
 };
 
-const validateCPTCode = async (cptCode: unknown, secrets: Secrets): Promise<ValidatedCPTCode> => {
-  let cptResponseBody: {
-    pageSize: number;
-    pageNumber: number;
-    result: {
-      results: {
-        ui: string;
-        name: string;
-      }[];
-      recCount: number;
-    };
-  } | null = null;
-
+export const validateCPTCode = async (cptCode: unknown, oystehr: Oystehr): Promise<ValidatedCPTCode> => {
   // CPT codes are at least 5 digits long
-  if (cptCode == null || typeof cptCode !== 'string' || cptCode.length < 5) {
-    throw new Error('cptCode is required and must be a string of length 5 or more');
+  if (cptCode == null) {
+    throw MISSING_REQUIRED_PARAMETERS(['cptCode']);
   }
 
-  try {
-    const apiKey = getSecret(SecretsKeys.NLM_API_KEY, secrets);
+  if (typeof cptCode !== 'string' || cptCode.length < 5) {
+    throw INVALID_INPUT_ERROR('cptCode must be a string of at least 5 characters');
+  }
 
-    const icdResponse = await fetch(
-      `https://uts-ws.nlm.nih.gov/rest/search/current?apiKey=${apiKey}&pageSize=50&returnIdType=code&inputType=sourceUi&string=${cptCode}&sabs=CPT&searchType=exact`
-    );
-    if (!icdResponse.ok) {
-      throw new Error(icdResponse.statusText);
-    }
-    cptResponseBody = (await icdResponse.json()) as {
-      pageSize: number;
-      pageNumber: number;
-      result: {
-        results: {
-          ui: string;
-          name: string;
-        }[];
-        recCount: number;
-      };
-    };
+  let terminologyResponse;
+  try {
+    terminologyResponse = await oystehr.terminology.searchCpt({
+      searchType: 'code',
+      strictMatch: true,
+      query: cptCode,
+    });
   } catch {
     throw new Error('Error while trying to validate CPT code');
   }
 
-  if (cptResponseBody.result.recCount < 1) {
-    throw new Error('CPT code is invalid');
-  } else if (cptResponseBody.result.recCount > 1) {
-    throw new Error('CPT code is ambiguous');
+  if (terminologyResponse.codes.length < 1) {
+    throw INVALID_INPUT_ERROR('CPT code is invalid');
+  } else if (terminologyResponse.codes.length > 1) {
+    throw INVALID_INPUT_ERROR('CPT code is ambiguous');
   }
 
   const cpt = {
     code: cptCode,
-    display: cptResponseBody.result.results[0].name,
-    system: CODE_SYSTEM_ICD_10,
+    display: terminologyResponse.codes[0].display,
+    system: CODE_SYSTEM_CPT,
   };
 
   console.log('CPT code validated:', cpt);

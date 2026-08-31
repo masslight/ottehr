@@ -1,16 +1,15 @@
+// cSpell:ignore alertable
 import { CodeableConcept, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { AlertRule, AlertThreshold, VitalsDef } from '../../ottehr-config/vitals';
 import {
-  AlertRule,
-  AlertThreshold,
   FHIRObservationInterpretation,
   FHIRObservationInterpretationCodesMap,
-  GetVitalsResponseData,
   VitalAlertCriticality,
   VitalFieldNames,
-  VitalsDef,
-  VitalsObservationDTO,
-} from '../../types';
+} from '../../types/api/chart-data/chart-data.constants';
+import { VitalsObservationDTO } from '../../types/api/chart-data/chart-data.types';
+import { GetVitalsResponseData } from '../../types/api/chart-data/get-vitals.types';
 
 export const convertVitalsListToMap = (list: VitalsObservationDTO[]): GetVitalsResponseData => {
   const vitalsMap: Partial<GetVitalsResponseData> = {};
@@ -212,6 +211,10 @@ const findRulesForVitalsKeyAndDOB = (
 ):
   | { type: 'rules'; rules: AlertRule[] }
   | { type: 'components'; components: { [componentName: string]: AlertRule[] } } => {
+  if (key === 'vital-last-menstrual-period' || key === 'vital-bmi') {
+    return { type: 'rules', rules: [] };
+  }
+
   const dateOfBirth = DateTime.fromISO(dob);
   const now = DateTime.now();
   const alertThresholds: AlertThreshold[] = VitalsDef(configOverride)[key]?.alertThresholds ?? [];
@@ -237,16 +240,16 @@ const getRulesForPatientDOB = (
   const rules = alertThresholds
     .filter((threshold) => {
       const { minAge, maxAge } = threshold;
-      if (!minAge && !maxAge) return true;
+      let inRange = true;
       if (minAge) {
-        const minAgeDOB = now.minus({ [minAge.unit]: minAge.value });
-        if (dateOfBirth > minAgeDOB) return false;
+        const patientAge = now.diff(dateOfBirth, minAge.unit)[minAge.unit];
+        inRange &&= patientAge >= minAge.value;
       }
       if (maxAge) {
-        const maxAgeDOB = now.minus({ [maxAge.unit]: maxAge.value });
-        if (dateOfBirth < maxAgeDOB) return false;
+        const patientAge = now.diff(dateOfBirth, maxAge.unit)[maxAge.unit];
+        inRange &&= patientAge < maxAge.value;
       }
-      return true;
+      return inRange;
     })
     .flatMap((threshold) => threshold.rules ?? []);
   return rules;
@@ -262,10 +265,13 @@ interface AlertableValuesInput {
 
 const getAlertLevels = (input: AlertableValuesInput): FHIRObservationInterpretation[] => {
   const { observation, rules, patientAgeInMonths, patientSex, componentName } = input;
-  let value: number | undefined = observation.value;
+  if (observation.field === VitalFieldNames.VitalLastMenstrualPeriod) {
+    return [];
+  }
   if (observation.field === VitalFieldNames.VitalVision) {
     return [];
   }
+  let value: number | undefined = observation.value;
   if (observation.field === VitalFieldNames.VitalBloodPressure) {
     // do a blood pressure-specific check on components
     if (componentName === 'systolic-pressure') {
@@ -331,7 +337,7 @@ const getAlertLevel = (input: EvalRuleProps): FHIRObservationInterpretation => {
 
   const ruleCriticality = rule.criticality;
   if (rule.type === 'min') {
-    if (value < thresholdValue) {
+    if (value <= thresholdValue) {
       if (ruleCriticality === VitalAlertCriticality.Critical) {
         return FHIRObservationInterpretation.CriticalLow;
       }
@@ -341,7 +347,7 @@ const getAlertLevel = (input: EvalRuleProps): FHIRObservationInterpretation => {
     }
   }
   if (rule.type === 'max') {
-    if (value > thresholdValue) {
+    if (value >= thresholdValue) {
       if (ruleCriticality === VitalAlertCriticality.Critical) {
         return FHIRObservationInterpretation.CriticalHigh;
       }
@@ -351,4 +357,12 @@ const getAlertLevel = (input: EvalRuleProps): FHIRObservationInterpretation => {
     }
   }
   return FHIRObservationInterpretation.Normal;
+};
+
+export const getAbnormalVitals = (encounterVitals?: GetVitalsResponseData): GetVitalsResponseData => {
+  const entries = Object.entries(encounterVitals || {})
+    .map(([key, values]) => (Array.isArray(values) ? [key, values.filter((v) => !!v.alertCriticality)] : [key, []]))
+    .filter(([, values]) => values.length > 0);
+
+  return Object.fromEntries(entries);
 };

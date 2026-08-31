@@ -1,48 +1,26 @@
-import Oystehr, { BatchInputPostRequest, Bundle } from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Operation } from 'fast-json-patch';
+import { Appointment, Coding, Encounter, Location, Observation, Patient, Questionnaire, Task } from 'fhir/r4b';
+import { FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG } from 'utils/lib/fhir/constants';
+import { getCanonicalQuestionnaire, isOttehrManagedIntakeQuestionnaire } from 'utils/lib/fhir/questionnaires';
+import { getPatchOperationsForNewMetaTags } from 'utils/lib/fhir/resourcePatch';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { ADDITIONAL_QUESTIONS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { TaskIndicator } from 'utils/lib/types/common';
 import {
-  Appointment,
-  DocumentReference,
-  Encounter,
-  FhirResource,
-  List,
-  Location,
-  Observation,
-  Patient,
-  QuestionnaireResponseItem,
-} from 'fhir/r4b';
-import {
-  ADDITIONAL_QUESTIONS_META_SYSTEM,
-  checkBundleOutcomeOk,
-  FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
-  flattenIntakeQuestionnaireItems,
-  getRelatedPersonForPatient,
-  getSecret,
-  IntakeQuestionnaireItem,
-  SecretsKeys,
-} from 'utils';
-import {
-  createConsentResources,
-  createDocumentResources,
-  createErxContactOperation,
-  createMasterRecordPatchOperations,
   flagPaperworkEdit,
   getAccountAndCoverageResourcesForPatient,
-  updatePatientAccountFromQuestionnaire,
   updateStripeCustomer,
 } from '../../../ehr/shared/harvest';
 import { getStripeClient } from '../../../patient/payment-methods/helpers';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  makeObservationResource,
-  saveResourceRequest,
-  topLevelCatch,
-  triggerSlackAlarm,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { makeObservationResource } from '../../../shared/chart-data';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { triggerSlackAlarm } from '../../../shared/lambda';
+import { saveResourceRequest } from '../../../shared/resources.helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { createAdditionalQuestions } from '../../appointment/appointment-chart-data-prefilling/helpers';
 import { QRSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
 
@@ -51,41 +29,94 @@ let oystehrToken: string;
 export const index = wrapHandler('sub-intake-harvest', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log('Intake Harvest Hath Been Invoked');
   console.log(`Input: ${JSON.stringify(input)}`);
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const { qr, secrets } = validatedParameters;
-    console.log('questionnaire response id', qr.id);
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  const { qr, secrets } = validatedParameters;
+  console.log('questionnaire response id', qr.id);
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
 
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
-    const response = await performEffect(validatedParameters, oystehr);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('qr-subscription', error, ENVIRONMENT);
+  if (!oystehrToken) {
+    console.log('getting token');
+    oystehrToken = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
   }
+
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
+
+  const effectInput = await complexValidation(validatedParameters, oystehr);
+
+  const response = await performEffect(effectInput, oystehr);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
+// validate that this questionnaire is a candidate for sub-intake-harvest
+// with the introduction of flows its, the subscription criteria was broadened
+// this logic will determine if the QuestionnaireResponse that triggered the invocation is actually a candidate
+const complexValidation = async (
+  input: QRSubscriptionInput,
+  oystehr: Oystehr
+): Promise<QRSubscriptionInput | undefined> => {
+  const { qr } = input;
+  const questionnaireUrl = qr.questionnaire;
+
+  if (!questionnaireUrl) return;
+
+  if (isOttehrManagedIntakeQuestionnaire(questionnaireUrl)) return input;
+
+  const [url, version] = questionnaireUrl.split('|');
+  if (!url || !version) return;
+
+  const canonicalUrl = { url, version };
+
+  let questionnaire: Questionnaire | undefined;
+  try {
+    questionnaire = await getCanonicalQuestionnaire(canonicalUrl, oystehr);
+  } catch (e) {
+    // I don't think this should happen but I don't see a reason to error,
+    // we will just treat this case an "un-harvestable" and return undefined
+    console.log(`could not find Questionnaire for ${canonicalUrl.url}|${canonicalUrl.version}`, e);
+    return;
+  }
+
+  // we must check the questionnaire to see if
+  // // 1) there is a derivedFrom attribute and if so
+  // // 2) it is an ottehr managed intake questionnaire
+
+  if (!questionnaire.derivedFrom) return;
+
+  const containsHarvestableQ = questionnaire.derivedFrom.some((q) => isOttehrManagedIntakeQuestionnaire(q));
+  if (!containsHarvestableQ) return;
+
+  return input;
+};
+
 // this is exported to facilitate integration testing
-export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr): Promise<string> => {
+export const performEffect = async (input: QRSubscriptionInput | undefined, oystehr: Oystehr): Promise<string> => {
+  if (!input) return 'No harvesting needed';
+
   const { qr, secrets } = input;
+
+  if (qr.status !== 'completed' && qr.status !== 'amended') {
+    console.log(`Skipping harvest for QR ${qr.id} with status=${qr.status}`);
+    return `skipped: status=${qr.status}`;
+  }
+
+  // Page-level harvesting (patient record, account/coverage, documents, consent)
+  // is now handled incrementally by the sub-harvest-paperwork-page Task subscription.
+  // This subscription handles finalization operations that run after the full QR
+  // reaches completed/amended status.
+
   const tasksFailed: string[] = [];
 
-  console.time('querying for resources to support qr harvest');
+  console.time('querying for resources to support qr harvest finalization');
   const resources = (
-    await oystehr.fhir.search<Encounter | Patient | Appointment | Location | List | DocumentReference>({
+    await oystehr.fhir.search<Encounter | Patient | Appointment | Location>({
       resourceType: 'Encounter',
       params: [
         {
@@ -104,145 +135,65 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
           name: '_include:iterate',
           value: 'Appointment:location',
         },
-        {
-          name: '_revinclude:iterate',
-          value: 'List:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'DocumentReference:patient',
-        },
       ],
     })
   ).unbundle();
-  console.timeEnd('querying for resources to support qr harvest');
+  console.timeEnd('querying for resources to support qr harvest finalization');
 
   const encounterResource = resources.find((res) => res.resourceType === 'Encounter') as Encounter | undefined;
   const patientResource = resources.find((res) => res.resourceType === 'Patient') as Patient | undefined;
-  const listResources = resources.filter((res) => res.resourceType === 'List') as List[];
-  const documentReferenceResources = resources.filter(
-    (res) => res.resourceType === 'DocumentReference'
-  ) as DocumentReference[];
-  const locationResource = resources.find((res) => res.resourceType === 'Location') as Location | undefined;
   const appointmentResource = resources.find((res) => res.resourceType === 'Appointment') as Appointment | undefined;
-
-  const paperwork = qr.item ?? [];
-  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
-    paperwork as IntakeQuestionnaireItem[]
-  ) as QuestionnaireResponseItem[];
 
   if (patientResource === undefined || patientResource.id === undefined) {
     throw new Error('Patient resource not found');
   }
 
-  console.log('creating patch operations');
-  const patientPatchOps = createMasterRecordPatchOperations(qr, patientResource);
-
-  console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
-
-  console.time('patching patient resource');
-  if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
-    try {
-      await oystehr.fhir.patch({
-        resourceType: 'Patient',
-        id: patientResource.id!,
-        operations: patientPatchOps.patient.patchOpsForDirectUpdate,
-      });
-    } catch (error: unknown) {
-      tasksFailed.push('patch patient');
-      console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
-    }
+  if (encounterResource === undefined || encounterResource.id === undefined) {
+    throw new Error('Encounter resource not found');
   }
-  console.timeEnd('patching patient resource');
-
-  // we hold onto this in order to use the updated resources to update the stripe customer name and email
-  let accountBundle: Bundle<FhirResource> | undefined;
-
-  try {
-    accountBundle = (await updatePatientAccountFromQuestionnaire(
-      { patientId: patientResource.id, questionnaireResponseItem: flattenedPaperwork },
-      oystehr
-    )) as Bundle<FhirResource> | undefined;
-  } catch (error: unknown) {
-    tasksFailed.push(`Failed to update Account: ${JSON.stringify(error)}`);
-    console.log(`Failed to update Account: ${JSON.stringify(error)}`);
-  }
-  // if the account update was successful, fetch the latest account resources and update the stripe customer
-  if (accountBundle && checkBundleOutcomeOk(accountBundle)) {
-    try {
-      // refetch the patient account resources
-      const { account: updatedAccount, guarantorResource: updatedGuarantorResource } =
-        await getAccountAndCoverageResourcesForPatient(patientResource.id, oystehr);
-      if (updatedAccount && updatedGuarantorResource) {
-        console.time('updating stripe customer');
-        const stripeClient = getStripeClient(secrets);
-        await updateStripeCustomer({
-          account: updatedAccount,
-          guarantorResource: updatedGuarantorResource,
-          stripeClient,
-        });
-        console.timeEnd('updating stripe customer');
-      } else {
-        console.log('account or guarantor resource missing, skipping stripe customer update');
-      }
-    } catch (error: unknown) {
-      tasksFailed.push('update stripe customer');
-      console.log(`Failed to update stripe customer: ${JSON.stringify(error)}`);
-    }
-  } else {
-    console.log('Account bundle is not ok, skipping update stripe customer');
-  }
-
-  const hipaa = flattenedPaperwork.find((data) => data.linkId === 'hipaa-acknowledgement')?.answer?.[0]?.valueBoolean;
-  const consentToTreat = flattenedPaperwork.find((data) => data.linkId === 'consent-to-treat')?.answer?.[0]
-    ?.valueBoolean;
 
   if (appointmentResource === undefined || appointmentResource.id === undefined) {
     throw new Error('Appointment resource not found');
   }
 
-  // only create the consent resources once when qr goes to completed.
-  // it seems QR is saved twice in rapid succession on submission
-  if (hipaa === true && consentToTreat === true && qr.status === 'completed') {
-    console.time('creating consent resources');
-    try {
-      await createConsentResources({
-        questionnaireResponse: qr,
-        patientResource,
-        locationResource,
-        appointmentId: appointmentResource.id,
-        oystehrAccessToken: oystehrToken,
-        oystehr,
-        secrets,
-        listResources,
-      });
-    } catch (error: unknown) {
-      tasksFailed.push('create consent resources');
-      console.log(`Failed to create consent resources: ${error}`);
-    }
-    console.timeEnd('creating consent resources');
-  }
-
-  console.time('creating insurances cards, condition photo, work school notes resources');
-  try {
-    await createDocumentResources(
-      qr,
-      patientResource.id,
-      appointmentResource.id,
-      oystehr,
-      listResources,
-      documentReferenceResources
+  // Idempotency guard: if the Appointment already carries the harvest-complete tag and the
+  // QR is firing as `completed` (initial completion semantics), this is a duplicate event —
+  // a subscription replay, or integration-test seed data that pre-sets the tag to opt out
+  // of harvest. Skip finalization. Amended QRs still flow through so flagPaperworkEdit
+  // fires below; status=amended is the contract for "paperwork edited after completion".
+  if (qr.status === 'completed' && hasHarvestCompleteTag(appointmentResource)) {
+    console.log(
+      `Skipping harvest for QR ${qr.id}: appointment ${appointmentResource.id} is already tagged ${FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code}`
     );
+    return `skipped: appointment already harvested`;
+  }
+
+  // Wait for page-level harvest Tasks to finish before finalization
+  await waitForPageHarvestTasks(qr.id!, oystehr);
+
+  // ── Stripe customer sync ──────────────────────────────────────────────
+  try {
+    const { account: updatedAccount, guarantorResource: updatedGuarantorResource } =
+      await getAccountAndCoverageResourcesForPatient(patientResource.id, oystehr);
+    if (updatedAccount && updatedGuarantorResource) {
+      console.time('updating stripe customer');
+      const stripeClient = getStripeClient(secrets);
+      await updateStripeCustomer({
+        account: updatedAccount,
+        guarantorResource: updatedGuarantorResource,
+        stripeClient,
+      });
+      console.timeEnd('updating stripe customer');
+    } else {
+      console.log('Stripe customer id, account or guarantor resource missing, skipping stripe customer update');
+    }
   } catch (error: unknown) {
-    tasksFailed.push('create insurances cards, condition photo, work school notes resources');
-    console.log(`Failed to create insurances cards, condition photo, work school notes resources: ${error}`);
-  }
-  console.timeEnd('creating insurances cards, condition photo, work school notes resources');
-
-  if (encounterResource === undefined || encounterResource.id === undefined) {
-    throw new Error('Encounter resource not found');
+    tasksFailed.push('update stripe customer');
+    console.log(`Failed to update stripe customer: ${JSON.stringify(error)}`);
+    captureException(error);
   }
 
+  // ── Paperwork edit flagging ───────────────────────────────────────────
   if (qr.status === 'amended') {
     try {
       console.log('flagging paperwork edit');
@@ -250,47 +201,21 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     } catch (error: unknown) {
       tasksFailed.push('flag paperwork edit');
       console.log(`Failed to update flag paperwork edit: ${error}`);
+      captureException(error);
     }
   }
 
-  console.time('querying for related person for patient self');
-  const relatedPerson = await getRelatedPersonForPatient(patientResource.id, oystehr);
-  console.timeEnd('querying for related person for patient self');
-
-  if (!relatedPerson || !relatedPerson.id) {
-    throw new Error('RelatedPerson for patient is not defined or does not have ID');
-  }
-
-  const patientPatches: Operation[] = [];
-  const erxContactOperation = createErxContactOperation(relatedPerson, patientResource);
-  if (erxContactOperation) patientPatches.push(erxContactOperation);
-  //TODO: remove addDefaultCountryOperation after country selection is supported in paperwork
-  // to improve: this operation will fail if earlier patch operation necessary to insert an address fails
-  const addDefaultCountryOperation: Operation = {
-    op: 'add',
-    path: '/address/0/country',
-    value: 'US',
-  };
-  patientPatches.push(addDefaultCountryOperation);
-  if (patientPatches.length > 0) {
-    try {
-      console.time('patching patient resource');
-      await oystehr.fhir.patch({
-        resourceType: 'Patient',
-        id: patientResource.id,
-        operations: patientPatches,
-      });
-      console.timeEnd('patching patient resource');
-    } catch (error: unknown) {
-      tasksFailed.push(JSON.stringify(error));
-      console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
-    }
-  }
-
+  // ── Additional questions + HARVESTING_COMPLETED tag ───────────────────
+  // todo: this should probably be moved to the page harvest Task subscription, but it is tightly
+  // coupled to some "harvest completed" meta tag so leaving it here for now.
+  // Some day it will be worth asking why we need a harvesting completed tag on the appointment at all
+  // when we have the questionnaire response status, but again leaving that for another day.
   try {
-    // Additional questions chart data resource prefilling
     const additionalQuestions = createAdditionalQuestions(qr);
-    const saveOrUpdateChartDataResourceRequests: BatchInputPostRequest<Observation>[] = [];
+    const saveOrUpdateChartDataResourceRequests: (
+      | BatchInputPostRequest<Observation>
+      | BatchInputPatchRequest<Appointment>
+    )[] = [];
 
     additionalQuestions.forEach((observation) => {
       console.log('additionalQuestion: ', JSON.stringify(observation));
@@ -300,31 +225,31 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
             encounterResource.id!,
             patientResource.id!,
             '',
+            undefined,
             observation,
             ADDITIONAL_QUESTIONS_META_SYSTEM
           )
         )
       );
     });
-    await oystehr.fhir.batch({
+
+    // Add HARVESTING_COMPLETED tag in the same batch transaction
+    // This ensures the tag is only set after all resources are created and indexed
+    const newTags: Coding[] = [FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG];
+    const patchOps = getPatchOperationsForNewMetaTags(appointmentResource, newTags);
+    saveOrUpdateChartDataResourceRequests.push({
+      method: 'PATCH',
+      url: `Appointment/${appointmentResource.id}`,
+      operations: patchOps,
+    });
+
+    await oystehr.fhir.batch<Observation | Appointment>({
       requests: saveOrUpdateChartDataResourceRequests,
     });
   } catch (error: unknown) {
-    tasksFailed.push('create additional questions chart data resource', JSON.stringify(error));
-    console.log(`Failed to create additional questions chart data resource: ${error}`);
-  }
-
-  try {
-    console.time('Patching appointment resource tag');
-    await oystehr.fhir.patch({
-      resourceType: 'Appointment',
-      id: appointmentResource.id,
-      operations: [{ op: 'add', path: '/meta/tag/-', value: FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG }],
-    });
-    console.timeEnd('Patching appointment resource tag');
-  } catch (error: unknown) {
-    tasksFailed.push('patch appointment resource tag failed', JSON.stringify(error));
-    console.log(`Failed to patch appointment resource tag: ${JSON.stringify(error)}`);
+    tasksFailed.push('create additional questions chart data resource or patch appointment tag', JSON.stringify(error));
+    console.log(`Failed to create additional questions chart data resource or patch appointment tag: ${error}`);
+    captureException(error);
   }
 
   const response = tasksFailed.length
@@ -338,10 +263,54 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   if (tasksFailed.length && ENVIRONMENT !== 'local') {
     await triggerSlackAlarm(
-      `Alert in ${ENVIRONMENT} zambda qr-subscription.\n\nOne or more harvest paperwork tasks failed for QR ${qr.id}:\n\n${tasksFailed}`,
+      `Alert in ${ENVIRONMENT} zambda qr-subscription.\n\nOne or more harvest finalization tasks failed for QR ${qr.id}:\n\n${tasksFailed}`,
       secrets
     );
   }
 
   return response;
 };
+
+// Exported for unit-testing. Returns true iff the Appointment carries the meta tag
+// (system + code) that this subscription sets at the end of a successful finalization.
+export const hasHarvestCompleteTag = (appointment: Appointment): boolean => {
+  return (
+    appointment.meta?.tag?.some(
+      (tag) =>
+        tag.system === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.system &&
+        tag.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code
+    ) ?? false
+  );
+};
+
+async function waitForPageHarvestTasks(qrId: string, oystehr: Oystehr): Promise<void> {
+  const maxAttempts = 30;
+  const delayMs = 2_000;
+
+  for (let i = 0; i < maxAttempts; i++) {
+    const activeTasks = (
+      await oystehr.fhir.search<Task>({
+        resourceType: 'Task',
+        params: [
+          { name: 'code', value: `${TaskIndicator.harvestPaperwork.system}|${TaskIndicator.harvestPaperwork.code}` },
+          { name: 'focus', value: `QuestionnaireResponse/${qrId}` },
+          { name: 'status', value: 'requested,in-progress' },
+        ],
+      })
+    ).unbundle();
+
+    if (activeTasks.length === 0) {
+      console.log(`All page harvest tasks complete for QR ${qrId} (after ${i} polls)`);
+      return;
+    }
+
+    console.log(`Waiting for ${activeTasks.length} page harvest task(s) for QR ${qrId}...`);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+
+  console.warn(
+    `Timed out waiting for page harvest tasks for QR ${qrId} after ${
+      (maxAttempts * delayMs) / 1000
+    }s — proceeding with finalization`
+  );
+}

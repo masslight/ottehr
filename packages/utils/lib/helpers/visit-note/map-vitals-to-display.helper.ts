@@ -1,17 +1,26 @@
+import { DateTime } from 'luxon';
+import { vitalsConfig } from '../../ottehr-config/vitals';
+import { VitalFieldNames } from '../../types/api/chart-data/chart-data.constants';
 import {
-  VitalFieldNames,
   VitalsBloodPressureObservationDTO,
+  VitalsBMIObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
+  VitalsLastMenstrualPeriodObservationDTO,
   VitalsObservationDTO,
   VitalsOxygenSatObservationDTO,
   VitalsRespirationRateObservationDTO,
   VitalsTemperatureObservationDTO,
   VitalsVisionObservationDTO,
   VitalsWeightObservationDTO,
-} from '../../types';
-import { formatDateTimeToZone } from '../../utils';
-import { cmToInches, getVisionExtraOptionsFormattedString, kgToLbs, VitalsVisitNoteData } from '../vitals';
+} from '../../types/api/chart-data/chart-data.types';
+import { formatDateTimeToZone } from '../../utils/date';
+import { formatBMIWithUnit } from '../vitals/vitals-bmi.helper';
+import { formatHeightObservationValue } from '../vitals/vitals-height.helper';
+import { celsiusToFahrenheit } from '../vitals/vitals-temperature.helper';
+import { getDotVisionScreeningLines, getVisionExtraOptionsFormattedString } from '../vitals/vitals-vision.helper';
+import { VitalsVisitNoteData } from '../vitals/vitals-visit-note-data.types';
+import { formatWeightKg, formatWeightLbs } from '../vitals/vitals-weight.helper';
 
 export const mapVitalsToDisplay = (
   vitalsObservations: VitalsObservationDTO[],
@@ -27,7 +36,9 @@ export const mapVitalsToDisplay = (
     switch (field) {
       case VitalFieldNames.VitalTemperature:
         parsed = observation as VitalsTemperatureObservationDTO;
-        text = `${parsed.value} C ${parsed.observationMethod ? ` (${parsed.observationMethod})` : ''}`;
+        text = `${parsed.value} C ≈ ${celsiusToFahrenheit(parsed.value).toFixed(1)} F ${
+          parsed.observationMethod ? ` (${parsed.observationMethod})` : ''
+        }`;
         break;
       case VitalFieldNames.VitalHeartbeat:
         parsed = observation as VitalsHeartbeatObservationDTO;
@@ -47,22 +58,61 @@ export const mapVitalsToDisplay = (
         parsed = observation as VitalsOxygenSatObservationDTO;
         text = `${parsed.value}%${parsed.observationMethod ? ` (${parsed.observationMethod})` : ''}`;
         break;
-      case VitalFieldNames.VitalWeight:
+      case VitalFieldNames.VitalWeight: {
         parsed = observation as VitalsWeightObservationDTO;
-        text = `${parsed.value} kg / ${kgToLbs(parsed.value)} lbs`;
+        if (parsed.extraWeightOptions?.includes('patient_refused')) {
+          text = 'Patient Refused';
+          break;
+        }
+        if (parsed.value) {
+          const kgStr = formatWeightKg(parsed.value) + ' kg';
+          const lbsStr = formatWeightLbs(parsed.value) + ' lbs';
+          if (vitalsConfig['vital-weight'].unit === 'kg') {
+            text = `${kgStr} ≈ ${lbsStr}`;
+          } else {
+            text = `${lbsStr} ≈ ${kgStr}`;
+          }
+        }
         break;
+      }
       case VitalFieldNames.VitalHeight:
         parsed = observation as VitalsHeightObservationDTO;
-        text = `${parsed.value} cm / ${cmToInches(parsed.value)} inch`;
+        text = formatHeightObservationValue(parsed.value);
         break;
-      case VitalFieldNames.VitalVision:
+      case VitalFieldNames.VitalBMI:
+        parsed = observation as VitalsBMIObservationDTO;
+        text = formatBMIWithUnit(parsed.value);
+        break;
+      case VitalFieldNames.VitalVision: {
         parsed = observation as VitalsVisionObservationDTO;
-        text = `Left eye: ${parsed.leftEyeVisionText}; Right eye: ${parsed.rightEyeVisionText};${
+        const dotLines = getDotVisionScreeningLines(parsed.dotVisionScreening, { includeDocument: true });
+        if (dotLines.length > 0) {
+          // DOT screening entries are stored as their own observation; render the MCSA-5875 layout.
+          text = dotLines.join('\n');
+          break;
+        }
+        const visionParts: string[] = [];
+        if (parsed.leftEyeVisionText) visionParts.push(`Left eye: ${parsed.leftEyeVisionText}`);
+        if (parsed.rightEyeVisionText) visionParts.push(`Right eye: ${parsed.rightEyeVisionText}`);
+        if (parsed.bothEyesVisionText) visionParts.push(`Both eyes: ${parsed.bothEyesVisionText}`);
+        text = `${visionParts.join('; ')};${
           parsed.extraVisionOptions && parsed.extraVisionOptions.length > 0
             ? ` ${getVisionExtraOptionsFormattedString(parsed.extraVisionOptions)}`
             : ''
         }`;
         break;
+      }
+      case VitalFieldNames.VitalLastMenstrualPeriod: {
+        parsed = observation as VitalsLastMenstrualPeriodObservationDTO;
+        if (parsed.value) {
+          const date = DateTime.fromISO(parsed.value);
+          const formattedDate = date.isValid ? date.toFormat('MM/dd/yyyy') : parsed.value;
+          text = `${formattedDate}${parsed.isUnsure ? ' (unsure)' : ''}`;
+        } else if (parsed.isUnsure) {
+          text = 'unsure';
+        }
+        break;
+      }
       default:
         break;
     }

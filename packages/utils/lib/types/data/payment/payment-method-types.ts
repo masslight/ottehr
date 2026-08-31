@@ -1,6 +1,7 @@
 import { Stripe } from 'stripe';
 interface PaymentMethodPatientParameters {
   beneficiaryPatientId: string;
+  appointmentId: string;
 }
 
 interface PaymentMethodParameters {
@@ -9,6 +10,7 @@ interface PaymentMethodParameters {
 
 export type PaymentMethodSetupParameters = PaymentMethodPatientParameters;
 export type PaymentMethodSetDefaultParameters = PaymentMethodPatientParameters & PaymentMethodParameters;
+export type PaymentMethodUnsetDefaultParameters = PaymentMethodPatientParameters;
 export type PaymentMethodListParameters = PaymentMethodPatientParameters;
 export type PaymentMethodDeleteParameters = PaymentMethodPatientParameters & PaymentMethodParameters;
 
@@ -22,4 +24,26 @@ export interface CreditCardInfo {
 }
 export interface ListPaymentMethodsZambdaOutput {
   cards: CreditCardInfo[];
+}
+
+export interface PaymentMethodSetupZambdaOutput {
+  clientSecret: string;
+  stripeAccount: string | undefined;
+  createdWithoutEmail?: boolean;
+}
+
+export interface GetPatientBalancesZambdaInput {
+  patientId: string;
+}
+
+export interface GetPatientBalancesZambdaOutput {
+  totalBalanceCents: number;
+  pendingPaymentCents: number;
+  patientCreditCents: number;
+  encounters: {
+    encounterId: string;
+    encounterDate: string;
+    appointmentId: string;
+    patientBalanceCents: number;
+  }[];
 }

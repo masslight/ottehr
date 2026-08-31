@@ -1,18 +1,24 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { TerminologySearchCptResponse, TerminologySearchHcpcsResponse } from '@oystehr/sdk';
 import { Medication, MedicationAdministration } from 'fhir/r4b';
+import { getResourcesFromBatchInlineRequests } from 'utils/lib/fhir/helpers';
 import {
+  getAllCptCodesFromInHouseMedication,
+  getAllHcpcsCodesFromInHouseMedication,
   getDosageUnitsAndRouteOfMedication,
-  getLocationCodeFromMedicationAdministration,
-  getResourcesFromBatchInlineRequests,
-  INVENTORY_MEDICATION_TYPE_CODE,
-  MedicationData,
-  OrderPackage,
-  removePrefix,
   searchMedicationLocation,
   searchRouteByCode,
-  Secrets,
-} from 'utils';
-import { createOystehrClient, ZambdaInput } from '../../shared';
+} from 'utils/lib/fhir/medication-administration';
+import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
+import { INVENTORY_MEDICATION_TYPE_CODE } from 'utils/lib/types/api/medication-administration.constants';
+import {
+  IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK,
+  MedicationData,
+  MedicationOrderStatuses,
+  MedicationOrderStatusesType,
+  OrderPackage,
+} from 'utils/lib/types/api/medication-administration.types';
+import { CPTCodeOption } from 'utils/lib/types/common';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { createMedicationAdministrationResource } from './fhir-resources-creation';
 
 export function getPerformerId(medicationAdministration: MedicationAdministration): string | undefined {
@@ -21,7 +27,8 @@ export function getPerformerId(medicationAdministration: MedicationAdministratio
 
 export function createMedicationCopy(
   inventoryMedication: Medication,
-  orderData: { lotNumber?: string; expDate?: string; manufacturer?: string }
+  orderData: { lotNumber?: string; ndc?: string; expDate?: string; manufacturer?: string },
+  newStatus?: string
 ): Medication {
   const resourceCopy = { ...inventoryMedication };
   delete resourceCopy.id;
@@ -30,28 +37,28 @@ export function createMedicationCopy(
   const typeIdentifierArrId =
     resourceCopy.identifier?.findIndex((idn) => idn.value === INVENTORY_MEDICATION_TYPE_CODE) ?? -1;
   if (typeIdentifierArrId >= 0) resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
-  if (orderData.lotNumber || orderData.expDate) {
+  if (newStatus !== MedicationOrderStatuses['administered-not'] && (orderData.lotNumber || orderData.expDate)) {
     resourceCopy.batch = {
       lotNumber: orderData.lotNumber,
       expirationDate: orderData.expDate,
     };
   }
   if (orderData.manufacturer) resourceCopy.manufacturer = { display: orderData.manufacturer };
+  // Store user-entered NDC on the medication code
+  if (orderData.ndc) {
+    if (!resourceCopy.code) resourceCopy.code = {};
+    if (!resourceCopy.code.coding) resourceCopy.code.coding = [];
+    // Remove any existing NDC coding, then add the new one
+    resourceCopy.code.coding = resourceCopy.code.coding.filter((c) => c.system !== CODE_SYSTEM_NDC);
+    resourceCopy.code.coding.push({ system: CODE_SYSTEM_NDC, code: orderData.ndc });
+  }
   return resourceCopy;
-}
-
-export async function practitionerIdFromZambdaInput(input: ZambdaInput, secrets: Secrets | null): Promise<string> {
-  const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const oystehr = createOystehrClient(userToken, secrets);
-  const myPractitionerId = removePrefix('Practitioner/', (await oystehr.user.me()).profile);
-  if (!myPractitionerId) throw new Error('No practitioner id was found for token provided');
-  return myPractitionerId;
 }
 
 export async function getMedicationByName(oystehr: Oystehr, medicationName: string): Promise<Medication> {
   const medications = await getResourcesFromBatchInlineRequests(oystehr, [`Medication?identifier=${medicationName}`]);
   const medication = medications.find((res) => res.resourceType === 'Medication') as Medication;
-  if (!medication) throw new Error(`No medication was found with this name: ${medicationName}`);
+  if (!medication) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`No medication was found with this name: ${medicationName}`);
   return medication;
 }
 
@@ -60,7 +67,7 @@ export async function getMedicationById(oystehr: Oystehr, medicationId: string):
     resourceType: 'Medication',
     id: medicationId,
   });
-  if (!medication) throw new Error(`No medication was found for this id: ${medicationId}`);
+  if (!medication) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`No medication was found for this id: ${medicationId}`);
   return medication;
 }
 
@@ -76,7 +83,7 @@ export function validateProviderAccess(
   // When we receive new data and new status, it means that we are on 'Medication Details' screen so
   // we don't need provider validation because everybody can do it
   if (orderData && !newStatus && getPerformerId(orderPkg.medicationAdministration) !== practitionerId)
-    throw new Error(`You can't edit this order, because it was created by another provider`);
+    throw INVALID_INPUT_ERROR(`You can't edit this order, because it was created by another provider`);
 }
 
 export function updateMedicationAdministrationData(data: {
@@ -91,15 +98,17 @@ export function updateMedicationAdministrationData(data: {
     ? orderData.route
     : getDosageUnitsAndRouteOfMedication(orderResources.medicationAdministration).route;
   const routeCoding = searchRouteByCode(routeCode!);
-  if (orderData.route && !routeCoding) throw new Error(`No route found with code provided: ${orderData.route}`);
-  const locationCode = orderData.location
-    ? orderData.location
-    : getLocationCodeFromMedicationAdministration(orderResources.medicationAdministration);
-  const locationCoding = locationCode ? searchMedicationLocation(locationCode) : undefined;
+  if (orderData.route && !routeCoding)
+    throw INVALID_INPUT_ERROR(`No route found with code provided: ${orderData.route}`);
+  const locationCoding = orderData.location
+    ? searchMedicationLocation(orderData.location.code, orderData.location.name)
+    : undefined;
   if (orderData.location && !locationCoding)
-    throw new Error(`No location found with code provided: ${orderData.location}`);
+    throw INVALID_INPUT_ERROR(
+      `No location found with code/name provided: ${orderData.location.code} / ${orderData.location.name}`
+    );
 
-  if (!routeCoding) throw new Error(`No medication appliance route was found for code: ${routeCode}`);
+  if (!routeCoding) throw INVALID_INPUT_ERROR(`No medication appliance route was found for code: ${routeCode}`);
   const newMA = createMedicationAdministrationResource({
     orderData,
     status: orderResources.medicationAdministration.status,
@@ -114,6 +123,86 @@ export function updateMedicationAdministrationData(data: {
   return newMA;
 }
 
-export function getMedicationFromMA(medicationAdministration: MedicationAdministration): Medication | undefined {
-  return medicationAdministration.contained?.find((res) => res.resourceType === 'Medication') as Medication;
+/*
+ * This function is filtering all CPT and HCPCS codes from in-house medication
+ * and comparing it with billing codes from chart data.
+ * If there are codes that are not in chart data, it returns code options ready to be saved in chart-data.
+ * **/
+export async function getCptHcpcsCodesToAddToChartData(
+  oystehr: Oystehr,
+  medication: Medication,
+  chartDataCptCodes: string[]
+): Promise<CPTCodeOption[]> {
+  const cptMedicationCodes = getAllCptCodesFromInHouseMedication(medication);
+  const hcpcsMedicationCodes = getAllHcpcsCodesFromInHouseMedication(medication);
+
+  const filteredCptCodesToAdd = new Set(
+    cptMedicationCodes?.filter((codeToAdd) => !chartDataCptCodes?.includes(codeToAdd))
+  );
+  const filteredHcpcsCodesToAdd = new Set(
+    hcpcsMedicationCodes?.filter((codeToAdd) => !chartDataCptCodes?.includes(codeToAdd))
+  );
+
+  const cptTerminologyPromises: Promise<TerminologySearchCptResponse>[] = [];
+  const hcpcsTerminologyPromises: Promise<TerminologySearchHcpcsResponse>[] = [];
+  filteredCptCodesToAdd?.forEach((codeToAdd) => {
+    cptTerminologyPromises.push(
+      oystehr.terminology.searchCpt({ searchType: 'code', strictMatch: true, query: codeToAdd })
+    );
+  });
+  filteredHcpcsCodesToAdd?.forEach((codeToAdd) => {
+    hcpcsTerminologyPromises.push(
+      oystehr.terminology.searchHcpcs({ searchType: 'code', strictMatch: true, query: codeToAdd })
+    );
+  });
+  const cptTerminologyCodes = (await Promise.all(cptTerminologyPromises)).flatMap((terminology) => terminology.codes);
+  const hcpcsTerminologyCodes = (await Promise.all(hcpcsTerminologyPromises)).flatMap(
+    (terminology) => terminology.codes
+  );
+  const terminologyCodesMerged = [...cptTerminologyCodes, ...hcpcsTerminologyCodes];
+
+  const codesOptionsToAdd: CPTCodeOption[] = [];
+
+  [...filteredCptCodesToAdd, ...filteredHcpcsCodesToAdd].forEach((codeToAdd) => {
+    const terminologyResponse = terminologyCodesMerged.find((terminology) => terminology.code === codeToAdd);
+    if (terminologyResponse) codesOptionsToAdd.push({ code: codeToAdd, display: terminologyResponse.display });
+  });
+
+  return codesOptionsToAdd;
+}
+
+export function getEncounterIdFromMA(medicationAdministration: MedicationAdministration): string | undefined {
+  const maContext = medicationAdministration.context?.reference;
+  if (maContext?.includes('Encounter/')) return maContext?.replace('Encounter/', '');
+  return undefined;
+}
+
+// Partly administered counts too: IV medication still entered the patient, so vitals still need re-taking.
+const STATUSES_REQUIRING_VITALS_RECHECK: MedicationOrderStatusesType[] = ['administered', 'administered-partly'];
+
+/**
+ * Whether this update should raise a nursing order prompting a vitals re-check — true when an order on an
+ * IV route is being moved into an administered status.
+ */
+export function shouldCreateVitalsRecheckNursingOrder({
+  previousStatus,
+  newStatus,
+  orderData,
+  medicationAdministration,
+}: {
+  previousStatus: MedicationOrderStatusesType | undefined;
+  newStatus: MedicationOrderStatusesType;
+  orderData: MedicationData;
+  medicationAdministration: MedicationAdministration;
+}): boolean {
+  if (!STATUSES_REQUIRING_VITALS_RECHECK.includes(newStatus)) return false;
+
+  // Only on the transition into an administered status. Re-saving an already-administered order through
+  // the completed-edit form sends the same status again, and must not raise a second re-check.
+  if (previousStatus === newStatus) return false;
+
+  // orderData carries the route the clinician just confirmed; fall back to the stored route, which is
+  // what an update that left dose/units (and therefore dosage.route) untouched leaves in place.
+  const routeCode = orderData.route || getDosageUnitsAndRouteOfMedication(medicationAdministration).route;
+  return Boolean(routeCode && IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK.includes(routeCode));
 }

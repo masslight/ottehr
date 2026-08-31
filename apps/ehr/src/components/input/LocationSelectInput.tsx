@@ -1,0 +1,85 @@
+import { Location } from 'fhir/r4b';
+import { useEffect, useState } from 'react';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
+import { AutocompleteInput } from './AutocompleteInput';
+
+type Props = {
+  name: string;
+  label: string;
+  multiple?: boolean;
+  required?: boolean;
+  size?: 'small' | 'medium';
+  type?: 'in-person' | 'virtual';
+  dataTestId?: string;
+};
+
+export const LocationSelectInput: React.FC<Props> = ({ name, label, multiple, required, size, type, dataTestId }) => {
+  const { oystehr } = useApiClients();
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [options, setOptions] = useState<{ id: string; name: string }[] | undefined>(undefined);
+  useEffect(() => {
+    if (!oystehr) {
+      return;
+    }
+    async function loadLocationsOptions(): Promise<void> {
+      if (!oystehr) {
+        return;
+      }
+      try {
+        setIsLoading(true);
+        const options = (
+          await getAllFhirSearchPages<Location>(
+            {
+              resourceType: 'Location',
+            },
+            oystehr
+          )
+        )
+          .filter((location: Location) => {
+            if (type === 'in-person') {
+              return isLocationInPerson(location);
+            }
+            if (type === 'virtual') {
+              return isLocationVirtual(location);
+            }
+            return true;
+          })
+          .map((location: Location) => ({
+            id: location.id ?? '',
+            name: getLocationLabel(location),
+          }));
+        options.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+        setOptions(options);
+      } catch (e) {
+        console.error('error loading locations', e);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    void loadLocationsOptions();
+  }, [oystehr, type]);
+  return (
+    <AutocompleteInput
+      name={name}
+      label={label}
+      options={options}
+      loading={isLoading}
+      required={required}
+      getOptionLabel={(option) => option.name ?? options?.find((opt) => opt.id === option.id)?.name ?? option.id}
+      getOptionKey={(option) => option.id}
+      isOptionEqualToValue={(option, value) => option.id === value.id}
+      multiple={multiple}
+      size={size}
+      dataTestId={dataTestId}
+    />
+  );
+};
+
+function getLocationLabel(location: Location): string {
+  if (!location.name) {
+    return 'Unknown Location';
+  }
+  return location.address?.state ? `${location.address.state.toUpperCase()} - ${location.name}` : location.name;
+}

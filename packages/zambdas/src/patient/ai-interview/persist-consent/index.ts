@@ -1,16 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Consent } from 'fhir/r4b';
-import {
-  createOystehrClient,
-  FHIR_AI_CHAT_CONSENT_CATEGORY_CODE,
-  getSecret,
-  PersistConsentInput,
-  PROJECT_WEBSITE,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import { getAuth0Token, validateJsonBody, validateString, wrapHandler, ZambdaInput } from '../../../shared';
+import { FHIR_AI_CHAT_CONSENT_CATEGORY_CODE } from 'utils/lib/fhir/constants';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { PersistConsentInput } from 'utils/lib/types/api/ai-interview.types';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { validateJsonBody, validateString } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 
 const ZAMBDA_NAME = 'persist-consent';
 
@@ -22,57 +21,49 @@ interface Input extends PersistConsentInput {
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
-  try {
-    const { appointmentId, secrets } = validateInput(input);
-    const oystehr = await createOystehr(secrets);
-    const consent = await oystehr.fhir.create<Consent>({
-      resourceType: 'Consent',
-      status: 'active',
-      category: [
-        {
-          coding: [
-            {
-              system: 'http://terminology.hl7.org/CodeSystem/consentcategorycodes',
-              code: FHIR_AI_CHAT_CONSENT_CATEGORY_CODE,
-            },
-          ],
-        },
-      ],
-      policy: [
-        {
-          uri: PROJECT_WEBSITE,
-        },
-      ],
-      scope: {
+  const { appointmentId, secrets } = validateInput(input);
+  const oystehr = await createOystehr(secrets);
+  const consent = await oystehr.fhir.create<Consent>({
+    resourceType: 'Consent',
+    status: 'active',
+    category: [
+      {
         coding: [
           {
-            system: 'http://terminology.hl7.org/CodeSystem/consentscope',
-            code: 'patient-privacy',
+            system: 'http://terminology.hl7.org/CodeSystem/consentcategorycodes',
+            code: FHIR_AI_CHAT_CONSENT_CATEGORY_CODE,
           },
         ],
       },
-      provision: {
-        data: [
-          {
-            meaning: 'related',
-            reference: {
-              reference: 'Appointment/' + appointmentId,
-            },
-          },
-        ],
+    ],
+    policy: [
+      {
+        uri: PROJECT_WEBSITE,
       },
-    });
-    return {
-      statusCode: 200,
-      body: JSON.stringify(consent),
-    };
-  } catch (error: any) {
-    console.log('error', error, error.issue);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
-  }
+    ],
+    scope: {
+      coding: [
+        {
+          system: 'http://terminology.hl7.org/CodeSystem/consentscope',
+          code: 'patient-privacy',
+        },
+      ],
+    },
+    provision: {
+      data: [
+        {
+          meaning: 'related',
+          reference: {
+            reference: 'Appointment/' + appointmentId,
+          },
+        },
+      ],
+    },
+  });
+  return {
+    statusCode: 200,
+    body: JSON.stringify(consent),
+  };
 });
 
 function validateInput(input: ZambdaInput): Input {

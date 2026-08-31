@@ -7,8 +7,14 @@
         "valid": true,
         "inner": [],
         "validItemsToCheck": [
-          { "path": "2.item.0.linkId", "value": "payment-option" },
-          { "path": "2.item.0.answer.0.valueString", "value": "I have insurance" }
+          {
+            "path": "2.item.0.linkId",
+            "value": "payment-option"
+          },
+          {
+            "path": "2.item.0.answer.0.valueString",
+            "value": "I have insurance"
+          }
         ]
       },
       "item": [
@@ -169,6 +175,32 @@
               "answer": [
                 {
                   "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "photo-id-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/58263486-b110-4fee-9676-5a94f0682747/1723133435581-photo-id-front.jpeg",
+                    "title": "photo-id-front",
+                    "creation": "2024-08-08T12:10:36.693-04:00",
+                    "contentType": "image/jpeg"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "photo-id-back",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/58263486-b110-4fee-9676-5a94f0682747/1723133447937-photo-id-back.jpeg",
+                    "title": "photo-id-back",
+                    "creation": "2024-08-08T12:10:48.553-04:00",
+                    "contentType": "image/jpeg"
+                  }
                 }
               ]
             }
@@ -490,37 +522,6 @@
           ]
         },
         {
-          "linkId": "photo-id-page",
-          "item": [
-            {
-              "linkId": "photo-id-front",
-              "answer": [
-                {
-                  "valueAttachment": {
-                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/58263486-b110-4fee-9676-5a94f0682747/1723133435581-photo-id-front.jpeg",
-                    "title": "photo-id-front",
-                    "creation": "2024-08-08T12:10:36.693-04:00",
-                    "contentType": "image/jpeg"
-                  }
-                }
-              ]
-            },
-            {
-              "linkId": "photo-id-back",
-              "answer": [
-                {
-                  "valueAttachment": {
-                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/58263486-b110-4fee-9676-5a94f0682747/1723133447937-photo-id-back.jpeg",
-                    "title": "photo-id-back",
-                    "creation": "2024-08-08T12:10:48.553-04:00",
-                    "contentType": "image/jpeg"
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        {
           "linkId": "consent-forms-page",
           "item": [
             {
@@ -532,18 +533,23 @@
               ]
             },
             {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueBoolean": true
-                }
-              ]
-            },
-            {
-              "linkId": "consent-to-treat",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -582,8 +588,14 @@
         "valid": true,
         "inner": [],
         "validItemsToCheck": [
-          { "path": "2.item.0.linkId", "value": "payment-option" },
-          { "path": "2.item.0.answer.0.valueString", "value": "I will pay without insurance" }
+          {
+            "path": "2.item.0.linkId",
+            "value": "payment-option"
+          },
+          {
+            "path": "2.item.0.answer.0.valueString",
+            "value": "I will pay without insurance"
+          }
         ]
       },
       "item": [
@@ -744,6 +756,61 @@
               "answer": [
                 {
                   "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "photo-id-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/54807495-57af-45df-ab80-dd4b2457d0f8/1723221804136-photo-id-front.jpeg",
+                    "title": "photo-id-front",
+                    "creation": "2024-08-09T12:43:24.662-04:00",
+                    "contentType": "image/jpeg"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "photo-id-back",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/54807495-57af-45df-ab80-dd4b2457d0f8/1723221810779-photo-id-back.jpeg",
+                    "title": "photo-id-back",
+                    "creation": "2024-08-09T12:43:31.669-04:00",
+                    "contentType": "image/jpeg"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-date-of-birth",
+              "item": [
+                {
+                  "linkId": "responsible-party-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "01"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "01"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2001"
+                    }
+                  ]
                 }
               ]
             }
@@ -922,81 +989,26 @@
           ]
         },
         {
-          "linkId": "photo-id-page",
-          "item": [
-            {
-              "linkId": "photo-id-front",
-              "answer": [
-                {
-                  "valueAttachment": {
-                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/54807495-57af-45df-ab80-dd4b2457d0f8/1723221804136-photo-id-front.jpeg",
-                    "title": "photo-id-front",
-                    "creation": "2024-08-09T12:43:24.662-04:00",
-                    "contentType": "image/jpeg"
-                  }
-                }
-              ]
-            },
-            {
-              "linkId": "photo-id-back",
-              "answer": [
-                {
-                  "valueAttachment": {
-                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/54807495-57af-45df-ab80-dd4b2457d0f8/1723221810779-photo-id-back.jpeg",
-                    "title": "photo-id-back",
-                    "creation": "2024-08-09T12:43:31.669-04:00",
-                    "contentType": "image/jpeg"
-                  }
-                }
-              ]
-            },
-            {
-              "linkId": "responsible-party-date-of-birth",
-              "item": [
-                {
-                  "linkId": "responsible-party-dob-day",
-                  "answer": [
-                    {
-                      "valueString": "01"
-                    }
-                  ]
-                },
-                {
-                  "linkId": "responsible-party-dob-month",
-                  "answer": [
-                    {
-                      "valueString": "01"
-                    }
-                  ]
-                },
-                {
-                  "linkId": "responsible-party-dob-year",
-                  "answer": [
-                    {
-                      "valueString": "2001"
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
           "linkId": "consent-forms-page",
           "item": [
             {
-              "linkId": "consent-jurisdiction",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueString": "NY"
-                }
-              ]
-            },
-            {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -1044,7 +1056,9 @@
         "inner": [
           {
             "path": "responsible-party-date-of-birth",
-            "errors": ["Please enter a valid date"]
+            "errors": [
+              "Please enter a valid date"
+            ]
           }
         ],
         "validItemsToCheck": []
@@ -1183,6 +1197,19 @@
               "answer": [
                 {
                   "valueString": "317 R St NW Unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "photo-id-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430789373-photo-id-front.png",
+                    "title": "photo-id-front",
+                    "creation": "2024-08-23T12:33:09.997-04:00",
+                    "contentType": "image/png"
+                  }
                 }
               ]
             }
@@ -1587,24 +1614,6 @@
           ]
         },
         {
-          "linkId": "photo-id-page",
-          "item": [
-            {
-              "linkId": "photo-id-front",
-              "answer": [
-                {
-                  "valueAttachment": {
-                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430789373-photo-id-front.png",
-                    "title": "photo-id-front",
-                    "creation": "2024-08-23T12:33:09.997-04:00",
-                    "contentType": "image/png"
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        {
           "linkId": "consent-forms-page",
           "item": [
             {
@@ -1616,18 +1625,23 @@
               ]
             },
             {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueBoolean": true
-                }
-              ]
-            },
-            {
-              "linkId": "consent-to-treat",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -1667,7 +1681,9 @@
         "inner": [
           {
             "path": "responsible-party-date-of-birth",
-            "errors": ["Please enter a valid date"]
+            "errors": [
+              "Please enter a valid date"
+            ]
           }
         ],
         "validItemsToCheck": []
@@ -1897,24 +1913,26 @@
           ]
         },
         {
-          "linkId": "photo-id-page"
-        },
-        {
           "linkId": "consent-forms-page",
           "item": [
             {
-              "linkId": "consent-jurisdiction",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueString": "IL"
-                }
-              ]
-            },
-            {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -1961,8 +1979,14 @@
         "valid": true,
         "inner": [],
         "validItemsToCheck": [
-          { "path": "3.item.4.item.0.answer.0.valueString", "value": "08" },
-          { "path": "3.item.4.item.0.linkId", "value": "responsible-party-dob-day" }
+          {
+            "path": "3.item.4.item.0.answer.0.valueString",
+            "value": "08"
+          },
+          {
+            "path": "3.item.4.item.0.linkId",
+            "value": "responsible-party-dob-day"
+          }
         ]
       },
       "item": [
@@ -2219,9 +2243,6 @@
           ]
         },
         {
-          "linkId": "photo-id-page"
-        },
-        {
           "linkId": "consent-forms-page",
           "item": [
             {
@@ -2233,18 +2254,23 @@
               ]
             },
             {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueBoolean": true
-                }
-              ]
-            },
-            {
-              "linkId": "consent-to-treat",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -2283,8 +2309,14 @@
         "valid": true,
         "inner": [],
         "validItemsToCheck": [
-          { "path": "3.item.4.item.0.answer.0.valueString", "value": "10" },
-          { "path": "3.item.4.item.0.linkId", "value": "responsible-party-dob-day" }
+          {
+            "path": "3.item.4.item.0.answer.0.valueString",
+            "value": "10"
+          },
+          {
+            "path": "3.item.4.item.0.linkId",
+            "value": "responsible-party-dob-day"
+          }
         ]
       },
       "item": [
@@ -2541,9 +2573,6 @@
           ]
         },
         {
-          "linkId": "photo-id-page"
-        },
-        {
           "linkId": "consent-forms-page",
           "item": [
             {
@@ -2555,18 +2584,23 @@
               ]
             },
             {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueBoolean": true
-                }
-              ]
-            },
-            {
-              "linkId": "consent-to-treat",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -2606,11 +2640,15 @@
         "inner": [
           {
             "path": "secondary-insurance.item[0]",
-            "errors": ["This field is required"]
+            "errors": [
+              "This field is required"
+            ]
           },
           {
             "path": "secondary-insurance.item[5]",
-            "errors": ["Please enter a valid date"]
+            "errors": [
+              "Please enter a valid date"
+            ]
           }
         ],
         "validItemsToCheck": []
@@ -2749,6 +2787,19 @@
               "answer": [
                 {
                   "valueString": "317 R St NW Unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "photo-id-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430789373-photo-id-front.png",
+                    "title": "photo-id-front",
+                    "creation": "2024-08-23T12:33:09.997-04:00",
+                    "contentType": "image/png"
+                  }
                 }
               ]
             }
@@ -3140,24 +3191,6 @@
           ]
         },
         {
-          "linkId": "photo-id-page",
-          "item": [
-            {
-              "linkId": "photo-id-front",
-              "answer": [
-                {
-                  "valueAttachment": {
-                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430789373-photo-id-front.png",
-                    "title": "photo-id-front",
-                    "creation": "2024-08-23T12:33:09.997-04:00",
-                    "contentType": "image/png"
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        {
           "linkId": "consent-forms-page",
           "item": [
             {
@@ -3169,18 +3202,23 @@
               ]
             },
             {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueBoolean": true
-                }
-              ]
-            },
-            {
-              "linkId": "consent-to-treat",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -3220,10 +3258,17 @@
         "inner": [
           {
             "path": "responsible-party-date-of-birth",
-            "errors": ["Please enter a valid date"]
+            "errors": [
+              "Please enter a valid date"
+            ]
           }
         ],
-        "validItemsToCheck": [{ "path": "2.item.18.linkId", "value": null }]
+        "validItemsToCheck": [
+          {
+            "path": "2.item.18.linkId",
+            "value": null
+          }
+        ]
       },
       "item": [
         {
@@ -3359,6 +3404,19 @@
               "answer": [
                 {
                   "valueString": "317 R St NW Unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "photo-id-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430789373-photo-id-front.png",
+                    "title": "photo-id-front",
+                    "creation": "2024-08-23T12:33:09.997-04:00",
+                    "contentType": "image/png"
+                  }
                 }
               ]
             }
@@ -3763,24 +3821,6 @@
           ]
         },
         {
-          "linkId": "photo-id-page",
-          "item": [
-            {
-              "linkId": "photo-id-front",
-              "answer": [
-                {
-                  "valueAttachment": {
-                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430789373-photo-id-front.png",
-                    "title": "photo-id-front",
-                    "creation": "2024-08-23T12:33:09.997-04:00",
-                    "contentType": "image/png"
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        {
           "linkId": "consent-forms-page",
           "item": [
             {
@@ -3792,18 +3832,23 @@
               ]
             },
             {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueBoolean": true
-                }
-              ]
-            },
-            {
-              "linkId": "consent-to-treat",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -3842,11 +3887,26 @@
         "valid": true,
         "inner": [],
         "validItemsToCheck": [
-          { "path": "2.item.18.linkId", "value": null },
-          { "path": "2.item.4.linkId", "value": null },
-          { "path": "2.item.8.linkId", "value": null },
-          { "path": "2.item.12.linkId", "value": null },
-          { "path": "2.item.16.linkId", "value": null }
+          {
+            "path": "2.item.18.linkId",
+            "value": null
+          },
+          {
+            "path": "2.item.4.linkId",
+            "value": null
+          },
+          {
+            "path": "2.item.8.linkId",
+            "value": null
+          },
+          {
+            "path": "2.item.12.linkId",
+            "value": null
+          },
+          {
+            "path": "2.item.16.linkId",
+            "value": null
+          }
         ]
       },
       "item": [
@@ -3983,6 +4043,19 @@
               "answer": [
                 {
                   "valueString": "317 R St NW Unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "photo-id-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430789373-photo-id-front.png",
+                    "title": "photo-id-front",
+                    "creation": "2024-08-23T12:33:09.997-04:00",
+                    "contentType": "image/png"
+                  }
                 }
               ]
             }
@@ -4387,24 +4460,6 @@
           ]
         },
         {
-          "linkId": "photo-id-page",
-          "item": [
-            {
-              "linkId": "photo-id-front",
-              "answer": [
-                {
-                  "valueAttachment": {
-                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430789373-photo-id-front.png",
-                    "title": "photo-id-front",
-                    "creation": "2024-08-23T12:33:09.997-04:00",
-                    "contentType": "image/png"
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        {
           "linkId": "consent-forms-page",
           "item": [
             {
@@ -4416,18 +4471,23 @@
               ]
             },
             {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueBoolean": true
-                }
-              ]
-            },
-            {
-              "linkId": "consent-to-treat",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -4465,7 +4525,14 @@
       "expectation": {
         "valid": true,
         "inner": [],
-        "validItemsToCheck": [{ "path": "2.item.18.item.3", "value": { "linkId": "policy-holder-middle-name-2" } }]
+        "validItemsToCheck": [
+          {
+            "path": "2.item.18.item.3",
+            "value": {
+              "linkId": "policy-holder-middle-name-2"
+            }
+          }
+        ]
       },
       "item": [
         {
@@ -4603,6 +4670,19 @@
                   "valueString": "317 R St NW Unit 2"
                 }
               ]
+            },
+            {
+              "linkId": "photo-id-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430789373-photo-id-front.png",
+                    "title": "photo-id-front",
+                    "creation": "2024-08-23T12:33:09.997-04:00",
+                    "contentType": "image/png"
+                  }
+                }
+              ]
             }
           ]
         },
@@ -4720,7 +4800,9 @@
                 },
                 {
                   "linkId": "policy-holder-address-additional-line-2",
-                  "answer": [{}]
+                  "answer": [
+                    {}
+                  ]
                 },
                 {
                   "linkId": "policy-holder-city-2",
@@ -4987,24 +5069,6 @@
           ]
         },
         {
-          "linkId": "photo-id-page",
-          "item": [
-            {
-              "linkId": "photo-id-front",
-              "answer": [
-                {
-                  "valueAttachment": {
-                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430789373-photo-id-front.png",
-                    "title": "photo-id-front",
-                    "creation": "2024-08-23T12:33:09.997-04:00",
-                    "contentType": "image/png"
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        {
           "linkId": "consent-forms-page",
           "item": [
             {
@@ -5016,18 +5080,23 @@
               ]
             },
             {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueBoolean": true
-                }
-              ]
-            },
-            {
-              "linkId": "consent-to-treat",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -5070,7 +5139,10 @@
           "inner": [],
           "validItemsToCheck": []
         },
-        "context": { "values": {}, "items": [] },
+        "context": {
+          "values": {},
+          "items": []
+        },
         "item": [
           {
             "linkId": "patient-will-be-18",
@@ -5228,14 +5300,46 @@
                 "valueBoolean": true
               }
             ]
+          },
+          {
+            "linkId": "photo-id-front",
+            "answer": [
+              {
+                "valueAttachment": {
+                  "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/58263486-b110-4fee-9676-5a94f0682747/1723133435581-photo-id-front.jpeg",
+                  "title": "photo-id-front",
+                  "creation": "2024-08-08T12:10:36.693-04:00",
+                  "contentType": "image/jpeg"
+                }
+              }
+            ]
+          },
+          {
+            "linkId": "photo-id-back",
+            "answer": [
+              {
+                "valueAttachment": {
+                  "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/58263486-b110-4fee-9676-5a94f0682747/1723133447937-photo-id-back.jpeg",
+                  "title": "photo-id-back",
+                  "creation": "2024-08-08T12:10:48.553-04:00",
+                  "contentType": "image/jpeg"
+                }
+              }
+            ]
           }
         ]
       },
       {
         "fullFormId": "47bac09e-f433-4651-842e-6681d80cddd6",
         "description": "contact info valid case 2",
-        "expectation": { "valid": true, "inner": [] },
-        "context": { "values": {}, "items": [] },
+        "expectation": {
+          "valid": true,
+          "inner": []
+        },
+        "context": {
+          "values": {},
+          "items": []
+        },
         "item": [
           {
             "linkId": "patient-will-be-18",
@@ -5382,7 +5486,10 @@
           "inner": [],
           "validItemsToCheck": []
         },
-        "context": { "values": {}, "items": [] },
+        "context": {
+          "values": {},
+          "items": []
+        },
         "item": [
           {
             "linkId": "ovrp-interest",
@@ -5476,7 +5583,10 @@
           "inner": [],
           "validItemsToCheck": []
         },
-        "context": { "values": {}, "items": [] },
+        "context": {
+          "values": {},
+          "items": []
+        },
         "item": [
           {
             "linkId": "payment-option",
@@ -5639,7 +5749,10 @@
           "inner": [],
           "validItemsToCheck": []
         },
-        "context": { "values": {}, "items": [] },
+        "context": {
+          "values": {},
+          "items": []
+        },
         "item": [
           {
             "linkId": "payment-option",
@@ -5659,10 +5772,15 @@
           "inner": [],
           "validItemsToCheck": []
         },
-        "context": { "values": {}, "items": [] },
+        "context": {
+          "values": {},
+          "items": []
+        },
         "item": [
           {
-            "answer": [null],
+            "answer": [
+              null
+            ],
             "item": [
               {
                 "linkId": "insurance-carrier-2",
@@ -5819,7 +5937,9 @@
           },
           {
             "linkId": "insurance-card-back",
-            "answer": [""]
+            "answer": [
+              ""
+            ]
           },
           {
             "linkId": "insurance-card-front",
@@ -5960,11 +6080,20 @@
           "valid": true,
           "inner": [],
           "validItemsToCheck": [
-            { "path": "secondary-insurance.item.3.linkId", "value": "policy-holder-middle-name-2" },
-            { "path": "secondary-insurance.item.3.answer", "value": null }
+            {
+              "path": "secondary-insurance.item.3.linkId",
+              "value": "policy-holder-middle-name-2"
+            },
+            {
+              "path": "secondary-insurance.item.3.answer",
+              "value": null
+            }
           ]
         },
-        "context": { "values": {}, "items": [] },
+        "context": {
+          "values": {},
+          "items": []
+        },
         "item": [
           {
             "linkId": "payment-option",
@@ -6243,7 +6372,9 @@
               {},
               {
                 "linkId": "insurance-card-back-2",
-                "answer": [{}]
+                "answer": [
+                  {}
+                ]
               }
             ],
             "linkId": "secondary-insurance"
@@ -6252,46 +6383,6 @@
       }
     ],
     "responsible-party-page": [],
-    "photo-id-page": [
-      {
-        "fullFormId": "190e6f45-1da0-4c5b-b413-130855b9d6b6",
-        "description": "completed-photo-id --valid",
-        "expectation": {
-          "valid": true,
-          "inner": [],
-          "validItemsToCheck": []
-        },
-        "context": { "values": {}, "items": [] },
-        "item": [
-          {
-            "linkId": "photo-id-front",
-            "answer": [
-              {
-                "valueAttachment": {
-                  "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/58263486-b110-4fee-9676-5a94f0682747/1723133435581-photo-id-front.jpeg",
-                  "title": "photo-id-front",
-                  "creation": "2024-08-08T12:10:36.693-04:00",
-                  "contentType": "image/jpeg"
-                }
-              }
-            ]
-          },
-          {
-            "linkId": "photo-id-back",
-            "answer": [
-              {
-                "valueAttachment": {
-                  "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/58263486-b110-4fee-9676-5a94f0682747/1723133447937-photo-id-back.jpeg",
-                  "title": "photo-id-back",
-                  "creation": "2024-08-08T12:10:48.553-04:00",
-                  "contentType": "image/jpeg"
-                }
-              }
-            ]
-          }
-        ]
-      }
-    ],
     "consent-forms-page": []
   }
 }

@@ -1,8 +1,8 @@
 import { Close, Search } from '@mui/icons-material';
 import { FormControl, FormHelperText, IconButton, InputAdornment, InputLabel, OutlinedInput } from '@mui/material';
 import { Dispatch, ReactElement, SetStateAction, useState } from 'react';
-import { isPhoneNumberValid } from 'utils';
-import InputMask from './InputMask';
+import { InputMask } from 'ui-components/lib/components/InputMask';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 
 interface PhoneSearchProps {
   phoneFilter: string | null;

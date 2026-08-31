@@ -1,34 +1,41 @@
 import Oystehr from '@oystehr/sdk';
-import { PaymentMethodDeleteParameters, Secrets } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { PaymentMethodDeleteParameters } from 'utils/lib/types/data/payment/payment-method-types';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { z } from 'zod';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 import { getStripeCustomerId } from '../helpers';
+
+const PaymentMethodDeleteBodySchema = z.object({
+  beneficiaryPatientId: z.string().min(1),
+  paymentMethodId: z.string().min(1),
+  appointmentId: z.string().uuid(),
+});
 
 export function validateRequestParameters(
   input: ZambdaInput
 ): PaymentMethodDeleteParameters & { secrets: Secrets | null } {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  const { beneficiaryPatientId, paymentMethodId } = JSON.parse(input.body);
-
-  if (!beneficiaryPatientId) {
-    throw new Error('beneficiaryPatientId is not defined');
-  }
-
-  if (!paymentMethodId) {
-    throw new Error('paymentMethodId is not defined');
-  }
+  const { beneficiaryPatientId, paymentMethodId, appointmentId } = safeValidate(
+    PaymentMethodDeleteBodySchema,
+    safeJsonParse(input.body)
+  );
 
   return {
     beneficiaryPatientId,
     paymentMethodId,
+    appointmentId,
     secrets: input.secrets,
   };
 }
 
 interface ComplexValidationInput {
   patientId: string;
+  appointmentId: string;
   oystehrClient: Oystehr;
 }
 export async function complexValidation(input: ComplexValidationInput): Promise<{ stripeCustomerId: string }> {

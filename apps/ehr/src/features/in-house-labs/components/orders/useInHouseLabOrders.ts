@@ -1,8 +1,9 @@
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { DateTime } from 'luxon';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useDeleteCommonLabOrderDialog } from 'src/features/common/useDeleteCommonLabOrderDialog';
-import { DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE, tryFormatDateToISO } from 'utils';
+import { DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE } from 'utils/lib/types/data/in-house/in-house.constants';
 import {
   DeleteInHouseLabOrderParameters,
   GetInHouseOrdersParameters,
@@ -10,6 +11,7 @@ import {
   InHouseOrderListPageItemDTO,
   InHouseOrdersSearchBy,
 } from 'utils/lib/types/data/in-house/in-house.types';
+import { tryFormatDateToISO } from 'utils/lib/utils/date';
 import { deleteInHouseLabOrder, getInHouseOrders } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 
@@ -40,7 +42,8 @@ interface UseInHouseLabOrdersResult {
 }
 
 export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
-  _searchBy: SearchBy
+  _searchBy: SearchBy,
+  refreshKey?: number
 ): UseInHouseLabOrdersResult => {
   const { oystehrZambda } = useApiClients();
   const [labOrders, setLabOrders] = useState<InHouseGetOrdersResponseDTO<SearchBy>['data']>([]);
@@ -164,25 +167,24 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
     } else {
       console.error('searchParams are not valid', searchParams);
     }
-  }, [fetchLabOrders, page, memoizedSearchBy]);
+  }, [fetchLabOrders, page, memoizedSearchBy, refreshKey]);
 
   const hasData = labOrders.length > 0;
 
   const handleDeleteLabOrder = useCallback(
-    async ({ serviceRequestId }: DeleteInHouseLabOrderParameters): Promise<boolean> => {
+    async ({ serviceRequestId }: DeleteInHouseLabOrderParameters): Promise<{ success: boolean; errorMsg?: string }> => {
       if (!serviceRequestId) {
         console.error('Cannot delete lab order: Missing service request ID');
         setError(new Error('Missing service request ID'));
-        return false;
+        return { success: false };
       }
 
       if (!oystehrZambda) {
         console.error('Cannot delete lab order: API client is not available');
         setError(new Error('API client is not available'));
-        return false;
+        return { success: false };
       }
 
-      setLoading(true);
       setError(null);
 
       try {
@@ -192,18 +194,15 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
 
         setSearchParams({ pageNumber: 1 });
 
-        return true;
+        return { success: true };
       } catch (err) {
-        console.error('Error deleting In-house Lab Order:', err);
+        console.log('error deleting inhouse lab: ', err);
+        const oystehrError = err as OystehrSdkError;
+        let errorMsg: string | undefined;
 
-        const errorObj =
-          err instanceof Error ? err : new Error(typeof err === 'string' ? err : 'Failed to delete lab order');
+        if (oystehrError.code !== 500 && oystehrError.message) errorMsg = oystehrError.message;
 
-        setError(errorObj);
-
-        return false;
-      } finally {
-        setLoading(false);
+        return { success: false, errorMsg };
       }
     },
     [oystehrZambda, setSearchParams]

@@ -4,31 +4,31 @@ import { useQuery } from '@tanstack/react-query';
 import { FC, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { generatePath, Navigate, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
-import { getSelectors, PatientInfo, PROJECT_WEBSITE, ServiceMode, Timezone, TIMEZONES, VisitType } from 'utils';
+import { PageContainer } from 'src/components/CustomContainer';
+import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
+import { getSelectors } from 'utils/lib/store';
+import { ServiceMode, Timezone } from 'utils/lib/types/common';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { PatientInfo, VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import ottehrApi from '../api/ottehrApi';
 import { BOOKING_SLOT_ID_PARAM, bookingBasePath } from '../App';
-import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
-import { PatientInfoInProgress } from '../features/patients/types';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 
 type BookingState = {
-  patientInfo: PatientInfoInProgress | undefined;
-  unconfirmedDateOfBirth: string | undefined;
+  patientInfo: PatientInfo | undefined;
 };
 
 interface BookingStoreActions {
-  setPatientInfo: (info: PatientInfoInProgress | undefined) => void;
-  setUnconfirmedDateOfBirth: (dob: string | undefined) => void;
+  setPatientInfo: (info: PatientInfo | undefined) => void;
   completeBooking: () => void;
   handleLogout: () => void;
 }
 
 const BOOKING_INITIAL: BookingState = {
   patientInfo: undefined,
-  unconfirmedDateOfBirth: undefined,
 };
 
 const useBookingStore = create<BookingState & BookingStoreActions>()(
@@ -40,16 +40,11 @@ const useBookingStore = create<BookingState & BookingStoreActions>()(
           ...BOOKING_INITIAL,
         });
       },
-      setPatientInfo: (info: PatientInfoInProgress | undefined) => {
+      setPatientInfo: (info: PatientInfo | undefined) => {
         set((state) => {
-          let isNewPatientInfo = false;
-          if (state.patientInfo && state.patientInfo.id !== info?.id) {
-            isNewPatientInfo = true;
-          }
           return {
             ...state,
             patientInfo: info,
-            unconfirmedDateOfBirth: isNewPatientInfo ? undefined : state.unconfirmedDateOfBirth,
           };
         });
       },
@@ -59,18 +54,12 @@ const useBookingStore = create<BookingState & BookingStoreActions>()(
           patients,
         }));
       },
-      setUnconfirmedDateOfBirth: (unconfirmedDateOfBirth: string | undefined) => {
-        set((state) => ({
-          ...state,
-          unconfirmedDateOfBirth,
-        }));
-      },
       completeBooking: () => {
         set((state) => ({
           ...state,
           patientInfo: undefined,
-          unconfirmedDateOfBirth: undefined,
         }));
+        sessionStorage.removeItem(PROGRESS_STORAGE_KEY);
       },
       handleLogout: () => {
         set(() => ({
@@ -89,6 +78,9 @@ interface BookAppointmentContext
   scheduleOwnerName: string;
   scheduleOwnerType: string;
   scheduleOwnerId: string;
+  /** Resolved booking Location for display — see get-slot-details. */
+  bookingLocationName?: string;
+  bookingLocationId?: string;
   patients: PatientInfo[];
   timezone: Timezone;
   serviceMode: ServiceMode;
@@ -107,6 +99,9 @@ export const useBookingContext = (): BookAppointmentContext => {
   };
 };
 
+export const PROGRESS_STORAGE_KEY = 'patient-information-progress';
+export const ACTIVE_SLOT_ID_KEY = 'active-slot-id';
+
 // cSpell:ignore prepatient
 const isPostPatientSelectionPath = (basePath: string, pathToCheck: string): boolean => {
   // review is last step but we detect on submit instead so redirect doesn't jump
@@ -117,15 +112,12 @@ const isPostPatientSelectionPath = (basePath: string, pathToCheck: string): bool
 };
 
 const BookingHome: FC = () => {
-  const { patientInfo, unconfirmedDateOfBirth, setPatientInfo, setUnconfirmedDateOfBirth, completeBooking } =
-    getSelectors(useBookingStore, [
-      'patientInfo',
-      'unconfirmedDateOfBirth',
-      'setPatientInfo',
-      'setUnconfirmedDateOfBirth',
-      'completeBooking',
-      'handleLogout',
-    ]);
+  const { patientInfo, setPatientInfo, completeBooking } = getSelectors(useBookingStore, [
+    'patientInfo',
+    'setPatientInfo',
+    'completeBooking',
+    'handleLogout',
+  ]);
   const { [BOOKING_SLOT_ID_PARAM]: slotIdParam } = useParams();
 
   const { pathname } = useLocation();
@@ -201,6 +193,8 @@ const BookingHome: FC = () => {
       ownerType,
       ownerId,
       originalBookingUrl,
+      bookingLocationId,
+      bookingLocationName,
     } = slotDetailsData;
     let scheduleOwnerType = 'Location';
     if (ownerType === 'Practitioner') {
@@ -221,25 +215,16 @@ const BookingHome: FC = () => {
       serviceMode,
       timezone: timezone ?? TIMEZONES[0],
       patientsLoading: patientsLoadingInSomeWay,
-      unconfirmedDateOfBirth,
       scheduleOwnerName: ownerName,
       scheduleOwnerType,
       scheduleOwnerId: ownerId,
+      bookingLocationId,
+      bookingLocationName,
       originalBookingUrl,
       setPatientInfo,
-      setUnconfirmedDateOfBirth,
       completeBooking,
     };
-  }, [
-    patientsData?.patients,
-    slotDetailsData,
-    patientInfo,
-    patientsLoadingInSomeWay,
-    unconfirmedDateOfBirth,
-    setPatientInfo,
-    setUnconfirmedDateOfBirth,
-    completeBooking,
-  ]);
+  }, [patientsData?.patients, slotDetailsData, patientInfo, patientsLoadingInSomeWay, setPatientInfo, completeBooking]);
 
   // console.log('outlet context in root', outletContext);
 
@@ -260,17 +245,18 @@ const BookingHome: FC = () => {
         return <Navigate to={basePath} replace={true} />;
       }
     } else {
-      console.log('there is NOT patient info');
+      // console.log('there is NOT patient info');
     }
   } else {
-    console.log('there is patient info');
+    // console.log('there is patient info');
   }
 
   if (pageNotFound) {
     return (
       <PageContainer title={t('welcome.errors.notFound.title')}>
         <Typography variant="body1">
-          {t('welcome.errors.notFound.description')} <a href={PROJECT_WEBSITE}>{t('welcome.errors.notFound.link')}</a>.
+          {t('welcome.errors.notFound.description', { PROJECT_NAME: BRANDING_CONFIG.projectName })}{' '}
+          <a href={PROJECT_WEBSITE}>{t('welcome.errors.notFound.link')}</a>.
         </Typography>
       </PageContainer>
     );

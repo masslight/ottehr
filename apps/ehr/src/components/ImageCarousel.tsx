@@ -4,6 +4,7 @@ import CircleIcon from '@mui/icons-material/Circle';
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, Dialog, DialogContent, DialogTitle, IconButton, useTheme } from '@mui/material';
 import React from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 
 export interface ImageCarouselObject {
   alt: string;
@@ -75,7 +76,10 @@ export default function ImageCarousel({
             right: 0,
           }}
         >
-          <CloseIcon style={{ color: theme.palette.background.paper }} />
+          <CloseIcon
+            data-testid={dataTestIds.telemedEhrFlow.closeImagePreviewButton}
+            style={{ color: theme.palette.background.paper }}
+          />
         </IconButton>
       </DialogTitle>
 

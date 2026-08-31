@@ -1,8 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { makeCommunicationDTO } from '../../shared/chart-data';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getMyPractitionerId } from '../../shared/practitioners';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { getCommunicationResources } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -12,9 +15,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     const { type, secrets, userToken } = validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-    const myPractitionerId = (await oystehrCurrentUser.user.me()).profile;
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+    const myPractitionerId = await getMyPractitionerId(userToken, secrets);
     const ORGANIZATION_ID = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
     const communicationsOwnerId = type === 'organization' ? ORGANIZATION_ID : myPractitionerId;
 

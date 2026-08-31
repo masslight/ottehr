@@ -1,19 +1,80 @@
 import Oystehr, { Bundle, SearchParam } from '@oystehr/sdk';
 import { Appointment, Encounter, Extension, FhirResource, HealthcareService, Location, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { ScheduleStrategy } from 'utils/lib/fhir/constants';
+import { scheduleStrategyForHealthcareService } from 'utils/lib/fhir/helpers';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { getProviderType } from 'utils/lib/helpers/helpers';
+import { ProviderTypeCode } from 'utils/lib/types/api/practitioner.types';
 import {
   AppointmentParticipants,
-  OTTEHR_MODULE,
   ParticipantInfo,
   PRACTITIONER_CODINGS,
-  ScheduleStrategy,
-  scheduleStrategyForHealthcareService,
-} from 'utils';
+} from 'utils/lib/types/data/appointments/appointments.types';
 
 const parseParticipantInfo = (practitioner: Practitioner): ParticipantInfo => ({
   firstName: practitioner.name?.[0]?.given?.[0] ?? '',
   lastName: practitioner.name?.[0]?.family ?? '',
 });
+
+export const APPOINTMENT_SEARCH_PAGE_SIZE = 100;
+// WARNING: this list must cover every field read from resources returned by the appointment search bundle.
+// If you access a new field on any of these resource types downstream (including via utils helpers),
+// you MUST add it here — otherwise the server strips it via _elements and it arrives as undefined.
+export const APPOINTMENT_SEARCH_ELEMENTS = [
+  'Appointment.id',
+  'Appointment.start',
+  'Appointment.status',
+  'Appointment.participant',
+  'Appointment.appointmentType',
+  'Appointment.description',
+  'Appointment.comment',
+  'Appointment.cancelationReason',
+  'Appointment.meta',
+  'Appointment.extension',
+  'Appointment.serviceCategory',
+  'Patient.id',
+  'Patient.name',
+  'Patient.gender',
+  'Patient.birthDate',
+  'Patient.telecom',
+  'Patient.contact',
+  'Patient.address',
+  'Encounter.id',
+  'Encounter.appointment',
+  'Encounter.participant',
+  'Encounter.status',
+  'Encounter.statusHistory',
+  'Encounter.extension',
+  'Encounter.location',
+  'Encounter.partOf',
+  'Encounter.type',
+  'QuestionnaireResponse.id',
+  'QuestionnaireResponse.questionnaire',
+  'QuestionnaireResponse.encounter',
+  'QuestionnaireResponse.subject',
+  'QuestionnaireResponse.authored',
+  'QuestionnaireResponse.item',
+  'RelatedPerson.id',
+  'RelatedPerson.patient',
+  'RelatedPerson.relationship',
+  'RelatedPerson.telecom',
+  'Person.id',
+  'Person.link',
+  'Person.telecom',
+  'Practitioner.id',
+  'Practitioner.name',
+  'Practitioner.extension',
+  'Location.id',
+  'Location.name',
+  'Location.extension',
+  'Location.telecom',
+].join(',');
+
+export const isResponseSizeExceededError = (error: unknown): boolean => {
+  const message = (error as { message?: unknown })?.message;
+  return typeof message === 'string' && message.includes('exceeds the maximum allowed size');
+};
 
 export const parseEncounterParticipants = (
   encounter: Encounter,
@@ -43,6 +104,31 @@ export const parseEncounterParticipants = (
   });
 
   return participants;
+};
+
+export const parseAttenderProviderType = (
+  encounter: Encounter,
+  participantIdToResourceMap: Record<string, Practitioner>
+): ProviderTypeCode | undefined => {
+  if (!encounter.participant) return;
+
+  for (const participant of encounter.participant) {
+    if (!participant.individual?.reference || !participant.type?.[0]?.coding?.[0]?.code) {
+      continue;
+    }
+
+    const practitioner = participantIdToResourceMap[participant.individual.reference];
+    if (!practitioner) continue;
+
+    const participantType = participant.type[0].coding[0].code;
+    if (participantType === PRACTITIONER_CODINGS.Attender[0].code) {
+      const providerType = getProviderType(practitioner);
+
+      return providerType;
+    }
+  }
+
+  return;
 };
 
 export const mergeResources = <T extends FhirResource>(resources: T[]): T[] => {
@@ -111,7 +197,11 @@ export const getTimezone = async ({
       } else {
         console.error(`timezone not set for ${resourceId}`);
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.code === 404 || e?.code === 410) {
+        console.log(`resource "${resourceType}/${resourceId}" not found`, e);
+        return undefined;
+      }
       console.log('error getting location', JSON.stringify(e));
       throw new Error('location is not found');
     }
@@ -129,18 +219,14 @@ export const getAppointmentQueryInput = async (input: {
   oystehr: Oystehr;
   resourceId: string;
   resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
-  searchDate: string;
+  searchDateFrom: string;
+  searchDateTo: string;
+  timezone: string;
 }): Promise<AppointmentQueryInput> => {
-  const { oystehr, resourceId, resourceType, searchDate } = input;
-  const timezone = await getTimezone({
-    oystehr,
-    resourceType,
-    resourceId,
-  });
+  const { searchDateFrom, searchDateTo, timezone } = input;
 
-  const searchDateInTargetTimezone = DateTime.fromISO(searchDate, { zone: timezone });
-  const startDay = searchDateInTargetTimezone.startOf('day').toUTC().toISO();
-  const endDay = searchDateInTargetTimezone.endOf('day').toUTC().toISO();
+  const startDay = DateTime.fromISO(searchDateFrom, { zone: timezone }).startOf('day').toUTC().toISO();
+  const endDay = DateTime.fromISO(searchDateTo, { zone: timezone }).endOf('day').toUTC().toISO();
 
   const { actorParams, healthcareService } = await getActorParamsForAppointmentQueryInput(input);
 
@@ -163,7 +249,8 @@ export const getAppointmentQueryInput = async (input: {
         name: '_sort',
         value: 'date',
       },
-      { name: '_count', value: '1000' },
+      { name: '_count', value: `${APPOINTMENT_SEARCH_PAGE_SIZE}` },
+      { name: '_elements', value: APPOINTMENT_SEARCH_ELEMENTS },
       {
         name: '_include',
         value: 'Appointment:patient',
@@ -188,7 +275,6 @@ export const getAppointmentQueryInput = async (input: {
         name: '_revinclude:iterate',
         value: 'Encounter:appointment',
       },
-      { name: '_revinclude:iterate', value: 'DocumentReference:patient' },
       { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
       { name: '_include', value: 'Appointment:actor' },
       ...actorParams,
@@ -324,7 +410,7 @@ export const makeEncounterBaseSearchParams = (): SearchParam[] => [
   { name: '_sort', value: '-date' },
   { name: '_include', value: 'Encounter:appointment' },
   { name: '_include', value: 'Encounter:participant' },
-  { name: 'appointment._tag', value: OTTEHR_MODULE.IP },
+  { name: 'appointment._tag', value: [OTTEHR_MODULE.IP, OTTEHR_MODULE.TM].join(',') },
   { name: 'status:not', value: 'planned' },
   { name: 'status:not', value: 'finished' },
   { name: 'status:not', value: 'cancelled' },
@@ -337,7 +423,7 @@ export const makeEncounterSearchParams = async ({
   oystehr,
 }: {
   resourceId: string;
-  resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
+  resourceType: 'Location' | 'Practitioner';
   cacheKey: string;
   oystehr: Oystehr;
 }): Promise<SearchParam[] | null> => {
@@ -358,9 +444,6 @@ export const makeEncounterSearchParams = async ({
       ...(cachedEncounterIds ? [{ name: '_id', value: cachedEncounterIds }] : []),
       ...(resourceType === 'Location' ? [{ name: 'appointment.location', value: `Location/${resourceId}` }] : []),
       ...(resourceType === 'Practitioner' ? [{ name: 'appointment.actor', value: `Practitioner/${resourceId}` }] : []),
-      ...(resourceType === 'HealthcareService'
-        ? [{ name: 'appointment.actor', value: `HealthcareService/${resourceId}` }]
-        : []),
     ];
   }
 

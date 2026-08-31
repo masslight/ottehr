@@ -1,7 +1,8 @@
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { Box, Collapse, IconButton, Typography } from '@mui/material';
-import { InHouseOrderDetailPageItemDTO, PageName } from 'utils';
+import { PageName } from 'utils/lib/types/data/in-house/in-house.constants';
+import { InHouseOrderDetailPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
 import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
 import { InHouseLabsNotesCard } from './InHouseLabsNotesCard';
 
@@ -20,7 +21,6 @@ export const InHouseLabsDetailsCard: React.FC<InHouseLabsDetailsCardProps> = ({
 }) => {
   const showNotesCardAbove = testDetails.notes && page === PageName.collectSample;
   const showNotesCardBelowDetails = testDetails.notes && page !== PageName.collectSample;
-  const finalView = page === PageName.final;
   const notesLabel = 'Provider notes';
   return (
     <>
@@ -32,7 +32,7 @@ export const InHouseLabsDetailsCard: React.FC<InHouseLabsDetailsCardProps> = ({
           additionalBoxSxProps={{ my: 3 }}
         />
       )}
-      <Box display="flex" justifyContent={finalView ? 'space-between' : 'flex-end'} mt={2}>
+      <Box display="flex" justifyContent={'flex-end'} mt={2}>
         <Box
           sx={{
             display: 'flex',

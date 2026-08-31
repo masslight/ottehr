@@ -1,5 +1,9 @@
 export const emailRegex = /^\S+@\S+\.\S+$/;
-export const zipRegex = /^\d{5}$/;
+export const zipRegex = /^\d{5}(?:-?\d{4})?$/;
+export const fullZipRegex = /^\d{5}(?:-\d{4})$/;
+export const npiRegex = /^\d{10}$/;
+export const taxIdRegex = /^\d{9}$/;
+export const stripeAccountIdRegex = /^acct_[A-Za-z0-9]+$/;
 export const phoneRegex = /^\(\d{3}\) \d{3}-\d{4}$/;
 export const emojiRegex = /^(?:(?!\p{Extended_Pictographic}).)*$/u;
 export const alphanumericRegex = /^[a-zA-Z0-9]+/;
@@ -7,3 +11,4 @@ export const isoDateRegex = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 export const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const decimalRegex = /^\d+(.\d+)?$/;
 export const yupSimpleDateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
+export const ssnRegex = /^(?!000|666)\d{3}-(?!00)\d{2}-(?!0000)\d{4}$/;

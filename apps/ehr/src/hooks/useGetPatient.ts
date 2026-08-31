@@ -1,66 +1,16 @@
-import { BundleEntry } from '@oystehr/sdk';
-import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
-import {
-  Appointment,
-  Bundle,
-  Encounter,
-  EncounterStatusHistory,
-  FhirResource,
-  Location,
-  Organization,
-  Patient,
-  Questionnaire,
-  QuestionnaireResponse,
-  RelatedPerson,
-} from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import { useMutation, UseMutationResult, useQuery, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
+import { FhirResource, Patient, Person, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
-import { getVisitTypeLabelForAppointment } from 'src/types/types';
-import {
-  getFirstName,
-  getLastName,
-  getVisitStatusHistory,
-  getVisitTotalTime,
-  isAppointmentVirtual,
-  ORG_TYPE_CODE_SYSTEM,
-  ORG_TYPE_PAYER_CODE,
-  OTTEHR_MODULE,
-  PromiseReturnType,
-  RemoveCoverageZambdaInput,
-  ServiceMode,
-  useSuccessQuery,
-} from 'utils';
-import ehrInsuranceUpdateFormJson from 'utils/lib/deployed-resources/questionnaires/ehr-insurance-update-questionnaire.json';
-import { getTimezone } from '../helpers/formatDateTime';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
+import { useSuccessQuery } from 'utils/lib/frontend';
+import { RemoveCoverageZambdaInput } from 'utils/lib/types/api/patient-account';
+import { PromiseReturnType } from 'utils/lib/types/common';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { OystehrTelemedAPIClient } from '../features/visits/shared/api/oystehrApi';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
-import { OystehrTelemedAPIClient } from '../telemed/data';
-import { useOystehrAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 import { useApiClients } from './useAppClients';
-
-const getTelemedLength = (history?: EncounterStatusHistory[]): number => {
-  const value = history?.find((item) => item.status === 'in-progress');
-  if (!value || !value.period.start) {
-    return 0;
-  }
-
-  const { start, end } = value.period;
-  const duration = DateTime.fromISO(start).diff(end ? DateTime.fromISO(end) : DateTime.now(), ['minute']);
-
-  return Math.abs(duration.minutes);
-};
-
-export type AppointmentHistoryRow = {
-  id: string | undefined;
-  typeLabel: string;
-  serviceMode: ServiceMode;
-  office: string | undefined;
-  officeTimeZone: string | undefined;
-  dateTime: string | undefined;
-  length: number;
-  appointment: Appointment;
-  encounter?: Encounter;
-};
 
 export const useGetPatient = (
   id?: string
@@ -68,17 +18,19 @@ export const useGetPatient = (
   loading: boolean;
   otherPatientsWithSameName: boolean;
   setOtherPatientsWithSameName: (value: boolean) => void;
+  duplicatePatients: Patient[];
   patient?: Patient;
   setPatient: (patient: Patient) => void;
-  appointments?: AppointmentHistoryRow[];
   relatedPerson?: RelatedPerson;
+  person?: Person;
 } => {
   const { oystehr } = useApiClients();
   const [loading, setLoading] = useState<boolean>(true);
   const [otherPatientsWithSameName, setOtherPatientsWithSameName] = useState<boolean>(false);
+  const [duplicatePatients, setDuplicatePatients] = useState<Patient[]>([]);
   const [patient, setPatient] = useState<Patient>();
-  const [appointments, setAppointments] = useState<AppointmentHistoryRow[]>();
   const [relatedPerson, setRelatedPerson] = useState<RelatedPerson>();
+  const [person, setPerson] = useState<Person>();
 
   const { data: patientResources } = useQuery({
     queryKey: ['useGetPatientPatientResources', id],
@@ -90,20 +42,12 @@ export const useGetPatient = (
               params: [
                 { name: '_id', value: id },
                 {
-                  name: '_revinclude',
-                  value: 'Appointment:patient',
-                },
-                {
-                  name: '_include:iterate',
-                  value: 'Appointment:location',
-                },
-                {
                   name: '_revinclude:iterate',
                   value: 'RelatedPerson:patient',
                 },
                 {
                   name: '_revinclude:iterate',
-                  value: 'Encounter:appointment',
+                  value: 'Person:link',
                 },
               ],
             })
@@ -119,19 +63,24 @@ export const useGetPatient = (
 
   const { data: otherPatientsWithSameNameResources } = useQuery({
     queryKey: ['otherPatientsWithSameNameResources', id],
-    queryFn: () =>
-      oystehr && patientResource
-        ? oystehr.fhir
-            .search<FhirResource>({
-              resourceType: 'Patient',
-              params: getPatientNameSearchParams({
-                firstLast: { first: getFirstName(patientResource), last: getLastName(patientResource) },
-                narrowByRelatedPersonAndAppointment: false,
-                maxResultOverride: 2,
-              }),
-            })
-            .then((bundle) => bundle.unbundle())
-        : null,
+    queryFn: () => {
+      if (!oystehr || !patientResource) return null;
+      const searchParams = getPatientNameSearchParams({
+        firstLast: { first: getFirstName(patientResource), last: getLastName(patientResource) },
+        narrowByRelatedPersonAndAppointment: false,
+        maxResultOverride: 10,
+      });
+      if (patientResource.birthDate) {
+        searchParams.push({ name: 'birthdate', value: patientResource.birthDate });
+      }
+      searchParams.push({ name: 'active', value: 'true' });
+      return oystehr.fhir
+        .search<FhirResource>({
+          resourceType: 'Patient',
+          params: searchParams,
+        })
+        .then((bundle) => bundle.unbundle());
+    },
     gcTime: 10000,
     enabled: oystehr != null && patientResource != null,
   });
@@ -142,87 +91,46 @@ export const useGetPatient = (
         throw new Error('oystehr is not defined');
       }
 
-      setLoading(true);
-
       if (!patientResources || !otherPatientsWithSameNameResources) {
         return;
       }
 
+      setLoading(true);
+
       const patientTemp: Patient = patientResources.find((resource) => resource.resourceType === 'Patient') as Patient;
-      const appointmentsTemp: Appointment[] = patientResources.filter(
-        (resource) =>
-          resource.resourceType === 'Appointment' &&
-          resource.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP || tag.code === OTTEHR_MODULE.TM) // this is unnecessary now; there are no BH patients to worry about
-      ) as Appointment[];
-      const locations: Location[] = patientResources.filter(
-        (resource) => resource.resourceType === 'Location'
-      ) as Location[];
       const relatedPersonTemp: RelatedPerson = patientResources.find(
         (resource) => resource.resourceType === 'RelatedPerson'
       ) as RelatedPerson;
-      const encounters: Encounter[] = patientResources.filter(
-        (resource) => resource.resourceType === 'Encounter'
-      ) as Encounter[];
+      const personTemp: Person = patientResources.find((resource) => resource.resourceType === 'Person') as Person;
 
-      appointmentsTemp.sort((a, b) => {
-        const createdA = DateTime.fromISO(a.start ?? '');
-        const createdB = DateTime.fromISO(b.start ?? '');
-        return createdB.diff(createdA).milliseconds;
-      });
-
-      if (otherPatientsWithSameNameResources.length > 1) {
+      const duplicates = (otherPatientsWithSameNameResources as Patient[]).filter(
+        (r) => r.resourceType === 'Patient' && r.id !== id && r.active !== false
+      );
+      if (duplicates.length > 0) {
         setOtherPatientsWithSameName(true);
+        setDuplicatePatients(duplicates);
       } else {
         setOtherPatientsWithSameName(false);
+        setDuplicatePatients([]);
       }
 
-      const appointmentRows: AppointmentHistoryRow[] = appointmentsTemp.map((appointment: Appointment) => {
-        const appointmentLocationID = appointment.participant
-          .find((participant) => participant.actor?.reference?.startsWith('Location/'))
-          ?.actor?.reference?.replace('Location/', '');
-        const location = locations.find((location) => location.id === appointmentLocationID);
-        const encounter = appointment.id
-          ? encounters.find((encounter) => encounter.appointment?.[0]?.reference?.endsWith(appointment.id!))
-          : undefined;
-        const typeLabel = getVisitTypeLabelForAppointment(appointment);
-
-        const serviceMode = isAppointmentVirtual(appointment) ? ServiceMode.virtual : ServiceMode['in-person'];
-
-        return {
-          id: appointment.id,
-          typeLabel,
-          office:
-            location?.address?.state &&
-            location?.name &&
-            `${location?.address?.state?.toUpperCase()} - ${location?.name}`,
-          officeTimeZone: getTimezone(location),
-          dateTime: appointment.start,
-          serviceMode,
-          length:
-            serviceMode === ServiceMode.virtual
-              ? getTelemedLength(encounter?.statusHistory)
-              : (encounter && getVisitTotalTime(appointment, getVisitStatusHistory(encounter), DateTime.now())) || 0,
-          appointment,
-          encounter,
-        };
-      });
-
-      setAppointments(appointmentRows);
       setPatient(patientTemp);
       setRelatedPerson(relatedPersonTemp);
+      setPerson(personTemp);
       setLoading(false);
     }
 
     getPatient().catch((error) => console.log(error));
-  }, [oystehr, patientResources, otherPatientsWithSameNameResources]);
+  }, [id, oystehr, patientResources, otherPatientsWithSameNameResources]);
 
   return {
     loading,
-    appointments,
     otherPatientsWithSameName,
     setOtherPatientsWithSameName,
+    duplicatePatients,
     patient,
     relatedPerson,
+    person,
     setPatient,
   };
 };
@@ -245,14 +153,16 @@ export const useGetPatientAccount = (
         patientId: patientId!,
       });
     },
-
     enabled: apiClient != null && patientId != null,
+    refetchOnMount: false,
   });
 
   useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };
+
+type SafeQueryOptions<TData> = Omit<UseQueryOptions<TData, Error>, 'queryKey' | 'queryFn'>;
 
 export const useGetPatientCoverages = (
   {
@@ -262,21 +172,55 @@ export const useGetPatientCoverages = (
     apiClient: OystehrTelemedAPIClient | null;
     patientId: string | null;
   },
-  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientCoverages']>> | null) => void
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientCoverages']>> | null) => void,
+  options?: SafeQueryOptions<PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientCoverages']>>>
 ): UseQueryResult<PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientCoverages']>>, Error> => {
   const queryResult = useQuery({
-    queryKey: ['patient-coverages', { apiClient, patientId }],
+    queryKey: ['patient-coverages', { patientId }],
     queryFn: () => {
       return apiClient!.getPatientCoverages({
         patientId: patientId!,
       });
     },
-    enabled: apiClient != null && patientId != null,
+    enabled: options?.enabled ?? (apiClient != null && patientId != null),
+    refetchOnMount: false,
   });
 
   useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
+};
+
+/**
+ * Polls the merge-patients zambda for the active merge Task targeting the given
+ * patient. Returns `null` if no active merge is in progress.
+ */
+export const useGetActiveMergeTask = (
+  patientId: string | undefined,
+  options?: { enabled?: boolean; refetchIntervalMs?: number }
+): UseQueryResult<PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getMergePatientsTask']>>, Error> => {
+  const apiClient = useOystehrAPIClient();
+  const refetchIntervalMs = options?.refetchIntervalMs ?? 3000;
+
+  // Guard against bogus route params like the literal string "undefined".
+  // Without this, broken `/patient/${someUndefined}/info` URLs send
+  // {"patientId":"undefined","mode":"status"} to the merge-patients zambda and
+  // produce noisy 400s.
+  const validPatientId = patientId && isValidUUID(patientId) ? patientId : undefined;
+
+  return useQuery({
+    queryKey: ['active-merge-task', { patientId: validPatientId }],
+    queryFn: () => apiClient!.getMergePatientsTask({ patientId: validPatientId! }),
+    enabled: (options?.enabled ?? true) && apiClient != null && !!validPatientId,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data?.task) return false;
+      // Stop polling on terminal states — user must dismiss/retry.
+      if (data.task.status === 'failed') return false;
+      return refetchIntervalMs;
+    },
+    refetchOnWindowFocus: true,
+  });
 };
 
 export const useRemovePatientCoverage = (): UseMutationResult<void, Error, RemoveCoverageZambdaInput> => {
@@ -298,7 +242,8 @@ export const useRemovePatientCoverage = (): UseMutationResult<void, Error, Remov
 };
 
 export const useUpdatePatientAccount = (
-  onSuccess?: () => void
+  onSuccess?: () => void,
+  successMessage: string = 'Patient information updated successfully'
 ): UseMutationResult<void, Error, QuestionnaireResponse> => {
   const apiClient = useOystehrAPIClient();
 
@@ -318,7 +263,7 @@ export const useUpdatePatientAccount = (
     },
 
     onSuccess: () => {
-      enqueueSnackbar('Patient information updated successfully', {
+      enqueueSnackbar(successMessage, {
         variant: 'success',
       });
       if (onSuccess) {
@@ -332,104 +277,4 @@ export const useUpdatePatientAccount = (
       });
     },
   });
-};
-
-export const useGetInsurancePlans = (
-  onSuccess: (data: Bundle<Organization> | null) => void
-): UseQueryResult<Bundle<Organization>, Error> => {
-  const { oystehr } = useApiClients();
-
-  const fetchAllInsurancePlans = async (): Promise<Bundle<Organization>> => {
-    if (!oystehr) {
-      throw new Error('FHIR client not defined');
-    }
-
-    const searchParams = [
-      { name: 'type', value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}` },
-      { name: 'active:not', value: 'false' },
-      { name: '_count', value: '1000' },
-    ];
-
-    let offset = 0;
-    let allEntries: BundleEntry<Organization>[] = [];
-
-    let bundle = await oystehr.fhir.search<Organization>({
-      resourceType: 'Organization',
-      params: [...searchParams, { name: '_offset', value: offset }],
-    });
-
-    allEntries = allEntries.concat(bundle.entry || []);
-    const serverTotal = bundle.total;
-
-    while (bundle.link?.find((link) => link.relation === 'next')) {
-      offset += 1000;
-
-      bundle = await oystehr.fhir.search<Organization>({
-        resourceType: 'Organization',
-        params: [...searchParams.filter((param) => param.name !== '_offset'), { name: '_offset', value: offset }],
-      });
-
-      allEntries = allEntries.concat(bundle.entry || []);
-    }
-
-    return {
-      ...bundle,
-      entry: allEntries,
-      total: serverTotal !== undefined ? serverTotal : allEntries.length,
-    };
-  };
-
-  const queryResult = useQuery({
-    queryKey: ['insurance-plans'],
-    queryFn: fetchAllInsurancePlans,
-  });
-
-  useSuccessQuery(queryResult.data, onSuccess);
-
-  return queryResult;
-};
-
-export const useGetPatientDetailsUpdateForm = (
-  onSuccess?: (data: Questionnaire | null) => void
-): UseQueryResult<Questionnaire, Error> => {
-  const { oystehr } = useApiClients();
-
-  const { url, version } = ehrInsuranceUpdateFormJson.resource;
-
-  const queryResult = useQuery({
-    queryKey: ['patient-update-form'],
-
-    queryFn: async () => {
-      if (oystehr) {
-        const searchResults = (
-          await oystehr.fhir.search<Questionnaire>({
-            resourceType: 'Questionnaire',
-            params: [
-              {
-                name: 'url',
-                value: url,
-              },
-              {
-                name: 'version',
-                value: version,
-              },
-            ],
-          })
-        ).unbundle();
-        const form = searchResults[0];
-        if (!form) {
-          throw new Error('Form not found');
-        }
-        return form;
-      } else {
-        throw new Error('FHIR client not defined');
-      }
-    },
-
-    enabled: Boolean(oystehr) && Boolean(ehrInsuranceUpdateFormJson.resource),
-  });
-
-  useSuccessQuery(queryResult.data, onSuccess);
-
-  return queryResult;
 };

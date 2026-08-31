@@ -2,20 +2,20 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { Account, Coverage, Organization, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  COVERAGE_MEMBER_IDENTIFIER_BASE,
-  flattenItems,
-  isValidUUID,
-  ORG_TYPE_CODE_SYSTEM,
-  ORG_TYPE_PAYER_CODE,
-} from 'utils';
-import InPersonQuestionnaireFile from 'utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
+import { ACCOUNT_TYPE_CODE_SYSTEM, COVERAGE_MEMBER_IDENTIFIER_BASE } from 'utils/lib/fhir/constants';
+import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
+import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork';
+import { INSURANCE_PAY_OPTION } from 'utils/lib/ottehr-config/value-sets';
+import { ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils/lib/types/constants';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { v4 as uuidV4 } from 'uuid';
 import { assert, describe, expect, it } from 'vitest';
 import {
+  buildEmergencyContactAddress,
   createAccount,
   createContainedGuarantor,
   extractAccountGuarantor,
+  extractEmergencyContact,
   getAccountOperations,
   GetAccountOperationsOutput,
   getCoverageResources,
@@ -32,7 +32,7 @@ import {
 } from './data/expected-coverage-resources-qr1';
 import { fillReferences } from './helpers/harvest-test-helpers';
 
-const InPersonQuestionnaire = InPersonQuestionnaireFile.resource;
+const InPersonQuestionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
 
 const expectedPrimaryPolicyHolderFromQR1 = fillReferences(rawPPHQR1, ['Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61']);
 const expectedSecondaryPolicyHolderFromQR1 = fillReferences(rawSPHQR1, [
@@ -43,7 +43,7 @@ const expectedAccountGuarantorFromQR1 = fillReferences(rawAGQR1, ['Patient/36ef9
 describe('Harvest Module', () => {
   const { orderedCoverages: coverageResources, accountCoverage } = getCoverageResources({
     questionnaireResponse: questionnaireResponse1,
-    patientId: newPatient1.id ?? '',
+    patient: newPatient1,
     organizationResources: organizations1,
   });
   const primary = coverageResources.primary;
@@ -58,7 +58,7 @@ describe('Harvest Module', () => {
     type: {
       coding: [
         {
-          system: 'http://terminology.hl7.org/CodeSystem/account-type',
+          system: ACCOUNT_TYPE_CODE_SYSTEM,
           code: 'PBILLACCT',
           display: 'patient billing account',
         },
@@ -147,7 +147,7 @@ describe('Harvest Module', () => {
     };
 
     const flattened = flattenItems((questionnaireResponse1.item as QuestionnaireResponse['item']) ?? []);
-    const primaryPolicyHolder = getPrimaryPolicyHolderFromAnswers(flattened);
+    const primaryPolicyHolder = getPrimaryPolicyHolderFromAnswers(flattened, newPatient1);
     expect(primaryPolicyHolder).toEqual(expectedPrimaryPolicyHolder);
   });
 
@@ -168,7 +168,7 @@ describe('Harvest Module', () => {
       memberId: 'FdfDfdFdfDfh7897',
     };
     const flattened = flattenItems((questionnaireResponse1.item as QuestionnaireResponse['item']) ?? []);
-    const secondaryPolicyHolder = getSecondaryPolicyHolderFromAnswers(flattened);
+    const secondaryPolicyHolder = getSecondaryPolicyHolderFromAnswers(flattened, newPatient1);
     expect(secondaryPolicyHolder).toEqual(expectedSecondaryPolicyHolder);
   });
 
@@ -190,7 +190,7 @@ describe('Harvest Module', () => {
     };
 
     const flattened = flattenItems((questionnaireResponse1.item as QuestionnaireResponse['item']) ?? []);
-    const accountGuarantor = extractAccountGuarantor(flattened);
+    const accountGuarantor = extractAccountGuarantor(flattened, newPatient1);
     expect(accountGuarantor).toEqual(expectedAccountGuarantor);
   });
 
@@ -203,7 +203,7 @@ describe('Harvest Module', () => {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
             value: 'FafOneJwgNdkOetWwe6',
             assigner: {
-              reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
+              reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
               display: 'Aetna',
             },
           },
@@ -211,7 +211,7 @@ describe('Harvest Module', () => {
         contained: [expectedPrimaryPolicyHolderFromQR1],
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
-        payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
+        payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/60054' }],
         subscriberId: 'FafOneJwgNdkOetWwe6',
         subscriber: {
           reference: `#coverageSubscriber`,
@@ -242,8 +242,12 @@ describe('Harvest Module', () => {
         type: {
           coding: [
             {
-              code: 'HIP',
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+              code: '09',
+              system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+            },
+            {
+              code: 'pay',
+              system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
             },
           ],
         },
@@ -261,7 +265,7 @@ describe('Harvest Module', () => {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
             value: 'FdfDfdFdfDfh7897',
             assigner: {
-              reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
+              reference: 'https://rcm-api.zapehr.com/v1/payer/J1859',
               display: 'United Heartland',
             },
           },
@@ -269,7 +273,7 @@ describe('Harvest Module', () => {
         contained: [expectedSecondaryPolicyHolderFromQR1],
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
-        payor: [{ reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884' }],
+        payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/J1859' }],
         subscriberId: 'FdfDfdFdfDfh7897',
         subscriber: { reference: '#coverageSubscriber' },
         relationship: {
@@ -298,7 +302,11 @@ describe('Harvest Module', () => {
         type: {
           coding: [
             {
-              code: 'HIP',
+              code: '12',
+              system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+            },
+            {
+              code: 'PPO',
               system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
             },
           ],
@@ -314,7 +322,7 @@ describe('Harvest Module', () => {
 
     const { orderedCoverages: coverageResources } = getCoverageResources({
       questionnaireResponse: questionnaireResponse1,
-      patientId: newPatient1.id ?? '',
+      patient: newPatient1,
       organizationResources: organizations1,
     });
     expect(coverageResources).toBeDefined();
@@ -369,7 +377,7 @@ describe('Harvest Module', () => {
   });
   it('should create an account with the correct details', () => {
     const flattened = flattenItems((questionnaireResponse1.item as QuestionnaireResponse['item']) ?? []);
-    const accountGuarantor = extractAccountGuarantor(flattened);
+    const accountGuarantor = extractAccountGuarantor(flattened, newPatient1);
     assert(accountGuarantor);
 
     const containedGuarantorResource = createContainedGuarantor(accountGuarantor, newPatient1.id ?? '');
@@ -413,11 +421,11 @@ describe('Harvest Module', () => {
   });
   describe('should generate the right output when comparing resources from form with existing resources', () => {
     const flattened = flattenItems((questionnaireResponse1.item as QuestionnaireResponse['item']) ?? []);
-    const accountGuarantor = extractAccountGuarantor(flattened);
+    const accountGuarantor = extractAccountGuarantor(flattened, newPatient1);
     assert(accountGuarantor);
     const { orderedCoverages: coverages, accountCoverage } = getCoverageResources({
       questionnaireResponse: questionnaireResponse1,
-      patientId: newPatient1.id ?? '',
+      patient: newPatient1,
       organizationResources: organizations1,
     });
 
@@ -443,7 +451,7 @@ describe('Harvest Module', () => {
       id: uuidV4(),
       status: 'active',
       beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
-      payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
+      payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/60054' }],
       subscriberId: 'FafOneJwgNdkOetWwe6',
       subscriber: { reference: 'RelatedPerson/36ef99c3-43fb-50f4-bf9d-d9ea12c2bf62' },
       order: 1,
@@ -452,7 +460,7 @@ describe('Harvest Module', () => {
           ...COVERAGE_MEMBER_IDENTIFIER_BASE,
           value: 'FafOneJwgNdkOetWwe6',
           assigner: {
-            reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
+            reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
             display: 'Aetna',
           },
         },
@@ -483,8 +491,12 @@ describe('Harvest Module', () => {
       type: {
         coding: [
           {
-            code: 'HIP',
-            system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+            code: '09',
+            system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+          },
+          {
+            code: 'pay',
+            system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
           },
         ],
       },
@@ -533,7 +545,7 @@ describe('Harvest Module', () => {
       id: uuidV4(),
       status: 'active',
       beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
-      payor: [{ reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884' }],
+      payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/J1859' }],
       subscriberId: 'FdfDfdFdfDfh7897',
       subscriber: { reference: 'RelatedPerson/36ef99c3-43fa-40f4-bf9c-d9ea12c2bf63' },
       order: 1,
@@ -542,7 +554,7 @@ describe('Harvest Module', () => {
           ...COVERAGE_MEMBER_IDENTIFIER_BASE,
           value: 'FdfDfdFdfDfh7897',
           assigner: {
-            reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
+            reference: 'https://rcm-api.zapehr.com/v1/payer/J1859',
             display: 'United Heartland',
           },
         },
@@ -573,7 +585,11 @@ describe('Harvest Module', () => {
       type: {
         coding: [
           {
-            code: 'HIP',
+            code: '12',
+            system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+          },
+          {
+            code: 'PPO',
             system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
           },
         ],
@@ -1679,6 +1695,67 @@ describe('Harvest Module', () => {
       });
     });
 
+    describe('preserveOmittedCoverages — section-save deactivation regression', () => {
+      // Regression: when update-patient-account is called with a single-section QR (e.g. InsuranceSection
+      // save button), preserveOmittedCoverages is set to true. A new Coverage created from the submitted
+      // data gets id = "urn:uuid:<uuid>" from createCoverageResource. The old check used
+      // reference.split('/')[1], which is undefined for urn:uuid references and incorrectly prevented
+      // deactivation. getNewCoverageRefId now handles the bare-id case so the old coverage IS cancelled.
+
+      // Build an existing primary coverage whose member ID differs from what questionnaireResponse1 submits.
+      // coveragesAreSame will return false, so resolveCoverageUpdates falls into the else branch and sets
+      // newPrimaryCoverage.reference = coverages.primary.id (a urn:uuid:xxx string, no slash).
+      const existingPrimaryWithDifferentMemberId: Coverage = {
+        ...primary,
+        subscriberId: 'OLD-MEMBER-ID',
+        identifier: [
+          {
+            ...primary.identifier![0],
+            value: 'OLD-MEMBER-ID',
+          },
+        ],
+      };
+
+      it('deactivates the old primary coverage when preserveOmittedCoverages is true and the submitted coverage has a urn:uuid id', () => {
+        const existingCoverages = {
+          primary: existingPrimaryWithDifferentMemberId,
+          primarySubscriber,
+        };
+
+        // coverages.primary.id is "urn:uuid:xxx" — the form submitted a new member ID that doesn't
+        // match the existing coverage, so a brand-new Coverage resource is proposed.
+        const result = resolveCoverageUpdates({
+          patient: newPatient1,
+          existingCoverages,
+          newCoverages: coverages,
+          preserveOmittedCoverages: true,
+        });
+
+        expect(result.deactivatedCoverages).toHaveLength(1);
+        expect(result.deactivatedCoverages[0].id).toBe(existingPrimaryWithDifferentMemberId.id);
+      });
+
+      it('preserves the existing primary coverage when preserveOmittedCoverages is true and no new coverage is submitted', () => {
+        // Simulates a non-insurance section save: the QR contains no insurance data at all.
+        // The existing coverage must not be cancelled in this case.
+        const existingCoverages = {
+          primary,
+          primarySubscriber,
+        };
+
+        const result = resolveCoverageUpdates({
+          patient: newPatient1,
+          existingCoverages,
+          newCoverages: {},
+          preserveOmittedCoverages: true,
+        });
+
+        expect(result.deactivatedCoverages).toHaveLength(0);
+        const suggestedPrimary = result.suggestedNewCoverageObject?.find((c) => c.priority === 1)?.coverage;
+        expect(suggestedPrimary?.reference).toBe(`Coverage/${primary.id}`);
+      });
+    });
+
     describe('should generate the right output when comparing guarantor from questionnaire with existing guarantor', () => {
       it('should make no changes when existing account and new account both use Patient as guarantor', () => {
         const existingGuarantor = {
@@ -1976,7 +2053,7 @@ describe('Harvest Module', () => {
       expect(post?.type).toBeDefined();
       expect(post?.type?.coding).toBeDefined();
       expect(post?.type?.coding?.length).toBe(1);
-      expect(post?.type?.coding?.[0].system).toBe('http://terminology.hl7.org/CodeSystem/account-type');
+      expect(post?.type?.coding?.[0].system).toBe(ACCOUNT_TYPE_CODE_SYSTEM);
       expect(post?.type?.coding?.[0].code).toBe('PBILLACCT');
       expect(post?.type?.coding?.[0].display).toBe('patient billing account');
       expect(post?.subject).toBeDefined();
@@ -1988,7 +2065,7 @@ describe('Harvest Module', () => {
         id: uuidV4(),
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
-        payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
+        payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/60054' }],
         subscriberId: 'FafOneJwgNdkOetWwe6',
         subscriber: { reference: 'RelatedPerson/36ef99c3-43fb-50f4-bf9d-d9ea12c2bf62' },
         order: 1,
@@ -1997,7 +2074,7 @@ describe('Harvest Module', () => {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE,
             value: 'FafOneJwgNdkOetWwe6',
             assigner: {
-              reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
+              reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
               display: 'Aetna',
             },
           },
@@ -2028,8 +2105,12 @@ describe('Harvest Module', () => {
         type: {
           coding: [
             {
-              code: 'HIP',
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+              code: '09',
+              system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+            },
+            {
+              code: 'pay',
+              system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
             },
           ],
         },
@@ -2115,7 +2196,7 @@ describe('Harvest Module', () => {
         id: uuidV4(),
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
-        payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
+        payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/60054' }],
         subscriberId: 'FafOneJwgDdkOet1234',
         subscriber: { reference: 'RelatedPerson/36ef99c3-43fb-50f4-bf9d-d9ea12c2bf62' },
         order: 1,
@@ -2124,7 +2205,7 @@ describe('Harvest Module', () => {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE,
             value: 'FafOneJwgDdkOet1234',
             assigner: {
-              reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
+              reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
               display: 'Aetna',
             },
           },
@@ -2149,14 +2230,18 @@ describe('Harvest Module', () => {
                 },
               ],
             },
-            value: 'Organization/45ae21d2-12a3-4727-b915-896f7dc57dbd',
+            value: '60054',
           },
         ],
         type: {
           coding: [
             {
-              code: 'HIP',
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+              code: '09',
+              system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+            },
+            {
+              code: 'pay',
+              system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
             },
           ],
         },
@@ -2227,7 +2312,7 @@ describe('Harvest Module', () => {
         id: uuidV4(),
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
-        payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
+        payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/60054' }],
         subscriberId: 'FafOneJwgDdkOet1234',
         subscriber: { reference: 'RelatedPerson/36ef99c3-43fb-50f4-bf9d-d9ea12c2bf62' },
         order: 1,
@@ -2236,7 +2321,7 @@ describe('Harvest Module', () => {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE,
             value: 'FafOneJwgDdkOet1234',
             assigner: {
-              reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
+              reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
               display: 'Aetna',
             },
           },
@@ -2267,8 +2352,12 @@ describe('Harvest Module', () => {
         type: {
           coding: [
             {
-              code: 'HIP',
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+              code: '09',
+              system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+            },
+            {
+              code: 'pay',
+              system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
             },
           ],
         },
@@ -2343,6 +2432,207 @@ describe('Harvest Module', () => {
         },
       });
     });
+
+    const employerQuestionnaireItems: QuestionnaireResponse['item'] = [
+      {
+        linkId: 'workers-comp-insurance-name',
+        answer: [
+          {
+            valueReference: {
+              reference: 'Organization/868091c6-c176-448f-8790-cb4566a57a9b',
+              display: 'MassLight',
+            },
+          },
+        ],
+      },
+      {
+        linkId: 'workers-comp-insurance-member-id',
+        answer: [{ valueString: '1' }],
+      },
+      {
+        linkId: 'employer-name',
+        answer: [{ valueString: 'Wayne Enterprises' }],
+      },
+      {
+        linkId: 'employer-address',
+        answer: [{ valueString: '1007 Mountain Drive' }],
+      },
+      {
+        linkId: 'employer-city',
+        answer: [{ valueString: 'Gotham' }],
+      },
+      {
+        linkId: 'employer-state',
+        answer: [{ valueString: 'NJ' }],
+      },
+      {
+        linkId: 'employer-zip',
+        answer: [{ valueString: '07001' }],
+      },
+      {
+        linkId: 'employer-contact-first-name',
+        answer: [{ valueString: 'Lucius' }],
+      },
+      {
+        linkId: 'employer-contact-last-name',
+        answer: [{ valueString: 'Fox' }],
+      },
+      {
+        linkId: 'employer-contact-phone',
+        answer: [{ valueString: '5551239876' }],
+      },
+    ];
+
+    const workersCompEmployerOrganization: Organization = {
+      active: true,
+      address: [
+        {
+          city: 'Example',
+          line: ['Example'],
+          postalCode: '12345',
+          state: 'DC',
+          use: 'billing',
+        },
+      ],
+      extension: [
+        {
+          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/eligibility',
+          valueString: 'yes',
+        },
+        {
+          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/era',
+          valueString: 'enrollment',
+        },
+        {
+          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/payer-type',
+          valueString: 'workerscomp',
+        },
+      ],
+      identifier: [
+        {
+          type: {
+            coding: [
+              {
+                code: '12345',
+                system: 'payer-id',
+              },
+            ],
+          },
+        },
+        {
+          type: {
+            coding: [
+              {
+                code: 'XX',
+                system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+              },
+            ],
+          },
+          value: '12345',
+        },
+      ],
+      name: 'MassLight',
+      resourceType: 'Organization',
+      telecom: [
+        {
+          system: 'phone',
+          value: '123-456-7890',
+        },
+      ],
+      type: [
+        {
+          coding: [
+            {
+              code: 'pay',
+              system: 'http://terminology.hl7.org/CodeSystem/organization-type',
+            },
+          ],
+        },
+      ],
+      id: '868091c6-c176-448f-8790-cb4566a57a9b',
+      meta: {
+        versionId: '53467db8-3445-46ee-8300-5f12043bf0f0',
+        lastUpdated: '2025-11-05T15:57:52.067Z',
+      },
+    };
+
+    it('creates employer organization, workers comp account, and coverage operations when employer data exists', () => {
+      const result = getAccountOperations({
+        patient,
+        questionnaireResponseItem: employerQuestionnaireItems,
+        organizationResources: [workersCompEmployerOrganization],
+        existingCoverages: {},
+      });
+
+      expect(result.employerOrganizationPost).toBeDefined();
+      expect(result.employerOrganizationPost?.resource?.name).toBe('Wayne Enterprises');
+      expect(result.workersCompAccountPost).toBeDefined();
+      const employerReference = result.employerOrganizationPost?.fullUrl;
+      expect(result.workersCompAccountPost?.owner?.reference).toBe(employerReference);
+      expect(result.workersCompAccountPost?.guarantor?.[0]?.party?.reference).toBe(employerReference);
+
+      const workersCompCoveragePost = result.coveragePosts.find(
+        (coverage) => coverage.resource.type?.coding?.some((coding) => coding.code === 'WC')
+      );
+      expect(workersCompCoveragePost).toBeDefined();
+      expect(workersCompCoveragePost?.resource.payor?.[0].reference).toBe(
+        'Organization/868091c6-c176-448f-8790-cb4566a57a9b'
+      );
+      expect(workersCompCoveragePost?.resource.class?.[0].name).toBe('MassLight');
+      expect(workersCompCoveragePost?.resource.class?.[0].value).toBe('12345');
+      expect(workersCompCoveragePost?.resource.identifier?.[0]?.value).toBe('1');
+    });
+
+    it('updates employer organization and workers comp account when resources already exist', () => {
+      const employerOrg: Organization = {
+        resourceType: 'Organization',
+        id: uuidV4(),
+        name: 'Wayne Enterprises',
+      };
+
+      const result = getAccountOperations({
+        patient,
+        questionnaireResponseItem: employerQuestionnaireItems,
+        organizationResources: [],
+        existingCoverages: {},
+        existingWorkersCompAccount: workersCompAccountResource,
+        existingEmployerOrganization: employerOrg,
+      });
+
+      expect(result.employerOrganizationPut?.url).toBe(`Organization/${employerOrg.id}`);
+      expect(result.workersCompAccountPut?.url).toBe(`Account/${workersCompAccountResource.id}`);
+      const updatedAccount = result.workersCompAccountPut?.resource;
+      expect(updatedAccount?.guarantor?.[0]?.party?.reference).toBe(`Organization/${employerOrg.id}`);
+    });
+
+    it('clears employer organization and workers comp account when employer fields are explicitly cleared', () => {
+      const employerOrg: Organization = {
+        resourceType: 'Organization',
+        id: uuidV4(),
+        name: 'Wayne Enterprises',
+      };
+
+      const existingWorkersCompAccount: Account = {
+        ...workersCompAccountResource,
+        owner: { reference: `Organization/${employerOrg.id}` },
+        name: 'Wayne Enterprises',
+      };
+
+      const result = getAccountOperations({
+        patient,
+        questionnaireResponseItem: [{ linkId: 'employer-name', answer: [] }],
+        organizationResources: [],
+        existingCoverages: {},
+        existingWorkersCompAccount,
+        existingEmployerOrganization: employerOrg,
+      });
+
+      expect(result.employerOrganizationPut?.url).toBe(`Organization/${employerOrg.id}`);
+      expect(result.employerOrganizationPut?.resource.name).toBeUndefined();
+      expect(result.workersCompAccountPut?.url).toBe(`Account/${existingWorkersCompAccount.id}`);
+      expect(result.workersCompAccountPut?.resource.name).toBeUndefined();
+      expect(result.workersCompAccountPost).toBeUndefined();
+    });
   });
   describe('translating query results into input for the account operations', () => {
     const stubSecondaryCoverage: Coverage = {
@@ -2352,7 +2642,7 @@ describe('Harvest Module', () => {
           ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
           value: 'FdfDfdFdfDfh7897',
           assigner: {
-            reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
+            reference: 'https://rcm-api.zapehr.com/v1/payer/J1859',
             display: 'United Heartland',
           },
         },
@@ -2360,7 +2650,7 @@ describe('Harvest Module', () => {
       // contained: [expectedSecondaryPolicyHolderFromQR1],
       status: 'active',
       beneficiary: { reference: `Patient/${bundle1Patient}`, type: 'Patient' },
-      payor: [{ reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884' }],
+      payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/J1859' }],
       subscriberId: 'FdfDfdFdfDfh7897',
       subscriber: { reference: `RelatedPerson/${bundle1RP1.id}` },
       relationship: {
@@ -2389,7 +2679,11 @@ describe('Harvest Module', () => {
       type: {
         coding: [
           {
-            code: 'HIP',
+            code: '12',
+            system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+          },
+          {
+            code: 'PPO',
             system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
           },
         ],
@@ -2439,6 +2733,13 @@ describe('Harvest Module', () => {
 
       expect(inputs.coverages.secondary).toBeUndefined();
       expect(inputs.coverages.secondarySubscriber).toBeUndefined();
+    });
+
+    it('should differentiate workers comp account from patient billing account', () => {
+      const resources = [...bundle1, workersCompAccountResource];
+      const inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
+      expect(inputs.account?.id).toBe(bundle1Account.id);
+      expect(inputs.workersCompAccount?.id).toBe(workersCompAccountResource.id);
     });
 
     it('it should have primary and secondary coverage when secondary coverage is added and there is no existing account', () => {
@@ -2527,6 +2828,133 @@ describe('Harvest Module', () => {
 
       expect(inputs.coverages.secondary).toBeDefined();
       expect(inputs.coverages.secondarySubscriber).toBeDefined();
+    });
+  });
+
+  describe('same-as-patient address resolution', () => {
+    const patientAddress = {
+      line: ['42 Patient Way', 'Suite 3'],
+      city: 'Bethesda',
+      state: 'MD',
+      postalCode: '20814',
+    };
+    const fieldAddress = {
+      line: ['10 Other St'],
+      city: 'Rockville',
+      state: 'MD',
+      postalCode: '20850',
+    };
+    const patientWithAddress: Patient = {
+      ...newPatient1,
+      address: [patientAddress],
+    };
+
+    const buildPolicyHolderItems = (
+      sameAsPatient: boolean,
+      suffix = ''
+    ): NonNullable<QuestionnaireResponse['item']> => [
+      { linkId: `policy-holder-first-name${suffix}`, answer: [{ valueString: 'Pat' }] },
+      { linkId: `policy-holder-last-name${suffix}`, answer: [{ valueString: 'Holder' }] },
+      { linkId: `policy-holder-date-of-birth${suffix}`, answer: [{ valueString: '1980-01-01' }] },
+      { linkId: `policy-holder-birth-sex${suffix}`, answer: [{ valueString: 'Female' }] },
+      { linkId: `patient-relationship-to-insured${suffix}`, answer: [{ valueString: 'Self' }] },
+      { linkId: `insurance-member-id${suffix}`, answer: [{ valueString: 'MEM123' }] },
+      { linkId: `policy-holder-address${suffix}`, answer: [{ valueString: fieldAddress.line[0] }] },
+      { linkId: `policy-holder-city${suffix}`, answer: [{ valueString: fieldAddress.city }] },
+      { linkId: `policy-holder-state${suffix}`, answer: [{ valueString: fieldAddress.state }] },
+      { linkId: `policy-holder-zip${suffix}`, answer: [{ valueString: fieldAddress.postalCode }] },
+      { linkId: `policy-holder-address-as-patient${suffix}`, answer: [{ valueBoolean: sameAsPatient }] },
+    ];
+
+    const buildResponsiblePartyItems = (sameAsPatient: boolean): NonNullable<QuestionnaireResponse['item']> => [
+      { linkId: 'responsible-party-first-name', answer: [{ valueString: 'Jane' }] },
+      { linkId: 'responsible-party-last-name', answer: [{ valueString: 'Doe' }] },
+      { linkId: 'responsible-party-date-of-birth', answer: [{ valueString: '1980-01-01' }] },
+      { linkId: 'responsible-party-birth-sex', answer: [{ valueString: 'Female' }] },
+      { linkId: 'responsible-party-relationship', answer: [{ valueString: 'Self' }] },
+      { linkId: 'responsible-party-address', answer: [{ valueString: fieldAddress.line[0] }] },
+      { linkId: 'responsible-party-city', answer: [{ valueString: fieldAddress.city }] },
+      { linkId: 'responsible-party-state', answer: [{ valueString: fieldAddress.state }] },
+      { linkId: 'responsible-party-zip', answer: [{ valueString: fieldAddress.postalCode }] },
+      { linkId: 'responsible-party-address-as-patient', answer: [{ valueBoolean: sameAsPatient }] },
+    ];
+
+    const buildEmergencyContactItems = (sameAsPatient: boolean): NonNullable<QuestionnaireResponse['item']> => [
+      { linkId: 'emergency-contact-first-name', answer: [{ valueString: 'Em' }] },
+      { linkId: 'emergency-contact-last-name', answer: [{ valueString: 'Contact' }] },
+      { linkId: 'emergency-contact-relationship', answer: [{ valueString: 'Parent' }] },
+      { linkId: 'emergency-contact-number', answer: [{ valueString: '(555) 555-1234' }] },
+      { linkId: 'emergency-contact-address', answer: [{ valueString: fieldAddress.line[0] }] },
+      { linkId: 'emergency-contact-city', answer: [{ valueString: fieldAddress.city }] },
+      { linkId: 'emergency-contact-state', answer: [{ valueString: fieldAddress.state }] },
+      { linkId: 'emergency-contact-zip', answer: [{ valueString: fieldAddress.postalCode }] },
+      { linkId: 'emergency-contact-address-as-patient', answer: [{ valueBoolean: sameAsPatient }] },
+    ];
+
+    it('uses patient address for primary policy holder when same-as-patient flag is true', () => {
+      const result = getPrimaryPolicyHolderFromAnswers(buildPolicyHolderItems(true), patientWithAddress);
+      expect(result?.address).toEqual(patientAddress);
+    });
+
+    it('falls back to policy-holder address fields when flag is true but patient has no address', () => {
+      const result = getPrimaryPolicyHolderFromAnswers(buildPolicyHolderItems(true), newPatient1);
+      expect(result?.address).toEqual(fieldAddress);
+    });
+
+    it('uses policy-holder address fields when flag is false', () => {
+      const result = getPrimaryPolicyHolderFromAnswers(buildPolicyHolderItems(false), patientWithAddress);
+      expect(result?.address).toEqual(fieldAddress);
+    });
+
+    it('uses patient address for secondary policy holder when -2 same-as-patient flag is true', () => {
+      const result = getSecondaryPolicyHolderFromAnswers(buildPolicyHolderItems(true, '-2'), patientWithAddress);
+      expect(result?.address).toEqual(patientAddress);
+    });
+
+    it('falls back to secondary policy-holder address fields when flag is true but patient has no address', () => {
+      const result = getSecondaryPolicyHolderFromAnswers(buildPolicyHolderItems(true, '-2'), newPatient1);
+      expect(result?.address).toEqual(fieldAddress);
+    });
+
+    it('uses secondary policy-holder address fields when -2 flag is false', () => {
+      const result = getSecondaryPolicyHolderFromAnswers(buildPolicyHolderItems(false, '-2'), patientWithAddress);
+      expect(result?.address).toEqual(fieldAddress);
+    });
+
+    it('uses patient address for account guarantor when flag is true', () => {
+      const result = extractAccountGuarantor(buildResponsiblePartyItems(true), patientWithAddress);
+      expect(result?.address).toEqual(patientAddress);
+    });
+
+    it('falls back to responsible-party address fields when flag is true but patient has no address', () => {
+      const result = extractAccountGuarantor(buildResponsiblePartyItems(true), newPatient1);
+      expect(result?.address).toEqual(fieldAddress);
+    });
+
+    it('uses responsible-party address fields when flag is false', () => {
+      const result = extractAccountGuarantor(buildResponsiblePartyItems(false), patientWithAddress);
+      expect(result?.address).toEqual(fieldAddress);
+    });
+
+    it('uses patient address for emergency contact when addressSameAsPatient is true', () => {
+      const contact = extractEmergencyContact(buildEmergencyContactItems(true));
+      assert(contact);
+      const address = buildEmergencyContactAddress(contact, patientWithAddress);
+      expect(address).toEqual(patientAddress);
+    });
+
+    it('falls back to emergency-contact fields when flag is true but patient has no address', () => {
+      const contact = extractEmergencyContact(buildEmergencyContactItems(true));
+      assert(contact);
+      const address = buildEmergencyContactAddress(contact, newPatient1);
+      expect(address).toEqual(fieldAddress);
+    });
+
+    it('uses emergency-contact fields when flag is false', () => {
+      const contact = extractEmergencyContact(buildEmergencyContactItems(false));
+      assert(contact);
+      const address = buildEmergencyContactAddress(contact, patientWithAddress);
+      expect(address).toEqual(fieldAddress);
     });
   });
 });
@@ -2825,7 +3253,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
           linkId: 'payment-option',
           answer: [
             {
-              valueString: 'I have insurance',
+              valueString: INSURANCE_PAY_OPTION,
             },
           ],
         },
@@ -2837,11 +3265,15 @@ const questionnaireResponse1: QuestionnaireResponse = {
           answer: [
             {
               valueReference: {
-                reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
+                reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
                 display: 'Aetna',
               },
             },
           ],
+        },
+        {
+          linkId: 'insurance-plan-type',
+          answer: [{ valueString: '09' }],
         },
         {
           linkId: 'insurance-member-id',
@@ -3002,11 +3434,15 @@ const questionnaireResponse1: QuestionnaireResponse = {
               answer: [
                 {
                   valueReference: {
-                    reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
+                    reference: 'https://rcm-api.zapehr.com/v1/payer/J1859',
                     display: 'United Heartland',
                   },
                 },
               ],
+            },
+            {
+              linkId: 'insurance-plan-type-2',
+              answer: [{ valueString: '12' }],
             },
             {
               linkId: 'insurance-member-id-2',
@@ -3228,9 +3664,6 @@ const questionnaireResponse1: QuestionnaireResponse = {
       ],
     },
     {
-      linkId: 'photo-id-page',
-    },
-    {
       linkId: 'consent-forms-page',
     },
   ],
@@ -3250,7 +3683,7 @@ const insurancePlans1: InsurancePlan[] = [
       lastUpdated: '2024-12-12T10:02:42.725Z',
     },
     ownedBy: {
-      reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
+      reference: 'https://rcm-api.zapehr.com/v1/payer/J1859',
     },
     status: 'active',
     extension: [
@@ -3311,7 +3744,7 @@ const insurancePlans1: InsurancePlan[] = [
       lastUpdated: '2024-12-12T10:01:13.104Z',
     },
     ownedBy: {
-      reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
+      reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
     },
     status: 'active',
     extension: [
@@ -3382,11 +3815,12 @@ const organizations1: Organization[] = [
         type: {
           coding: [
             {
-              code: 'XX',
+              code: 'PAYERID',
               system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
             },
           ],
         },
+        system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id',
         value: 'J1859',
       },
     ],
@@ -3405,7 +3839,7 @@ const organizations1: Organization[] = [
         valueString: 'workerscomp',
       },
     ],
-    id: 'a9bada42-935a-45fa-ba8e-aa3b29478884',
+    id: 'J1859',
     meta: {
       versionId: 'adc6c2ad-26e6-4ca1-b053-b0f4bf60ae04',
       lastUpdated: '2024-12-12T10:02:42.483Z',
@@ -3430,11 +3864,12 @@ const organizations1: Organization[] = [
         type: {
           coding: [
             {
-              code: 'XX',
+              code: 'PAYERID',
               system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
             },
           ],
         },
+        system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id',
         value: '60054',
       },
     ],
@@ -3452,7 +3887,7 @@ const organizations1: Organization[] = [
         valueString: 'commercial',
       },
     ],
-    id: 'db875d9d-5726-4c45-a689-e11a7bbdf176',
+    id: '60054',
     meta: {
       versionId: '7bd10109-093f-413a-978d-d97d146ddc95',
       lastUpdated: '2024-12-12T10:01:12.820Z',
@@ -3521,7 +3956,7 @@ const bundle1Account: Account = {
   type: {
     coding: [
       {
-        system: 'http://terminology.hl7.org/CodeSystem/account-type',
+        system: ACCOUNT_TYPE_CODE_SYSTEM,
         code: 'PBILLACCT',
         display: 'patient billing account',
       },
@@ -3553,6 +3988,27 @@ const bundle1Account: Account = {
     versionId: '3728b10d-4f4d-4401-9be4-f4f7f43aa488',
     lastUpdated: '2025-03-01T03:03:27.796Z',
   },
+};
+
+const workersCompAccountResource: Account = {
+  id: '8a733a57-42d8-4b67-9f56-3b6448169b05',
+  resourceType: 'Account',
+  status: 'active',
+  type: {
+    coding: [
+      {
+        system: ACCOUNT_TYPE_CODE_SYSTEM,
+        code: 'WCOMPACCT',
+        display: 'worker compensation account',
+      },
+    ],
+  },
+  subject: [
+    {
+      reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61',
+      type: 'Patient',
+    },
+  ],
 };
 
 const bundle1RP1: RelatedPerson = {
@@ -3625,9 +4081,12 @@ const bundle1Coverage: Coverage = {
   type: {
     coding: [
       {
-        system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-        code: 'HIP',
-        display: 'health insurance plan policy',
+        code: '09',
+        system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+      },
+      {
+        code: 'pay',
+        system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
       },
     ],
   },
@@ -3653,7 +4112,7 @@ const bundle1Coverage: Coverage = {
   payor: [
     {
       type: 'Organization',
-      reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
+      reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
     },
   ],
   meta: {

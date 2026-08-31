@@ -1,0 +1,407 @@
+import Oystehr from '@oystehr/sdk';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import {
+  Appointment,
+  Consent,
+  DocumentReference,
+  Encounter,
+  Flag,
+  Location,
+  Patient,
+  Questionnaire,
+  QuestionnaireResponse,
+  RelatedPerson,
+  Schedule,
+} from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getAttestedConsentFromEncounter } from 'utils/lib/fhir/helpers';
+import { getEmailForIndividual, getFullestAvailableName } from 'utils/lib/fhir/patient';
+import {
+  deconstructCanonicalUrl,
+  getCanonicalQuestionnaire,
+  getQuestionnaireForQR,
+  selectIntakeQuestionnaireResponse,
+} from 'utils/lib/fhir/questionnaires';
+import { getNameFromScheduleResource } from 'utils/lib/helpers/helpers';
+import {
+  isPracticeManagedQ,
+  makeStandaloneFormDTO,
+  qrSentManually,
+} from 'utils/lib/helpers/practice-managed-questionnaires';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { PersistedFhirResource, Timezone } from 'utils/lib/types/common';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { StandaloneFormDTO } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { ConsentDetails, EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
+import {
+  FHIR_RESOURCE_NOT_FOUND,
+  INVALID_RESOURCE_ID_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUIRED_PARAMETERS,
+} from 'utils/lib/types/errors';
+import { DISPLAY_DATE_FORMAT } from 'utils/lib/utils/dateUtils';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { sendErrors } from '../../../shared/errors';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
+
+const ZAMBDA_NAME = 'get-visit-details';
+
+let m2mToken: string;
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+  const effectInput = await complexValidation(validatedParameters, oystehr, secrets);
+  console.debug('complexValidation success', JSON.stringify(effectInput));
+
+  const resources = performEffect(effectInput);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(resources),
+  };
+});
+
+const performEffect = (input: EffectInput): EHRVisitDetails => {
+  const {
+    appointment,
+    patient,
+    encounter,
+    flags,
+    consents,
+    qr,
+    location,
+    schedule,
+    scheduleOwner,
+    guarantorResource,
+    standAloneForms,
+    intakePaperworkFlowForms,
+  } = input;
+
+  const firstConsent = consents && consents.length > 0 ? consents[0] : undefined;
+
+  let visitTimezone: Timezone = TIMEZONES[0];
+
+  if (schedule) {
+    visitTimezone = getTimezone(schedule);
+  } else if (location) {
+    visitTimezone = getTimezone(location);
+  }
+
+  let responsiblePartyName: string | null = null;
+  let responsiblePartyEmail: string | null = null;
+  if (guarantorResource) {
+    responsiblePartyName = getFullestAvailableName(guarantorResource) || null;
+    responsiblePartyEmail = getEmailForIndividual(guarantorResource) || null;
+  }
+
+  const consentIsAttested = getAttestedConsentFromEncounter(encounter) ? true : false;
+
+  const output: EHRVisitDetails = {
+    appointment,
+    patient,
+    encounter,
+    flags,
+    visitTimezone,
+    visitLocationName: undefined,
+    consentDetails: firstConsent ? makeConsentDetails(firstConsent, visitTimezone, qr) : null,
+    qrId: qr.id,
+    visitLocationId: location?.id,
+    responsiblePartyName,
+    responsiblePartyEmail,
+    consentIsAttested,
+    standAloneForms,
+    intakePaperworkFlowForms,
+  };
+
+  if (schedule) {
+    output.visitTimezone = getTimezone(schedule);
+  } else if (location) {
+    output.visitTimezone = getTimezone(location);
+  }
+
+  if (scheduleOwner) {
+    output.visitLocationName = getNameFromScheduleResource(scheduleOwner) || undefined;
+  }
+
+  return output;
+};
+
+interface EffectInput {
+  appointment: Appointment;
+  patient: Patient;
+  encounter: Encounter;
+  flags: Flag[];
+  qr: PersistedFhirResource<QuestionnaireResponse>;
+  consents?: Consent[];
+  docRefs?: DocumentReference[];
+  schedule?: Schedule;
+  scheduleOwner?: ScheduleOwnerFhirResource;
+  location?: Location;
+  guarantorResource?: Patient | RelatedPerson | undefined;
+  standAloneForms?: StandaloneFormDTO[];
+  intakePaperworkFlowForms?: StandaloneFormDTO[];
+}
+
+const complexValidation = async (input: Input, oystehr: Oystehr, secrets: Secrets | null): Promise<EffectInput> => {
+  const { appointmentId } = input;
+
+  const searchResults = (
+    await oystehr.fhir.search<
+      Appointment | Patient | Encounter | Flag | Consent | QuestionnaireResponse | Location | Schedule
+    >({
+      resourceType: 'Appointment',
+      params: [
+        { name: '_id', value: appointmentId },
+        {
+          name: '_include',
+          value: 'Appointment:patient',
+        },
+        {
+          name: '_include',
+          value: 'Appointment:location',
+        },
+        {
+          name: '_include',
+          value: 'Appointment:slot',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Encounter:appointment',
+        },
+        { name: '_revinclude:iterate', value: 'Flag:encounter' },
+        { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
+        {
+          name: '_include:iterate',
+          value: 'Slot:schedule',
+        },
+      ],
+    })
+  ).unbundle();
+  const appointment = searchResults.find((resource) => resource.resourceType === 'Appointment') as Appointment;
+  const patient = searchResults.find((resource) => resource.resourceType === 'Patient') as Patient;
+  const encounter = searchResults.find(
+    (resource) => resource.resourceType === 'Encounter' && !isAnnotationFollowupEncounter(resource as Encounter)
+  ) as Encounter;
+  const location = searchResults.find((resource) => resource.resourceType === 'Location') as Location | undefined;
+  const flags = searchResults.filter((resource) => resource.resourceType === 'Flag') as Flag[];
+  const qr = selectIntakeQuestionnaireResponse(searchResults) as PersistedFhirResource<QuestionnaireResponse>;
+  const schedule = searchResults.find((resource) => resource.resourceType === 'Schedule') as Schedule | undefined;
+
+  if (!appointment) {
+    throw FHIR_RESOURCE_NOT_FOUND('Appointment');
+  }
+  if (!patient || !patient.id) {
+    throw FHIR_RESOURCE_NOT_FOUND('Patient');
+  }
+  if (!encounter || !encounter.id) {
+    throw FHIR_RESOURCE_NOT_FOUND('Encounter');
+  }
+  if (!qr || !qr.id) {
+    throw FHIR_RESOURCE_NOT_FOUND('QuestionnaireResponse');
+  }
+
+  let scheduleOwner: ScheduleOwnerFhirResource | undefined = undefined;
+
+  if (schedule?.actor && schedule.actor.length > 0 && schedule.actor[0].reference) {
+    const [resourceType, id] = schedule.actor[0].reference.split('/');
+    if (resourceType && id) {
+      scheduleOwner = searchResults.find((resource) => resource.resourceType === resourceType && resource.id === id) as
+        | ScheduleOwnerFhirResource
+        | undefined;
+    }
+  }
+
+  const [docRefsAndConsents, accountResources, standAloneForms, intakePaperworkFlowForms] = await Promise.all([
+    getConsentAndRelatedDocRefsForAppointment(
+      {
+        appointmentId,
+        patientId: patient.id,
+      },
+      oystehr
+    ),
+    getAccountAndCoverageResourcesForPatient(patient.id, oystehr),
+    getStandaloneFormsForAppointment(appointment, oystehr),
+    getIntakePaperworkFlowForms(qr, oystehr, secrets),
+  ]);
+  const { guarantorResource } = accountResources;
+  return {
+    appointment,
+    patient,
+    encounter,
+    flags,
+    qr,
+    location,
+    schedule,
+    scheduleOwner,
+    guarantorResource,
+    ...docRefsAndConsents,
+    standAloneForms,
+    intakePaperworkFlowForms,
+  };
+};
+
+const makeConsentDetails = (
+  consent: Consent,
+  timezone: Timezone,
+  questionnaireResponse: QuestionnaireResponse
+): ConsentDetails | null => {
+  const flattenedPaperwork = flattenQuestionnaireAnswers(questionnaireResponse.item || []);
+  const signature = flattenedPaperwork.find((item) => item.linkId === 'signature')?.answer?.[0]?.valueString;
+  const fullName = flattenedPaperwork.find((question) => question.linkId === 'full-name')?.answer?.[0]?.valueString;
+  const relationshipToPatient = flattenedPaperwork.find(
+    (question) => question.linkId === 'consent-form-signer-relationship'
+  )?.answer?.[0]?.valueString;
+
+  // todo: check if consent has contained signer data  https://github.com/masslight/ottehr/issues/4376
+
+  const dateISO = consent.dateTime;
+  let date: string | undefined = undefined;
+
+  if (dateISO) {
+    date = DateTime.fromISO(dateISO).setZone(timezone).toFormat(DISPLAY_DATE_FORMAT);
+  }
+
+  if (signature && fullName && relationshipToPatient && date) {
+    return {
+      signature,
+      fullName,
+      relationshipToPatient,
+      date,
+    };
+  }
+
+  return null;
+};
+
+interface Input {
+  userToken: string;
+  appointmentId: string;
+  secrets: Secrets | null;
+}
+
+const validateRequestParameters = (input: ZambdaInput): Input => {
+  if (!input.body) {
+    throw MISSING_REQUEST_BODY;
+  }
+
+  // not doing anything with the userToken right now, but we may want to write an AuditEvent for viewing these resources
+  // at some point and it should always be available, so throwing it in the input interface anticipatorily
+  const userToken = input.headers.Authorization.replace('Bearer ', '');
+
+  if (!userToken) {
+    throw new Error('user token unexpectedly missing');
+  }
+
+  console.log('input', JSON.stringify(input, null, 2));
+  const { secrets } = input;
+  const { appointmentId } = JSON.parse(input.body);
+
+  if (!appointmentId) {
+    throw MISSING_REQUIRED_PARAMETERS(['appointmentId']);
+  }
+
+  if (isValidUUID(appointmentId) === false) {
+    throw INVALID_RESOURCE_ID_ERROR('appointmentId');
+  }
+
+  return {
+    secrets,
+    userToken,
+    appointmentId,
+  };
+};
+
+const getStandaloneFormsForAppointment = async (
+  appointment: Appointment,
+  oystehr: Oystehr
+): Promise<StandaloneFormDTO[] | undefined> => {
+  const appointmentId = appointment.id!;
+
+  const resources = (
+    await oystehr.fhir.search<Encounter | QuestionnaireResponse>({
+      resourceType: 'Encounter',
+      params: [
+        { name: 'appointment', value: `Appointment/${appointmentId}` },
+        { name: '_revinclude', value: 'QuestionnaireResponse:encounter' },
+      ],
+    })
+  ).unbundle();
+
+  const questionnaireResponses = resources
+    .filter((r) => r.resourceType === 'QuestionnaireResponse')
+    .filter((qr) => qrSentManually(qr));
+
+  if (!questionnaireResponses || questionnaireResponses.length === 0) return;
+
+  const results = await Promise.allSettled(
+    questionnaireResponses.map(async (qr) => {
+      const questionnaire = await getQuestionnaireForQR(qr, oystehr);
+      return makeStandaloneFormDTO(questionnaire, qr);
+    })
+  );
+
+  results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').forEach((r) => console.error(r.reason));
+
+  return results
+    .filter((r): r is PromiseFulfilledResult<StandaloneFormDTO> => r.status === 'fulfilled')
+    .map((r) => r.value);
+};
+
+/**
+ * Builds one StandaloneFormDTO per form bundled in the visit's paperwork so those responses render in the Custom Paperwork area alongside standalone forms.
+ */
+const getIntakePaperworkFlowForms = async (
+  qr: QuestionnaireResponse,
+  oystehr: Oystehr,
+  secrets: Secrets | null
+): Promise<StandaloneFormDTO[] | undefined> => {
+  let questionnaire: Questionnaire | undefined;
+
+  // this really shouldn't happen, but if it does it should not kill get-visit-details
+  try {
+    questionnaire = await getQuestionnaireForQR(qr, oystehr);
+  } catch (e) {
+    console.log(`Error getting Questionnaire for QuestionnaireResponse/${qr.id}`, e);
+    const errorMessage = `Error getting Questionnaire for QuestionnaireResponse/${qr.id}`;
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    // no need to error and fail the call but this would be odd so alerting
+    await sendErrors(errorMessage, ENVIRONMENT);
+  }
+
+  if (!questionnaire || !questionnaire.derivedFrom) return;
+  const flowQuestionnaire = questionnaire;
+
+  const results = await Promise.allSettled(
+    (flowQuestionnaire.derivedFrom ?? []).map(async (canonical) => {
+      const { url, version } = deconstructCanonicalUrl(canonical, flowQuestionnaire);
+
+      return getCanonicalQuestionnaire({ url, version }, oystehr);
+    })
+  );
+
+  results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').forEach((r) => console.error(r.reason));
+
+  const forms = results
+    .filter((r): r is PromiseFulfilledResult<Questionnaire> => r.status === 'fulfilled')
+    .map((r) => r.value)
+    .filter((form) => isPracticeManagedQ(form))
+    .map((form) => makeStandaloneFormDTO(form, qr));
+
+  return forms.length > 0 ? forms : undefined;
+};

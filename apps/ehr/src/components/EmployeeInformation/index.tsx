@@ -1,11 +1,13 @@
 import { LoadingButton } from '@mui/lab';
-import { Button, Grid, Paper, Skeleton, Typography } from '@mui/material';
+import { Box, Button, Grid, Paper, Skeleton, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import { Link } from 'react-router-dom';
-import { FHIR_IDENTIFIER_NPI, PractitionerLicense, PractitionerQualificationCode, RoleType, User } from 'utils';
+import { useNavigate } from 'react-router-dom';
+import { FHIR_IDENTIFIER_NPI, PROVIDER_TYPE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { PractitionerLicense, PractitionerQualificationCode } from 'utils/lib/types/api/practitioner.types';
+import { isRoleType, RoleType, User } from 'utils/lib/types/api/user.types';
 import { updateUser } from '../../api/api';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';
@@ -21,10 +23,12 @@ export default function EmployeeInformationForm({
   existingUser,
   isActive,
   licenses,
+  seenPatientRecently,
   getUserAndUpdatePage,
 }: EditEmployeeInformationProps): JSX.Element {
   const { oystehrZambda } = useApiClients();
   const evolveUser = useEvolveUser();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState({
     submit: false,
@@ -91,28 +95,26 @@ export default function EmployeeInformationForm({
     }
   }, [formErrors]);
 
-  console.log(5, formErrors);
-
   useEffect(() => {
     if (existingUser) {
       setUser(existingUser);
-      setValue('roles', (existingUser as User).roles?.map((role) => role.name as RoleType) || []);
+      // Only genuine employee roles are seeded, so the form can't echo back something it never
+      // showed. A self-registered user holds `Patient`, which isn't an employee role at all — saving
+      // it unchanged failed validation, and converting them to staff is exactly when it should go.
+      setValue('roles', ((existingUser as User).roles ?? []).map((role) => role.name).filter(isRoleType));
 
       let firstName = '';
       let middleName = '';
       let lastName = '';
-      let nameSuffix = '';
       if (existingUser.profileResource?.name && existingUser.profileResource?.name.length > 0) {
         const name = existingUser.profileResource?.name[0];
         firstName = name.given?.[0] ?? '';
         middleName = name.given?.length && name.given.length > 1 ? name.given.slice(1).join(' ') : '';
         lastName = name.family ?? '';
-        nameSuffix = name.suffix?.join(' ') ?? '';
       }
       setValue('firstName', firstName);
       setValue('middleName', middleName);
       setValue('lastName', lastName);
-      setValue('nameSuffix', nameSuffix);
 
       if (existingUser?.profileResource?.telecom) {
         const phone = existingUser.profileResource.telecom.find((tel) => tel.system === 'phone')?.value;
@@ -151,13 +153,34 @@ export default function EmployeeInformationForm({
           setValue('npi', npi.value || 'n/a');
         }
       }
+
+      if (existingUser.profileResource?.extension) {
+        const providerTypeExt = existingUser.profileResource.extension.find(
+          (ext) => ext.url === PROVIDER_TYPE_EXTENSION_URL
+        );
+
+        if (providerTypeExt?.valueCodeableConcept) {
+          const coding = providerTypeExt.valueCodeableConcept.coding?.[0];
+          const code = coding?.code;
+          const text = providerTypeExt.valueCodeableConcept.text;
+
+          if (code) {
+            setValue('providerType', code as EmployeeForm['providerType']);
+            if (code === 'other' && text) {
+              setValue('providerTypeText', text);
+            }
+          }
+        }
+      }
     }
   }, [existingUser, setValue]);
 
   const isProviderRoleSelected = getValues('roles')?.includes(RoleType.Provider) ?? false;
+  // Derived rather than passed down from the page: the ids are already here, and a `self` prop
+  // threaded through would be a second source of truth for the same fact.
+  const isOwnRecord = !!evolveUser?.id && evolveUser.id === existingUser?.id;
 
   const updateUserRequest = async (data: EmployeeForm): Promise<void> => {
-    console.log('updateUserRequest');
     if (!oystehrZambda) {
       throw new Error('Zambda Client not found');
     }
@@ -186,7 +209,8 @@ export default function EmployeeInformationForm({
         firstName: data.firstName,
         middleName: data.middleName,
         lastName: data.lastName,
-        nameSuffix: data.nameSuffix,
+        providerType: data.providerType,
+        providerTypeText: data.providerTypeText,
         selectedRoles: data.roles,
         licenses: newLicenses,
         phoneNumber: data.phoneNumber,
@@ -277,29 +301,38 @@ export default function EmployeeInformationForm({
   ) : (
     <Paper sx={{ padding: 3 }}>
       <form onSubmit={handleSubmit(updateUserRequest)} data-testid={dataTestIds.employeesPage.informationForm}>
-        <BasicInformation control={control} existingUser={existingUser} errors={errors} isActive={isActive} />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <BasicInformation control={control} existingUser={existingUser} errors={errors} isActive={isActive} />
 
-        <RoleSelection
-          control={control}
-          errors={errors}
-          isActive={isActive}
-          getValues={getValues}
-          setValue={setValue}
-        />
+          <RoleSelection
+            control={control}
+            errors={errors}
+            isActive={isActive}
+            isOwnRecord={isOwnRecord}
+            getValues={getValues}
+            setValue={setValue}
+          />
 
-        {isProviderRoleSelected && (
-          <>
-            <ProviderDetails control={control} photoSrc={photoSrc} roles={getValues('roles')} />
+          {isProviderRoleSelected && (
+            <Box>
+              <ProviderDetails
+                control={control}
+                setValue={setValue}
+                photoSrc={photoSrc}
+                roles={getValues('roles')}
+                seenPatientRecently={seenPatientRecently}
+              />
 
-            <ProviderQualifications
-              newLicenses={newLicenses}
-              setNewLicenses={setNewLicenses}
-              control={control}
-              errors={errors}
-              handleAddLicense={handleAddLicense}
-            />
-          </>
-        )}
+              <ProviderQualifications
+                newLicenses={newLicenses}
+                setNewLicenses={setNewLicenses}
+                control={control}
+                errors={errors}
+                handleAddLicense={handleAddLicense}
+              />
+            </Box>
+          )}
+        </Box>
 
         {errors.submit && (
           <Typography color="error" variant="body2" mt={1}>
@@ -325,20 +358,21 @@ export default function EmployeeInformationForm({
             {submitLabel}
           </LoadingButton>
 
-          <Link to="/employees">
-            <Button
-              variant="text"
-              type="submit"
-              color="primary"
-              sx={{
-                textTransform: 'none',
-                borderRadius: 28,
-                fontWeight: 'bold',
-              }}
-            >
-              Cancel
-            </Button>
-          </Link>
+          {/* Back to wherever the user came from. The previous target, `/employees`, has never been a
+              route — it silently bounced to `/` — and there's no single correct destination now that
+              this form is reachable both from the admin list and from a user's own record. */}
+          <Button
+            variant="text"
+            color="primary"
+            onClick={() => navigate(-1)}
+            sx={{
+              textTransform: 'none',
+              borderRadius: 28,
+              fontWeight: 'bold',
+            }}
+          >
+            Cancel
+          </Button>
         </Grid>
       </form>
     </Paper>

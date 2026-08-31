@@ -1,35 +1,33 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { BatchInputGetRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter } from 'fhir/r4b';
+import { Appointment, Coding, Encounter, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
+import { cancelAppointmentResource, getAppointmentResourceById } from 'utils/lib/fhir/appointments';
+import { FHIR_ZAPEHR_URL } from 'utils/lib/fhir/constants';
+import { getLocationIdFromAppointment } from 'utils/lib/fhir/helpers';
+import { getLocationResource } from 'utils/lib/fhir/location';
+import { getPatientContactEmail } from 'utils/lib/fhir/patient';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { TelemedCancelationTemplateData } from 'utils/lib/ottehr-config/sendgrid';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import {
-  APPOINTMENT_NOT_FOUND_ERROR,
-  cancelAppointmentResource,
   CancelTelemedAppointmentZambdaInput,
   CancelTelemedAppointmentZambdaOutput,
-  createOystehrClient,
-  FHIR_ZAPEHR_URL,
-  getAppointmentResourceById,
-  getPatchBinary,
-  getPatientContactEmail,
-  getRelatedPersonForPatient,
-  getSecret,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import {
-  AuditableZambdaEndpoints,
-  checkOrCreateM2MClientToken,
-  createAuditEvent,
-  getVideoEncounterForAppointment,
-  sendSms,
-  sendVirtualCancellationEmail,
-  validateBundleAndExtractAppointment,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from 'utils/lib/types/api/cancel-telemed-appointment.types';
+import { APPOINTMENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { LOCATION_SUPPORT_PHONE_EXTENSION_URL } from 'utils/lib/utils/support-dialog';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { getEmailClient, sendSmsToRelatedPersons } from '../../../shared/communication';
+import { getVideoEncounterForAppointment } from '../../../shared/encounters';
+import { reportMissingUserRelatedPerson } from '../../../shared/invariants';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
+import { validateBundleAndExtractAppointment } from '../../../shared/validateBundleAndExtractAppointment';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'telemed-cancel-appointment';
@@ -43,21 +41,13 @@ let oystehrToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Telemed Cancelation Input: ${JSON.stringify(input)}`);
 
-  try {
-    const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
 
-    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, validatedParameters.secrets);
+  oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, validatedParameters.secrets);
 
-    const response = await performEffect({ input, params: validatedParameters });
+  const response = await performEffect({ input, params: validatedParameters });
 
-    return response;
-  } catch (error: any) {
-    console.log(`Error: ${error} Error stringified: `, JSON.stringify(error, null, 4));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
-  }
+  return response;
 });
 
 interface PerformEffectInput {
@@ -152,54 +142,79 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   }
   const transactionBundle = await oystehr.fhir.transaction<Appointment | Encounter>({ requests: requests });
   console.log('getting appointment from transaction bundle');
-  const { appointment, scheduleResource, patient } = validateBundleAndExtractAppointment(transactionBundle);
+  const { appointment, patient } = validateBundleAndExtractAppointment(transactionBundle);
 
   console.groupEnd();
   console.debug('gettingEmailProps success');
 
   console.log(`canceling appointment with id ${appointmentID}`);
 
-  await cancelAppointmentResource(
-    appointment,
-    [
+  // todo reassess codes and reasons, just using custom codes atm
+  const fhirCancellationReason: Coding = {
+    system: `${FHIR_ZAPEHR_URL}/CodeSystem/appointment-cancellation-reason`,
+    code: cancellationReason,
+    display: cancellationReason,
+  };
+
+  if (cancellationReasonAdditional) {
+    fhirCancellationReason.extension = [
       {
-        // todo reassess codes and reasons, just using custom codes atm
-        system: `${FHIR_ZAPEHR_URL}/CodeSystem/appointment-cancellation-reason`,
-        code: cancellationReason,
-        display: cancellationReasonAdditional || cancellationReason,
+        url: `${FHIR_ZAPEHR_URL}/StructureDefinition/cancellation-reason-additional-info`,
+        valueString: cancellationReasonAdditional,
       },
-    ],
-    oystehr
-  );
+    ];
+  }
+
+  await cancelAppointmentResource(appointment, [fhirCancellationReason], oystehr);
 
   const response: CancelTelemedAppointmentZambdaOutput = {};
 
   console.group('sendCancellationEmail');
+  const locationId = getLocationIdFromAppointment(appointment);
+  let location: Location | undefined;
+  if (locationId) location = await getLocationResource(locationId, oystehr);
+  const locationName = location?.name;
   try {
     const email = getPatientContactEmail(patient);
     if (email) {
-      await sendVirtualCancellationEmail({
-        toAddress: email,
-        secrets,
-      });
+      const emailClient = getEmailClient(secrets, oystehr);
+      const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+
+      const templateData: TelemedCancelationTemplateData = {
+        'book-again-url': `${WEBSITE_URL}/welcome`,
+        location: locationName!,
+      };
+      await emailClient.sendVirtualCancelationEmail(email, templateData);
     } else {
       throw Error('no email found');
     }
   } catch (error: any) {
     console.error('error sending cancellation email', error);
+    captureException(error);
   }
   console.groupEnd();
 
   console.log('Send cancel message request');
 
-  const relatedPerson = await getRelatedPersonForPatient(patient.id || '', oystehr);
-  if (relatedPerson) {
-    const message = `Sorry to see you go. Questions? Call 202-555-1212 `;
-
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-    await sendSms(message, `RelatedPerson/${relatedPerson.id}`, oystehr, ENVIRONMENT);
+  const relatedPersons = await getRelatedPersonsForPatient(patient.id || '', oystehr);
+  if (!relatedPersons.length) {
+    console.log(`No user-relatedperson found for patient ${patient.id}; not sending cancellation text`);
+    reportMissingUserRelatedPerson('telemed-cancel-appointment', patient.id);
   } else {
-    console.log(`No RelatedPerson found for patient ${patient.id} not sending text message`);
+    const supportPhone = location?.extension?.find((e) => e.url === LOCATION_SUPPORT_PHONE_EXTENSION_URL)?.valueString;
+    if (!supportPhone) {
+      console.warn(
+        `No support phone number configured for location "${locationName}" — omitting from cancellation SMS`
+      );
+    }
+    const message = supportPhone ? `Sorry to see you go. Questions? Call ${supportPhone}` : 'Sorry to see you go.';
+    await sendSmsToRelatedPersons({
+      relatedPersons,
+      message,
+      oystehr,
+      env: getSecret(SecretsKeys.ENVIRONMENT, secrets),
+      failStrategy: 'never-throw',
+    });
   }
 
   await createAuditEvent(AuditableZambdaEndpoints.appointmentCancel, oystehr, input, patient.id || '', secrets);

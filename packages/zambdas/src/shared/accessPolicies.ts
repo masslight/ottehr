@@ -1,4 +1,4 @@
-import { AccessPolicy } from 'utils';
+import { AccessPolicy } from 'utils/lib/types/api/user.types';
 
 export const ADMINISTRATOR_RULES: AccessPolicy = {
   rule: [
@@ -354,89 +354,53 @@ export const PROVIDER_RULES: AccessPolicy = {
   ],
 };
 
-export const PRESCRIBER_RULES: AccessPolicy['rule'] = [
+// The read-only slice of eRx the Clinician role keeps in place of Provider's blanket `eRx:*` grant.
+// These are Medispan reference-database lookups plus the project eRx configuration read: they carry no
+// prescribing authority and no NPI requirement, and the EHR needs them well outside the prescribing flow —
+// medication search, the in-house medication admin pages, and medication reconciliation in the chart all
+// call them. Same shape as the lookups Manager and Staff already hold in config/oystehr-core/roles.json.
+// Everything that writes or transmits a prescription (and the DoseSpot practitioner connect/enroll flows)
+// stays Provider-only, as do the patient-scoped eRx actions (eRx:SyncPatient, eRx:GetMedicationHistory)
+// and interaction checks (eRx:Check).
+const CLINICIAN_ERX_RULES: AccessPolicy['rule'] = [
   {
-    action: ['FHIR:Search', 'FHIR:Read'],
-    effect: 'Allow',
-    resource: ['FHIR:AllergyIntolerance', 'FHIR:MedicationStatement'],
-  },
-
-  {
-    action: ['eRx:SearchMedication'],
+    action: ['eRx:SearchMedication', 'eRx:GetMedication'],
     effect: 'Allow',
     resource: ['eRx:Medication'],
   },
   {
-    action: ['eRx:SearchAllergy'],
+    action: ['eRx:SearchAllergen'],
     effect: 'Allow',
-    resource: ['eRx:Allergy'],
+    resource: ['eRx:Allergen'],
   },
   {
-    action: ['eRx:SyncPatient'],
+    action: ['eRx:GetConfiguration'],
     effect: 'Allow',
-    resource: ['eRx:Patient'],
-  },
-  {
-    action: ['eRx:Create', 'eRx:Read'],
-    effect: 'Allow',
-    resource: ['eRx:Enrollment'],
+    resource: ['eRx:Configuration'],
   },
 ];
 
-export const FRONT_DESK_RULES: AccessPolicy = {
-  rule: [
-    {
-      action: ['FHIR:Search', 'FHIR:Read'],
-      effect: 'Allow',
-      resource: [
-        'FHIR:Patient',
-        'FHIR:Consent',
-        'FHIR:Coverage',
-        'FHIR:RelatedPerson',
-        'FHIR:Organization',
-        'FHIR:Location',
-        'FHIR:HealthcareService',
-        'FHIR:QuestionnaireResponse',
-        'FHIR:Questionnaire',
-        'FHIR:DocumentReference',
-      ],
-    },
-    {
-      action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update'],
-      effect: 'Allow',
-      resource: ['FHIR:Appointment', 'FHIR:Encounter'],
-    },
-    {
-      action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update', 'FHIR:Create'],
-      effect: 'Allow',
-      resource: ['FHIR:Communication'],
-    },
-    {
-      action: ['Z3:GetObject'],
-      effect: 'Allow',
-      resource: ['Z3:*'],
-    },
-    {
-      action: ['Zambda:InvokeFunction'],
-      effect: 'Allow',
-      resource: ['Zambda:Function:*'],
-    },
-    {
-      action: ['Messaging:SendTransactionalSMS'],
-      effect: 'Allow',
-      resource: ['*'],
-    },
-    {
-      action: ['Messaging:GetConfiguration'],
-      effect: 'Allow',
-      resource: ['Messaging:Messaging:*'],
-    },
-    {
-      action: ['FHIR:History'],
-      effect: 'Allow',
-      resource: ['FHIR:Patient', 'FHIR:Appointment'],
-    },
-  ],
+// Clinician = Provider access minus the two NPI-gated capabilities that are enforced at the access
+// policy layer: client-side e-prescribing (eRx) and submitting Claims under a provider NPI. The other
+// NPI-gated actions (sign/co-sign, external labs & imaging orders, in-house medication orders) run
+// through M2M zambdas, so the access policy does not gate them — they are enforced in those zambdas
+// via requirePractitionerNPI. Derived from PROVIDER_RULES so it stays in sync as Provider access evolves.
+export const CLINICIAN_RULES: AccessPolicy = {
+  rule: PROVIDER_RULES.rule
+    // Swap Provider's blanket eRx grant for the read-only reference lookups (see above).
+    .flatMap((rule) => ([rule.resource].flat().includes('eRx:*') ? CLINICIAN_ERX_RULES : [rule]))
+    // Keep the rest of the RCM block (Appointment/Coverage/etc.) but remove the ability to write Claims.
+    .map((rule) => {
+      const resources = [rule.resource].flat();
+      if (!resources.includes('FHIR:Claim')) {
+        return rule;
+      }
+      return { ...rule, resource: resources.filter((resource) => resource !== 'FHIR:Claim') };
+    }),
+};
+
+export const CUSTOMER_SUPPORT_RULES: AccessPolicy = {
+  rule: [...ADMINISTRATOR_RULES.rule, ...PROVIDER_RULES.rule],
 };
 
 export const INACTIVE_RULES: AccessPolicy = {

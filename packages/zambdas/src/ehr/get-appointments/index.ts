@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -6,453 +7,252 @@ import {
   DocumentReference,
   Encounter,
   HealthcareService,
+  Location,
   Patient,
+  Person,
   Practitioner,
+  Provenance,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { appointmentAttendanceTypeAppointment, appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
+import { getChatContainsUnreadMessages, ZAP_SMS_MEDIUM_CODE } from 'utils/lib/fhir/chat';
 import {
-  AppointmentRelatedResources,
-  appointmentTypeForAppointment,
-  flattenItems,
-  GetAppointmentsZambdaInput,
-  getChatContainsUnreadMessages,
+  PRIVATE_EXTENSION_BASE_URL,
+  ROOM_EXTENSION_URL,
+  SERVICE_CATEGORY_SYSTEM,
+  TIMEZONE_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getAttestedConsentFromEncounter, getCoding } from 'utils/lib/fhir/helpers';
+import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
+import {
   getMiddleName,
   getPatientFirstName,
   getPatientLastName,
-  getSecret,
   getSMSNumberForIndividual,
-  getUnconfirmedDOBForAppointment,
-  getVisitStatus,
-  getVisitStatusHistory,
-  InPersonAppointmentInformation,
-  INSURANCE_CARD_CODE,
-  isNonPaperworkQuestionnaireResponse,
-  isTruthy,
-  PHOTO_ID_CARD_CODE,
-  ROOM_EXTENSION_URL,
-  Secrets,
-  SecretsKeys,
-  SMSModel,
-  SMSRecipient,
-  ZAP_SMS_MEDIUM_CODE,
-} from 'utils';
+  isPatientDemographicsComplete,
+} from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
+import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
+import { CONSENT_FORMS_CONFIG } from 'utils/lib/ottehr-config/consent-forms';
+import { Secrets } from 'utils/lib/secrets';
+import { GetAppointmentsZambdaInput } from 'utils/lib/types/api/get-appointments.types';
+import { SMSModel, SMSRecipient } from 'utils/lib/types/api/messaging.types';
 import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  getRelatedPersonsFromResourceList,
-  sortAppointments,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+  AppointmentRelatedResources,
+  InPersonAppointmentInformation,
+} from 'utils/lib/types/data/appointments/appointments.types';
+import { INSURANCE_CARD_CODE, PHOTO_ID_CARD_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { APPOINTMENT_SEARCH_TOO_BROAD_ERROR } from 'utils/lib/types/errors';
+import { isTruthy } from 'utils/lib/types/utils';
+import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getTrackingBoardVisitStatus, sortAppointments } from '../../shared/queueingUtils';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { getPersonPhone } from '../patient-account/get-login-phone-numbers';
 import {
   getAppointmentQueryInput,
   getTimezoneResourceIdFromAppointment,
+  isResponseSizeExceededError,
   makeEncounterSearchParams,
   makeResourceCacheKey,
   mergeResources,
+  parseAttenderProviderType,
   parseEncounterParticipants,
   timezoneMap,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetAppointmentsZambdaInputValidated extends GetAppointmentsZambdaInput {
+  supervisorApprovalEnabled: boolean;
   secrets: Secrets | null;
 }
+
+const getNextPartitionKey = (appointment: InPersonAppointmentInformation, bucket: string): string => {
+  const locationTimezone = appointment.location?.extension?.find(
+    (extension) => extension.url === TIMEZONE_EXTENSION_URL
+  )?.valueString;
+  // makeAppointmentInformation already zones appointment.start to the appointment's own timezone, so
+  // preserving its embedded offset (setZone: true) keeps locationless provider/group rows on their
+  // real local day. An explicit location timezone, when present, takes precedence.
+  const startDateTime = DateTime.fromISO(appointment.start, { setZone: true });
+  const zonedStart = locationTimezone ? startDateTime.setZone(locationTimezone) : startDateTime;
+  const localDate = zonedStart.toISODate() ?? 'unknown-day';
+  // `group` is a display name rather than an id, but it is only a fallback key when no location id
+  // is present; a name collision here is harmless (it would only over-share the "next" flag).
+  const locationKey = appointment.location?.id ?? appointment.group ?? 'unknown-location';
+
+  return [bucket, locationKey, localDate].join(':');
+};
+
+// Mutates `next` in place: these appointment objects are freshly built by makeAppointmentInformation
+// and not shared anywhere, so cloning each one would only add allocations.
+export const assignNextFlagsByPartition = (
+  appointments: InPersonAppointmentInformation[],
+  bucket: string
+): InPersonAppointmentInformation[] => {
+  const seenPartitions = new Set<string>();
+
+  return appointments.map((appointment) => {
+    const partitionKey = getNextPartitionKey(appointment, bucket);
+    appointment.next = !seenPartitions.has(partitionKey);
+    seenPartitions.add(partitionKey);
+
+    return appointment;
+  });
+};
+
+const isUserRelatedPerson = (rp: RelatedPerson): boolean =>
+  getCoding(rp.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson';
 
 let m2mToken: string;
 
 export const index = wrapHandler('get-appointments', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
 
-    // Appointment dates in the resource are stored in Zulu (UTC) format:
-    // "start": "2025-03-21T00:15:00.000Z",
-    // "end": "2025-03-21T00:30:00.000Z",
-    // But in local time (e.g., America/New_York) this may actually be 2025-03-20.
-    // We should use the appointment's timezone to request the correct appointments.
-    // The approach: use date without timezone from client and convert it to Zulu (UTC)
-    // with the appointment's timezone.
-    const { visitType, searchDate, locationID, providerIDs, groupIDs, secrets } = validatedParameters;
+  // Appointment dates in the resource are stored in Zulu (UTC) format:
+  // "start": "2025-03-21T00:15:00.000Z",
+  // "end": "2025-03-21T00:30:00.000Z",
+  // But in local time (e.g., America/New_York) this may actually be 2025-03-20.
+  // We should use the supplied timezone to request the correct appointments.
+  // The approach: use date with timezone from client and convert it to a range of date-time in Zulu (UTC)
+  const {
+    visitType,
+    searchDateFrom,
+    searchDateTo,
+    timezone,
+    locationIds,
+    providerIds,
+    serviceCategories,
+    supervisorApprovalEnabled,
+    secrets,
+  } = validatedParameters;
 
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    console.time('get_active_encounters + get_appointment_data');
+  console.time('get_active_encounters + get_appointment_data');
 
-    const requestedTimezoneRelatedResources: {
-      resourceId: string;
-      resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
-    }[] = (() => {
-      const resources: { resourceId: string; resourceType: 'Location' | 'Practitioner' | 'HealthcareService' }[] = [];
+  const requestedTimezoneRelatedResources: {
+    resourceId: string;
+    resourceType: 'Location' | 'Practitioner';
+  }[] = (() => {
+    const resources: { resourceId: string; resourceType: 'Location' | 'Practitioner' }[] = [];
 
-      if (locationID) {
-        resources.push({ resourceId: locationID, resourceType: 'Location' });
-      }
-
-      if (providerIDs) {
-        resources.push(
-          ...providerIDs.map((providerID) => ({ resourceId: providerID, resourceType: 'Practitioner' }) as const)
-        );
-      }
-
-      if (groupIDs) {
-        resources.push(
-          ...groupIDs.map((groupID) => ({ resourceId: groupID, resourceType: 'HealthcareService' }) as const)
-        );
-      }
-
-      return resources;
-    })();
-
-    const { appointmentResources, appointmentsToGroupMap } = await (async () => {
-      // prepare search options
-      const searchOptions = await Promise.all(
-        requestedTimezoneRelatedResources.map(async (resource) => {
-          const cacheKey = makeResourceCacheKey({
-            resourceId: resource.resourceId,
-            resourceType: resource.resourceType,
-          });
-
-          const searchParams = await makeEncounterSearchParams({
-            resourceId: resource.resourceId,
-            resourceType: resource.resourceType,
-            cacheKey,
-            oystehr,
-          });
-
-          return {
-            resourceId: resource.resourceId,
-            resourceType: resource.resourceType,
-            searchParams,
-            cacheKey,
-          };
-        })
+    if (locationIds) {
+      resources.push(
+        ...locationIds.map((locationId) => ({ resourceId: locationId, resourceType: 'Location' }) as const)
       );
+    }
 
-      // request appointments
-      const resourceResults = await Promise.all(
-        searchOptions.map(async (options) => {
-          const appointmentRequestInput = await getAppointmentQueryInput({
-            oystehr,
-            resourceId: options.resourceId,
-            resourceType: options.resourceType,
-            searchDate,
-          });
-
-          const appointmentRequest = {
-            resourceType: appointmentRequestInput.resourceType,
-            params: appointmentRequestInput.params,
-          };
-
-          const { group } = appointmentRequestInput;
-
-          const appointmentResponse = await oystehr.fhir.search<AppointmentRelatedResources>(appointmentRequest);
-
-          const appointments = appointmentResponse
-            .unbundle()
-            .filter((resource) => !isNonPaperworkQuestionnaireResponse(resource));
-
-          return { appointments, group };
-        })
+    if (providerIds) {
+      resources.push(
+        ...providerIds.map((providerId) => ({ resourceId: providerId, resourceType: 'Practitioner' }) as const)
       );
-
-      const appointmentsToGroupMap = new Map<string, HealthcareService>();
-
-      const flatAppointments = resourceResults.flatMap((result) => {
-        const appointments = result.appointments || [];
-        const { group } = result;
-        if (group) {
-          appointments.forEach((appointment) => {
-            appointmentsToGroupMap.set(`${appointment.id}`, group);
-          });
-        }
-        return appointments;
-      });
-
-      return {
-        appointmentResources: mergeResources(flatAppointments),
-        appointmentsToGroupMap,
-      };
-    })();
-
-    console.timeEnd('get_active_encounters + get_appointment_data');
-
-    let preBooked: InPersonAppointmentInformation[] = [];
-    let inOffice: InPersonAppointmentInformation[] = [];
-    let completed: InPersonAppointmentInformation[] = [];
-    let cancelled: InPersonAppointmentInformation[] = [];
-
-    if (appointmentResources?.length == 0) {
-      const response = {
-        message: 'Successfully retrieved all appointments',
-        preBooked,
-        inOffice,
-        completed,
-        cancelled,
-      };
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify(response),
-      };
     }
 
-    // array of patient ids to get related documents
-    const patientIds: string[] = [];
-    appointmentResources.forEach((resource) => {
-      if (resource.resourceType === 'Appointment') {
-        const appointment = resource as Appointment;
-        const patientId = appointment.participant
-          .find((appt) => appt.actor?.reference?.startsWith('Patient/'))
-          ?.actor?.reference?.replace('Patient/', '');
-        if (patientId) patientIds.push(`Patient/${patientId}`);
-      }
-    });
+    return resources;
+  })();
 
-    console.time('parse_search_results');
-    // const persons = getPersonsFromResourceList(searchResultsForSelectedDate);
-    const patientToRPMap: Record<string, RelatedPerson[]> = getRelatedPersonsFromResourceList(appointmentResources);
+  const { appointmentResources, appointmentsToGroupMap } = await (async () => {
+    // prepare search options
+    const searchOptions = await Promise.all(
+      requestedTimezoneRelatedResources.map(async (resource) => {
+        const cacheKey = makeResourceCacheKey({
+          resourceId: resource.resourceId,
+          resourceType: resource.resourceType,
+        });
 
-    const allAppointments: Appointment[] = [];
-    const patientIdMap: Record<string, Patient> = {};
-    const apptRefToEncounterMap: Record<string, Encounter> = {};
-    const encounterRefToQRMap: Record<string, QuestionnaireResponse> = {};
-    const patientRefToQRMap: Record<string, QuestionnaireResponse> = {};
-    const rpToCommMap: Record<string, Communication[]> = {};
-    const rpPhoneNumbers = new Set<string>();
-    const phoneNumberToRpMap: Record<string, string[]> = {};
-    const rpIdToResourceMap: Record<string, RelatedPerson> = {};
-    const practitionerIdToResourceMap: Record<string, Practitioner> = {};
-    const participantIdToResourceMap: Record<string, Practitioner> = {};
-    const healthcareServiceIdToResourceMap: Record<string, HealthcareService> = {};
-    appointmentResources.forEach((resource) => {
-      if (resource.resourceType === 'Practitioner' && resource.id) {
-        participantIdToResourceMap[`Practitioner/${resource.id}`] = resource as Practitioner;
-      }
-    });
-    appointmentResources.forEach((resource) => {
-      if (resource.resourceType === 'Appointment') {
-        allAppointments.push(resource as Appointment);
-      } else if (resource.resourceType === 'Patient' && resource.id) {
-        patientIdMap[resource.id] = resource as Patient;
-      } else if (resource.resourceType === 'Encounter') {
-        const asEnc = resource as Encounter;
-        const apptRef = asEnc.appointment?.[0].reference;
-        if (apptRef) {
-          apptRefToEncounterMap[apptRef] = asEnc;
-        }
-      } else if (resource.resourceType === 'QuestionnaireResponse') {
-        const encRef = (resource as QuestionnaireResponse).encounter?.reference;
-        const patientRef = (resource as QuestionnaireResponse).subject?.reference;
-        if (encRef) {
-          encounterRefToQRMap[encRef] = resource as QuestionnaireResponse;
-        }
-        if (patientRef) {
-          if (patientRefToQRMap[patientRef]) {
-            const qrAuthoredDate = DateTime.fromISO(patientRefToQRMap[patientRef].authored || '');
-            const curQrAuthoredDate = DateTime.fromISO((resource as QuestionnaireResponse).authored || '');
-            if (curQrAuthoredDate.diff(qrAuthoredDate).as('minutes') > 0) {
-              patientRefToQRMap[patientRef] = resource as QuestionnaireResponse;
-            }
-          } else {
-            patientRefToQRMap[patientRef] = resource as QuestionnaireResponse;
+        const searchParams = await makeEncounterSearchParams({
+          resourceId: resource.resourceId,
+          resourceType: resource.resourceType,
+          cacheKey,
+          oystehr,
+        });
+
+        return {
+          resourceId: resource.resourceId,
+          resourceType: resource.resourceType,
+          searchParams,
+          cacheKey,
+        };
+      })
+    );
+
+    // request appointments
+    const resourceResults = await Promise.all(
+      searchOptions.map(async (options) => {
+        const appointmentRequestInput = await getAppointmentQueryInput({
+          oystehr,
+          resourceId: options.resourceId,
+          resourceType: options.resourceType,
+          searchDateFrom,
+          searchDateTo,
+          timezone,
+        });
+
+        const appointmentRequest = {
+          resourceType: appointmentRequestInput.resourceType,
+          params: appointmentRequestInput.params,
+        };
+
+        const { group } = appointmentRequestInput;
+
+        let appointmentBundle;
+        try {
+          appointmentBundle = await oystehr.fhir.searchAndGetAllPages<AppointmentRelatedResources>(appointmentRequest);
+        } catch (error) {
+          if (isResponseSizeExceededError(error)) {
+            throw APPOINTMENT_SEARCH_TOO_BROAD_ERROR;
           }
+          throw error;
         }
-      } else if (resource.resourceType === 'RelatedPerson' && resource.id) {
-        rpIdToResourceMap[`RelatedPerson/${resource.id}`] = resource as RelatedPerson;
-        const pn = getSMSNumberForIndividual(resource as RelatedPerson);
-        if (pn) {
-          rpPhoneNumbers.add(pn);
-          const mapVal = phoneNumberToRpMap[pn] ?? [];
-          mapVal.push(`RelatedPerson/${resource.id}`);
-          phoneNumberToRpMap[pn] = mapVal;
-        }
-      } else if (resource.resourceType === 'Practitioner' && resource.id) {
-        practitionerIdToResourceMap[`Practitioner/${resource.id}`] = resource as Practitioner;
-      } else if (resource.resourceType === 'HealthcareService' && resource.id) {
-        healthcareServiceIdToResourceMap[`HealthcareService/${resource.id}`] = resource as HealthcareService;
+
+        const appointments = (appointmentBundle.entry?.map((entry) => entry.resource).filter(isTruthy) ?? []).filter(
+          (resource) => !isNonPaperworkQuestionnaireResponse(resource)
+        );
+
+        return { appointments, group };
+      })
+    );
+
+    const appointmentsToGroupMap = new Map<string, HealthcareService>();
+
+    const flatAppointments = resourceResults.flatMap((result) => {
+      const appointments = result.appointments || [];
+      const { group } = result;
+      if (group) {
+        appointments.forEach((appointment) => {
+          appointmentsToGroupMap.set(`${appointment.id}`, group);
+        });
       }
+      return appointments;
     });
-    console.timeEnd('parse_search_results');
 
-    console.time('get_all_doc_refs + get_all_communications');
-    const docRefPromise = oystehr?.fhir.search<DocumentReference>({
-      resourceType: 'DocumentReference',
-      params: [
-        { name: 'status', value: 'current' },
-        { name: 'type', value: `${INSURANCE_CARD_CODE},${PHOTO_ID_CARD_CODE}` },
-        { name: 'related', value: patientIds.join(',') },
-      ],
-    });
-    const uniqueNumbers = Array.from(rpPhoneNumbers);
+    return {
+      appointmentResources: mergeResources(flatAppointments),
+      appointmentsToGroupMap,
+    };
+  })();
 
-    let allDocRefs: DocumentReference[] | undefined = undefined;
-    let communications: (Communication | RelatedPerson)[] | undefined = undefined;
+  console.timeEnd('get_active_encounters + get_appointment_data');
 
-    if (uniqueNumbers?.length > 0) {
-      const communicationsPromise = oystehr.fhir.search<Communication | RelatedPerson>({
-        resourceType: 'Communication',
-        params: [
-          { name: 'medium', value: `${ZAP_SMS_MEDIUM_CODE}` },
-          { name: 'sender:RelatedPerson.telecom', value: uniqueNumbers.join(',') },
-          { name: '_include', value: 'Communication:sender' },
-        ],
-      });
-      const [docRefBundle, communicationBundle] = await Promise.all([docRefPromise, communicationsPromise]);
-      allDocRefs = docRefBundle.unbundle();
-      communications = communicationBundle.unbundle();
-    } else {
-      const docRefBundle = await docRefPromise;
-      allDocRefs = docRefBundle.unbundle();
-    }
+  let preBooked: InPersonAppointmentInformation[] = [];
+  let inOffice: InPersonAppointmentInformation[] = [];
+  let completed: InPersonAppointmentInformation[] = [];
+  let cancelled: InPersonAppointmentInformation[] = [];
 
-    console.timeEnd('get_all_doc_refs + get_all_communications');
-
-    // because the related person tied to the user's account has been excluded from the graph of persons
-    // connected to patient resources, while the Zap sms creates communications with sender reference based on
-    // the user's profile-linked resource, it is necessary to do this cross-referencing to map from the sender resource
-    // on sms Communication resources to the related person list associated with each patient
-    // this cuts around 3 seconds off the execution time for this zambda, or more when there are no results
-    if (communications && communications.length > 0) {
-      const commSenders: RelatedPerson[] = communications.filter(
-        (resource) => resource.resourceType === 'RelatedPerson'
-      ) as RelatedPerson[];
-      commSenders.forEach((resource) => {
-        rpIdToResourceMap[`RelatedPerson/${resource.id}`] = resource as RelatedPerson;
-        const pn = getSMSNumberForIndividual(resource as RelatedPerson);
-        if (pn) {
-          rpPhoneNumbers.add(pn);
-          const mapVal = phoneNumberToRpMap[pn] ?? [];
-          mapVal.push(`RelatedPerson/${resource.id}`);
-          phoneNumberToRpMap[pn] = mapVal;
-        }
-      });
-      const comms: Communication[] = communications.filter(
-        (resource) => resource.resourceType === 'Communication'
-      ) as Communication[];
-
-      comms.forEach((comm) => {
-        const { sender } = comm;
-        if (sender && sender.reference) {
-          const rpRef = sender.reference;
-          const senderResource = rpIdToResourceMap[rpRef];
-          if (senderResource && getSMSNumberForIndividual(senderResource)) {
-            const smsNumber = getSMSNumberForIndividual(senderResource);
-            const allRPsWithThisNumber = phoneNumberToRpMap[smsNumber ?? ''] ?? [];
-            allRPsWithThisNumber.forEach((rp) => {
-              const commArray = rpToCommMap[rp] ?? [];
-              commArray.push(comm);
-              rpToCommMap[rp] = commArray;
-            });
-          }
-        }
-      });
-    }
-
-    console.time('structure_appointment_data');
-    let appointments: Appointment[] = [];
-    if (visitType?.length > 0) {
-      appointments = allAppointments?.filter((appointment) => {
-        return visitType?.includes(appointmentTypeForAppointment(appointment));
-      });
-    } else {
-      appointments = allAppointments;
-    }
-
-    if (appointments.length > 0) {
-      const appointmentQueues = sortAppointments(appointments, apptRefToEncounterMap);
-      const baseMapInput: Omit<AppointmentInformationInputs, 'appointment'> = {
-        encounterRefToQRMap,
-        patientRefToQRMap,
-        patientToRPMap,
-        allDocRefs,
-        apptRefToEncounterMap,
-        patientIdMap,
-        rpToCommMap,
-        practitionerIdToResourceMap,
-        participantIdToResourceMap,
-        healthcareServiceIdToResourceMap,
-        next: false,
-        group: undefined,
-      };
-
-      preBooked = appointmentQueues.prebooked
-        .map((appointment) => {
-          return makeAppointmentInformation(oystehr, {
-            appointment,
-            ...baseMapInput,
-            group: appointmentsToGroupMap.get(appointment.id ?? ''),
-          });
-        })
-        .filter(isTruthy);
-      inOffice = [
-        ...appointmentQueues.inOffice.waitingRoom.arrived.map((appointment, idx) => {
-          return makeAppointmentInformation(oystehr, {
-            appointment,
-            ...baseMapInput,
-            next: idx === 0,
-            group: appointmentsToGroupMap.get(appointment.id ?? ''),
-          });
-        }),
-        ...appointmentQueues.inOffice.waitingRoom.ready.map((appointment, idx) => {
-          return makeAppointmentInformation(oystehr, {
-            appointment,
-            ...baseMapInput,
-            next: idx === 0,
-            group: appointmentsToGroupMap.get(appointment.id ?? ''),
-          });
-        }),
-        ...appointmentQueues.inOffice.inExam.intake.map((appointment) => {
-          return makeAppointmentInformation(oystehr, {
-            appointment,
-            ...baseMapInput,
-            group: appointmentsToGroupMap.get(appointment.id ?? ''),
-          });
-        }),
-        ...appointmentQueues.inOffice.inExam['ready for provider'].map((appointment, idx) => {
-          return makeAppointmentInformation(oystehr, {
-            appointment,
-            ...baseMapInput,
-            next: idx === 0,
-            group: appointmentsToGroupMap.get(appointment.id ?? ''),
-          });
-        }),
-        ...appointmentQueues.inOffice.inExam.provider.map((appointment) => {
-          return makeAppointmentInformation(oystehr, {
-            appointment,
-            ...baseMapInput,
-            group: appointmentsToGroupMap.get(appointment.id ?? ''),
-          });
-        }),
-      ].filter(isTruthy);
-      completed = appointmentQueues.checkedOut
-        .map((appointment) => {
-          return makeAppointmentInformation(oystehr, {
-            appointment,
-            ...baseMapInput,
-            group: appointmentsToGroupMap.get(appointment.id ?? ''),
-          });
-        })
-        .filter(isTruthy);
-      cancelled = appointmentQueues.canceled
-        .map((appointment) => {
-          return makeAppointmentInformation(oystehr, {
-            appointment,
-            ...baseMapInput,
-            group: appointmentsToGroupMap.get(appointment.id ?? ''),
-          });
-        })
-        .filter(isTruthy);
-    }
-
+  if (appointmentResources?.length == 0) {
     const response = {
       message: 'Successfully retrieved all appointments',
       preBooked,
@@ -460,20 +260,372 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       completed,
       cancelled,
     };
-    console.timeEnd('structure_appointment_data');
 
     return {
       statusCode: 200,
       body: JSON.stringify(response),
     };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-get-appointments', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Error getting patient appointments' }),
-    };
   }
+
+  console.time('parse_search_results');
+
+  const patientIds: string[] = [];
+  const practitionerIds: string[] = [];
+  const patientToRPMap: Record<string, RelatedPerson[]> = {};
+
+  const allAppointments: Appointment[] = [];
+  const patientIdMap: Record<string, Patient> = {};
+  const apptRefToEncounterMap: Record<string, Encounter> = {};
+  const encounterRefToQRMap: Record<string, QuestionnaireResponse> = {};
+  const patientRefToQRMap: Record<string, QuestionnaireResponse> = {};
+  const rpToCommMap: Record<string, Communication[]> = {};
+  const rpPhoneNumbers = new Set<string>();
+  const phoneNumberToRpMap: Record<string, Set<string>> = {};
+  const rpToPhoneNumbersMap: Record<string, Set<string>> = {};
+  const rpIdToResourceMap: Record<string, RelatedPerson> = {};
+  const practitionerIdToResourceMap: Record<string, Practitioner> = {};
+  const healthcareServiceIdToResourceMap: Record<string, HealthcareService> = {};
+  const locationIdToResourceMap: Record<string, Location> = {};
+
+  appointmentResources.forEach((resource) => {
+    if (resource.resourceType === 'Appointment') {
+      allAppointments.push(resource as Appointment);
+
+      const appointment = resource as Appointment;
+      const patientId = appointment.participant
+        .find((appt) => appt.actor?.reference?.startsWith('Patient/'))
+        ?.actor?.reference?.replace('Patient/', '');
+      if (patientId) patientIds.push(`Patient/${patientId}`);
+    } else if (resource.resourceType === 'Patient' && resource.id) {
+      patientIdMap[resource.id] = resource as Patient;
+    } else if (resource.resourceType === 'Encounter' && !isAnnotationFollowupEncounter(resource)) {
+      const asEnc = resource as Encounter;
+      const apptRef = asEnc.appointment?.[0].reference;
+      if (apptRef) {
+        apptRefToEncounterMap[apptRef] = asEnc;
+      }
+
+      (asEnc.participant ?? []).forEach((p) => {
+        const ref = p.individual?.reference;
+        if (ref?.startsWith('Practitioner/')) {
+          const id = ref.split('/')[1];
+          if (id) practitionerIds.push(id);
+        }
+      });
+    } else if (resource.resourceType === 'QuestionnaireResponse') {
+      const encRef = (resource as QuestionnaireResponse).encounter?.reference;
+      const patientRef = (resource as QuestionnaireResponse).subject?.reference;
+      if (encRef) {
+        encounterRefToQRMap[encRef] = resource as QuestionnaireResponse;
+      }
+      if (patientRef) {
+        if (patientRefToQRMap[patientRef]) {
+          const qrAuthoredDate = DateTime.fromISO(patientRefToQRMap[patientRef].authored || '');
+          const curQrAuthoredDate = DateTime.fromISO((resource as QuestionnaireResponse).authored || '');
+          if (curQrAuthoredDate.diff(qrAuthoredDate).as('minutes') > 0) {
+            patientRefToQRMap[patientRef] = resource as QuestionnaireResponse;
+          }
+        } else {
+          patientRefToQRMap[patientRef] = resource as QuestionnaireResponse;
+        }
+      }
+    } else if (resource.resourceType === 'RelatedPerson' && resource.id) {
+      const rp = resource as RelatedPerson;
+      if (!isUserRelatedPerson(rp)) return;
+
+      const rpRef = `RelatedPerson/${rp.id}`;
+      rpIdToResourceMap[rpRef] = rp;
+
+      const patientRef = rp.patient?.reference;
+      if (patientRef) {
+        (patientToRPMap[patientRef] ??= []).push(rp);
+      }
+
+      const pn = getSMSNumberForIndividual(rp);
+      if (pn) {
+        rpPhoneNumbers.add(pn);
+        (phoneNumberToRpMap[pn] ??= new Set<string>()).add(rpRef);
+        (rpToPhoneNumbersMap[rpRef] ??= new Set<string>()).add(pn);
+      }
+    } else if (resource.resourceType === 'Practitioner' && resource.id) {
+      practitionerIdToResourceMap[`Practitioner/${resource.id}`] = resource as Practitioner;
+    } else if (resource.resourceType === 'HealthcareService' && resource.id) {
+      healthcareServiceIdToResourceMap[`HealthcareService/${resource.id}`] = resource as HealthcareService;
+    } else if (resource.resourceType === 'Location' && resource.id) {
+      locationIdToResourceMap[`Location/${resource.id}`] = resource as Location;
+    } else if (resource.resourceType === 'Person') {
+      const person = resource as Person;
+
+      const phone = getPersonPhone(person);
+      if (!phone) return;
+
+      person.link?.forEach((link) => {
+        const rpRef = link.target?.reference;
+
+        if (!rpRef?.startsWith('RelatedPerson/')) return;
+
+        rpPhoneNumbers.add(phone);
+        (phoneNumberToRpMap[phone] ??= new Set<string>()).add(rpRef);
+        (rpToPhoneNumbersMap[rpRef] ??= new Set<string>()).add(phone);
+      });
+    }
+  });
+
+  console.timeEnd('parse_search_results');
+
+  // Fallback: the main search's `_revinclude:iterate: RelatedPerson:patient` can silently
+  // miss RPs, so narrow direct query for the matched patients.
+  // Must run before the Communications search so any newly surfaced phones make it into
+  // the `sender:RelatedPerson.telecom` filter.
+  console.time('related_persons_fallback');
+  if (patientIds.length > 0) {
+    const rpBundle = await oystehr.fhir.search<RelatedPerson>({
+      resourceType: 'RelatedPerson',
+      params: [
+        { name: 'patient', value: patientIds.join(',') },
+        { name: 'relationship', value: 'user-relatedperson' },
+      ],
+    });
+    rpBundle.unbundle().forEach((rp) => {
+      if (!rp.id || !isUserRelatedPerson(rp)) return;
+      const rpRef = `RelatedPerson/${rp.id}`;
+      if (rpIdToResourceMap[rpRef]) return;
+
+      rpIdToResourceMap[rpRef] = rp;
+
+      const patientRef = rp.patient?.reference;
+      if (patientRef) {
+        (patientToRPMap[patientRef] ??= []).push(rp);
+      }
+
+      const pn = getSMSNumberForIndividual(rp);
+      if (pn) {
+        rpPhoneNumbers.add(pn);
+        (phoneNumberToRpMap[pn] ??= new Set<string>()).add(rpRef);
+        (rpToPhoneNumbersMap[rpRef] ??= new Set<string>()).add(pn);
+      }
+    });
+  }
+  console.timeEnd('related_persons_fallback');
+
+  console.time('get_all_doc_refs + get_all_communications + practitioners + signatures');
+  const docRefPromise =
+    patientIds.length > 0
+      ? oystehr?.fhir.search<DocumentReference>({
+          resourceType: 'DocumentReference',
+          params: [
+            { name: 'status', value: 'current' },
+            { name: 'type', value: `${INSURANCE_CARD_CODE},${PHOTO_ID_CARD_CODE}` },
+            { name: 'related', value: patientIds.join(',') },
+          ],
+        })
+      : Promise.resolve(undefined);
+  const uniqueNumbers = Array.from(rpPhoneNumbers);
+
+  let allDocRefs: DocumentReference[] | undefined = undefined;
+  let communications: (Communication | RelatedPerson)[] | undefined = undefined;
+  let encounterSignatures: Provenance[] | undefined = undefined;
+
+  const communicationsPromise =
+    uniqueNumbers.length > 0
+      ? oystehr.fhir.search<Communication | RelatedPerson>({
+          resourceType: 'Communication',
+          params: [
+            { name: 'medium', value: `${ZAP_SMS_MEDIUM_CODE}` },
+            { name: 'sender:RelatedPerson.telecom', value: uniqueNumbers.join(',') },
+            { name: '_include', value: 'Communication:sender' },
+          ],
+        })
+      : Promise.resolve(undefined);
+
+  const participantsPromise =
+    practitionerIds.length > 0
+      ? oystehr.fhir.search<Practitioner>({
+          resourceType: 'Practitioner',
+          params: [{ name: '_id', value: practitionerIds.join(',') }],
+        })
+      : Promise.resolve(undefined);
+
+  const encounterIds = Object.values(apptRefToEncounterMap)
+    .filter(Boolean)
+    .map((enc) => enc.id)
+    .filter(isTruthy);
+
+  const provenancePromises = encounterIds.map((encId) =>
+    oystehr.fhir.search<Provenance>({
+      resourceType: 'Provenance',
+      params: [
+        { name: 'target', value: `Encounter/${encId}` },
+        { name: 'agent-role', value: 'verifier' },
+      ],
+    })
+  );
+
+  const [docRefBundle, communicationBundle, participantsBundle, ...encounterSignaturesBundle] = await Promise.all([
+    docRefPromise,
+    communicationsPromise,
+    participantsPromise,
+    ...provenancePromises,
+  ]);
+
+  allDocRefs = docRefBundle?.unbundle() ?? [];
+  communications = communicationBundle?.unbundle();
+  const practitioners = participantsBundle?.unbundle() as Practitioner[];
+  practitioners?.forEach((pr) => {
+    practitionerIdToResourceMap[`Practitioner/${pr.id}`] = pr;
+  });
+
+  encounterSignatures = encounterSignaturesBundle.flatMap((bundle) => bundle?.unbundle() ?? []);
+
+  console.timeEnd('get_all_doc_refs + get_all_communications + practitioners + signatures');
+
+  // For follow-up appointments, the parent encounter is typically not in the current search results.
+  // Batch-fetch any parent encounters that are referenced via partOf but missing from apptRefToEncounterMap.
+  const existingEncounterRefs = new Set(Object.values(apptRefToEncounterMap).map((enc) => `Encounter/${enc.id}`));
+  const missingParentEncounterRefs = [
+    ...new Set(
+      Object.values(apptRefToEncounterMap)
+        .filter((enc) => enc.partOf?.reference && !existingEncounterRefs.has(enc.partOf.reference))
+        .map((enc) => enc.partOf!.reference!)
+    ),
+  ];
+
+  const parentEncounterToApptIdMap: Record<string, string> = {};
+  if (missingParentEncounterRefs.length > 0) {
+    const ids = missingParentEncounterRefs.map((ref) => ref.replace('Encounter/', '')).join(',');
+    const parentEncounters =
+      (
+        await oystehr.fhir.search<Encounter>({
+          resourceType: 'Encounter',
+          params: [{ name: '_id', value: ids }],
+        })
+      )?.unbundle() ?? [];
+    parentEncounters.forEach((enc) => {
+      const apptRef = enc.appointment?.[0]?.reference;
+      if (enc.id && apptRef) {
+        parentEncounterToApptIdMap[`Encounter/${enc.id}`] = apptRef.replace('Appointment/', '');
+      }
+    });
+  }
+
+  // because the related person tied to the user's account has been excluded from the graph of persons
+  // connected to patient resources, while the Zap sms creates communications with sender reference based on
+  // the user's profile-linked resource, it is necessary to do this cross-referencing to map from the sender resource
+  // on sms Communication resources to the related person list associated with each patient
+  // this cuts around 3 seconds off the execution time for this zambda, or more when there are no results
+  if (communications && communications.length > 0) {
+    const commSenders: RelatedPerson[] = communications.filter(
+      (resource) => resource.resourceType === 'RelatedPerson'
+    ) as RelatedPerson[];
+    commSenders.forEach((rp) => {
+      if (!rp.id) return;
+      if (!isUserRelatedPerson(rp)) return;
+      const rpRef = `RelatedPerson/${rp.id}`;
+      rpIdToResourceMap[rpRef] = rp;
+      const pn = getSMSNumberForIndividual(rp);
+      if (pn) {
+        rpPhoneNumbers.add(pn);
+        (phoneNumberToRpMap[pn] ??= new Set<string>()).add(rpRef);
+        (rpToPhoneNumbersMap[rpRef] ??= new Set<string>()).add(pn);
+      }
+    });
+    const comms: Communication[] = communications.filter(
+      (resource) => resource.resourceType === 'Communication'
+    ) as Communication[];
+
+    comms.forEach((comm) => {
+      const rpRef = comm.sender?.reference;
+      if (!rpRef) return;
+      const senderResource = rpIdToResourceMap[rpRef];
+      if (!senderResource) return;
+      const smsNumber = getSMSNumberForIndividual(senderResource);
+      if (!smsNumber) return;
+      phoneNumberToRpMap[smsNumber]?.forEach((rp) => {
+        (rpToCommMap[rp] ??= []).push(comm);
+      });
+    });
+  }
+
+  console.time('structure_appointment_data');
+  let appointments: Appointment[] = allAppointments;
+
+  if (visitType?.length > 0) {
+    appointments = appointments?.filter((appointment) => {
+      return visitType?.includes(
+        (isInPersonAppointment(appointment) ? 'in-person-' : 'virtual-') + appointmentTypeForAppointment(appointment)
+      );
+    });
+  }
+
+  if (serviceCategories != null && serviceCategories?.length > 0) {
+    appointments = appointments?.filter((appointment) => {
+      const appointmentServiceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+      return appointmentServiceCategory && serviceCategories?.includes(appointmentServiceCategory);
+    });
+  }
+
+  if (appointments.length > 0) {
+    const appointmentQueues = sortAppointments(appointments, apptRefToEncounterMap);
+    const baseMapInput: Omit<AppointmentInformationInputs, 'appointment'> = {
+      encounterRefToQRMap,
+      patientRefToQRMap,
+      patientToRPMap,
+      allDocRefs,
+      apptRefToEncounterMap,
+      patientIdMap,
+      rpToCommMap,
+      rpToPhoneNumbersMap,
+      practitionerIdToResourceMap,
+      healthcareServiceIdToResourceMap,
+      next: false,
+      group: undefined,
+      supervisorApprovalEnabled,
+      encounterSignatures,
+      locationIdToResourceMap,
+      parentEncounterToApptIdMap,
+    };
+
+    const buildAppointments = (queue: Appointment[]): InPersonAppointmentInformation[] =>
+      queue
+        .map((appointment) =>
+          makeAppointmentInformation(oystehr, {
+            appointment,
+            ...baseMapInput,
+            group: appointmentsToGroupMap.get(appointment.id ?? ''),
+          })
+        )
+        .filter(isTruthy);
+
+    preBooked = buildAppointments(appointmentQueues.prebooked);
+
+    inOffice = [
+      ...assignNextFlagsByPartition(buildAppointments(appointmentQueues.inOffice.waitingRoom.arrived), 'arrived'),
+      ...assignNextFlagsByPartition(buildAppointments(appointmentQueues.inOffice.waitingRoom.ready), 'ready'),
+      ...buildAppointments(appointmentQueues.inOffice.inExam.intake),
+      ...assignNextFlagsByPartition(
+        buildAppointments(appointmentQueues.inOffice.inExam['ready for provider']),
+        'ready-for-provider'
+      ),
+      ...buildAppointments(appointmentQueues.inOffice.inExam.provider),
+    ];
+
+    completed = buildAppointments(appointmentQueues.checkedOut);
+    cancelled = buildAppointments(appointmentQueues.canceled);
+  }
+
+  const response = {
+    message: 'Successfully retrieved all appointments',
+    preBooked,
+    inOffice,
+    completed,
+    cancelled,
+  };
+  console.timeEnd('structure_appointment_data');
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 interface AppointmentInformationInputs {
@@ -484,12 +636,16 @@ interface AppointmentInformationInputs {
   patientRefToQRMap: Record<string, QuestionnaireResponse>;
   patientToRPMap: Record<string, RelatedPerson[]>;
   rpToCommMap: Record<string, Communication[]>;
+  rpToPhoneNumbersMap: Record<string, Set<string>>;
   practitionerIdToResourceMap: Record<string, Practitioner>;
-  participantIdToResourceMap: Record<string, Practitioner>;
   healthcareServiceIdToResourceMap: Record<string, HealthcareService>;
   allDocRefs: DocumentReference[];
   next: boolean;
   group: HealthcareService | undefined;
+  supervisorApprovalEnabled: boolean;
+  encounterSignatures: Provenance[];
+  locationIdToResourceMap: Record<string, Location>;
+  parentEncounterToApptIdMap: Record<string, string>;
 }
 
 const makeAppointmentInformation = (
@@ -504,10 +660,14 @@ const makeAppointmentInformation = (
     allDocRefs,
     rpToCommMap,
     practitionerIdToResourceMap,
-    participantIdToResourceMap,
     next,
     patientToRPMap,
+    rpToPhoneNumbersMap,
     group,
+    supervisorApprovalEnabled,
+    encounterSignatures,
+    locationIdToResourceMap,
+    parentEncounterToApptIdMap,
   } = input;
 
   const patientRef = appointment.participant.find((appt) => appt.actor?.reference?.startsWith('Patient/'))?.actor
@@ -527,33 +687,40 @@ const makeAppointmentInformation = (
   let smsModel: SMSModel | undefined;
 
   if (patientRef) {
-    let rps: RelatedPerson[] = [];
     try {
-      if (!(patientRef in patientToRPMap)) {
-        throw new Error(`no related person found for patient ${patientId}`);
+      const rps = patientToRPMap[patientRef] ?? [];
+      const recipientsMap = new Map<string, SMSRecipient>();
+
+      rps.forEach((rp) => {
+        const rpRef = `RelatedPerson/${rp.id}`;
+        const phones = rpToPhoneNumbersMap[rpRef] ?? new Set<string>();
+
+        phones.forEach((phone) => {
+          const key = `${rpRef}|${phone}`;
+          if (!recipientsMap.has(key)) {
+            recipientsMap.set(key, {
+              recipientResourceUri: rpRef,
+              smsNumber: phone,
+            });
+          }
+        });
+      });
+
+      const recipients = Array.from(recipientsMap.values());
+      if (recipients.length === 0) {
+        throw new Error(`no RelatedPerson with contact number for patient ${patientId}`);
       }
 
-      rps = patientToRPMap[patientRef];
-      const recipients = rps
-        .map((rp) => {
-          return {
-            recipientResourceUri: rp.id ? `RelatedPerson/${rp.id}` : undefined,
-            smsNumber: getSMSNumberForIndividual(rp),
-          };
-        })
-        .filter((rec) => rec.recipientResourceUri !== undefined && rec.smsNumber !== undefined) as SMSRecipient[];
-      if (recipients.length) {
-        const allCommunications = recipients.flatMap((recipient) => {
-          return rpToCommMap[recipient.recipientResourceUri] ?? [];
-        });
-        smsModel = {
-          hasUnreadMessages: getChatContainsUnreadMessages(allCommunications),
-          recipients,
-        };
-      }
+      const allCommunications = recipients.flatMap((recipient) => {
+        return rpToCommMap[recipient.recipientResourceUri] ?? [];
+      });
+      smsModel = {
+        hasUnreadMessages: getChatContainsUnreadMessages(allCommunications),
+        recipients,
+      };
     } catch (e) {
       console.log('error building sms model: ', e);
-      console.log('related persons value prior to error: ', rps);
+      captureException(e);
     }
   } else {
     console.log(`no patient ref found for appointment ${appointment.id}`);
@@ -561,10 +728,10 @@ const makeAppointmentInformation = (
 
   const flattenedItems = flattenItems(questionnaireResponse?.item ?? []);
   const consentComplete =
-    flattenedItems.find((item: { linkId: string }) => item.linkId === 'hipaa-acknowledgement')?.answer?.[0]
-      .valueBoolean === true &&
-    flattenedItems.find((item: { linkId: string }) => item.linkId === 'consent-to-treat')?.answer?.[0].valueBoolean ===
-      true &&
+    CONSENT_FORMS_CONFIG.forms.every(
+      (form) =>
+        flattenedItems.find((item: { linkId: string }) => item.linkId === form.id)?.answer?.[0]?.valueBoolean === true
+    ) &&
     flattenedItems.find((item: { linkId: string }) => item.linkId === 'signature') &&
     flattenedItems.find((item: { linkId: string }) => item.linkId === 'full-name') &&
     flattenedItems.find((item: { linkId: string }) => item.linkId === 'consent-form-signer-relationship');
@@ -579,9 +746,7 @@ const makeAppointmentInformation = (
   const idCard = docRefComplete('Photo ID cards', 'photo-id-front');
   const insuranceCard = docRefComplete('Insurance cards', 'insurance-card-front');
   const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
-  const status = getVisitStatus(appointment, encounter);
-
-  const unconfirmedDOB = getUnconfirmedDOBForAppointment(appointment);
+  const status = getTrackingBoardVisitStatus(appointment, encounter, supervisorApprovalEnabled);
 
   const waitingMinutesString = appointment.meta?.tag?.find((tag) => tag.system === 'waiting-minutes-estimate')?.code;
   const waitingMinutes = waitingMinutesString ? parseInt(waitingMinutesString) : undefined;
@@ -589,27 +754,26 @@ const makeAppointmentInformation = (
   const ovrpInterest = flattenedItems.find((response: QuestionnaireResponseItem) => response.linkId === 'ovrp-interest')
     ?.answer?.[0]?.valueString;
 
-  const provider = appointment.participant
-    .filter((participant) => participant.actor?.reference?.startsWith('Practitioner/'))
-    .map(function (practitionerTemp) {
-      if (!practitionerTemp.actor?.reference) {
-        return;
-      }
-      const practitioner = practitionerIdToResourceMap[practitionerTemp.actor.reference];
-      console.log(1, practitionerIdToResourceMap);
-
-      if (!practitioner.name) {
-        return;
-      }
-      return oystehr.fhir.formatHumanName(practitioner.name[0]);
-    })
-    .join(', ');
+  const practitionerId = getAttendingPractitionerId(encounter);
+  const practitioner = practitionerIdToResourceMap[`Practitioner/${practitionerId}`];
+  let provider = '';
+  if (practitioner && practitioner.name) {
+    provider = oystehr.fhir.formatHumanName(practitioner.name[0]);
+  }
 
   // if the QR has been updated at least once, this tag will not be present
-  const paperworkHasBeenSubmitted = !!questionnaireResponse?.authored;
+  const demographicsByPaperworkSubmission = !!questionnaireResponse?.authored;
 
-  const participants = parseEncounterParticipants(encounter, participantIdToResourceMap);
+  const demographicsByPatientResource = isPatientDemographicsComplete(patient);
+  const consentByPaperworkSignatures = !!consentComplete;
+  const consentByStaffAttestation = !!(encounter && getAttestedConsentFromEncounter(encounter));
 
+  const participants = parseEncounterParticipants(encounter, practitionerIdToResourceMap);
+  const attenderProviderType = parseAttenderProviderType(encounter, practitionerIdToResourceMap);
+  const signature = encounterSignatures.find((provenance) =>
+    provenance.target.find((ref) => ref.reference === `Encounter/${encounter.id}`)
+  );
+  const approvalDate = signature?.recorded;
   const timezoneResourceId = getTimezoneResourceIdFromAppointment(appointment);
   const appointmentTimezone = timezoneResourceId && timezoneMap.get(timezoneResourceId);
 
@@ -632,25 +796,43 @@ const makeAppointmentInformation = (
     smsModel,
     reasonForVisit: appointment.description || 'Unknown',
     comment: appointment.comment,
-    unconfirmedDOB: unconfirmedDOB ?? '',
     appointmentType: appointmentTypeForAppointment(appointment),
+    appointmentAttendanceType: appointmentAttendanceTypeAppointment(appointment),
     appointmentStatus: appointment.status,
-    status: status,
+    status,
     cancellationReason: cancellationReason,
     provider: provider,
+    attenderProviderType,
+    approvalDate,
     group: group ? group.name : undefined,
     room: room,
     paperwork: {
-      demographics: paperworkHasBeenSubmitted,
+      demographics: demographicsByPaperworkSubmission || demographicsByPatientResource,
       photoID: idCard,
       insuranceCard: insuranceCard,
-      consent: consentComplete ? true : false,
+      consent: consentByPaperworkSignatures || consentByStaffAttestation,
       ovrpInterest: Boolean(ovrpInterest && ovrpInterest.startsWith('Yes')),
     },
     participants,
     next,
     visitStatusHistory: getVisitStatusHistory(encounter),
-    needsDOBConfirmation: !!unconfirmedDOB,
     waitingMinutes,
+    // Prefer the human-readable display, but fall back to the code: FHIR-backed
+    // (non-system) categories are stamped on the slot with only system+code and
+    // no display, so without this the abbreviation resolver gets nothing.
+    serviceCategory: (() => {
+      const coding = appointment.serviceCategory
+        ?.flatMap((codeableConcept) => codeableConcept.coding ?? [])
+        ?.find((c) => c.system === SERVICE_CATEGORY_SYSTEM);
+      return coding?.display ?? coding?.code;
+    })(),
+    location: locationIdToResourceMap[encounter.location?.[0]?.location?.reference ?? ''],
+    isFollowUp: !!encounter.partOf,
+    parentEncounterId: encounter.partOf?.reference?.replace('Encounter/', ''),
+    parentAppointmentId: encounter.partOf?.reference
+      ? Object.entries(apptRefToEncounterMap)
+          .find(([, enc]) => `Encounter/${enc.id}` === encounter.partOf?.reference)?.[0]
+          ?.replace('Appointment/', '') ?? parentEncounterToApptIdMap[encounter.partOf.reference]
+      : undefined,
   };
 };

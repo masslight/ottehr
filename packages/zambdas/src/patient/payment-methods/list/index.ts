@@ -2,75 +2,84 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import {
-  CreditCardInfo,
-  FHIR_RESOURCE_NOT_FOUND,
-  getSecret,
-  getStripeCustomerIdFromAccount,
-  ListPaymentMethodsZambdaOutput,
-  SecretsKeys,
-} from 'utils';
+import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
+import { CreditCardInfo, ListPaymentMethodsZambdaOutput } from 'utils/lib/types/data/payment/payment-method-types';
+import { checkForStripeCustomerDeletedError, FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  lambdaResponse,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { lambdaResponse } from '../../../shared/lambda';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
 export const index = wrapHandler('payment-list', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.group('validateRequestParameters');
+  let validatedParameters: ReturnType<typeof validateRequestParameters>;
   try {
-    console.group('validateRequestParameters');
-    let validatedParameters: ReturnType<typeof validateRequestParameters>;
-    try {
-      validatedParameters = validateRequestParameters(input);
-      console.log(JSON.stringify(validatedParameters, null, 4));
-    } catch (error: any) {
-      console.log(error);
-      return lambdaResponse(400, { message: error.message });
-    }
+    validatedParameters = validateRequestParameters(input);
+    console.log(JSON.stringify(validatedParameters, null, 4));
+  } catch (error: any) {
+    console.log(error);
+    return lambdaResponse(400, { message: error.message });
+  }
 
-    const { beneficiaryPatientId, secrets } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
+  const { beneficiaryPatientId, appointmentId, secrets } = validatedParameters;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
 
-    if (!oystehrM2MClientToken) {
-      console.log('getting m2m token for service calls');
-      oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
+  if (!oystehrM2MClientToken) {
+    console.log('getting m2m token for service calls');
+    oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
+  } else {
+    console.log('already have a token, no need to update');
+  }
 
-    const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
-    void (await validateUserHasAccessToPatientAccount(
-      { beneficiaryPatientId, secrets, zambdaInput: input },
-      oystehrClient
-    ));
+  const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
+  void (await validateUserHasAccessToPatientAccount(
+    { beneficiaryPatientId, secrets, zambdaInput: input },
+    oystehrClient
+  ));
 
-    const stripeClient = getStripeClient(secrets);
+  const stripeClient = getStripeClient(secrets);
 
-    const accountResources = await getAccountAndCoverageResourcesForPatient(beneficiaryPatientId, oystehrClient);
-    const account: Account | undefined = accountResources.account;
+  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient);
 
-    if (!account?.id) {
-      throw FHIR_RESOURCE_NOT_FOUND('Account');
-    }
-    const output: ListPaymentMethodsZambdaOutput = { cards: [] };
-    const customerId = account ? getStripeCustomerIdFromAccount(account) : undefined;
+  const accountResources = await getAccountAndCoverageResourcesForPatient(beneficiaryPatientId, oystehrClient);
+  const account: Account | undefined = accountResources.account;
+
+  if (!account?.id) {
+    throw FHIR_RESOURCE_NOT_FOUND('Account');
+  }
+  const output: ListPaymentMethodsZambdaOutput = { cards: [] };
+  const customerId = account ? getStripeCustomerIdFromAccount(account, stripeAccount) : undefined;
+
+  // we're performing effect at this point...
+  try {
     if (customerId !== undefined) {
-      const customer = await stripeClient.customers.retrieve(customerId, {
-        expand: ['invoice_settings.default_payment_method', 'sources'],
-      });
+      const customer = await stripeClient.customers.retrieve(
+        customerId,
+        {
+          expand: ['invoice_settings.default_payment_method', 'sources'],
+        },
+        {
+          stripeAccount, // Connected account ID if any
+        }
+      );
       const paymentMethods = (
-        await stripeClient.customers.listPaymentMethods(customer.id, {
-          type: 'card',
-        })
+        await stripeClient.customers.listPaymentMethods(
+          customer.id,
+          {
+            type: 'card',
+          },
+          {
+            stripeAccount, // Connected account ID if any
+          }
+        )
       )?.data;
       console.log('payment methods', paymentMethods, JSON.stringify(customer, null, 2));
       if (
@@ -113,13 +122,11 @@ export const index = wrapHandler('payment-list', async (input: ZambdaInput): Pro
         console.log('no default payment method found in customer invoice settings');
       }
     }
-
-    return lambdaResponse(200, output);
-  } catch (error: any) {
-    console.error(error);
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('payment-methods-list', error, ENVIRONMENT);
+  } catch (stripeError: any) {
+    throw checkForStripeCustomerDeletedError(stripeError);
   }
+
+  return lambdaResponse(200, output);
 });
 
 const filterExpired = (cardList: CreditCardInfo[]): CreditCardInfo[] => {

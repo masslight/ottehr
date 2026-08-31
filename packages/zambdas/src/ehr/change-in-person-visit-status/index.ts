@@ -1,17 +1,22 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { Secrets } from 'utils/lib/secrets';
+import { VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
 import {
   ChangeInPersonVisitStatusInput,
   ChangeInPersonVisitStatusResponse,
-  Secrets,
-  User,
-  VisitStatusWithoutUnknown,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+} from 'utils/lib/types/api/change-in-person-visit-status/change-in-person-visit-status.types';
+import { User } from 'utils/lib/types/api/user.types';
+import { produceDischargeOutreach } from '../../rcm/scheduled-outreach/producers/shared/produce-discharge-outreach';
+import { completeInProgressAiQuestionnaireResponseIfPossible } from '../../shared/ai-complete-questionnaire-response';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
-import { ZambdaInput } from '../../shared/types';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { changeInPersonVisitStatusIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -25,34 +30,25 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'change-in-person-visit-status';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    console.log('Created Oystehr client');
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
+  console.log('Created Oystehr client');
 
-    const validatedData = await complexValidation(oystehr, validatedParameters);
+  const validatedData = await complexValidation(oystehr, validatedParameters);
 
-    const response = await performEffect(oystehr, validatedData);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.error('Stringified error: ' + JSON.stringify(error));
-    console.error('Error: ' + error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Error updating in person visit status' }),
-    };
-  }
+  const response = await performEffect(oystehr, validatedData);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 export const complexValidation = async (
   oystehr: Oystehr,
-  params: ChangeInPersonVisitStatusInput
+  params: ChangeInPersonVisitStatusInputValidated
 ): Promise<{
   encounter: Encounter;
   appointment: Appointment;
@@ -60,7 +56,7 @@ export const complexValidation = async (
   user: User;
   updatedStatus: VisitStatusWithoutUnknown;
 }> => {
-  const { encounterId, user, updatedStatus } = params;
+  const { encounterId, userToken, updatedStatus, secrets } = params;
 
   const visitResources = await getVisitResources(oystehr, encounterId);
   if (!visitResources) {
@@ -70,6 +66,11 @@ export const complexValidation = async (
   const { encounter, appointment } = visitResources;
 
   if (!encounter?.id) throw new Error('Encounter not found');
+
+  const user = await userMe(userToken, secrets);
+  if (!user) {
+    throw new Error('user unexpectedly not found');
+  }
 
   return {
     encounter,
@@ -92,6 +93,23 @@ export const performEffect = async (
   const { encounter, appointment, user, updatedStatus } = validatedData;
 
   await changeInPersonVisitStatusIfPossible(oystehr, { encounter, appointment }, user, updatedStatus);
+
+  // Produce outreach tasks triggered by discharge
+  if (updatedStatus === 'discharged') {
+    try {
+      await produceDischargeOutreach({ encounterId: encounter.id!, oystehr });
+    } catch (err) {
+      console.error('Failed to produce discharge outreach tasks:', err);
+      captureException(err, {
+        extra: { encounterId: encounter.id, updatedStatus },
+      });
+    }
+  }
+
+  // handle not completed AI interview to give provider required data, completed AI Interview triggers resource creation via subscription
+  if (updatedStatus === 'ready for provider' && encounter.id) {
+    await completeInProgressAiQuestionnaireResponseIfPossible(oystehr, encounter.id);
+  }
 
   return {};
 };

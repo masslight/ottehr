@@ -1,7 +1,7 @@
 import { Box, Divider, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { OrderToolTipConfig } from 'utils';
+import { OrderToolTipConfig } from 'utils/lib/types/data/orders/types';
 
 export const OrdersToolTip: React.FC<{
   orderConfigs: OrderToolTipConfig[];
@@ -60,6 +60,19 @@ export const OrdersToolTip: React.FC<{
               <Box display="flex" alignItems="center" gap="8px" color="text.primary">
                 <Typography variant="body2">{order.itemDescription}</Typography>
                 {order.statusChip}
+                {order.unreadBadge && (
+                  <Box
+                    component="span"
+                    sx={{
+                      width: 9,
+                      height: 9,
+                      borderRadius: '50%',
+                      bgcolor: 'warning.main',
+                      display: 'inline-block',
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
               </Box>
             </Link>
           ))}

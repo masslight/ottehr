@@ -1,17 +1,21 @@
-import {} from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { z } from 'zod';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 import { GetPaperworkInput } from '.';
+
+const bodySchema = z.object({
+  appointmentID: z.string().uuid(),
+  dateOfBirth: z.string().date().optional(),
+});
 
 export function validateRequestParameters(input: ZambdaInput): GetPaperworkInput {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  const { appointmentID, dateOfBirth } = JSON.parse(input.body);
-
-  if (!appointmentID) {
-    throw new Error('appointmentID is not defined');
-  }
+  const parsed = safeJsonParse(input.body);
+  const { appointmentID, dateOfBirth } = safeValidate(bodySchema, parsed);
 
   const authorization = input.headers.Authorization;
 

@@ -3,11 +3,12 @@ import { Box, Button, Dialog, Paper, Typography } from '@mui/material';
 import { useMeetingManager } from 'amazon-chime-sdk-component-library-react';
 import { FC, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getSelectors } from 'utils';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import { useVideoCallStore } from 'src/telemed/features/video-call/video-call.store';
+import { useGetWaitStatus } from 'src/telemed/features/waiting-room/waiting-room.queries';
+import { useWaitingRoomStore } from 'src/telemed/features/waiting-room/waiting-room.store';
+import { getSelectors } from 'utils/lib/store';
 import { intakeFlowPageRoute } from '../../../App';
-import { useAppointmentStore } from '../appointments';
-import { useGetWaitStatus, useWaitingRoomStore } from '../waiting-room';
-import { useVideoCallStore } from '.';
 
 interface ConfirmEndCallDialogProps {
   openModal: boolean;
@@ -51,7 +52,7 @@ export const ConfirmEndCallDialog: FC<ConfirmEndCallDialogProps> = ({ openModal,
     if (isInvitedParticipant) {
       navigate(intakeFlowPageRoute.InvitedCallEnded.path);
     } else {
-      if (status === 'complete') {
+      if (status === 'completed') {
         navigate(intakeFlowPageRoute.CallEnded.path);
       } else {
         navigate(intakeFlowPageRoute.Homepage.path);

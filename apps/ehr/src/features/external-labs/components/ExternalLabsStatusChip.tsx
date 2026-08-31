@@ -1,6 +1,7 @@
 import { Chip } from '@mui/material';
 import { ReactElement } from 'react';
-import { ExternalLabsStatus, LabOrderUnreceivedHistoryRow } from 'utils';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { ExternalLabsStatus, LabOrderUnreceivedHistoryRow } from 'utils/lib/types/data/labs/labs.types';
 
 interface LabsOrderStatusChipProps {
   status: keyof typeof ExternalLabsStatus | LabOrderUnreceivedHistoryRow['action'];
@@ -36,10 +37,10 @@ export const ExternalLabsStatusPalette: {
   },
   ready: {
     background: {
-      primary: '#C8E6C9',
+      primary: '#FFE0B2',
     },
     color: {
-      primary: '#1B5E20',
+      primary: '#EF6C00',
     },
   },
   sent: {
@@ -122,6 +123,22 @@ export const ExternalLabsStatusPalette: {
       primary: '#D32F2F',
     },
   },
+  'rejected abn': {
+    background: {
+      primary: '#FFCDD2',
+    },
+    color: {
+      primary: '#D32F2F',
+    },
+  },
+  deleted: {
+    background: {
+      primary: '#FFCDD2',
+    },
+    color: {
+      primary: '#D32F2F',
+    },
+  },
   unknown: {
     background: {
       primary: '#e3c254',
@@ -135,6 +152,7 @@ export const ExternalLabsStatusPalette: {
 export function LabsOrderStatusChip({ status }: LabsOrderStatusChipProps): ReactElement {
   return (
     <Chip
+      data-testid={dataTestIds.externalLabs.labsStatusChip}
       size="small"
       label={status}
       sx={{

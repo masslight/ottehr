@@ -9,7 +9,7 @@ export class AddPatientPage {
   }
 
   async selectOffice(officeName: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.dashboard.locationSelect).click();
+    await this.#page.getByTestId(dataTestIds.addPatientPage.bookableSelect).click();
     await this.#page.locator(`li[role="option"]:has-text("${officeName}")`).first().click();
   }
 
@@ -46,6 +46,8 @@ export class AddPatientPage {
 
   async clickPatientNotFoundButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.addPatientPage.patientNotFoundButton).click();
+    // Wait for new patient form to appear
+    await expect(this.#page.locator('[placeholder="MM/DD/YYYY"]')).toBeVisible({ timeout: 60_000 });
   }
 
   async enterFirstName(firstName: string): Promise<void> {
@@ -58,6 +60,7 @@ export class AddPatientPage {
 
   async enterDateOfBirth(dateOfBirth: string): Promise<void> {
     const locator = this.#page.locator('[placeholder="MM/DD/YYYY"]');
+    await locator.waitFor({ state: 'visible', timeout: 60_000 });
     await locator.click();
     await this.#page.waitForTimeout(2000);
     // just because of date input for some reason not accepting wrong date
@@ -115,19 +118,38 @@ export class AddPatientPage {
     ).toBeVisible();
   }
 
-  async selectFirstAvailableSlot(): Promise<string> {
+  async selectFirstAvailableSlot(): Promise<{ time: string; date: string }> {
     const buttonLocator = this.#page.getByTestId(dataTestIds.slots.slot).first();
+    // Read the slot's local date BEFORE clicking — the data attribute is on the
+    // slot button and the component should not unmount it on click, but reading
+    // first avoids any race with state updates.
+    const date = (await buttonLocator.getAttribute('data-slot-date')) ?? '';
     await buttonLocator.click();
-    return (await buttonLocator.textContent()) ?? '';
+    const time = (await buttonLocator.textContent()) ?? '';
+    return { time, date };
   }
+
   async clickCloseSelectDateWarningDialog(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dialog.closeButton).click();
+  }
+
+  async selectServiceCategory(serviceCategory: string): Promise<void> {
+    const dropdown = this.#page.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
+    const isDisabled = await dropdown.evaluate(
+      (el) => el.getAttribute('aria-disabled') === 'true' || el.classList.contains('Mui-disabled')
+    );
+    if (isDisabled) {
+      await expect(dropdown).toContainText(serviceCategory);
+    } else {
+      await dropdown.click();
+      await this.#page.getByRole('option', { name: serviceCategory }).click();
+    }
   }
 }
 
 export async function expectAddPatientPage(page: Page): Promise<AddPatientPage> {
   await page.waitForURL(`/visits/add`);
-  await expect(page.locator('h3').getByText('Add Patient')).toBeVisible();
+  await expect(page.locator('h3').getByText('Add Visit')).toBeVisible();
   return new AddPatientPage(page);
 }
 

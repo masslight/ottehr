@@ -2,22 +2,20 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, MedicationAdministration } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { createReference } from 'utils/lib/fhir/helpers';
 import {
-  createReference,
-  CreateUpdateImmunizationOrderRequest,
-  CreateUpdateImmunizationOrderResponse,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
-} from 'utils';
+} from 'utils/lib/types/api/medication-administration.constants';
 import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  fillMeta,
-  getMyPractitionerId,
-  validateJsonBody,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+  CreateUpdateImmunizationOrderRequest,
+  CreateUpdateImmunizationOrderResponse,
+} from 'utils/lib/types/data/immunization/types';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient, fillMeta, validateJsonBody } from '../../../shared/helpers';
+import { getMyPractitionerId } from '../../../shared/practitioners';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL, updateOrderDetails, validateOrderDetails } from '../common';
 
 let m2mToken: string;
@@ -25,30 +23,21 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'create-update-immunization-order';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const userToken = input.headers.Authorization.replace('Bearer ', '');
-    const oystehrCurrentUser = createOystehrClient(userToken, validatedParameters.secrets);
-    const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
-    let response;
-    if (validatedParameters.orderId) {
-      response = await updateImmunizationOrder(oystehr, validatedParameters);
-    } else {
-      response = await createImmunizationOrder(oystehr, validatedParameters, userPractitionerId);
-    }
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: `Error creating order: ${JSON.stringify(error.message)}` }),
-    };
+  const validatedParameters = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
+  const userToken = input.headers.Authorization.replace('Bearer ', '');
+  const userPractitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
+  let response;
+  if (validatedParameters.orderId) {
+    response = await updateImmunizationOrder(oystehr, validatedParameters);
+  } else {
+    response = await createImmunizationOrder(oystehr, validatedParameters, userPractitionerId);
   }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 async function createImmunizationOrder(

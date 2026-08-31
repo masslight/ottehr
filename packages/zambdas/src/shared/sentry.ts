@@ -1,7 +1,9 @@
-import { init, isInitialized, setTag, wrapHandler as sentryWrapHandler } from '@sentry/aws-serverless';
+import { init, isInitialized, setTag, setTags, wrapHandler as sentryWrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult, Handler } from 'aws-lambda';
-import { getSecret, Secrets, SecretsKeys } from 'utils';
-import { ZambdaInput } from './types';
+import { parseCommaSeparatedTags } from 'utils/lib/helpers/parseCommaSeparatedTags';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { topLevelCatch } from './lambda';
+import { ZambdaInput } from './types/common';
 
 export function configSentry(zambdaName: string, secrets: Secrets | null): void {
   const environment = getSecret(SecretsKeys.ENVIRONMENT, secrets);
@@ -29,6 +31,7 @@ export function configSentry(zambdaName: string, secrets: Secrets | null): void 
 
   setTag('zambda', zambdaName);
   setTag('environment', environment);
+  setTags(parseCommaSeparatedTags(secrets?.SENTRY_TAGS));
 }
 
 export function wrapHandler(
@@ -37,6 +40,11 @@ export function wrapHandler(
 ): Handler<ZambdaInput, APIGatewayProxyResult> {
   return sentryWrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     configSentry(zambdaName, input.secrets);
-    return handler(input);
+    try {
+      return await handler(input);
+    } catch (error) {
+      console.error(`Error in handler for ${zambdaName}:`, error);
+      return topLevelCatch(zambdaName, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+    }
   });
 }

@@ -1,27 +1,40 @@
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import LogoutIcon from '@mui/icons-material/Logout';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Box, List, Typography, useTheme } from '@mui/material';
-import { ottehrLightBlue } from '@theme/icons';
 import { Duration } from 'luxon';
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { getSelectors } from 'utils';
+import ottehrApi from 'src/api/ottehrApi';
+import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
+import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
+import { CallSettings } from 'src/telemed/components/CallSettings/CallSettings';
+import { CancelVisitDialog } from 'src/telemed/components/CancelVisitDialog';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import { CustomContainer } from 'src/telemed/features/common/CustomContainer';
+import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
+import { InvitedParticipantListItemButton } from 'src/telemed/features/invited-participants/InvitedParticipantsListItemButton';
+import { ManageParticipantsDialog } from 'src/telemed/features/invited-participants/ManageParticipantsDialog';
+import {
+  createIOSMessageCallStarted,
+  sendIOSAppMessage,
+} from 'src/telemed/features/ios-communication/iosCommunicationChannel';
+import { UploadPhotosDialog } from 'src/telemed/features/upload-photos/UploadPhotosDialog';
+import { UploadPhotosListItemButton } from 'src/telemed/features/upload-photos/UploadPhotosListItemButton';
+import { useGetWaitStatus } from 'src/telemed/features/waiting-room/waiting-room.queries';
+import { useWaitingRoomStore } from 'src/telemed/features/waiting-room/waiting-room.store';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+import { getSelectors } from 'utils/lib/store';
+import { AppointmentType } from 'utils/lib/types/api/appointment.types';
 import { intakeFlowPageRoute } from '../../App';
+import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../../branding/primaryIconVisibility';
 import { StyledListItemWithButton } from '../../components/StyledListItemWithButton';
-import { IntakeThemeContext } from '../../contexts';
-import { safelyCaptureException } from '../../helpers/sentry';
-import { CallSettings, CancelVisitDialog } from '../components';
-import { useAppointmentStore } from '../features/appointments';
-import { CustomContainer, useIntakeCommonStore } from '../features/common';
-import { InvitedParticipantListItemButton, ManageParticipantsDialog } from '../features/invited-participants';
-import { createIOSMessageCallStarted, sendIOSAppMessage } from '../features/ios-communication';
 import { useIOSAppSync } from '../features/ios-communication/useIOSAppSync';
-import { UploadPhotosDialog, UploadPhotosListItemButton } from '../features/upload-photos';
-import { useGetWaitStatus, useWaitingRoomStore } from '../features/waiting-room';
 
 const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();
   const theme = useTheme();
+  const zambdaClient = useUCZambdaClient({ tokenless: true });
   const { otherColors } = useContext(IntakeThemeContext);
   const { estimatedTime, numberInLine } = getSelectors(useWaitingRoomStore, ['estimatedTime', 'numberInLine']);
   const [searchParams, _] = useSearchParams();
@@ -35,6 +48,8 @@ const WaitingRoom = (): JSX.Element => {
   const [isCancelVisitDialogOpen, setCancelVisitDialogOpen] = useState<boolean>(false);
   const [isAppointmentJustCanceled, setIsAppointmentJustCanceled] = useState<boolean>(false);
   const [isCallSettingsOpen, setIsCallSettingsOpen] = useState(false);
+  const [appointmentType, setAppointmentType] = useState<AppointmentType | undefined>(undefined);
+  const waitingRoomNotificationSent = useRef('');
 
   useEffect(() => {
     if (urlAppointmentID && urlAppointmentID !== persistedAppointmentId) {
@@ -44,13 +59,31 @@ const WaitingRoom = (): JSX.Element => {
 
   const currentAppointmentId = urlAppointmentID || persistedAppointmentId || '';
 
+  useEffect(() => {
+    if (!currentAppointmentId || !zambdaClient || waitingRoomNotificationSent.current === currentAppointmentId) return;
+
+    waitingRoomNotificationSent.current = currentAppointmentId;
+    ottehrApi
+      .createWaitingRoomNotification(
+        {
+          appointmentId: currentAppointmentId,
+        },
+        zambdaClient
+      )
+      .catch((error) => {
+        console.error('Failed to create notification', error);
+        safelyCaptureException(error);
+      });
+  }, [currentAppointmentId, zambdaClient]);
+
   useGetWaitStatus(
     (data) => {
       if (!data) {
         return;
       }
+      setAppointmentType(data.appointmentType);
       useWaitingRoomStore.setState(data);
-      if (data.status == 'on-video') {
+      if (data.status == 'provider') {
         if (isIOSApp && currentAppointmentId) {
           try {
             sendIOSAppMessage(createIOSMessageCallStarted({ appointmentID: currentAppointmentId }));
@@ -67,7 +100,7 @@ const WaitingRoom = (): JSX.Element => {
         }
       }
       if (!isAppointmentJustCanceled && !isCancelVisitDialogOpen) {
-        if (data.status == 'complete') {
+        if (data.status == 'completed') {
           useIntakeCommonStore.setState({ error: 'The call has ended. Please, request another visit' });
           navigate(intakeFlowPageRoute.Homepage.path);
         }
@@ -85,30 +118,30 @@ const WaitingRoom = (): JSX.Element => {
   return (
     <CustomContainer
       title="Waiting room"
-      img={ottehrLightBlue}
-      imgAlt="ottehr icon"
-      imgWidth={80}
+      {...getPrimaryIconContainerProps(PRIMARY_ICON_PAGE.TELEMED_WAITING_ROOM)}
       subtext="Please wait, call will start automatically. A provider expert will connect with you soon."
     >
-      <Box
-        sx={{
-          backgroundColor: otherColors.lightBlue,
-          color: theme.palette.secondary.main,
-          padding: 2,
-          marginBottom: 3,
-          marginTop: 3,
-          borderRadius: '8px',
-          display: 'flex',
-          gap: 3,
-        }}
-      >
-        <Typography variant="subtitle1" color={theme.palette.primary.main}>
-          Approx. wait time - {estimatedTime ? Duration.fromMillis(estimatedTime).toFormat("mm'mins'") : '...mins'}
-        </Typography>
-        <Typography variant="subtitle1" color={theme.palette.primary.main}>
-          Number in line - {numberInLine || '...'}
-        </Typography>
-      </Box>
+      {appointmentType && appointmentType !== 'pre-booked' && (
+        <Box
+          sx={{
+            backgroundColor: otherColors.lightBlue,
+            color: theme.palette.secondary.main,
+            padding: 2,
+            marginBottom: 3,
+            marginTop: 3,
+            borderRadius: '8px',
+            display: 'flex',
+            gap: 3,
+          }}
+        >
+          <Typography variant="subtitle1" color={theme.palette.primary.main}>
+            Approx. wait time - {estimatedTime ? Duration.fromMillis(estimatedTime).toFormat("mm'mins'") : '...mins'}
+          </Typography>
+          <Typography variant="subtitle1" color={theme.palette.primary.main}>
+            Number in line - {numberInLine || '...'}
+          </Typography>
+        </Box>
+      )}
 
       <List sx={{ p: 0 }}>
         {!isInvitedParticipant && (
@@ -136,7 +169,7 @@ const WaitingRoom = (): JSX.Element => {
               primaryText="Leave waiting room"
               secondaryText="We will notify you once the call starts"
             >
-              <img alt="ottehr icon" src={ottehrLightBlue} width={24} />
+              <LogoutIcon color="secondary" />
             </StyledListItemWithButton>
 
             <StyledListItemWithButton

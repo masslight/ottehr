@@ -1,0 +1,209 @@
+import { CodeableConcept, Coding, Task } from 'fhir/r4b';
+import z from 'zod';
+import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from '../../fhir/systemUrls';
+import { Secrets } from '../../secrets';
+
+export const INVOICEABLE_PATIENTS_PAGE_SIZE = 40;
+export const GET_INVOICES_TASKS_ZAMBDA_KEY = 'get-invoices-tasks';
+export const EXPORT_INVOICES_ZAMBDA_KEY = 'export-invoices';
+export const CREATE_INVOICE_TASKS_FOR_BILLING_CLAIMS_ZAMBDA_KEY = 'create-invoice-tasks-for-billing-claims';
+export const EXPORT_TASK_SYSTEM = ottehrCodeSystemUrl('export-task');
+export const EXPORT_INVOICES_CSV_TASK_CODE = 'export-invoices-csv';
+export const EXPORT_INVOICES_CSV_TASK_SYSTEM = EXPORT_TASK_SYSTEM;
+export const EXPORT_CSV_OUTPUT_URL_CODE = 'export-csv-output-url';
+
+export const EXPORT_FILE_CLEANED_TAG: Coding = {
+  system: ottehrCodeSystemUrl('export-file-cleaned'),
+  code: 'cleaned',
+};
+
+export const INVOICE_TASK_BUSINESS_STATUS_SYSTEM = ottehrCodeSystemUrl('invoice-task-business-status');
+export const ZERO_BALANCE_BUSINESS_STATUS_CODE = 'zero-balance';
+export const ZERO_BALANCE_BUSINESS_STATUS: CodeableConcept = {
+  coding: [{ system: INVOICE_TASK_BUSINESS_STATUS_SYSTEM, code: ZERO_BALANCE_BUSINESS_STATUS_CODE }],
+};
+
+export const InvoiceSortFields = ['finalizationDate', 'appointmentDate'] as const;
+export type InvoiceSortField = (typeof InvoiceSortFields)[number];
+export const InvoiceSortFieldValues = {
+  finalizationDate: 'finalizationDate',
+  appointmentDate: 'appointmentDate',
+} as const satisfies Record<InvoiceSortField, InvoiceSortField>;
+
+export const InvoiceSortDirections = ['asc', 'desc'] as const;
+export type InvoiceSortDirection = (typeof InvoiceSortDirections)[number];
+export const InvoiceSortDirectionValues = {
+  asc: 'asc',
+  desc: 'desc',
+} as const satisfies Record<InvoiceSortDirection, InvoiceSortDirection>;
+
+export const InvoiceTaskDisplayStatuses = ['ready', 'updating', 'sending', 'sent', 'error'] as const;
+export type InvoiceTaskDisplayStatus = (typeof InvoiceTaskDisplayStatuses)[number];
+
+export const InvoiceTaskSources = ['candid', 'ottehr-billing'] as const;
+export type InvoiceTaskSource = (typeof InvoiceTaskSources)[number];
+export const INVOICE_TASK_SOURCE_SYSTEM = ottehrCodeSystemUrl('invoice-task-source');
+export const invoiceTaskSourceTag = (source: InvoiceTaskSource): Coding => ({
+  system: INVOICE_TASK_SOURCE_SYSTEM,
+  code: source,
+});
+export const INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('invoice-task-claim-id');
+
+export const InvoiceTaskInputSchemaBase = z.object({
+  dueDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'dueDate must be in YYYY-MM-DD format')
+    .refine((val) => !isNaN(new Date(val).getTime()), 'dueDate must be a valid date'),
+  memo: z.string(),
+  smsTextMessage: z.string(),
+  amountCents: z.number(),
+  claimId: z.string().optional(),
+  finalizationDate: z.string().optional(),
+});
+export const InvoiceTaskInputSchema = InvoiceTaskInputSchemaBase.partial();
+export type InvoiceTaskInput = z.infer<typeof InvoiceTaskInputSchema>;
+export const SubSendInvoiceToPatientTaskInputSchema = InvoiceTaskInputSchemaBase.extend({
+  memo: z.string().optional(),
+  amountCents: z.number().gt(0),
+});
+export type SubSendInvoiceToPatientTaskInput = z.infer<typeof SubSendInvoiceToPatientTaskInputSchema>;
+
+export const UpdateInvoiceTaskZambdaInputSchema = z.object({
+  taskId: z.string().uuid(),
+  status: z.string(),
+  invoiceTaskInput: InvoiceTaskInputSchema.optional(),
+});
+export type UpdateInvoiceTaskZambdaInput = z.infer<typeof UpdateInvoiceTaskZambdaInputSchema>;
+
+export type InvoiceMessagesPlaceholders = {
+  'patient-full-name'?: string;
+  location?: string;
+  'visit-date'?: string;
+  'patient-portal-link'?: string;
+  clinic?: string;
+  amount?: string;
+  'due-date'?: string;
+  'invoice-link'?: string;
+};
+
+const allowedStatuses = [
+  'draft',
+  'requested',
+  'received',
+  'accepted',
+  'rejected',
+  'ready',
+  'cancelled',
+  'in-progress',
+  'on-hold',
+  'failed',
+  'completed',
+  'entered-in-error',
+] as const;
+
+export const GetInvoicesTasksZambdaInputSchema = z.object({
+  page: z.number().min(0).optional(),
+  status: z.enum(allowedStatuses).optional(),
+  patientId: z.string().optional(),
+  sortField: z.enum(InvoiceSortFields).optional(),
+  sortDirection: z.enum(InvoiceSortDirections).optional(),
+  hideZeroBalance: z.boolean().optional(),
+  source: z.enum(InvoiceTaskSources).optional(),
+});
+export const GetInvoicesTasksZambdaValidatedInputSchema = GetInvoicesTasksZambdaInputSchema.extend({
+  secrets: z.custom<Secrets>().nullable(),
+});
+export const InvoiceablePatientReportSchema = z.object({
+  claimId: z.string(),
+  finalizationDateISO: z.string(),
+  amountInvoiceable: z.number(),
+  task: z.custom<Task>(),
+  visitDate: z.string(),
+  location: z.string(),
+  appointmentId: z.string().optional(),
+  officePhone: z.string().optional(),
+  locationReviewLink: z.string().optional(),
+  patient: z.object({
+    patientId: z.string(),
+    fullName: z.string(),
+    dob: z.string().optional(),
+    gender: z.string().optional(),
+    phoneNumber: z.string(),
+    fullAddress: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+  }),
+  responsibleParty: z.object({
+    fullName: z.string().optional(),
+    phoneNumber: z.string().optional(),
+    email: z.string().optional(),
+    relationshipToPatient: z.string().optional(),
+    fullAddress: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+  }),
+});
+export const GetInvoicesTasksZambdaResponseSchema = z.object({
+  reports: z.array(InvoiceablePatientReportSchema),
+  totalCount: z.number(),
+});
+
+export type GetInvoicesTasksValidatedInput = z.infer<typeof GetInvoicesTasksZambdaValidatedInputSchema>;
+export type GetInvoicesTasksInput = z.infer<typeof GetInvoicesTasksZambdaInputSchema>;
+export type InvoiceablePatientReport = z.infer<typeof InvoiceablePatientReportSchema>;
+export type GetInvoicesTasksResponse = z.infer<typeof GetInvoicesTasksZambdaResponseSchema>;
+
+export const ExportInvoicesTasksCsvZambdaInputSchema = z.object({
+  status: z.enum(allowedStatuses).optional(),
+  sortField: z.enum(InvoiceSortFields).optional(),
+  sortDirection: z.enum(InvoiceSortDirections).optional(),
+  hideZeroBalance: z.boolean().optional(),
+  source: z.enum(InvoiceTaskSources).optional(),
+});
+export const ExportInvoicesTasksCsvZambdaValidatedInputSchema = ExportInvoicesTasksCsvZambdaInputSchema.extend({
+  secrets: z.custom<Secrets>().nullable(),
+});
+export type ExportInvoicesTasksCsvInput = z.infer<typeof ExportInvoicesTasksCsvZambdaInputSchema>;
+export type ExportInvoicesTasksCsvValidatedInput = z.infer<typeof ExportInvoicesTasksCsvZambdaValidatedInputSchema>;
+
+export const GetExportInvoicesCsvStatusZambdaInputSchema = z.object({
+  taskId: z.string(),
+});
+export const GetExportInvoicesCsvStatusZambdaValidatedInputSchema = GetExportInvoicesCsvStatusZambdaInputSchema.extend({
+  secrets: z.custom<Secrets>().nullable(),
+});
+export type GetExportInvoicesCsvStatusInput = z.infer<typeof GetExportInvoicesCsvStatusZambdaInputSchema>;
+export type GetExportInvoicesCsvStatusValidatedInput = z.infer<
+  typeof GetExportInvoicesCsvStatusZambdaValidatedInputSchema
+>;
+
+export const CreateInvoiceTasksForBillingClaimsInputSchema = z.object({
+  claims: z.array(
+    z.object({
+      claimId: z.string().uuid(),
+      encounterId: z.string().uuid(),
+      finalizationDate: z.string(),
+      balance: z.number(),
+    })
+  ),
+});
+export const CreateInvoiceTasksForBillingClaimsValidatedInputSchema =
+  CreateInvoiceTasksForBillingClaimsInputSchema.extend({
+    secrets: z.custom<Secrets>().nullable(),
+  });
+export type BillingInvoiceTaskClaim = z.infer<typeof CreateInvoiceTasksForBillingClaimsInputSchema>['claims'][number];
+export type CreateInvoiceTasksForBillingClaimsInput = z.infer<typeof CreateInvoiceTasksForBillingClaimsInputSchema>;
+export type CreateInvoiceTasksForBillingClaimsValidatedInput = z.infer<
+  typeof CreateInvoiceTasksForBillingClaimsValidatedInputSchema
+>;
+export type CreateInvoiceTasksForBillingClaimsResponse = {
+  created: number;
+  skipped: number;
+};
+
+export type ExportInvoicesCsvKickOffResponse = { taskId: string };
+export type ExportInvoicesCsvStatusResponse = {
+  status: 'requested' | 'in-progress' | 'completed' | 'failed';
+  downloadUrl?: string;
+  error?: string;
+};

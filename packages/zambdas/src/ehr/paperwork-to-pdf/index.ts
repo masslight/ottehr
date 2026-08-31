@@ -1,40 +1,26 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DocumentReference, List, QuestionnaireResponse } from 'fhir/r4b';
+import { randomUUID } from 'crypto';
 import { DateTime } from 'luxon';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { getPaperworkResources, PAPERWORK_PDF_ATTACHMENT_TITLE } from 'utils/lib/helpers/paperwork/paperwork';
+import { Secrets } from 'utils/lib/secrets';
+import { PaperworkToPDFInputValidated } from 'utils/lib/types/data/paperwork.types';
 import {
-  addOperation,
-  BUCKET_NAMES,
   EXPORTED_QUESTIONNAIRE_CODE,
-  findExistingListByDocumentTypeCode,
-  getSecret,
-  PAPERWORK_PDF_ATTACHMENT_TITLE,
   PAPERWORK_PDF_BASE_NAME,
-  replaceOperation,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  createPresignedUrl,
-  getAuth0Token,
-  topLevelCatch,
-  uploadObjectToZ3,
-  validateJsonBody,
-  validateString,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
-import { makeZ3Url } from '../../shared/presigned-file-urls';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient, validateJsonBody, validateString } from '../../shared/helpers';
+import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { createDocument } from './document';
 import { generatePdf } from './draw';
-
-interface Input {
-  questionnaireResponseId: string;
-  documentReference: DocumentReference;
-  secrets: Secrets | null;
-}
 
 const ZAMBDA_NAME = 'paperwork-to-pdf';
 
@@ -44,80 +30,95 @@ let oystehrToken: string;
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const { questionnaireResponseId, secrets } = validateInput(input);
+  const oystehr = await createOystehr(secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+
+  const paperworkResources = await getPaperworkResources(oystehr, questionnaireResponseId);
+  if (!paperworkResources) throw new Error('Paperwork not submitted');
+
+  const { questionnaireResponse, listResources, appointment, schedule, location } = paperworkResources;
+  if (!questionnaireResponse) throw new Error('QuestionnaireResponse not found');
+  const document = await createDocument(questionnaireResponse, appointment, oystehr, schedule, location);
+  const pdfDocument = await generatePdf(document);
+
+  const timestamp = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
+  const fileName = `${PAPERWORK_PDF_BASE_NAME}-${questionnaireResponse?.id}-${questionnaireResponse?.meta?.versionId}-${timestamp}.pdf`;
+
+  const baseFileUrl = makeZ3Url({
+    secrets,
+    fileName,
+    bucketName: BUCKET_NAMES.PAPERWORK,
+    patientID: document.patientInfo.id,
+  });
+
+  console.log('Uploading file to bucket, ', BUCKET_NAMES.PAPERWORK);
+
+  let presignedUrl;
   try {
-    const { questionnaireResponseId, documentReference: documentReferenceBase, secrets } = validateInput(input);
-    const oystehr = await createOystehr(secrets);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const questionnaireResponse = await oystehr.fhir.get<QuestionnaireResponse>({
-      resourceType: 'QuestionnaireResponse',
-      id: questionnaireResponseId,
-    });
+    presignedUrl = await createPresignedUrl(m2mToken, baseFileUrl, 'upload');
+    await uploadObjectToZ3(await pdfDocument.save(), presignedUrl);
+  } catch (error: unknown) {
+    throw new Error('failed uploading pdf to z3', { cause: error });
+  }
 
-    const document = await createDocument(questionnaireResponse, oystehr);
-    const pdfDocument = await generatePdf(document);
-
-    const timestamp = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
-    const fileName = `${PAPERWORK_PDF_BASE_NAME}-${questionnaireResponse.id}-${questionnaireResponse.meta?.versionId}-${timestamp}.pdf`;
-
-    const baseFileUrl = makeZ3Url({
-      secrets,
-      fileName,
-      bucketName: BUCKET_NAMES.PAPERWORK,
-      patientID: document.patientInfo.id,
-    });
-
-    console.log('Uploading file to bucket, ', BUCKET_NAMES.PAPERWORK);
-
-    let presignedUrl;
-    try {
-      presignedUrl = await createPresignedUrl(m2mToken, baseFileUrl, 'upload');
-      await uploadObjectToZ3(new Uint8Array(await pdfDocument.save()), presignedUrl);
-    } catch (error: any) {
-      throw new Error(`failed uploading pdf to z3:  ${JSON.stringify(error.message)}`);
-    }
-
-    if (questionnaireResponse.encounter) {
-      documentReferenceBase.context = {
-        encounter: [questionnaireResponse.encounter],
-      };
-    }
-    const documentReference = await oystehr.fhir.create<DocumentReference>({
-      ...documentReferenceBase,
-      subject: {
-        reference: 'Patient/' + document.patientInfo.id,
+  const { docRefs } = await createFilesDocumentReferences({
+    files: [
+      {
+        url: baseFileUrl,
+        title: PAPERWORK_PDF_ATTACHMENT_TITLE,
       },
-      content: [
+    ],
+    type: {
+      coding: [
         {
-          attachment: {
-            url: baseFileUrl,
-            contentType: 'application/pdf',
-            title: PAPERWORK_PDF_ATTACHMENT_TITLE,
-          },
+          system: 'http://loinc.org',
+          code: EXPORTED_QUESTIONNAIRE_CODE,
+          display: PAPERWORK_PDF_ATTACHMENT_TITLE,
         },
       ],
-      date: DateTime.now().toUTC().toISO(),
-    });
-    await addDocumentReferenceToList(documentReference, oystehr);
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        documentReference: 'DocumentReference/' + documentReference.id,
+      text: PAPERWORK_PDF_ATTACHMENT_TITLE,
+    },
+    dateCreated: DateTime.now().toUTC().toISO(),
+    searchParams: [
+      {
+        name: 'subject',
+        value: `Patient/${document.patientInfo.id}`,
+      },
+      {
+        name: 'type',
+        value: EXPORTED_QUESTIONNAIRE_CODE,
+      },
+      ...(questionnaireResponse.encounter?.reference
+        ? [{ name: 'encounter', value: questionnaireResponse.encounter.reference }]
+        : []),
+    ],
+    references: {
+      subject: { reference: `Patient/${document.patientInfo.id}` },
+      ...(questionnaireResponse.encounter && {
+        context: { encounter: [questionnaireResponse.encounter] },
       }),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+    },
+    oystehr,
+    generateUUID: randomUUID,
+    listResources: listResources,
+    meta: {
+      tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
+    },
+  });
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      documentReference: 'DocumentReference/' + docRefs[0].id,
+    }),
+  };
 });
 
-function validateInput(input: ZambdaInput): Input {
-  const { questionnaireResponseId, documentReference } = validateJsonBody(input);
-  if (documentReference.resourceType !== 'DocumentReference') {
-    throw new Error('documentReference must be a "DocumentReference" resource');
-  }
+function validateInput(input: ZambdaInput): PaperworkToPDFInputValidated {
+  const { questionnaireResponseId } = validateJsonBody(input);
   return {
     questionnaireResponseId: validateString(questionnaireResponseId, 'questionnaireResponseId'),
-    documentReference: documentReference,
     secrets: input.secrets,
   };
 }
@@ -126,46 +127,5 @@ async function createOystehr(secrets: Secrets | null): Promise<Oystehr> {
   if (oystehrToken == null) {
     oystehrToken = await getAuth0Token(secrets);
   }
-  return createOystehrClient(oystehrToken, secrets);
-}
-
-async function addDocumentReferenceToList(documentReference: DocumentReference, oystehr: Oystehr): Promise<void> {
-  const lists = (
-    await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [
-        {
-          name: 'patient',
-          value: documentReference.subject?.reference ?? '',
-        },
-      ],
-    })
-  ).unbundle();
-
-  const list = findExistingListByDocumentTypeCode(lists, EXPORTED_QUESTIONNAIRE_CODE);
-  if (list == null) {
-    console.log(`List with code "${EXPORTED_QUESTIONNAIRE_CODE}" not found`);
-    return;
-  }
-
-  const updatedFolderEntries = [
-    ...(list?.entry ?? []),
-    {
-      date: DateTime.now().setZone('UTC').toISO() ?? '',
-      item: {
-        type: 'DocumentReference',
-        reference: `DocumentReference/${documentReference.id}`,
-      },
-    },
-  ];
-
-  await oystehr.fhir.patch<List>({
-    resourceType: 'List',
-    id: list?.id ?? '',
-    operations: [
-      (list.entry ?? []).length > 0
-        ? replaceOperation('/entry', updatedFolderEntries)
-        : addOperation('/entry', updatedFolderEntries),
-    ],
-  });
+  return createClinicalOystehrClient(oystehrToken, secrets);
 }

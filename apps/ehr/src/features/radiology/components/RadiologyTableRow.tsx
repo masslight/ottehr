@@ -2,7 +2,10 @@ import { otherColors } from '@ehrTheme/colors';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { Box, Button, Chip, TableCell, TableRow, Typography, useTheme } from '@mui/material';
 import { ReactElement } from 'react';
-import { formatDate, GetRadiologyOrderListZambdaOrder } from 'utils';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { GetRadiologyOrderListZambdaOrder } from 'utils/lib/types/api/radiology';
+import { formatDate } from 'utils/lib/utils/date';
+import { RadiologyExternalOrderChip } from './RadiologyExternalOrderChip';
 import { RadiologyTableColumn } from './RadiologyTable';
 import { RadiologyTableStatusChip } from './RadiologyTableStatusChip';
 
@@ -33,7 +36,18 @@ export const RadiologyTableRow = ({
   const renderCellContent = (column: RadiologyTableColumn): React.ReactNode => {
     switch (column) {
       case 'studyType':
-        return <Typography variant="body2">{order.studyType}</Typography>;
+        return (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.5 }}>
+            <Typography variant="body2">{order.studyType}</Typography>
+            {order.external && (
+              <RadiologyExternalOrderChip
+                dataTestId={dataTestIds.radiologyPage.externalOrderLabel(order.serviceRequestId)}
+              />
+            )}
+          </Box>
+        );
+      case 'studyName':
+        return <Typography variant="body2">{order.studyName ?? '—'}</Typography>;
       case 'dx': {
         return <Typography variant="body2">{order.diagnosis}</Typography>;
       }
@@ -76,9 +90,10 @@ export const RadiologyTableRow = ({
       case 'status':
         return <RadiologyTableStatusChip status={order.status} />;
       case 'actions':
-        if (allowDelete && order.status === 'pending') {
+        if (allowDelete) {
           return (
             <Button
+              data-testid={dataTestIds.radiologyPage.deleteOrderButton(order.serviceRequestId)}
               onClick={handleDeleteClick}
               sx={{
                 textTransform: 'none',
@@ -98,6 +113,7 @@ export const RadiologyTableRow = ({
 
   return (
     <TableRow
+      data-testid={dataTestIds.radiologyPage.radiologyOrderRow(order.serviceRequestId)}
       sx={{
         '&:hover': { backgroundColor: '#f5f5f5' },
         cursor: 'pointer',

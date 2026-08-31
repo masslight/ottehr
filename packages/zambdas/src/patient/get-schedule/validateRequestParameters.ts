@@ -1,24 +1,64 @@
-import { GetScheduleRequestParams, Secrets } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { SLUG_REGEX, SLUG_VALIDATION_MESSAGE } from 'utils/lib/fhir/constants';
+import { getServiceCategoryCodeSchema, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
+import { Secrets } from 'utils/lib/secrets';
+import { ScheduleType, ServiceMode } from 'utils/lib/types/common';
+import { GetScheduleRequestParams } from 'utils/lib/types/data/get-schedule.types';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { z } from 'zod';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
-export const SCHEDULE_TYPES = ['location', 'provider', 'group'];
+export const SCHEDULE_TYPES = ['location', 'provider', 'group'] as const;
+
+// Slug fields are interpolated raw into FHIR `identifier` search params as
+// `${SLUG_SYSTEM}|${slug}`. Without a format guard, a caller can include `|`
+// (or other special chars) to break out of the value side and inject extra
+// search clauses. Restrict to URL-safe slug shape: letters/digits/hyphens.
+const SlugSchema = z.string().regex(SLUG_REGEX, SLUG_VALIDATION_MESSAGE);
+
+const GetScheduleBodySchema = z.object({
+  slug: SlugSchema.min(1),
+  scheduleType: z.enum(SCHEDULE_TYPES),
+  selectedDate: z.string().date().optional(),
+  serviceCategoryCode: z.string().optional(),
+  // Tolerant on purpose: the mode comes from a raw URL path segment. An
+  // unrecognized value coerces to undefined (no mode filter) rather than 400,
+  // preserving the pre-filter behavior for malformed booking links.
+  serviceMode: z.nativeEnum(ServiceMode).optional().catch(undefined),
+  atLocationSlug: SlugSchema.optional(),
+});
+
 export function validateRequestParameters(input: ZambdaInput): GetScheduleRequestParams & { secrets: Secrets | null } {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  const { slug, scheduleType } = JSON.parse(input.body);
-  if (!slug) {
-    throw new Error('slug is not found and is required');
-  }
+  const {
+    slug,
+    scheduleType,
+    selectedDate,
+    serviceCategoryCode: maybeServiceCategoryCode,
+    serviceMode,
+    atLocationSlug,
+  } = safeValidate(GetScheduleBodySchema, safeJsonParse(input.body));
 
-  if (!SCHEDULE_TYPES.includes(scheduleType)) {
-    throw new Error(`scheduleType must be either ${SCHEDULE_TYPES}`);
+  let serviceCategoryCode: ServiceCategoryCode | undefined;
+
+  if (maybeServiceCategoryCode) {
+    const categorySchema = getServiceCategoryCodeSchema();
+    serviceCategoryCode = categorySchema.safeParse(maybeServiceCategoryCode).data;
+    if (!serviceCategoryCode) {
+      throw INVALID_INPUT_ERROR('"serviceCategoryCode" must be a URL-safe slug (1-64 chars, letters/digits/hyphens)');
+    }
   }
 
   return {
     slug,
-    scheduleType,
+    scheduleType: scheduleType as ScheduleType,
     secrets: input.secrets,
+    selectedDate,
+    serviceCategoryCode,
+    serviceMode,
+    atLocationSlug,
   };
 }

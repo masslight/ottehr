@@ -1,24 +1,20 @@
 import {
   QuestionnaireItem,
   QuestionnaireItemEnableWhen,
+  QuestionnaireResponse,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  DATE_ERROR_MESSAGE,
-  DOB_DATE_FORMAT,
-  emailRegex,
-  emojiRegex,
-  IntakeQuestionnaireItem,
-  isoDateRegex,
-  phoneRegex,
-  pickFirstValueFromAnswerItem,
-  QuestionnaireItemConditionDefinition,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-  zipRegex,
-} from 'utils';
 import * as Yup from 'yup';
+import {
+  IntakeQuestionnaireItem,
+  QuestionnaireItemConditionDefinition,
+} from '../../types/data/paperwork/paperwork.types';
+import { DOB_DATE_FORMAT } from '../../utils/date';
+import { DATE_ERROR_MESSAGE, REQUIRED_FIELD_ERROR_MESSAGE } from '../../validation/constants';
+import { emailRegex, emojiRegex, isoDateRegex, phoneRegex, ssnRegex, zipRegex } from '../../validation/regex';
+import { pickFirstValueFromAnswerItem } from './paperwork';
 
 interface ValidatableQuestionnaireItem extends IntakeQuestionnaireItem {
   regex?: RegExp;
@@ -33,6 +29,7 @@ export const PHONE_NUMBER_FIELDS = [
   'responsible-party-number',
   'pharmacy-phone',
   'pcp-number',
+  'pcp-fax',
 ];
 export const EMAIL_FIELDS = ['patient-email', 'guardian-email'];
 export const ZIP_CODE_FIELDS = ['patient-zip'];
@@ -71,7 +68,11 @@ const makeValidatableItem = (
   }
   if (ZIP_CODE_FIELDS.includes(item.linkId) || item.dataType === 'ZIP') {
     regex = zipRegex;
-    regexError = 'ZIP Code must be 5 numbers';
+    regexError = 'ZIP Code must be 5 or 9 numbers';
+  }
+  if (item.dataType === 'SSN') {
+    regex = ssnRegex;
+    regexError = 'SSN must be in the format xxx-xx-xxxx';
   }
 
   return {
@@ -171,7 +172,10 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
   if (item.type === 'boolean') {
     let booleanSchema = Yup.boolean();
     if (required) {
-      booleanSchema = booleanSchema.is([true], REQUIRED_FIELD_ERROR_MESSAGE).required(REQUIRED_FIELD_ERROR_MESSAGE);
+      booleanSchema = booleanSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+    }
+    if (item.requiredBooleanValue !== undefined) {
+      booleanSchema = booleanSchema.oneOf([item.requiredBooleanValue], REQUIRED_FIELD_ERROR_MESSAGE);
     }
     schemaTemp = Yup.object({
       valueBoolean: booleanSchema,
@@ -182,11 +186,14 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
   }
 
   if (item.type === 'choice' && item.answerOption && item.answerOption.length) {
-    let stringSchema = Yup.string();
+    // Apply .oneOf() first, then .required() - order matters because .oneOf() allows undefined by default
+    let stringSchema = Yup.string().oneOf(
+      item.answerOption.map((option) => option.valueString),
+      'Value must be one of the provided answer options'
+    );
     if (required) {
       stringSchema = stringSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
     }
-    stringSchema = stringSchema.oneOf(item.answerOption.map((option) => option.valueString));
     let schema = Yup.object({
       valueString: stringSchema,
     });
@@ -211,7 +218,6 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
       }
       schemaTemp = schema;
     } else {
-      // const { query, resourceType } = answerSource;
       let referenceSchema = Yup.object({
         valueReference: makeReferenceValueSchema(required),
       });
@@ -238,6 +244,22 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
         }
         return value;
       });
+
+    if (required) {
+      stringSchema = stringSchema.required(DATE_ERROR_MESSAGE);
+    }
+    let schema: Yup.AnySchema = Yup.object({
+      valueString: stringSchema,
+    });
+    if (required) {
+      schema = schema.required(DATE_ERROR_MESSAGE);
+    } else {
+      schema = schema.optional().default(undefined);
+    }
+    schemaTemp = schema;
+  }
+  if (item.type === 'date' && item.dataType !== 'DOB') {
+    let stringSchema = Yup.string().typeError(DATE_ERROR_MESSAGE).matches(isoDateRegex, DATE_ERROR_MESSAGE);
 
     if (required) {
       stringSchema = stringSchema.required(DATE_ERROR_MESSAGE);
@@ -283,6 +305,29 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
     }
     schemaTemp = objSchema;
   }
+  if (item.type === 'decimal') {
+    let decimalSchema = Yup.number()
+      .transform((value, originalValue) => {
+        // Treat empty string as undefined so required() validation works properly
+        if (originalValue === '' || originalValue === undefined || originalValue === null) {
+          return undefined;
+        }
+        return value;
+      })
+      .typeError(REQUIRED_FIELD_ERROR_MESSAGE);
+    if (required) {
+      decimalSchema = decimalSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+    }
+    let schema: Yup.AnySchema = Yup.object({
+      valueDecimal: decimalSchema,
+    });
+    if (required) {
+      schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+    } else {
+      schema = schema.optional();
+    }
+    schemaTemp = schema;
+  }
   if (!schemaTemp) {
     throw new Error(`no schema defined for item ${item.linkId} ${JSON.stringify(item)}`);
   }
@@ -292,7 +337,15 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
 export const makeValidationSchema = (
   items: IntakeQuestionnaireItem[],
   pageId?: string,
-  externalContext?: { values: any; items: any }
+  externalContext?: { values: any; items: any; questionnaireResponse?: QuestionnaireResponse },
+  // `onlyValidateProvidedFields` scopes whole-questionnaire validation to just the
+  // fields present in each submitted page, rather than the page's full item list.
+  // It only affects the entire-questionnaire branch (pageId === undefined). Default
+  // is whole-section validation, which the intake page-by-page save relies on to
+  // flag omitted required fields. Opt in for partial single-field updates (e.g. the
+  // EHR patient-account update path) where enforcing required siblings the caller
+  // never touched would wrongly reject the submission.
+  options?: { onlyValidateProvidedFields?: boolean }
 ): any => {
   if (pageId !== undefined) {
     // we are validating one page of the questionnaire
@@ -325,15 +378,48 @@ export const makeValidationSchema = (
           console.log('page not found');
           return context.createError({ message: `Page ${pageId} not found in Questionnaire` });
         }
+
+        // Build values object from all pages for enableWhen evaluation
+        const allValues = buildEnableWhenContext(context?.parent ?? []);
+
+        // Check if this page is enabled
+        const isPageEnabled = evalEnableWhen(
+          questionItem,
+          items,
+          allValues,
+          context?.options?.context?.questionnaireResponse
+        );
+
+        // Skip validation entirely for disabled pages
+        if (!isPageEnabled) {
+          return value;
+        }
+
+        const onlyValidateProvidedFields = options?.onlyValidateProvidedFields ?? false;
+
         if (answerItem === undefined) {
-          if (questionItem.item?.some((i) => evalRequired(i, context))) {
+          // Only check for required fields if the page is enabled and we're
+          // validating the whole section. In provided-fields-only mode an absent
+          // page carries no fields to validate, so there's nothing to enforce.
+          if (!onlyValidateProvidedFields && questionItem.item?.some((i) => evalRequired(i, context))) {
             return context.createError({ message: 'Item not found' });
           } else {
             return value;
           }
         }
+
+        // In provided-fields-only mode, restrict the schema to the fields actually
+        // present in the submission so required siblings the caller omitted don't
+        // trip validation. Fields left blank in a full section save are still
+        // submitted as bare `{ linkId }` items, so this only relaxes enforcement
+        // for fields entirely absent from the QuestionnaireResponse.
+        const sectionItems = questionItem.item ?? [];
+        const itemsToValidate = onlyValidateProvidedFields
+          ? sectionItems.filter((i) => (answerItem as { linkId: string }[]).some((a) => a.linkId === i.linkId))
+          : sectionItems;
+
         const schema = makeValidationSchemaPrivate({
-          items: questionItem.item ?? [],
+          items: itemsToValidate,
           formValues: value,
           externalContext: { values: context?.parent ?? [], items: items.flatMap((i) => i.item ?? []) },
         });
@@ -508,9 +594,16 @@ export const itemAnswerHasValue = (answerItem: QuestionnaireResponseItemAnswer):
 
 type EnableWhenOperator = 'exists' | '=' | '!=' | '>' | '<' | '>=' | '<=';
 
-const evalBoolean = (operator: EnableWhenOperator, answerValue: boolean, value: boolean | undefined): boolean => {
+const evalBoolean = (operator: EnableWhenOperator, answerValue: boolean, value: any | undefined): boolean => {
   if (operator === 'exists') {
-    return value !== undefined;
+    if (answerValue === true) {
+      return value !== undefined;
+    } else {
+      return value === undefined;
+    }
+  }
+  if (typeof value !== 'boolean') {
+    return operator === '!='; // if value is not boolean, treat as non-match
   }
 
   if (operator === '=') {
@@ -522,6 +615,9 @@ const evalBoolean = (operator: EnableWhenOperator, answerValue: boolean, value: 
 };
 
 const evalString = (operator: EnableWhenOperator, answerValue: string, value: string | undefined): boolean => {
+  if (operator === 'exists') {
+    return value !== undefined;
+  }
   if (operator === '=') {
     return answerValue === value;
   } else if (operator === '!=') {
@@ -561,33 +657,43 @@ const evalDateTime = (operator: EnableWhenOperator, answerValue: string, value: 
 const evalEnableWhenItem = (
   enableWhen: QuestionnaireItemEnableWhen,
   values: { [itemLinkId: string]: QuestionnaireResponseItem },
-  items: QuestionnaireItem[]
+  items: QuestionnaireItem[],
+  itemsMap?: Map<string, QuestionnaireItem>
 ): boolean => {
   const { answerString, answerBoolean, answerDate, answerInteger, question, operator } = enableWhen;
   const questionPathNodes = question.split('.');
 
-  const itemDef = questionPathNodes.reduce(
-    (accum, current) => {
-      if (!accum) {
-        return accum;
-      }
-      const item = accum.items.find((item) => {
-        return item?.linkId === current;
-      });
-      if (!item) {
-        return accum;
-      }
-      accum['item'] = item;
-      accum['items'] = item?.item ?? [];
-      return accum;
-    },
-    { items, item: undefined } as { items: QuestionnaireItem[]; item: QuestionnaireItem | undefined } | undefined
-  )?.item;
+  const itemDef = (() => {
+    if (itemsMap && questionPathNodes.length === 1) {
+      // If a map is provided, use it for O(1) lookup of items by linkId
+      return itemsMap.get(questionPathNodes[0]);
+    } else {
+      // Fall back to the original nested search for complex paths
+      return questionPathNodes.reduce(
+        (accum, current) => {
+          if (!accum) {
+            return accum;
+          }
+          const item = accum.items.find((item) => {
+            return item?.linkId === current;
+          });
+          if (!item) {
+            return accum;
+          }
+          accum['item'] = item;
+          accum['items'] = item?.item ?? [];
+          return accum;
+        },
+        { items, item: undefined } as { items: QuestionnaireItem[]; item: QuestionnaireItem | undefined } | undefined
+      )?.item;
+    }
+  })();
+
   if (!itemDef) {
     return operator === '!=';
   }
 
-  const valueDef = questionPathNodes.reduce((accum, current) => {
+  let valueDef = questionPathNodes.reduce((accum, current) => {
     if (accum === undefined) {
       return undefined;
     }
@@ -598,7 +704,23 @@ const evalEnableWhenItem = (
     return (accum.item ?? []).find((i: any) => i?.linkId && i.linkId === current);
   }, values as any);
 
-  if (itemDef.type === 'boolean' && answerBoolean !== undefined) {
+  // Fallback: if path-based lookup failed but we have a path with multiple parts, try direct lookup using final linkId
+  // This handles the case where values are stored flat by linkId but items are nested in the questionnaire structure
+  if (valueDef === undefined && questionPathNodes.length > 1) {
+    const finalLinkId = questionPathNodes[questionPathNodes.length - 1];
+    const directValue = (values as any)[finalLinkId];
+    if (directValue) {
+      valueDef = directValue;
+    }
+  }
+
+  if (operator === 'exists' && answerBoolean !== undefined) {
+    return evalBoolean(
+      operator,
+      answerBoolean,
+      pickFirstValueFromAnswerItem(valueDef, itemDef.type === 'boolean' ? 'boolean' : undefined)
+    );
+  } else if (itemDef.type === 'boolean' && answerBoolean !== undefined) {
     return evalBoolean(operator, answerBoolean, pickFirstValueFromAnswerItem(valueDef, 'boolean'));
   } else if (
     (itemDef.type === 'string' || itemDef.type === 'choice' || itemDef.type === 'open-choice') &&
@@ -620,33 +742,69 @@ const evalEnableWhenItem = (
   }
 };
 
+const evalStatusCondition = (questionVal: any, questionnaireResponse?: QuestionnaireResponse): boolean => {
+  const { operator, answerString, answerCoding } = questionVal;
+  const currentStatus = questionnaireResponse?.status;
+
+  switch (operator) {
+    case 'exists':
+      return !!currentStatus;
+
+    case '=':
+      if (answerString) {
+        return currentStatus === answerString;
+      }
+      if (answerCoding) {
+        return currentStatus === answerCoding.code;
+      }
+      return false;
+
+    case '!=':
+      if (answerString) {
+        return currentStatus !== answerString;
+      }
+      if (answerCoding) {
+        return currentStatus !== answerCoding.code;
+      }
+      return false;
+
+    case 'in':
+      if (answerString && currentStatus) {
+        const allowedStatuses = answerString.split(',').map((s: string) => s.trim());
+        return allowedStatuses.includes(currentStatus);
+      }
+      return false;
+
+    default:
+      return false;
+  }
+};
+
 export const evalEnableWhen = (
   item: IntakeQuestionnaireItem,
   items: IntakeQuestionnaireItem[],
-  values: { [itemLinkId: string]: QuestionnaireResponseItem }
+  values: { [itemLinkId: string]: QuestionnaireResponseItem },
+  questionnaireResponse?: QuestionnaireResponse,
+  itemsMap?: Map<string, QuestionnaireItem>
 ): boolean => {
   const { enableWhen, enableBehavior = 'all' } = item;
   if (enableWhen === undefined || enableWhen.length === 0) {
     return true;
   }
 
+  const evaluate = (ew: QuestionnaireItemEnableWhen): boolean => {
+    if (ew.question === '$status') {
+      return evalStatusCondition(ew, questionnaireResponse);
+    }
+    return evalEnableWhenItem(ew, values, items, itemsMap);
+  };
+
   if (enableBehavior === 'any') {
-    const verdict = enableWhen.some((ew) => {
-      const enabled = evalEnableWhenItem(ew, values, items);
-      return enabled;
-    });
-    return verdict;
+    return enableWhen.some(evaluate);
   } else if (enableBehavior === 'all') {
-    const verdict = enableWhen.every((ew) => {
-      const enabled = evalEnableWhenItem(ew, values, items);
-      return enabled;
-    });
-    return verdict;
+    return enableWhen.every(evaluate);
   } else {
-    const verdict = enableWhen.every((ew) => {
-      return evalEnableWhenItem(ew, values, items);
-    });
-    return verdict;
+    return enableWhen.every(evaluate);
   }
 };
 
@@ -667,14 +825,17 @@ export const evalRequired = (item: IntakeQuestionnaireItem, context: any, questi
 
 export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questionVal?: any): string | undefined => {
   const { textWhen } = item;
-  if (textWhen === undefined) {
+  if (textWhen === undefined || textWhen.length === 0) {
     return item.text;
   }
-  const { substituteText } = textWhen;
 
-  if (evalCondition(textWhen, context, item.type, questionVal)) {
-    return substituteText;
+  for (const textWhenItem of textWhen) {
+    const { substituteText } = textWhenItem;
+    if (evalCondition(textWhenItem, context, item.type, questionVal)) {
+      return substituteText;
+    }
   }
+
   return item.text;
 };
 
@@ -710,10 +871,10 @@ const makeItemDict = (items: HasLinkId[]): { [linkId: string]: any } => {
 };
 
 export const evalFilterWhen = (item: IntakeQuestionnaireItem, context: any, questionVal?: any): boolean => {
-  if (item.filterWhen === undefined) {
+  if (!item.filterWhen || item.filterWhen.length === 0) {
     return false;
   }
-  return evalCondition(item.filterWhen, context, item.type, questionVal);
+  return item.filterWhen.some((condition) => evalCondition(condition, context, item.type, questionVal));
 };
 
 export const evalComplexValidationTrigger = (
@@ -738,6 +899,11 @@ const evalCondition = (
 ): boolean => {
   const { question, operator, answerString, answerBoolean, answerDate, answerInteger } = condition;
   const questionValue = recursivePathEval(context, question, questionVal);
+
+  if (operator === 'exists' && answerBoolean !== undefined) {
+    const someAnswer = questionValue?.answer?.[0] !== undefined;
+    return answerBoolean === someAnswer;
+  }
 
   if (answerString !== undefined) {
     const comparisonString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
@@ -783,18 +949,27 @@ const evalCondition = (
   any answer or item props. this makes for valid fhir and also ensure ordering is preserved
   within groups (which may be important for downstream implementation)
 */
-export const recursiveGroupTransform = (items: IntakeQuestionnaireItem[], values: any): any => {
+export const recursiveGroupTransform = (items: IntakeQuestionnaireItem[], values: any, rootContext?: any): any => {
+  // Use rootContext for filter-when evaluation (to access parent-level values like payment-option)
+  // Use values for finding matching items at the current nesting level
+  const context = rootContext ?? values;
   const filteredItems = items.filter((item) => item && item?.type !== 'display' && !item?.readOnly);
   const stringifiedInput = JSON.stringify(values);
   const output = filteredItems.map((item) => {
     const match = values?.find((i: any) => {
       return i?.linkId === item?.linkId;
     });
-    if (!match || evalFilterWhen(item, values)) {
+    if (!match || evalFilterWhen(item, context)) {
       return { linkId: item.linkId };
     }
-    if (match.item) {
-      return { ...trimInvalidAnswersFromItem(match), item: recursiveGroupTransform(match.item ?? [], match.item) };
+    if (match.item?.length) {
+      return {
+        ...trimInvalidAnswersFromItem(match),
+        item: recursiveGroupTransform(item.item ?? [], match.item, context),
+      };
+    } else if (match.item) {
+      // Empty item array submitted - preserve it as empty rather than populating with placeholders
+      return { ...trimInvalidAnswersFromItem(match), item: [] };
     } else {
       return trimInvalidAnswersFromItem(match);
     }
@@ -804,14 +979,95 @@ export const recursiveGroupTransform = (items: IntakeQuestionnaireItem[], values
   if (stringifiedInput === stringifiedOutput) {
     return output;
   } else {
-    return recursiveGroupTransform(items, output);
+    return recursiveGroupTransform(items, output, context);
   }
+};
+
+/*
+  Builds a context object from response items that supports both:
+  1. Dotted path resolution (e.g., 'contact-information-page.appointment-service-category')
+  2. Direct item lookup (e.g., 'appointment-service-category')
+
+  This is required for evalEnableWhen to correctly resolve cross-page references.
+*/
+export const buildEnableWhenContext = (responseItems: any[]): { [key: string]: any } => {
+  return responseItems.reduce((acc: any, page: any) => {
+    if (page?.linkId) {
+      // Add page with its items for nested path resolution
+      acc[page.linkId] = page;
+      // Also add individual items at top level for direct lookup
+      if (page?.item) {
+        page.item.forEach((item: any) => {
+          if (item?.linkId) {
+            acc[item.linkId] = item;
+          }
+        });
+      }
+    }
+    return acc;
+  }, {});
+};
+
+/*
+  Given a list of questionnaire pages and their corresponding response items,
+  filter out pages that are disabled based on their enableWhen conditions.
+  Disabled pages have their items normalized to { linkId } without any item array.
+*/
+export const filterDisabledPages = (
+  questionnaireItems: IntakeQuestionnaireItem[],
+  responseItems: QuestionnaireResponseItem[],
+  questionnaireResponse?: QuestionnaireResponse
+): QuestionnaireResponseItem[] => {
+  // Build context from all response items for enableWhen evaluation
+  const allValues = buildEnableWhenContext(responseItems);
+
+  return responseItems.map((responsePage) => {
+    const questionnairePage = questionnaireItems.find((qi) => qi.linkId === responsePage.linkId);
+
+    if (!questionnairePage) {
+      return responsePage;
+    }
+
+    // there is an unfortunate amount of complexity here.
+    // What's happening is:
+    // 1. We remove any enableWhen conditions that reference the $status question.
+    // 2. We create a new questionnaire page object with these conditions removed.
+    // 3. We evaluate the enableWhen conditions on this modified page to determine if the page is enabled.
+    // This is necessary because:
+    // 1. On the visit details page we read straight from the QR to get details about who signed the consent,
+    // rather than persisting those details on the consent itself.
+    // 2. We have logic that filters out the consent page once processed.
+    // 3. We have logic here that makes sure any disabled pages have their irrelevant content
+    // removed from the QR.
+    // 4. The logic to remove disabled pages from the QR relies on the enableWhen evaluation, and therefore
+    // erases the data necessary for rendering the consent signer details.
+    const enableWhenMinusStatusConditions = questionnairePage.enableWhen?.filter(
+      (condition) => condition.question !== '$status'
+    );
+    const qrPageWithStatusConditionsRemoved = { ...questionnairePage, enableWhen: enableWhenMinusStatusConditions };
+
+    // Check if page is enabled
+    const isPageEnabled = evalEnableWhen(
+      qrPageWithStatusConditionsRemoved,
+      questionnaireItems,
+      allValues,
+      questionnaireResponse
+    );
+    // If page is disabled, return only the linkId (no items)
+    if (!isPageEnabled) {
+      return { linkId: responsePage.linkId };
+    }
+
+    // If page is enabled, return as-is
+    return responsePage;
+  });
 };
 
 const recursivePathEval = (context: any, question: string, value?: any): any | undefined => {
   if (value) {
     return value;
   }
+
   try {
     const itemDict = Array.isArray(context) ? makeItemDict(context) : context;
     const questionValue = (itemDict ?? {})[question];
@@ -821,7 +1077,7 @@ const recursivePathEval = (context: any, question: string, value?: any): any | u
       const questionSplit = question.split('.');
       if (questionSplit.length > 1) {
         const newQuestion = questionSplit.slice(1).join('.');
-        return recursivePathEval(context, newQuestion);
+        return recursivePathEval(context[questionSplit[0]]?.item ?? context, newQuestion);
       }
     }
   } catch (e) {

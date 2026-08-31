@@ -1,10 +1,12 @@
 import { CodeableConcept } from 'fhir/r4b';
 import { ERX_MEDICATION_META_TAG_CODE } from '../../../fhir/constants';
-import { SCHOOL_WORK_NOTE } from '../../data';
-import { CSS_NOTE_ID, NOTHING_TO_EAT_OR_DRINK_ID } from './chart-data.types';
+import { SCHOOL_WORK_NOTE } from '../../data/paperwork/paperwork.constants';
+import { IN_PERSON_NOTE_ID, NOTHING_TO_EAT_OR_DRINK_ID } from './chart-data.types';
 
 export type ProviderChartDataFieldsNames =
   | 'chief-complaint'
+  | 'history-of-present-illness'
+  | 'mechanism-of-injury'
   | 'ros'
   | 'current-medication'
   | 'in-house-medication'
@@ -24,72 +26,16 @@ export type ProviderChartDataFieldsNames =
   | 'patient-info-confirmed'
   | 'addendum-note'
   | typeof NOTHING_TO_EAT_OR_DRINK_ID
-  | typeof CSS_NOTE_ID
+  | typeof IN_PERSON_NOTE_ID
   | 'birth-history'
-  | 'ai-potential-diagnosis'
   | 'procedure'
-  | typeof ERX_MEDICATION_META_TAG_CODE;
+  | typeof ERX_MEDICATION_META_TAG_CODE
+  | 'accident'
+  | 'radiology';
 
 export type DispositionMetaFieldsNames = 'disposition-follow-up' | 'sub-follow-up';
 
 export const SCHOOL_WORK_NOTE_TYPE_META_SYSTEM = `${SCHOOL_WORK_NOTE}/type`;
-
-export const PATIENT_SUPPORT_PHONE_NUMBER = '202-555-1212';
-
-export const HISTORY_OBTAINED_FROM_FIELD = 'history-obtained-from';
-
-export const SEEN_IN_LAST_THREE_YEARS_FIELD = 'seen-in-last-three-years';
-
-export const PATIENT_VACCINATION_STATUS = 'patient-vaccination-status';
-
-export enum PatientVaccinationKeys {
-  yes = 'yes',
-  partially = 'partially',
-  no = 'no',
-}
-
-export const patientVaccinationLabels: Record<PatientVaccinationKeys, string> = {
-  [PatientVaccinationKeys.yes]: 'Yes, up to date',
-  [PatientVaccinationKeys.partially]: 'Partially vaccinated',
-  [PatientVaccinationKeys.no]: 'No vaccinations',
-};
-
-export enum HistorySourceKeys {
-  Mother = 'mother',
-  Father = 'father',
-  Guardian = 'guardian',
-  PatientSelf = 'patient-self',
-  StepParent = 'step-parent',
-  Grandmother = 'grandmother',
-  Grandfather = 'grandfather',
-  Brother = 'brother',
-  Sister = 'sister',
-  Wife = 'wife',
-  Husband = 'husband',
-  SignificantOther = 'significant-other',
-  Aunt = 'aunt',
-  Uncle = 'uncle',
-  Cousin = 'cousin',
-  Caretaker = 'caretaker',
-  Babysitter = 'babysitter',
-  Nanny = 'nanny',
-  Friend = 'friend',
-  Neighbor = 'neighbor',
-  EMTWorker = 'emt',
-  PoliceOfficer = 'police',
-  SocialWorker = 'social-worker',
-  Bystander = 'bystander',
-  SchoolNurse = 'school-nurse',
-  NotObtainedEmergency = 'not-obtained-emergency',
-  NotObtainedOther = 'not-obtained-other',
-}
-
-export enum RecentVisitKeys {
-  Yes = 'yes',
-  No = 'no',
-  NotApplicable = 'na',
-  PreferNotToAnswer = 'prefer-not-answer',
-}
 
 export const ASQ_FIELD = 'asq';
 
@@ -107,54 +53,6 @@ export const asqLabels: Record<ASQKeys, string> = {
   [ASQKeys.NotOffered]: 'Not offered',
 };
 
-export const historySourceLabels: Record<HistorySourceKeys, string> = {
-  [HistorySourceKeys.Mother]: 'Mother',
-  [HistorySourceKeys.Father]: 'Father',
-  [HistorySourceKeys.Guardian]: 'Guardian',
-  [HistorySourceKeys.PatientSelf]: 'Patient self-reported',
-  [HistorySourceKeys.StepParent]: 'Step-parent',
-  [HistorySourceKeys.Grandmother]: 'Grandmother',
-  [HistorySourceKeys.Grandfather]: 'Grandfather',
-  [HistorySourceKeys.Brother]: 'Brother',
-  [HistorySourceKeys.Sister]: 'Sister',
-  [HistorySourceKeys.Wife]: 'Wife',
-  [HistorySourceKeys.Husband]: 'Husband',
-  [HistorySourceKeys.SignificantOther]: 'Significant other',
-  [HistorySourceKeys.Aunt]: 'Aunt',
-  [HistorySourceKeys.Uncle]: 'Uncle',
-  [HistorySourceKeys.Cousin]: 'Cousin',
-  [HistorySourceKeys.Caretaker]: 'Caretaker',
-  [HistorySourceKeys.Babysitter]: 'Babysitter',
-  [HistorySourceKeys.Nanny]: 'Nanny',
-  [HistorySourceKeys.Friend]: 'Friend',
-  [HistorySourceKeys.Neighbor]: 'Neighbor',
-  [HistorySourceKeys.EMTWorker]: 'EMT Worker',
-  [HistorySourceKeys.PoliceOfficer]: 'Police Officer',
-  [HistorySourceKeys.SocialWorker]: 'Social Worker',
-  [HistorySourceKeys.Bystander]: 'Bystander',
-  [HistorySourceKeys.SchoolNurse]: 'School Nurse',
-  [HistorySourceKeys.NotObtainedEmergency]: 'History not obtained due to emergency situation',
-  [HistorySourceKeys.NotObtainedOther]: 'History not obtained due to other reason',
-};
-
-export const SEEN_IN_LAST_THREE_YEARS_LABEL =
-  'Has the patient been seen in one of our offices / telemed in last 3 years?';
-
-export const recentVisitLabels: Record<RecentVisitKeys, string> = {
-  [RecentVisitKeys.Yes]: 'Yes',
-  [RecentVisitKeys.No]: 'No',
-  [RecentVisitKeys.NotApplicable]: 'N/A',
-  [RecentVisitKeys.PreferNotToAnswer]: 'Prefer not to answer',
-};
-
-export function getHistorySourceLabel(key: HistorySourceKeys): string {
-  return historySourceLabels[key];
-}
-
-export function getRecentVisitLabel(key: RecentVisitKeys): string {
-  return recentVisitLabels[key];
-}
-
 export enum VitalFieldNames {
   VitalTemperature = 'vital-temperature',
   VitalHeartbeat = 'vital-heartbeat',
@@ -163,7 +61,9 @@ export enum VitalFieldNames {
   VitalRespirationRate = 'vital-respiration-rate',
   VitalWeight = 'vital-weight',
   VitalHeight = 'vital-height',
+  VitalBMI = 'vital-bmi',
   VitalVision = 'vital-vision',
+  VitalLastMenstrualPeriod = 'vital-last-menstrual-period',
 }
 
 export enum VitalVisionComponents {
@@ -246,6 +146,7 @@ export enum VitalTemperatureObservationMethod {
   Oral = 'Oral',
   Rectal = 'Rectal',
   Temporal = 'Temporal',
+  Ear = 'Ear',
 }
 
 export enum VitalHeartbeatObservationMethod {
@@ -267,6 +168,7 @@ export enum VitalsOxygenSatObservationMethod {
 
 export enum AiObservationField {
   HistoryOfPresentIllness = 'ai-history-of-present-illness',
+  MechanismOfInjury = 'ai-mechanism-of-injury',
   PastMedicalHistory = 'ai-past-medical-history',
   PastSurgicalHistory = 'ai-past-surgical-history',
   MedicationsHistory = 'ai-medications-history',
@@ -274,4 +176,7 @@ export enum AiObservationField {
   FamilyHistory = 'ai-family-history',
   HospitalizationsHistory = 'ai-hospitalizations-history',
   Allergies = 'ai-allergies',
+  Labs = 'ai-labs',
+  eRX = 'ai-erx',
+  Procedures = 'ai-procedures',
 }

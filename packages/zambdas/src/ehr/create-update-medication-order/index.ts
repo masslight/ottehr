@@ -1,36 +1,57 @@
 import Oystehr, { BatchInput, BatchInputRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import {
   CodeableConcept,
+  Encounter,
   FhirResource,
   Medication,
   MedicationAdministration,
   MedicationRequest,
   MedicationStatement,
   Patient,
+  ServiceRequest,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
 import {
+  getMedicationFromMA,
   getMedicationName,
   getMedicationTypeCode,
-  getPatchBinary,
-  IN_HOUSE_CONTAINED_MEDICATION_ID,
-  INVENTORY_MEDICATION_TYPE_CODE,
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
+  searchMedicationLocation,
+  searchRouteByCode,
+} from 'utils/lib/fhir/medication-administration';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { createCancellationTagOperations } from 'utils/lib/helpers/cancellation-meta.helper';
+import { replaceOperation } from 'utils/lib/helpers/operations';
+import {
+  IN_HOUSE_CONTAINED_MEDICATION_ID,
+  INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
+} from 'utils/lib/types/api/medication-administration.constants';
+import {
   MedicationData,
   MedicationInteractions,
   MedicationOrderStatusesType,
   OrderPackage,
-  replaceOperation,
-  searchMedicationLocation,
-  searchRouteByCode,
   UpdateMedicationOrderInput,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/medication-administration.types';
+import { VITALS_RECHECK_NURSING_ORDER_NOTE } from 'utils/lib/types/data/orders/constants';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { makeProcedureResource } from '../../shared/chart-data';
+import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
+import { makeNursingOrderTransactionRequests } from '../../shared/nursing-orders';
+import { getMyPractitionerId } from '../../shared/practitioners';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   createMedicationAdministrationResource,
   createMedicationRequest,
@@ -38,40 +59,33 @@ import {
 } from './fhir-resources-creation';
 import {
   createMedicationCopy,
+  getEncounterIdFromMA,
   getMedicationById,
-  getMedicationFromMA,
-  practitionerIdFromZambdaInput,
+  shouldCreateVitalsRecheckNursingOrder,
   updateMedicationAdministrationData,
   validateProviderAccess,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-
 const ZAMBDA_NAME = 'create-update-medication-order';
+const statusesToCreateAdditionalCptCodes: MedicationOrderStatusesType[] = ['administered', 'administered-partly'];
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
+  console.log('Validated parameters: ', JSON.stringify(validatedParameters));
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const practitionerId = await practitionerIdFromZambdaInput(input, validatedParameters.secrets);
-    console.log('Created zapToken, fhir and clients.');
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const userToken = input.headers.Authorization.replace('Bearer ', '') as string;
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
+  const practitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
+  console.log('Created zapToken, fhir and clients.');
 
-    const response = await performEffect(oystehr, validatedParameters, practitionerId);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', error);
-    console.log('Stringified error: ', JSON.stringify(error));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: `Error creating/updating order: ${JSON.stringify(error)}` }),
-    };
-  }
+  const response = await performEffect(oystehr, validatedParameters, practitionerId);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 async function performEffect(
@@ -81,15 +95,50 @@ async function performEffect(
 ): Promise<any> {
   const { orderId, newStatus, orderData } = params;
   if (orderId && orderData) {
-    await updateOrder(oystehr, orderId, newStatus, orderData, params.interactions, practitionerIdCalledZambda);
+    const orderResources = await getOrderResources(oystehr, orderId);
+    // Captured before updateOrder writes the new status, so the vitals re-check can tell a real
+    // transition into "administered" from a re-save of an already-administered order.
+    const previousStatus = mapFhirToOrderStatus(orderResources.medicationAdministration);
+    await updateOrder(oystehr, orderResources, newStatus, orderData, params.interactions, practitionerIdCalledZambda);
+
+    const encounterIdFromMA = orderData.encounterId ?? getEncounterIdFromMA(orderResources.medicationAdministration);
+    if (encounterIdFromMA && newStatus) {
+      await manageAdditionalCptCodesForOrder(
+        oystehr,
+        encounterIdFromMA,
+        newStatus,
+        orderResources.medicationAdministration,
+        orderData.cptCodes
+      );
+      await createVitalsRecheckNursingOrderIfNeeded(
+        oystehr,
+        encounterIdFromMA,
+        previousStatus,
+        newStatus,
+        orderResources,
+        orderData,
+        practitionerIdCalledZambda
+      );
+    } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
+
     return {
       message: 'Order was updated successfully',
       id: orderId,
     };
   } else if (orderId && newStatus) {
     const orderResources = await getOrderResources(oystehr, orderId);
-    if (!orderResources) throw new Error(`No order found with id: ${orderId}`);
     await changeOrderStatus(oystehr, orderResources, newStatus);
+
+    const encounterIdFromMA = getEncounterIdFromMA(orderResources.medicationAdministration);
+    if (encounterIdFromMA) {
+      await manageAdditionalCptCodesForOrder(
+        oystehr,
+        encounterIdFromMA,
+        newStatus,
+        orderResources.medicationAdministration
+      );
+    } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
+
     return {
       message: 'Order status was changed successfully',
       id: orderId,
@@ -111,7 +160,7 @@ async function performEffect(
 
 async function updateOrder(
   oystehr: Oystehr,
-  orderId: string,
+  orderResources: OrderPackage,
   newStatus: MedicationOrderStatusesType | undefined,
   orderData: MedicationData,
   interactions: MedicationInteractions | undefined,
@@ -119,11 +168,9 @@ async function updateOrder(
 ): Promise<any> {
   console.log('updateOrder');
 
-  const orderResources = await getOrderResources(oystehr, orderId);
-  if (!orderResources) throw new Error(`No order found with id: ${orderId}`);
   const currentStatus = mapFhirToOrderStatus(orderResources.medicationAdministration);
-  if (currentStatus !== 'pending' && newStatus)
-    throw new Error(`Can't change status if current is not 'pending'. Current status is: ${currentStatus}`);
+  if (currentStatus === 'cancelled' && newStatus)
+    throw INVALID_INPUT_ERROR(`Can't change status of a cancelled order. Current status is: ${currentStatus}`);
   console.log(`Current order status is: ${currentStatus}`);
 
   if (newStatus) validateProviderAccess(orderData, newStatus, orderResources, practitionerIdCalledZambda);
@@ -137,7 +184,7 @@ async function updateOrder(
   } else if (existingMedicationCopy) {
     console.log('Updating existing copy for order');
     // during copy process we also update lotNumber, expDate etc.
-    newMedicationCopy = createMedicationCopy(existingMedicationCopy, orderData);
+    newMedicationCopy = createMedicationCopy(existingMedicationCopy, orderData, newStatus);
   }
 
   const transactionRequests: BatchInputRequest<FhirResource>[] = [];
@@ -165,16 +212,17 @@ async function updateOrder(
       medicationAdministrationPatchOperations.push(replaceOperation('/status', mapOrderStatusToFhir(newStatus)));
     }
 
-    if (newStatus === 'administered') {
-      if (!newMedicationCopy) throw new Error(`Can't create MedicationStatement for order, no Medication copy.`);
+    if (newStatus === 'administered' || newStatus === 'administered-partly') {
+      if (!newMedicationCopy)
+        throw INVALID_INPUT_ERROR(`Can't create MedicationStatement for order, no Medication copy.`);
 
       const erxDataFromMedication = newMedicationCopy.code?.coding?.find(
         (code) => code.system === MEDICATION_DISPENSABLE_DRUG_ID
       );
 
       if (!erxDataFromMedication)
-        throw new Error(
-          `Can't create MedicationStatement for order, Medication resource don't have coding with ERX data in it`
+        throw INVALID_INPUT_ERROR(
+          `Can't create MedicationStatement for order, Medication resource doesn't have coding with ERX data in it`
         );
 
       const medicationCodeableConcept: CodeableConcept = {
@@ -259,10 +307,10 @@ async function createOrder(
 ): Promise<string | undefined> {
   console.log('createOrder');
 
-  if (!orderData.medicationId) throw new Error('No "medicationId" provided');
+  if (!orderData.medicationId) throw INVALID_INPUT_ERROR('No "medicationId" provided');
   const inventoryMedication = await getMedicationById(oystehr, orderData.medicationId);
   if (inventoryMedication && getMedicationTypeCode(inventoryMedication) !== INVENTORY_MEDICATION_TYPE_CODE) {
-    throw new Error(
+    throw INVALID_INPUT_ERROR(
       `Medication with id ${orderData.medicationId} is not medication inventory item, can't copy that resource`
     );
   }
@@ -270,10 +318,14 @@ async function createOrder(
   console.log(`Created medication copy: ${getMedicationName(medicationCopy)}`);
 
   const routeCoding = searchRouteByCode(orderData.route);
-  if (!routeCoding) throw new Error(`No medication appliance route was found for code: ${orderData.route}`);
-  const locationCoding = orderData.location ? searchMedicationLocation(orderData.location) : undefined;
+  if (!routeCoding) throw INVALID_INPUT_ERROR(`No medication appliance route was found for code: ${orderData.route}`);
+  const locationCoding = orderData.location
+    ? searchMedicationLocation(orderData.location.code, orderData.location.name)
+    : undefined;
   if (orderData.location && !locationCoding)
-    throw new Error(`No location found with code provided: ${orderData.location}`);
+    throw INVALID_INPUT_ERROR(
+      `No location found with code/name provided: ${orderData.location.code} / ${orderData.location.name}`
+    );
 
   const medicationRequestToCreate = createMedicationRequest(orderData, interactions, medicationCopy);
   const medicationRequestFullUrl = 'urn:uuid:' + randomUUID();
@@ -319,16 +371,51 @@ async function changeOrderStatus(
   oystehr: Oystehr,
   pkg: OrderPackage,
   newStatus: MedicationOrderStatusesType
-): Promise<any> {
+): Promise<MedicationAdministration> {
   console.log(`Changing status to: ${newStatus}`);
-  return await oystehr.fhir.patch({
-    resourceType: 'MedicationAdministration',
-    id: pkg.medicationAdministration.id!,
-    operations: [replaceOperation('/status', mapOrderStatusToFhir(newStatus))],
-  });
+
+  let operations: Operation[] = [];
+
+  // If cancelling, save the previous status for potential restoration
+  if (newStatus === 'cancelled') {
+    const currentStatusFhir = pkg.medicationAdministration.status;
+    const currentStatus = mapFhirToOrderStatus(pkg.medicationAdministration);
+    console.log(`Saving previous status '${currentStatus}' (FHIR: '${currentStatusFhir}') for potential restoration`);
+    operations = createCancellationTagOperations(currentStatusFhir, pkg.medicationAdministration.meta);
+  }
+
+  operations.push(replaceOperation('/status', mapOrderStatusToFhir(newStatus)));
+
+  const transactionRequests: BatchInputRequest<FhirResource>[] = [];
+
+  transactionRequests.push(
+    getPatchBinary({
+      resourceType: 'MedicationAdministration',
+      resourceId: pkg.medicationAdministration.id!,
+      patchOperations: operations,
+    })
+  );
+
+  // If we're cancelling a medication and there's a corresponding MedicationStatement, update its status to 'entered-in-error'
+  if (newStatus === 'cancelled' && pkg.medicationStatement && pkg.medicationStatement.id) {
+    transactionRequests.push(
+      getPatchBinary({
+        resourceType: 'MedicationStatement',
+        resourceId: pkg.medicationStatement.id,
+        patchOperations: [replaceOperation('/status', 'entered-in-error')],
+      })
+    );
+    console.log(`Adding MedicationStatement ${pkg.medicationStatement.id} status update to transaction`);
+  }
+
+  const transactionResult = await oystehr.fhir.transaction({ requests: transactionRequests });
+
+  return transactionResult.entry?.find((entry) => entry.resource?.resourceType === 'MedicationAdministration')
+    ?.resource as MedicationAdministration;
 }
 
-async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<OrderPackage | undefined> {
+async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<OrderPackage> {
+  console.log(`Getting order resources for orderId: ${orderId}`);
   const bundle = await oystehr.fhir.search({
     resourceType: 'MedicationAdministration',
     params: [
@@ -354,9 +441,11 @@ async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<Ord
   const medicationAdministration = resources.find(
     (res) => res.resourceType === 'MedicationAdministration'
   ) as MedicationAdministration;
-  if (!medicationAdministration) throw new Error(`No medicationAdministration was found with id ${orderId}`);
+  if (!medicationAdministration)
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`No medicationAdministration was found with id ${orderId}`);
   const patient = resources.find((res) => res.resourceType === 'Patient') as Patient;
-  if (!patient) throw new Error(`No patient was found for medicationAdministration with id ${orderId}`);
+  if (!patient)
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`No patient was found for medicationAdministration with id ${orderId}`);
   const medicationStatement = resources.find(
     (res) => res.resourceType === 'MedicationStatement'
   ) as MedicationStatement;
@@ -366,10 +455,157 @@ async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<Ord
     (resource) => resource.resourceType === 'MedicationRequest' && resource.id === medicationRequestId
   ) as MedicationRequest;
 
+  console.log('MedicationAdministration id: ', medicationAdministration.id);
+  console.log('MedicationStatement id: ', medicationStatement?.id);
+  console.log('MedicationRequest id: ', medicationRequest?.id);
+
   return {
     medicationAdministration,
     medicationStatement,
     medicationRequest,
     patient,
   };
+}
+
+/**
+ * Administering an IV-route in-house medication order has to prompt the clinician to re-take vitals, so
+ * this raises a nursing order saying so onto the encounter (it then surfaces on the tracking board and
+ * the Nursing Orders tab). Best-effort by design: a failure here is logged and swallowed rather than
+ * failing the administration that already succeeded, mirroring manageAdditionalCptCodesForOrder.
+ */
+async function createVitalsRecheckNursingOrderIfNeeded(
+  oystehr: Oystehr,
+  encounterId: string,
+  previousStatus: MedicationOrderStatusesType | undefined,
+  newStatus: MedicationOrderStatusesType,
+  orderResources: OrderPackage,
+  orderData: MedicationData,
+  administeredByPractitionerId: string
+): Promise<void> {
+  try {
+    const { medicationAdministration, patient } = orderResources;
+    if (!shouldCreateVitalsRecheckNursingOrder({ previousStatus, newStatus, orderData, medicationAdministration })) {
+      console.log('Vitals re-check nursing order not required for this update');
+      return;
+    }
+
+    const medicationAdministrationReference = `MedicationAdministration/${assertDefined(
+      medicationAdministration.id,
+      'MedicationAdministration.id'
+    )}`;
+
+    const [existingNursingOrders, encounters] = await Promise.all([
+      oystehr.fhir.search<ServiceRequest>({
+        resourceType: 'ServiceRequest',
+        params: [
+          { name: 'encounter', value: `Encounter/${encounterId}` },
+          { name: '_tag', value: `${PRIVATE_EXTENSION_BASE_URL}/order-type-tag|nursing order` },
+        ],
+      }),
+      oystehr.fhir.search<Encounter>({
+        resourceType: 'Encounter',
+        params: [{ name: '_id', value: encounterId }],
+      }),
+    ]);
+
+    const alreadyRaised = existingNursingOrders
+      .unbundle()
+      .some(
+        (serviceRequest) =>
+          serviceRequest.supportingInfo?.some((info) => info.reference === medicationAdministrationReference)
+      );
+    if (alreadyRaised) {
+      console.log(`Vitals re-check nursing order already exists for ${medicationAdministrationReference}, skipping`);
+      return;
+    }
+
+    const encounter = encounters.unbundle().find((res) => res.id === encounterId);
+    if (!encounter) {
+      console.log(`No Encounter ${encounterId} found, skipping vitals re-check nursing order`);
+      return;
+    }
+
+    // ServiceRequest.requester is not surfaced in the nursing orders UI (the ordering physician is read
+    // from the create-order Provenance agent), so falling back to the administering practitioner keeps a
+    // clinically important prompt rather than dropping it when the encounter has no attender yet.
+    const attendingPractitionerId = getAttendingPractitionerId(encounter) ?? administeredByPractitionerId;
+
+    const transactionResponse = await oystehr.fhir.transaction({
+      requests: makeNursingOrderTransactionRequests({
+        encounterId,
+        patientId: assertDefined(patient.id, 'Patient.id'),
+        patientName: getFullestAvailableName(patient) ?? '',
+        attendingPractitionerId,
+        createdByPractitionerId: administeredByPractitionerId,
+        notes: VITALS_RECHECK_NURSING_ORDER_NOTE,
+        locationId: getEncounterLocationId(encounter),
+        supportingInfoReferences: [medicationAdministrationReference],
+      }),
+    });
+
+    if (!transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2')) {
+      throw new Error('Error creating vitals re-check nursing order in transaction');
+    }
+    console.log(`Created vitals re-check nursing order for ${medicationAdministrationReference}`);
+  } catch (e) {
+    console.log('Error in createVitalsRecheckNursingOrderIfNeeded: ', e, JSON.stringify(e));
+    captureException(e);
+  }
+}
+
+async function manageAdditionalCptCodesForOrder(
+  oystehr: Oystehr,
+  encounterId: string,
+  medicationStatus: MedicationOrderStatusesType,
+  medicationAdministration: MedicationAdministration,
+  cptCodes?: { code: string; display: string }[]
+): Promise<void> {
+  try {
+    console.log(`Managing additional CPT codes for order with status: ${medicationStatus}`);
+
+    if (!statusesToCreateAdditionalCptCodes.includes(medicationStatus)) return;
+
+    let orderCptCodes: { code: string; display: string }[] = cptCodes ?? [];
+    if (!cptCodes) {
+      // Read CPT codes from the MedicationAdministration extension — this is the
+      // single source of truth for the order's CPT codes. It includes auto-populated
+      // codes from the Medication resource (inventory defaults) plus any user edits.
+      const cptExt = medicationAdministration.extension?.find(
+        (ext) => ext.url === 'https://fhir.ottehr.com/Extension/medication-cpt-codes'
+      );
+      if (cptExt?.valueString) {
+        try {
+          orderCptCodes = JSON.parse(cptExt.valueString) as { code: string; display: string }[];
+        } catch (e) {
+          console.log('Failed to parse CPT codes extension', e, JSON.stringify(e));
+          captureException(e);
+        }
+      }
+    }
+
+    if (orderCptCodes.length === 0) {
+      console.log('No CPT codes on this order, skipping Procedure creation');
+      return;
+    }
+
+    console.log('Adding CPT codes to chart data from order');
+    const patientId = assertDefined(
+      medicationAdministration.subject.reference?.replace('Patient/', ''),
+      'MedicationAdministration.subject.reference'
+    );
+    const partOfRef = `MedicationAdministration/${medicationAdministration.id}`;
+
+    console.log('CPT codes to create as Procedures: ', orderCptCodes.map((c) => c.code).join(', '));
+    const requests: BatchInputRequest<FhirResource>[] = orderCptCodes.map((cptCode) => ({
+      method: 'POST',
+      url: '/Procedure',
+      resource: makeProcedureResource(encounterId, patientId, cptCode, 'cpt-code', partOfRef),
+    }));
+
+    await oystehr.fhir.transaction({ requests });
+    console.log(`Created ${requests.length} Procedure resources for medication administration`);
+  } catch (e) {
+    console.log('Error in manageAdditionalCptCodesForOrder: ', e, JSON.stringify(e));
+    captureException(e);
+  }
 }

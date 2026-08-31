@@ -1,16 +1,60 @@
-import { Organization, ServiceRequest } from 'fhir/r4b';
 import {
+  ActivityDefinition,
+  Coverage,
+  DiagnosticReport,
+  DocumentReference,
+  Identifier,
+  List,
+  Location,
+  Organization,
+  Patient,
+  ServiceRequest,
+} from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { CPT_CODE_SYSTEM } from '../../fhir';
+import { getPatientFirstName, getPatientFriendlyId, getPatientLastName } from '../../fhir/patient';
+import { LabSetStatus } from '../../types/data/labs/lab-set.schema';
+import {
+  DEFAULT_OYSTEHR_LABS_HL7_SYSTEM,
+  DYMO_30334_LABEL_CONFIG,
+  EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE,
   LAB_ACCOUNT_NUMBER_SYSTEM,
+  LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
+  LAB_DOC_REF_TAG_hl7_TRANSMISSION,
+  LAB_LIST_CODE_CODING,
+  LAB_LIST_CODING_SYSTEM,
+  LAB_ORDER_DOC_REF_CODING_CODE,
+  LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL,
+  LAB_RESULT_DOC_REF_CODING_CODE,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
+  ORDER_NUMBER_LEN,
+  OYSTEHR_ABN_DOC_CATEGORY_CODING,
+  OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM,
   PSC_HOLD_CONFIG,
-} from '../../types';
+} from '../../types/data/labs/labs.constants';
+import {
+  CreateLabPaymentMethod,
+  ExternalLabsLabelConfig,
+  LabPaymentMethod,
+  LabsTableColumn,
+  LabType,
+} from '../../types/data/labs/labs.types';
+import { EXTERNAL_LAB_ERROR } from '../../types/errors';
+import { isInHouseLabServiceRequest } from '../in-house-labs';
 
-export const nameLabTest = (testName: string | undefined, labName: string | undefined, isReflex: boolean): string => {
+export const nameLabTest = (
+  testName: string | undefined,
+  itemCode: string | undefined,
+  labName: string | undefined,
+  isReflex: boolean
+): string => {
   if (isReflex) {
-    return `${testName} (reflex)`;
+    return `${itemCode ? `(${itemCode}) ` : ''}${testName} (reflex)`;
   } else {
-    return `${testName} / ${labName}`;
+    return `${itemCode ? `(${itemCode}) ` : ''}${testName} / ${labName}`;
   }
 };
 
@@ -46,10 +90,384 @@ export function getOrderNumber(sr: ServiceRequest): string | undefined {
   return sr.identifier?.find((id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
 }
 
-export function getAccountNumberFromOrganization(org: Organization): string | undefined {
-  return org.identifier?.find((identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM)?.value;
+export function getAdditionalPlacerId(dr: DiagnosticReport): string | undefined {
+  return dr.identifier?.find((id) => id.system === OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM)?.value;
+}
+
+export function getOrderNumberFromDr(dr: DiagnosticReport): string | undefined {
+  return dr.identifier?.find((id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
+}
+
+const locationIdentifierIsLabsEnabled = (id: Identifier): boolean => {
+  return id.system === LAB_ACCOUNT_NUMBER_SYSTEM && !!id.value && !!id.assigner?.reference;
+};
+
+export const locationIsEnabledForLabs = (location: Location): boolean => {
+  return !!location.identifier?.some((id) => locationIdentifierIsLabsEnabled(id));
+};
+
+export function getAccountNumberFromLocationAndOrganization(location: Location, org: Organization): string | undefined {
+  console.log(`Getting account number from location and org. Location/${location.id} and Organization/${org.id}`);
+  const accountNumberFromLocation = location.identifier?.find(
+    (id) => locationIdentifierIsLabsEnabled(id) && id.assigner?.reference === `Organization/${org.id}`
+  )?.value;
+  if (accountNumberFromLocation) {
+    console.log(`Found account number from location. Account number is ${accountNumberFromLocation}`);
+    return accountNumberFromLocation;
+  }
+
+  console.warn(
+    `Could not find account number on Location/${location.id} matching assigner Organization/${org.id}. Trying to find acct number from org.`
+  );
+  // this is mostly for legacy orders before we switched to account numbers living on SR.location for multi-office ordering
+
+  const accountNumberFromOrg = org.identifier?.find((identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM)
+    ?.value;
+  console.log(`Account number from org is ${accountNumberFromOrg}`);
+  return accountNumberFromOrg;
 }
 
 export async function openPdf(url: string): Promise<void> {
   window.open(url, '_blank');
 }
+
+export const getColumnWidth = (column: LabsTableColumn): string => {
+  switch (column) {
+    case 'testType':
+      return '15%';
+    case 'visit':
+      return '10%';
+    case 'orderAdded':
+      return '10%';
+    case 'provider':
+      return '13%';
+    case 'ordered':
+      return '15%';
+    case 'dx':
+      return '13%';
+    case 'resultsReceived':
+      return '15%';
+    case 'accessionNumber':
+      return '10%';
+    case 'status':
+      return '5%';
+    case 'detail':
+      return '2%';
+    case 'actions':
+      return '1%';
+    default:
+      return '10%';
+  }
+};
+
+export const getColumnHeader = (column: LabsTableColumn): string => {
+  switch (column) {
+    case 'testType':
+      return 'Test type';
+    case 'visit':
+      return 'Visit';
+    case 'orderAdded':
+      return 'Order added';
+    case 'provider':
+      return 'Provider';
+    case 'ordered':
+      return 'Ordered';
+    case 'dx':
+      return 'Dx';
+    case 'resultsReceived':
+      return 'Results received';
+    case 'accessionNumber':
+      return 'Accession Number';
+    case 'requisitionNumber':
+      return 'Requisition Number';
+    case 'status':
+      return 'Status';
+    case 'detail':
+      return '';
+    case 'actions':
+      return '';
+    default:
+      return '';
+  }
+};
+
+export function createOrderNumber(length = ORDER_NUMBER_LEN): string {
+  // https://sentry.io/answers/generate-random-string-characters-in-javascript/
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  const randomArray = new Uint8Array(length);
+  crypto.getRandomValues(randomArray);
+  randomArray.forEach((number) => {
+    result += chars[number % chars.length];
+  });
+  return result;
+}
+
+export const getTestDetailsFromActivityDefinition = (
+  activityDef: ActivityDefinition | undefined
+): { testName: string; testItemCode: string; fillerLab: string } => {
+  const testCoding = activityDef?.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
+  const testName = testCoding?.display ?? 'Unknown Test';
+  const testItemCode = testCoding?.code ?? 'Unknown Code';
+  const fillerLab = activityDef?.publisher ?? 'Unknown Lab';
+
+  return {
+    testName,
+    testItemCode,
+    fillerLab,
+  };
+};
+
+export const parseLabInfoFromServiceRequest = (
+  serviceRequest: ServiceRequest
+): { testName: string; fillerLab: string; testItemCode: string } => {
+  const activityDefinition = serviceRequest.contained?.find(
+    (resource): resource is ActivityDefinition => resource.resourceType === 'ActivityDefinition'
+  );
+
+  return getTestDetailsFromActivityDefinition(activityDefinition);
+};
+
+export const labOrderHasCptCodes = (serviceRequest: ServiceRequest): boolean => {
+  // CPT codes land in two places on an external lab SR: directly on SR.code.coding (current behaviour)
+  // and on the contained ActivityDefinition.code.coding. We check both so that historical SRs created
+  // before the ActivityDefinition was introduced are still recognised as having CPT codes.
+  const hasServiceRequestCptCodes = !!serviceRequest.code?.coding?.some((c) => c.system === CPT_CODE_SYSTEM);
+  const activityDefinition = serviceRequest.contained?.find(
+    (resource): resource is ActivityDefinition => resource.resourceType === 'ActivityDefinition'
+  );
+  const hasActivityDefinitionCptCodes = !!activityDefinition?.code?.coding?.some((c) => c.system === CPT_CODE_SYSTEM);
+  return hasServiceRequestCptCodes || hasActivityDefinitionCptCodes;
+};
+
+export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {
+  const testName =
+    dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display ||
+    dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.display ||
+    dr.code.coding?.find((temp) => temp.system?.endsWith(DEFAULT_OYSTEHR_LABS_HL7_SYSTEM))?.display; // Oystehr postfixes any system it doesn't recognize with this HL7 system string, so this ensures we still pull the value
+  return testName;
+};
+
+export const getTestItemCodeFromDr = (diagnosticReport: DiagnosticReport): string | undefined => {
+  const testItemCode =
+    diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
+    diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
+    diagnosticReport.code.coding?.find((temp) => temp.system?.endsWith(DEFAULT_OYSTEHR_LABS_HL7_SYSTEM))?.code; // Oystehr postfixes any system it doesn't recognize with this HL7 system string, so this ensures we still pull the value
+  return testItemCode;
+};
+
+export const getTestNameOrCodeFromDr = (dr: DiagnosticReport): string => {
+  const testName = getTestNameFromDr(dr);
+  const testItemCode = getTestItemCodeFromDr(dr);
+  const testDescription = testName || testItemCode || 'missing test name';
+  return testDescription;
+};
+
+export function paymentMethodFromCoverage(coverage: Coverage): CreateLabPaymentMethod {
+  let hasPay = false;
+  let hasClientBill = false;
+
+  for (const coding of coverage.type?.coding ?? []) {
+    switch (coding.code) {
+      case 'WC':
+        return LabPaymentMethod.WorkersComp;
+      case 'pay':
+        hasPay = true;
+        break;
+      case LAB_CLIENT_BILL_COVERAGE_TYPE_CODING.code:
+        hasClientBill = true;
+        break;
+    }
+  }
+
+  if (hasPay) {
+    return LabPaymentMethod.SelfPay;
+  }
+
+  if (hasClientBill) {
+    return LabPaymentMethod.ClientBill;
+  }
+
+  return LabPaymentMethod.Insurance;
+}
+
+export function serviceRequestPaymentMethod(
+  serviceRequest: ServiceRequest,
+  coverages: Coverage[]
+): CreateLabPaymentMethod | undefined {
+  const insuranceCoverageRef = serviceRequest?.insurance?.find(
+    (insurance) => insurance.reference?.startsWith('Coverage/')
+  );
+  if (!insuranceCoverageRef) return LabPaymentMethod.SelfPay;
+  const coverageId = insuranceCoverageRef.reference?.replace('Coverage/', '');
+  const coverage = coverages.find((coverage) => coverage.id === coverageId);
+  if (!coverage) {
+    console.warn(`Warning: unable to determine the payment method of this service request ${serviceRequest.id}
+      coverages passed: ${coverages.map((coverage) => coverage.id)}`);
+    return;
+  }
+  const paymentMethod = paymentMethodFromCoverage(coverage);
+  console.log('service request payment method and id', paymentMethod, serviceRequest.id);
+  return paymentMethod;
+}
+
+export const docRefIsLabGeneratedResult = (docRef: DocumentReference): boolean => {
+  return !!docRef.category?.find(
+    (cat) =>
+      cat.coding?.find(
+        (code) =>
+          code.system === OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING.system &&
+          code.code === OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING.code
+      )
+  );
+};
+
+export const docRefIsOgHl7Transmission = (docRef: DocumentReference): boolean => {
+  return !!docRef.meta?.tag?.some(
+    (tag) =>
+      tag.system === LAB_DOC_REF_TAG_hl7_TRANSMISSION.system && tag.code === LAB_DOC_REF_TAG_hl7_TRANSMISSION.code
+  );
+};
+
+export const docRefIsOrderPDFAndCurrent = (docRef: DocumentReference): boolean => {
+  const isCurrent = docRef.status === 'current';
+  const isOrderPdf = !!docRef.type?.coding?.find(
+    (code) => code.system === LAB_ORDER_DOC_REF_CODING_CODE.system && code.code === LAB_ORDER_DOC_REF_CODING_CODE.code
+  );
+  return isCurrent && isOrderPdf;
+};
+
+export const docRefIsLabelPDFAndCurrent = (docRef: DocumentReference): boolean => {
+  const isCurrent = docRef.status === 'current';
+  const isLabelPdf = !!docRef.type?.coding?.find(
+    (code) =>
+      code.system === EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE.system &&
+      code.code === EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE.code
+  );
+  return isCurrent && isLabelPdf;
+};
+
+export const docRefIsAbnAndCurrent = (docRef: DocumentReference): boolean => {
+  const isCurrent = docRef.status === 'current';
+  const isAbn = !!docRef.category?.some(
+    (cat) =>
+      cat.coding?.some(
+        (code) =>
+          code.code === OYSTEHR_ABN_DOC_CATEGORY_CODING.code && code.system === OYSTEHR_ABN_DOC_CATEGORY_CODING.system
+      )
+  );
+  return isCurrent && isAbn;
+};
+
+export const docRefIsOttehrGeneratedResultAndCurrent = (docRef: DocumentReference): boolean => {
+  const isCurrent = docRef.status === 'current';
+  const isResult = !!docRef.type?.coding?.some(
+    (c) => c.system === LAB_RESULT_DOC_REF_CODING_CODE.system && c.code === LAB_RESULT_DOC_REF_CODING_CODE.code
+  );
+  return isCurrent && isResult;
+};
+
+export const getLabListType = (list: List): LabType.external | LabType.inHouse | undefined => {
+  const code = list.code?.coding?.find((c) => c.system === LAB_LIST_CODING_SYSTEM)?.code;
+  if (!code) return;
+
+  switch (code) {
+    case LAB_LIST_CODE_CODING.external.code:
+      return LabType.external;
+    case LAB_LIST_CODE_CODING.inHouse.code:
+      return LabType.inHouse;
+    default:
+      return;
+  }
+};
+
+export const getLabListStatus = (list: List): LabSetStatus => {
+  if (list.status === 'current') {
+    return LabSetStatus.active;
+  } else {
+    return LabSetStatus.inactive;
+  }
+};
+
+export const makeExternalLabLabelConfig = ({
+  patient,
+  orderNumber,
+  location,
+  labOrganization,
+  specimenCollectionDateTime,
+  userTimezone,
+  serviceRequest,
+}: {
+  patient: Patient;
+  orderNumber: string;
+  location: Location | undefined;
+  labOrganization: Organization;
+  specimenCollectionDateTime: DateTime | undefined;
+  userTimezone: string;
+  serviceRequest: ServiceRequest;
+}): ExternalLabsLabelConfig => {
+  const labelConfig: ExternalLabsLabelConfig = {
+    labelConfig: DYMO_30334_LABEL_CONFIG,
+    content: {
+      patientId: getPatientIdForLabOrder(serviceRequest, patient),
+      patientFirstName: getPatientFirstName(patient) ?? '',
+      patientLastName: getPatientLastName(patient) ?? '',
+      patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
+      sampleCollectionDateAndTimezone: specimenCollectionDateTime
+        ? {
+            sampleCollectionDate: specimenCollectionDateTime,
+            timezone: userTimezone,
+          }
+        : undefined,
+      orderNumber: orderNumber,
+      accountNumber:
+        (labOrganization && location && getAccountNumberFromLocationAndOrganization(location, labOrganization)) || '',
+    },
+    type: 'external-lab',
+  };
+
+  console.log('External labs label config is:', JSON.stringify(labelConfig));
+  return labelConfig;
+};
+
+export const isExternalLabServiceRequest = (resource: ServiceRequest): boolean => {
+  return !!resource.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
+};
+
+export const externalLabOrderUsesFriendlyPatientId = (sr: ServiceRequest): boolean => {
+  return (
+    isExternalLabServiceRequest(sr) &&
+    (sr.orderDetail?.some(
+      (detail) =>
+        detail.coding?.some(
+          (coding) =>
+            coding.system === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.system &&
+            coding.code === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.code
+        )
+    ) ??
+      false)
+  );
+};
+
+/**
+ * This is not for unsolicited orders that do not have a matched ServiceRequest.
+ */
+export const getPatientIdForLabOrder = (serviceRequest: ServiceRequest, patient: Patient): string => {
+  if (!patient.id) throw EXTERNAL_LAB_ERROR('Cannot determine patient id from Patient resource');
+  const friendlyPatientId = getPatientFriendlyId(patient);
+
+  if (isExternalLabServiceRequest(serviceRequest)) {
+    const shouldUseFriendlyPatientId = externalLabOrderUsesFriendlyPatientId(serviceRequest);
+    if (shouldUseFriendlyPatientId && !friendlyPatientId) {
+      throw EXTERNAL_LAB_ERROR(
+        `ServiceRequest/${serviceRequest.id} order should use friendly patient id, but no friendly id found on patient`
+      );
+    }
+
+    return shouldUseFriendlyPatientId ? friendlyPatientId : patient.id;
+  } else if (isInHouseLabServiceRequest(serviceRequest)) {
+    return friendlyPatientId || patient.id;
+  } else {
+    return patient.id;
+  }
+};

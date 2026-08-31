@@ -1,5 +1,5 @@
 import { DateTime, DateTimeJSOptions } from 'luxon';
-import { DateComponents, Timezone } from '../types';
+import { DateComponents, Timezone } from '../types/common';
 
 interface timezone {
   value: string;
@@ -321,9 +321,12 @@ export const formatDateTimeToLocalTimezone = (isoDate: string | undefined): stri
   return `${dt.toLocaleString(DateTime.DATETIME_SHORT, { locale: 'en-US' })} (${dt.toFormat('ZZZZ')})`;
 };
 
-export const formatDateToMDYWithTime = (isoDate: string | undefined): { date: string; time: string } | undefined => {
+export const formatDateToMDYWithTime = (
+  isoDate: string | undefined,
+  timezone: Timezone = 'utc'
+): { date: string; time: string } | undefined => {
   if (!isoDate) return undefined;
-  const dateTime = DateTime.fromISO(isoDate, { zone: 'utc' });
+  const dateTime = DateTime.fromISO(isoDate).setZone(timezone);
 
   return {
     date: dateTime.toFormat('MM/dd/yyyy'),

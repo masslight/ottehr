@@ -1,30 +1,29 @@
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, CircularProgress, Dialog, IconButton, Paper, Typography } from '@mui/material';
-import { ottehrLightBlue } from '@theme/icons';
 import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
-import {
-  CancellationReasonOptionsInPerson,
-  getDateComponentsFromISOString,
-  PatientAppointmentDTO,
-  PROJECT_NAME,
-  ServiceMode,
-  VisitType,
-} from 'utils';
-import { ottehrApi } from '../api';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import ottehrApi from 'src/api/ottehrApi';
+import CardWithDescriptionAndLink from 'src/components/CardWithDescriptionAndLink';
+import { PageContainer } from 'src/components/CustomContainer';
+import { CustomLoadingButton } from 'ui-components/lib/components/paperwork/form-components/CustomLoadingButton';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { PatientAppointmentDTO } from 'utils/lib/types/api/appointment.types';
+import { ServiceMode } from 'utils/lib/types/common';
+import { VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { intakeFlowPageRoute } from '../App';
-import { CardWithDescriptionAndLink, PageContainer } from '../components';
-import { CustomLoadingButton } from '../components/CustomLoadingButton';
+import { primaryIcon } from '../branding/assets';
+import { getPrimaryIconSize, PRIMARY_ICON_PAGE, shouldShowPrimaryIcon } from '../branding/primaryIconVisibility';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PatientList from '../features/patients/components/selectable-list';
-import { safelyCaptureException } from '../helpers/sentry';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
-import { useBookingContext } from './BookingHome';
+import { PROGRESS_STORAGE_KEY, useBookingContext } from './BookingHome';
 
 const ChoosePatient = (): JSX.Element => {
   const navigate = useNavigate();
@@ -35,7 +34,6 @@ const ChoosePatient = (): JSX.Element => {
     patients,
     patientInfo,
     visitType,
-    slotId,
     timezone,
     patientsLoading,
     scheduleOwnerName,
@@ -52,6 +50,7 @@ const ChoosePatient = (): JSX.Element => {
   const [cancellingAppointment, setCancellingAppointment] = useState<boolean>(false);
   const [errorDialog, setErrorDialog] = useState<ErrorDialogConfig | undefined>(undefined);
   const { t } = useTranslation();
+  const slotId = useParams<{ slotId: string }>().slotId;
 
   const navigateInFlow = useNavigateInFlow();
 
@@ -119,11 +118,6 @@ const ChoosePatient = (): JSX.Element => {
 
     if (patients) {
       patients.forEach(async (currentPatient) => {
-        const {
-          year: dobYear,
-          month: dobMonth,
-          day: dobDay,
-        } = getDateComponentsFromISOString(currentPatient?.dateOfBirth);
         if (patientInfo?.id && patientInfo.id === currentPatient.id && currentPatient.id === data.patientID) {
           foundPatient = true;
           // don't overwrite what's already in the booking store if we haven't chosen a new patient
@@ -136,12 +130,11 @@ const ChoosePatient = (): JSX.Element => {
             firstName: data.firstName || currentPatient.firstName,
             middleName: data.middleName || currentPatient.middleName,
             lastName: data.lastName || currentPatient.lastName,
-            dobYear,
-            dobDay,
-            dobMonth,
+            dateOfBirth: data.dateOfBirth || currentPatient.dateOfBirth,
             sex: data.sex || currentPatient.sex,
             reasonForVisit: data.reasonForVisit || patientInfo?.reasonForVisit,
             email: data.email || currentPatient.email,
+            authorizedNonLegalGuardians: data.authorizedNonLegalGuardians ?? currentPatient.authorizedNonLegalGuardians,
           });
         }
       });
@@ -160,14 +153,29 @@ const ChoosePatient = (): JSX.Element => {
           newPatient: true,
           firstName: undefined,
           lastName: undefined,
-          dobYear: undefined,
-          dobDay: undefined,
-          dobMonth: undefined,
+          dateOfBirth: undefined,
           sex: undefined,
+          ssn: undefined,
           reasonForVisit: undefined,
+          reasonAdditional: undefined,
+          phoneNumber: undefined,
+          address: undefined,
+          authorizedNonLegalGuardians: undefined,
           email: undefined,
         });
       }
+    }
+    // TODO: form progress in sessionStorage and patientInfo in the booking store are currently
+    // invalidated only when the selected patientID changes. That's not enough in the general case:
+    // even within the same patientID (including new-patient -> new-patient) the underlying booking
+    // context — serviceMode, serviceCategory, the questionnaire canonical url+version — can differ
+    // between sessions/slots. When that happens, cached answers from a previous session may no
+    // longer match the current questionnaire structure and may cause logical validation bugs.
+    // A possible fix is to key the cached form progress by (serviceMode, serviceCategory,
+    // questionnaireVersion) and drop it whenever any of those change.
+    // But no concrete bug has been observed from this yet, so we keep the minimal patientID check.
+    if (patientInfo?.id !== data.patientID) {
+      sessionStorage.removeItem(PROGRESS_STORAGE_KEY);
     }
 
     if (data.patientID !== 'new-patient') {
@@ -193,7 +201,7 @@ const ChoosePatient = (): JSX.Element => {
           });
         } else {
           // Continue prebook flow for returning patient
-          navigateInFlow('confirm-date-of-birth');
+          navigateInFlow('patient-information');
         }
       }
     } else {
@@ -259,7 +267,7 @@ const ChoosePatient = (): JSX.Element => {
   ): Promise<void> => {
     if (!cancels.length && !checkIns.length) {
       // Continue walk-in flow for returning patient
-      navigateInFlow('confirm-date-of-birth');
+      navigateInFlow('patient-information');
     } else if (!cancels.length && checkIns.length) {
       // Check in or walk in to location where appointment is booked
       const appointment = checkIns[0];
@@ -268,7 +276,7 @@ const ChoosePatient = (): JSX.Element => {
       if (checkIsMoreThan4HoursInFuture(start) && visitType !== VisitType.PostTelemed) {
         // If patient walks in more than 4 hours before their pre-booked slot then cancel the appointment and walk-in
         await handleCancelAppointmentForSelectedLocation(appointment.id, zambdaClient);
-        navigateInFlow('confirm-date-of-birth');
+        navigateInFlow('patient-information');
       } else {
         // If patient walks in less than 4 hours before their prebook time then check in to the earliest pre-booked appointment
         navigate(`/visit/${appointment.id}/check-in`);
@@ -294,7 +302,10 @@ const ChoosePatient = (): JSX.Element => {
       zambdaClient,
       {
         appointmentID: appointmentID,
-        cancellationReason: CancellationReasonOptionsInPerson['Duplicate visit or account error'],
+        cancellationReason:
+          VALUE_SETS.cancelReasonOptionsInPersonPatient.find(
+            (option: any) => option?.value === 'Duplicate visit or account error'
+          )?.value || 'Other',
         silent: true,
         language: 'en', // replace with i18n.language to enable
       },
@@ -310,7 +321,10 @@ const ChoosePatient = (): JSX.Element => {
         zambdaClient,
         {
           appointmentID: bookedAppointment.id,
-          cancellationReason: CancellationReasonOptionsInPerson['Duplicate visit or account error'],
+          cancellationReason:
+            VALUE_SETS.cancelReasonOptionsInPersonPatient.find(
+              (option: any) => option?.value === 'Duplicate visit or account error'
+            )?.value || 'Other',
           language: 'en', // replace with i18n.language to enable
         },
         false
@@ -355,6 +369,8 @@ const ChoosePatient = (): JSX.Element => {
   const onBack = (): void => {
     navigate(`/home`);
   };
+  const showPrimaryIconInBanner = shouldShowPrimaryIcon(PRIMARY_ICON_PAGE.CHOOSE_PATIENT_BANNER);
+  const primaryIconSize = getPrimaryIconSize();
 
   return (
     <PageContainer
@@ -362,9 +378,9 @@ const ChoosePatient = (): JSX.Element => {
       topOutsideCardComponent={
         visitType === VisitType.WalkIn && showCheckIn ? (
           <CardWithDescriptionAndLink
-            iconHeight={50}
-            icon={ottehrLightBlue}
-            iconAlt={`${PROJECT_NAME} icon`}
+            iconHeight={primaryIconSize}
+            icon={showPrimaryIconInBanner ? primaryIcon : undefined}
+            iconAlt={showPrimaryIconInBanner ? BRANDING_CONFIG.intake.primaryIconAlt : undefined}
             mainText={t('welcomeBack.alreadyReserved')}
             textColor={otherColors.white}
             descText={t('welcomeBack.checkIn')}

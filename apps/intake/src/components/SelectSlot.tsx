@@ -44,9 +44,14 @@ export function SelectSlot({
         return (
           <Grid key={idx} item>
             <AppointmentSlotButton
-              sx={{ width: '110px', borderColor: theme.palette.divider, fontWeight: isSelected ? 700 : 400 }}
+              sx={{
+                width: '110px',
+                borderColor: theme.palette.divider,
+                fontWeight: isSelected ? 700 : 400,
+                bgcolor: isSelected ? theme.palette.primary.main : undefined,
+                color: isSelected ? theme.palette.primary.contrastText : theme.palette.text.primary,
+              }}
               variant={isSelected ? 'contained' : 'outlined'}
-              color="secondary"
               onClick={() => handleSlotSelected(slot)}
               className="time-button"
             >

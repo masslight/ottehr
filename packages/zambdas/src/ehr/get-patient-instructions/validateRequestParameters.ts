@@ -1,22 +1,26 @@
-import { GetPatientInstructionsInput, MISSING_AUTH_TOKEN } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { GetPatientInstructionsInput } from 'utils/lib/types/api/patient-instructions/patient-instructions.types';
+import { MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { z } from 'zod';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
+
+const GetPatientInstructionsBodySchema = z.object({
+  type: z.enum(['provider', 'organization']),
+});
 
 export function validateRequestParameters(
   input: ZambdaInput
 ): GetPatientInstructionsInput & Pick<ZambdaInput, 'secrets'> & { userToken: string } {
-  if (!input.body) {
-    throw new Error('No request body provided');
-  }
-
-  const data = JSON.parse(input.body) as GetPatientInstructionsInput;
-
   if (input.headers.Authorization === undefined) {
     throw MISSING_AUTH_TOKEN;
   }
 
-  if (data.type === undefined) {
-    throw new Error('These fields are required: "type"');
+  if (!input.body) {
+    throw MISSING_REQUEST_BODY;
   }
+
+  const parsed = safeJsonParse(input.body) as unknown;
+  const data = safeValidate(GetPatientInstructionsBodySchema, parsed);
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 

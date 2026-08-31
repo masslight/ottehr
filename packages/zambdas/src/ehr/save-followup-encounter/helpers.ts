@@ -2,11 +2,13 @@ import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { CodeableConcept, Coding, Encounter, EncounterParticipant, Location, Reference } from 'fhir/r4b';
 import {
+  FOLLOWUP_SUBTYPE_SYSTEM,
   FOLLOWUP_SYSTEMS,
   FollowupReason,
   formatFhirEncounterToPatientFollowupDetails,
-  PatientFollowupDetails,
-} from 'utils';
+} from 'utils/lib/fhir/encounter';
+import { PatientFollowupDetails } from 'utils/lib/types/api/encounter.types';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 
 export async function createEncounterResource(
   encounterDetails: PatientFollowupDetails,
@@ -27,7 +29,7 @@ export async function createEncounterResource(
       start: encounterDetails.start,
       end: encounterDetails?.end,
     },
-    type: createEncounterType(encounterDetails.followupType),
+    type: createEncounterType(encounterDetails.followupType, encounterDetails.followupSubtype || 'annotation'),
   };
 
   if (encounterDetails.location) {
@@ -39,7 +41,21 @@ export async function createEncounterResource(
   }
 
   if (encounterDetails.reason) {
-    encounterResource.reasonCode = createEncounterReasonCode(encounterDetails.reason);
+    encounterResource.reasonCode = createEncounterReasonCode(encounterDetails.reason, encounterDetails.otherReason);
+  }
+
+  if (encounterDetails.initialEncounterID) {
+    encounterResource.partOf = {
+      reference: `Encounter/${encounterDetails.initialEncounterID}`,
+    };
+  }
+
+  if (encounterDetails.appointmentId) {
+    encounterResource.appointment = [
+      {
+        reference: `Appointment/${encounterDetails.appointmentId}`,
+      },
+    ];
   }
 
   const encounterParticipant: EncounterParticipant[] = [];
@@ -51,7 +67,7 @@ export async function createEncounterResource(
   }
   if (encounterDetails.provider) {
     encounterParticipant.push(
-      createEncounterParticipant(FOLLOWUP_SYSTEMS.providerUrl, encounterDetails.provider.name, {
+      createEncounterParticipantIndividual(PRACTITIONER_CODINGS.Attender, {
         type: 'Practitioner',
         reference: `Practitioner/${encounterDetails.provider.practitionerId}`,
       })
@@ -125,16 +141,19 @@ export async function updateEncounterResource(
     operations.push({
       op: 'replace',
       path: '/type',
-      value: createEncounterType(encounterDetails.followupType),
+      value: createEncounterType(encounterDetails.followupType, encounterDetails.followupSubtype || 'annotation'),
     });
   }
 
-  if (encounterDetails.reason !== curEncounterDetails.reason) {
+  if (
+    encounterDetails.reason !== curEncounterDetails.reason ||
+    encounterDetails.otherReason !== curEncounterDetails.otherReason
+  ) {
     if (encounterDetails.reason) {
       operations.push({
         op: `${curEncounterDetails.reason ? 'replace' : 'add'}`,
         path: '/reasonCode',
-        value: createEncounterReasonCode(encounterDetails.reason),
+        value: createEncounterReasonCode(encounterDetails.reason, encounterDetails.otherReason),
       });
     } else if (curEncounterDetails.reason) {
       operations.push({
@@ -253,14 +272,10 @@ export async function updateEncounterResource(
     }
     // provider is being added
     if (encounterDetails?.provider?.practitionerId && !curEncounterDetails?.provider?.practitionerId) {
-      const providerParticipant = createEncounterParticipant(
-        FOLLOWUP_SYSTEMS.providerUrl,
-        encounterDetails.provider.name,
-        {
-          type: 'Practitioner',
-          reference: `Practitioner/${encounterDetails.provider.practitionerId}`,
-        }
-      );
+      const providerParticipant = createEncounterParticipantIndividual(PRACTITIONER_CODINGS.Attender, {
+        type: 'Practitioner',
+        reference: `Practitioner/${encounterDetails.provider.practitionerId}`,
+      });
       // either being added to an exiting participant array
       if (curFhirEncounter.participant) {
         participantOp = 'replace';
@@ -308,7 +323,7 @@ export async function updateEncounterResource(
   }
 }
 
-const createEncounterType = (type: string): Encounter['type'] => {
+const createEncounterType = (type: string, subtype: string = 'annotation'): Encounter['type'] => {
   return [
     {
       coding: [
@@ -317,13 +332,18 @@ const createEncounterType = (type: string): Encounter['type'] => {
           code: FOLLOWUP_SYSTEMS.type.code,
           display: type,
         },
+        {
+          system: FOLLOWUP_SUBTYPE_SYSTEM,
+          code: subtype,
+          display: subtype,
+        },
       ],
       text: type,
     },
   ];
 };
 
-const createEncounterReasonCode = (reason: FollowupReason): Encounter['reasonCode'] => {
+const createEncounterReasonCode = (reason: FollowupReason, otherReason?: string): Encounter['reasonCode'] => {
   return [
     {
       coding: [
@@ -332,12 +352,12 @@ const createEncounterReasonCode = (reason: FollowupReason): Encounter['reasonCod
           display: reason,
         },
       ],
-      text: reason,
+      text: otherReason || reason,
     },
   ];
 };
 
-const createEncounterParticipant = (system: string, display: string, individual?: Reference): EncounterParticipant => {
+const createEncounterParticipant = (system: string, display: string): EncounterParticipant => {
   const participant: EncounterParticipant = {
     type: [
       {
@@ -350,7 +370,18 @@ const createEncounterParticipant = (system: string, display: string, individual?
       },
     ],
   };
-  if (individual) participant['individual'] = individual;
+  return participant;
+};
+
+const createEncounterParticipantIndividual = (coding: Coding[], individual: Reference): EncounterParticipant => {
+  const participant: EncounterParticipant = {
+    type: [
+      {
+        coding,
+      },
+    ],
+    individual,
+  };
   return participant;
 };
 

@@ -1,47 +1,30 @@
 import Oystehr from '@oystehr/sdk';
-import { Coding, DocumentReference, Extension, Practitioner, Questionnaire } from 'fhir/r4b';
-import {
-  CanonicalUrl,
-  getCanonicalQuestionnaire,
-  getSecret,
-  OtherParticipantsExtension,
-  PatientAccountResponse,
-  Secrets,
-  SecretsKeys,
-  ServiceMode,
-  TELEMED_VIDEO_ROOM_CODE,
-} from 'utils';
-import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
-
+import { Coding, DocumentReference, Extension, Organization, Practitioner, Questionnaire } from 'fhir/r4b';
+import { getCanonicalQuestionnaire } from 'utils/lib/fhir/questionnaires';
+import { IN_PERSON_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork';
+import { VIRTUAL_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
+import { PatientAccountResponse } from 'utils/lib/types/api/patient-account';
+import { CanonicalUrl, ServiceMode } from 'utils/lib/types/common';
+import { TELEMED_VIDEO_ROOM_CODE } from 'utils/lib/types/constants';
+import { OtherParticipantsExtension } from 'utils/lib/types/data/oystehr-api.types.ts/telemed.types';
+import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
 export const getCurrentQuestionnaireForServiceType = async (
   serviceMode: ServiceMode,
-  secrets: Secrets | null,
   oystehrClient: Oystehr
 ): Promise<Questionnaire> => {
-  const canonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode, secrets);
+  const canonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
   return getCanonicalQuestionnaire(canonical, oystehrClient);
 };
 
-export const getCanonicalUrlForPrevisitQuestionnaire = (
-  serviceMode: ServiceMode,
-  secrets: Secrets | null
-): CanonicalUrl => {
-  let secretKey = '';
-  if (serviceMode === 'in-person') {
-    secretKey = SecretsKeys.IN_PERSON_PREVISIT_QUESTIONNAIRE;
-  } else if (serviceMode === 'virtual') {
-    secretKey = SecretsKeys.VIRTUAL_PREVISIT_QUESTIONNAIRE;
+export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode): CanonicalUrl => {
+  switch (serviceMode) {
+    case ServiceMode['in-person']:
+      return IN_PERSON_INTAKE_PAPERWORK_CANONICAL;
+    case ServiceMode.virtual:
+      return VIRTUAL_INTAKE_PAPERWORK_CANONICAL;
+    default:
+      throw new Error(`Unsupported service mode for previsit questionnaire: ${serviceMode}`);
   }
-  const questionnaireCanonURL = getSecret(secretKey, secrets);
-  // todo: move this into some kind of util function
-  const [questionnaireURL, questionnaireVersion] = questionnaireCanonURL.split('|');
-  if (!questionnaireURL || !questionnaireVersion) {
-    throw new Error('Questionnaire url secret missing or malformed');
-  }
-  return {
-    url: questionnaireURL,
-    version: questionnaireVersion,
-  };
 };
 
 export const getTelemedRequiredAppointmentEncounterExtensions = (
@@ -145,12 +128,16 @@ export async function getRelatedResources(
     const primaryCarePhysician = insuranceResponse.patient?.contained?.find(
       (resource) => resource.resourceType === 'Practitioner' && resource.active === true
     ) as Practitioner;
+    const pharmacy = insuranceResponse.patient?.contained?.find(
+      (resource) => resource.resourceType === 'Organization' && resource.id === PATIENT_CONTAINED_PHARMACY_ID
+    ) as Organization;
 
     documents = docsResponse.unbundle();
     accountInfo = {
       ...insuranceResponse,
       primaryCarePhysician,
       coverageChecks: [], // these aren't needed here
+      pharmacy,
     };
   }
 

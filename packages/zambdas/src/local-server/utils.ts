@@ -4,15 +4,14 @@ import { readFileSync } from 'fs';
 import { IncomingHttpHeaders } from 'http2';
 import _ from 'lodash';
 import { resolve } from 'path';
-import ottehrSpec from '../../../../config/ottehr-spec.json';
-import { ZambdaInput } from '../shared';
+import { ZambdaInput } from '../shared/types/common';
 
 export const expressLambda = async (
   handler: Handler<any, APIGatewayProxyResult>,
   req: Request,
   res: Response
 ): Promise<void> => {
-  const lambdaInput = buildLambdaInput(req);
+  const lambdaInput = await buildLambdaInput(req);
   const handlerResponse = await handler(
     lambdaInput,
     {} as unknown as Context, // Zambdas don't use it
@@ -39,6 +38,27 @@ export const expressLambda = async (
   }
 };
 
+const secrets: Record<string, string> = {};
+
+function populateSecrets({ pathToSecretsFile }: { pathToSecretsFile: string }): void {
+  console.log('Populating secrets from', pathToSecretsFile);
+  const configString = readFileSync(resolve(__dirname, `../../${pathToSecretsFile}`), { encoding: 'utf8' });
+  const fileContents: Record<string, string> = JSON.parse(configString);
+  Object.entries(fileContents).forEach(([key, value]) => {
+    secrets[key] = value;
+  });
+  console.log(`Populated ${Object.keys(secrets).length} secrets`);
+}
+
+const singleValueHeaders = (input: IncomingHttpHeaders): APIGatewayProxyEventHeaders => {
+  const headers = _.flow([
+    Object.entries,
+    (arr) => arr.filter(([, value]: [string, any]) => !Array.isArray(value)),
+    Object.fromEntries,
+  ])(input);
+  return headers;
+};
+
 function parseArgs(args: string[]): Record<string, string> {
   return args.reduce(
     (acc, arg) => {
@@ -51,46 +71,21 @@ function parseArgs(args: string[]): Record<string, string> {
 }
 
 const cliParams = parseArgs(process.argv.slice(2));
-const pathToEnvFile = cliParams['env'];
+let pathToSecretsFile = cliParams['secrets'];
+if (!pathToSecretsFile) {
+  const env = process.env.ENV || 'local';
+  pathToSecretsFile = `.env/zambda-secrets-${env}.json`;
+}
+console.log('Loading secrets from', pathToSecretsFile);
+populateSecrets({ pathToSecretsFile });
+const populateSecretsPromise = Promise.resolve();
 
-console.log('pathToEnvFile', pathToEnvFile);
-
-// Setup env vars for express
-// env file path to be specified from the root of the zambdas package.
-const configString = readFileSync(resolve(__dirname, `../../${pathToEnvFile}`), {
-  encoding: 'utf8',
-});
-const envFileContents = configString.length > 2 ? JSON.parse(configString) : null;
-
-const secrets: Record<string, string> = {};
-Object.entries(ottehrSpec.secrets).forEach(([_key, secret]) => {
-  const secretMatch = secret.value.match(/#\{var\/([^}]*)\}/);
-  if (secretMatch) {
-    const varName = secretMatch[1];
-    const secretValue = envFileContents[varName];
-    if (secretValue == null) {
-      throw new Error(`Secret ${secret.name} was not found in the env file.`);
-    }
-    secrets[secret.name] = envFileContents[varName];
-  } else {
-    secrets[secret.name] = secret.value;
-  }
-});
-
-const singleValueHeaders = (input: IncomingHttpHeaders): APIGatewayProxyEventHeaders => {
-  const headers = _.flow([
-    Object.entries,
-    (arr) => arr.filter(([, value]: [string, any]) => !Array.isArray(value)),
-    Object.fromEntries,
-  ])(input);
-  return headers;
-};
-
-export const buildLambdaInput = (req: Request): ZambdaInput => {
+async function buildLambdaInput(req: Request): Promise<ZambdaInput> {
   console.log('build lambda body,', JSON.stringify(req.body));
+  await populateSecretsPromise;
   return {
     body: !_.isEmpty(req.body) ? req.body : null,
     headers: singleValueHeaders(req.headers),
     secrets,
   };
-};
+}

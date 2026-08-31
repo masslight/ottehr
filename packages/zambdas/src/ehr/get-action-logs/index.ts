@@ -1,0 +1,256 @@
+import Oystehr, { SearchParam } from '@oystehr/sdk';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { Appointment, Communication, FhirResource, Organization, Patient, Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { OUTBOUND_DELIVERY_TASK_CODES, OUTBOUND_DELIVERY_TASK_SYSTEM } from 'utils/lib/fhir/constants';
+import { getOrganizationFaxNumber } from 'utils/lib/fhir/helpers';
+import {
+  getOutboundDeliveryAttemptStatus,
+  getOutboundDeliveryChannel,
+  getOutboundDeliveryFaxPacketSnapshot,
+  getOutboundDeliveryRecipientSnapshot,
+  getOutboundDeliverySenderOrganizationId,
+} from 'utils/lib/fhir/outbound-delivery';
+import { getFormattedPatientFullName } from 'utils/lib/fhir/patient';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import {
+  ACTION_LOGS_DISPLAY_WINDOW_DAYS,
+  ACTION_LOGS_PAGE_SIZE,
+  ActionLogEntry,
+  GetActionLogsInputValidated,
+  GetActionLogsOutput,
+  GLOBAL_ACTION_LOG_VIEWER_ROLES,
+  PATIENT_ACTION_LOG_VIEWER_ROLES,
+} from 'utils/lib/types/api/action-logs.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { validateRequestParameters } from './validateRequestParameters';
+
+const ZAMBDA_NAME = 'get-action-logs';
+let m2mToken = '';
+
+// FHIR search values use \, $, and | as syntax characters (list separator, chained-param
+// separator, and OR separator); escape them so a literal value like "Last, First" isn't
+// parsed as two search terms.
+function escapeFhirSearchValue(value: string): string {
+  return value.replace(/[\\,$|]/g, (char) => `\\${char}`);
+}
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const parameters = validateRequestParameters(input);
+  await requireUserWithRole(
+    input.headers.Authorization.replace('Bearer ', ''),
+    parameters.secrets,
+    getActionLogViewerRoles(parameters.patientId)
+  );
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, parameters.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, parameters.secrets);
+  const output = await performEffect(parameters, oystehr);
+  return { statusCode: 200, body: JSON.stringify(output) };
+});
+
+export function getActionLogViewerRoles(patientId?: string): RoleType[] {
+  return patientId ? PATIENT_ACTION_LOG_VIEWER_ROLES : GLOBAL_ACTION_LOG_VIEWER_ROLES;
+}
+
+export async function performEffect(
+  input: GetActionLogsInputValidated,
+  oystehr: Oystehr
+): Promise<GetActionLogsOutput> {
+  const { channel, patientId, patientName, visitId, visitDate, pageIndex } = input;
+  const params: SearchParam[] = [
+    { name: 'code', value: `${OUTBOUND_DELIVERY_TASK_SYSTEM}|${OUTBOUND_DELIVERY_TASK_CODES[channel]}` },
+    { name: '_total', value: 'accurate' },
+    { name: '_count', value: String(ACTION_LOGS_PAGE_SIZE) },
+    { name: '_offset', value: String(pageIndex * ACTION_LOGS_PAGE_SIZE) },
+    { name: '_sort', value: '-authored-on,-_id' },
+    { name: '_include', value: 'Task:patient' },
+    { name: '_include', value: 'Task:focus' },
+  ];
+  if (patientId) params.push({ name: 'patient', value: `Patient/${patientId}` });
+  if (patientName) params.push({ name: 'patient:Patient.name', value: escapeFhirSearchValue(patientName) });
+  if (visitId) params.push({ name: 'focus', value: `Appointment/${visitId}` });
+  if (visitDate) {
+    // visitDate is the start of a calendar day in the searcher's own offset. Search a UTC range
+    // for that day rather than an exact date match, so the boundary matches the offset the
+    // frontend used to display the date instead of assuming UTC day boundaries.
+    const dayStart = DateTime.fromISO(visitDate, { setZone: true });
+    const dayEnd = dayStart.plus({ days: 1 });
+    params.push({ name: 'focus:Appointment.date', value: `ge${dayStart.toUTC().toISO()}` });
+    params.push({ name: 'focus:Appointment.date', value: `lt${dayEnd.toUTC().toISO()}` });
+  }
+  if (!patientId && !patientName && !visitId && !visitDate) {
+    params.push({
+      name: 'authored-on',
+      value: `ge${DateTime.now().minus({ days: ACTION_LOGS_DISPLAY_WINDOW_DAYS }).toUTC().toISO()}`,
+    });
+  }
+
+  const bundle = await oystehr.fhir.search<Task | Patient | Appointment>({ resourceType: 'Task', params });
+  const resources = bundle.unbundle();
+  const tasks = resources.filter((resource): resource is Task => resource.resourceType === 'Task');
+  const patients = new Map(
+    resources
+      .filter((resource): resource is Patient => resource.resourceType === 'Patient')
+      .map((patient) => [patient.id, patient])
+  );
+  const appointments = new Map(
+    resources
+      .filter((resource): resource is Appointment => resource.resourceType === 'Appointment')
+      .map((appointment) => [appointment.id, appointment])
+  );
+  const [communications, retriedAttemptIds, senderFaxNumbersByAttempt] = await Promise.all([
+    channel === 'fax' ? getFaxCommunications(tasks, oystehr) : Promise.resolve(new Map<string, Communication>()),
+    getRetriedAttemptIds(tasks, oystehr),
+    channel === 'fax' ? getSenderFaxNumbers(tasks, oystehr) : Promise.resolve(new Map<string, string>()),
+  ]);
+
+  const logs = tasks.map((task) =>
+    composeEntry(task, patients, appointments, communications, retriedAttemptIds, senderFaxNumbersByAttempt)
+  );
+  return { logs, totalCount: bundle.total ?? 0 };
+}
+
+/**
+ * One page's worth of resources fetched by id. The id list is always bounded by the page size, so a
+ * single `_count`-capped search covers it without paging.
+ */
+async function searchByIds<T extends FhirResource>(
+  oystehr: Oystehr,
+  resourceType: T['resourceType'],
+  ids: string[]
+): Promise<T[]> {
+  if (!ids.length) return [];
+  return (
+    await oystehr.fhir.search<T>({
+      resourceType,
+      params: [
+        { name: '_id', value: ids.join(',') },
+        { name: '_count', value: String(ids.length) },
+      ],
+    })
+  ).unbundle();
+}
+
+/**
+ * Sender fax number per attempt, keyed by attempt id. An attempt records which organization it was sent
+ * from rather than the number itself, so the number is resolved from that organization here — which also
+ * fills the column in for attempts recorded before it was displayed.
+ *
+ * Never fails the page: the column is informational, so a page of logs without it beats an error screen.
+ */
+async function getSenderFaxNumbers(tasks: Task[], oystehr: Oystehr): Promise<Map<string, string>> {
+  const organizationIdByAttempt = new Map(
+    tasks.flatMap((task) => {
+      const organizationId = getOutboundDeliverySenderOrganizationId(task);
+      return task.id && organizationId ? [[task.id, organizationId] as [string, string]] : [];
+    })
+  );
+  if (!organizationIdByAttempt.size) return new Map();
+
+  try {
+    const organizations = await searchByIds<Organization>(oystehr, 'Organization', [
+      ...new Set(organizationIdByAttempt.values()),
+    ]);
+    const faxNumberByOrganization = new Map(
+      organizations.flatMap((organization) => {
+        const faxNumber = getOrganizationFaxNumber(organization);
+        return organization.id && faxNumber ? [[organization.id, faxNumber] as [string, string]] : [];
+      })
+    );
+    return new Map(
+      [...organizationIdByAttempt].flatMap(([attemptId, organizationId]) => {
+        const faxNumber = faxNumberByOrganization.get(organizationId);
+        return faxNumber ? [[attemptId, faxNumber] as [string, string]] : [];
+      })
+    );
+  } catch (error) {
+    console.error('Could not resolve the sender fax numbers for this page of logs', error);
+    return new Map();
+  }
+}
+
+async function getFaxCommunications(tasks: Task[], oystehr: Oystehr): Promise<Map<string, Communication>> {
+  const ids = [
+    ...new Set(
+      tasks
+        .map((task) => getOutboundDeliveryRecipientSnapshot(task).communicationId)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+  const resources = await searchByIds<Communication>(oystehr, 'Communication', ids);
+  return new Map(resources.map((communication) => [communication.id!, communication]));
+}
+
+async function getRetriedAttemptIds(tasks: Task[], oystehr: Oystehr): Promise<Set<string>> {
+  const attemptReferences = tasks.flatMap((task) => (task.id ? [`Task/${task.id}`] : []));
+  if (!attemptReferences.length) return new Set();
+
+  // Atomic retry creation enforces at most one direct child per attempt, so one bounded page covers
+  // every row on the current Action Logs page without an accurate-total count or pagination loop.
+  const children = (
+    await oystehr.fhir.search<Task>({
+      resourceType: 'Task',
+      params: [
+        { name: 'part-of', value: attemptReferences.join(',') },
+        { name: '_count', value: String(attemptReferences.length) },
+      ],
+    })
+  ).unbundle();
+  return new Set(
+    children.flatMap((child) =>
+      (child.partOf ?? []).flatMap((parent) => {
+        const id = removePrefix('Task/', parent.reference ?? '');
+        return id ? [id] : [];
+      })
+    )
+  );
+}
+
+function composeEntry(
+  task: Task,
+  patients: Map<string | undefined, Patient>,
+  appointments: Map<string | undefined, Appointment>,
+  communications: Map<string, Communication>,
+  retriedAttemptIds: Set<string>,
+  senderFaxNumbersByAttempt: Map<string, string>
+): ActionLogEntry {
+  const channel = getOutboundDeliveryChannel(task)!;
+  const patientId = removePrefix('Patient/', task.for?.reference ?? '');
+  const appointmentId = removePrefix('Appointment/', task.focus?.reference ?? '');
+  const patient = patients.get(patientId);
+  const appointment = appointments.get(appointmentId);
+  const recipient = getOutboundDeliveryRecipientSnapshot(task);
+  const faxPacket = getOutboundDeliveryFaxPacketSnapshot(task);
+  const status = getOutboundDeliveryAttemptStatus(
+    task,
+    recipient.communicationId ? communications.get(recipient.communicationId) : undefined
+  );
+  return {
+    attemptId: task.id!,
+    channel,
+    status,
+    recipientAddress: recipient.address ?? '',
+    recipientName: recipient.name,
+    senderAddress: senderFaxNumbersByAttempt.get(task.id!),
+    patientName: patient ? getFormattedPatientFullName(patient, { skipNickname: true }) : undefined,
+    appointmentId,
+    visitDate: appointment?.start,
+    documentReferenceId: recipient.documentReferenceId,
+    documentTitle: getDocumentTitle(recipient.documentReferenceId, faxPacket.parts),
+    canRetry:
+      status === 'failed' &&
+      Boolean(channel === 'fax' ? recipient.documentReferenceId || appointmentId : appointmentId) &&
+      Boolean(recipient.address?.trim()) &&
+      !retriedAttemptIds.has(task.id!),
+  };
+}
+
+const getDocumentTitle = (documentReferenceId: string | undefined, faxPacketParts: string[]): string | undefined => {
+  if (faxPacketParts.length === 1) return faxPacketParts[0];
+  if (faxPacketParts.length > 1) return `Fax packet (${faxPacketParts.length} documents)`;
+  return documentReferenceId ? 'Visit Note' : undefined;
+};

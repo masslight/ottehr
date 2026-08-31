@@ -3,22 +3,22 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
+import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
+import { AppointmentInsuranceRelatedResourcesExtension, FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { createPatientDocumentLists } from 'utils/lib/fhir/list';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import {
-  AppointmentInsuranceRelatedResourcesExtension,
-  createPatientDocumentLists,
   createUserResourcesForPatient,
-  FHIR_EXTENSION,
-  formatPhoneNumber,
-  getPatchBinary,
   getPatientResourceWithVerifiedPhoneNumber,
-  mapStatusToTelemed,
-  normalizePhoneNumber,
-  PATIENT_NOT_FOUND_ERROR,
-  PatientInfo,
-  removeTimeFromDate,
-  TelemedCallStatuses,
-  User,
-} from 'utils';
+  makeSSNIdentifier,
+} from 'utils/lib/fhir/patient';
+import { getPatchBinary, normalizePhoneNumber } from 'utils/lib/fhir/resourcePatch';
+import { formatPhoneNumber } from 'utils/lib/helpers/helpers';
+import { User } from 'utils/lib/types/api/user.types';
+import { PATIENT_NO_EMAIL_URL } from 'utils/lib/types/constants';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { PATIENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { removeTimeFromDate } from 'utils/lib/utils/date';
 import { checkIsEHRUser } from '../auth';
 import { assertDefined } from '../helpers';
 
@@ -26,6 +26,11 @@ export function getPatientFromAppointment(appointment: Appointment): string | un
   return appointment.participant
     .find((participantTemp) => participantTemp.actor?.reference?.startsWith('Patient/'))
     ?.actor?.reference?.split('/')[1];
+}
+
+// on-demand virtual visits override so they're shown on the 'Active' tab
+export function isOnDemandVirtualAppointment(appointment: Appointment): boolean {
+  return isTelemedAppointment(appointment) && appointmentTypeForAppointment(appointment) === 'walk-in';
 }
 
 export async function patchAppointmentResource(
@@ -63,26 +68,7 @@ export async function patchEncounterResource(
   }
 }
 
-export { mapStatusToTelemed };
-
-export const telemedStatusToEncounter = (telemedStatus: TelemedCallStatuses): Encounter['status'] => {
-  switch (telemedStatus) {
-    case 'ready':
-      return 'planned';
-    case 'pre-video':
-      return 'arrived';
-    case 'on-video':
-      return 'in-progress';
-    case 'unsigned':
-      return 'finished';
-    case 'complete':
-      return 'finished';
-    case 'cancelled':
-      return 'cancelled';
-  }
-};
-
-export { removePrefix } from 'utils';
+export { removePrefix } from 'utils/lib/helpers/helpers';
 
 export interface AppointmentInsuranceRelatedResRefs {
   primaryCoverage?: string;
@@ -222,7 +208,39 @@ export function creatingPatientUpdateRequest(
     // Do not update weight last updated date
   }
 
-  console.log('patient extension', patientExtension);
+  const guardianWasProvided = 'authorizedNonLegalGuardians' in patient;
+  const guardianExtIndex = patientExtension.findIndex(
+    (ext) => ext.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+  );
+  const existingGuardianValue = patientExtension[guardianExtIndex]?.valueString;
+  const guardianValue = guardianWasProvided ? patient.authorizedNonLegalGuardians : existingGuardianValue;
+
+  if (guardianValue) {
+    const extensionValue = {
+      url: FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url,
+      valueString: guardianValue,
+    };
+    if (guardianExtIndex >= 0) {
+      patientExtension[guardianExtIndex] = extensionValue;
+    } else {
+      patientExtension.push(extensionValue);
+    }
+  } else if (guardianExtIndex >= 0 && guardianWasProvided) {
+    // guardianWasProvided + falsy value = explicitly cleared by user
+    patientExtension = [
+      ...patientExtension.slice(0, guardianExtIndex),
+      ...patientExtension.slice(guardianExtIndex + 1),
+    ];
+  }
+
+  if (patient.noEmail !== undefined) {
+    const noEmailExtIndex = patientExtension.findIndex((ext) => ext.url === PATIENT_NO_EMAIL_URL);
+    if (noEmailExtIndex >= 0) {
+      patientExtension[noEmailExtIndex] = { url: PATIENT_NO_EMAIL_URL, valueBoolean: patient.noEmail };
+    } else {
+      patientExtension.push({ url: PATIENT_NO_EMAIL_URL, valueBoolean: patient.noEmail });
+    }
+  }
 
   patientPatchOperations.push({
     op: maybeFhirPatient.extension ? 'replace' : 'add',
@@ -230,9 +248,14 @@ export function creatingPatientUpdateRequest(
     value: patientExtension,
   });
 
-  const emailPatchOps = getPatientPatchOpsPatientEmail(maybeFhirPatient, patient.email);
-  if (emailPatchOps.length >= 1) {
-    patientPatchOperations.push(...emailPatchOps);
+  // Only touch email when it was explicitly provided or noEmail was explicitly set to true.
+  // If neither is present (e.g. EHR create-visit form which doesn't collect email), leave the
+  // existing email on the patient resource untouched.
+  if (patient.email !== undefined || patient.noEmail) {
+    const emailPatchOps = getPatientPatchOpsPatientEmail(maybeFhirPatient, patient.noEmail ? undefined : patient.email);
+    if (emailPatchOps.length >= 1) {
+      patientPatchOperations.push(...emailPatchOps);
+    }
   }
 
   const fhirPatientName = assertDefined(maybeFhirPatient.name, 'patient.name');
@@ -257,6 +280,8 @@ export function creatingPatientUpdateRequest(
   const fhirPatientPreferredName = maybeFhirPatient?.name?.find((name) => name.use === 'nickname');
   const fhirPatientPreferredNameIndex = maybeFhirPatient.name?.findIndex((name) => name.use === 'nickname');
 
+  const chosenNameWasProvided = 'chosenName' in patient;
+
   if (patient.chosenName) {
     if (fhirPatientPreferredName) {
       if (fhirPatientPreferredName.given?.[0] !== patient.chosenName) {
@@ -276,6 +301,17 @@ export function creatingPatientUpdateRequest(
         },
       });
     }
+  } else if (
+    chosenNameWasProvided &&
+    fhirPatientPreferredName &&
+    fhirPatientPreferredNameIndex !== undefined &&
+    fhirPatientPreferredNameIndex >= 0
+  ) {
+    // chosenNameWasProvided + falsy value = explicitly cleared by user
+    patientPatchOperations.push({
+      op: 'remove',
+      path: `/name/${fhirPatientPreferredNameIndex}`,
+    });
   }
 
   if (patient.sex !== maybeFhirPatient.gender) {
@@ -303,6 +339,25 @@ export function creatingPatientUpdateRequest(
       value: patientDateOfBirth,
     });
   }
+  if (patient.ssn) {
+    const identifier = makeSSNIdentifier(patient.ssn);
+    const newIdentifier = (maybeFhirPatient.identifier ?? []).filter((id) => id.system !== identifier.system);
+    newIdentifier.push(identifier);
+    if (maybeFhirPatient.identifier) {
+      // identifier exists
+      patientPatchOperations.push({
+        op: 'replace',
+        path: `/identifier`,
+        value: newIdentifier,
+      });
+    } else {
+      patientPatchOperations.push({
+        op: 'add',
+        path: `/identifier`,
+        value: newIdentifier,
+      });
+    }
+  }
 
   if (patientPatchOperations.length >= 1) {
     console.log('getting patch binary for patient operations');
@@ -318,50 +373,39 @@ export function creatingPatientUpdateRequest(
 
 export function getPatientPatchOpsPatientEmail(maybeFhirPatient: Patient, email: string | undefined): Operation[] {
   const patientPatchOperations: Operation[] = [];
-  // update email
+  const telecom = maybeFhirPatient.telecom;
+
   if (email) {
-    const telecom = maybeFhirPatient.telecom;
-    const curEmail = telecom?.find((telecomToCheck) => telecomToCheck.system === 'email');
-    const curEmailIndex = telecom?.findIndex((telecomToCheck) => telecomToCheck.system === 'email');
+    const curEmail = telecom?.find((t) => t.system === 'email');
+    const curEmailIndex = telecom?.findIndex((t) => t.system === 'email');
     // check email exists in telecom but is different
-    if (telecom && curEmailIndex && curEmailIndex > -1 && email !== curEmail) {
-      telecom[curEmailIndex] = {
-        system: 'email',
-        value: email,
-      };
-      patientPatchOperations.push({
-        op: 'replace',
-        path: '/telecom',
-        value: telecom,
-      });
+    if (telecom && curEmailIndex !== undefined && curEmailIndex > -1 && email !== curEmail?.value) {
+      telecom[curEmailIndex] = { system: 'email', value: email };
+      patientPatchOperations.push({ op: 'replace', path: '/telecom', value: telecom });
     }
     // check if telecom exists but without email
     if (telecom && !curEmail) {
-      telecom.push({
-        system: 'email',
-        value: email,
-      });
-      patientPatchOperations.push({
-        op: 'replace',
-        path: '/telecom',
-        value: telecom,
-      });
+      telecom.push({ system: 'email', value: email });
+      patientPatchOperations.push({ op: 'replace', path: '/telecom', value: telecom });
     }
     // add if no telecom
     if (!telecom) {
-      patientPatchOperations.push({
-        op: 'add',
-        path: '/telecom',
-        value: [
-          {
-            system: 'email',
-            value: email,
-          },
-        ],
-      });
+      patientPatchOperations.push({ op: 'add', path: '/telecom', value: [{ system: 'email', value: email }] });
+    }
+  } else {
+    // noEmail: remove the existing email ContactPoint from telecom if present
+    const curEmailIndex = telecom?.findIndex((t) => t.system === 'email');
+    if (telecom && curEmailIndex !== undefined && curEmailIndex > -1) {
+      const newTelecom = telecom.filter((_, i) => i !== curEmailIndex);
+      if (newTelecom.length > 0) {
+        patientPatchOperations.push({ op: 'replace', path: '/telecom', value: newTelecom });
+      } else {
+        patientPatchOperations.push({ op: 'remove', path: '/telecom' });
+      }
     }
   }
-  return [];
+
+  return patientPatchOperations;
 }
 
 export function creatingPatientCreateRequest(
@@ -409,7 +453,13 @@ export function creatingPatientCreateRequest(
     });
   }
 
-  if (patient.email) {
+  if (patient.noEmail) {
+    if (!patientResource.extension) patientResource.extension = [];
+    patientResource.extension.push({ url: PATIENT_NO_EMAIL_URL, valueBoolean: true });
+    if (isEHRUser && patient.phoneNumber) {
+      patientResource.telecom = [{ system: 'phone', value: normalizePhoneNumber(patient.phoneNumber) }];
+    }
+  } else if (patient.email) {
     if (isEHRUser) {
       patientResource.telecom = [
         {
@@ -435,6 +485,20 @@ export function creatingPatientCreateRequest(
     patientResource.address = patient.address;
   }
 
+  if (patient.authorizedNonLegalGuardians) {
+    if (!patientResource.extension) {
+      patientResource.extension = [];
+    }
+    patientResource.extension.push({
+      url: FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url,
+      valueString: String(patient.authorizedNonLegalGuardians),
+    });
+  }
+  if (patient.ssn) {
+    const identifier = makeSSNIdentifier(patient.ssn);
+    patientResource.identifier = [identifier];
+  }
+
   console.log('creating patient request for new patient resource');
   createPatientRequest = {
     method: 'POST',
@@ -447,7 +511,7 @@ export function creatingPatientCreateRequest(
 }
 
 export async function generatePatientRelatedRequests(
-  user: User,
+  user: User | undefined,
   patient: PatientInfo,
   oystehr: Oystehr
 ): Promise<{

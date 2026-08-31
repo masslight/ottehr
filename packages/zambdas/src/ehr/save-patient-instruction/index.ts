@@ -1,8 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { makeCommunicationDTO } from '../../shared/chart-data';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { checkIfProvidersInstruction, createCommunicationResource, updateCommunicationResource } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -10,29 +13,20 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'save-patient-instruction';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const { instructionId, text, secrets, userToken } = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-    const myUserProfile = (await oystehrCurrentUser.user.me()).profile;
-    let communication: Communication;
+  const { instructionId, text, title, secrets, userToken } = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  const myUserProfile = (await userMe(userToken, secrets)).profile;
+  let communication: Communication;
 
-    if (instructionId) {
-      await checkIfProvidersInstruction(instructionId, myUserProfile, oystehr);
-      communication = await updateCommunicationResource(instructionId, text, oystehr);
-    } else {
-      communication = await createCommunicationResource(text, myUserProfile, oystehr);
-    }
-    return {
-      body: JSON.stringify(makeCommunicationDTO(communication)),
-      statusCode: 200,
-    };
-  } catch (error) {
-    console.log(error);
-    return {
-      body: JSON.stringify({ message: 'Error saving patient instruction...' }),
-      statusCode: 500,
-    };
+  if (instructionId) {
+    await checkIfProvidersInstruction(instructionId, myUserProfile, oystehr);
+    communication = await updateCommunicationResource({ communicationId: instructionId, oystehr, text, title });
+  } else {
+    communication = await createCommunicationResource({ practitionerProfile: myUserProfile, oystehr, text, title });
   }
+  return {
+    body: JSON.stringify(makeCommunicationDTO(communication)),
+    statusCode: 200,
+  };
 });

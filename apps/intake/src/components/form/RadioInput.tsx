@@ -1,10 +1,11 @@
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import {
   Box,
   FormControl,
   FormControlLabel,
   Grid,
-  Icon,
   Radio,
   RadioGroup,
   RadioGroupProps,
@@ -14,13 +15,13 @@ import {
 import { FC, SyntheticEvent, useContext, useRef } from 'react';
 import { Controller, FieldValues, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { IntakeThemeContext } from '../../contexts';
+import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
+import { RadioOption } from 'src/types/types';
+import { LightToolTip } from 'ui-components/lib/components/paperwork/form-components';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
+import { RadioStyling } from 'ui-components/lib/components/paperwork/types';
 import { useLabelDimensions } from '../../hooks/useLabelDimensions';
-import { RadioOption, RadioStyling } from '../../types';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
-import CustomRadioButtonIcon from './CustomRadioButtonIcon';
 import { InputHelperText } from './InputHelperText';
-import { LightToolTip } from './LightToolTip';
 
 type RadioInputProps = {
   name: string;
@@ -31,7 +32,6 @@ type RadioInputProps = {
   showHelperTextIcon?: boolean;
   infoTextSecondary?: string;
   borderColor?: string;
-  borderSelected?: string;
   backgroundSelected?: string;
   centerImages?: boolean;
   getSelected: () => FieldValues;
@@ -49,7 +49,6 @@ const RadioInput: FC<RadioInputProps> = ({
   showHelperTextIcon,
   infoTextSecondary,
   borderColor = 'primary.contrast',
-  borderSelected = 'primary.main',
   backgroundSelected,
   getSelected,
   centerImages,
@@ -98,6 +97,7 @@ const RadioInput: FC<RadioInputProps> = ({
               aria-labelledby={`${name}-label`}
             >
               {options.map((option) => {
+                const isSelected = selected[name] === option.value;
                 const gridWidths = {
                   desktop: { labelText: 8.5, space: 0.2, image: 2 },
                   mobile: { labelText: 12, space: 0, image: 12 },
@@ -117,34 +117,28 @@ const RadioInput: FC<RadioInputProps> = ({
                     data-testid={option.label}
                     control={
                       <Radio
+                        disableRipple
                         icon={
-                          <Icon
-                            sx={{
-                              display: 'flex',
-                              justifyContent: 'center',
-                              alignItems: 'center',
-                              scale: '100%',
-                              mx: 0.5,
-                            }}
-                          >
-                            <CustomRadioButtonIcon
-                              color={theme.palette.secondary}
-                              checked={false}
-                              alt={t('general.button.unchecked')}
-                            />
-                          </Icon>
+                          <RadioButtonUncheckedIcon
+                            titleAccess={t('general.button.unchecked')}
+                            sx={{ fontSize: 24, mx: 0.5 }}
+                          />
                         }
                         checkedIcon={
-                          <Icon sx={{ display: 'flex', justifyContent: 'center', scale: '100%', mx: 0.5 }}>
-                            <CustomRadioButtonIcon
-                              color={theme.palette.secondary}
-                              checked={true}
-                              alt={t('general.button.checked')}
-                            />
-                          </Icon>
+                          <RadioButtonCheckedIcon
+                            titleAccess={t('general.button.checked')}
+                            sx={{ fontSize: 24, mx: 0.5 }}
+                          />
                         }
                         sx={{
                           alignSelf: 'center',
+                          color: borderColor,
+                          '&.Mui-checked': {
+                            color: theme.palette.secondary.main,
+                          },
+                          '&:hover': {
+                            backgroundColor: 'transparent',
+                          },
                           // If screen is smaller than small breakpoint
                           [theme.breakpoints.down('md')]: {
                             mt: 0,
@@ -195,7 +189,7 @@ const RadioInput: FC<RadioInputProps> = ({
                                   marginTop: option.label ? '5px' : 0,
                                 }}
                               >
-                                <Typography variant={option.label ? 'caption' : 'body2'} color="secondary.main">
+                                <Typography variant={option.label ? 'caption' : 'body2'} color="black">
                                   {option.description}
                                 </Typography>
                               </div>
@@ -226,14 +220,15 @@ const RadioInput: FC<RadioInputProps> = ({
                     sx={{
                       border: '1px solid',
                       borderRadius: 2,
-                      backgroundColor: () => {
-                        if (selected[name] === option.value && backgroundSelected) {
-                          return backgroundSelected;
-                        } else {
-                          return option.color || theme.palette.background.paper;
-                        }
+                      backgroundColor:
+                        isSelected && backgroundSelected
+                          ? backgroundSelected
+                          : option.color || theme.palette.background.paper,
+                      borderColor: borderColor,
+                      '&:hover': {
+                        backgroundColor:
+                          isSelected && backgroundSelected ? backgroundSelected : theme.palette.action.hover,
                       },
-                      borderColor: selected[name] === option.value ? borderSelected : borderColor,
                       paddingTop: 0,
                       paddingBottom: 0,
                       paddingRight: 2,

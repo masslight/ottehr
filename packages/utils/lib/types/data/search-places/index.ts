@@ -1,0 +1,29 @@
+export const PHARMACY_COLLECTION_LINK_IDS = {
+  pharmacyCollection: 'pharmacy-collection',
+  placesId: 'pharmacy-places-id',
+  placesName: 'pharmacy-places-name',
+  placesAddress: 'pharmacy-places-address',
+  placesPhone: 'pharmacy-places-phone',
+  placesDataSaved: 'pharmacy-places-saved',
+  erxPharmacyId: 'erx-pharmacy-id',
+  manualPharmacyName: 'pharmacy-name',
+  manualPharmacyAddress: 'pharmacy-address',
+};
+
+export type PlacesResult = {
+  placesId: string;
+  name: string;
+  address: string;
+  phone?: string;
+  erxPharmacyId?: string;
+};
+
+export interface SearchPlacesInput {
+  searchTerm?: string;
+  locationBias?: { latitude: number; longitude: number };
+  placesId?: string;
+}
+
+export interface SearchPlacesOutput {
+  pharmacyPlaces: PlacesResult[];
+}

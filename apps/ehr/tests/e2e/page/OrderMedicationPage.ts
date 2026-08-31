@@ -1,8 +1,8 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { CssHeader } from './CssHeader';
 import { EditMedicationCard } from './EditMedicationCard';
 import { expectInHouseMedicationsPage, InHouseMedicationsPage } from './in-person/InHouseMedicationsPage';
+import { InPersonHeader } from './InPersonHeader';
 import { SideMenu } from './SideMenu';
 
 export class OrderMedicationPage {
@@ -14,8 +14,8 @@ export class OrderMedicationPage {
     this.#editMedicationCard = new EditMedicationCard(this.#page);
   }
 
-  cssHeader(): CssHeader {
-    return new CssHeader(this.#page);
+  inPersonHeader(): InPersonHeader {
+    return new InPersonHeader(this.#page);
   }
 
   sideMenu(): SideMenu {
@@ -31,12 +31,14 @@ export class OrderMedicationPage {
   }
 
   async clickOrderMedicationButton(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.orderMedicationPage.fillOrderToSaveButton).click();
+    const button = this.#page.getByTestId(dataTestIds.orderMedicationPage.fillOrderToSaveButton);
+    await expect(button).toBeEnabled({ timeout: 30000 });
+    await button.click();
   }
 
   async clickBackButton(): Promise<InHouseMedicationsPage> {
     await this.#page.getByTestId(dataTestIds.orderMedicationPage.backButton).click();
-    const dialog = this.#page.getByTestId(dataTestIds.cssModal.confirmationDialogue);
+    const dialog = this.#page.getByTestId(dataTestIds.inPersonModal.confirmationDialogue);
     await dialog.waitFor({ state: 'visible', timeout: 500 }).catch(() => null);
     if (await dialog.isVisible()) {
       await this.#page.getByTestId(dataTestIds.dialog.cancelButton).click();
@@ -47,10 +49,16 @@ export class OrderMedicationPage {
 
 export async function expectOrderMedicationPage(page: Page): Promise<OrderMedicationPage> {
   await page.waitForURL(new RegExp('/in-person/.*/in-house-medication/order/new'));
+  await expect(page.getByTestId(dataTestIds.orderMedicationPage.fillOrderToSaveButton)).toBeVisible({ timeout: 10000 });
   return new OrderMedicationPage(page);
 }
 
 export async function expectEditOrderPage(page: Page): Promise<OrderMedicationPage> {
   await page.waitForURL(new RegExp('/in-person/.*/in-house-medication/order/edit/.*'));
   return new OrderMedicationPage(page);
+}
+
+export async function openOrderMedicationPage(appointmentId: string, page: Page): Promise<OrderMedicationPage> {
+  await page.goto(`/in-person/${appointmentId}/in-house-medication/order/new`);
+  return expectOrderMedicationPage(page);
 }

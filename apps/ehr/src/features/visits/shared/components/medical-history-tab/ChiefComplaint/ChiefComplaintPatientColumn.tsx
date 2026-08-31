@@ -1,0 +1,103 @@
+import { useAuth0 } from '@auth0/auth0-react';
+import { Box, Skeleton, Typography, useTheme } from '@mui/material';
+import { FC, useEffect, useState } from 'react';
+import ImageCarousel, { ImageCarouselObject } from 'src/components/ImageCarousel';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { AiHpiSuggestion } from '../../../../AiHpiSuggestion';
+import { ReasonForVisitFieldReadOnly } from '../../../../ReasonForVisitField';
+import { useAppointmentData } from '../../../stores/appointment/appointment.store';
+
+export const ChiefComplaintPatientColumn: FC = () => {
+  const theme = useTheme();
+  const { isAppointmentLoading, patientConditionPhotos } = useAppointmentData();
+  const [signedPhotoUrls, setSignedPhotoUrls] = useState<string[]>([]);
+  const [photoUrlsLoading, setPhotoUrlsLoading] = useState<boolean>(false);
+  const { getAccessTokenSilently } = useAuth0();
+  const photoCarouselObjects: ImageCarouselObject[] = signedPhotoUrls.map((url, ind) => ({
+    url: url,
+    alt: `Patient condition photo #${ind + 1}`,
+  }));
+  const [photoZoom, setPhotoZoom] = useState<boolean>(false);
+  const [zoomedIdx, setZoomedIdx] = useState<number>(0);
+
+  useEffect(() => {
+    async function getPresignedPhotoUrls(): Promise<void> {
+      try {
+        setPhotoUrlsLoading(true);
+        const authToken = await getAccessTokenSilently();
+        const requests = patientConditionPhotos.map((p) => getPresignedURL(p.url, authToken));
+        const signedUrls = await Promise.all(requests);
+        setSignedPhotoUrls(signedUrls.filter(Boolean) as string[]);
+      } catch {
+        console.error('Error while trying to get patient photo presigned urls');
+      } finally {
+        setPhotoUrlsLoading(false);
+      }
+    }
+
+    if (patientConditionPhotos?.length > 0) {
+      void getPresignedPhotoUrls();
+    } else {
+      setSignedPhotoUrls([]);
+    }
+  }, [getAccessTokenSilently, patientConditionPhotos]);
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <ImageCarousel
+        imagesObj={photoCarouselObjects}
+        imageIndex={zoomedIdx}
+        setImageIndex={setZoomedIdx}
+        open={photoZoom}
+        setOpen={setPhotoZoom}
+      />
+
+      <ReasonForVisitFieldReadOnly />
+
+      {(isAppointmentLoading || photoUrlsLoading || photoCarouselObjects?.length > 0) && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Typography variant="subtitle2" color={theme.palette.primary.dark}>
+              Photo of patient’s condition
+            </Typography>
+            <Typography variant="subtitle2" color={theme.palette.text.secondary}>
+              Click to zoom
+            </Typography>
+          </Box>
+          {isAppointmentLoading ? (
+            <Box sx={{ width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridGap: 16 }}>
+              {[1, 2].map((item) => (
+                <Box key={item} sx={{ aspectRatio: '1/1' }}>
+                  <Skeleton variant="rounded" height="100%" />
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <Box
+              sx={{ width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridGap: 16 }}
+              data-testid={dataTestIds.telemedEhrFlow.hpiPatientConditionPhotos}
+            >
+              {photoCarouselObjects.map((photoObj, ind) => (
+                <Box key={photoObj.url} display="inline-block" sx={{ cursor: 'pointer' }}>
+                  <img
+                    onClick={() => {
+                      setPhotoZoom(true);
+                      setZoomedIdx(ind);
+                    }}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }}
+                    src={photoObj.url}
+                    alt={photoObj.alt}
+                    loading="lazy"
+                  />
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Box>
+      )}
+
+      <AiHpiSuggestion />
+    </Box>
+  );
+};

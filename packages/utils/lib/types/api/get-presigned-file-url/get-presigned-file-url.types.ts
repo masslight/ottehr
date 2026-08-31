@@ -7,7 +7,7 @@ import {
   PHOTO_ID_FRONT_ID,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
-} from '../../data';
+} from '../../data/paperwork/paperwork.constants';
 
 export interface GetPresignedFileURLInput {
   appointmentID: string;
@@ -19,7 +19,8 @@ export interface GetPresignedFileURLInput {
     | typeof INSURANCE_CARD_FRONT_2_ID
     | typeof INSURANCE_CARD_BACK_2_ID
     | typeof SCHOOL_WORK_NOTE_SCHOOL_ID
-    | typeof SCHOOL_WORK_NOTE_WORK_ID;
+    | typeof SCHOOL_WORK_NOTE_WORK_ID
+    | `patient-photo${string}`;
   fileFormat: 'pdf' | 'jpg' | 'jpeg' | 'png';
 }
 

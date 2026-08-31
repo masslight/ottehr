@@ -1,11 +1,13 @@
 import { DateTime } from 'luxon';
-import { PatientInfo, TelemedAppointmentInformationIntake, yupDateTransform } from 'utils';
+import { TelemedAppointmentInformationIntake } from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { yupDateTransform } from 'utils/lib/utils/date';
 
 export const findActiveAppointment = (
   appointments?: TelemedAppointmentInformationIntake[]
 ): TelemedAppointmentInformationIntake | undefined => {
   return appointments?.reduce<TelemedAppointmentInformationIntake | undefined>?.((latest, current) => {
-    if (!['ready', 'pre-video', 'on-video'].includes(current.telemedStatus)) {
+    if (!['arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(current.status)) {
       return latest;
     }
     if (!latest?.start || !current.start) {

@@ -1,0 +1,32 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { ChargeItemDefinition } from 'fhir/r4b';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient, RCM_TAG_SYSTEM } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { validateRequestParameters } from './validateRequestParameters';
+
+let m2mToken: string;
+export const index = wrapHandler('list-charge-masters', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const { secrets } = validateRequestParameters(input);
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+  const results = await oystehr.fhir.search<ChargeItemDefinition>({
+    resourceType: 'ChargeItemDefinition',
+    params: [
+      {
+        name: '_tag',
+        value: `${RCM_TAG_SYSTEM}|charge-master`,
+      },
+    ],
+  });
+
+  const chargeMasters = results.unbundle();
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(chargeMasters),
+  };
+});

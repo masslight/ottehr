@@ -1,23 +1,30 @@
 import * as defaults from '@defaultTheme/index';
 import { createTheme } from '@mui/material';
 import * as customTheme from '@theme/index';
+import _ from 'lodash';
 import { FC } from 'react';
-import i18n from './lib/i18n';
-import { IntakeThemeProviderBase } from './providers';
-import { PropsWithChildren } from './types';
+import { IntakeThemeProviderBase } from 'src/providers/IntakeThemeProviderBase';
+import { PropsWithChildren } from 'src/types/props-with-children';
+import { i18n } from 'utils/lib/frontend';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 
 const { palette: p } = createTheme();
 
-export const otherColors = { ...defaults.otherColors, ...customTheme.otherColors };
+export const otherColors = {
+  ...defaults.otherColors,
+  ...customTheme.otherColors,
+  ...(BRANDING_CONFIG.intake.theme?.otherColors ?? {}),
+};
+
+const mergedPalette = _.merge({}, defaults.palette, customTheme.palette, BRANDING_CONFIG.intake.theme?.palette ?? {});
 
 export const palette = {
-  ...defaults.palette,
-  ...customTheme.palette,
+  ...mergedPalette,
   tertiary: p.augmentColor({
-    color: { main: customTheme.palette?.tertiary?.main ?? defaults.palette.tertiary.main },
+    color: { main: mergedPalette.tertiary?.main ?? defaults.palette.tertiary.main },
   }),
   destructive: p.augmentColor({
-    color: { main: customTheme.palette?.destructive?.main ?? defaults.palette.destructive.main },
+    color: { main: mergedPalette.destructive?.main ?? defaults.palette.destructive.main },
   }),
 };
 

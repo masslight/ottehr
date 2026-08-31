@@ -1,133 +1,158 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Identifier, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getStripeCustomerIdFromAccount, getTaskResource } from 'utils/lib/fhir/helpers';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { PostPatientPaymentInput } from 'utils/lib/types/api/patient-payment-types';
+import { TaskIndicator } from 'utils/lib/types/common';
+import { TIMEZONES } from 'utils/lib/types/constants';
 import {
   FHIR_RESOURCE_NOT_FOUND,
   GENERIC_STRIPE_PAYMENT_ERROR,
-  getSecret,
-  getStripeCustomerIdFromAccount,
   INVALID_INPUT_ERROR,
-  isValidUUID,
   MISCONFIGURED_ENVIRONMENT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
   parseStripeError,
-  PAYMENT_METHOD_EXTENSION_URL,
-  PostPatientPaymentInput,
-  Secrets,
-  SecretsKeys,
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
-  TIMEZONES,
-} from 'utils';
+} from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { getUser } from '../../../shared/auth';
+import { makeBusinessIdentifierForCandidPayment } from '../../../shared/candid';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { lambdaResponse } from '../../../shared/lambda';
+import { wrapHandler } from '../../../shared/sentry';
 import {
-  createOystehrClient,
-  getAuth0Token,
   getStripeClient,
-  getUser,
-  lambdaResponse,
-  makeBusinessIdentifierForCandidPayment,
   makeBusinessIdentifierForStripePayment,
-  performCandidPreEncounterSync,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
-import { createPatientPaymentReceiptPdf } from '../../../shared/pdf/patient-payment-receipt-pdf';
+  stripeEncounterMetadata,
+} from '../../../shared/stripeIntegration';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'post-patient-payment';
 
+// Dedup identifier for patient-payment-post calls: value is the caller's idempotency key.
+// A replayed request (same key) resolves to the already-written PaymentNotice instead of
+// creating a duplicate — see finalize-payment, which does the equivalent keyed on the Stripe
+// PaymentIntent id.
+export const PATIENT_PAYMENT_IDEMPOTENCY_KEY_SYSTEM = ottehrIdentifierSystem('patient-payment-idempotency-key');
+
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const authorization = input.headers.Authorization;
-    const secrets = input.secrets;
-    if (!authorization) {
-      console.log('authorization header not found');
-      throw NOT_AUTHORIZED;
-    }
-    const user = await getUser(authorization.replace('Bearer ', ''), secrets);
-
-    const userProfile = user.profile;
-
-    if (!userProfile) {
-      throw NOT_AUTHORIZED;
-    }
-
-    console.group('validateRequestParameters');
-    let validatedParameters: ReturnType<typeof validateRequestParameters>;
-    try {
-      validatedParameters = validateRequestParameters(input);
-      console.log(JSON.stringify(validatedParameters, null, 4));
-    } catch (error: any) {
-      console.log(error);
-      return lambdaResponse(400, { message: error.message });
-    }
-
-    const requiredSecrets = validateEnvironmentParameters(
-      input,
-      validatedParameters.paymentDetails.paymentMethod === 'card'
-    );
-    const { patientId, encounterId } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-
-    if (!oystehrM2MClientToken) {
-      console.log('getting m2m token for service calls');
-      oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
-
-    const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
-
-    const effectInput: ComplexValidationOutput = await complexValidation(
-      {
-        ...validatedParameters,
-        ...requiredSecrets,
-        userProfile,
-      },
-      oystehrClient
-    );
-
-    const { notice, paymentIntent } = await performEffect(effectInput, oystehrClient, requiredSecrets);
-    const receiptPdfInfo = await createPatientPaymentReceiptPdf(
-      encounterId,
-      patientId,
-      secrets,
-      oystehrM2MClientToken,
-      paymentIntent
-    );
-
-    return lambdaResponse(200, { notice, patientId, encounterId, receiptInfo: receiptPdfInfo });
-  } catch (error: any) {
-    console.error(error);
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('patient-payments-post', error, ENVIRONMENT);
+  const authorization = input.headers.Authorization;
+  const secrets = input.secrets;
+  if (!authorization) {
+    console.log('authorization header not found');
+    throw NOT_AUTHORIZED;
   }
+  const user = await getUser(authorization.replace('Bearer ', ''), secrets);
+
+  const userProfile = user.profile;
+
+  if (!userProfile) {
+    throw NOT_AUTHORIZED;
+  }
+
+  console.group('patient-payment-post validateRequestParameters');
+  let validatedParameters: ReturnType<typeof validateRequestParameters>;
+  try {
+    validatedParameters = validateRequestParameters(input);
+    console.log(JSON.stringify(validatedParameters, null, 4));
+  } catch (error: any) {
+    console.log(error);
+    return lambdaResponse(400, { message: error.message });
+  }
+
+  const requiredSecrets = validateEnvironmentParameters(
+    input,
+    validatedParameters.paymentDetails.paymentMethod === 'card'
+  );
+  const { patientId, encounterId } = validatedParameters;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+
+  if (!oystehrM2MClientToken) {
+    console.log('getting m2m token for service calls');
+    oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
+  } else {
+    console.log('already have a token, no need to update');
+  }
+
+  const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
+
+  const effectInput: ComplexValidationOutput = await complexValidation(
+    {
+      ...validatedParameters,
+      ...requiredSecrets,
+      userProfile,
+    },
+    oystehrClient
+  );
+
+  const { notice } = await performEffect(effectInput, oystehrClient, requiredSecrets);
+
+  return lambdaResponse(200, { notice, patientId, encounterId });
 });
+
+const findPaymentNoticeByIdempotencyKey = async (
+  oystehrClient: Oystehr,
+  encounterId: string,
+  idempotencyKey: string
+): Promise<PaymentNotice | undefined> => {
+  const paymentNotices = (
+    await oystehrClient.fhir.search<PaymentNotice>({
+      resourceType: 'PaymentNotice',
+      params: [
+        { name: 'request', value: `Encounter/${encounterId}` },
+        { name: 'identifier', value: `${PATIENT_PAYMENT_IDEMPOTENCY_KEY_SYSTEM}|${idempotencyKey}` },
+      ],
+    })
+  ).unbundle();
+
+  return paymentNotices[0];
+};
 
 const performEffect = async (
   input: ComplexValidationOutput,
   oystehrClient: Oystehr,
   requiredSecrets: RequiredSecrets
 ): Promise<{ notice: PaymentNotice; paymentIntent?: Stripe.PaymentIntent }> => {
-  const { encounterId, paymentDetails, organizationId, userProfile } = input;
-  const { paymentMethod, amountInCents, description } = paymentDetails;
+  const { encounterId, patientId, paymentDetails, organizationId, userProfile, stripeAccount } = input;
+  const { paymentMethod, amountInCents, description, idempotencyKey } = paymentDetails;
   const dateTimeIso = DateTime.now().toISO() || '';
   let paymentIntent: Stripe.Response<Stripe.PaymentIntent> | undefined;
   console.log('dateTimeIso', dateTimeIso);
+
+  // Idempotency guard: if this logical payment was already recorded (e.g. the client re-sent the
+  // request after a response was lost on a flaky connection), return the existing PaymentNotice
+  // instead of writing a duplicate — and, for card payments, before charging Stripe again.
+  if (idempotencyKey) {
+    const existingNotice = await findPaymentNoticeByIdempotencyKey(oystehrClient, encounterId, idempotencyKey);
+    if (existingNotice) {
+      console.log('idempotent replay detected; returning existing PaymentNotice', existingNotice.id);
+      // Guard against a first attempt that wrote the notice but died before scheduling the Task.
+      await ensurePaymentTaskForNotice(oystehrClient, existingNotice, encounterId);
+      return { notice: existingNotice };
+    }
+  }
+
   const paymentNoticeInput: PaymentNoticeInput = {
     encounterId,
     paymentDetails,
     submitterRef: { reference: userProfile },
     dateTimeIso,
     recipientId: organizationId,
+    idempotencyKey,
   };
 
   if (input.cardInput && paymentMethod === 'card') {
@@ -141,16 +166,22 @@ const performEffect = async (
       payment_method: paymentMethodId,
       description: description || `Payment for encounter ${encounterId}`,
       confirm: true,
-      metadata: {
-        oystehr_encounter_id: encounterId,
-      },
+      metadata: stripeEncounterMetadata({
+        encounterId,
+        patientId,
+      }),
       automatic_payment_methods: {
         enabled: true,
         allow_redirects: 'never',
       },
     };
     try {
-      paymentIntent = await stripeClient.paymentIntents.create(paymentIntentInput);
+      paymentIntent = await stripeClient.paymentIntents.create(paymentIntentInput, {
+        stripeAccount, // Connected account ID if any
+        // Reusing the client's idempotency key means a retried request returns the same
+        // PaymentIntent rather than charging the card a second time.
+        ...(idempotencyKey ? { idempotencyKey } : {}),
+      });
     } catch (e) {
       throw parseStripeError(e);
     }
@@ -165,23 +196,66 @@ const performEffect = async (
     // here's where we might set a candidPayment id once candid stuff has been added
   }
 
-  try {
-    await performCandidPreEncounterSync({
-      encounterId,
-      oystehr: oystehrClient,
-      secrets: requiredSecrets.secrets,
-      amountCents: amountInCents,
-    });
-  } catch (error) {
-    console.error(`Error during Candid pre-encounter sync: ${error}`);
-    captureException(error);
-    // We are eating this error to allow the payment to still be recorded even though the Candid sync failed.
-  }
-
+  // Write Payment Notice. The conditional create closes the narrow window where two requests
+  // race past the search guard above: only one PaymentNotice is written for a given idempotency
+  // key; a concurrent duplicate resolves to that same resource.
   const noticeToWrite = makePaymentNotice(paymentNoticeInput);
+  const paymentNotice = await oystehrClient.fhir.create<PaymentNotice>(
+    noticeToWrite,
+    idempotencyKey
+      ? {
+          // Scope the match to this encounter, mirroring the search guard: the idempotency key is
+          // client-supplied, so without the encounter constraint a reused/colliding key could match
+          // a PaymentNotice from a different encounter and return the wrong resource.
+          ifNoneExist: [
+            { name: 'request', value: `Encounter/${encounterId}` },
+            { name: 'identifier', value: `${PATIENT_PAYMENT_IDEMPOTENCY_KEY_SYSTEM}|${idempotencyKey}` },
+          ],
+        }
+      : undefined
+  );
 
-  const paymentNotice = await oystehrClient.fhir.create<PaymentNotice>(noticeToWrite);
+  // Kick off the subscription that performs Candid sync and creates the receipt PDF. Done
+  // idempotently (and again on replay above) so a first attempt that wrote the PaymentNotice but
+  // died before this point still gets its downstream work scheduled on retry.
+  await ensurePaymentTaskForNotice(oystehrClient, paymentNotice, encounterId);
+
   return { notice: paymentNotice, paymentIntent };
+};
+
+// Creates the Candid-sync / receipt Task for a PaymentNotice, unless one already exists. Matches on
+// the Task's focus + code via a conditional create, so it is safe to call on an idempotent replay:
+// the subscription only marks the Task completed (never deletes it), so a finished Task still blocks
+// a duplicate, while a missing Task (previous attempt died before creating it) is (re)created.
+const ensurePaymentTaskForNotice = async (
+  oystehrClient: Oystehr,
+  paymentNotice: PaymentNotice,
+  encounterId: string
+): Promise<void> => {
+  if (!paymentNotice.id) {
+    throw new Error('PaymentNotice ID is required to create task');
+  }
+  const { system, code } = TaskIndicator.patientPaymentCandidSyncAndReceipt;
+  const amountInDollars = paymentNotice.amount?.value ?? 0;
+
+  const paymentTaskResource = getTaskResource(
+    TaskIndicator.patientPaymentCandidSyncAndReceipt,
+    `Payment notice for $${amountInDollars.toFixed(2)}`,
+    paymentNotice.id,
+    encounterId
+  );
+  // Update the task focus to reference PaymentNotice instead of Appointment
+  paymentTaskResource.focus = {
+    type: 'PaymentNotice',
+    reference: `PaymentNotice/${paymentNotice.id}`,
+  };
+  const taskCreationResult = await oystehrClient.fhir.create(paymentTaskResource, {
+    ifNoneExist: [
+      { name: 'focus', value: `PaymentNotice/${paymentNotice.id}` },
+      { name: 'code', value: `${system}|${code}` },
+    ],
+  });
+  console.log('Task creation result:', taskCreationResult);
 };
 
 const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput => {
@@ -193,7 +267,7 @@ const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput 
     throw MISSING_REQUEST_BODY;
   }
 
-  const { patientId, encounterId, paymentDetails } = JSON.parse(input.body);
+  const { patientId, encounterId, paymentDetails } = safeJsonParse(input.body);
 
   const missingParams: string[] = [];
 
@@ -225,8 +299,16 @@ const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput 
   }
 
   const { paymentMethod, amountInCents, paymentMethodId, description } = paymentDetails;
-  if (paymentMethod !== 'card' && paymentMethod !== 'cash' && paymentMethod !== 'check') {
-    throw INVALID_INPUT_ERROR('"paymentDetails.paymentMethod" must be "card", "cash", or "check".');
+  if (
+    paymentMethod !== 'card' &&
+    paymentMethod !== 'card-reader' &&
+    paymentMethod !== 'external-card-reader' &&
+    paymentMethod !== 'cash' &&
+    paymentMethod !== 'check'
+  ) {
+    throw INVALID_INPUT_ERROR(
+      '"paymentDetails.paymentMethod" must be "card", "card-reader", "external-card-reader", "cash", or "check".'
+    );
   }
   if (paymentMethod === 'card' && !paymentMethodId) {
     throw INVALID_INPUT_ERROR('"paymentDetails.paymentMethodId" is required for card payments.');
@@ -237,6 +319,10 @@ const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput 
   }
   if (description && typeof description !== 'string') {
     throw INVALID_INPUT_ERROR('"paymentDetails.description" must be a string if provided.');
+  }
+  const { idempotencyKey } = paymentDetails;
+  if (idempotencyKey !== undefined && (typeof idempotencyKey !== 'string' || idempotencyKey.trim() === '')) {
+    throw INVALID_INPUT_ERROR('"paymentDetails.idempotencyKey" must be a non-empty string if provided.');
   }
 
   return {
@@ -288,6 +374,7 @@ interface ComplexValidationOutput extends ComplexValidationInput {
   cardInput?: {
     stripeCustomerId: string;
   };
+  stripeAccount?: string;
 }
 const complexValidation = async (input: ComplexValidationInput, oystehr: Oystehr): Promise<ComplexValidationOutput> => {
   if (input.paymentDetails.paymentMethod === 'card') {
@@ -295,11 +382,14 @@ const complexValidation = async (input: ComplexValidationInput, oystehr: Oystehr
     if (!patientAccount.account) {
       throw FHIR_RESOURCE_NOT_FOUND('Account');
     }
-    const stripeCustomerId = getStripeCustomerIdFromAccount(patientAccount.account);
+
+    const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId: input.encounterId }, oystehr);
+
+    const stripeCustomerId = getStripeCustomerIdFromAccount(patientAccount.account, stripeAccount);
     if (!stripeCustomerId) {
       throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
     }
-    return { cardInput: { stripeCustomerId }, ...input };
+    return { cardInput: { stripeCustomerId }, stripeAccount, ...input };
   }
   return { ...input };
 };
@@ -310,6 +400,7 @@ interface PaymentNoticeInput extends Omit<PostPatientPaymentInput, 'patientId'> 
   candidPaymentId?: string;
   recipientId: string;
   dateTimeIso: string;
+  idempotencyKey?: string;
 }
 
 const makePaymentNotice = (input: PaymentNoticeInput): PaymentNotice => {
@@ -321,16 +412,22 @@ const makePaymentNotice = (input: PaymentNoticeInput): PaymentNotice => {
     candidPaymentId,
     dateTimeIso,
     recipientId,
+    idempotencyKey,
   } = input;
 
   const { paymentMethod, amountInCents } = paymentDetails;
 
-  let identifier: Identifier | undefined;
+  const identifiers: Identifier[] = [];
 
   if (paymentMethod === 'card' && stripePaymentIntentId) {
-    identifier = makeBusinessIdentifierForStripePayment(stripePaymentIntentId);
+    identifiers.push(makeBusinessIdentifierForStripePayment(stripePaymentIntentId));
   } else if (candidPaymentId) {
-    identifier = makeBusinessIdentifierForCandidPayment(candidPaymentId);
+    identifiers.push(makeBusinessIdentifierForCandidPayment(candidPaymentId));
+  }
+
+  // The idempotency key doubles as the dedup identifier the conditional create matches on.
+  if (idempotencyKey) {
+    identifiers.push({ system: PATIENT_PAYMENT_IDEMPOTENCY_KEY_SYSTEM, value: idempotencyKey });
   }
 
   // the created timestamp is in UTC and the exact date in any timezone can always be derived from there
@@ -388,8 +485,8 @@ const makePaymentNotice = (input: PaymentNoticeInput): PaymentNotice => {
     },
     recipient: { reference: `Organization/${recipientId}` },
   };
-  if (identifier) {
-    notice.identifier = [identifier];
+  if (identifiers.length > 0) {
+    notice.identifier = identifiers;
   }
   return notice;
 };

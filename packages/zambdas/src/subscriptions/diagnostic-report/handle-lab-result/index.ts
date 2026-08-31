@@ -1,12 +1,27 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DiagnosticReport, Task } from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import { getSecret, LAB_ORDER_TASK, Secrets, SecretsKeys } from 'utils';
-import { diagnosticReportIsUnsolicited } from '../../../ehr/shared/labs';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
-import { createExternalLabResultPDF } from '../../../shared/pdf/labs-results-form-pdf';
-import { getCodeForNewTask, getStatusForNewTask } from './helpers';
+import { DiagnosticReport, Task, TaskInput as FhirTaskInput } from 'fhir/r4b';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getTestNameOrCodeFromDr } from 'utils/lib/helpers/labs/helpers';
+import { Secrets } from 'utils/lib/secrets';
+import { NonNormalResult } from 'utils/lib/types/api/lab';
+import { LAB_DR_TYPE_TAG, LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
+import { TaskAlertCode } from 'utils/lib/types/data/tasks/types';
+import { getContainedPatientFromDiagnosticReport } from '../../../ehr/lab/shared/helpers';
+import { diagnosticReportSpecificResultType, nonNonNormalTagsContained } from '../../../ehr/lab/shared/labs';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { addDocsToLabList, getLabListResource } from '../../../shared/pdf/lab-pdf-utils';
+import {
+  createExternalLabResultPDF,
+  createExternalLabResultPDFBasedOnDr,
+} from '../../../shared/pdf/labs-results-form-pdf';
+import { wrapHandler } from '../../../shared/sentry';
+import { createTask, TaskInput } from '../../../shared/tasks';
+import { ZambdaInput } from '../../../shared/types/common';
+import { fetchRelatedResources, getCodeForNewTask } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'handle-lab-result';
@@ -22,112 +37,246 @@ let oystehrToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input, undefined, 2)}`);
 
-  try {
-    const { diagnosticReport, secrets } = validateRequestParameters(input);
+  const { diagnosticReport, secrets } = validateRequestParameters(input);
 
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const isUnsolicited = diagnosticReportIsUnsolicited(diagnosticReport);
-    const serviceRequestID = diagnosticReport?.basedOn
-      ?.find((temp) => temp.reference?.startsWith('ServiceRequest/'))
-      ?.reference?.split('/')[1];
-
-    console.log('isUnsolicited:', isUnsolicited);
-    console.log('diagnosticReport: ', diagnosticReport.id);
-    console.log('serviceRequestID:', serviceRequestID);
-
-    if (!serviceRequestID && !isUnsolicited) {
-      throw new Error('ServiceRequest id is not found');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
-    const requests: BatchInputRequest<Task>[] = [];
-
-    // See if the diagnosticReport has any existing tasks associated in the
-    // if there were existing in-progress or ready tasks, then those should be set to 'cancelled' (two l's)
-    const existingTasks = (
-      await oystehr.fhir.search<Task>({
-        resourceType: 'Task',
-        params: [
-          { name: 'based-on', value: `DiagnosticReport/${diagnosticReport.id}` },
-          { name: 'code:not', value: LAB_ORDER_TASK.code.preSubmission },
-          { name: 'status', value: 'ready,in-progress' },
-        ],
-      })
-    ).unbundle();
-
-    existingTasks.forEach((task) => {
-      if (task.id)
-        requests.push({
-          url: `/Task/${task.id}`,
-          method: 'PATCH',
-          operations: [
-            {
-              op: 'replace',
-              path: '/status',
-              value: diagnosticReport.status === 'cancelled' ? 'rejected' : 'cancelled',
-            },
-          ],
-        });
-    });
-
-    // make the new task
-    const newTask: Task = {
-      resourceType: 'Task',
-      authoredOn: diagnosticReport.effectiveDateTime ?? DateTime.now().toUTC().toISO(), // the effective date is also UTC
-      intent: 'order',
-      basedOn: [
-        {
-          type: 'DiagnosticReport',
-          reference: `DiagnosticReport/${diagnosticReport.id}`,
-        },
-      ],
-      status: getStatusForNewTask(diagnosticReport.status),
-      code: getCodeForNewTask(diagnosticReport),
-    };
-
-    requests.push({
-      method: 'POST',
-      url: '/Task',
-      resource: newTask,
-    });
-
-    const oystehrResponse = await oystehr.fhir.transaction<Task>({ requests });
-
-    const response: {
-      [key: string]: Task[];
-    } = {
-      updatedTasks: [],
-      createdTasks: [],
-    };
-
-    oystehrResponse.entry?.forEach((ent) => {
-      if (ent.response?.outcome?.id === 'ok' && ent.resource) response.updatedTasks.push(ent.resource);
-      else if (ent.response?.outcome?.id === 'created' && ent.resource) response.createdTasks.push(ent.resource);
-    });
-
-    // unsolicited result pdfs will be created after matching to a patient
-    if (!isUnsolicited && serviceRequestID) {
-      await createExternalLabResultPDF(oystehr, serviceRequestID, diagnosticReport, false, secrets, oystehrToken);
-    } else {
-      console.log('skipping pdf creation: ', isUnsolicited, serviceRequestID);
-    }
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('handle-lab-result', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
+  if (!oystehrToken) {
+    console.log('getting token');
+    oystehrToken = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
   }
+
+  const specificDrTypeFromTag = diagnosticReportSpecificResultType(diagnosticReport);
+  const isUnsolicited = specificDrTypeFromTag === LAB_DR_TYPE_TAG.code.unsolicited;
+  const isUnsolicitedAndMatched = isUnsolicited && !!diagnosticReport.subject?.reference?.startsWith('Patient/');
+
+  const serviceRequestId = diagnosticReport?.basedOn
+    ?.find((temp) => temp.reference?.startsWith('ServiceRequest/'))
+    ?.reference?.split('/')[1];
+
+  console.log('specificDrTypeFromTag', specificDrTypeFromTag);
+  console.log('isUnsolicitedAndMatched:', isUnsolicitedAndMatched);
+  console.log('isUnsolicited', isUnsolicited);
+  console.log('diagnosticReport: ', diagnosticReport.id);
+  console.log('serviceRequestId:', serviceRequestId);
+
+  if (!serviceRequestId && specificDrTypeFromTag === undefined) {
+    throw new Error('ServiceRequest id is not found');
+  }
+
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
+  const { tasks, patient, labOrg, encounter, attachments, location } = await fetchRelatedResources(
+    diagnosticReport,
+    { drType: specificDrTypeFromTag, isUnsolicited, isUnsolicitedAndMatched },
+    oystehr
+  );
+
+  const requests: BatchInputRequest<Task>[] = [];
+
+  // See if the diagnosticReport has any existing tasks associated in the
+  // if there were existing in-progress or ready tasks, then those should be set to 'cancelled' (two l's)
+  tasks.forEach((task) => {
+    if (
+      ['ready', 'in-progress'].includes(task.status) &&
+      getCoding(task.code, LAB_ORDER_TASK.system)?.code != LAB_ORDER_TASK.code.preSubmission
+    ) {
+      requests.push({
+        url: `/Task/${task.id}`,
+        method: 'PATCH',
+        operations: [
+          {
+            op: 'replace',
+            path: '/status',
+            value: diagnosticReport.status === 'cancelled' ? 'rejected' : 'cancelled',
+          },
+        ],
+      });
+    }
+  });
+
+  const preSubmissionTask = tasks.find(
+    (task) => getCoding(task.code, LAB_ORDER_TASK.system)?.code == LAB_ORDER_TASK.code.preSubmission
+  );
+
+  const appointmentRef = encounter?.appointment?.[0].reference;
+  const appointmentId = appointmentRef?.startsWith('Appointment/')
+    ? appointmentRef?.replace('Appointment/', '')
+    : undefined;
+
+  const testName = getTestNameOrCodeFromDr(diagnosticReport);
+  const labName = labOrg?.name ?? 'missing';
+  const patientResource = patient ? patient : getContainedPatientFromDiagnosticReport(diagnosticReport);
+  const patientName = patientResource ? getFullestAvailableName(patientResource) : 'missing';
+
+  const taskInput: TaskInput[] | FhirTaskInput[] | undefined = preSubmissionTask?.input
+    ? preSubmissionTask.input
+    : [
+        {
+          type: LAB_ORDER_TASK.input.testName,
+          valueString: testName,
+        },
+        {
+          type: LAB_ORDER_TASK.input.labName,
+          valueString: labName,
+        },
+        {
+          type: LAB_ORDER_TASK.input.receivedDate,
+          valueString: diagnosticReport.effectiveDateTime,
+        },
+        {
+          type: LAB_ORDER_TASK.input.patientName,
+          valueString: patientName,
+        },
+        {
+          type: LAB_ORDER_TASK.input.appointmentId,
+          valueString: appointmentId ? appointmentId : undefined,
+        },
+      ];
+
+  if (specificDrTypeFromTag && taskInput) {
+    taskInput.push({
+      type: LAB_ORDER_TASK.input.drTag,
+      valueString: specificDrTypeFromTag,
+    });
+  }
+
+  const nonNormalResult = nonNonNormalTagsContained(diagnosticReport);
+  if (nonNormalResult) console.log('nonNormalResult:', nonNormalResult);
+  if (nonNormalResult?.includes(NonNormalResult.Abnormal)) {
+    taskInput.push({
+      type: LAB_ORDER_TASK.input.alert,
+      valueString: TaskAlertCode.abnormalLabResult,
+    });
+  }
+
+  // Don't show "preliminary" result task on the tasks board
+  // we do need to show tasks for if the preliminary result is unsolicited otherwise theres no way for users to see it
+  const showTaskOnBoard = diagnosticReport.status !== 'preliminary' || isUnsolicited;
+  console.log('showTaskOnBoard', showTaskOnBoard);
+
+  const code = getCodeForNewTask(diagnosticReport, isUnsolicited, isUnsolicitedAndMatched);
+
+  // copied and adjusted from /apps/ehr/src/features/visits/in-person/hooks/useTasks.ts:fhirTaskToTask
+  let title = '';
+  const fullTestName = testName + (labName ? ' / ' + labName : '');
+  const labTypeString = specificDrTypeFromTag || '';
+
+  if (
+    serviceRequestId &&
+    (code === LAB_ORDER_TASK.code.reviewFinalResult ||
+      code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
+      code === LAB_ORDER_TASK.code.reviewPreliminaryResult)
+  ) {
+    title = `Review results for “${fullTestName}” for ${patientName}`;
+  }
+  if (code === LAB_ORDER_TASK.code.matchUnsolicitedResult) {
+    title = `Match unsolicited test results${fullTestName ? ` for ${fullTestName}` : ''}${
+      patientName ? ` for ${patientName}` : ''
+    }`;
+  }
+  if (
+    code === LAB_ORDER_TASK.code.reviewFinalResult ||
+    code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
+    code === LAB_ORDER_TASK.code.reviewPreliminaryResult
+  ) {
+    if (labTypeString === LabType.unsolicited && !serviceRequestId) {
+      title = `Review unsolicited test results for “${fullTestName}” for ${patientName}`;
+    }
+    if (labTypeString === LabType.reflex) {
+      title = `Review reflex results for “${fullTestName}” for ${patientName}`;
+    }
+  }
+  if (code === LAB_ORDER_TASK.code.reviewCancelledResult) {
+    title = `Review cancelled results for “${fullTestName}” for ${patientName}`;
+  }
+
+  const newTask = createTask(
+    {
+      category: LAB_ORDER_TASK.category,
+      title,
+      code: {
+        system: LAB_ORDER_TASK.system,
+        code,
+      },
+      encounterId: encounter?.id ?? '', // only unsolicited results might not have an encounter (if not matched to an existing order)
+      basedOn: [
+        `DiagnosticReport/${diagnosticReport.id}`,
+        ...(serviceRequestId ? [`ServiceRequest/${serviceRequestId}`] : []),
+      ],
+      location: location && location.id ? { id: location.id, name: location.name } : undefined,
+      input: taskInput,
+    },
+    showTaskOnBoard
+  );
+  if (diagnosticReport.status === 'cancelled') {
+    newTask.status = 'completed';
+  }
+
+  requests.push({
+    method: 'POST',
+    url: '/Task',
+    resource: newTask,
+  });
+  console.log('creating a new task with code: ', JSON.stringify(newTask.code));
+
+  const oystehrResponse = await oystehr.fhir.transaction<Task>({ requests });
+
+  const response: {
+    [key: string]: Task[];
+  } = {
+    updatedTasks: [],
+    createdTasks: [],
+  };
+
+  oystehrResponse.entry?.forEach((ent) => {
+    if (ent.response?.outcome?.id === 'ok' && ent.resource) response.updatedTasks.push(ent.resource);
+    else if (ent.response?.outcome?.id === 'created' && ent.resource) response.createdTasks.push(ent.resource);
+  });
+
+  if (serviceRequestId) {
+    await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, false, secrets, oystehrToken);
+  } else if (specificDrTypeFromTag !== undefined) {
+    // unsolicited result pdfs will be created after matching to a patient
+    if (isUnsolicitedAndMatched || specificDrTypeFromTag === LabType.reflex) {
+      if (!diagnosticReport.id) throw Error('unable to parse id from diagnostic report');
+      console.log(`creating pdf for ${specificDrTypeFromTag} result`);
+      await createExternalLabResultPDFBasedOnDr(
+        oystehr,
+        specificDrTypeFromTag,
+        diagnosticReport.id,
+        false,
+        secrets,
+        oystehrToken
+      );
+    } else {
+      console.log(
+        'skipping pdf creating for unsolicited result since it is not matched',
+        diagnosticReport.id,
+        isUnsolicited,
+        isUnsolicitedAndMatched,
+        specificDrTypeFromTag
+      );
+    }
+  } else {
+    console.log('skipping pdf creation'); // shouldn't reach this tbh
+  }
+
+  // we should add attachments to the patient lab folder for any solicited result, or matched unsolicited results
+  if (attachments && patient && (isUnsolicitedAndMatched || !isUnsolicited)) {
+    console.log('adding attachments to patient lab folder');
+    const attachmentDocRefReferences = attachments.map((attachment) => `DocumentReference/${attachment.id}`);
+    console.log(
+      'These are the attachment DocumentReferences we might add to Patient list:',
+      JSON.stringify(attachmentDocRefReferences)
+    );
+    const labList = await getLabListResource(oystehr, patient.id!, secrets);
+    if (labList) {
+      await addDocsToLabList(oystehr, labList, attachmentDocRefReferences, secrets);
+    }
+  }
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });

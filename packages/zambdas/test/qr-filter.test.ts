@@ -1,6 +1,9 @@
-import { getQuestionnaireItemsAndProgress, IntakeQuestionnaireItem, recursiveGroupTransform } from 'utils';
-import { vi } from 'vitest';
-import { createOystehrClient, getAuth0Token } from '../src/shared';
+import { getQuestionnaireItemsAndProgress } from 'utils/lib/helpers/paperwork/paperwork';
+import { recursiveGroupTransform } from 'utils/lib/helpers/paperwork/validation';
+import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { expect, vi } from 'vitest';
+import { getAuth0Token } from '../src/shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../src/shared/helpers';
 import QRData from './data/questionnaire-responses.json';
 import { SECRETS as S } from './data/secrets';
 
@@ -13,20 +16,18 @@ describe.skip('qr recursive filter validation tests', () => {
   vi.setConfig({ testTimeout: 100_000 });
 
   beforeAll(async () => {
-    const { FHIR_API, AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_SECRET, IN_PERSON_PREVISIT_QUESTIONNAIRE } =
-      S;
+    const { FHIR_API, AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } = S;
 
     const SECRETS = {
       FHIR_API: FHIR_API,
       AUTH0_ENDPOINT: AUTH0_ENDPOINT,
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-      AUTH0_CLIENT: AUTH0_CLIENT,
-      AUTH0_SECRET: AUTH0_SECRET,
-      IN_PERSON_PREVISIT_QUESTIONNAIRE,
+      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
+      AUTH0_SECRET: AUTH0_SECRET_TESTS,
     };
 
     const token = await getAuth0Token(SECRETS);
-    const oystehr = createOystehrClient(token, SECRETS);
+    const oystehr = createClinicalOystehrClient(token, SECRETS);
 
     // get paperwork questions and validation schema
     const maybeData = await getQuestionnaireItemsAndProgress('some_questionnaire_response_id', oystehr);

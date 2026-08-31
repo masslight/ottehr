@@ -11,9 +11,10 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getNursingOrderDetailsUrl } from 'src/features/css-module/routing/helpers';
-import { NursingOrdersSearchBy } from 'utils';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { getNursingOrderDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
+import { NursingOrder, NursingOrdersSearchBy } from 'utils/lib/types/data/orders/types';
 import { NursingOrdersTableRow } from './NursingOrdersTableRow';
 import { useGetNursingOrders } from './useNursingOrders';
 
@@ -25,26 +26,38 @@ type NursingOrdersTableProps = {
   appointmentId: string;
   allowDelete?: boolean;
   onCreateOrder?: () => void;
+  onRowClick?: (order: NursingOrder) => void;
 };
 
 export const NursingOrdersTable = ({
   columns,
   searchBy,
   appointmentId,
+  allowDelete,
   onCreateOrder,
+  onRowClick,
 }: NursingOrdersTableProps): ReactElement => {
   const navigateTo = useNavigate();
+  const [searchParams] = useSearchParams();
+  const encounterIdParam = searchParams.get('encounterId');
 
   const { nursingOrders, loading, error, fetchNursingOrders: refetch } = useGetNursingOrders({ searchBy });
 
-  const onRowClick = (nursingOrderData: { serviceRequestId: string }): void => {
-    navigateTo(getNursingOrderDetailsUrl(appointmentId, nursingOrderData.serviceRequestId));
+  const openOrder = (nursingOrderData: NursingOrder): void => {
+    if (onRowClick) {
+      onRowClick(nursingOrderData);
+      return;
+    }
+    const url = getNursingOrderDetailsUrl(appointmentId, nursingOrderData.serviceRequestId);
+    navigateTo(encounterIdParam ? `${url}?encounterId=${encounterIdParam}` : url);
   };
 
   if (loading) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="body1">Loading nursing orders...</Typography>
+        <Typography variant="body1" data-testid={dataTestIds.nursingOrdersPage.loading}>
+          Loading nursing orders...
+        </Typography>
       </Paper>
     );
   }
@@ -105,7 +118,7 @@ export const NursingOrdersTable = ({
         </Box>
       ) : (
         <TableContainer sx={{ border: '1px solid #e0e0e0' }}>
-          <Table>
+          <Table data-testid={dataTestIds.nursingOrdersPage.table}>
             <TableHead>
               <TableRow>
                 {columns.map((column) => (
@@ -128,9 +141,10 @@ export const NursingOrdersTable = ({
                 <NursingOrdersTableRow
                   key={order.serviceRequestId}
                   nursingOrderData={order}
-                  onRowClick={() => onRowClick(order)}
+                  onRowClick={() => openOrder(order)}
                   columns={columns}
                   refetchOrders={refetch}
+                  allowDelete={allowDelete}
                 />
               ))}
             </TableBody>

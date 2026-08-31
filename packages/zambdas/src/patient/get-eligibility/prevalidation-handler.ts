@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import {
   Address,
   Bundle,
@@ -10,18 +11,20 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { BillingProviderDataObject } from 'utils/lib/fhir/billing';
+import { createFhirHumanName } from 'utils/lib/fhir/helpers';
+import { getPayerUrl } from 'utils/lib/helpers/helpers';
+import { Secrets } from 'utils/lib/secrets';
+import { INSURANCE_COVERAGE_CODING } from 'utils/lib/telemed/constants';
+import { InsuranceEligibilityCheckStatus } from 'utils/lib/types/data/paperwork/paperwork.types';
 import {
-  BillingProviderDataObject,
-  createFhirHumanName,
   GetEligibilityInsuranceData,
   GetEligibilityPolicyHolder,
   GetEligibilityResponse,
-  INSURANCE_COVERAGE_CODING,
-  InsuranceEligibilityCheckStatus,
-  InsurancePlanDTO,
-  Secrets,
-} from 'utils';
-import { createInsurancePlanDto, CreateRelatedPersonObject } from '../../shared';
+} from 'utils/lib/types/data/telemed/eligibility.types';
+import { InsurancePlanDTO } from 'utils/lib/types/data/telemed/insurances.types';
+import { CreateRelatedPersonObject } from '../../shared/coverage';
+import { createInsurancePlanDto } from '../../shared/insurances';
 import {
   getInsurancePlansAndOrgs,
   makeCoverageEligibilityRequest,
@@ -101,6 +104,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
       });
     } catch (error: any) {
       console.error(error);
+      captureException(error);
       secondaryInsurancePlanRequirements = undefined;
     }
   }
@@ -164,7 +168,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
     coverage.id = id;
     const coverageReference = `#${coverage.id}`;
     const patientReference = `Patient/${patientId}`;
-    const payorReference = `Organization/${isPrimary ? primary.id : secondary.id}`;
+    const payorReference = getPayerUrl(isPrimary ? primary.id! : secondary.id!);
     const contained: FhirResource[] = [coverage];
     if (rps[idx]) {
       contained.push(rps[idx]);
@@ -274,7 +278,7 @@ const makeCoverage = (input: CoverageInput): Coverage => {
     subscriber,
     payor: [
       {
-        reference: `Organization/${payor.id}`,
+        reference: getPayerUrl(payor.id!),
       },
     ],
     relationship: {

@@ -1,0 +1,122 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { EMPTY_PAGINATION } from 'utils/lib/types/data/labs/labs.constants';
+import { ReflexLabDTO } from 'utils/lib/types/data/labs/labs.types';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { wrapHandler } from '../../../../shared/sentry';
+import { ZambdaInput } from '../../../../shared/types/common';
+import {
+  checkForDiagnosticReportDrivenResults,
+  getLabResources,
+  mapResourcesToDrLabDTO,
+  mapResourcesToLabOrderDTOs,
+} from './helpers';
+import { validateRequestParameters } from './validateRequestParameters';
+
+let m2mToken: string;
+
+export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  const { secrets, searchBy } = validatedParameters;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+  console.log('searchBy:', JSON.stringify(searchBy));
+
+  // todo labs future can probably refactor to do less data massaging for when this is being called from the table view
+  let drDrivenResults: ReflexLabDTO[] = [];
+
+  // for reflex results, should only be called from the detail page
+  if (searchBy.field === 'diagnosticReportId') {
+    const drResources = await checkForDiagnosticReportDrivenResults({
+      oystehr,
+      searchBy: { search: 'detail', drId: searchBy.value },
+      environment: secrets.ENVIRONMENT,
+    });
+    if (!drResources) throw Error(`could not find resources for ${JSON.stringify(searchBy)}`);
+    const drDrivenResults = await mapResourcesToDrLabDTO(drResources, m2mToken);
+    console.log('search param is diagnosticReportId, returning drDrivenResults only');
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        data: [],
+        drDrivenResults,
+        pagination: EMPTY_PAGINATION,
+      }),
+    };
+  }
+
+  const {
+    serviceRequests,
+    tasks,
+    diagnosticReports,
+    diagnosticReportDrivenResultResources,
+    practitioners,
+    pagination,
+    encounters,
+    locations,
+    appointments,
+    provenances,
+    organizations,
+    questionnaires,
+    labDocuments,
+    specimens,
+    patientLabItems,
+    appointmentScheduleMap,
+    communications,
+    coverages,
+  } = await getLabResources(oystehr, validatedParameters, m2mToken, {
+    searchBy: validatedParameters.searchBy,
+  });
+
+  if (!serviceRequests.length) {
+    console.log('no serviceRequests found, returning empty data array');
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        data: [],
+        pagination: EMPTY_PAGINATION,
+      }),
+    };
+  }
+
+  const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+  const labOrders = mapResourcesToLabOrderDTOs(
+    { searchBy },
+    serviceRequests,
+    tasks,
+    diagnosticReports,
+    practitioners,
+    encounters,
+    locations,
+    appointments,
+    provenances,
+    organizations,
+    questionnaires,
+    labDocuments,
+    specimens,
+    appointmentScheduleMap,
+    communications,
+    coverages,
+    ENVIRONMENT
+  );
+
+  if (diagnosticReportDrivenResultResources) {
+    drDrivenResults = await mapResourcesToDrLabDTO(diagnosticReportDrivenResultResources, m2mToken);
+  }
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      data: labOrders,
+      drDrivenResults,
+      pagination,
+      ...(patientLabItems && { patientLabItems }),
+    }),
+  };
+});

@@ -10,7 +10,7 @@ import {
   Period,
   Practitioner,
 } from 'fhir/r4b';
-import { StateType } from 'utils';
+import { StateType } from '../../common';
 
 export interface ClaimsQueueGetResponse {
   items: ClaimsQueueItem[];

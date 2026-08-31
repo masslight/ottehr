@@ -1,16 +1,43 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
+import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1';
 import {
   Appointment,
+  Coverage,
   Extension,
+  Location,
   Organization,
   PaymentNotice,
+  Practitioner,
   QuestionnaireResponseItemAnswer,
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_IDENTIFIER_SYSTEM, OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL, SLUG_SYSTEM } from '../fhir';
-import { CashPaymentDTO, PatchPaperworkParameters, ScheduleOwnerFhirResource } from '../types';
-import { phoneRegex, zipRegex } from '../validation';
+import { INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../config-helpers/shared-questionnaire';
+import {
+  BILLING_RESOURCE_TAG,
+  FHIR_IDENTIFIER_SYSTEM,
+  PAYMENT_METHOD_EXTENSION_URL,
+  PROVIDER_TYPE_EXTENSION_URL,
+  SLUG_SYSTEM,
+} from '../fhir/constants';
+import { allLicensesForPractitioner } from '../fhir/helpers';
+import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from '../fhir/insurance';
+import { OTTEHR_MODULE } from '../fhir/moduleIdentification';
+import { getFullName } from '../fhir/patient';
+import { CONSENT_FORMS_CONFIG } from '../ottehr-config/consent-forms';
+import { patientScreeningQuestionsConfig } from '../ottehr-config/screening-questions';
+import { CashPaymentDTO } from '../types/api/patient-payment-types';
+import {
+  PHYSICIAN_TYPES,
+  PractitionerQualificationCode,
+  PROVIDER_TYPE_VALUES,
+  ProviderTypeCode,
+} from '../types/api/practitioner.types';
+import { ScheduleOwnerFhirResource } from '../types/api/schedules';
+import { FhirAppointmentType } from '../types/common';
+import { appointmentTypeLabels, appointmentTypeMap } from '../types/data/appointments/appointments.types';
+import { PatchPaperworkParameters } from '../types/data/paperwork/paperwork.types';
+import { emailRegex, fullZipRegex, npiRegex, phoneRegex, zipRegex } from '../validation/regex';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -18,19 +45,20 @@ export function createOystehrClient(token: string, fhirAPI: string, projectAPI: 
     accessToken: token,
     fhirApiUrl: FHIR_API,
     projectApiUrl: projectAPI,
+    ignoreTags: [BILLING_RESOURCE_TAG],
   };
   console.log('creating fhir client');
   return new Oystehr(CLIENT_CONFIG);
 }
 
-export type FetchClientWithOystAuth = {
-  oystFetch: <T = any>(method: 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH', url: string, body?: any) => Promise<T>;
+export type FetchClientWithOysterAuth = {
+  oystehrFetch: <T = any>(method: 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH', url: string, body?: any) => Promise<T>;
 };
 
-export function createFetchClientWithOystAuth(params: {
+export function createFetchClientWithOystehrAuth(params: {
   authToken: string;
   projectId?: string;
-}): FetchClientWithOystAuth {
+}): FetchClientWithOysterAuth {
   const authToken = params.authToken;
   const oystehrProjectId = params.projectId;
 
@@ -65,7 +93,7 @@ export function createFetchClientWithOystAuth(params: {
     return {} as T;
   }
   return {
-    oystFetch: fetchWithOystehrAuth,
+    oystehrFetch: fetchWithOystehrAuth,
   };
 }
 
@@ -76,6 +104,15 @@ export function getParticipantIdFromAppointment(
   return appointment.participant
     .find((currentParticipant: any) => currentParticipant.actor?.reference?.startsWith(participant))
     ?.actor?.reference?.replace(`${participant}/`, '');
+}
+
+export function getFormatDuration(duration: number): string {
+  const seconds = duration / 1000;
+  return `${Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, '0')}:${Math.floor(seconds % 60)
+    .toString()
+    .padStart(2, '0')}`;
 }
 
 /*
@@ -106,11 +143,11 @@ export function getBucketAndObjectFromZ3URL(z3URL: string, projectAPI: string): 
   return { bucket, object };
 }
 
-export const isPostalCodeValid = (postalCode: string | undefined): boolean => {
+export const isPostalCodeValid = (postalCode: string | undefined, requireFullZip?: boolean): boolean => {
   if (!postalCode) {
     return false;
   }
-  return zipRegex.test(postalCode);
+  return requireFullZip ? fullZipRegex.test(postalCode) : zipRegex.test(postalCode);
 };
 
 const tenDigitRegex = /^\d{10}$/;
@@ -134,13 +171,51 @@ export function formatPhoneNumber(phoneNumber: string | undefined): string | und
   return tenDigitRegex.test(phoneNumber) ? `+1${phoneNumber}` : phoneNumber;
 }
 
+export const isEmailValid = (email: string | undefined): boolean => {
+  if (!email) {
+    return false;
+  }
+  return emailRegex.test(email);
+};
+
 export const isNPIValid = (npi: string): boolean => {
-  const npiRegex = /^\d{10}$/;
   return npiRegex.test(npi);
 };
 
-export function formatPhoneNumberDisplay(phoneNumber: string): string {
-  const cleaned = ('' + phoneNumber.slice(-10)).replace(/\D/g, '');
+// https://www.cms.gov/Regulations-and-Guidance/Administrative-Simplification/NationalProvIdentStand/Downloads/NPIcheckdigit.pdf
+export const isNPIValidWithChecksum = (npi: string): boolean => {
+  if (!isNPIValid(npi)) {
+    return false;
+  }
+  const digits = `80840${npi}`.split('').map(Number);
+  let sum = 0;
+  let double = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let digit = digits[i];
+    if (double) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    double = !double;
+  }
+  return sum % 10 === 0;
+};
+
+// CLIA numbers are 2-digit state code + "D" + 7-digit lab identifier, e.g. 05D1234567.
+export const isCLIAValid = (clia: string): boolean => {
+  const cliaRegex = /^\d{2}D\d{7}$/;
+  return cliaRegex.test(clia);
+};
+
+export function formatPhoneNumberDisplay(phoneNumber?: string): string {
+  if (!phoneNumber) {
+    return '';
+  }
+
+  // Strip non-digits first, then take the last 10 digits so formatted inputs
+  // like "+1 (212) 555-1234" don't lose digits to the slice.
+  const cleaned = ('' + phoneNumber).replace(/\D/g, '').slice(-10);
   const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
 
   if (match) {
@@ -148,6 +223,43 @@ export function formatPhoneNumberDisplay(phoneNumber: string): string {
   }
 
   return phoneNumber;
+}
+
+/**
+ * Masks a phone number for safe logging, keeping the area code and the last 4 digits.
+ * e.g. "+12125551234" -> "(212) ***-1234". Falls back to a fully masked value when the
+ * input can't be parsed to 10 digits. Intended for logs only — do not persist on resources.
+ */
+export function maskPhoneNumber(phoneNumber?: string): string {
+  if (!phoneNumber) {
+    return '';
+  }
+  const formatted = formatPhoneNumberDisplay(phoneNumber);
+  // Mask the middle (exchange) group of a "(212) 555-1234" formatted number.
+  const masked = formatted.replace(/^(\(\d{3}\) )\d{3}(-\d{4})$/, '$1***$2');
+  // When the input can't be parsed to a 10-digit number, formatPhoneNumberDisplay
+  // returns the raw input unchanged (no replacement happens), so fully mask it.
+  return masked === formatted ? '***' : masked;
+}
+
+/**
+ * Masks an email address for safe logging, keeping the first few characters of the local
+ * part and the full domain. e.g. "jonathan@example.com" -> "jon***@example.com". Falls back
+ * to a fully masked value when there is no parseable local/domain. Intended for logs only —
+ * do not persist on resources.
+ */
+export function maskEmail(email?: string): string {
+  if (!email) {
+    return '';
+  }
+  const atIndex = email.lastIndexOf('@');
+  if (atIndex <= 0) {
+    return '***';
+  }
+  const local = email.slice(0, atIndex);
+  const domain = email.slice(atIndex); // includes leading '@'
+  const visible = local.slice(0, Math.min(3, local.length));
+  return `${visible}***${domain}`;
 }
 
 const getExtensionStartTimeValue = (extension: Extension): string | undefined =>
@@ -179,12 +291,6 @@ export function findFirstAndLastTimeSlot(arr: Extension[]): {
 
   return { firstFulfillmentIndex, lastFulfillmentIndex };
 }
-
-// https://stackoverflow.com/a/13653180/2150542
-const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-export const isValidUUID = (maybeUUID: string): boolean => {
-  return uuidRegex.test(maybeUUID);
-};
 
 export const deepCopy = <T extends object>(source: T): T => {
   return JSON.parse(JSON.stringify(source));
@@ -220,21 +326,34 @@ export function validateDefined<T>(value: T, name: string): NonNullable<T> {
   return value;
 }
 
-export function standardizePhoneNumber(phoneNumber: string | undefined): string | undefined {
-  // input format:  some arbitrary format which may or may not include (, ), -, +1
-  // output format: (XXX) XXX-XXXX
+/**
+ * Extracts the bare 10-digit national number from an arbitrarily formatted phone string
+ * (e.g. "+12021234567", "(202) 123-4567", "202-123-4567"), stripping any formatting
+ * characters and a leading US country code. Returns undefined when the input can't be
+ * parsed to a 10-digit number. Use this to normalize FHIR-sourced phone values before
+ * feeding them to inputs/validation that expect unformatted digits.
+ */
+export function getPhoneNumberDigits(phoneNumber: string | undefined): string | undefined {
   if (!phoneNumber) {
     return undefined;
   }
 
   const digits = phoneNumber.replace(/\D/g, '');
-  let phoneNumberDigits: string | undefined;
 
   if (digits.length === 10) {
-    phoneNumberDigits = digits;
-  } else if (digits.length === 11 && digits.startsWith('1')) {
-    phoneNumberDigits = digits.slice(1);
+    return digits;
   }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return digits.slice(1);
+  }
+
+  return undefined;
+}
+
+export function standardizePhoneNumber(phoneNumber: string | undefined): string | undefined {
+  // input format:  some arbitrary format which may or may not include (, ), -, +1
+  // output format: (XXX) XXX-XXXX
+  const phoneNumberDigits = getPhoneNumberDigits(phoneNumber);
 
   if (!phoneNumberDigits) {
     return undefined;
@@ -243,15 +362,72 @@ export function standardizePhoneNumber(phoneNumber: string | undefined): string 
   return `(${phoneNumberDigits.slice(0, 3)}) ${phoneNumberDigits.slice(3, 6)}-${phoneNumberDigits.slice(6)}`;
 }
 
+/**
+ * Validates a phone number against NANP rules: a 10-digit number whose area code and exchange both
+ * begin with a digit 2-9.
+ */
+export function isValidNANPNumber(phoneNumber: string | undefined): boolean {
+  const standardized = standardizePhoneNumber(phoneNumber);
+  if (!standardized) {
+    return false;
+  }
+
+  const digits = standardized.replace(/\D/g, '');
+  const areaCodeFirstDigit = digits[0];
+  const exchangeFirstDigit = digits[3];
+
+  return (
+    areaCodeFirstDigit >= '2' && areaCodeFirstDigit <= '9' && exchangeFirstDigit >= '2' && exchangeFirstDigit <= '9'
+  );
+}
+
+/**
+ * The phone rule the current eRx provider (DoseSpot) enforces; rejects what it would refuse with
+ * "Primary Phone is not valid." Single seam — swap this body if the provider or its rules change.
+ */
+export function isValidErxPhoneNumber(phoneNumber: string | undefined): boolean {
+  return isValidNANPNumber(phoneNumber);
+}
+
 export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): boolean {
   return Boolean(resource.meta?.tag?.find((coding) => coding.code === metaTag));
 }
 
+/**
+ * Standardizes a phone number that may carry an extension (`x`/`ext.`/`extension`) to
+ * `(XXX) XXX-XXXX` or `(XXX) XXX-XXXX x{ext}`. Returns undefined when the base number can't be
+ * parsed to 10 digits.
+ */
+export function standardizePhoneWithExtension(phoneNumber?: string): string | undefined {
+  const trimmed = phoneNumber?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const extensionMatch = trimmed.match(/\s*(?:x|ext\.?|extension)\s*(\d+)$/i);
+  const extension = extensionMatch?.[1];
+  const base = extensionMatch ? trimmed.slice(0, extensionMatch.index).trim() : trimmed;
+
+  const standardizedBase = standardizePhoneNumber(base);
+  if (!standardizedBase) {
+    return undefined;
+  }
+
+  return extension ? `${standardizedBase} x${extension}` : standardizedBase;
+}
+
 export const formatPhoneNumberForQuestionnaire = (phone: string): string => {
-  if (phone.length !== 10) {
+  const phoneDigits = phone.replace(/\D/g, '');
+  if (phoneDigits.length !== 10) {
     throw new Error('Invalid phone number');
   }
-  return `(${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6)}`;
+  return `(${phoneDigits.slice(0, 3)}) ${phoneDigits.slice(3, 6)}-${phoneDigits.slice(6)}`;
+};
+
+export const toTenDigitPhoneNumber = (value: string | undefined): string | undefined => {
+  const digits = value?.replace(/\D/g, '') ?? '';
+  const local = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
+  return local.length === 10 ? local : undefined;
 };
 
 export const objectToDateString = (dateObj: { year: string; month: string; day: string }): string => {
@@ -299,6 +475,38 @@ export const DEMO_VISIT_PROVIDER_LAST_NAME = 'Provider last name';
 export const DEMO_VISIT_PRACTICE_NAME = 'Practice name';
 export const DEMO_VISIT_PHYSICIAN_ADDRESS = '441 4th Street, NW';
 export const DEMO_VISIT_PHYSICIAN_MOBILE = '(202) 456-7890';
+export const DEMO_VISIT_EMERGENCY_CONTACT_RELATIONSHIP = 'Spouse';
+// cSpell:disable-next emergen(cy)
+export const DEMO_VISIT_EMERGENCY_CONTACT_FIRST_NAME = 'Emergen';
+export const DEMO_VISIT_EMERGENCY_CONTACT_MIDDLE_NAME = 'C';
+export const DEMO_VISIT_EMERGENCY_CONTACT_LAST_NAME = 'Contact';
+export const DEMO_VISIT_EMERGENCY_CONTACT_PHONE = '(123) 123-1234';
+export const DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS_AS_PATIENT = false;
+export const DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS = 'address';
+export const DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS_LINE2 = 'address 2';
+export const DEMO_VISIT_EMERGENCY_CONTACT_CITY = 'city';
+export const DEMO_VISIT_EMERGENCY_CONTACT_STATE = 'AL';
+export const DEMO_VISIT_EMERGENCY_CONTACT_ZIP = '12312';
+export const DEMO_VISIT_EMPLOYER_NAME = 'Test Employer Inc';
+export const DEMO_VISIT_EMPLOYER_ADDRESS = '123 Business Street';
+export const DEMO_VISIT_EMPLOYER_ADDRESS_2 = 'Suite 100';
+export const DEMO_VISIT_EMPLOYER_CITY = 'New York';
+export const DEMO_VISIT_EMPLOYER_STATE = 'NY';
+export const DEMO_VISIT_EMPLOYER_ZIP = '10001';
+export const DEMO_VISIT_EMPLOYER_CONTACT_FIRST_NAME = 'John';
+export const DEMO_VISIT_EMPLOYER_CONTACT_LAST_NAME = 'Doe';
+export const DEMO_VISIT_EMPLOYER_CONTACT_TITLE = 'HR Manager';
+export const DEMO_VISIT_EMPLOYER_CONTACT_EMAIL = 'a@a.a';
+export const DEMO_VISIT_EMPLOYER_CONTACT_PHONE = '(123) 123-1234';
+export const DEMO_VISIT_EMPLOYER_CONTACT_FAX = '(123) 123-1234';
+export const DEMO_VISIT_ATTORNEY_HAS_ATTORNEY = 'I have an attorney';
+export const DEMO_VISIT_ATTORNEY_FIRM = 'Test Law Firm';
+export const DEMO_VISIT_ATTORNEY_FIRST_NAME = 'John';
+export const DEMO_VISIT_ATTORNEY_LAST_NAME = 'Attorney';
+export const DEMO_VISIT_ATTORNEY_EMAIL = 'attorney@testlaw.com';
+export const DEMO_VISIT_ATTORNEY_MOBILE = '(123) 123-1234';
+export const DEMO_VISIT_ATTORNEY_FAX = '(123) 123-1235';
+export const DEMO_PREFERRED_COMMUNICATION_METHOD = 'No preference';
 
 export function getContactInformationAnswers({
   willBe18 = false,
@@ -322,6 +530,7 @@ export function getContactInformationAnswers({
   phoneNumber = '(202) 733-9622',
 
   mobileOptIn = DEMO_VISIT_MARKETING_MESSAGING,
+  preferredCommunicationMethod = DEMO_PREFERRED_COMMUNICATION_METHOD,
 }: {
   willBe18?: boolean;
   isNewPatient?: boolean;
@@ -333,6 +542,7 @@ export function getContactInformationAnswers({
   email?: string;
   phoneNumber?: string;
   mobileOptIn?: boolean;
+  preferredCommunicationMethod?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
     linkId: 'contact-information-page',
@@ -411,6 +621,14 @@ export function getContactInformationAnswers({
         answer: [
           {
             valueString: formatPhoneNumberForQuestionnaire(phoneNumber),
+          },
+        ],
+      },
+      {
+        linkId: 'patient-preferred-communication-method',
+        answer: [
+          {
+            valueString: preferredCommunicationMethod,
           },
         ],
       },
@@ -568,13 +786,89 @@ export function getResponsiblePartyStepAnswers({
   };
 }
 
+export function getEmergencyContactStepAnswers({
+  relationship = DEMO_VISIT_EMERGENCY_CONTACT_RELATIONSHIP,
+  firstName = DEMO_VISIT_EMERGENCY_CONTACT_FIRST_NAME,
+  middleName = DEMO_VISIT_EMERGENCY_CONTACT_MIDDLE_NAME,
+  lastName = DEMO_VISIT_EMERGENCY_CONTACT_LAST_NAME,
+  phone = DEMO_VISIT_EMERGENCY_CONTACT_PHONE,
+  addressAsPatient = DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS_AS_PATIENT,
+  address = DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS,
+  addressLine2 = DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS_LINE2,
+  city = DEMO_VISIT_EMERGENCY_CONTACT_CITY,
+  state = DEMO_VISIT_EMERGENCY_CONTACT_STATE,
+  zip = DEMO_VISIT_EMERGENCY_CONTACT_ZIP,
+}: {
+  relationship?: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  phone?: string;
+  addressAsPatient?: boolean;
+  address?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+}): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'emergency-contact-page',
+    item: [
+      {
+        linkId: 'emergency-contact-relationship',
+        answer: [{ valueString: relationship }],
+      },
+      {
+        linkId: 'emergency-contact-first-name',
+        answer: [{ valueString: firstName }],
+      },
+      {
+        linkId: 'emergency-contact-last-name',
+        answer: [{ valueString: lastName }],
+      },
+      {
+        linkId: 'emergency-contact-middle-name',
+        answer: [{ valueString: middleName }],
+      },
+      {
+        linkId: 'emergency-contact-number',
+        answer: [{ valueString: phone }],
+      },
+      {
+        linkId: 'emergency-contact-address-as-patient',
+        answer: [{ valueBoolean: addressAsPatient }],
+      },
+      {
+        linkId: 'emergency-contact-address',
+        answer: [{ valueString: address }],
+      },
+      {
+        linkId: 'emergency-contact-address-2',
+        answer: [{ valueString: addressLine2 }],
+      },
+      {
+        linkId: 'emergency-contact-city',
+        answer: [{ valueString: city }],
+      },
+      {
+        linkId: 'emergency-contact-state',
+        answer: [{ valueString: state }],
+      },
+      {
+        linkId: 'emergency-contact-zip',
+        answer: [{ valueString: zip }],
+      },
+    ],
+  };
+}
+
 export function getPaymentOptionSelfPayAnswers(): PatchPaperworkParameters['answers'] {
   return {
     linkId: 'payment-option-page',
     item: [
       {
         linkId: 'payment-option',
-        answer: [{ valueString: 'I will pay without insurance' }],
+        answer: [{ valueString: SELF_PAY_OPTION }],
       },
     ],
   };
@@ -582,6 +876,8 @@ export function getPaymentOptionSelfPayAnswers(): PatchPaperworkParameters['answ
 
 export function getPaymentOptionInsuranceAnswers({
   insuranceCarrier,
+  insurancePlanType,
+  insurancePlanType2,
   insuranceMemberId,
   insurancePolicyHolderFirstName,
   insurancePolicyHolderLastName,
@@ -611,6 +907,7 @@ export function getPaymentOptionInsuranceAnswers({
   insurancePolicyHolderRelationshipToInsured2,
 }: {
   insuranceCarrier: QuestionnaireResponseItemAnswer;
+  insurancePlanType: string;
   insuranceMemberId: string;
   insurancePolicyHolderFirstName: string;
   insurancePolicyHolderLastName: string;
@@ -637,6 +934,7 @@ export function getPaymentOptionInsuranceAnswers({
   insurancePolicyHolderZip2: string;
   insurancePolicyHolderRelationshipToInsured2: string;
   insuranceCarrier2: QuestionnaireResponseItemAnswer;
+  insurancePlanType2: string;
   insuranceMemberId2: string;
 }): PatchPaperworkParameters['answers'] {
   return {
@@ -647,6 +945,14 @@ export function getPaymentOptionInsuranceAnswers({
           {
             linkId: 'insurance-carrier-2',
             answer: [insuranceCarrier2],
+          },
+          {
+            linkId: 'insurance-plan-type-2',
+            answer: [
+              {
+                valueString: insurancePlanType2,
+              },
+            ],
           },
           {
             linkId: 'insurance-member-id-2',
@@ -878,10 +1184,18 @@ export function getPaymentOptionInsuranceAnswers({
         answer: [insuranceCarrier],
       },
       {
+        linkId: 'insurance-plan-type',
+        answer: [
+          {
+            valueString: insurancePlanType,
+          },
+        ],
+      },
+      {
         linkId: 'payment-option',
         answer: [
           {
-            valueString: 'I have insurance',
+            valueString: INSURANCE_PAY_OPTION,
           },
         ],
       },
@@ -911,20 +1225,13 @@ export function getConsentStepAnswers({
     linkId: 'consent-forms-page',
     item: [
       {
-        linkId: 'hipaa-acknowledgement',
-        answer: [
-          {
-            valueBoolean: true,
-          },
-        ],
-      },
-      {
-        linkId: 'consent-to-treat',
-        answer: [
-          {
-            valueBoolean: true,
-          },
-        ],
+        linkId: 'consent-forms-checkbox-group',
+        item: CONSENT_FORMS_CONFIG.forms
+          .filter((form) => form.createsConsentResource)
+          .map((form) => ({
+            linkId: form.id,
+            answer: [{ valueBoolean: true }],
+          })),
       },
       {
         linkId: 'signature',
@@ -954,35 +1261,64 @@ export function getConsentStepAnswers({
   };
 }
 
-export function getAdditionalQuestionsAnswers(): PatchPaperworkParameters['answers'] {
+export function getCardPaymentStepAnswers(): PatchPaperworkParameters['answers'] {
   return {
-    linkId: 'additional-page',
+    linkId: 'card-payment-page',
     item: [
       {
-        linkId: 'covid-symptoms',
+        linkId: 'valid-card-on-file',
         answer: [
           {
-            valueString: 'No',
-          },
-        ],
-      },
-      {
-        linkId: 'tested-positive-covid',
-        answer: [
-          {
-            valueString: 'Yes',
-          },
-        ],
-      },
-      {
-        linkId: 'travel-usa',
-        answer: [
-          {
-            valueString: 'No',
+            valueBoolean: true,
           },
         ],
       },
     ],
+  };
+}
+
+export function getAdditionalQuestionsAnswers({
+  useRandomAnswers = false,
+}: {
+  useRandomAnswers?: boolean;
+} = {}): PatchPaperworkParameters['answers'] {
+  // Only generate answers for fields that exist in questionnaire
+  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+
+  return {
+    linkId: 'additional-page',
+    item: questionnaireFields.map((field, index) => {
+      switch (field.type) {
+        case 'radio': {
+          if (field.options && field.options.length !== 2) {
+            throw new Error(
+              'Only radio fields with 2 options are supported. No options found for field: ' + field.fhirField
+            );
+          }
+
+          const selectedOption = (() => {
+            if (useRandomAnswers) {
+              const randomIndex = Math.floor(Math.random() * field.options!.length);
+              return field.options?.[randomIndex];
+            }
+
+            const stableIndex = index % 2 === 1 ? 0 : 1;
+            return field.options?.[stableIndex];
+          })();
+
+          if (!selectedOption?.fhirValue) {
+            throw new Error('No options found for field: ' + field.fhirField);
+          }
+
+          return {
+            linkId: field.fhirField,
+            answer: [{ valueString: selectedOption.fhirValue }],
+          };
+        }
+        default:
+          throw Error('Only radio fields are supported. No options found for field: ' + field.fhirField);
+      }
+    }),
   };
 }
 
@@ -1130,6 +1466,164 @@ export function getPrimaryCarePhysicianStepAnswers({
   };
 }
 
+export function getPreferredPharmacyStepAnswers(): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'pharmacy-page',
+    item: [
+      {
+        linkId: 'pharmacy-name',
+        answer: [
+          {
+            valueString: 'Test pharmacy',
+          },
+        ],
+      },
+      {
+        linkId: 'pharmacy-address',
+        answer: [
+          {
+            valueString: 'Test pharmacy address',
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export function getEmployerInformationStepAnswers({
+  employerName = DEMO_VISIT_EMPLOYER_NAME,
+  address = DEMO_VISIT_EMPLOYER_ADDRESS,
+  address2 = DEMO_VISIT_EMPLOYER_ADDRESS_2,
+  city = DEMO_VISIT_EMPLOYER_CITY,
+  state = DEMO_VISIT_EMPLOYER_STATE,
+  zip = DEMO_VISIT_EMPLOYER_ZIP,
+  contactFirstName = DEMO_VISIT_EMPLOYER_CONTACT_FIRST_NAME,
+  contactLastName = DEMO_VISIT_EMPLOYER_CONTACT_LAST_NAME,
+  contactTitle = DEMO_VISIT_EMPLOYER_CONTACT_TITLE,
+  contactEmail = DEMO_VISIT_EMPLOYER_CONTACT_EMAIL,
+  contactPhone = DEMO_VISIT_EMPLOYER_CONTACT_PHONE,
+  contactFax = DEMO_VISIT_EMPLOYER_CONTACT_FAX,
+}: {
+  employerName?: string;
+  address?: string;
+  address2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  contactFirstName?: string;
+  contactLastName?: string;
+  contactTitle?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactFax?: string;
+} = {}): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'employer-information-page',
+    item: [
+      {
+        linkId: 'employer-name',
+        answer: [{ valueString: employerName }],
+      },
+      {
+        linkId: 'employer-address',
+        answer: [{ valueString: address }],
+      },
+      {
+        linkId: 'employer-address-2',
+        answer: [{ valueString: address2 }],
+      },
+      {
+        linkId: 'employer-city',
+        answer: [{ valueString: city }],
+      },
+      {
+        linkId: 'employer-state',
+        answer: [{ valueString: state }],
+      },
+      {
+        linkId: 'employer-zip',
+        answer: [{ valueString: zip }],
+      },
+      {
+        linkId: 'employer-contact-first-name',
+        answer: [{ valueString: contactFirstName }],
+      },
+      {
+        linkId: 'employer-contact-last-name',
+        answer: [{ valueString: contactLastName }],
+      },
+      {
+        linkId: 'employer-contact-title',
+        answer: [{ valueString: contactTitle }],
+      },
+      {
+        linkId: 'employer-contact-email',
+        answer: [{ valueString: contactEmail }],
+      },
+      {
+        linkId: 'employer-contact-phone',
+        answer: [{ valueString: contactPhone }],
+      },
+      {
+        linkId: 'employer-contact-fax',
+        answer: [{ valueString: contactFax }],
+      },
+    ],
+  };
+}
+
+export function getAttorneyInformationStepAnswers({
+  hasAttorney = DEMO_VISIT_ATTORNEY_HAS_ATTORNEY,
+  firm = DEMO_VISIT_ATTORNEY_FIRM,
+  firstName = DEMO_VISIT_ATTORNEY_FIRST_NAME,
+  lastName = DEMO_VISIT_ATTORNEY_LAST_NAME,
+  email = DEMO_VISIT_ATTORNEY_EMAIL,
+  mobile = DEMO_VISIT_ATTORNEY_MOBILE,
+  fax = DEMO_VISIT_ATTORNEY_FAX,
+}: {
+  hasAttorney?: string;
+  firm?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  mobile?: string;
+  fax?: string;
+} = {}): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'attorney-mva-page',
+    item: [
+      {
+        linkId: 'attorney-mva-has-attorney',
+        answer: [{ valueString: hasAttorney }],
+      },
+      {
+        linkId: 'attorney-mva-firm',
+        answer: [{ valueString: firm }],
+      },
+      {
+        linkId: 'attorney-mva-first-name',
+        answer: [{ valueString: firstName }],
+      },
+      {
+        linkId: 'attorney-mva-last-name',
+        answer: [{ valueString: lastName }],
+      },
+      {
+        linkId: 'attorney-mva-email',
+        answer: [{ valueString: email }],
+      },
+      {
+        linkId: 'attorney-mva-mobile',
+        answer: [{ valueString: mobile }],
+      },
+      {
+        linkId: 'attorney-mva-fax',
+        answer: [{ valueString: fax }],
+      },
+    ],
+  };
+}
+
 const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): CashPaymentDTO | undefined => {
   const { extension, amount, created, id } = paymentNotice;
 
@@ -1139,12 +1633,18 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
 
   const paymentMethod = extension.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString;
 
-  if (!paymentMethod || (paymentMethod !== 'cash' && paymentMethod !== 'check')) {
+  if (
+    !paymentMethod ||
+    (paymentMethod !== 'cash' &&
+      paymentMethod !== 'check' &&
+      paymentMethod !== 'card-reader' &&
+      paymentMethod !== 'external-card-reader')
+  ) {
     return undefined;
   }
 
   return {
-    paymentMethod: paymentMethod as 'cash' | 'check',
+    paymentMethod: paymentMethod as 'cash' | 'check' | 'card-reader' | 'external-card-reader',
     amountInCents: Math.round(amount.value * 100),
     dateISO: created,
     fhirPaymentNotificationId: id,
@@ -1185,9 +1685,277 @@ export const checkResourceHasSlug = (resource: ScheduleOwnerFhirResource, slug: 
 };
 
 export const getPayerId = (org: Organization | undefined): string | undefined => {
-  const payerId = org?.identifier?.find(
-    (identifier) =>
-      identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
+  // First look for Oystehr payer ID by system
+  let payerId = org?.identifier?.find(
+    (identifier) => identifier.system === 'https://identifiers.fhir.oystehr.com/rcm-payer-id'
   )?.value;
+  if (!payerId) {
+    // Second look at coding using PAYERID code
+    payerId = org?.identifier?.find(
+      (identifier) =>
+        identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'PAYERID')
+    )?.value;
+  }
+  if (!payerId) {
+    // Third look at coding using XX (Organization identifier) code
+    payerId = org?.identifier?.find(
+      (identifier) =>
+        identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
+    )?.value;
+  }
   return payerId;
 };
+
+export function getPayerUrl(payerId: string): string {
+  const oystehr = new Oystehr({}); // get access to static helper
+  return oystehr.rcm.constructPayerUrl({ id: payerId });
+}
+
+export function isPayerUrl(maybeUrl?: string): boolean {
+  return !!maybeUrl && maybeUrl.startsWith('https://rcm-api.zapehr.com/v1/payer/');
+}
+
+export function extractPayerIdFromUrl(maybeUrl?: string): string | undefined {
+  if (!maybeUrl || !isPayerUrl(maybeUrl)) return undefined;
+  return maybeUrl.replace('https://rcm-api.zapehr.com/v1/payer/', '');
+}
+
+export const getNameFromScheduleResource = (scheduleResource: ScheduleOwnerFhirResource): string | undefined => {
+  let location: string | undefined;
+  if (scheduleResource.resourceType === 'Location') {
+    location = scheduleResource.name;
+  } else if (scheduleResource.resourceType === 'Practitioner') {
+    location = getFullName(scheduleResource);
+  } else if (scheduleResource.resourceType === 'PractitionerRole') {
+    // Role doesn't carry a display name; callers that need a human-readable
+    // label should resolve the role's Practitioner separately.
+    location = `Role ${scheduleResource.id ?? ''}`.trim() || undefined;
+  } else {
+    location = scheduleResource.name;
+  }
+  return location;
+};
+
+export const getPractitionerQualificationByLocation = (
+  practitioner: Practitioner,
+  location: Location
+): PractitionerQualificationCode | undefined => {
+  const existedLicenses = allLicensesForPractitioner(practitioner);
+  const qualification = existedLicenses.find((license) => license.active && license.state === location.address?.state)
+    ?.code;
+
+  return qualification;
+};
+
+function getProviderTypeExtension(practitionerResource?: Practitioner): Extension | undefined {
+  return practitionerResource?.extension?.find((e) => e.url === PROVIDER_TYPE_EXTENSION_URL);
+}
+
+export function isProviderTypeCode(value: string): value is ProviderTypeCode {
+  return (PROVIDER_TYPE_VALUES as readonly string[]).includes(value);
+}
+
+export function getProviderType(practitionerResource?: Practitioner): ProviderTypeCode | undefined {
+  return getProviderTypeExtension(practitionerResource)?.valueCodeableConcept?.coding?.[0]?.code as
+    | ProviderTypeCode
+    | undefined;
+}
+
+export function isPhysicianProviderType(providerType?: ProviderTypeCode): boolean {
+  return providerType != null && PHYSICIAN_TYPES.includes(providerType);
+}
+
+export function isPhysician(practitionerResource?: Practitioner): boolean {
+  return isPhysicianProviderType(getProviderType(practitionerResource));
+}
+
+export const getCandidPlanTypeCodeFromCoverage = (coverage: Coverage): NetworkType | undefined => {
+  const coverageCandidTypeCode = coverage.type?.coding?.find(
+    (coding) => coding.system && coding.system === CANDID_PLAN_TYPE_SYSTEM
+  )?.code;
+  if (!coverageCandidTypeCode || !INSURANCE_CANDID_PLAN_TYPE_CODES.includes(coverageCandidTypeCode)) {
+    return undefined;
+  }
+  return coverageCandidTypeCode as NetworkType;
+};
+
+export function getAppointmentType(appointment: Appointment): { type: string } {
+  const appointmentTypeTags = appointment.meta?.tag?.filter((tag) => !!tag.code && tag.code in appointmentTypeMap);
+
+  if (appointmentTypeTags && appointmentTypeTags.length > 1) {
+    console.warn(
+      `[getAppointmentType] Multiple appointmentType tags found: ${appointmentTypeTags.map((t) => t.code).join(', ')}`
+    );
+  }
+
+  const appointmentTypeTag = appointmentTypeTags?.[0];
+  const baseType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
+
+  const subType =
+    appointment.appointmentType?.text && appointmentTypeLabels[appointment.appointmentType.text as FhirAppointmentType];
+
+  const type = subType ? `${baseType} ${subType}` : baseType;
+
+  return { type };
+}
+
+export function makeAbbreviation(str: string): string {
+  // Split on any non-letter run (whitespace, hyphens, parentheses, digits …) so
+  // tokens like "(renamed)" or "(30" don't leak punctuation into the result.
+  return str
+    .split(/[^a-zA-Z]+/)
+    .filter(Boolean)
+    .reduce((previousValue: string, currentValue: string) => {
+      return previousValue + currentValue.charAt(0).toUpperCase();
+    }, '');
+}
+
+/**
+ * Resolve the short abbreviation shown for a service category on the Tracking
+ * Board, the patient's visit list, and the visit-details header.
+ *
+ * Prefers the admin-defined abbreviation stored on the FHIR-backed catalog
+ * entry (the "Abbreviation/Short Name" field on the Services admin page);
+ * otherwise derives one from the category's display name or code via
+ * makeAbbreviation. This replaces the legacy hard-coded UC/OM/WC/PO map so
+ * non-system categories (Massage, Wellness, …) get an abbreviation too.
+ *
+ * @param serviceCategoryCodeOrName the category's code or display name as
+ *   stored on the appointment/encounter — callers differ on which they hold,
+ *   so both are matched against the catalog.
+ * @param fhirCategories the FHIR-backed catalog (from listServiceCategories),
+ *   matched by code or name.
+ */
+export function resolveServiceCategoryAbbreviation(
+  serviceCategoryCodeOrName: string | undefined,
+  fhirCategories?: Array<{ code: string; name: string; abbreviation?: string }>
+): string | undefined {
+  const trimmed = serviceCategoryCodeOrName?.trim();
+  if (!trimmed) return undefined;
+  const match = fhirCategories?.find((c) => c.code === trimmed || c.name === trimmed);
+  const explicit = match?.abbreviation?.trim();
+  if (explicit) return explicit;
+  return makeAbbreviation(match?.name ?? trimmed) || undefined;
+}
+
+/**
+ * Formats a nine digit zipcode with a dash. Can consume the zipcode or the fhirAddress.
+ * Assumes zip is at the end of the string. Returns string unchanged if no nine digit zip match is found.
+ * e.g. 191472314 -> 19147-2314
+ * e.g. TestLab Burlington 2314 York Court, Burlington, NC, 272153361 ->
+ *      TestLab Burlington 2314 York Court, Burlington, NC, 27215-3361
+ * @param addressOrZip
+ * @returns
+ */
+export function formatZipcodeForDisplay(addressOrZip: string): string {
+  const regexPattern = /\b(\d{5})(\d{4})$/;
+  const zipMatch = addressOrZip.match(regexPattern);
+  if (!zipMatch) return addressOrZip;
+  return addressOrZip.replace(regexPattern, `${zipMatch[1]}-${zipMatch[2]}`);
+}
+
+export interface TemplateVariables {
+  [key: string]: string | number;
+}
+
+// <key> syntax
+export function replaceTemplateVariablesArrows(template: string, variables: TemplateVariables): string {
+  try {
+    if (!template) return '';
+    return template.replace(/<([\w-]+)>/g, (match, key) => {
+      if (key === 'phone') return match;
+      return variables[key]?.toString() || match;
+    });
+  } catch {
+    return template;
+  }
+}
+
+// {{key}} syntax
+export function replaceTemplateVariablesHandlebars(template: string, variables: TemplateVariables): string {
+  try {
+    if (!template) return '';
+    return template.replace(/\{\{([\w-]+)\}\}/g, (match, key) => {
+      return variables[key]?.toString() || match;
+    });
+  } catch {
+    return template;
+  }
+}
+
+/**
+ * Escape HTML special characters to prevent XSS.
+ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Only allow safe URL protocols for links. */
+function isSafeUrl(url: string): boolean {
+  const trimmed = url.trim().toLowerCase();
+  return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('mailto:');
+}
+
+/**
+ * Converts markdown-style links `[text](url)` in a string to HTML `<a>` tags.
+ * Escapes all text content and validates link protocols to prevent XSS.
+ */
+export function convertMarkdownLinksToHtml(text: string): string {
+  // Extract links from the original text, escape their parts, then rebuild.
+  let result = '';
+  let lastIndex = 0;
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  let match;
+  while ((match = linkRegex.exec(text)) !== null) {
+    // Escape the text before this match
+    result += escapeHtml(text.slice(lastIndex, match.index));
+    const linkText = escapeHtml(match[1]);
+    const linkUrl = match[2].trim();
+    if (isSafeUrl(linkUrl)) {
+      result += `<a href="${escapeHtml(linkUrl)}">${linkText}</a>`;
+    } else {
+      // Unsafe protocol — render as plain text
+      result += linkText;
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  result += escapeHtml(text.slice(lastIndex));
+  return result;
+}
+
+/**
+ * Converts plain-text outreach content (with optional markdown-style links)
+ * into HTML suitable for the generic outreach email template.
+ *
+ * - `[text](url)` → `<a href="url">text</a>` (safe protocols only)
+ * - Newlines → `<br>`
+ * - Wraps in a `<p>` tag
+ * - All text content is HTML-escaped to prevent XSS
+ */
+export function convertOutreachTextToHtml(text: string): string {
+  if (!text) return '';
+  const withLinks = convertMarkdownLinksToHtml(text);
+  const withBreaks = withLinks.replace(/\n/g, '<br>');
+  return `<p>${withBreaks}</p>`;
+}
+
+/**
+ * Pulls Organization matching reference out of a list of orgs
+ * @param reference payer url or internal FHIR reference
+ * @param organizations list of payer organizations
+ */
+export function findOrgMatchingReference(reference?: string, organizations?: Organization[]): Organization | undefined {
+  if (!reference) return undefined;
+  return (organizations ?? []).find((organization) => orgIdMatchesReference(reference, organization.id!));
+}
+
+export function orgIdMatchesReference(reference: string | undefined, orgId: string): boolean {
+  if (!reference) return false;
+  const oystehr = new Oystehr({}); // get access to static helper
+  return orgId === reference.replace('Organization/', '') || oystehr.rcm.constructPayerUrl({ id: orgId }) === reference;
+}

@@ -1,12 +1,10 @@
 name: Intake E2E Tests
 
 env:
-  NODE_VERSION: 20
+  NODE_VERSION: 22
   TOKEN_VALIDITY_THRESHOLD_MINUTES: 60
   TEST_RESULTS_CACHE_RETENTION_DAYS: 30
-  SECRETS_REPO: masslight/ottehr-secrets
-  USER_JSON_CACHE_KEY: intake-playwright-user-${{ github.event.inputs.environment || 'local' }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.run_number }}
-  USER_JSON_CACHE_RESTORE_KEYS: intake-playwright-user-${{ github.event.inputs.environment || 'local' }}-
+  SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
   PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
   USER_JSON_PATH: apps/intake/playwright/user.json
 
@@ -14,47 +12,109 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to run tests on'
+        description: "Environment to run tests on"
         required: false
         type: choice
         options:
+          - e2e
+          - e2e2
+          - e2e3
+          - e2e4
+          - e2e5
           - local
           - testing
           - development
           - staging
           - demo
-        default: 'local'
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches: [main, develop, 'release/**']
-  schedule:
-    - cron: '0 0 * * *'
+        default: "local"
+      mode:
+        description: "Tests running mode"
+        required: false
+        type: choice
+        options:
+          - normal
+          - smoke
+        default: "normal"
+  workflow_call:
+    inputs:
+      environment:
+        required: false
+        type: string
+      aws_deploy_role:
+        required: false
+        type: string
 
 jobs:
   check-changes:
-    if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    # 5, not 2: these steps are cheap, but the full-history checkout they depend on is
+    # network-bound and has been observed between 22s and just over 2m on a slow runner —
+    # tripping the old limit and failing the whole e2e gate. Still short enough to catch a hang.
+    timeout-minutes: 5
     outputs:
       should-run: ${{ steps.check.outputs.should-run }}
       skip-reason: ${{ steps.check.outputs.skip-reason }}
+      environment: ${{ steps.env.outputs.environment }}
+      user-json-cache-key: ${{ steps.cache-key.outputs.user-json-cache-key }}
+      user-json-cache-restore-keys: ${{ steps.cache-key.outputs.user-json-cache-restore-keys }}
     steps:
+      - name: Determine Environment
+        id: env
+        run: |
+          INPUT_ENV="${{ inputs.environment }}"
+          if [ -n "$INPUT_ENV" ]; then
+            echo "environment=$INPUT_ENV" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.repository }}" == "masslight/ottehr" ]; then
+            echo "environment=e2e" >> $GITHUB_OUTPUT
+          else
+            echo "environment=local" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate cache keys
+        id: cache-key
+        run: |
+          ENV="${{ steps.env.outputs.environment }}"
+          CACHE_KEY="intake-playwright-user-${ENV}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.run_number }}"
+          RESTORE_KEYS="intake-playwright-user-${ENV}-"
+          echo "user-json-cache-key=$CACHE_KEY" >> $GITHUB_OUTPUT
+          echo "user-json-cache-restore-keys=$RESTORE_KEYS" >> $GITHUB_OUTPUT
+
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          fetch-depth: 2  # Need at least 2 commits to compare
+          fetch-depth: 0 # Need full history for diffs in all scenarios
 
       - name: Check if Intake changes are relevant
         id: check
         run: |
-          if [ "${{ github.event_name }}" == "schedule" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "Event type: ${{ github.event_name }} - continue test flow"
+          # For workflow_dispatch, run unconditionally
+          # Also checking for workflow_call to support explicit calls without PR context or environment
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "Event type: ${{ github.event_name }} or explicit call - continue test flow"
             echo "should-run=true" >> $GITHUB_OUTPUT
             echo "skip-reason=" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
-          # For PR events, check changed files
+
+          # Check for force run command in PR description
+          if [ "${{ contains(github.event.pull_request.body || '', '/run-intake-e2e') }}" == "true" ]; then
+             echo "Force run enabled via PR command /run-intake-e2e"
+             echo "should-run=true" >> $GITHUB_OUTPUT
+             echo "skip-reason=" >> $GITHUB_OUTPUT
+             exit 0
+          fi
+
+          # Check for skip command in PR description
+          if [ "${{ contains(github.event.pull_request.body || '', '/skip-intake-e2e') }}" == "true" ]; then
+             echo "Intake E2E tests skipped via /skip-intake-e2e command"
+             echo "should-run=false" >> $GITHUB_OUTPUT
+             echo "skip-reason=Skipped via /skip-intake-e2e command" >> $GITHUB_OUTPUT
+             exit 0
+          fi
+
+          # For other events, check changed files
           TRACKED_FILES=$(node -e "
             const config = require('./.github/trigger-paths.js');
             console.log(config.getE2EPaths('intake').join(' '));
@@ -65,17 +125,19 @@ jobs:
     needs: check-changes
     if: needs.check-changes.outputs.should-run == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    # 5, not 2: the work is cheap but the cache restore is network-bound, and a timeout here fails
+    # the whole e2e gate rather than just this job. Matches its sibling jobs; still catches a hang.
+    timeout-minutes: 5
     outputs:
       needs-login: ${{ steps.token-check.outputs.needs-login }}
     steps:
       - name: Try restore user.json cache
         id: cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.USER_JSON_PATH }}
-          key: ${{ env.USER_JSON_CACHE_KEY }}
-          restore-keys: ${{ env.USER_JSON_CACHE_RESTORE_KEYS }}
+          key: ${{ needs.check-changes.outputs.user-json-cache-key }}
+          restore-keys: ${{ needs.check-changes.outputs.user-json-cache-restore-keys }}
 
       - name: Check token validity
         id: token-check
@@ -85,11 +147,11 @@ jobs:
             echo "No user.json found, login required"
             exit 0
           fi
-          
+
           echo "=== FILE EXISTS, CHECKING CONTENT ==="
           echo "File size: $(wc -c < "${{ env.USER_JSON_PATH }}")"
           echo "=================================="
-          
+
           if node -e '
           const fs = require("fs");
           try {
@@ -104,7 +166,6 @@ jobs:
                 item.value?.includes("expiresAt")
               )
             );
-
             if (!origin) {
               console.error("ERROR: No origin with Auth0 token found");
               process.exit(1);
@@ -117,20 +178,20 @@ jobs:
               !item.name?.includes("@@user@@") &&
               item.value?.includes("expiresAt")
             );
-          
+
             if (!authItem) {
               console.error("ERROR: No Auth0 token found");
               process.exit(1);
             }
-          
+
             console.log("Found Auth0 token item");
             
             const tokenData = JSON.parse(authItem.value);
             const expiresAt = tokenData.expiresAt * 1000;
             const timeLeft = (expiresAt - Date.now()) / (1000 * 60);
-          
+
             console.log(`Time left: ${timeLeft.toFixed(1)} minutes`);
-          
+
             if (timeLeft > ${{ env.TOKEN_VALIDITY_THRESHOLD_MINUTES }}) {
               console.log("Token valid, skip login");
               process.exit(0);
@@ -149,7 +210,7 @@ jobs:
             NEEDS_LOGIN="true" 
             echo "Token invalid or expired, login required"
           fi
-          
+
           echo "needs-login=$NEEDS_LOGIN" >> $GITHUB_OUTPUT
 
   intake-login:
@@ -160,64 +221,75 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 18 # Sometimes SMS takes ~5 minutes to deliver, and with other timeouts, all login tests can take ~9 minutes. Playwright has 2 retries for intake CI, so we need a login job timeout of 18 minutes.
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Cache node modules
         id: npm-cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          path: node_modules
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            deploy/node_modules
+          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-npm-
+            ${{ runner.os }}-npm-cache-
 
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.PLAYWRIGHT_CACHE_PATH }}
           key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-playwright-         
+            ${{ runner.os }}-playwright-
+
+      - name: Resolve secrets branch
+        id: resolve-secrets
+        uses: ./.github/actions/resolve-secrets-branch
+        with:
+          core-branch: ${{ github.head_ref || github.ref_name }}
+          secrets-repository: ${{ env.SECRETS_REPOSITORY }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          token: ${{ github.token }}
 
       - name: Check out secrets repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          repository: ${{ env.SECRETS_REPO }}
+          repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
-          path: 'secrets'
-
-      - name: Setup environment
-        run: |
-          setup_env() {
-            mkdir -p "packages/zambdas/.env"
-            cp secrets/zambdas/* "packages/zambdas/.env"
-            mkdir -p "apps/$app/env"
-            cp "secrets/$app/app/tests."*.json "apps/$app/env/"
-            cp "secrets/$app/app/.env"* "apps/$app/env/"
-          }
-      
-          for app in ehr intake; do
-            setup_env "$app"
-          done
+          ref: ${{ steps.resolve-secrets.outputs.branch }}
+          path: "secrets"
 
       - name: Install dependencies
         if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm ci
+        run: for i in {1..3}; do npm ci && s=0 && break || s=$? && sleep 5; done; (exit $s)
 
       - name: Install Playwright browsers
         run: npx playwright install chromium
 
+      - name: Populate and validate secrets
+        uses: ./.github/actions/populate-secrets
+        with:
+          environment: ${{ inputs.environment }}
+          copy-test-config-files: true
+          aws-deploy-role: ${{ inputs.aws_deploy_role || vars.AWS_DEPLOY_ROLE }}
+          pull-generated-config-from-terraform-state: true
+
       - name: Run login
         id: login
-        run: npm run intake:e2e:${{ github.event.inputs.environment || 'local' }}:login
+        run: npm run intake:e2e:${{ needs.check-changes.outputs.environment }}:login
         env:
           CI: true
 
@@ -228,48 +300,47 @@ jobs:
           node -e '
           const fs = require("fs");
           const path = "${{ env.USER_JSON_PATH }}";
-
           if (!fs.existsSync(path)) {
             console.log(`File ${path} does not exist`);
             process.exit(1);
           }
-          
+
           const data = JSON.parse(fs.readFileSync(path, "utf8"));
-          
+
           const hasAuth0Token = data.origins?.some(origin => 
             origin.localStorage && 
             origin.localStorage.some(item => item.name?.includes?.("auth0"))
           );
-          
+
           if (!hasAuth0Token) {
             console.log("No Auth0 token found");
             process.exit(1);
           }
-          
+
           console.log("User.json validated successfully");
           '
 
       - name: Save user.json to cache
         if: steps.validate.outcome == 'success'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.USER_JSON_PATH }}
-          key: ${{ env.USER_JSON_CACHE_KEY }}
+          key: ${{ needs.check-changes.outputs.user-json-cache-key }}
 
       - name: Upload login test results
         if: steps.login.outcome == 'success' || steps.login.outcome == 'failure' # log on success needed for investigate false success caces, we can remove it if login will work stable
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: playwright-report-intake-login-${{ github.event.inputs.environment || 'local' }}
+          name: playwright-report-intake-login-${{ needs.check-changes.outputs.environment }}
           path: |
             apps/intake/playwright-report-login/
             apps/intake/test-results-login/
-          retention-days: ${{ fromJson(env.TEST_RESULTS_CACHE_RETENTION_DAYS) }}      
+          retention-days: ${{ fromJson(env.TEST_RESULTS_CACHE_RETENTION_DAYS) }}
 
   intake-e2e-tests-run:
     needs: [check-changes, check-token-validity, intake-login]
     if: |
-      always() && !cancelled() && github.event_name != 'schedule' &&
+      always() && !cancelled() &&
       needs.check-changes.outputs.should-run == 'true' &&
       (
         needs.check-token-validity.outputs.needs-login == 'false' ||
@@ -277,30 +348,37 @@ jobs:
       )
     runs-on: ubuntu-latest-8-cores
     timeout-minutes: 30
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Restore node modules
         id: npm-cache-restore
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          path: node_modules
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            deploy/node_modules
+          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-npm-
+            ${{ runner.os }}-npm-cache-
 
       - name: Install dependencies
         if: steps.npm-cache-restore.outputs.cache-hit != 'true'
-        run: npm ci
+        run: for i in {1..3}; do npm ci && s=0 && break || s=$? && sleep 5; done; (exit $s)
 
       - name: Restore Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.PLAYWRIGHT_CACHE_PATH }}
           key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
@@ -311,49 +389,90 @@ jobs:
         run: npx playwright install chromium
 
       - name: Restore user.json cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.USER_JSON_PATH }}
-          key: ${{ env.USER_JSON_CACHE_KEY }}
-          restore-keys: ${{ env.USER_JSON_CACHE_RESTORE_KEYS }}
+          key: ${{ needs.check-changes.outputs.user-json-cache-key }}
+          restore-keys: ${{ needs.check-changes.outputs.user-json-cache-restore-keys }}
           fail-on-cache-miss: ${{ needs.intake-login.result == 'success' }}
 
-      - name: Check out secrets repo
-        uses: actions/checkout@v4
+      - name: Resolve secrets branch
+        id: resolve-secrets
+        uses: ./.github/actions/resolve-secrets-branch
         with:
-          repository: ${{ env.SECRETS_REPO }}
+          core-branch: ${{ github.head_ref || github.ref_name }}
+          secrets-repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
-          path: 'secrets'
+          token: ${{ github.token }}
 
-      - name: Setup environment
+      - name: Check out secrets repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ env.SECRETS_REPOSITORY }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          ref: ${{ steps.resolve-secrets.outputs.branch }}
+          path: "secrets"
+
+      - name: Populate and validate secrets
+        uses: ./.github/actions/populate-secrets
+        with:
+          environment: ${{ inputs.environment }}
+          copy-test-config-files: true
+          aws-deploy-role: ${{ inputs.aws_deploy_role || vars.AWS_DEPLOY_ROLE }}
+          pull-generated-config-from-terraform-state: true
+
+      # Built alongside the terraform apply by the build-intake-bundle job so this job doesn't pay for
+      # it. Absent for a standalone workflow_dispatch, in which case run-e2e.ts builds as usual.
+      - name: Download prebuilt intake bundle
+        id: download-bundle
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: intake-bundle-${{ needs.check-changes.outputs.environment }}
+          # The artifact's paths share apps/intake as their common ancestor, so it unpacks as
+          # build/ and env/.env.<env>.prebuilt — extract into apps/intake to restore the real layout.
+          path: apps/intake
+
+      # That bundle was built against an env file generated from terraform state before the apply
+      # finished. If the apply changed it, the bundle is stale: drop it and let run-e2e.ts rebuild
+      # against the copy this job just generated.
+      - name: Discard the prebuilt bundle if its env no longer matches
+        if: steps.download-bundle.outcome == 'success'
         run: |
-          setup_env() {
-            mkdir -p "packages/zambdas/.env"
-            cp secrets/zambdas/* "packages/zambdas/.env"
-            mkdir -p "apps/$app/env"
-            cp "secrets/$app/app/tests."*.json "apps/$app/env/"
-            cp "secrets/$app/app/.env"* "apps/$app/env/"
-          }
-      
-          for app in ehr intake; do
-            setup_env "$app"
-          done
-      
+          ENV_FILE="apps/intake/env/.env.${{ needs.check-changes.outputs.environment }}"
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "No env file to compare against; discarding the prebuilt bundle."
+            rm -rf apps/intake/build
+          elif cmp -s "$ENV_FILE" "$ENV_FILE.prebuilt"; then
+            echo "Prebuilt bundle matches this job's env; using it."
+          else
+            echo "Env changed since the bundle was built; discarding it and rebuilding."
+            rm -rf apps/intake/build
+          fi
+          rm -f "$ENV_FILE.prebuilt"
+
       - name: Run E2E tests
         run: |
-          if [ "${{ github.event.inputs.environment }}" == "local" ] || [ "${{ github.event_name }}" == "pull_request" ]; then
+          ENV="${{ needs.check-changes.outputs.environment }}"
+
+          if [ "$ENV" == "local" ]; then
             npm run intake:e2e:local:specs
           else
-            npm run intake:e2e:${{ github.event.inputs.environment }}:specs
+            MODE="${{ inputs.mode }}"
+            if [ "$MODE" == "smoke" ]; then
+              npm run intake:e2e:$ENV:smoke
+            else
+              npm run intake:e2e:$ENV:specs
+            fi
           fi
         env:
           CI: true
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: playwright-report-intake-${{ github.event.inputs.environment || 'local' }}
+          name: playwright-report-intake-${{ needs.check-changes.outputs.environment }}
           path: |
             apps/intake/playwright-report/
             apps/intake/test-results/
@@ -361,7 +480,8 @@ jobs:
 
   # This job always runs and satisfies branch protection rules
   intake-e2e-tests:
-    needs: [check-changes, check-token-validity, intake-login, intake-e2e-tests-run]
+    needs:
+      [check-changes, check-token-validity, intake-login, intake-e2e-tests-run]
     if: always() && !cancelled()
     runs-on: ubuntu-latest
     steps:
@@ -369,9 +489,6 @@ jobs:
         run: |
           if [ "${{ needs.check-changes.outputs.should-run }}" == "false" ]; then
             echo "Intake E2E tests skipped: ${{ needs.check-changes.outputs.skip-reason }}"
-            exit 0
-          elif [ "${{ github.event_name }}" == "schedule" ]; then
-            echo "Intake E2E tests skipped for scheduled run (login only)"
             exit 0
           elif [ "${{ needs.intake-e2e-tests-run.result }}" == "success" ]; then
             echo "Intake E2E tests passed"
@@ -382,6 +499,9 @@ jobs:
           elif [ "${{ needs.intake-e2e-tests-run.result }}" == "cancelled" ]; then
             echo "Intake E2E tests cancelled"
             exit 1
+          elif [ "${{ needs.intake-e2e-tests-run.result }}" == "skipped" ]; then
+            echo "Intake E2E tests skipped (execution job skipped)"
+            exit 0
           else
             echo "Intake E2E tests status unknown: ${{ needs.intake-e2e-tests-run.result }}"
             exit 1

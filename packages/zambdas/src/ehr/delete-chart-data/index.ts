@@ -15,25 +15,33 @@ import {
   Patient,
   Procedure,
   ServiceRequest,
+  Task,
 } from 'fhir/r4b';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { createCancellationTagOperations } from 'utils/lib/helpers/cancellation-meta.helper';
 import {
   AllergyDTO,
   CommunicationDTO,
   CPTCodeDTO,
   ExamObservationDTO,
-  getPatchBinary,
   MedicalConditionDTO,
   MedicationDTO,
-  ObservationDTO,
-} from 'utils';
-import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, wrapHandler, ZambdaInput } from '../../shared';
+  ProcedureDTO,
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ObservationDTO } from 'utils/lib/types/data/screening-questions/types';
+import { FHIR_RESOURCE_IS_GONE } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import {
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,
   deleteEncounterDiagnosis,
   updateEncounterDischargeDisposition,
 } from '../../shared/chart-data';
-import { createOystehrClient } from '../../shared/helpers';
+import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { parseCreatedResourcesBundle } from '../../shared/resources.helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { deleteZ3Object } from '../../shared/z3Utils';
 import { createFindResourceRequestByPatientField } from '../get-chart-data/helpers';
 import { deleteResourceRequest, getEncounterAndRelatedResources } from './helpers';
@@ -51,7 +59,8 @@ type ChartData =
   | MedicationStatement
   | Observation
   | Procedure
-  | ServiceRequest;
+  | ServiceRequest
+  | Task;
 
 export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -60,6 +69,8 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     const {
       encounterId,
       chiefComplaint,
+      historyOfPresentIllness,
+      mechanismOfInjury,
       ros,
       conditions,
       medications,
@@ -70,6 +81,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       episodeOfCare,
       secrets,
       examObservations,
+      rosObservations,
       medicalDecision,
       cptCodes,
       emCode,
@@ -80,11 +92,13 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       addendumNote,
       notes,
       vitalsObservations,
+      procedures,
+      accident,
     } = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     // 0. get encounter
     console.log(`Getting encounter ${encounterId}`);
@@ -104,10 +118,17 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       | BatchInputRequest<ChartData>
     )[] = [];
     const updateEncounterOperations: Operation[] = [];
+    const patientEducationDocumentReferenceIdsToDelete = new Set<string>();
 
     // 2. delete  Medical Condition associated with chief complaint
     if (chiefComplaint) {
       deleteOrUpdateRequests.push(deleteResourceRequest('Condition', chiefComplaint.resourceId!));
+    }
+    if (historyOfPresentIllness) {
+      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', historyOfPresentIllness.resourceId!));
+    }
+    if (mechanismOfInjury) {
+      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', mechanismOfInjury.resourceId!));
     }
     if (ros) {
       deleteOrUpdateRequests.push(deleteResourceRequest('Condition', ros.resourceId!));
@@ -142,6 +163,11 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       deleteOrUpdateRequests.push(deleteResourceRequest('Observation', element.resourceId!));
     });
 
+    // 8b. delete ROS Observations
+    rosObservations?.forEach((element: ExamObservationDTO) => {
+      deleteOrUpdateRequests.push(deleteResourceRequest('Observation', element.resourceId!));
+    });
+
     // 9. delete ClinicalImpression
     if (medicalDecision) {
       deleteOrUpdateRequests.push(deleteResourceRequest('ClinicalImpression', medicalDecision.resourceId!));
@@ -159,6 +185,10 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     // 11. delete Communications
     instructions?.forEach((element: CommunicationDTO) => {
       deleteOrUpdateRequests.push(deleteResourceRequest('Communication', element.resourceId!));
+      if (element.educationDocRefId) {
+        patientEducationDocumentReferenceIdsToDelete.add(element.educationDocRefId);
+        deleteOrUpdateRequests.push(deleteResourceRequest('DocumentReference', element.educationDocRefId));
+      }
     });
 
     // 12. delete disposition ServiceRequests and encounter properties
@@ -189,8 +219,9 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     // 14. delete school-work excuse note DocumentReference resource
     schoolWorkNotes?.forEach((element) => {
       const documentReference = allResources.find((resource) => resource.id === element.id);
-      if (documentReference)
+      if (documentReference) {
         deleteOrUpdateRequests.push(deleteResourceRequest('DocumentReference', documentReference.id!));
+      }
     });
 
     // 15. delete notes
@@ -203,9 +234,41 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       deleteOrUpdateRequests.push(deleteResourceRequest('Observation', element.resourceId!));
     });
 
+    // 18. mark procedures as entered-in-error (cancel)
+    procedures?.forEach((procedure: ProcedureDTO) => {
+      // Find the ServiceRequest for this procedure
+      const procedureServiceRequest = allResources.find(
+        (resource) => resource.resourceType === 'ServiceRequest' && resource.id === procedure.resourceId
+      ) as ServiceRequest | undefined;
+
+      if (procedureServiceRequest) {
+        const currentStatus = procedureServiceRequest.status;
+        console.log(`Cancelling procedure ${procedure.resourceId}, saving previous status '${currentStatus}'`);
+
+        // Use helper to create cancellation tag operations and status update
+        const patchOperations = [
+          ...createCancellationTagOperations(currentStatus, procedureServiceRequest.meta),
+          { op: 'replace' as const, path: '/status', value: 'entered-in-error' },
+        ];
+
+        // Mark as entered-in-error instead of deleting
+        deleteOrUpdateRequests.push(
+          getPatchBinary({
+            resourceId: procedure.resourceId!,
+            resourceType: 'ServiceRequest',
+            patchOperations,
+          })
+        );
+      }
+    });
+
     episodeOfCare?.forEach((element) => {
       deleteOrUpdateRequests.push(deleteResourceRequest('EpisodeOfCare', element.resourceId!));
     });
+
+    if (accident) {
+      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', accident.resourceId!));
+    }
 
     if (updateEncounterOperations.length > 0) {
       deleteOrUpdateRequests.push(
@@ -266,11 +329,14 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     console.log('Starting a transaction update of chart data...');
     await Promise.all([
       oystehr.fhir.transaction({
-        requests: deleteOrUpdateRequests,
+        requests: deleteOrUpdateRequests.filter((request) => !request.url.endsWith('undefined')),
       }),
       specialRulesDeletions,
     ]);
     console.log('Updated chart data as a transaction');
+
+    const appointment = allResources.find((res) => res.resourceType === 'Appointment');
+    await runChartDataPostChangeTasks(oystehr, addendumNote, notes, encounter, appointment?.id);
 
     // perform deleting z3 pdf objects after deleting all fhir resources
     if (schoolWorkNotes) {
@@ -283,17 +349,26 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       }
     }
 
+    for (const documentReferenceId of patientEducationDocumentReferenceIdsToDelete) {
+      const documentReference = allResources.find((resource) => resource.id === documentReferenceId) as
+        | DocumentReference
+        | undefined;
+      const fileUrl = documentReference?.content?.[0]?.attachment.url;
+      if (fileUrl) await deleteZ3Object(fileUrl, m2mToken);
+    }
+
     return {
       body: JSON.stringify({
         patientId: patient.id,
       }),
       statusCode: 200,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.log(error);
-    return {
-      body: JSON.stringify({ message: 'Error deleting encounter data' }),
-      statusCode: 500,
-    };
+    let errorToUse = error;
+    if (error.name === 'OystehrFHIRError' && error.code === 410) {
+      errorToUse = FHIR_RESOURCE_IS_GONE();
+    }
+    throw errorToUse;
   }
 });

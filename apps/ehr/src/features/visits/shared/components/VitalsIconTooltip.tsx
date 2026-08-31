@@ -1,0 +1,127 @@
+import ErrorIcon from '@mui/icons-material/Error';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
+import { Box, Stack, Typography, useTheme } from '@mui/material';
+import { Link } from 'react-router-dom';
+import { AssessmentTitle } from 'src/components/AssessmentTitle';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
+import { GenericToolTip } from '../../../../components/GenericToolTip';
+import { ROUTER_PATH } from '../../in-person/routing/routesInPerson';
+import { getObservationValueElements } from './vitals/components/VitalsHistoryEntry';
+
+interface VitalsIconTooltipProps {
+  appointment: InPersonAppointmentInformation;
+  abnormalVitals: GetVitalsResponseData;
+}
+
+const getLabelForVitalField = (field: VitalFieldNames): string => {
+  switch (field) {
+    case VitalFieldNames.VitalTemperature:
+      return 'Temperature';
+    case VitalFieldNames.VitalHeartbeat:
+      return 'Heartbeat';
+    case VitalFieldNames.VitalRespirationRate:
+      return 'Respiration Rate';
+    case VitalFieldNames.VitalBloodPressure:
+      return 'Blood Pressure';
+    case VitalFieldNames.VitalOxygenSaturation:
+      return 'Oxygen Saturation';
+    case VitalFieldNames.VitalWeight:
+      return 'Weight';
+    case VitalFieldNames.VitalHeight:
+      return 'Height';
+    case VitalFieldNames.VitalVision:
+      return 'Vision';
+    default:
+      return '';
+  }
+};
+
+export const VitalsIconTooltip: React.FC<VitalsIconTooltipProps> = ({ appointment, abnormalVitals }) => {
+  const theme = useTheme();
+
+  const hasAbnormalVitals = Object.keys(abnormalVitals).length > 0;
+  if (!hasAbnormalVitals) return null;
+
+  const abnormals: {
+    [K in keyof typeof VitalFieldNames]: { data: VitalsObservationDTO[]; label: string };
+  } = Object.entries(abnormalVitals).reduce(
+    (acc, [key, value]) => ({
+      ...acc,
+      [key as keyof typeof VitalFieldNames]: {
+        data: value,
+        label: getLabelForVitalField(key as VitalFieldNames),
+      },
+    }),
+    {} as { [K in keyof typeof VitalFieldNames]: { data: VitalsObservationDTO[]; label: string } }
+  );
+
+  const hasAbnormal = Object.values(abnormals).some((item) =>
+    item.data.some((data) => data.alertCriticality === 'abnormal')
+  );
+  const hasCritical = Object.values(abnormals).some((item) =>
+    item.data.some((data) => data.alertCriticality === 'critical')
+  );
+
+  return (
+    <GenericToolTip
+      title={
+        <>
+          <AssessmentTitle>Critical & Abnormal Vitals</AssessmentTitle>
+          <Stack spacing={1}>
+            {Object.entries(abnormals).map(([key, abnormal]) => {
+              return (
+                <Box key={key} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  {abnormal.data.length > 0 &&
+                    abnormal.data.map((item) => {
+                      const color =
+                        item.alertCriticality === 'abnormal' ? theme.palette.warning.light : theme.palette.error.main;
+                      return (
+                        <Box key={item.resourceId || item.lastUpdated} sx={{ display: 'flex', alignItems: 'center' }}>
+                          {abnormal.label} -&nbsp;
+                          <Typography component="span" sx={{ fontSize: '14px', fontWeight: 'bold', color: color }}>
+                            {getObservationValueElements(item, color)}
+                          </Typography>
+                          {item.alertCriticality === 'abnormal' && (
+                            <WarningAmberOutlinedIcon
+                              fontSize="small"
+                              sx={{ ml: '4px', verticalAlign: 'middle', color: color }}
+                            />
+                          )}
+                          {item.alertCriticality === 'critical' && (
+                            <ErrorIcon fontSize="small" sx={{ ml: '4px', verticalAlign: 'middle', color: color }} />
+                          )}
+                        </Box>
+                      );
+                    })}
+                </Box>
+              );
+            })}
+          </Stack>
+        </>
+      }
+      customWidth="none"
+      placement="top"
+    >
+      <Box sx={{ display: 'flex', width: '100%' }}>
+        <Link
+          to={`/in-person/${appointment.parentAppointmentId || appointment.id}/${ROUTER_PATH.VITALS}`}
+          style={{ textDecoration: 'none' }}
+          key={'vitals-link-' + appointment.id}
+        >
+          {hasAbnormal ? (
+            <WarningAmberOutlinedIcon
+              fontSize="medium"
+              sx={{ ml: '4px', verticalAlign: 'middle', color: theme.palette.warning.light }}
+            />
+          ) : null}
+          {hasCritical ? (
+            <ErrorIcon fontSize="small" sx={{ ml: '4px', verticalAlign: 'middle', color: theme.palette.error.main }} />
+          ) : null}
+        </Link>
+      </Box>
+    </GenericToolTip>
+  );
+};

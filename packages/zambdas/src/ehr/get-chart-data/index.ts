@@ -1,10 +1,14 @@
-import Oystehr, { BatchInputGetRequest, Bundle } from '@oystehr/sdk';
+import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { FhirResource, Resource } from 'fhir/r4b';
-import { ChartDataFields, ChartDataRequestedFields, GetChartDataResponse } from 'utils';
-import { checkOrCreateM2MClientToken, getPatientEncounter, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
-import { configLabRequestsForGetChartData } from '../shared/labs';
+import { FhirResource, Practitioner, Resource } from 'fhir/r4b';
+import { PUBLIC_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { ChartDataRequestedFields, GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { getPatientEncounter } from '../../shared/encounter';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { configLabRequestsForGetChartData } from '../lab/shared/labs';
 import {
   configProceduresRequestsForGetChartData,
   convertSearchResultsToResponse,
@@ -18,28 +22,20 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
+const ZAMBDA_NAME = 'get-chart-data';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`Input: ${JSON.stringify(input)}`);
+  console.log('Validating input');
+  const { encounterId, secrets, requestedFields } = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-export const index = wrapHandler('get-chart-data', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log(`Input: ${JSON.stringify(input)}`);
-    console.log('Validating input');
-    const { encounterId, secrets, requestedFields } = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  const output = (await getChartData(oystehr, m2mToken, encounterId, requestedFields)).response;
 
-    const output = (await getChartData(oystehr, m2mToken, encounterId, requestedFields)).response;
-
-    return {
-      body: JSON.stringify(output),
-      statusCode: 200,
-    };
-  } catch (error) {
-    console.log(error);
-    return {
-      body: JSON.stringify({ message: 'Error saving encounter data...' }),
-      statusCode: 500,
-    };
-  }
+  return {
+    body: JSON.stringify(output),
+    statusCode: 200,
+  };
 });
 
 export async function getChartData(
@@ -78,7 +74,8 @@ export async function getChartData(
     resourceType: SupportedResourceType;
     defaultSearchBy?: 'encounter' | 'patient';
   }): void {
-    const fieldOptions = requestedFields?.[field];
+    const fieldOptions = requestedFields?.[field as keyof ChartDataRequestedFields];
+
     const defaultSearchParams = defaultChartDataFieldsSearchParams[field];
 
     if (!requestedFields || fieldOptions) {
@@ -115,25 +112,31 @@ export async function getChartData(
   // search by patient by default
   addRequestIfNeeded({ field: 'surgicalHistory', resourceType: 'Procedure', defaultSearchBy: 'patient' });
 
+  // TODO: I commented out this code during the chart-data store refactoring,
+  // because cptCodes were being requested with just an empty object,
+  // without specifying _searchBy and with default search by encounter,
+  // and this variant seems to match what is returned in cptCodes by default without requiredParameters.
+  // If this code is no longer needed, it can be removed.
+  // ---------------------------------------------------------
   // edge case for Procedures just for getting cpt codes..
   // todo: delete this and just use procedures with special tag in frontend (todo: need to pass tag here through search params most likely)
-  if (requestedFields?.cptCodes) {
-    /**
-     * TODO: Research if we can modify addRequestIfNeeded to include the requested field
-     *  in the default query when fields are not defined, instead of adding this condition.
-     *
-     * Without requestedFields addRequestIfNeeded generates URL like /Procedure?encounter=Encounter/:id,
-     * while the code above addRequestIfNeeded({
-     *   field: 'procedures',
-     *   resourceType: 'Procedure',
-     *   defaultSearchBy: 'patient'
-     * }) without requestedFields produces URL like /Procedure?subject=Patient/:id.
-     * Current solution: To avoid duplicates, run this request only with requestedFields.
-     */
+  // if (requestedFields?.cptCodes) {
+  /**
+   * TODO: Research if we can modify addRequestIfNeeded to include the requested field
+   *  in the default query when fields are not defined, instead of adding this condition.
+   *
+   * Without requestedFields addRequestIfNeeded generates URL like /Procedure?encounter=Encounter/:id,
+   * while the code above addRequestIfNeeded({
+   *   field: 'procedures',
+   *   resourceType: 'Procedure',
+   *   defaultSearchBy: 'patient'
+   * }) without requestedFields produces URL like /Procedure?subject=Patient/:id.
+   * Current solution: To avoid duplicates, run this request only with requestedFields.
+   */
 
-    // Comment: theoretically can be solved by using defaultSearchParams added to addRequestIfNeeded logic
-    addRequestIfNeeded({ field: 'cptCodes', resourceType: 'Procedure', defaultSearchBy: 'encounter' });
-  }
+  // Comment: theoretically can be solved by using defaultSearchParams added to addRequestIfNeeded logic
+  //   addRequestIfNeeded({ field: 'cptCodes', resourceType: 'Procedure', defaultSearchBy: 'encounter' });
+  // }
 
   // search by encounter by default
   addRequestIfNeeded({ field: 'observations', resourceType: 'Observation', defaultSearchBy: 'encounter' });
@@ -167,6 +170,14 @@ export async function getChartData(
     addRequestIfNeeded({ field: 'chiefComplaint', resourceType: 'Condition', defaultSearchBy: 'encounter' });
   }
 
+  if (requestedFields?.historyOfPresentIllness) {
+    addRequestIfNeeded({ field: 'historyOfPresentIllness', resourceType: 'Condition', defaultSearchBy: 'encounter' });
+  }
+
+  if (requestedFields?.mechanismOfInjury) {
+    addRequestIfNeeded({ field: 'mechanismOfInjury', resourceType: 'Condition', defaultSearchBy: 'encounter' });
+  }
+
   if (requestedFields?.ros) {
     addRequestIfNeeded({ field: 'ros', resourceType: 'Condition', defaultSearchBy: 'encounter' });
   }
@@ -197,19 +208,24 @@ export async function getChartData(
     );
   }
 
+  if (requestedFields?.accident) {
+    addRequestIfNeeded({ field: 'accident', resourceType: 'Condition', defaultSearchBy: 'encounter' });
+  }
+
   if (requestedFields == null) {
     // AI chat
     chartDataRequests.push(
       createFindResourceRequest(
         patient,
         encounter,
-        'QuestionnaireResponse',
-        {
-          questionnaire: {
-            type: 'string',
-            value: '#aiInterviewQuestionnaire',
-          },
-        },
+        'DocumentReference',
+        // {
+        //   type: {
+        //     type: 'string',
+        //     value: '#aiInterviewQuestionnaire',
+        //   },
+        // },
+        {},
         'encounter'
       )
     );
@@ -230,21 +246,62 @@ export async function getChartData(
     chartDataRequests.push(...labRequests);
   }
 
-  if ((!requestedFields || requestedFields.procedures) && encounter.id) {
-    chartDataRequests.push(configProceduresRequestsForGetChartData(encounter.id));
+  if (requestedFields?.radiologyOrders) {
+    addRequestIfNeeded({ field: 'radiologyOrders', resourceType: 'ServiceRequest', defaultSearchBy: 'encounter' });
   }
+
+  // procedures can be requested with custom search params (e.g., multiple encounters)
+  if ((!requestedFields || requestedFields.procedures) && encounter.id) {
+    const proceduresSearchParams = requestedFields?.procedures;
+    // Check if encounterIds are provided in search params for batch request
+    const encounterIdsParam = proceduresSearchParams?.encounterIds;
+    const encounterIds = encounterIdsParam || encounter.id;
+    chartDataRequests.push(configProceduresRequestsForGetChartData(encounterIds));
+  }
+
+  if (requestedFields?.preferredPharmacies) {
+    const pharmacies = patient.contained?.filter((r) => r.resourceType === 'Organization') ?? [];
+
+    if (pharmacies.length > 0 && encounter.id) {
+      chartDataRequests.push(
+        createFindResourceRequest(patient, encounter, 'QuestionnaireResponse', { _search_by: 'encounter' })
+      );
+    }
+  }
+
+  // Determine if we need to check whether the patient is new
+  const shouldFetchPatientHasPreviousVisits = !requestedFields || 'patientHasPreviousVisits' in requestedFields;
 
   console.timeLog('check', 'before resources fetch');
   console.log('Starting a transaction to retrieve chart data...');
-  let result: Bundle<FhirResource> | undefined;
-  try {
-    result = await oystehr.fhir.batch<FhirResource>({
-      requests: chartDataRequests,
-    });
-  } catch (error) {
-    console.log('Error fetching chart data...', error, JSON.stringify(error));
-    throw new Error(`Unable to retrieve chart data for patient with ID ${patient.id}`);
-  }
+
+  // Run batch and patientHasPreviousVisits query in parallel
+  const [batchResult, appointmentCountResult] = await Promise.all([
+    oystehr.fhir
+      .batch<FhirResource>({
+        requests: chartDataRequests,
+      })
+      .catch((error) => {
+        console.log('Error fetching chart data...', error, JSON.stringify(error));
+        throw new Error(`Unable to retrieve chart data for patient with ID ${patient.id}`);
+      }),
+    shouldFetchPatientHasPreviousVisits
+      ? oystehr.fhir
+          .search<FhirResource>({
+            resourceType: 'Appointment',
+            params: [
+              { name: 'patient._id', value: patient.id! },
+              { name: '_summary', value: 'count' },
+            ],
+          })
+          .catch((error) => {
+            console.log('Error fetching appointment count for patient...', error);
+            return undefined;
+          })
+      : Promise.resolve(undefined),
+  ]);
+
+  const result = batchResult;
   console.log('Retrieved chart data...');
   // console.debug('result JSON\n\n==============\n\n', JSON.stringify(result));
 
@@ -254,9 +311,45 @@ export async function getChartData(
     m2mToken,
     patient.id!,
     encounterId,
-    requestedFields ? (Object.keys(requestedFields) as (keyof ChartDataFields)[]) : undefined
+    requestedFields ? (Object.keys(requestedFields) as (keyof ChartDataRequestedFields)[]) : undefined,
+    patient,
+    oystehr
   );
   console.timeLog('check', 'after converting to response');
+
+  if (chartDataResult.chartData.aiChat) {
+    const practitionerIDs = chartDataResult.chartData.aiChat.documents
+      .filter((document) => document.resourceType === 'DocumentReference')
+      .map(
+        (document) =>
+          document.extension
+            ?.find((extension) => extension.url === `${PUBLIC_EXTENSION_BASE_URL}/provider`)
+            ?.valueReference?.reference?.split('/')[1]
+      )
+      .filter((practitionerID) => practitionerID != null);
+    if (practitionerIDs.length > 0) {
+      console.log('Getting Practitioners');
+      const practitioners = (
+        await oystehr.fhir.search<Practitioner>({
+          resourceType: 'Practitioner',
+          params: [
+            {
+              name: '_id',
+              value: practitionerIDs.join(','),
+            },
+          ],
+        })
+      ).unbundle();
+      chartDataResult.chartData.aiChat.providers = practitioners;
+    }
+  }
+  // Set patientHasPreviousVisits based on appointment count
+  if (appointmentCountResult !== undefined) {
+    const appointmentCount = appointmentCountResult.total ?? 0;
+    // More than 1 appointment means the patient has previous visits (current appointment is one of them)
+    chartDataResult.chartData.patientHasPreviousVisits = appointmentCount > 1;
+  }
+
   console.timeEnd('check');
 
   return {

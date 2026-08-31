@@ -2,18 +2,38 @@ import { Box, Button, CircularProgress, Paper, Typography } from '@mui/material'
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { collectInHouseLabSpecimen, getInHouseOrders } from 'src/api/api';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { useAppointmentData } from 'src/telemed';
-import { InHouseOrderDetailPageItemDTO, LoadingState, MarkAsCollectedData } from 'utils';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { LoadingState } from 'utils/lib/types/data/in-house/in-house.constants';
+import {
+  EntryMode,
+  InHouseOrderDetailPageItemDTO,
+  MarkAsCollectedData,
+} from 'utils/lib/types/data/in-house/in-house.types';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { CollectSampleView } from '../components/details/CollectSampleView';
-import { FinalResultView } from '../components/details/FinalResultView';
-import { PerformTestView } from '../components/details/PerformTestView';
+import { InHouseLabResults } from '../components/details/InHouseLabResults';
 import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
+import { InHouseLabOrderPrefill } from './InHouseLabOrderCreatePage';
 
-export const InHouseLabTestDetailsPage: React.FC = () => {
+interface InHouseLabTestDetailsPageProps {
+  serviceRequestId?: string;
+  onBack?: () => void;
+  // the repeat/reflex buttons open the create view with prefill data instead of navigating
+  onOrderTest?: (prefill: InHouseLabOrderPrefill) => void;
+}
+
+export const InHouseLabTestDetailsPage: React.FC<InHouseLabTestDetailsPageProps> = ({
+  serviceRequestId: serviceRequestIdProp,
+  onBack,
+  onOrderTest,
+}) => {
   const navigate = useNavigate();
-  const { serviceRequestID } = useParams<{ testId: string; serviceRequestID: string }>();
+  const isInlineFlow = useIsInlineFlow();
+  const urlParams = useParams<{ testId: string; serviceRequestID: string }>();
+  const serviceRequestID = serviceRequestIdProp ?? urlParams.serviceRequestID;
   const { encounter } = useAppointmentData();
   const [loadingState, setLoadingState] = useState(LoadingState.initial);
   const [testDetails, setTestDetails] = useState<InHouseOrderDetailPageItemDTO | null>(null);
@@ -51,9 +71,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
     }
   }, [oystehrZambda, encounter.id, serviceRequestID, loadingState]);
 
-  const handleBack = (): void => {
-    navigate(-1);
-  };
+  const handleBack = onBack ?? ((): void => navigate(-1));
 
   const handleCollectSampleSubmit = async (updatedData: MarkAsCollectedData): Promise<void> => {
     try {
@@ -73,7 +91,13 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
 
   if (loadingState === LoadingState.loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
+      <Box
+        data-testid={dataTestIds.orderInHouseLabPage.loading}
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="300px"
+      >
         <CircularProgress />
       </Box>
     );
@@ -94,34 +118,58 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
     );
   }
 
-  const pageName = `${testDetails.testItemName}${(allTestDetails || []).length > 1 ? ' + Repeat' : ''}`;
+  const apartOfRepeatTestSet = (() => {
+    return allTestDetails && allTestDetails.some((detail) => detail.labDetails.orderMode === 'repeat');
+  })();
+
+  const pageName = `${testDetails.testItemName}${apartOfRepeatTestSet ? ' + Repeat' : ''}`;
+
+  const content = (
+    <>
+      {(() => {
+        switch (testDetails.status) {
+          case 'ORDERED':
+            return (
+              <CollectSampleView
+                testDetails={testDetails}
+                onBack={handleBack}
+                onSubmit={handleCollectSampleSubmit}
+                setLoadingState={setLoadingState}
+              />
+            );
+          case 'COLLECTED':
+            return (
+              <InHouseLabResults
+                testDetails={[testDetails]}
+                onBack={handleBack}
+                setLoadingState={setLoadingState}
+                entryMode={EntryMode.Initial}
+                onOrderTest={onOrderTest}
+              />
+            );
+          case 'FINAL':
+            return (
+              <InHouseLabResults
+                testDetails={allTestDetails}
+                onBack={handleBack}
+                setLoadingState={setLoadingState}
+                entryMode={EntryMode.Edit}
+                onOrderTest={onOrderTest}
+              />
+            );
+          default:
+            // temp for debugging
+            return <p>Status could not be parsed: {testDetails.status}</p>;
+        }
+      })()}
+    </>
+  );
+
+  if (isInlineFlow) return content;
 
   return (
     <DetailPageContainer>
-      <InHouseLabsBreadcrumbs pageName={pageName}>
-        {(() => {
-          switch (testDetails.status) {
-            case 'ORDERED':
-              return (
-                <CollectSampleView
-                  testDetails={testDetails}
-                  onBack={handleBack}
-                  onSubmit={handleCollectSampleSubmit}
-                  setLoadingState={setLoadingState}
-                />
-              );
-            case 'COLLECTED':
-              return (
-                <PerformTestView testDetails={testDetails} onBack={handleBack} setLoadingState={setLoadingState} />
-              );
-            case 'FINAL':
-              return <FinalResultView testDetails={allTestDetails} onBack={handleBack} />;
-            default:
-              // temp for debugging
-              return <p>Status could not be parsed: {testDetails.status}</p>;
-          }
-        })()}
-      </InHouseLabsBreadcrumbs>
+      <InHouseLabsBreadcrumbs pageName={pageName}>{content}</InHouseLabsBreadcrumbs>
     </DetailPageContainer>
   );
 };

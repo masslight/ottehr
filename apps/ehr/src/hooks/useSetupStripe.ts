@@ -1,18 +1,20 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { useSuccessQuery } from 'utils';
-import { chooseJson } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { PaymentMethodSetupZambdaOutput } from 'utils/lib/types/data/payment/payment-method-types';
 import { useApiClients } from './useAppClients';
 
 export const useSetupStripe = (
   beneficiaryPatientId: string | undefined,
-  onSuccess?: (data: string | null) => void
-): UseQueryResult<string, Error> => {
+  appointmentId: string | undefined,
+  onSuccess?: (data: PaymentMethodSetupZambdaOutput | null) => void
+): UseQueryResult<PaymentMethodSetupZambdaOutput, Error> => {
   const { oystehrZambda } = useApiClients();
 
   const queryResult = useQuery({
     queryKey: ['payment-methods-setup', beneficiaryPatientId],
 
-    queryFn: async (): Promise<string> => {
+    queryFn: async (): Promise<PaymentMethodSetupZambdaOutput> => {
       if (!oystehrZambda) {
         throw new Error('zambda client not defined');
       }
@@ -24,11 +26,13 @@ export const useSetupStripe = (
       const result = await oystehrZambda.zambda.execute({
         id: 'payment-methods-setup',
         beneficiaryPatientId,
+        appointmentId,
       });
-      return chooseJson<string>(result);
+
+      return chooseJson<PaymentMethodSetupZambdaOutput>(result);
     },
 
-    enabled: Boolean(oystehrZambda && beneficiaryPatientId),
+    enabled: Boolean(oystehrZambda && beneficiaryPatientId && appointmentId),
   });
 
   useSuccessQuery(queryResult.data, onSuccess);

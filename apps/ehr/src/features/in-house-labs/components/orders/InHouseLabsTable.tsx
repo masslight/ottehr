@@ -22,13 +22,17 @@ import { DatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
-import { ReactElement, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getCreateInHouseLabOrderResources } from 'src/api/api';
+import { ReactElement, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { DropdownPlaceholder } from 'src/features/common/DropdownPlaceholder';
-import { getInHouseLabOrderDetailsUrl } from 'src/features/css-module/routing/helpers';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { InHouseOrderListPageItemDTO, TestItem } from 'utils';
+import {
+  FollowUpAppointmentLookup,
+  getInHouseLabOrderDetailsUrl,
+  resolveOrderRoutingFromFollowUpLookup,
+} from 'src/features/visits/in-person/routing/helpers';
+import { useGetCreateInHouseLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import { InHouseOrderListPageItemDTO, InHouseOrdersSearchBy } from 'utils/lib/types/data/in-house/in-house.types';
 import { LabOrdersSearchBy } from 'utils/lib/types/data/labs';
 import { InHouseLabsTableRow } from './InHouseLabsTableRow';
 import { useInHouseLabOrders } from './useInHouseLabOrders';
@@ -50,6 +54,8 @@ type InHouseLabsTableProps<SearchBy extends LabOrdersSearchBy> = {
   allowDelete?: boolean;
   titleText?: string;
   onCreateOrder?: () => void;
+  followUpAppointmentLookup?: FollowUpAppointmentLookup;
+  onRowClick?: (order: InHouseOrderListPageItemDTO) => void;
 };
 
 export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
@@ -59,8 +65,13 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   allowDelete = false,
   titleText,
   onCreateOrder,
+  followUpAppointmentLookup,
+  onRowClick: onRowClickOverride,
 }: InHouseLabsTableProps<SearchBy>): ReactElement => {
   const navigateTo = useNavigate();
+  const { id: appointmentIdFromUrl } = useParams();
+  const [urlSearchParams] = useSearchParams();
+  const encounterIdParam = urlSearchParams.get('encounterId');
 
   const {
     labOrders,
@@ -73,37 +84,14 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
     error,
     showDeleteLabOrderDialog,
     DeleteOrderDialog,
-  } = useInHouseLabOrders(searchBy);
+  } = useInHouseLabOrders(searchBy as InHouseOrdersSearchBy);
 
   const [testTypeQuery, setTestTypeQuery] = useState<string>('');
   const [tempDateFilter, setTempDateFilter] = useState<DateTime | null>(visitDateFilter);
 
-  const [availableTests, setAvailableTests] = useState<TestItem[]>([]);
-  const [loadingTests, setLoadingTests] = useState(false);
+  const { isFetching: loadingTests, data: createInHouseLabResources } = useGetCreateInHouseLabResources({});
 
-  const { oystehrZambda } = useApiClients();
-
-  // set data for filters
-  useEffect(() => {
-    if (!oystehrZambda || !showFilters) {
-      return;
-    }
-
-    const fetchTests = async (): Promise<void> => {
-      try {
-        setLoadingTests(true);
-        const response = await getCreateInHouseLabOrderResources(oystehrZambda, {});
-        const testItems = response.labs || [];
-        setAvailableTests(testItems.sort((a, b) => a.name.localeCompare(b.name)));
-      } catch (error) {
-        console.error('Error fetching tests:', error);
-      } finally {
-        setLoadingTests(false);
-      }
-    };
-
-    void fetchTests();
-  }, [oystehrZambda, showFilters]);
+  const availableTests = Object.values(createInHouseLabResources?.labs || {});
 
   const submitFilterByDate = (date?: DateTime | null): void => {
     const dateToSet = date || tempDateFilter;
@@ -116,7 +104,22 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   };
 
   const onRowClick = (labOrderData: InHouseOrderListPageItemDTO): void => {
-    navigateTo(getInHouseLabOrderDetailsUrl(labOrderData.appointmentId, labOrderData.serviceRequestId));
+    if (onRowClickOverride) {
+      onRowClickOverride(labOrderData);
+      return;
+    }
+    if (followUpAppointmentLookup) {
+      const { appointmentId, encounterIdQuery } = resolveOrderRoutingFromFollowUpLookup(
+        labOrderData.appointmentId,
+        followUpAppointmentLookup
+      );
+      const url = getInHouseLabOrderDetailsUrl(appointmentId, labOrderData.serviceRequestId);
+      navigateTo(encounterIdQuery ? `${url}?encounterId=${encounterIdQuery}` : url);
+      return;
+    }
+    const appointmentId = appointmentIdFromUrl || labOrderData.appointmentId;
+    const url = getInHouseLabOrderDetailsUrl(appointmentId, labOrderData.serviceRequestId);
+    navigateTo(encounterIdParam ? `${url}?encounterId=${encounterIdParam}` : url);
   };
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
@@ -126,7 +129,9 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   if (loading) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="body1">Loading In-house Lab Orders...</Typography>
+        <Typography data-testid={dataTestIds.inHouseLabsPage.loading} variant="body1">
+          Loading In-house Lab Orders...
+        </Typography>
       </Paper>
     );
   }
@@ -191,14 +196,13 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   };
 
   return (
-    <Paper
+    <Box
       sx={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         gap: 3,
         mt: 2,
-        p: 3,
         position: 'relative',
       }}
     >
@@ -291,7 +295,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
 
         {!Array.isArray(labOrders) || labOrders.length === 0 ? (
           <Box sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="body1" gutterBottom>
+            <Typography data-testid={dataTestIds.inHouseLabsPage.noLabsMessage} variant="body1" gutterBottom>
               No In-house Lab Orders to display
             </Typography>
             {onCreateOrder && (
@@ -301,7 +305,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
             )}
           </Box>
         ) : (
-          <TableContainer sx={{ border: '1px solid #e0e0e0' }}>
+          <TableContainer sx={{ border: '1px solid #e0e0e0', backgroundColor: 'background.paper' }}>
             <Table>
               <TableHead>
                 <TableRow>
@@ -360,6 +364,6 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
         )}
       </Box>
       {DeleteOrderDialog}
-    </Paper>
+    </Box>
   );
 };

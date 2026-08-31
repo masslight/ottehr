@@ -1,12 +1,13 @@
-import { PractitionerLicense } from '../../../main';
-import { RoleType } from '../../../main';
+import { PractitionerLicense, ProviderTypeCode } from '../practitioner.types';
+import { RoleType } from '../user.types';
 
 export interface UpdateUserParams {
   userId: string;
   firstName?: string;
   middleName?: string;
   lastName?: string;
-  nameSuffix?: string;
+  providerType?: ProviderTypeCode;
+  providerTypeText?: string;
   selectedRoles?: RoleType[];
   licenses?: PractitionerLicense[];
   phoneNumber?: string;

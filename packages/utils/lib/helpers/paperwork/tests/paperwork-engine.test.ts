@@ -1,15 +1,26 @@
-import { Extension, Questionnaire, QuestionnaireItem, QuestionnaireItemEnableWhen } from 'fhir/r4b';
+import {
+  Extension,
+  Questionnaire,
+  QuestionnaireItem,
+  QuestionnaireItemEnableWhen,
+  QuestionnaireResponse,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { assert, describe, expect, it } from 'vitest';
-import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../../fhir';
-import { ConditionKeyObject, QuestionnaireItemConditionDefinition, QuestionnaireItemTextWhen } from '../../../types';
-import { DOB_DATE_FORMAT } from '../../../utils';
-import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork';
+import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../../fhir/constants';
+import {
+  ConditionKeyObject,
+  QuestionnaireItemConditionDefinition,
+  QuestionnaireItemTextWhen,
+} from '../../../types/data/paperwork/paperwork.types';
+import { DOB_DATE_FORMAT } from '../../../utils/date';
+import { mapQuestionnaireAndValueSetsToItemsList, structureExtension } from '../paperwork';
 import {
   evalComplexValidationTrigger,
   evalEnableWhen,
   evalItemText,
   evalRequired,
+  filterDisabledPages,
   recursiveGroupTransform,
 } from '../validation';
 
@@ -1297,6 +1308,168 @@ describe('Conditional logic', () => {
       const enabled = evalEnableWhen(conditionalExactlyQuestion, structuredItems, formValues);
       expect(enabled).toBe(false);
     });
+
+    it('not enabled when $status enableWhen condition is not satisfied - status completed', () => {
+      const itemWithStatusCondition = {
+        linkId: 'consent-forms-page',
+        type: 'group',
+        enableWhen: [
+          {
+            question: '$status',
+            operator: '!=',
+            answerString: 'completed',
+          },
+          {
+            question: '$status',
+            operator: '!=',
+            answerString: 'amended',
+          },
+        ],
+        enableBehavior: 'all',
+        item: [{ linkId: 'some-required-field', type: 'string', required: true }],
+      };
+
+      const completedQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'completed',
+      };
+
+      const enabled = evalEnableWhen(itemWithStatusCondition as any, [itemWithStatusCondition as any], {}, completedQR);
+      expect(enabled).toBe(false);
+    });
+
+    it('not enabled when $status enableWhen condition is not satisfied - status amended', () => {
+      const itemWithStatusCondition = {
+        linkId: 'consent-forms-page',
+        type: 'group',
+        enableWhen: [
+          {
+            question: '$status',
+            operator: '!=',
+            answerString: 'completed',
+          },
+          {
+            question: '$status',
+            operator: '!=',
+            answerString: 'amended',
+          },
+        ],
+        enableBehavior: 'all',
+        item: [{ linkId: 'some-required-field', type: 'string', required: true }],
+      };
+
+      const amendedQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'amended',
+      };
+
+      const enabled = evalEnableWhen(itemWithStatusCondition as any, [itemWithStatusCondition as any], {}, amendedQR);
+      expect(enabled).toBe(false);
+    });
+
+    it('enabled when $status enableWhen condition is satisfied - status in-progress', () => {
+      const itemWithStatusCondition = {
+        linkId: 'consent-forms-page',
+        type: 'group',
+        enableWhen: [
+          {
+            question: '$status',
+            operator: '!=',
+            answerString: 'completed',
+          },
+          {
+            question: '$status',
+            operator: '!=',
+            answerString: 'amended',
+          },
+        ],
+        enableBehavior: 'all',
+        item: [{ linkId: 'some-required-field', type: 'string', required: true }],
+      };
+
+      const inProgressQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'in-progress',
+      };
+
+      const enabled = evalEnableWhen(
+        itemWithStatusCondition as any,
+        [itemWithStatusCondition as any],
+        {},
+        inProgressQR
+      );
+      expect(enabled).toBe(true);
+    });
+
+    it('not enabled when $status enableWhen uses = operator and status does not match', () => {
+      const itemWithStatusCondition = {
+        linkId: 'new-patient-only-page',
+        type: 'group',
+        enableWhen: [
+          {
+            question: '$status',
+            operator: '=',
+            answerString: 'in-progress',
+          },
+        ],
+        item: [{ linkId: 'some-field', type: 'string' }],
+      };
+
+      const completedQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'completed',
+      };
+
+      const enabled = evalEnableWhen(itemWithStatusCondition as any, [itemWithStatusCondition as any], {}, completedQR);
+      expect(enabled).toBe(false);
+    });
+
+    it('enabled when $status enableWhen uses = operator and status matches', () => {
+      const itemWithStatusCondition = {
+        linkId: 'new-patient-only-page',
+        type: 'group',
+        enableWhen: [
+          {
+            question: '$status',
+            operator: '=',
+            answerString: 'in-progress',
+          },
+        ],
+        item: [{ linkId: 'some-field', type: 'string' }],
+      };
+
+      const inProgressQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'in-progress',
+      };
+
+      const enabled = evalEnableWhen(
+        itemWithStatusCondition as any,
+        [itemWithStatusCondition as any],
+        {},
+        inProgressQR
+      );
+      expect(enabled).toBe(true);
+    });
+
+    it('enabled when no QuestionnaireResponse is provided (no $status check possible)', () => {
+      const itemWithStatusCondition = {
+        linkId: 'consent-forms-page',
+        type: 'group',
+        enableWhen: [
+          {
+            question: '$status',
+            operator: '!=',
+            answerString: 'completed',
+          },
+        ],
+        item: [{ linkId: 'some-required-field', type: 'string', required: true }],
+      };
+
+      // When no QR is provided, status is undefined, so != 'completed' should be true
+      const enabled = evalEnableWhen(itemWithStatusCondition as any, [itemWithStatusCondition as any], {}, undefined);
+      expect(enabled).toBe(true);
+    });
   });
   describe('requireWhen tests', () => {
     it('required when requireWhen condition is true - boolean', () => {
@@ -1762,9 +1935,9 @@ describe('Conditional logic', () => {
         expect(conditionalBoolTrueItem).toBeDefined();
         assert(conditionalBoolTrueItem != undefined);
         expect(conditionalBoolTrueItem.filterWhen).toBeDefined();
-        expect(conditionalBoolTrueItem.filterWhen?.answerBoolean).toBeDefined();
-        expect(conditionalBoolTrueItem.filterWhen?.operator).toBe('=');
-        expect(conditionalBoolTrueItem.filterWhen?.question).toBe(KEYS.triggers.boolean.primary);
+        expect(conditionalBoolTrueItem.filterWhen?.[0]?.answerBoolean).toBeDefined();
+        expect(conditionalBoolTrueItem.filterWhen?.[0]?.operator).toBe('=');
+        expect(conditionalBoolTrueItem.filterWhen?.[0]?.question).toBe(KEYS.triggers.boolean.primary);
         formValues[KEYS.dependents.bool.primaryTrue] = {
           linkId: KEYS.dependents.bool.primaryTrue,
           answer: [{ valueString: 'I better get filtered!' }],
@@ -1805,9 +1978,9 @@ describe('Conditional logic', () => {
         expect(conditionalStringItem).toBeDefined();
         assert(conditionalStringItem != undefined);
         expect(conditionalStringItem.filterWhen).toBeDefined();
-        expect(conditionalStringItem.filterWhen?.answerString).toBeDefined();
-        expect(conditionalStringItem.filterWhen?.operator).toBe('=');
-        expect(conditionalStringItem.filterWhen?.question).toBe(KEYS.triggers.string.primary);
+        expect(conditionalStringItem.filterWhen?.[0]?.answerString).toBeDefined();
+        expect(conditionalStringItem.filterWhen?.[0]?.operator).toBe('=');
+        expect(conditionalStringItem.filterWhen?.[0]?.question).toBe(KEYS.triggers.string.primary);
         formValues[KEYS.dependents.string] = {
           linkId: KEYS.dependents.string,
           answer: [{ valueString: 'I better get filtered!' }],
@@ -1848,9 +2021,9 @@ describe('Conditional logic', () => {
         expect(conditionalDateItem).toBeDefined();
         assert(conditionalDateItem != undefined);
         expect(conditionalDateItem.filterWhen).toBeDefined();
-        expect(conditionalDateItem.filterWhen?.answerInteger).toBeDefined();
-        expect(conditionalDateItem.filterWhen?.operator).toBe('>=');
-        expect(conditionalDateItem.filterWhen?.question).toBe(KEYS.triggers.date.primary);
+        expect(conditionalDateItem.filterWhen?.[0]?.answerInteger).toBeDefined();
+        expect(conditionalDateItem.filterWhen?.[0]?.operator).toBe('>=');
+        expect(conditionalDateItem.filterWhen?.[0]?.question).toBe(KEYS.triggers.date.primary);
         formValues[KEYS.dependents.date.over] = {
           linkId: KEYS.dependents.string,
           answer: [{ valueString: '1991-08-06' }],
@@ -1863,6 +2036,89 @@ describe('Conditional logic', () => {
         // when filtered, the answer property on the entry is set to undefined, but the object with its linkId remains
         expect(filteredAnswer).toBeDefined();
         expect(filteredAnswer?.answer).toBeUndefined();
+      });
+
+      it('filters when first of two conditions is true (OR semantics)', () => {
+        // condition1: string = 'foo' (will match), condition2: boolean = true (will not match)
+        const altered = resetFilterWhenConditions(
+          PAGE_ONE_ITEMS,
+          [KEYS.dependents.string],
+          [
+            {
+              operator: '=',
+              question: KEYS.triggers.string.primary,
+              answerString: 'foo',
+            },
+            {
+              operator: '=',
+              question: KEYS.triggers.boolean.primary,
+              answerBoolean: true,
+            },
+          ]
+        );
+        const structuredItems = mapQuestionnaireAndValueSetsToItemsList(altered, []);
+        const formValues = BASE_FORM_VALUES.reduce((accum, item) => {
+          accum[item.linkId] = { ...item };
+          return accum;
+        }, {} as any);
+        formValues[KEYS.triggers.string.primary] = {
+          linkId: KEYS.triggers.string.primary,
+          answer: [{ valueString: 'foo' }],
+        };
+        formValues[KEYS.triggers.boolean.primary] = {
+          linkId: KEYS.triggers.boolean.primary,
+          answer: [{ valueBoolean: false }],
+        };
+        formValues[KEYS.dependents.string] = {
+          linkId: KEYS.dependents.string,
+          answer: [{ valueString: 'I better get filtered!' }],
+        };
+        const newValues = recursiveGroupTransform(structuredItems, Object.values(formValues));
+        const filteredAnswer = newValues.find((obj: any) => obj.linkId === KEYS.dependents.string);
+        expect(filteredAnswer).toBeDefined();
+        expect(filteredAnswer?.answer).toBeUndefined();
+      });
+
+      it('does not filter when all conditions are false (OR semantics)', () => {
+        // condition1: string = 'foo' (will not match), condition2: boolean = true (will not match)
+        const altered = resetFilterWhenConditions(
+          PAGE_ONE_ITEMS,
+          [KEYS.dependents.string],
+          [
+            {
+              operator: '=',
+              question: KEYS.triggers.string.primary,
+              answerString: 'foo',
+            },
+            {
+              operator: '=',
+              question: KEYS.triggers.boolean.primary,
+              answerBoolean: true,
+            },
+          ]
+        );
+        const structuredItems = mapQuestionnaireAndValueSetsToItemsList(altered, []);
+        const formValues = BASE_FORM_VALUES.reduce((accum, item) => {
+          accum[item.linkId] = { ...item };
+          return accum;
+        }, {} as any);
+        formValues[KEYS.triggers.string.primary] = {
+          linkId: KEYS.triggers.string.primary,
+          answer: [{ valueString: 'bar' }],
+        };
+        formValues[KEYS.triggers.boolean.primary] = {
+          linkId: KEYS.triggers.boolean.primary,
+          answer: [{ valueBoolean: false }],
+        };
+        formValues[KEYS.dependents.string] = {
+          linkId: KEYS.dependents.string,
+          answer: [{ valueString: 'I better NOT get filtered!' }],
+        };
+        const newValues = recursiveGroupTransform(structuredItems, Object.values(formValues));
+        const unfilteredAnswer = newValues.find((obj: any) => obj.linkId === KEYS.dependents.string);
+        expect(unfilteredAnswer).toBeDefined();
+        expect(unfilteredAnswer?.answer).toBeDefined();
+        expect(unfilteredAnswer?.answer?.[0]?.valueString).toBe('I better NOT get filtered!');
       });
     });
 
@@ -1892,9 +2148,9 @@ describe('Conditional logic', () => {
       expect(conditionalStringItem).toBeDefined();
       assert(conditionalStringItem != undefined);
       expect(conditionalStringItem.filterWhen).toBeDefined();
-      expect(conditionalStringItem.filterWhen?.answerString).toBeDefined();
-      expect(conditionalStringItem.filterWhen?.operator).toBe('=');
-      expect(conditionalStringItem.filterWhen?.question).toBe(KEYS.triggers.string.primary);
+      expect(conditionalStringItem.filterWhen?.[0]?.answerString).toBeDefined();
+      expect(conditionalStringItem.filterWhen?.[0]?.operator).toBe('=');
+      expect(conditionalStringItem.filterWhen?.[0]?.question).toBe(KEYS.triggers.string.primary);
       formValues[KEYS.dependents.string] = {
         linkId: KEYS.dependents.string,
         answer: [{ valueString: 'I better NOT get filtered!' }],
@@ -1941,10 +2197,11 @@ describe('Conditional logic', () => {
       expect(conditionalStringItem).toBeDefined();
       assert(conditionalStringItem != undefined);
       expect(conditionalStringItem.textWhen).toBeDefined();
-      expect(conditionalStringItem.textWhen?.answerString).toBeDefined();
-      expect(conditionalStringItem.textWhen?.operator).toBe('=');
-      expect(conditionalStringItem.textWhen?.question).toBe(KEYS.triggers.string.primary);
-      expect(conditionalStringItem.textWhen?.substituteText).toBe(
+      expect(conditionalStringItem.textWhen?.length).toBe(1);
+      expect(conditionalStringItem.textWhen?.[0]?.answerString).toBeDefined();
+      expect(conditionalStringItem.textWhen?.[0]?.operator).toBe('=');
+      expect(conditionalStringItem.textWhen?.[0]?.question).toBe(KEYS.triggers.string.primary);
+      expect(conditionalStringItem.textWhen?.[0]?.substituteText).toBe(
         'If this text is shown it means my condition was satisfied!'
       );
       let itemText = evalItemText(conditionalStringItem, formValues);
@@ -2007,6 +2264,455 @@ describe('Conditional logic', () => {
       triggerEval = evalComplexValidationTrigger(conditionalStringItem, formValues);
       expect(triggerEval).toBeDefined();
       expect(triggerEval).toBe(true);
+    });
+  });
+
+  describe('filterDisabledPages tests', () => {
+    it('should keep pages without enableWhen conditions', () => {
+      const questionnaireItems = [
+        {
+          linkId: 'patient-info-page',
+          type: 'group',
+          item: [
+            { linkId: 'first-name', type: 'string' },
+            { linkId: 'last-name', type: 'string' },
+          ],
+        },
+      ] as any;
+
+      const responseItems = [
+        {
+          linkId: 'patient-info-page',
+          item: [
+            { linkId: 'first-name', answer: [{ valueString: 'John' }] },
+            { linkId: 'last-name', answer: [{ valueString: 'Doe' }] },
+          ],
+        },
+      ];
+
+      const result = filterDisabledPages(questionnaireItems, responseItems);
+
+      expect(result).toEqual(responseItems);
+    });
+
+    it('should filter out disabled pages based on regular enableWhen conditions', () => {
+      const questionnaireItems = [
+        { linkId: 'has-insurance', type: 'boolean' },
+        {
+          linkId: 'preliminary-page',
+          type: 'group',
+          item: [{ linkId: 'has-insurance', type: 'boolean' }],
+        },
+        {
+          linkId: 'insurance-page',
+          type: 'group',
+          enableWhen: [
+            {
+              question: 'has-insurance',
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+          item: [{ linkId: 'insurance-provider', type: 'string' }],
+        },
+      ] as any;
+
+      const responseItems = [
+        {
+          linkId: 'preliminary-page',
+          item: [{ linkId: 'has-insurance', answer: [{ valueBoolean: false }] }],
+        },
+        {
+          linkId: 'insurance-page',
+          item: [{ linkId: 'insurance-provider', answer: [{ valueString: 'Blue Cross' }] }],
+        },
+      ];
+
+      const result = filterDisabledPages(questionnaireItems, responseItems);
+
+      // Insurance page should be filtered to just linkId since has-insurance is false
+      expect(result[1]).toEqual({ linkId: 'insurance-page' });
+    });
+
+    it('should keep enabled pages based on regular enableWhen conditions', () => {
+      const questionnaireItems = [
+        { linkId: 'has-insurance', type: 'boolean' },
+        {
+          linkId: 'preliminary-page',
+          type: 'group',
+          item: [{ linkId: 'has-insurance', type: 'boolean' }],
+        },
+        {
+          linkId: 'insurance-page',
+          type: 'group',
+          enableWhen: [
+            {
+              question: 'has-insurance',
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+          item: [{ linkId: 'insurance-provider', type: 'string' }],
+        },
+      ] as any;
+
+      const responseItems = [
+        {
+          linkId: 'preliminary-page',
+          item: [{ linkId: 'has-insurance', answer: [{ valueBoolean: true }] }],
+        },
+        {
+          linkId: 'insurance-page',
+          item: [{ linkId: 'insurance-provider', answer: [{ valueString: 'Blue Cross' }] }],
+        },
+      ];
+
+      const result = filterDisabledPages(questionnaireItems, responseItems);
+
+      // Insurance page should be kept as-is since has-insurance is true
+      expect(result[1]).toEqual(responseItems[1]);
+    });
+
+    it('should skip filtering pages with only $status enableWhen conditions - keep page content', () => {
+      const questionnaireItems = [
+        {
+          linkId: 'consent-forms-page',
+          type: 'group',
+          enableWhen: [
+            {
+              question: '$status',
+              operator: '!=',
+              answerString: 'completed',
+            },
+            {
+              question: '$status',
+              operator: '!=',
+              answerString: 'amended',
+            },
+          ],
+          enableBehavior: 'all',
+          item: [{ linkId: 'consent-signature', type: 'string', required: true }],
+        },
+      ] as any;
+
+      const responseItems = [
+        {
+          linkId: 'consent-forms-page',
+          item: [{ linkId: 'consent-signature', answer: [{ valueString: 'John Doe' }] }],
+        },
+      ];
+
+      const completedQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'completed',
+      };
+
+      const result = filterDisabledPages(questionnaireItems, responseItems, completedQR);
+
+      // Page should keep its content even though status is 'completed'
+      // because $status conditions are removed before evaluation
+      expect(result[0]).toEqual(responseItems[0]);
+      expect(result[0].item).toBeDefined();
+      expect(result[0].item?.length).toBe(1);
+    });
+
+    it('should skip filtering pages with mixed $status and regular enableWhen conditions - evaluate only regular conditions', () => {
+      const questionnaireItems = [
+        { linkId: 'is-new-patient', type: 'boolean' },
+        {
+          linkId: 'patient-page',
+          type: 'group',
+          item: [{ linkId: 'is-new-patient', type: 'boolean' }],
+        },
+        {
+          linkId: 'conditional-page',
+          type: 'group',
+          enableWhen: [
+            {
+              question: '$status',
+              operator: '!=',
+              answerString: 'completed',
+            },
+            {
+              question: 'is-new-patient',
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+          enableBehavior: 'all',
+          item: [{ linkId: 'new-patient-field', type: 'string' }],
+        },
+      ] as any;
+
+      const responseItems = [
+        {
+          linkId: 'patient-page',
+          item: [{ linkId: 'is-new-patient', answer: [{ valueBoolean: false }] }],
+        },
+        {
+          linkId: 'conditional-page',
+          item: [{ linkId: 'new-patient-field', answer: [{ valueString: 'Some data' }] }],
+        },
+      ];
+
+      const completedQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'completed',
+      };
+
+      const result = filterDisabledPages(questionnaireItems, responseItems, completedQR);
+
+      // Page should be filtered because is-new-patient is false
+      // (status condition is ignored, but the regular condition fails)
+      expect(result[1]).toEqual({ linkId: 'conditional-page' });
+    });
+
+    it('should keep page with mixed conditions when regular condition is satisfied', () => {
+      const questionnaireItems = [
+        { linkId: 'is-new-patient', type: 'boolean' },
+        {
+          linkId: 'patient-page',
+          type: 'group',
+          item: [{ linkId: 'is-new-patient', type: 'boolean' }],
+        },
+        {
+          linkId: 'conditional-page',
+          type: 'group',
+          enableWhen: [
+            {
+              question: '$status',
+              operator: '!=',
+              answerString: 'completed',
+            },
+            {
+              question: 'is-new-patient',
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+          enableBehavior: 'all',
+          item: [{ linkId: 'new-patient-field', type: 'string' }],
+        },
+      ] as any;
+
+      const responseItems = [
+        {
+          linkId: 'patient-page',
+          item: [{ linkId: 'is-new-patient', answer: [{ valueBoolean: true }] }],
+        },
+        {
+          linkId: 'conditional-page',
+          item: [{ linkId: 'new-patient-field', answer: [{ valueString: 'Some data' }] }],
+        },
+      ];
+
+      const completedQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'completed',
+      };
+
+      const result = filterDisabledPages(questionnaireItems, responseItems, completedQR);
+
+      // Page should be kept because is-new-patient is true
+      // (status condition is ignored, only regular condition evaluated)
+      expect(result[1]).toEqual(responseItems[1]);
+      expect(result[1].item).toBeDefined();
+    });
+
+    it('should handle pages not found in questionnaire items', () => {
+      const questionnaireItems = [
+        {
+          linkId: 'page-1',
+          type: 'group',
+          item: [],
+        },
+      ] as any;
+
+      const responseItems = [
+        { linkId: 'page-1', item: [] },
+        { linkId: 'unknown-page', item: [{ linkId: 'some-field', answer: [{ valueString: 'value' }] }] },
+      ];
+
+      const result = filterDisabledPages(questionnaireItems, responseItems);
+
+      // Unknown page should be kept as-is
+      expect(result[1]).toEqual(responseItems[1]);
+    });
+
+    it('should handle empty enableWhen after removing $status conditions', () => {
+      const questionnaireItems = [
+        {
+          linkId: 'status-only-page',
+          type: 'group',
+          enableWhen: [
+            {
+              question: '$status',
+              operator: '=',
+              answerString: 'in-progress',
+            },
+          ],
+          item: [{ linkId: 'status-field', type: 'string' }],
+        },
+      ] as any;
+
+      const responseItems = [
+        {
+          linkId: 'status-only-page',
+          item: [{ linkId: 'status-field', answer: [{ valueString: 'Data' }] }],
+        },
+      ];
+
+      const completedQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'completed',
+      };
+
+      const result = filterDisabledPages(questionnaireItems, responseItems, completedQR);
+
+      // Page should be kept because after removing $status conditions,
+      // there are no enableWhen conditions left, so page is considered enabled
+      expect(result[0]).toEqual(responseItems[0]);
+      expect(result[0].item).toBeDefined();
+    });
+  });
+
+  describe('structureExtension tests', () => {
+    describe('answer loading tests', () => {
+      it('Handles full get-answer-options configuration', () => {
+        const item: QuestionnaireItem = {
+          linkId: 'some-link-id',
+          type: 'reference',
+          extension: [
+            {
+              url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.extension,
+              extension: [
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.strategy,
+                  valueString: 'dynamic',
+                },
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.source,
+                  valueString: 'get-answer-options',
+                },
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.expression,
+                  valueExpression: {
+                    language: 'application/x-fhir-query',
+                    expression: 'Organization?status=active',
+                  },
+                },
+              ],
+            },
+          ],
+        };
+        const { answerLoadingOptions } = structureExtension(item);
+        expect(answerLoadingOptions).toMatchObject({
+          strategy: 'dynamic',
+          answerSource: {
+            zambdaId: 'get-answer-options',
+            resourceType: 'Organization',
+            query: 'status=active',
+          },
+        });
+      });
+      it('Ignores incomplete get-answer-options configuration', () => {
+        const item: QuestionnaireItem = {
+          linkId: 'some-link-id',
+          type: 'reference',
+          extension: [
+            {
+              url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.extension,
+              extension: [
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.strategy,
+                  valueString: 'dynamic',
+                },
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.source,
+                  valueString: 'get-answer-options',
+                },
+              ],
+            },
+          ],
+        };
+        const { answerLoadingOptions } = structureExtension(item);
+        expect(answerLoadingOptions).toBeUndefined();
+      });
+      it('Handles other zambda configuration', () => {
+        const item: QuestionnaireItem = {
+          linkId: 'some-link-id',
+          type: 'reference',
+          extension: [
+            {
+              url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.extension,
+              extension: [
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.strategy,
+                  valueString: 'dynamic',
+                },
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.source,
+                  valueString: 'get-all-insurance-payers',
+                },
+              ],
+            },
+          ],
+        };
+        const { answerLoadingOptions } = structureExtension(item);
+        expect(answerLoadingOptions).toMatchObject({
+          strategy: 'dynamic',
+          answerSource: {
+            zambdaId: 'get-all-insurance-payers',
+          },
+        });
+      });
+    });
+
+    // hideControlLabel exists to replace a hardcoded linkId allow-list on the
+    // intake side. The reader must preserve the tri-state (undefined /
+    // true / false) semantics — the styler distinguishes "extension not
+    // present, fall back to legacy list" (undefined) from an explicit
+    // "no, show the label" (false).
+    describe('hideControlLabel tests', () => {
+      it('returns undefined when no hideControlLabel extension is present', () => {
+        const item: QuestionnaireItem = {
+          linkId: 'some-link-id',
+          type: 'boolean',
+        };
+        expect(structureExtension(item).hideControlLabel).toBeUndefined();
+      });
+
+      it('returns true when the extension is set to valueBoolean=true', () => {
+        const item: QuestionnaireItem = {
+          linkId: 'some-link-id',
+          type: 'boolean',
+          extension: [
+            {
+              url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.hideControlLabel,
+              valueBoolean: true,
+            },
+          ],
+        };
+        expect(structureExtension(item).hideControlLabel).toBe(true);
+      });
+
+      it('returns false when the extension is set to valueBoolean=false (explicit override)', () => {
+        // An explicit `false` on the extension is the mechanism a config
+        // author uses to force-show the control label on a linkId that
+        // still appears in the legacy hardcoded allow-list. If the reader
+        // collapsed this to undefined the override wouldn't work.
+        const item: QuestionnaireItem = {
+          linkId: 'some-link-id',
+          type: 'boolean',
+          extension: [
+            {
+              url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.hideControlLabel,
+              valueBoolean: false,
+            },
+          ],
+        };
+        expect(structureExtension(item).hideControlLabel).toBe(false);
+      });
     });
   });
 });

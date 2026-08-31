@@ -1,6 +1,6 @@
 import { Box, Button, Paper, Typography } from '@mui/material';
 import { FC } from 'react';
-import { formatDateForLabs } from 'utils';
+import { formatDateForLabs } from 'utils/lib/utils/dateUtils';
 
 interface PrelimCardViewProps {
   resultPdfUrl: string | null;

@@ -1,8 +1,15 @@
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
-import { createOystehrClient, getSecret, GetVisitDetailsResponse, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
-import { getMedications, getPaymentDataRequest, getPresignedURLs } from './helpers';
+import { isAnnotationFollowupEncounter, isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { FileURLInfo } from 'utils/lib/types/common';
+import { GetVisitDetailsResponse } from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { getMedications, getPatientPortalPresignedURLs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -11,98 +18,134 @@ let oystehrToken: string;
 const ZAMBDA_NAME = 'get-visit-details';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  const { appointmentId, secrets } = validatedParameters;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+
+  oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
+
+  const oystehr = createOystehrClient(
+    oystehrToken,
+    getSecret(SecretsKeys.FHIR_API, secrets),
+    getSecret(SecretsKeys.PROJECT_API, secrets)
+  );
+
+  let encounter = null;
+  let appointmentTime = 'unknown date';
+  let allEncounters: Encounter[] = [];
+
   try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const { appointmentId, secrets } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-
-    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
-
-    const oystehr = createOystehrClient(
-      oystehrToken,
-      getSecret(SecretsKeys.FHIR_API, secrets),
-      getSecret(SecretsKeys.PROJECT_API, secrets)
-    );
-
-    let encounter = null;
-    let appointmentTime = 'unknown date';
-
-    try {
-      const encounterResults = (
-        await oystehr.fhir.search<Encounter | Appointment>({
-          resourceType: 'Encounter',
-          params: [
-            {
-              name: 'appointment',
-              value: `Appointment/${appointmentId}`,
-            },
-            {
-              name: '_include',
-              value: 'Encounter:appointment',
-            },
-          ],
-        })
-      ).unbundle();
-      encounter = encounterResults.find((e) => e.resourceType === 'Encounter') as Encounter;
-      const appointment = encounterResults.find((e) => e.resourceType === 'Appointment') as Appointment;
-      if (!encounter || !encounter.id) {
-        throw new Error('Error getting appointment encounter');
-      }
-      appointmentTime = appointment?.start ?? encounter?.period?.start ?? 'unknown date';
-    } catch (error) {
-      console.log('getEncounterForAppointment', error);
+    const encounterResults = (
+      await oystehr.fhir.search<Encounter | Appointment>({
+        resourceType: 'Encounter',
+        params: [
+          {
+            name: 'appointment',
+            value: `Appointment/${appointmentId}`,
+          },
+          {
+            name: '_include',
+            value: 'Encounter:appointment',
+          },
+        ],
+      })
+    ).unbundle();
+    allEncounters = encounterResults.filter((e) => e.resourceType === 'Encounter') as Encounter[];
+    // Find the main encounter (not follow-up)
+    encounter = allEncounters.find((e) => !isAnnotationFollowupEncounter(e)) as Encounter;
+    const appointment = encounterResults.find((e) => e.resourceType === 'Appointment') as Appointment;
+    if (!encounter || !encounter.id) {
+      throw new Error('Error getting appointment encounter');
     }
-
-    let paymentInfo = null;
-
-    try {
-      paymentInfo = await getPaymentDataRequest(
-        getSecret(SecretsKeys.PROJECT_API, secrets),
-        oystehrToken,
-        encounter?.id
-      );
-    } catch (error) {
-      console.log('getPaymentDataRequest', error);
-    }
-
-    let documents = null;
-
-    try {
-      console.log(`getting presigned urls for document references files at ${appointmentId}`);
-      documents = await getPresignedURLs(oystehr, oystehrToken, encounter?.id);
-    } catch (error) {
-      console.log('getPresignedURLs', error);
-    }
-
-    let medications = null;
-
-    try {
-      medications = await getMedications(oystehr, encounter?.id);
-    } catch (error) {
-      console.log('getMedications', error);
-    }
-
-    console.log('building get appointment response');
-    const response: GetVisitDetailsResponse = {
-      files: documents || {},
-      medications: medications || [],
-      appointmentTime,
-      charge: {
-        amount: paymentInfo?.amount || NaN,
-        currency: paymentInfo?.currency || '',
-        date: paymentInfo?.date || '',
-      },
-    };
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('error', error, error.issue);
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+    appointmentTime = appointment?.start ?? encounter?.period?.start ?? 'unknown date';
+  } catch (error) {
+    captureException(error);
+    console.log('getEncounterForAppointment', error);
   }
+
+  let documents = null;
+  let reviewedLabResults: FileURLInfo[] = [];
+
+  try {
+    console.log(`getting presigned urls for document references files at ${appointmentId}`);
+    const { presignedUrls, reviewedLabResultsUrls } = await getPatientPortalPresignedURLs(
+      oystehr,
+      oystehrToken,
+      encounter?.id
+    );
+    documents = presignedUrls;
+    reviewedLabResults = reviewedLabResultsUrls;
+  } catch (error) {
+    console.log('getPresignedURLs', error);
+    captureException(error);
+  }
+
+  let medications = null;
+
+  try {
+    medications = await getMedications(oystehr, encounter?.id);
+  } catch (error) {
+    captureException(error);
+    console.log('getMedications', error);
+  }
+
+  let followUps: GetVisitDetailsResponse['followUps'] = [];
+
+  try {
+    if (encounter?.id) {
+      const getEncounterSortValue = (encounterResource: Encounter): number => {
+        const dateString = encounterResource.period?.start ?? encounterResource.period?.end;
+        return dateString ? new Date(dateString).getTime() : Number.POSITIVE_INFINITY;
+      };
+
+      const sortedFollowups = allEncounters
+        .filter((e) => isFollowupEncounter(e) && e.id !== encounter.id)
+        .sort((a, b) => getEncounterSortValue(a) - getEncounterSortValue(b));
+
+      followUps = await Promise.all(
+        sortedFollowups.map(async (followupEncounter) => {
+          let followupDocuments = {};
+          try {
+            if (followupEncounter.id) {
+              const { presignedUrls } = await getPatientPortalPresignedURLs(
+                oystehr,
+                oystehrToken,
+                followupEncounter.id
+              );
+              followupDocuments = presignedUrls;
+            }
+          } catch (error) {
+            console.log('getPresignedURLs for follow-up', error);
+            captureException(error);
+          }
+
+          const encounterTime = followupEncounter.period?.start ?? followupEncounter.period?.end;
+
+          return {
+            encounterTime,
+            documents: followupDocuments,
+          };
+        })
+      );
+    }
+  } catch (error) {
+    captureException(error);
+    console.log('getFollowUpEncounters', error);
+  }
+
+  console.log('building get appointment response');
+  const response: GetVisitDetailsResponse = {
+    files: documents || {},
+    medications: medications || [],
+    appointmentTime,
+    followUps,
+    reviewedLabResults,
+  };
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });

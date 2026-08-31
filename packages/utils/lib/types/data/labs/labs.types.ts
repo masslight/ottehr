@@ -1,17 +1,39 @@
 // cSpell:ignore RFRT
 import {
-  DocumentReference,
+  Communication,
+  Coverage,
   Encounter,
+  Location,
+  Organization,
   Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   Reference,
 } from 'fhir/r4b';
-import { DiagnosisDTO, Pagination } from '../..';
+import { DateTime } from 'luxon';
+import { z } from 'zod';
+import { DiagnosisDTO } from '../../api/chart-data/chart-data.types';
+import { CPTCodeOption, LabelConfig } from '../../common';
+import { Pagination } from '../pagination.types';
+import { LabelPdf } from '../printing';
+import { ExternalLabSetDTO, LabSetDTO } from './lab-set.schema';
+import { LAB_DR_TYPE_TAG } from './labs.constants';
 
+// todo labs team - we should do some assessing of all our type files, our types feel a bit unorganized and as a result i think we have some redundancy
 export interface OrderableItemSearchResult {
   item: OrderableItem;
   lab: OrderableItemLab;
+}
+
+export interface ExternalLabListItem {
+  display: string; // {test name / filler lab name}
+  itemCode: string;
+  labGuid: string;
+}
+
+export interface InHouseLabListItem {
+  display: string;
+  activityDefinitionId: string;
 }
 
 export interface sampleDTO {
@@ -21,11 +43,11 @@ export interface sampleDTO {
 
 // todo: maybe rename to OrderableItemSpecimenDefinition to fit the FHIR terms
 export interface OrderableItemSpecimen {
-  container: string;
-  volume: string;
-  minimumVolume: string;
-  storageRequirements: string;
-  collectionInstructions: string;
+  container: string | null;
+  volume: string | null;
+  minimumVolume: string | null;
+  storageRequirements: string | null;
+  collectionInstructions: string | null;
 }
 
 export interface OrderableItemComponent {
@@ -39,7 +61,7 @@ export interface OrderableItemComponent {
 
 export interface OrderableItemCptCode {
   cptCode: string;
-  serviceUnitsCount: number;
+  serviceUnitsCount: number | null;
 }
 
 export interface OrderableItem {
@@ -51,7 +73,7 @@ export interface OrderableItem {
   specimens: OrderableItemSpecimen[];
   components: OrderableItemComponent[];
   cptCodes: OrderableItemCptCode[];
-  aoe: Questionnaire;
+  aoe: Questionnaire | null;
 }
 
 export interface OrderableItemLab {
@@ -65,18 +87,19 @@ export enum ExternalLabsStatus {
   pending = 'pending',
   ready = 'ready',
   sent = 'sent',
-  prelim = 'prelim', // todo: this is not a status, need to refactor
+  prelim = 'prelim',
   received = 'received',
   reviewed = 'reviewed',
   cancelled = 'cancelled',
   corrected = 'corrected',
   'cancelled by lab' = 'cancelled by lab',
   'sent manually' = 'sent manually',
+  'rejected abn' = 'rejected abn',
   unknown = 'unknown', // for debugging purposes
 }
 
 export type LabOrderUnreceivedHistoryRow = {
-  action: 'created' | 'performed' | 'ready' | 'ordered' | 'cancelled by lab';
+  action: 'created' | 'performed' | 'ready' | 'ordered' | 'cancelled by lab' | 'rejected abn' | 'deleted';
   performer: string;
   date: string;
 };
@@ -92,14 +115,16 @@ export type LabOrderHistoryRow = LabOrderUnreceivedHistoryRow | LabOrderReceived
 
 export type LabOrderResultDetails = {
   testItem: string;
-  testType: 'reflex' | 'ordered';
-  resultType: 'final' | 'preliminary' | 'cancelled';
+  testType: 'ordered' | LabDrTypeTagCode;
+  resultType: 'final' | 'preliminary' | 'cancelled' | 'corrected';
   labStatus: ExternalLabsStatus;
   diagnosticReportId: string;
   taskId: string;
   receivedDate: string;
   reviewedDate: string | null;
   resultPdfUrl: string | null;
+  alternatePlacerId: string | undefined; // DR.identifier (system ==== OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM)
+  labGeneratedResultUrls?: string[];
 };
 
 export type QuestionnaireData = {
@@ -109,9 +134,11 @@ export type QuestionnaireData = {
   serviceRequestId: string;
 };
 
+// todo maybe to improve - why do we have diagnosesDTO & diagnoses
 export type LabOrderListPageDTO = {
   serviceRequestId: string; // ServiceRequest.id
-  testItem: string; // ServiceRequest.contained[0](ActivityDefinition).title
+  testItem: string; // ServiceRequest.contained[0](ActivityDefinition).coding.display
+  testItemCode: string; // ServiceRequest.contained[0](ActivityDefinition).coding.code
   fillerLab: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
   orderAddedDate: string; // Task PST authoredOn
   orderSubmittedDate: string | undefined; // Prov.recorded where activity.coding === PROVENANCE_ACTIVITY_CODING_ENTITY.submit
@@ -120,13 +147,19 @@ export type LabOrderListPageDTO = {
   diagnoses: string; // SR.reasonCode joins
   orderStatus: ExternalLabsStatus; // Derived from SR, Tasks and DiagnosticReports based on the mapping table
   isPSC: boolean; // Derived from SR.orderDetail
-  reflexResultsCount: number; // Number of DiagnosticReports with the same SR identifier but different test codes
   appointmentId: string;
   visitDate: string; // based on appointment
   lastResultReceivedDate: string; // the most recent Task RFRT.authoredOn
   accessionNumbers: string[]; // DiagnosticReport.identifier (identifier assigned to a sample when it arrives at a laboratory)
   encounterTimezone: string | undefined; // used to format dates correctly on the front end
   orderNumber: string | undefined; // ServiceRequest.identifier.value (system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
+  abnPdfUrl: string | undefined; // DocRef containing OYSTEHR_ABN_DOC_CATEGORY_CODING and related to SR (only for labCorp + quest)
+  orderPdfUrl: string | undefined; // will exist after order is submitted, DocRef containing LAB_ORDER_DOC_REF_CODING_CODE type
+  location: Location | undefined; // Location that ordered the test. Was previously not required for lab orders, so can be undefined
+  orderLevelNoteByUser: string | undefined; // communication where cat === LAB_ORDER_LEVEL_NOTE_CATEGORY and sr is referenced in basedOn
+  clinicalInfoNoteByUser: string | undefined; // communication where cat === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY and sr is referenced in basedOn (these notes should be one to one with SRs)
+  hasCptCodes: boolean; // true when the contained ActivityDefinition has at least one CPT code in its code.coding
+  billingType: LabPaymentMethod | undefined; // unsolicited results will be undefined. Labs todo: We should be able to derive it for reflex but not necessary at the moment
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
@@ -136,11 +169,61 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   questionnaire: QuestionnaireData[];
   samples: sampleDTO[];
   labelPdfUrl?: string; // will exist after test is marked ready
-  orderPdfUrl?: string; // will exist after order is submitted
+  isGenericOrder: boolean;
+};
+
+export type UnsolicitedLabListPageDTO = {
+  isUnsolicited: true;
+  diagnosticReportId: string;
+  testItem: string;
+  fillerLab: string;
+  orderStatus: ExternalLabsStatus;
+  lastResultReceivedDate: string;
+  accessionNumbers: string[]; // DiagnosticReport.identifier (identifier assigned to a sample when it arrives at a laboratory)
+};
+
+export type DiagnosticReportLabDetailPageDTO = Omit<
+  LabOrderDetailedPageDTO,
+  | 'serviceRequestId'
+  | 'orderAddedDate'
+  | 'orderSubmittedDate'
+  | 'orderingPhysician'
+  | 'diagnosesDTO'
+  | 'diagnoses'
+  | 'appointmentId'
+  | 'visitDate'
+  | 'encounterTimezone'
+  | 'orderNumber'
+  | 'accountNumber'
+  | 'labelPdfUrl'
+  | 'orderPdfUrl'
+  | 'abnPdfUrl'
+  | 'location'
+  | 'orderLevelNoteByUser'
+  | 'clinicalInfoNoteByUser'
+  | 'isGenericOrder'
+  | 'hasCptCodes'
+  | 'billingType'
+>;
+
+export type DiagnosticReportDrivenResultDTO = DiagnosticReportLabDetailPageDTO & {
+  orderNumber: string;
+  encounterId: string;
+  appointmentId: string;
+};
+
+export type ReflexLabDTO = DiagnosticReportDrivenResultDTO & {
+  drCentricResultType: 'reflex';
+};
+
+// todo labs can probably leverage drCentricResultType here as well
+export type UnsolicitedLabDTO = DiagnosticReportLabDetailPageDTO & {
+  isUnsolicited: true;
+  patientId: string;
 };
 
 export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {
-  searchBy: { field: 'serviceRequestId' };
+  searchBy: { field: 'serviceRequestId' | 'diagnosticReportId' };
 }
   ? LabOrderDetailedPageDTO
   : LabOrderListPageDTO;
@@ -149,6 +232,19 @@ export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters =
   data: LabOrderDTO<RequestParameters>[];
   pagination: Pagination;
   patientLabItems?: PatientLabItem[];
+  drDrivenResults: ReflexLabDTO[];
+};
+
+type orderBundleDTO = {
+  bundleName: string;
+  bundleNote: string | undefined;
+  abnPdfUrl: string | undefined;
+  orderPdfUrl: string | undefined;
+  orders: (LabOrderListPageDTO | ReflexLabDTO)[];
+};
+export type LabOrderListPageDTOGrouped = {
+  pendingActionOrResults: Record<string, orderBundleDTO>;
+  hasResults: Record<string, orderBundleDTO>;
 };
 
 export type LabOrdersSearchBy = {
@@ -156,7 +252,8 @@ export type LabOrdersSearchBy = {
     | { field: 'encounterId'; value: string }
     | { field: 'encounterIds'; value: string[] }
     | { field: 'patientId'; value: string }
-    | { field: 'serviceRequestId'; value: string };
+    | { field: 'serviceRequestId'; value: string }
+    | { field: 'diagnosticReportId'; value: string };
 };
 
 export type LabOrdersSearchFilters = {
@@ -172,7 +269,22 @@ export type LabOrdersPaginationOptions = {
 export enum LabType {
   external = 'external',
   inHouse = 'in-house',
+  // do not change the following values as they are linked to LAB_DR_TYPE_TAG which is defined in oystehr
+  unsolicited = 'unsolicited', // external but has less fhir resources available since it did not originate from ottehr
+  reflex = 'reflex', // external but has less fhir resources available since it did not originate from ottehr
 }
+
+export const LabTypeDisplay: Record<LabType, string> = {
+  [LabType.external]: 'External',
+  [LabType.inHouse]: 'In-House',
+  [LabType.unsolicited]: 'Unsolicited',
+  [LabType.reflex]: 'Reflex',
+};
+
+/**
+ * 'unsolicited', 'reflex'
+ */
+export type LabDrTypeTagCode = (typeof LAB_DR_TYPE_TAG.code)[keyof typeof LAB_DR_TYPE_TAG.code];
 
 export type GetLabOrdersParameters = LabOrdersSearchBy & LabOrdersSearchFilters & LabOrdersPaginationOptions;
 
@@ -186,28 +298,93 @@ export type SubmitLabOrderInput = {
 };
 
 export type SubmitLabOrderOutput = {
-  orderPdfUrls: string[];
-  failedOrdersByOrderNumber?: string[];
+  orderPdfUrls: string[]; // if any abn was generated its presigned url will also be included
+  failedOrdersByOrderNumber?: { [orderNumber: string]: string };
 };
+
+export type CreateLabCoverageInfo = { coverageName: string; coverageId: string; isPrimary: boolean };
+
+export type CoverageAndOrg = { coverage: Coverage; payorOrg: Organization };
+export type CoverageOrgRank = CoverageAndOrg & {
+  coverageRank: number;
+};
+type InsurancePaymentResource = {
+  type: LabPaymentMethod.Insurance;
+  coverageAndOrgs: CoverageOrgRank[];
+};
+type ClientBillResource = {
+  type: LabPaymentMethod.ClientBill;
+  coverage: Coverage;
+};
+type SelfPayResource = {
+  type: LabPaymentMethod.SelfPay;
+  coverage?: Coverage;
+};
+type WorkersCompResource = {
+  type: LabPaymentMethod.WorkersComp;
+  coverageAndOrgs: CoverageOrgRank[];
+};
+export type PaymentResources = InsurancePaymentResource | ClientBillResource | SelfPayResource | WorkersCompResource;
+
+export enum LabPaymentMethod {
+  Insurance = 'insurance',
+  SelfPay = 'selfPay',
+  ClientBill = 'clientBill',
+  WorkersComp = 'workersComp',
+}
+
+export const CreateLabPaymentMethodSchema = z.enum([
+  LabPaymentMethod.Insurance,
+  LabPaymentMethod.SelfPay,
+  LabPaymentMethod.ClientBill,
+  LabPaymentMethod.WorkersComp,
+]);
+
+export type CreateLabPaymentMethod = z.infer<typeof CreateLabPaymentMethodSchema>;
 
 export type CreateLabOrderParameters = {
   dx: DiagnosisDTO[];
   encounter: Encounter;
-  orderableItem: OrderableItemSearchResult;
+  orderableItems: OrderableItemSearchResult[];
   psc: boolean;
+  orderingLocation: ModifiedOrderingLocation;
+  selectedPaymentMethod: CreateLabPaymentMethod;
+  clinicalInfoNoteByUser?: string;
 };
 
 export type CreateLabOrderZambdaOutput = Record<string, never>;
 
 export type GetCreateLabOrderResources = {
   patientId?: string;
+  encounterId?: string;
   search?: string;
+  labOrgIdsString?: string;
+  selectedLabSet?: ExternalLabSetDTO;
+};
+
+export type ModifiedOrderingLocation = {
+  name: string;
+  id: string;
+  enabledLabs: {
+    accountNumber: string;
+    labOrgRef: string;
+    labGuid?: string;
+    labName?: string;
+  }[];
+};
+
+export type ExternalLabOrderingLocations = {
+  orderingLocations: ModifiedOrderingLocation[];
+  orderingLocationIds: string[];
 };
 
 export type LabOrderResourcesRes = {
-  coverageName?: string;
+  coverages?: CreateLabCoverageInfo[];
   labs: OrderableItemSearchResult[];
-};
+  appointmentIsWorkersComp: boolean;
+  cptCodesToAddPerEncounter?: CPTCodeOption[]; // does not apply to psc orders and only once per encounter
+  labSets: LabSetDTO[] | undefined;
+} & ExternalLabOrderingLocations;
 
 export type PatientLabItem = {
   code: string; // ActivityDefinition.code.coding[0].code
@@ -218,10 +395,15 @@ export const LAB_ORDER_UPDATE_RESOURCES_EVENTS = {
   reviewed: 'reviewed',
   specimenDateChanged: 'specimenDateChanged',
   saveOrderCollectionData: 'saveOrderCollectionData',
+  cancelUnsolicitedResultTask: 'cancelUnsolicitedResultTask', // match or review tasks
+  matchUnsolicitedResult: 'matchUnsolicitedResult',
+  rejectedAbn: 'rejectedAbn',
+  addOrderLevelNote: 'addOrderLevelNote',
+  updateOrderLevelNote: 'updateOrderLevelNote',
 } as const;
 
 export type TaskReviewedParameters = {
-  serviceRequestId: string;
+  serviceRequestId: string | undefined; // will be undefined for unsolicited results
   taskId: string;
   diagnosticReportId: string;
 };
@@ -242,75 +424,237 @@ export type SaveOrderCollectionData = {
   serviceRequestId: string;
   data: DynamicAOEInput;
   specimenCollectionDates?: SpecimenCollectionDateConfig;
+  userTimezone: string;
 };
 
-export type UpdateLabOrderResourcesParameters =
+export type CancelMatchUnsolicitedResultTask = {
+  event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask;
+  taskId: string;
+};
+
+export type FinalizeUnsolicitedResultMatch = {
+  event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult;
+  taskId: string;
+  diagnosticReportId: string;
+  patientToMatchId: string;
+  srToMatchId?: string;
+};
+
+export type UpdateLabOrderResourcesInput =
   | (TaskReviewedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.reviewed })
   | (SpecimenDateChangedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.specimenDateChanged })
-  | (SaveOrderCollectionData & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.saveOrderCollectionData });
+  | (SaveOrderCollectionData & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.saveOrderCollectionData })
+  | CancelMatchUnsolicitedResultTask
+  | FinalizeUnsolicitedResultMatch
+  | { serviceRequestId: string; event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.rejectedAbn }
+  | {
+      requisitionNumber: string;
+      note: string;
+      event:
+        | typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote
+        | typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.updateOrderLevelNote;
+    };
 
 export type DeleteLabOrderZambdaInput = {
   serviceRequestId: string;
 };
 
 export type DeleteLabOrderZambdaOutput = Record<string, never>;
-export interface LabelConfig {
-  heightInches: number;
-  widthInches: number;
-  marginTopInches: number;
-  marginBottomInches: number;
-  marginLeftInches: number;
-  marginRightInches: number;
-  printerDPI: number;
-}
+
 export interface GetLabelPdfParameters {
   contextRelatedReference: Reference;
   searchParams: { name: string; value: string }[];
 }
-
-export interface LabelPdf {
-  documentReference: DocumentReference;
+export interface LabDocumentByRequisition {
+  [requisitionNumber: string]: LabDocument;
+}
+export enum LabDocumentType {
+  labGeneratedResult = 'lab-generated-result',
+  ottehrGeneratedResult = 'ottehr-generated-result',
+  abn = 'abn',
+  orderPdf = 'order-pdf',
+  label = 'label',
+}
+export interface LabDocumentBase {
+  docRefId: string;
   presignedURL: string;
 }
+export interface LabDocumentRelatedToDiagnosticReport extends LabDocumentBase {
+  type: LabDocumentType.ottehrGeneratedResult | LabDocumentType.labGeneratedResult;
+  diagnosticReportIds: string[]; // lab generated results are one doc ref to many diagnostic reports
+}
+export interface LabDocumentRelatedToServiceRequest extends LabDocumentBase {
+  type: LabDocumentType.abn | LabDocumentType.orderPdf;
+  serviceRequestIds: string[]; // one order pdf doc ref to many service requests
+}
 
-export type LabOrderPDF = {
-  presignedURL: string;
-  serviceRequestId: string;
-  docRefId: string;
-};
+export type LabDocument = LabDocumentRelatedToDiagnosticReport | LabDocumentRelatedToServiceRequest | LabelPdf;
 
-export type LabResultPDF = {
-  presignedURL: string;
-  diagnosticReportId: string;
-};
+export interface ExternalLabDocuments {
+  labelPDF: LabelPdf | undefined; // only ever returned for the detail page atm
+  labGeneratedResults: LabDocumentRelatedToDiagnosticReport[] | undefined; // only ever returned for the detail page atm
+  resultPDFs: LabDocumentRelatedToDiagnosticReport[] | undefined; // only ever returned for the detail page atm
+  orderPDFsByRequisitionNumber: LabDocumentByRequisition | undefined;
+  abnPDFsByRequisitionNumber: LabDocumentByRequisition | undefined;
+}
+
+export interface ExternalLabCommunications {
+  orderLevelNotesByUser: Communication[];
+  clinicalInfoNotesByUser: Communication[];
+}
 
 export enum UnsolicitedResultsRequestType {
   UNSOLICITED_RESULTS_ICON = 'unsolicited-results-icon',
-  GET_ALL_TASKS = 'get-tasks',
+  GET_UNSOLICITED_RESULTS_TASKS = 'get-unsolicited-results-tasks',
   MATCH_UNSOLICITED_RESULTS = 'match-unsolicited-result',
-  UNSOLICITED_RESULT_DETAIL = 'unsolicited-result-detail',
+  GET_UNSOLICITED_RESULTS_RELATED_REQUESTS = 'get-unsolicited-results-related-requests',
+  UNSOLICITED_RESULTS_DETAIL = 'unsolicited-results-detail',
+  UNSOLICITED_RESULTS_PATIENT_LIST = 'unsolicited-results-patient-list',
 }
 
-// planning to add diagnostic id as input as well
-export type GetUnsolicitedResultsResourcesInput =
-  | { requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON }
-  | { requestType: UnsolicitedResultsRequestType.GET_ALL_TASKS };
-
-type unsolicitedResultTaskRowDTO = {
+export type GetUnsolicitedResultsIconStatusInput = {
+  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON;
+};
+export type GetUnsolicitedResultsTasksInput = {
+  requestType: UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_TASKS;
+};
+export type GetUnsolicitedResultsMatchDataInput = {
+  requestType: UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS;
   diagnosticReportId: string;
-  taskType:
-    | UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS
-    | UnsolicitedResultsRequestType.UNSOLICITED_RESULT_DETAIL;
-  taskRowInstruction: string;
+};
+export type GetUnsolicitedResultsRelatedRequestsInput = {
+  requestType: UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_RELATED_REQUESTS;
+  diagnosticReportId: string;
+  patientId: string;
+};
+export type GetUnsolicitedResultsDetailInput = {
+  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_DETAIL;
+  diagnosticReportId: string;
+};
+export type GetUnsolicitedResultsPatientListInput = {
+  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_PATIENT_LIST;
+  patientId: string;
+};
+
+export type GetUnsolicitedResultsResourcesInput =
+  | GetUnsolicitedResultsIconStatusInput
+  | GetUnsolicitedResultsTasksInput
+  | GetUnsolicitedResultsMatchDataInput
+  | GetUnsolicitedResultsRelatedRequestsInput
+  | GetUnsolicitedResultsDetailInput
+  | GetUnsolicitedResultsPatientListInput;
+
+export const UR_TASK_ACTION_TEXT = ['Match', 'Go to Lab Results'] as const;
+export type UR_TASK_ACTION = (typeof UR_TASK_ACTION_TEXT)[number];
+
+export type UnsolicitedResultTaskRowDTO = {
+  diagnosticReportId: string;
+  actionText: UR_TASK_ACTION;
+  actionUrl: string;
+  taskRowDescription: string;
   resultsReceivedDateTime: string;
 };
 
-export type GetUnsolicitedResultsResourcesForIcon = {
+export type GetUnsolicitedResultsIconStatusOutput = {
   tasksAreReady: boolean;
 };
-export type GetUnsolicitedResultsResourcesForTable = {
-  unsolicitedResultTasks: unsolicitedResultTaskRowDTO[];
+export type GetUnsolicitedResultsTasksOutput = {
+  unsolicitedResultsTasks: UnsolicitedResultTaskRowDTO[];
 };
+export type GetUnsolicitedResultsMatchDataOutput = {
+  unsolicitedLabInfo: {
+    patientName?: string;
+    patientDOB?: string;
+    provider?: string;
+    test?: string;
+    labName?: string;
+    resultsReceived?: string;
+  };
+  taskId: string;
+};
+export type GetUnsolicitedResultsRelatedRequestsOutput = {
+  possibleRelatedSRsWithVisitDate:
+    | {
+        serviceRequestId: string;
+        visitDate: string;
+      }[]
+    | null;
+};
+export type GetUnsolicitedResultsDetailOutput = {
+  unsolicitedLabDTO: UnsolicitedLabDTO;
+};
+export type GetUnsolicitedResultsPatientListOutput = {
+  unsolicitedLabListDTOs: UnsolicitedLabListPageDTO[];
+};
+
 export type GetUnsolicitedResultsResourcesOutput =
-  | GetUnsolicitedResultsResourcesForIcon
-  | GetUnsolicitedResultsResourcesForTable;
+  | GetUnsolicitedResultsIconStatusOutput
+  | GetUnsolicitedResultsTasksOutput
+  | GetUnsolicitedResultsMatchDataOutput
+  | GetUnsolicitedResultsRelatedRequestsOutput
+  | GetUnsolicitedResultsDetailOutput
+  | GetUnsolicitedResultsPatientListOutput;
+
+export type LabsTableColumn =
+  | 'testType'
+  | 'visit'
+  | 'orderAdded'
+  | 'ordered'
+  | 'provider'
+  | 'dx'
+  | 'resultsReceived'
+  | 'accessionNumber'
+  | 'requisitionNumber'
+  | 'status'
+  | 'detail'
+  | 'actions';
+
+export interface ExternalLabsLabelContent {
+  patientLastName: string;
+  patientFirstName: string;
+  patientId: string;
+  patientDateOfBirth: DateTime | undefined;
+  sampleCollectionDateAndTimezone: { sampleCollectionDate: DateTime; timezone: string | undefined } | undefined;
+  accountNumber: string; // this is the lab provided account number. Same one used to submit the order
+  orderNumber: string; // number generated by oystehr submit labs on order submit
+}
+
+export interface ExternalLabsLabelConfig {
+  labelConfig: LabelConfig;
+  content: ExternalLabsLabelContent;
+  type: 'external-lab';
+}
+// ADMIN GET LAB SET API TYPES
+export type AdminGetLabSetListOutput = {
+  labSetDTO: LabSetDTO[];
+};
+
+export type AdminGetLabSetDetailInput = {
+  labSetId: string;
+};
+export type AdminGetLabSetDetailOutput = {
+  labSetDTO: LabSetDTO;
+};
+
+// ADMIN ADD LAB SET API TYPES
+export type AdminAddLabSetInput = {
+  labSetFormInput: LabSetDTO;
+};
+export type AdminAddLabSetOutput = {
+  labSetId: string;
+};
+
+// ADMIN UPDATE LAB SET API TYPES
+export type AdminUpdateLabSetStatus = {
+  updateType: 'toggle-status';
+  data: {
+    labSetId: string;
+  };
+};
+
+export type AdminEditLabSet = {
+  updateType: 'edit';
+  data: LabSetDTO;
+};
+
+export type AdminUpdateLabSetInput = AdminEditLabSet | AdminUpdateLabSetStatus;

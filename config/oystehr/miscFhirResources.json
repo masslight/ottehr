@@ -1,0 +1,160 @@
+{
+  "schema-version": "2025-09-25",
+  "fhirResources": {
+    "OTTEHR_ORGANIZATION": {
+      "resource": {
+        "resourceType": "Organization",
+        "active": true,
+        "name": "#{var/project-name} Organization",
+        "telecom": [
+          {
+            "system": "fax",
+            "value": "#{ref/faxNumbers/OTTEHR_FAX/number}"
+          }
+        ]
+      }
+    },
+    "AUTOLAB_ORGANIZATION": {
+      "resource": {
+        "resourceType": "Organization",
+        "name": "AutoLab",
+        "identifier": [
+          {
+            "system": "https://identifiers.fhir.oystehr.com/lab-guid",
+            "value": "#{var/lab-autolab-lab-id}"
+          }
+        ],
+        "type": [
+          {
+            "coding": [
+              {
+                "system": "http://snomed.info/sct",
+                "code": "261904005",
+                "display": "Laboratory"
+              }
+            ]
+          }
+        ],
+        "contact": [
+          {
+            "name": {
+              "family": "Smith",
+              "given": [
+                "John"
+              ]
+            },
+            "telecom": [
+              {
+                "system": "phone",
+                "value": "+12223334444"
+              }
+            ],
+            "purpose": {
+              "coding": [
+                {
+                  "system": "https://identifiers.fhir.oystehr.com/lab-director-contact",
+                  "code": "lab_director",
+                  "display": "Lab Director"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ISSUE_REPORT_GROUP": {
+      "resource": {
+        "resourceType": "Group",
+        "identifier": [
+          {
+            "system": "ottehr-internal",
+            "value": "intake-issue-reports"
+          }
+        ],
+        "active": true,
+        "type": "practitioner",
+        "code": {
+          "text": "ottehr-admins"
+        },
+        "name": "Issue Report Recipients",
+        "member": [],
+        "actual": true
+      },
+      "managedFields": [
+        "name"
+      ]
+    },
+    "DEFAULT_BILLING_RESOURCE": {
+      "resource": {
+        "resourceType": "Organization",
+        "name": "Ottehr Clinic",
+        "identifier": [
+          {
+            "system": "http://hl7.org/fhir/sid/us-npi",
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "NPI"
+                }
+              ]
+            },
+            "value": "1275837114"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "NE"
+                }
+              ]
+            },
+            "value": "99-9999999"
+          }
+        ],
+        "telecom": [
+          {
+            "system": "phone",
+            "value": "+1-206-555-1212",
+            "use": "work"
+          },
+          {
+            "system": "email",
+            "value": "billing@ottehr.com",
+            "use": "work"
+          },
+          {
+            "system": "url",
+            "value": "ottehr.com",
+            "use": "work"
+          }
+        ],
+        "address": [
+          {
+            "use": "billing",
+            "type": "physical",
+            "line": [
+              "371 Pine St"
+            ],
+            "city": "Seattle",
+            "state": "WA",
+            "postalCode": "98105",
+            "country": "US"
+          },
+          {
+            "use": "work",
+            "type": "postal",
+            "line": [
+              "PO Box 1234"
+            ],
+            "city": "Seattle",
+            "state": "WA",
+            "postalCode": "98101",
+            "country": "US"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import { t } from 'i18next';
-import { useIntakeCommonStore } from '../features/common';
+import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
 
 export async function downloadFile(presignedURL: string, filename: string): Promise<void> {
   let downloadResponse;

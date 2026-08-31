@@ -2,22 +2,20 @@
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import React from 'react';
+import { getLocationInformation } from 'utils/lib/fhir/location';
+import { AvailableLocationInformation } from 'utils/lib/types/common';
 import {
-  AvailableLocationInformation,
   getAvailableSlots,
-  getLocationInformation,
   getScheduleExtension,
   getSlotCapacityMapForDayAndSchedule,
-} from 'utils';
-import { vi } from 'vitest';
+} from 'utils/lib/utils/scheduleUtils';
+import { expect, vi } from 'vitest';
 import { useCheckOfficeOpen } from '../../../apps/intake/src/hooks/useCheckOfficeOpen';
 import { getNextOpeningDateTime } from '../src/patient/get-schedule';
 import * as overrideData from './data/override-constants';
 import * as slotData from './data/slot-constants';
 import { addDateToSlotTimes } from './data/slot-constants';
 import { HoursOfOpConfig, makeLocationWithSchedule, OverrideScheduleConfig } from './helpers/testScheduleUtils';
-
-const oystehr = new Oystehr({});
 
 describe.skip('test schedule override for getAvailableSlots function, i.e., front end slot display', () => {
   test('1: it should return slots between 6pm and 10pm today if opening buffer 15, capacity 3, and schedule override is applied for today open @6pm close @10pm', async () => {

@@ -4,17 +4,14 @@ import { Operation } from 'fast-json-patch';
 import { Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import { useCallback, useEffect, useMemo } from 'react';
-import {
-  getFullestAvailableName,
-  getPatchOperationForNewMetaTag,
-  getPractitionerNPIIdentifier,
-  initialsFromName,
-  PROJECT_NAME,
-  RoleType,
-  SyncUserResponse,
-  User,
-  useSuccessQuery,
-} from 'utils';
+import { initialsFromName } from 'utils/lib/fhir/chat';
+import { getFullestAvailableName, getNPIIdentifier } from 'utils/lib/fhir/patient';
+import { getPatchOperationForNewMetaTag, getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch';
+import { useSuccessQuery } from 'utils/lib/frontend';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { SyncUserResponse } from 'utils/lib/types/api/sync-user/sync-user.types';
+import { RoleType, User } from 'utils/lib/types/api/user.types';
+import { USER_TIMEZONE_EXTENSION_URL } from 'utils/lib/types/constants';
 import { create } from 'zustand';
 import { getUser } from '../api/api';
 import { useApiClients } from './useAppClients';
@@ -47,7 +44,7 @@ export default function useEvolveUser(): EvolveUser | undefined {
   const isProviderHasEverythingToBeEnrolled = Boolean(
     profile?.id &&
       profile?.telecom?.find((phone) => phone.system === 'sms' || phone.system === 'phone')?.value &&
-      getPractitionerNPIIdentifier(profile)?.value &&
+      getNPIIdentifier(profile)?.value &&
       profile?.name?.[0]?.given?.[0] &&
       profile?.name?.[0]?.family
   );
@@ -84,12 +81,28 @@ export default function useEvolveUser(): EvolveUser | undefined {
   useEffect(() => {
     if (user && oystehr && profile && !isPractitionerLastLoginBeingUpdated && !_practitionerLoginUpdateStarted) {
       _practitionerLoginUpdateStarted = true;
-      void mutatePractitionerAsync([
+
+      const patchOps: Operation[] = [
         getPatchOperationForNewMetaTag(profile!, {
           system: 'last-login',
           code: DateTime.now().toISO() ?? 'Unknown',
         }),
-      ]).catch(console.error);
+      ];
+
+      // Save the browser timezone on the Practitioner resource so backend
+      // notifications (e.g. SMS) can format times in the provider's local timezone.
+      const browserTimezone = DateTime.local().zoneName;
+      if (browserTimezone) {
+        const timezonePatchOp = getPatchOperationToUpdateExtension(profile!, {
+          url: USER_TIMEZONE_EXTENSION_URL,
+          valueString: browserTimezone,
+        });
+        if (timezonePatchOp) {
+          patchOps.push(timezonePatchOp);
+        }
+      }
+
+      void mutatePractitionerAsync(patchOps).catch(console.error);
     }
   }, [oystehr, isPractitionerLastLoginBeingUpdated, mutatePractitionerAsync, profile, user]);
 
@@ -105,12 +118,15 @@ export default function useEvolveUser(): EvolveUser | undefined {
 
   const { userName, userInitials, lastLogin } = useMemo(() => {
     if (profile) {
-      const userName = getFullestAvailableName(profile) ?? `${PROJECT_NAME} Team`;
+      const userName = getFullestAvailableName(profile) ?? `${BRANDING_CONFIG.projectName} Team`;
       const userInitials = initialsFromName(userName);
       const lastLogin = profile.meta?.tag?.find((tag) => tag.system === 'last-login')?.code;
       return { userName, userInitials, lastLogin };
     }
-    return { userName: `${PROJECT_NAME} team`, userInitials: initialsFromName(`${PROJECT_NAME} Team`) };
+    return {
+      userName: `${BRANDING_CONFIG.projectName} team`,
+      userInitials: initialsFromName(`${BRANDING_CONFIG.projectName} Team`),
+    };
   }, [profile]);
 
   return useMemo(() => {

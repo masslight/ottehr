@@ -1,7 +1,7 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { BaseProgressNotePage } from '../abstract/BaseProgressNotePage';
-import { CssHeader } from '../CssHeader';
+import { InPersonHeader } from '../InPersonHeader';
 import { SideMenu } from '../SideMenu';
 
 export class InPersonProgressNotePage extends BaseProgressNotePage {
@@ -12,21 +12,72 @@ export class InPersonProgressNotePage extends BaseProgressNotePage {
     this.#page = page;
   }
 
-  cssHeader(): CssHeader {
-    return new CssHeader(this.#page);
+  inPersonHeader(): InPersonHeader {
+    return new InPersonHeader(this.#page);
   }
 
   sideMenu(): SideMenu {
     return new SideMenu(this.#page);
   }
 
+  async verifyRosReviewSectionVisible(): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.rosReviewContainer),
+      'ROS review section should be visible on the progress note'
+    ).toBeVisible({ timeout: 15000 });
+  }
+
+  async verifyRosReviewSectionEmpty(): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.rosReviewContainer),
+      'ROS review section should be visible so it can be filled in from the note'
+    ).toBeVisible();
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.rosReviewContainer),
+      'ROS review section should read as empty when no findings are documented'
+    ).toContainText('No review of systems');
+  }
+
+  async verifyRosFinding(findingLabel: string, abnormal: boolean): Promise<void> {
+    const rosContainer = this.#page.getByTestId(dataTestIds.progressNotePage.rosReviewContainer);
+    const findingText = rosContainer.getByText(findingLabel, { exact: true });
+    await expect(findingText, `Finding "${findingLabel}" should be visible in ROS section`).toBeVisible();
+    if (abnormal) {
+      await expect(findingText, `Reports finding "${findingLabel}" should be bold`).toHaveCSS('font-weight', '700');
+    } else {
+      await expect(findingText, `Denies finding "${findingLabel}" should not be bold`).not.toHaveCSS(
+        'font-weight',
+        '700'
+      );
+    }
+  }
+
   async expectLoaded(): Promise<void> {
-    await this.#page.waitForURL(new RegExp('/in-person/.*/progress-note'));
-    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+    await this.#page.waitForURL(new RegExp('/in-person/.*/review-and-sign'));
+    // Ensure no error occurred
+    await expect(this.#page.getByText('An error has occurred'))
+      .not.toBeVisible({ timeout: 5000 })
+      .catch(() => {
+        // If error message is visible, throw
+        throw new Error('Page loaded with error state');
+      });
+    // Wait for the card to appear (it may take time to render after data loads)
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible({
+      timeout: 60000,
+    });
   }
 }
 
 export async function expectInPersonProgressNotePage(page: Page): Promise<InPersonProgressNotePage> {
-  await page.waitForURL(new RegExp('/in-person/.*/progress-note'));
-  return new InPersonProgressNotePage(page);
+  const progressNotePage = new InPersonProgressNotePage(page);
+  await progressNotePage.expectLoaded();
+  return progressNotePage;
+}
+
+export async function openInPersonProgressNotePage(
+  appointmentId: string,
+  page: Page
+): Promise<InPersonProgressNotePage> {
+  await page.goto(`/in-person/${appointmentId}/review-and-sign`);
+  return expectInPersonProgressNotePage(page);
 }

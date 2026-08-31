@@ -1,23 +1,28 @@
-import { SaveChartDataRequest } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { SaveChartDataRequest } from 'utils/lib/types/api/chart-data/save-chart-data.types';
+import { MISSING_REQUEST_BODY, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { z } from 'zod';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
+
+const SaveChartDataBodySchema = z
+  .object({
+    encounterId: z.string().uuid(),
+  })
+  .passthrough();
 
 export function validateRequestParameters(
   input: ZambdaInput
 ): SaveChartDataRequest & Pick<ZambdaInput, 'secrets'> & { userToken: string } {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   if (input.headers.Authorization === undefined) {
-    throw new Error('Authorization token is not provided in headers');
+    throw NOT_AUTHORIZED;
   }
 
-  const data = JSON.parse(input.body) as SaveChartDataRequest;
-
-  if (data.encounterId === undefined) {
-    throw new Error('These fields are required: "encounterId"');
-  }
+  const data = safeValidate(SaveChartDataBodySchema, safeJsonParse(input.body));
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
-  return { ...data, secrets: input.secrets, userToken: userToken };
+  return { ...(data as SaveChartDataRequest), secrets: input.secrets, userToken };
 }

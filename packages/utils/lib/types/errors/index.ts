@@ -23,14 +23,23 @@ export enum APIErrorCode {
   SCHEDULE_OWNER_NOT_FOUND = 4018,
   SLOT_UNAVAILABLE = 4019,
   USER_ALREADY_EXISTS = 4020,
+  PATIENT_PHONE_NOT_FOUND = 4021,
+  RESOURCE_INCOMPLETE_FOR_OPERATION = 4022,
+  ALREADY_EXISTS = 4023,
+  CONCURRENT_UPDATE = 4024,
+  RESOURCE_HAS_DEPENDENTS = 4025,
   // 41xx
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
+  FHIR_RESOURCE_IS_GONE = 4102,
+  PRECONDITION_FAILED = 4120,
   // 42xx
   MISSING_REQUEST_BODY = 4200,
   MISSING_REQUIRED_PARAMETERS = 4201,
   INVALID_RESOURCE_ID = 4202,
   MISSING_AUTH_TOKEN = 4203,
+  MISSING_REQUEST_SECRETS = 4204,
+  PAYLOAD_TOO_LARGE = 4205,
   // 43xx
   CANNOT_JOIN_CALL_NOT_IN_PROGRESS = 4300,
   MISSING_BILLING_PROVIDER_DETAILS = 4301,
@@ -39,17 +48,31 @@ export enum APIErrorCode {
   MISCONFIGURED_SCHEDULING_GROUP = 4304,
   MISSING_SCHEDULE_EXTENSION = 4305,
   MISSING_PATIENT_COVERAGE_INFO = 4306,
+  STRIPE_CUSTOMER_ID_DOES_NOT_EXIST = 4307,
   // 434x
   INVALID_INPUT = 4340,
   APPOINTMENT_ALREADY_EXISTS = 4341,
+  PRACTITIONER_SCHEDULE_CONFLICT = 4342,
+  APPOINTMENT_SEARCH_TOO_BROAD = 4343,
   // 44xx
   EXTERNAL_LAB_GENERAL = 4400,
   MISSING_NLM_API_KEY_ERROR = 4401,
   IN_HOUSE_LAB_GENERAL = 4402,
+  MISSING_WC_INFO_FOR_LABS = 4403,
+  ADMIN_IN_HOUSE_TEST_EXISTS = 4404,
+  LABEL_PRINTING_GENERAL = 4405,
+  RADIOLOGY_GENERAL = 4406,
+  MANAGED_QUESTIONNAIRE_GENERAL = 4407,
+  INSURANCE_CARD_IMAGE_GENERAL = 4408,
+  PAPERWORK_FLOW_GENERAL = 4409,
+  UNSOLICITED_RESULTS_ALREADY_MATCHED = 4410,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
   STRIPE_PAYMENT_ERROR_SPECIFIC = 45001,
+  ERA_IMPORT_FAILED = 4502,
+  MANUAL_PAYMENT_CONFLICT = 4503,
+  STATEMENT_BILLING_CLAIM_NOT_FOUND = 4504,
 
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
@@ -100,9 +123,44 @@ export const isApiError = (errorObject: unknown | undefined): boolean => {
   return false;
 };
 
-export const NOT_AUTHORIZED = {
+export const errorHasStatusCode = (error: any, statusCode: number): boolean =>
+  error?.code === statusCode || error?.statusCode === statusCode || error?.message?.includes(`${statusCode}`);
+
+export const NOT_AUTHORIZED: APIError = {
   code: APIErrorCode.NOT_AUTHORIZED,
   message: 'You are not authorized to access this data',
+  statusCode: 401,
+};
+
+export const MEDICAL_RECORD_TOO_LARGE_ERROR = (maxMb: number): APIError => ({
+  code: APIErrorCode.PAYLOAD_TOO_LARGE,
+  message: `This medical record is too large to export as a single download (over ${maxMb} MB).`,
+  statusCode: 413,
+});
+
+/**
+ * Returned by a guarded hard-delete when the target still has dependents and the
+ * caller didn't pass `force`. The message enumerates what's attached so the UI can
+ * show a specific destructive-action warning; a follow-up call with `force: true`
+ * proceeds.
+ */
+export const RESOURCE_HAS_DEPENDENTS_ERROR = (dependents: {
+  schedules: number;
+  practitionerRoles: number;
+  appointments: number;
+}): APIError => {
+  const parts: string[] = [];
+  const plural = (n: number, singular: string): string => `${n} ${singular}${n === 1 ? '' : 's'}`;
+  if (dependents.schedules) parts.push(plural(dependents.schedules, 'schedule'));
+  if (dependents.practitionerRoles) parts.push(plural(dependents.practitionerRoles, 'provider role'));
+  if (dependents.appointments) parts.push(plural(dependents.appointments, 'appointment'));
+  return {
+    code: APIErrorCode.RESOURCE_HAS_DEPENDENTS,
+    message:
+      `This location has ${parts.join(', ')} associated with it. Deleting it will also delete its ` +
+      `schedules and provider roles. Appointments will be kept but will reference a deleted location.`,
+    statusCode: 409,
+  };
 };
 
 export const CANT_UPDATE_CHECKED_IN_APT_ERROR = {
@@ -120,9 +178,10 @@ export const DOB_UNCONFIRMED_ERROR = {
   message: 'We could not verify the date of birth supplied for this patient',
 };
 
-export const NO_READ_ACCESS_TO_PATIENT_ERROR = {
+export const NO_READ_ACCESS_TO_PATIENT_ERROR: APIError = {
   code: APIErrorCode.NO_READ_ACCESS_TO_PATIENT,
   message: `You are not authorized to view this patient's data`,
+  statusCode: 403,
 };
 
 export const APPOINTMENT_NOT_FOUND_ERROR = {
@@ -221,6 +280,23 @@ export const SCHEDULE_NOT_FOUND_CUSTOM_ERROR = (message: string): APIError => ({
   message,
 });
 
+// Raised when a create/update/reactivate would leave more than one active
+// PractitionerRole covering the same (practitioner, location, category) tuple.
+// `categoryNames` is the list of overlapping category display names, used
+// verbatim in the message so the admin knows which schedule to reconcile.
+export const PRACTITIONER_SCHEDULE_CONFLICT_ERROR = (categoryNames: string[]): APIError => ({
+  code: APIErrorCode.PRACTITIONER_SCHEDULE_CONFLICT,
+  message: `This provider already has an active schedule at this location offering ${categoryNames.join(
+    ', '
+  )}. Remove ${categoryNames.length === 1 ? 'it' : 'them'} from that schedule first, or pick a different location.`,
+});
+
+export const APPOINTMENT_SEARCH_TOO_BROAD_ERROR: APIError = {
+  code: APIErrorCode.APPOINTMENT_SEARCH_TOO_BROAD,
+  message:
+    'This search returned too much data to load. Please narrow the date range or select fewer locations/providers and try again.',
+};
+
 export const APPOINTMENT_CANT_BE_IN_PAST_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_IN_PAST,
   message: "An appointment can't be scheduled for a date in the past",
@@ -233,12 +309,17 @@ export const PATIENT_NOT_FOUND_ERROR = {
 
 export const CANNOT_JOIN_CALL_NOT_STARTED_ERROR = {
   code: APIErrorCode.CANNOT_JOIN_CALL_NOT_IN_PROGRESS,
-  message: "This video call cannot be joined because it's either ended or not have been started",
+  message: 'This video call is not yet available or has already ended',
 };
 
 export const MISSING_REQUEST_BODY = {
   code: APIErrorCode.MISSING_REQUEST_BODY,
   message: 'The request was missing a required request body',
+};
+
+export const MISSING_REQUEST_SECRETS = {
+  code: APIErrorCode.MISSING_REQUEST_SECRETS,
+  message: 'The request was missing secrets required to process it',
 };
 
 export const FHIR_RESOURCE_NOT_FOUND = (resourceType: FhirResource['resourceType']): APIError => ({
@@ -250,6 +331,19 @@ export const FHIR_RESOURCE_NOT_FOUND_CUSTOM = (message: string): APIError => ({
   code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
   message,
 });
+
+export const FHIR_RESOURCE_IS_GONE = (): APIError => ({
+  code: APIErrorCode.FHIR_RESOURCE_IS_GONE,
+  statusCode: 410,
+  message: `The requested resource is gone`,
+});
+
+export const CLAIM_NOT_READY_FOR_X12_EXPORT: APIError = {
+  code: APIErrorCode.RESOURCE_INCOMPLETE_FOR_OPERATION,
+  statusCode: 400,
+  message:
+    "This claim isn't ready to export as X12. It may be missing required information or contain invalid references. Complete the claim and try again.",
+};
 
 export const MISSING_REQUIRED_PARAMETERS = (params: string[]): APIError => {
   return {
@@ -292,12 +386,37 @@ export const STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED_ERROR: APIError = {
   message: 'Access to this Stripe resource is not authorized. Perhaps it is no longer attached to the customer',
 };
 
+export const STRIPE_CUSTOMER_ID_DOES_NOT_EXIST_ERROR: APIError = {
+  code: APIErrorCode.STRIPE_CUSTOMER_ID_DOES_NOT_EXIST,
+  message: 'The Stripe customer ID associated with this account does not exist and may have been deleted.',
+};
+
 export const INVALID_INPUT_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.INVALID_INPUT,
     message,
   };
 };
+
+export const ERA_IMPORT_FAILED_ERROR = (message: string, statusCode?: number): APIError => {
+  return {
+    code: APIErrorCode.ERA_IMPORT_FAILED,
+    message,
+    statusCode,
+  };
+};
+// Raised when a record-billing-manual-payment idempotency key is replayed with different payment details.
+export const MANUAL_PAYMENT_CONFLICT_ERROR = (idempotencyKey: string): APIError => ({
+  code: APIErrorCode.MANUAL_PAYMENT_CONFLICT,
+  statusCode: 409,
+  message: `A different payment was already recorded with idempotency key "${idempotencyKey}". Use a new key to record a new payment.`,
+});
+// Raised when a statement is requested for a visit that was never billed through Ottehr billing.
+export const STATEMENT_BILLING_CLAIM_NOT_FOUND_ERROR = (encounterId: string): APIError => ({
+  code: APIErrorCode.STATEMENT_BILLING_CLAIM_NOT_FOUND,
+  statusCode: 404,
+  message: `No billing claim found for Encounter/${encounterId}, so a statement cannot be generated.`,
+});
 export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
   code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,
   message: 'No coverage information found for this patient',
@@ -311,6 +430,20 @@ export const MISSING_NLM_API_KEY_ERROR: APIError = {
 export const EXTERNAL_LAB_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.EXTERNAL_LAB_GENERAL,
+    message,
+  };
+};
+
+export const EXTERNAL_LAB_UNSOLICITED_RESULTS_ALREADY_MATCHED = (message: string): APIError => {
+  return {
+    code: APIErrorCode.UNSOLICITED_RESULTS_ALREADY_MATCHED,
+    message,
+  };
+};
+
+export const EXTERNAL_LAB_ERROR_MISSING_WC_INFO = (message: string): APIError => {
+  return {
+    code: APIErrorCode.MISSING_WC_INFO_FOR_LABS,
     message,
   };
 };
@@ -343,6 +476,32 @@ export const USER_ALREADY_EXISTS_ERROR = {
 export const APPOINTMENT_ALREADY_EXISTS_ERROR = {
   code: APIErrorCode.APPOINTMENT_ALREADY_EXISTS,
   message: 'An appointment can not be created because the slot provided is already attached to an Appointment resource',
+};
+
+export const PATIENT_PHONE_NOT_FOUND_ERROR = {
+  code: APIErrorCode.PATIENT_PHONE_NOT_FOUND,
+  message: 'Patient phone number not found',
+};
+
+export const RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.RESOURCE_INCOMPLETE_FOR_OPERATION,
+    message,
+  };
+};
+
+export const ALREADY_EXISTS_WITH_MESSAGE = (message: string): APIError => {
+  return {
+    code: APIErrorCode.ALREADY_EXISTS,
+    message,
+  };
+};
+
+export const CONCURRENT_UPDATE_WITH_MESSAGE = (message: string): APIError => {
+  return {
+    code: APIErrorCode.CONCURRENT_UPDATE,
+    message,
+  };
 };
 
 export const GENERIC_STRIPE_PAYMENT_ERROR = {
@@ -384,4 +543,62 @@ export const parseStripeError = (stripeError: any): APIError => {
     }
   }
   return GENERIC_STRIPE_PAYMENT_ERROR;
+};
+
+export const checkForStripeCustomerDeletedError = (stripeError: any): APIError | undefined => {
+  if (stripeError?.code === 'resource_missing' && stripeError?.message?.includes('No such customer')) {
+    return STRIPE_CUSTOMER_ID_DOES_NOT_EXIST_ERROR;
+  }
+  return stripeError;
+};
+
+export const ADMIN_IN_HOUSE_LAB_TEST_EXISTS_ERROR = (testName?: string): APIError => {
+  return {
+    code: APIErrorCode.ADMIN_IN_HOUSE_TEST_EXISTS,
+    message: `A test matching that name${
+      testName ? ` "${testName}"` : ''
+    } already exists. Please change the name, or update the existing test`,
+  };
+};
+
+export const LABEL_PRINTING_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.LABEL_PRINTING_GENERAL,
+    message,
+  };
+};
+
+export const PRECONDITION_FAILED = (message?: string): APIError => ({
+  code: APIErrorCode.PRECONDITION_FAILED,
+  message: message ?? 'Resource was edited during operation',
+});
+
+export const RADIOLOGY_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.RADIOLOGY_GENERAL,
+    message,
+  };
+};
+
+export const MANAGED_QUESTIONNAIRE_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.MANAGED_QUESTIONNAIRE_GENERAL,
+    message,
+  };
+};
+
+/** Insurance-card image processing failure (download / rotate / re-store) — a server-side 500, not bad input. */
+export const INSURANCE_CARD_IMAGE_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.INSURANCE_CARD_IMAGE_GENERAL,
+    message,
+    statusCode: 500,
+  };
+};
+
+export const PAPERWORK_FLOW_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.PAPERWORK_FLOW_GENERAL,
+    message,
+  };
 };

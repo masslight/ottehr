@@ -1,0 +1,410 @@
+import { otherColors } from '@ehrTheme/colors';
+import {
+  Autocomplete,
+  Box,
+  Card,
+  CircularProgress,
+  debounce,
+  Divider,
+  FormControlLabel,
+  Skeleton,
+  Switch,
+  TextField,
+  Typography,
+} from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
+import { FC, useCallback, useMemo, useRef, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { sortByRecencyAndStatus } from 'src/helpers';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
+import { useMergedMedicalConditionQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { MedicalConditionDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
+import { MedicalConditionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
+import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
+import { useICD10SearchNew } from '../../../stores/appointment/appointment.queries';
+import {
+  ChartDataState,
+  useAppointmentData,
+  useChartData,
+  useDeleteChartData,
+  useSaveChartData,
+} from '../../../stores/appointment/appointment.store';
+import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
+import { QuickPicksButton } from '../../QuickPicksButton';
+
+type IcdSearchResponseOptionalCode = Pick<IcdSearchResponse['codes'][number], 'display'> & { code: string | undefined };
+
+export const MedicalConditionsProviderColumn: FC = () => {
+  const { chartData, isLoading: isChartDataLoading } = useChartData();
+  const { appointment } = useAppointmentData();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const conditions = sortByRecencyAndStatus(chartData?.conditions ?? []);
+  const length = conditions.length;
+
+  return (
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+      data-testid={dataTestIds.medicalConditions.medicalConditionColumn}
+    >
+      {isChartDataLoading && <ProviderSideListSkeleton />}
+
+      {length > 0 && !isChartDataLoading && (
+        <Box
+          sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+          data-testid={dataTestIds.medicalConditions.medicalConditionsList}
+        >
+          {conditions.map((value, index) => (
+            <MedicalConditionListItem
+              key={value.resourceId || `new${index}`}
+              value={value}
+              index={index}
+              length={length}
+            />
+          ))}
+        </Box>
+      )}
+
+      {conditions.length === 0 && isReadOnly && !isChartDataLoading && isTelemedAppointment(appointment) && (
+        <Typography color="secondary.light">Missing. Patient input must be reconciled by provider</Typography>
+      )}
+
+      {!isReadOnly && <AddMedicalConditionField />}
+    </Box>
+  );
+};
+
+const setUpdatedCondition = (
+  chartDataSetState: (updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>)) => void,
+  updatedCondition?: MedicalConditionDTO
+): void => {
+  if (updatedCondition) {
+    chartDataSetState((prevState) => ({
+      chartData: {
+        ...prevState.chartData!,
+        conditions: prevState.chartData?.conditions?.map((condition) =>
+          condition.resourceId === updatedCondition.resourceId ? updatedCondition : condition
+        ),
+      },
+    }));
+  }
+};
+
+const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; length: number }> = ({
+  value,
+  index,
+  length,
+}) => {
+  const [note, setNote] = useState(value.note || '');
+  const areNotesEqual = note.trim() === (value.note || '');
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
+  const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
+  const isLoading = isUpdateLoading || isDeleteLoading;
+  const isLoadingOrAwaiting = isLoading || !areNotesEqual;
+  const isAlreadySaved = !!value.resourceId;
+  const { chartDataSetState } = useChartData({ refetchOnMount: false });
+
+  const updateNote = useMemo(
+    () =>
+      debounce((input: string) => {
+        updateChartData(
+          {
+            conditions: [{ ...value, note: input.trim() || undefined }],
+          },
+          {
+            onSuccess: (data) => {
+              const updatedCondition = data.chartData.conditions?.[0];
+              setUpdatedCondition(chartDataSetState, updatedCondition);
+            },
+            onError: () => {
+              enqueueSnackbar('An error has occurred while updating medical condition note. Please try again.', {
+                variant: 'error',
+              });
+            },
+          }
+        );
+      }, 1500),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [value.current]
+  );
+
+  const updateCurrent = (newCurrentValue: boolean): void => {
+    updateChartData(
+      {
+        conditions: [{ ...value, current: newCurrentValue, note: newCurrentValue ? undefined : value.note }],
+      },
+      {
+        onSuccess: (data) => {
+          if (newCurrentValue) {
+            setNote('');
+          }
+          const updatedCondition = data.chartData.conditions?.[0];
+          setUpdatedCondition(chartDataSetState, updatedCondition);
+        },
+        onError: () => {
+          enqueueSnackbar('An error has occurred while updating medical condition status. Please try again.', {
+            variant: 'error',
+          });
+        },
+      }
+    );
+  };
+
+  const deleteCondition = (): void => {
+    // Optimistic update
+    chartDataSetState(
+      (prevState) => ({
+        chartData: {
+          ...prevState.chartData!,
+          conditions: prevState.chartData?.conditions?.filter((condition) => condition.resourceId !== value.resourceId),
+        },
+      }),
+      { invalidateQueries: false }
+    );
+    deleteChartData(
+      {
+        conditions: [value],
+      },
+      {
+        onSuccess: () => {
+          // No need to update again, optimistic update already applied
+        },
+        onError: () => {
+          enqueueSnackbar('An error has occurred while deleting medical condition. Please try again.', {
+            variant: 'error',
+          });
+          // Rollback to previous state
+          chartDataSetState((prevState) => ({
+            chartData: {
+              ...prevState.chartData!,
+              conditions: [...(prevState.chartData?.conditions || []), value],
+            },
+          }));
+        },
+      }
+    );
+  };
+
+  return (
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+      data-testid={dataTestIds.medicalConditions.medicalConditionListItem}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography
+          sx={{
+            color: (theme) => (!value.current ? theme.palette.text.secondary : undefined),
+          }}
+        >
+          {value.code} {value.display}
+          {isReadOnly &&
+            ` | ${value.current ? 'Current' : 'Inactive now'}${value.note ? ' | Note: ' + value.note : ''}`}
+        </Typography>
+
+        {!isReadOnly && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <FormControlLabel
+              control={<Switch checked={value.current} onChange={(e) => updateCurrent(e.target.checked)} />}
+              label={value.current ? 'Current' : 'Inactive now'}
+              disabled={isLoadingOrAwaiting || !isAlreadySaved}
+              labelPlacement="start"
+              sx={{
+                '& .MuiFormControlLabel-label': {
+                  marginRight: 1,
+                  textAlign: 'right',
+                  color: (theme) => (!value.current ? theme.palette.text.secondary : undefined),
+                },
+              }}
+            />
+            <DeleteIconButton
+              disabled={isLoadingOrAwaiting || !isAlreadySaved}
+              onClick={deleteCondition}
+              dataTestId={dataTestIds.deleteOutlinedIcon}
+            />
+          </Box>
+        )}
+      </Box>
+
+      {!value.current && !isReadOnly && (
+        <TextField
+          value={note}
+          onChange={(e) => {
+            setNote(e.target.value);
+            updateNote(e.target.value);
+          }}
+          disabled={(isLoading && areNotesEqual) || !isAlreadySaved}
+          size="small"
+          fullWidth
+          label="Notes for inactive condition"
+          InputProps={{
+            endAdornment: !areNotesEqual && (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CircularProgress size="20px" />
+              </Box>
+            ),
+          }}
+        />
+      )}
+
+      {index + 1 !== length && <Divider />}
+    </Box>
+  );
+};
+
+const AddMedicalConditionField: FC = () => {
+  const { quickPicks: conditionQuickPicks, loading: conditionQuickPicksLoading } =
+    useMergedMedicalConditionQuickPicks();
+  const { chartData, isChartDataLoading, setPartialChartData } = useChartData();
+  const { onSubmit, isLoading } = useChartDataArrayValue('conditions');
+
+  const methods = useForm<{ value: IcdSearchResponse['codes'][number] | null }>({
+    defaultValues: { value: null },
+  });
+  const { control, reset } = methods;
+
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  const { isFetching: isSearching, data } = useICD10SearchNew({ search: debouncedSearchTerm });
+  const icdSearchOptions = data?.codes || [];
+
+  const debouncedHandleInputChange = useMemo(
+    () =>
+      debounce((data) => {
+        setDebouncedSearchTerm(data);
+      }, 800),
+    []
+  );
+
+  const handleSelectOption = async (data: IcdSearchResponseOptionalCode | null): Promise<void> => {
+    if (data) {
+      const newValue = {
+        code: data.code,
+        display: data.display,
+        current: true,
+        lastUpdated: new Date().toISOString(),
+      };
+
+      try {
+        setPartialChartData(
+          {
+            conditions: [...(chartData?.conditions || []), newValue],
+          },
+          { invalidateQueries: false }
+        );
+        await onSubmit(newValue);
+        reset({ value: null });
+      } catch {
+        // Error is already handled by useChartDataArrayValue
+      }
+    }
+  };
+
+  const handleQuickPickSelect = async (quickPick: (typeof conditionQuickPicks)[number]): Promise<void> => {
+    const quickPickAsIcdCode: IcdSearchResponseOptionalCode = {
+      code: quickPick.code,
+      display: quickPick.display,
+    };
+    await handleSelectOption(quickPickAsIcdCode);
+  };
+
+  const handleQuickPickSelectRef = useRef(handleQuickPickSelect);
+  handleQuickPickSelectRef.current = handleQuickPickSelect;
+
+  const commandPaletteItems = useMemo(
+    () =>
+      conditionQuickPicks.map((quickPick) => ({
+        id: `condition-${quickPick.id ?? quickPick.code ?? quickPick.display}`,
+        label: `${quickPick.code ? `${quickPick.code} ` : ''}${quickPick.display}`,
+        category: 'Add Medical Condition',
+        onSelect: () => void handleQuickPickSelectRef.current(quickPick),
+      })),
+    [conditionQuickPicks]
+  );
+  useCommandPaletteSource('medical-condition-quick-picks', commandPaletteItems);
+
+  const handlePendingQuickPick = useCallback((payload: MedicalConditionQuickPickData) => {
+    void handleQuickPickSelectRef.current(payload as (typeof conditionQuickPicks)[number]);
+  }, []);
+  usePendingQuickPick('medical-conditions', handlePendingQuickPick);
+
+  if (isChartDataLoading) {
+    return <Skeleton variant="rectangular" width="100%" height={56} />;
+  }
+
+  return (
+    <Card
+      elevation={0}
+      sx={{
+        p: 3,
+        backgroundColor: otherColors.formCardBg,
+        borderRadius: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+      }}
+    >
+      <QuickPicksButton
+        quickPicks={conditionQuickPicks}
+        loading={conditionQuickPicksLoading}
+        getLabel={(quickPick) => {
+          const code = quickPick.code ? `${quickPick.code} ` : '';
+          return `${code}${quickPick.display}`;
+        }}
+        onSelect={handleQuickPickSelect}
+        disabled={isChartDataLoading || isLoading}
+      />
+      <Controller
+        name="value"
+        control={control}
+        rules={{ required: true }}
+        render={({ field: { value, onChange } }) => (
+          <Autocomplete
+            value={value || null}
+            onChange={(_e, data) => {
+              onChange((data || '') as any);
+              void handleSelectOption(data);
+            }}
+            getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
+            isOptionEqualToValue={(option, value) => value.code === option.code}
+            fullWidth
+            size="small"
+            loading={isSearching}
+            loadingText={'Loading...'}
+            blurOnSelect
+            disabled={isChartDataLoading || isLoading}
+            options={icdSearchOptions}
+            noOptionsText={
+              debouncedSearchTerm && icdSearchOptions.length === 0
+                ? 'Nothing found for this search criteria'
+                : 'Start typing to load results'
+            }
+            filterOptions={(x) => x}
+            renderInput={(params) => (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField
+                  {...params}
+                  onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                  data-testid={dataTestIds.medicalConditions.medicalConditionsInput}
+                  label="Medical condition"
+                  placeholder="Search"
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    '& .MuiInputLabel-root': {
+                      fontWeight: 'bold',
+                    },
+                  }}
+                />
+              </Box>
+            )}
+          />
+        )}
+      />
+    </Card>
+  );
+};

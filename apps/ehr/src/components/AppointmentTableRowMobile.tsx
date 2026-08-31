@@ -2,7 +2,9 @@ import { otherColors } from '@ehrTheme/colors';
 import { Box, capitalize, Grid, Modal, TableCell, TableRow, Typography } from '@mui/material';
 import { CSSProperties, ReactElement, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { InPersonAppointmentInformation } from 'utils';
+import { RecordAudioContainer } from 'src/features/visits/in-person/components/progress-note/RecordAudioContainer';
+import { getInPersonVisitDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
 import { MOBILE_MODAL_STYLE } from '../constants';
 import { ApptTab } from './AppointmentTabs';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
@@ -11,6 +13,7 @@ import ReasonsForVisit from './ReasonForVisit';
 interface AppointmentTableRowMobileProps {
   appointment: InPersonAppointmentInformation;
   patientName: string;
+  appointmentDate: string | undefined;
   start: string | undefined;
   tab: ApptTab;
   formattedPriorityHighIcon: ReactElement;
@@ -26,6 +29,7 @@ interface AppointmentTableRowMobileProps {
 export default function AppointmentTableRowMobile({
   appointment,
   patientName,
+  appointmentDate,
   start,
   tab,
   formattedPriorityHighIcon,
@@ -49,7 +53,7 @@ export default function AppointmentTableRowMobile({
       }}
     >
       <TableCell colSpan={9}>
-        <Link to={`/visit/${appointment.id}`} style={linkStyle}>
+        <Link to={getInPersonVisitDetailsUrl(appointment.id)} style={linkStyle}>
           <Grid container spacing={1}>
             <Grid item xs={12} justifyContent="space-between">
               <Grid
@@ -60,16 +64,25 @@ export default function AppointmentTableRowMobile({
                 sx={{ overflow: 'hidden' }}
               >
                 <Box display="flex" gap={1} flex="1 1 auto" flexWrap="nowrap" marginRight={2}>
-                  <Typography variant="body1" sx={{ textWrap: 'nowrap' }}>
-                    {capitalize?.(
-                      appointment.appointmentType === 'post-telemed'
-                        ? 'Post Telemed'
-                        : (appointment.appointmentType || '').toString()
+                  <Box>
+                    <Typography variant="body1" sx={{ textWrap: 'nowrap' }}>
+                      {capitalize?.(
+                        appointment.appointmentType === 'post-telemed'
+                          ? 'Post Telemed'
+                          : (appointment.appointmentType || '').toString()
+                      )}
+                    </Typography>
+                    {appointmentDate && (
+                      <Typography variant="body2" sx={{ textWrap: 'nowrap' }}>
+                        {appointmentDate}
+                      </Typography>
                     )}
-                  </Typography>
-                  <Typography variant="body1" sx={{ textWrap: 'nowrap' }}>
-                    <strong>{start}</strong>
-                  </Typography>
+                    {start && (
+                      <Typography variant="body1" sx={{ textWrap: 'nowrap' }}>
+                        <strong>{start}</strong>
+                      </Typography>
+                    )}
+                  </Box>
                 </Box>
                 <Box
                   onClick={(e) => {
@@ -118,6 +131,12 @@ export default function AppointmentTableRowMobile({
             </Grid>
           </Grid>
         </Link>
+        <RecordAudioContainer
+          visitID={appointment.encounterId}
+          width="100%"
+          aiChat={undefined}
+          setRecordingAnchorElement={undefined}
+        />
         <Modal open={timeModalOpen} onClose={() => setTimeModalOpen(false)}>
           <Box sx={MOBILE_MODAL_STYLE}>{timeToolTip}</Box>
         </Modal>

@@ -1,0 +1,406 @@
+import { expect, Page } from '@playwright/test';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import {
+  clickAndWaitForChartDataDeletion,
+  clickAndWaitForSaveChartData,
+  waitForSaveChartDataResponse,
+} from 'test-utils';
+import { PROVIDER_CONFIG } from 'utils/lib/ottehr-config/provider';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { EditNoteDialog, expectEditNoteDialog } from './in-person/EditNoteDialog';
+import { Dialog, expectDialog } from './patient-information/Dialog';
+
+export class VitalsPage {
+  #page: Page;
+
+  constructor(page: Page) {
+    this.#page = page;
+  }
+
+  async addTemperatureObservation(temperature: string, abnormal = false): Promise<void> {
+    const input = this.#page.getByTestId(dataTestIds.vitalsPage.temperatureInput).locator('input');
+    await input.fill(temperature);
+    const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.temperatureAddButton);
+    await clickAndWaitForSaveChartData(this.#page, addButton);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.temperatureHeader)).toContainText(temperature);
+    const itemLocator = this.#page.getByTestId(dataTestIds.vitalsPage.temperatureItem).filter({ hasText: temperature });
+    await expect(itemLocator).toBeVisible();
+    if (abnormal) {
+      await expect(itemLocator.getByTestId(dataTestIds.vitalsPage.abnormalVitalIcon)).toBeVisible();
+    }
+  }
+
+  async removeTemperatureObservationFromHistory(temperature: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.vitalsPage.temperatureItem)
+      .filter({ hasText: temperature })
+      .getByTestId(dataTestIds.deleteOutlinedIcon)
+      .click();
+    const proceedButton = this.#page
+      .getByTestId(dataTestIds.vitalsPage.deleteVitalModal)
+      .getByTestId(dataTestIds.dialog.proceedButton);
+    await clickAndWaitForChartDataDeletion(this.#page, proceedButton);
+    await expect(this.#page.getByText(new RegExp(`${temperature}.*C`))).not.toBeVisible();
+  }
+
+  async addHeartbeatObservation(heartbeat: string): Promise<void> {
+    const input = this.#page.getByTestId(dataTestIds.vitalsPage.heartbeatInput).locator('input');
+    await input.fill(heartbeat);
+    const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.heartbeatAddButton);
+    await clickAndWaitForSaveChartData(this.#page, addButton);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.heartbeatItem).first()).toContainText(heartbeat);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.heartbeatHeader)).toContainText(heartbeat);
+  }
+
+  async removeHeartbeatObservationFromHistory(heartbeat: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.vitalsPage.heartbeatItem)
+      .filter({ hasText: heartbeat })
+      .getByTestId(dataTestIds.deleteOutlinedIcon)
+      .click();
+    const proceedButton = this.#page
+      .getByTestId(dataTestIds.vitalsPage.deleteVitalModal)
+      .getByTestId(dataTestIds.dialog.proceedButton);
+    await clickAndWaitForChartDataDeletion(this.#page, proceedButton);
+    await expect(this.#page.getByText(new RegExp(`${heartbeat}.*bpm`))).not.toBeVisible();
+  }
+
+  async addRespirationRateObservation(respirationRate: string): Promise<void> {
+    const input = this.#page.getByTestId(dataTestIds.vitalsPage.respirationRateInput).locator('input');
+    await input.fill(respirationRate);
+    const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.respirationRateAddButton);
+    await clickAndWaitForSaveChartData(this.#page, addButton);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.respirationRateItem).first()).toContainText(
+      respirationRate
+    );
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.respirationRateHeader)).toContainText(respirationRate);
+  }
+
+  async removeRespirationRateObservationFromHistory(respirationRate: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.vitalsPage.respirationRateItem)
+      .filter({ hasText: respirationRate })
+      .getByTestId(dataTestIds.deleteOutlinedIcon)
+      .click();
+    const proceedButton = this.#page
+      .getByTestId(dataTestIds.vitalsPage.deleteVitalModal)
+      .getByTestId(dataTestIds.dialog.proceedButton);
+    await clickAndWaitForChartDataDeletion(this.#page, proceedButton);
+
+    await expect(this.#page.getByText(new RegExp(`${respirationRate}.*breaths/min`))).not.toBeVisible();
+  }
+
+  async addBloodPressureObservation(systolic: string, diastolic: string): Promise<void> {
+    const systolicInput = this.#page.getByTestId(dataTestIds.vitalsPage.bloodPressureSystolicInput).locator('input');
+    await systolicInput.fill(systolic);
+
+    const diastolicInput = this.#page.getByTestId(dataTestIds.vitalsPage.bloodPressureDiastolicInput).locator('input');
+    await diastolicInput.fill(diastolic);
+
+    const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.bloodPressureAddButton);
+    await clickAndWaitForSaveChartData(this.#page, addButton);
+
+    const item = this.#page.getByTestId(dataTestIds.vitalsPage.bloodPressureItem).first();
+    await expect(item).toContainText(systolic);
+    await expect(item).toContainText(diastolic);
+    const header = this.#page.getByTestId(dataTestIds.vitalsPage.bloodPressureHeader);
+    await expect(header).toContainText(systolic);
+    await expect(header).toContainText(diastolic);
+  }
+
+  async expectInvalidBloodPressureError(
+    systolic: string,
+    diastolic: string,
+    expectedError: string | RegExp
+  ): Promise<void> {
+    const systolicInput = this.#page.getByTestId(dataTestIds.vitalsPage.bloodPressureSystolicInput).locator('input');
+    await systolicInput.fill(systolic);
+
+    const diastolicInput = this.#page.getByTestId(dataTestIds.vitalsPage.bloodPressureDiastolicInput).locator('input');
+    await diastolicInput.fill(diastolic);
+
+    // Clicking Add should NOT trigger a save: the relationship validation surfaces an error snackbar instead.
+    await this.#page.getByTestId(dataTestIds.vitalsPage.bloodPressureAddButton).click();
+    await expect(this.#page.locator('.notistack-SnackbarContainer').getByText(expectedError)).toBeVisible();
+
+    // No history entry should be created for the rejected pair.
+    await expect(
+      this.#page.getByTestId(dataTestIds.vitalsPage.bloodPressureItem).filter({ hasText: `${systolic}/${diastolic}` })
+    ).toHaveCount(0);
+
+    // Reset the form so subsequent steps start clean.
+    await systolicInput.fill('');
+    await diastolicInput.fill('');
+  }
+
+  async removeBloodPressureObservationFromHistory(systolic: string, diastolic: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.vitalsPage.bloodPressureItem)
+      .filter({ hasText: `${systolic}/${diastolic}` })
+      .getByTestId(dataTestIds.deleteOutlinedIcon)
+      .click();
+    const proceedButton = this.#page
+      .getByTestId(dataTestIds.vitalsPage.deleteVitalModal)
+      .getByTestId(dataTestIds.dialog.proceedButton);
+    await clickAndWaitForChartDataDeletion(this.#page, proceedButton);
+    await expect(this.#page.getByText(new RegExp(`${systolic}/${diastolic}.*mmHg`))).not.toBeVisible();
+  }
+
+  async addOxygenSaturationObservation(oxygenSat: string): Promise<void> {
+    const input = this.#page.getByTestId(dataTestIds.vitalsPage.oxygenSaturationInput).locator('input');
+    await input.fill(oxygenSat);
+    const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.oxygenSaturationAddButton);
+    await clickAndWaitForSaveChartData(this.#page, addButton);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.oxygenSaturationItem).first()).toContainText(oxygenSat);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.oxygenSaturationHeader)).toContainText(oxygenSat);
+  }
+
+  async removeOxygenSaturationObservationFromHistory(oxygenSaturation: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.vitalsPage.oxygenSaturationItem)
+      .filter({ hasText: oxygenSaturation })
+      .getByTestId(dataTestIds.deleteOutlinedIcon)
+      .click();
+    const proceedButton = this.#page
+      .getByTestId(dataTestIds.vitalsPage.deleteVitalModal)
+      .getByTestId(dataTestIds.dialog.proceedButton);
+    await clickAndWaitForChartDataDeletion(this.#page, proceedButton);
+    await expect(this.#page.getByText(new RegExp(`${oxygenSaturation}.*%`))).not.toBeVisible();
+  }
+
+  async addWeightObservation(weight: string): Promise<void> {
+    const input = this.#page.getByTestId(dataTestIds.vitalsPage.weightInput).locator('input');
+    await input.fill(weight);
+    const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.weightAddButton);
+    await clickAndWaitForSaveChartData(this.#page, addButton);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.weightItem).first()).toContainText(weight);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.weightHeader)).toContainText(weight);
+  }
+
+  async removeWeightObservationFromHistory(weight: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.vitalsPage.weightItem)
+      .filter({ hasText: weight })
+      .getByTestId(dataTestIds.deleteOutlinedIcon)
+      .click();
+    const proceedButton = this.#page
+      .getByTestId(dataTestIds.vitalsPage.deleteVitalModal)
+      .getByTestId(dataTestIds.dialog.proceedButton);
+    await clickAndWaitForChartDataDeletion(this.#page, proceedButton);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.weightItem).filter({ hasText: weight })).toHaveCount(0);
+  }
+
+  async removePatientRefusedWeightObservationFromHistory(weight: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.vitalsPage.weightItem)
+      .filter({ hasText: weight })
+      .getByTestId(dataTestIds.deleteOutlinedIcon)
+      .click();
+    const proceedButton = this.#page
+      .getByTestId(dataTestIds.vitalsPage.deleteVitalModal)
+      .getByTestId(dataTestIds.dialog.proceedButton);
+    await clickAndWaitForChartDataDeletion(this.#page, proceedButton);
+    await expect(
+      this.#page.getByTestId(dataTestIds.vitalsPage.weightItem).first().getByText('Patient Refused')
+    ).not.toBeVisible();
+  }
+
+  async addWeightObservationPatientRefused(): Promise<void> {
+    const patientRefusedCheckbox = this.#page.getByTestId(dataTestIds.vitalsPage.weightPatientRefusedCheckbox);
+    // .check() is not a click, so we can't use clickAndWaitForSaveChartData. Register the
+    // listener manually before the action so a fast response can't land before we subscribe.
+    const saved = waitForSaveChartDataResponse(this.#page);
+    await patientRefusedCheckbox.check();
+    await saved;
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.weightItem).first()).toContainText('Patient Refused');
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.weightHeader)).toContainText('Patient Refused');
+  }
+
+  async addHeightObservation(height: string): Promise<void> {
+    const input = this.#page.getByTestId(dataTestIds.vitalsPage.heightInput).locator('input');
+    await input.fill(height);
+    const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.heightAddButton);
+    await clickAndWaitForSaveChartData(this.#page, addButton);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.heightItem).first()).toContainText(height);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.heightHeader)).toContainText(height);
+  }
+
+  async removeHeightObservationFromHistory(height: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.vitalsPage.heightItem)
+      .filter({ hasText: height })
+      .getByTestId(dataTestIds.deleteOutlinedIcon)
+      .click();
+    const proceedButton = this.#page
+      .getByTestId(dataTestIds.vitalsPage.deleteVitalModal)
+      .getByTestId(dataTestIds.dialog.proceedButton);
+    await clickAndWaitForChartDataDeletion(this.#page, proceedButton);
+    await expect(this.#page.getByText(new RegExp(`${height}.*cm`))).not.toBeVisible();
+  }
+
+  async addVisionObservation(leftEye: string, rightEye: string): Promise<void> {
+    const leftInput = this.#page.getByTestId(dataTestIds.vitalsPage.visionLeftInput).locator('input');
+    await leftInput.fill(leftEye);
+
+    const rightInput = this.#page.getByTestId(dataTestIds.vitalsPage.visionRightInput).locator('input');
+    await rightInput.fill(rightEye);
+
+    // Saving a numeric vision observation triggers two /save-chart-data calls: the vision
+    // observation itself, then an auto-add of any configured vision CPT codes. We must wait
+    // for both before returning, otherwise the auto CPT save can race with subsequent steps
+    // and fail to land before VIT-2 navigates to Assessment.
+    const visionAutoCptCodes = PROVIDER_CONFIG.assessment.visionAutoCptCodes ?? [];
+    const visionSavePromise = waitForSaveChartDataResponse(this.#page, (json) =>
+      Boolean(json.chartData?.vitalsObservations?.some((o) => o.field === VitalFieldNames.VitalVision))
+    );
+    const cptSavePromise =
+      visionAutoCptCodes.length > 0
+        ? waitForSaveChartDataResponse(this.#page, (json) =>
+            Boolean(json.chartData?.cptCodes?.some((c) => visionAutoCptCodes.includes(c.code)))
+          )
+        : Promise.resolve();
+
+    const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.visionAddButton);
+    await addButton.click();
+    await Promise.all([visionSavePromise, cptSavePromise]);
+
+    const item = this.#page.getByTestId(dataTestIds.vitalsPage.visionItem).first();
+    await expect(item).toContainText(leftEye);
+    await expect(item).toContainText(rightEye);
+    const header = this.#page.getByTestId(dataTestIds.vitalsPage.visionHeader);
+    await expect(header).toContainText(leftEye);
+    await expect(header).toContainText(rightEye);
+  }
+
+  async removeVisionObservationFromHistory(leftEye: string, rightEye: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.vitalsPage.visionItem)
+      .filter({ hasText: leftEye })
+      .filter({ hasText: rightEye })
+      .getByTestId(dataTestIds.deleteOutlinedIcon)
+      .click();
+    const proceedButton = this.#page
+      .getByTestId(dataTestIds.vitalsPage.deleteVitalModal)
+      .getByTestId(dataTestIds.dialog.proceedButton);
+    await clickAndWaitForChartDataDeletion(this.#page, proceedButton);
+
+    await expect(
+      this.#page.getByText(new RegExp(`Vision Left eye: ${leftEye}; Right eye: ${rightEye}`))
+    ).not.toBeVisible();
+  }
+
+  async addLastMenstrualPeriodObservation(date: string): Promise<void> {
+    const dateInput = this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodDateInput);
+    await dateInput.click();
+    await dateInput.pressSequentially(date);
+    const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodAddButton);
+    await clickAndWaitForSaveChartData(this.#page, addButton);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem).first()).toContainText(date);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodHeader)).toContainText(date);
+  }
+
+  async addLastMenstrualPeriodObservationUnsure(date: string): Promise<void> {
+    const unsureCheckbox = this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodUnsureCheckbox);
+    await unsureCheckbox.check();
+
+    const dateInput = this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodDateInput);
+    await dateInput.click();
+    await dateInput.pressSequentially(date);
+
+    const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodAddButton);
+    await clickAndWaitForSaveChartData(this.#page, addButton);
+  }
+
+  async checkUnsureInHistory(date: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem).first()).toContainText(
+      `${date} (unsure)`
+    );
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodHeader)).toContainText('Unsure');
+  }
+
+  async checkAddedLastMenstrualPeriodUnsureIsShownInHeader(date: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodHeader)).toContainText(
+      `${date} (unsure)`
+    );
+  }
+
+  async removeLastMenstrualPeriodObservationFromHistory(text: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem)
+      .filter({ hasText: text })
+      .getByTestId(dataTestIds.deleteOutlinedIcon)
+      .click();
+    const proceedButton = this.#page
+      .getByTestId(dataTestIds.vitalsPage.deleteVitalModal)
+      .getByTestId(dataTestIds.dialog.proceedButton);
+    await clickAndWaitForChartDataDeletion(this.#page, proceedButton);
+    await expect(
+      this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem).first().getByText('Unsure')
+    ).not.toBeVisible();
+  }
+
+  async addVitalsNote(note: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.screeningPage.screeningNoteField)
+      .locator('input')
+      .locator('visible=true')
+      .fill(note);
+    await this.#page.getByTestId(dataTestIds.vitalsPage.addNoteButton).click();
+    await this.#verifyVitalsNote(note);
+  }
+
+  async editVitalsNote(originalNote: string, editedNote: string): Promise<void> {
+    const editDialog = await this.#clickEditNoteButton(originalNote);
+    await editDialog.verifyTitle('Edit Vitals Note');
+    await editDialog.clearNote();
+    await editDialog.enterNote(editedNote);
+    await editDialog.clickProceedButton();
+    await this.#verifyVitalsNote(editedNote);
+  }
+
+  async deleteVitalsNote(originalNote: string): Promise<void> {
+    const deleteDialog = await this.#clickDeleteNoteButton(originalNote);
+    await deleteDialog.verifyTitle('Delete vitals note');
+    await deleteDialog.verifyModalContent('Are you sure you want to permanently delete this vitals note?');
+    await deleteDialog.verifyModalContent(originalNote);
+    await deleteDialog.clickProceedButton();
+    await expect(
+      this.#page.getByTestId(dataTestIds.screeningPage.screeningNoteItem).filter({ hasText: originalNote })
+    ).toHaveCount(0);
+  }
+
+  async #clickEditNoteButton(note: string): Promise<EditNoteDialog> {
+    await this.#page
+      .getByTestId(dataTestIds.screeningPage.screeningNoteItem)
+      .filter({ hasText: note })
+      .getByTestId(dataTestIds.vitalsPage.pencilIconButton)
+      .click();
+    return expectEditNoteDialog(this.#page);
+  }
+
+  async #verifyVitalsNote(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.screeningPage.screeningNoteItem).filter({ hasText: note })
+    ).toBeVisible();
+  }
+
+  async #clickDeleteNoteButton(note: string): Promise<Dialog> {
+    await this.#page
+      .getByTestId(dataTestIds.screeningPage.screeningNoteItem)
+      .filter({ hasText: note })
+      .getByTestId(dataTestIds.vitalsPage.deleteIcon)
+      .click();
+    return expectDialog(this.#page);
+  }
+}
+
+export async function expectVitalsPage(page: Page): Promise<VitalsPage> {
+  await page.waitForURL(new RegExp('/in-person/.*/vitals$'));
+  await expect(page.getByTestId(dataTestIds.vitalsPage.title)).toBeVisible();
+  return new VitalsPage(page);
+}
+
+export async function openVitalsPage(appointmentId: string, page: Page): Promise<VitalsPage> {
+  await page.goto(`/in-person/${appointmentId}/vitals`);
+  return expectVitalsPage(page);
+}

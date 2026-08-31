@@ -2,10 +2,12 @@ import fontkit from '@pdf-lib/fontkit';
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
 import { Color, PageSizes, PDFDocument, PDFFont } from 'pdf-lib';
-import { PdfBulletPointItem, SCHOOL_WORK_NOTE, SchoolWorkNoteExcuseDocDTO, Secrets } from 'utils';
-import { makeZ3Url } from '../presigned-file-urls';
+import { Secrets } from 'utils/lib/secrets';
+import { PdfBulletPointItem, SchoolWorkNoteExcuseDocDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { SCHOOL_WORK_NOTE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
-import { handleBadSpaces, PdfInfo, rgbNormalized, splitLongStringToPageSize } from './pdf-utils';
+import { getPdfLogo, handleBadSpaces, PdfInfo, rgbNormalized, splitLongStringToPageSize } from './pdf-utils';
 
 async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
@@ -98,17 +100,21 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
   };
 
   // add Ottehr logo at the top of the PDF
-  const imgPath = './assets/ottehrLogo.png';
-  const imgBytes = fs.readFileSync(imgPath);
-  const img = await pdfDoc.embedPng(new Uint8Array(imgBytes));
-  currYPos -= styles.margin.y;
-  page.drawImage(img, {
-    x: styles.margin.x,
-    y: currYPos,
-    width: styles.image.width,
-    height: styles.image.height,
-  });
-  currYPos -= styles.image.height + styles.spacing.image; // space after image
+  const logoBuffer = await getPdfLogo();
+  if (logoBuffer) {
+    const img = await pdfDoc.embedPng(new Uint8Array(logoBuffer));
+    const logoScale = Math.min(styles.image.width / img.width, styles.image.height / img.height);
+    const drawWidth = img.width * logoScale;
+    const drawHeight = img.height * logoScale;
+    currYPos -= styles.margin.y;
+    page.drawImage(img, {
+      x: styles.margin.x,
+      y: currYPos + (styles.image.height - drawHeight) / 2,
+      width: drawWidth,
+      height: drawHeight,
+    });
+    currYPos -= styles.image.height + styles.spacing.image; // space after image
+  }
 
   // add all sections to PDF
   if (data.documentHeader) drawHeader(data.documentHeader);

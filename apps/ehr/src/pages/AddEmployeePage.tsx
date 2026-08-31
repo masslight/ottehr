@@ -3,7 +3,7 @@ import { Box, Paper, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { APIErrorCode } from 'utils';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { createUser } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';
@@ -32,7 +32,7 @@ export default function AddEmployeePage(): ReactElement {
         lastName,
         applicationID,
       });
-      navigate(`/employee/${createUserResponse.userID}`);
+      navigate(`/admin/employee/${createUserResponse.userID}`);
     } catch (error: any) {
       let parsedError = error;
 
@@ -62,7 +62,8 @@ export default function AddEmployeePage(): ReactElement {
           {/* Breadcrumbs */}
           <CustomBreadcrumbs
             chain={[
-              { link: '/employees', children: 'Employees' },
+              { link: '/admin', children: 'Admin' },
+              { link: '/admin/employees', children: 'Employees' },
               { link: '#', children: 'Add user' },
             ]}
           />

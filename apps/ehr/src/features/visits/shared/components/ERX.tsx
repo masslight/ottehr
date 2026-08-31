@@ -1,0 +1,323 @@
+import { Alert, Box, Button } from '@mui/material';
+import { closeSnackbar, enqueueSnackbar } from 'notistack';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { PendingErxEnrollmentDialog } from 'src/components/dialogs/PendingErxEnrollmentDialog';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { getPractitionerMissingFields } from 'src/shared/utils/practitioner.helper';
+import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { getErxPatientSyncErrorMessage, useErxPatientVitals } from '../hooks/useErxPatientVitals';
+import {
+  useCheckPractitionerEnrollment,
+  useConnectPractitionerToERX,
+  useEnrollPractitionerToERX,
+  useSyncERXPatient,
+} from '../stores/appointment/appointment.queries';
+import { useAppointmentData } from '../stores/appointment/appointment.store';
+import { ERXDialog } from './ERXDialog';
+export enum ERXStatus {
+  INITIAL,
+  LOADING,
+  READY,
+  ERROR,
+}
+
+export const ERX: FC<{
+  onStatusChanged: (status: ERXStatus) => void;
+  showDefaultAlert: boolean;
+}> = ({ onStatusChanged, showDefaultAlert }) => {
+  const { patient, encounter } = useAppointmentData();
+  const phoneNumber = patient?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
+  const user = useEvolveUser();
+  const practitioner = user?.profileResource;
+  const navigate = useNavigate();
+
+  const [alertMessage, setAlertMessage] = useState<string | null>(
+    showDefaultAlert ? 'If something goes wrong - please reload the page.' : null
+  );
+
+  const practitionerMissingFields = useMemo(() => {
+    return practitioner ? getPractitionerMissingFields(practitioner) : [];
+  }, [practitioner]);
+
+  const [isTimeout, setIsTimeout] = useState<boolean>(false);
+  const [pendingErxEnrollmentDialogOpen, setPendingErxEnrollmentDialogOpen] = useState<boolean>(false);
+
+  // Step 1: Get patient vitals
+  const { hasVitals, isVitalsLoading, isVitalsFetched } = useErxPatientVitals();
+
+  // Step 2: Check practitioner enrollment
+  const {
+    data: practitionerEnrollmentStatus,
+    isFetched: isPractitionerEnrollmentChecked,
+    refetch: refetchPractitionerEnrollment,
+  } = useCheckPractitionerEnrollment({
+    enabled: !isVitalsLoading && hasVitals && practitionerMissingFields.length === 0,
+  });
+
+  useEffect(() => {
+    if (practitionerMissingFields.length > 0) {
+      const isAdmin = Boolean(user?.hasRole([RoleType.Administrator]));
+      const employeeProfileLink = user?.id ? `/admin/employee/${user.id}` : undefined;
+
+      enqueueSnackbar(
+        `Please complete your profile to be able to enroll in eRX or ask your administrator to complete it for you. Missing fields: ${practitionerMissingFields.join(
+          ', '
+        )}`,
+        {
+          variant: 'error',
+          persist: true,
+          preventDuplicate: true,
+          key: 'erx-practitioner-missing-fields',
+          action: (snackbarId) => (
+            <>
+              {isAdmin && employeeProfileLink && (
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={() => {
+                    closeSnackbar(snackbarId);
+                    navigate(employeeProfileLink);
+                  }}
+                >
+                  Go to profile
+                </Button>
+              )}
+              <Button color="inherit" size="small" onClick={() => closeSnackbar(snackbarId)}>
+                Dismiss
+              </Button>
+            </>
+          ),
+        }
+      );
+      onStatusChanged(ERXStatus.ERROR);
+    }
+  }, [onStatusChanged, practitionerMissingFields, navigate, user]);
+
+  // Step 3: Sync patient
+  const { isFetched: isPatientSynced, isLoading: isPatientSyncing } = useSyncERXPatient({
+    patient: patient!,
+    encounter,
+    enabled: Boolean(practitionerEnrollmentStatus?.confirmed && hasVitals && encounter?.id),
+    onError: (error) => {
+      console.log(error);
+      safelyCaptureException(error);
+      enqueueSnackbar(getErxPatientSyncErrorMessage(error, phoneNumber), { variant: 'error' });
+      onStatusChanged(ERXStatus.ERROR);
+    },
+  });
+
+  // Step 4: Handle practitioner enrollment
+  const {
+    mutateAsync: enrollPractitioner,
+    isPending: isEnrollingPractitioner,
+    isError: isEnrollPractitionerError,
+    isSuccess: isEnrollPractitionerSuccess,
+  } = useEnrollPractitionerToERX({
+    onError: (error) => {
+      safelyCaptureException(error);
+      enqueueSnackbar('Enrolling practitioner to eRx failed', { variant: 'error' });
+      onStatusChanged(ERXStatus.ERROR);
+    },
+  });
+
+  const enrollPractitionerFn = useCallback(
+    async (practitionerId: string) => {
+      try {
+        await enrollPractitioner(practitionerId);
+        await refetchPractitionerEnrollment();
+      } catch (error) {
+        console.error('Error enrolling practitioner:', error);
+        safelyCaptureException(error);
+      }
+    },
+    [enrollPractitioner, refetchPractitionerEnrollment]
+  );
+
+  // Step 5: Connect practitioner
+  const {
+    data: ssoLink,
+    isPending: isConnectingPractitioner,
+    mutateAsync: connectPractitioner,
+    isSuccess: isPractitionerConnected,
+  } = useConnectPractitionerToERX({ patientId: patient?.id, encounterId: encounter.id });
+
+  const {
+    data: ssoLinkForEnrollment,
+    isPending: isConnectingPractitionerForConfirmation,
+    mutateAsync: connectPractitionerForConfirmation,
+    isSuccess: isPractitionerConnectedForConfirmation,
+  } = useConnectPractitionerToERX({});
+
+  const connectPractitionerFn = useCallback(
+    async (mode: 'confirmation' | 'ordering') => {
+      try {
+        await (mode === 'confirmation' ? connectPractitionerForConfirmation() : connectPractitioner());
+        if (mode === 'confirmation') {
+          setAlertMessage('When you complete the RxLink Agreement, please reload the page.');
+        }
+      } catch (error) {
+        safelyCaptureException(error);
+        enqueueSnackbar('Something went wrong while trying to connect practitioner to eRx', { variant: 'error' });
+        console.error('Error trying to connect practitioner to eRx: ', error);
+        onStatusChanged(ERXStatus.ERROR);
+      }
+    },
+    [connectPractitioner, connectPractitionerForConfirmation, onStatusChanged]
+  );
+
+  // Handle vitals validation
+  useEffect(() => {
+    if (isVitalsFetched && !hasVitals) {
+      enqueueSnackbar(
+        "Patient doesn't have height or weight vital specified. Please specify it first on the `Vitals` tab",
+        { variant: 'error' }
+      );
+      onStatusChanged(ERXStatus.ERROR);
+    }
+  }, [isVitalsFetched, hasVitals, onStatusChanged]);
+
+  // Handle practitioner enrollment
+  useEffect(() => {
+    if (
+      isPractitionerEnrollmentChecked &&
+      !practitionerEnrollmentStatus?.registered &&
+      user?.profileResource?.id &&
+      !isEnrollingPractitioner &&
+      !isEnrollPractitionerError &&
+      !isEnrollPractitionerSuccess
+    ) {
+      void enrollPractitionerFn(user.profileResource.id);
+    }
+  }, [
+    isPractitionerEnrollmentChecked,
+    practitionerEnrollmentStatus?.registered,
+    user?.profileResource?.id,
+    enrollPractitionerFn,
+    isEnrollingPractitioner,
+    isEnrollPractitionerError,
+    isEnrollPractitionerSuccess,
+  ]);
+
+  // Handle practitioner connection for eRx
+  useEffect(() => {
+    if (
+      practitionerEnrollmentStatus?.confirmed &&
+      isPatientSynced &&
+      !isConnectingPractitioner &&
+      !isPractitionerConnected
+    ) {
+      void connectPractitionerFn('ordering');
+    }
+  }, [
+    practitionerEnrollmentStatus?.confirmed,
+    isPatientSynced,
+    connectPractitionerFn,
+    isConnectingPractitioner,
+    isPractitionerConnected,
+  ]);
+
+  // Handle practitioner connection for confirmation
+  useEffect(() => {
+    if (practitionerEnrollmentStatus?.registered && !practitionerEnrollmentStatus.confirmed) {
+      setPendingErxEnrollmentDialogOpen(true);
+
+      safelyCaptureMessage('DoseSpot enrollment pending review', {
+        level: 'warning',
+        tags: {
+          system: 'erx',
+          providerEnrollment: 'pending-review',
+        },
+        extra: {
+          source: 'erx-module',
+          practitionerId: practitioner?.id,
+          registered: practitionerEnrollmentStatus?.registered,
+          confirmed: practitionerEnrollmentStatus?.confirmed,
+          identityVerified: practitionerEnrollmentStatus?.identityVerified,
+        },
+      });
+
+      return;
+    }
+
+    if (
+      practitionerEnrollmentStatus?.registered &&
+      (!practitionerEnrollmentStatus?.confirmed || !practitionerEnrollmentStatus?.identityVerified) &&
+      !isConnectingPractitionerForConfirmation &&
+      !isPractitionerConnectedForConfirmation
+    ) {
+      void connectPractitionerFn('confirmation');
+    }
+  }, [
+    isPatientSynced,
+    connectPractitionerFn,
+    isConnectingPractitionerForConfirmation,
+    isPractitionerConnectedForConfirmation,
+    practitionerEnrollmentStatus,
+    practitioner,
+  ]);
+
+  // Handle ready state
+  useEffect(() => {
+    if (isPractitionerConnected && isPatientSynced) {
+      onStatusChanged(ERXStatus.READY);
+    }
+  }, [onStatusChanged, isPractitionerConnected, isPatientSynced]);
+
+  useEffect(() => {
+    // A missing-fields profile is a terminal error state; don't let an in-flight
+    // vitals/sync query flip the status back to LOADING (which would leave the
+    // button stuck on "Loading eRx" after the ERX panel is unmounted).
+    if (practitionerMissingFields.length > 0) {
+      return;
+    }
+    if (isTimeout && !isPractitionerConnected) {
+      onStatusChanged(ERXStatus.ERROR);
+    } else if (
+      isVitalsLoading ||
+      isPatientSyncing ||
+      isEnrollingPractitioner ||
+      isConnectingPractitioner ||
+      isConnectingPractitionerForConfirmation
+    ) {
+      onStatusChanged(ERXStatus.LOADING);
+    }
+  }, [
+    isVitalsLoading,
+    isPatientSyncing,
+    onStatusChanged,
+    isEnrollingPractitioner,
+    isConnectingPractitioner,
+    isConnectingPractitionerForConfirmation,
+    isTimeout,
+    isPractitionerConnected,
+    practitionerMissingFields,
+  ]);
+
+  // Timeout after 30 seconds
+  useEffect(() => {
+    setTimeout(() => {
+      setIsTimeout(true);
+    }, 30000);
+  }, []);
+
+  return (
+    <>
+      <Box>
+        {(practitionerMissingFields.length > 0 && (
+          <Alert severity="warning">
+            To be able to prescribe please fill in the following fields in your profile:{' '}
+            {practitionerMissingFields.join(', ')}.
+          </Alert>
+        )) ||
+          (alertMessage && <Alert severity="info">{alertMessage}</Alert>)}
+        {(ssoLink || ssoLinkForEnrollment) && <ERXDialog ssoLink={ssoLink || ssoLinkForEnrollment || ''} />}
+      </Box>
+      <PendingErxEnrollmentDialog
+        open={pendingErxEnrollmentDialogOpen}
+        handleClose={() => setPendingErxEnrollmentDialogOpen(false)}
+      />
+    </>
+  );
+};

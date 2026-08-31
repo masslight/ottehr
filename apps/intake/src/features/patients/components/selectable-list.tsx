@@ -2,11 +2,12 @@ import { Box } from '@mui/system';
 import { DateTime } from 'luxon';
 import { useMemo } from 'react';
 import { FieldValues } from 'react-hook-form';
-import { getPatientInfoFullName, PatientInfo } from 'utils';
+import { FormInputType } from 'src/types/form/form-input-type';
+import { getPatientInfoFullName } from 'utils/lib/fhir/patient';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import PageForm from '../../../components/PageForm';
 import { otherColors } from '../../../IntakeThemeProvider';
 import { DIFFERENT_FAMILY_MEMBER_DATA } from '../../../telemed/utils/constants';
-import { FormInputType } from '../../../types';
 
 interface PatientListProps {
   patients: PatientInfo[];
@@ -20,7 +21,7 @@ interface PatientListProps {
 }
 
 const PatientList: React.FC<PatientListProps> = ({
-  patients,
+  patients = [],
   selectedPatient,
   subtitle,
   buttonLoading,
@@ -37,8 +38,10 @@ const PatientList: React.FC<PatientListProps> = ({
         type: 'Radio',
         name: 'patientID',
         label: subtitle,
-        defaultValue: selectedPatient,
+        defaultValue: selectedPatient?.id,
         required: true,
+        borderColor: 'action.disabled',
+        backgroundSelected: otherColors.lightBlue,
         radioOptions: hasNoPatients
           ? []
           : patients
@@ -57,7 +60,6 @@ const PatientList: React.FC<PatientListProps> = ({
                     'MMMM dd, yyyy'
                   )}`,
                   value: patient.id,
-                  color: otherColors.lightBlue,
                 };
               })
               .concat(pastVisits ? [] : DIFFERENT_FAMILY_MEMBER_DATA),

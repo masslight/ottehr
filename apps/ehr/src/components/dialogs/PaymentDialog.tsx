@@ -20,20 +20,16 @@ import {
 } from '@mui/material';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ReactElement, useEffect } from 'react';
+import { ReactElement, useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import {
-  CashOrCardPayment,
-  DOB_DATE_FORMAT,
-  formatPhoneNumberDisplay,
-  getFirstName,
-  getLastName,
-  getMiddleName,
-  getPhoneNumberForIndividual,
-  sleep,
-} from 'utils';
+import { getFirstName, getLastName, getMiddleName, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
+import { formatPhoneNumberDisplay, sleep } from 'utils/lib/helpers/helpers';
+import { CashOrCardPayment } from 'utils/lib/types/api/patient-payment-types';
+import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
+import { v4 as uuidv4 } from 'uuid';
 import * as yup from 'yup';
 import { dataTestIds } from '../../constants/data-test-ids';
+import CardReaderTerminal, { CardReaderTerminalHandle } from '../CardReaderTerminal';
 import SelectCreditCard from '../SelectCreditCard';
 
 interface PaymentDialogProps {
@@ -42,6 +38,9 @@ interface PaymentDialogProps {
   isSubmitting: boolean;
   open: boolean;
   patient: Patient;
+  encounterId: string;
+  appointmentId: string | undefined;
+  onTerminalPaymentSuccess?: () => Promise<void> | void;
 }
 
 const PatientHeader = (props: { patient: Patient }): ReactElement => {
@@ -91,7 +90,7 @@ const paymentSchema = yup.object().shape({
     .positive('Amount must be greater than 0'),
   paymentMethod: yup
     .string()
-    .oneOf(['card', 'cash', 'check'], 'Invalid payment method')
+    .oneOf(['card', 'card-reader', 'cash', 'check'], 'Invalid payment method')
     .required('Payment method is required'),
   creditCard: yup.string().when('paymentMethod', {
     is: (val: string) => val === 'card',
@@ -109,7 +108,10 @@ export default function ({
   handleClose,
   open,
   patient,
+  encounterId,
+  appointmentId,
   isSubmitting,
+  onTerminalPaymentSuccess,
 }: PaymentDialogProps): ReactElement {
   const buttonSx = {
     fontWeight: 500,
@@ -139,15 +141,77 @@ export default function ({
 
   const paymentMethod = watch('paymentMethod'); // Default to 'card'
   const creditCard = watch('creditCard');
+  const [isTerminalConfigured, setIsTerminalConfigured] = useState(false);
+  const [isTerminalReaderConnected, setIsTerminalReaderConnected] = useState(false);
+  const [isTerminalConfigLoading, setIsTerminalConfigLoading] = useState(paymentMethod === 'card-reader');
+  const [isTerminalPaymentSubmitting, setIsTerminalPaymentSubmitting] = useState(false);
+  const cardReaderTerminalRef = useRef<CardReaderTerminalHandle | null>(null);
+
+  // Idempotency key for the non-terminal (post) payment path. It must stay stable across retries
+  // of the same logical payment — e.g. when a response is lost on a flaky connection, the submit
+  // appears to fail, the dialog stays open, and the user clicks again — so the server can dedupe
+  // the replay instead of recording a duplicate PaymentNotice. It is regenerated each time the
+  // dialog opens (a successful submit closes it), so each distinct payment gets its own key.
+  const idempotencyKeyRef = useRef<string>(uuidv4());
+  useEffect(() => {
+    if (open) {
+      idempotencyKeyRef.current = uuidv4();
+    }
+  }, [open]);
+
+  // When switching to card-reader, assume loading until the terminal component confirms otherwise.
+  useEffect(() => {
+    if (paymentMethod === 'card-reader') {
+      setIsTerminalConfigLoading(true);
+    }
+  }, [paymentMethod]);
+
+  const isConfiguredReaderPayment = paymentMethod === 'card-reader' && isTerminalConfigured;
+  const submitButtonLabel =
+    paymentMethod === 'card' || isConfiguredReaderPayment ? 'Process Payment' : 'Record Payment';
+  const shouldDisableSubmit =
+    (isConfiguredReaderPayment && !isTerminalReaderConnected) ||
+    (paymentMethod === 'card-reader' && isTerminalConfigLoading);
 
   const structureDataAndSubmit = async (data: any): Promise<void> => {
     const amount = parseFloat(data.amount);
-    const paymentMethod = data.paymentMethod;
+    const selectedPaymentMethod = data.paymentMethod;
     const creditCard = data.creditCard;
+
+    // Guard: don't allow submission while terminal config is still loading or a terminal
+    // payment is already in progress. Without this, a premature submit could silently
+    // record an "external-card-reader" payment when the terminal is actually configured
+    // but hasn't finished loading yet, or trigger a duplicate terminal payment.
+    if (selectedPaymentMethod === 'card-reader' && (isTerminalConfigLoading || isTerminalPaymentSubmitting)) {
+      return;
+    }
+
+    if (selectedPaymentMethod === 'card-reader' && isTerminalConfigured) {
+      if (!isTerminalReaderConnected || !cardReaderTerminalRef.current) {
+        return;
+      }
+
+      try {
+        setIsTerminalPaymentSubmitting(true);
+        await cardReaderTerminalRef.current.processPayment(Math.round(amount * 100));
+        await onTerminalPaymentSuccess?.();
+        handleClose();
+      } catch (error) {
+        console.error('Failed to process terminal payment', error);
+      } finally {
+        setIsTerminalPaymentSubmitting(false);
+      }
+      return;
+    }
+
+    const paymentMethod =
+      selectedPaymentMethod === 'card-reader' && !isTerminalConfigured ? 'external-card-reader' : selectedPaymentMethod;
+
     const paymentData: CashOrCardPayment = {
       amountInCents: Math.round(amount * 100),
       paymentMethod,
       paymentMethodId: creditCard || undefined,
+      idempotencyKey: idempotencyKeyRef.current,
     };
     await submitPayment(paymentData);
   };
@@ -190,6 +254,9 @@ export default function ({
                   size="small"
                   notched
                   error={Boolean(formState.errors.amount)}
+                  onFocus={(event) => {
+                    event.target.select();
+                  }}
                   {...register('amount', { required: true })}
                 />
                 {formState.errors.amount && (
@@ -198,7 +265,7 @@ export default function ({
               </FormControl>
             </Grid>
             <Grid item>
-              <FormControl variant="outlined" fullWidth required>
+              <FormControl variant="outlined" fullWidth required error={Boolean(formState.errors.paymentMethod)}>
                 <InputLabel shrink id="payment-method-radio-group">
                   Payment method
                 </InputLabel>
@@ -209,6 +276,7 @@ export default function ({
                   render={({ field }) => (
                     <RadioGroup row {...field}>
                       <FormControlLabel value="card" control={<Radio />} label="Card" />
+                      <FormControlLabel value="card-reader" control={<Radio />} label="Card Reader" />
                       <FormControlLabel value="cash" control={<Radio />} label="Cash" />
                       <FormControlLabel value="check" control={<Radio />} label="Check" />
                     </RadioGroup>
@@ -230,6 +298,7 @@ export default function ({
             >
               <SelectCreditCard
                 patient={patient}
+                appointmentId={appointmentId}
                 selectedCardId={creditCard ?? ''}
                 handleCardSelected={(newVal: string | undefined) => {
                   setValue('creditCard', newVal ?? '');
@@ -237,6 +306,28 @@ export default function ({
                 error={formState.errors.creditCard?.message}
               />
             </Box>
+            {paymentMethod === 'card-reader' && (
+              <Box
+                sx={{
+                  display: 'initial',
+                }}
+              >
+                <CardReaderTerminal
+                  ref={cardReaderTerminalRef}
+                  patient={patient}
+                  appointmentId={appointmentId}
+                  selectedCardId={creditCard ?? ''}
+                  handleCardSelected={(newVal: string | undefined) => {
+                    setValue('creditCard', newVal ?? '');
+                  }}
+                  error={formState.errors.creditCard?.message}
+                  encounterId={encounterId}
+                  onTerminalConfiguredChange={setIsTerminalConfigured}
+                  onReaderConnectionChange={setIsTerminalReaderConnected}
+                  onConfigLoadingChange={setIsTerminalConfigLoading}
+                />
+              </Box>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', marginLeft: 1 }}>
@@ -245,14 +336,15 @@ export default function ({
           </Button>
           <LoadingButton
             data-testid={dataTestIds.visitDetailsPage.cancelVisitDialogue}
-            loading={isSubmitting}
+            loading={isSubmitting || isTerminalPaymentSubmitting}
             type="submit"
             variant="contained"
             color="primary"
             size="medium"
             sx={buttonSx}
+            disabled={shouldDisableSubmit}
           >
-            Process Payment
+            {submitButtonLabel}
           </LoadingButton>
         </DialogActions>
       </form>

@@ -1,62 +1,65 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Observation, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter, Observation, ObservationComponent, Patient, Practitioner } from 'fhir/r4b';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { getFullName } from 'utils/lib/fhir/patient';
 import {
-  convertVitalsListToMap,
   extractBloodPressureObservationMethod,
+  extractDotVisionScreening,
   extractHeartbeatObservationMethod,
   extractOxySaturationObservationMethod,
   extractTemperatureObservationMethod,
   extractVisionValues,
-  FHIR_RESOURCE_NOT_FOUND,
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  getFullName,
-  getVitalDTOCriticalityFromObservation,
-  GetVitalsResponseData,
-  INVALID_INPUT_ERROR,
-  isValidUUID,
   LOINC_SYSTEM,
-  MISSING_REQUIRED_PARAMETERS,
-  PATIENT_VITALS_META_SYSTEM,
-  PRIVATE_EXTENSION_BASE_URL,
+  parseLastMenstrualPeriodObservation,
   VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
-  VitalFieldNames,
+  VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE,
+} from 'utils/lib/fhir/vitals';
+import { convertVitalsListToMap, getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import {
+  PATIENT_VITALS_META_SYSTEM,
   VitalsBloodPressureObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsObservationDTO,
   VitalsOxygenSatObservationDTO,
   VitalsTemperatureObservationDTO,
   VitalsVisionObservationDTO,
-} from 'utils';
+  VitalsWeightObservationDTO,
+  VitalsWeightOption,
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
+import {
+  FHIR_RESOURCE_NOT_FOUND,
+  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUIRED_PARAMETERS,
+} from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import * as z from 'zod';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { wrapHandler } from '../../../../shared/sentry';
+import { ZambdaInput } from '../../../../shared/types/common';
 
 let m2mToken: string;
+const ZAMBDA_NAME = 'get-vitals';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`Validating input: ${JSON.stringify(input.body)}`);
+  const { encounterId, mode, secrets } = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log(`Validating input: ${JSON.stringify(input.body)}`);
-    const { encounterId, mode, secrets } = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  console.log(`Performing complex validation for encounterId: ${encounterId}, mode: ${mode}`);
+  const effectInput = await complexValidation({ encounterId, mode, secrets }, oystehr);
+  console.log(`Effect input: ${JSON.stringify(effectInput)}`);
+  const results = await performEffect(effectInput, oystehr);
 
-    console.log(`Performing complex validation for encounterId: ${encounterId}, mode: ${mode}`);
-    const effectInput = await complexValidation({ encounterId, mode, secrets }, oystehr);
-    console.log(`Effect input: ${JSON.stringify(effectInput)}`);
-    const results = await performEffect(effectInput, oystehr);
-
-    return {
-      body: JSON.stringify(results),
-      statusCode: 200,
-    };
-  } catch (error) {
-    console.log(error);
-    return {
-      body: JSON.stringify({ message: JSON.stringify(error) }),
-      statusCode: 500,
-    };
-  }
+  return {
+    body: JSON.stringify(results),
+    statusCode: 200,
+  };
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetVitalsResponseData> => {
@@ -175,6 +178,10 @@ const parseResourcesToDTOs = (observations: Observation[], practitioners: Practi
         vitalObservation = parseBloodPressureObservation(observation, performer);
       } else if (field === VitalFieldNames.VitalVision) {
         vitalObservation = parseVisionObservation(observation, performer);
+      } else if (field === VitalFieldNames.VitalWeight) {
+        vitalObservation = parseWeightObservation(observation, performer);
+      } else if (field === VitalFieldNames.VitalLastMenstrualPeriod) {
+        vitalObservation = parseLastMenstrualPeriodObservation(observation, performer);
       } else {
         vitalObservation = parseNumericValueObservation(observation, performer, field);
       }
@@ -219,6 +226,61 @@ const parseBloodPressureObservation = (
   };
 };
 
+export const extractWeightOptions = (components: ObservationComponent[]): VitalsWeightOption[] => {
+  const allExtraWeightOptions: VitalsWeightOption[] = ['patient_refused'];
+
+  return allExtraWeightOptions.filter((option) => {
+    let optionCode = '';
+    if (option === 'patient_refused') {
+      optionCode = VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE;
+    }
+
+    const optionComponent = components.find((cmp) => {
+      return cmp.code?.coding?.find((coding) => coding?.code === optionCode);
+    });
+
+    return optionComponent?.valueBoolean === true;
+  });
+};
+
+const parseWeightObservation = (
+  observation: Observation,
+  performer: Practitioner
+): VitalsWeightObservationDTO | undefined => {
+  const fieldCode = observation?.meta?.tag?.find(
+    (tag) => tag.system === `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}`
+  )?.code;
+
+  if (fieldCode !== VitalFieldNames.VitalWeight) return undefined;
+
+  const value = observation.valueQuantity?.value;
+  const components = observation.component || [];
+  const weightOptions = extractWeightOptions(components);
+
+  if (weightOptions.includes('patient_refused')) {
+    return {
+      resourceId: observation.id,
+      field: VitalFieldNames.VitalWeight,
+      extraWeightOptions: ['patient_refused'],
+      authorId: performer.id,
+      authorName: getFullName(performer),
+      lastUpdated: observation.effectiveDateTime || '',
+    };
+  }
+
+  if (value === undefined) return undefined;
+
+  return {
+    resourceId: observation.id,
+    field: VitalFieldNames.VitalWeight,
+    value,
+    extraWeightOptions: weightOptions,
+    authorId: performer.id,
+    authorName: getFullName(performer),
+    lastUpdated: observation.effectiveDateTime || '',
+  };
+};
+
 const parseVisionObservation = (
   observation: Observation,
   performer: Practitioner
@@ -235,20 +297,33 @@ const parseVisionObservation = (
   const {
     leftEyeVisText: leftEyeVisionText,
     rightEyeVisText: rightEyeVisionText,
+    bothEyesVisText: bothEyesVisionText,
     visionOptions,
   } = extractVisionValues(components);
 
-  if (leftEyeVisionText === undefined || rightEyeVisionText === undefined) return undefined;
+  const dotVisionScreening = extractDotVisionScreening(components, observation.derivedFrom);
+
+  if (
+    leftEyeVisionText === undefined &&
+    rightEyeVisionText === undefined &&
+    bothEyesVisionText === undefined &&
+    (!visionOptions || visionOptions.length === 0) &&
+    dotVisionScreening === undefined
+  ) {
+    return undefined;
+  }
 
   return {
     resourceId: observation.id,
     field: VitalFieldNames.VitalVision,
-    leftEyeVisionText,
-    rightEyeVisionText,
+    leftEyeVisionText: leftEyeVisionText ?? '',
+    rightEyeVisionText: rightEyeVisionText ?? '',
+    bothEyesVisionText,
     authorId: performer.id,
     authorName: getFullName(performer),
     lastUpdated: observation.effectiveDateTime || '',
     extraVisionOptions: visionOptions,
+    dotVisionScreening,
   };
 };
 
@@ -258,7 +333,8 @@ type AllOtherFields =
   | VitalFieldNames.VitalTemperature
   | VitalFieldNames.VitalRespirationRate
   | VitalFieldNames.VitalHeight
-  | VitalFieldNames.VitalWeight;
+  | VitalFieldNames.VitalWeight
+  | VitalFieldNames.VitalBMI;
 
 const parseNumericValueObservation = (
   observation: Observation,
@@ -307,7 +383,10 @@ const validateRequestParameters = (input: ZambdaInput): InputParameters => {
     throw new Error('Request body is required');
   }
 
-  const { encounterId, mode } = JSON.parse(input.body);
+  // The wire field is `currentOrHistorical` (not `mode`): the Oystehr SDK reserves a `mode` key on
+  // zambda.execute payloads as a request-context option, so a `mode` field would be stripped from
+  // the payload. Internally we keep calling the value `mode` for readability.
+  const { encounterId, currentOrHistorical: mode } = JSON.parse(input.body);
   const secrets = input.secrets;
 
   const missingParams: string[] = [];
@@ -317,7 +396,7 @@ const validateRequestParameters = (input: ZambdaInput): InputParameters => {
   }
 
   if (!mode) {
-    missingParams.push('mode');
+    missingParams.push('currentOrHistorical');
   }
 
   if (missingParams.length > 0) {
@@ -329,7 +408,7 @@ const validateRequestParameters = (input: ZambdaInput): InputParameters => {
   }
 
   if (typeof mode !== 'string' || (mode !== 'current' && mode !== 'historical')) {
-    throw INVALID_INPUT_ERROR(`Invalid mode, "${mode}", specified - must be "current" or "historical"`);
+    throw INVALID_INPUT_ERROR(`Invalid currentOrHistorical, "${mode}", specified - must be "current" or "historical"`);
   }
 
   return { encounterId, mode, secrets };

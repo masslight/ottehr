@@ -5,24 +5,46 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CustomDialog } from 'src/components/dialogs';
-import { useCancelImmunizationOrder } from 'src/features/css-module/hooks/useImmunization';
-import { getImmunizationOrderEditUrl, getImmunizationVaccineDetailsUrl } from 'src/features/css-module/routing/helpers';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
-import { ImmunizationOrder } from 'utils';
+import {
+  ReasonListCodes,
+  reasonListValues,
+} from 'src/features/visits/in-person/components/medication-administration/medicationTypes';
+import { useCancelImmunizationOrder } from 'src/features/visits/in-person/hooks/useImmunization';
+import {
+  getImmunizationOrderEditUrl,
+  getImmunizationVaccineDetailsUrl,
+} from 'src/features/visits/in-person/routing/helpers';
+import { searchRouteByCode } from 'utils/lib/fhir/medication-administration';
+import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
 
 interface Props {
   order: ImmunizationOrder;
   showActions: boolean;
+  showGiven?: boolean;
+  onEditOrder?: (orderId: string) => void;
+  onShowDetails?: (orderId: string) => void;
 }
 
-export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) => {
+export const OrderHistoryTableRow: React.FC<Props> = ({
+  order,
+  showActions,
+  showGiven = true,
+  onEditOrder,
+  onShowDetails,
+}) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
   const [isDeleteDialogOpened, setIsDeleteDialogOpened] = useState(false);
 
   const navigateToEditOrder = (): void => {
+    if (onEditOrder) {
+      onEditOrder(order.id);
+      return;
+    }
     if (!appointmentId) {
       enqueueSnackbar('navigation error', { variant: 'error' });
       return;
@@ -37,8 +59,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
       await cancelOrder({
         orderId: order.id,
       });
-    } catch (error) {
-      console.error('Error deleting vaccine order:', error);
+    } catch {
       enqueueSnackbar('An error occurred while deleting the vaccine order. Please try again.', { variant: 'error' });
     } finally {
       setIsDeleteDialogOpened(false);
@@ -47,19 +68,26 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
 
   const isPending = order.status === 'pending';
 
-  const handleRowClick = (): void => {
-    if (!isPending || !showActions) {
+  const navigateToDetails = (): void => {
+    if (onShowDetails) {
+      onShowDetails(order.id);
       return;
     }
+    if (!appointmentId) return;
     requestAnimationFrame(() => {
-      navigate(`${getImmunizationVaccineDetailsUrl(appointmentId!)}?scrollTo=${order.id}`);
+      navigate(`${getImmunizationVaccineDetailsUrl(appointmentId)}?scrollTo=${order.id}`);
     });
+  };
+
+  const handleRowClick = (): void => {
+    if (!showActions) return;
+    navigateToDetails();
   };
 
   return (
     <TableRow
       sx={{
-        ...(isPending && showActions
+        ...(showActions
           ? {
               '&:hover': {
                 backgroundColor: alpha(theme.palette.primary.main, 0.04),
@@ -70,45 +98,73 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
           : { cursor: 'default' }),
       }}
       onClick={handleRowClick}
+      data-testid={dataTestIds.immunizationPage.marTableRow(order.id)}
     >
-      <TableCell>{order.details.medication.name}</TableCell>
-      <TableCell>
-        {order.details.dose} {order.details.units} {order.details.route ? `/ ${order.details.route}` : null}
-        {grayText(order.details.instructions)}
+      <TableCell data-testid={dataTestIds.immunizationPage.marTableVaccineCell}>
+        {order.details.medication.name}
       </TableCell>
       <TableCell>
-        {formatDateTime(order.details.orderedDateTime)}
-        {grayText(order.details.orderedProvider.name)}
+        <span data-testid={dataTestIds.immunizationPage.marTableDoseRouteCell}>
+          {order.details.dose} {order.details.units}{' '}
+          {order.details.route ? `/ ${searchRouteByCode(order.details.route)?.display}` : null}
+        </span>
+        <span data-testid={dataTestIds.immunizationPage.marTableInstructionsCell}>
+          {grayText(order.details.instructions)}
+        </span>
       </TableCell>
       <TableCell>
-        {formatDateTime(order.administrationDetails?.administeredDateTime)}
-        {grayText(order.administrationDetails?.administeredProvider?.name)}
+        <span data-testid={dataTestIds.immunizationPage.marTableOrderedDateCell}>
+          {formatDateTime(order.details.orderedDateTime)}{' '}
+        </span>
+        <span data-testid={dataTestIds.immunizationPage.marTableOrderedPersonCell}>
+          {grayText(order.details.orderedProvider.name)}
+        </span>
       </TableCell>
+      {showGiven && (
+        <TableCell>
+          {(order.status === 'administered-partly' || order.status === 'administered') && (
+            <>
+              <span data-testid={dataTestIds.immunizationPage.marTableGivenDateCell}>
+                {formatDateTime(order.administrationDetails?.administeredDateTime)}
+              </span>
+              <span data-testid={dataTestIds.immunizationPage.marTableGivenPersonCell}>
+                {grayText(order.administrationDetails?.administeredProvider?.name)}
+              </span>
+            </>
+          )}
+        </TableCell>
+      )}
       <TableCell>
         <Stack direction="row" justifyContent="space-between">
           <Stack>
-            <OrderStatusChip status={order.status} />
-            {order.reason}
+            <OrderStatusChip status={order.status} dataTestId={dataTestIds.immunizationPage.marTableStatusCell} />
+            <span data-testid={dataTestIds.immunizationPage.marTableReasonCell}>
+              {reasonListValues[order.reason as ReasonListCodes] ?? order.reason}
+            </span>
           </Stack>
-          {showActions && order.status === 'pending' ? (
+          {showActions ? (
             <Stack direction="row" onClick={(e) => e.stopPropagation()}>
-              <IconButton size="small" aria-label="edit" onClick={navigateToEditOrder}>
+              <IconButton size="small" aria-label="edit" onClick={isPending ? navigateToEditOrder : navigateToDetails}>
                 <EditIcon sx={{ color: theme.palette.primary.dark }} />
               </IconButton>
-              <IconButton size="small" aria-label="delete" onClick={() => setIsDeleteDialogOpened(true)}>
-                <DeleteIcon sx={{ color: theme.palette.warning.dark }} />
-              </IconButton>
-              <CustomDialog
-                open={isDeleteDialogOpened}
-                handleClose={() => setIsDeleteDialogOpened(false)}
-                title="Delete vaccine order"
-                description={`Are you sure you want to delete the vaccine order?`}
-                closeButtonText="Cancel"
-                closeButton={false}
-                handleConfirm={handleConfirmDelete}
-                confirmText={isDeleting ? 'Deleting...' : 'Delete'}
-                confirmLoading={isDeleting}
-              />
+              {isPending && (
+                <>
+                  <IconButton size="small" aria-label="delete" onClick={() => setIsDeleteDialogOpened(true)}>
+                    <DeleteIcon sx={{ color: theme.palette.error.main }} />
+                  </IconButton>
+                  <CustomDialog
+                    open={isDeleteDialogOpened}
+                    handleClose={() => setIsDeleteDialogOpened(false)}
+                    title="Delete immunization order"
+                    description={`Are you sure you want to delete the immunization order?`}
+                    closeButtonText="Cancel"
+                    closeButton={false}
+                    handleConfirm={handleConfirmDelete}
+                    confirmText={isDeleting ? 'Deleting...' : 'Delete'}
+                    confirmLoading={isDeleting}
+                  />
+                </>
+              )}
             </Stack>
           ) : null}
         </Stack>

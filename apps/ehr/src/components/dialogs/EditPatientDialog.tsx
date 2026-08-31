@@ -13,16 +13,18 @@ import {
   // Select,
   TextField,
   Typography,
-  // InputLabel,
 } from '@mui/material';
-import { Address, Patient } from 'fhir/r4b';
+import { Address, ContactPoint, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { PatternFormat } from 'react-number-format';
-import { AllStatesToVirtualLocationLabels, standardizePhoneNumber } from 'utils';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useEditPatientInformationMutation } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { AllStatesToVirtualLocationLabels } from 'utils/lib/types/common';
 import { EMAIL_REGEX, ZIP_REGEX } from '../../constants';
-import { useAppointmentData, useEditPatientInformationMutation } from '../../telemed/state';
 import DateSearch from '../DateSearch';
 import { RoundedButton } from '../RoundedButton';
 
@@ -86,6 +88,45 @@ const createPatientResourcePatchData = (patient: Patient, data: FormInputs): Pat
       rank: 1,
       value: data.primaryPhoneNumber,
     });
+
+    const erxContacts = patientData?.contact?.filter((contact) =>
+      Boolean(
+        contact.telecom?.find((telecom) =>
+          Boolean(telecom?.extension?.find((telExt) => telExt.url === FHIR_EXTENSION.ContactPoint.erxTelecom.url))
+        )
+      )
+    );
+
+    // update also erx phone number in patient.contact
+    const erxContactPoint: ContactPoint = {
+      value: data.primaryPhoneNumber,
+      system: 'phone',
+      extension: [{ url: FHIR_EXTENSION.ContactPoint.erxTelecom.url, valueString: 'erx' }],
+    };
+    if (erxContacts && erxContacts.length > 0) {
+      // Remove duplicates of erxContact, leave just one with updated data
+      // Keep only the first erxContact, remove others
+      const [firstErxContact] = erxContacts;
+      // Remove all erxContacts from patientData.contact except the first one
+      if (patientData.contact) {
+        patientData.contact = patientData.contact.filter(
+          (contact) => !erxContacts.includes(contact) || contact === firstErxContact
+        );
+      }
+      // Update the first erxContact with the new data
+      firstErxContact.telecom = [erxContactPoint];
+      // Add the updated firstErxContact back if not already present
+      if (!patientData.contact?.includes(firstErxContact)) {
+        if (!patientData.contact) patientData.contact = [];
+        patientData.contact.push(firstErxContact);
+      }
+    } else {
+      patientData.contact = [
+        {
+          telecom: [erxContactPoint],
+        },
+      ];
+    }
   }
   if (data.secondaryPhoneNumber) {
     patientData.telecom!.push({
@@ -171,7 +212,7 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
   const statesDropdownOptions: string[] = [...possibleUsStates.map((usState) => usState)];
   const phoneNumberErrorMessage = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
   const emailErrorMessage = 'Email is not valid';
-  const zipCodeErrorMessage = 'ZIP Code must be 5 numbers';
+  const zipCodeErrorMessage = 'ZIP Code must be 5 or 9 numbers';
 
   useEffect(() => {
     setValue('dateOfBirth', patient?.birthDate ? DateTime.fromISO(patient?.birthDate) : null);
@@ -551,32 +592,29 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
             <Grid item xs={12} sm={4} md={4}>
               <FormControl fullWidth required>
                 <Controller
-                  name={'zipCode'}
+                  name="zipCode"
                   control={control}
-                  render={({ field: { value } }) => (
-                    <TextField
-                      sx={{
-                        '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
-                          display: 'none',
-                        },
-                        '& input[type=number]': {
-                          MozAppearance: 'textfield',
-                        },
-                      }}
+                  render={({ field: { value, onChange } }) => (
+                    <PatternFormat
+                      customInput={TextField}
                       label="ZIP"
-                      type="number"
-                      value={value}
+                      value={value || ''}
+                      format="#####-####"
+                      placeholder="#####-####"
                       variant="outlined"
-                      error={!!formState.errors.zipCode}
-                      helperText={formState.errors.zipCode ? zipCodeErrorMessage : ''}
                       fullWidth
                       required
-                      onChange={(event) => {
-                        const enteredZipCode = event.target.value;
-                        resetField('zipCode');
-                        setValue('zipCode', enteredZipCode);
-                        if (!isValidZipCode(enteredZipCode)) {
-                          setFormError('zipCode', { message: zipCodeErrorMessage });
+                      error={!!formState.errors.zipCode}
+                      helperText={formState.errors.zipCode ? zipCodeErrorMessage : ''}
+                      onValueChange={(values, sourceInfo) => {
+                        if (sourceInfo.source === 'event') {
+                          const digits = values.value;
+
+                          onChange(digits); // let RHF update normally
+
+                          if (!isValidZipCode(digits)) {
+                            setFormError('zipCode', { message: zipCodeErrorMessage });
+                          }
                         }
                       }}
                     />

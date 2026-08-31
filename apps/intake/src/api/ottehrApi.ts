@@ -1,38 +1,59 @@
 // cSpell:ignore fhirify
 import { Consent, QuestionnaireResponse, Slot } from 'fhir/r4b';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { HandleAnswerInput, PersistConsentInput, StartInterviewInput } from 'utils/lib/types/api/ai-interview.types';
 import {
-  CancelAppointmentZambdaInput,
-  CancelAppointmentZambdaOutput,
-  CheckInInput,
-  CheckInZambdaOutput,
-  chooseJson,
-  CreateAppointmentInputParams,
-  CreateAppointmentResponse,
-  CreateSlotParams,
   GetAppointmentDetailsResponse,
-  GetEligibilityParameters,
-  GetEligibilityResponse,
-  GetPresignedFileURLInput,
-  GetScheduleRequestParams,
-  GetScheduleResponse,
-  GetSlotDetailsParams,
-  GetSlotDetailsResponse,
-  HandleAnswerInput,
-  isApiError,
-  isoStringFromMDYString,
-  PatchPaperworkParameters,
-  PatientInfo,
-  PersistConsentInput,
-  PresignUploadUrlResponse,
-  ServiceMode,
-  StartInterviewInput,
-  SubmitPaperworkParameters,
-  UCGetPaperworkResponse,
   UpdateAppointmentParameters,
   UpdateAppointmentZambdaOutput,
   WalkinAvailabilityCheckParams,
   WalkinAvailabilityCheckResult,
-} from 'utils';
+} from 'utils/lib/types/api/appointment.types';
+import {
+  CancelAppointmentZambdaInput,
+  CancelAppointmentZambdaOutput,
+} from 'utils/lib/types/api/cancel-appointment.types';
+import { CheckInInput, CheckInZambdaOutput } from 'utils/lib/types/api/check-in.types';
+import {
+  GetBookingQuestionnaireParams,
+  GetBookingQuestionnaireResponse,
+} from 'utils/lib/types/api/get-booking-questionnaire.types';
+import {
+  GetInsuranceCardSuggestionsInput,
+  GetInsuranceCardSuggestionsResponse,
+} from 'utils/lib/types/api/get-insurance-card-suggestions.types';
+import {
+  GetPhotoIdSuggestionsInput,
+  GetPhotoIdSuggestionsResponse,
+} from 'utils/lib/types/api/get-photo-id-suggestions.types';
+import {
+  GetPresignedFileURLInput,
+  PresignUploadUrlResponse,
+} from 'utils/lib/types/api/get-presigned-file-url/get-presigned-file-url.types';
+import {
+  CreateAppointmentInputParams,
+  CreateAppointmentResponse,
+  CreateSlotParams,
+  GetSlotDetailsParams,
+  GetSlotDetailsResponse,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ServiceMode } from 'utils/lib/types/common';
+import { GetScheduleRequestParams, GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import {
+  PatchPaperworkParameters,
+  SubmitPaperworkParameters,
+  UCGetPaperworkResponse,
+} from 'utils/lib/types/data/paperwork/paperwork.types';
+import { GetStandAlonePaperworkInput } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { SearchPlacesInput, SearchPlacesOutput } from 'utils/lib/types/data/search-places';
+import { GetSupportDialogOutput } from 'utils/lib/types/data/support-dialog';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { GetEligibilityParameters, GetEligibilityResponse } from 'utils/lib/types/data/telemed/eligibility.types';
+import {
+  VideoChatNotificationInput,
+  VideoChatNotificationResponse,
+} from 'utils/lib/types/data/telemed/video-chat-invites.types';
+import { isApiError } from 'utils/lib/types/errors';
 import { ZambdaClient } from '../hooks/useUCZambdaClient';
 import { GetAppointmentParameters, GetPaperworkParameters } from '../types/types';
 import { apiErrorToThrow } from './errorHelpers';
@@ -53,6 +74,8 @@ const TELEMED_GET_APPOINTMENTS_ZAMBDA_ID = 'telemed-get-appointments';
 const IN_PERSON_GET_APPOINTMENTS_ZAMBDA_ID = 'intake-get-appointments';
 const GET_PAPERWORK_ZAMBDA_ID = 'get-paperwork';
 const GET_PRESIGNED_FILE_URL = 'get-presigned-file-url';
+const GET_INSURANCE_CARD_SUGGESTIONS = 'get-insurance-card-suggestions';
+const GET_PHOTO_ID_SUGGESTIONS = 'get-photo-id-suggestions';
 const GET_APPOINTMENT_DETAILS = 'get-appointment-details';
 const PATCH_PAPERWORK_ZAMBDA_ID = 'patch-paperwork';
 const SUBMIT_PAPERWORK_ZAMBDA_ID = 'submit-paperwork';
@@ -63,6 +86,7 @@ const AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID = 'ai-interview-persist-consent';
 const GET_WALKIN_AVAILABILITY_ZAMBDA_ID = 'walkin-check-availability';
 const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const GET_SLOT_DETAILS_ZAMBDA_ID = 'get-slot-details';
+const GET_PUBLIC_SUPPORT_DIALOG_ZAMBDA_ID = 'get-public-support-dialog';
 
 class API {
   async checkIn(
@@ -97,8 +121,7 @@ class API {
         throw new Error('create appointment environment variable could not be loaded');
       }
 
-      const fhirParams = fhirifyAppointmentInputs({ ...parameters });
-      const response = await zambdaClient.execute(CREATE_APPOINTMENT_ZAMBDA_ID, fhirParams);
+      const response = await zambdaClient.execute(CREATE_APPOINTMENT_ZAMBDA_ID, parameters);
 
       const jsonToUse = chooseJson(response);
       return jsonToUse;
@@ -170,10 +193,11 @@ class API {
       if (PATCH_PAPERWORK_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('update appointment environment variable could not be loaded');
       }
-      const { answers, questionnaireResponseId } = parameters;
+      const { answers, questionnaireResponseId, appointmentId } = parameters;
       const response = await zambdaClient.executePublic(PATCH_PAPERWORK_ZAMBDA_ID, {
         answers,
         questionnaireResponseId,
+        appointmentId,
       });
 
       const jsonToUse = chooseJson(response);
@@ -214,6 +238,15 @@ class API {
       const response = await zambdaClient.executePublic(GET_SCHEDULE_ZAMBDA_ID, parameters);
       const jsonToUse = chooseJson(response);
       return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error, false);
+    }
+  }
+
+  async getPublicSupportDialog(zambdaClient: ZambdaClient): Promise<GetSupportDialogOutput> {
+    try {
+      const response = await zambdaClient.executePublic(GET_PUBLIC_SUPPORT_DIALOG_ZAMBDA_ID, {});
+      return chooseJson(response);
     } catch (error: unknown) {
       throw apiErrorToThrow(error, false);
     }
@@ -288,6 +321,19 @@ class API {
     }
   }
 
+  async getStandAlonePaperwork(
+    zambdaClient: ZambdaClient,
+    input: GetStandAlonePaperworkInput
+  ): Promise<UCGetPaperworkResponse> {
+    try {
+      const response = await zambdaClient.execute('get-standalone-paperwork', input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse as UCGetPaperworkResponse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
   async createZ3Object(
     appointmentID: string,
     fileType: string,
@@ -359,6 +405,40 @@ class API {
       });
       const jsonToUse = chooseJson(response);
       return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+  async getInsuranceCardSuggestions(
+    params: GetInsuranceCardSuggestionsInput,
+    zambdaClient: ZambdaClient
+  ): Promise<GetInsuranceCardSuggestionsResponse> {
+    try {
+      const { appointmentID, fileURL, fileContentType } = params;
+
+      const response = await zambdaClient.executePublic(GET_INSURANCE_CARD_SUGGESTIONS, {
+        appointmentID,
+        fileURL,
+        fileContentType,
+      });
+      return chooseJson(response);
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+  async getPhotoIdSuggestions(
+    params: GetPhotoIdSuggestionsInput,
+    zambdaClient: ZambdaClient
+  ): Promise<GetPhotoIdSuggestionsResponse> {
+    try {
+      const { appointmentID, fileURL, fileContentType } = params;
+
+      const response = await zambdaClient.executePublic(GET_PHOTO_ID_SUGGESTIONS, {
+        appointmentID,
+        fileURL,
+        fileContentType,
+      });
+      return chooseJson(response);
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
     }
@@ -447,23 +527,43 @@ class API {
       throw apiErrorToThrow(error);
     }
   }
-}
 
+  async getBookingQuestionnaire(
+    input: GetBookingQuestionnaireParams,
+    zambdaClient: ZambdaClient
+  ): Promise<GetBookingQuestionnaireResponse> {
+    try {
+      const response = await zambdaClient.execute('get-booking-questionnaire', input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse as GetBookingQuestionnaireResponse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  async searchPlaces(input: SearchPlacesInput, zambdaClient: ZambdaClient): Promise<SearchPlacesOutput> {
+    try {
+      const response = await zambdaClient.execute('search-places', input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse as SearchPlacesOutput;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  async createWaitingRoomNotification(
+    input: VideoChatNotificationInput,
+    zambdaClient: ZambdaClient
+  ): Promise<VideoChatNotificationResponse> {
+    try {
+      const response = await zambdaClient.executePublic('video-chat-waiting-room-notification', input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse as VideoChatNotificationResponse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+}
 const api = new API();
 
 export default api;
-
-const fhirifyAppointmentInputs = (inputs: CreateAppointmentInputParams): CreateAppointmentInputParams => {
-  const returnParams = { ...inputs };
-
-  const { patient } = returnParams;
-
-  const { dateOfBirth: patientBirthDate } = patient as PatientInfo;
-  if (patient) {
-    patient.dateOfBirth = isoStringFromMDYString(patientBirthDate ?? '');
-  }
-
-  returnParams.patient = patient;
-
-  return returnParams;
-};

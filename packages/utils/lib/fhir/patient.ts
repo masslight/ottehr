@@ -8,6 +8,8 @@ import {
   Encounter,
   HumanName,
   Identifier,
+  Location,
+  Organization,
   Patient,
   Period,
   Person,
@@ -16,26 +18,35 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import { removePrefix } from '../helpers';
+import { formatZipcodeForDisplay, isValidErxPhoneNumber, removePrefix } from '../helpers/helpers';
+import { RelatedPersonMaps } from '../types/api/messaging.types';
 import {
-  PATIENT_INDIVIDUAL_PRONOUNS_URL,
-  PatientInfo,
   PROVIDER_NOTIFICATION_METHOD_URL,
+  PROVIDER_NOTIFICATION_PREFERENCES_V2_URL,
   PROVIDER_NOTIFICATIONS_ENABLED_URL,
   PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
+  PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL,
+  PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL,
   ProviderNotificationMethod,
   ProviderNotificationSettings,
-  RelatedPersonMaps,
-} from '../types';
+} from '../types/api/practitioner.types';
+import {
+  buildDefaultTaskCategoryPrefs,
+  defaultNotificationRowPref,
+  normalizeNotificationPreferencesV2,
+  ProviderNotificationPreferencesV2,
+} from '../types/api/provider-notifications';
+import { ORG_TYPE_CODE_SYSTEM, PATIENT_INDIVIDUAL_PRONOUNS_URL } from '../types/constants';
+import { PatientInfo } from '../types/data/telemed/appointments/create-appointment.types';
+import { getCommunicationsAndSenders, getUniquePhonesNumbers } from './chat';
 import {
   FHIR_EXTENSION,
   FHIR_IDENTIFIER_NPI,
-  filterResources,
-  getAllPractitionerCredentials,
-  getCommunicationsAndSenders,
-  getUniquePhonesNumbers,
+  FHIR_IDENTIFIER_SYSTEM,
+  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
   PRIVATE_EXTENSION_BASE_URL,
-} from '.';
+} from './constants';
+import { filterResources, getAllPractitionerCredentials, getCoding } from './helpers';
 
 // Return true if a new user
 export async function createUserResourcesForPatient(
@@ -43,114 +54,175 @@ export async function createUserResourcesForPatient(
   patientID: string,
   phoneNumber: string
 ): Promise<{ relatedPerson: RelatedPerson; person: Person; newUser: boolean }> {
-  console.log(`Creating a RelatedPerson for Patient ${patientID}`);
-  const relatedPerson = (await oystehr.fhir.create({
-    resourceType: 'RelatedPerson',
-    relationship: [
-      {
-        coding: [
-          {
-            system: `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
-            code: 'user-relatedperson',
-          },
-        ],
-      },
-    ],
-    telecom: [
-      { system: 'phone', value: phoneNumber },
-      { system: 'sms', value: phoneNumber },
-    ],
-    patient: {
-      reference: `Patient/${patientID}`,
-    },
-  })) as RelatedPerson;
-
-  console.log(`For Patient ${patientID} created a RelatedPerson ${relatedPerson.id}`);
-  console.log(`Searching for Person with phone number ${phoneNumber}`);
-
-  let person: Person | undefined = undefined;
   let newUser = false;
 
-  let retries = 0;
-  let personPatchResult = undefined;
+  console.log(`[UserCreate] Start for patient=${patientID} phone=${phoneNumber}`);
 
-  while (retries < 10) {
-    const personResults = (
+  let person: Person | undefined;
+
+  const findPerson = async (): Promise<Person[]> =>
+    (
       await oystehr.fhir.search<Person>({
         resourceType: 'Person',
+        params: [{ name: 'telecom', value: phoneNumber }],
+      })
+    ).unbundle();
+
+  let personResults = await findPerson();
+
+  if (personResults.length > 0) {
+    person = personResults[0];
+    console.log(`[UserCreate] Found existing Person ${person.id}`);
+  } else {
+    try {
+      console.log(`[UserCreate] Creating Person for phone=${phoneNumber}`);
+
+      person = (await oystehr.fhir.create({
+        resourceType: 'Person',
+        telecom: [{ system: 'phone', value: phoneNumber }],
+      })) as Person;
+
+      newUser = true;
+      console.log(`[UserCreate] Created Person ${person.id}`);
+    } catch (e) {
+      console.log(`[UserCreate] Person create failed, retrying search`);
+
+      personResults = await findPerson();
+
+      if (personResults.length === 0) {
+        throw e;
+      }
+
+      person = personResults[0];
+      console.log(`[UserCreate] Person resolved after race ${person.id}`);
+    }
+  }
+
+  if (!person) {
+    throw new Error('Failed to resolve Person');
+  }
+
+  let resolvedPerson: Person = person;
+
+  let relatedPerson: RelatedPerson | undefined;
+
+  const findRelated = async (): Promise<RelatedPerson[]> =>
+    (
+      await oystehr.fhir.search<RelatedPerson>({
+        resourceType: 'RelatedPerson',
         params: [
-          {
-            name: 'telecom',
-            value: phoneNumber,
-          },
+          { name: 'patient', value: `Patient/${patientID}` },
+          { name: 'telecom', value: phoneNumber },
+          { name: 'relationship', value: 'user-relatedperson' },
         ],
       })
     ).unbundle();
 
-    if (personResults.length === 0) {
-      newUser = true;
-      console.log(`Did not find a Person for user with phone number ${phoneNumber}, creating one`);
-      person = (await oystehr.fhir.create({
-        resourceType: 'Person',
-        telecom: [{ system: 'phone', value: phoneNumber }],
-        link: [
-          {
-            target: { reference: `RelatedPerson/${relatedPerson.id}` },
-          },
-        ],
-      })) as Person;
-      console.log(`For user with phone number ${phoneNumber} created a Person ${person.id}`);
-    } else {
-      console.log(
-        `Did find a Person with phone number ${phoneNumber} with ID ${personResults[0].id}, adding RelatedPerson ${relatedPerson.id} to link`
-      );
+  let relatedResults = await findRelated();
 
-      person = personResults[0];
-      const hasLink = person.link;
-      if (!hasLink) {
-        console.log(
-          "Person does not have link, this shouldn't happen outside of test cases but is still possible - The account may not have patients"
-        );
-      }
-      const link = {
-        target: {
-          reference: `RelatedPerson/${relatedPerson.id}`,
-        },
-      };
-      try {
-        personPatchResult = await oystehr.fhir.patch(
+  if (relatedResults.length > 0) {
+    relatedPerson = relatedResults[0];
+    console.log(`[UserCreate] Found existing RelatedPerson ${relatedPerson.id}`);
+  } else {
+    try {
+      console.log(`[UserCreate] Creating RelatedPerson for patient=${patientID}`);
+
+      relatedPerson = (await oystehr.fhir.create({
+        resourceType: 'RelatedPerson',
+        patient: { reference: `Patient/${patientID}` },
+        relationship: [
           {
-            resourceType: 'Person',
-            id: person.id || '',
-            operations: [
+            coding: [
               {
-                op: 'add',
-                path: hasLink ? '/link/-' : '/link',
-                value: hasLink ? link : [link],
+                system: `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
+                code: 'user-relatedperson',
               },
             ],
           },
-          { optimisticLockingVersionId: person.meta!.versionId }
-        );
-        console.log(`Updated Person with ID ${person.id}`);
-        break;
-      } catch (e) {
-        console.log(`Error patching Person ${person.id}: ${e}. Retrying...`, JSON.stringify(e));
-        retries++;
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        ],
+        telecom: [
+          { system: 'phone', value: phoneNumber },
+          { system: 'sms', value: phoneNumber },
+        ],
+      })) as RelatedPerson;
+
+      console.log(`[UserCreate] Created RelatedPerson ${relatedPerson.id}`);
+    } catch (e) {
+      console.log(`[UserCreate] RelatedPerson create failed, retrying search`);
+
+      relatedResults = await findRelated();
+
+      if (relatedResults.length === 0) {
+        throw e;
       }
+
+      relatedPerson = relatedResults[0];
+      console.log(`[UserCreate] RelatedPerson resolved after race ${relatedPerson.id}`);
+    }
+  }
+
+  if (!relatedPerson) {
+    throw new Error('Failed to resolve RelatedPerson');
+  }
+
+  const linkReference = `RelatedPerson/${relatedPerson.id}`;
+
+  let retries = 0;
+
+  while (retries < 10) {
+    const alreadyLinked = resolvedPerson.link?.some((l) => l.target?.reference === linkReference) ?? false;
+
+    if (alreadyLinked) {
+      console.log(`[UserCreate] Link already exists`);
+      break;
     }
 
-    console.log(`Updated Person with ID ${person.id}`);
-  }
+    try {
+      console.log(`[UserCreate] Patching Person ${resolvedPerson.id} with link`);
 
-  if (!personPatchResult) {
-    throw new Error(`Failed to patch Person for user with phone number ${phoneNumber} after 10 retries`);
-  }
+      await oystehr.fhir.patch(
+        {
+          resourceType: 'Person',
+          id: resolvedPerson.id!,
+          operations: [
+            {
+              op: 'add',
+              path: resolvedPerson.link ? '/link/-' : '/link',
+              value: resolvedPerson.link
+                ? { target: { reference: linkReference } }
+                : [{ target: { reference: linkReference } }],
+            },
+          ],
+        },
+        { optimisticLockingVersionId: resolvedPerson.meta!.versionId }
+      );
 
-  if (!person) {
-    throw new Error(`Failed to create or update Person for user with phone number ${phoneNumber} after 10 retries`);
+      console.log(`[UserCreate] Patch successful`);
+      break;
+    } catch (e) {
+      retries++;
+      console.log(`[UserCreate] Patch failed (attempt ${retries}), refreshing Person`);
+
+      resolvedPerson = await oystehr.fhir.get<Person>({
+        resourceType: 'Person',
+        id: resolvedPerson.id!,
+      });
+
+      const nowLinked = resolvedPerson.link?.some((l) => l.target?.reference === linkReference) ?? false;
+
+      if (nowLinked) {
+        console.log(`[UserCreate] Link added by concurrent request`);
+        break;
+      }
+
+      if (retries >= 10) {
+        throw e;
+      }
+    }
   }
+  person = resolvedPerson;
+
+  console.log(`[UserCreate] Completed successfully`);
 
   return { relatedPerson, person, newUser };
 }
@@ -179,7 +251,6 @@ export async function getPatientResourceWithVerifiedPhoneNumber(
 ): Promise<{
   patient: Patient | undefined;
   verifiedPhoneNumber: string | undefined;
-  relatedPerson: RelatedPerson | undefined;
 }> {
   const response = (
     await oystehr.fhir.search<Patient | Person | RelatedPerson>({
@@ -201,28 +272,45 @@ export async function getPatientResourceWithVerifiedPhoneNumber(
     })
   ).unbundle();
 
-  const patient = response.find((res) => {
-    return res.resourceType === 'Patient';
-  }) as Patient;
+  const patient = response.find((res): res is Patient => res.resourceType === 'Patient');
 
-  const person = response.find((res) => {
-    return res.resourceType === 'Person';
-  }) as Person;
+  const loginRelatedPersons = response.filter(
+    (res): res is RelatedPerson =>
+      res.resourceType === 'RelatedPerson' &&
+      getCoding(res.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson'
+  );
 
-  const relatedPerson = response.find((res) => {
-    return res.resourceType === 'RelatedPerson';
-  }) as RelatedPerson;
+  if (!loginRelatedPersons.length) {
+    return { patient, verifiedPhoneNumber: undefined };
+  }
 
-  const contacts = person?.telecom ?? [];
+  const loginRpRefs = new Set(loginRelatedPersons.map((rp) => `RelatedPerson/${rp.id}`));
+  const loginPersons = response.filter(
+    (res): res is Person =>
+      res.resourceType === 'Person' && (res.link ?? []).some((link) => loginRpRefs.has(link.target?.reference ?? ''))
+  );
 
-  const verifiedPhoneNumber = contacts.find((contact) => {
-    if (contact.system === 'phone' && contact.value) {
-      return contact.period?.end == undefined;
-    }
-    return false;
-  })?.value;
+  const verifiedPhoneNumbers = Array.from(
+    new Set(
+      loginPersons.flatMap((person) =>
+        (person.telecom ?? [])
+          .filter((tc) => tc.system === 'phone' && tc.value && tc.period?.end == undefined)
+          .map((tc) => tc.value as string)
+      )
+    )
+  );
 
-  return { patient, verifiedPhoneNumber, relatedPerson };
+  if (verifiedPhoneNumbers.length === 1) {
+    return { patient, verifiedPhoneNumber: verifiedPhoneNumbers[0] };
+  }
+
+  if (verifiedPhoneNumbers.length > 1) {
+    console.log(
+      `getPatientResourceWithVerifiedPhoneNumber: patient ${patientID} has ${verifiedPhoneNumbers.length} verified login phones; returning undefined so the caller resolves deliberately`
+    );
+  }
+
+  return { patient, verifiedPhoneNumber: undefined };
 }
 
 export function getPatientFirstName(patient: Patient): string | undefined {
@@ -233,16 +321,22 @@ export function getPatientLastName(patient: Patient): string | undefined {
   return getLastName(patient);
 }
 
-export function getFirstName(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
-  return individual.name?.[0]?.given?.[0];
+export function getFirstName(
+  individual: Patient | Practitioner | RelatedPerson | Person | undefined
+): string | undefined {
+  return individual?.name?.[0]?.given?.[0];
 }
 
-export function getMiddleName(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
-  return individual.name?.[0].given?.[1];
+export function getMiddleName(
+  individual: Patient | Practitioner | RelatedPerson | Person | undefined
+): string | undefined {
+  return individual?.name?.[0].given?.[1];
 }
 
-export function getLastName(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
-  return individual.name?.[0]?.family;
+export function getLastName(
+  individual: Patient | Practitioner | RelatedPerson | Person | undefined
+): string | undefined {
+  return individual?.name?.[0]?.family;
 }
 
 export function getNickname(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
@@ -258,6 +352,41 @@ export function getFullName(individual: Patient | Practitioner | RelatedPerson |
   const middleName = getMiddleName(individual);
   const lastName = getLastName(individual);
   return `${firstName}${middleName ? ` ${middleName}` : ''} ${lastName}`;
+}
+
+/**
+ * Output format: LastName, FirstName[, MiddleName][ (Nickname)]
+ */
+export function getFormattedPatientFullName(
+  patient: Patient,
+  options?: { skipMiddleName?: boolean; skipNickname?: boolean }
+): string | undefined {
+  const firstName = getFirstName(patient);
+  const lastName = getLastName(patient);
+  const middleName = getMiddleName(patient);
+  const nickname = getNickname(patient);
+
+  if (!firstName && !lastName) {
+    return undefined;
+  }
+
+  let result: string;
+
+  if (lastName && firstName) {
+    result = `${lastName}, ${firstName}`;
+  } else {
+    result = firstName ?? lastName!;
+  }
+
+  if (!options?.skipMiddleName && middleName) {
+    result += `, ${middleName}`;
+  }
+
+  if (!options?.skipNickname && nickname) {
+    result += ` (${nickname})`;
+  }
+
+  return result;
 }
 
 export function getPatientInfoFullName(patient: PatientInfo): string {
@@ -318,15 +447,6 @@ export const findPatientForEncounter = (encounter: Encounter, patients: Patient[
   return undefined;
 };
 
-export const findRelatedPersonForPatient = (
-  patient: Patient,
-  relatedPersons: RelatedPerson[]
-): RelatedPerson | undefined => {
-  return relatedPersons.find(
-    (relatedPerson) => removePrefix('Patient/', relatedPerson.patient.reference ?? '') === patient.id
-  );
-};
-
 export function getPatientContactEmail(patient: Patient): string | undefined {
   const formUser = patient.extension?.find((ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/form-user`)?.valueString;
   if (formUser === 'Parent/Guardian') {
@@ -345,6 +465,60 @@ export function getPatientContactEmail(patient: Patient): string | undefined {
     return patient.telecom?.find((telecomTemp) => telecomTemp.system === 'email')?.value;
   }
 }
+
+const hasNonEmptyName = (patient: Patient): boolean =>
+  !!patient.name?.some((name) => (name.given?.[0]?.trim().length ?? 0) > 0 && (name.family?.trim().length ?? 0) > 0);
+
+const hasNonEmptyBirthDate = (patient: Patient): boolean => !!patient.birthDate?.trim();
+
+const hasNonEmptyGender = (patient: Patient): boolean => !!patient.gender?.trim();
+
+const hasNonEmptyAddress = (patient: Patient): boolean =>
+  !!patient.address?.some(
+    (address) =>
+      (address.line?.[0]?.trim().length ?? 0) > 0 &&
+      (address.city?.trim().length ?? 0) > 0 &&
+      (address.state?.trim().length ?? 0) > 0 &&
+      (address.postalCode?.trim().length ?? 0) > 0
+  );
+
+const isReachableTelecom = (telecoms?: ContactPoint[]): boolean =>
+  !!telecoms?.some(
+    (telecom) => (telecom.system === 'phone' || telecom.system === 'email') && (telecom.value?.trim().length ?? 0) > 0
+  );
+
+const hasReachableGuardianContact = (patient: Patient): boolean =>
+  !!patient.contact?.some((contact) => isReachableTelecom(contact.telecom));
+
+const hasReachableContact = (patient: Patient): boolean =>
+  isReachableTelecom(patient.telecom) || hasReachableGuardianContact(patient);
+
+export const isPatientDemographicsComplete = (patient: Patient | undefined): boolean => {
+  if (!patient) return false;
+
+  return (
+    hasNonEmptyName(patient) &&
+    hasNonEmptyBirthDate(patient) &&
+    hasNonEmptyGender(patient) &&
+    hasReachableContact(patient) &&
+    hasNonEmptyAddress(patient)
+  );
+};
+
+export const getErxPatientDemographicErrors = (patient: Patient | undefined): string[] => {
+  if (!patient) return ['patient'];
+
+  const errors: string[] = [];
+  const phone = patient.telecom?.find((telecom) => telecom.system === 'phone')?.value;
+
+  if (!hasNonEmptyName(patient)) errors.push('name');
+  if (!hasNonEmptyBirthDate(patient)) errors.push('birthDate');
+  if (!hasNonEmptyGender(patient)) errors.push('gender');
+  if (!isValidErxPhoneNumber(phone)) errors.push('phone');
+  if (!hasNonEmptyAddress(patient)) errors.push('address');
+
+  return errors;
+};
 
 type MightHaveTelecom = RelatedPerson | Patient | Person | Practitioner;
 export const getSMSNumberForIndividual = (individual: MightHaveTelecom): string | undefined => {
@@ -477,7 +651,7 @@ export const getPatientAddress = (
   const country = address?.[0]?.city;
   const addressLine = address?.[0]?.line?.[0];
   const addressLine2 = address?.[0]?.line?.[1];
-  const postalCode = address?.[0]?.postalCode;
+  const postalCode = address?.[0].postalCode ? formatZipcodeForDisplay(address?.[0].postalCode) : undefined;
   const state = address?.[0]?.state;
 
   const cityStateZIP = [city, state, postalCode].filter((value) => !!value).join(', ');
@@ -594,28 +768,94 @@ export const getProviderNotificationSettingsForPractitioner = (
   const notificationValue = notifyExtension?.extension?.find(
     (extension) => extension.url === PROVIDER_NOTIFICATION_METHOD_URL
   )?.valueString as ProviderNotificationMethod;
+
+  /** @deprecated */
   const notificationsEnabled =
     notifyExtension?.extension?.find((extension) => extension.url === PROVIDER_NOTIFICATIONS_ENABLED_URL)
       ?.valueBoolean === true;
+  const taskNotificationsExtension = notifyExtension?.extension?.find(
+    (extension) => extension.url === PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL
+  );
+  const telemedNotificationsExtension = notifyExtension?.extension?.find(
+    (extension) => extension.url === PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL
+  );
+  const taskNotificationsEnabled =
+    taskNotificationsExtension !== undefined ? taskNotificationsExtension.valueBoolean === true : notificationsEnabled;
+  const telemedNotificationsEnabled =
+    telemedNotificationsExtension !== undefined
+      ? telemedNotificationsExtension.valueBoolean === true
+      : notificationsEnabled;
+
+  const phoneNumber = getSMSNumberForIndividual(practitioner);
+
   return {
-    enabled: notificationsEnabled,
     method: notificationValue,
+    taskNotificationsEnabled,
+    telemedNotificationsEnabled,
+    phoneNumber,
   };
 };
 
-export const checkEncounterHasPractitioner = (encounter: Encounter, practitioner: Practitioner): boolean => {
-  const practitionerId = practitioner?.id;
+/**
+ * Reads the per-notification-type preferences from the Practitioner. Prefers the V2 JSON blob
+ * stored in a child of `PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL`; if absent (un-migrated staff),
+ * derives a sensible default from the legacy flat settings so existing behavior is preserved.
+ */
+export const getProviderNotificationPreferencesV2 = (
+  practitioner?: Practitioner
+): ProviderNotificationPreferencesV2 | undefined => {
+  if (!practitioner) return undefined;
+  const settingsExtension = practitioner.extension?.find(
+    (extension) => extension.url === PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL
+  );
+  const v2Raw = settingsExtension?.extension?.find(
+    (extension) => extension.url === PROVIDER_NOTIFICATION_PREFERENCES_V2_URL
+  )?.valueString;
 
-  const encounterPractitioner = encounter.participant?.find(
-    (item) => item.individual?.reference?.startsWith('Practitioner/')
-  )?.individual?.reference;
-  const encounterPractitionerId = encounterPractitioner && removePrefix('Practitioner/', encounterPractitioner);
+  const legacy = getProviderNotificationSettingsForPractitioner(practitioner);
+  const fallbackMethod = legacy?.method ?? ProviderNotificationMethod['phone and computer'];
 
-  return !!practitioner && !!encounterPractitioner && practitionerId === encounterPractitionerId;
+  if (v2Raw) {
+    try {
+      return normalizeNotificationPreferencesV2(
+        JSON.parse(v2Raw) as Partial<ProviderNotificationPreferencesV2>,
+        fallbackMethod
+      );
+    } catch (error) {
+      console.error('Failed to parse provider notification preferences v2', error);
+    }
+  }
+
+  if (!legacy) return undefined;
+  return {
+    version: 2,
+    virtualVisitScheduled: defaultNotificationRowPref(legacy.telemedNotificationsEnabled, fallbackMethod),
+    waitingRoom: defaultNotificationRowPref(legacy.telemedNotificationsEnabled, fallbackMethod),
+    taskCategories: buildDefaultTaskCategoryPrefs(legacy.taskNotificationsEnabled, fallbackMethod),
+  };
 };
 
-export const getPractitionerNPIIdentifier = (practitioner: Practitioner): Identifier | undefined => {
-  return practitioner.identifier?.find((existIdentifier) => existIdentifier.system === FHIR_IDENTIFIER_NPI);
+/**
+ * Whether the practitioner has an EXPLICIT V2 preferences blob (i.e. they've saved the new settings page),
+ * as opposed to the derived-from-legacy fallback. The category engine acts only on explicit-V2 staff;
+ * un-migrated staff stay on the legacy assignment path to avoid mass-notifying everyone about every task.
+ */
+export const hasExplicitProviderNotificationPreferencesV2 = (practitioner?: Practitioner): boolean => {
+  return (
+    practitioner?.extension
+      ?.find((extension) => extension.url === PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL)
+      ?.extension?.some((extension) => extension.url === PROVIDER_NOTIFICATION_PREFERENCES_V2_URL) === true
+  );
+};
+
+export const checkEncounterHasPractitioner = (encounter: Encounter, practitioner: Practitioner): boolean => {
+  return (
+    encounter.participant?.find((item) => item.individual?.reference === 'Practitioner/' + practitioner?.id) != null
+  );
+};
+
+export const getNPIIdentifier = (resource: Practitioner | Location | Organization): Identifier | undefined => {
+  return resource.identifier?.find((existIdentifier) => existIdentifier.system === FHIR_IDENTIFIER_NPI);
 };
 
 export const getPatientFormUser = (patient: Patient | undefined): 'Parent' | 'Self' | undefined => {
@@ -674,4 +914,43 @@ export const getPronounsFromExtension = (patient: Patient): string => {
   );
   if (!pronounsExtension?.valueCodeableConcept?.coding?.[0]) return '';
   return pronounsExtension.valueCodeableConcept.coding[0].display || '';
+};
+
+export const getPreferredPharmacyFromPatient = (patient: Patient): Organization | undefined => {
+  return patient?.contained?.find((res) => {
+    return (
+      res.resourceType === 'Organization' &&
+      res.type?.some((type) => {
+        return type.coding?.some((coding) => {
+          return coding.code === 'pharmacy' && coding.system === ORG_TYPE_CODE_SYSTEM;
+        });
+      })
+    );
+  }) as Organization | undefined;
+};
+
+export const makeSSNIdentifier = (ssn: string): Identifier => {
+  return {
+    system: 'http://hl7.org/fhir/sid/us-ssn',
+    type: {
+      coding: [
+        {
+          system: FHIR_IDENTIFIER_SYSTEM,
+          code: 'SS',
+        },
+      ],
+    },
+    value: ssn,
+  };
+};
+
+export const mapGenderToLabel: { [name in Exclude<Patient['gender'], undefined>]: string } = {
+  male: 'Male',
+  female: 'Female',
+  other: 'Intersex',
+  unknown: 'Unknown',
+};
+
+export const getPatientFriendlyId = (patient: Patient): string => {
+  return patient.identifier?.find((ident) => ident.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ?? '';
 };

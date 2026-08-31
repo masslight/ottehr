@@ -3,29 +3,27 @@ import { Autocomplete, Skeleton, TextField, Typography } from '@mui/material';
 import { Box, useTheme } from '@mui/system';
 import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
-import { generatePath, useNavigate } from 'react-router-dom';
-import {
-  APIError,
-  CreateSlotParams,
-  getClosingTime,
-  getHoursOfOperationForToday,
-  getOpeningTime,
-  getTimezone,
-  isApiError,
-  ServiceMode,
-  TelemedLocation,
-} from 'utils';
+import { generatePath, useNavigate, useSearchParams } from 'react-router-dom';
+import { PageContainer } from 'src/components/CustomContainer';
+import { useGetTelemedLocations } from 'src/telemed/features/appointments/appointment.queries';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
+import { getHoursOfOperationForToday } from 'utils/lib/fhir/location';
+import { getClosingTime, getOpeningTime } from 'utils/lib/helpers/check-office-open';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { CreateSlotParams } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ServiceMode } from 'utils/lib/types/common';
+import { TelemedLocation } from 'utils/lib/types/data/telemed/get-telemed-locations.types';
+import { APIError, isApiError } from 'utils/lib/types/errors';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import ottehrApi from '../api/ottehrApi';
 import { bookingBasePath, intakeFlowPageRoute } from '../App';
-import { PageContainer } from '../components';
 import { CustomTooltip } from '../components/CustomTooltip';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
-import { BoldPurpleInputLabel } from '../components/form';
 import PageForm from '../components/PageForm';
+import { dataTestIds } from '../helpers/data-test-ids';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
-import { useGetTelemedLocations } from '../telemed/features/appointments';
-import { useOystehrAPIClient } from '../telemed/utils';
 
 const emptyArray: [] = [];
 
@@ -50,6 +48,8 @@ const currentWorkingHoursText = (location: TelemedLocation | undefined): string 
 
 const StartVirtualVisit = (): JSX.Element => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const serviceCategory = searchParams.get('serviceCategory');
   const theme = useTheme();
   const [selectedLocation, setSelectedLocation] = useState<TelemedLocation | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,6 +81,11 @@ const StartVirtualVisit = (): JSX.Element => {
         lengthInMinutes: 15,
         status: 'busy-tentative',
         walkin: true,
+        ...(serviceCategory ? { serviceCategoryCode: serviceCategory } : {}),
+        // Use test questionnaire canonical if injected via config (for e2e test isolation)
+        ...(BOOKING_CONFIG.virtualQuestionnaireCanonical && {
+          questionnaireCanonical: BOOKING_CONFIG.virtualQuestionnaireCanonical,
+        }),
       };
 
       try {
@@ -166,6 +171,7 @@ const StartVirtualVisit = (): JSX.Element => {
         <>
           <Autocomplete
             id="states-autocomplete"
+            data-testid={dataTestIds.scheduleVirtualVisitStatesSelector}
             options={sortedLocations}
             getOptionLabel={(option) => option.fullName || option.state || ''}
             onChange={(_e, newValue) =>

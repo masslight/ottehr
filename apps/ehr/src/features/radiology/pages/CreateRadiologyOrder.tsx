@@ -1,8 +1,13 @@
-import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
   Box,
   Button,
+  Checkbox,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
   Grid,
   Paper,
@@ -12,112 +17,268 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { Coding } from 'fhir/r4b';
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getRadiologyUrl } from 'src/features/css-module/routing/helpers';
-import { CPTCodeDTO, DiagnosisDTO } from 'utils';
-import { createRadiologyOrder } from '../../../api/api';
-import { useApiClients } from '../../../hooks/useAppClients';
+import { enqueueSnackbar } from 'notistack';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
+import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
+import DetailPageContainer from 'src/features/common/DetailPageContainer';
+import { getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
+import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
+import { useCreateRadiologyOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
+import { LATERALITY_SELECTORS, LateralityValue } from 'utils/lib/fhir/radiology';
+import { RadiologyQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import {
-  useAppointmentData,
-  useChartData,
-  useDebounce,
-  useGetIcd10Search,
-  useICD10SearchNew,
-  useSaveChartData,
-} from '../../../telemed';
+  createRadiologyOrder,
+  createRadiologyQuickPick,
+  getRadiologyQuickPicks,
+  updateRadiologyQuickPick,
+} from '../../../api/api';
+import { useApiClients } from '../../../hooks/useAppClients';
+import useEvolveUser from '../../../hooks/useEvolveUser';
+import { sortQuickPicks, useMergedRadiologyQuickPicks } from '../../../hooks/useMergedQuickPicks';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
+import {
+  RadiologyOrderCoreFields,
+  RadiologyOrderFormActions,
+  useRadiologyOrderForm,
+  UseRadiologyOrderFormResult,
+} from '../components/RadiologyOrderFormShared';
+import { useRadiologyConsentExists } from '../components/useRadiologyConsentExists';
 
 interface CreateRadiologyOrdersProps {
   appointmentID?: string;
+  onFinished?: () => void;
 }
 
-const defaultStudies: Pick<Coding, 'code' | 'display'>[] = [
-  { code: '71045', display: 'X-ray of chest, 1 view' },
-  { code: '71046', display: 'X-ray of chest, 2 views' },
-  { code: '74018', display: 'X-ray of abdomen, 1 view' },
-  { code: '74019', display: 'X-ray of abdomen, 2 views' },
-  { code: '76010', display: 'X-ray from nose to rectum' },
-  { code: '73000', display: 'X-ray of collar bone' },
-  { code: '73010', display: 'X-ray of shoulder blade' },
-  { code: '73020', display: 'X-ray of shoulder, 1 view' },
-  { code: '73060', display: 'X-ray of upper arm, minimum of 2 views' },
-  { code: '73070', display: 'X-ray of elbow, 2 views' },
-  { code: '73090', display: 'X-ray of forearm, 2 views' },
-  { code: '73100', display: 'X-ray of wrist, 2 views' },
-  { code: '73120', display: 'X-ray of hand, 2 views' },
-  { code: '73140', display: 'X-ray of finger, minimum of 2 views' },
-  { code: '72170', display: 'X-ray of pelvis, 1-2 views' },
-  { code: '73552', display: 'X-ray of thigh bone, minimum 2 views' },
-  { code: '73560', display: 'X-ray of knee, 1-2 views' },
-  { code: '73590', display: 'X-ray of lower leg, 2 views' },
-  { code: '73600', display: 'X-ray of ankle, 2 views' },
-  { code: '73610', display: 'X-ray of ankle, minimum of 3 views' },
-  { code: '73620', display: 'X-ray of foot, 2 views' },
-  { code: '73630', display: 'X-ray of foot, minimum of 3 views' },
-  { code: '73660', display: 'X-ray of toe, minimum of 2 views' },
-];
-
-export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => {
+export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = ({ onFinished }) => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
+  const isInlineFlow = useIsInlineFlow();
+  const { id: appointmentIdFromUrl } = useParams();
+  const exit = onFinished ?? ((): void => navigate(getRadiologyUrl(appointmentIdFromUrl || '')));
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const { mutate: saveChartData } = useSaveChartData();
-  const { encounter, appointment } = useAppointmentData();
-  const { chartData, setPartialChartData } = useChartData();
-  const { diagnosis } = chartData || {};
-  const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
-  const [orderDx, setOrderDx] = useState<DiagnosisDTO | undefined>(primaryDiagnosis ? primaryDiagnosis : undefined);
-  const [orderCpt, setOrderCpt] = useState<CPTCodeDTO | undefined>();
-  const [stat, setStat] = useState<boolean>(false);
-  const [clinicalHistory, setClinicalHistory] = useState<string | undefined>();
+  const { encounter } = useAppointmentData();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  // used to fetch dx icd10 codes
-  const [dxDebouncedSearchTerm, setDxDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearchingDx, data: dxData } = useICD10SearchNew({
-    search: dxDebouncedSearchTerm,
+  const { setDraft, getDraft, clearDraft, hasDraft } = useCreateRadiologyOrderStore();
+  useMarkDraftNavigatedAway({ encounterId: encounter.id ?? '', setDraft, hasDraft });
+  const draft = useMemo<ReturnType<typeof getDraft>>(
+    () => (encounter.id ? getDraft(encounter.id) : {}),
+    [encounter.id, getDraft]
+  );
+
+  const form = useRadiologyOrderForm({
+    orderDx: draft.dx,
+    orderCpt: draft.cptCode,
+    studyName: draft.studyName,
+    clinicalHistory: draft.clinicalHistory,
+    laterality: draft.laterality,
   });
-  const icdSearchOptions = dxDebouncedSearchTerm === '' && diagnosis ? diagnosis : dxData?.codes || [];
-  const { debounce: debounceDx } = useDebounce(800);
-  const debouncedDxHandleInputChange = (data: string): void => {
-    debounceDx(() => {
-      setDxDebouncedSearchTerm(data);
-    });
+
+  const {
+    orderDx,
+    orderCpt,
+    studyName,
+    clinicalHistory,
+    laterality,
+    lateralityModifier,
+    addAdditionalDxToEncounter,
+    chartCptCodes,
+    setPartialChartData,
+  } = form;
+
+  const [stat, setStat] = useState<boolean>(draft.stat ?? false);
+  const [consentObtained, setConsentObtained] = useState<boolean>(draft.consentObtained ?? false);
+
+  // Wrap form setters to also persist to the draft store on every change.
+  const draftForm: UseRadiologyOrderFormResult = {
+    ...form,
+    setOrderDx: (dx) => {
+      form.setOrderDx(dx);
+      const next = typeof dx === 'function' ? dx(form.orderDx) : dx;
+      if (encounter.id) setDraft(encounter.id, { dx: next });
+    },
+    setOrderCpt: (cpt) => {
+      form.setOrderCpt(cpt);
+      const next = typeof cpt === 'function' ? cpt(form.orderCpt) : cpt;
+      if (encounter.id) setDraft(encounter.id, { cptCode: next });
+    },
+    setStudyName: (name) => {
+      form.setStudyName(name);
+      const next = typeof name === 'function' ? name(form.studyName) : name;
+      if (encounter.id) setDraft(encounter.id, { studyName: next });
+    },
+    setClinicalHistory: (history) => {
+      form.setClinicalHistory(history);
+      const next = typeof history === 'function' ? history(form.clinicalHistory) : history;
+      if (encounter.id) setDraft(encounter.id, { clinicalHistory: next });
+    },
+    setLaterality: (lat) => {
+      form.setLaterality(lat);
+      const next = typeof lat === 'function' ? lat(form.laterality) : lat;
+      if (encounter.id) setDraft(encounter.id, { laterality: next });
+    },
   };
 
-  // used to fetch cpt codes
-  const [cptDebouncedSearchTerm, setCptDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearchingCpt, data: cptData } = useGetIcd10Search({
-    search: cptDebouncedSearchTerm,
-    sabs: 'CPT',
-    radiologyOnly: true, // Only fetch CPT codes related to radiology
+  const handleClearForm = (): void => {
+    if (encounter.id) clearDraft(encounter.id);
+    form.setOrderDx(form.defaultDx);
+    form.setOrderCpt(undefined);
+    setStat(false);
+    form.setStudyName(undefined);
+    form.setClinicalHistory('');
+    form.setLaterality('');
+    setConsentObtained(false);
+  };
+
+  // Quick picks state
+  const {
+    quickPicks: mergedQuickPicks,
+    loading: mergedQuickPicksLoading,
+    refetch: refetchQuickPicks,
+  } = useMergedRadiologyQuickPicks();
+  const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
+  const [quickPickName, setQuickPickName] = useState('');
+  const [existingQuickPicks, setExistingQuickPicks] = useState<RadiologyQuickPickData[]>([]);
+  const [quickPickSaving, setQuickPickSaving] = useState(false);
+  const [overwriteTarget, setOverwriteTarget] = useState<RadiologyQuickPickData | null>(null);
+  const [confirmOverwriteOpen, setConfirmOverwriteOpen] = useState(false);
+  const currentUser = useEvolveUser();
+  const isAdmin = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
+
+  // Quick pick handlers
+  const onQuickPickSelect = (quickPick: RadiologyQuickPickData): void => {
+    draftForm.setOrderCpt(
+      quickPick.cptCode && quickPick.cptDisplay ? { code: quickPick.cptCode, display: quickPick.cptDisplay } : undefined
+    );
+    draftForm.setStudyName(quickPick.studyName ?? '');
+    draftForm.setLaterality((quickPick.laterality as LateralityValue) ?? '');
+    draftForm.setClinicalHistory(quickPick.clinicalHistory ?? '');
+    // stat and consentObtained not applied — encounter-specific
+  };
+
+  const onQuickPickSelectRef = useRef(onQuickPickSelect);
+  onQuickPickSelectRef.current = onQuickPickSelect;
+
+  const commandPaletteItems = useMemo(
+    () =>
+      isReadOnly
+        ? []
+        : mergedQuickPicks.map((quickPick) => ({
+            id: `radiology-${quickPick.id ?? quickPick.name}`,
+            label: quickPick.name,
+            category: 'Order Radiology',
+            onSelect: () => onQuickPickSelectRef.current(quickPick),
+          })),
+    [isReadOnly, mergedQuickPicks]
+  );
+  useCommandPaletteSource('radiology-quick-picks', commandPaletteItems);
+
+  const handlePendingQuickPick = useCallback(
+    (payload: RadiologyQuickPickData) => {
+      if (isReadOnly) {
+        return;
+      }
+      onQuickPickSelectRef.current(payload);
+    },
+    [isReadOnly]
+  );
+  usePendingQuickPick('radiology', handlePendingQuickPick);
+
+  const openQuickPickDialog = async (): Promise<void> => {
+    if (!oystehrZambda) return;
+    try {
+      const response = await getRadiologyQuickPicks(oystehrZambda);
+      setExistingQuickPicks([...response.quickPicks].sort(sortQuickPicks));
+    } catch (error) {
+      console.error('Failed to load existing quick picks:', error);
+      setExistingQuickPicks(mergedQuickPicks);
+    }
+    // Suggest name: Study Name | Study Type | Laterality
+    const parts: string[] = [];
+    if (studyName) parts.push(studyName);
+    if (orderCpt) parts.push(orderCpt.display);
+    if (laterality) parts.push(LATERALITY_SELECTORS[laterality].uiDisplay);
+    setQuickPickName(parts.join(' | '));
+    setOverwriteTarget(null);
+    setQuickPickDialogOpen(true);
+  };
+
+  const buildQuickPickFromCurrentState = (): Omit<RadiologyQuickPickData, 'id'> => ({
+    name: quickPickName.trim(),
+    cptCode: orderCpt?.code,
+    cptDisplay: orderCpt?.display,
+    studyName,
+    laterality: laterality || undefined,
+    clinicalHistory: clinicalHistory || undefined,
+    // stat and consentObtained excluded — encounter-specific
   });
-  const cptSearchOptions = cptData?.codes || defaultStudies;
-  const { debounce } = useDebounce(800);
-  const debouncedCptHandleInputChange = (data: string): void => {
-    debounce(() => {
-      setCptDebouncedSearchTerm(data);
-    });
+
+  const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
+    if (!quickPickName.trim()) {
+      enqueueSnackbar('Quick pick name is required', { variant: 'error' });
+      return;
+    }
+    if (!oystehrZambda) return;
+
+    setQuickPickSaving(true);
+    try {
+      const quickPickData = buildQuickPickFromCurrentState();
+      if (overwriteId) {
+        await updateRadiologyQuickPick(oystehrZambda, overwriteId, quickPickData);
+        enqueueSnackbar(`Quick pick "${quickPickName}" updated`, { variant: 'success' });
+      } else {
+        await createRadiologyQuickPick(oystehrZambda, { quickPick: quickPickData });
+        enqueueSnackbar(`Quick pick "${quickPickName}" created`, { variant: 'success' });
+      }
+      setQuickPickDialogOpen(false);
+      void refetchQuickPicks();
+    } catch (error) {
+      console.error('Failed to save quick pick:', error);
+      enqueueSnackbar('Failed to save quick pick', { variant: 'error' });
+    } finally {
+      setQuickPickSaving(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
-    const paramsSatisfied = orderDx && orderCpt && encounter.id && clinicalHistory && clinicalHistory.length <= 255;
+
+    // Diagnosis is optional at order time — it is captured when the preliminary read is saved.
+    const paramsSatisfied = orderCpt && encounter.id && clinicalHistory && clinicalHistory.length <= 255;
+
     if (oystehrZambda && paramsSatisfied && encounter.id) {
       try {
         await addAdditionalDxToEncounter();
-        await createRadiologyOrder(oystehrZambda, {
-          diagnosisCode: orderDx.code,
+        const res = await createRadiologyOrder(oystehrZambda, {
+          diagnosisCodes: orderDx.map((dx) => dx.code),
           cptCode: orderCpt.code,
+          lateralityModifier,
           encounterId: encounter.id,
           stat: stat,
           clinicalHistory: clinicalHistory,
+          studyName: studyName || undefined,
+          consentObtained,
         });
-        navigate(getRadiologyUrl(appointment?.id || ''));
+
+        if (res.cptCodesSaved && res.cptCodesSaved?.length > 0) {
+          // setting the new cpt codes so they are they when you nav to the assessment page without a refresh
+          setPartialChartData({
+            cptCodes: [...chartCptCodes, ...res.cptCodesSaved],
+          });
+        }
+
+        clearDraft(encounter.id);
+        exit();
       } catch (e) {
         const error = e as any;
         console.log('error', JSON.stringify(error));
@@ -126,7 +287,6 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
       }
     } else if (!paramsSatisfied) {
       const errorMessage = [];
-      if (!orderDx) errorMessage.push('Please enter a diagnosis to continue');
       if (!orderCpt) errorMessage.push('Please select a study type (CPT code) to continue');
       if (!clinicalHistory) errorMessage.push('Please enter clinical history to continue');
       if (clinicalHistory && clinicalHistory.length > 255)
@@ -137,182 +297,222 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     setSubmitting(false);
   };
 
-  const addAdditionalDxToEncounter = async (): Promise<void> => {
-    if (orderDx === undefined) return;
+  const consentExists = useRadiologyConsentExists();
 
-    const alreadyExistsOnEncounter = diagnosis?.find((d) => d.code === orderDx.code);
-    if (alreadyExistsOnEncounter) {
-      return;
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      saveChartData(
-        {
-          diagnosis: [orderDx],
-        },
-        {
-          onSuccess: (data) => {
-            const returnedDiagnosis = data.chartData.diagnosis || [];
-            const allDx = [...returnedDiagnosis, ...(diagnosis || [])];
-            if (allDx) {
-              setPartialChartData({
-                diagnosis: [...allDx],
-              });
-            }
-            resolve();
-          },
-          onError: (error) => {
-            reject(error);
-          },
-        }
-      );
-    });
-  };
-
-  return (
-    <WithRadiologyBreadcrumbs sectionName="Order Radiology">
+  const formContent = (
+    <>
       <Stack spacing={1}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
             Order Radiology
           </Typography>
         </Box>
+        {encounter.id && hasDraft(encounter.id) && (
+          <UnsavedDraftWarning
+            message={
+              draft.hasNavigatedAway
+                ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
+                : 'You have a radiology order in progress. Your draft will be saved.'
+            }
+          />
+        )}
 
         <form onSubmit={handleSubmit}>
           <Paper sx={{ p: 3 }}>
             <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
               <Grid item xs={12}>
-                <Autocomplete
-                  blurOnSelect
-                  id="select-dx"
-                  size="small"
-                  fullWidth
-                  filterOptions={(x) => x}
-                  noOptionsText={
-                    dxDebouncedSearchTerm && icdSearchOptions.length === 0
-                      ? 'Nothing found for this search criteria'
-                      : 'Start typing to load results'
-                  }
-                  value={orderDx || null}
-                  isOptionEqualToValue={(option, value) => value.code === option.code}
-                  onChange={(_event: any, selectedDx: any) => {
-                    setOrderDx(selectedDx);
+                <QuickPicksButton
+                  quickPicks={mergedQuickPicks}
+                  loading={mergedQuickPicksLoading}
+                  getLabel={(qp) => {
+                    const parts = [qp.name] as string[];
+                    if (qp.cptCode) parts.push(qp.cptCode);
+                    return parts.join(' — ');
                   }}
-                  loading={isSearchingDx}
-                  options={icdSearchOptions}
-                  getOptionLabel={(option) =>
-                    typeof option === 'string' ? option : `${option.code} ${option.display}`
-                  }
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      onChange={(e) => debouncedDxHandleInputChange(e.target.value)}
-                      label="Diagnosis"
-                      placeholder="Select diagnosis from list or search"
-                      multiline
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  )}
+                  onSelect={onQuickPickSelect}
+                  disabled={submitting}
+                  showAddOption
+                  isAdmin={isAdmin}
+                  onAddOrUpdate={() => void openQuickPickDialog()}
+                  searchable
                 />
               </Grid>
+              <RadiologyOrderCoreFields form={draftForm} />
               <Grid item xs={12}>
-                <Autocomplete
-                  blurOnSelect
-                  id="select-cpt"
-                  size="small"
-                  fullWidth
-                  filterOptions={(x) => x}
-                  noOptionsText={
-                    cptDebouncedSearchTerm && cptSearchOptions.length === 0
-                      ? 'Nothing found for this search criteria'
-                      : 'Start typing to load results'
-                  }
-                  value={orderCpt || null}
-                  isOptionEqualToValue={(option, value) => value.code === option.code}
-                  onChange={(_event: any, selectedCpt: any) => {
-                    setOrderCpt(selectedCpt);
-                  }}
-                  loading={isSearchingCpt}
-                  options={cptSearchOptions}
-                  getOptionLabel={(option) =>
-                    typeof option === 'string' ? option : `${option.code} ${option.display}`
-                  }
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      onChange={(e) => debouncedCptHandleInputChange(e.target.value)}
-                      label="Study Type"
-                      placeholder="Search for CPT Code"
-                      multiline
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  id="clinical-history"
-                  label="Clinical History"
-                  placeholder="Enter clinical history for the radiology order"
-                  fullWidth
-                  multiline
-                  size="small"
-                  value={clinicalHistory}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value.length <= 255) {
-                      setClinicalHistory(value);
-                    }
-                  }}
-                  error={clinicalHistory !== undefined && clinicalHistory.length > 255}
-                  helperText={
-                    clinicalHistory !== undefined && clinicalHistory.length > 255
-                      ? 'Clinical history must be 255 characters or less'
-                      : `${clinicalHistory?.length || 0}/255 characters`
-                  }
-                />
+                <Box style={{ display: 'flex', alignItems: 'center' }}>
+                  <Checkbox
+                    checked={consentObtained}
+                    onChange={() => {
+                      setConsentObtained(!consentObtained);
+                      if (encounter.id) setDraft(encounter.id, { consentObtained: !consentObtained });
+                    }}
+                  />
+                  <Typography>
+                    I have obtained the{' '}
+                    {consentExists ? (
+                      <Link
+                        target="_blank"
+                        to={`/consent_radiology.pdf`}
+                        style={{ color: theme.palette.primary.main }}
+                        rel="noopener noreferrer"
+                      >
+                        consent for X-ray
+                      </Link>
+                    ) : (
+                      'consent for X-ray'
+                    )}
+                  </Typography>
+                </Box>
               </Grid>
               <Grid item xs={12}>
                 <FormControlLabel
                   sx={{ fontSize: '14px' }}
-                  control={<Switch checked={stat} onChange={() => setStat(!stat)} />}
+                  control={
+                    <Switch
+                      checked={stat}
+                      onChange={() => {
+                        setStat(!stat);
+                        if (encounter.id) setDraft(encounter.id, { stat: !stat });
+                      }}
+                    />
+                  }
                   label={<Typography variant="body2">STAT</Typography>}
                 />
               </Grid>
-              <Grid item xs={6}>
-                <Button
-                  variant="outlined"
-                  sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-                  onClick={() => {
-                    navigate(`/in-person/${appointment?.id}/radiology`);
-                  }}
-                >
-                  Cancel
-                </Button>
-              </Grid>
-              <Grid item xs={6} display="flex" justifyContent="flex-end">
-                <LoadingButton
-                  loading={submitting}
-                  type="submit"
-                  variant="contained"
-                  sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-                >
-                  Order
-                </LoadingButton>
-              </Grid>
-              {error &&
-                error.length > 0 &&
-                error.map((msg, idx) => (
-                  <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
-                    <Typography sx={{ color: theme.palette.error.main }}>
-                      {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
-                    </Typography>
-                  </Grid>
-                ))}
+              <RadiologyOrderFormActions
+                submitting={submitting}
+                submitLabel="Order"
+                errors={error}
+                onCancel={() => {
+                  if (encounter.id) clearDraft(encounter.id);
+                  exit();
+                }}
+                clearFormButton={
+                  hasDraft(encounter.id ?? '') ? (
+                    <Button
+                      variant="outlined"
+                      sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
+                      onClick={handleClearForm}
+                    >
+                      Clear Form
+                    </Button>
+                  ) : undefined
+                }
+              />
             </Grid>
           </Paper>
         </form>
       </Stack>
-    </WithRadiologyBreadcrumbs>
+    </>
+  );
+
+  const dialogs = (
+    <>
+      {/* Save as Quick Pick dialog */}
+      <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle
+          sx={{
+            color: 'primary.dark',
+            fontWeight: 600,
+          }}
+        >
+          Add to Quick Picks
+        </DialogTitle>
+        <DialogContent>
+          <Autocomplete
+            freeSolo
+            options={existingQuickPicks.map((qp) => qp.name)}
+            value={quickPickName}
+            onChange={(_e, newValue) => setQuickPickName(newValue ?? '')}
+            onInputChange={(_e, newInputValue) => setQuickPickName(newInputValue)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Quick Pick Name"
+                fullWidth
+                sx={{ mt: 1 }}
+                autoFocus
+                placeholder="Enter a name or select an existing quick pick"
+              />
+            )}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
+          <Button
+            variant="outlined"
+            onClick={() => setQuickPickDialogOpen(false)}
+            disabled={quickPickSaving}
+            sx={{ borderRadius: 25, textTransform: 'none', fontWeight: 'bold' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disabled={!quickPickName.trim() || quickPickSaving}
+            sx={{ borderRadius: 25, textTransform: 'none', fontWeight: 'bold' }}
+            onClick={() => {
+              const existing = existingQuickPicks.find(
+                (qp) => qp.name.toLowerCase() === quickPickName.trim().toLowerCase()
+              );
+              if (existing?.id) {
+                setOverwriteTarget(existing);
+                setConfirmOverwriteOpen(true);
+              } else {
+                void onSaveAsQuickPick();
+              }
+            }}
+          >
+            {quickPickSaving ? <CircularProgress size={20} /> : 'Save Quick Pick'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Overwrite confirmation dialog */}
+      <Dialog open={confirmOverwriteOpen} onClose={() => setConfirmOverwriteOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ color: 'primary.dark', fontWeight: 600 }}>Update Existing Quick Pick?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            A quick pick named "{overwriteTarget?.name}" already exists. Do you want to replace it with the current
+            radiology order data?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
+          <Button
+            variant="outlined"
+            onClick={() => setConfirmOverwriteOpen(false)}
+            sx={{ borderRadius: 25, textTransform: 'none', fontWeight: 'bold' }}
+          >
+            Back
+          </Button>
+          <Button
+            variant="contained"
+            sx={{ borderRadius: 25, textTransform: 'none', fontWeight: 'bold' }}
+            onClick={() => {
+              setConfirmOverwriteOpen(false);
+              if (overwriteTarget?.id) {
+                void onSaveAsQuickPick(overwriteTarget.id);
+              }
+            }}
+          >
+            Replace
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+
+  if (isInlineFlow)
+    return (
+      <>
+        {formContent}
+        {dialogs}
+      </>
+    );
+
+  return (
+    <DetailPageContainer>
+      <WithRadiologyBreadcrumbs sectionName="Order Radiology">{formContent}</WithRadiologyBreadcrumbs>
+      {dialogs}
+    </DetailPageContainer>
   );
 };

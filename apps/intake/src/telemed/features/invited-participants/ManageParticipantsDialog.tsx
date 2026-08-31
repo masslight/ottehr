@@ -1,7 +1,7 @@
 import { Typography } from '@mui/material';
 import { FC } from 'react';
-import { CustomDialog } from '../../../components/CustomDialog';
-import { useGetVideoChatInvites } from '../waiting-room';
+import { useGetVideoChatInvites } from 'src/telemed/features/waiting-room/waiting-room.queries';
+import { CustomDialog } from 'ui-components/lib/components/intake/CustomDialog';
 import { ManageParticipants } from './ManageParticipants';
 
 type ManageParticipantsDialogProps = {

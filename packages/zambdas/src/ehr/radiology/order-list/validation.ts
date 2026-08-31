@@ -1,13 +1,17 @@
-import { isValidUUID, Secrets } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { GetRadiologyOrderListZambdaInputSchema } from 'utils/lib/types/api/radiology';
+import { MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { validateJsonBody } from '../../../shared/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
 import { ValidatedInput } from '.';
 
 export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput> => {
-  const validatedBody = await validateBody(input);
+  const validatedBody = validateBody(input);
 
   const callerAccessToken = input.headers.Authorization.replace('Bearer ', '');
   if (callerAccessToken == null) {
-    throw new Error('Caller access token is required');
+    throw MISSING_REQUIRED_PARAMETERS(['callerAccessToken']);
   }
 
   return {
@@ -16,49 +20,15 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
   };
 };
 
-const validateBody = async (input: ZambdaInput): Promise<ValidatedInput['body']> => {
-  const { encounterIds, patientId, serviceRequestId, itemsPerPage, pageIndex } = validateJsonBody(input);
+const validateBody = (input: ZambdaInput): ValidatedInput['body'] => {
+  const { encounterIds, patientId, serviceRequestId, itemsPerPage, pageIndex } = safeValidate(
+    GetRadiologyOrderListZambdaInputSchema,
+    validateJsonBody(input)
+  );
 
-  if (
-    (patientId && (serviceRequestId || encounterIds)) ||
-    (encounterIds && (patientId || serviceRequestId)) ||
-    (serviceRequestId && (patientId || encounterIds))
-  ) {
-    throw new Error('Only one of patientId, encounterIds, serviceRequestId may be sent at a time');
-  }
-
-  if (!patientId && !encounterIds && !serviceRequestId) {
-    throw new Error('One of patientId, encounterIds, serviceRequestId is required');
-  }
-
-  if (encounterIds && !Array.isArray(encounterIds) && !isValidUUID(encounterIds)) {
-    throw new Error('encounterIds must be a valid uuid');
-  }
-
-  if (encounterIds && Array.isArray(encounterIds) && encounterIds.some((id: any) => !isValidUUID(id))) {
-    throw new Error('all strings within encounterIds must be valid uuids');
-  }
-
-  if (patientId && !isValidUUID(patientId)) {
-    throw new Error('patientId must be a uuid');
-  }
-
-  if (serviceRequestId && !isValidUUID(serviceRequestId)) {
-    throw new Error('serviceRequestId must be a uuid');
-  }
-
-  if (itemsPerPage && (typeof itemsPerPage !== 'number' || isNaN(itemsPerPage) || itemsPerPage < 1)) {
-    throw new Error('Invalid parameter: If itemsPerPage is included then it must be a number greater than 0');
-  }
-
-  if (pageIndex && (typeof pageIndex !== 'number' || isNaN(pageIndex) || pageIndex < 0)) {
-    throw new Error('Invalid parameter: If pageIndex is included then it must be a number greater than or equal to 0');
-  }
-
-  let encounterIdsArr: string[] | undefined;
-  if (encounterIds) {
-    encounterIdsArr = Array.isArray(encounterIds) ? [...encounterIds] : [encounterIds];
-  }
+  // Normalize a single encounterId to an array.
+  const encounterIdsArr =
+    encounterIds == null ? undefined : Array.isArray(encounterIds) ? [...encounterIds] : [encounterIds];
 
   return {
     encounterIds: encounterIdsArr,
@@ -74,7 +44,7 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     throw new Error('Secrets are required');
   }
 
-  const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_API } = secrets;
+  const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_API, ENVIRONMENT } = secrets;
   if (!AUTH0_ENDPOINT || !AUTH0_CLIENT || !AUTH0_SECRET || !AUTH0_AUDIENCE || !FHIR_API || !PROJECT_API) {
     throw new Error('Missing required secrets');
   }
@@ -85,5 +55,7 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     AUTH0_AUDIENCE,
     FHIR_API,
     PROJECT_API,
+    // Required by userMe(); see `resolveCallerPractitionerRef` in shared/practitioners.ts.
+    ENVIRONMENT,
   };
 };

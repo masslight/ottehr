@@ -8,9 +8,11 @@ import {
   PATIENT_FILLING_OUT_AS_URL,
   PATIENT_GENDER_IDENTITY_DETAILS_URL,
   PATIENT_GENDER_IDENTITY_URL,
+  PATIENT_HAS_MEDICAID_URL,
   PATIENT_HEARING_IMPAIRED_RELAY_SERVICE_URL,
   PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
+  PATIENT_NO_EMAIL_URL,
   PATIENT_POINT_OF_DISCOVERY_URL,
   PATIENT_RACE_URL,
   PATIENT_RELEASE_OF_INFO_URL,
@@ -18,7 +20,9 @@ import {
   PATIENT_SEND_MARKETING_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
   PRACTICE_NAME_URL,
+  PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
   RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
+  RESPONSIBLE_PARTY_NO_EMAIL_URL,
 } from '../types/constants';
 import { extractExtensionValue } from './helpers';
 
@@ -47,6 +51,7 @@ export const patientFieldPaths = {
   pcpFirstName: 'Patient/contained/0/name/0/given/0',
   pcpLastName: 'Patient/contained/0/name/0/family',
   pcpPhone: 'Patient/contained/0/telecom/0/value',
+  pcpFax: 'Patient/contained/0/telecom/1/value',
   pcpStreetAddress: 'Patient/contained/0/address/0/line/0',
   practiceName: `Patient/contained/0/extension/${PRACTICE_NAME_URL}`,
   pcpActive: 'Patient/contained/0/active',
@@ -78,10 +83,18 @@ export const patientFieldPaths = {
   responsiblePartyEmail: 'Patient/contact/0/telecom/1/value',
   releaseOfInfo: `Patient/extension/${PATIENT_RELEASE_OF_INFO_URL}`,
   rxHistoryConsentStatus: `Patient/extension/${PATIENT_RX_HISTORY_CONSENT_STATUS_URL}`,
+  // TODO: This positional path assumes SSN is at index 0. Currently safe because the SSN-specific
+  // handler in harvest/index.ts finds the identifier by system URL, but if we ever need to harvest
+  // multiple identifier types, this should be refactored to use system-based lookup instead of
+  // positional indexing.
+  ssn: 'Patient/identifier/0/value',
   active: 'Patient/active',
   deceased: 'Patient/deceasedBoolean',
   deceasedDate: 'Patient/deceasedDateTime',
   deceasedNote: `Patient/extension/${PATIENT_DECEASED_NOTE_URL}`,
+  preferredCommunicationMethod: `Patient/extension/${PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL}`,
+  noEmail: `Patient/extension/${PATIENT_NO_EMAIL_URL}`,
+  patientHasMedicaid: `Patient/extension/${PATIENT_HAS_MEDICAID_URL}`,
 };
 
 export const coverageFieldPaths = {
@@ -108,6 +121,7 @@ export const relatedPersonFieldPaths = {
   relationship: 'RelatedPerson/relationship/0/coding/0/display',
   birthDate: 'RelatedPerson/birthDate',
   sameAsPatientAddress: `RelatedPerson/extension/${RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL}`,
+  noEmail: `RelatedPerson/extension/${RESPONSIBLE_PARTY_NO_EMAIL_URL}`,
 };
 
 interface ExtensionConfig extends Extension {
@@ -183,6 +197,18 @@ const EXTENSION_CONFIGS: Record<string, ExtensionConfig> = {
     url: PATIENT_RX_HISTORY_CONSENT_STATUS_URL,
     valueType: 'valueString',
   },
+  preferredCommunicationMethod: {
+    url: PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
+    valueType: 'valueString',
+  },
+  patientNoEmail: {
+    url: PATIENT_NO_EMAIL_URL,
+    valueType: 'valueBoolean',
+  },
+  patientHasMedicaid: {
+    url: PATIENT_HAS_MEDICAID_URL,
+    valueType: 'valueBoolean',
+  },
 };
 
 const PRONOUNS_MAPPING = {
@@ -210,12 +236,12 @@ const PRONOUNS_MAPPING = {
 
 const GENDER_IDENTITY_MAPPING = {
   'Female gender identity': {
-    code: '446151000124109',
+    code: '446141000124107',
     display: 'Female gender identity',
     system: 'http://snomed.info/sct',
   },
   'Male gender identity': {
-    code: '446141000124107',
+    code: '446151000124109',
     display: 'Male gender identity',
     system: 'http://snomed.info/sct',
   },
@@ -313,79 +339,66 @@ const CODEABLE_CONCEPT_MAPPINGS = {
   [PATIENT_ETHNICITY_URL]: ETHNICITY_MAPPING,
 };
 
-export function getPatchOperationToAddOrUpdateExtension(
-  resource: PatientMasterRecordResource,
-  extension: {
-    url: string;
-    value: string;
-    valueType?: string;
-  },
-  currentValue?: any
-): Operation {
-  const config = Object.values(EXTENSION_CONFIGS).find((config) => config.url === extension.url);
-  if (!config) return {} as Operation;
+/**
+ * Builds a complete FHIR Extension object from a URL and string value,
+ * using EXTENSION_CONFIGS to determine the correct value type and
+ * CODEABLE_CONCEPT_MAPPINGS for coded values.
+ */
+export function buildExtensionObject(url: string, value: string): Extension | undefined {
+  const config = Object.values(EXTENSION_CONFIGS).find((config) => config.url === url);
+  if (!config) return undefined;
 
   let extensionValue;
   switch (config.valueType) {
     case 'valueCodeableConcept': {
-      const mapping = CODEABLE_CONCEPT_MAPPINGS[extension.url as keyof typeof CODEABLE_CONCEPT_MAPPINGS];
+      const mapping = CODEABLE_CONCEPT_MAPPINGS[url as keyof typeof CODEABLE_CONCEPT_MAPPINGS];
       if (mapping) {
-        const valueMapping = mapping[extension.value as keyof typeof mapping] as Coding;
-        extensionValue = {
-          valueCodeableConcept: {
-            coding: [
-              {
-                system: valueMapping?.system,
-                code: valueMapping?.code,
-                display: valueMapping?.display,
-              },
-            ],
-          },
-        };
+        const valueMapping = mapping[value as keyof typeof mapping] as Coding | undefined;
+        // Only build the coding when the value is a known mapping key. An unmapped value
+        // would otherwise produce a coding of all-undefined fields that serializes to an
+        // empty `{}` — which violates FHIR constraint ele-1 and fails the whole patch.
+        // Leaving extensionValue undefined makes the caller skip this field entirely.
+        if (valueMapping) {
+          extensionValue = {
+            valueCodeableConcept: {
+              coding: [
+                {
+                  system: valueMapping.system,
+                  code: valueMapping.code,
+                  display: valueMapping.display,
+                },
+              ],
+            },
+          };
+        } else {
+          console.warn(`buildExtensionObject: no mapping for ${url} value "${value}"; skipping extension`);
+        }
       }
       break;
     }
     case 'valueBoolean':
       extensionValue = {
-        valueBoolean: extension.value === 'true',
+        valueBoolean: value === 'true',
       };
       break;
 
     case 'valueDateTime':
       extensionValue = {
-        valueDateTime: extension.value,
+        valueDateTime: value,
       };
       break;
 
     case 'valueString':
     default:
       extensionValue = {
-        valueString: extension.value,
+        valueString: value,
       };
       break;
   }
 
-  const existingExtensionIndex = resource.extension?.findIndex((ext) => ext.url === extension.url);
+  if (!extensionValue) return undefined;
 
-  if (currentValue !== undefined && existingExtensionIndex !== undefined && existingExtensionIndex >= 0) {
-    return {
-      op: 'replace',
-      path: `/extension/${existingExtensionIndex}`,
-      value: {
-        url: extension.url,
-        ...extensionValue,
-      },
-    };
-  }
-
-  return {
-    op: 'add',
-    path: '/extension/-',
-    value: {
-      url: extension.url,
-      ...extensionValue,
-    },
-  };
+  return { url, ...extensionValue };
 }
 
 export function getCurrentValue(
@@ -425,11 +438,29 @@ export function getCurrentValue(
 export const LANGUAGE_OPTIONS = {
   English: 'English',
   Spanish: 'Spanish',
+  Chinese: 'Chinese',
+  French: 'French',
+  German: 'German',
+  Tagalog: 'Tagalog',
+  Vietnamese: 'Vietnamese',
+  Italian: 'Italian',
+  Korean: 'Korean',
+  Russian: 'Russian',
+  Polish: 'Polish',
+  Arabic: 'Arabic',
+  Portuguese: 'Portuguese',
+  Japanese: 'Japanese',
+  Greek: 'Greek',
+  Hindi: 'Hindi',
+  Persian: 'Persian',
+  Urdu: 'Urdu',
+  'Sign Language': 'Sign Language',
+  Other: 'Other',
 } as const;
 
 export type LanguageOption = keyof typeof LANGUAGE_OPTIONS;
 
-const LANGUAGE_MAPPING: Record<LanguageOption, Coding> = {
+const LANGUAGE_MAPPING: Record<LanguageOption, Coding | undefined> = {
   [LANGUAGE_OPTIONS.English]: {
     code: 'en',
     display: 'English',
@@ -440,6 +471,84 @@ const LANGUAGE_MAPPING: Record<LanguageOption, Coding> = {
     display: 'Spanish',
     system: 'urn:ietf:bcp:47',
   },
+  [LANGUAGE_OPTIONS.Chinese]: {
+    code: 'zh',
+    display: 'Chinese',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.French]: {
+    code: 'fr',
+    display: 'French',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.German]: {
+    code: 'de',
+    display: 'German',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Tagalog]: {
+    display: 'Tagalog',
+  },
+  [LANGUAGE_OPTIONS.Vietnamese]: {
+    display: 'Vietnamese',
+  },
+  [LANGUAGE_OPTIONS.Italian]: {
+    code: 'it',
+    display: 'Italian',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Korean]: {
+    code: 'ko',
+    display: 'Korean',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Russian]: {
+    code: 'ru',
+    display: 'Russian',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Polish]: {
+    code: 'pl',
+    display: 'Polish',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Arabic]: {
+    code: 'ar',
+    display: 'Arabic',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Portuguese]: {
+    code: 'pt',
+    display: 'Portuguese',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Japanese]: {
+    code: 'ja',
+    display: 'Japanese',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Greek]: {
+    code: 'el',
+    display: 'Greek',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Hindi]: {
+    code: 'hi',
+    display: 'Hindi',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Persian]: {
+    display: 'Persian',
+  },
+  [LANGUAGE_OPTIONS.Urdu]: {
+    display: 'Urdu',
+  },
+  [LANGUAGE_OPTIONS['Sign Language']]: {
+    display: 'Sign Language',
+  },
+  [LANGUAGE_OPTIONS.Other]: {
+    display: 'Other',
+  },
 };
 
 interface LanguageCommunication {
@@ -447,16 +556,29 @@ interface LanguageCommunication {
   preferred: boolean;
 }
 
-function getLanguageCommunication(value: LanguageOption, preferred = true): LanguageCommunication {
-  const mapping = LANGUAGE_MAPPING[value];
+function getLanguageCommunication(value: string, preferred = true): LanguageCommunication {
+  const mapping = LANGUAGE_MAPPING[value as LanguageOption];
+
+  if (mapping) {
+    return {
+      language: {
+        coding: [
+          {
+            system: mapping.system,
+            code: mapping.code,
+            display: mapping.display,
+          },
+        ],
+      },
+      preferred,
+    };
+  }
 
   return {
     language: {
       coding: [
         {
-          system: mapping.system,
-          code: mapping.code,
-          display: mapping.display,
+          display: value,
         },
       ],
     },
@@ -465,10 +587,10 @@ function getLanguageCommunication(value: LanguageOption, preferred = true): Lang
 }
 
 export function getPatchOperationToAddOrUpdatePreferredLanguage(
-  value: LanguageOption,
+  value: string,
   path: string,
   patient: Patient,
-  currentValue?: LanguageOption
+  currentValue?: string
 ): Operation {
   const communication = getLanguageCommunication(value);
   if (currentValue) {

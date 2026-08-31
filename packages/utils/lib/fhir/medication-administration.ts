@@ -1,10 +1,12 @@
 import { DetectedIssue, Medication, MedicationAdministration, MedicationRequest } from 'fhir/r4b';
-import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
 import {
-  AllergyInteraction,
+  CODE_SYSTEM_ACT_CODE_V3,
+  CODE_SYSTEM_CPT,
+  CODE_SYSTEM_HL7_HCPCS,
+  CODE_SYSTEM_NDC,
+} from '../helpers/rcm/constants';
+import {
   DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
-  DrugInteraction,
-  ExtendedMedicationDataForResponse,
   INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
   INTERACTIONS_UNAVAILABLE,
   ISSUE_TYPE_CODE_SYSTEM,
@@ -13,8 +15,18 @@ import {
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_APPLIANCE_LOCATION_SYSTEM,
   MEDICATION_DISPENSABLE_DRUG_ID,
+  MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
+  PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_MEDICATION_CODE,
+  TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
+} from '../types/api/medication-administration.constants';
+import {
+  AllergyInteraction,
+  DrugInteraction,
+  ExtendedMedicationDataForResponse,
   MedicationApplianceLocation,
   medicationApplianceLocations,
   MedicationApplianceRoute,
@@ -22,13 +34,22 @@ import {
   MedicationData,
   MedicationInteractions,
   MedicationOrderStatusesType,
-  PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
-  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
-  PRACTITIONER_ORDERED_MEDICATION_CODE,
-  TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
   UpdateMedicationOrderInput,
-} from '../types';
+} from '../types/api/medication-administration.types';
 import { getCoding } from './helpers';
+
+// Local const so that DEPRECATED system doesn't get imported from utils
+const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // formerly used by Ottehr clinical in-house meds
+
+export type MedicationUnitOptions = 'mg' | 'ml' | 'g' | 'cc' | 'unit' | 'application';
+export const UNIT_OPTIONS: { value: MedicationUnitOptions; label: string }[] = [
+  { value: 'mg', label: 'mg' },
+  { value: 'ml', label: 'mL' },
+  { value: 'g', label: 'g' },
+  { value: 'cc', label: 'cc' },
+  { value: 'unit', label: 'unit' },
+  { value: 'application', label: 'application' },
+];
 
 export function mapFhirToOrderStatus(
   medicationAdministration: MedicationAdministration
@@ -63,8 +84,8 @@ export function mapOrderStatusToFhir(status: MedicationOrderStatusesType): Medic
   }
 }
 
-export function getMedicationName(medication: Medication): string | undefined {
-  return medication.identifier?.find((idn) => idn.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value;
+export function getMedicationName(medication: Medication | undefined): string | undefined {
+  return medication?.identifier?.find((idn) => idn.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value;
 }
 
 export function getMedicationTypeCode(medication: Medication): string | undefined {
@@ -108,12 +129,19 @@ export function getReasonAndOtherReasonForNotAdministeredOrder(medicationAdminis
   };
 }
 
-export function getLocationCodeFromMedicationAdministration(
+export function getLocationFromMedicationAdministration(
   medicationAdministration: MedicationAdministration
-): string | undefined {
-  return medicationAdministration.dosage?.site?.coding?.find(
+): { code: string; name: string } | undefined {
+  const coding = medicationAdministration.dosage?.site?.coding?.find(
     (coding) => coding.system === MEDICATION_APPLIANCE_LOCATION_SYSTEM
-  )?.code;
+  );
+  if (!coding?.code) return undefined;
+  // Match (code, display) to keep left/right apart; fall back to code-only on display drift.
+  const match =
+    medicationApplianceLocations.find((l) => l.code === coding.code && l.display === coding.display) ??
+    medicationApplianceLocations.find((l) => l.code === coding.code);
+  if (!match?.name) return undefined;
+  return { code: match.code, name: match.name };
 }
 
 export function getProviderIdAndDateMedicationWasAdministered(medicationAdministration: MedicationAdministration):
@@ -177,13 +205,18 @@ export function getCurrentOrderedByProviderId(medicationAdministration: Medicati
 }
 
 export const searchRouteByCode = (
-  code: keyof typeof medicationApplianceRoutes
+  code: keyof typeof medicationApplianceRoutes | undefined
 ): MedicationApplianceRoute | undefined => {
   return Object.values(medicationApplianceRoutes).find((route) => route.code === code);
 };
 
-export function searchMedicationLocation(code: string): MedicationApplianceLocation | undefined {
-  return medicationApplianceLocations.find((location) => location.code === code);
+export function searchMedicationLocation(
+  code: string | undefined,
+  name?: string | undefined
+): MedicationApplianceLocation | undefined {
+  return medicationApplianceLocations.find(
+    (location) => location.code === code && (name ? location.name === name : true)
+  );
 }
 
 export const medicationExtendedToMedicationData = (
@@ -203,9 +236,26 @@ export const medicationExtendedToMedicationData = (
     manufacturer: medicationExtendedData.manufacturer,
     location: medicationExtendedData.location,
     lotNumber: medicationExtendedData.lotNumber,
+    ndc: medicationExtendedData.ndc,
     expDate: medicationExtendedData.expDate,
     effectiveDateTime: medicationExtendedData.effectiveDateTime,
+    cptCodes: medicationExtendedData.cptCodes,
   };
+};
+
+/** Billable units = ceil(dose / billable unit size), minimum 1. Defaults to 1 when either value is missing/invalid. */
+export const computeBillableUnits = (dose: number | undefined, billableUnitSize: number | undefined): number => {
+  const doseNum = Number(dose);
+  if (
+    billableUnitSize == null ||
+    !Number.isFinite(billableUnitSize) ||
+    billableUnitSize <= 0 ||
+    !Number.isFinite(doseNum) ||
+    doseNum <= 0
+  ) {
+    return 1;
+  }
+  return Math.max(1, Math.ceil(doseNum / billableUnitSize));
 };
 
 export const makeMedicationOrderUpdateRequestInput = ({
@@ -277,6 +327,7 @@ export const getMedicationInteractions = (
       ?.filter((resource) => {
         return (
           resource.resourceType === 'DetectedIssue' &&
+          // cSpell:disable-next al(ler)gy
           getCoding(resource.code, CODE_SYSTEM_ACT_CODE_V3)?.code === 'ALGY'
         );
       })
@@ -287,13 +338,13 @@ export const getMedicationInteractions = (
           overrideReason: getOverrideReason(issue),
         };
       }) ?? [];
-  const interationUnavailableIssue = medicationRequest?.contained?.find((resource) => {
+  const interactionUnavailableIssue = medicationRequest?.contained?.find((resource) => {
     return (
       resource.resourceType === 'DetectedIssue' &&
       getCoding(resource.code, ISSUE_TYPE_CODE_SYSTEM)?.code === INTERACTIONS_UNAVAILABLE
     );
   });
-  if (interationUnavailableIssue) {
+  if (interactionUnavailableIssue) {
     return undefined;
   }
   return {
@@ -324,9 +375,116 @@ export const createMedicationString = (medication: ExtendedMedicationDataForResp
   const name = medication.medicationName;
   const dose = medication.dose && `${medication.dose} ${medication.units}`;
   const route = searchRouteByCode(medication.route)?.display;
+  const location = medication.location?.name;
   const givenBy = medication.administeredProvider && `given by ${medication.administeredProvider}`;
   const instructions = medication.instructions && `instructions: ${medication.instructions}`;
   const status = medicationStatusDisplayLabelMap[medication.status];
 
-  return [name, dose, route, givenBy, instructions, status].filter(Boolean).join(', ');
+  return [name, dose, route, location, givenBy, instructions, status].filter(Boolean).join(', ');
+};
+
+export function getMedicationFromMA(medicationAdministration: MedicationAdministration): Medication | undefined {
+  return medicationAdministration.contained?.find((res) => res.resourceType === 'Medication') as Medication;
+}
+
+export const MEDICATION_CPT_CODES_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/medication-cpt-codes';
+
+export interface MedicationCptCodeEntry {
+  code: string;
+  display: string;
+  isMedication?: boolean;
+  billableUnitSize?: number;
+  billableUnits?: number;
+}
+
+/** Parses the CPT/HCPCS codes (with optional billing unit data) stored on a MedicationAdministration extension. */
+export function getCptCodesFromMA(
+  medicationAdministration: MedicationAdministration
+): MedicationCptCodeEntry[] | undefined {
+  const ext = medicationAdministration.extension?.find((e) => e.url === MEDICATION_CPT_CODES_EXTENSION_URL);
+  if (!ext?.valueString) return undefined;
+  try {
+    return JSON.parse(ext.valueString) as MedicationCptCodeEntry[];
+  } catch {
+    return undefined;
+  }
+}
+
+export function getNdcCodeFromMedication(medication: Medication): string | undefined {
+  const medicationCoding = medication.code;
+  return getCoding(medicationCoding, CODE_SYSTEM_NDC)?.code;
+}
+
+export function getCptCodeFromMedication(medication: Medication): string | undefined {
+  const medicationCoding = medication.code;
+  return getCoding(medicationCoding, CODE_SYSTEM_CPT)?.code;
+}
+
+export function getHcpcsCodeFromMedication(medication: Medication): string | undefined {
+  const medicationCoding = medication.code;
+  return (
+    getCoding(medicationCoding, CODE_SYSTEM_HL7_HCPCS)?.code ??
+    // Legacy coding system
+    getCoding(medicationCoding, CODE_SYSTEM_HCPCS)?.code
+  );
+}
+
+export function getAllHcpcsCodesFromInHouseMedication(medication: Medication): string[] {
+  const resultCodes: string[] = [];
+  medication.code?.coding?.forEach((coding) => {
+    if (
+      (coding.system === CODE_SYSTEM_HL7_HCPCS ||
+        // Legacy coding system
+        coding.system === CODE_SYSTEM_HCPCS) &&
+      coding.code
+    ) {
+      resultCodes.push(coding.code);
+    }
+  });
+  return resultCodes;
+}
+
+export function getAllCptCodesFromInHouseMedication(medication: Medication): string[] {
+  const resultCodes: string[] = [];
+  medication.code?.coding?.forEach((coding) => {
+    if (coding.system === CODE_SYSTEM_CPT && coding.code) {
+      resultCodes.push(coding.code);
+    }
+  });
+  return resultCodes;
+}
+
+export function getDosageFromMA(
+  medicationAdministration: MedicationAdministration
+): { units: MedicationUnitOptions; dose: number } | undefined {
+  const dose = medicationAdministration.dosage?.dose?.value;
+  const units = medicationAdministration.dosage?.dose?.unit as MedicationUnitOptions;
+  if (!dose || !units) return undefined;
+  return {
+    units,
+    dose,
+  };
+}
+
+/**
+ * Grabs the interaction specific medispan id when available, otherwise falls back to the
+ * dispensable drug id when available
+ * @param medication
+ * @returns
+ */
+export const getMediSpanIdForInteraction = (medication: Medication): string | undefined => {
+  const medicationCoding = medication.code?.coding;
+  if (!medicationCoding) return undefined;
+
+  // context on both of these: MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS is there because
+  // sometimes the MEDICATION_DISPENSABLE_DRUG_ID selected by end users isn't a valid medication
+  // in the interactions database anymore. but it's the one they want to use because it's what
+  // is on their shelf. So we should use the interaction id when available
+  const maybeMedicationDispensableDrugId = medicationCoding.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID)
+    ?.code;
+  const maybeMedicationInteractionDrugId = medicationCoding.find(
+    (c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS
+  )?.code;
+
+  return maybeMedicationInteractionDrugId ?? maybeMedicationDispensableDrugId;
 };

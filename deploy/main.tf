@@ -1,15 +1,51 @@
 terraform {
-    backend "s3" {
-    bucket = "YOUR_TF_BUCKET_NAME"
-    region = "us-east-1"
-    profile = "YOUR_AWS_PROFILE_NAME"
-    key = "terraform.tfstate"
+  # For trying out Ottehr solo, use the local backend to avoid having to set up an S3 bucket and AWS credentials
+  # by commenting out the S3 backend and uncommenting the local backend.
+  # backend "local" {
+  #   path = "terraform.tfstate"
+  # }
+  backend "s3" {
+    bucket       = "YOUR_TF_BUCKET_NAME"
+    region       = "us-east-1"
+    profile      = "YOUR_AWS_PROFILE_NAME"
+    key          = "terraform.tfstate"
+    use_lockfile = true
   }
+  required_version = ">= 1.12.0"
   required_providers {
+    sendgrid = {
+      source  = "arslanbekov/sendgrid"
+      version = "~> 2.0"
+    }
     oystehr = {
-      source = "registry.terraform.io/masslight/oystehr"
+      source  = "registry.terraform.io/masslight/oystehr"
+      version = "0.0.22"
+    }
+    aws = {
+      source = "hashicorp/aws"
+    }
+    google = {
+      source = "hashicorp/google"
     }
   }
+}
+
+locals {
+  # DEBUG: set to `1` to run non-local modules
+  # `1` is the magic number to run a module that checks this local variable.
+  # switch which line is commented out to run non-local modules like aws_infra
+  # while still in the `local` environment
+  is_local                     = contains(["local", "e2e", "e2e2", "e2e3", "e2e4", "e2e5"], var.environment)
+  not_local_env_resource_count = local.is_local ? 0 : 1
+  # not_local_env_resource_count = 1
+
+  sendgrid_config         = jsondecode(file("../config/sendgrid/sendgrid.json"))
+  sendgrid_enabled        = try(local.sendgrid_config.featureFlag, false)
+  sendgrid_resource_count = local.sendgrid_enabled ? 1 : 0
+}
+
+provider "sendgrid" {
+  api_key = var.sendgrid_api_key != null ? var.sendgrid_api_key : "sendgrid-disabled"
 }
 
 provider "oystehr" {
@@ -18,9 +54,112 @@ provider "oystehr" {
   client_secret = var.client_secret
 }
 
+module "infra" {
+  source                     = "./infra/no-cloud"
+  count                      = local.not_local_env_resource_count
+  project_id                 = var.project_id
+  ehr_bucket_name            = var.ehr_bucket_name
+  ehr_domain                 = var.ehr_domain
+  ehr_cert_domain            = var.ehr_cert_domain
+  patient_portal_bucket_name = var.patient_portal_bucket_name
+  patient_portal_domain      = var.patient_portal_domain
+  patient_portal_cert_domain = var.patient_portal_cert_domain
+}
+
+module "sendgrid" {
+  count  = local.sendgrid_resource_count
+  source = "./sendgrid"
+  providers = {
+    sendgrid = sendgrid
+  }
+}
+
 module "oystehr" {
-  source = "./oystehr"
+  depends_on = [module.infra, module.sendgrid]
+  source     = "./oystehr"
   providers = {
     oystehr = oystehr
   }
+  sendgrid_template_ids       = local.sendgrid_enabled ? one(module.sendgrid[*].template_ids) : null
+  sendgrid_send_email_api_key = local.sendgrid_enabled ? var.sendgrid_api_key : null
+  ehr_domain                  = var.ehr_domain == null ? var.aws_profile == null ? null : one(module.infra[*].ehr_domain) : var.ehr_domain
+  patient_portal_domain       = var.patient_portal_domain == null ? var.aws_profile == null ? null : one(module.infra[*].patient_portal_domain) : var.patient_portal_domain
+  environment                 = var.environment
+}
+
+module "billing_app" {
+  source = "./billing_app"
+
+  project_id                   = var.project_id
+  environment                  = var.environment
+  is_local                     = local.is_local
+  aws_profile                  = var.aws_profile
+  not_local_env_resource_count = local.not_local_env_resource_count
+
+  billing_bucket_name = var.billing_bucket_name
+  billing_domain      = var.billing_domain
+  billing_cert_domain = var.billing_cert_domain
+  ehr_app_url         = var.ehr_domain == null ? "http://localhost:4002" : "https://${var.ehr_domain}"
+}
+
+module "ottehr_apps" {
+  depends_on  = [module.oystehr, module.infra, module.billing_app]
+  source      = "./ottehr_apps"
+  environment = var.environment
+  is_local    = local.is_local
+  ehr_vars = {
+    ENV                              = var.environment
+    PROJECT_ID                       = var.project_id
+    IS_LOCAL                         = local.is_local ? "true" : "false"
+    EHR_APP_NAME                     = module.oystehr.EHR_APP_NAME
+    EHR_ORGANIZATION_NAME_LONG       = module.oystehr.EHR_ORGANIZATION_NAME_LONG
+    EHR_ORGANIZATION_NAME_SHORT      = module.oystehr.EHR_ORGANIZATION_NAME_SHORT
+    OYSTEHR_APPLICATION_CLIENT_ID    = module.oystehr.app_ehr_client_id
+    OYSTEHR_APPLICATION_REDIRECT_URL = module.oystehr.app_ehr_redirect_url
+    OYSTEHR_CONNECTION_NAME          = module.oystehr.app_ehr_connection_name == null ? "" : module.oystehr.app_ehr_connection_name
+    MUI_X_LICENSE_KEY                = module.oystehr.MUI_X_LICENSE_KEY
+    OYSTEHR_APPLICATION_ID           = module.oystehr.app_ehr_id
+    PROJECT_API_ZAMBDA_URL           = local.is_local ? "http://localhost:3000/local" : "https://project-api.zapehr.com/v1"
+    PATIENT_APP_URL                  = var.patient_portal_domain == null ? one(module.infra[*].patient_portal_domain) == null ? "http://localhost:3002" : "https://${one(module.infra[*].patient_portal_domain)}" : "https://${var.patient_portal_domain}"
+    STRIPE_PUBLIC_KEY                = module.oystehr.stripe_public_key
+    DYNAMSOFT_LICENSE_KEY            = module.oystehr.DYNAMSOFT_LICENSE_KEY
+    SENTRY_AUTH_TOKEN                = module.oystehr.sentry_auth_token
+    SENTRY_ORG                       = module.oystehr.sentry_org
+    SENTRY_PROJECT                   = module.oystehr.sentry_apps_project
+    SENTRY_DSN                       = module.oystehr.sentry_apps_dsn
+    SENTRY_ENV                       = var.environment
+    SENTRY_TAGS                      = module.oystehr.sentry_tags
+  }
+  patient_portal_vars = {
+    ENV                           = var.environment
+    PROJECT_ID                    = var.project_id
+    IS_LOCAL                      = local.is_local ? "true" : "false"
+    PATIENT_APP_NAME              = module.oystehr.PATIENT_APP_NAME
+    OYSTEHR_APPLICATION_CLIENT_ID = module.oystehr.app_patient_portal_client_id
+    PROJECT_API_URL               = local.is_local ? "http://localhost:3000/local" : "https://project-api.zapehr.com/v1"
+    PROJECT_API_ZAMBDA_URL        = local.is_local ? "http://localhost:3000/local" : ""
+    MIXPANEL_TOKEN                = module.oystehr.MIXPANEL_TOKEN
+    GTM_ID                        = module.oystehr.GTM_ID
+    STRIPE_PUBLIC_KEY             = module.oystehr.stripe_public_key
+    SENTRY_AUTH_TOKEN             = module.oystehr.sentry_auth_token
+    SENTRY_ORG                    = module.oystehr.sentry_org
+    SENTRY_PROJECT                = module.oystehr.sentry_apps_project
+    SENTRY_DSN                    = module.oystehr.sentry_apps_dsn
+    SENTRY_ENV                    = var.environment
+    SENTRY_TAGS                   = module.oystehr.sentry_tags
+  }
+  zambda_secrets_for_local_server = merge(module.oystehr.zambda_secrets_for_local_server, module.billing_app.zambda_secrets_for_local_server)
+}
+
+module "apps_upload" {
+  depends_on                         = [module.ottehr_apps, module.infra]
+  count                              = local.not_local_env_resource_count
+  source                             = "./apps_upload/no-cloud"
+  aws_profile                        = var.aws_profile
+  ehr_bucket_id                      = one(module.infra[*].ehr_bucket_id)
+  patient_portal_bucket_id           = one(module.infra[*].patient_portal_bucket_id)
+  ehr_cdn_distribution_id            = one(module.infra[*].ehr_cdn_distribution_id)
+  patient_portal_cdn_distribution_id = one(module.infra[*].patient_portal_cdn_distribution_id)
+  ehr_hash                           = one(module.ottehr_apps[*].ehr_hash)
+  patient_portal_hash                = one(module.ottehr_apps[*].patient_portal_hash)
 }

@@ -1,10 +1,25 @@
 import Oystehr from '@oystehr/sdk';
-import { Patient, Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
-import { getCanonicalQuestionnaire } from 'utils';
-import { assertDefined } from '../../shared/helpers';
+import {
+  Appointment,
+  Location,
+  Patient,
+  Questionnaire,
+  QuestionnaireItem,
+  QuestionnaireResponse,
+  QuestionnaireResponseItem,
+  QuestionnaireResponseItemAnswer,
+  Schedule,
+} from 'fhir/r4b';
+import { getPatientFriendlyId } from 'utils/lib/fhir/patient';
+import { getCanonicalQuestionnaire, resolveEffectiveQuestionnaire } from 'utils/lib/fhir/questionnaires';
+import { getAppointmentType } from 'utils/lib/helpers/helpers';
+import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
+import { getMimeType } from 'utils/lib/utils/file';
+import { assertDefined, resolveTimezone } from '../../shared/helpers';
 
 export interface Document {
   patientInfo: PatientInfo;
+  visitInfo: VisitInfo;
   sections: Section[];
   imageItems: ImageItem[];
 }
@@ -12,6 +27,14 @@ export interface Document {
 export interface PatientInfo {
   name: string;
   id: string;
+  friendlyId: string;
+}
+
+export interface VisitInfo {
+  type: string;
+  time: string;
+  date: string;
+  location?: string;
 }
 
 export interface Section {
@@ -22,27 +45,41 @@ export interface Section {
 export interface Item {
   question: string;
   answer: string;
-}
-
-export enum ImageType {
-  JPG,
-  PNG,
+  group?: string;
 }
 
 export interface ImageItem {
   title: string;
-  imageType: ImageType;
+  /**
+   * The stored bytes. The attachment's declared contentType is deliberately NOT carried along:
+   * it is derived from the file extension of the z3 object name, which in turn comes from the
+   * browser's extension-derived File.type, so a JPEG uploaded as "card.png" is labelled image/png
+   * all the way into FHIR. The renderer sniffs the real format instead (see drawImageItem).
+   */
   imageBytes: Promise<ArrayBuffer>;
 }
 
 export async function createDocument(
   questionnaireResponse: QuestionnaireResponse,
-  oystehr: Oystehr
+  appointment: Appointment,
+  oystehr: Oystehr,
+  schedule?: Schedule,
+  location?: Location
 ): Promise<Document> {
-  const questionnaire = await fetchQuestionnaire(
-    assertDefined(questionnaireResponse.questionnaire, 'questionnaireResponse.questionnaire'),
+  const canonicalUrl = assertDefined(questionnaireResponse.questionnaire, 'questionnaireResponse.questionnaire');
+  const [url, version] = canonicalUrl.split('|');
+
+  if (!url || !version) {
+    throw new Error(`Invalid canonical URL format: ${canonicalUrl}. Expected format: "url|version"`);
+  }
+
+  // Assemble the flow into a concrete item[] so section titles, labels, and image detection resolve
+  // for flow-backed paperwork; a non-flow questionnaire is returned unchanged.
+  const questionnaire = await resolveEffectiveQuestionnaire(
+    await getCanonicalQuestionnaire({ url, version }, oystehr),
     oystehr
   );
+
   const [subjectType, subjectId] = (questionnaireResponse.subject?.reference ?? '').split('/');
   if (subjectType !== 'Patient') {
     throw new Error(`Only "Patient" subject is supported but was "${subjectType}"`);
@@ -51,51 +88,108 @@ export async function createDocument(
     resourceType: 'Patient',
     id: subjectId,
   });
+
+  const { type } = getAppointmentType(appointment);
+  const timezone = resolveTimezone(schedule, location);
+  const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start, timezone ?? 'America/New_York') ?? {};
+  const locationName = location?.name ?? '';
+
   return {
     patientInfo: {
       name: patient.name?.[0].family + ', ' + patient.name?.[0].given,
       id: patient.id ?? '',
+      friendlyId: getPatientFriendlyId(patient),
+    },
+    visitInfo: {
+      type,
+      time,
+      date,
+      location: locationName,
     },
     sections: createSections(questionnaireResponse, questionnaire),
     imageItems: createImageItems(questionnaireResponse, questionnaire, oystehr),
   };
 }
 
+function findQuestionnaireItem(linkId: string, items?: QuestionnaireItem[] | undefined): QuestionnaireItem | undefined {
+  if (!items) return undefined;
+  for (const it of items) {
+    if (!it) continue;
+    if (it.linkId === linkId) return it;
+    const found = findQuestionnaireItem(linkId, it.item);
+    if (found) return found;
+  }
+  return undefined;
+}
+
 function createSections(questionnaireResponse: QuestionnaireResponse, questionnaire: Questionnaire): Section[] {
-  return (questionnaireResponse.item ?? []).flatMap<Section>((sectionItem) => {
-    const questionItemSection = getItem(sectionItem.linkId, questionnaire);
-    const title = questionItemSection?.text;
-    const items = (sectionItem.item ?? []).flatMap<Item>((item) => {
-      const question = getItem(item.linkId, questionItemSection)?.text;
-      const answer = item.answer
-        ?.flatMap((answerItem) => {
-          const answer =
-            answerItem?.valueString ??
-            answerItem?.valueBoolean ??
-            answerItem?.valueDecimal ??
-            answerItem?.valueInteger ??
-            answerItem?.valueDate ??
-            answerItem?.valueTime ??
-            answerItem?.valueDateTime ??
-            answerItem?.valueQuantity?.value ??
-            answerItem?.valueReference?.display;
-          if (answer == null) {
-            return [];
-          }
-          return [answer.toString()];
-        })
-        .join();
-      if (question == null || answer == null || answer.length === 0) {
-        return [];
+  function extractAnswerValue(answerItem: QuestionnaireResponseItemAnswer): string | null {
+    const v =
+      answerItem?.valueString ??
+      answerItem?.valueBoolean ??
+      answerItem?.valueDecimal ??
+      answerItem?.valueInteger ??
+      answerItem?.valueDate ??
+      answerItem?.valueTime ??
+      answerItem?.valueDateTime ??
+      answerItem?.valueQuantity?.value ??
+      answerItem?.valueReference?.display;
+    if (v == null) return null;
+    return v.toString();
+  }
+
+  function collectItems(
+    questionnaireResponseItems: QuestionnaireResponseItem[] | undefined,
+    parentQuestionnaireItems?: QuestionnaireItem[] | undefined,
+    groupName?: string
+  ): Item[] {
+    const collected: Item[] = [];
+    if (!questionnaireResponseItems) return collected;
+
+    for (const questionnaireResponseItem of questionnaireResponseItems) {
+      if (!questionnaireResponseItem) continue;
+
+      let questionnaireItem = findQuestionnaireItem(questionnaireResponseItem.linkId, parentQuestionnaireItems);
+      if (!questionnaireItem) {
+        questionnaireItem = findQuestionnaireItem(questionnaireResponseItem.linkId, questionnaire.item);
       }
-      return [
-        {
-          question,
-          answer,
-        },
-      ];
-    });
-    if (title == null || items.length === 0) {
+
+      const questionText = questionnaireItem?.text;
+
+      if (questionnaireResponseItem.answer && questionnaireResponseItem.answer.length > 0) {
+        const answers = questionnaireResponseItem.answer
+          .flatMap((answer) => {
+            const value = extractAnswerValue(answer);
+            return value == null ? [] : [value];
+          })
+          .join();
+
+        if (questionText && answers.length > 0) {
+          const item: Item = { question: questionText, answer: answers };
+          if (groupName) {
+            item.group = groupName;
+          }
+          collected.push(item);
+        }
+      }
+
+      if (questionnaireResponseItem.item && questionnaireResponseItem.item.length > 0) {
+        const nextParentQItems = questionnaireItem?.item ?? parentQuestionnaireItems;
+        const childItems = collectItems(questionnaireResponseItem.item, nextParentQItems, questionText);
+        collected.push(...childItems);
+      }
+    }
+
+    return collected;
+  }
+
+  return (questionnaireResponse.item ?? []).flatMap<Section>((sectionItem) => {
+    const sectionDef = findQuestionnaireItem(sectionItem.linkId, questionnaire.item);
+    const title = sectionDef?.text ?? sectionItem.linkId;
+
+    const items = collectItems(sectionItem.item, sectionDef?.item ?? questionnaire.item);
+
+    if (!title || items.length === 0) {
       return [];
     }
     return {
@@ -110,60 +204,49 @@ function createImageItems(
   questionnaire: Questionnaire,
   oystehr: Oystehr
 ): ImageItem[] {
-  return (questionnaireResponse.item ?? []).flatMap<ImageItem>((sectionItem) => {
-    const questionItemSection = getItem(sectionItem.linkId, questionnaire);
-    return (sectionItem.item ?? []).flatMap((item) => {
-      const title = getItem(item.linkId, questionItemSection)?.text;
-      const attachment = item.answer?.[0]?.valueAttachment;
-      const url = attachment?.url;
-      if (title == null || attachment == null || url == null) {
-        return [];
-      }
-      let imageType: ImageType | undefined = undefined;
-      if (attachment.contentType === 'image/jpeg') {
-        imageType = ImageType.JPG;
-      }
-      if (attachment.contentType === 'image/png') {
-        imageType = ImageType.PNG;
-      }
-      if (imageType == null) {
-        return [];
-      }
-      return [
-        {
-          title,
-          imageType,
-          imageBytes: downloadImage(url, oystehr),
-        },
-      ];
-    });
-  });
+  const collected: ImageItem[] = [];
+
+  collectImageItems(questionnaireResponse.item, questionnaire.item, oystehr, collected, questionnaire);
+
+  return collected;
 }
 
-function getItem(
-  linkId: string,
-  obj?: {
-    item?: QuestionnaireResponseItem[] | undefined;
-  }
-): QuestionnaireResponseItem | undefined {
-  return obj?.item?.find((item) => item.linkId === linkId);
-}
+function collectImageItems(
+  responseItems: QuestionnaireResponseItem[] | undefined,
+  parentQuestionnaireItems: QuestionnaireItem[] | undefined,
+  oystehr: Oystehr,
+  collected: ImageItem[],
+  questionnaire: Questionnaire
+): void {
+  if (!responseItems) return;
 
-function fetchQuestionnaire(questionnaire: string, oystehr: Oystehr): Promise<Questionnaire> {
-  if (questionnaire.includes('|')) {
-    const [questionnaireURL, questionnaireVersion] = questionnaire.split('|');
-    return getCanonicalQuestionnaire(
-      {
-        url: questionnaireURL,
-        version: questionnaireVersion,
-      },
-      oystehr
-    );
+  for (const item of responseItems) {
+    const questionnaireItem = findQuestionnaireItem(item.linkId, parentQuestionnaireItems ?? questionnaire.item);
+    const title = questionnaireItem?.text;
+    const attachment = item.answer?.[0]?.valueAttachment;
+
+    // The declared type only decides IF an answer is treated as an image (keeping PDF attachments
+    // such as consents and school notes out); which encoding it actually is gets decided from the
+    // bytes at render time. contentType is optional on an Attachment, so fall back to the url's
+    // extension the way isFaxableAttachment does rather than dropping the image.
+    const declaredType = attachment?.contentType ?? (attachment?.url ? getMimeType(attachment.url) : undefined);
+    if (attachment?.url && declaredType?.startsWith('image/')) {
+      collected.push({
+        title: title ?? attachment.title ?? item.linkId,
+        imageBytes: downloadImage(attachment.url, oystehr),
+      });
+    }
+
+    if (item.item && item.item.length > 0) {
+      collectImageItems(
+        item.item,
+        questionnaireItem?.item ?? parentQuestionnaireItems,
+        oystehr,
+        collected,
+        questionnaire
+      );
+    }
   }
-  return oystehr.fhir.get({
-    resourceType: 'Questionnaire',
-    id: questionnaire,
-  });
 }
 
 async function downloadImage(url: string, oystehr: Oystehr): Promise<ArrayBuffer> {

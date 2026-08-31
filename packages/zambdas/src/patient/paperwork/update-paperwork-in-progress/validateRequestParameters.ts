@@ -1,22 +1,29 @@
 import { DateTime } from 'luxon';
-import {} from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { z } from 'zod';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 
 interface UpdatePaperworkInProgressParams {
   appointmentID: string;
   inProgress: string;
 }
 
+const UpdatePaperworkInProgressBodySchema = z.object({
+  appointmentID: z.string().uuid(),
+  inProgress: z.string().min(1),
+});
+
 export function validateUpdatePaperworkParams(input: ZambdaInput): UpdatePaperworkInProgressParams {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  const inputJSON = JSON.parse(input.body);
+  const inputJSON = safeJsonParse(input.body);
   console.log('inputJSON', JSON.stringify(inputJSON));
-  const { appointmentID, inProgress } = inputJSON;
+  const { appointmentID, inProgress } = safeValidate(UpdatePaperworkInProgressBodySchema, inputJSON);
 
-  if (inProgress === undefined || !DateTime.fromISO(inProgress).isValid) {
+  if (!DateTime.fromISO(inProgress).isValid) {
     throw new Error('Paperwork in progress update must supply a valid iso string for inProgress param');
   }
 

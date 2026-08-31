@@ -18,17 +18,19 @@ export const GetMedicationOrdersInputSchema = z.object({
   searchBy: z.union([
     z.object({
       field: z.literal('encounterId'),
-      value: z.string(),
+      value: z.string().uuid(),
     }),
     z.object({
       field: z.literal('encounterIds'),
-      value: z.array(z.string()),
+      value: z.array(z.string().uuid()),
     }),
   ]),
 });
 export type GetMedicationOrdersInput = z.infer<typeof GetMedicationOrdersInputSchema>;
+
 export interface GetMedicationOrdersResponse {
   orders: ExtendedMedicationDataForResponse[];
+  cancelledOrders: ExtendedMedicationDataForResponse[];
 }
 
 export interface UpdateMedicationOrderInput {
@@ -74,11 +76,19 @@ export interface MedicationData {
   associatedDx?: string;
   units?: string;
   manufacturer?: string;
-  location?: string;
+  location?: { code: string; name: string };
   providerId?: string;
+  cptCodes?: {
+    code: string;
+    display: string;
+    isMedication?: boolean;
+    billableUnitSize?: number;
+    billableUnits?: number;
+  }[];
 
   // scanning part
   lotNumber?: string;
+  ndc?: string;
   expDate?: string;
 
   // administrating ISO date with timezone
@@ -250,25 +260,25 @@ export const medicationApplianceLocations: MedicationApplianceLocation[] = [
     display: 'Other (qualifier value)',
   },
   {
-    name: 'Volume divided, R and L vastus lateralis',
+    name: 'Volume divided - Left vastus lateralis',
     code: '1217007000',
     system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
     display: 'Structure of left vastus lateralis muscle (body structure)',
   },
   {
-    name: 'Volume divided, R and L vastus lateralis',
+    name: 'Volume divided - Right vastus lateralis',
     code: '1217006009',
     system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
     display: 'Structure of right vastus lateralis muscle (body structure)',
   },
   {
-    name: 'Volume divided, R and L deltoid',
+    name: 'Volume divided - Right deltoid',
     code: '16217661000119109',
     system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
     display: 'Structure of right deltoid muscle (body structure)',
   },
   {
-    name: 'Volume divided, R and L deltoid',
+    name: 'Volume divided - Left deltoid',
     code: '16217701000119102',
     system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
     display: 'Structure of left deltoid muscle (body structure)',
@@ -901,6 +911,11 @@ export const medicationApplianceRoutes: MedicationApplianceRoutes = {
     system: 'http://snomed.info/sct',
     display: 'Intracerebroventricular route (qualifier value)',
   },
+  INFUSION: {
+    code: '445214009',
+    system: 'http://snomed.info/sct',
+    display: 'IV Infusion',
+  },
   PERCUTANEOUS: {
     code: '428191002',
     system: 'http://snomed.info/sct',
@@ -1148,6 +1163,13 @@ export const medicationApplianceRoutes: MedicationApplianceRoutes = {
   },
 } as const;
 
+/**
+ * Routes that mean IV medication entered the patient, and therefore warrant a vitals re-check once the
+ * order is administered. Administering an order on one of these routes auto-generates a nursing order
+ * prompting the clinician to re-record temp, RR, HR, BP and SpO2.
+ */
+export const IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK: readonly string[] = [medicationApplianceRoutes.INFUSION.code];
+
 export interface EmergencyContactRelationship {
   code: string;
   system: string;
@@ -1155,6 +1177,11 @@ export interface EmergencyContactRelationship {
 }
 
 export const EMERGENCY_CONTACT_RELATIONSHIPS: EmergencyContactRelationship[] = [
+  {
+    code: 'parent',
+    system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+    display: 'Parent',
+  },
   {
     code: 'legal-guardian',
     system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,

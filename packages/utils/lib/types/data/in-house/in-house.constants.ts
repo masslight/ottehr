@@ -1,5 +1,6 @@
-import { CodeableConcept } from 'fhir/r4b';
-import { TestStatus } from './in-house.types';
+import { CodeableConcept, Coding } from 'fhir/r4b';
+import { CPTCodeDTO } from '../../api/chart-data/chart-data.types';
+import { AdminInHouseLabItemDefinition, TestStatus } from './in-house.types';
 
 export enum PageName {
   collectSample,
@@ -21,10 +22,18 @@ export const inHouseLabsTestStatuses: Record<TestStatus, TestStatus> = {
 };
 
 export const IN_HOUSE_LAB_TASK = {
+  category: 'in-house-lab',
   system: 'in-house-lab-task',
   code: {
     collectSampleTask: 'CST',
     inputResultsTask: 'IRT',
+  },
+  input: {
+    testName: 'test-name',
+    patientName: 'patient-name',
+    providerName: 'provider-name',
+    orderDate: 'order-date',
+    appointmentId: 'appointment-id',
   },
 } as const;
 
@@ -85,9 +94,20 @@ export const IN_HOUSE_TEST_CODE_SYSTEM = 'http://ottehr.org/fhir/StructureDefini
 export const IN_HOUSE_PARTICIPANT_ROLE_SYSTEM =
   'http://ottehr.org/fhir/StructureDefinition/in-house-test-participant-role';
 
+export const IN_HOUSE_DEVICE_PARTICIPANT_CODING: Coding = {
+  system: IN_HOUSE_PARTICIPANT_ROLE_SYSTEM,
+  code: 'device',
+};
+
+const IN_HOUSE_LAB_TAG_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes';
 export const IN_HOUSE_TAG_DEFINITION = {
-  system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes',
+  system: IN_HOUSE_LAB_TAG_SYSTEM,
   code: 'in-house-lab-test-definition',
+};
+
+export const IN_HOUSE_LAB_LATEST_TAG_DEFINITION = {
+  system: IN_HOUSE_LAB_TAG_SYSTEM,
+  code: 'latest',
 };
 
 export const IN_HOUSE_UNIT_OF_MEASURE_SYSTEM = 'http://unitsofmeasure.org/';
@@ -95,16 +115,31 @@ export const IN_HOUSE_UNIT_OF_MEASURE_SYSTEM = 'http://unitsofmeasure.org/';
 export const IN_HOUSE_RESULTS_VALUESET_SYSTEM =
   'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet';
 
-const IN_HOUSE_LAB_OD_DISPLAY_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/valueset-display';
+export const IN_HOUSE_LAB_OBSERVATION_DEF_DISPLAY_SYSTEM =
+  'http://ottehr.org/fhir/StructureDefinition/valueset-display';
 
+export type IN_HOUSE_LAB_DISPLAY_TYPES = 'Radio' | 'Select' | 'Numeric' | 'Free Text';
 export const OD_DISPLAY_CONFIG = {
-  url: IN_HOUSE_LAB_OD_DISPLAY_SYSTEM,
+  url: IN_HOUSE_LAB_OBSERVATION_DEF_DISPLAY_SYSTEM,
   valueString: {
-    radio: 'Radio',
-    select: 'Select',
-    numeric: 'Numeric',
+    radio: 'Radio' as IN_HOUSE_LAB_DISPLAY_TYPES,
+    select: 'Select' as IN_HOUSE_LAB_DISPLAY_TYPES,
+    numeric: 'Numeric' as IN_HOUSE_LAB_DISPLAY_TYPES,
+    freeText: 'Free Text' as IN_HOUSE_LAB_DISPLAY_TYPES,
   },
 } as const;
+
+const IN_HOUSE_LAB_OD_VALIDATION_SYSTEM =
+  'http://ottehr.org/fhir/StructureDefinition/observation-definition-validation';
+
+const IN_HOUSE_LAB_TEXT_VALIDATION_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/text-format-validation';
+
+export const OD_VALUE_VALIDATION_CONFIG = {
+  url: IN_HOUSE_LAB_OD_VALIDATION_SYSTEM,
+  formatValidation: {
+    url: IN_HOUSE_LAB_TEXT_VALIDATION_SYSTEM,
+  },
+};
 
 export const IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/allow-null-value';
 
@@ -124,9 +159,86 @@ export const SPECIMEN_COLLECTION_SOURCE_SYSTEM = 'https://hl7.org/fhir/R4B/value
 // todo we will use this while the entry is free text
 export const SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/specimen-source';
 
-export const DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE = 10;
+export const DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE = 20;
 
 export const REPEATABLE_TEXT_EXTENSION_CONFIG = {
   url: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-repeatable-test',
   valueString: 'repeatable-test',
+};
+
+const RESULT_RECORDING_DETAIL_SYSTEM = 'result-recording-detail';
+export const ABNORMAL_RESULT_DR_TAG = {
+  system: RESULT_RECORDING_DETAIL_SYSTEM,
+  code: 'abnormal',
+  display: 'At least one abnormal result was recorded',
+};
+export const INCONCLUSIVE_RESULT_DR_TAG = {
+  system: RESULT_RECORDING_DETAIL_SYSTEM,
+  code: 'inconclusive',
+  display: 'At least one inconclusive result was recorded',
+};
+export const NEUTRAL_RESULT_DR_TAG = {
+  system: RESULT_RECORDING_DETAIL_SYSTEM,
+  code: 'neutral',
+  display: 'Tests done should be displayed in neutral ui', // no colors, no indications positive/negative (example pregnancy)
+};
+
+export const REFLEX_TEST_LOGIC_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-test-logic';
+export const REFLEX_TEST_TO_RUN_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-test-to-run';
+export const REFLEX_TEST_TO_RUN_NAME_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-test-to-run-name';
+export const REFLEX_TEST_ALERT_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-trigger-alert';
+export const REFLEX_TEST_CONDITION_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-condition';
+export const REFLEX_TEST_CONDITION_LANGUAGES = {
+  fhirPath: 'text/fhirpath',
+} as const;
+export const REFLEX_TEST_TRIGGERED_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-test-triggered';
+
+// tag needed to validating the progress note
+// the display value for this tag will be the reflex test name
+export const SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM = 'reflex-test-triggered';
+export const SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES = {
+  pending: 'pending', // test is not created, you cannot sign
+};
+
+export const REFLEX_ARTIFACT_DISPLAY = 'reflex relationship'; // added to the depends-on relatedArtifact on reflex test activity definitions
+
+export const SERVICE_REQUEST_ORDER_DETAIL_TAG_SYSTEM = 'inhouse-order-detail';
+export const REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG = {
+  system: SERVICE_REQUEST_ORDER_DETAIL_TAG_SYSTEM,
+  code: 'repeat',
+};
+
+export const REPEAT_TEST_CPT_CODE_MODIFIER: CPTCodeDTO = {
+  code: '91',
+  display: 'Repeat Clinical Diagnostic Laboratory Test',
+};
+
+export const DEFAULT_OBSERVATION_DEFINITION_CODING: Coding = {
+  system: 'http://ottehr.org/fhir/StructureDefinition/default-observation-definition-code-coding',
+  code: 'default-code',
+};
+
+export const DEFAULT_ACTIVITY_DEFINITION_PARTICIPANT_ROLE_CODING: Coding = {
+  system: 'http://ottehr.org/fhir/StructureDefinition/default-activity-definition-participant-role-coding',
+  code: 'default-code',
+};
+
+export const IN_HOUSE_LAB_ACTIVITY_DEFINITION_DEVICE_PARTICIPANT_TYPE = 'device';
+
+// explicitly defining the optional parameters as undefined for clarity
+export const ADMIN_IN_HOUSE_LAB_FORM_DEFAULT_VALUES: AdminInHouseLabItemDefinition = {
+  name: '',
+  device: undefined,
+  cptCode: [{ code: '' }],
+  loincCode: undefined,
+  repeatTest: false,
+  components: [
+    {
+      dataType: 'string',
+      componentName: '',
+      loincCode: undefined,
+      display: { type: 'Free Text' },
+    },
+  ],
+  note: undefined,
 };

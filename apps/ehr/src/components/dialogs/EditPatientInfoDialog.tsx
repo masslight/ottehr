@@ -11,6 +11,7 @@ interface EditPatientInfoDialogProps {
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
   submitButtonName: string;
   loading: boolean;
+  submitDisabled?: boolean;
   error?: boolean;
   errorMessage?: string;
   modalDetails?: ReactElement;
@@ -24,6 +25,7 @@ export default function EditPatientInfoDialog({
   onSubmit,
   submitButtonName,
   loading,
+  submitDisabled = false,
   error,
   errorMessage,
   modalDetails,
@@ -65,6 +67,7 @@ export default function EditPatientInfoDialog({
                   variant="contained"
                   type="submit"
                   loading={loading}
+                  disabled={submitDisabled}
                 >
                   {submitButtonName}
                 </LoadingButton>

@@ -3,32 +3,24 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, Location, Patient, QuestionnaireResponse, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  APPOINTMENT_NOT_FOUND_ERROR,
-  CheckInInput,
-  CheckInZambdaOutput,
-  formatPhoneNumberDisplay,
-  getAppointmentMetaTagOpForStatusUpdate,
-  getEncounterStatusHistoryIdx,
-  getLocationInformation,
-  getPatchBinary,
-  getSecret,
-  getTaskResource,
-  isNonPaperworkQuestionnaireResponse,
-  Secrets,
-  SecretsKeys,
-  TaskIndicator,
-  VisitType,
-} from 'utils';
-import {
-  checkPaperworkComplete,
-  createOystehrClient,
-  getAuth0Token,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getAppointmentMetaTagOpForStatusUpdate, getTaskResource } from 'utils/lib/fhir/helpers';
+import { getEncounterStatusHistoryIdx, getLocationInformation } from 'utils/lib/fhir/location';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
+import { Secrets } from 'utils/lib/secrets';
+import { CheckInInput, CheckInZambdaOutput } from 'utils/lib/types/api/check-in.types';
+import { TaskIndicator } from 'utils/lib/types/common';
+import { VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { APPOINTMENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
 import { getUser } from '../../shared/auth';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { checkPaperworkComplete, createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -40,142 +32,138 @@ export interface CheckInInputValidated extends CheckInInput {
 let oystehrToken: string;
 
 export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.time('check-in-zambda');
+  console.time('check-in-zambda');
 
-    console.group('validateRequestParameters');
-    console.log('getting user');
-    const userToken = input.headers.Authorization?.replace('Bearer ', '');
-    const user = userToken && (await getUser(userToken, input.secrets));
-    const formattedUserNumber = formatPhoneNumberDisplay(user?.name.replace('+1', ''));
-    const checkedInBy = `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
-    const validatedParameters = validateRequestParameters(input);
-    const { appointmentId: appointmentID, secrets } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
+  console.group('validateRequestParameters');
+  console.log('getting user');
+  const userToken = input.headers.Authorization?.replace('Bearer ', '');
+  const user = userToken && (await getUser(userToken, input.secrets));
+  const formattedUserNumber = formatPhoneNumberDisplay(user?.name?.replace('+1', ''));
+  const checkedInBy = `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
+  const validatedParameters = validateRequestParameters(input);
+  const { appointmentId: appointmentID, secrets } = validatedParameters;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
 
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
-
-    console.log('getting all fhir resources');
-    console.time('resource search for check in');
-    const allResources = (
-      await oystehr.fhir.search<Appointment | Encounter | Location | Patient | QuestionnaireResponse>({
-        resourceType: 'Appointment',
-        params: [
-          {
-            name: '_id',
-            value: appointmentID,
-          },
-          {
-            name: '_include',
-            value: 'Appointment:location',
-          },
-          {
-            name: '_revinclude',
-            value: 'Encounter:appointment',
-          },
-          {
-            name: '_include',
-            value: 'Appointment:patient',
-          },
-          {
-            name: '_revinclude:iterate',
-            value: 'QuestionnaireResponse:encounter',
-          },
-        ],
-      })
-    )
-      .unbundle()
-      .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
-    console.timeEnd('resource search for check in');
-
-    let appointment: Appointment | undefined,
-      patient: Patient | undefined,
-      encounter: Encounter | undefined,
-      questionnaireResponse: QuestionnaireResponse | undefined,
-      location: Location | undefined;
-
-    allResources.forEach((resource) => {
-      if (resource.resourceType === 'Appointment') {
-        appointment = resource as Appointment;
-      }
-      if (resource.resourceType === 'Patient') {
-        patient = resource as Patient;
-      }
-      if (resource.resourceType === 'Encounter') {
-        encounter = resource as Encounter;
-      }
-      if (resource.resourceType === 'Location') {
-        location = resource as Location;
-      }
-      if (resource.resourceType === 'QuestionnaireResponse') {
-        questionnaireResponse = resource as QuestionnaireResponse;
-      }
-    });
-
-    if (!appointment) {
-      throw APPOINTMENT_NOT_FOUND_ERROR;
-    }
-
-    const missingResources = `${!patient ? 'patient, ' : ''}${!encounter ? 'encounter, ' : ''}${
-      !location ? 'location, ' : ''
-    }`;
-    if (!encounter || !patient || !location) {
-      throw new Error(`The following vital resources are missing: ${missingResources}`);
-    }
-
-    const checkedIn = appointment.status !== 'booked';
-    if (!checkedIn) {
-      console.log('checking in the patient');
-      await checkIn(oystehr, checkedInBy, appointment, encounter);
-      await createAuditEvent(AuditableZambdaEndpoints.appointmentCheckIn, oystehr, input, patient.id || '', secrets);
-    } else {
-      console.log('Appointment is already checked in');
-    }
-
-    let paperworkCompleted = false;
-    if (questionnaireResponse) {
-      paperworkCompleted = checkPaperworkComplete(questionnaireResponse);
-    }
-
-    console.log('organizing location information');
-    const locationInformation = getLocationInformation(location);
-
-    console.timeEnd('check-in-zambda');
-
-    if (!appointment.start) {
-      throw new Error('Appointment start time is missing');
-    }
-
-    const response: CheckInZambdaOutput = {
-      location: locationInformation,
-      visitType: appointment.appointmentType?.text as VisitType, // TODO safely check value is a VisitType
-      start: appointment.start,
-      paperworkCompleted,
-    };
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('check-in', error, ENVIRONMENT);
+  if (!oystehrToken) {
+    console.log('getting token');
+    oystehrToken = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
   }
+
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
+
+  console.log('getting all fhir resources');
+  console.time('resource search for check in');
+  const allResources = (
+    await oystehr.fhir.search<Appointment | Encounter | Location | Patient | QuestionnaireResponse>({
+      resourceType: 'Appointment',
+      params: [
+        {
+          name: '_id',
+          value: appointmentID,
+        },
+        {
+          name: '_include',
+          value: 'Appointment:location',
+        },
+        {
+          name: '_revinclude',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include',
+          value: 'Appointment:patient',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'QuestionnaireResponse:encounter',
+        },
+      ],
+    })
+  )
+    .unbundle()
+    .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
+  console.timeEnd('resource search for check in');
+
+  let appointment: Appointment | undefined,
+    patient: Patient | undefined,
+    encounter: Encounter | undefined,
+    questionnaireResponse: QuestionnaireResponse | undefined,
+    location: Location | undefined;
+
+  allResources.forEach((resource) => {
+    if (resource.resourceType === 'Appointment') {
+      appointment = resource as Appointment;
+    }
+    if (resource.resourceType === 'Patient') {
+      patient = resource as Patient;
+    }
+    if (resource.resourceType === 'Encounter' && !isAnnotationFollowupEncounter(resource as Encounter)) {
+      encounter = resource as Encounter;
+    }
+    if (resource.resourceType === 'Location') {
+      location = resource as Location;
+    }
+    if (resource.resourceType === 'QuestionnaireResponse') {
+      questionnaireResponse = resource as QuestionnaireResponse;
+    }
+  });
+
+  if (!appointment) {
+    throw APPOINTMENT_NOT_FOUND_ERROR;
+  }
+
+  const missingResources = `${!patient ? 'patient, ' : ''}${!encounter ? 'encounter, ' : ''}${
+    !location ? 'location, ' : ''
+  }`;
+  if (!encounter || !patient || !location) {
+    throw new Error(`The following vital resources are missing: ${missingResources}`);
+  }
+
+  const checkedIn = appointment.status !== 'booked';
+  if (!checkedIn) {
+    console.log('checking in the patient');
+    await checkIn(oystehr, checkedInBy, appointment, encounter, patient);
+    await createAuditEvent(AuditableZambdaEndpoints.appointmentCheckIn, oystehr, input, patient.id || '', secrets);
+  } else {
+    console.log('Appointment is already checked in');
+  }
+
+  let paperworkCompleted = false;
+  if (questionnaireResponse) {
+    paperworkCompleted = checkPaperworkComplete(questionnaireResponse);
+  }
+
+  console.log('organizing location information');
+  const locationInformation = getLocationInformation(location);
+
+  console.timeEnd('check-in-zambda');
+
+  if (!appointment.start) {
+    throw new Error('Appointment start time is missing');
+  }
+
+  const response: CheckInZambdaOutput = {
+    location: locationInformation,
+    visitType: appointment.appointmentType?.text as VisitType, // TODO safely check value is a VisitType
+    start: appointment.start,
+    paperworkCompleted,
+  };
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 async function checkIn(
   oystehr: Oystehr,
   checkedInBy: string,
   appointment: Appointment,
-  encounter: Encounter
+  encounter: Encounter,
+  patient: Patient
 ): Promise<void> {
   const now = DateTime.now().setZone('UTC').toISO() || '';
 
@@ -210,6 +198,12 @@ async function checkIn(
         period: {
           start: now,
         },
+        extension: [
+          {
+            url: FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url,
+            valueCode: 'arrived',
+          },
+        ],
       },
     });
   }
@@ -236,7 +230,11 @@ async function checkIn(
     patchOperations: encounterPatchOperations,
   });
 
-  const checkInTextTask = getTaskResource(TaskIndicator.checkInText, appointment.id || '');
+  const checkInTextTask = getTaskResource(
+    TaskIndicator.checkInText,
+    `Send check-in text to ${getFullestAvailableName(patient)}`,
+    appointment.id || ''
+  );
   const taskRequest: BatchInputPostRequest<Task> = {
     method: 'POST',
     url: '/Task',

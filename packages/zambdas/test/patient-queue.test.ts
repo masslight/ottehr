@@ -1,6 +1,8 @@
 import { randomUUID } from 'crypto';
 import { Appointment, Encounter, EncounterStatusHistory } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import {
   AppointmentType,
   FhirAppointmentStatus,
@@ -8,10 +10,11 @@ import {
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
   VisitStatusWithoutUnknown,
-} from 'utils';
+} from 'utils/lib/types/api/appointment.types';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { beforeAll, expect, test } from 'vitest';
 import { HOP_QUEUE_URI } from '../src/shared/constants';
-import { sortAppointments } from '../src/shared/queueingUtils';
+import { getTrackingBoardVisitStatus, sortAppointments } from '../src/shared/queueingUtils';
 
 let NOW: DateTime;
 
@@ -247,7 +250,7 @@ const addParticipant = (
       {
         coding: [
           {
-            system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+            system: PARTICIPATION_CODE_SYSTEM,
             code: participantCode,
             display: participantDisplay,
           },
@@ -261,6 +264,17 @@ const addParticipant = (
     encounter.participant = [newParticipant];
   }
   return encounter;
+};
+
+const asTelemed = (visit: VisitDetails): VisitDetails => {
+  visit.appointment.meta = {
+    tag: [
+      {
+        code: OTTEHR_MODULE.TM,
+      },
+    ],
+  };
+  return visit;
 };
 
 const getAppointmentsAndMap = (
@@ -557,17 +571,17 @@ test('discharged patients queue', () => {
   const { appointments, apptRefToEncounterMap } = getAppointmentsAndMap(visits);
 
   const expectedOrder: Appointment[] = [
-    preBooked17MinEarly.appointment,
-    prebooked15MinEarly.appointment,
-    prebooked15MinEarly2.appointment,
-    preBooked10MinEarly.appointment,
-    preBooked5MinEarly.appointment,
-    prebookedAlmostRightOnTime.appointment,
-    prebookedRightOnTime.appointment,
     walkin75MinsAgo.appointment,
     walkin74MinsAgo.appointment,
     walkin11MinsAgo.appointment,
     walkinJustNow.appointment,
+    prebookedAlmostRightOnTime.appointment,
+    prebookedRightOnTime.appointment,
+    preBooked5MinEarly.appointment,
+    preBooked10MinEarly.appointment,
+    prebooked15MinEarly.appointment,
+    prebooked15MinEarly2.appointment,
+    preBooked17MinEarly.appointment,
   ];
 
   const sorted = sortAppointments(appointments, apptRefToEncounterMap).checkedOut;
@@ -623,4 +637,30 @@ test('prebooked patients queue', () => {
     console.log(val.id);
     expect(val.id).toBe(expectedOrder[idx].id);
   });
+});
+
+test('on-demand virtual visits land in the active queue, while pre-booked telemed stays prebooked', () => {
+  const onDemandVirtual = asTelemed(makeVisit_Pending('walk-in', 0));
+  const prebookedVirtual = asTelemed(makeVisit_Pending('pre-booked', -15));
+
+  const { appointments, apptRefToEncounterMap } = getAppointmentsAndMap([onDemandVirtual, prebookedVirtual]);
+  const sorted = sortAppointments(appointments, apptRefToEncounterMap);
+
+  const activeIds = sorted.inOffice.waitingRoom.arrived.map((appointment) => appointment.id);
+  const prebookedIds = sorted.prebooked.map((appointment) => appointment.id);
+
+  expect(activeIds).toContain(onDemandVirtual.appointment.id);
+  expect(prebookedIds).not.toContain(onDemandVirtual.appointment.id);
+
+  expect(prebookedIds).toContain(prebookedVirtual.appointment.id);
+  expect(activeIds).not.toContain(prebookedVirtual.appointment.id);
+});
+
+test('on-demand virtual visit reads as pending for notifications but arrived for the tracking board', () => {
+  const { appointment, encounter } = asTelemed(makeVisit_Pending('walk-in', 0));
+
+  // for "Virtual visit with X at Y" notifications
+  expect(getInPersonVisitStatus(appointment, encounter)).toBe('pending');
+  // Active tab
+  expect(getTrackingBoardVisitStatus(appointment, encounter)).toBe('arrived');
 });

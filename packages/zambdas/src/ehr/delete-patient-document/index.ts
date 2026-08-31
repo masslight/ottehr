@@ -1,0 +1,92 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { Operation } from 'fast-json-patch';
+import { DocumentReference, List } from 'fhir/r4b';
+import { replaceOperation } from 'utils/lib/helpers/operations';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { deleteZ3Object, Z3Error } from '../../shared/z3Utils';
+import { validateRequestParameters } from './validateRequestParameters';
+
+const ZAMBDA_NAME = 'delete-patient-document';
+
+// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
+let m2mToken: string;
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const { secrets, documentRefId } = validateRequestParameters(input);
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+  const docRef = (
+    await oystehr.fhir.search<DocumentReference>({
+      resourceType: 'DocumentReference',
+      params: [
+        {
+          name: '_id',
+          value: documentRefId,
+        },
+      ],
+    })
+  ).unbundle()[0];
+
+  if (!docRef) {
+    throw new Error(`DocumentReference not found id=${documentRefId}`);
+  }
+
+  const z3Urls = docRef.content?.map((c) => c.attachment?.url).filter((url): url is string => !!url) ?? [];
+
+  console.log(`Found ${z3Urls.length} files to delete`);
+
+  await Promise.all(
+    z3Urls.map(async (url) => {
+      try {
+        await deleteZ3Object(url, m2mToken);
+      } catch (e) {
+        if (e instanceof Z3Error && e.statusCode === 404) {
+          console.warn(`Z3 file not found (already deleted?), continuing: ${url}`);
+        } else {
+          throw e;
+        }
+      }
+    })
+  );
+
+  const listResources = (
+    await oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [{ name: 'subject', value: docRef.subject?.reference || '' }],
+    })
+  ).unbundle() as List[];
+
+  const targetLists = listResources.filter(
+    (list) => list.entry?.some((entry) => entry.item?.reference === `DocumentReference/${documentRefId}`)
+  );
+
+  await Promise.all(
+    targetLists.map(async (list) => {
+      const updatedEntries =
+        list.entry?.filter((e) => e.item?.reference !== `DocumentReference/${documentRefId}`) ?? [];
+
+      const operations: Operation[] = [replaceOperation('/entry', updatedEntries)];
+
+      return oystehr.fhir.patch<List>({
+        resourceType: 'List',
+        id: list.id!,
+        operations,
+      });
+    })
+  );
+
+  await oystehr.fhir.delete({
+    resourceType: 'DocumentReference',
+    id: documentRefId,
+  });
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ success: true }),
+  };
+});

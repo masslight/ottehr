@@ -1,9 +1,17 @@
+import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, DocumentReference, Patient } from 'fhir/r4b';
-import { getSecret, SecretsKeys, VISIT_NOTE_SUMMARY_CODE } from 'utils';
-import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { checkOrCreateM2MClientToken } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { Appointment, DocumentReference, Patient, Practitioner } from 'fhir/r4b';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { removePrefix, standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { SendFaxZambdaInput } from 'utils/lib/types/api/send-fax.types';
+import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { sendFaxAttempt, SendFaxAttemptInput } from '../../shared/send-fax-attempt';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'send-fax';
@@ -11,79 +19,127 @@ const ZAMBDA_NAME = 'send-fax';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log(`Input: ${JSON.stringify(input)}`);
-    console.group('validateRequestParameters()');
-    const { appointmentId, faxNumber, secrets } = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters() success');
-    console.log('appointmentId', appointmentId);
-    console.log('faxNumber', faxNumber);
+  console.log(`Input: ${JSON.stringify(input)}`);
+  console.group('validateRequestParameters()');
+  const validatedInput = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters() success');
+  console.log('appointmentId', validatedInput.appointmentId, 'faxNumber', validatedInput.faxNumber);
 
-    console.group('checkOrCreateM2MClientToken() then createOystehrClient()');
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    console.groupEnd();
-    console.debug('checkOrCreateM2MClientToken() then createOystehrClient() success');
+  const authorization = input.headers.Authorization;
+  const user = await getUser(authorization.replace('Bearer ', ''), validatedInput.secrets);
 
-    const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
+  console.group('checkOrCreateM2MClientToken() then createOystehrClient()');
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
+  console.groupEnd();
+  console.debug('checkOrCreateM2MClientToken() then createOystehrClient() success');
 
-    console.log('searching fhir for patient, and visit note');
-    // also includes other actors but i'm not using them so i won't include their types
-    const bundle = (
-      await oystehr.fhir.search<Appointment | DocumentReference | Patient>({
-        resourceType: 'Appointment',
-        params: [
-          {
-            name: '_id',
-            value: appointmentId,
-          },
-          {
-            name: '_include',
-            value: 'Appointment:actor',
-          },
-          {
-            name: '_revinclude',
-            value: 'DocumentReference:related',
-          },
-        ],
-      })
-    ).unbundle();
+  console.group('complexValidation()');
+  const effectInput = await complexValidation(validatedInput, oystehr, user);
+  console.groupEnd();
+  console.debug('complexValidation() success');
 
-    const patient = bundle.find((resource) => resource.resourceType === 'Patient') as Patient;
-    const visitNote = bundle.find(
-      (resource) =>
-        resource.resourceType === 'DocumentReference' &&
-        resource.type?.coding?.find((coding) => coding.code === VISIT_NOTE_SUMMARY_CODE)
-    ) as DocumentReference;
+  console.group('performEffect()');
+  const response = await performEffect(effectInput, oystehr, user);
+  console.groupEnd();
+  console.debug('performEffect() success', JSON.stringify(response));
 
-    const patientId = patient?.id;
-    const media = visitNote?.content[0].attachment.url;
-    if (!patientId || !media) {
-      return {
-        body: JSON.stringify({ message: 'Patient or visit note url not found' }),
-        statusCode: 404,
-      };
-    }
-    console.log('patient id', patient.id);
-    console.log('media url', media);
-
-    console.log('Sending fax to', faxNumber);
-    await oystehr.fax.send({
-      media,
-      quality: 'standard',
-      patient: `Patient/${patientId}`,
-      recipientNumber: faxNumber,
-      sender: `Organization/${organizationId}`,
-    });
-    console.log('Fax sent successfully');
-
-    return {
-      body: JSON.stringify('Fax sent'),
-      statusCode: 200,
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('send-fax', error, ENVIRONMENT);
-  }
+  return response;
 });
+
+const complexValidation = async (
+  validatedInput: SendFaxZambdaInput & Pick<ZambdaInput, 'secrets'>,
+  oystehr: Oystehr,
+  user: User
+): Promise<SendFaxAttemptInput> => {
+  const { appointmentId, faxNumber, secrets } = validatedInput;
+  const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
+  const practitionerId = removePrefix('Practitioner/', user.profile);
+  if (!practitionerId) throw new Error('User practitioner reference is invalid');
+
+  console.log('searching fhir for patient, visit note, and user');
+  const [bundle, userPractitioner] = await Promise.all([
+    // also includes other actors but i'm not using them so i won't include their types
+    oystehr.fhir.search<Appointment | DocumentReference | Patient>({
+      resourceType: 'Appointment',
+      params: [
+        {
+          name: '_id',
+          value: appointmentId,
+        },
+        {
+          name: '_include',
+          value: 'Appointment:actor',
+        },
+        {
+          name: '_revinclude',
+          value: 'DocumentReference:related',
+        },
+      ],
+    }),
+    oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: practitionerId,
+    }),
+  ]);
+
+  const resources = bundle.unbundle();
+  const patient = resources.find((resource) => resource.resourceType === 'Patient') as Patient;
+  const visitNote = resources.find(
+    (resource) =>
+      resource.resourceType === 'DocumentReference' &&
+      resource.type?.coding?.find((coding) => coding.code === VISIT_NOTE_SUMMARY_CODE)
+  ) as DocumentReference;
+
+  const patientId = patient?.id;
+  const media = visitNote?.content[0].attachment.url;
+  if (!patientId || !media || !visitNote.id) {
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('Patient or visit note url not found');
+  }
+  console.log('patient id', patientId);
+  console.log('media url', media);
+
+  return {
+    appointmentId,
+    faxNumber,
+    organizationId,
+    patientId,
+    media,
+    documentReferenceId: visitNote.id,
+    userPractitioner,
+    recipientName: findRecipientName(patient, faxNumber),
+    senderId: user.id,
+  };
+};
+
+/**
+ * Resolves the recipient's name for the fax log: the number typed by the user identifies a person
+ * only when it matches a practitioner contained on the Patient (i.e. their PCP).
+ */
+export const findRecipientName = (patient: Patient, faxNumber: string): string | undefined => {
+  const standardizedFaxNumber = standardizePhoneNumber(faxNumber);
+  if (!standardizedFaxNumber) return undefined;
+  const match = patient.contained?.find(
+    (resource): resource is Practitioner =>
+      resource.resourceType === 'Practitioner' &&
+      Boolean(
+        resource.telecom?.some(
+          (telecom) => telecom.system === 'fax' && standardizePhoneNumber(telecom.value) === standardizedFaxNumber
+        )
+      )
+  );
+  return match?.name?.length ? getFullestAvailableName(match) : undefined;
+};
+
+const performEffect = async (
+  input: SendFaxAttemptInput,
+  oystehr: Oystehr,
+  _user: User
+): Promise<{ body: string; statusCode: number }> => {
+  await sendFaxAttempt(input, oystehr);
+  return {
+    body: JSON.stringify('Fax sent'),
+    statusCode: 200,
+  };
+};

@@ -1,37 +1,43 @@
 import { EditOutlined } from '@mui/icons-material';
-import { IconButton, Link as MuiLink, Table, TableBody, TableCell, TableRow, Tooltip, Typography } from '@mui/material';
+import { IconButton, Table, TableBody, TableCell, TableRow, Tooltip, Typography } from '@mui/material';
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { makeValidationSchema, pickFirstValueFromAnswerItem, ServiceMode, uuidRegex, VisitType } from 'utils';
+import { PageContainer } from 'src/components/CustomContainer';
+import { TermsAndConditions } from 'src/components/TermsAndConditions';
+import { FormValidationErrorObject, getFormValidationErrors } from 'src/features/paperwork/helpers';
+import { UNEXPECTED_ERROR_CONFIG } from 'src/helpers/constants';
+import { getValueBoolean } from 'src/helpers/form/boolean.helper';
+import { useCreateInviteMutation } from 'src/telemed/features/waiting-room/waiting-room.queries';
+import { ReviewItem } from 'src/types/form/review-item-type';
+import { usePaperworkContext } from 'ui-components/lib/components/paperwork/context';
+import { i18n } from 'utils/lib/frontend';
+import { convertQRItemToLinkIdMap, pickFirstValueFromAnswerItem } from 'utils/lib/helpers/paperwork/paperwork';
+import { evalEnableWhen, makeValidationSchema } from 'utils/lib/helpers/paperwork/validation';
+import { ServiceMode } from 'utils/lib/types/common';
+import { VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { uuidRegex } from 'utils/lib/validation/regex';
 import { ValidationError } from 'yup';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 import api from '../api/ottehrApi';
 import { intakeFlowPageRoute } from '../App';
-import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
-import { FormValidationErrorObject, getFormValidationErrors, usePaperworkContext } from '../features/paperwork';
 import ValidationErrorMessageContent from '../features/paperwork/components/ValidationErrorMessage';
-import { UNEXPECTED_ERROR_CONFIG } from '../helpers';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
-import { getValueBoolean } from '../helpers/form';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useGetFullName } from '../hooks/useGetFullName';
 import { usePaperworkInviteParams } from '../hooks/usePaperworkInviteParams';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
-import i18n from '../lib/i18n';
 import { useAppointmentStore } from '../telemed/features/appointments/appointment.store';
-import { useCreateInviteMutation } from '../telemed/features/waiting-room';
-import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
-import { ReviewItem } from '../types';
 import { slugFromLinkId } from './PaperworkPage';
 
+const PAGE_ID = 'PAPERWORK_REVIEW_PAGE';
+
 const ReviewPaperwork = (): JSX.Element => {
-  const openExternalLink = useOpenExternalLink();
   const navigate = useNavigate();
   const { id: appointmentID } = useParams();
   const { pathname } = useLocation();
@@ -40,12 +46,6 @@ const ReviewPaperwork = (): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: true });
   const [validationErrors, setValidationErrors] = useState<FormValidationErrorObject | undefined>();
   const [errorDialogConfig, setErrorDialogConfig] = useState<ErrorDialogConfig | undefined>(undefined);
-
-  useEffect(() => {
-    if (appointmentID) {
-      useAppointmentStore.setState(() => ({ appointmentID }));
-    }
-  }, [appointmentID]);
 
   const {
     appointment: appointmentData,
@@ -57,6 +57,13 @@ const ReviewPaperwork = (): JSX.Element => {
     questionnaireResponse,
   } = usePaperworkContext();
   const questionnaireResponseId = questionnaireResponse?.id;
+
+  useEffect(() => {
+    // Guard to prevent in-person ID from leaking into the telemed store;
+    if (appointmentID && appointmentData?.serviceMode === ServiceMode.virtual) {
+      useAppointmentStore.setState(() => ({ appointmentID }));
+    }
+  }, [appointmentID, appointmentData?.serviceMode]);
 
   const selectedLocation = useMemo(() => {
     return appointmentData?.location;
@@ -122,7 +129,17 @@ const ReviewPaperwork = (): JSX.Element => {
 
   const { paperworkCompletedStatus, allComplete } = useMemo(() => {
     const validationSchema = makeValidationSchema(allItems);
-    const validationState = (paperworkPages ?? []).reduce(
+
+    // Calculate paperwork values for enableWhen evaluation
+    const paperworkValuesForEval = convertQRItemToLinkIdMap(questionnaireResponse?.item ?? []);
+
+    // Filter to only enabled pages (respects enableWhen conditions)
+    const enabledPages = (paperworkPages ?? []).filter((page) =>
+      evalEnableWhen(page, allItems, paperworkValuesForEval, questionnaireResponse)
+    );
+
+    // Only track completion status for enabled pages
+    const validationState = enabledPages.reduce(
       (accum, page) => {
         accum[page.linkId] = true;
         return accum;
@@ -138,7 +155,7 @@ const ReviewPaperwork = (): JSX.Element => {
           return item.path?.split('.')?.[0];
         }) ?? [];
       console.log('errorList', errorList, e);
-      const pagesWithError = (paperworkPages ?? [])
+      const pagesWithError = enabledPages
         .filter((page) => {
           const containsError = errorList.some((errorId) => {
             return page.item?.some((item) => {
@@ -155,16 +172,39 @@ const ReviewPaperwork = (): JSX.Element => {
       });
       console.log('pagesWithError', pagesWithError);
     }
-    const photoIdFront = pickFirstValueFromAnswerItem(findAnswerWithLinkId('photo-id-front'), 'attachment');
-    console.log('photoIdFront', photoIdFront, findAnswerWithLinkId('photo-id-front'));
-    // this is a strange one-off; it is optional in the schema but we communicate to the user that it is required
-    if (photoIdFront === undefined) {
-      validationState['photo-id-page'] = false;
+
+    // Only check contact-information-page if it's enabled
+    if (validationState['contact-information-page'] !== undefined) {
+      const photoIdFront = pickFirstValueFromAnswerItem(findAnswerWithLinkId('photo-id-front'), 'attachment');
+      console.log('photoIdFront', photoIdFront, findAnswerWithLinkId('photo-id-front'));
+      // this is a strange one-off; it is optional in the schema but we communicate to the user that it is required
+      if (photoIdFront === undefined) {
+        validationState['contact-information-page'] = false;
+      }
     }
+
+    // Only check medical-history-page if it's enabled (and only for in-person)
+    if (validationState['medical-history-page'] !== undefined) {
+      if (
+        appointmentData?.serviceMode === ServiceMode['in-person'] &&
+        pickFirstValueFromAnswerItem(findAnswerWithLinkId('medical-history-questionnaire'), 'boolean') === undefined
+      ) {
+        validationState['medical-history-page'] = false;
+      }
+    }
+
     const allComplete = Object.values(validationState).some((val) => !val) === false;
     return { paperworkCompletedStatus: validationState, allComplete };
-  }, [allItems, completedPaperwork, findAnswerWithLinkId, paperworkPages]);
+  }, [
+    allItems,
+    appointmentData?.serviceMode,
+    completedPaperwork,
+    findAnswerWithLinkId,
+    paperworkPages,
+    questionnaireResponse,
+  ]);
 
+  const paperworkValues = convertQRItemToLinkIdMap(questionnaireResponse?.item ?? []);
   const reviewItems: ReviewItem[] = [
     {
       name: 'Patient',
@@ -183,20 +223,22 @@ const ReviewPaperwork = (): JSX.Element => {
       hidden: visitType === VisitType.WalkIn,
       testId: dataTestIds.checkInTimePaperworkReviewScreen,
     },
-    ...(paperworkPages ?? []).map((paperworkPage) => {
-      let hasError = false;
-      if (validationErrors) {
-        hasError = validationErrors[paperworkPage.linkId]?.length ? true : false;
-      }
-      return {
-        name: paperworkPage.text ?? 'Review',
-        path: `/paperwork/${appointmentID}/${slugFromLinkId(paperworkPage.linkId)}`,
-        valueBoolean: paperworkCompletedStatus[paperworkPage.linkId] && !hasError,
-        testId: paperworkPage.linkId + '-status',
-        rowID: paperworkPage.linkId,
-        valueTestId: paperworkPage.linkId + '-edit',
-      };
-    }),
+    ...(paperworkPages ?? [])
+      .filter((page) => evalEnableWhen(page, allItems, paperworkValues, questionnaireResponse))
+      .map((paperworkPage) => {
+        let hasError = false;
+        if (validationErrors) {
+          hasError = validationErrors[paperworkPage.linkId]?.length ? true : false;
+        }
+        return {
+          name: paperworkPage.text ?? 'Review',
+          path: `/paperwork/${appointmentID}/${slugFromLinkId(paperworkPage.linkId)}`,
+          valueBoolean: paperworkCompletedStatus[paperworkPage.linkId] && !hasError,
+          testId: paperworkPage.linkId + '-status',
+          rowID: paperworkPage.linkId,
+          valueTestId: paperworkPage.linkId + '-edit',
+        };
+      }),
   ];
 
   const serviceMode = appointmentData?.serviceMode ?? ServiceMode['in-person'];
@@ -366,7 +408,7 @@ const ReviewPaperwork = (): JSX.Element => {
                   {reviewItem.path && (
                     <Tooltip title={t('reviewAndSubmit.edit')} placement="right">
                       <Link to={reviewItem.path}>
-                        <IconButton aria-label="edit" color="primary" data-testid={reviewItem.valueTestId}>
+                        <IconButton aria-label="edit" color="secondary" data-testid={reviewItem.valueTestId}>
                           <EditOutlined />
                         </IconButton>
                       </Link>
@@ -377,27 +419,7 @@ const ReviewPaperwork = (): JSX.Element => {
             ))}
         </TableBody>
       </Table>
-      <Typography variant="body2">
-        By proceeding with a visit, you acknowledge that you have reviewed and accept our{' '}
-        <MuiLink
-          sx={{ cursor: 'pointer' }}
-          onClick={() => openExternalLink('/template.pdf')}
-          target="_blank"
-          data-testid={dataTestIds.privacyPolicyReviewScreen}
-        >
-          Privacy Policy
-        </MuiLink>{' '}
-        and{' '}
-        <MuiLink
-          sx={{ cursor: 'pointer' }}
-          onClick={() => openExternalLink('/template.pdf')}
-          target="_blank"
-          data-testid={dataTestIds.termsAndConditionsReviewScreen}
-        >
-          Terms and Conditions of Service
-        </MuiLink>
-        .
-      </Typography>
+      <TermsAndConditions pageId={PAGE_ID} />
       <PageForm
         controlButtons={{
           submitLabel: submitButtonLabel,

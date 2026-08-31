@@ -13,14 +13,15 @@ import {
 import { FC, ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { PROJECT_WEBSITE } from 'utils';
-import i18n from '../lib/i18n';
+import { i18n } from 'utils/lib/frontend';
+import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
 
 export interface ErrorDialogConfig {
   title: string;
   description: string | ReactElement;
   closeButtonText?: string;
   id?: string;
+  destinationOnClose?: string;
 }
 
 const UnexpectedErrorDescriptionComponent: FC = () => {
@@ -113,6 +114,7 @@ export const ErrorDialog: FC<ErrorDialogProps> = ({
         <Button
           data-testid="error-dialog-close-button"
           variant={handleContinue ? 'outlined' : 'contained'}
+          color="secondary"
           onClick={handleClose}
           size={isMobile ? 'small' : 'large'}
           sx={{
@@ -124,6 +126,7 @@ export const ErrorDialog: FC<ErrorDialogProps> = ({
         {handleContinue && (
           <Button
             variant="contained"
+            color="secondary"
             onClick={handleContinue}
             size={isMobile ? 'small' : 'large'}
             sx={{

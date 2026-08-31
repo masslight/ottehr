@@ -1,0 +1,22 @@
+{
+  "schema-version": "2025-09-25",
+  "fhirResources": {
+    "GlobalTemplatesHolderList": {
+      "managedFields": ["status", "mode", "title", "meta"],
+      "resource": {
+        "resourceType": "List",
+        "status": "current",
+        "mode": "working",
+        "title": "Global Templates Holder List",
+        "meta": {
+          "tag": [
+            {
+              "code": "global-templates",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/global-template-list"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

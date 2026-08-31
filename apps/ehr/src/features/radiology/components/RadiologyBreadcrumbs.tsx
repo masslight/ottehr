@@ -1,9 +1,8 @@
 import { Box, Link as MuiLink, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { FC } from 'react';
-import { Link } from 'react-router-dom';
-import { getRadiologyUrl } from 'src/features/css-module/routing/helpers';
-import { useAppointmentData } from '../../../telemed';
+import { Link, useParams } from 'react-router-dom';
+import { getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
 
 interface RadiologyBreadcrumbsProps {
   sectionName: string;
@@ -35,13 +34,12 @@ export const WithRadiologyBreadcrumbs: FC<RadiologyBreadcrumbsProps> = ({
   disableLabsLink = false,
   children,
 }) => {
-  const { appointment } = useAppointmentData();
-
+  const { id: appointmentIdFromUrl } = useParams();
   return (
     <PageWrapper>
       <BreadcrumbsContainer>
-        {!disableLabsLink && appointment?.id ? (
-          <MuiLink component={Link} to={getRadiologyUrl(appointment.id)} color="text.primary">
+        {!disableLabsLink && appointmentIdFromUrl ? (
+          <MuiLink component={Link} to={getRadiologyUrl(appointmentIdFromUrl)} color="text.primary">
             Radiology
           </MuiLink>
         ) : (

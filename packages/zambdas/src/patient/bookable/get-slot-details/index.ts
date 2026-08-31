@@ -1,65 +1,60 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Schedule, Slot } from 'fhir/r4b';
+import { Appointment, Location, Schedule, Slot } from 'fhir/r4b';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  FHIR_RESOURCE_NOT_FOUND,
-  getOriginalBookingUrlFromSlot,
-  getSecret,
-  getServiceModeFromScheduleOwner,
-  getServiceModeFromSlot,
   GetSlotDetailsParams,
   GetSlotDetailsResponse,
-  getSlotIsWalkin,
-  getTimezone,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { ServiceMode } from 'utils/lib/types/common';
+import {
+  FHIR_RESOURCE_NOT_FOUND,
   INVALID_INPUT_ERROR,
-  isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
-  ScheduleOwnerFhirResource,
-  Secrets,
-  SecretsKeys,
-  ServiceMode,
-} from 'utils';
-import { getNameForOwner } from '../../../ehr/schedules/shared';
+} from 'utils/lib/types/errors';
 import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+  getOriginalBookingUrlFromSlot,
+  getServiceModeFromScheduleOwner,
+  getServiceModeFromSlot,
+  getSlotIsWalkin,
+  getTimezone,
+} from 'utils/lib/utils/scheduleUtils';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { getNameForOwner } from '../../../ehr/schedules/shared';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { resolveBookingLocationId } from '../../../shared/resolveBookingLocationId';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 
 const ZAMBDA_NAME = 'get-slot-details';
 
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const effectInput = await complexValidation(validatedParameters, oystehr);
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  const effectInput = await complexValidation(validatedParameters, oystehr);
 
-    const slotDetails = performEffect(effectInput);
+  const slotDetails = performEffect(effectInput);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(slotDetails),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('get-slot-details', error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(slotDetails),
+  };
 });
 
 const performEffect = (input: EffectInput): GetSlotDetailsResponse => {
-  const { slot, schedule, scheduleOwner, appointmentId, originalBookingUrl } = input;
+  const { slot, schedule, scheduleOwner, bookingLocation, appointmentId, originalBookingUrl } = input;
 
   const startISO = slot.start;
   const endISO = slot.end;
@@ -91,6 +86,8 @@ const performEffect = (input: EffectInput): GetSlotDetailsResponse => {
     timezoneForDisplay,
     ownerName,
     originalBookingUrl,
+    bookingLocationId: bookingLocation?.id,
+    bookingLocationName: bookingLocation?.name,
   };
 };
 
@@ -103,7 +100,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { slotId } = JSON.parse(input.body);
+  const { slotId } = safeJsonParse(input.body);
 
   if (!slotId) {
     throw MISSING_REQUIRED_PARAMETERS(['slotId']);
@@ -121,6 +118,13 @@ interface EffectInput {
   slot: Slot;
   schedule: Schedule;
   scheduleOwner: ScheduleOwnerFhirResource;
+  /**
+   * The Location resolved for this slot via the same precedence used by
+   * create-appointment. Surfaced separately from scheduleOwner so display
+   * code can show the booking Location's name even when the owner is a
+   * non-Location actor (e.g., a PR-actored slot booked through a group).
+   */
+  bookingLocation?: Location;
   appointmentId?: string;
   originalBookingUrl?: string;
 }
@@ -169,10 +173,28 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
 
   const originalBookingUrl = getOriginalBookingUrlFromSlot(slot);
 
+  // Resolve the booking Location using the same precedence as create-
+  // appointment so display code can show a real Location name (not a
+  // bare actor reference like "PractitionerRole/<id>"). If the resolved
+  // id matches scheduleOwner (Location-actor case), reuse it instead of
+  // a separate fetch.
+  let bookingLocation: Location | undefined;
+  const bookingLocationId = resolveBookingLocationId({ scheduleOwner, slot });
+  if (bookingLocationId) {
+    if (scheduleOwner.resourceType === 'Location' && scheduleOwner.id === bookingLocationId) {
+      bookingLocation = scheduleOwner as Location;
+    } else {
+      bookingLocation = await oystehr.fhir
+        .get<Location>({ resourceType: 'Location', id: bookingLocationId })
+        .catch(() => undefined);
+    }
+  }
+
   return {
     slot,
     schedule,
     scheduleOwner,
+    bookingLocation,
     appointmentId: appointment?.id,
     originalBookingUrl,
   };

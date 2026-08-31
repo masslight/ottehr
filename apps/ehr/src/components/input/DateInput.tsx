@@ -1,39 +1,47 @@
 import { Box, FormHelperText } from '@mui/material';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers-pro';
+import { DesktopDatePicker, LocalizationProvider } from '@mui/x-date-pickers-pro';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 
 type Props = {
   name: string;
   label: string;
   required?: boolean;
+  validate?: (value: string | undefined) => boolean | string;
+  dataTestId?: string;
+  disabled?: boolean;
+  size?: 'small' | 'medium';
 };
 
-export const DateInput: React.FC<Props> = ({ name, label, required }) => {
+export const DateInput: React.FC<Props> = ({ name, label, required, validate, dataTestId, disabled, size }) => {
   const { control } = useFormContext();
   return (
     <Controller
       name={name}
       control={control}
-      rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false }}
+      rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false, validate: validate }}
       render={({ field, fieldState: { error } }) => (
         <Box sx={{ width: '100%' }}>
           <LocalizationProvider dateAdapter={AdapterLuxon}>
-            <DatePicker
+            <DesktopDatePicker
               sx={{ width: '100% ' }}
               label={label + (required ? '*' : '')}
               slotProps={{
                 textField: {
                   style: { width: '100%' },
-                  size: 'small',
+                  size: size ?? 'small',
                   error: error != null,
+                  inputProps: {
+                    'data-testid': dataTestId,
+                  },
                 },
               }}
               value={field.value ? DateTime.fromISO(field.value) : null}
-              onChange={(val) => field.onChange(val ? val.toISO() : null)}
+              onChange={(val) => field.onChange(val ? val.toISODate() : null)}
+              disabled={disabled}
             />
           </LocalizationProvider>
           {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}

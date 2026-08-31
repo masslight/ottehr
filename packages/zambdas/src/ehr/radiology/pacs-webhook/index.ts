@@ -1,20 +1,41 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
+import {
+  DiagnosticReport,
+  Encounter,
+  FhirResource,
+  Location,
+  Patient,
+  Practitioner,
+  ServiceRequest,
+  Task,
+} from 'fhir/r4b';
 import { ImagingStudy as ImagingStudyR5 } from 'fhir/r5';
 import { DateTime } from 'luxon';
-import { getSecret, Secrets, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
   ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
-  DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
+  createOurDiagnosticReport,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
   ORDER_TYPE_CODE_SYSTEM,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
+} from 'utils/lib/fhir/radiology';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { buildPreliminaryReportSnapshot } from '../../../shared/radiology';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import {
+  advaPacsFetch,
+  AllRadTaskResources,
+  configReviewResultTask,
+  parseRadiologyResourcesForTask,
+  ResourcesForTask,
+  validateResourcesAgainstDR,
 } from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
@@ -33,31 +54,23 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'radiology-pacs-webhook';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log('Received input body: ', JSON.stringify(unsafeInput.body, null, 2));
+  console.log('Received input body: ', JSON.stringify(unsafeInput.body, null, 2));
 
-    const secrets = validateSecrets(unsafeInput.secrets);
+  const secrets = validateSecrets(unsafeInput.secrets);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    const validatedInput = await validateInput(unsafeInput);
+  const validatedInput = await validateInput(unsafeInput);
 
-    await accessCheck(unsafeInput.headers, secrets);
+  await accessCheck(unsafeInput.headers, secrets);
 
-    await performEffect(validatedInput, oystehr, secrets);
+  await performEffect(validatedInput, oystehr, secrets);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({}),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify({}),
+  };
 });
 
 const accessCheck = async (headers: any, secrets: Secrets): Promise<void> => {
@@ -119,7 +132,9 @@ const handleServiceRequest = async (advaPacsServiceRequest: ServiceRequest, oyst
   ).unbundle();
 
   if (srResults.length === 0) {
-    throw new Error('No ServiceRequest found with the given accession number');
+    console.log('No matching ServiceRequest found in Oystehr. Doing nothing for accession number: ', accessionNumber);
+    return;
+    // throw new Error('No ServiceRequest found with the given accession number');
   }
 
   if (srResults.length > 1) {
@@ -141,12 +156,13 @@ const handleServiceRequest = async (advaPacsServiceRequest: ServiceRequest, oyst
     },
   ];
 
-  // The idea is that the first time we get a ServiceRequest in the completed state, that should be the time that the order was performed.
+  // The idea is that the first time we get a ServiceRequest in the completed state, that should be the time
+  // that the order was performed. Keyed on the extension alone, which is what makes it exactly-once: also
+  // requiring our status to still be pre-completed meant an order that reached `completed` by any other route
+  // (a direct patch, a seeded fixture, a callback whose patch landed while the response was lost) could never
+  // pick the stamp up afterwards, and with no stamp the order history has no `performed` row at all.
   if (advaPacsServiceRequest.status === 'completed') {
-    if (
-      srToUpdate.status !== 'completed' &&
-      srToUpdate.extension?.find((e) => e.url === SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL) == null
-    ) {
+    if (srToUpdate.extension?.find((e) => e.url === SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL) == null) {
       operations.push({
         op: 'add',
         path: '/extension/-',
@@ -181,7 +197,7 @@ const handleDiagnosticReport = async (
   console.log('processing DiagnosticReport');
   // First we want to figure out if we need to create or update, so we search for the DR in our FHIR store
   const drSearchResults = (
-    await oystehr.fhir.search<DiagnosticReport>({
+    await oystehr.fhir.search<DiagnosticReport | ServiceRequest | Patient | Encounter | Practitioner | Location>({
       resourceType: 'DiagnosticReport',
       params: [
         {
@@ -189,18 +205,60 @@ const handleDiagnosticReport = async (
           // TODO can we include also the type.coding.system & code to be super exact here?
           value: `${ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM}|${advaPacsDiagnosticReport.id}`,
         },
+        {
+          name: '_include',
+          value: 'DiagnosticReport:based-on', // service request
+        },
+        {
+          name: '_include',
+          value: 'DiagnosticReport:subject', // patient
+        },
+        {
+          name: '_include:iterate',
+          value: 'ServiceRequest:encounter',
+        },
+        {
+          name: '_include:iterate',
+          value: 'ServiceRequest:requester',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Encounter:location', // to get location name to record on task for displays
+        },
       ],
     })
   ).unbundle();
 
-  if (drSearchResults.length > 1) {
-    throw new Error('Multiple DiagnosticReports found with the given ID');
-  } else if (drSearchResults.length === 1) {
-    const drToUpdate = drSearchResults[0];
-    if (drToUpdate.id == null) {
-      throw new Error('DiagnosticReport ID is required');
-    }
-    await handleUpdateDiagnosticReport(advaPacsDiagnosticReport, drToUpdate, oystehr);
+  const { diagnosticReports, ...additionalResources } = parseRadiologyResourcesForTask(drSearchResults);
+
+  if (diagnosticReports.length > 1) {
+    console.log(
+      `Found ${diagnosticReports.length} DiagnosticReports with the given advaPacs DR id: ${advaPacsDiagnosticReport.id}; updating the most recent and retiring the rest`
+    );
+
+    const [drToUpdate, ...drsToRetire] = [...diagnosticReports].sort((a, b) => {
+      const aLastIssued = a.issued ? DateTime.fromISO(a.issued).toMillis() : 0;
+      const bLastIssued = b.issued ? DateTime.fromISO(b.issued).toMillis() : 0;
+      return bLastIssued - aLastIssued;
+    });
+
+    const retireRequests = drsToRetire.map(buildRetireDiagnosticReportRequest);
+
+    const updateRequests = handleUpdateDiagnosticReportRequests(
+      drToUpdate,
+      advaPacsDiagnosticReport,
+      additionalResources
+    );
+
+    console.log('making transaction request to update DiagnosticReport and retire its duplicate(s)');
+    await oystehr.fhir.transaction({ requests: [...updateRequests, ...retireRequests] });
+  } else if (diagnosticReports.length === 1) {
+    const drToUpdate = diagnosticReports[0];
+
+    const requests = handleUpdateDiagnosticReportRequests(drToUpdate, advaPacsDiagnosticReport, additionalResources);
+
+    console.log('making transaction request for handleUpdateDiagnosticReport');
+    await oystehr.fhir.transaction({ requests });
   } else if (drSearchResults.length === 0) {
     await handleCreateDiagnosticReport(advaPacsDiagnosticReport, oystehr, secrets);
   }
@@ -227,20 +285,40 @@ const handleCreateDiagnosticReport = async (
     throw new Error('The ServiceRequest was not associated with any accession number');
   }
   const ourServiceRequest = await getOurServiceRequestByAccessionNumber(pacsServiceRequestAccessionNumber, oystehr);
-  console.log('Found our ServiceRequest: ', pacsServiceRequest);
-  await createOurDiagnosticReport(ourServiceRequest, advaPacsDiagnosticReport, oystehr);
+  if (ourServiceRequest == null) {
+    console.log(
+      'No matching ServiceRequest found in Oystehr. Will not create DR for SR with accession number: ',
+      pacsServiceRequestAccessionNumber
+    );
+    return;
+  }
+  console.log('Found our ServiceRequest: ', ourServiceRequest);
+  await createOurDiagnosticReport(ourServiceRequest, advaPacsDiagnosticReport, undefined, oystehr);
 };
 
-const handleUpdateDiagnosticReport = async (
+/** returns requests to update our diagnostic report and potentially also a request to post review task */
+const handleUpdateDiagnosticReportRequests = (
+  drToUpdate: DiagnosticReport,
+  advaPacsDiagnosticReport: DiagnosticReport,
+  additionalResources: Omit<AllRadTaskResources, 'diagnosticReports'>
+): BatchInputRequest<FhirResource>[] => {
+  if (drToUpdate.id == null) throw new Error('DiagnosticReport ID is required');
+
+  const resourcesForTask = validateResourcesAgainstDR({ ...additionalResources, diagnosticReport: drToUpdate });
+  const requests = buildUpdateDiagnosticReportRequests(advaPacsDiagnosticReport, drToUpdate, resourcesForTask);
+
+  return requests;
+};
+
+const buildUpdateDiagnosticReportRequests = (
   advaPacsDiagnosticReport: DiagnosticReport,
   ourDiagnosticReport: DiagnosticReport,
-  oystehr: Oystehr
-): Promise<void> => {
-  console.log('processing DiagnosticReport update');
-
+  resourcesForTask: ResourcesForTask
+): BatchInputRequest<FhirResource>[] => {
   console.log('Updating our DiagnosticReport with ID: ', ourDiagnosticReport.id);
 
-  const operations: Operation[] = [
+  const requests: BatchInputRequest<FhirResource>[] = [];
+  const diagnosticReportPathOps: Operation[] = [
     {
       op: 'replace',
       path: '/status',
@@ -254,13 +332,13 @@ const handleUpdateDiagnosticReport = async (
   ];
 
   if (advaPacsDiagnosticReport.issued && ourDiagnosticReport.issued == null) {
-    operations.push({
+    diagnosticReportPathOps.push({
       op: 'add',
       path: '/issued',
       value: advaPacsDiagnosticReport.issued,
     });
   } else if (advaPacsDiagnosticReport.issued && ourDiagnosticReport.issued) {
-    operations.push({
+    diagnosticReportPathOps.push({
       op: 'replace',
       path: '/issued',
       value: advaPacsDiagnosticReport.issued,
@@ -269,21 +347,69 @@ const handleUpdateDiagnosticReport = async (
     ourDiagnosticReport.status !== advaPacsDiagnosticReport.status &&
     advaPacsDiagnosticReport.status === 'final'
   ) {
-    operations.push({
+    diagnosticReportPathOps.push({
       op: 'add',
       path: '/issued',
       value: DateTime.now().toISO(),
     });
   }
 
-  console.log('Updating our DiagnosticReport with operations: ', JSON.stringify(operations, null, 2));
+  if (ourDiagnosticReport.status !== advaPacsDiagnosticReport.status && advaPacsDiagnosticReport.status === 'final') {
+    const newTask = configReviewResultTask({ ...resourcesForTask, diagnosticReport: ourDiagnosticReport });
+    const reviewTaskPostRequest: BatchInputPostRequest<Task> = {
+      method: 'POST',
+      url: 'Task/',
+      resource: newTask,
+    };
+    console.log('task config to be made', JSON.stringify(reviewTaskPostRequest.resource));
+    requests.push(reviewTaskPostRequest);
 
-  const patchResult = await oystehr.fhir.patch<DiagnosticReport>({
-    resourceType: 'DiagnosticReport',
-    id: ourDiagnosticReport.id!,
-    operations,
+    // Teleradiology's read replaces the text in `presentedForm`, so keep a copy of the preliminary read the
+    // provider treated on. Guarded by the same preliminary -> final transition check, so a re-delivered
+    // callback (AdvaPACS retries) finds the report already `final` and takes no second snapshot.
+    if (ourDiagnosticReport.status === 'preliminary' && ourDiagnosticReport.presentedForm?.length) {
+      requests.push({
+        method: 'POST',
+        url: 'DiagnosticReport/',
+        resource: buildPreliminaryReportSnapshot(ourDiagnosticReport),
+      } as BatchInputPostRequest<DiagnosticReport>);
+    }
+
+    // The report is no longer the one our provider wrote, so it must stop naming them as its author — the
+    // snapshot above took the preliminary read's `performer` with it. Left behind, it would credit
+    // teleradiology's read to them and let them edit it.
+    if (ourDiagnosticReport.performer?.length) {
+      diagnosticReportPathOps.push({ op: 'remove', path: '/performer' });
+    }
+  }
+
+  console.log('Updating our DiagnosticReport with operations: ', JSON.stringify(diagnosticReportPathOps, null, 2));
+
+  requests.push({
+    method: 'PATCH',
+    url: `DiagnosticReport/${ourDiagnosticReport.id}`,
+    operations: diagnosticReportPathOps,
   });
-  console.log('DiagnosticReport Patch succeeded: ', JSON.stringify(patchResult, null, 2));
+
+  return requests;
+};
+
+const buildRetireDiagnosticReportRequest = (diagnosticReport: DiagnosticReport): BatchInputRequest<FhirResource> => {
+  if (diagnosticReport.id == null) {
+    throw new Error('DiagnosticReport ID is required');
+  }
+  console.log('Retiring duplicate DiagnosticReport with ID: ', diagnosticReport.id);
+  return {
+    method: 'PATCH',
+    url: `DiagnosticReport/${diagnosticReport.id}`,
+    operations: [
+      {
+        op: 'replace',
+        path: '/status',
+        value: 'entered-in-error',
+      },
+    ],
+  };
 };
 
 const handleImagingStudy = async (
@@ -311,7 +437,7 @@ const getAdvaPacsServiceRequestByID = async (
     const advapacsClientSecret = getSecret(SecretsKeys.ADVAPACS_CLIENT_SECRET, secrets);
     const advapacsAuthString = `ID=${advapacsClientId},Secret=${advapacsClientSecret}`;
 
-    const advapacsResponse = await fetch(`${ADVAPACS_FHIR_BASE_URL}/${serviceRequestRelativeReference}`, {
+    const advapacsResponse = await advaPacsFetch(`${ADVAPACS_FHIR_BASE_URL}/${serviceRequestRelativeReference}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/fhir+json',
@@ -342,7 +468,7 @@ const getAdvaPacsServiceRequestByID = async (
 const getOurServiceRequestByAccessionNumber = async (
   accessionNumber: string,
   oystehr: Oystehr
-): Promise<ServiceRequest> => {
+): Promise<ServiceRequest | undefined> => {
   const srResults = (
     await oystehr.fhir.search<ServiceRequest>({
       resourceType: 'ServiceRequest',
@@ -361,7 +487,8 @@ const getOurServiceRequestByAccessionNumber = async (
   ).unbundle();
 
   if (srResults.length === 0) {
-    throw new Error('No ServiceRequest found with the given accession number');
+    console.log('No matching ServiceRequest found in Oystehr. Accession number: ', accessionNumber);
+    return undefined;
   }
 
   if (srResults.length > 1) {
@@ -369,52 +496,6 @@ const getOurServiceRequestByAccessionNumber = async (
   }
 
   return srResults[0];
-};
-
-const createOurDiagnosticReport = async (
-  serviceRequest: ServiceRequest,
-  pacsDiagnosticReport: DiagnosticReport,
-  oystehr: Oystehr
-): Promise<void> => {
-  const diagnosticReportToCreate: DiagnosticReport = {
-    resourceType: 'DiagnosticReport',
-    status: pacsDiagnosticReport.status,
-    subject: serviceRequest.subject,
-    basedOn: [
-      {
-        reference: `ServiceRequest/${serviceRequest.id}`,
-      },
-    ],
-    identifier: [
-      {
-        system: ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
-        value: pacsDiagnosticReport.id,
-      },
-    ],
-    code: pacsDiagnosticReport.code ?? {
-      // Advapacs does not send a code even though it is required in the FHIR spec
-      coding: [
-        {
-          system: 'http://loinc.org',
-          code: '18748-4',
-          display: 'Radiology Report',
-        },
-      ],
-    },
-    presentedForm: pacsDiagnosticReport.presentedForm,
-  };
-
-  if (pacsDiagnosticReport.status === 'preliminary') {
-    diagnosticReportToCreate.extension = [
-      {
-        url: DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
-        valueDateTime: DateTime.now().toISO(),
-      },
-    ];
-  }
-
-  const createResult = await oystehr.fhir.create<DiagnosticReport>(diagnosticReportToCreate);
-  console.log('Created our DiagnosticReport: ', JSON.stringify(createResult, null, 2));
 };
 
 const updateServiceRequestToCompletedInAdvaPacs = async (accessionNumber: string, secrets: Secrets): Promise<void> => {
@@ -429,7 +510,7 @@ const updateServiceRequestToCompletedInAdvaPacs = async (accessionNumber: string
 
     // Advapacs doesn't support PATCH or optimistic locking right now so the best we can do is GET the latest, and PUT back with the status changed.
     // First, search up the SR in AdvaPACS by the accession number
-    const findServiceRequestResponse = await fetch(
+    const findServiceRequestResponse = await advaPacsFetch(
       `${ADVAPACS_FHIR_BASE_URL}/ServiceRequest?identifier=${ACCESSION_NUMBER_CODE_SYSTEM}%7C${accessionNumber}`,
       {
         method: 'GET',
@@ -471,7 +552,7 @@ const updateServiceRequestToCompletedInAdvaPacs = async (accessionNumber: string
     }
 
     // Update the AdvaPACS SR now that we have its latest data.
-    const advapacsResponse = await fetch(`${ADVAPACS_FHIR_BASE_URL}/ServiceRequest/${advapacsSR.id}`, {
+    const advapacsResponse = await advaPacsFetch(`${ADVAPACS_FHIR_BASE_URL}/ServiceRequest/${advapacsSR.id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/fhir+json',

@@ -1,4 +1,4 @@
-import { expect, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
@@ -10,6 +10,10 @@ export abstract class BaseAssessmentPage {
     this.#page = page;
   }
 
+  async emCodeDropdown(): Promise<Locator> {
+    return await this.#page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown);
+  }
+
   async expectDiagnosisDropdown(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.diagnosisContainer.diagnosisDropdown).locator('input').waitFor({
       state: 'visible',
@@ -18,12 +22,18 @@ export abstract class BaseAssessmentPage {
     await expect(await diagnosisAutocomplete.locator('input')).toBeVisible(DEFAULT_TIMEOUT);
   }
 
-  async expectMdmField(options?: { text?: string }): Promise<void> {
-    const { text } = options ?? {};
+  // `containsText` is for callers asserting on MDM that a template contributed: apply-template's
+  // append action concatenates the template's summary onto whatever MDM the chart already has, so
+  // those callers can only claim the template's text is present, not that it is the whole field.
+  async expectMdmField(options?: { text?: string; containsText?: string }): Promise<void> {
+    const { text, containsText } = options ?? {};
     const mdmField = this.#page.getByTestId(dataTestIds.assessmentCard.medicalDecisionField);
     await expect(mdmField.locator('textarea:visible')).toBeVisible(DEFAULT_TIMEOUT);
     if (text) {
       await expect(mdmField.locator('textarea:visible')).toHaveText(text);
+    }
+    if (containsText) {
+      await expect(mdmField.locator('textarea:visible')).toContainText(containsText);
     }
   }
 
@@ -60,12 +70,13 @@ export abstract class BaseAssessmentPage {
   }
 
   async expectEmCodeDropdown(): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown)).toBeVisible();
+    await expect(await this.emCodeDropdown()).toBeVisible();
   }
 
   async selectEmCode(code: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown).click();
-    await this.#page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown).locator('input').fill(code);
+    const emCodeDropdown = await this.emCodeDropdown();
+    await emCodeDropdown.click();
+    await emCodeDropdown.locator('input').fill(code);
     await this.#page.getByRole('option').first().waitFor();
     await this.#page.getByRole('option').first().click();
   }

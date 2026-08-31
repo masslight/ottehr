@@ -2,7 +2,7 @@
 // cSpell:ignore LCAT, LCMHC, LCMHCA, LCPC, LCSW, LCSWA, LGPC, LGSW, LICSW, LIMHP, LISW, LMFT, LMFTA, LMHC, LMHCA, LMPC
 // cSpell:ignore LMSW, LPCA, LPCC, LPCI, LPCMH, LSCSW, MFTA, MHCA, MHSP, MLSW, PMHNP, PROFESSI, RCSWI, RHMCI, RNFA, SLPA
 // cSpell:ignore SLPD
-import { StateType } from 'utils';
+import { StateType } from '../common';
 
 export type PractitionerQualificationCode =
   | 'MD'
@@ -300,14 +300,19 @@ export enum ProviderNotificationMethod {
 
 export interface ProviderNotificationSettings {
   method: ProviderNotificationMethod;
-  enabled: boolean;
+  taskNotificationsEnabled: boolean;
+  telemedNotificationsEnabled: boolean;
+  phoneNumber?: string;
 }
 
 const FHIR_BASE_URL = 'https://fhir.ottehr.com';
 
 export const PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL = `${FHIR_BASE_URL}/r4/provider-notifications-settings`;
 export const PROVIDER_NOTIFICATION_METHOD_URL = `${FHIR_BASE_URL}/r4/provider-notifications-method`;
+/** @deprecated */
 export const PROVIDER_NOTIFICATIONS_ENABLED_URL = `${FHIR_BASE_URL}/r4/provider-notifications-enabled`;
+export const PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL = `${FHIR_BASE_URL}/r4/provider-notifications-enabled-task`;
+export const PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL = `${FHIR_BASE_URL}/r4/provider-notifications-enabled-telemed`;
 
 export const PROVIDER_NOTIFICATION_TAG_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-tag`;
 export enum AppointmentProviderNotificationTags {
@@ -321,4 +326,24 @@ export const PROVIDER_NOTIFICATION_TYPE_SYSTEM = `${FHIR_BASE_URL}/r4/provider-n
 export enum AppointmentProviderNotificationTypes {
   patient_waiting = 'patient-waiting',
   unsigned_charts = 'unsigned-charts',
+  task_assigned = 'task-assigned',
+  task_category_created = 'task-category-created',
+  virtual_visit_scheduled = 'virtual-visit-scheduled',
 }
+
+// Per-notification-type preferences. Each idempotency-tag system is distinct so
+// getPatchOperationForNewMetaTag (which matches on system only) never clobbers another marker.
+export const PROVIDER_NOTIFICATION_PREFERENCES_V2_URL = `${FHIR_BASE_URL}/r4/provider-notifications-preferences-v2`;
+export const PROVIDER_NOTIFICATION_CATEGORY_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-category`;
+export const CATEGORY_NOTIFICATION_TAG_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-category-tag`;
+export const CATEGORY_NOTIFICATION_TAG_CODE = 'category-notified';
+export const VIRTUAL_VISIT_SCHEDULED_TAG_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-virtual-visit-scheduled-tag`;
+export const VIRTUAL_VISIT_SCHEDULED_TAG_CODE = 'virtual-visit-scheduled-notified';
+// Own system, not the legacy 'patient waiting' tag: old deploys stamped that tag at BOOKING, so reusing
+// it as the check-in gate would permanently suppress waiting-room notifications for in-flight appointments.
+export const WAITING_ROOM_NOTIFIED_TAG_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-waiting-room-tag`;
+export const WAITING_ROOM_NOTIFIED_TAG_CODE = 'waiting-room-notified';
+
+export const PROVIDER_TYPE_VALUES = ['MD', 'DO', 'PA', 'NP', 'other'] as const;
+export type ProviderTypeCode = (typeof PROVIDER_TYPE_VALUES)[number];
+export const PHYSICIAN_TYPES: ProviderTypeCode[] = ['MD', 'DO'];

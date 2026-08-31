@@ -3,15 +3,14 @@ import { Account, Identifier } from 'fhir/r4b';
 import Stripe from 'stripe';
 import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
-  FHIR_RESOURCE_NOT_FOUND,
-  getSecret,
-  getStripeCustomerIdFromAccount,
-  NOT_AUTHORIZED,
-  Secrets,
-  SecretsKeys,
-  STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
-} from 'utils';
-import { getUser, userHasAccessToPatient, ZambdaInput } from '../../shared';
+  ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,
+} from 'utils/lib/fhir/constants';
+import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { FHIR_RESOURCE_NOT_FOUND, NOT_AUTHORIZED, STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { getUser, userHasAccessToPatient } from '../../shared/auth';
+import { ZambdaInput } from '../../shared/types/common';
 
 export interface BasePaymentManagementInput {
   secrets: Secrets | null;
@@ -90,25 +89,42 @@ export function getStripeClient(secrets: Secrets | null): Stripe {
   });
 }
 
-export const makeStripeCustomerId = (stripeId: string): Identifier => {
+export const makeStripeCustomerId = (stripeId: string, stripeAccount: string | undefined): Identifier => {
+  if (!stripeAccount) {
+    return {
+      system: ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
+      value: stripeId,
+    };
+  }
+
   return {
     system: ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
     value: stripeId,
+    extension: [
+      {
+        url: ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,
+        valueString: stripeAccount,
+      },
+    ],
   };
 };
 
 interface StripeAccountValidationInput {
   patientId: string;
+  appointmentId: string;
   oystehrClient: Oystehr;
 }
 export async function getStripeCustomerId(input: StripeAccountValidationInput): Promise<{ stripeCustomerId: string }> {
-  const { patientId, oystehrClient } = input;
+  const { patientId, appointmentId, oystehrClient } = input;
 
   const patientAccount = await getBillingAccountForPatient(patientId, oystehrClient);
   if (!patientAccount) {
     throw FHIR_RESOURCE_NOT_FOUND('Account');
   }
-  const stripeCustomerId = getStripeCustomerIdFromAccount(patientAccount);
+
+  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient);
+
+  const stripeCustomerId = getStripeCustomerIdFromAccount(patientAccount, stripeAccount);
   if (!stripeCustomerId) {
     throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
   }

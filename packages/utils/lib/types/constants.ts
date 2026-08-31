@@ -1,12 +1,20 @@
+import { Coding } from 'fhir/r4b';
+import { ottehrCodeSystemUrl, ottehrExtensionUrl } from '../fhir/systemUrls';
+
+// NOTE: PROJECT_WEBSITE was moved to ottehr-config/branding to avoid circular dependencies.
+// Import it from 'utils' or 'utils/lib/ottehr-config/branding' directly.
+// Do NOT re-export here as it triggers the circular dependency during module loading.
+
 export const TELEMED_VIDEO_ROOM_CODE = 'chime-video-meetings';
 
 export const INTERPRETER_PHONE_NUMBER = '(888) 555 0002';
 
-export const PROJECT_NAME = 'Ottehr';
-export const PROJECT_NAME_LOWER = PROJECT_NAME.toLowerCase();
-export const PROJECT_DOMAIN = 'ottehr.com';
-export const PROJECT_WEBSITE = `https://${PROJECT_DOMAIN}`;
-export const SUPPORT_EMAIL = 'support@ottehr.com';
+export const PHONE_NOT_ON_FILE = 'Phone number not on file';
+
+// Max span for a tracking-board appointment search. Bounds the paginated (all-pages) FHIR query so
+// an over-broad range can't fan out into unbounded traffic. Shared so the EHR and the get-appointments
+// zambda enforce the same limit.
+export const MAX_APPOINTMENT_SEARCH_RANGE_DAYS = 90;
 
 export const PATIENT_INDIVIDUAL_PRONOUNS_URL = 'http://hl7.org/fhir/StructureDefinition/individual-pronouns';
 export const PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL =
@@ -28,6 +36,22 @@ export const PATIENT_RELEASE_OF_INFO_URL = 'https://fhir.zapehr.com/r4/Structure
 export const PATIENT_RX_HISTORY_CONSENT_STATUS_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/rx-history-consent-status';
 export const PATIENT_DECEASED_NOTE_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/deceased-note';
+export const PATIENT_NO_EMAIL_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-no-email';
+/**
+ * Patient-level flag indicating the patient has Medicaid insurance coverage
+ * and the intake credit-card entry step can be skipped. Set by the intake
+ * paperwork's `patient-has-medicaid` checkbox on the credit-card page and
+ * mirrored on the EHR patient details page for staff correction. Persisted
+ * as a Patient extension because it's a patient-attribute-shaped flag that
+ * survives across visits, matches every other single-boolean patient flag
+ * in this codebase, and slots into the existing harvest linkId → fieldPath
+ * table without any new plumbing. See design discussion for why not Account
+ * or Coverage.
+ */
+export const PATIENT_HAS_MEDICAID_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-has-medicaid';
+export const RESPONSIBLE_PARTY_NO_EMAIL_URL =
+  'https://fhir.zapehr.com/r4/StructureDefinitions/responsible-party-no-email';
+export const PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL = ottehrExtensionUrl('preferred-communication-method');
 export const COVERAGE_ADDITIONAL_INFORMATION_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/additional-information';
 export const RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL =
@@ -41,6 +65,9 @@ export const E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM = 'E2E_TEST_RESOURCE_PROCESS_ID
 
 export const MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM =
   'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id';
+export const MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM_FOR_INTERACTIONS = ottehrCodeSystemUrl(
+  'medispan-dispensable-drug-id-for-interactions'
+);
 
 export const INSURANCE_REQ_EXTENSION_URL = 'https://extensions.fhir.zapehr.com/insurance-requirements';
 export const ORG_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/organization-type';
@@ -48,3 +75,35 @@ export const ORG_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/organ
 // we'll use the INSURANCE_ORG_TYPE_INSURANCE_COMPANY type on the parent org
 // export const INSURANCE_ORG_TYPE_INSURANCE_COMPANY = 'ins';
 export const ORG_TYPE_PAYER_CODE = 'pay';
+
+export const ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE = 'occupational-medicine-employer';
+
+export const AI_QUESTIONNAIRE_ID = 'aiInterviewQuestionnaire';
+
+export const REASON_FOR_VISIT_SEPARATOR = ' - ';
+
+export const USER_TIMEZONE_EXTENSION_URL = ottehrExtensionUrl('user-timezone');
+
+export const PATIENT_INFO_META_DATA_SYSTEM = 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-info-meta-data';
+export const PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE = 'returning-patient';
+
+export const RETURNING_PATIENT_META_TAG = (): Coding => ({
+  system: PATIENT_INFO_META_DATA_SYSTEM,
+  code: PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
+});
+
+// related helper for sanitizing these codes sanitizeStringForFhirCode
+// https://hl7.org/fhir/R4B/datatypes.html#code
+export const FHIR_CODE_REGEX = /^[^\s]+(\s[^\s]+)*$/;
+
+// ---------------------------------------------------------------------------
+// Invoice configuration defaults
+// ---------------------------------------------------------------------------
+
+export const DEFAULT_INVOICE_SMS_TEMPLATE =
+  "Thank you, {{patient-full-name}}, for visiting {{clinic}} at {{location}} on {{visit-date}}! You have a balance due of {{amount}}.\n\n\ud83d\udcb3 If we have your card on file, it will be billed on {{due-date}}, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before due date: {{invoice-link}}";
+
+export const DEFAULT_INVOICE_MEMO_TEMPLATE =
+  "Thank you, {{patient-full-name}}, for visiting {{clinic}} at {{location}} on {{visit-date}}! You have a balance due of {{amount}}.\n\n\ud83d\udcb3 If we have your card on file, it will be billed on {{due-date}}, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before the due date. For more details about the visit, please, visit your patient portal, {{patient-portal-link}}";
+
+export const DEFAULT_INVOICE_DUE_DAYS = 7;

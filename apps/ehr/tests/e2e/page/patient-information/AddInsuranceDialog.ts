@@ -18,6 +18,11 @@ export class AddInsuranceDialog {
     await this.#container.page().locator(`li:text("${insuranceCarrier}")`).click();
   }
 
+  async selectPlanType(planType: string): Promise<void> {
+    await this.#container.getByTestId(dataTestIds.addInsuranceDialog.planType).click();
+    await this.#container.page().locator(`li:text("${planType}")`).click();
+  }
+
   async enterMemberId(memberId: string): Promise<void> {
     await this.#container.getByTestId(dataTestIds.addInsuranceDialog.memberId).locator('input').fill(memberId);
   }
@@ -111,7 +116,7 @@ export class AddInsuranceDialog {
 
   async verifyValidationErrorZipFieldFromAddInsurance(): Promise<void> {
     await expect(
-      this.#container.getByTestId(dataTestIds.addInsuranceDialog.zip).locator('p:text("Must be 5 digits")')
+      this.#container.getByTestId(dataTestIds.addInsuranceDialog.zip).locator('p:text("Must be 5 or 9 digits")')
     ).toBeVisible();
   }
 

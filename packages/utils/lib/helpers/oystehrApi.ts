@@ -1,5 +1,5 @@
 import Oystehr, { ZambdaExecuteResult } from '@oystehr/sdk';
-import { APIError, isApiError } from '../types';
+import { APIError, isApiError } from '../types/errors';
 
 export const getOystehrApiHelpers = <T extends Record<string, string>>(
   oystehr: Oystehr,
@@ -76,6 +76,20 @@ export const apiErrorToThrow = (error: any): APIError => {
     console.error('An endpoint threw and did not provide a well formed ApiError');
     return InternalError;
   }
+};
+
+/**
+ * Extracts the error message from an API error with fallback to default message.
+ */
+export const getApiError = ({ error, defaultError }: { error: any; defaultError: string }): string => {
+  // Errors from Oystehr SDK can have nested structure: { output: { message, code } }
+  if (error?.output?.message) {
+    return error.output.message;
+  }
+  if (error?.message) {
+    return error.message;
+  }
+  return defaultError;
 };
 
 export function NotFoundAppointmentErrorHandler(error: any): void {

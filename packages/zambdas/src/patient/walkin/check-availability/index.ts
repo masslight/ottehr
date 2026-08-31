@@ -2,64 +2,57 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getClosingTime, getOpeningTime, isClosureOverride } from 'utils/lib/helpers/check-office-open';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { WalkinAvailabilityCheckParams, WalkinAvailabilityCheckResult } from 'utils/lib/types/api/appointment.types';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { Closure, ServiceMode, Timezone } from 'utils/lib/types/common';
+import { TIMEZONES } from 'utils/lib/types/constants';
 import {
-  Closure,
-  createOystehrClient,
   FHIR_RESOURCE_NOT_FOUND,
-  getClosingTime,
-  getOpeningTime,
-  getScheduleExtension,
-  getSecret,
-  getServiceModeFromScheduleOwner,
-  getTimezone,
   INVALID_INPUT_ERROR,
-  isClosureOverride,
-  isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_SCHEDULE_EXTENSION_ERROR,
+} from 'utils/lib/types/errors';
+import {
+  getScheduleExtension,
+  getServiceModeFromScheduleOwner,
+  getTimezone,
   ScheduleExtension,
-  ScheduleOwnerFhirResource,
-  SecretsKeys,
-  ServiceMode,
-  Timezone,
-  TIMEZONES,
-  WalkinAvailabilityCheckParams,
-  WalkinAvailabilityCheckResult,
-} from 'utils';
+} from 'utils/lib/utils/scheduleUtils';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
-import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 
 let oystehrToken: string;
 export const index = wrapHandler('check-availability', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
-    const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);
-    const basicInput = validateRequestParameters(input);
+  const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
+  const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);
+  const basicInput = validateRequestParameters(input);
 
-    console.log('basicInput', JSON.stringify(basicInput));
+  console.log('basicInput', JSON.stringify(basicInput));
 
-    if (!oystehrToken) {
-      console.log('getting m2m token for service calls');
-      oystehrToken = await getAuth0Token(input.secrets);
-    } else {
-      console.log('already have a token, no need to update');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, fhirAPI, projectAPI);
-
-    const effectInput = await complexValidation(basicInput, oystehr);
-
-    const response = performEffect(effectInput);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.error('walkin-check-availability error', error);
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('walkin-check-availability', error, ENVIRONMENT);
+  if (!oystehrToken) {
+    console.log('getting m2m token for service calls');
+    oystehrToken = await getAuth0Token(input.secrets);
+  } else {
+    console.log('already have a token, no need to update');
   }
+
+  const oystehr = createOystehrClient(oystehrToken, fhirAPI, projectAPI);
+
+  const effectInput = await complexValidation(basicInput, oystehr);
+
+  const response = performEffect(effectInput);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 const performEffect = (input: EffectInput): WalkinAvailabilityCheckResult => {
@@ -118,7 +111,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { scheduleId, locationName } = JSON.parse(input.body);
+  const { scheduleId, locationName } = safeJsonParse(input.body);
 
   if (!scheduleId && !locationName) {
     throw INVALID_INPUT_ERROR('Either "scheduleId" or "scheduleName" must be provided');

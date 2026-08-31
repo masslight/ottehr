@@ -1,10 +1,11 @@
 import { Button, Card, Typography, useTheme } from '@mui/material';
 import { Box, Container } from '@mui/system';
-import { ottehrLightBlue } from '@theme/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { PROJECT_NAME } from 'utils';
+import { CustomContainer } from 'src/telemed/features/common/CustomContainer';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { intakeFlowPageRoute } from '../../App';
-import { CustomContainer } from '../features/common';
+import { primaryIcon } from '../../branding/assets';
+import { getPrimaryIconSize, PRIMARY_ICON_PAGE, shouldShowPrimaryIcon } from '../../branding/primaryIconVisibility';
 
 const CallEndedPage = (): JSX.Element => {
   const navigate = useNavigate();
@@ -12,6 +13,8 @@ const CallEndedPage = (): JSX.Element => {
   const location = useLocation();
   const isRegularParticipant =
     location.pathname === (intakeFlowPageRoute.CallEnded.path || intakeFlowPageRoute.IOSCallEnded.path);
+  const showPrimaryIcon = shouldShowPrimaryIcon(PRIMARY_ICON_PAGE.CALL_ENDED);
+  const primaryIconSize = getPrimaryIconSize();
 
   return (
     <CustomContainer title="" useEmptyBody>
@@ -33,7 +36,9 @@ const CallEndedPage = (): JSX.Element => {
               gap: 3,
             }}
           >
-            <img alt={`${PROJECT_NAME} icon`} src={ottehrLightBlue} width={120} />
+            {showPrimaryIcon && (
+              <img alt={BRANDING_CONFIG.intake.primaryIconAlt} src={primaryIcon} width={primaryIconSize} />
+            )}
 
             <Box>
               <Typography variant="h2" color="primary.main" textAlign="center">

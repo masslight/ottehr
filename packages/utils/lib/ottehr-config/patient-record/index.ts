@@ -1,0 +1,1097 @@
+import {
+  type FormFieldTrigger,
+  type PatientRecordConfig,
+  type PatientRecordFormFields,
+  type QuestionnaireBase,
+} from 'config-types';
+import { Questionnaire } from 'fhir/r4b';
+import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
+import { VALUE_SETS as formValueSets } from '../value-sets';
+
+const insurancePlanTypeOptions = formValueSets.insuranceTypeOptions.map((option) => ({
+  label: `${option.candidCode} - ${option.label}`,
+  value: option.candidCode,
+}));
+
+const RPNotSelfTrigger: FormFieldTrigger = {
+  targetQuestionLinkId: 'responsible-party-relationship',
+  effect: ['enable'],
+  operator: '!=',
+  answerString: 'Self',
+};
+
+const RPAddressAsPatientTrigger: FormFieldTrigger = {
+  targetQuestionLinkId: 'responsible-party-address-as-patient',
+  effect: ['enable'],
+  operator: '!=',
+  answerBoolean: true,
+};
+
+const InsuredPersonNotSelfTrigger: FormFieldTrigger = {
+  targetQuestionLinkId: 'patient-relationship-to-insured',
+  effect: ['enable'],
+  operator: '!=',
+  answerString: formValueSets.relationshipToInsuredOptions[0].value,
+};
+
+const InsuredAddressNotSameAsPatientTrigger: FormFieldTrigger = {
+  targetQuestionLinkId: 'policy-holder-address-as-patient',
+  effect: ['enable'],
+  operator: '!=',
+  answerBoolean: true,
+};
+
+const InsuredPersonNotSelfTrigger2: FormFieldTrigger = {
+  targetQuestionLinkId: 'patient-relationship-to-insured-2',
+  effect: ['enable'],
+  operator: '!=',
+  answerString: formValueSets.relationshipToInsuredOptions[0].value,
+};
+
+const InsuredAddressNotSameAsPatientTrigger2: FormFieldTrigger = {
+  targetQuestionLinkId: 'policy-holder-address-as-patient-2',
+  effect: ['enable'],
+  operator: '!=',
+  answerBoolean: true,
+};
+
+const FormFields: PatientRecordFormFields = {
+  patientSummary: {
+    linkId: 'patient-info-section',
+    title: 'Patient summary',
+    logicalItems: {
+      shouldDisplaySsnField: {
+        key: 'should-display-ssn-field',
+        type: 'boolean',
+        initialValue: false,
+      },
+      ssnFieldRequired: {
+        key: 'ssn-field-required',
+        type: 'boolean',
+      },
+      appointmentServiceCategory: {
+        key: 'appointment-service-category',
+        type: 'string',
+        required: false,
+      },
+      appointmentServiceMode: {
+        key: 'appointment-service-mode',
+        type: 'string',
+        required: false,
+      },
+      reasonForVisit: {
+        key: 'reason-for-visit',
+        type: 'string',
+        required: false,
+      },
+    },
+    items: {
+      firstName: { key: 'patient-first-name', type: 'string', label: 'First name' },
+      middleName: { key: 'patient-middle-name', type: 'string', label: 'Middle name' },
+      lastName: { key: 'patient-last-name', type: 'string', label: 'Last name' },
+      suffix: { key: 'patient-name-suffix', type: 'string', label: 'Suffix' },
+      preferredName: { key: 'patient-preferred-name', type: 'string', label: 'Preferred name' },
+      birthDate: { key: 'patient-birthdate', type: 'date', label: 'Date of birth', dataType: 'DOB' },
+      birthSex: {
+        key: 'patient-birth-sex',
+        type: 'choice',
+        label: 'Birth sex',
+        options: formValueSets.birthSexOptions,
+      },
+      pronouns: {
+        key: 'patient-pronouns',
+        type: 'choice',
+        label: 'Preferred pronouns',
+        options: formValueSets.pronounOptions,
+      },
+      ssn: {
+        key: 'patient-ssn',
+        type: 'string',
+        label: 'SSN',
+        dataType: 'SSN',
+        triggers: [
+          {
+            targetQuestionLinkId: 'should-display-ssn-field',
+            effect: ['enable'],
+            operator: '=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'ssn-field-required',
+            effect: ['require'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+        disabledDisplay: 'hidden',
+      },
+    },
+    hiddenFields: [],
+    requiredFields: ['patient-first-name', 'patient-last-name', 'patient-birthdate', 'patient-birth-sex'],
+  },
+  patientDetails: {
+    linkId: 'patient-additional-details-section',
+    title: 'Patient details',
+    items: {
+      ethnicity: {
+        key: 'patient-ethnicity',
+        label: "Patient's ethnicity",
+        type: 'choice',
+        options: formValueSets.ethnicityOptions,
+      },
+      race: {
+        key: 'patient-race',
+        label: "Patient's race",
+        type: 'choice',
+        options: formValueSets.raceOptions,
+      },
+      sexualOrientation: {
+        key: 'patient-sexual-orientation',
+        label: 'Sexual orientation',
+        type: 'choice',
+        options: formValueSets.sexualOrientationOptions,
+      },
+      genderIdentity: {
+        key: 'patient-gender-identity',
+        label: 'Gender identity',
+        type: 'choice',
+        options: formValueSets.genderIdentityOptions,
+      },
+      genderIdentityDetails: {
+        key: 'patient-gender-identity-details',
+        label: 'Other gender identity',
+        type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'patient-gender-identity',
+            effect: ['require', 'enable'],
+            operator: '=',
+            answerString: formValueSets.genderIdentityOptions[formValueSets.genderIdentityOptions.length - 1].value,
+          },
+        ],
+        disabledDisplay: 'hidden',
+      },
+      language: {
+        key: 'preferred-language',
+        label: 'Preferred language',
+        type: 'choice',
+        options: formValueSets.languageOptions,
+      },
+      otherLanguage: {
+        key: 'other-preferred-language',
+        label: 'Other language',
+        type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'preferred-language',
+            effect: ['require', 'enable'],
+            operator: '=',
+            answerString: formValueSets.languageOptions[formValueSets.languageOptions.length - 1].value,
+          },
+        ],
+        disabledDisplay: 'hidden',
+      },
+      sendMarketing: { key: 'mobile-opt-in', label: 'Send marketing messages', type: 'boolean' },
+      pointOfDiscovery: {
+        key: 'patient-point-of-discovery',
+        label: 'How did you hear about us?',
+        type: 'choice',
+        options: formValueSets.pointOfDiscoveryOptions,
+      },
+      commonWellConsent: { key: 'common-well-consent', label: 'CommonWell consent', type: 'boolean' },
+      // Payment-flow flag mirrored from the intake credit-card page. Same
+      // Patient.extension the intake harvest writes, same tri-state
+      // prepopulation semantics — the EHR field is the staff-side view of
+      // whatever the patient checked at intake, with staff able to correct.
+      // Label matches the EHR mockup (patient-third-person phrasing);
+      // hideControlLabel keeps only the inline text next to the checkbox
+      // (see the field-extension mechanism added in the same branch).
+      patientHasMedicaid: {
+        key: 'patient-has-medicaid',
+        label: 'Patient has Medicaid insurance. Credit Card should not be requested.',
+        type: 'boolean',
+        hideControlLabel: true,
+      },
+    },
+    hiddenFields: [],
+    requiredFields: ['patient-ethnicity', 'patient-race'],
+  },
+  patientContactInformation: {
+    linkId: 'patient-contact-info-section',
+    title: 'Patient contact information',
+    items: {
+      streetAddress: { key: 'patient-street-address', type: 'string', label: 'Street address' },
+      addressLine2: { key: 'patient-street-address-2', type: 'string', label: 'Address line 2' },
+      city: { key: 'patient-city', type: 'string', label: 'City' },
+      state: { key: 'patient-state', type: 'choice', label: 'State', options: formValueSets.stateOptions },
+      zip: { key: 'patient-zip', type: 'string', label: 'ZIP', dataType: 'ZIP' },
+      email: {
+        key: 'patient-email',
+        type: 'string',
+        label: 'Patient email',
+        dataType: 'Email',
+        triggers: [
+          {
+            targetQuestionLinkId: 'patient-no-email',
+            effect: ['enable'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'patient-no-email',
+            effect: ['filter'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+        disabledDisplay: 'hidden',
+      },
+      noEmail: { key: 'patient-no-email', type: 'boolean', label: "Don't have email" },
+      phone: { key: 'patient-number', type: 'string', label: 'Patient mobile', dataType: 'Phone Number' },
+      preferredCommunicationMethod: {
+        key: 'patient-preferred-communication-method',
+        type: 'choice',
+        label: 'Preferred communication method',
+        options: formValueSets.preferredCommunicationMethodOptions,
+      },
+    },
+    hiddenFields: [],
+    requiredFields: [
+      'patient-street-address',
+      'patient-city',
+      'patient-zip',
+      'patient-state',
+      'patient-email',
+      'patient-number',
+      'patient-preferred-communication-method',
+    ],
+  },
+  insurance: {
+    linkId: ['insurance-section', 'insurance-section-2'],
+    title: 'Insurance information',
+    items: [
+      {
+        insurancePriority: {
+          key: 'insurance-priority',
+          type: 'choice',
+          label: 'Type',
+          options: formValueSets.insurancePriorityOptions,
+        },
+        insuranceCarrier: {
+          key: 'insurance-carrier',
+          type: 'reference',
+          label: 'Insurance carrier',
+          dataSource: {
+            answerSource: {
+              zambdaId: 'get-all-insurance-payers',
+              prependIdentifier: true,
+            },
+          },
+        },
+        insurancePlanType: {
+          key: 'insurance-plan-type',
+          type: 'choice',
+          label: 'Insurance type',
+          options: insurancePlanTypeOptions,
+        },
+        memberId: { key: 'insurance-member-id', type: 'string', label: 'Member ID' },
+        firstName: {
+          key: 'policy-holder-first-name',
+          type: 'string',
+          label: "Policy holder's first name",
+          triggers: [InsuredPersonNotSelfTrigger],
+          dynamicPopulation: { sourceLinkId: 'patient-first-name', triggerState: 'disabled' },
+          disabledDisplay: 'disabled',
+        },
+        middleName: {
+          key: 'policy-holder-middle-name',
+          type: 'string',
+          label: "Policy holder's middle name",
+          triggers: [InsuredPersonNotSelfTrigger],
+          dynamicPopulation: { sourceLinkId: 'patient-middle-name', triggerState: 'disabled' },
+          disabledDisplay: 'disabled',
+        },
+        lastName: {
+          key: 'policy-holder-last-name',
+          type: 'string',
+          label: "Policy holder's last name",
+          triggers: [InsuredPersonNotSelfTrigger],
+          dynamicPopulation: { sourceLinkId: 'patient-last-name', triggerState: 'disabled' },
+          disabledDisplay: 'disabled',
+        },
+        birthDate: {
+          key: 'policy-holder-date-of-birth',
+          type: 'date',
+          label: "Policy holder's date of birth",
+          dataType: 'DOB',
+          triggers: [InsuredPersonNotSelfTrigger],
+          dynamicPopulation: { sourceLinkId: 'patient-birthdate', triggerState: 'disabled' },
+          disabledDisplay: 'disabled',
+        },
+        birthSex: {
+          key: 'policy-holder-birth-sex',
+          type: 'choice',
+          label: "Policy holder's birth sex",
+          options: formValueSets.birthSexOptions,
+          triggers: [InsuredPersonNotSelfTrigger],
+          dynamicPopulation: { sourceLinkId: 'patient-birth-sex', triggerState: 'disabled' },
+          disabledDisplay: 'disabled',
+        },
+        policyHolderAddressAsPatient: {
+          key: 'policy-holder-address-as-patient',
+          type: 'boolean',
+          label: "Policy holder address is the same as patient's address",
+          triggers: [InsuredPersonNotSelfTrigger],
+          disabledDisplay: 'disabled',
+        },
+        streetAddress: {
+          key: 'policy-holder-address',
+          type: 'string',
+          label: "Policy holder's address",
+          triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
+          dynamicPopulation: { sourceLinkId: 'patient-street-address', triggerState: 'disabled' },
+          enableBehavior: 'all',
+          disabledDisplay: 'disabled',
+        },
+        addressLine2: {
+          key: 'policy-holder-address-additional-line',
+          type: 'string',
+          label: "Policy holder's address line 2",
+          triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
+          dynamicPopulation: { sourceLinkId: 'patient-street-address-2', triggerState: 'disabled' },
+          enableBehavior: 'all',
+          disabledDisplay: 'disabled',
+        },
+        city: {
+          key: 'policy-holder-city',
+          type: 'string',
+          label: 'City',
+          triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
+          dynamicPopulation: { sourceLinkId: 'patient-city', triggerState: 'disabled' },
+          enableBehavior: 'all',
+          disabledDisplay: 'disabled',
+        },
+        state: {
+          key: 'policy-holder-state',
+          type: 'choice',
+          label: 'State',
+          options: formValueSets.stateOptions,
+          triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
+          dynamicPopulation: { sourceLinkId: 'patient-state', triggerState: 'disabled' },
+          enableBehavior: 'all',
+          disabledDisplay: 'disabled',
+        },
+        zip: {
+          key: 'policy-holder-zip',
+          type: 'string',
+          label: 'ZIP',
+          dataType: 'ZIP',
+          triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
+          dynamicPopulation: { sourceLinkId: 'patient-zip', triggerState: 'disabled' },
+          enableBehavior: 'all',
+          disabledDisplay: 'disabled',
+        },
+        relationship: {
+          key: 'patient-relationship-to-insured',
+          type: 'choice',
+          label: "Patient's relationship to insured",
+          options: formValueSets.relationshipToInsuredOptions,
+        },
+        additionalInformation: {
+          key: 'insurance-additional-information',
+          type: 'string',
+          label: 'Additional insurance information',
+        },
+      },
+      {
+        insurancePriority: {
+          key: 'insurance-priority-2',
+          type: 'choice',
+          label: 'Type',
+          options: formValueSets.insurancePriorityOptions,
+        },
+        insuranceCarrier: {
+          key: 'insurance-carrier-2',
+          type: 'reference',
+          label: 'Insurance carrier',
+          dataSource: {
+            answerSource: {
+              zambdaId: 'get-all-insurance-payers',
+              prependIdentifier: true,
+            },
+          },
+        },
+        insurancePlanType: {
+          key: 'insurance-plan-type-2',
+          type: 'choice',
+          label: 'Insurance type',
+          options: insurancePlanTypeOptions,
+        },
+        memberId: { key: 'insurance-member-id-2', type: 'string', label: 'Member ID' },
+        firstName: {
+          key: 'policy-holder-first-name-2',
+          type: 'string',
+          label: "Policy holder's first name",
+          triggers: [InsuredPersonNotSelfTrigger2],
+          dynamicPopulation: { sourceLinkId: 'patient-first-name', triggerState: 'disabled' },
+          disabledDisplay: 'disabled',
+        },
+        middleName: {
+          key: 'policy-holder-middle-name-2',
+          type: 'string',
+          label: "Policy holder's middle name",
+          triggers: [InsuredPersonNotSelfTrigger2],
+          dynamicPopulation: { sourceLinkId: 'patient-middle-name', triggerState: 'disabled' },
+          disabledDisplay: 'disabled',
+        },
+        lastName: {
+          key: 'policy-holder-last-name-2',
+          type: 'string',
+          label: "Policy holder's last name",
+          triggers: [InsuredPersonNotSelfTrigger2],
+          dynamicPopulation: { sourceLinkId: 'patient-last-name', triggerState: 'disabled' },
+          disabledDisplay: 'disabled',
+        },
+        birthDate: {
+          key: 'policy-holder-date-of-birth-2',
+          type: 'date',
+          label: "Policy holder's date of birth",
+          dataType: 'DOB',
+          triggers: [InsuredPersonNotSelfTrigger2],
+          dynamicPopulation: { sourceLinkId: 'patient-birthdate', triggerState: 'disabled' },
+          disabledDisplay: 'disabled',
+        },
+        birthSex: {
+          key: 'policy-holder-birth-sex-2',
+          type: 'choice',
+          label: "Policy holder's birth sex",
+          options: formValueSets.birthSexOptions,
+          triggers: [InsuredPersonNotSelfTrigger2],
+          dynamicPopulation: { sourceLinkId: 'patient-birth-sex', triggerState: 'disabled' },
+          disabledDisplay: 'disabled',
+        },
+        policyHolderAddressAsPatient: {
+          key: 'policy-holder-address-as-patient-2',
+          type: 'boolean',
+          label: "Policy holder address is the same as patient's address",
+          triggers: [InsuredPersonNotSelfTrigger2],
+          disabledDisplay: 'disabled',
+        },
+        streetAddress: {
+          key: 'policy-holder-address-2',
+          type: 'string',
+          label: "Policy holder's address",
+          triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
+          dynamicPopulation: { sourceLinkId: 'patient-street-address', triggerState: 'disabled' },
+          enableBehavior: 'all',
+          disabledDisplay: 'disabled',
+        },
+        addressLine2: {
+          key: 'policy-holder-address-additional-line-2',
+          type: 'string',
+          label: "Policy holder's address line 2",
+          triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
+          dynamicPopulation: { sourceLinkId: 'patient-street-address-2', triggerState: 'disabled' },
+          enableBehavior: 'all',
+          disabledDisplay: 'disabled',
+        },
+        city: {
+          key: 'policy-holder-city-2',
+          type: 'string',
+          label: 'City',
+          triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
+          dynamicPopulation: { sourceLinkId: 'patient-city', triggerState: 'disabled' },
+          enableBehavior: 'all',
+          disabledDisplay: 'disabled',
+        },
+        state: {
+          key: 'policy-holder-state-2',
+          type: 'choice',
+          label: 'State',
+          options: formValueSets.stateOptions,
+          triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
+          dynamicPopulation: { sourceLinkId: 'patient-state', triggerState: 'disabled' },
+          enableBehavior: 'all',
+          disabledDisplay: 'disabled',
+        },
+        zip: {
+          key: 'policy-holder-zip-2',
+          type: 'string',
+          label: 'ZIP',
+          dataType: 'ZIP',
+          triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
+          dynamicPopulation: { sourceLinkId: 'patient-zip', triggerState: 'disabled' },
+          enableBehavior: 'all',
+          disabledDisplay: 'disabled',
+        },
+        relationship: {
+          key: 'patient-relationship-to-insured-2',
+          type: 'choice',
+          label: "Patient's relationship to insured",
+          options: formValueSets.relationshipToInsuredOptions,
+        },
+        additionalInformation: {
+          key: 'insurance-additional-information-2',
+          type: 'string',
+          label: 'Additional insurance information',
+        },
+      },
+    ],
+    hiddenFields: [],
+    requiredFields: [
+      'insurance-carrier',
+      'insurance-member-id',
+      'policy-holder-first-name',
+      'policy-holder-last-name',
+      'policy-holder-date-of-birth',
+      'policy-holder-birth-sex',
+      'policy-holder-address',
+      'policy-holder-city',
+      'policy-holder-state',
+      'policy-holder-zip',
+      'patient-relationship-to-insured',
+      'insurance-priority',
+      // assuming it won't be a problem to have the fields from both insurance sections in the same array here since the two fields behave
+      // identically when they're included
+      'insurance-carrier-2',
+      'insurance-member-id-2',
+      'policy-holder-first-name-2',
+      'policy-holder-last-name-2',
+      'policy-holder-date-of-birth-2',
+      'policy-holder-birth-sex-2',
+      'policy-holder-address-2',
+      'policy-holder-city-2',
+      'policy-holder-state-2',
+      'policy-holder-zip-2',
+      'patient-relationship-to-insured-2',
+      'insurance-priority-2',
+    ],
+  },
+  primaryCarePhysician: {
+    linkId: 'primary-care-physician-section',
+    title: 'Primary care physician',
+    items: {
+      active: { key: 'pcp-active', type: 'boolean', label: "Patient doesn't have a PCP at this time" },
+      firstName: {
+        key: 'pcp-first',
+        type: 'string',
+        label: 'First name',
+        triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['enable'], operator: '=', answerBoolean: true }],
+        disabledDisplay: 'hidden',
+      },
+      lastName: {
+        key: 'pcp-last',
+        type: 'string',
+        label: 'Last name',
+        triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['enable'], operator: '=', answerBoolean: true }],
+        disabledDisplay: 'hidden',
+      },
+      practiceName: {
+        key: 'pcp-practice',
+        type: 'string',
+        label: 'Practice name',
+        triggers: [
+          { targetQuestionLinkId: 'pcp-active', effect: ['require', 'enable'], operator: '=', answerBoolean: true },
+        ],
+        disabledDisplay: 'hidden',
+      },
+      address: {
+        key: 'pcp-address',
+        type: 'string',
+        label: 'Address',
+        triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['enable'], operator: '=', answerBoolean: true }],
+        disabledDisplay: 'hidden',
+      },
+      phone: {
+        key: 'pcp-number',
+        type: 'string',
+        label: 'Mobile',
+        dataType: 'Phone Number',
+        triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['enable'], operator: '=', answerBoolean: true }],
+        disabledDisplay: 'hidden',
+      },
+      fax: {
+        key: 'pcp-fax',
+        type: 'string',
+        label: 'Fax',
+        dataType: 'Phone Number',
+        triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['enable'], operator: '=', answerBoolean: true }],
+        disabledDisplay: 'hidden',
+      },
+    },
+    hiddenFields: [],
+    requiredFields: [],
+  },
+  responsibleParty: {
+    linkId: 'responsible-party-section',
+    title: 'Responsible party information',
+    items: {
+      relationship: {
+        key: 'responsible-party-relationship',
+        type: 'choice',
+        label: 'Relationship to the patient',
+        options: formValueSets.relationshipOptions,
+      },
+      firstName: {
+        key: 'responsible-party-first-name',
+        type: 'string',
+        label: 'First name',
+        triggers: [RPNotSelfTrigger],
+        dynamicPopulation: { sourceLinkId: 'patient-first-name', triggerState: 'disabled' },
+        disabledDisplay: 'disabled',
+      },
+      lastName: {
+        key: 'responsible-party-last-name',
+        type: 'string',
+        label: 'Last name',
+        triggers: [RPNotSelfTrigger],
+        dynamicPopulation: { sourceLinkId: 'patient-last-name', triggerState: 'disabled' },
+        disabledDisplay: 'disabled',
+      },
+      birthDate: {
+        key: 'responsible-party-date-of-birth',
+        type: 'date',
+        label: 'Date of birth',
+        dataType: 'DOB',
+        triggers: [RPNotSelfTrigger],
+        dynamicPopulation: { sourceLinkId: 'patient-birthdate', triggerState: 'disabled' },
+        disabledDisplay: 'disabled',
+      },
+      birthSex: {
+        key: 'responsible-party-birth-sex',
+        type: 'choice',
+        label: 'Birth sex',
+        options: formValueSets.birthSexOptions,
+        triggers: [RPNotSelfTrigger],
+        dynamicPopulation: { sourceLinkId: 'patient-birth-sex', triggerState: 'disabled' },
+        disabledDisplay: 'disabled',
+      },
+      phone: {
+        key: 'responsible-party-number',
+        type: 'string',
+        label: 'Phone',
+        dataType: 'Phone Number',
+        triggers: [RPNotSelfTrigger],
+        dynamicPopulation: { sourceLinkId: 'patient-number', triggerState: 'disabled' },
+        disabledDisplay: 'disabled',
+      },
+      email: {
+        key: 'responsible-party-email',
+        type: 'string',
+        label: 'Email',
+        dataType: 'Email',
+        triggers: [
+          RPNotSelfTrigger,
+          // filter trigger keeps the value out of submission when no-email is checked;
+          // the actual hide is handled in ResponsibleInformationContainer so that
+          // the field stays visible-but-disabled when Self (independent of no-email state).
+          {
+            targetQuestionLinkId: 'responsible-party-no-email',
+            effect: ['filter'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+        dynamicPopulation: { sourceLinkId: 'patient-email', triggerState: 'disabled' },
+        disabledDisplay: 'disabled',
+      },
+      noEmail: {
+        key: 'responsible-party-no-email',
+        type: 'boolean',
+        label: "Don't have email",
+        triggers: [RPNotSelfTrigger],
+        disabledDisplay: 'disabled',
+        dynamicPopulation: { sourceLinkId: 'patient-no-email', triggerState: 'disabled' },
+      },
+      addressSameAsPatient: {
+        key: 'responsible-party-address-as-patient',
+        label: "Responsible party's address is the same as patient's address",
+        type: 'boolean',
+        triggers: [RPNotSelfTrigger],
+        disabledDisplay: 'disabled',
+      },
+      addressLine1: {
+        key: 'responsible-party-address',
+        type: 'string',
+        label: 'Street Address',
+        triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
+        enableBehavior: 'all',
+        dynamicPopulation: { sourceLinkId: 'patient-street-address', triggerState: 'disabled' },
+        disabledDisplay: 'disabled',
+      },
+      addressLine2: {
+        key: 'responsible-party-address-2',
+        type: 'string',
+        label: 'Address line 2',
+        triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
+        enableBehavior: 'all',
+        dynamicPopulation: { sourceLinkId: 'patient-street-address-2', triggerState: 'disabled' },
+        disabledDisplay: 'disabled',
+      },
+      city: {
+        key: 'responsible-party-city',
+        type: 'string',
+        label: 'City',
+        triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
+        enableBehavior: 'all',
+        dynamicPopulation: { sourceLinkId: 'patient-city', triggerState: 'disabled' },
+        disabledDisplay: 'disabled',
+      },
+      state: {
+        key: 'responsible-party-state',
+        type: 'choice',
+        label: 'State',
+        options: formValueSets.stateOptions,
+        triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
+        enableBehavior: 'all',
+        dynamicPopulation: { sourceLinkId: 'patient-state', triggerState: 'disabled' },
+        disabledDisplay: 'disabled',
+      },
+      zip: {
+        key: 'responsible-party-zip',
+        type: 'string',
+        label: 'Zip',
+        dataType: 'ZIP',
+        triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
+        enableBehavior: 'all',
+        dynamicPopulation: { sourceLinkId: 'patient-zip', triggerState: 'disabled' },
+        disabledDisplay: 'disabled',
+      },
+    },
+    hiddenFields: [],
+    requiredFields: [
+      'responsible-party-relationship',
+      'responsible-party-first-name',
+      'responsible-party-last-name',
+      'responsible-party-date-of-birth',
+      'responsible-party-birth-sex',
+      'responsible-party-address',
+      'responsible-party-city',
+      'responsible-party-state',
+      'responsible-party-zip',
+      'responsible-party-email',
+    ],
+  },
+  emergencyContact: {
+    linkId: 'emergency-contact-section',
+    title: 'Emergency contact information',
+    items: {
+      relationship: {
+        key: 'emergency-contact-relationship',
+        type: 'choice',
+        label: 'Relationship to the patient',
+        options: formValueSets.emergencyContactRelationshipOptions,
+      },
+      firstName: { key: 'emergency-contact-first-name', type: 'string', label: 'First name' },
+      middleName: { key: 'emergency-contact-middle-name', type: 'string', label: 'Middle name' },
+      lastName: { key: 'emergency-contact-last-name', type: 'string', label: 'Last name' },
+      phone: { key: 'emergency-contact-number', type: 'string', label: 'Phone', dataType: 'Phone Number' },
+      addressAsPatient: {
+        key: 'emergency-contact-address-as-patient',
+        type: 'boolean',
+        label: "Emergency contact address is the same as patient's address",
+      },
+      streetAddress: {
+        key: 'emergency-contact-address',
+        type: 'string',
+        label: 'Street address',
+        disabledDisplay: 'disabled',
+      },
+      addressLine2: {
+        key: 'emergency-contact-address-2',
+        type: 'string',
+        label: 'Address line 2 (optional)',
+        disabledDisplay: 'disabled',
+      },
+      city: { key: 'emergency-contact-city', type: 'string', label: 'City', disabledDisplay: 'disabled' },
+      state: {
+        key: 'emergency-contact-state',
+        type: 'choice',
+        label: 'State',
+        options: formValueSets.stateOptions,
+        disabledDisplay: 'disabled',
+      },
+      zip: { key: 'emergency-contact-zip', type: 'string', label: 'Zip', dataType: 'ZIP', disabledDisplay: 'disabled' },
+    },
+    hiddenFields: [],
+    requiredFields: [
+      'emergency-contact-relationship',
+      'emergency-contact-first-name',
+      'emergency-contact-last-name',
+      'emergency-contact-number',
+    ],
+  },
+  preferredPharmacy: {
+    linkId: 'preferred-pharmacy-section',
+    title: 'Preferred pharmacy',
+    items: {
+      pharmacyCollection: {
+        key: 'pharmacy-collection',
+        text: 'Pharmacy',
+        type: 'group',
+        groupType: 'pharmacy-collection',
+        items: {
+          pharmacyPlacesId: {
+            key: 'pharmacy-places-id',
+            label: 'places id',
+            type: 'string',
+          },
+          pharmacyPlacesName: {
+            key: 'pharmacy-places-name',
+            label: 'places name',
+            type: 'string',
+          },
+          pharmacyPlacesAddress: {
+            key: 'pharmacy-places-address',
+            label: 'places address',
+            type: 'string',
+          },
+          pharmacyPlacesPhone: {
+            key: 'pharmacy-places-phone',
+            label: 'places phone',
+            type: 'string',
+          },
+          pharmacyPlacesSaved: {
+            key: 'pharmacy-places-saved',
+            label: 'places saved',
+            type: 'boolean',
+          },
+          erxPharmacyId: {
+            key: 'erx-pharmacy-id',
+            label: 'erx pharmacy id',
+            type: 'string',
+          },
+        },
+        disabledDisplay: 'hidden',
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['enable'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+        ],
+      },
+      manualEntry: {
+        key: 'pharmacy-page-manual-entry',
+        label: "Can't find? Add manually",
+        type: 'boolean',
+        element: 'Link',
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-places-saved',
+            effect: ['enable'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['sub-text'],
+            operator: '=',
+            answerBoolean: true,
+            substituteText: 'Use search',
+          },
+        ],
+      },
+      name: {
+        key: 'pharmacy-name',
+        label: 'Pharmacy name',
+        type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['enable'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+        disabledDisplay: 'hidden',
+      },
+      address: {
+        key: 'pharmacy-address',
+        label: 'Pharmacy address',
+        type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['enable'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+        disabledDisplay: 'hidden',
+      },
+      phone: {
+        key: 'pharmacy-phone',
+        label: 'Pharmacy phone',
+        type: 'string',
+        dataType: 'Phone Number',
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['enable'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+        disabledDisplay: 'hidden',
+      },
+    },
+    hiddenFields: [],
+    requiredFields: [],
+  },
+  employerInformation: {
+    linkId: 'employer-information-page',
+    title: "Worker's Compensation Information",
+    triggers: [
+      {
+        targetQuestionLinkId: 'appointment-service-category',
+        effect: ['enable'],
+        operator: '=',
+        answerString: 'workers-comp',
+      },
+      {
+        targetQuestionLinkId: 'appointment-service-category',
+        effect: ['enable'],
+        operator: 'exists',
+        answerBoolean: false,
+      },
+    ],
+    enableBehavior: 'any',
+    items: {
+      workersCompInsurance: {
+        key: 'workers-comp-insurance-name',
+        type: 'reference',
+        label: 'Insurance carrier',
+        dataSource: {
+          answerSource: {
+            zambdaId: 'get-all-insurance-payers',
+            prependIdentifier: true,
+          },
+        },
+        triggers: [
+          {
+            targetQuestionLinkId: 'workers-comp-insurance-member-id',
+            effect: ['require'],
+            operator: 'exists',
+            answerBoolean: true,
+          },
+        ],
+      },
+      workersCompMemberId: {
+        key: 'workers-comp-insurance-member-id',
+        type: 'string',
+        label: 'Member ID',
+        triggers: [
+          {
+            targetQuestionLinkId: 'workers-comp-insurance-name',
+            effect: ['require'],
+            operator: 'exists',
+            answerBoolean: true,
+          },
+        ],
+      },
+      employerName: { key: 'employer-name', type: 'string', label: 'Employer name' },
+      addressLine1: { key: 'employer-address', type: 'string', label: 'Address line 1' },
+      addressLine2: { key: 'employer-address-2', type: 'string', label: 'Address line 2' },
+      city: { key: 'employer-city', type: 'string', label: 'City' },
+      state: { key: 'employer-state', type: 'choice', label: 'State', options: formValueSets.stateOptions },
+      zip: { key: 'employer-zip', type: 'string', label: 'ZIP', dataType: 'ZIP' },
+      contactFirstName: { key: 'employer-contact-first-name', type: 'string', label: 'First name' },
+      contactLastName: { key: 'employer-contact-last-name', type: 'string', label: 'Last name' },
+      contactTitle: { key: 'employer-contact-title', type: 'string', label: 'Title' },
+      contactEmail: { key: 'employer-contact-email', type: 'string', label: 'Email', dataType: 'Email' },
+      contactPhone: { key: 'employer-contact-phone', type: 'string', label: 'Phone', dataType: 'Phone Number' },
+      contactFax: { key: 'employer-contact-fax', type: 'string', label: 'Fax', dataType: 'Phone Number' },
+    },
+    hiddenFields: [],
+    requiredFields: [],
+  },
+  occupationalMedicineEmployerInformation: {
+    linkId: 'occupational-medicine-employer-information-page',
+    title: 'Employer - Occupational Medicine',
+    items: {
+      employerName: {
+        key: 'occupational-medicine-employer',
+        type: 'reference',
+        label: 'Employer name',
+        dataSource: {
+          answerSource: {
+            zambdaId: 'get-answer-options',
+            resourceType: 'Organization',
+            query: `active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer`,
+            prependedIdentifier: '1',
+          },
+        },
+      },
+    },
+    triggers: [
+      {
+        targetQuestionLinkId: 'appointment-service-category',
+        effect: ['enable'],
+        operator: '=',
+        answerString: 'occupational-medicine',
+      },
+      {
+        targetQuestionLinkId: 'appointment-service-category',
+        effect: ['enable'],
+        operator: 'exists',
+        answerBoolean: false,
+      },
+    ],
+    enableBehavior: 'any',
+    hiddenFields: [],
+    requiredFields: [],
+  },
+  attorneyInformation: {
+    linkId: 'attorney-mva-page',
+    title: 'Attorney for Motor Vehicle Accident',
+    items: {
+      firm: { key: 'attorney-mva-firm', type: 'string', label: 'Firm' },
+      firstName: { key: 'attorney-mva-first-name', type: 'string', label: 'First name' },
+      lastName: { key: 'attorney-mva-last-name', type: 'string', label: 'Last name' },
+      email: { key: 'attorney-mva-email', type: 'string', label: 'Email', dataType: 'Email' },
+      mobile: { key: 'attorney-mva-mobile', type: 'string', label: 'Mobile', dataType: 'Phone Number' },
+      fax: { key: 'attorney-mva-fax', type: 'string', label: 'Fax', dataType: 'Phone Number' },
+    },
+    triggers: [
+      {
+        targetQuestionLinkId: 'appointment-service-category',
+        effect: ['enable'],
+        operator: 'exists',
+        answerBoolean: false,
+      },
+      {
+        targetQuestionLinkId: 'reason-for-visit',
+        effect: ['enable'],
+        operator: '=',
+        answerString: 'Auto accident',
+      },
+    ],
+    enableBehavior: 'any',
+    hiddenFields: [],
+    requiredFields: [],
+  },
+};
+
+const hiddenFormSections: string[] = [];
+
+const questionnaireBaseDefaults = {
+  resourceType: 'Questionnaire',
+  url: 'http://example.org/fhir/Questionnaire/patient-record',
+  version: '1.1.1',
+  name: 'PatientRecordQuestionnaire',
+  title: 'Patient Record Questionnaire',
+  status: 'active',
+} as const satisfies QuestionnaireBase;
+
+const PATIENT_RECORD_DEFAULTS: PatientRecordConfig = {
+  questionnaireBase: questionnaireBaseDefaults,
+  hiddenFormSections,
+  FormFields,
+};
+
+export const PATIENT_RECORD_CONFIG: PatientRecordConfig = Object.freeze(PATIENT_RECORD_DEFAULTS);
+
+export const PATIENT_RECORD_QUESTIONNAIRE = (): Questionnaire =>
+  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(PATIENT_RECORD_CONFIG)));

@@ -1,8 +1,12 @@
 import { z } from 'zod';
 import { Secrets } from '../../../secrets';
-import { ExtendedMedicationDataForResponse, GetRadiologyOrderListZambdaOrder } from '../../api';
-import { InHouseOrderListPageItemDTO } from '../in-house';
-import { LabOrderListPageDTO } from '../labs';
+import { PrescribedMedicationDTO } from '../../api/chart-data/chart-data.types';
+import { ProcedureDTO } from '../../api/chart-data/chart-data.types';
+import { ExtendedMedicationDataForResponse } from '../../api/medication-administration.types';
+import { GetRadiologyOrderListZambdaOrder } from '../../api/radiology';
+import { ImmunizationOrder } from '../immunization/types';
+import { InHouseOrderListPageItemDTO } from '../in-house/in-house.types';
+import { LabOrderListPageDTO } from '../labs/labs.types';
 import { NursingOrdersStatus } from './constants';
 
 export const CreateNursingOrderInputSchema = z.object({
@@ -20,7 +24,7 @@ export const CreateNursingOrderInputValidatedSchema = CreateNursingOrderInputSch
 export type CreateNursingOrderInputValidated = z.infer<typeof CreateNursingOrderInputValidatedSchema>;
 
 export const UpdateNursingOrderInputSchema = z.object({
-  serviceRequestId: z.string(),
+  serviceRequestId: z.string().uuid(),
   action: z.enum(['CANCEL ORDER', 'COMPLETE ORDER']),
 });
 
@@ -52,6 +56,7 @@ export type NursingOrdersSearchBy = z.infer<typeof NursingOrdersSearchBySchema>;
 
 export const GetNursingOrdersInputSchema = z.object({
   searchBy: NursingOrdersSearchBySchema,
+  refreshKey: z.number().optional(),
 });
 
 export type GetNursingOrdersInput = z.infer<typeof GetNursingOrdersInputSchema>;
@@ -86,6 +91,7 @@ export interface OrderToolTipConfig {
   icon: JSX.Element;
   title: string;
   tableUrl: string;
+  unreadBadge?: boolean;
   orders: {
     // lab orders & nursing orders use ServiceRequests
     // inHouse Medications use MedicationAdministration
@@ -93,6 +99,7 @@ export interface OrderToolTipConfig {
     itemDescription: string;
     detailPageUrl: string;
     statusChip: JSX.Element;
+    unreadBadge?: boolean;
   }[];
 }
 
@@ -102,6 +109,9 @@ export interface OrdersForTrackingBoardTable {
   nursingOrdersByAppointmentId: Record<string, NursingOrder[]>;
   inHouseMedicationsByEncounterId: Record<string, ExtendedMedicationDataForResponse[]>;
   radiologyOrdersByAppointmentId: Record<string, GetRadiologyOrderListZambdaOrder[]>;
+  erxOrdersByEncounterId: Record<string, PrescribedMedicationDTO[]>;
+  proceduresByEncounterId: Record<string, ProcedureDTO[]>;
+  immunizationOrdersByEncounterId: Record<string, ImmunizationOrder[]>;
 }
 
 export interface OrdersForTrackingBoardRow {
@@ -110,4 +120,7 @@ export interface OrdersForTrackingBoardRow {
   nursingOrders: NursingOrder[] | undefined;
   inHouseMedications: ExtendedMedicationDataForResponse[] | undefined;
   radiologyOrders: GetRadiologyOrderListZambdaOrder[] | undefined;
+  erxOrders: PrescribedMedicationDTO[] | undefined;
+  procedures: ProcedureDTO[] | undefined;
+  immunizationOrders: ImmunizationOrder[] | undefined;
 }

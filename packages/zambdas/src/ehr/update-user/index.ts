@@ -1,236 +1,312 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HumanName, Practitioner } from 'fhir/r4b';
+import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import {
-  FHIR_IDENTIFIER_NPI,
-  getSecret,
+  getSuffixFromProviderTypeExtension,
+  makeProviderTypeExtension,
   makeQualificationForPractitioner,
-  SecretsKeys,
-  UpdateUserZambdaOutput,
-} from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+} from 'utils/lib/fhir/practitioners';
+import { getSecret } from 'utils/lib/secrets';
+import { UpdateUserZambdaOutput } from 'utils/lib/types/api/update-user/update-user.types';
+import { hasPractitionerProfile, RoleType } from 'utils/lib/types/api/user.types';
+import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { isFhirNotFoundError } from '../../shared/errors';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getRoleId } from '../../shared/rolesUtils';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { authorizeUserEdit, resolveEffectiveRoles } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'update-user';
 let m2mToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.log('validatedParameters:', JSON.stringify(validatedParameters, null, 4));
-    const {
-      secrets,
-      userId,
-      firstName,
-      middleName,
-      lastName,
-      nameSuffix,
-      selectedRoles,
-      licenses,
-      phoneNumber,
-      npi,
-      birthDate,
-      faxNumber,
-      addressLine1,
-      addressLine2,
-      addressCity,
-      addressState,
-      addressZip,
-    } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-    const PROJECT_API = getSecret('PROJECT_API', secrets);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const headers = {
-      accept: 'application/json',
-      'content-type': 'application/json',
-      Authorization: `Bearer ${m2mToken}`,
-    };
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const user = await oystehr.user.get({ id: userId });
-    const userProfile = user.profile;
-    const userProfileString = userProfile.split('/');
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.log('validatedParameters:', JSON.stringify(validatedParameters, null, 4));
+  const {
+    secrets,
+    userId,
+    firstName,
+    middleName,
+    lastName,
+    providerType,
+    providerTypeText,
+    selectedRoles,
+    licenses,
+    phoneNumber,
+    npi,
+    birthDate,
+    faxNumber,
+    addressLine1,
+    addressLine2,
+    addressCity,
+    addressState,
+    addressZip,
+  } = validatedParameters;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
 
-    const practitionerId = userProfileString[1];
-    // Update user's Oystehr roles
-    // calling update user on an inactive user, reactivates them
-    let roles: string[] = [];
-
-    if (selectedRoles && selectedRoles.length > 0) {
-      const promises = selectedRoles
-        .filter((roleName) => roleName !== 'Inactive')
-        .map((roleName) => getRoleId(roleName, m2mToken, PROJECT_API));
-      roles = await Promise.all(promises);
-    }
-    const updatedUserResponse = await fetch(`${PROJECT_API}/user/${userId}`, {
-      method: 'PATCH',
-      headers: headers,
-      body: JSON.stringify({
-        roles: roles,
-      }),
-    });
-    try {
-      const practitionerQualificationExtension: any = [];
-      licenses?.forEach((license) => {
-        practitionerQualificationExtension.push(makeQualificationForPractitioner(license));
-      });
-      let existingPractitionerResource: Practitioner | null = null;
-      try {
-        existingPractitionerResource = <Practitioner>await oystehr.fhir.get({
-          resourceType: 'Practitioner',
-          id: practitionerId,
-        });
-      } catch (error: any) {
-        if (
-          error.resourceType === 'OperationOutcome' &&
-          error.issue &&
-          error.issue.some((issue: any) => issue.severity === 'error' && issue.code === 'not-found')
-        ) {
-          existingPractitionerResource = null;
-        } else {
-          throw new Error(`Failed to get Practitioner: ${JSON.stringify(error)}`);
-        }
-      }
-
-      let name: HumanName | undefined = {};
-      if (firstName) name.given = [firstName];
-      if (middleName) (name.given ??= []).push(middleName);
-      if (lastName) name.family = lastName;
-      if (nameSuffix) name.suffix = [nameSuffix];
-      if (Object.keys(name).length === 0) name = undefined;
-
-      if (!existingPractitionerResource) {
-        await oystehr.fhir.create({
-          resourceType: 'Practitioner',
-          id: practitionerId,
-          name: name ? [name] : undefined,
-          qualification: practitionerQualificationExtension,
-          telecom: phoneNumber
-            ? [
-                { system: 'sms', value: phoneNumber },
-                { system: 'phone', value: phoneNumber },
-              ]
-            : undefined,
-        });
-      } else {
-        const existingTelecom = existingPractitionerResource.telecom || [];
-        const smsIndex = existingTelecom.findIndex((tel) => tel.system === 'sms');
-        const phoneIndex = existingTelecom.findIndex((tel) => tel.system === 'phone');
-        const faxIndex = existingTelecom.findIndex((tel) => tel.system === 'fax');
-        let updatedTelecom = [...existingTelecom];
-        if (phoneNumber) {
-          if (smsIndex >= 0) {
-            updatedTelecom[smsIndex] = { system: 'sms', value: phoneNumber };
-          } else {
-            updatedTelecom.push({ system: 'sms', value: phoneNumber });
-          }
-          if (phoneIndex >= 0) {
-            updatedTelecom[phoneIndex] = { system: 'phone', value: phoneNumber };
-          } else {
-            updatedTelecom.push({ system: 'phone', value: phoneNumber });
-          }
-        } else {
-          updatedTelecom = updatedTelecom.filter((tel) => tel.system !== 'sms' && tel.system !== 'phone');
-        }
-
-        if (faxNumber) {
-          if (faxIndex >= 0) {
-            updatedTelecom[faxIndex] = { system: 'fax', value: faxNumber };
-          } else {
-            updatedTelecom.push({ system: 'fax', value: faxNumber });
-          }
-        } else {
-          updatedTelecom = updatedTelecom.filter((tel) => tel.system !== 'fax');
-        }
-
-        if (npi) {
-          if (!existingPractitionerResource.identifier) {
-            existingPractitionerResource.identifier = [];
-          }
-          const npiIndex = existingPractitionerResource.identifier.findIndex((id) => id.system === FHIR_IDENTIFIER_NPI);
-          if (npiIndex >= 0) {
-            existingPractitionerResource.identifier[npiIndex].value = npi;
-          } else {
-            existingPractitionerResource.identifier.push({
-              system: FHIR_IDENTIFIER_NPI,
-              value: npi,
-            });
-          }
-        } else {
-          if (existingPractitionerResource.identifier) {
-            existingPractitionerResource.identifier = existingPractitionerResource.identifier.filter(
-              (id) => id.system !== FHIR_IDENTIFIER_NPI
-            );
-          }
-        }
-
-        if (birthDate) {
-          existingPractitionerResource.birthDate = birthDate;
-        }
-
-        const existingAddress = existingPractitionerResource.address || [];
-        let workAddressIndex = existingAddress.findIndex((address) => address.use === 'work');
-        let updatedAddress = [...existingAddress];
-        // if any address fields are provided, add or update the work address
-        if (addressCity || addressState || addressZip || addressLine1 || addressLine2) {
-          if (workAddressIndex < 0) {
-            updatedAddress.push({
-              use: 'work',
-            });
-            workAddressIndex = updatedAddress.length - 1;
-          }
-
-          if (addressLine1) {
-            updatedAddress[workAddressIndex].line = [addressLine1];
-            if (addressLine2) {
-              updatedAddress[workAddressIndex].line?.push(addressLine2);
-            }
-          }
-
-          updatedAddress[workAddressIndex].city = addressCity || undefined;
-          updatedAddress[workAddressIndex].state = addressState || undefined;
-          updatedAddress[workAddressIndex].postalCode = addressZip || undefined;
-        } else {
-          // if no address fields are provided, remove the work address
-          updatedAddress = updatedAddress.filter((address) => address.use !== 'work');
-        }
-
-        await oystehr.fhir.update({
-          ...existingPractitionerResource,
-          identifier:
-            existingPractitionerResource.identifier?.length || 0 > 0
-              ? existingPractitionerResource.identifier
-              : undefined,
-          photo: existingPractitionerResource.photo,
-          name: name ? [name] : undefined,
-          qualification: practitionerQualificationExtension,
-          telecom: updatedTelecom.length > 0 ? updatedTelecom : undefined,
-          address: updatedAddress.length > 0 ? updatedAddress : undefined,
-          birthDate: birthDate ? birthDate : undefined,
-        });
-      }
-    } catch (error: unknown) {
-      throw new Error(`Failed to update Practitioner: ${JSON.stringify(error)}`);
-    }
-    console.log(await updatedUserResponse.json());
-    if (!updatedUserResponse.ok) {
-      throw new Error('Failed to update user');
-    }
-    const response: UpdateUserZambdaOutput = {
-      message: `Successfully updated user ${userId}`,
-    };
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-update-user', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
+  // Two callers are allowed here: an admin (Administrator or Customer Support) editing anyone, and
+  // any user editing their own record. Everyone else is refused.
+  //
+  // Role assignment stays admin-only — a self-editing caller's `selectedRoles` is discarded below in
+  // favour of the roles they already hold, so they cannot promote themselves.
+  //
+  // Note what this does NOT protect, by product decision: a self-editing user may set their own NPI
+  // and state licenses. Both are authorization inputs — `assertPractitionerHasNPI` gates note
+  // signing, e-prescribing, external labs & imaging, claims and in-house meds, and active licenses
+  // gate which states' visits a practitioner can open. A user who can edit their own record can
+  // therefore grant themselves those capabilities. This was weighed and accepted; if that changes,
+  // the fix is to reject `npi` and `licenses` from non-admin callers here, not in the UI.
+  const userToken = input.headers.Authorization?.replace('Bearer ', '');
+  if (!userToken) {
+    throw NOT_AUTHORIZED;
   }
+  const callerIsAdmin = authorizeUserEdit(await getUser(userToken, secrets), userId);
+
+  const PROJECT_API = getSecret('PROJECT_API', secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const headers = {
+    accept: 'application/json',
+    'content-type': 'application/json',
+    Authorization: `Bearer ${m2mToken}`,
+  };
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  const user = await oystehr.user.get({ id: userId });
+  const userProfile = user.profile;
+  const isPractitioner = hasPractitionerProfile(userProfile);
+  const orphanedPatientId = userProfile?.startsWith('Patient/') ? userProfile.split('/')[1] : undefined;
+
+  // self-registered users have a patient profile instead of practitioner, so
+  // create a practitioner first
+  let practitionerId: string;
+  let newProfile: string | undefined;
+  if (isPractitioner) {
+    practitionerId = userProfile.split('/')[1];
+  } else {
+    const created = await oystehr.fhir.create<Practitioner>({
+      resourceType: 'Practitioner',
+      name: [
+        {
+          given: ['FIRST_NAME'],
+          family: 'LAST_NAME',
+        },
+      ],
+      telecom: user.email
+        ? [
+            {
+              system: 'email',
+              value: user.email,
+            },
+          ]
+        : undefined,
+    });
+    if (!created.id) {
+      throw new Error('Failed to create Practitioner: missing id on created resource');
+    }
+
+    practitionerId = created.id;
+    newProfile = `Practitioner/${practitionerId}`;
+  }
+
+  const effectiveRoles = resolveEffectiveRoles(callerIsAdmin, selectedRoles, user);
+
+  // Update user's Oystehr roles
+  // calling update user on an inactive user, reactivates them
+  let roles: string[] = [];
+
+  if (effectiveRoles && effectiveRoles.length > 0) {
+    const promises = effectiveRoles
+      .filter((roleName) => roleName !== 'Inactive')
+      .map((roleName) => getRoleId(roleName, m2mToken, PROJECT_API));
+    roles = await Promise.all(promises);
+  }
+  const userPatchBody: { roles: string[]; profile?: string } = { roles };
+  if (newProfile) userPatchBody.profile = newProfile;
+  const updatedUserResponse = await fetch(`${PROJECT_API}/user/${userId}`, {
+    method: 'PATCH',
+    headers: headers,
+    body: JSON.stringify(userPatchBody),
+  });
+  try {
+    const practitionerQualificationExtension: any = [];
+    licenses?.forEach((license) => {
+      practitionerQualificationExtension.push(makeQualificationForPractitioner(license));
+    });
+    let existingPractitionerResource: Practitioner | null = null;
+    try {
+      existingPractitionerResource = <Practitioner>await oystehr.fhir.get({
+        resourceType: 'Practitioner',
+        id: practitionerId,
+      });
+    } catch (error: any) {
+      // Absent is a normal outcome: the branch below creates the Practitioner. This is the path a
+      // self-registered user takes the first time they're saved as an employee.
+      if (isFhirNotFoundError(error)) {
+        existingPractitionerResource = null;
+      } else {
+        throw error;
+      }
+    }
+    const providerTypeExtension = makeProviderTypeExtension(providerType, providerTypeText);
+
+    let name: HumanName | undefined = {};
+    if (firstName) name.given = [firstName];
+    if (middleName) (name.given ??= []).push(middleName);
+    if (lastName) name.family = lastName;
+    const suffix = getSuffixFromProviderTypeExtension(providerTypeExtension);
+    if (suffix) name.suffix = suffix;
+    if (Object.keys(name).length === 0) name = undefined;
+
+    if (!existingPractitionerResource) {
+      await oystehr.fhir.create({
+        resourceType: 'Practitioner',
+        id: practitionerId,
+        name: name ? [name] : undefined,
+        qualification: practitionerQualificationExtension,
+        extension: providerTypeExtension,
+        telecom: phoneNumber
+          ? [
+              { system: 'sms', value: phoneNumber },
+              { system: 'phone', value: phoneNumber },
+            ]
+          : undefined,
+      });
+    } else {
+      const existingTelecom = existingPractitionerResource.telecom || [];
+      const smsIndex = existingTelecom.findIndex((tel) => tel.system === 'sms');
+      const phoneIndex = existingTelecom.findIndex((tel) => tel.system === 'phone');
+      const faxIndex = existingTelecom.findIndex((tel) => tel.system === 'fax');
+      let updatedTelecom = [...existingTelecom];
+      if (phoneNumber) {
+        if (smsIndex >= 0) {
+          updatedTelecom[smsIndex] = { system: 'sms', value: phoneNumber };
+        } else {
+          updatedTelecom.push({ system: 'sms', value: phoneNumber });
+        }
+        if (phoneIndex >= 0) {
+          updatedTelecom[phoneIndex] = { system: 'phone', value: phoneNumber };
+        } else {
+          updatedTelecom.push({ system: 'phone', value: phoneNumber });
+        }
+      } else {
+        updatedTelecom = updatedTelecom.filter((tel) => tel.system !== 'sms' && tel.system !== 'phone');
+      }
+
+      if (faxNumber) {
+        if (faxIndex >= 0) {
+          updatedTelecom[faxIndex] = { system: 'fax', value: faxNumber };
+        } else {
+          updatedTelecom.push({ system: 'fax', value: faxNumber });
+        }
+      } else {
+        updatedTelecom = updatedTelecom.filter((tel) => tel.system !== 'fax');
+      }
+
+      // NPI belongs to Providers only. If the user is not being (re)assigned the Provider role, never
+      // persist an NPI on their Practitioner — even if the client still sends a stale value (e.g. when an
+      // existing Provider is switched to Clinician and the hidden NPI field keeps its old value). This
+      // upholds the "a non-Provider (e.g. Clinician) has no NPI" invariant that the NPI-gated action
+      // checks rely on; otherwise such a user would keep an NPI and slip past every gate.
+      const effectiveNpi = effectiveRoles?.includes(RoleType.Provider) ? npi : undefined;
+      if (effectiveNpi) {
+        if (!existingPractitionerResource.identifier) {
+          existingPractitionerResource.identifier = [];
+        }
+        const npiIndex = existingPractitionerResource.identifier.findIndex((id) => id.system === FHIR_IDENTIFIER_NPI);
+        if (npiIndex >= 0) {
+          existingPractitionerResource.identifier[npiIndex].value = effectiveNpi;
+        } else {
+          existingPractitionerResource.identifier.push({
+            system: FHIR_IDENTIFIER_NPI,
+            value: effectiveNpi,
+          });
+        }
+      } else {
+        if (existingPractitionerResource.identifier) {
+          existingPractitionerResource.identifier = existingPractitionerResource.identifier.filter(
+            (id) => id.system !== FHIR_IDENTIFIER_NPI
+          );
+        }
+      }
+
+      if (birthDate) {
+        existingPractitionerResource.birthDate = birthDate;
+      }
+
+      const existingAddress = existingPractitionerResource.address || [];
+      let workAddressIndex = existingAddress.findIndex((address) => address.use === 'work');
+      let updatedAddress = [...existingAddress];
+      // if any address fields are provided, add or update the work address
+      if (addressCity || addressState || addressZip || addressLine1 || addressLine2) {
+        if (workAddressIndex < 0) {
+          updatedAddress.push({
+            use: 'work',
+          });
+          workAddressIndex = updatedAddress.length - 1;
+        }
+
+        if (addressLine1) {
+          updatedAddress[workAddressIndex].line = [addressLine1];
+          if (addressLine2) {
+            updatedAddress[workAddressIndex].line?.push(addressLine2);
+          }
+        }
+
+        updatedAddress[workAddressIndex].city = addressCity || undefined;
+        updatedAddress[workAddressIndex].state = addressState || undefined;
+        updatedAddress[workAddressIndex].postalCode = addressZip || undefined;
+      } else {
+        // if no address fields are provided, remove the work address
+        updatedAddress = updatedAddress.filter((address) => address.use !== 'work');
+      }
+
+      await oystehr.fhir.update({
+        ...existingPractitionerResource,
+        identifier:
+          existingPractitionerResource.identifier?.length || 0 > 0
+            ? existingPractitionerResource.identifier
+            : undefined,
+        photo: existingPractitionerResource.photo,
+        name: name ? [name] : undefined,
+        qualification: practitionerQualificationExtension,
+        extension: providerTypeExtension,
+        telecom: updatedTelecom.length > 0 ? updatedTelecom : undefined,
+        address: updatedAddress.length > 0 ? updatedAddress : undefined,
+        birthDate: birthDate ? birthDate : undefined,
+      });
+    }
+  } catch (error: unknown) {
+    // Rethrow as-is: `JSON.stringify` on an Error yields `{}`, because `message` and `stack` are
+    // non-enumerable — so wrapping here reported every failure as `Failed to update Practitioner: {}`
+    // and discarded the stack along with it.
+    console.error(`Failed to update Practitioner ${practitionerId}:`, error);
+    throw error;
+  }
+  console.log(await updatedUserResponse.json());
+  if (!updatedUserResponse.ok) {
+    throw new Error('Failed to update user');
+  }
+
+  // if the user was a self-registered Patient-role user, delete the stray
+  // patient FHIR resource now that we have a new practitioner
+  if (orphanedPatientId && newProfile) {
+    try {
+      await oystehr.fhir.delete({ resourceType: 'Patient', id: orphanedPatientId });
+    } catch (error: unknown) {
+      console.error(`Failed to delete orphaned Patient ${orphanedPatientId}:`, error);
+      // don't actually block zambda, will just have remnant patient resource
+    }
+  }
+
+  const response: UpdateUserZambdaOutput = {
+    message: `Successfully updated user ${userId}`,
+  };
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });

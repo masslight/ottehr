@@ -1,71 +1,127 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { AuditEvent, Bundle, Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import type { Account, Encounter, Patient, Questionnaire } from 'fhir/r4b';
+import { AuditEvent, Bundle, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { AUDIT_EVENT_OUTCOME_CODE, PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { checkBundleOutcomeOk, getVersionedReferencesFromBundleResources } from 'utils/lib/fhir/helpers';
+import { mapQuestionnaireAndValueSetsToItemsList } from 'utils/lib/helpers/paperwork/paperwork';
+import { makeValidationSchema } from 'utils/lib/helpers/paperwork/validation';
+import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { UpdatePatientAccountResponse } from 'utils/lib/types/api/patient-account';
+import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
 import {
-  AUDIT_EVENT_OUTCOME_CODE,
-  checkBundleOutcomeOk,
-  getSecret,
-  getVersionedReferencesFromBundleResources,
-  isValidUUID,
-  makeValidationSchema,
-  mapQuestionnaireAndValueSetsToItemsList,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
-  QUESTIONNAIRE_NOT_FOUND_FOR_QR_ERROR,
   QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
-  Secrets,
-  SecretsKeys,
-  UpdatePatientAccountResponse,
-} from 'utils';
+} from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { ValidationError } from 'yup';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { sendErrors } from '../../../shared/errors';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { getStripeClient } from '../../../shared/stripeIntegration';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
-import { updatePatientAccountFromQuestionnaire } from '../../shared/harvest';
+  createMasterRecordPatchOperations,
+  createUpdatePharmacyPatchOps,
+  getAccountAndCoverageResourcesForPatient,
+  mergeEncounterAccounts,
+  updatePatientAccountFromQuestionnaire,
+  updateStripeCustomer,
+} from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'update-patient-account';
 
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    console.log('complexly validating request parameters');
-    const effectInput = await complexValidation(validatedParameters, oystehr);
-    console.log('complex validation successful');
-    await performEffect(effectInput, oystehr);
-    const response: UpdatePatientAccountResponse = { result: 'success' };
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('update-patient-account-from-questionnaire', error, ENVIRONMENT);
-  }
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  console.log('complexly validating request parameters');
+  const effectInput = await complexValidation(validatedParameters);
+  console.log('complex validation successful');
+  await performEffect(effectInput, oystehr);
+  const response: UpdatePatientAccountResponse = { result: 'success' };
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<void> => {
-  const { questionnaireResponse, items, patientId, providerProfileReference, preserveOmittedCoverages } = input;
+  const {
+    questionnaireResponse,
+    items,
+    patientId,
+    providerProfileReference,
+    preserveOmittedCoverages,
+    questionnaireForEnableWhenFiltering,
+  } = input;
+
+  let patientResource = await oystehr.fhir.get<Patient>({
+    resourceType: 'Patient',
+    id: patientId,
+  });
+
+  console.log('creating patch operations');
+  const patientPatchOps = createMasterRecordPatchOperations(
+    {
+      questionnaireResponseItems: items || [],
+      sourceQuestionnaire: questionnaireForEnableWhenFiltering,
+      options: { filterByEnableWhen: true },
+    },
+    patientResource
+  );
+
+  console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
+
+  if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
+    console.time('patching patient resource');
+    patientResource = await oystehr.fhir.patch({
+      resourceType: 'Patient',
+      id: patientResource.id!,
+      operations: patientPatchOps.patient.patchOpsForDirectUpdate,
+    });
+    console.timeEnd('patching patient resource');
+  } else {
+    console.log('no patient patch operations to perform--skipping');
+  }
+  const pharmacyPatchOps = createUpdatePharmacyPatchOps(patientResource, flattenQuestionnaireAnswers(items));
+  console.log('Pharmacy patch operations being attempted: ', JSON.stringify(pharmacyPatchOps, null, 2));
+  if (pharmacyPatchOps.length > 0) {
+    await oystehr.fhir.patch<Patient>({
+      resourceType: 'Patient',
+      id: patientResource.id!,
+      operations: pharmacyPatchOps,
+    });
+  } else {
+    console.log('no pharmacy patch operations to perform--skipping');
+  }
 
   let resultBundle: Bundle;
   try {
     resultBundle = await updatePatientAccountFromQuestionnaire(
-      { questionnaireResponseItem: items, patientId, preserveOmittedCoverages },
+      {
+        questionnaireResponseItem: items,
+        patientId,
+        // Pass the post-patch Patient so same-as-patient address resolution
+        // sees the address change applied above without re-fetching.
+        patient: patientResource,
+        preserveOmittedCoverages,
+        questionnaireForEnableWhenFiltering,
+      },
       oystehr
     );
   } catch (e) {
@@ -78,6 +134,39 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     throw e;
   }
 
+  let updatedAccount: Account | undefined;
+  let workersCompAccount: Account | undefined;
+
+  try {
+    const {
+      account,
+      guarantorResource,
+      workersCompAccount: latestWorkersCompAccount,
+    } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+    updatedAccount = account;
+    workersCompAccount = latestWorkersCompAccount;
+
+    const stripeClient = getStripeClient(input.secrets);
+
+    if (!account || !guarantorResource) {
+      console.log('could not find account or guarantor, skipping stripe update');
+    } else {
+      await updateStripeCustomer({
+        account,
+        guarantorResource,
+        stripeClient,
+      });
+    }
+  } catch (e) {
+    console.error('error updating stripe details', e);
+    const ae = await writeAuditEvent(
+      { resultBundle, providerProfileReference, questionnaireResponse, patientId },
+      oystehr
+    );
+    console.log('wrote audit event: ', `AuditEvent/${ae.id}`);
+    await sendErrors(e, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+  }
+
   console.log('resultBundle', JSON.stringify(resultBundle, null, 2));
 
   const ae = await writeAuditEvent(
@@ -86,6 +175,33 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
   );
 
   console.log('wrote audit event: ', `AuditEvent/${ae.id}`);
+
+  if (questionnaireResponse.encounter?.reference) {
+    const encounterId = questionnaireResponse.encounter.reference.split('/')[1];
+    const encounterResource = await oystehr.fhir.get<Encounter>({
+      resourceType: 'Encounter',
+      id: encounterId,
+    });
+    const patientAccountReference = updatedAccount?.id ? `Account/${updatedAccount.id}` : undefined;
+    const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
+    const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(
+      encounterResource.account,
+      [patientAccountReference, workersCompAccountReference]
+    );
+    if (accountsChanged && updatedEncounterAccounts) {
+      await oystehr.fhir.patch<Encounter>({
+        id: encounterId,
+        resourceType: 'Encounter',
+        operations: [
+          {
+            op: encounterResource.account ? 'replace' : 'add',
+            path: '/account',
+            value: updatedEncounterAccounts,
+          },
+        ],
+      });
+    }
+  }
 };
 
 interface AuditEventInput {
@@ -160,7 +276,7 @@ const writeAuditEvent = async (input: AuditEventInput, oystehr: Oystehr): Promis
         type: {
           coding: [
             {
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+              system: PARTICIPATION_CODE_SYSTEM,
               code: 'AUT',
               display: 'author (originator)',
             },
@@ -187,6 +303,7 @@ interface BasicInput {
   userToken: string;
   patientId: string;
   questionnaireResponse: QuestionnaireResponse;
+  onlyValidateProvidedFields: boolean;
   secrets: Secrets | null;
 }
 
@@ -202,9 +319,12 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   }
 
   const { secrets } = input;
-  const { questionnaireResponse } = JSON.parse(input.body);
+  const { questionnaireResponse, onlyValidateProvidedFields } = safeJsonParse(input.body);
   if (questionnaireResponse === undefined) {
     throw MISSING_REQUIRED_PARAMETERS(['questionnaireResponse']);
+  }
+  if (onlyValidateProvidedFields !== undefined && typeof onlyValidateProvidedFields !== 'boolean') {
+    throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('onlyValidateProvidedFields must be a boolean when provided');
   }
   if (questionnaireResponse.resourceType !== 'QuestionnaireResponse') {
     throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('questionnaireResponse must be of type QuestionnaireResponse');
@@ -237,6 +357,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
 
   return {
     questionnaireResponse,
+    onlyValidateProvidedFields: onlyValidateProvidedFields ?? false,
     secrets,
     userToken,
     patientId,
@@ -247,13 +368,13 @@ interface FinishedInput extends BasicInput {
   providerProfileReference: string;
   items: QuestionnaireResponseItem[];
   preserveOmittedCoverages: boolean;
+  questionnaireForEnableWhenFiltering: Questionnaire;
 }
 
-const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promise<FinishedInput> => {
-  const { secrets, userToken, questionnaireResponse } = input;
+const complexValidation = async (input: BasicInput): Promise<FinishedInput> => {
+  const { secrets, userToken, questionnaireResponse, onlyValidateProvidedFields } = input;
   console.log('questionnaireResponse', JSON.stringify(questionnaireResponse));
-  const oystehr = createOystehrClient(userToken, secrets);
-  const user = await oystehr.user.me();
+  const user = await userMe(userToken, secrets);
   if (!user) {
     throw NOT_AUTHORIZED;
   }
@@ -263,31 +384,21 @@ const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promis
   if (!providerProfileReference) {
     throw NOT_AUTHORIZED;
   }
-  const [url, version] = (questionnaireResponse.questionnaire ?? ' | ').split('|');
-  const questionnaire = (
-    await oystehrM2M.fhir.search<Questionnaire>({
-      resourceType: 'Questionnaire',
-      params: [
-        {
-          name: 'url',
-          value: url,
-        },
-        {
-          name: 'version',
-          value: version,
-        },
-      ],
-    })
-  ).unbundle()[0];
-  if (!questionnaire) {
-    throw QUESTIONNAIRE_NOT_FOUND_FOR_QR_ERROR;
-  }
+  const questionnaire = PATIENT_RECORD_QUESTIONNAIRE();
 
   const preserveOmittedCoverages = questionnaireResponse.item?.length === 1;
   console.log('preserveOmittedCoverages', preserveOmittedCoverages);
 
   const questionnaireItems = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
-  const validationSchema = makeValidationSchema(questionnaireItems, undefined);
+  // By default we validate each submitted section in full — some sections (e.g.
+  // insurance/coverage) can't be safely processed field-by-field and must be
+  // validated as an atomic unit. Callers making a single-field edit (e.g. the EHR
+  // Medicaid toggle) opt into `onlyValidateProvidedFields` so an unrelated required
+  // sibling in the same section — like ethnicity/race in
+  // `patient-additional-details-section` — doesn't reject the update.
+  const validationSchema = makeValidationSchema(questionnaireItems, undefined, undefined, {
+    onlyValidateProvidedFields,
+  });
   // when a coverage is added via the add coverage modal, a single item with the data for the added coverage is sent to
   // this endpoint. passing this allows us to refrain from removing any existing coverages from the account when a new one is added.
   try {
@@ -347,5 +458,6 @@ const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promis
     providerProfileReference,
     items,
     preserveOmittedCoverages,
+    questionnaireForEnableWhenFiltering: questionnaire,
   };
 };

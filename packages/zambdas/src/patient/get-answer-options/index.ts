@@ -1,68 +1,61 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { BundleLink, FhirResource, QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED,
-  AnswerOptionSource,
   APIError,
-  createOystehrClient,
-  getSecret,
   isApiError,
   MALFORMED_GET_ANSWER_OPTIONS_INPUT,
   MISSING_REQUEST_BODY,
-  SecretsKeys,
-} from 'utils';
-import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/errors';
+import { AnswerOptionSource } from '../../../../config-types/config/fhir';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
 
 const ZAMBDA_NAME = 'get-answer-options';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const { secrets } = input;
+  const { secrets } = input;
 
-    const getOptionsInput = validateInput(input);
-    console.log('get options input:', getOptionsInput);
+  const getOptionsInput = validateInput(input);
+  console.log('get options input:', getOptionsInput);
 
-    console.group('getAuth0Token');
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-    console.groupEnd();
-    console.debug('getAuth0Token success');
-
-    console.group('createOystehrClient');
-    const oystehr = createOystehrClient(
-      oystehrToken,
-      getSecret(SecretsKeys.FHIR_API, secrets),
-      getSecret(SecretsKeys.PROJECT_API, secrets)
-    );
-    console.groupEnd();
-    console.debug('createOystehrClient success');
-
-    const answerOptions: QuestionnaireItemAnswerOption[] = await performEffect(getOptionsInput, oystehr);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(answerOptions),
-    };
-  } catch (error: any) {
-    console.log(error, error.issue);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+  console.group('getAuth0Token');
+  if (!oystehrToken) {
+    console.log('getting token');
+    oystehrToken = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
   }
+  console.groupEnd();
+  console.debug('getAuth0Token success');
+
+  console.group('createOystehrClient');
+  const oystehr = createOystehrClient(
+    oystehrToken,
+    getSecret(SecretsKeys.FHIR_API, secrets),
+    getSecret(SecretsKeys.PROJECT_API, secrets)
+  );
+  console.groupEnd();
+  console.debug('createOystehrClient success');
+
+  const answerOptions: QuestionnaireItemAnswerOption[] = await performEffect(getOptionsInput, oystehr);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(answerOptions),
+  };
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<QuestionnaireItemAnswerOption[]> => {
   const { type } = input;
-  if (type === 'query') {
-    const { resourceType, query } = input.answerSource;
+  if (type === 'query' && input.answerSource.zambdaId === 'get-answer-options') {
+    const { resourceType, query, prependedIdentifier } = input.answerSource;
     const paramsObject = new URLSearchParams(query);
     let offset = 0;
     const params = [
@@ -111,7 +104,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Ques
     const mappedResults = results
       .map((result) => {
         try {
-          return formatQueryResult(result, resourceType);
+          return formatQueryResult(result, resourceType, prependedIdentifier);
         } catch (e) {
           if (isApiError(e)) {
             error = e as APIError;
@@ -124,8 +117,8 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Ques
       throw error;
     }
     return mappedResults.sort((r1, r2) => {
-      const r1Val = r1.valueReference?.display ?? '';
-      const r2Val = r2.valueReference?.display ?? '';
+      const r1Val = r1.valueReference?.display?.split(' - ')[1] ?? r1.valueReference?.display ?? '';
+      const r2Val = r2.valueReference?.display?.split(' - ')[1] ?? r2.valueReference?.display ?? '';
 
       return r1Val.localeCompare(r2Val);
     });
@@ -135,9 +128,31 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Ques
   }
 };
 
-const formatQueryResult = (result: any, resourceType: FhirResource['resourceType']): QuestionnaireItemAnswerOption => {
-  if (result.name && result.id && typeof result.name === 'string' && typeof result.id === 'string') {
-    return { valueReference: { reference: `${resourceType}/${result.id}`, display: result.name } };
+const formatQueryResult = (
+  result: any,
+  resourceType: FhirResource['resourceType'],
+  prependedIdentifier?: string
+): QuestionnaireItemAnswerOption => {
+  let name = resourceType === 'Organization' ? result.alias?.[0] || result.name : result.name;
+  if (prependedIdentifier) {
+    const identifierValue = result.identifier?.find((id: any) => {
+      return (
+        id.system === prependedIdentifier ||
+        id.type?.coding?.some((coding: any) => coding.system === prependedIdentifier)
+      );
+    })?.value;
+    if (identifierValue) {
+      name = `${identifierValue} - ${name}`;
+    }
+  }
+  if (name && result.id && typeof name === 'string' && typeof result.id === 'string') {
+    return {
+      valueReference: {
+        reference: `${resourceType}/${result.id}`,
+        display: name,
+        type: resourceType === 'Organization' && result.name === 'Other' ? 'other' : undefined,
+      },
+    };
   }
   throw ANSWER_OPTION_FROM_RESOURCE_UNDEFINED(resourceType);
 };
@@ -158,6 +173,11 @@ const validateInput = (input: ZambdaInput): EffectInput => {
     }
     if (!query) {
       throw MALFORMED_GET_ANSWER_OPTIONS_INPUT('"answerSource" must contain a "query" property');
+    }
+    if (answerSource.prependedIdentifier && typeof answerSource.prependedIdentifier !== 'string') {
+      throw MALFORMED_GET_ANSWER_OPTIONS_INPUT(
+        '"answerSource.prependedIdentifier" property must be a string if provided'
+      );
     }
     return { type: 'query', answerSource };
   } else if (valueSet) {

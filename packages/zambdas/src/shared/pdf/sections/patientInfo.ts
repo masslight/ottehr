@@ -1,0 +1,151 @@
+import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
+import { getReasonForVisitAndAdditionalDetailsFromAppointment } from 'utils/lib/fhir/appointments';
+import { FHIR_EXTENSION, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { genderMap, getCoding } from 'utils/lib/fhir/helpers';
+import { getFormattedPatientFullName, getNameSuffix, getPatientFriendlyId } from 'utils/lib/fhir/patient';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { PATIENT_INDIVIDUAL_PRONOUNS_URL } from 'utils/lib/types/constants';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
+import { createConfiguredSection, DataComposer } from '../pdf-common';
+import { PatientDataInput, PatientInfo, PdfSection } from '../types';
+
+export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = ({ patient, appointment }) => {
+  const fullName = getFormattedPatientFullName(patient, { skipNickname: true }) ?? '';
+  const suffix = getNameSuffix(patient) ?? '';
+  const preferredName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0] ?? '';
+  const dob = formatDateForDisplay(patient?.birthDate);
+  const sex = genderMap[patient.gender as keyof typeof genderMap] ?? '';
+  const id = getPatientFriendlyId(patient);
+  const phone = standardizePhoneNumber(patient.telecom?.find((telecom) => telecom.system === 'phone')?.value) ?? '';
+  const { reasonForVisit: firstComplaint, additionalDetails } =
+    getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  const isValidReasonForVisit =
+    !!firstComplaint &&
+    getReasonForVisitOptionsForServiceCategory(serviceCategory ?? '').some((option) => option.value === firstComplaint);
+  const reasonForVisit = isValidReasonForVisit
+    ? `${firstComplaint}${additionalDetails ? ` - ${additionalDetails}` : ''}`
+    : '';
+  const authorizedNonlegalGuardians =
+    patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ||
+    'none';
+  const pronouns =
+    patient.extension?.find((e) => e.url === PATIENT_INDIVIDUAL_PRONOUNS_URL)?.valueCodeableConcept?.coding?.[0]
+      ?.display ?? '';
+  let patientSex = '';
+  if (patient?.gender === 'male') {
+    patientSex = 'Male';
+  } else if (patient?.gender === 'female') {
+    patientSex = 'Female';
+  } else if (patient?.gender !== undefined) {
+    patientSex = 'Intersex';
+  }
+  const ssn =
+    patient?.identifier?.find(
+      (id) => id.system === 'http://hl7.org/fhir/sid/us-ssn' && id.type?.coding?.[0]?.code === 'SS'
+    )?.value ?? '';
+
+  return {
+    fullName,
+    suffix,
+    preferredName,
+    dob,
+    sex,
+    id,
+    phone,
+    reasonForVisit,
+    authorizedNonlegalGuardians,
+    pronouns,
+    ssn,
+    patientSex,
+  };
+};
+
+export const createPatientHeader = <TData extends { patient?: PatientInfo }>(): PdfSection<TData, PatientInfo> => ({
+  dataSelector: (data) => data.patient,
+  render: (client, patientInfo, styles) => {
+    client.drawText(patientInfo.fullName, styles.textStyles.patientName);
+    client.drawText(`PID: ${patientInfo.id}`, styles.textStyles.regular);
+  },
+});
+
+export const createPatientInfoSection = <TData extends { patient?: PatientInfo }>(): PdfSection<TData, PatientInfo> => {
+  return createConfiguredSection('patientSummary', (shouldShow) => ({
+    // Mirrors `PATIENT_RECORD_CONFIG.FormFields.patientSummary.title`.
+    title: 'Patient summary',
+    dataSelector: (data) => data.patient,
+    render: (client, patientInfo, styles) => {
+      if (shouldShow('patient-name-suffix')) {
+        client.drawLabelValueRow('Suffix', patientInfo.suffix, styles.textStyles.regular, styles.textStyles.regular, {
+          drawDivider: true,
+          dividerMargin: 8,
+        });
+      }
+      if (shouldShow('patient-preferred-name')) {
+        client.drawLabelValueRow(
+          'Chosen or preferred name',
+          patientInfo.preferredName,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
+      }
+      if (shouldShow('patient-birthdate')) {
+        client.drawLabelValueRow(
+          'Date of birth (Original)',
+          patientInfo.dob,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
+      }
+      if (shouldShow('patient-birth-sex')) {
+        client.drawLabelValueRow('Birth sex', patientInfo.sex, styles.textStyles.regular, styles.textStyles.regular, {
+          drawDivider: true,
+          dividerMargin: 8,
+        });
+      }
+      if (shouldShow('patient-pronouns')) {
+        client.drawLabelValueRow(
+          'Preferred pronouns',
+          patientInfo.pronouns,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
+      }
+      if (shouldShow('patient-ssn')) {
+        client.drawLabelValueRow('SSN', patientInfo.ssn, styles.textStyles.regular, styles.textStyles.regular, {
+          drawDivider: true,
+          dividerMargin: 8,
+        });
+      }
+      client.drawLabelValueRow(
+        'Reason for visit',
+        patientInfo.reasonForVisit,
+        styles.textStyles.regular,
+        styles.textStyles.regular,
+        {
+          drawDivider: true,
+          dividerMargin: 8,
+        }
+      );
+      client.drawLabelValueRow(
+        'Authorized non-legal guardian(s)',
+        patientInfo.authorizedNonlegalGuardians,
+        styles.textStyles.regular,
+        styles.textStyles.regular,
+        { spacing: 16 }
+      );
+    },
+  }));
+};

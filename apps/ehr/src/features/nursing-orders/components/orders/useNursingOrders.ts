@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getNursingOrders, updateNursingOrder as updateNursingOrderApi } from 'src/api/api';
-import { GetNursingOrdersInput } from 'utils';
+import { GetNursingOrdersInput } from 'utils/lib/types/data/orders/types';
 import { useApiClients } from '../../../../hooks/useAppClients';
 
 export const useGetNursingOrders = ({
   searchBy,
+  refreshKey,
 }: GetNursingOrdersInput): {
   nursingOrders: any[];
   loading: boolean;
@@ -50,7 +51,8 @@ export const useGetNursingOrders = ({
     } finally {
       setLoading(false);
     }
-  }, [oystehrZambda, memoizedSearchBy]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [oystehrZambda, memoizedSearchBy, refreshKey]);
 
   // Initial fetch of nursing orders
   useEffect(() => {

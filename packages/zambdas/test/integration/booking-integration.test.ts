@@ -2,46 +2,50 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Appointment, Location, Patient, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { appointmentTypeForAppointment, getCancellationReasonDisplay } from 'utils/lib/fhir/appointments';
 import {
-  APIError,
-  appointmentTypeForAppointment,
-  checkEncounterIsVirtual,
+  parseQuestionnaireCanonicalExtension,
+  SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
+  SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
+  SlotServiceCategory,
+  SLUG_SYSTEM,
+} from 'utils/lib/fhir/constants';
+import { checkEncounterIsVirtual } from 'utils/lib/fhir/encounter';
+import { getSlugForBookableResource, isPostTelemedAppointment } from 'utils/lib/fhir/helpers';
+import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateSlotParams,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { CanonicalUrl, ServiceMode, Timezone } from 'utils/lib/types/common';
+import { GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import {
+  APIError,
+  POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
+  POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
+} from 'utils/lib/types/errors';
+import {
   createSlotParamsFromSlotAndOptions,
   getOriginalBookingUrlFromSlot,
   getScheduleExtension,
-  GetScheduleResponse,
   getServiceModeFromSlot,
   getSlotIsPostTelemed,
   getSlotIsWalkin,
-  getSlugForBookableResource,
   getTimezone,
-  isPostTelemedAppointment,
-  PatientInfo,
-  POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
-  POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
-  ScheduleOwnerFhirResource,
-  ServiceMode,
-  SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotListItem,
-  SlotServiceCategory,
-  SLUG_SYSTEM,
-  Timezone,
-} from 'utils';
-import { assert, inject } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
-import { SECRETS } from '../data/secrets';
+} from 'utils/lib/utils/scheduleUtils';
+import { assert } from 'vitest';
+import { getCanonicalUrlForPrevisitQuestionnaire } from '../../src/patient/appointment/helpers';
+import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import {
-  adjustHoursOfOperation,
-  changeAllCapacities,
+  buildSimpleScheduleExt,
   cleanupTestScheduleResources,
-  DEFAULT_SCHEDULE_JSON,
   makeTestPatient,
   persistSchedule,
   persistTestPatient,
-  startOfDayWithTimezone,
   tagForProcessId,
 } from '../helpers/testScheduleUtils';
 
@@ -126,9 +130,8 @@ const validateCreateAppointmentResponse = (
   const isWalkin = getSlotIsWalkin(slot);
   const isPostTelemed = getSlotIsPostTelemed(slot);
   const isVirtual = checkEncounterIsVirtual(encounter);
-  // this really should be 'booked' for all but there is a known issue https://github.com/masslight/ottehr/issues/2431
-  // todo: change the check to 'booked' once the issue with virtual appointments is resolved
-  expect(appointment.status).toEqual(isVirtual || isWalkin ? 'arrived' : 'booked');
+  const startsAsBooked = !isWalkin || isVirtual;
+  expect(appointment.status).toEqual(startsAsBooked ? 'booked' : 'arrived');
   assert(appointment.start);
   if (isWalkin) {
     const appointmentTimeStamp = DateTime.fromISO(appointment.start!, { zone: timezone }).toUnixInteger();
@@ -146,13 +149,7 @@ const validateCreateAppointmentResponse = (
   expect(encounter).toBeDefined();
   assert(encounter);
   expect(encounter.id);
-  // todo: should encounter status be 'arrived' for walkin virtual appointments to match the appointment status?
-  // i think this is intended and helps with some intake logic particular to the virtual walkin flow
-  if (isWalkin && !isVirtual) {
-    expect(encounter.status).toEqual('arrived');
-  } else {
-    expect(encounter.status).toEqual('planned');
-  }
+  expect(encounter.status).toEqual(startsAsBooked ? 'planned' : 'arrived');
   expect(checkEncounterIsVirtual(encounter)).toEqual(isVirtual);
   expect(questionnaire).toBeDefined();
   assert(questionnaire);
@@ -181,6 +178,7 @@ interface SetUpOutput {
   schedule: Schedule;
   scheduleOwnerType: ScheduleOwnerFhirResource['resourceType'];
   slug: string;
+  location: Location;
 }
 
 interface GetSlotFromScheduleInput extends SetUpOutput {
@@ -212,27 +210,19 @@ interface CancelAndValidateInput {
 }
 
 describe('prebook integration - from getting list of slots to booking with selected slot', () => {
-  let oystehr: Oystehr;
-  let token = null;
+  let oystehrAdmin: Oystehr;
+  let oystehrTestUserM2M: Oystehr;
   let processId: string | null = null;
   let existingTestPatient: Patient;
 
   const setUpInPersonResources = async (): Promise<SetUpOutput> => {
-    expect(oystehr).toBeDefined();
+    expect(oystehrAdmin).toBeDefined();
     expect(existingTestPatient).toBeDefined();
     assert(existingTestPatient);
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
-
-    let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-      {
-        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-        open: 8,
-        close: 18,
-        workingDay: true,
-      },
-    ]);
-
-    adjustedScheduleJSON = changeAllCapacities(adjustedScheduleJSON, 1);
+    // 24/7 open with 4 bookings/hour (slot-length-invariant). Provides
+    // capacity at every cadence position so the test's randomly-picked
+    // slot is always bookable regardless of where it lands in the hour.
+    const adjustedScheduleJSON = buildSimpleScheduleExt({ prebookSlots: 4 });
 
     const ownerLocation: Location = {
       resourceType: 'Location',
@@ -269,7 +259,7 @@ describe('prebook integration - from getting list of slots to booking with selec
 
     const { schedule, owner } = await persistSchedule(
       { scheduleExtension: adjustedScheduleJSON, processId, scheduleOwner: ownerLocation },
-      oystehr
+      oystehrAdmin
     );
     expect(schedule.id).toBeDefined();
     assert(schedule.id);
@@ -289,25 +279,17 @@ describe('prebook integration - from getting list of slots to booking with selec
       schedule,
       slug,
       scheduleOwnerType: owner.resourceType,
+      location: owner as Location,
     };
   };
 
   const setUpVirtualResources = async (): Promise<SetUpOutput> => {
-    expect(oystehr).toBeDefined();
+    expect(oystehrAdmin).toBeDefined();
     expect(existingTestPatient).toBeDefined();
     assert(existingTestPatient);
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
-
-    let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-      {
-        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-        open: 8,
-        close: 18,
-        workingDay: true,
-      },
-    ]);
-
-    adjustedScheduleJSON = changeAllCapacities(adjustedScheduleJSON, 1);
+    // 24/7 open with 4 bookings/hour (slot-length-invariant). See the
+    // setUpInPersonResources comment above — same rationale.
+    const adjustedScheduleJSON = buildSimpleScheduleExt({ prebookSlots: 4 });
 
     const ownerLocation: Location = {
       resourceType: 'Location',
@@ -337,7 +319,7 @@ describe('prebook integration - from getting list of slots to booking with selec
 
     const { schedule, owner } = await persistSchedule(
       { scheduleExtension: adjustedScheduleJSON, processId, scheduleOwner: ownerLocation },
-      oystehr
+      oystehrAdmin
     );
     expect(schedule.id).toBeDefined();
     assert(schedule.id);
@@ -357,6 +339,7 @@ describe('prebook integration - from getting list of slots to booking with selec
       schedule,
       slug,
       scheduleOwnerType: owner.resourceType,
+      location: owner as Location,
     };
   };
 
@@ -366,7 +349,7 @@ describe('prebook integration - from getting list of slots to booking with selec
     let getScheduleResponse: GetScheduleResponse | undefined;
     try {
       getScheduleResponse = (
-        await oystehr.zambda.executePublic({
+        await oystehrTestUserM2M.zambda.executePublic({
           id: 'get-schedule',
           slug,
           scheduleType: scheduleOwnerType === 'Location' ? 'location' : 'provider',
@@ -427,9 +410,16 @@ describe('prebook integration - from getting list of slots to booking with selec
       });
     }
     assert(createSlotParams);
+    // The get-schedule fixture above doesn't pass serviceCategoryCode, so the
+    // vended slot has no SERVICE_CATEGORY_SYSTEM coding for the helper to
+    // forward. Default to 'urgent-care' here — tests in this file don't
+    // exercise category resolution; without it create-slot's invariant
+    // guard would reject categoryless creation on the multi-category test
+    // config.
+    createSlotParams.serviceCategoryCode = createSlotParams.serviceCategoryCode ?? 'urgent-care';
     const validatedSlotResponse = await createSlotAndValidate(
       { params: createSlotParams, selectedSlot, schedule },
-      oystehr
+      oystehrTestUserM2M
     );
     const createdSlotResponse = validatedSlotResponse.slot;
     const serviceModeFromSlot = validatedSlotResponse.serviceMode;
@@ -455,7 +445,7 @@ describe('prebook integration - from getting list of slots to booking with selec
     let getScheduleResponse: GetScheduleResponse | undefined;
     try {
       getScheduleResponse = (
-        await oystehr.zambda.executePublic({
+        await oystehrTestUserM2M.zambda.executePublic({
           id: 'get-schedule',
           slug,
           scheduleType: 'location',
@@ -474,14 +464,18 @@ describe('prebook integration - from getting list of slots to booking with selec
     expect(rescheduleSlot).toBeDefined();
     assert(rescheduleSlot);
 
-    const rescheduleSlotParams = createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
-      originalBookingUrl: `prebook/${serviceMode}?bookingOn=${slug}`,
-      status: 'busy-tentative',
-    });
+    const rescheduleSlotParams: CreateSlotParams = {
+      ...createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
+        originalBookingUrl: `prebook/${serviceMode}?bookingOn=${slug}`,
+        status: 'busy-tentative',
+      }),
+      // See note on createSlotParams above — same rationale.
+      serviceCategoryCode: 'urgent-care',
+    };
 
     const validatedRescheduledSlot = await createSlotAndValidate(
       { params: rescheduleSlotParams, selectedSlot: rescheduleSlot, schedule },
-      oystehr
+      oystehrTestUserM2M
     );
     const rescheduleSlotResponse: Slot = validatedRescheduledSlot.slot;
     const slotServiceMode = validatedRescheduledSlot.serviceMode;
@@ -493,7 +487,7 @@ describe('prebook integration - from getting list of slots to booking with selec
     let rescheduleAppointmentResponse: any | undefined;
     try {
       rescheduleAppointmentResponse = (
-        await oystehr.zambda.executePublic({
+        await oystehrTestUserM2M.zambda.executePublic({
           id: 'update-appointment',
           appointmentID: appointmentId,
           slot: rescheduleSlotResponse,
@@ -512,7 +506,7 @@ describe('prebook integration - from getting list of slots to booking with selec
     expect(appointmentID).toEqual(appointmentId);
 
     const [newAppointmentSearch, oldSlotSearch] = await Promise.all([
-      oystehr.fhir.search<Appointment | Slot>({
+      oystehrAdmin.fhir.search<Appointment | Slot>({
         resourceType: 'Appointment',
         params: [
           {
@@ -526,7 +520,7 @@ describe('prebook integration - from getting list of slots to booking with selec
         ],
       }),
 
-      oystehr.fhir.search<Slot>({
+      oystehrAdmin.fhir.search<Slot>({
         resourceType: 'Slot',
         params: [
           {
@@ -571,13 +565,16 @@ describe('prebook integration - from getting list of slots to booking with selec
     };
   };
 
-  const cancelAndValidate = async (input: CancelAndValidateInput): Promise<void> => {
-    const { appointmentId, oldSlotId } = input;
+  const cancelAndValidate = async (
+    input: CancelAndValidateInput & { cancellationReasonAdditional?: string }
+  ): Promise<void> => {
+    const { appointmentId, oldSlotId, cancellationReasonAdditional } = input;
     try {
-      const cancelResult = await oystehr.zambda.executePublic({
+      const cancelResult = await oystehrTestUserM2M.zambda.executePublic({
         id: 'cancel-appointment',
         appointmentID: appointmentId,
         cancellationReason: 'Patient improved',
+        ...(cancellationReasonAdditional && { cancellationReasonAdditional }),
       });
       console.log('cancelResult', JSON.stringify(cancelResult));
       expect(cancelResult.status).toBe(200);
@@ -586,14 +583,23 @@ describe('prebook integration - from getting list of slots to booking with selec
       expect(false).toBeTruthy(); // fail the test if we can't cancel the appointment
     }
 
-    const canceledAppointment = await oystehr.fhir.get<Appointment>({
+    const canceledAppointment = await oystehrAdmin.fhir.get<Appointment>({
       resourceType: 'Appointment',
       id: appointmentId,
     });
     expect(canceledAppointment).toBeDefined();
     assert(canceledAppointment);
     expect(canceledAppointment.status).toEqual('cancelled');
-    const slotSearch = await oystehr.fhir.search<Slot>({
+
+    // Verify cancellation reason is stored correctly
+    if (cancellationReasonAdditional) {
+      expect(getCancellationReasonDisplay(canceledAppointment)).toBe(
+        `Patient improved - ${cancellationReasonAdditional}`
+      );
+    } else {
+      expect(canceledAppointment.cancelationReason?.coding?.[0]?.code).toBe('Patient improved');
+    }
+    const slotSearch = await oystehrAdmin.fhir.search<Slot>({
       resourceType: 'Slot',
       params: [
         {
@@ -621,13 +627,14 @@ describe('prebook integration - from getting list of slots to booking with selec
     let createAppointmentResponse: CreateAppointmentResponse | undefined;
     try {
       createAppointmentResponse = (
-        await oystehr.zambda.execute({
+        await oystehrTestUserM2M.zambda.execute({
           id: 'create-appointment',
           ...createAppointmentInputParams,
         })
       ).output as CreateAppointmentResponse;
     } catch (e) {
       console.error('Error executing create-appointment zambda', e);
+      throw e;
     }
     const validated = validateCreateAppointmentResponse({
       createAppointmentResponse,
@@ -636,7 +643,7 @@ describe('prebook integration - from getting list of slots to booking with selec
       timezone,
     });
 
-    const fetchedSlot = await oystehr.fhir.get<Slot>({
+    const fetchedSlot = await oystehrAdmin.fhir.get<Slot>({
       resourceType: 'Slot',
       id: slotId,
     });
@@ -647,31 +654,34 @@ describe('prebook integration - from getting list of slots to booking with selec
     return validated;
   };
 
+  const cleanUpResources = async (initialResources: SetUpOutput): Promise<void> => {
+    if (initialResources.schedule.id) {
+      await oystehrAdmin.fhir.delete({
+        resourceType: 'Schedule',
+        id: initialResources.schedule.id,
+      });
+    }
+    if (initialResources.location.id) {
+      await oystehrAdmin.fhir.delete({
+        resourceType: 'Location',
+        id: initialResources.location.id,
+      });
+    }
+  };
+
   beforeAll(async () => {
     processId = randomUUID();
-    const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
-    const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
-    expect(EXECUTE_ZAMBDA_URL).toBeDefined();
-    token = await getAuth0Token({
-      AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT,
-      AUTH0_SECRET: AUTH0_SECRET,
-      AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-    });
+    const setup = await setupIntegrationTest('booking-integration.test.ts', M2MClientMockType.patient);
+    oystehrTestUserM2M = setup.oystehrTestUserM2M;
+    oystehrAdmin = setup.oystehr;
 
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      projectId: PROJECT_ID,
-    });
-    existingTestPatient = await persistTestPatient({ patient: makeTestPatient(), processId }, oystehr);
-  });
+    existingTestPatient = await persistTestPatient({ patient: makeTestPatient(), processId }, oystehrAdmin);
+  }, 60_000);
   afterAll(async () => {
-    if (!oystehr || !processId) {
+    if (!oystehrAdmin || !processId) {
       throw new Error('oystehr or processId is null! could not clean up!');
     }
-    await cleanupTestScheduleResources(processId, oystehr);
+    await cleanupTestScheduleResources(processId, oystehrAdmin);
   });
 
   test.concurrent(
@@ -716,6 +726,8 @@ describe('prebook integration - from getting list of slots to booking with selec
         appointmentId,
         oldSlotId: newSlotId,
       });
+
+      await cleanUpResources(initialResources);
     }
   );
 
@@ -760,6 +772,8 @@ describe('prebook integration - from getting list of slots to booking with selec
         appointmentId,
         oldSlotId: newSlotId,
       });
+
+      await cleanUpResources(initialResources);
     }
   );
 
@@ -797,7 +811,7 @@ describe('prebook integration - from getting list of slots to booking with selec
       let getScheduleResponse: GetScheduleResponse | undefined;
       try {
         getScheduleResponse = (
-          await oystehr.zambda.executePublic({
+          await oystehrTestUserM2M.zambda.executePublic({
             id: 'get-schedule',
             slug,
             scheduleType: 'location',
@@ -816,14 +830,18 @@ describe('prebook integration - from getting list of slots to booking with selec
       expect(rescheduleSlot).toBeDefined();
       assert(rescheduleSlot);
 
-      const rescheduleSlotParams = createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
-        postTelemedLabOnly: true,
-        status: 'busy-tentative',
-      });
+      const rescheduleSlotParams: CreateSlotParams = {
+        ...createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
+          postTelemedLabOnly: true,
+          status: 'busy-tentative',
+        }),
+        // See note on createSlotParams above — same rationale.
+        serviceCategoryCode: 'urgent-care',
+      };
 
       const validatedRescheduledSlot = await createSlotAndValidate(
         { params: rescheduleSlotParams, selectedSlot: rescheduleSlot, schedule },
-        oystehr
+        oystehrTestUserM2M
       );
       const rescheduleSlotResponse = validatedRescheduledSlot.slot;
       assert(rescheduleSlotResponse.id);
@@ -832,7 +850,7 @@ describe('prebook integration - from getting list of slots to booking with selec
       let rescheduleAppointmentResponse: any | undefined;
       try {
         rescheduleAppointmentResponse = (
-          await oystehr.zambda.executePublic({
+          await oystehrTestUserM2M.zambda.executePublic({
             id: 'update-appointment',
             appointmentID: appointment.id,
             slot: rescheduleSlotResponse,
@@ -848,7 +866,7 @@ describe('prebook integration - from getting list of slots to booking with selec
 
       // post-telemed appointments can't be canceled either
       try {
-        await oystehr.zambda.executePublic({
+        await oystehrTestUserM2M.zambda.executePublic({
           id: 'cancel-appointment',
           appointmentID: appointment.id,
           cancellationReason: 'Patient improved',
@@ -860,13 +878,15 @@ describe('prebook integration - from getting list of slots to booking with selec
         expect(apiError.code).toEqual(POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR.code);
       }
 
-      const canceledAppointment = await oystehr.fhir.get<Appointment>({
+      const canceledAppointment = await oystehrAdmin.fhir.get<Appointment>({
         resourceType: 'Appointment',
         id: appointment.id!,
       });
       expect(canceledAppointment).toBeDefined();
       assert(canceledAppointment);
       expect(canceledAppointment.status).toEqual('booked'); // should still be booked since we can't cancel it
+
+      await cleanUpResources(initialResources);
     }
   );
 
@@ -921,6 +941,8 @@ describe('prebook integration - from getting list of slots to booking with selec
         appointmentId,
         oldSlotId: newSlotId,
       });
+
+      await cleanUpResources(initialResources);
     }
   );
 
@@ -975,6 +997,8 @@ describe('prebook integration - from getting list of slots to booking with selec
         appointmentId,
         oldSlotId: newSlotId,
       });
+
+      await cleanUpResources(initialResources);
     }
   );
 
@@ -1018,8 +1042,50 @@ describe('prebook integration - from getting list of slots to booking with selec
         patient: undefined,
         slot: createdSlotResponse,
       });
+
+      await cleanUpResources(initialResources);
     }
   );
+
+  test.concurrent('successfully cancels appointment with additional cancellation reason details', async () => {
+    assert(processId);
+    const initialResources = await setUpInPersonResources();
+    const { timezone } = initialResources;
+
+    const patientInfo: PatientInfo = {
+      id: existingTestPatient.id,
+      firstName: existingTestPatient.name![0]!.given![0],
+      lastName: existingTestPatient!.name![0]!.family,
+      email: 'okovalenko+coolPatient@masslight.com',
+      sex: 'female',
+      dateOfBirth: existingTestPatient.birthDate,
+      newPatient: false,
+    };
+
+    const { slot: createdSlotResponse, slotId } = await getSlot({
+      ...initialResources,
+      serviceMode: ServiceMode['in-person'],
+      isWalkin: false,
+      isPostTelemed: false,
+    });
+
+    const { appointmentId } = await createAppointmentAndValidate({
+      timezone,
+      patientInfo,
+      patient: existingTestPatient,
+      slot: createdSlotResponse,
+    });
+
+    // Cancel with additional reason details
+    await cancelAndValidate({
+      appointmentId,
+      oldSlotId: slotId,
+      cancellationReasonAdditional: 'Found a closer clinic with better hours',
+    });
+
+    await cleanUpResources(initialResources);
+  });
+
   describe('walkin appointments', () => {
     test.concurrent(
       'successfully creates an in-person walkin appointment for a new patient after selecting an available slot',
@@ -1056,6 +1122,8 @@ describe('prebook integration - from getting list of slots to booking with selec
           patient: undefined,
           slot: createdSlotResponse,
         });
+
+        await cleanUpResources(initialResources);
       }
     );
     test.concurrent(
@@ -1085,6 +1153,8 @@ describe('prebook integration - from getting list of slots to booking with selec
           patient: existingTestPatient,
           slot: createdSlotResponse,
         });
+
+        await cleanUpResources(initialResources);
       }
     );
     test.concurrent('successfully creates a virtual walkin appointment for a new patient', async () => {
@@ -1120,6 +1190,8 @@ describe('prebook integration - from getting list of slots to booking with selec
         patient: undefined,
         slot: createdSlotResponse,
       });
+
+      await cleanUpResources(initialResources);
     });
     test.concurrent('successfully creates a virtual walkin appointment for an existing patient', async () => {
       assert(processId);
@@ -1146,6 +1218,234 @@ describe('prebook integration - from getting list of slots to booking with selec
         patient: existingTestPatient,
         slot: createdSlotResponse,
       });
+
+      await cleanUpResources(initialResources);
     });
+  });
+
+  describe('questionnaire canonical extension', () => {
+    /**
+     * Helper to get the questionnaire canonical from a Slot's extension
+     */
+    const getQuestionnaireCanonicalFromSlot = (slot: Slot): CanonicalUrl | undefined => {
+      const ext = slot.extension?.find((e) => e.url === SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL);
+      if (!ext?.valueString) return undefined;
+      return parseQuestionnaireCanonicalExtension(ext.valueString);
+    };
+
+    test.concurrent('slot created with questionnaireCanonical stores the extension correctly', async () => {
+      assert(processId);
+      const initialResources = await setUpInPersonResources();
+
+      const testCanonical: CanonicalUrl = {
+        url: 'https://example.com/Questionnaire/test-intake',
+        version: '1.0.0',
+      };
+
+      // Get an available slot time
+      let getScheduleResponse: GetScheduleResponse | undefined;
+      try {
+        getScheduleResponse = (
+          await oystehrTestUserM2M.zambda.executePublic({
+            id: 'get-schedule',
+            slug: initialResources.slug,
+            scheduleType: 'location',
+          })
+        ).output as GetScheduleResponse;
+      } catch (e) {
+        console.error('Error executing get-schedule zambda', e);
+      }
+      assert(getScheduleResponse);
+      const selectedSlot = getScheduleResponse.available[0];
+      assert(selectedSlot);
+
+      // Create slot with questionnaire canonical
+      const createSlotParams: CreateSlotParams = {
+        ...createSlotParamsFromSlotAndOptions(selectedSlot.slot, {
+          status: 'busy-tentative',
+        }),
+        questionnaireCanonical: testCanonical,
+        // get-schedule above doesn't pass serviceCategoryCode; default to
+        // urgent-care so create-slot's invariant guard doesn't reject.
+        serviceCategoryCode: 'urgent-care',
+      };
+
+      const { slot: createdSlot } = await createSlotAndValidate(
+        { params: createSlotParams, selectedSlot, schedule: initialResources.schedule },
+        oystehrTestUserM2M
+      );
+
+      // Verify the extension was stored correctly
+      const storedCanonical = getQuestionnaireCanonicalFromSlot(createdSlot);
+      expect(storedCanonical).toBeDefined();
+      assert(storedCanonical);
+      expect(storedCanonical.url).toEqual(testCanonical.url);
+      expect(storedCanonical.version).toEqual(testCanonical.version);
+
+      await cleanUpResources(initialResources);
+    });
+
+    test.concurrent('appointment created from slot with questionnaireCanonical uses that questionnaire', async () => {
+      assert(processId);
+      const initialResources = await setUpInPersonResources();
+
+      // Use the virtual intake questionnaire for an in-person slot
+      // This proves the Slot's canonical is being used instead of the default in-person questionnaire
+      const testCanonical = getCanonicalUrlForPrevisitQuestionnaire(ServiceMode.virtual);
+
+      // Get an available slot time
+      let getScheduleResponse: GetScheduleResponse | undefined;
+      try {
+        getScheduleResponse = (
+          await oystehrTestUserM2M.zambda.executePublic({
+            id: 'get-schedule',
+            slug: initialResources.slug,
+            scheduleType: 'location',
+          })
+        ).output as GetScheduleResponse;
+      } catch (e) {
+        console.error('Error executing get-schedule zambda', e);
+      }
+      assert(getScheduleResponse);
+      const selectedSlot = getScheduleResponse.available[0];
+      assert(selectedSlot);
+
+      // Create slot with questionnaire canonical
+      const createSlotParams: CreateSlotParams = {
+        ...createSlotParamsFromSlotAndOptions(selectedSlot.slot, {
+          status: 'busy-tentative',
+        }),
+        questionnaireCanonical: testCanonical,
+        // get-schedule above doesn't pass serviceCategoryCode; default to
+        // urgent-care so create-slot's invariant guard doesn't reject.
+        serviceCategoryCode: 'urgent-care',
+      };
+
+      const { slot: createdSlot } = await createSlotAndValidate(
+        { params: createSlotParams, selectedSlot, schedule: initialResources.schedule },
+        oystehrTestUserM2M
+      );
+
+      // Verify the extension is on the slot
+      const storedCanonical = getQuestionnaireCanonicalFromSlot(createdSlot);
+      assert(storedCanonical);
+
+      // Create appointment using this slot
+      const patientInfo: PatientInfo = {
+        id: existingTestPatient.id,
+        firstName: existingTestPatient.name![0]!.given![0],
+        lastName: existingTestPatient!.name![0]!.family,
+        email: 'test+questionnaire-canonical@example.com',
+        sex: 'female',
+        dateOfBirth: existingTestPatient.birthDate,
+        newPatient: false,
+      };
+
+      const createAppointmentInputParams: CreateAppointmentInputParams = {
+        patient: patientInfo,
+        slotId: createdSlot.id!,
+      };
+
+      let createAppointmentResponse: CreateAppointmentResponse | undefined;
+      try {
+        createAppointmentResponse = (
+          await oystehrTestUserM2M.zambda.execute({
+            id: 'create-appointment',
+            ...createAppointmentInputParams,
+          })
+        ).output as CreateAppointmentResponse;
+      } catch (e) {
+        console.error('Error executing create-appointment zambda', e);
+      }
+      assert(createAppointmentResponse);
+
+      // Verify the QuestionnaireResponse references the custom questionnaire canonical
+      const { questionnaire: questionnaireResponse } = createAppointmentResponse.resources;
+      assert(questionnaireResponse);
+      expect(questionnaireResponse.questionnaire).toBeDefined();
+
+      // The questionnaire field should contain the canonical URL with version
+      const expectedCanonicalString = `${testCanonical.url}|${testCanonical.version}`;
+      expect(questionnaireResponse.questionnaire).toEqual(expectedCanonicalString);
+
+      await cleanUpResources(initialResources);
+    });
+
+    test.concurrent(
+      'appointment created from slot without questionnaireCanonical uses default questionnaire',
+      async () => {
+        assert(processId);
+        const initialResources = await setUpInPersonResources();
+
+        // Get an available slot time
+        let getScheduleResponse: GetScheduleResponse | undefined;
+        try {
+          getScheduleResponse = (
+            await oystehrTestUserM2M.zambda.executePublic({
+              id: 'get-schedule',
+              slug: initialResources.slug,
+              scheduleType: 'location',
+            })
+          ).output as GetScheduleResponse;
+        } catch (e) {
+          console.error('Error executing get-schedule zambda', e);
+        }
+        assert(getScheduleResponse);
+        const selectedSlot = getScheduleResponse.available[0];
+        assert(selectedSlot);
+
+        // Create slot WITHOUT questionnaire canonical
+        const createSlotParams: CreateSlotParams = createSlotParamsFromSlotAndOptions(selectedSlot.slot, {
+          status: 'busy-tentative',
+        });
+
+        const { slot: createdSlot } = await createSlotAndValidate(
+          { params: createSlotParams, selectedSlot, schedule: initialResources.schedule },
+          oystehrTestUserM2M
+        );
+
+        // Verify no questionnaire canonical extension on the slot
+        const storedCanonical = getQuestionnaireCanonicalFromSlot(createdSlot);
+        expect(storedCanonical).toBeUndefined();
+
+        // Create appointment using this slot
+        const patientInfo: PatientInfo = {
+          id: existingTestPatient.id,
+          firstName: existingTestPatient.name![0]!.given![0],
+          lastName: existingTestPatient!.name![0]!.family,
+          email: 'test+default-questionnaire@example.com',
+          sex: 'female',
+          dateOfBirth: existingTestPatient.birthDate,
+          newPatient: false,
+        };
+
+        const createAppointmentInputParams: CreateAppointmentInputParams = {
+          patient: patientInfo,
+          slotId: createdSlot.id!,
+        };
+
+        let createAppointmentResponse: CreateAppointmentResponse | undefined;
+        try {
+          createAppointmentResponse = (
+            await oystehrTestUserM2M.zambda.execute({
+              id: 'create-appointment',
+              ...createAppointmentInputParams,
+            })
+          ).output as CreateAppointmentResponse;
+        } catch (e) {
+          console.error('Error executing create-appointment zambda', e);
+        }
+        assert(createAppointmentResponse);
+
+        // Verify the QuestionnaireResponse has a questionnaire reference (the default one)
+        const { questionnaire: questionnaireResponse } = createAppointmentResponse.resources;
+        assert(questionnaireResponse);
+        expect(questionnaireResponse.questionnaire).toBeDefined();
+        // Should be the default in-person questionnaire canonical (not our custom one)
+        expect(questionnaireResponse.questionnaire).not.toContain('example.com');
+
+        await cleanUpResources(initialResources);
+      }
+    );
   });
 });

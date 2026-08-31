@@ -2,24 +2,28 @@
   "name": "utils",
   "private": true,
   "type": "module",
-  "version": "1.15.6",
+  "version": "1.42.1",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
+  "sideEffects": false,
   "engines": {
-    "node": ">=20.0.0",
-    "npm": ">=9.0.0"
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
   },
   "scripts": {
     "start": "vite",
-    "build": "tsc && vite build",
+    "build": "concurrently --kill-others-on-fail \"tsc\" \"vite build\"",
     "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 .",
     "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 --fix .",
     "preview": "vite preview",
     "test": "vitest --silent",
+    "test:ci": "vitest run --coverage --passWithNoTests --reporter=dot --reporter=github-actions",
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "lodash-es": "^4.17.21"
+    "config-types": "*",
+    "lodash-es": "^4.17.21",
+    "sucrase": "^3.35.0"
   },
   "devDependencies": {
     "@types/lodash-es": "^4.17.12",

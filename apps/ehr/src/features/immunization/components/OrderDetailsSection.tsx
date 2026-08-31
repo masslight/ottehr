@@ -1,13 +1,30 @@
 import { Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
-import { MedicationSelectInput } from 'src/components/input/MedicationSelectInput';
-import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
+import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
+import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
-import { LOCATION_OPTIONS, ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { useGetVaccines } from 'src/features/visits/in-person/hooks/useImmunization';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
+import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
+import { LOCATION_OPTIONS, ROUTE_OPTIONS } from 'src/shared/utils/options';
+import { UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
 
 export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();
+  const { data: vaccines, isLoading } = useGetVaccines();
+  const { chartData } = useChartData();
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
+  const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
+  const diagnosis = isFollowup ? mainEncounterChartData?.diagnosis : chartData?.diagnosis;
+  const diagnosisOptions = (diagnosis ?? [])
+    .filter((dx) => dx.resourceId)
+    .map((dx) => ({ resourceId: dx.resourceId!, display: `${dx.code} - ${dx.display}` }));
+
   return (
     <Grid container spacing={2}>
       <Grid xs={12} item>
@@ -21,25 +38,92 @@ export const OrderDetailsSection: React.FC = () => {
         </Typography>
       </Grid>
       <Grid xs={6} item>
-        <MedicationSelectInput name="details.medicationId" label="Vaccine" required />
-      </Grid>
-      <Grid xs={3} item>
-        <TextInput name="details.dose" label="Dose" required />
-      </Grid>
-      <Grid xs={3} item>
-        <SelectInput name="details.units" label="Units" options={UNIT_OPTIONS} required />
+        <AutocompleteInput
+          name="details.medication"
+          label="Immunization"
+          options={vaccines}
+          loading={isLoading}
+          getOptionLabel={(option) => option.name}
+          getOptionKey={(option) => option.id}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
+          required
+          dataTestId={dataTestIds.orderVaccinePage.vaccine}
+        />
       </Grid>
       <Grid xs={6} item>
-        <SelectInput name="details.route" label="Route" options={ROUTE_OPTIONS} />
+        <AutocompleteInput
+          name="details.associatedDx"
+          label="Associated Dx"
+          options={diagnosisOptions}
+          getOptionLabel={(option) => option.display}
+          getOptionKey={(option) => option.resourceId}
+          isOptionEqualToValue={(option, value) => option.resourceId === value.resourceId}
+          dataTestId={dataTestIds.orderVaccinePage.associatedDx}
+        />
+      </Grid>
+      <Grid xs={3} item>
+        <TextInput
+          name="details.dose"
+          label="Dose"
+          type="number"
+          validate={(value: string) => (!(parseFloat(value) > 0) ? 'Dose must be positive' : true)}
+          required
+          dataTestId={dataTestIds.orderVaccinePage.dose}
+        />
+      </Grid>
+      <Grid xs={3} item>
+        <SelectInput
+          name="details.units"
+          label="Units"
+          options={UNIT_OPTIONS.map((option) => option.value)}
+          getOptionLabel={(option) => UNIT_OPTIONS.find((opt) => opt.value === option)?.label ?? option}
+          required
+          dataTestId={dataTestIds.orderVaccinePage.units}
+        />
       </Grid>
       <Grid xs={6} item>
-        <SelectInput name="details.location" label="Location" options={LOCATION_OPTIONS} />
+        <AutocompleteInput
+          name="details.route"
+          label="Route"
+          options={ROUTE_OPTIONS.map((option) => option.code)}
+          getOptionLabel={(option) => ROUTE_OPTIONS.find((opt) => opt.code === option)?.name ?? option}
+          dataTestId={dataTestIds.orderVaccinePage.route}
+        />
+      </Grid>
+      <Grid xs={6} item>
+        <TextInput
+          name="details.manufacturer"
+          label="Manufacturer"
+          dataTestId={dataTestIds.orderVaccinePage.manufacturer}
+        />
+      </Grid>
+      <Grid xs={6} item>
+        <AutocompleteInput
+          name="details.location"
+          label="Location"
+          options={LOCATION_OPTIONS}
+          getOptionLabel={(option) => option.name}
+          getOptionKey={(option) => option.code}
+          isOptionEqualToValue={(option, value) => option.code === value.code}
+          dataTestId={dataTestIds.orderVaccinePage.location}
+        />
+      </Grid>
+      <Grid xs={6} item>
+        <EmployeeSelectInput
+          name="details.orderedProvider"
+          label="Ordered by"
+          required
+          dataTestId={dataTestIds.orderVaccinePage.orderedBy}
+          filter={PROVIDERS_FILTER}
+        />
       </Grid>
       <Grid xs={12} item>
-        <TextInput name="details.instructions" label="Instructions" multiline />
-      </Grid>
-      <Grid xs={6} item>
-        <ProviderSelectInput name="details.orderedProviderId" label="Ordered by" required />
+        <TextInput
+          name="details.instructions"
+          label="Instructions"
+          multiline
+          dataTestId={dataTestIds.orderVaccinePage.instructions}
+        />
       </Grid>
     </Grid>
   );

@@ -1,7 +1,8 @@
 import { Box, Grid, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
-import { NursingOrderHistoryRow } from 'utils';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { NursingOrderHistoryRow } from 'utils/lib/types/data/orders/types';
 import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
 
 const formatDateTime = (dateString: string): string => {
@@ -18,7 +19,7 @@ type HistoryProps = {
 
 export const History: FC<HistoryProps> = ({ orderHistory }) => {
   return (
-    <Box>
+    <Box data-testid={dataTestIds.nursingOrderDetailsPage.historySection}>
       {orderHistory.map((item) => (
         <Box key={item.status}>
           <Grid container sx={{ px: 2, py: 1.5 }}>

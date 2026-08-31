@@ -5,14 +5,14 @@ import { Box, Stack } from '@mui/system';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { PageContainer } from 'src/components/CustomContainer';
+import { AiChatHistory } from 'ui-components/lib/components/paperwork/form-components/AiChatHistory';
 import api from '../api/ottehrApi';
-import { PageContainer } from '../components';
-import { AiChatHistory } from '../components/AiChatHistory';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { useVisitContext } from './ThankYou';
 
 const AIInterview = (): JSX.Element => {
-  const zambdaClient = useUCZambdaClient({ tokenless: true });
+  const zambdaClient = useUCZambdaClient({ tokenless: false });
 
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
@@ -85,7 +85,7 @@ const AIInterview = (): JSX.Element => {
         </Stack>
       }
     >
-      <Box style={{ overflowY: 'auto', height: 'calc(100vh - 400px)' }}>
+      <Box style={{ overflowY: 'auto', height: '540px' }}>
         <AiChatHistory
           questionnaireResponse={questionnaireResponse}
           aiLoading={loading}

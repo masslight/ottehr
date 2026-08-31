@@ -1,12 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { Bundle, CodeableConcept, Coding, Encounter, FhirResource, Resource, ServiceRequest } from 'fhir/r4b';
-import { ChartDataWithResources, DispositionMetaFieldsNames, GetChartDataResponse } from 'utils';
-import { parseCreatedResourcesBundle } from '../../shared';
+import { DispositionMetaFieldsNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { ChartDataWithResources } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import {
   chartDataResourceHasMetaTagByCode,
   handleCustomDTOExtractions,
   mapResourceToChartDataResponse,
 } from '../../shared/chart-data';
+import { parseCreatedResourcesBundle } from '../../shared/resources.helpers';
 
 export const validateBundleAndExtractSavedChartData = (
   bundle: Bundle,
@@ -21,6 +23,7 @@ export const validateBundleAndExtractSavedChartData = (
     conditions: [],
     allergies: [],
     examObservations: [],
+    rosObservations: [],
     cptCodes: [],
     instructions: [],
     diagnosis: [],
@@ -82,6 +85,18 @@ export async function getEncounterAndRelatedResources(oystehr: Oystehr, encounte
         {
           name: '_revinclude:iterate',
           value: 'List:patient',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Condition:encounter',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Observation:encounter',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'ClinicalImpression:encounter',
         },
       ],
     })

@@ -1,0 +1,49 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { Secrets } from 'utils/lib/secrets';
+import {
+  CreateUploadAudioRecordingInput,
+  CreateUploadAudioRecordingOutput,
+} from 'utils/lib/types/api/appointment.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { makeZ3FileUrl } from '../../shared/presigned-file-urls/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { createPresignedUrl } from '../../shared/z3Utils';
+import { validateRequestParameters } from './validateRequestParameters';
+
+export interface CreateUploadAudioRecordingInputValidated extends CreateUploadAudioRecordingInput {
+  secrets: Secrets | null;
+}
+
+const ZAMBDA_NAME = 'upload-audio-recording';
+// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
+let m2mToken: string;
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  try {
+    console.log(`handler() start.`);
+    const validatedInput = validateRequestParameters(input);
+    const { secrets, visitID } = validatedInput;
+    console.log(`validatedInput => `);
+    console.log(JSON.stringify(validatedInput));
+
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    console.log(`Got m2mToken`);
+
+    const fileZ3Url = makeZ3FileUrl({ secrets, bucketName: 'audio-recordings', fileName: `${visitID}.webm` });
+    const presignedFileUploadUrl = await createPresignedUrl(m2mToken, fileZ3Url, 'upload');
+
+    console.log(`created fileZ3Url: [${fileZ3Url}] :: presignedFileUploadUrl: [${presignedFileUploadUrl}]`);
+
+    const response: CreateUploadAudioRecordingOutput = {
+      z3URL: fileZ3Url,
+      presignedUploadUrl: presignedFileUploadUrl,
+    };
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+    };
+  } finally {
+    console.log(`handler() end`);
+  }
+});

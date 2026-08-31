@@ -9,7 +9,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { FC } from 'react';
-import { PropsWithChildren } from '../types';
+import { PropsWithChildren } from 'src/types/props-with-children';
 
 type StyledListItemWithButtonProps = PropsWithChildren<{
   primaryText: string;
@@ -34,7 +34,9 @@ export const StyledListItemWithButton: FC<StyledListItemWithButtonProps> = (prop
               justifyContent: 'center',
             }}
           >
-            <Box sx={{ flex: hideText ? 0 : 'auto', transition: 'flex 0.5s' }}>{img}</Box>
+            <Box sx={{ flex: hideText ? 0 : 'auto', transition: 'flex 0.5s', display: 'flex', alignItems: 'center' }}>
+              {img}
+            </Box>
           </ListItemAvatar>
           <ListItemText
             primary={

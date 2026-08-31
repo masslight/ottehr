@@ -1,0 +1,454 @@
+import Oystehr from '@oystehr/sdk';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { CandidApi, CandidApiClient } from 'candidhealth';
+import { APIResponse } from 'candidhealth/core';
+import { Appointment, Encounter } from 'fhir/r4b';
+import { chunkThings } from 'utils/lib/fhir/chat';
+import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { GetBillingPatientBalanceResponse } from 'utils/lib/types/data/billing/billing.types';
+import { GetPatientBalancesZambdaOutput } from 'utils/lib/types/data/payment/payment-method-types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, shouldUseOttehrBillingForPatientBalances } from '../../shared/candid';
+import { fetchAllPages } from '../../shared/fhir';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { lambdaResponse } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedInput, validateInput, validateSecrets } from './validateRequestParameters';
+
+type EncounterIdMap = Map<
+  string,
+  {
+    encounterDate: string;
+    appointmentId: string;
+    candidId: string;
+    patientBalanceCents?: number;
+  }
+>;
+
+// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
+let m2mToken: string;
+
+const CANDID_BATCH_SIZE = 3;
+
+const ENCOUNTER_SCAN_PAGE_SIZE = 100;
+
+const ZAMBDA_NAME = 'get-patient-balances';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const secrets = validateSecrets(unsafeInput.secrets);
+
+  const validatedInput = await validateInput(unsafeInput);
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+  if (shouldUseOttehrBillingForPatientBalances(secrets)) {
+    const response = await performBillingEffect(validatedInput, oystehr);
+    return lambdaResponse(200, response);
+  }
+
+  const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
+
+  const response = await performEffect(validatedInput, oystehr, candidApiClient);
+
+  return lambdaResponse(200, response);
+});
+
+export async function performBillingEffect(
+  validatedInput: ValidatedInput,
+  oystehr: Oystehr
+): Promise<GetPatientBalancesZambdaOutput> {
+  const noData = { encounters: [], totalBalanceCents: 0, pendingPaymentCents: 0, patientCreditCents: 0 };
+
+  const { encounters, appointments } = await getAllFhirEncountersAndAppointmentsForPatient(
+    oystehr,
+    validatedInput.body.patientId
+  );
+
+  const encounterDataMap = new Map<string, { encounterDate: string; appointmentId: string }>();
+  encounters.forEach((encounter) => {
+    const appointmentId = encounter.appointment?.[0].reference?.split('/')[1];
+    const encounterDate = appointments.find((app) => app.id === appointmentId)?.start;
+    if (!appointmentId || !encounterDate) {
+      console.warn(
+        `Encounter ${encounter.id} is missing required data, skipping it. appointmentId: ${appointmentId}, encounterDate: ${encounterDate}`
+      );
+      return;
+    }
+    encounterDataMap.set(encounter.id!, { encounterDate, appointmentId });
+  });
+  if (encounterDataMap.size === 0) {
+    return noData;
+  }
+
+  const { claims } = chooseJson<GetBillingPatientBalanceResponse>(
+    await oystehr.zambda.execute({
+      id: 'get-billing-patient-balance',
+      encounterIds: Array.from(encounterDataMap.keys()),
+    })
+  );
+
+  const rows = new Map<string, GetPatientBalancesZambdaOutput['encounters'][number]>();
+  const seenEncounterIds = new Set<string>();
+  let netBalanceCents = 0;
+  for (const claim of claims) {
+    const encounterData = claim.encounterId ? encounterDataMap.get(claim.encounterId) : undefined;
+    if (!claim.encounterId || !encounterData) {
+      console.warn(`Claim ${claim.claimId} has no linked clinical encounter, skipping it.`);
+      continue;
+    }
+    if (seenEncounterIds.has(claim.encounterId)) {
+      // first claim per encounter wins, matching create-invoice-tasks-for-billing-claims
+      console.warn(`Encounter ${claim.encounterId} has multiple active AR claims; skipping claim ${claim.claimId}`);
+      continue;
+    }
+    seenEncounterIds.add(claim.encounterId);
+    const patientBalanceCents = Math.round(claim.balance * 100);
+    netBalanceCents += patientBalanceCents;
+    // settled and overpaid claims stay out of the payable rows, matching the Candid path
+    if (patientBalanceCents <= 0) continue;
+    rows.set(claim.encounterId, {
+      encounterId: claim.encounterId,
+      encounterDate: encounterData.encounterDate,
+      appointmentId: encounterData.appointmentId,
+      patientBalanceCents,
+    });
+  }
+
+  const balances = Array.from(rows.values());
+  return {
+    encounters: balances,
+    totalBalanceCents: balances.reduce((acc, { patientBalanceCents }) => acc + patientBalanceCents, 0),
+    // Billing PaymentNotices are already posted against claim balances; none are separately pending.
+    pendingPaymentCents: 0,
+    // like the Candid patient-level balance, credit surfaces only once the account nets negative
+    patientCreditCents: Math.max(-netBalanceCents, 0),
+  };
+}
+
+export async function performEffect(
+  validatedInput: ValidatedInput,
+  oystehr: Oystehr,
+  candidApiClient: CandidApiClient
+): Promise<GetPatientBalancesZambdaOutput> {
+  const { patientId } = validatedInput.body;
+
+  const noData = {
+    encounters: [],
+    totalBalanceCents: 0,
+    pendingPaymentCents: 0,
+    patientCreditCents: 0,
+  };
+
+  console.group('getFhirEncountersAndAppointmentsForPatient');
+  const { encounters, appointments } = await getFhirEncountersAndAppointmentsForPatient(oystehr, patientId);
+  console.groupEnd();
+  console.debug('getFhirEncountersAndAppointmentsForPatient success');
+  if (encounters.length === 0) {
+    return noData;
+  }
+
+  const encounterDataMap: EncounterIdMap = new Map();
+  const candidIdToEncounterIdMap = new Map<string, string>();
+  const claimIdToEncounterIdMap = new Map<string, string>();
+
+  encounters.forEach((encounter) => {
+    const appointmentId = encounter.appointment?.[0].reference?.split('/')[1];
+    const appointment = appointments.find((app) => app.id === appointmentId);
+    const encounterDate = appointment?.start;
+    const candidId = encounter.identifier?.find(
+      (identifier) => identifier.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM && identifier.value != null
+    )?.value;
+    if (!appointmentId || !encounterDate || !candidId) {
+      console.warn(
+        `Encounter ${encounter.id} is missing required data, skipping it. appointmentId: ${appointmentId}, encounterDate: ${encounterDate}, candidId: ${candidId}`
+      );
+      return;
+    }
+    encounterDataMap.set(encounter.id!, {
+      encounterDate,
+      appointmentId,
+      candidId,
+    });
+    candidIdToEncounterIdMap.set(candidId, encounter.id!);
+  });
+
+  console.group('getAllCandidEncounters');
+  const candidEncounters = await getAllCandidEncounters(candidApiClient, encounterDataMap);
+  console.groupEnd();
+  console.debug('getAllCandidEncounters success');
+  if (candidEncounters.length === 0) {
+    return noData;
+  }
+
+  // Unpack the array of claims (should only be one) and grab the first claim id
+  console.group('addIdsToMaps');
+  addIdsToMaps(candidEncounters, candidIdToEncounterIdMap, claimIdToEncounterIdMap);
+  console.groupEnd();
+  console.debug('addIdsToMaps success');
+  if (claimIdToEncounterIdMap.size === 0) {
+    return noData;
+  }
+
+  console.log('claimIdToEncounterIdMap', claimIdToEncounterIdMap);
+
+  // For each Candid claim id, call the Candid invoice itemization API endpoint
+  console.group('getAllCandidClaims');
+  const claims = await getAllCandidClaims(candidApiClient, claimIdToEncounterIdMap);
+  console.groupEnd();
+  console.debug('getAllCandidClaims success');
+  if (claims.length === 0) {
+    return noData;
+  }
+
+  // Save the balances in the map
+  console.group('saveBalancesInMap');
+  saveBalancesInMap(claims, claimIdToEncounterIdMap, encounterDataMap);
+  console.groupEnd();
+  console.debug('saveBalancesInMap success');
+
+  console.group('getPendingPatientPayments');
+  const pendingPatientPayments = await getPendingPatientPayments(candidApiClient, patientId);
+  console.groupEnd();
+  console.debug('getPendingPatientPayments success');
+
+  console.group('getPatientCreditCents');
+  const patientCreditCents = await getPatientCreditCents(candidApiClient, patientId);
+  console.groupEnd();
+  console.debug('getPatientCreditCents success');
+
+  console.log('encounterDataMap', encounterDataMap);
+
+  const returnData = Array.from(encounterDataMap.entries()).map(([encounterId, mapValue]) => ({
+    encounterId,
+    encounterDate: mapValue.encounterDate,
+    appointmentId: mapValue.appointmentId,
+    patientBalanceCents: mapValue.patientBalanceCents || 0,
+  }));
+  return {
+    encounters: returnData,
+    totalBalanceCents: returnData.reduce((acc, { patientBalanceCents }) => acc + patientBalanceCents, 0),
+    pendingPaymentCents: pendingPatientPayments || 0,
+    patientCreditCents,
+  };
+}
+
+function encounterAndAppointmentSearchParams(patientId: string): { name: string; value: string }[] {
+  return [
+    {
+      name: 'subject',
+      value: `Patient/${patientId}`,
+    },
+    {
+      name: '_include',
+      value: 'Encounter:appointment',
+    },
+    // exclude follow-up encounters that are missing appointment references
+    {
+      name: 'appointment:missing',
+      value: 'false',
+    },
+  ];
+}
+
+function splitEncountersAndAppointments(
+  resources: (Encounter | Appointment)[],
+  patientId: string
+): { encounters: Encounter[]; appointments: Appointment[] } {
+  const encounters = resources.filter((resource) => resource.resourceType === 'Encounter') as Encounter[];
+  const appointments = resources.filter((resource) => resource.resourceType === 'Appointment') as Appointment[];
+  console.log(`Found ${encounters.length} encounters for patient ${patientId}`);
+  return {
+    encounters,
+    appointments,
+  };
+}
+
+// Same search as getFhirEncountersAndAppointmentsForPatient but pages through every encounter.
+async function getAllFhirEncountersAndAppointmentsForPatient(
+  oystehr: Oystehr,
+  patientId: string
+): Promise<{ encounters: Encounter[]; appointments: Appointment[] }> {
+  const resources: (Encounter | Appointment)[] = [];
+  await fetchAllPages(async (offset, count) => {
+    const bundle = await oystehr.fhir.search<Encounter | Appointment>({
+      resourceType: 'Encounter',
+      params: [
+        ...encounterAndAppointmentSearchParams(patientId),
+        {
+          name: '_count',
+          value: String(count),
+        },
+        {
+          name: '_offset',
+          value: String(offset),
+        },
+      ],
+    });
+    resources.push(...bundle.unbundle());
+    return bundle;
+  }, ENCOUNTER_SCAN_PAGE_SIZE);
+  return splitEncountersAndAppointments(resources, patientId);
+}
+
+async function getFhirEncountersAndAppointmentsForPatient(
+  oystehr: Oystehr,
+  patientId: string
+): Promise<{ encounters: Encounter[]; appointments: Appointment[] }> {
+  const resourcesResponse = await oystehr.fhir.search<Encounter | Appointment>({
+    resourceType: 'Encounter',
+    params: encounterAndAppointmentSearchParams(patientId),
+  });
+  return splitEncountersAndAppointments(resourcesResponse.unbundle(), patientId);
+}
+
+async function getAllCandidEncounters(
+  candidApiClient: CandidApiClient,
+  encounterIdMap: EncounterIdMap
+): Promise<APIResponse<CandidApi.encounters.v4.Encounter, CandidApi.encounters.v4.get.Error._Unknown>[]> {
+  const candidIds = Array.from(encounterIdMap.values()).map(({ candidId }) => candidId);
+  console.log(`Fetching ${candidIds.length} encounters from Candid`);
+  const candidEncounters: APIResponse<CandidApi.encounters.v4.Encounter, CandidApi.encounters.v4.get.Error._Unknown>[] =
+    [];
+  const currentCandidEncounters = chunkThings(candidIds, CANDID_BATCH_SIZE);
+  for (const batch of currentCandidEncounters) {
+    const batchResults = await Promise.all(
+      batch.map((candidId) =>
+        retryWithBackoff(() => candidApiClient.encounters.v4.get(CandidApi.EncounterId(candidId)))
+      )
+    );
+    candidEncounters.push(...batchResults);
+  }
+  console.log(`Fetched ${candidEncounters.length} Candid encounters`);
+  return candidEncounters;
+}
+
+function addIdsToMaps(
+  candidEncounters: APIResponse<CandidApi.encounters.v4.Encounter, CandidApi.encounters.v4.get.Error._Unknown>[],
+  candidIdToEncounterIdMap: Map<string, string>,
+  claimIdToEncounterIdMap: Map<string, string>
+): void {
+  candidEncounters.forEach((candidEncounter) => {
+    if (!candidEncounter.ok) {
+      throw new Error(`Failed to fetch Candid encounter: ${JSON.stringify(candidEncounter.error)}`);
+    }
+
+    const { claims } = candidEncounter.body;
+    if (claims.length !== 1) {
+      throw new Error(`Expected exactly one claim per encounter, but got ${claims.length}`);
+    }
+
+    const candidId = candidEncounter.body.encounterId;
+    const claimId = claims[0].claimId;
+    const encounterId = candidIdToEncounterIdMap.get(candidId);
+
+    claimIdToEncounterIdMap.set(claimId, encounterId!);
+  });
+}
+
+async function getAllCandidClaims(
+  candidApiClient: CandidApiClient,
+  claimIdMap: Map<string, string>
+): Promise<APIResponse<CandidApi.patientAr.v1.InvoiceItemizationResponse, CandidApi.patientAr.v1.itemize.Error>[]> {
+  const claimIds = Array.from(claimIdMap.keys());
+  console.log(`Fetching ${claimIds.length} claims from Candid`);
+  const claims: APIResponse<CandidApi.patientAr.v1.InvoiceItemizationResponse, CandidApi.patientAr.v1.itemize.Error>[] =
+    [];
+  const currentClaims = chunkThings(claimIds, CANDID_BATCH_SIZE);
+  for (const batch of currentClaims) {
+    const batchResults = await Promise.all(
+      batch.map((claimId) => retryWithBackoff(() => candidApiClient.patientAr.v1.itemize(CandidApi.ClaimId(claimId))))
+    );
+    claims.push(...batchResults);
+  }
+  console.log(`Fetched ${claims.length} claims`);
+  return claims;
+}
+
+function saveBalancesInMap(
+  candidClaims: APIResponse<CandidApi.patientAr.v1.InvoiceItemizationResponse, CandidApi.patientAr.v1.itemize.Error>[],
+  claimIdToEncounterIdMap: Map<string, string>,
+  encounterDataMap: EncounterIdMap
+): void {
+  candidClaims.forEach((candidClaim) => {
+    if (!candidClaim.ok) {
+      throw new Error(`Failed to fetch Candid claim: ${JSON.stringify(candidClaim.error)}`);
+    }
+
+    const claimId = candidClaim.body.claimId;
+    const encounterId = claimIdToEncounterIdMap.get(claimId);
+
+    if (candidClaim.body.patientBalanceCents <= 0) {
+      encounterDataMap.delete(encounterId!);
+      return;
+    }
+
+    const mapValue = encounterDataMap.get(encounterId!);
+    if (!mapValue) {
+      throw new Error(`No map value found for encounterId ${encounterId}`);
+    }
+    mapValue.patientBalanceCents = candidClaim.body.patientBalanceCents;
+    encounterDataMap.set(encounterId!, mapValue);
+  });
+}
+
+async function getPendingPatientPayments(candidApiClient: CandidApiClient, patientId: string): Promise<number> {
+  const candidResponse = await candidApiClient.patientPayments.v4.getMulti({
+    patientExternalId: CandidApi.PatientExternalId(patientId),
+  });
+  if (!candidResponse.ok) {
+    throw new Error(`Failed to fetch Candid pending payments: ${JSON.stringify(candidResponse.error)}`);
+  }
+  const payments = candidResponse.body.items;
+
+  const pendingPayments = payments.map((payment) => {
+    const isPending = payment.allocations.find((allocation) => allocation.target.type === 'appointment');
+    return isPending ? payment.amountCents : 0;
+  });
+
+  return pendingPayments.reduce((acc, amount) => acc + amount, 0);
+}
+
+async function getPatientCreditCents(candidApiClient: CandidApiClient, patientId: string): Promise<number> {
+  try {
+    const response = await candidApiClient.fetch(`/api/patients/v1/${patientId}`);
+    if (!response.ok) {
+      console.warn(`Candid patients v1 request failed with status ${response.status} for patient ${patientId}`);
+      return 0;
+    }
+    const data = (await response.json()) as { patient_balance_total_cents: number };
+    return data.patient_balance_total_cents < 0 ? Math.abs(data.patient_balance_total_cents) : 0;
+  } catch (error) {
+    console.warn(`Failed to fetch Candid patient credit for patient ${patientId}:`, error);
+    return 0;
+  }
+}
+
+async function retryWithBackoff<T, E>(
+  fn: () => Promise<APIResponse<T, E>>,
+  maxRetries = 4,
+  baseDelayMs = 200
+): Promise<APIResponse<T, E>> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fn();
+      if (response.ok || (response.error && response.rawResponse.status !== 429) || attempt === maxRetries)
+        return response;
+    } catch (error: any) {
+      if (attempt === maxRetries) throw error;
+      const isTooManyRequests =
+        error?.body?.errorName === 'TooManyRequestsError' ||
+        error?.message?.includes('Too many requests') ||
+        error?.statusCode === 429;
+      if (!isTooManyRequests) throw error;
+    }
+    const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 100;
+    console.warn(
+      `Candid API request rate limited, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})`
+    );
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+  return fn();
+}

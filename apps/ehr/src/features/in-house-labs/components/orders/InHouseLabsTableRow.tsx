@@ -2,7 +2,9 @@ import { otherColors } from '@ehrTheme/colors';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { Box, Button, TableCell, TableRow, Tooltip, Typography, useTheme } from '@mui/material';
 import { ReactElement } from 'react';
-import { formatDateForLabs, InHouseOrderListPageItemDTO } from 'utils';
+import { InHouseOrderListPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
+import { formatDateForLabs } from 'utils/lib/utils/dateUtils';
+import { configInHouseLabDeleteButtonTestId, configInHouseLabTableRowTestId } from '../../utils/test-ids';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 import { InHouseLabsTableColumn } from './InHouseLabsTable';
 
@@ -60,9 +62,10 @@ export const InHouseLabsTableRow = ({
       case 'status':
         return <InHouseLabsStatusChip status={labOrderData.status} />;
       case 'actions':
-        if (allowDelete && labOrderData.status === 'ORDERED') {
+        if (allowDelete) {
           return (
             <Button
+              data-testid={configInHouseLabDeleteButtonTestId(labOrderData.serviceRequestId)}
               onClick={(e) => {
                 e.stopPropagation();
                 onDeleteOrder?.();
@@ -85,6 +88,7 @@ export const InHouseLabsTableRow = ({
 
   return (
     <TableRow
+      data-testid={configInHouseLabTableRowTestId(labOrderData.serviceRequestId)}
       sx={{
         '&:hover': { backgroundColor: '#f5f5f5' },
         cursor: 'pointer',

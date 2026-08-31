@@ -1,28 +1,30 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputRequest } from '@oystehr/sdk';
 import {
   Appointment,
+  Coding,
   Encounter,
   FhirResource,
   HealthcareService,
   Location,
   LocationHoursOfOperation,
   Practitioner,
+  PractitionerRole,
   Schedule,
   Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   BookableScheduleData,
-  codingContainedInList,
   DEFAULT_APPOINTMENT_LENGTH_MINUTES,
-  getFullName,
-  getPatchOperationForNewMetaTag,
-  isLocationVirtual,
   makeBookingOriginExtensionEntry,
+  makeSlotAtLocationExtensionEntry,
+  makeSlotBookedViaGroupExtensionEntry,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NUM_DAYS,
+  ScheduleAndOwner,
   ScheduleStrategy,
-  scheduleStrategyForHealthcareService,
+  SLOT_AT_LOCATION_EXTENSION_URL,
+  SLOT_BOOKED_VIA_GROUP_EXTENSION_URL,
   SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
   SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES,
   SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
@@ -30,19 +32,20 @@ import {
   SlotServiceCategory,
   TIMEZONE_EXTENSION_URL,
   WALKIN_APPOINTMENT_TYPE_CODE,
-} from '../fhir';
-import {
-  Closure,
-  ClosureType,
-  CreateSlotParams,
-  OVERRIDE_DATE_FORMAT,
-  ScheduleOwnerFhirResource,
-  ScheduleType,
-  ServiceMode,
-  Timezone,
-  TIMEZONES,
-  VisitType,
-} from '../types';
+} from '../fhir/constants';
+import { SERVICE_CATEGORY_SYSTEM } from '../fhir/constants';
+import { isAnnotationFollowupEncounter } from '../fhir/encounter';
+import { codingContainedInList, scheduleStrategyForHealthcareService } from '../fhir/helpers';
+import { isLocationVirtual, locationSupportsServiceMode } from '../fhir/location';
+import { getFullName } from '../fhir/patient';
+import { getPatchOperationForNewMetaTag } from '../fhir/resourcePatch';
+import { resolveServiceCategory } from '../fhir/serviceCategoryResolution';
+import { ServiceCategoryCode } from '../ottehr-config/booking';
+import { CreateSlotParams } from '../types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ScheduleOwnerFhirResource } from '../types/api/schedules';
+import { Closure, ClosureType, OVERRIDE_DATE_FORMAT, ScheduleType, ServiceMode, Timezone } from '../types/common';
+import { TIMEZONES } from '../types/constants';
+import { VisitType } from '../types/data/telemed/appointments/create-appointment.types';
 import { getDateTimeFromDateAndTime } from './date';
 import { convertCapacityListToBucketedTimeSlots, createMinimumAndMaximumTime, distributeTimeSlots } from './dateUtils';
 
@@ -80,7 +83,31 @@ export type HourOfDay =
 
 export interface Capacity {
   hour: HourOfDay;
+  /**
+   * Legacy field: total bookings per hour assuming the old 15-minute slot
+   * cadence. Readers that haven't been updated for per-category durations
+   * still consume this. New code prefers `providers` when present.
+   */
   capacity: number;
+  /**
+   * Concurrent providers on shift for this hour. Supports fractional values
+   * (e.g. 1.5 for one full-time + one half-time provider) to express partial
+   * coverage. Used for Practitioner schedules. Slot generation derives
+   * per-slot capacity from:
+   *   totalBookings = floor(providers * 60 / slotLength)
+   * and distributes those across time-buckets in the hour.
+   */
+  providers?: number;
+  /**
+   * Prebook slots offered this hour (demand cap semantic). Used for Location
+   * schedules, where admins think in terms of "I'll offer N prebook
+   * appointments this hour" rather than "N providers on shift." At
+   * slot-generation time this is translated into an equivalent concurrent
+   * provider count per visit length:
+   *   providersEquivalent = prebookSlots * slotLength / 60
+   * (so 4 slots × 15-min = 1 provider, 4 slots × 30-min = 2 providers, etc.)
+   */
+  prebookSlots?: number;
 }
 
 export interface ScheduleDay {
@@ -117,10 +144,50 @@ export interface ScheduleDTOOwner {
   slug: string;
   active: boolean;
   detailText?: string; // to take place of Location.address.line[0]
-  infoMessage?: string;
+  // NOTE: not the source of truth for displayed hours. Operating hours live in the
+  // Schedule extension (edited on the Schedule tab); every UI that shows "hours"
+  // reads that via getHoursOfOperationForToday. This mirrors Location.hoursOfOperation,
+  // which currently has no reader — do NOT add a Location.hoursOfOperation editor, as
+  // it would create a second, competing source of truth.
   hoursOfOperation?: Location['hoursOfOperation'];
   timezone: Timezone;
   isVirtual?: boolean;
+  /**
+   * Location owners only — whether the Location should surface in in-person
+   * contexts. Independent of `isVirtual`: a Location may be both. Defaults to
+   * `!isVirtual` for legacy Locations with no explicit in-person marker.
+   */
+  isInPerson?: boolean;
+  /**
+   * Location owners only — true when the Location was created through the EHR
+   * admin "Add location" UI (carries the manually-created marker extension).
+   * The admin is allowed to edit the slug of such Locations; terraform-managed
+   * Location slugs stay read-only.
+   */
+  isManuallyCreated?: boolean;
+  /** PR owners only — IDs of HealthcareService resources this role offers. */
+  healthcareServiceIds?: string[];
+  /**
+   * PR owners only — when true, the role is treated as offering every service
+   * category in the system. Replaces the implicit-empty-array semantic that
+   * used to mean "all services" but was inconsistently honored across read
+   * sites. Defaults to false (admin opts in explicitly).
+   */
+  allCategories?: boolean;
+  /** PR owners only — id of the Location this role is bound to. */
+  locationId?: string;
+  /**
+   * PR owners only — admin-editable schedule display name.
+   * Empty/undefined when not set; callers fall back to "<Practitioner> @ <Location>".
+   */
+  displayName?: string;
+  stripeAccountId?: string;
+  advapacsLocationId?: string;
+  rooms?: string[];
+  description?: string;
+  address?: Location['address'];
+  telecom?: Location['telecom'];
+  reviewLink?: string;
 }
 export interface ScheduleDTO {
   id: string;
@@ -158,7 +225,7 @@ export const mapSlotListItemToStartTimesArray = (items: SlotListItem[]): string[
 export async function getWaitingMinutesAtSchedule(
   oystehr: Oystehr,
   now: DateTime,
-  schedule: Location | Practitioner | HealthcareService
+  schedule: Location | Practitioner | PractitionerRole | HealthcareService
 ): Promise<number> {
   const timezone = getTimezone(schedule);
   const nowForTimezone = now.setZone(timezone);
@@ -184,7 +251,9 @@ export async function getWaitingMinutesAtSchedule(
   ).unbundle();
   console.timeEnd('get_longest_waiting_patient');
 
-  const arrivedEncounters = searchForLongestWaitingPatient.filter((resource) => resource.resourceType === 'Encounter');
+  const arrivedEncounters = searchForLongestWaitingPatient.filter(
+    (resource) => resource.resourceType === 'Encounter' && !isAnnotationFollowupEncounter(resource)
+  );
 
   return getWaitingMinutes(nowForTimezone, arrivedEncounters);
 }
@@ -223,12 +292,8 @@ export function getWaitingMinutes(now: DateTime, encounters: Encounter[]): numbe
 }
 
 export function getScheduleExtension(
-  scheduleResource: Location | Practitioner | HealthcareService | Schedule
+  scheduleResource: Location | Practitioner | PractitionerRole | HealthcareService | Schedule
 ): ScheduleExtension | undefined {
-  console.log(
-    `extracting schedule and possible overrides from extension on ${scheduleResource.resourceType}`,
-    scheduleResource.id
-  );
   const scheduleExtension = scheduleResource?.extension?.find(function (extensionTemp) {
     return extensionTemp.url === SCHEDULE_EXTENSION_URL;
   })?.valueString;
@@ -240,12 +305,14 @@ export function getScheduleExtension(
 }
 
 export function getTimezone(
-  schedule: Pick<Location | Practitioner | HealthcareService | Schedule, 'extension' | 'resourceType' | 'id'>
+  schedule: Pick<
+    Location | Practitioner | PractitionerRole | HealthcareService | Schedule,
+    'extension' | 'resourceType' | 'id'
+  >
 ): Timezone {
   const timezone = schedule.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
     ?.valueString;
   if (!timezone) {
-    console.error('Schedule does not have timezone; returning default', schedule.resourceType, schedule.id);
     return TIMEZONES[0];
   }
   return timezone;
@@ -257,7 +324,8 @@ export function getSlotCapacityMapForDayAndSchedule(
   schedule: DailySchedule,
   scheduleOverrides: ScheduleOverrides,
   closures: Closure[] | undefined,
-  slotLength?: number
+  slotLength?: number,
+  cadenceMinutes?: number
 ): SlotCapacityMap {
   let openingTime: HourOfDay | null = null;
   let closingTime: HourOfDay | 24 | null = null;
@@ -268,13 +336,13 @@ export function getSlotCapacityMapForDayAndSchedule(
   if (closures) {
     for (const closure of closures) {
       if (closure.type === ClosureType.OneDay && closure.start === dayString) {
-        //console.log('closing day', dayString);
         return {};
       } else if (closure.type === ClosureType.Period) {
-        const startClosure = DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT).startOf('day');
-        const endClosure = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT).endOf('day');
+        const startClosure = DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT, { zone: now.zone }).startOf(
+          'day'
+        );
+        const endClosure = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT, { zone: now.zone }).endOf('day');
         if (now >= startClosure && now <= endClosure) {
-          //console.log('closing day', dayString);
           return {};
         }
       }
@@ -318,7 +386,7 @@ export function getSlotCapacityMapForDayAndSchedule(
   let timeSlots: SlotCapacityMap = {};
   //console.log('schedule capacity list', scheduleCapacityList);
 
-  timeSlots = convertCapacityListToBucketedTimeSlots(scheduleCapacityList, now, slotLength);
+  timeSlots = convertCapacityListToBucketedTimeSlots(scheduleCapacityList, now, slotLength, cadenceMinutes);
 
   const buffered = applyBuffersToSlots({
     slots: timeSlots,
@@ -327,6 +395,7 @@ export function getSlotCapacityMapForDayAndSchedule(
     openingTime: openingDateAndTime,
     closingTime: closingDateAndTime,
     now,
+    slotLengthMinutes: slotLength,
   });
 
   return buffered;
@@ -335,12 +404,14 @@ export function getSlotCapacityMapForDayAndSchedule(
 interface RemoveBusySlotsInput {
   slotCapacityMap: SlotCapacityMap;
   busySlots: Slot[];
+  /** When set, busy-slot subtraction uses time-window overlap rather than exact start-time match. */
+  slotLengthMinutes?: number;
   // buffer? leaving this out for now as it's not clear it's needed
 }
 
 export const removeBusySlots = (input: RemoveBusySlotsInput): string[] => {
-  const { slotCapacityMap: timeSlots, busySlots } = input;
-  return distributeTimeSlots(timeSlots, [], busySlots);
+  const { slotCapacityMap: timeSlots, busySlots, slotLengthMinutes } = input;
+  return distributeTimeSlots(timeSlots, [], busySlots, slotLengthMinutes);
 };
 
 export function getPostTelemedSlots(now: DateTime, scheduleResource: Schedule, appointments: Appointment[]): string[] {
@@ -391,11 +462,24 @@ interface GetSlotCapacityMapInput {
   scheduleExtension: ScheduleExtension;
   timezone: string;
   log?: boolean;
+  /**
+   * Slot length override (minutes). When set, wins over the ScheduleExtension's
+   * stored slotLength. Used by iteration-2 code to drive slot bucket sizing
+   * from the patient's chosen service category duration.
+   */
+  slotLengthOverride?: number;
+  /**
+   * Slot cadence (minutes). Step between offered slot start times. When set,
+   * wins over the gcd(slotLength, 60) default — e.g. a group with 45-min
+   * slots and cadenceMinutes=15 offers starts at :00, :15, :30, :45.
+   */
+  cadenceMinutes?: number;
 }
 // returns all slots given current time, schedule, and timezone, irrespective of booked/busy status of any of those slots
 export const getAllSlotsAsCapacityMap = (input: GetSlotCapacityMapInput): SlotCapacityMap => {
-  const { now, finishDate, scheduleExtension, timezone } = input;
-  const { schedule, scheduleOverrides, closures, slotLength } = scheduleExtension;
+  const { now, finishDate, scheduleExtension, timezone, slotLengthOverride, cadenceMinutes } = input;
+  const { schedule, scheduleOverrides, closures, slotLength: extensionSlotLength } = scheduleExtension;
+  const slotLength = slotLengthOverride ?? extensionSlotLength;
   const nowForTimezone = DateTime.fromFormat(now.setZone(timezone).toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', {
     zone: timezone,
   }).startOf('day');
@@ -403,15 +487,6 @@ export const getAllSlotsAsCapacityMap = (input: GetSlotCapacityMapInput): SlotCa
     zone: timezone,
   });
 
-  /*
-  const nowForTimezone = DateTime.fromFormat(now.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', { zone: timezone }).startOf(
-    'day'
-  );
-  const finishDateForTimezone = DateTime.fromFormat(finishDate.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', {
-    zone: timezone,
-  });
-  */
-  console.log('now for capacity map', nowForTimezone.toISO(), now.toISO());
   let currentDayTemp = nowForTimezone;
   let slots = {};
   while (currentDayTemp < finishDateForTimezone) {
@@ -420,7 +495,8 @@ export const getAllSlotsAsCapacityMap = (input: GetSlotCapacityMapInput): SlotCa
       schedule,
       scheduleOverrides,
       closures,
-      slotLength
+      slotLength,
+      cadenceMinutes
     );
     slots = { ...slots, ...slotsTemp };
     currentDayTemp = currentDayTemp.plus({ days: 1 }).startOf('day');
@@ -443,12 +519,16 @@ export interface GetAvailableSlotsInput {
   numDays: number;
   schedule: Schedule;
   busySlots: Slot[]; // todo 1.8: add these in upstream
+  /** Slot duration in minutes. Used for bucket sizing and time-window busy subtraction. */
+  slotLengthMinutes?: number;
+  /** Cadence override (minutes) between offered slot start times. */
+  cadenceMinutes?: number;
 }
 
 // returns a list of available slots for the next numDays
 export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
   console.time('getAvailableSlots');
-  const { now, numDays, schedule, busySlots } = input;
+  const { now, numDays, schedule, busySlots, slotLengthMinutes, cadenceMinutes } = input;
   const timezone = getTimezone(schedule);
   const scheduleExtension = getScheduleExtension(schedule);
   if (!scheduleExtension) {
@@ -459,11 +539,14 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
   }
   // literally all slots based on open, close, buffers and capacity
   // no appointments or busy slots have been factored in
+  console.log('finish date for available slots:', now.setZone(timezone).startOf('day').plus({ days: numDays }).toISO());
   const slotCapacityMap = getAllSlotsAsCapacityMap({
     now,
     finishDate: now.setZone(timezone).startOf('day').plus({ days: numDays }),
     scheduleExtension,
     timezone,
+    slotLengthOverride: slotLengthMinutes,
+    cadenceMinutes,
   });
 
   // console.log('slotCapacityMap', JSON.stringify(slotCapacityMap, null, 2));
@@ -471,6 +554,7 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
   const availableSlots = removeBusySlots({
     slotCapacityMap,
     busySlots,
+    slotLengthMinutes,
   });
   console.timeEnd('getAvailableSlots');
 
@@ -745,8 +829,31 @@ interface GetSlotsInput {
   scheduleList: BookableScheduleData['scheduleList'];
   now: DateTime;
   numDays?: number;
+  selectedDate?: string;
   originalBookingUrl?: string;
   slotExpirationBiasInSeconds?: number; // this is for testing busy-tentative slot expiration
+  serviceCategories?: Coding[];
+  /** Slot length in minutes. When omitted, defaults to DEFAULT_APPOINTMENT_LENGTH_MINUTES (15). */
+  slotLengthMinutes?: number;
+  /** Cadence (step) between offered slot start times, in minutes. */
+  cadenceMinutes?: number;
+  /**
+   * Location the vended slots will be offered at. Stamped onto each Slot
+   * via the slot-at-location extension so downstream code can read it
+   * without re-resolving from Schedule.actor. Caller is expected to have
+   * already narrowed the scheduleList to entries that operate at this
+   * Location.
+   */
+  atLocationId?: string;
+  /**
+   * Group HealthcareService id the slots are being booked through. When
+   * set, stamped onto each non-HS-actored vended Slot via the
+   * slot-booked-via-group extension so downstream consumers can identify
+   * the originating group without re-parsing URLs or walking the actor
+   * graph. Caller is expected to set this only when the request is a
+   * group booking (scheduleType === 'group').
+   */
+  bookedViaGroupId?: string;
 }
 
 export const getAvailableSlotsForSchedules = async (
@@ -756,105 +863,270 @@ export const getAvailableSlotsForSchedules = async (
   availableSlots: SlotListItem[];
   telemedAvailable: SlotListItem[];
 }> => {
-  const { now, scheduleList, numDays, originalBookingUrl } = input;
-  let telemedAvailable: SlotListItem[] = [];
-  let availableSlots: SlotListItem[] = [];
+  const {
+    now,
+    scheduleList,
+    numDays,
+    selectedDate,
+    originalBookingUrl,
+    serviceCategories,
+    slotLengthMinutes,
+    cadenceMinutes,
+    atLocationId,
+    bookedViaGroupId,
+  } = input;
+  // Schedule.serviceType is not consulted for filtering — service-category
+  // scoping now lives on the group (HealthcareService.type). Direct Location
+  // and Provider URLs pass no filter; groups that declare categories apply
+  // them upstream by including only the appropriate member schedules.
+  const telemedAvailable: SlotListItem[] = [];
+  const availableSlots: SlotListItem[] = [];
 
-  const getBusySlotsInput: GetSlotsInWindowInput = {
-    scheduleIds: scheduleList.map((scheduleTemp) => scheduleTemp.schedule.id!),
-    fromISO: now.toISO() ?? '',
-    toISO:
-      now
-        .plus({ days: numDays ?? SCHEDULE_NUM_DAYS })
-        .startOf('day')
-        .toISO() ?? '',
-    status: ['busy', 'busy-tentative', 'busy-unavailable'],
-    filter: (slot: Slot) => {
-      const thisMoment = DateTime.now().plus({ seconds: input.slotExpirationBiasInSeconds ?? 0 });
-      if (slot.status === 'busy-tentative') {
-        const lastUpdated = DateTime.fromISO(slot.meta?.lastUpdated || '');
-        if (!lastUpdated.isValid) {
-          return true;
+  const fetchBusySlotsForSchedule = async (scheduleId: string, fromISO: string, toISO: string): Promise<Slot[]> => {
+    // For PR-actored Schedules, "this provider is busy" must include bookings
+    // made against any of their other PRs (other locations, other service
+    // mixes). One human, one calendar — see getPractitionerSchedulePeerIds.
+    const peerScheduleIds = await getPractitionerSchedulePeerIds(scheduleId, oystehr);
+    const allowedIdSet = new Set(peerScheduleIds);
+
+    const getBusySlotsInput: GetSlotsInWindowInput = {
+      scheduleIds: peerScheduleIds,
+      fromISO,
+      toISO,
+      status: ['busy', 'busy-tentative', 'busy-unavailable'],
+      filter: (slot: Slot) => {
+        const thisMoment = DateTime.now();
+        if (slot.status === 'busy-tentative') {
+          const lastUpdated = DateTime.fromISO(slot.meta?.lastUpdated || '');
+          if (!lastUpdated.isValid) return true;
+          const minutesSinceLastUpdate = thisMoment.diff(lastUpdated, 'minutes').minutes;
+          return minutesSinceLastUpdate <= SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES;
         }
-        const minutesSinceLastUpdate = lastUpdated.diff(thisMoment, 'minutes').minutes;
-        return minutesSinceLastUpdate <= SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES;
-      }
-      return true;
-    },
+        return true;
+      },
+    };
+
+    const allBusySlots = await getSlotsInWindow(getBusySlotsInput, oystehr);
+    return allBusySlots.filter((slot) => {
+      const id = slot.schedule?.reference?.split('/')?.[1];
+      return !!id && allowedIdSet.has(id) && !getSlotIsPostTelemed(slot);
+    });
   };
-  const allBusySlots = await getSlotsInWindow(getBusySlotsInput, oystehr);
 
-  scheduleList.forEach((scheduleTemp) => {
-    try {
-      // todo 1.8: find busy / busy-tentative slots
-      const busySlots: Slot[] = allBusySlots.filter((slot) => {
-        const scheduleId = slot.schedule?.reference?.split('/')?.[1];
-        return scheduleId === scheduleTemp.schedule.id && !getSlotIsPostTelemed(slot);
-      });
-      // console.log('getting post telemed slots');
-      // todo: check busy slots for telemed
-      const telemedTimes = getPostTelemedSlots(now, scheduleTemp.schedule, []);
-      const slotStartsForSchedule = getAvailableSlots({
-        now,
-        numDays: numDays ?? SCHEDULE_NUM_DAYS,
-        schedule: scheduleTemp.schedule,
-        busySlots,
-      });
-      availableSlots.push(
-        ...makeSlotListItems({
-          startTimes: slotStartsForSchedule,
-          scheduleId: scheduleTemp.schedule.id!,
-          owner: scheduleTemp.owner,
-          timezone: getTimezone(scheduleTemp.schedule),
-          originalBookingUrl,
-        })
-      );
-      telemedAvailable.push(
-        ...makeSlotListItems({
-          startTimes: telemedTimes,
-          scheduleId: scheduleTemp.schedule.id!,
-          owner: scheduleTemp.owner,
-          timezone: getTimezone(scheduleTemp.schedule),
-          originalBookingUrl,
-        })
-      );
-      // console.log('available slots for schedule:', slotStartsForSchedule);
-    } catch (err) {
-      console.error(
-        `Error trying to get slots for schedule item: Schedule/${scheduleTemp.schedule.id}`,
-        JSON.stringify(err, null, 2),
-        err
-      );
-    }
-  });
+  interface GenerateSlotsForScheduleInput {
+    scheduleTemp: ScheduleAndOwner;
+    startTime: DateTime;
+    numDays: number;
+    busySlots: Slot[];
+    serviceCategories?: Coding[];
+  }
 
-  availableSlots = availableSlots.filter((slot) => {
-    return DateTime.fromISO(slot.slot.start) >= now;
-  });
-  telemedAvailable = telemedAvailable.filter((slot) => {
-    return DateTime.fromISO(slot.slot.start) >= now;
-  });
+  const generateSlotsForSchedule = (
+    input: GenerateSlotsForScheduleInput
+  ): { available: SlotListItem[]; telemed: SlotListItem[] } => {
+    const { scheduleTemp, startTime, numDays, busySlots, serviceCategories } = input;
+    const schedule = scheduleTemp.schedule;
+    const tz = getTimezone(schedule);
 
-  // this logic removes duplicate slots even across schedules,
-  const usedSlots: { [time: string]: SlotListItem } = {};
-  console.log('available slots before deduping:', availableSlots.length);
-  const dedupedSlots = availableSlots
-    .sort((a, b) => {
-      const time1 = DateTime.fromISO(a.slot.start);
-      const time2 = DateTime.fromISO(b.slot.start);
-      return time1.diff(time2).toMillis();
-    })
-    .filter((slot) => {
-      if (usedSlots[slot.slot.start]) {
-        return false;
-      }
-      usedSlots[slot.slot.start] = slot;
-      return true;
+    const slotStarts = getAvailableSlots({
+      now: startTime,
+      numDays,
+      schedule,
+      busySlots,
+      slotLengthMinutes,
+      cadenceMinutes,
     });
 
-  console.log('available slots after deduping:', dedupedSlots.length);
+    const telemedTimes = getPostTelemedSlots(startTime, schedule, []);
 
-  return { availableSlots: dedupedSlots, telemedAvailable };
+    const available = makeSlotListItems({
+      startTimes: slotStarts,
+      scheduleId: schedule.id!,
+      owner: scheduleTemp.owner,
+      timezone: tz,
+      originalBookingUrl,
+      serviceCategories,
+      appointmentLengthInMinutes: slotLengthMinutes,
+      atLocationId,
+      bookedViaGroupId,
+    });
+
+    const telemed = makeSlotListItems({
+      startTimes: telemedTimes,
+      scheduleId: schedule.id!,
+      owner: scheduleTemp.owner,
+      timezone: tz,
+      originalBookingUrl,
+      serviceCategories,
+      atLocationId,
+      bookedViaGroupId,
+    });
+
+    return { available, telemed };
+  };
+
+  // When multiple member schedules in the scheduleList produce a slot at the
+  // same start time (the group case), collapse them to one. Which member wins
+  // follows a least-recently-booked heuristic: the member with the fewest
+  // upcoming busy slots gets the pick, so demand distributes across members
+  // over time. Tiebreak: schedule id, for deterministic/stable results.
+  const loadScore: Record<string, number> = {};
+  for (const sao of scheduleList) {
+    const sid = sao.schedule.id;
+    if (!sid) continue;
+    loadScore[sid] = 0; // pre-seed — actual counts populated below if we can
+  }
+  // Best-effort: tally upcoming busy slots per schedule. If the query fails or
+  // there are no schedules to tally, loadScore stays at 0 for all and we fall
+  // back to stable id-based tiebreak.
+  const tallyIds = Object.keys(loadScore);
+  if (tallyIds.length > 0) {
+    try {
+      const tallyFrom = now.toISO() ?? '';
+      const tallyTo = now.plus({ days: numDays ?? SCHEDULE_NUM_DAYS }).toISO() ?? '';
+      const tallied = await getSlotsInWindow(
+        {
+          scheduleIds: tallyIds,
+          fromISO: tallyFrom,
+          toISO: tallyTo,
+          status: ['busy', 'busy-tentative'],
+        },
+        oystehr
+      );
+      for (const busy of tallied) {
+        const sid = busy.schedule?.reference?.split('/')?.[1];
+        if (sid && loadScore[sid] !== undefined) loadScore[sid] += 1;
+      }
+    } catch {
+      // ignore — fall back to uniform scoring
+    }
+  }
+
+  const getSlotScheduleId = (s: SlotListItem): string => s.slot.schedule?.reference?.split('/')?.[1] ?? '';
+
+  const dedupeSlots = (slots: SlotListItem[]): SlotListItem[] => {
+    const byTime = new Map<string, SlotListItem[]>();
+    for (const s of slots) {
+      const arr = byTime.get(s.slot.start) || [];
+      arr.push(s);
+      byTime.set(s.slot.start, arr);
+    }
+    const picked: SlotListItem[] = [];
+    for (const [, arr] of byTime) {
+      arr.sort((a, b) => {
+        const sa = loadScore[getSlotScheduleId(a)] ?? 0;
+        const sb = loadScore[getSlotScheduleId(b)] ?? 0;
+        if (sa !== sb) return sa - sb;
+        return getSlotScheduleId(a).localeCompare(getSlotScheduleId(b));
+      });
+      picked.push(arr[0]);
+    }
+    return picked.sort((a, b) => DateTime.fromISO(a.slot.start).toMillis() - DateTime.fromISO(b.slot.start).toMillis());
+  };
+
+  if (selectedDate) {
+    for (const scheduleTemp of scheduleList) {
+      try {
+        const schedule = scheduleTemp.schedule;
+        const tz = getTimezone(schedule);
+
+        const dayStart = DateTime.fromISO(selectedDate, { zone: tz }).startOf('day').toUTC();
+        const dayEnd = dayStart.plus({ days: 1 }).toUTC();
+
+        const busySlots = await fetchBusySlotsForSchedule(schedule.id!, dayStart.toISO()!, dayEnd.toISO()!);
+
+        const { available, telemed } = generateSlotsForSchedule({
+          scheduleTemp,
+          startTime: DateTime.fromISO(selectedDate, { zone: tz }).startOf('day'),
+          numDays: 1,
+          busySlots,
+          serviceCategories,
+        });
+
+        availableSlots.push(...available);
+        telemedAvailable.push(...telemed);
+      } catch (err) {
+        console.error(
+          `Error trying to get slots for schedule item: Schedule/${scheduleTemp.schedule.id}`,
+          JSON.stringify(err, null, 2),
+          err
+        );
+      }
+    }
+
+    return {
+      availableSlots: dedupeSlots(availableSlots),
+      telemedAvailable: dedupeSlots(telemedAvailable),
+    };
+  }
+
+  const fromISO = now.toISO() ?? '';
+  const toISO =
+    now
+      .plus({ days: numDays ?? SCHEDULE_NUM_DAYS })
+      .startOf('day')
+      .toISO() ?? '';
+
+  const scheduleIds = scheduleList.map((s) => s.schedule.id!).filter((id) => !!id);
+  // Guard: FHIR rejects an empty `schedule` search param. When the group
+  // filter or membership resolution produces no candidate schedules, return
+  // empty slot lists rather than error.
+  if (scheduleIds.length === 0) {
+    return {
+      availableSlots: [],
+      telemedAvailable: [],
+    };
+  }
+  const allBusy = await getSlotsInWindow(
+    {
+      scheduleIds,
+      fromISO,
+      toISO,
+      status: ['busy', 'busy-tentative', 'busy-unavailable'],
+      filter: (slot: Slot) => {
+        const thisMoment = DateTime.now().plus({ seconds: input.slotExpirationBiasInSeconds ?? 0 });
+        if (slot.status === 'busy-tentative') {
+          const lastUpdated = DateTime.fromISO(slot.meta?.lastUpdated || '');
+          if (!lastUpdated.isValid) return true;
+          const minutesSinceLastUpdate = thisMoment.diff(lastUpdated, 'minutes').minutes;
+          return minutesSinceLastUpdate <= SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES;
+        }
+        return true;
+      },
+    },
+    oystehr
+  );
+
+  for (const scheduleTemp of scheduleList) {
+    try {
+      const schedule = scheduleTemp.schedule;
+      const busy = allBusy.filter((slot) => {
+        const id = slot.schedule?.reference?.split('/')?.[1];
+        return id === schedule.id && !getSlotIsPostTelemed(slot);
+      });
+
+      const { available, telemed } = generateSlotsForSchedule({
+        scheduleTemp,
+        startTime: now,
+        numDays: numDays ?? SCHEDULE_NUM_DAYS,
+        busySlots: busy,
+        serviceCategories,
+      });
+
+      availableSlots.push(...available);
+      telemedAvailable.push(...telemed);
+    } catch (err) {
+      console.error(`Error generating slots for Schedule/${scheduleTemp.schedule.id}`, err);
+    }
+  }
+
+  const filteredAvailable = availableSlots.filter((s) => DateTime.fromISO(s.slot.start) >= now);
+  const filteredTelemed = telemedAvailable.filter((s) => DateTime.fromISO(s.slot.start) >= now);
+
+  return {
+    availableSlots: dedupeSlots(filteredAvailable),
+    telemedAvailable: dedupeSlots(filteredTelemed),
+  };
 };
 
 export const getSchedulesForGroup = (
@@ -886,14 +1158,35 @@ export const getSchedulesForGroup = (
 interface MakeSlotListItemsInput {
   startTimes: string[];
   scheduleId: string;
-  owner: Practitioner | Location | HealthcareService;
+  owner: Practitioner | PractitionerRole | Location | HealthcareService;
   timezone: Timezone;
   appointmentLengthInMinutes?: number;
   originalBookingUrl?: string;
+  serviceCategories?: Coding[];
+  /**
+   * Location the vended slots are being offered at. When the owner is NOT
+   * itself a Location, stamped onto each Slot via the slot-at-location
+   * extension so create-appointment can read it directly rather than re-
+   * resolving from Schedule.actor (which is ambiguous for multi-location
+   * PRs and groups). When the owner IS a Location, the stamp is skipped —
+   * Schedule.actor already conveys the Location, and a redundant extension
+   * can only conflict or agree with that.
+   */
+  atLocationId?: string;
+  /**
+   * Group HealthcareService the patient is booking through. When the
+   * scheduleType is "group" and the resolved scheduleList contains
+   * non-HS-actored Schedules (the pools-providers case), stamped onto
+   * each vended Slot via the slot-booked-via-group extension so
+   * downstream consumers (create-appointment, capacity guard, audit) can
+   * tell that a PR-actored Slot was reached through this group rather
+   * than directly. Skipped when the owner IS the group HS — Schedule.actor
+   * already conveys it (no-state-duplication rule).
+   */
+  bookedViaGroupId?: string;
 }
 
 export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[] => {
-  // todo: remove magic numbers
   const {
     startTimes,
     owner: ownerResource,
@@ -901,22 +1194,34 @@ export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[]
     timezone,
     appointmentLengthInMinutes = DEFAULT_APPOINTMENT_LENGTH_MINUTES,
     originalBookingUrl,
+    serviceCategories = [],
+    atLocationId,
+    bookedViaGroupId,
   } = input;
   return startTimes.map((startTime) => {
     const end = DateTime.fromISO(startTime).plus({ minutes: appointmentLengthInMinutes }).toISO() || '';
-    let extension: Slot['extension'];
+    const extensionEntries: NonNullable<Slot['extension']> = [];
     if (originalBookingUrl) {
-      extension = [makeBookingOriginExtensionEntry(originalBookingUrl)];
+      extensionEntries.push(makeBookingOriginExtensionEntry(originalBookingUrl));
+    }
+    // Skip stamping when the owner IS the Location — Schedule.actor already
+    // carries it; stamping would just duplicate state.
+    if (atLocationId && ownerResource.resourceType !== 'Location') {
+      extensionEntries.push(makeSlotAtLocationExtensionEntry(atLocationId));
+    }
+    // Skip stamping when the owner IS the group HS — actor already conveys it.
+    if (bookedViaGroupId && ownerResource.resourceType !== 'HealthcareService') {
+      extensionEntries.push(makeSlotBookedViaGroupExtensionEntry(bookedViaGroupId));
     }
     const slot: Slot = {
       resourceType: 'Slot',
       id: `${scheduleId}|${startTime}`,
       start: startTime,
-      serviceCategory: getSlotServiceCategoryCodingFromScheduleOwner(ownerResource),
+      serviceCategory: getSlotServiceCategoryCodingFromScheduleOwner(ownerResource, serviceCategories),
       end,
       schedule: { reference: `Schedule/${scheduleId}` },
       status: 'free',
-      extension,
+      ...(extensionEntries.length > 0 && { extension: extensionEntries }),
     };
     const owner = makeSlotOwnerFromResource(ownerResource);
     return {
@@ -927,7 +1232,9 @@ export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[]
   });
 };
 
-const makeSlotOwnerFromResource = (owner: Practitioner | Location | HealthcareService): SlotOwner => {
+const makeSlotOwnerFromResource = (
+  owner: Practitioner | PractitionerRole | Location | HealthcareService
+): SlotOwner => {
   let name = '';
   if (owner.resourceType === 'Location') {
     name = (owner as Location).name || '';
@@ -937,6 +1244,9 @@ const makeSlotOwnerFromResource = (owner: Practitioner | Location | HealthcareSe
   }
   if (owner.resourceType === 'HealthcareService') {
     name = (owner as HealthcareService).name || '';
+  }
+  if (owner.resourceType === 'PractitionerRole') {
+    name = `Role ${owner.id ?? ''}`.trim();
   }
   return {
     resourceType: owner.resourceType,
@@ -1414,12 +1724,251 @@ export const BLANK_SCHEDULE_JSON_TEMPLATE: ScheduleExtension = {
   closures: [],
 };
 
+export const FULL_DAY_SCHEDULE = `{
+  "schedule": {
+    "monday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "tuesday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "wednesday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "thursday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "friday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "saturday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "sunday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    }
+  },
+  "scheduleOverrides": {}
+}`;
+
 export const fhirTypeForScheduleType = (scheduleType: ScheduleType): ScheduleOwnerFhirResource['resourceType'] => {
   if (scheduleType === 'location') {
     return 'Location';
   }
   if (scheduleType === 'provider') {
-    return 'Practitioner';
+    // 'provider' means PractitionerRole — slug + booking URL pin a particular
+    // (provider, location, categories) tuple.
+    return 'PractitionerRole';
   }
   return 'HealthcareService';
 };
@@ -1477,57 +2026,195 @@ export const getSlotsInWindow = async (input: GetSlotsInWindowInput, oystehr: Oy
 interface CheckSlotAvailableInput {
   slot: Slot;
   schedule: Schedule;
+  /**
+   * When set, any busy Slot with this id is excluded from the availability
+   * calculation. Used at create-appointment time to prevent the patient's own
+   * just-reserved Slot (persisted by create-slot with status=busy before
+   * create-appointment runs) from counting against itself.
+   */
+  excludeSlotId?: string;
+  /**
+   * Pre-resolved cadence for the slot's service category. When omitted, the
+   * helper resolves it by paginating the FHIR catalog — fine for one-off
+   * calls, wasteful when the same slot is checked against N candidate
+   * schedules (e.g., anonymous-mode group fallback). Resolve once at the
+   * caller and pass through; the slot's serviceCategory is invariant across
+   * candidate schedules so the cadence is too.
+   */
+  cadenceMinutes?: number;
 }
-export const checkSlotAvailable = async (input: CheckSlotAvailableInput, oystehr: Oystehr): Promise<boolean> => {
-  const getBusySlotsInput: GetSlotsInWindowInput = {
-    scheduleIds: [input.schedule.id!],
-    fromISO: input.slot.start,
-    toISO: input.slot.end,
-    status: ['busy', 'busy-tentative', 'busy-unavailable'],
-  };
-  const busySlots = await getSlotsInWindow(getBusySlotsInput, oystehr);
-  console.log('found this many busy slots: ', busySlots.length);
-
-  const startTime = DateTime.fromISO(input.slot.start);
-  const dayStart = startTime.startOf('day');
-
-  const getAvailableInput: GetAvailableSlotsInput = {
+/**
+ * Pure predicate, extracted from checkSlotAvailable so the rule can be
+ * exercised by unit tests without FHIR I/O. Given a Slot, its owning
+ * Schedule, and a set of busy slots in the relevant time window, decides
+ * whether the Slot's start time is still bookable.
+ *
+ * Re-computes the Schedule's available start times for the Slot's day,
+ * subtracting the busy slots, and returns true iff the requested start
+ * appears in that list. Slot length is derived from the Slot itself
+ * (slot.end − slot.start) so the bucket math aligns with the original
+ * vending grid — sharper than the previous heuristic which assumed
+ * Schedule-default slot length.
+ */
+export const slotAvailableAgainstBusy = (input: {
+  slot: Slot;
+  schedule: Schedule;
+  busySlots: Slot[];
+  /**
+   * Cadence between offered slot starts in minutes. When omitted,
+   * getAvailableSlots derives a default (`gcd(slotLength, 60)`) — which
+   * silently rejects slots vended at non-default-cadence offsets, e.g. a
+   * 10:15 slot on a 30-min duration with a 15-min cadence. Resolve from the
+   * slot's serviceCategory at the call site and pass through.
+   */
+  cadenceMinutes?: number;
+}): boolean => {
+  const { slot, schedule, busySlots, cadenceMinutes } = input;
+  if (!slot.start || !slot.end) return false;
+  // `{ setZone: true }` preserves the slot's stored offset on the resulting
+  // DateTime. Without it, Luxon re-anchors to the runtime's local zone —
+  // wall-clock derivations (e.g., the day boundary below) then silently
+  // depend on system TZ, which diverges between local (PDT/EDT) and CI (UTC).
+  const slotStart = DateTime.fromISO(slot.start, { setZone: true });
+  const slotEnd = DateTime.fromISO(slot.end, { setZone: true });
+  if (!slotStart.isValid || !slotEnd.isValid) return false;
+  const slotLengthMinutes = Math.max(1, Math.round(slotEnd.diff(slotStart, 'minutes').minutes));
+  // Day boundary must be cut in the schedule's IANA zone (the source of truth
+  // for what counts as "today" on this schedule). Using the slot's offset
+  // would mostly work but disagree at DST boundaries; using the system zone
+  // (the prior default behavior) was the actual bug we hit.
+  const scheduleTz = getTimezone(schedule);
+  const dayStart = scheduleTz ? slotStart.setZone(scheduleTz).startOf('day') : slotStart.startOf('day');
+  const availableSlots = getAvailableSlots({
     now: dayStart,
     numDays: 1,
-    schedule: input.schedule,
+    schedule,
     busySlots,
-  };
-  const availableSlots = getAvailableSlots(getAvailableInput);
-
-  //console.log('found this many available slots: ', availableSlots.length);
-
-  // note this is just checking for same start times, and assumes length of slot is same as available slots
-  // todo: improve the logic here; we need a better heuristic for slot equivalence since we have no persisted slots with ids to check
-  // it's not so pressing at the moment since we're assuming a schedule only vends slots of equivalent type and length
-  return availableSlots.some((slot) => {
-    const slotTime = DateTime.fromISO(slot);
-    if (slotTime !== null) {
-      return slotTime.equals(startTime);
-    }
-    return false;
+    slotLengthMinutes,
+    cadenceMinutes,
+  });
+  const slotStartMs = +slotStart;
+  return availableSlots.some((iso) => {
+    // Instant comparison rather than `.equals()` — `.equals()` requires
+    // zone-object identity in addition to the same instant, which would fail
+    // when candidate (parsed without setZone) ends up in the system zone
+    // and slotStart (parsed with setZone) is a FixedOffsetZone.
+    const candidate = DateTime.fromISO(iso, { setZone: true });
+    return candidate.isValid && +candidate === slotStartMs;
   });
 };
 
+export const checkSlotAvailable = async (input: CheckSlotAvailableInput, oystehr: Oystehr): Promise<boolean> => {
+  if (!input.schedule.id) return false;
+  // Peer-aware busy lookup. For PR-actored Schedules, fold in busy slots
+  // on every Schedule actor'd by the same Practitioner — one human, one
+  // calendar (matches the rule getAvailableSlotsForSchedules uses at
+  // vending time). For Location/HS-actored Schedules,
+  // getPractitionerSchedulePeerIds returns just the input id; behaviour
+  // is unchanged for those cases.
+  const peerScheduleIds = await getPractitionerSchedulePeerIds(input.schedule.id, oystehr);
+  let busySlots = await getSlotsInWindow(
+    {
+      scheduleIds: peerScheduleIds,
+      fromISO: input.slot.start,
+      toISO: input.slot.end,
+      status: ['busy', 'busy-tentative', 'busy-unavailable'],
+    },
+    oystehr
+  );
+  if (input.excludeSlotId) {
+    busySlots = busySlots.filter((s) => s.id !== input.excludeSlotId);
+  }
+  // Resolve the slot's serviceCategory to recover the configured cadence.
+  // Without it, slotAvailableAgainstBusy regenerates the day's grid at the
+  // default cadence (`gcd(slotLength, 60)`) and silently rejects every
+  // valid slot vended at a non-divisor offset — e.g., a 30-min slot at
+  // :15 from a 15-min-cadence service category. The lookup mirrors what
+  // get-schedule does at vending time so the two surfaces agree on what
+  // counts as "on the grid". BOOKING_CONFIG entries don't carry cadence,
+  // so this is a no-op for compiled-in production categories.
+  //
+  // Callers that already know the cadence (e.g., the create-appointment
+  // validator, which checks the same slot against N candidate schedules
+  // during anonymous-mode group fallback) should pass it via input to skip
+  // the per-call catalog fetch.
+  let cadenceMinutes = input.cadenceMinutes;
+  if (cadenceMinutes === undefined) {
+    const slotCategoryCode = (input.slot.serviceCategory ?? [])
+      .flatMap((cc) => cc.coding ?? [])
+      .find((c) => c.system === SERVICE_CATEGORY_SYSTEM)?.code;
+    if (slotCategoryCode) {
+      const resolved = await resolveServiceCategory(slotCategoryCode, oystehr);
+      cadenceMinutes = resolved?.cadenceMinutes;
+    }
+  }
+  return slotAvailableAgainstBusy({
+    slot: input.slot,
+    schedule: input.schedule,
+    busySlots,
+    cadenceMinutes,
+  });
+};
+
+/**
+ * Whether a schedule owner can fulfill a booking in the given service mode —
+ * the predicate the get-schedule surfacing filter uses to prune member
+ * schedules a group offers in a mode their Location can't serve.
+ *
+ * - Location owner: checked directly via the location.ts capability seam.
+ * - PractitionerRole owner: kept if ANY paired Location can fulfill the mode
+ *   (the qualifying-Location gate downstream then admits only the mode-capable
+ *   Location(s), and create-appointment backstops the specific-Location case).
+ *   Paired Locations are supplied via `pairedLocationById` because the PR only
+ *   carries references; the caller resolves them once.
+ * - Practitioner / HealthcareService owner: no Location of its own → passes
+ *   through (rare in the current model; downstream narrowing handles it).
+ *
+ * Extracted from the handler so the mode-pruning decision is unit-testable
+ * without a live FHIR backend. All mode reasoning still funnels through the
+ * locationSupportsServiceMode seam.
+ */
+export const scheduleOwnerSupportsServiceMode = (
+  owner: ScheduleOwnerFhirResource,
+  mode: ServiceMode,
+  pairedLocationById: Map<string, Location>
+): boolean => {
+  if (owner.resourceType === 'Location') {
+    return locationSupportsServiceMode(owner as Location, mode);
+  }
+  if (owner.resourceType === 'PractitionerRole') {
+    return ((owner as PractitionerRole).location ?? []).some((ref) => {
+      const id = ref.reference?.split('/')[1];
+      const loc = id ? pairedLocationById.get(id) : undefined;
+      return !!loc && locationSupportsServiceMode(loc, mode);
+    });
+  }
+  return true;
+};
+
 export const getSlotServiceCategoryCodingFromScheduleOwner = (
-  owner: ScheduleOwnerFhirResource
+  owner: ScheduleOwnerFhirResource,
+  additionalServiceCategories: Coding[] = []
 ): Slot['serviceCategory'] | undefined => {
   // customization point - override this to return a specific service category given a known schedule owner. if a category is returned here,
   // the service modality may be inferred from the schedule owner. the service modality will then be used to specify the service mode for the appointment
   // when the slot is submitted to the create-appointment endpoint. alternatively, the service modality can be written to the slot directly by passing a value for
   // the serviceModality param to the create-slot endpoint. if a Slot has an express service modality set, that will take priority over any value returned here.
 
+  // we just assume single-coding CCs here and wrap them in CodeableConcepts for upstream simplicity
+  const additionalCategories = additionalServiceCategories.map((coding) => {
+    return {
+      coding: [coding],
+    };
+  });
+
   // console.log('getting service category from schedule owner', owner);
   if (owner.resourceType === 'Location' && isLocationVirtual(owner as Location)) {
-    return [SlotServiceCategory.virtualServiceMode];
+    return [SlotServiceCategory.virtualServiceMode, ...additionalCategories];
   }
 
   // default to in-person service mode
-  return [SlotServiceCategory.inPersonServiceMode];
+  return [SlotServiceCategory.inPersonServiceMode, ...additionalCategories];
 };
 
 export const getServiceModeFromScheduleOwner = (
@@ -1588,6 +2275,26 @@ export const getServiceModeFromSlot = (slot: Slot): ServiceMode | undefined => {
     }
   });
   return serviceMode;
+};
+
+export const getServiceCategoryFromSlot = (slot: Slot): ServiceCategoryCode | undefined => {
+  // Return the code of the first coding under SERVICE_CATEGORY_SYSTEM.
+  // Historically this was filtered against BOOKING_CONFIG.serviceCategories,
+  // but that hid runtime/FHIR-backed categories (registered via the
+  // service-category admin UI) from every downstream consumer — including
+  // the booking-questionnaire RFV picker, which then fell back to the
+  // compiled-in default and showed the wrong reason-for-visit list. Any
+  // coding under SERVICE_CATEGORY_SYSTEM is a legitimate service-category
+  // reference; downstream resolution (e.g. duration, mode, RFV) happens
+  // against the merged FHIR + BOOKING_CONFIG catalog.
+  for (const concept of slot.serviceCategory ?? []) {
+    for (const coding of concept.coding ?? []) {
+      if (coding.system === SERVICE_CATEGORY_SYSTEM && coding.code) {
+        return coding.code;
+      }
+    }
+  }
+  return undefined;
 };
 
 export const getSlotIsWalkin = (slot: Slot): boolean => {
@@ -1671,14 +2378,121 @@ const applyOverrideToDay = (override: ScheduleOverrideDay, day: ScheduleDay): Sc
   };
 };
 
+/**
+ * Resolve every Schedule that represents the same practitioner as the given
+ * Schedule. For PractitionerRole-actored Schedules this is "all Schedules of
+ * all of this practitioner's PRs"; for any other actor type it's just the
+ * caller's schedule (no aggregation needed).
+ *
+ * Used by the slot generator to subtract a practitioner's full busy set from
+ * any individual PR's working window, so the same human cannot be booked at
+ * two locations at the same time. Same lookup feeds the matching primitive's
+ * "is provider X free during interval [a, b)?" question.
+ */
+export const getPractitionerSchedulePeerIds = async (scheduleId: string, oystehr: Oystehr): Promise<string[]> => {
+  // 1. Pull the Schedule and its actor in one query so we can branch on actor type.
+  const scheduleBundle = await oystehr.fhir.search<Schedule | PractitionerRole>({
+    resourceType: 'Schedule',
+    params: [
+      { name: '_id', value: scheduleId },
+      { name: '_include', value: 'Schedule:actor:PractitionerRole' },
+    ],
+  });
+  const scheduleResources = scheduleBundle.unbundle();
+  const schedule = scheduleResources.find((r): r is Schedule => r.resourceType === 'Schedule');
+  if (!schedule) return [scheduleId];
+
+  const actorRef = schedule.actor?.[0]?.reference ?? '';
+  if (!actorRef.startsWith('PractitionerRole/')) {
+    // Location- or HealthcareService-actored Schedules don't represent a
+    // single human's calendar; nothing to aggregate.
+    return [scheduleId];
+  }
+
+  const actorPr = scheduleResources.find(
+    (r): r is PractitionerRole => r.resourceType === 'PractitionerRole' && `PractitionerRole/${r.id}` === actorRef
+  );
+  const practitionerRef = actorPr?.practitioner?.reference;
+  if (!practitionerRef) return [scheduleId];
+
+  // 2. Find every PR for that Practitioner, _revincluded with their Schedules.
+  // One round-trip; siblings + their schedules come back together.
+  const peersBundle = await oystehr.fhir.search<PractitionerRole | Schedule>({
+    resourceType: 'PractitionerRole',
+    params: [
+      { name: 'practitioner', value: practitionerRef },
+      { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
+    ],
+  });
+  const peerSchedules = peersBundle
+    .unbundle()
+    .filter((r): r is Schedule => r.resourceType === 'Schedule')
+    .map((s) => s.id)
+    .filter((id): id is string => !!id);
+
+  // De-dupe and ensure the original scheduleId is included.
+  return Array.from(new Set([scheduleId, ...peerSchedules]));
+};
+
 export const scheduleTypeFromFHIRType = (fhirType: FhirResource['resourceType']): ScheduleType => {
   if (fhirType === 'Location') {
     return ScheduleType.location;
   }
-  if (fhirType === 'Practitioner') {
+  if (fhirType === 'PractitionerRole') {
+    // PR-actored Schedules surface as the per-provider booking type — see
+    // fhirTypeForScheduleType for the reverse mapping.
     return ScheduleType.provider;
   }
   return ScheduleType.group;
+};
+
+export interface PrebookModeLink {
+  mode: ServiceMode;
+  /** Stable key for React lists / copy-button state, e.g. `prebook-virtual`. */
+  key: string;
+  /** Human label; disambiguated by mode only when both modes are offered. */
+  label: string;
+  /** Path + query relative to the intake app base URL. */
+  relativeUrl: string;
+}
+
+/**
+ * Prebook booking links for a schedule owner — one per enabled service mode.
+ * A Location may be tagged both virtual and in-person (see isLocationVirtual /
+ * isLocationInPerson), so each enabled mode gets its own `/prebook/{mode}` link;
+ * the intake prebook route derives the mode from that path segment. An owner
+ * with neither flag set falls back to in-person, matching the back-compat
+ * default get-schedule applies to legacy Locations that predate the in-person
+ * modifier.
+ */
+export const buildPrebookModeLinks = (params: {
+  fhirType?: FhirResource['resourceType'];
+  slug?: string;
+  isVirtual?: boolean;
+  isInPerson?: boolean;
+}): PrebookModeLink[] => {
+  const { fhirType, slug, isVirtual, isInPerson } = params;
+  if (!slug || !fhirType) {
+    return [];
+  }
+  const scheduleType = scheduleTypeFromFHIRType(fhirType);
+  const modes: ServiceMode[] = [];
+  if (isInPerson) {
+    modes.push(ServiceMode['in-person']);
+  }
+  if (isVirtual) {
+    modes.push(ServiceMode.virtual);
+  }
+  if (modes.length === 0) {
+    modes.push(ServiceMode['in-person']);
+  }
+  const disambiguate = modes.length > 1;
+  return modes.map((mode) => ({
+    mode,
+    key: `prebook-${mode}`,
+    label: disambiguate ? `Prebook (${mode === ServiceMode.virtual ? 'Virtual' : 'In person'})` : 'Prebook',
+    relativeUrl: `/prebook/${mode}?bookingOn=${slug}&scheduleType=${scheduleType}`,
+  }));
 };
 
 export const getAppointmentDurationFromSlot = (slot: Slot, unit: 'minutes' | 'hours' = 'minutes'): number => {
@@ -1695,10 +2509,26 @@ interface ApplyBuffersInput {
   openingTime: DateTime;
   closingTime: DateTime;
   now: DateTime;
+  /**
+   * When set, the closing-buffer filter requires the slot's *end* to be at or
+   * before close − buffer, not just the slot's start. Prevents long-duration
+   * categories (e.g. 45-min) from producing slots whose end time spills past
+   * the effective close.
+   */
+  slotLengthMinutes?: number;
 }
 export const applyBuffersToSlots = (input: ApplyBuffersInput): SlotCapacityMap => {
-  const { slots, openingBufferMinutes, closingBufferMinutes, openingTime, closingTime, now } = input;
-  const closingBufferApplied = removeSlotsAfter(slots, closingTime.minus({ minutes: closingBufferMinutes }));
+  const { slots, openingBufferMinutes, closingBufferMinutes, openingTime, closingTime, now, slotLengthMinutes } = input;
+  const effectiveClose = closingTime.minus({ minutes: closingBufferMinutes });
+  const closingBufferApplied = slotLengthMinutes
+    ? Object.fromEntries(
+        Object.entries(slots).filter(([startISO]) => {
+          const slotStart = DateTime.fromISO(startISO);
+          const slotEnd = slotStart.plus({ minutes: slotLengthMinutes });
+          return slotEnd <= effectiveClose;
+        })
+      )
+    : removeSlotsAfter(slots, effectiveClose);
   const beforeTime =
     openingTime.plus({ minutes: openingBufferMinutes }) > now
       ? openingTime.plus({ minutes: openingBufferMinutes })
@@ -1727,22 +2557,66 @@ export const getOriginalBookingUrlFromSlot = (slot: Slot): string | undefined =>
   return slot.extension?.find((ext) => ext.url === SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL)?.valueString;
 };
 
+/**
+ * Reads the Location id stamped onto a Slot via the slot-at-location
+ * extension. Returns undefined for legacy slots created before the
+ * extension was rolled out — callers in those cases fall back to walking
+ * Slot.schedule → Schedule.actor.
+ */
+export const getSlotAtLocationId = (slot: Slot): string | undefined => {
+  const ref = slot.extension?.find((ext) => ext.url === SLOT_AT_LOCATION_EXTENSION_URL)?.valueReference?.reference;
+  if (!ref) return undefined;
+  const [resourceType, id] = ref.split('/');
+  return resourceType === 'Location' && id ? id : undefined;
+};
+
+/**
+ * Reads the group HealthcareService id stamped onto a Slot via the
+ * slot-booked-via-group extension. Returns undefined when the Slot wasn't
+ * booked through a group (or when it's a legacy Slot from before the
+ * extension was rolled out).
+ */
+export const getSlotBookedViaGroupId = (slot: Slot): string | undefined => {
+  const ref = slot.extension?.find((ext) => ext.url === SLOT_BOOKED_VIA_GROUP_EXTENSION_URL)?.valueReference?.reference;
+  if (!ref) return undefined;
+  const [resourceType, id] = ref.split('/');
+  return resourceType === 'HealthcareService' && id ? id : undefined;
+};
+
 interface CreateSlotOptions {
   status: Slot['status'];
   originalBookingUrl?: string;
   postTelemedLabOnly?: boolean;
+  // Explicit service modality chosen by the booking flow (e.g. the /prebook/:mode
+  // URL segment). Takes priority over the modality inferred from the vended slot,
+  // which can be wrong for group bookings whose slots are owned by a
+  // PractitionerRole or the group HealthcareService rather than a virtual Location.
+  serviceModality?: ServiceMode;
 }
 export const createSlotParamsFromSlotAndOptions = (slot: Slot, options: CreateSlotOptions): CreateSlotParams => {
-  const { status, originalBookingUrl, postTelemedLabOnly } = options;
+  const { status, originalBookingUrl, postTelemedLabOnly, serviceModality } = options;
   const walkin = getSlotIsWalkin(slot);
+  // Pass through whatever serviceCategory the vended Slot was stamped with —
+  // get-schedule writes it when the booking URL is category-scoped, and
+  // leaves it absent otherwise. We do NOT default to any specific category
+  // here. The prior `?? 'urgent-care'` fallback silently stamped urgent-care
+  // on every default-flow booking (wrong for any non-urgent-care project,
+  // and now also incompatible with the PR-owned-schedule + BOOKING_CONFIG
+  // guard in create-slot). When undefined reaches create-slot, its own
+  // per-project default (single-category projects stamp their one category;
+  // otherwise just the service-mode coding) takes over.
+  const serviceCategoryCode = getServiceCategoryFromSlot(slot);
   return {
     scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
     startISO: slot.start,
-    serviceModality: getServiceModeFromSlot(slot) ?? ServiceMode['in-person'],
+    serviceModality: serviceModality ?? getServiceModeFromSlot(slot) ?? ServiceMode['in-person'],
     lengthInMinutes: getAppointmentDurationFromSlot(slot),
     status,
     walkin,
     originalBookingUrl,
     postTelemedLabOnly,
+    ...(serviceCategoryCode && { serviceCategoryCode }),
+    atLocationId: getSlotAtLocationId(slot),
+    bookedViaGroupId: getSlotBookedViaGroupId(slot),
   };
 };

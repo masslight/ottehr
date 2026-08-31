@@ -1,26 +1,70 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Consent, Encounter, QuestionnaireResponse } from 'fhir/r4b';
-import {
-  createOystehrClient,
-  FHIR_AI_CHAT_CONSENT_CATEGORY_CODE,
-  getSecret,
-  Secrets,
-  SecretsKeys,
-  StartInterviewInput,
-} from 'utils';
-import { getAuth0Token, validateJsonBody, validateString, wrapHandler, ZambdaInput } from '../../../shared';
+import { Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { StartInterviewInput } from 'utils/lib/types/api/ai-interview.types';
+import { AI_QUESTIONNAIRE_ID } from 'utils/lib/types/constants';
 import { invokeChatbot } from '../../../shared/ai';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { validateJsonBody, validateString } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
 
-const INITIAL_USER_MESSAGE = `Perform a medical history intake session with me by asking me relevant questions.
- Ask no more than 30 questions.
- Ask one question at a time.
- Don't numerate questions.
- When you'll have no new questions to ask just say 
- "No further questions, thanks for chatting. We've sent the information to your nurse or doctor to review. ${INTERVIEW_COMPLETED}"`;
-const QUESTIONNAIRE_ID = 'aiInterviewQuestionnaire';
+function getInitialUserMessageUrgentCare(patientInfo: string): string {
+  return `Perform a medical history intake session in the manner of a physician preparing me or my dependent for an urgent care visit, without using a fake name:
+  •	Use a friendly and concerned physician's tone
+  ${patientInfo}
+  • Determine if you are communicating with the patient directly or a parent/guardian.
+  •	Ask only one question at a time.
+  •	Ask no more than 8 questions in total.
+  •	Don't number the questions.
+  •	Cover all the major domains efficiently: chief complaint, history of present illness, past medical history, past surgical history, medications, allergies, family history, social history, hospitalizations, and relevant review of systems.
+  •	Phrase questions in a clear, patient-friendly way that keeps the conversation moving quickly.
+  •	If I give vague or incomplete answers, ask a brief follow-up before moving on.
+  •	When you have gathered all useful information, end by saying: "No further questions, thanks for chatting. We've sent the information to your nurse or doctor to review. ${INTERVIEW_COMPLETED}"
+  Begin taking the history by saying "I am an AI assistant who will ask you some questions to help your nurse or doctor prepare for your visit. Are you the patient or are you their parent or guardian?"`;
+}
+
+function getInitialUserMessageWorkerComp(patientInfo: string): string {
+  return `Perform a medical history intake session in the manner of a physician doing patient intake for a potential job related injury.
+  • Use a friendly and concerned physician's tone, but do not give yourself a name
+  ${patientInfo}
+  • Determine if you are communicating with the patient directly or a parent/guardian.
+  • Ask only one question at a time.
+  • Ask no more than 8 questions in total.
+  • Don't number the questions.
+
+  Be sure to cover the following:
+  When did the injury happen?
+  How did the injury happen?
+  What body part(s) got injured?
+  Was this related to work or an auto accident?
+  Date and time of injury (very specific)
+  Location where injury occurred (workplace/job site)
+  Activity being performed at time of injury
+  Detailed description of what happened
+  Body part(s) affected
+  Symptoms noted at time of injury
+
+  If this was related to an auto-accident, cover these topics:
+  Patient's role (driver, passenger, pedestrian, cyclist)
+  Type of collision (rear-end, T-bone, head-on, rollover, etc.)
+  Speed estimate (if available)
+  Restraint use (seatbelt, airbag triggered)
+  Any loss of consciousness
+  Immediate symptoms
+
+  If time permits ask about past medical history, past surgical history, medications, allergies, family history, social history, hospitalizations, and relevant review of systems.
+  • Phrase questions in a clear, patient-friendly way that keeps the conversation moving quickly.
+  • If I give vague or incomplete answers, ask a brief follow-up before moving on.
+  • When you have gathered all useful information, end by saying: "No further questions, thanks for chatting. We've sent the information to your nurse or doctor to review. ${INTERVIEW_COMPLETED}"
+  Begin taking the history by saying "I am an AI assistant who will ask you some questions to help your nurse or doctor prepare for your visit. Are you the patient or are you their parent or guardian?"`;
+}
 
 let oystehrToken: string;
 
@@ -31,34 +75,83 @@ interface Input extends StartInterviewInput {
 const ZAMBDA_NAME = 'ai-interview-start';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
-  try {
-    const { appointmentId, secrets } = validateInput(input);
-    const oystehr = await createOystehr(secrets);
-    const encounterId = await findEncounter(appointmentId, oystehr);
-    if (encounterId == null) {
-      throw new Error(`Encounter for appointment "${appointmentId}" not found`);
-    }
-    if (!(await consentPresent(appointmentId, oystehr))) {
-      throw new Error(`Patient's consent for  "${appointmentId}" not found`);
-    }
-    let questionnaireResponse: QuestionnaireResponse;
-    const existingQuestionnaireResponse = await findAIInterviewQuestionnaireResponse(encounterId, oystehr);
-    if (existingQuestionnaireResponse != null) {
-      questionnaireResponse = existingQuestionnaireResponse;
-    } else {
-      questionnaireResponse = await createQuestionnaireResponse(encounterId, oystehr, secrets);
-    }
-    return {
-      statusCode: 200,
-      body: JSON.stringify(questionnaireResponse),
-    };
-  } catch (error: any) {
-    console.log('error', error, error.issue);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+  const { appointmentId, secrets } = validateInput(input);
+  const oystehr = await createOystehr(secrets);
+
+  const resources = (
+    await oystehr.fhir.search<Encounter | Appointment | Patient>({
+      resourceType: 'Encounter',
+      params: [
+        {
+          name: 'appointment',
+          value: 'Appointment/' + appointmentId,
+        },
+        {
+          name: '_include',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Appointment:patient',
+        },
+      ],
+    })
+  ).unbundle();
+  const encounter = resources.find((resource) => resource.resourceType === 'Encounter');
+  const encounterId = encounter?.id;
+  if (encounter == null || encounterId == null) {
+    throw new Error(`Encounter for appointment ID ${appointmentId} not found`);
   }
+
+  const appointment = resources.find((resource) => resource.resourceType === 'Appointment');
+  if (appointment == null) {
+    throw new Error(`Appointment for appointment ID ${appointmentId} not found`);
+  }
+
+  const patient = resources.find((resource) => resource.resourceType === 'Patient');
+  let questionnaireResponse: QuestionnaireResponse;
+  const existingQuestionnaireResponse = await findAIInterviewQuestionnaireResponse(encounterId, oystehr);
+  const patientInfoDetails = [];
+  if (patient) {
+    if (patient.name && patient.name.length > 0) {
+      patientInfoDetails.push(`The patient name is: ${patient.name[0].given?.[0]} ${patient.name[0].family}`);
+    }
+    if (patient.birthDate) {
+      const birthDate = DateTime.fromISO(patient.birthDate);
+      const now = DateTime.now();
+      const patientAge = Math.floor(now.diff(birthDate, 'years').years);
+      patientInfoDetails.push(`Age: ${patientAge} year old`);
+    }
+    if (patient.gender) {
+      patientInfoDetails.push(`Sex: ${patient.gender}`);
+    }
+    if (appointment.description) {
+      patientInfoDetails.push(`Reason for visit: ${appointment.description}`);
+    }
+  }
+  let prompt = getInitialUserMessageUrgentCare(patientInfoDetails.join(', ') + '.');
+
+  if (
+    appointment.serviceCategory?.find(
+      (serviceCategory) =>
+        serviceCategory.coding?.find(
+          (coding) => coding.system === SERVICE_CATEGORY_SYSTEM && coding.code === 'workers-comp'
+        )
+    )
+  ) {
+    console.log('Using workers compensation prompt');
+    prompt = getInitialUserMessageWorkerComp(patientInfoDetails.join(', ') + '.');
+  }
+
+  if (existingQuestionnaireResponse != null) {
+    questionnaireResponse = existingQuestionnaireResponse;
+  } else {
+    questionnaireResponse = await createQuestionnaireResponse(encounterId, prompt, oystehr, secrets);
+  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(questionnaireResponse),
+  };
 });
 
 function validateInput(input: ZambdaInput): Input {
@@ -80,40 +173,6 @@ async function createOystehr(secrets: Secrets | null): Promise<Oystehr> {
   );
 }
 
-async function findEncounter(appointmentId: string, oystehr: Oystehr): Promise<string | undefined> {
-  return (
-    await oystehr.fhir.search<Encounter>({
-      resourceType: 'Encounter',
-      params: [
-        {
-          name: 'appointment',
-          value: 'Appointment/' + appointmentId,
-        },
-      ],
-    })
-  ).unbundle()[0]?.id;
-}
-
-async function consentPresent(appointmentId: string, oystehr: Oystehr): Promise<boolean> {
-  return (
-    (
-      await oystehr.fhir.search<Consent>({
-        resourceType: 'Consent',
-        params: [
-          {
-            name: 'data',
-            value: 'Appointment/' + appointmentId,
-          },
-          {
-            name: 'category',
-            value: 'http://terminology.hl7.org/CodeSystem/consentcategorycodes|' + FHIR_AI_CHAT_CONSENT_CATEGORY_CODE,
-          },
-        ],
-      })
-    ).unbundle().length > 0
-  );
-}
-
 async function findAIInterviewQuestionnaireResponse(
   encounterId: string,
   oystehr: Oystehr
@@ -128,25 +187,25 @@ async function findAIInterviewQuestionnaireResponse(
         },
         {
           name: 'questionnaire',
-          value: '#' + QUESTIONNAIRE_ID,
+          value: '#' + AI_QUESTIONNAIRE_ID,
         },
       ],
     })
   ).unbundle()[0];
 }
 
+// #aiInterview: start ai interview questionnaire
 async function createQuestionnaireResponse(
   encounterId: string,
+  prompt: string,
   oystehr: Oystehr,
   secrets: Secrets | null
 ): Promise<QuestionnaireResponse> {
-  const firstAIQuestion = (
-    await invokeChatbot([{ role: 'user', content: INITIAL_USER_MESSAGE }], secrets)
-  ).content.toString();
+  const firstAIQuestion = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
   return oystehr.fhir.create<QuestionnaireResponse>({
     resourceType: 'QuestionnaireResponse',
     status: 'in-progress',
-    questionnaire: '#' + QUESTIONNAIRE_ID,
+    questionnaire: '#' + AI_QUESTIONNAIRE_ID,
     encounter: {
       reference: 'Encounter/' + encounterId,
     },
@@ -155,7 +214,7 @@ async function createQuestionnaireResponse(
         linkId: '0',
         answer: [
           {
-            valueString: INITIAL_USER_MESSAGE,
+            valueString: prompt,
           },
         ],
       },
@@ -163,7 +222,7 @@ async function createQuestionnaireResponse(
     contained: [
       {
         resourceType: 'Questionnaire',
-        id: QUESTIONNAIRE_ID,
+        id: AI_QUESTIONNAIRE_ID,
         status: 'active',
         item: [
           {

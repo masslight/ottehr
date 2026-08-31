@@ -1,6 +1,16 @@
 import Oystehr, { BatchInputRequest, User } from '@oystehr/sdk';
-import { Coding, Flag } from 'fhir/r4b';
-import { formatPhoneNumberDisplay, getPatchBinary } from 'utils';
+import { Appointment, Coding, Encounter, Flag, HealthcareService, Location, Patient, Practitioner } from 'fhir/r4b';
+import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { checkEncounterIsVirtual } from 'utils/lib/fhir/encounter';
+import { serviceModeForHealthcareService } from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { AvailableLocationInformation, Closure, PersonSex, ScheduleType, ServiceMode } from 'utils/lib/types/common';
+import { HealthcareServiceWithLocationContext } from 'utils/lib/types/data/paperwork.types';
+import { AppointmentSummary, PaperworkSupportingInfo } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { getScheduleExtension, ScheduleExtension } from 'utils/lib/utils/scheduleUtils';
+import { getOtherOfficesForLocation } from '../../shared/helpers';
 
 export async function createOrUpdateFlags(
   flagName: string,
@@ -17,7 +27,7 @@ export async function createOrUpdateFlags(
     let paperworkStartedBy: string | undefined;
     let createdByTag: Coding | undefined;
     if (user) {
-      formattedUserNumber = formatPhoneNumberDisplay(user?.name.replace('+1', '') || '');
+      formattedUserNumber = formatPhoneNumberDisplay(user?.name?.replace('+1', '') || '');
       paperworkStartedBy = `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
     }
     if (formattedUserNumber && paperworkStartedBy) {
@@ -103,3 +113,134 @@ export async function createOrUpdateFlags(
     console.log(`Updated flag ${flagName} period.start to ${timestamp}`);
   }
 }
+
+interface LocationSummaryInput {
+  appointment: Appointment;
+  location?: Location;
+  hsResources?: HealthcareServiceWithLocationContext;
+  practitioner?: Practitioner;
+}
+// todo: consider whether all the location config stuff needs to be on here
+const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['location'] => {
+  const { appointment, location, hsResources, practitioner } = input;
+  if (hsResources) {
+    // do a thing
+    const { hs, locations, coverageArea } = hsResources;
+    const otherOffices: AvailableLocationInformation['otherOffices'] = [];
+    const serviceMode = serviceModeForHealthcareService(hs);
+    let scheduleExtension: ScheduleExtension | undefined = undefined;
+    let loc: Location | undefined;
+    // note there's not really any clear notion what to do here if the HS pools provider schedules
+    // this is to be addressed in a future release
+    if (serviceMode === ServiceMode['in-person']) {
+      // this is most likely a fictional use case...
+      loc = locations?.find((tempLoc) => {
+        return appointment?.participant?.some((maybeLoc) => {
+          const reference = maybeLoc.actor?.reference;
+          if (reference) {
+            return reference === `${tempLoc.resourceType}/${tempLoc.id}`;
+          }
+          return false;
+        });
+      });
+      if (loc === undefined) {
+        loc = locations?.length === 1 ? locations[0] : undefined;
+      }
+      if (loc) {
+        scheduleExtension = getScheduleExtension(loc);
+      }
+    } else {
+      loc = coverageArea?.length === 1 ? coverageArea[0] : undefined;
+    }
+    return {
+      id: loc?.id,
+      slug: loc?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value,
+      name: loc?.name ?? hs?.name,
+      description: loc?.description,
+      address: loc?.address,
+      telecom: loc?.telecom,
+      timezone: loc?.extension?.find(
+        (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
+      )?.valueString,
+      otherOffices,
+      scheduleOwnerType: ScheduleType['group'],
+      scheduleExtension,
+    };
+  } else if (practitioner) {
+    // todo build out practitioner scheduling more
+    return {
+      id: practitioner?.id,
+      slug: practitioner?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value,
+      name: `${practitioner.name?.[0]?.given?.[0]} ${practitioner.name?.[0]?.family}`,
+      description: undefined,
+      address: undefined,
+      telecom: [],
+      timezone: practitioner?.extension?.find(
+        (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
+      )?.valueString,
+      otherOffices: [],
+      scheduleOwnerType: ScheduleType['provider'],
+    };
+  } else {
+    const closures: Closure[] = [];
+    if (location) {
+      const schedule = getScheduleExtension(location);
+      if (schedule && schedule.closures) {
+        closures.push(...schedule.closures);
+      }
+    }
+    return {
+      id: location?.id,
+      slug: location?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value,
+      name: location?.name,
+      description: location?.description,
+      address: location?.address,
+      telecom: location?.telecom,
+      timezone: location?.extension?.find(
+        (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
+      )?.valueString,
+      otherOffices: location ? getOtherOfficesForLocation(location) : [],
+      scheduleOwnerType: ScheduleType['location'],
+    };
+  }
+};
+
+export interface GetPaperworkSupportingInfoInput {
+  appointment: Appointment;
+  encounter: Encounter;
+  patient: Patient;
+  location: Location | undefined;
+  hsResources: { hs: HealthcareService; locations?: Location[]; serviceArea?: Location } | undefined;
+  practitioner?: Practitioner;
+}
+
+export function getPaperworkSupportingInfoForUserWithAccess(
+  input: GetPaperworkSupportingInfoInput
+): PaperworkSupportingInfo {
+  const { appointment, patient, location, hsResources, practitioner, encounter } = input;
+  const serviceMode: ServiceMode = checkEncounterIsVirtual(encounter)
+    ? ServiceMode['virtual']
+    : ServiceMode['in-person'];
+
+  return {
+    appointment: {
+      id: appointment?.id ?? 'Unknown', // i hate this
+      start: appointment?.start || 'Unknown',
+      location: makeLocationSummary({ appointment, location, hsResources, practitioner }),
+      visitType: appointment?.appointmentType?.text as VisitType,
+      status: appointment?.status,
+      serviceMode: serviceMode,
+    },
+    patient: {
+      id: patient.id,
+      firstName: patient.name?.[0].given?.[0],
+      dateOfBirth: patient.birthDate,
+    },
+  };
+}
+
+// gender must be saved in lower case on the patient resource but the paperwork sex fields consume the value with title case
+export const formatPatientSexForPaperwork = (value: string): PersonSex | undefined => {
+  const sex = Object.keys(PersonSex).find((key) => PersonSex[key as keyof typeof PersonSex] === value);
+  return sex as PersonSex | undefined;
+};

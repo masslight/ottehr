@@ -6,7 +6,7 @@ export function setupSentry(
   options: Partial<Sentry.BrowserOptions> & {
     dsn: Exclude<Sentry.BrowserOptions['dsn'], undefined>;
     environment: Exclude<Sentry.BrowserOptions['environment'], undefined>;
-  }
+  } & { tags: { [key: string]: string } }
 ): void {
   Sentry.init({
     integrations: [
@@ -24,4 +24,5 @@ export function setupSentry(
     replaysOnErrorSampleRate: 1.0, // If you're not already sampling the entire session, change the sample rate to 100% when sampling sessions where errors occur.
     ...options,
   });
+  Sentry.setTags(options.tags);
 }

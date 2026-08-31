@@ -1,0 +1,277 @@
+import * as z from 'zod';
+
+// this is relative to the deploy folder where tf runs
+const PATH_PREFIX = '../packages/utils/lib';
+
+const SENDGRID_DATA = {
+  templates: {
+    errorReport: {
+      templateName: 'Error Report',
+      templateVersionName: '1.0.0',
+      active: true,
+      htmlFilePath: `${PATH_PREFIX}/ottehr-config/sendgrid/template_html/error-report.html`,
+      subject: '\u26A0\uFE0F An error occurred in {{environment}}',
+      templateIdSecretName: 'SENDGRID_ERROR_REPORT_TEMPLATE_ID',
+      dynamicTemplateData: ['environment', 'error-message', 'timestamp'],
+      supportsAttachments: false,
+    },
+    inPersonCancelation: {
+      templateName: 'In-Person Cancellation',
+      templateVersionName: '1.0.0',
+      active: true,
+      htmlFilePath: `${PATH_PREFIX}/ottehr-config/sendgrid/template_html/in-person-cancelation.html`,
+      subject: '{{env}}Visit canceled',
+      templateIdSecretName: 'SENDGRID_IN_PERSON_CANCELATION_TEMPLATE_ID',
+      dynamicTemplateData: ['location', 'time', 'address', 'book-again-url', 'address-url'],
+      supportsAttachments: false,
+    },
+    inPersonConfirmation: {
+      templateName: 'In-Person Confirmation',
+      templateVersionName: '1.0.0',
+      active: true,
+      htmlFilePath: `${PATH_PREFIX}/ottehr-config/sendgrid/template_html/in-person-confirmation.html`,
+      subject: '{{env}}Visit confirmed on {{{time}}}',
+      templateIdSecretName: 'SENDGRID_IN_PERSON_CONFIRMATION_TEMPLATE_ID',
+      dynamicTemplateData: [
+        'location',
+        'time',
+        'address',
+        'address-url',
+        'modify-visit-url',
+        'cancel-visit-url',
+        'paperwork-url',
+      ],
+      supportsAttachments: false,
+    },
+    inPersonCompletion: {
+      templateName: 'In-Person Completion',
+      templateVersionName: '1.0.0',
+      active: true,
+      htmlFilePath: `${PATH_PREFIX}/ottehr-config/sendgrid/template_html/in-person-completion.html`,
+      subject: '{{env}}Visit completed. See visit note',
+      templateIdSecretName: 'SENDGRID_IN_PERSON_COMPLETION_TEMPLATE_ID',
+      dynamicTemplateData: ['location', 'time', 'address', 'visit-note-url', 'address-url'],
+      supportsAttachments: false,
+    },
+    inPersonReminder: {
+      templateName: 'In-Person Reminder',
+      templateVersionName: '1.0.0',
+      active: true,
+      htmlFilePath: `${PATH_PREFIX}/ottehr-config/sendgrid/template_html/in-person-reminder.html`,
+      subject: '{{env}}Upcoming visit on {{{time}}}',
+      templateIdSecretName: 'SENDGRID_IN_PERSON_REMINDER_TEMPLATE_ID',
+      dynamicTemplateData: [
+        'location',
+        'time',
+        'address',
+        'modify-visit-url',
+        'cancel-visit-url',
+        'address-url',
+        'paperwork-url',
+      ],
+      supportsAttachments: false,
+    },
+    inPersonReceipt: {
+      templateName: 'In-Person Receipt',
+      templateVersionName: '1.0.0',
+      active: true,
+      htmlFilePath: `${PATH_PREFIX}/ottehr-config/sendgrid/template_html/in-person-receipt.html`,
+      subject: 'Receipt for {{branding.projectName}} Visit on {{date}}',
+      templateIdSecretName: 'SENDGRID_IN_PERSON_RECEIPT_TEMPLATE_ID',
+      dynamicTemplateData: ['recipient-name', 'date'],
+      supportsAttachments: true,
+    },
+    telemedCancelation: {
+      templateName: 'Telemed Cancelation',
+      templateVersionName: '1.0.0',
+      active: true,
+      htmlFilePath: `${PATH_PREFIX}/ottehr-config/sendgrid/template_html/telemed-cancelation.html`,
+      subject: '{{env}}Visit canceled',
+      templateIdSecretName: 'SENDGRID_TELEMED_CANCELATION_TEMPLATE_ID',
+      dynamicTemplateData: ['location', 'book-again-url'],
+      supportsAttachments: false,
+    },
+    telemedConfirmation: {
+      templateName: 'Telemed Confirmation',
+      templateVersionName: '1.0.0',
+      active: true,
+      htmlFilePath: `${PATH_PREFIX}/ottehr-config/sendgrid/template_html/telemed-confirmation.html`,
+      subject: '{{env}}Join virtual visit',
+      templateIdSecretName: 'SENDGRID_TELEMED_CONFIRMATION_TEMPLATE_ID',
+      dynamicTemplateData: ['location', 'join-visit-url', 'cancel-visit-url', 'paperwork-url'],
+      supportsAttachments: false,
+    },
+    telemedCompletion: {
+      templateName: 'Telemed Completion',
+      templateVersionName: '1.0.0',
+      active: true,
+      htmlFilePath: `${PATH_PREFIX}/ottehr-config/sendgrid/template_html/telemed-completion.html`,
+      subject: '{{env}}Visit completed. See visit note',
+      templateIdSecretName: 'SENDGRID_TELEMED_COMPLETION_TEMPLATE_ID',
+      dynamicTemplateData: ['location', 'visit-note-url'],
+      supportsAttachments: false,
+    },
+    telemedInvitation: {
+      templateName: 'Telemed Invitation',
+      templateVersionName: '1.0.0',
+      active: true,
+      htmlFilePath: `${PATH_PREFIX}/ottehr-config/sendgrid/template_html/telemed-invitation.html`,
+      subject: '{{env}}Join virtual visit with {{patient-name}}',
+      templateIdSecretName: 'SENDGRID_TELEMED_INVITATION_TEMPLATE_ID',
+      dynamicTemplateData: ['patient-name', 'join-visit-url', 'location'],
+      supportsAttachments: false,
+    },
+    orderResultAlert: {
+      templateName: 'Order Result Alert',
+      templateVersionName: '1.0.0',
+      active: true,
+      htmlFilePath: `${PATH_PREFIX}/ottehr-config/sendgrid/template_html/order-result-alert.html`,
+      subject: '{{env}}New {{{order-type}}} results are ready for your review',
+      templateIdSecretName: 'SENDGRID_ORDER_RESULT_ALERT_TEMPLATE_ID',
+      // location (location name) is needed so that the correct support number can be pulled
+      dynamicTemplateData: ['order-type', 'test-name', 'visit-date', 'result-url', 'location'],
+      supportsAttachments: false,
+    },
+    genericOutreach: {
+      templateName: 'Generic Outreach',
+      templateVersionName: '1.0.0',
+      active: true,
+      htmlFilePath: `${PATH_PREFIX}/ottehr-config/sendgrid/template_html/generic-outreach.html`,
+      subject: '{{env}}{{subject-text}}',
+      templateIdSecretName: 'SENDGRID_GENERIC_OUTREACH_TEMPLATE_ID',
+      dynamicTemplateData: ['content', 'subject-text'],
+      supportsAttachments: false,
+    },
+  },
+  featureFlag: false as boolean,
+} as const;
+
+const TemplateVersionSchema = z.object({
+  templateName: z.string().min(1, { message: 'Template name cannot be empty' }),
+  templateVersionName: z.string().min(1, { message: 'Template version name cannot be empty' }),
+  active: z.boolean().default(true),
+  htmlFilePath: z.string().refine(
+    (path) => {
+      try {
+        return path.endsWith('.html');
+      } catch (e) {
+        console.error('Error checking HTML file path:', e, path);
+        return false;
+      }
+    },
+    { message: 'No valid HTML file found at path' }
+  ),
+  subject: z.string().min(1, { message: 'Subject cannot be empty' }),
+  dynamicTemplateData: z.array(z.string()).default([]).optional(),
+  supportsAttachments: z.boolean().default(false).optional(),
+});
+
+const ErrorReportSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_ERROR_REPORT_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(SENDGRID_DATA.templates.errorReport.dynamicTemplateData)),
+});
+const InPersonCancelationSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_IN_PERSON_CANCELATION_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(SENDGRID_DATA.templates.inPersonCancelation.dynamicTemplateData)),
+});
+const InPersonConfirmationSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_IN_PERSON_CONFIRMATION_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(SENDGRID_DATA.templates.inPersonConfirmation.dynamicTemplateData)),
+});
+const InPersonCompletionSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_IN_PERSON_COMPLETION_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(SENDGRID_DATA.templates.inPersonCompletion.dynamicTemplateData)),
+});
+const InPersonReminderSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_IN_PERSON_REMINDER_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(SENDGRID_DATA.templates.inPersonReminder.dynamicTemplateData)),
+});
+const InPersonReceiptSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_IN_PERSON_RECEIPT_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(SENDGRID_DATA.templates.inPersonReceipt.dynamicTemplateData)),
+});
+const TelemedCancelationSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_TELEMED_CANCELATION_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(SENDGRID_DATA.templates.telemedCancelation.dynamicTemplateData)),
+});
+const TelemedConfirmationSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_TELEMED_CONFIRMATION_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(SENDGRID_DATA.templates.telemedConfirmation.dynamicTemplateData)),
+});
+const TelemedCompletionSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_TELEMED_COMPLETION_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(SENDGRID_DATA.templates.telemedCompletion.dynamicTemplateData)),
+});
+const TelemedInvitationSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_TELEMED_INVITATION_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(SENDGRID_DATA.templates.telemedInvitation.dynamicTemplateData)),
+});
+const OrderResultAlertSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_ORDER_RESULT_ALERT_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(SENDGRID_DATA.templates.orderResultAlert.dynamicTemplateData)),
+});
+const GenericOutreachSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_GENERIC_OUTREACH_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(SENDGRID_DATA.templates.genericOutreach.dynamicTemplateData)),
+});
+
+const DefaultTemplates = z.object({
+  errorReport: ErrorReportSchema,
+  inPersonCancelation: InPersonCancelationSchema,
+  inPersonConfirmation: InPersonConfirmationSchema,
+  inPersonCompletion: InPersonCompletionSchema,
+  inPersonReminder: InPersonReminderSchema,
+  inPersonReceipt: InPersonReceiptSchema,
+  telemedCancelation: TelemedCancelationSchema,
+  telemedConfirmation: TelemedConfirmationSchema,
+  telemedCompletion: TelemedCompletionSchema,
+  telemedInvitation: TelemedInvitationSchema,
+  orderResultAlert: OrderResultAlertSchema,
+  genericOutreach: GenericOutreachSchema,
+});
+
+const SENDGRID_CONFIG_SCHEMA = z.object({
+  templates: DefaultTemplates,
+});
+
+export const SENDGRID_CONFIG = Object.freeze(SENDGRID_CONFIG_SCHEMA.parse(SENDGRID_DATA));
+export type SendgridConfig = z.infer<typeof SENDGRID_CONFIG_SCHEMA>;
+export type EmailTemplate = SendgridConfig['templates'][keyof SendgridConfig['templates']];
+
+export type DynamicTemplateDataRecord<T extends EmailTemplate> = {
+  [K in Extract<T['dynamicTemplateData'] extends Array<infer U> ? U : never, string>]: string;
+};
+export type ErrorReportTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['errorReport']>;
+export type InPersonCancelationTemplateData = DynamicTemplateDataRecord<
+  SendgridConfig['templates']['inPersonCancelation']
+>;
+export type InPersonConfirmationTemplateData = DynamicTemplateDataRecord<
+  SendgridConfig['templates']['inPersonConfirmation']
+>;
+export type InPersonCompletionTemplateData = DynamicTemplateDataRecord<
+  SendgridConfig['templates']['inPersonCompletion']
+>;
+export type InPersonReminderTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['inPersonReminder']>;
+export type InPersonReceiptTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['inPersonReceipt']>;
+export type TelemedCancelationTemplateData = DynamicTemplateDataRecord<
+  SendgridConfig['templates']['telemedCancelation']
+>;
+export type TelemedConfirmationTemplateData = DynamicTemplateDataRecord<
+  SendgridConfig['templates']['telemedConfirmation']
+>;
+export type TelemedCompletionTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['telemedCompletion']>;
+export type TelemedInvitationTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['telemedInvitation']>;
+export type OrderResultAlertTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['orderResultAlert']>;
+export type GenericOutreachTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['genericOutreach']>;

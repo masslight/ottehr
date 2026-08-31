@@ -1,18 +1,17 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Communication, Group, Location, Practitioner } from 'fhir/r4b';
-import {
-  COMMUNICATION_ISSUE_REPORT_CODE,
-  getFullestAvailableName,
-  getSecret,
-  PROJECT_NAME,
-  Secrets,
-  SecretsKeys,
-  SUPPORT_EMAIL,
-} from 'utils';
-import { getAuth0Token, sendgridEmail, sendSlackNotification, topLevelCatch, wrapHandler } from '../../../shared';
-import { createOystehrClient } from '../../../shared/helpers';
-import { ZambdaInput } from '../../../shared/types';
+import { DateTime } from 'luxon';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { COMMUNICATION_ISSUE_REPORT_CODE } from 'utils/lib/types/common';
+import { getEmailClient } from '../../../shared/communication';
+import { sendSlackNotification } from '../../../shared/errors';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { bundleResourcesConfig, codingContainedInList, getEmailsFromGroup } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -27,213 +26,187 @@ let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const { communication, secrets } = validatedParameters;
-    console.log('communication ID', communication.id);
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  const { communication, secrets } = validatedParameters;
+  console.log('communication ID', communication.id);
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
 
-    if (['not-done', 'completed'].includes(communication.status)) {
-      console.log(`task is marked ${communication.status}`);
-      return {
-        statusCode: 200,
-        body: `communication has already been marked ${communication.status}`,
-      };
-    }
+  if (['not-done', 'completed'].includes(communication.status)) {
+    console.log(`task is marked ${communication.status}`);
+    return {
+      statusCode: 200,
+      body: `communication has already been marked ${communication.status}`,
+    };
+  }
 
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
+  if (!oystehrToken) {
+    console.log('getting token');
+    oystehrToken = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
+  }
 
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-    const communicationCodes = communication.category;
-    console.log('communicationCodes', JSON.stringify(communicationCodes));
-    let communicationStatusToUpdate: string | undefined;
+  const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+  const communicationCodes = communication.category;
+  console.log('communicationCodes', JSON.stringify(communicationCodes));
+  let communicationStatusToUpdate: string | undefined;
 
-    if (codingContainedInList(COMMUNICATION_ISSUE_REPORT_CODE, communicationCodes)) {
-      console.log('alerting for issue report');
-      const groupID = getSecret(SecretsKeys.INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID, secrets);
-      const templateID = getSecret(SecretsKeys.IN_PERSON_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID, secrets);
+  if (codingContainedInList(COMMUNICATION_ISSUE_REPORT_CODE, communicationCodes)) {
+    console.log('alerting for issue report');
+    const groupID = getSecret(SecretsKeys.INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID, secrets);
 
-      // Only alert where both variables exist and are non null value
-      if (groupID && templateID) {
-        const groupGetRequest: BatchInputGetRequest = {
-          method: 'GET',
-          url: `/Group?_id=${groupID}`,
-        };
-        const locationID = communication.about
-          ?.find((ref) => ref.type === 'Location')
-          ?.reference?.replace('Location/', '');
-        const locationGetRequest: BatchInputGetRequest = {
-          method: 'GET',
-          url: `/Location?_id=${locationID}`,
-        };
-        const practitionerID = communication.sender?.reference?.replace('Practitioner/', '');
-        const practitionerGetRequest: BatchInputGetRequest = {
-          method: 'GET',
-          url: `/Practitioner?_id=${practitionerID}`,
-        };
-        const appointmentID = communication.about
-          ?.find((ref) => ref.type === 'Appointment')
-          ?.reference?.replace('Appointment/', '');
+    const groupGetRequest: BatchInputGetRequest = {
+      method: 'GET',
+      url: `/Group?_id=${groupID}`,
+    };
+    const locationID = communication.about?.find((ref) => ref.type === 'Location')?.reference?.replace('Location/', '');
+    const locationGetRequest: BatchInputGetRequest = {
+      method: 'GET',
+      url: `/Location?_id=${locationID}`,
+    };
+    const practitionerID = communication.sender?.reference?.replace('Practitioner/', '');
+    const practitionerGetRequest: BatchInputGetRequest = {
+      method: 'GET',
+      url: `/Practitioner?_id=${practitionerID}`,
+    };
+    const appointmentID = communication.about
+      ?.find((ref) => ref.type === 'Appointment')
+      ?.reference?.replace('Appointment/', '');
 
-        console.log('getting fhir resources for issue report alerting');
-        console.log('groupID, locationID, practitionerID', groupID, locationID, practitionerID);
-        const bundle = await oystehr.fhir.batch({
-          requests: [groupGetRequest, locationGetRequest, practitionerGetRequest],
-        });
+    console.log('getting fhir resources for issue report alerting');
+    console.log('groupID, locationID, practitionerID', groupID, locationID, practitionerID);
+    const bundle = await oystehr.fhir.batch({
+      requests: [groupGetRequest, locationGetRequest, practitionerGetRequest],
+    });
 
-        const bundleResources: bundleResourcesConfig = {};
-        if (bundle.entry) {
-          for (const entry of bundle.entry) {
-            if (
-              entry.response?.outcome?.id === 'ok' &&
-              entry.resource &&
-              entry.resource.resourceType === 'Bundle' &&
-              entry.resource.type === 'searchset'
-            ) {
-              const innerBundle = entry.resource as Bundle;
-              const innerEntries = innerBundle.entry;
-              if (innerEntries) {
-                for (const item of innerEntries) {
-                  const resource = item.resource;
-                  if (resource) {
-                    if (resource?.resourceType === 'Group') {
-                      bundleResources.group = resource as Group;
-                    }
-                    if (resource?.resourceType === 'Location') {
-                      bundleResources.location = resource as Location;
-                    }
-                    if (resource?.resourceType === 'Practitioner') {
-                      bundleResources.practitioner = resource as Practitioner;
-                    }
-                  }
+    const bundleResources: bundleResourcesConfig = {};
+    if (bundle.entry) {
+      for (const entry of bundle.entry) {
+        if (
+          entry.response?.outcome?.id === 'ok' &&
+          entry.resource &&
+          entry.resource.resourceType === 'Bundle' &&
+          entry.resource.type === 'searchset'
+        ) {
+          const innerBundle = entry.resource as Bundle;
+          const innerEntries = innerBundle.entry;
+          if (innerEntries) {
+            for (const item of innerEntries) {
+              const resource = item.resource;
+              if (resource) {
+                if (resource?.resourceType === 'Group') {
+                  bundleResources.group = resource as Group;
+                }
+                if (resource?.resourceType === 'Location') {
+                  bundleResources.location = resource as Location;
+                }
+                if (resource?.resourceType === 'Practitioner') {
+                  bundleResources.practitioner = resource as Practitioner;
                 }
               }
             }
           }
         }
-        const submitter = bundleResources.practitioner;
-        const fhirLocation = bundleResources.location;
-        const fhirGroup = bundleResources.group;
-
-        let submitterName = submitter && getFullestAvailableName(submitter);
-        let submitterEmail = '';
-        try {
-          const PROJECT_API = getSecret('PROJECT_API', secrets);
-          const headers = {
-            accept: 'application/json',
-            'content-type': 'application/json',
-            Authorization: `Bearer ${oystehrToken}`,
-          };
-          const getUserByProfileResponse = await fetch(
-            `${PROJECT_API}/user/v2/list?profile=Practitioner/${practitionerID}`,
-            {
-              method: 'GET',
-              headers: headers,
-            }
-          );
-          if (!getUserByProfileResponse.ok) {
-            console.error('Failed to get user from a given Practitioner ID profile');
-          }
-          const retrievedUser = await getUserByProfileResponse.json();
-          if (submitterName == undefined) {
-            submitterName = `${retrievedUser?.data?.[0]?.name}`;
-          }
-          submitterEmail = `${retrievedUser?.data?.[0]?.email}`;
-        } catch (error) {
-          console.error('Fetch call failed with error: ', error);
-        }
-        const submitterDetails = `Submitter name: ${submitterName}, Submitter email: ${submitterEmail}, Submitter id: ${submitter?.id}`;
-
-        console.log('sending slack message');
-        const slackMessage = `An issue report has been submitted from ${fhirLocation?.name}. Check payload in communication resource ${communication.id} for more information`;
-        try {
-          await sendSlackNotification(slackMessage, ENVIRONMENT);
-          communicationStatusToUpdate = 'completed';
-        } catch {
-          console.log('could not send slack notification');
-        }
-
-        console.log('getting emails');
-        const practitionersEmails = await getEmailsFromGroup(fhirGroup, oystehr);
-        console.log('practitionersEmails', practitionersEmails);
-
-        const fromEmail = SUPPORT_EMAIL;
-        const toEmail = [fromEmail];
-        if (practitionersEmails) {
-          toEmail.push(...practitionersEmails);
-        }
-        const bccEmail = getSecret(SecretsKeys.SENDGRID_ISSUE_REPORT_EMAIL_BCC, secrets)
-          .split(',')
-          .filter(Boolean)
-          .map((email) => email.trim())
-          .filter((email) => !toEmail.includes(email));
-        const errorMessage = `Project: ${PROJECT_NAME} <br> Details: ${communication.payload?.[0].contentString} <br> Submitted By: ${submitterDetails} <br> Location: ${fhirLocation?.name} - ${fhirLocation?.address?.city}, ${fhirLocation?.address?.state} <br> Appointment Id: ${appointmentID} <br> Communication Fhir Resource: ${communication.id}`;
-
-        console.log(`Sending issue report email to ${toEmail} with template id ${templateID}`);
-        try {
-          const sendResult = await sendgridEmail(
-            secrets,
-            templateID,
-            toEmail,
-            fromEmail,
-            ENVIRONMENT,
-            errorMessage,
-            bccEmail
-          );
-          if (sendResult)
-            console.log(
-              `Details of successful sendgrid send: statusCode, ${sendResult[0].statusCode}. body, ${JSON.stringify(
-                sendResult[0].body
-              )}`
-            );
-          communicationStatusToUpdate = 'completed';
-        } catch (error) {
-          console.error(`Error sending email to ${toEmail}: ${JSON.stringify(error)}`);
-        }
       }
     }
+    const submitter = bundleResources.practitioner;
+    const fhirLocation = bundleResources.location;
+    const fhirGroup = bundleResources.group;
 
-    if (!communicationStatusToUpdate) {
-      console.log('no communication was attempted');
-      communicationStatusToUpdate = 'not-done';
+    let submitterName = submitter && getFullestAvailableName(submitter);
+    let submitterEmail = '';
+    try {
+      const PROJECT_API = getSecret('PROJECT_API', secrets);
+      const headers = {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        Authorization: `Bearer ${oystehrToken}`,
+      };
+      const getUserByProfileResponse = await fetch(
+        `${PROJECT_API}/user/v2/list?profile=Practitioner/${practitionerID}`,
+        {
+          method: 'GET',
+          headers: headers,
+        }
+      );
+      if (!getUserByProfileResponse.ok) {
+        console.error('Failed to get user from a given Practitioner ID profile');
+      }
+      const retrievedUser = await getUserByProfileResponse.json();
+      if (submitterName == undefined) {
+        submitterName = `${retrievedUser?.data?.[0]?.name}`;
+      }
+      submitterEmail = `${retrievedUser?.data?.[0]?.email}`;
+    } catch (error) {
+      console.error('Fetch call failed with error: ', error);
+      captureException(error);
+    }
+    const submitterDetails = `Submitter name: ${submitterName}, Submitter email: ${submitterEmail}, Submitter id: ${submitter?.id}`;
+
+    console.log('sending slack message');
+    const slackMessage = `An issue report has been submitted from ${fhirLocation?.name}. Check payload in communication resource ${communication.id} for more information`;
+    try {
+      await sendSlackNotification(slackMessage, ENVIRONMENT);
+      communicationStatusToUpdate = 'completed';
+    } catch (error) {
+      captureException(error);
+      console.log('could not send slack notification');
     }
 
-    console.log('making patch request to update communication status');
-    await oystehr.fhir.patch({
-      resourceType: 'Communication',
-      id: communication.id || '',
-      operations: [
-        {
-          op: 'replace',
-          path: '/status',
-          value: communicationStatusToUpdate,
-        },
-      ],
-    });
+    console.log('getting emails');
+    const practitionersEmails = await getEmailsFromGroup(fhirGroup, oystehr);
+    console.log('practitionersEmails', practitionersEmails);
 
-    const response = {
-      communicationStatus: communicationStatusToUpdate,
-    };
+    // issue reports should always make their way back to us so we want this email to always be included
+    const toEmail = ['ottehr-support@ottehr.com'];
+    if (practitionersEmails) {
+      toEmail.push(...practitionersEmails);
+    }
+    const errorMessage = `Details: ${communication.payload?.[0].contentString} <br> Submitted By: ${submitterDetails} <br> Location: ${fhirLocation?.name} - ${fhirLocation?.address?.city}, ${fhirLocation?.address?.state} <br> Appointment Id: ${appointmentID} <br> Communication Fhir Resource: ${communication.id}`;
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-communication-subscription', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
+    console.log(`Sending issue report email to ${toEmail}`);
+    try {
+      const emailClient = getEmailClient(secrets);
+      await emailClient.sendErrorEmail(toEmail, {
+        environment: ENVIRONMENT,
+        'error-message': errorMessage,
+        timestamp: DateTime.now().setZone('UTC').toFormat("EEEE, MMMM d, yyyy 'at' h:mm a ZZZZ"),
+      });
+      communicationStatusToUpdate = 'completed';
+    } catch (error) {
+      captureException(error);
+      console.error(`Error sending email to ${toEmail}: ${JSON.stringify(error)}`);
+    }
   }
+
+  if (!communicationStatusToUpdate) {
+    console.log('no communication was attempted');
+    communicationStatusToUpdate = 'not-done';
+  }
+
+  console.log('making patch request to update communication status');
+  await oystehr.fhir.patch({
+    resourceType: 'Communication',
+    id: communication.id || '',
+    operations: [
+      {
+        op: 'replace',
+        path: '/status',
+        value: communicationStatusToUpdate,
+      },
+    ],
+  });
+
+  const response = {
+    communicationStatus: communicationStatusToUpdate,
+  };
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });

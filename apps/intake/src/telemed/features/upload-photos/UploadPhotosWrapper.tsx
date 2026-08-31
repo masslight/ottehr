@@ -3,12 +3,12 @@ import { Box } from '@mui/system';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { ControlButtons } from '../../../components/form';
-import { PaperworkContext } from '../../../features/paperwork';
-import FileInput from '../../../features/paperwork/components/FileInput';
-import { safelyCaptureException } from '../../../helpers/sentry';
-import { useOystehrAPIClient } from '../../utils';
-import { useUpdatePaperworkMutation } from '../paperwork';
+import { usePaperworkComponentHelpers } from 'src/hooks/usePaperworkComponentHelpers';
+import { useUpdatePaperworkMutation } from 'src/telemed/features/paperwork/paperwork.queries';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
+import { PaperworkContext } from 'ui-components/lib/components/paperwork/context';
+import { ControlButtons, FileInput } from 'ui-components/lib/components/paperwork/form-components';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { useUploadPhotosStore } from './UploadPhotosListItemButton';
 
 export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.Element => {
@@ -59,13 +59,15 @@ export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.E
   }, [apiClient, onClose, paperworkData?.questionnaireResponse?.id, queryClient, updatePaperwork, uploadedAttachment]);
 
   const [saveButtonDisabled, setSaveButtonDisabled] = useState(false);
+  const paperworkComponentHelpers = usePaperworkComponentHelpers();
 
   const outletContext: PaperworkContext = useMemo(() => {
     return {
       appointment: paperworkData?.appointment,
       setSaveButtonDisabled,
+      paperworkComponentHelpers,
     } as PaperworkContext;
-  }, [paperworkData?.appointment]);
+  }, [paperworkData?.appointment, paperworkComponentHelpers]);
 
   return (
     <>

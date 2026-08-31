@@ -8,10 +8,19 @@ interface SlotsProps {
   timezone: string;
   selectedSlot: Slot | undefined;
   setSelectedSlot: (slot: Slot | undefined) => void;
+  loading?: boolean;
 }
 
-export function Slots({ slots, timezone, selectedSlot, setSelectedSlot }: SlotsProps): JSX.Element {
+export function Slots({ slots, timezone, selectedSlot, setSelectedSlot, loading }: SlotsProps): JSX.Element {
   const theme = useTheme();
+
+  if (loading) {
+    return (
+      <Typography variant="body2" m={1} textAlign={'center'}>
+        Loading slots...
+      </Typography>
+    );
+  }
 
   if (slots.length === 0) {
     return (
@@ -39,6 +48,11 @@ export function Slots({ slots, timezone, selectedSlot, setSelectedSlot }: SlotsP
               color="primary"
               onClick={() => setSelectedSlot(slot)}
               data-testid={dataTestIds.slots.slot}
+              // Exposes the slot's local date so e2e tests can match the tracking-board
+              // date filter to it (the filter defaults to "today in the location TZ",
+              // but the first available slot may land on tomorrow when the day's
+              // schedule is past closing time).
+              data-slot-date={startDateTimezoneAdjusted.toFormat('MM/dd/yyyy')}
             >
               {startDateTimezoneAdjusted.toFormat('h:mm a')}
             </Button>

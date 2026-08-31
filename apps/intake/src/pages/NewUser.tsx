@@ -1,11 +1,11 @@
 import { Typography } from '@mui/material';
-import { ottehrLightBlue } from '@theme/icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { PROJECT_NAME } from 'utils';
+import { PageContainer } from 'src/components/CustomContainer';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { BOOKING_SLOT_ID_PARAM, intakeFlowPageRoute } from '../App';
-import { PageContainer } from '../components';
+import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../branding/primaryIconVisibility';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
 import { useBookingContext } from './BookingHome';
@@ -23,9 +23,7 @@ const NewUser = (): JSX.Element => {
         newPatient: true,
         firstName: undefined,
         lastName: undefined,
-        dobDay: undefined,
-        dobMonth: undefined,
-        dobYear: undefined,
+        dateOfBirth: undefined,
         sex: undefined,
         reasonForVisit: undefined,
         email: undefined,
@@ -40,10 +38,8 @@ const NewUser = (): JSX.Element => {
 
   return (
     <PageContainer
-      title={t('newUser.title', { PROJECT_NAME })}
-      img={ottehrLightBlue}
-      imgAlt={`${PROJECT_NAME} icon`}
-      imgWidth={100}
+      title={t('newUser.title', { PROJECT_NAME: BRANDING_CONFIG.projectName })}
+      {...getPrimaryIconContainerProps(PRIMARY_ICON_PAGE.NEW_USER)}
     >
       <Typography variant="body1" className="user-description">
         {t('newUser.body')}

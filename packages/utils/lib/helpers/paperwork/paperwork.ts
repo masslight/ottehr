@@ -1,34 +1,49 @@
 import Oystehr from '@oystehr/sdk';
 import {
+  Appointment,
+  DocumentReference,
+  Encounter,
   Extension,
   FhirResource,
+  List,
+  Location,
+  Patient,
   Questionnaire,
   QuestionnaireItem,
   QuestionnaireItemAnswerOption,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
+  Resource,
+  Schedule,
   ValueSet,
 } from 'fhir/r4b';
 import _ from 'lodash';
 import { DateTime } from 'luxon';
-import { getCanonicalQuestionnaire, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir';
+import { AnswerLoadingOptions } from '../../../../config-types/config/fhir';
+import { AnswerOptionSource } from '../../../../config-types/config/fhir';
+import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir/constants';
 import {
-  AnswerLoadingOptions,
+  getCanonicalQuestionnaire,
+  isIntakePaperworkQuestionnaireResponse,
+  resolveEffectiveQuestionnaire,
+} from '../../fhir/questionnaires';
+import { PaperworkPDFResourcePackage, Question } from '../../types/data/paperwork.types';
+import {
   ConditionKeyObject,
   FormDisplayElementList,
   FormElement,
   FormSelectionElementList,
   InputWidthOption,
   IntakeQuestionnaireItem,
-  Question,
   QuestionnaireItemConditionDefinition,
   QuestionnaireItemExtension,
   QuestionnaireItemGroupType,
   QuestionnaireItemTextWhen,
   validateQuestionnaireDataType,
-} from '../../types';
-import { DOB_DATE_FORMAT } from '../../utils';
+} from '../../types/data/paperwork/paperwork.types';
+import { prepareQuestionnaireResponseForHarvest } from '../../types/data/paperwork/prepareQuestionnaireItemsForHarvest';
+import { DOB_DATE_FORMAT } from '../../utils/date';
 
 export const PAPERWORK_PDF_ATTACHMENT_TITLE = 'Paperwork';
 
@@ -103,54 +118,57 @@ const getPreferredElement = (extension: Extension[]): FormElement | undefined =>
   return undefined;
 };
 
-const getConditionalExtension = (
-  extension: Extension[],
+const getConditionalExtensions = (
+  extensions: Extension[],
   keys: ConditionKeyObject
-): { extension: Extension[]; baseConditionDef: QuestionnaireItemConditionDefinition | undefined } => {
-  const baseExtension = extension.find((ext) => {
-    return ext.url === keys.extension;
-  })?.extension;
-
-  if (baseExtension) {
-    const question = baseExtension.find((ext) => {
-      return ext.url === keys.question;
-    })?.valueString;
-    const operator = baseExtension.find((ext) => {
-      return ext.url === keys.operator;
-    })?.valueString;
-    const answerObj = baseExtension.find((ext) => {
-      return ext.url === keys.answer;
+): { extension: Extension[]; baseConditionDef: QuestionnaireItemConditionDefinition }[] => {
+  return extensions
+    .filter((ext) => {
+      return ext.url === keys.extension;
+    })
+    ?.flatMap((ext) => {
+      const baseExtension = ext.extension;
+      if (baseExtension) {
+        const question = baseExtension.find((ext) => {
+          return ext.url === keys.question;
+        })?.valueString;
+        const operator = baseExtension.find((ext) => {
+          return ext.url === keys.operator;
+        })?.valueString;
+        const answerObj = baseExtension.find((ext) => {
+          return ext.url === keys.answer;
+        });
+        const answerString = answerObj?.valueString;
+        const answerBoolean = answerObj?.valueBoolean;
+        const answerInteger = answerObj?.valueInteger;
+        const answerDate = answerObj?.valueDate;
+        if (
+          operator !== undefined &&
+          ['exists', '=', '!=', '>', '<', '>=', '<='].includes(operator) &&
+          question !== undefined &&
+          (answerString !== undefined ||
+            answerBoolean !== undefined ||
+            answerInteger !== undefined ||
+            answerDate !== undefined)
+        ) {
+          return {
+            extension: baseExtension,
+            baseConditionDef: {
+              question,
+              operator: operator as QuestionnaireItemConditionDefinition['operator'],
+              answerString,
+              answerBoolean,
+              answerInteger,
+              answerDate,
+            },
+          };
+        }
+      }
+      return [];
     });
-    const answerString = answerObj?.valueString;
-    const answerBoolean = answerObj?.valueBoolean;
-    const answerInteger = answerObj?.valueInteger;
-    const answerDate = answerObj?.valueDate;
-    if (
-      operator !== undefined &&
-      ['=', '!=', '>', '<', '>=', '<='].includes(operator) &&
-      question !== undefined &&
-      (answerString !== undefined ||
-        answerBoolean !== undefined ||
-        answerInteger !== undefined ||
-        answerDate !== undefined)
-    ) {
-      return {
-        extension: baseExtension,
-        baseConditionDef: {
-          question,
-          operator: operator as QuestionnaireItemConditionDefinition['operator'],
-          answerString,
-          answerBoolean,
-          answerInteger,
-          answerDate,
-        },
-      };
-    }
-  }
-  return { extension: [], baseConditionDef: undefined };
 };
 
-const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension => {
+export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension => {
   const extension = item.extension ?? [];
   let disabledDisplay = extension.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.disabledDisplay;
@@ -159,33 +177,31 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     disabledDisplay = undefined;
   }
 
-  const { baseConditionDef: requireWhen } = getConditionalExtension(
-    extension,
-    OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen
-  );
+  const requireWhen = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen)[0]
+    ?.baseConditionDef;
 
-  const { extension: textWhenExt, baseConditionDef: textWhenPartial } = getConditionalExtension(
-    extension,
-    OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen
-  );
-  let textWhen: QuestionnaireItemTextWhen | undefined;
-  if (textWhenPartial) {
-    const substituteText = textWhenExt.find((ext) => {
-      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.substituteText;
-    })?.valueString;
+  const textWhenExtensions = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen);
+  const textWhen: QuestionnaireItemTextWhen[] | undefined =
+    textWhenExtensions.length > 0
+      ? textWhenExtensions.flatMap(({ extension: textWhenExt, baseConditionDef: textWhenPartial }) => {
+          if (textWhenPartial) {
+            const substituteText = textWhenExt.find((ext) => {
+              return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.substituteText;
+            })?.valueString;
 
-    if (substituteText) {
-      textWhen = {
-        ...textWhenPartial,
-        substituteText,
-      };
-    }
-  }
+            if (substituteText) {
+              return {
+                ...textWhenPartial,
+                substituteText,
+              };
+            }
+          }
+          return [];
+        })
+      : undefined;
 
-  const { baseConditionDef: filterWhen } = getConditionalExtension(
-    extension,
-    OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen
-  );
+  const filterWhenConditions = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen);
+  const filterWhen = filterWhenConditions.length > 0 ? filterWhenConditions.map((c) => c.baseConditionDef) : undefined;
 
   const attachmentText = extension.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.attachmentText;
@@ -234,6 +250,14 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
       return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.alwaysFilter;
     })?.valueBoolean ?? false;
 
+  // hideControlLabel is optional-tri-state: undefined = "extension not
+  // present" (intake styler falls back to the hardcoded linkId list for
+  // back-compat with archived questionnaires that pre-date this extension);
+  // true = hide; false = show (overrides any legacy hardcoded entry).
+  const hideControlLabel = extension.find((ext) => {
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.hideControlLabel;
+  })?.valueBoolean;
+
   const categoryTag = extension.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.categoryTag;
   })?.valueString;
@@ -246,9 +270,43 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.strategy;
   })?.valueString;
 
-  const source = answerLoadingExtensionRoot?.find((ext) => {
+  const sourceExtension = answerLoadingExtensionRoot?.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.source;
+  });
+
+  const sourceExpression = sourceExtension?.valueExpression;
+  const sourceString = sourceExtension?.valueString;
+
+  const expressionExtension = answerLoadingExtensionRoot?.find((ext) => {
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.expression;
   })?.valueExpression;
+
+  let zambdaId: AnswerOptionSource['zambdaId'] | undefined;
+  let resourceType: FhirResource['resourceType'] | undefined;
+  let query: string | undefined;
+  if (sourceExpression) {
+    // This is an old-style source declaration that assumes the `get-answer-options` zambda
+    zambdaId = 'get-answer-options';
+    const { expression, language } = sourceExpression;
+    if (language === 'application/x-fhir-query' && expression) {
+      const [expResourceType, expQuery] = expression.split('?');
+      resourceType = expResourceType as FhirResource['resourceType'];
+      query = expQuery;
+    }
+  }
+
+  if (!zambdaId) {
+    zambdaId = sourceString as AnswerOptionSource['zambdaId'] | undefined;
+  }
+
+  if (expressionExtension) {
+    const { expression, language } = expressionExtension;
+    if (language === 'application/x-fhir-query' && expression) {
+      const [expResourceType, expQuery] = expression.split('?');
+      resourceType = expResourceType as FhirResource['resourceType'];
+      query = expQuery;
+    }
+  }
 
   let answerLoadingOptions: AnswerLoadingOptions | undefined;
 
@@ -256,16 +314,19 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     const option: AnswerLoadingOptions = {
       strategy: answerLoadingStrategy,
     };
-    if (source) {
-      const { expression, language } = source;
-      if (language === 'application/x-fhir-query' && expression) {
-        const [resourceType, query] = expression.split('?');
+    if (zambdaId) {
+      if (zambdaId === 'get-answer-options') {
         if (resourceType && query) {
           option.answerSource = {
-            resourceType: resourceType as FhirResource['resourceType'],
+            zambdaId,
+            resourceType,
             query,
           };
         }
+      } else {
+        option.answerSource = {
+          zambdaId,
+        };
       }
     }
     if (option.answerSource || item.answerValueSet) {
@@ -291,10 +352,10 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.extension;
   })?.extension;
   if (complexValidationExtension) {
-    const { baseConditionDef: complexValidationTriggerWhen } = getConditionalExtension(
+    const complexValidationTriggerWhen = getConditionalExtensions(
       complexValidationExtension,
       OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.triggerWhen
-    );
+    )[0].baseConditionDef;
     const complexValidationType = complexValidationExtension.find((ext) => {
       return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.type;
     })?.valueString;
@@ -307,10 +368,42 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     }
   }
 
+  const requiredBooleanValue = extension.find((ext) => {
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requiredBooleanValue;
+  })?.valueBoolean;
+
+  const answerDisplayFilterExtensions = extension.filter(
+    (ext) => ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerDisplayFilter.extension
+  );
+  const answerDisplayFilters =
+    answerDisplayFilterExtensions.length > 0
+      ? answerDisplayFilterExtensions.map((filterExt) => {
+          const subs = filterExt.extension ?? [];
+          const extKeys = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerDisplayFilter;
+          const questions: string[] = [];
+          const operators: string[] = [];
+          const answers: string[] = [];
+          const includeValues: string[] = [];
+          for (const sub of subs) {
+            if (sub.url === extKeys.question) questions.push(sub.valueString ?? '');
+            else if (sub.url === extKeys.operator) operators.push(sub.valueString ?? '');
+            else if (sub.url === extKeys.answer) answers.push(sub.valueString ?? '');
+            else if (sub.url === extKeys.include) includeValues.push(sub.valueString ?? '');
+          }
+          const conditions = questions.map((q, i) => ({
+            question: q,
+            operator: operators[i] ?? '=',
+            answer: answers[i] ?? '',
+          }));
+          return { conditions, includeValues };
+        })
+      : undefined;
+
   return {
     acceptsMultipleAnswers,
     alwaysFilter,
     disabledDisplay,
+    hideControlLabel,
     requireWhen,
     textWhen,
     attachmentText,
@@ -327,6 +420,8 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     inputWidth: inputWidth as InputWidthOption | undefined,
     minRows,
     complexValidation,
+    requiredBooleanValue,
+    answerDisplayFilters,
   };
 };
 
@@ -371,10 +466,6 @@ export const getQuestionnaireItemsAndProgress = async (
           name: '_id',
           value: questionnaireResponseId,
         },
-        {
-          name: '_include',
-          value: 'QuestionnaireResponse:questionnaire',
-        },
       ],
     })
   ).unbundle();
@@ -385,18 +476,26 @@ export const getQuestionnaireItemsAndProgress = async (
     return res.resourceType === 'QuestionnaireResponse';
   }) as QuestionnaireResponse | undefined;
 
-  const questionnaire: Questionnaire | undefined = results.find((res) => {
-    if (res.resourceType === 'Questionnaire') {
-      // this in-memory filtering is a workaround for an Oystehr search bug: https://github.com/masslight/zapehr/issues/6051
-      const q = res as Questionnaire;
-      return `${q.url}|${q.version}` === qr?.questionnaire;
-    }
-    return false;
-  }) as Questionnaire | undefined;
-
-  if (!questionnaire || !qr) {
+  if (!qr) {
     return undefined;
   }
+
+  if (!qr.questionnaire) {
+    throw new Error(`QuestionnaireResponse with id ${questionnaireResponseId} is missing "questionnaire" field`);
+  }
+
+  const [questionnaireURL, questionnaireVersion] = qr.questionnaire.split('|');
+  const rawQuestionnaire = await getCanonicalQuestionnaire(
+    {
+      url: questionnaireURL,
+      version: questionnaireVersion,
+    },
+    oystehr
+  );
+  // If the QR points at a paperwork flow, assemble its constituent forms so items[] reflects the
+  // flattened pages (a non-flow questionnaire is returned unchanged). Without this, a flow QR yields
+  // empty items[], so page-index lookups in the paperwork validators resolve to -1 and PATCH fails.
+  const questionnaire = await resolveEffectiveQuestionnaire(rawQuestionnaire, oystehr);
 
   const [sourceQuestionnaireUrl, sourceQuestionnaireVersion] = qr?.questionnaire?.split('|') ?? [null, null];
 
@@ -517,14 +616,14 @@ export const getComponentKeysFromDateGroup = (item: QuestionnaireItem): DateKeys
 
 export const pickFirstValueFromAnswerItem = (
   item: QuestionnaireResponseItem | undefined,
-  type: 'string' | 'boolean' | 'attachment' | 'reference' = 'string'
+  type: 'string' | 'boolean' | 'attachment' | 'reference' | 'decimal' = 'string'
 ): any => {
   const valString = `value${capitalizeFirstLetter(type)}` as keyof QuestionnaireResponseItemAnswer;
   return item?.answer?.[0]?.[valString];
 };
 export const pickValueAsStringListFromAnswerItem = (
   item: QuestionnaireResponseItem | undefined,
-  type: 'string' | 'boolean' | 'attachment' | 'reference' = 'string'
+  type: 'string' | 'boolean' | 'attachment' | 'reference' | 'decimal' = 'string'
 ): any => {
   const valString = `value${capitalizeFirstLetter(type)}` as keyof QuestionnaireResponseItemAnswer;
   return (item?.answer ?? []).map((ent) => {
@@ -582,7 +681,7 @@ export const makeQRResponseItem = (
         });
         return { ...base, answer };
       }
-      let valueString = value.trimStart();
+      let valueString = value?.trimStart();
       // restrict user from ever entering non-numeric digits
       if (item.dataType === 'ZIP') {
         valueString = valueString.replace(/[^0-9]/g, '');
@@ -626,8 +725,84 @@ export const makeQRResponseItem = (
   return base;
 };
 
+/**
+ * List of field linkIds that support explicit clearing (deletion) when set to an empty value by user.
+ * These fields will send empty answer array [] to backend to trigger clear/delete operations.
+ */
+const REMOVABLE_FIELDS = [
+  'occupational-medicine-employer',
+  'workers-comp-insurance-name',
+  'workers-comp-insurance-member-id',
+  'employer-name',
+  'employer-address',
+  'employer-address-2',
+  'employer-city',
+  'employer-state',
+  'employer-zip',
+  'employer-contact-first-name',
+  'employer-contact-last-name',
+  'employer-contact-title',
+  'employer-contact-email',
+  'employer-contact-phone',
+  'employer-contact-fax',
+];
+
+/**
+ * Checks if a field supports explicit clearing (deletion).
+ *
+ * This function should be used everywhere there is an intent to delete/clear a field.
+ * It can be extended in the future to:
+ * - Support additional fields by adding them to REMOVABLE_FIELDS
+ * - Enable deletion for all optional fields by checking field requirements
+ * - Implement more complex deletion logic based on field type or context
+ *
+ * @param linkId - Field linkId to check
+ * @returns true if the field can be explicitly cleared
+ */
+export const isRemovableField = (linkId: string): boolean => {
+  return REMOVABLE_FIELDS.includes(linkId);
+};
+
+/**
+ * Checks if a field was explicitly cleared by the user.
+ * A field is considered explicitly cleared if it has an empty answer array.
+ * @param item - QuestionnaireResponseItem to check
+ * @returns true if the field was explicitly cleared
+ */
+export const isFieldExplicitlyCleared = (item: QuestionnaireResponseItem): boolean => {
+  return isRemovableField(item.linkId) && Array.isArray(item.answer) && item.answer.length === 0;
+};
+
+/**
+ * Filters out hidden removable fields from QuestionnaireResponse items.
+ * This prevents accidental deletion when a removable field is just hidden (not explicitly cleared).
+ *
+ * @param items - QuestionnaireResponse items to filter
+ * @param questionnaire - Questionnaire with enableWhen conditions
+ * @returns Filtered items with hidden removable fields removed
+ */
+export const filterHiddenRemovableFields = (
+  items: QuestionnaireResponseItem[],
+  questionnaire: Questionnaire
+): QuestionnaireResponseItem[] => {
+  const visibleRemovableFields = prepareQuestionnaireResponseForHarvest({
+    questionnaireResponseItems: items.filter((item: QuestionnaireResponseItem) => isRemovableField(item.linkId)),
+    sourceQuestionnaire: questionnaire,
+    options: { filterByEnableWhen: true },
+  });
+  const visibleRemovableLinkIds = new Set(visibleRemovableFields.map((item: QuestionnaireResponseItem) => item.linkId));
+
+  return items.filter(
+    (item: QuestionnaireResponseItem) => !isRemovableField(item.linkId) || visibleRemovableLinkIds.has(item.linkId)
+  );
+};
+
 export const itemContainsAnyAnswer = (item: QuestionnaireResponseItem): boolean => {
-  if (item.answer) {
+  if (item.answer !== undefined) {
+    // Empty answer array [] is a valid answer for removable fields that were explicitly cleared
+    if (isFieldExplicitlyCleared(item)) {
+      return true;
+    }
     return item.answer.some((answer) => {
       return Object.values(answer).some((val) => {
         return val !== undefined;
@@ -650,9 +825,78 @@ export const pruneEmptySections = (qr: QuestionnaireResponse): QuestionnaireResp
 };
 
 export function isNonPaperworkQuestionnaireResponse<T extends FhirResource>(resource: T): boolean {
-  return (
-    resource.resourceType === 'QuestionnaireResponse' &&
-    !resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson') &&
-    !resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual')
-  );
+  // A QuestionnaireResponse is "paperwork" when it is the intake paperwork response — recognized by the
+  // INTAKE_PAPERWORK_QR_TAG meta.tag and is set at creation when the QR is created in tandem with the appointment
+  // Everything else that is a QuestionnaireResponse is non-paperwork.
+  return resource.resourceType === 'QuestionnaireResponse' && !isIntakePaperworkQuestionnaireResponse(resource);
 }
+
+export const getPaperworkResources = async (
+  oystehr: Oystehr,
+  QuestionnaireResponseId: string
+): Promise<PaperworkPDFResourcePackage | undefined> => {
+  const items: Array<
+    Patient | QuestionnaireResponse | DocumentReference | List | Encounter | Appointment | Schedule | Location
+  > = (
+    await oystehr.fhir.search<
+      Patient | QuestionnaireResponse | DocumentReference | List | Encounter | Appointment | Schedule | Location
+    >({
+      resourceType: 'QuestionnaireResponse',
+      params: [
+        {
+          name: '_id',
+          value: QuestionnaireResponseId,
+        },
+        {
+          name: '_include',
+          value: 'QuestionnaireResponse:subject',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'List:patient',
+        },
+        {
+          name: '_include',
+          value: 'QuestionnaireResponse:encounter',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include',
+          value: 'Appointment:location',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Schedule:actor:Location',
+        },
+      ],
+    })
+  ).unbundle();
+
+  const questionnaireResponse: QuestionnaireResponse | undefined = items?.find(
+    (item: Resource) => item.resourceType === 'QuestionnaireResponse'
+  ) as QuestionnaireResponse;
+  if (!questionnaireResponse) return undefined;
+
+  const patient: Patient | undefined = items.find((item: Resource) => {
+    return item.resourceType === 'Patient';
+  }) as Patient;
+
+  const listResources = items.filter((item) => item.resourceType === 'List') as List[];
+
+  const appointment = items.find((item) => item.resourceType === 'Appointment');
+  if (!appointment) return undefined;
+  const schedule = items?.find((item) => item.resourceType === 'Schedule');
+  const location = items.find((item) => item.resourceType === 'Location');
+
+  return {
+    questionnaireResponse,
+    patient,
+    listResources,
+    appointment,
+    schedule,
+    location,
+  };
+};

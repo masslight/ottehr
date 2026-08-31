@@ -1,32 +1,35 @@
 import { Table, TableCell, TableRow } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { useState } from 'react';
-import { RadiologyOrderHistoryRow } from 'utils';
-import { AccordionCard } from '../../../telemed/components/AccordionCard';
+import { RadiologyOrderHistoryRow } from 'utils/lib/types/api/radiology';
+import { AccordionCard } from '../../../components/AccordionCard';
+import { RadiologyTableStatusChip } from './RadiologyTableStatusChip';
 
 interface RadiologyOrderHistoryProps {
   isLoading?: boolean;
   isCollapsed?: boolean;
   orderHistory?: RadiologyOrderHistoryRow[];
   timezone?: string;
+  label?: string;
 }
 
 export const RadiologyOrderHistoryCard: React.FC<RadiologyOrderHistoryProps> = ({
   isCollapsed = false,
   orderHistory = [],
   timezone,
+  label = 'Order History',
 }) => {
   const [collapsed, setCollapsed] = useState(isCollapsed);
 
   const formatDate = (datetime: string | undefined): string => {
     if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
-    return DateTime.fromISO(datetime).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
+    return DateTime.fromISO(datetime).setZone(timezone).toFormat("MM/dd/yyyy 'at' h:mm a");
   };
 
   return (
     <>
       <AccordionCard
-        label={'Procedure History'}
+        label={label}
         collapsed={collapsed}
         withBorder={false}
         onSwitch={() => {
@@ -37,7 +40,9 @@ export const RadiologyOrderHistoryCard: React.FC<RadiologyOrderHistoryProps> = (
           {orderHistory.map((row) => {
             return (
               <TableRow key={`${row.status}-${row.performer}-${row.date}`}>
-                <TableCell>{row.status.toUpperCase()}</TableCell>
+                <TableCell>
+                  <RadiologyTableStatusChip status={row.status} />
+                </TableCell>
                 <TableCell>{row.performer}</TableCell>
                 <TableCell>{formatDate(row.date)}</TableCell>
               </TableRow>

@@ -8,57 +8,56 @@ import {
   TableBody,
   TableCell,
   TableContainer,
-  TableHead,
   TableRow,
   Typography,
   useTheme,
 } from '@mui/material';
 import { DateTime } from 'luxon';
-import { ReactElement, useState } from 'react';
-import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import { InPersonAppointmentInformation, OrdersForTrackingBoardRow, OrdersForTrackingBoardTable } from 'utils';
+import { ReactElement, useCallback, useState } from 'react';
 import {
-  ACTION_WIDTH_MIN,
-  CHAT_WIDTH_MIN,
-  GO_TO_MANY_BUTTONS_WIDTH_MIN,
-  GO_TO_ONE_BUTTON_WIDTH_MIN,
-  NOTES_WIDTH_MIN,
-  PATIENT_AND_REASON_WIDTH_MIN,
-  PROVIDER_WIDTH_MIN,
-  ROOM_WIDTH_MIN,
-  TIME_WIDTH_MIN,
-  TYPE_WIDTH_MIN,
-  VISIT_ICONS_WIDTH_MIN,
-} from '../constants';
+  GetVitalsForListOfEncountersResponseData,
+  GetVitalsResponseData,
+} from 'utils/lib/types/api/chart-data/get-vitals.types';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
+import { OrdersForTrackingBoardRow, OrdersForTrackingBoardTable } from 'utils/lib/types/data/orders/types';
 import { dataTestIds } from '../constants/data-test-ids';
+import { useGetEmployees } from '../features/visits/shared/hooks/useGetEmployees';
 import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
+import AppointmentTableHeader from './AppointmentTableHeader';
 import AppointmentTableRow from './AppointmentTableRow';
 import { ApptTab } from './AppointmentTabs';
 
 interface AppointmentTableProps {
   appointments: InPersonAppointmentInformation[];
-  location: LocationWithWalkinSchedule | undefined;
   tab: ApptTab;
   now: DateTime;
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
   orders: OrdersForTrackingBoardTable;
+  vitals?: GetVitalsForListOfEncountersResponseData;
 }
 
 export default function AppointmentTable({
   appointments,
-  location,
   tab,
   now,
   updateAppointments,
   setEditingComment,
   orders,
+  vitals,
 }: AppointmentTableProps): ReactElement {
   const theme = useTheme();
-  const actionButtons = tab === ApptTab.prebooked ? true : false;
-  const showTime = tab !== ApptTab.prebooked ? true : false;
   const [collapseWaiting, setCollapseWaiting] = useState<boolean>(false);
   const [collapseExam, setCollapseExam] = useState<boolean>(false);
+
+  // Intake/provider assignment is only editable on the in-office tab, so only fetch the (rarely
+  // changing) employee lists there. Discharged/Cancelled render the names read-only from the
+  // appointment's participants, so they don't need this list.
+  const { data: employees, isLoading: employeesLoading } = useGetEmployees({
+    enabled: tab === ApptTab['in-office'],
+  });
+  const intakeOptions = employees?.nonProviders ?? [];
+  const providerOptions = employees?.providers ?? [];
 
   const {
     inHouseLabOrdersByAppointmentId,
@@ -66,15 +65,41 @@ export default function AppointmentTable({
     nursingOrdersByAppointmentId,
     inHouseMedicationsByEncounterId,
     radiologyOrdersByAppointmentId,
+    erxOrdersByEncounterId,
+    proceduresByEncounterId,
+    immunizationOrdersByEncounterId,
   } = orders;
 
-  const ordersForAppointment = (appointmentId: string, encounterId: string): OrdersForTrackingBoardRow => ({
-    inHouseLabOrders: inHouseLabOrdersByAppointmentId[appointmentId],
-    externalLabOrders: externalLabOrdersByAppointmentId[appointmentId],
-    nursingOrders: nursingOrdersByAppointmentId[appointmentId],
-    inHouseMedications: inHouseMedicationsByEncounterId[encounterId],
-    radiologyOrders: radiologyOrdersByAppointmentId[appointmentId],
-  });
+  const ordersForAppointment = useCallback(
+    (appointmentId: string, encounterId: string): OrdersForTrackingBoardRow => ({
+      inHouseLabOrders: inHouseLabOrdersByAppointmentId[appointmentId],
+      externalLabOrders: externalLabOrdersByAppointmentId[appointmentId],
+      nursingOrders: nursingOrdersByAppointmentId[appointmentId],
+      inHouseMedications: inHouseMedicationsByEncounterId[encounterId],
+      radiologyOrders: radiologyOrdersByAppointmentId[appointmentId],
+      erxOrders: erxOrdersByEncounterId[encounterId],
+      procedures: proceduresByEncounterId[encounterId],
+      immunizationOrders: immunizationOrdersByEncounterId[encounterId],
+    }),
+    [
+      inHouseLabOrdersByAppointmentId,
+      externalLabOrdersByAppointmentId,
+      nursingOrdersByAppointmentId,
+      inHouseMedicationsByEncounterId,
+      radiologyOrdersByAppointmentId,
+      erxOrdersByEncounterId,
+      proceduresByEncounterId,
+      immunizationOrdersByEncounterId,
+    ]
+  );
+
+  const vitalsForAppointment = useCallback(
+    (appointment: InPersonAppointmentInformation): GetVitalsResponseData | undefined => {
+      console.log(appointment, vitals);
+      return vitals?.[appointment.encounterId];
+    },
+    [vitals]
+  );
 
   return (
     <>
@@ -82,79 +107,15 @@ export default function AppointmentTable({
       <Paper>
         <TableContainer sx={{ overflow: 'auto' }} data-testid={dataTestIds.dashboard.appointmentsTable(tab)}>
           <Table style={{ tableLayout: 'auto', width: '100%', maxWidth: '100%' }}>
-            {/* column widths must add up to the table width ^ */}
-            <TableHead>
-              <TableRow
-                sx={{ '& .MuiTableCell-root': { px: '8px' }, display: { xs: 'none', sm: 'none', md: 'table-row' } }}
-              >
-                <TableCell></TableCell>
-                <TableCell style={{ minWidth: TYPE_WIDTH_MIN }}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                    {tab !== ApptTab.prebooked ? 'Type & Status' : 'Type'}
-                  </Typography>
-                </TableCell>
-                {showTime && (
-                  <TableCell style={{ minWidth: TIME_WIDTH_MIN }}>
-                    <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                      Time
-                    </Typography>
-                  </TableCell>
-                )}
-                <TableCell style={{ minWidth: PATIENT_AND_REASON_WIDTH_MIN }}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                    Patient & Reason
-                  </Typography>
-                </TableCell>
-                {(tab === ApptTab['in-office'] || tab === ApptTab.completed) && (
-                  <TableCell style={{ minWidth: ROOM_WIDTH_MIN }}>
-                    <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                      Room
-                    </Typography>
-                  </TableCell>
-                )}
-                <TableCell style={{ minWidth: PROVIDER_WIDTH_MIN }}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                    Provider
-                  </Typography>
-                </TableCell>
-                <TableCell style={{ minWidth: VISIT_ICONS_WIDTH_MIN }}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                    {tab === ApptTab.completed ? 'Orders' : 'Visit Components'}
-                  </Typography>
-                </TableCell>
-                <TableCell style={{ minWidth: NOTES_WIDTH_MIN }}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                    Notes
-                  </Typography>
-                </TableCell>
-                <TableCell style={{ minWidth: CHAT_WIDTH_MIN }}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                    Chat
-                  </Typography>
-                </TableCell>
-                <TableCell
-                  style={{
-                    minWidth: tab === ApptTab.prebooked ? GO_TO_ONE_BUTTON_WIDTH_MIN : GO_TO_MANY_BUTTONS_WIDTH_MIN,
-                  }}
-                >
-                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                    Actions
-                  </Typography>
-                </TableCell>
-                {tab === ApptTab.prebooked && (
-                  <TableCell style={{ minWidth: ACTION_WIDTH_MIN }}>
-                    <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                      Arrived
-                    </Typography>
-                  </TableCell>
-                )}
-              </TableRow>
-            </TableHead>
+            <AppointmentTableHeader tab={tab} table="waiting-room" />
             <TableBody>
               {tab === ApptTab['in-office'] ? (
                 <>
                   <TableRow>
-                    <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={10}>
+                    <TableCell
+                      sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08), px: 1.5 }}
+                      colSpan={11}
+                    >
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <IconButton onClick={() => setCollapseWaiting(!collapseWaiting)} sx={{ mr: 0.75, p: 0 }}>
                           <ArrowDropDownCircleOutlinedIcon
@@ -164,8 +125,7 @@ export default function AppointmentTable({
                             }}
                           ></ArrowDropDownCircleOutlinedIcon>
                         </IconButton>
-                        {/* todo add a count to the this title */}
-                        <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
+                        <Typography variant="subtitle2" sx={{ fontSize: '14px', fontWeight: 600 }}>
                           Waiting Room (
                           {
                             appointments.filter((appointmentTemp) => {
@@ -188,15 +148,16 @@ export default function AppointmentTable({
                           <AppointmentTableRow
                             key={appointment.id}
                             appointment={appointment}
-                            location={location}
-                            actionButtons={actionButtons}
-                            showTime={showTime}
                             now={now}
                             updateAppointments={updateAppointments}
                             setEditingComment={setEditingComment}
                             tab={tab}
+                            table={'waiting-room'}
                             orders={ordersForAppointment(appointment.id, appointment.encounterId)}
-                          ></AppointmentTableRow>
+                            intakeOptions={intakeOptions}
+                            providerOptions={providerOptions}
+                            employeesLoading={employeesLoading}
+                          />
                         );
                       })}
                 </>
@@ -206,15 +167,16 @@ export default function AppointmentTable({
                     <AppointmentTableRow
                       key={appointment.id}
                       appointment={appointment}
-                      location={location}
-                      actionButtons={actionButtons}
-                      showTime={showTime}
                       now={now}
                       updateAppointments={updateAppointments}
                       setEditingComment={setEditingComment}
                       tab={tab}
+                      vitals={vitalsForAppointment(appointment)}
                       orders={ordersForAppointment(appointment.id, appointment.encounterId)}
-                    ></AppointmentTableRow>
+                      intakeOptions={intakeOptions}
+                      providerOptions={providerOptions}
+                      employeesLoading={employeesLoading}
+                    />
                   );
                 })
               )}
@@ -226,25 +188,10 @@ export default function AppointmentTable({
         <Paper sx={{ marginTop: '16px' }}>
           <TableContainer sx={{ overflow: 'auto' }}>
             <Table style={{ tableLayout: 'auto', width: '100%', maxWidth: '100%' }}>
-              <TableHead>
-                <TableRow
-                  sx={{ '& .MuiTableCell-root': { px: '8px' }, display: { xs: 'none', sm: 'none', md: 'table-row' } }}
-                >
-                  <TableCell></TableCell>
-                  <TableCell style={{ minWidth: TYPE_WIDTH_MIN }}></TableCell>
-                  {showTime && <TableCell style={{ minWidth: TIME_WIDTH_MIN }}></TableCell>}
-                  <TableCell style={{ minWidth: PATIENT_AND_REASON_WIDTH_MIN }}></TableCell>
-                  <TableCell style={{ minWidth: ROOM_WIDTH_MIN }}></TableCell>
-                  <TableCell style={{ minWidth: PROVIDER_WIDTH_MIN }}></TableCell>
-                  <TableCell style={{ minWidth: VISIT_ICONS_WIDTH_MIN }}></TableCell>
-                  <TableCell style={{ minWidth: NOTES_WIDTH_MIN }}></TableCell>
-                  <TableCell style={{ minWidth: CHAT_WIDTH_MIN }}></TableCell>
-                  <TableCell style={{ minWidth: GO_TO_MANY_BUTTONS_WIDTH_MIN }}></TableCell>
-                </TableRow>
-              </TableHead>
+              <AppointmentTableHeader tab={tab} table="in-exam" />
               <TableBody>
                 <TableRow>
-                  <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={10}>
+                  <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08), px: 1.5 }} colSpan={12}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <IconButton onClick={() => setCollapseExam(!collapseExam)} sx={{ mr: 0.75, p: 0 }}>
                         <ArrowDropDownCircleOutlinedIcon
@@ -254,8 +201,7 @@ export default function AppointmentTable({
                           }}
                         ></ArrowDropDownCircleOutlinedIcon>
                       </IconButton>
-                      {/* todo add a count to the this title */}
-                      <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
+                      <Typography variant="subtitle2" sx={{ fontSize: '14px', fontWeight: 600 }}>
                         Exam Rooms (
                         {
                           appointments.filter((appointmentTemp) => {
@@ -278,15 +224,17 @@ export default function AppointmentTable({
                         <AppointmentTableRow
                           key={appointment.id}
                           appointment={appointment}
-                          location={location}
-                          actionButtons={actionButtons}
-                          showTime={showTime}
                           now={now}
+                          vitals={vitalsForAppointment(appointment)}
                           updateAppointments={updateAppointments}
                           setEditingComment={setEditingComment}
                           tab={tab}
+                          table="in-exam"
                           orders={ordersForAppointment(appointment.id, appointment.encounterId)}
-                        ></AppointmentTableRow>
+                          intakeOptions={intakeOptions}
+                          providerOptions={providerOptions}
+                          employeesLoading={employeesLoading}
+                        />
                       );
                     })}
               </TableBody>

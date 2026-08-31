@@ -1,16 +1,43 @@
-import { Box, Checkbox, FormControl, FormControlLabel, FormGroup, FormLabel, Typography } from '@mui/material';
-import { AVAILABLE_EMPLOYEE_ROLES, RoleType } from 'utils';
+import {
+  Box,
+  Checkbox,
+  FormControl,
+  FormControlLabel,
+  FormGroup,
+  FormHelperText,
+  FormLabel,
+  Typography,
+  useTheme,
+} from '@mui/material';
+import { AVAILABLE_EMPLOYEE_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import { dataTestIds } from '../../constants/data-test-ids';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { RoleSelectionProps } from './types';
 
-export function RoleSelection({ errors, isActive, getValues, setValue }: RoleSelectionProps): JSX.Element {
+export function RoleSelection({ errors, isActive, isOwnRecord, getValues, setValue }: RoleSelectionProps): JSX.Element {
+  const theme = useTheme();
   const currentUser = useEvolveUser();
+  const canEditRoles = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
 
   return (
-    <FormControl sx={{ width: '100%' }} error={errors.roles} data-testid={dataTestIds.employeesPage.rolesSection}>
-      <FormLabel sx={{ mb: 1, mt: 2, fontWeight: '600 !important' }}>Role</FormLabel>
-      <FormLabel sx={{ fontWeight: 500, fontSize: '12px' }}>Select role *</FormLabel>
+    <FormControl
+      sx={{ width: '100%' }}
+      error={errors.roles}
+      data-testid={dataTestIds.employeesPage.rolesSection}
+      required
+    >
+      <Typography sx={{ ...theme.typography.h4, color: theme.palette.primary.dark, mb: 2 }}>Role</Typography>
+      <FormLabel component="legend" sx={{ fontWeight: 500, fontSize: '12px' }}>
+        Select role
+      </FormLabel>
+      {/* Roles are shown to everyone but only an admin may change them, which is otherwise just a
+          row of dead checkboxes. Deliberately not shown when the checkboxes are disabled for the
+          other reason — a deactivated record — since the activation card already explains that. */}
+      {!canEditRoles && isActive && (
+        <FormHelperText data-testid={dataTestIds.employeesPage.roleEditPermissionHint} sx={{ ml: 0, mt: 0.5, mb: 1 }}>
+          {isOwnRecord ? 'Only an administrator can update your role.' : 'Only an administrator can update roles.'}
+        </FormHelperText>
+      )}
       <FormGroup>
         {AVAILABLE_EMPLOYEE_ROLES.map((roleEntry, index) => {
           const roles = getValues('roles') ?? [];
@@ -30,7 +57,7 @@ export function RoleSelection({ errors, isActive, getValues, setValue }: RoleSel
                   setValue('roles', newRoles);
                 }}
                 control={<Checkbox />}
-                disabled={!isActive || !currentUser?.hasRole([RoleType.Administrator])}
+                disabled={!isActive || !canEditRoles}
                 label={roleEntry.label}
                 sx={{ '.MuiFormControlLabel-asterisk': { display: 'none' } }}
               />

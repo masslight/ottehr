@@ -1,33 +1,64 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Location, Schedule } from 'fhir/r4b';
+import { Coding, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { isBookingConfigServiceCategoryCode } from 'utils/lib/config-helpers/booking';
+import { SERVICE_CATEGORY_SYSTEM, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import {
-  AvailableLocationInformation,
-  FHIR_RESOURCE_NOT_FOUND,
+  getPractitionerRoleAllCategories,
+  getServiceCategoryCadenceMinutes,
+  getServiceCategoryDurationMinutes,
+} from 'utils/lib/fhir/healthcareService';
+import { getSlugForBookableResource } from 'utils/lib/fhir/helpers';
+import {
+  getLocationInformation,
+  isLocationBookable,
+  isLocationInPerson,
+  LOCATION_BOOKABLE_SEARCH_PARAM,
+  locationSupportsServiceMode,
+} from 'utils/lib/fhir/location';
+import { getFullName } from 'utils/lib/fhir/patient';
+import { getOpeningTime, isLocationOpen } from 'utils/lib/helpers/check-office-open';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { AvailableLocationInformation, Timezone } from 'utils/lib/types/common';
+import { GetScheduleResponse, PickableLocation } from 'utils/lib/types/data/get-schedule.types';
+import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import {
   fhirTypeForScheduleType,
   getAvailableSlotsForSchedules,
-  getLocationInformation,
-  getOpeningTime,
   getScheduleExtension,
-  GetScheduleResponse,
-  getSecret,
   getTimezone,
   getWaitingMinutesAtSchedule,
-  isLocationOpen,
-  isLocationVirtual,
-  SecretsKeys,
+  scheduleOwnerSupportsServiceMode,
   SlotListItem,
-  Timezone,
-} from 'utils';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  getSchedules,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+} from 'utils/lib/utils/scheduleUtils';
+import { getSchedules } from '../../shared/fhir';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { isEntryAtBookableLocation } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+
+/**
+ * Locations that are eligible to be booked, narrowed by `selector`.
+ *
+ * Every Location this handler resolves goes through here so the deactivated-Location rule is applied
+ * once. `getSchedules` only filters the *owner* named by the slug — a group's member Locations
+ * arrive via `_include` and never pass through it, so each of the lookups below (slug resolution,
+ * the paired-Location map, the multi-Location picker) has to exclude them itself.
+ */
+const searchBookableLocations = async (
+  oystehr: Oystehr,
+  selector: { name: string; value: string }
+): Promise<Location[]> =>
+  (
+    await oystehr.fhir.search<Location>({
+      resourceType: 'Location',
+      params: [selector, LOCATION_BOOKABLE_SEARCH_PARAM],
+    })
+  ).unbundle();
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
@@ -35,124 +66,515 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   console.log('this should get logged out if the zambda has been deployed');
   console.log(`Input: ${JSON.stringify(input)}`);
 
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const { secrets, scheduleType, slug } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  const { secrets, scheduleType, slug, selectedDate, serviceMode, atLocationSlug } = validatedParameters;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
 
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
+  if (!oystehrToken) {
+    console.log('getting token');
+    oystehrToken = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token', oystehrToken);
+  }
+
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
+  if (!oystehr) {
+    throw new Error('error initializing fhir client');
+  }
+
+  const telemedAvailable: SlotListItem[] = [];
+  const availableSlots: SlotListItem[] = [];
+
+  console.time('get-schedule-from-slug');
+  const scheduleData = await getSchedules(oystehr, scheduleType, { slug });
+  const { scheduleList, metadata, rootScheduleOwner: scheduleOwner } = scheduleData;
+  console.timeEnd('get-schedule-from-slug');
+  console.log('groupItems retrieved from getScheduleUtil:', JSON.stringify(scheduleList, null, 2));
+  //console.log('owner retrieved from getScheduleUtil:', JSON.stringify(scheduleOwner, null, 2));
+  console.log('scheduleMetaData', JSON.stringify(metadata, null, 2));
+
+  const { serviceCategoryCode } = validatedParameters;
+
+  // Resolve the effective service category for this booking. Sources, in order:
+  //   1. URL serviceCategoryCode (group bookings, explicitly-scoped PR links).
+  //   2. PR-direct bookings where the PR offers exactly one category — that
+  //      category is unambiguously what's being booked, so use it.
+  //   3. Otherwise undefined; slot generator uses defaults.
+  //
+  // Same lookup feeds Slot.serviceCategory stamping, slot duration, AND cadence.
+  // We fetch the category-tagged HealthcareServices once and use the result for
+  // every downstream lookup that needs them.
+  const fhirCategoryHits = (
+    await oystehr.fhir.search<HealthcareService>({
+      resourceType: 'HealthcareService',
+      params: [
+        { name: '_tag', value: 'booking-service-category' },
+        { name: 'active', value: 'true' },
+      ],
+    })
+  ).unbundle();
+
+  const parseCategoryConfig = (hs: HealthcareService): { durationMinutes?: number; cadenceMinutes?: number } => ({
+    durationMinutes: getServiceCategoryDurationMinutes(hs),
+    cadenceMinutes: getServiceCategoryCadenceMinutes(hs),
+  });
+
+  let resolvedCoding: Coding | undefined;
+  let slotLengthMinutes: number | undefined;
+  let cadenceMinutes: number | undefined;
+
+  // 1. Explicit category in the URL.
+  // Resolution order is BOOKING_CONFIG-first → FHIR-fallback. BOOKING_CONFIG is
+  // the compiled-in source of truth for production-deployed categories
+  // (urgent-care, workers-comp, etc.); a FHIR entry with the same code is
+  // intentionally ignored so an admin who creates a colliding FHIR row can't
+  // silently change the slot-generation behavior of an existing production
+  // booking URL. The FHIR catalog is consulted only for codes that are NOT
+  // already in BOOKING_CONFIG (i.e., genuinely new admin-added categories).
+  if (serviceCategoryCode) {
+    const configHit = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategoryCode);
+    if (configHit) {
+      resolvedCoding = { system: configHit.category.system, code: configHit.category.code };
+      // BOOKING_CONFIG entries don't carry cadence — slot generation falls
+      // through to per-Schedule slot length, the pre-branch behavior.
     } else {
-      console.log('already have token', oystehrToken);
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
-    if (!oystehr) {
-      throw new Error('error initializing fhir client');
-    }
-
-    const telemedAvailable: SlotListItem[] = [];
-    const availableSlots: SlotListItem[] = [];
-
-    console.time('get-schedule-from-slug');
-    const scheduleData = await getSchedules(oystehr, scheduleType, slug);
-    const { scheduleList, metadata, rootScheduleOwner: scheduleOwner } = scheduleData;
-    console.timeEnd('get-schedule-from-slug');
-    console.log('groupItems retrieved from getScheduleUtil:', JSON.stringify(scheduleList, null, 2));
-    //console.log('owner retrieved from getScheduleUtil:', JSON.stringify(scheduleOwner, null, 2));
-    console.log('scheduleMetaData', JSON.stringify(metadata, null, 2));
-
-    console.time('synchronous_data_processing');
-    const { telemedAvailable: tmSlots, availableSlots: regularSlots } = await getAvailableSlotsForSchedules(
-      {
-        now: DateTime.now(),
-        scheduleList,
-      },
-      oystehr
-    );
-    if (scheduleOwner.resourceType === 'Location' && !isLocationVirtual(scheduleOwner as Location)) {
-      telemedAvailable.push(...tmSlots);
-    }
-    availableSlots.push(...regularSlots);
-    console.timeEnd('synchronous_data_processing');
-
-    if (!scheduleOwner) {
-      throw FHIR_RESOURCE_NOT_FOUND(fhirTypeForScheduleType(scheduleType));
-    }
-
-    const now = DateTime.now();
-
-    // todo: this should live on a fhir resource rather than being a global secret
-    const DISPLAY_TOMORROW_SLOTS_AT_HOUR = parseInt(
-      getSecret(SecretsKeys.IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR, secrets)
-    );
-
-    /*
-    todo when Zap supports the near param
-    const nearbyLocations: Location = [];
-
-    const latitude = location.position?.latitude;
-    const longitude = location.position?.longitude;
-    if (latitude && longitude && location.id) {
-      console.log('searching for locations near', latitude, longitude);
-      const nearbyLocationSearchResults: Location[] = await oystehr.searchResources({
-        resourceType: 'Location',
-        searchParams: [
-          { name: 'near', value: `${latitude}|${longitude}|20.0|mi_us` },
-          // { name: '_id:not-in', value: location.id },
-        ],
-      });
-      console.log('nearbyLocationSearchResults', nearbyLocationSearchResults.length);
-    }*/
-
-    console.log('organizing location information for response');
-
-    const scheduleMatch = scheduleList.find((scheduleAndOwner) => {
-      const { owner } = scheduleAndOwner;
-      return owner && `${owner.resourceType}/${owner.id}` === `${scheduleOwner.resourceType}/${scheduleOwner.id}`;
-    })?.schedule;
-
-    const locationInformationWithClosures: AvailableLocationInformation = getLocationInformation(
-      scheduleOwner,
-      scheduleMatch
-    );
-
-    console.log('getting wait time based on longest waiting patient at location');
-    console.time('get_waiting_minutes');
-    const waitingMinutes = await getWaitingMinutesAtSchedule(oystehr, now, scheduleOwner);
-    console.timeEnd('get_waiting_minutes');
-
-    let timezone: Timezone | undefined;
-    if (scheduleList.length === 1) {
-      const schedule = scheduleList[0].schedule;
-      if (schedule) {
-        timezone = getTimezone(schedule);
+      const fhirHit = fhirCategoryHits.find((hs) => hs.type?.[0]?.coding?.some((c) => c.code === serviceCategoryCode));
+      if (fhirHit) {
+        resolvedCoding = { system: SERVICE_CATEGORY_SYSTEM, code: serviceCategoryCode };
+        const cfg = parseCategoryConfig(fhirHit);
+        slotLengthMinutes = cfg.durationMinutes;
+        cadenceMinutes = cfg.cadenceMinutes;
       }
     }
+  }
 
-    const response: GetScheduleResponse = {
-      message: 'Successfully retrieved all available slot times',
-      available: availableSlots,
-      telemedAvailable,
-      location: locationInformationWithClosures,
-      displayTomorrowSlotsAtHour: DISPLAY_TOMORROW_SLOTS_AT_HOUR,
-      waitingMinutes,
-      timezone,
+  // 2. PR-direct booking with a single offered category — infer it.
+  // `healthcareService[]` mixes category refs and group-membership refs, so
+  // counting (and resolving) only the category subset — otherwise a PR that
+  // happens to belong to a group would be treated as ambiguous and skip the
+  // inference path even when it offers exactly one real category.
+  if (!resolvedCoding && scheduleOwner.resourceType === 'PractitionerRole') {
+    const fhirCategoryIds = new Set(fhirCategoryHits.map((hs) => hs.id).filter((id): id is string => !!id));
+    const roleCategoryIds = ((scheduleOwner as PractitionerRole).healthcareService ?? [])
+      .map((ref) => ref.reference?.split('/')[1])
+      .filter((id): id is string => !!id && fhirCategoryIds.has(id));
+    if (roleCategoryIds.length === 1) {
+      const onlyId = roleCategoryIds[0];
+      const inferredHit = fhirCategoryHits.find((hs) => hs.id === onlyId);
+      const inferredCode = inferredHit?.type?.[0]?.coding?.find((c) => c.code)?.code;
+      if (inferredHit && inferredCode) {
+        resolvedCoding = { system: SERVICE_CATEGORY_SYSTEM, code: inferredCode };
+        const cfg = parseCategoryConfig(inferredHit);
+        slotLengthMinutes = cfg.durationMinutes;
+        cadenceMinutes = cfg.cadenceMinutes;
+      }
+    }
+  }
+
+  const serviceCategories: Coding[] | undefined = resolvedCoding ? [resolvedCoding] : undefined;
+
+  // For group bookings, the group's type[] is the authoritative allow-list of
+  // categories patients can book through it. Reject URL category codes that
+  // aren't in the list — otherwise a multi-skill member's other categories
+  // (e.g. an aesthetics provider in a Massage group) would leak through.
+  if (serviceCategoryCode && scheduleOwner.resourceType === 'HealthcareService') {
+    const groupSupportedCodes = (scheduleOwner as HealthcareService).type
+      ?.flatMap((t) => t.coding || [])
+      .map((c) => c.code)
+      .filter((c): c is string => !!c);
+    if (groupSupportedCodes && groupSupportedCodes.length > 0 && !groupSupportedCodes.includes(serviceCategoryCode)) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: `This group does not offer "${serviceCategoryCode}".`,
+          code: 'CATEGORY_NOT_SUPPORTED_BY_GROUP',
+        }),
+      };
+    }
+  }
+
+  // Filter PractitionerRole-owned schedules by healthcareService[]. When a
+  // category is requested, drop any schedule whose PractitionerRole owner
+  // doesn't list the category-tagged HealthcareService (matched by code on
+  // the role's healthcareService references resolved through fhirMatches).
+  // Schedules owned by Location / Practitioner / HealthcareService pass through
+  // unchanged — we only use the role's service list to narrow the pool.
+  //
+  // BOOKING_CONFIG (compile-time) categories are a hard exclusion for any
+  // PR-owned schedule, regardless of the `allCategories` toggle: BOOKING_CONFIG
+  // categories aren't backed by a FHIR HealthcareService, so a PR has no way to
+  // legitimately opt into them, and a Slot stamped with one of these codes
+  // must live on a Location or group (HealthcareService) actor. Skipping the
+  // FHIR lookup below in that case avoids one round-trip too.
+  if (serviceCategoryCode) {
+    if (isBookingConfigServiceCategoryCode(serviceCategoryCode)) {
+      const filtered = scheduleList.filter((entry) => entry.owner.resourceType !== 'PractitionerRole');
+      scheduleList.length = 0;
+      scheduleList.push(...filtered);
+    } else {
+      // Reuse the FHIR category bundle fetched at the top of the handler
+      // (`fhirCategoryHits`) — same query, same snapshot. Re-running the
+      // search here would burn an extra round-trip and risk a snapshot-
+      // inconsistency window if a category were added/removed mid-handler.
+      const categoryHealthcareServiceIds = new Set<string>();
+      for (const hs of fhirCategoryHits) {
+        if (hs.type?.[0]?.coding?.some((c) => c.code === serviceCategoryCode) && hs.id) {
+          categoryHealthcareServiceIds.add(hs.id);
+        }
+      }
+
+      const filtered = scheduleList.filter((entry) => {
+        if (entry.owner.resourceType !== 'PractitionerRole') return true;
+        // PR with the all-categories toggle on is qualified for any FHIR-backed
+        // service the resolver asks about — no per-category opt-in needed.
+        if (getPractitionerRoleAllCategories(entry.owner as PractitionerRole)) return true;
+        const roleServices = (entry.owner as any).healthcareService || [];
+        return roleServices.some((ref: { reference?: string }) => {
+          const id = ref.reference?.split('/')[1];
+          return id && categoryHealthcareServiceIds.has(id);
+        });
+      });
+      // Mutate in place so the rest of the handler uses the filtered list.
+      scheduleList.length = 0;
+      scheduleList.push(...filtered);
+    }
+  }
+
+  // Reconcile group/owner *offering* against member *capability*: drop member
+  // schedules whose paired Location can't fulfill the requested service mode.
+  // A group may offer a mode (in-person or virtual) that a given member's
+  // Location doesn't support; without this, both mode links open the same
+  // slots and the mismatch only surfaces as a hard failure at booking time.
+  // All mode reasoning is delegated to locationSupportsServiceMode — the single
+  // seam a future provider-credentialing model would replace. `serviceMode` is
+  // optional: legacy callers that omit it keep the prior unfiltered behavior.
+  // pairedLocationById is reused by the qualifyingLocationIds loop below so the
+  // multi-Location picker never offers a Location the provider can't serve in
+  // this mode.
+  // Fetched regardless of `serviceMode`: the qualifying-Locations loop below needs each paired
+  // Location's `status` to keep deactivated ones out of booking, and that has to hold whether or not
+  // a mode was requested.
+  const pairedLocationById = new Map<string, Location>();
+  const pairedLocationIds = new Set<string>();
+  for (const entry of scheduleList) {
+    if (entry.owner.resourceType === 'PractitionerRole') {
+      for (const ref of (entry.owner as PractitionerRole).location ?? []) {
+        const id = ref.reference?.split('/')[1];
+        if (id) pairedLocationIds.add(id);
+      }
+    }
+  }
+  if (pairedLocationIds.size > 0) {
+    const locs = await searchBookableLocations(oystehr, {
+      name: '_id',
+      value: Array.from(pairedLocationIds).join(','),
+    });
+    for (const loc of locs) if (loc.id) pairedLocationById.set(loc.id, loc);
+  }
+
+  // Drop schedules that can only be delivered at a deactivated Location, so a group stops vending
+  // once its member Locations are deactivated.
+  //
+  // Narrowing `qualifyingLocationIds` further down is NOT sufficient on its own: an empty set takes
+  // neither the `atLocationId` branch nor the multi-Location branch, so the schedules fall straight
+  // through and still vend — the same fall-through that let a single deactivated Location keep
+  // booking. The schedules themselves have to go.
+  const bookableEntries = scheduleList.filter((entry) => isEntryAtBookableLocation(entry, pairedLocationById));
+  scheduleList.length = 0;
+  scheduleList.push(...bookableEntries);
+
+  if (serviceMode) {
+    const modeFiltered = scheduleList.filter((entry) =>
+      scheduleOwnerSupportsServiceMode(entry.owner, serviceMode, pairedLocationById)
+    );
+    scheduleList.length = 0;
+    scheduleList.push(...modeFiltered);
+  }
+
+  // Resolve atLocationSlug → Location id, then narrow scheduleList to
+  // entries that actually operate at that Location. If atLocationSlug isn't
+  // provided but the remaining scheduleList spans more than one Location,
+  // error out — the caller must disambiguate so vended slots carry a
+  // definite Location attribution. The Location chosen here is the one
+  // stamped on every vended Slot via the slot-at-location extension.
+  // `atLocation` is retained past this block so the response builder can
+  // surface its friendly name in `location` for group bookings — the patient
+  // experience is at the specific Location, not the abstract group.
+  let atLocationId: string | undefined;
+  let atLocation: Location | undefined;
+  if (atLocationSlug) {
+    const candidates = await searchBookableLocations(oystehr, {
+      name: 'identifier',
+      value: `${SLUG_SYSTEM}|${atLocationSlug}`,
+    });
+    const candidate = candidates[0];
+    if (!candidate?.id) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: `"atLocationSlug" did not match any Location: ${atLocationSlug}`,
+          code: 'AT_LOCATION_NOT_FOUND',
+        }),
+      };
+    }
+    atLocationId = candidate.id;
+    atLocation = candidate;
+  }
+
+  const qualifyingLocationIds = new Set<string>();
+  for (const entry of scheduleList) {
+    if (entry.owner.resourceType === 'Location' && entry.owner.id) {
+      // Owner Locations that survived the mode filter above already support
+      // the requested mode, so no re-check is needed here.
+      if (!isLocationBookable(entry.owner as Location)) continue;
+      qualifyingLocationIds.add(entry.owner.id);
+    } else if (entry.owner.resourceType === 'PractitionerRole') {
+      for (const ref of (entry.owner as PractitionerRole).location ?? []) {
+        const id = ref.reference?.split('/')[1];
+        if (!id) continue;
+        // Absent from the map means the fetch above excluded it as deactivated.
+        if (!pairedLocationById.has(id)) continue;
+        // When a mode is requested, admit only the provider's mode-capable
+        // Location(s) so the multi-Location picker can't surface a Location
+        // the provider can't serve in this mode.
+        if (serviceMode) {
+          const loc = pairedLocationById.get(id);
+          if (!loc || !locationSupportsServiceMode(loc, serviceMode)) continue;
+        }
+        qualifyingLocationIds.add(id);
+      }
+    }
+  }
+
+  if (atLocationId) {
+    if (!qualifyingLocationIds.has(atLocationId)) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'No bookable schedules at the specified location.',
+          code: 'NO_SCHEDULES_AT_LOCATION',
+        }),
+      };
+    }
+    const narrowed = scheduleList.filter((entry) => {
+      if (entry.owner.resourceType === 'Location') return entry.owner.id === atLocationId;
+      if (entry.owner.resourceType === 'PractitionerRole') {
+        return ((entry.owner as PractitionerRole).location ?? []).some(
+          (ref) => ref.reference?.split('/')[1] === atLocationId
+        );
+      }
+      // Practitioner / HealthcareService owners pass through (rare in the
+      // current model). They have no Location of their own to filter on.
+      return true;
+    });
+    scheduleList.length = 0;
+    scheduleList.push(...narrowed);
+  } else if (qualifyingLocationIds.size > 1) {
+    // Multi-Location owner with no atLocationSlug provided. Rather than
+    // erroring, return the qualifying Locations so the front-end can
+    // render a picker. The caller re-invokes with atLocationSlug set
+    // once the patient chooses. Slot lists are empty in this response —
+    // the presence of pickableLocations signals "no slots yet, pick a
+    // Location first."
+    const ids = Array.from(qualifyingLocationIds);
+    const locationResources = await searchBookableLocations(oystehr, { name: '_id', value: ids.join(',') });
+    const pickableLocations: PickableLocation[] = locationResources
+      .map((loc) => {
+        if (!loc.id) return undefined;
+        const pickableSlug = getSlugForBookableResource(loc);
+        if (!pickableSlug) return undefined;
+        return { id: loc.id, slug: pickableSlug, name: loc.name ?? loc.id };
+      })
+      .filter((x): x is PickableLocation => !!x)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const pickerResponse: GetScheduleResponse = {
+      message: 'Multiple Locations qualify; pick one to see slots.',
+      available: [],
+      telemedAvailable: [],
+      waitingMinutes: 0,
+      displayTomorrowSlotsAtHour: 0,
+      pickableLocations,
     };
-
-    console.log('response to return: ', response);
-
     return {
       statusCode: 200,
-      body: JSON.stringify(response),
+      body: JSON.stringify(pickerResponse),
     };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('get-schedule', error, ENVIRONMENT);
   }
+
+  // Effective Location stamp for vended Slots: explicit input, or the
+  // single qualifying Location if there's only one. Undefined for the
+  // (degenerate) zero-qualifying-Locations case — vended slots get no
+  // stamp and create-appointment falls back to its actor walk.
+  const effectiveAtLocationId =
+    atLocationId ?? (qualifyingLocationIds.size === 1 ? Array.from(qualifyingLocationIds)[0] : undefined);
+
+  // Stamp the originating group on each vended Slot when this is a group
+  // booking. The scheduleOwner is the group HS itself (slug → owner via
+  // getSchedules). makeSlotListItems will skip stamping for entries where
+  // the Schedule's actor IS the group (no-state-duplication rule) — only
+  // PR-actored member schedules (the pools-providers case) get the stamp.
+  const bookedViaGroupId =
+    scheduleType === 'group' && scheduleOwner.resourceType === 'HealthcareService' ? scheduleOwner.id : undefined;
+
+  // Cadence is a service-level property — resolved above from
+  // ServiceCategoryRuntimeConfig alongside slotLengthMinutes.
+
+  console.log(
+    'SERVICE CATEGORIES FOR SLOT GENERATION:',
+    JSON.stringify(
+      { serviceCategories, slotLengthMinutes, cadenceMinutes, effectiveAtLocationId, bookedViaGroupId },
+      null,
+      2
+    )
+  );
+
+  console.time('synchronous_data_processing');
+  const { telemedAvailable: tmSlots, availableSlots: regularSlots } = await getAvailableSlotsForSchedules(
+    {
+      now: selectedDate ? DateTime.fromISO(selectedDate).startOf('day') : DateTime.now(),
+      scheduleList,
+      numDays: selectedDate ? 1 : undefined,
+      selectedDate,
+      serviceCategories,
+      slotLengthMinutes,
+      cadenceMinutes,
+      atLocationId: effectiveAtLocationId,
+      bookedViaGroupId,
+    },
+    oystehr
+  );
+  // In-person Location owners (including dual-mode Locations that are also
+  // virtual) surface any telemed slots configured on the schedule.
+  if (scheduleOwner.resourceType === 'Location' && isLocationInPerson(scheduleOwner as Location)) {
+    telemedAvailable.push(...tmSlots);
+  }
+  availableSlots.push(...regularSlots);
+  console.timeEnd('synchronous_data_processing');
+
+  if (!scheduleOwner) {
+    throw FHIR_RESOURCE_NOT_FOUND(fhirTypeForScheduleType(scheduleType));
+  }
+
+  const now = DateTime.now();
+
+  // todo: this should live on a fhir resource rather than being a global secret
+  const DISPLAY_TOMORROW_SLOTS_AT_HOUR = parseInt(
+    getSecret(SecretsKeys.IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR, secrets)
+  );
+
+  /*
+  todo when Zap supports the near param
+  const nearbyLocations: Location = [];
+
+  const latitude = location.position?.latitude;
+  const longitude = location.position?.longitude;
+  if (latitude && longitude && location.id) {
+    console.log('searching for locations near', latitude, longitude);
+    const nearbyLocationSearchResults: Location[] = await oystehr.searchResources({
+      resourceType: 'Location',
+      searchParams: [
+        { name: 'near', value: `${latitude}|${longitude}|20.0|mi_us` },
+        // { name: '_id:not-in', value: location.id },
+      ],
+    });
+    console.log('nearbyLocationSearchResults', nearbyLocationSearchResults.length);
+  }*/
+
+  console.log('organizing location information for response');
+
+  const scheduleMatch = scheduleList.find((scheduleAndOwner) => {
+    const { owner } = scheduleAndOwner;
+    return owner && `${owner.resourceType}/${owner.id}` === `${scheduleOwner.resourceType}/${scheduleOwner.id}`;
+  })?.schedule;
+
+  const locationInformationWithClosures: AvailableLocationInformation = getLocationInformation(
+    scheduleOwner,
+    scheduleMatch
+  );
+
+  // Group bookings: getLocationInformation returns the group's name (e.g.
+  // "MyGroup"), which is meaningless to a patient who is booking at a
+  // specific physical Location. When the group flow has resolved to a
+  // concrete Location — either via explicit atLocationSlug OR the single-
+  // qualifying-Location auto-pick at `effectiveAtLocationId` — override the
+  // friendly name so the booking page header reads "at Main Clinic" instead
+  // of "at MyGroup". The single-Location auto-pick case is load-bearing:
+  // groups with exactly one Location skip the picker entirely on the front
+  // end, so without this branch the header would degrade for the most
+  // common single-Location group setup. The scheduleOwner type
+  // (HealthcareService) stays as-is so other consumers that branch on owner
+  // type still see the group identity.
+  if (scheduleOwner.resourceType === 'HealthcareService') {
+    let resolvedAtLocation: Location | undefined = atLocation;
+    if (!resolvedAtLocation && effectiveAtLocationId) {
+      // Best-effort lookup for the auto-picked single Location. A failed
+      // fetch falls through to leave the group name in place — no worse
+      // than the pre-fix behavior.
+      resolvedAtLocation = await oystehr.fhir
+        .get<Location>({ resourceType: 'Location', id: effectiveAtLocationId })
+        .catch(() => undefined);
+    }
+    if (resolvedAtLocation?.name) {
+      locationInformationWithClosures.name = resolvedAtLocation.name;
+    }
+  }
+
+  // PR-actored schedules don't carry a friendly name — getLocationInformation
+  // returns "Role <uuid>" as a placeholder. Compose "<practitioner-name> at
+  // <location-name>" by fetching the referenced resources, so the booking page
+  // header reads naturally to the patient.
+  if (scheduleOwner.resourceType === 'PractitionerRole') {
+    const role = scheduleOwner as PractitionerRole;
+    const practitionerId = role.practitioner?.reference?.split('/')[1];
+    const locationId = role.location?.[0]?.reference?.split('/')[1];
+    const [practitioner, prLocation] = await Promise.all([
+      practitionerId
+        ? oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId }).catch(() => undefined)
+        : Promise.resolve(undefined),
+      locationId
+        ? oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId }).catch(() => undefined)
+        : Promise.resolve(undefined),
+    ]);
+    const practitionerName = practitioner ? getFullName(practitioner) : undefined;
+    const locationName = prLocation?.name;
+    const composed =
+      practitionerName && locationName ? `${practitionerName} at ${locationName}` : practitionerName ?? locationName;
+    if (composed) {
+      locationInformationWithClosures.name = composed;
+    }
+  }
+
+  console.log('getting wait time based on longest waiting patient at location');
+  console.time('get_waiting_minutes');
+  const waitingMinutes = await getWaitingMinutesAtSchedule(oystehr, now, scheduleOwner);
+  console.timeEnd('get_waiting_minutes');
+
+  let timezone: Timezone | undefined;
+  if (scheduleList.length === 1) {
+    const schedule = scheduleList[0].schedule;
+    if (schedule) {
+      timezone = getTimezone(schedule);
+    }
+  }
+
+  const response: GetScheduleResponse = {
+    message: 'Successfully retrieved all available slot times',
+    available: availableSlots,
+    telemedAvailable,
+    location: locationInformationWithClosures,
+    displayTomorrowSlotsAtHour: DISPLAY_TOMORROW_SLOTS_AT_HOUR,
+    waitingMinutes,
+    timezone,
+  };
+
+  console.log('response to return: ', response);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 export function getNextOpeningDateTime(now: DateTime, schedule: Schedule): string | undefined {

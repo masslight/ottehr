@@ -1,13 +1,15 @@
 import Oystehr, { FhirSearchParams } from '@oystehr/sdk';
 import { Appointment, Encounter, Location, Patient, RelatedPerson, Resource, Schedule } from 'fhir/r4b';
-import { OTTEHR_MODULE, removePrefix } from 'utils';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 
 export type EncounterToAppointmentIdMap = { [appointmentId: string]: Encounter };
 
 export function mapEncountersToAppointmentIds(allResources: Resource[]): EncounterToAppointmentIdMap {
   const result: EncounterToAppointmentIdMap = {};
   allResources.forEach((resource) => {
-    if (!(resource.resourceType === 'Encounter')) return;
+    if (!(resource.resourceType === 'Encounter' && !isAnnotationFollowupEncounter(resource as Encounter))) return;
     const encounter = resource as Encounter;
 
     const appointmentReference = encounter?.appointment?.[0].reference || '';

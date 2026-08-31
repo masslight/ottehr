@@ -1,17 +1,17 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { Encounter, Practitioner, Provenance, ServiceRequest, Task } from 'fhir/r4b';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils/lib/types/data/labs/labs.constants';
+import { NursingOrdersStatus } from 'utils/lib/types/data/orders/constants';
 import {
-  compareDates,
   GetNursingOrdersInputValidated,
   NursingOrder,
   NursingOrderDetailedDTO,
   NursingOrderHistoryRow,
   NursingOrdersSearchBy,
-  NursingOrdersStatus,
-  PRIVATE_EXTENSION_BASE_URL,
-  PROVENANCE_ACTIVITY_CODING_ENTITY,
-} from 'utils';
-import { parseAppointmentIdForServiceRequest } from '../shared/labs';
+} from 'utils/lib/types/data/orders/types';
+import { compareDates } from 'utils/lib/utils/dateUtils';
+import { parseAppointmentIdForServiceRequest } from '../lab/shared/labs';
 
 export const mapResourcesNursingOrderDTOs = (
   serviceRequests: ServiceRequest[],

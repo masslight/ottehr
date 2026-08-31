@@ -1,0 +1,1602 @@
+import { otherColors } from '@ehrTheme/colors';
+import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import { LoadingButton } from '@mui/lab';
+import {
+  Box,
+  Button,
+  Checkbox,
+  Grid,
+  MenuItem,
+  Paper,
+  Select,
+  Skeleton,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+  useTheme,
+} from '@mui/material';
+import Alert, { AlertColor } from '@mui/material/Alert';
+import Snackbar from '@mui/material/Snackbar';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Appointment, Flag, Organization } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
+import React, { ReactElement, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+  generatePaperworkPdf,
+  getOrCreateVisitDetailsPdf,
+  getPatientVisitDetails,
+  getVisitFaxHistory,
+  listServiceCategories,
+  updatePatientVisitDetails,
+} from 'src/api/api';
+import CardThumbnail from 'src/components/CardThumbnail';
+import ActivityLogDialog from 'src/components/dialogs/ActivityLogDialog';
+import CancellationReasonDialog from 'src/components/dialogs/CancellationReasonDialog';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import EditPatientInfoDialog from 'src/components/dialogs/EditPatientInfoDialog';
+import ReportIssueDialog from 'src/components/dialogs/ReportIssueDialog';
+import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
+import InsuranceCardOrientationHint from 'src/components/InsuranceCardOrientationHint';
+import PatientBalances from 'src/components/PatientBalances';
+import { QuestionnaireResponseViewer } from 'src/components/QuestionnaireResponseViewer';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { ScannerModal } from 'src/components/ScannerModal';
+import { PatientDocumentsExplorer } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
+import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
+import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
+import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
+import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
+import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
+import {
+  getCancellationReasonDisplay,
+  getReasonForVisitAndAdditionalDetailsFromAppointment,
+} from 'utils/lib/fhir/appointments';
+import { FHIR_EXTENSION, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import {
+  getVisitOccupationalMedicineEmployerFromEncounter,
+  isScheduledFollowupEncounter,
+  SCHEDULED_FOLLOWUP_OTHER_REASON,
+  SCHEDULED_FOLLOWUP_REASONS,
+} from 'utils/lib/fhir/encounter';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { getFormattedPatientFullName } from 'utils/lib/fhir/patient';
+import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
+import { resolveServiceCategoryAbbreviation } from 'utils/lib/helpers/helpers';
+import { BOOKING_CONFIG, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
+import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
+import { PatientAccountResponse } from 'utils/lib/types/api/patient-account';
+import { UpdateVisitDetailsInput } from 'utils/lib/types/api/update-visit-details.types';
+import { GetVisitFaxHistoryOutput } from 'utils/lib/types/api/visit-details/visit-details.types';
+import { FhirAppointmentType, ServiceMode } from 'utils/lib/types/common';
+import {
+  PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
+  PATIENT_INFO_META_DATA_SYSTEM,
+} from 'utils/lib/types/constants';
+import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
+import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
+import { isApiError } from 'utils/lib/types/errors';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
+import AppointmentNotesHistory from '../components/AppointmentNotesHistory';
+import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
+import DateSearch from '../components/DateSearch';
+import { InPersonAppointmentStatusChip } from '../components/InPersonAppointmentStatusChip';
+import PaperworkFlagIndicator from '../components/PaperworkFlagIndicator';
+import PatientInformation, { IconProps } from '../components/PatientInformation';
+import PatientPaymentList from '../components/PatientPaymentsList';
+import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
+import { HOP_QUEUE_URI } from '../constants';
+import { dataTestIds } from '../constants/data-test-ids';
+import { FEATURE_FLAGS } from '../constants/feature-flags';
+import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
+import { formatLastModifiedTag } from '../helpers';
+import {
+  ActivityLogData,
+  ActivityName,
+  formatActivityLogs,
+  formatNotesHistory,
+  getAppointmentAndPatientHistory,
+  getCriticalUpdateTagOp,
+  NoteHistory,
+} from '../helpers/activityLogsUtils';
+import { useApiClients } from '../hooks/useAppClients';
+import useEvolveUser from '../hooks/useEvolveUser';
+import { useVisitCards } from '../hooks/useVisitCards';
+import PageContainer from '../layout/PageContainer';
+import { PatientAccountComponent } from './PatientInformationPage';
+
+const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
+
+// The "About this patient" saves - the bottom "Save All" button and each section's own Save button
+// alike - plus the "Completed consent forms" block's own Save button are gated on the staff member
+// attesting that consent was obtained. The "Booking details" pencil-icon dialogs (DOB, reason for
+// visit, service category, non-legal guardians) and the payments, notes and document blocks are
+// intentionally not gated.
+//
+// The "About this patient" gate reads the *persisted* attestation, not the local checkbox, so it has
+// to spell out that the checkbox must be committed via the consent block's Save button first.
+const CONSENT_ATTESTATION_NOT_SAVED_MESSAGE =
+  'Please check "I verify that patient consent has been obtained." and click Save in the "Completed consent forms" block before saving.';
+const CONSENT_ATTESTATION_REQUIRED_MESSAGE =
+  'Please check "I verify that patient consent has been obtained." before saving.';
+
+interface EditDOBParams {
+  dob?: DateTime | null;
+}
+
+interface EditReasonForVisitParams {
+  reasonForVisit?: string;
+  otherReason?: string;
+  additionalDetails?: string;
+}
+
+interface EditNLGParams {
+  guardians?: string;
+}
+
+interface ServiceCategoryParams {
+  serviceCategory?: ServiceCategoryCode;
+}
+
+type EditDialogConfig =
+  | {
+      type: 'closed';
+      values: object;
+      keyTitleMap: object;
+    }
+  | { type: 'dob'; values: EditDOBParams; keyTitleMap: { dob: 'DOB' }; requiredKeys: string[] }
+  | {
+      type: 'reason-for-visit';
+      values: EditReasonForVisitParams;
+      keyTitleMap: { reasonForVisit: 'Reason for Visit'; additionalDetails: 'Additional Details' };
+      requiredKeys: string[];
+    }
+  | { type: 'nlg'; values: EditNLGParams; keyTitleMap: { guardians: 'Guardians' }; requiredKeys: string[] }
+  | {
+      type: 'service-category';
+      values: ServiceCategoryParams;
+      keyTitleMap: { serviceCategory: 'Service Category' };
+      requiredKeys: string[];
+    };
+
+const dialogTitleFromType = (type: EditDialogConfig['type']): string => {
+  switch (type) {
+    case 'dob':
+      return "Please enter patient's confirmed date of birth";
+    case 'reason-for-visit':
+      return "Please enter patient's reason for visit";
+    case 'nlg':
+      return "Please enter patient's Authorized Non-Legal Guardians";
+    case 'service-category':
+      return 'Please select Service Category';
+    default:
+      return '';
+  }
+};
+
+const CLOSED_EDIT_DIALOG: EditDialogConfig = Object.freeze({
+  type: 'closed',
+  values: {},
+  keyTitleMap: {},
+});
+
+const usePatientData = (
+  patientId?: string
+): {
+  account?: PatientAccountResponse;
+  insurance?: {
+    coverages: OrderedCoveragesWithSubscribers;
+    insuranceOrgs: Organization[];
+  };
+  isFetching: boolean;
+} => {
+  const apiClient = useOystehrAPIClient();
+
+  const accountQuery = useGetPatientAccount({
+    apiClient,
+    patientId: patientId ?? null,
+  });
+
+  const coveragesQuery = useGetPatientCoverages({ apiClient, patientId: patientId ?? null }, undefined, {
+    enabled: accountQuery.status === 'success',
+  });
+
+  return {
+    account: accountQuery.data,
+    insurance: coveragesQuery.data,
+    isFetching: accountQuery.isFetching || coveragesQuery.isFetching,
+  };
+};
+
+export default function VisitDetailsPage(): ReactElement {
+  // variables
+  const { id: appointmentID } = useParams();
+  const { oystehr, oystehrZambda } = useApiClients();
+  const theme = useTheme();
+
+  const queryClient = useQueryClient();
+
+  const navigate = useNavigate();
+
+  // state variables
+  const [status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
+  const [errors, setErrors] = useState<{ hopError?: string }>({});
+  const [toastMessage, setToastMessage] = React.useState<string | undefined>(undefined);
+  const [toastType, setToastType] = React.useState<AlertColor | undefined>(undefined);
+  const [snackbarOpen, setSnackbarOpen] = React.useState<boolean>(false);
+  const [paperworkPdfLoading, setPaperworkPdfLoading] = React.useState<boolean>(false);
+  const [visitDetailsPdfLoading, setVisitDetailsPdfLoading] = React.useState<boolean>(false);
+
+  const [consentAttested, setConsentAttested] = useState<boolean | null>(null);
+
+  const [editDialogConfig, setEditDialogConfig] = useState<EditDialogConfig>(CLOSED_EDIT_DIALOG);
+
+  const [cancelDialogOpen, setCancelDialogOpen] = useState<boolean>(false);
+  const [hopQueueDialogOpen, setHopQueueDialogOpen] = useState<boolean>(false);
+  const [issueDialogOpen, setIssueDialogOpen] = useState<boolean>(false);
+  const [activityLogDialogOpen, setActivityLogDialogOpen] = useState<boolean>(false);
+  const [activityLogsLoading, setActivityLogsLoading] = useState<boolean>(true);
+  const [activityLogs, setActivityLogs] = useState<ActivityLogData[] | undefined>(undefined);
+  const [notesHistory, setNotesHistory] = useState<NoteHistory[] | undefined>(undefined);
+  const user = useEvolveUser();
+
+  const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
+
+  const {
+    data: visitDetailsData,
+    isLoading: loading,
+    refetch: refetchVisitDetails,
+    isRefetching: visitDetailsAreRefreshing,
+    error: visitDetailsError,
+  } = useQuery({
+    queryKey: ['get-visit-details', appointmentID],
+
+    queryFn: async (): Promise<EHRVisitDetails> => {
+      if (!oystehrZambda || !appointmentID) {
+        throw new Error('fhir client not defined or appointmentId not provided');
+      }
+      return getPatientVisitDetails(oystehrZambda!, { appointmentId: appointmentID! });
+    },
+    enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+
+  const appointment = visitDetailsData?.appointment;
+  const patient = visitDetailsData?.patient;
+  const patientId = patient?.id;
+  const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
+  const standAloneForms = visitDetailsData?.standAloneForms;
+  const intakePaperworkFlowForms = visitDetailsData?.intakePaperworkFlowForms;
+  // Custom forms bundled in the visit's paperwork flow render alongside manually-sent standalone forms.
+  const allCustomForms = [...(standAloneForms ?? []), ...(intakePaperworkFlowForms ?? [])];
+
+  const {
+    imagesLoading,
+    refetchFileData,
+    consentPdfUrls,
+    idCards,
+    primaryInsuranceCards,
+    secondaryInsuranceCards,
+    filesMutation,
+    uploadingFileType,
+    deletingFileId,
+    handleDeleteClick,
+    scannerModalOpen,
+    setScannerModalOpen,
+    handleOpenScanner,
+    handleScanComplete,
+  } = useVisitCards({ appointmentId: appointmentID, patientId });
+
+  const { data: faxData, isLoading: faxLoading } = useQuery({
+    queryKey: ['get-visit-fax-history', appointmentID],
+
+    queryFn: async (): Promise<GetVisitFaxHistoryOutput> => {
+      if (oystehrZambda && appointmentID) {
+        return getVisitFaxHistory(oystehrZambda, { appointmentId: appointmentID });
+      }
+      throw new Error('fhir client not defined or appointmentId not provided');
+    },
+
+    enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
+  });
+
+  // FHIR-backed service categories (admin-registered via the Services admin UI).
+  // Needed so the page can resolve display names, edit options, and RFV lists
+  // for appointments whose serviceCategory lives outside BOOKING_CONFIG. The
+  // page merges these with BOOKING_CONFIG below.
+  const { data: fhirBackedCatsData } = useQuery({
+    queryKey: ['visit-details-list-service-categories'],
+    queryFn: async () => {
+      if (!oystehrZambda) return { serviceCategories: [] };
+      try {
+        return await listServiceCategories(oystehrZambda);
+      } catch {
+        return { serviceCategories: [] };
+      }
+    },
+    enabled: Boolean(oystehrZambda),
+  });
+  // Memoize the resolved array so downstream useMemos that depend on it
+  // (e.g. reasonsForVisitForCurrentCategory) don't churn while the query is
+  // still loading — `?? []` would otherwise produce a fresh array reference
+  // on every render and invalidate those memos.
+  const fhirBackedCats = useMemo(() => fhirBackedCatsData?.serviceCategories ?? [], [fhirBackedCatsData]);
+
+  const {
+    data: patientBalancesData,
+    isLoading: patientBalancesLoading,
+    refetch: refetchPatientBalances,
+  } = useGetPatientBalances({
+    patientId,
+    disabled: !patientId,
+  });
+
+  useEffect(() => {
+    // The route can switch to a different visit while this page stays mounted, so drop the previous
+    // visit's attestation. Without this the seeding effect below never re-runs (the local value is
+    // no longer null) and the new visit would render with the old one's checkbox state. The
+    // functional form keeps the initial mount a no-op instead of a redundant state update.
+    setConsentAttested((previous) => (previous === null ? previous : null));
+  }, [appointmentID]);
+
+  useEffect(() => {
+    // Seed the checkbox from the server only once the visit details have actually loaded. Seeding it
+    // from the `?? false` default on the first render would latch an already-attested visit to
+    // unchecked, since this only ever runs while the local value is still null.
+    if (visitDetailsData && consentAttested === null) {
+      setConsentAttested(serverConsentAttested);
+    }
+  }, [visitDetailsData, serverConsentAttested, consentAttested]);
+
+  const hasConsentChanged = consentAttested !== serverConsentAttested;
+
+  const paperworkModifiedFlag = useMemo(
+    () =>
+      visitDetailsData?.flags.find(
+        (resource: Flag) =>
+          resource.status === 'active' && resource?.meta?.tag?.find((tag) => tag.code === 'paperwork-edit')
+      ) as Flag | undefined,
+    [visitDetailsData?.flags]
+  );
+
+  const encounter = visitDetailsData?.encounter;
+  const qrId = visitDetailsData?.qrId;
+
+  const {
+    data: paymentData,
+    refetch: refetchPaymentList,
+    isRefetching: isPaymentListRefetching,
+    error: paymentListError,
+  } = useGetPatientPaymentsList({
+    patientId: patient?.id ?? '',
+    encounterId: encounter?.id ?? '',
+    disabled: !encounter?.id || !patient?.id,
+  });
+
+  const refetchAllPaymentData = useCallback(async () => {
+    await refetchPaymentList();
+    await refetchPatientBalances();
+  }, [refetchPaymentList, refetchPatientBalances]);
+
+  const { insurance: insuranceData, isFetching } = usePatientData(patientId);
+
+  const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patientId ?? '');
+
+  const fullName = (patient && getFormattedPatientFullName(patient)) ?? '';
+
+  const isInPerson = isInPersonAppointment(appointment);
+
+  const bookingDetailsMutation = useMutation({
+    mutationFn: async (input: UpdateVisitDetailsInput) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda not defined');
+      await updatePatientVisitDetails(oystehrZambda, input);
+    },
+    onSuccess: async () => {
+      await refetchVisitDetails();
+      setEditDialogConfig(CLOSED_EDIT_DIALOG);
+      enqueueSnackbar('Patient information updated successfully', {
+        variant: 'success',
+      });
+    },
+  });
+
+  const handleUpdateBookingDetails = async (): Promise<void> => {
+    if (!appointmentID || !editDialogConfig.values || editDialogConfig.type === 'closed') {
+      return;
+    }
+    let bookingDetails: UpdateVisitDetailsInput['bookingDetails'];
+    if (editDialogConfig.type === 'dob') {
+      bookingDetails = {
+        confirmedDob: editDialogConfig.values.dob?.toISODate() ?? undefined,
+      };
+    } else if (editDialogConfig.type === 'nlg') {
+      bookingDetails = {
+        authorizedNonLegalGuardians: editDialogConfig.values.guardians,
+      };
+    } else if (editDialogConfig.type === 'service-category') {
+      bookingDetails = {
+        serviceCategory: editDialogConfig.values.serviceCategory,
+      };
+    } else {
+      // type === reason-for-visit; "Other" persists the free text as the reason. The Update button is
+      // disabled while that text is blank/whitespace (see submitDisabled), so it's non-empty here.
+      const { reasonForVisit: selectedReason, otherReason, additionalDetails: details } = editDialogConfig.values;
+      const isOther = selectedReason === SCHEDULED_FOLLOWUP_OTHER_REASON;
+      bookingDetails = {
+        reasonForVisit: isOther ? (otherReason ?? '').trim() : selectedReason,
+        additionalDetails: details,
+      };
+    }
+    await bookingDetailsMutation.mutateAsync({
+      appointmentId: appointmentID,
+      bookingDetails,
+    });
+    if (editDialogConfig.type === 'dob') {
+      await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
+    }
+  };
+
+  const dismissPaperworkFlagMutation = useMutation({
+    mutationFn: async (flagId: string) => {
+      if (!oystehr) {
+        throw new Error('Oystehr client not found.');
+      }
+      return oystehr.fhir.patch({
+        resourceType: 'Flag',
+        id: flagId,
+        operations: [
+          {
+            op: 'replace',
+            path: '/status',
+            value: 'inactive',
+          },
+        ],
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['get-visit-details', appointmentID],
+      });
+    },
+  });
+
+  const hopInQueueMutation = useMutation({
+    mutationFn: async () => {
+      if (!appointment?.id || !oystehr || !user) {
+        throw new Error('Missing required data');
+      }
+
+      const now = DateTime.now().toISO();
+      const operation = getPatchOperationForNewMetaTag(appointment, {
+        system: HOP_QUEUE_URI,
+        code: now,
+      });
+      const updateTag = getCriticalUpdateTagOp(appointment, `Staff ${user?.email ?? `(${user?.id})`}`);
+
+      return oystehr.fhir.patch<Appointment>({
+        resourceType: 'Appointment',
+        id: appointment.id,
+        operations: [operation, updateTag],
+      });
+    },
+    onSuccess: (updatedAppt) => {
+      queryClient.setQueryData<EHRVisitDetails>(['get-visit-details', appointmentID], (old) =>
+        old ? { ...old, appointment: updatedAppt } : old
+      );
+      setErrors(({ hopError: _hopError, ...rest }) => rest);
+      setHopQueueDialogOpen(false);
+    },
+    onError: (error) => {
+      console.error('Error hopping queue:', error);
+      setErrors((prev) => ({
+        ...prev,
+        hopError: 'There was an error moving this appointment to next',
+      }));
+    },
+  });
+
+  useEffect(() => {
+    if (visitDetailsError) {
+      if (isApiError(visitDetailsError)) {
+        enqueueSnackbar(visitDetailsError.message, {
+          variant: 'error',
+        });
+      } else {
+        console.error('Error fetching visit details:', visitDetailsError);
+        enqueueSnackbar('An unexpected error occurred while fetching visit details.', {
+          variant: 'error',
+        });
+      }
+    }
+  }, [visitDetailsError]);
+
+  // variables for displaying the page
+  const appointmentType = (appointment?.appointmentType?.text as FhirAppointmentType) || '';
+  const locationTimeZone = visitDetailsData?.visitTimezone || '';
+  const appointmentStartTime = DateTime.fromISO(appointment?.start ?? '').setZone(locationTimeZone);
+  const appointmentTime = appointmentStartTime.toLocaleString(DateTime.TIME_SIMPLE);
+  const appointmentDate = formatDateForDisplay(appointmentStartTime.toISO() || '', locationTimeZone);
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  // Display label resolution: BOOKING_CONFIG (compiled-in) takes precedence,
+  // then the FHIR-backed catalog; fall back to the raw code only if neither
+  // knows about it. Without the FHIR-backed lookup the row showed e.g.
+  // "swedish30" instead of "Swedish Massage (30 minute)".
+  const serviceCategoryLabel =
+    BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategory)?.category.display ??
+    fhirBackedCats.find((sc) => sc.code === serviceCategory)?.name ??
+    serviceCategory ??
+    '';
+  // RFV options for the current category, merged across BOOKING_CONFIG and
+  // the FHIR-backed catalog. Used for both display-time filtering (was
+  // hiding valid values configured on FHIR-backed categories) and for the
+  // edit dropdown (was empty). Memoized so its reference is stable across
+  // renders — otherwise the downstream `reasonForVisit` useMemo would re-run
+  // every render (the dependency reference would change each time), and the
+  // identity-stable contract on the edit dropdown's options would break.
+  const reasonsForVisitForCurrentCategory = useMemo<{ value: string; label: string }[]>(() => {
+    // Scheduled follow-ups use the fixed reason list, not the service-category reasons.
+    if (encounter && isScheduledFollowupEncounter(encounter)) {
+      return SCHEDULED_FOLLOWUP_REASONS.map((reason) => ({ value: reason, label: reason }));
+    }
+    if (!serviceCategory) return [];
+    const bookingOpts = getReasonForVisitOptionsForServiceCategory(serviceCategory);
+    if (bookingOpts.length > 0) return bookingOpts;
+    return fhirBackedCats.find((sc) => sc.code === serviceCategory)?.config?.reasonsForVisit ?? [];
+  }, [encounter, serviceCategory, fhirBackedCats]);
+  const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
+  const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
+
+  const getAppointmentType = (appointmentType: FhirAppointmentType | undefined): string => {
+    return appointmentType === 'prebook'
+      ? 'Scheduled'
+      : appointmentType === 'walkin'
+      ? 'On Demand'
+      : appointmentType === 'posttelemed'
+      ? 'Post Telemed'
+      : '';
+  };
+
+  const { nameLastModified, dobLastModified } = useMemo(() => {
+    let nameLastModified: string | undefined;
+    let dobLastModified: string | undefined;
+    if (activityLogs) {
+      const nameChangelog = activityLogs.find((log) => log.activityName === ActivityName.nameChange);
+      if (nameChangelog) nameLastModified = `${nameChangelog.activityDateTime} by ${nameChangelog.activityBy}`;
+      const dobChangeLog = activityLogs.find((log) => log.activityName === ActivityName.dobChange);
+      if (dobChangeLog) dobLastModified = `${dobChangeLog.activityDateTime} by ${dobChangeLog.activityBy}`;
+    }
+    return { nameLastModified, dobLastModified };
+  }, [activityLogs]);
+
+  const getAndSetHistoricResources = useCallback(
+    async ({ logs, notes }: { logs?: boolean; notes?: boolean }) => {
+      if (appointment) {
+        const history = await getAppointmentAndPatientHistory(appointment, oystehr);
+        if (history) {
+          if (logs) {
+            const activityLogs = formatActivityLogs({
+              appointment,
+              appointmentHistory: history.appointmentHistory,
+              patientHistory: history.patientHistory,
+              faxesSent: faxData?.faxesSent,
+              paperworkStartedFlag: undefined,
+              timezone: locationTimeZone,
+            });
+            setActivityLogs(activityLogs);
+          }
+          if (notes) {
+            const formattedNotes = formatNotesHistory(locationTimeZone, history.appointmentHistory);
+            setNotesHistory(formattedNotes);
+          }
+        }
+        setActivityLogsLoading(false);
+      }
+    },
+    [appointment, oystehr, locationTimeZone, faxData?.faxesSent]
+  );
+
+  useEffect(() => {
+    if (!activityLogs && !faxLoading && appointment && locationTimeZone && oystehr) {
+      getAndSetHistoricResources({ logs: true, notes: true }).catch((error) => {
+        console.error('error getting activity logs', error);
+        setActivityLogsLoading(false);
+      });
+    }
+  }, [activityLogs, setActivityLogs, appointment, locationTimeZone, oystehr, getAndSetHistoricResources, faxLoading]);
+
+  useEffect(() => {
+    if (appointment && encounter) {
+      setStatus(getInPersonVisitStatus(appointment, encounter));
+    } else {
+      setStatus(undefined);
+    }
+  }, [appointment, encounter, isInPerson]);
+
+  // page HTML
+  const handleCancelDialogOpen = (): void => {
+    setCancelDialogOpen(true);
+  };
+
+  const handleCancelDialogClose = (): void => {
+    setCancelDialogOpen(false);
+  };
+
+  function pdfButton(pdfUrls: string[]): ReactElement {
+    const handleClick = (): void => {
+      pdfUrls.forEach((url) => {
+        window.open(url, '_blank');
+      });
+    };
+    return (
+      <RoundedButton
+        variant="outlined"
+        onClick={handleClick}
+        disabled={imagesLoading}
+        sx={{
+          borderColor: otherColors.consentBorder,
+          borderRadius: 100,
+          textTransform: 'none',
+          fontWeight: 500,
+          fontSize: 14,
+        }}
+      >
+        Get PDFs
+      </RoundedButton>
+    );
+  }
+
+  const consentEditProp = (): IconProps => {
+    const ret: IconProps = {};
+
+    if (consentPdfUrls) {
+      ret[consentToTreatPatientDetailsKey] = pdfButton(consentPdfUrls);
+    }
+
+    return ret;
+  };
+
+  const signedConsentForm: {
+    [consentToTreatPatientDetailsKey]?: 'Signed' | 'Not signed' | 'Loading...';
+  } = loading
+    ? { [consentToTreatPatientDetailsKey]: 'Loading...' }
+    : (() => {
+        const consentDetails = visitDetailsData?.consentDetails;
+        if (consentDetails) {
+          return {
+            [consentToTreatPatientDetailsKey]: 'Signed',
+            Signature: consentDetails.signature,
+            'Full name': consentDetails.fullName,
+            'Relationship to patient': consentDetails.relationshipToPatient,
+            Date: consentDetails.date,
+          };
+        } else {
+          return { [consentToTreatPatientDetailsKey]: 'Not signed' };
+        }
+      })();
+
+  if (consentPdfUrls.length > 0) {
+    signedConsentForm[consentToTreatPatientDetailsKey] = imagesLoading ? 'Loading...' : 'Signed';
+  } else {
+    signedConsentForm[consentToTreatPatientDetailsKey] = imagesLoading ? 'Loading...' : 'Not signed';
+  }
+
+  const { reasonForVisit: maybeReasonForVisit, additionalDetails } =
+    getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
+  // For scheduled follow-ups, a saved reason outside the fixed list is a free-text "Other".
+  const isScheduledFollowUp = !!encounter && isScheduledFollowupEncounter(encounter);
+  const isOtherFollowUpReason =
+    isScheduledFollowUp && !!maybeReasonForVisit && !SCHEDULED_FOLLOWUP_REASONS.includes(maybeReasonForVisit as never);
+  const reasonForVisit = useMemo(() => {
+    if (!maybeReasonForVisit) {
+      return maybeReasonForVisit;
+    }
+    if (isOtherFollowUpReason) {
+      return maybeReasonForVisit;
+    }
+    const match = reasonsForVisitForCurrentCategory.some((option) => option.value === maybeReasonForVisit);
+    return match ? maybeReasonForVisit : undefined;
+  }, [maybeReasonForVisit, isOtherFollowUpReason, reasonsForVisitForCurrentCategory]);
+
+  const authorizedGuardians =
+    patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ??
+    '';
+
+  const downloadPaperworkPdf = async (): Promise<void> => {
+    setPaperworkPdfLoading(true);
+    try {
+      const response = await generatePaperworkPdf(oystehrZambda!, {
+        questionnaireResponseId: qrId!,
+      });
+      await downloadDocument(response.documentReference.split('/')[1]);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('Failed to generate PDF.', { variant: 'error' });
+    } finally {
+      setPaperworkPdfLoading(false);
+    }
+  };
+
+  const downloadVisitDetailsPdf = async (): Promise<void> => {
+    if (!appointmentID) {
+      enqueueSnackbar('No appointment ID found.', { variant: 'error' });
+      return;
+    }
+
+    setVisitDetailsPdfLoading(true);
+
+    try {
+      const response = await getOrCreateVisitDetailsPdf(oystehrZambda!, {
+        appointmentId: appointmentID,
+      });
+      await downloadDocument(response.documentReference.split('/')[1]);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('Failed to generate PDF.', { variant: 'error' });
+    } finally {
+      setVisitDetailsPdfLoading(false);
+    }
+  };
+
+  const patientInfoAdditionalItem: any = {};
+
+  const patientBeenToClinicPreviously = appointment?.meta?.tag?.some(
+    (tag) => tag.system === PATIENT_INFO_META_DATA_SYSTEM && tag.code === PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE
+  );
+
+  if (patientBeenToClinicPreviously) {
+    patientInfoAdditionalItem['Patient has been to clinic previously'] = 'true';
+  }
+
+  const appointmentContext = useMemo(
+    () => ({
+      appointmentServiceCategory: serviceCategory,
+      appointmentServiceMode: isTelemedAppointment(appointment) ? ServiceMode.virtual : ServiceMode['in-person'],
+      reasonForVisit,
+      encounterId: encounter?.id,
+      visitOccupationalMedicineEmployerReference: encounter
+        ? getVisitOccupationalMedicineEmployerFromEncounter(encounter)
+        : undefined,
+    }),
+    [serviceCategory, appointment, reasonForVisit, encounter]
+  );
+
+  // Renders the compact insurance-card thumbnail INSIDE the matching coverage block of the insurance
+  // section (0-based ordinal: 0 = primary, 1 = secondary), threaded down through
+  // PatientAccountComponent -> InsuranceSection -> InsuranceContainer. The clean thumbnail (front
+  // image + enlarge affordance only) opens the non-modal FloatingCardPreview, which hosts the
+  // front/back toggle, the rotate control, and a remove-and-reload control per face; a coverage with
+  // no card image gets a compact upload/scan affordance instead.
+  const renderInsuranceCardThumbnail = (ordinal: number): ReactNode => {
+    if (ordinal !== 0 && ordinal !== 1) {
+      return null;
+    }
+    const isPrimary = ordinal === 0;
+    const cards = isPrimary ? primaryInsuranceCards : secondaryInsuranceCards;
+    return (
+      <CardThumbnail
+        item={cards}
+        title={isPrimary ? 'Primary Insurance Card' : 'Secondary Insurance Card'}
+        appointmentID={appointmentID}
+        filesMutator={filesMutation}
+        uploadingFileType={uploadingFileType}
+        handleOpenScanner={handleOpenScanner}
+        imagesLoading={imagesLoading}
+        frontFileType={isPrimary ? 'insurance-card-front' : 'insurance-card-front-2'}
+        backFileType={isPrimary ? 'insurance-card-back' : 'insurance-card-back-2'}
+        handleDeleteClick={handleDeleteClick}
+        deletingFileId={deletingFileId}
+        previewHeaderActions={(face) => (
+          <InsuranceCardOrientationHint
+            patientId={patientId}
+            ordinal={isPrimary ? 'primary' : 'secondary'}
+            face={face}
+            documentReferenceId={face === 'front' ? cards.frontId : cards.backId}
+            onRotated={refetchFileData}
+          />
+        )}
+      />
+    );
+  };
+
+  // Clean photo-ID thumbnail rendered in the "Patient summary" section HEADER (right-aligned, next to
+  // the title), threaded down through PatientAccountComponent -> AboutPatientContainer. Same treatment
+  // as the insurance cards: front image + enlarge affordance only; clicking opens the non-modal
+  // FloatingCardPreview (front/back toggle lives there — no OCR/rotate for the ID, so no
+  // previewHeaderActions). Remove-and-reload is wired the same as the insurance cards. An ID with no
+  // image gets a compact upload/scan affordance instead.
+  const photoIdCardSlot = (
+    <CardThumbnail
+      item={idCards}
+      title="ID Card"
+      appointmentID={appointmentID}
+      filesMutator={filesMutation}
+      uploadingFileType={uploadingFileType}
+      handleOpenScanner={handleOpenScanner}
+      imagesLoading={imagesLoading}
+      frontFileType="photo-id-front"
+      backFileType="photo-id-back"
+      handleDeleteClick={handleDeleteClick}
+      deletingFileId={deletingFileId}
+    />
+  );
+
+  // The consent block's own Save commits the checkbox. It stays disabled until the checkbox differs
+  // from what's persisted, so when nothing has been attested yet the tooltip has to spell out that
+  // the box must be checked first. No reason means no Tooltip at all: an empty title would still
+  // wrap the button in a listener-bearing anchor that never shows anything.
+  const consentSaveBlockedReason =
+    !hasConsentChanged && !consentAttested ? CONSENT_ATTESTATION_REQUIRED_MESSAGE : undefined;
+
+  const consentAttestationSaveButton = (
+    <LoadingButton
+      data-testid={dataTestIds.visitDetailsPage.consentAttestationSaveButton}
+      onClick={async () => {
+        await bookingDetailsMutation
+          .mutateAsync({
+            appointmentId: appointment?.id ?? '',
+            bookingDetails: {
+              consentForms: {
+                consentAttested: consentAttested ?? false,
+              },
+            },
+          })
+          .catch((error) => {
+            if (isApiError(error)) {
+              enqueueSnackbar(error.message, { variant: 'error' });
+            } else {
+              console.error('Error updating consent attestation:', error);
+              enqueueSnackbar('An unexpected error occurred.', { variant: 'error' });
+            }
+          });
+      }}
+      loading={bookingDetailsMutation.isPending && editDialogConfig.type === 'closed'}
+      disabled={!hasConsentChanged}
+    >
+      Save
+    </LoadingButton>
+  );
+
+  const consentAttestationFooter = consentAttested !== null && (
+    <Box style={{ display: 'flex', alignItems: 'center' }}>
+      <Checkbox
+        inputProps={
+          { 'data-testid': dataTestIds.visitDetailsPage.consentAttestationCheckbox } as Record<string, unknown>
+        }
+        checked={consentAttested ?? false}
+        onChange={(_e: any, checked: boolean) => {
+          setConsentAttested(checked);
+        }}
+      />
+      <Typography>I verify that patient consent has been obtained.</Typography>
+      {consentSaveBlockedReason ? (
+        <Tooltip title={consentSaveBlockedReason}>
+          {/* A disabled button emits no pointer events, so the tooltip needs an enabled wrapper. */}
+          <span>{consentAttestationSaveButton}</span>
+        </Tooltip>
+      ) : (
+        consentAttestationSaveButton
+      )}
+    </Box>
+  );
+
+  return (
+    <PageContainer>
+      <>
+        {/* /* page */}
+        <Grid container direction="row">
+          <Grid item xs={0.25}></Grid>
+          <Grid item xs={11.5}>
+            <Grid container direction="row" sx={{ justifyContent: 'space-between' }}>
+              <Grid item xs={6}>
+                <CustomBreadcrumbs
+                  chain={[
+                    { link: `/patient/${patientId}`, children: 'Visit Details' },
+                    { link: '#', children: appointment?.id || <Skeleton width={150} /> },
+                  ]}
+                />
+              </Grid>
+              <Grid item container xs={6} justifyContent="flex-end" gap={1}>
+                <LoadingButton
+                  variant="outlined"
+                  sx={{
+                    borderRadius: '20px',
+                    textTransform: 'none',
+                  }}
+                  loading={visitDetailsPdfLoading}
+                  color="primary"
+                  disabled={isLoadingDocuments || !encounter?.id}
+                  onClick={downloadVisitDetailsPdf}
+                >
+                  Visit Details PDF
+                </LoadingButton>
+                {FEATURE_FLAGS.LEGACY_DATA_ENABLED && (
+                  <Button
+                    variant="outlined"
+                    sx={{ borderRadius: '20px', textTransform: 'none' }}
+                    disabled={!patient}
+                    onClick={() => {
+                      const patientLastName = patient?.name?.[0]?.family ?? '';
+                      const patientFirstName = patient?.name?.[0]?.given?.[0] ?? '';
+                      const rawDob = patient?.birthDate ?? '';
+                      // Convert YYYY-MM-DD to MM-DD-YYYY to match Z3 key format
+                      const dob = rawDob ? rawDob.split('-').slice(1).concat(rawDob.split('-')[0]).join('-') : '';
+                      const params = new URLSearchParams({
+                        lastName: patientLastName,
+                        firstName: patientFirstName,
+                        dob,
+                      });
+                      navigate(`/legacy-data?${params.toString()}`);
+                    }}
+                  >
+                    Legacy Data
+                  </Button>
+                )}
+                <RoundedButton to={`/patient/${patientId}/docs`} startIcon={<FolderOutlinedIcon></FolderOutlinedIcon>}>
+                  See All Patient Docs
+                </RoundedButton>
+                <Button
+                  variant="outlined"
+                  sx={{ borderRadius: '20px', textTransform: 'none' }}
+                  disabled={!appointment?.id}
+                  onClick={() => setSendFormDialogOpen(true)}
+                >
+                  Send Form
+                </Button>
+              </Grid>
+            </Grid>
+            {/* page title row */}
+            <Grid container direction="row" marginTop={1}>
+              {loading || activityLogsLoading || !patient ? (
+                <Skeleton aria-busy="true" width={200} height="" />
+              ) : (
+                <Box
+                  onClick={() => navigate(`/patient/${patientId}/info`)}
+                  sx={{ cursor: 'pointer', display: 'flex', gap: 1 }}
+                >
+                  <AssignmentIndOutlinedIcon
+                    sx={{ width: '27px', height: '27px', color: 'primary.light', alignSelf: 'center' }}
+                  ></AssignmentIndOutlinedIcon>
+                  <Typography
+                    variant="h2"
+                    color="primary.dark"
+                    data-testid={dataTestIds.appointmentPage.patientFullName}
+                  >
+                    {fullName}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* appointment start time as AM/PM and then date */}
+              {loading || !appointment ? (
+                <Skeleton sx={{ marginLeft: 2 }} aria-busy="true" width={200} />
+              ) : (
+                <>
+                  <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 4 }}>
+                    {isInPerson ? 'In-Person' : 'Virtual'}
+                    {' | '}
+                    {resolveServiceCategoryAbbreviation(serviceCategory, fhirBackedCats)}
+                  </Typography>
+                  <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 1 }}>
+                    {getAppointmentType(appointmentType)}
+                  </Typography>
+                  <Typography sx={{ alignSelf: 'center', marginLeft: 1 }} fontWeight="bold">
+                    {appointmentTime}
+                  </Typography>
+                  <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>{appointmentDate}</Typography>
+                </>
+              )}
+
+              {loading || !status ? (
+                <Skeleton sx={{ marginLeft: 2 }} aria-busy="true" width={200} />
+              ) : (
+                <>
+                  <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>
+                    {visitDetailsData?.visitLocationName ?? ''}
+                  </Typography>
+                  <span
+                    style={{
+                      marginLeft: 20,
+                      alignSelf: 'center',
+                    }}
+                  >
+                    <InPersonAppointmentStatusChip status={status as VisitStatusLabel} />
+                  </span>
+                  {appointment && appointment.status === 'cancelled' && (
+                    <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>
+                      {getCancellationReasonDisplay(appointment)}
+                    </Typography>
+                  )}
+                </>
+              )}
+              {appointment && encounter && appointment?.status !== 'cancelled' ? (
+                <>
+                  <Button
+                    data-testid={dataTestIds.visitDetailsPage.cancelVisitButton}
+                    variant="outlined"
+                    sx={{
+                      alignSelf: 'center',
+                      marginLeft: 'auto',
+                      // marginRight: 2,
+                      borderRadius: '20px',
+                      textTransform: 'none',
+                    }}
+                    color="error"
+                    onClick={handleCancelDialogOpen}
+                  >
+                    Cancel visit
+                  </Button>
+                  <CancellationReasonDialog
+                    handleClose={handleCancelDialogClose}
+                    refetchData={async () => {
+                      refetchVisitDetails().catch((error) => console.error('error refetching visit details', error));
+                    }}
+                    appointment={appointment}
+                    encounter={encounter}
+                    open={cancelDialogOpen}
+                    getAndSetResources={getAndSetHistoricResources}
+                  />
+                </>
+              ) : null}
+              {status === 'arrived' ? (
+                <>
+                  <Button
+                    variant="outlined"
+                    sx={{
+                      alignSelf: 'center',
+                      marginLeft: 1,
+                      borderRadius: '20px',
+                      textTransform: 'none',
+                    }}
+                    disabled={!!appointment?.meta?.tag?.find((tag) => tag.system === 'hop-queue')?.code}
+                    onClick={() => setHopQueueDialogOpen(true)}
+                  >
+                    Move to next
+                  </Button>
+                  <CustomDialog
+                    open={hopQueueDialogOpen}
+                    handleClose={() => {
+                      setErrors(({ hopError: _hopError, ...rest }) => rest);
+                      setHopQueueDialogOpen(false);
+                    }}
+                    closeButton={false}
+                    title="Move to next"
+                    description={`Are you sure you want to move ${patient?.name?.[0]?.family}, ${patient?.name?.[0]?.given?.[0]} to next?`}
+                    closeButtonText="Cancel"
+                    handleConfirm={() => hopInQueueMutation.mutate()}
+                    confirmText="Move to next"
+                    confirmLoading={hopInQueueMutation.isPending}
+                    error={errors?.hopError}
+                  />
+                </>
+              ) : null}
+            </Grid>
+
+            {(patient || nameLastModifiedOld || nameLastModified) && (
+              <Grid container direction="row" alignItems="center" gap={2} sx={{ marginLeft: 4 }}>
+                {patient && <IdentifiersRow patient={patient} />}
+                {(nameLastModifiedOld || nameLastModified) && (
+                  <Typography sx={{ alignSelf: 'center', fontSize: '14px' }}>
+                    Name Last Modified {nameLastModifiedOld || nameLastModified}
+                  </Typography>
+                )}
+              </Grid>
+            )}
+
+            {paperworkModifiedFlag && (
+              <Grid container direction="row" marginTop={2}>
+                <PaperworkFlagIndicator
+                  title="Paperwork was updated:"
+                  dateTime={paperworkModifiedFlag.period?.start}
+                  timezone={locationTimeZone}
+                  onDismiss={async () => {
+                    if (paperworkModifiedFlag?.id) {
+                      await dismissPaperworkFlagMutation.mutateAsync(paperworkModifiedFlag.id);
+                    }
+                  }}
+                  color={otherColors.warningText}
+                  backgroundColor={otherColors.warningBackground}
+                  icon={<WarningAmberIcon sx={{ color: otherColors.warningIcon }} />}
+                />
+              </Grid>
+            )}
+
+            <Grid container item direction="column">
+              <Grid item container sx={{ padding: '10px' }} marginBottom={2}>
+                <Typography variant="h3" color="primary.dark">
+                  About this visit
+                </Typography>
+                <Grid container item direction="row" spacing={3}>
+                  <Grid container item direction="column" xs={12} sm={6}>
+                    <Grid item>
+                      <PatientInformation
+                        title="Booking details"
+                        loading={loading}
+                        patientDetails={{
+                          'Service category': serviceCategoryLabel,
+                          'Reason for visit': reasonForVisit
+                            ? `${reasonForVisit}${additionalDetails ? ` - ${additionalDetails}` : ''}`
+                            : undefined,
+                          'Authorized non-legal guardian(s)': patient?.extension?.find(
+                            (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+                          )?.valueString || <></>,
+                          ...patientInfoAdditionalItem,
+                        }}
+                        icon={{
+                          "Patient's date of birth (Unmatched)": (
+                            <PriorityIconWithBorder fill={theme.palette.warning.main} />
+                          ),
+                        }}
+                        editValue={{
+                          "Patient's date of birth (Unmatched)": (
+                            <PencilIconButton
+                              onClick={() =>
+                                setEditDialogConfig({
+                                  type: 'dob',
+                                  values: {
+                                    dob: null,
+                                  },
+                                  keyTitleMap: {
+                                    dob: 'DOB',
+                                  },
+                                  requiredKeys: ['dob'],
+                                })
+                              }
+                              size="16px"
+                              sx={{ mr: '5px', padding: '10px' }}
+                            />
+                          ),
+                          'Service category': (
+                            <PencilIconButton
+                              onClick={() =>
+                                setEditDialogConfig({
+                                  type: 'service-category',
+                                  values: { serviceCategory },
+                                  keyTitleMap: {
+                                    serviceCategory: 'Service Category',
+                                  },
+                                  requiredKeys: [],
+                                })
+                              }
+                              size="16px"
+                              sx={{ mr: '5px', padding: '10px' }}
+                            />
+                          ),
+                          'Reason for visit': (
+                            <PencilIconButton
+                              onClick={() =>
+                                setEditDialogConfig({
+                                  type: 'reason-for-visit',
+                                  values: {
+                                    reasonForVisit: isOtherFollowUpReason
+                                      ? SCHEDULED_FOLLOWUP_OTHER_REASON
+                                      : reasonForVisit,
+                                    otherReason: isOtherFollowUpReason ? maybeReasonForVisit : '',
+                                    additionalDetails,
+                                  },
+                                  keyTitleMap: {
+                                    reasonForVisit: 'Reason for Visit',
+                                    additionalDetails: 'Additional Details',
+                                  },
+                                  requiredKeys: [],
+                                })
+                              }
+                              size="16px"
+                              sx={{ mr: '5px', padding: '10px' }}
+                            />
+                          ),
+                          'Authorized non-legal guardian(s)': (
+                            <PencilIconButton
+                              onClick={() =>
+                                setEditDialogConfig({
+                                  type: 'nlg',
+                                  values: { guardians: authorizedGuardians },
+                                  keyTitleMap: { guardians: 'Guardians' },
+                                  requiredKeys: [],
+                                })
+                              }
+                              size="16px"
+                              sx={{ mr: '5px', padding: '10px' }}
+                            />
+                          ),
+                        }}
+                        lastModifiedBy={{
+                          "Patient's date of birth (Unmatched)": dobLastModifiedOld || dobLastModified,
+                        }}
+                      />
+                    </Grid>
+                    <Grid item>
+                      {/* Completed pre-visit forms */}
+                      <PatientInformation
+                        title="Completed consent forms"
+                        loading={loading}
+                        editValue={
+                          signedConsentForm[consentToTreatPatientDetailsKey] === 'Signed'
+                            ? consentEditProp()
+                            : undefined
+                        }
+                        patientDetails={{
+                          ...signedConsentForm,
+                        }}
+                        footerCellContent={consentAttestationFooter}
+                      />
+                    </Grid>
+                    {allCustomForms.length > 0 ? (
+                      allCustomForms.map((form, idx) => (
+                        <Grid item key={`${form.questionnaireId}-${idx}`}>
+                          <Paper sx={{ mt: 2, p: 3 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F347C', mb: 1 }}>
+                              {form.questionnaireTitle}
+                            </Typography>
+                            <QuestionnaireResponseViewer form={form} />
+                          </Paper>
+                        </Grid>
+                      ))
+                    ) : (
+                      <Grid item>
+                        <PatientInformation
+                          title="Custom Paperwork"
+                          loading={loading}
+                          patientDetails={{ Status: 'No custom questionnaires attached' }}
+                        />
+                      </Grid>
+                    )}
+                  </Grid>
+                  <Grid container item xs={12} sm={6} direction="column">
+                    {!patientBalancesLoading &&
+                    patientBalancesData?.totalBalanceCents &&
+                    patientBalancesData?.totalBalanceCents > 0 ? (
+                      <Grid item>
+                        <PatientBalances
+                          patient={patient}
+                          patientBalances={patientBalancesData}
+                          handleClose={refetchAllPaymentData}
+                        />
+                      </Grid>
+                    ) : null}
+                    <Grid item>
+                      <PatientPaymentList
+                        patient={patient}
+                        appointment={appointment}
+                        loading={loading || isFetching}
+                        encounterId={encounter?.id ?? ''}
+                        responsibleParty={{
+                          fullName: visitDetailsData?.responsiblePartyName || '',
+                          email: visitDetailsData?.responsiblePartyEmail || '',
+                        }}
+                        insuranceCoverages={insuranceData}
+                        paymentData={paymentData}
+                        refetchPaymentList={refetchAllPaymentData}
+                        isRefetching={isPaymentListRefetching}
+                        paymentListError={paymentListError}
+                        patientCreditCents={patientBalancesData?.patientCreditCents ?? 0}
+                      />
+                    </Grid>
+                    <Grid item>
+                      <AppointmentNotesHistory
+                        appointment={appointment}
+                        timezone={locationTimeZone}
+                        curNoteAndHistory={notesHistory}
+                        user={user}
+                        oystehr={oystehr}
+                        getAndSetHistoricResources={getAndSetHistoricResources}
+                      />
+                    </Grid>
+                  </Grid>
+                </Grid>
+              </Grid>
+            </Grid>
+            <Grid item paddingY="10px" sx={{ padding: '10px' }} marginBottom={2}>
+              <Typography variant="h3" color="primary.dark" marginBottom={2}>
+                About this patient
+              </Typography>
+              <PatientAccountComponent
+                id={patientId}
+                loadingComponent={<Skeleton width={200} height={40} />}
+                renderBackButton={false}
+                appointmentContext={appointmentContext}
+                appointmentId={appointmentID}
+                renderInsuranceCardThumbnail={renderInsuranceCardThumbnail}
+                photoIdCardSlot={photoIdCardSlot}
+                submitBlockedReason={serverConsentAttested ? undefined : CONSENT_ATTESTATION_NOT_SAVED_MESSAGE}
+              />
+            </Grid>
+          </Grid>
+        </Grid>
+        {patientId && encounter?.id && (
+          <Grid container direction="row">
+            <Grid item xs={12} sx={{ marginLeft: { xs: 0, sm: 8 }, marginRight: { xs: 0, sm: 8 }, marginTop: 2 }}>
+              <Typography variant="h3" color="primary.dark" marginBottom={2}>
+                Visit Documents
+              </Typography>
+              <Paper sx={{ padding: 3 }}>
+                <PatientDocumentsExplorer patientId={patientId} encounterId={encounter.id} />
+              </Paper>
+            </Grid>
+          </Grid>
+        )}
+        <Grid container direction="row">
+          <Grid item sx={{ marginLeft: { xs: 0, sm: 8 }, marginTop: 2, marginBottom: 50 }}>
+            <Stack direction="row" spacing={1} useFlexGap>
+              <LoadingButton
+                variant="outlined"
+                sx={{
+                  borderRadius: '20px',
+                  textTransform: 'none',
+                }}
+                loading={paperworkPdfLoading}
+                color="primary"
+                disabled={isLoadingDocuments || !patientId}
+                onClick={downloadPaperworkPdf}
+              >
+                Patient Paperwork PDF
+              </LoadingButton>
+              <LoadingButton
+                loading={activityLogsLoading}
+                variant="outlined"
+                sx={{
+                  borderRadius: '20px',
+                  textTransform: 'none',
+                }}
+                size="medium"
+                color="primary"
+                onClick={() => setActivityLogDialogOpen(true)}
+              >
+                View activity logs
+              </LoadingButton>
+              <LoadingButton
+                loading={loading}
+                variant="outlined"
+                sx={{
+                  borderRadius: '20px',
+                  textTransform: 'none',
+                }}
+                color="error"
+                onClick={() => setIssueDialogOpen(true)}
+              >
+                Report Issue
+              </LoadingButton>
+            </Stack>
+          </Grid>
+        </Grid>
+        {/* Update details modal */}
+        <EditPatientInfoDialog
+          title={dialogTitleFromType(editDialogConfig.type)}
+          modalOpen={editDialogConfig.type !== 'closed'}
+          onClose={() => {
+            setEditDialogConfig(CLOSED_EDIT_DIALOG);
+          }}
+          input={
+            <>
+              {Object.entries(editDialogConfig.values).map(([key, value], idx) => {
+                if (editDialogConfig.type === 'dob' && key === 'dob') {
+                  return (
+                    <DateSearch
+                      key={key}
+                      date={value as DateTime | null}
+                      setDate={(date) =>
+                        setEditDialogConfig(
+                          (prev) =>
+                            ({
+                              ...prev,
+                              values: {
+                                ...prev.values,
+                                [key]: date,
+                              },
+                            }) as EditDialogConfig
+                        )
+                      }
+                    />
+                  );
+                } else if (editDialogConfig.type === 'reason-for-visit' && key === 'reasonForVisit') {
+                  return (
+                    <>
+                      <Select
+                        id="reason-for-visit-select"
+                        value={value}
+                        required
+                        fullWidth
+                        onChange={(e) =>
+                          setEditDialogConfig(
+                            (prev) =>
+                              ({
+                                ...prev,
+                                values: {
+                                  ...prev.values,
+                                  [key]: e.target.value,
+                                },
+                              }) as EditDialogConfig
+                          )
+                        }
+                      >
+                        {reasonsForVisitForCurrentCategory.map((reason) => (
+                          <MenuItem key={reason.value} value={reason.value}>
+                            {reason.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </>
+                  );
+                } else if (editDialogConfig.type === 'reason-for-visit' && key === 'otherReason') {
+                  // Free-text reason, shown only when "Other" is the selected follow-up reason.
+                  if (editDialogConfig.values.reasonForVisit !== SCHEDULED_FOLLOWUP_OTHER_REASON) {
+                    return null;
+                  }
+                  return (
+                    <TextField
+                      key={key}
+                      label="Other reason"
+                      fullWidth
+                      required
+                      value={value}
+                      sx={{ mt: 2 }}
+                      onChange={(e) =>
+                        setEditDialogConfig(
+                          (prev) =>
+                            ({
+                              ...prev,
+                              values: {
+                                ...prev.values,
+                                [key]: e.target.value,
+                              },
+                            }) as EditDialogConfig
+                        )
+                      }
+                    />
+                  );
+                } else if (editDialogConfig.type === 'service-category' && key === 'serviceCategory') {
+                  return (
+                    <>
+                      <Select
+                        id="service-category-select"
+                        value={value}
+                        required
+                        fullWidth
+                        onChange={(e) =>
+                          setEditDialogConfig(
+                            (prev) =>
+                              ({
+                                ...prev,
+                                values: {
+                                  ...prev.values,
+                                  [key]: e.target.value,
+                                },
+                              }) as EditDialogConfig
+                          )
+                        }
+                      >
+                        {(() => {
+                          // Merge BOOKING_CONFIG (compiled-in, source of truth on collision)
+                          // with the FHIR-backed catalog so admins can switch a visit to a
+                          // runtime-registered category. Dedupe by code. Filter inactive
+                          // FHIR-backed entries — the update-visit-details validator only
+                          // resolves against `active=true` HSes, so offering an inactive
+                          // category here would let the admin pick something that fails
+                          // on save with "not a valid option".
+                          const bookingEntries = BOOKING_CONFIG.serviceCategories
+                            .map((sc) => ({ code: sc.category.code, label: sc.category.display }))
+                            .filter((e): e is { code: string; label: string } => !!e.code);
+                          const bookingCodes = new Set(bookingEntries.map((e) => e.code));
+                          const fhirEntries = fhirBackedCats
+                            .filter((sc) => sc.active && sc.code && !bookingCodes.has(sc.code))
+                            .map((sc) => ({ code: sc.code, label: sc.name }));
+                          return [...bookingEntries, ...fhirEntries]
+                            .sort((a, b) => a.label.localeCompare(b.label))
+                            .map((entry) => (
+                              <MenuItem key={entry.code} value={entry.code}>
+                                {entry.label}
+                              </MenuItem>
+                            ));
+                        })()}
+                      </Select>
+                    </>
+                  );
+                } else if (editDialogConfig.type !== 'closed') {
+                  return (
+                    <TextField
+                      key={key}
+                      label={editDialogConfig.keyTitleMap[key as keyof typeof editDialogConfig.keyTitleMap] || key}
+                      fullWidth
+                      value={value}
+                      required={editDialogConfig.requiredKeys.includes(key)}
+                      onChange={(e) =>
+                        setEditDialogConfig(
+                          (prev) =>
+                            ({
+                              ...prev,
+                              values: {
+                                ...prev.values,
+                                [key]: e.target.value,
+                              },
+                            }) as EditDialogConfig
+                        )
+                      }
+                      sx={idx > 0 ? { mt: 2 } : {}}
+                    />
+                  );
+                } else {
+                  return null;
+                }
+              })}
+            </>
+          }
+          onSubmit={async (e) => {
+            e.preventDefault(); // don't reload the whole page
+            await handleUpdateBookingDetails();
+          }}
+          submitButtonName="Update"
+          submitDisabled={
+            editDialogConfig.type === 'reason-for-visit' &&
+            editDialogConfig.values.reasonForVisit === SCHEDULED_FOLLOWUP_OTHER_REASON &&
+            !(editDialogConfig.values.otherReason ?? '').trim()
+          }
+          error={bookingDetailsMutation.isError}
+          errorMessage={bookingDetailsMutation.error?.message}
+          loading={bookingDetailsMutation.isPending || visitDetailsAreRefreshing}
+          modalDetails={
+            editDialogConfig.type === 'dob' ? (
+              <Grid container spacing={2} sx={{ mt: '24px' }}>
+                <Grid container item>
+                  <Grid item width="35%">
+                    Original DOB:
+                  </Grid>
+                  <Grid item>{formatDateForDisplay(patient?.birthDate)}</Grid>
+                </Grid>
+              </Grid>
+            ) : undefined
+          }
+        />
+        <ActivityLogDialog
+          open={activityLogDialogOpen}
+          handleClose={() => setActivityLogDialogOpen(false)}
+          logs={activityLogs || []}
+        />
+        {encounter && (
+          <ReportIssueDialog
+            open={issueDialogOpen}
+            handleClose={() => setIssueDialogOpen(false)}
+            oystehr={oystehr}
+            patient={patient}
+            appointment={appointment}
+            encounter={encounter}
+            locationId={visitDetailsData.visitLocationId}
+            setSnackbarOpen={setSnackbarOpen}
+            setToastType={setToastType}
+            setToastMessage={setToastMessage}
+          />
+        )}
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={6000}
+          onClose={() => setSnackbarOpen(false)}
+          message={toastMessage}
+        >
+          <Alert onClose={() => setSnackbarOpen(false)} severity={toastType} sx={{ width: '100%' }}>
+            {toastMessage}
+          </Alert>
+        </Snackbar>
+        <ScannerModal
+          open={scannerModalOpen}
+          onClose={() => setScannerModalOpen(false)}
+          outputFormat="png"
+          onScanComplete={handleScanComplete}
+        />
+        {appointmentID && (
+          <SendFormDialog
+            open={sendFormDialogOpen}
+            onClose={() => setSendFormDialogOpen(false)}
+            appointmentId={appointmentID}
+          />
+        )}
+      </>
+    </PageContainer>
+  );
+}

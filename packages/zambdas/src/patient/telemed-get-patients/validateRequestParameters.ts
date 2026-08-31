@@ -1,5 +1,4 @@
-import {} from 'utils';
-import { ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
 import { GetPatientsInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): GetPatientsInput {

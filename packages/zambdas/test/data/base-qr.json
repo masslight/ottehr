@@ -203,9 +203,17 @@
           "answer": [
             {
               "valueReference": {
-                "reference": "{{ORGANIZATION_REF}}",
+                "reference": "https://rcm-api.zapehr.com/v1/payer/60054",
                 "display": "Aetna"
               }
+            }
+          ]
+        },
+        {
+          "linkId": "insurance-plan-type",
+          "answer": [
+            {
+              "valueString": "09"
             }
           ]
         },
@@ -368,9 +376,17 @@
               "answer": [
                 {
                   "valueReference": {
-                    "reference": "{{ORGANIZATION_REF}}",
+                    "reference": "https://rcm-api.zapehr.com/v1/payer/60054",
                     "display": "Aetna"
                   }
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-plan-type-2",
+              "answer": [
+                {
+                  "valueString": "12"
                 }
               ]
             },
@@ -594,9 +610,6 @@
       ]
     },
     {
-      "linkId": "photo-id-page"
-    },
-    {
       "linkId": "consent-forms-page"
     }
   ],
@@ -604,5 +617,6 @@
   "meta": {
     "versionId": "78905816-4160-4b62-b3ae-747303788c26",
     "lastUpdated": "2025-03-03T21:41:51.500Z"
-  }
+  },
+  "authored": "2025-03-03T21:41:51.500Z"
 }

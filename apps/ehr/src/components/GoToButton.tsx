@@ -3,10 +3,11 @@ import { ReactElement, ReactNode } from 'react';
 
 interface Props {
   text: string;
-  onClick: () => void;
+  onClick: (event: React.MouseEvent<HTMLElement>) => void;
   loading?: boolean;
   children: ReactNode | ReactNode[];
   dataTestId?: string;
+  backgroundColor?: string;
 }
 
 export default function GoToButton(props: Props): ReactElement {
@@ -27,7 +28,7 @@ export default function GoToButton(props: Props): ReactElement {
     <IconButton
       data-testid={props.dataTestId}
       sx={{
-        backgroundColor: '#FFF',
+        backgroundColor: props.backgroundColor || '#FFF',
         width: '80px',
         height: '70px',
         borderRadius: '8px',

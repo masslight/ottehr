@@ -1,41 +1,17 @@
 import { Appointment, Encounter, Period, Slot } from 'fhir/r4b';
-import { AvailableLocationInformation, ServiceMode, TelemedAppointmentStatusEnum } from '../../types';
-import { SlotListItem } from '../../utils';
+import { z } from 'zod';
+import { SlotListItem } from '../../utils/scheduleUtils';
+import { AvailableLocationInformation, ServiceMode } from '../common';
 
-export type AppointmentType = 'walk-in' | 'pre-booked' | 'post-telemed';
-
-export type ReviewAndSignData = {
-  signedOnDate?: string;
-};
-
-export type RefreshableAppointmentData = {
-  patientConditionPhotoUrls: string[];
-};
-
-export const mapStatusToTelemed = (
-  encounterStatus: string,
-  appointmentStatus: string | undefined
-): TelemedAppointmentStatusEnum | undefined => {
-  switch (encounterStatus) {
-    case 'planned':
-      return TelemedAppointmentStatusEnum.ready;
-    case 'arrived':
-      return TelemedAppointmentStatusEnum['pre-video'];
-    case 'in-progress':
-      return TelemedAppointmentStatusEnum['on-video'];
-    case 'finished':
-      if (appointmentStatus === 'fulfilled') return TelemedAppointmentStatusEnum.complete;
-      else return TelemedAppointmentStatusEnum.unsigned;
-    case 'cancelled':
-      return TelemedAppointmentStatusEnum.cancelled;
-  }
-  return undefined;
-};
+export const AppointmentTypeOptions = ['walk-in', 'pre-booked', 'post-telemed'] as const;
+export type AppointmentType = (typeof AppointmentTypeOptions)[number];
+export const AppointmentTypeSchema = z.array(z.enum(AppointmentTypeOptions));
+export type AppointmentAttendanceType = 'in-person' | 'virtual';
 
 export type FhirEncounterStatus = Encounter['status'];
 export type FhirAppointmentStatus = Appointment['status'];
 
-export const Visit_Status_Array = [
+export const visitStatusArray = [
   'pending',
   'arrived',
   'ready',
@@ -45,17 +21,24 @@ export const Visit_Status_Array = [
   'discharged',
   'cancelled',
   'no show',
+  'awaiting supervisor approval',
   'completed',
   'unknown',
 ] as const;
-export type VISIT_STATUS_TYPE = typeof Visit_Status_Array;
+
+export type VISIT_STATUS_TYPE = typeof visitStatusArray;
 export type VisitStatusLabel = VISIT_STATUS_TYPE[number];
 export type VisitStatusWithoutUnknown = Exclude<VisitStatusLabel, 'unknown'>;
-export type VisitStatusHistoryLabel = Exclude<VisitStatusWithoutUnknown, 'ready'>;
+
+// todo: ready status should be included in history. if there is no mistakes we can remove this type and use VisitStatusWithoutUnknown instead
+export type VisitStatusHistoryLabel = VisitStatusWithoutUnknown;
+
+export type SupervisorApprovalStatus = 'loading' | 'waiting-for-approval' | 'approved' | 'unknown';
 
 export const visitStatusToFhirAppointmentStatusMap: Record<VisitStatusWithoutUnknown, FhirAppointmentStatus> = {
   pending: 'booked',
   arrived: 'arrived',
+  'awaiting supervisor approval': 'fulfilled',
   ready: 'checked-in',
   intake: 'checked-in',
   'ready for provider': 'fulfilled',
@@ -76,6 +59,7 @@ export const visitStatusToFhirEncounterStatusMap: Record<VisitStatusWithoutUnkno
   discharged: 'in-progress',
   cancelled: 'cancelled',
   'no show': 'cancelled',
+  'awaiting supervisor approval': 'finished',
   completed: 'finished',
 };
 
@@ -102,6 +86,31 @@ export interface UpdateAppointmentParameters {
   appointmentID: string;
   language: string;
   slot: Slot;
+}
+
+export const VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE = {
+  system: 'http://loinc.org',
+  code: '11488-4',
+  display: 'Consult note',
+};
+
+export interface CreateUploadAudioRecordingInput {
+  visitID: string;
+}
+
+export interface CreateUploadAudioRecordingOutput {
+  z3URL: string;
+  presignedUploadUrl: string;
+}
+
+export interface CreateResourcesFromAudioRecordingInput {
+  z3URL: string;
+  duration?: number;
+  visitID: string;
+}
+
+export interface CreateResourcesFromAudioRecordingOutput {
+  presignedUploadUrl: string;
 }
 
 export interface UpdateAppointmentZambdaOutput {

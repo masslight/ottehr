@@ -1,0 +1,96 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { Communication, Practitioner } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
+import { ERX_TASK } from 'utils/lib/types/data/tasks/types';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { assertDefined, createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { createTask } from '../../../shared/tasks';
+import { ZambdaInput } from '../../../shared/types/common';
+
+const ZAMBDA_NAME = 'erx-notification-subscription';
+
+interface Input {
+  communication: Communication;
+  secrets: Secrets | null;
+}
+
+let oystehrToken: string;
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`Input: ${JSON.stringify(input)}`);
+  const { communication, secrets } = validateRequestParameters(input);
+
+  if (!oystehrToken) {
+    console.log('getting token');
+    oystehrToken = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
+  }
+
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
+
+  const practitioner = assertDefined(
+    (
+      await oystehr.fhir.search<Practitioner>({
+        resourceType: 'Practitioner',
+        params: [{ name: '_id', value: communication.recipient?.[0].reference?.split('/')[1] ?? '' }],
+      })
+    ).unbundle()[0],
+    'practitioner'
+  );
+  const practitionerName =
+    practitioner.name?.[0] != null ? oystehr?.fhir.formatHumanName(practitioner.name[0]) : 'Unknown';
+
+  const task = createTask({
+    category: ERX_TASK.category,
+    title: `Provider ${practitionerName} has notifications in DoseSpot`,
+    code: {
+      system: ERX_TASK.system,
+      code: ERX_TASK.code.providerNotification,
+    },
+    basedOn: ['Communication/' + communication.id],
+    input: [
+      {
+        type: ERX_TASK.input.providerName,
+        valueString: practitionerName,
+      },
+    ],
+  });
+
+  task.status = 'in-progress';
+  task.owner = {
+    reference: 'Practitioner/' + practitioner.id,
+    display: practitionerName,
+    extension: [
+      {
+        url: TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
+        valueDateTime: DateTime.now().toISO(),
+      },
+    ],
+  };
+
+  const createdTask = await oystehr.fhir.create(task);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      taskId: createdTask.id,
+    }),
+  };
+});
+
+function validateRequestParameters(input: ZambdaInput): Input {
+  const body = validateJsonBody(input);
+
+  if (body.resourceType !== 'Communication') {
+    throw new Error(`Request body must be a Communication resource`);
+  }
+
+  return {
+    communication: body as Communication,
+    secrets: input.secrets,
+  };
+}

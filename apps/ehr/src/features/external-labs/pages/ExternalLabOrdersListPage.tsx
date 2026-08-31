@@ -1,64 +1,91 @@
-import { Box, Stack } from '@mui/material';
+import { Box, Paper, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PageTitle } from '../../../telemed/components/PageTitle';
-import { useAppointmentData } from '../../../telemed/state/appointment/appointment.store';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { LabsTableColumn } from 'utils/lib/types/data/labs/labs.types';
+import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
 import ListViewContainer from '../../common/ListViewContainer';
-import { ButtonRounded } from '../../css-module/components/RoundedButton';
-import { LabsTable, LabsTableColumn } from '../components/labs-orders/LabsTable';
+import { ButtonRounded } from '../../visits/in-person/components/RoundedButton';
+import { PageTitle } from '../../visits/shared/components/PageTitle';
+import { LabsTablePatientChart } from '../components/labs-orders/LabsTablePatientChart';
+import { useLabOrderRowNavigation } from '../components/labs-orders/useLabOrderRowNavigation';
 
-const externalLabsColumns: LabsTableColumn[] = [
+export const externalLabsColumns: LabsTableColumn[] = [
   'testType',
   'dx',
   'ordered',
-  'status',
   'requisitionNumber',
+  'status',
   'detail',
   'actions',
 ];
 
 export const ExternalLabOrdersListPage: React.FC = () => {
+  const { openOrder, openDrDrivenResult } = useLabOrderRowNavigation();
   const navigate = useNavigate();
   const { encounter } = useAppointmentData();
   const encounterId = encounter?.id;
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { chartData } = useChartData();
 
   const handleCreateOrder = useCallback((): void => {
     navigate(`create`);
   }, [navigate]);
+
+  const aiExternalLabs = chartData?.observations?.filter(
+    (observation) => observation.field === AiObservationField.Labs
+  ) as ObservationTextFieldDTO[];
 
   if (!encounterId) {
     console.error('No encounter ID found');
     return null;
   }
 
+  // default is 10, but to handle edge cases, we're upping the number. realistically most encounters won't have more than 10 anyway
+  const ITEMS_PER_PAGE = 100;
+
   return (
     <ListViewContainer>
-      <Box>
+      <Box data-testid={dataTestIds.externalLabs.labsTable.patientChartExternalLabsPage}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <PageTitle label="External Labs" showIntakeNotesButton={false} />
           <Stack direction="row" spacing={2} alignItems="center">
-            <ButtonRounded
-              variant="contained"
-              color="primary"
-              size={'medium'}
-              onClick={() => handleCreateOrder()}
-              sx={{
-                py: 1,
-                px: 5,
-                textWrap: 'nowrap',
-              }}
-            >
-              + External Lab
-            </ButtonRounded>
+            {!isReadOnly && (
+              <ButtonRounded
+                data-testid={dataTestIds.externalLabs.labsTable.addExternalLabBtn}
+                variant="contained"
+                color="primary"
+                size={'medium'}
+                onClick={() => handleCreateOrder()}
+                sx={{
+                  py: 1,
+                  px: 5,
+                  textWrap: 'nowrap',
+                }}
+              >
+                + External Lab
+              </ButtonRounded>
+            )}
           </Stack>
         </Box>
-        <LabsTable
-          searchBy={{ searchBy: { field: 'encounterId', value: encounterId } }}
+        {aiExternalLabs?.length > 0 && (
+          <Paper sx={{ padding: 2, marginBottom: 2 }}>
+            {/* <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} /> */}
+            <AiSuggestion title={'Labs'} chartData={chartData} content={aiExternalLabs} />
+          </Paper>
+        )}
+        <LabsTablePatientChart
+          searchBy={{ searchBy: { field: 'encounterId', value: encounterId }, itemsPerPage: ITEMS_PER_PAGE }}
           columns={externalLabsColumns}
-          showFilters={false}
-          allowDelete={true}
-          allowSubmit={true}
-          onCreateOrder={handleCreateOrder}
+          allowDelete={!isReadOnly}
+          allowSubmit={!isReadOnly}
+          onCreateOrder={!isReadOnly ? handleCreateOrder : undefined}
+          onRowClick={openOrder}
+          onDrDrivenRowClick={openDrDrivenResult}
         />
       </Box>
     </ListViewContainer>

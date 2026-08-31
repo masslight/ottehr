@@ -1,0 +1,216 @@
+import { useEffect, useMemo, useState } from 'react';
+import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
+import { UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import {
+  MedicationApplianceRoutes,
+  medicationApplianceRoutes,
+} from 'utils/lib/types/api/medication-administration.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { getEmployees } from '../../../../api/api';
+import { useApiClients } from '../../../../hooks/useAppClients';
+import useEvolveUser from '../../../../hooks/useEvolveUser';
+import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
+import { useMainEncounterChartData } from '../../shared/hooks/useMainEncounterChartData';
+import { useGetMedicationList } from '../../shared/stores/appointment/appointment.queries';
+import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { Option } from '../components/medication-administration/medicationTypes';
+
+const getRoutesArray = (routes: MedicationApplianceRoutes): Option[] => {
+  // Priority routes that should appear at the top
+  const priorityRouteCodes = [
+    '26643006', // Oral route
+    '37839007', // Sublingual route
+    '447694001', // Respiratory tract route (inhaled)
+    '47625008', // Intravenous route (IV)
+    '445214009', // Infusion route (IV infusion)
+    '78421000', // Intramuscular route (IM)
+    '6064005', // Topical route
+    '10547007', // Otic route
+    '54485002', // Ophthalmic route
+  ];
+
+  const allRoutes = Object.entries(routes).map(([_, value]) => ({
+    value: value.code,
+    label: value.display,
+  })) as Option[];
+
+  // Separate priority routes from other routes
+  const priorityRoutes = allRoutes.filter((route) => priorityRouteCodes.includes(route.value));
+
+  const otherRoutes = allRoutes
+    .filter((route) => !priorityRouteCodes.includes(route.value))
+    .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+
+  // Sort priority routes in the specified order
+  priorityRoutes.sort((a, b) => {
+    const aIndex = priorityRouteCodes.indexOf(a.value);
+    const bIndex = priorityRouteCodes.indexOf(b.value);
+    return aIndex - bIndex;
+  });
+
+  // Create the grouped options with "Popular" and "Other" section headers
+  const groupedOptions: Option[] = [
+    { value: 'popular-separator', label: 'Popular' }, // Popular section header
+    ...priorityRoutes,
+    { value: 'other-separator', label: 'Other' }, // Other section header
+    ...otherRoutes,
+  ];
+
+  return groupedOptions;
+};
+
+export type MedicationIdSelectOptions = {
+  options: Option[];
+  status: 'loading' | 'loaded';
+  defaultOption?: Option;
+  medispanCodeSet?: Set<string>;
+  medispanCodeToMedicationId?: Record<string, string>;
+  ndcCodeSet?: Set<string>;
+  ndcToMedicationId?: Record<string, string>;
+};
+
+export type OrderFieldsSelectsOptions = Record<
+  'route' | 'units' | 'associatedDx' | 'providerId',
+  { options: Option[]; status: 'loading' | 'loaded'; defaultOption?: Option }
+> & {
+  medicationId: MedicationIdSelectOptions;
+};
+
+export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
+  const { data: medicationList, isLoading: isMedicationLoading } = useGetMedicationList();
+  const [providersOptions, setProvidersOptions] = useState<Option[]>([]);
+  const [isProvidersLoading, setIsProvidersLoading] = useState(true);
+  const { oystehrZambda } = useApiClients();
+  const currentUser = useEvolveUser();
+  const { encounter } = useAppointmentData();
+  const { chartData, isChartDataLoading } = useChartData();
+  const encounterId = encounter?.id;
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
+  const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
+
+  const diagnosis = useMemo<DiagnosisDTO[]>(
+    () => (isFollowup ? mainEncounterChartData?.diagnosis || [] : chartData?.diagnosis || []),
+    [mainEncounterChartData?.diagnosis, chartData?.diagnosis, isFollowup]
+  );
+
+  const diagnosisSelectOptions: Option[] =
+    diagnosis?.map((item) => ({
+      value: item.resourceId || '',
+      label: `${item.code} - ${item.display}`,
+    })) || [];
+
+  const primaryDiagnosis = diagnosis?.find((item) => item.isPrimary);
+
+  const diagnosisDefaultOption = primaryDiagnosis && {
+    value: primaryDiagnosis.resourceId || '',
+    label: `${primaryDiagnosis.code} - ${primaryDiagnosis.display}`,
+  };
+
+  useEffect(() => {
+    if (!oystehrZambda || !encounterId) {
+      return;
+    }
+
+    async function getProvidersResults(): Promise<void> {
+      try {
+        if (!oystehrZambda) {
+          return;
+        }
+
+        setIsProvidersLoading(true);
+        const data = await getEmployees(oystehrZambda);
+
+        if (data.employees) {
+          const activeProviders = data.employees.filter(
+            (employee: any) => employee.status === 'Active' && PROVIDERS_FILTER(employee)
+          );
+
+          const providerOptions = activeProviders.map((employee: any) => ({
+            value: employee.profile.split('/')[1],
+            label: `${employee.firstName} ${employee.lastName}`.trim() || employee.name,
+          }));
+
+          providerOptions.sort((a: Option, b: Option) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+          setProvidersOptions(providerOptions);
+        }
+      } catch (e) {
+        console.error('error loading provided by field', e);
+      } finally {
+        setIsProvidersLoading(false);
+      }
+    }
+
+    void getProvidersResults();
+  }, [oystehrZambda, encounterId]);
+
+  const medicationListOptions: Option[] = Object.entries(medicationList?.idToName || {})
+    .map(([id, label]) => ({ value: id, label }))
+    .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+
+  const medispanCodeSet = useMemo(() => {
+    if (!medicationList?.idToMedispanCode) return new Set<string>();
+    return new Set(Object.values(medicationList.idToMedispanCode));
+  }, [medicationList?.idToMedispanCode]);
+
+  const medispanCodeToMedicationId = useMemo(() => {
+    if (!medicationList?.idToMedispanCode) return {};
+    const map: Record<string, string> = {};
+    for (const [id, code] of Object.entries(medicationList.idToMedispanCode)) {
+      if (code && !(code in map)) map[code] = id;
+    }
+    return map;
+  }, [medicationList?.idToMedispanCode]);
+
+  const ndcCodeSet = useMemo(() => {
+    if (!medicationList?.idToNdc) return new Set<string>();
+    return new Set(Object.values(medicationList.idToNdc));
+  }, [medicationList?.idToNdc]);
+
+  const ndcToMedicationId = useMemo(() => {
+    if (!medicationList?.idToNdc) return {};
+    const map: Record<string, string> = {};
+    for (const [id, ndc] of Object.entries(medicationList.idToNdc)) {
+      if (ndc && !(ndc in map)) map[ndc] = id;
+    }
+    return map;
+  }, [medicationList?.idToNdc]);
+
+  // Determine default provider (current user for Provider role)
+  const currentUserProviderId = currentUser?.profile?.replace('Practitioner/', '');
+  const currentUserHasProviderRole = currentUser?.hasRole?.([RoleType.Provider]);
+  const defaultProvider =
+    currentUserHasProviderRole && currentUserProviderId
+      ? providersOptions.find((option) => option.value === currentUserProviderId)
+      : undefined;
+
+  return {
+    medicationId: {
+      options: medicationListOptions,
+      status: isMedicationLoading ? 'loading' : 'loaded',
+      medispanCodeSet,
+      medispanCodeToMedicationId,
+      ndcCodeSet,
+      ndcToMedicationId,
+    },
+    route: {
+      options: getRoutesArray(medicationApplianceRoutes),
+      status: 'loaded',
+    },
+    units: {
+      options: UNIT_OPTIONS,
+      status: 'loaded',
+    },
+    associatedDx: {
+      options: diagnosisSelectOptions,
+      status: isChartDataLoading ? 'loading' : 'loaded',
+      defaultOption: diagnosisDefaultOption,
+    },
+    providerId: {
+      options: providersOptions,
+      status: isProvidersLoading ? 'loading' : 'loaded',
+      defaultOption: defaultProvider,
+    },
+  };
+};

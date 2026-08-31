@@ -1,29 +1,26 @@
-import { useAuth0 } from '@auth0/auth0-react';
 import { Typography } from '@mui/material';
 import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { PageContainer } from 'src/components/CustomContainer';
+import Schedule from 'src/components/Schedule';
+import { i18n } from 'utils/lib/frontend';
+import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
+import { GetAppointmentResponseAppointmentDetails } from 'utils/lib/types/api/appointment.types';
+import { AvailableLocationInformation } from 'utils/lib/types/common';
 import {
   APIError,
-  AvailableLocationInformation,
   CANT_UPDATE_CANCELED_APT_ERROR,
-  GetAppointmentResponseAppointmentDetails,
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
-  PROJECT_NAME,
-  PROJECT_WEBSITE,
-  SlotListItem,
-  VisitType,
-} from 'utils';
+} from 'utils/lib/types/errors';
+import { SlotListItem } from 'utils/lib/utils/scheduleUtils';
 import ottehrApi from '../api/ottehrApi';
-import { PageContainer, Schedule } from '../components';
+import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../branding/primaryIconVisibility';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
-import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
-import i18n from '../lib/i18n';
-import { ottehrLightBlue } from '../themes/ottehr/icons';
 import { useVisitContext } from './ThankYou';
 
 const Reschedule = (): JSX.Element => {
@@ -34,27 +31,18 @@ const Reschedule = (): JSX.Element => {
   const [selectedSlot, setSelectedSlot] = useState<Slot | undefined>(undefined);
   const [appointment, setAppointment] = useState<GetAppointmentResponseAppointmentDetails | undefined>();
   const [pageNotFound, setPageNotFound] = useState(false);
-  const { isLoading } = useAuth0();
   const navigate = useNavigate();
   const { updateAppointmentStart } = useVisitContext();
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
   const [submitPending, setSubmitPending] = useState(false);
 
-  const { location, visitType } = useMemo(() => {
+  const { location } = useMemo(() => {
     if (appointment) {
       return appointment;
     } else {
       return { location: undefined, visitType: undefined };
     }
   }, [appointment]);
-  // Track Welcome page in Mixpanel
-  useTrackMixpanelEvents({
-    eventName: 'Modify Booking Time',
-    visitType: visitType as VisitType,
-    loading: loading || isLoading,
-    bookingCity: location?.address?.city,
-    bookingState: location?.address?.state,
-  });
 
   useEffect(() => {
     const getAppointmentDetails = async (appointmentID: string): Promise<any> => {
@@ -94,11 +82,11 @@ const Reschedule = (): JSX.Element => {
   // todo: this can be simplified greatly by handling on the backend
   const allAvailableSlots = useMemo(() => {
     const slots = (slotData ?? []).map((si) => si.slot);
-    const currentDateTime = DateTime.now().setZone(location?.timezone);
+    // we're assuming all slots use same timezone, which is likely true but not guaranteed
+    const tz = (slotData ?? [])[0]?.timezone;
+    const currentDateTime = DateTime.now().setZone(tz);
     if (slotData && selectedSlot) {
-      const currentSlotTime = DateTime.fromISO(selectedSlot.start)
-        .setZone(location?.timezone)
-        .setLocale(i18n.language);
+      const currentSlotTime = DateTime.fromISO(selectedSlot.start).setZone(tz).setLocale(i18n.language);
       const currentSlotTimePassed = currentSlotTime > currentDateTime;
       if (currentSlotTimePassed) {
         return slots;
@@ -110,7 +98,7 @@ const Reschedule = (): JSX.Element => {
       return [...slots, selectedSlot]?.sort((a: Slot, b: Slot) => a.start.localeCompare(b.start));
     }
     return slotData?.map((si) => si.slot);
-  }, [selectedSlot, location?.timezone, slotData]);
+  }, [selectedSlot, slotData]);
 
   const { officeHasClosureOverrideToday, officeHasClosureOverrideTomorrow } = useCheckOfficeOpen(location);
   const { t } = useTranslation();
@@ -182,7 +170,7 @@ const Reschedule = (): JSX.Element => {
     return (
       <PageContainer title={t('modify.errors.notFound.title')}>
         <Typography variant="body1">
-          {t('modify.errors.notFound.description', { PROJECT_NAME })}{' '}
+          {t('modify.errors.notFound.description', { PROJECT_NAME: BRANDING_CONFIG.projectName })}{' '}
           <a href={`${PROJECT_WEBSITE}/find-care/`}>{t('modify.errors.notFound.link')}</a>.
         </Typography>
       </PageContainer>
@@ -195,9 +183,7 @@ const Reschedule = (): JSX.Element => {
       subtitle={loading ? 'Loading...' : `${location?.name}`}
       subtext={loading ? '' : t('modify.selectNew')}
       isFirstPage
-      img={ottehrLightBlue}
-      imgAlt={`${PROJECT_NAME} icon`}
-      imgWidth={150}
+      {...getPrimaryIconContainerProps(PRIMARY_ICON_PAGE.RESCHEDULE)}
     >
       <>
         <Schedule

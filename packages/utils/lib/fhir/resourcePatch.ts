@@ -8,6 +8,7 @@ export interface GetPatchBinaryInput {
   resourceId: string;
   resourceType: string;
   patchOperations: Operation[];
+  ifMatch?: string;
 }
 
 export function getPatchBinary(input: GetPatchBinaryInput): BatchInputPatchRequest<FhirResource> {
@@ -21,6 +22,7 @@ export function getPatchBinary(input: GetPatchBinaryInput): BatchInputPatchReque
       data: btoa(unescape(encodeURIComponent(JSON.stringify(patchOperations)))),
       contentType: 'application/json-patch+json',
     },
+    ifMatch: input.ifMatch,
   };
 }
 
@@ -136,6 +138,7 @@ export const getPatchOperationToUpdateExtension = (
   newExtension: { url: Extension['url'] } & (
     | { valueString: Extension['valueString'] }
     | { valueDate: Extension['valueDate'] }
+    | { valueDateTime: Extension['valueDateTime'] }
     | { valueBoolean: Extension['valueBoolean'] }
   )
 ): Operation | undefined => {
@@ -165,6 +168,11 @@ export const getPatchOperationToUpdateExtension = (
         extension[existingExtIndex] = newExtension;
         requiresUpdate = true;
       }
+    } else if ('valueDateTime' in newExtension && 'valueDateTime' in existingExt) {
+      if (existingExt.valueDateTime !== newExtension.valueDateTime) {
+        extension[existingExtIndex] = newExtension;
+        requiresUpdate = true;
+      }
     } else if ('valueBoolean' in newExtension && 'valueBoolean' in existingExt) {
       if (existingExt.valueBoolean !== newExtension.valueBoolean) {
         extension[existingExtIndex] = newExtension;
@@ -187,35 +195,6 @@ export const getPatchOperationToUpdateExtension = (
   }
 
   return undefined;
-};
-
-export const getPatchOperationToRemoveExtension = (
-  resource: { extension?: Extension[] },
-  extensionToRemove: { url: Extension['url'] }
-): Operation | undefined => {
-  if (!resource.extension || resource.extension.length === 0) {
-    return undefined;
-  }
-
-  const extension = resource.extension;
-
-  const existingExtIndex = extension.findIndex((ext) => ext.url === extensionToRemove.url);
-  // check if formUser exists and needs to be updated and if so, update
-  if (existingExtIndex < 0) {
-    return undefined;
-  }
-
-  if (extension.length > 1) {
-    return {
-      op: 'remove',
-      path: `/extension/${existingExtIndex}`,
-    };
-  } else {
-    return {
-      op: 'remove',
-      path: '/extension',
-    };
-  }
 };
 
 export interface ContactTelecomConfig {
@@ -331,11 +310,11 @@ interface GroupedOperation {
 
 export function consolidateOperations(operations: Operation[], resource: FhirResource): Operation[] {
   // Merge 'replace' and 'add' operations with the same path
-  const mergedOperations: Operation[] = mergeOperations(operations, resource);
+  let mergedOperations: Operation[] = mergeOperations(operations, resource);
 
   if (resource.resourceType === 'Patient' && resource.contact) {
     // Special handling for contact name operations
-    consolidateContactNameOperations(mergedOperations);
+    mergedOperations = consolidateContactNameOperations(mergedOperations);
   }
 
   // Group operations by their root paths
@@ -555,12 +534,37 @@ function groupAddOperationsForExistingPath(
   return groups;
 }
 
+/**
+ * FHIR R4B scalar fields that should NOT be wrapped in arrays.
+ * These are primitive value fields (string, code, date, boolean, integer)
+ * at the root level of resources.
+ * See: https://www.hl7.org/fhir/R4B/patient.html
+ */
+const FHIR_SCALAR_FIELDS = new Set([
+  // Patient:
+  'gender', // code
+  'birthDate', // date
+  'deceasedBoolean', // boolean
+  'deceasedDateTime', // dateTime
+  'active', // boolean
+]);
+
 function consolidateGroupedOperationsForNewPaths(group: GroupedOperation): Operation {
   const { rootPath, operations } = group;
 
   const consolidatedValue = operations.reduce((result: any, op: Operation) => {
     if (op.op !== 'add') return result;
     const relativePath = op.path.slice(rootPath.length).replace(/^\//, '');
+
+    // OTR-2283: For known FHIR scalar fields (like gender, birthDate) that target
+    // root path directly, return value without wrapping in array.
+    // This handles edge case where scalar field is missing from resource.
+    const rootFieldName = rootPath.replace(/^\//, '');
+    const isRootFieldUpdate = relativePath === '';
+    if (isRootFieldUpdate && FHIR_SCALAR_FIELDS.has(rootFieldName)) {
+      return op.value;
+    }
+
     const pathParts = relativePath.split('/'); // Break into parts
 
     // Build nested structure

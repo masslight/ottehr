@@ -1,6 +1,6 @@
 import { HealthcareService, Location, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { TIMEZONE_EXTENSION_URL } from 'utils';
+import { TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 
 export const OVERRIDE_DATE_FORMAT = 'M/d/yyyy';
 
@@ -8,17 +8,6 @@ export const DATE_FORMAT = 'MM/dd/yyyy';
 
 export function formatHourNumber(hour: number): string {
   return DateTime.fromFormat(String(hour), 'h').toFormat('h a');
-}
-
-export function formatDateUsingSlashes(date: string | undefined, timezone?: string): string | undefined {
-  if (!date) {
-    return date;
-  }
-  if (timezone) {
-    return DateTime.fromISO(date).setZone(timezone).toFormat(DATE_FORMAT);
-  } else {
-    return DateTime.fromISO(date).toFormat(DATE_FORMAT);
-  }
 }
 
 export function datesCompareFn(format: string) {
@@ -53,6 +42,31 @@ export function formatISOStringToDateAndTime(isoString: string, timezone?: strin
   const formattedDateTime = dateTime.toFormat(`${DATE_FORMAT}, HH:mm`);
 
   return formattedDateTime;
+}
+
+/**
+ * Renders a visit's date and time in the office's own zone rather than the reader's, and names that
+ * zone — a visit at 9:30 AM in the office must not read as 6:30 AM to staff in another timezone.
+ * Prefer the office's IANA zone so a stable regional abbreviation can be shown while the time still
+ * observes daylight saving. Older payloads only carry an offset in the ISO value; those continue to
+ * render an explicit UTC offset.
+ */
+export function formatVisitDateTimeWithZone(isoString: string, timezone?: string): string {
+  const dateTime = DateTime.fromISO(isoString, { setZone: true });
+  if (!timezone) return dateTime.toFormat('MM/dd/yyyy hh:mm a ZZZZ');
+
+  const officeDateTime = dateTime.setZone(timezone);
+  if (!officeDateTime.isValid) return dateTime.toFormat('MM/dd/yyyy hh:mm a ZZZZ');
+
+  // shortGeneric yields the design's stable regional label (for example ET) instead of changing
+  // between EST and EDT. The instant still observes daylight-saving time through the IANA zone.
+  const zoneLabel = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    timeZoneName: 'shortGeneric',
+  })
+    .formatToParts(officeDateTime.toJSDate())
+    .find((part) => part.type === 'timeZoneName')?.value;
+  return `${officeDateTime.toFormat('MM/dd/yyyy hh:mm a')} ${zoneLabel ?? officeDateTime.toFormat('ZZZZ')}`;
 }
 
 export function getTimezone(resource: Location | Practitioner | HealthcareService | undefined): string {

@@ -10,6 +10,7 @@ export const otherColors = {
   coachingVisit: '#aed4fc',
   darkGreen: '#0F5A4C',
   darkPurple: '#301367',
+  emergencyBanner: '#2169F5',
   lightBlue: '#E2F0FF',
   lightCancel: '#FFD8D8',
   lightGray: 'rgba(0, 0, 0, 0.23)',
@@ -62,7 +63,7 @@ export const palette = {
     main: '#66BA70',
   },
   warning: {
-    main: '#FFDF9A',
+    main: '#FFCD75',
   },
   error: {
     main: '#EC6930',

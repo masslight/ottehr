@@ -20,7 +20,7 @@ export const Row: FC<RowProps> = ({ label, children, inputId, required, dataTest
           {required && ' *'}
         </Typography>
       </Box>
-      <Box data-testid={dataTestId} sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
+      <Box id={inputId} data-testid={dataTestId} sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
         {children}
       </Box>
     </Box>

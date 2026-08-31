@@ -3,15 +3,22 @@ import react from '@vitejs/plugin-react';
 import browserslistToEsbuild from 'browserslist-to-esbuild';
 import { existsSync } from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { defineConfig, loadEnv, UserConfig } from 'vite';
 import svgr from 'vite-plugin-svgr';
 import viteTsconfigPaths from 'vite-tsconfig-paths';
+import { devStampRestartPlugin } from '../../vite/dev-stamp-restart';
+import { adHocReportRuntime } from './adhoc-report-runtime-plugin';
+
+const coreRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 export default ({ mode }: { mode: string }): UserConfig => {
+  console.log(`Mode is: ${mode}`);
+
   const envDir = './env';
   const env = loadEnv(mode, path.join(process.cwd(), envDir), '');
 
-  const plugins = [react(), viteTsconfigPaths(), svgr()];
+  const plugins = [devStampRestartPlugin(coreRoot), react(), viteTsconfigPaths(), svgr(), adHocReportRuntime()];
 
   const shouldUploadSentrySourceMaps =
     Boolean(env.SENTRY_AUTH_TOKEN) && Boolean(env.SENTRY_ORG) && Boolean(env.SENTRY_PROJECT);
@@ -57,13 +64,27 @@ export default ({ mode }: { mode: string }): UserConfig => {
     build: {
       outDir: './build',
       target: browserslistToEsbuild(),
-      sourcemap: true,
+      // Only emit sourcemaps when they'll actually be uploaded to Sentry.
+      // Generating them for every env (e2e*, local) bloats rollup's
+      // "rendering chunks" phase and OOMs the build on a 23k-module app.
+      sourcemap: shouldUploadSentrySourceMaps,
+    },
+    define: {
+      // Chime SDK background-filter deps reference the Node.js `global` which doesn't exist in browsers.
+      global: 'globalThis',
     },
     resolve: {
-      alias: {
-        '@ehrTheme': path.resolve(__dirname, env.THEME_PATH || 'src/themes/ottehr'),
-        '@ehrDefaultTheme': path.resolve(__dirname, 'src/themes/ottehr'),
-      },
+      preserveSymlinks: true,
+      alias: [
+        // Resolve the workspace packages to their real source directories. `preserveSymlinks`
+        // otherwise resolves them inside node_modules, where vite treats them as prebundlable
+        // deps: it serves their source raw and, with it, their transitive deps — which is fatal
+        // for CJS ones like `prop-types` (reached via react-imask) that have no named exports.
+        { find: /^utils(\/|$)/, replacement: path.resolve(coreRoot, 'packages/utils') + '/' },
+        { find: /^ui-components(\/|$)/, replacement: path.resolve(coreRoot, 'packages/ui-components') + '/' },
+        { find: '@ehrTheme', replacement: path.resolve(__dirname, env.THEME_PATH || 'src/themes/ottehr') },
+        { find: '@ehrDefaultTheme', replacement: path.resolve(__dirname, 'src/themes/ottehr') },
+      ],
     },
   });
 };

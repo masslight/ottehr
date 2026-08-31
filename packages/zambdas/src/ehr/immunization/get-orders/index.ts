@@ -1,37 +1,36 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Coding, Extension, MedicationAdministration, RelatedPerson } from 'fhir/r4b';
+import { Coding, Extension, MedicationAdministration, Organization, RelatedPerson } from 'fhir/r4b';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { getMedicationName, mapFhirToOrderStatus } from 'utils/lib/fhir/medication-administration';
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import {
-  CODE_SYSTEM_CPT,
-  CODE_SYSTEM_NDC,
-  getCoding,
-  GetImmunizationOrdersRequest,
-  GetImmunizationOrdersResponse,
-  getMedicationName,
-  ImmunizationOrder,
-  mapFhirToOrderStatus,
+  CVX_CODE_SYSTEM_URL,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_APPLIANCE_LOCATION_SYSTEM,
+  MVX_CODE_SYSTEM_URL,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
   PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
+  VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
-} from 'utils';
+  VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
+} from 'utils/lib/types/api/medication-administration.constants';
 import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  validateJsonBody,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+  GetImmunizationOrdersRequest,
+  GetImmunizationOrdersResponse,
+  ImmunizationOrder,
+} from 'utils/lib/types/data/immunization/types';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import {
   CONTAINED_EMERGENCY_CONTACT_ID,
-  CVX_CODE_SYSTEM_URL,
+  CONTAINED_MANUFACTURER_ORG_ID,
   getContainedMedication,
   IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
-  MVX_CODE_SYSTEM_URL,
-  VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-  VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
+  IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL,
 } from '../common';
 
 let m2mToken: string;
@@ -39,29 +38,21 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'get-immunization-orders';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const response = await getImmunizationOrders(oystehr, validatedParameters);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: `Error creating order: ${JSON.stringify(error.message)}` }),
-    };
-  }
+  const validatedParameters = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
+  const response = await getImmunizationOrders(oystehr, validatedParameters);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
-async function getImmunizationOrders(
+export async function getImmunizationOrders(
   oystehr: Oystehr,
   input: GetImmunizationOrdersRequest
 ): Promise<GetImmunizationOrdersResponse> {
-  const { orderId, patientId } = input;
+  const { orderId, patientId, encounterIds } = input;
   const params: SearchParam[] = [
     {
       name: '_tag',
@@ -80,6 +71,12 @@ async function getImmunizationOrders(
       value: 'Patient/' + patientId,
     });
   }
+  if (encounterIds && encounterIds.length > 0) {
+    params.push({
+      name: 'context',
+      value: encounterIds.map((encounterId) => 'Encounter/' + encounterId).join(','),
+    });
+  }
   return {
     orders: (
       await oystehr.fhir.search<MedicationAdministration>({
@@ -95,11 +92,16 @@ async function getImmunizationOrders(
 export function validateRequestParameters(
   input: ZambdaInput
 ): GetImmunizationOrdersRequest & Pick<ZambdaInput, 'secrets'> {
-  const { orderId, patientId } = validateJsonBody(input);
+  const { orderId, patientId, encounterIds } = validateJsonBody(input);
+
+  if (!orderId && !patientId && !encounterIds) {
+    throw new Error(`orderId or patientId or encounterIds must be provided`);
+  }
 
   return {
     orderId,
     patientId,
+    encounterIds,
     secrets: input.secrets,
   };
 }
@@ -110,20 +112,26 @@ function mapMedicationAdministrationToImmunizationOrder(
   const status = mapFhirToOrderStatus(medicationAdministration) ?? '';
   const isAdministered = ['administered', 'administered-partly', 'administered-not'].includes(status);
   const medication = getContainedMedication(medicationAdministration);
-  const administrationCodesExtensions = (medicationAdministration.extension ?? []).filter(
+  const administrationCodesExtensions = (medication?.extension ?? []).filter(
     (extension) => extension.url === VACCINE_ADMINISTRATION_CODES_EXTENSION_URL
   );
-  const emergencyContactReatedPerson = medicationAdministration.contained?.find(
+  const emergencyContactRelatedPerson = medicationAdministration.contained?.find(
     (resource) => resource.id === CONTAINED_EMERGENCY_CONTACT_ID
   ) as RelatedPerson;
+  const manufacturerOrg = medicationAdministration.contained?.find(
+    (resource) => resource.id === CONTAINED_MANUFACTURER_ORG_ID
+  ) as Organization | undefined;
+  const locationCoding = getCoding(medicationAdministration.dosage?.site, MEDICATION_APPLIANCE_LOCATION_SYSTEM);
   return {
     id: medicationAdministration.id!,
     status: status,
     reason: medicationAdministration.note?.[0].text,
     details: {
       medication: {
-        id: medication?.id ?? '',
-        name: medication ? getMedicationName(medication) ?? '' : '',
+        id:
+          medication?.extension?.find((e) => e.url === IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL)?.valueString ??
+          '',
+        name: getMedicationName(medication) ?? '',
       },
       dose: medicationAdministration.dosage?.dose?.value?.toString() ?? '',
       units: medicationAdministration.dosage?.dose?.unit ?? '',
@@ -132,8 +140,20 @@ function mapMedicationAdministrationToImmunizationOrder(
         medicationAdministration.extension?.find((e) => e.url === IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL)
           ?.valueDateTime ?? '',
       route: getCoding(medicationAdministration.dosage?.route, MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM)?.code,
-      location: getCoding(medicationAdministration.dosage?.site, MEDICATION_APPLIANCE_LOCATION_SYSTEM)?.code,
+      location: locationCoding
+        ? {
+            name: locationCoding.display ?? '',
+            code: locationCoding.code ?? '',
+          }
+        : undefined,
       instructions: medicationAdministration.dosage?.text,
+      associatedDx: medicationAdministration.reasonReference?.[0]?.reference
+        ? {
+            resourceId: medicationAdministration.reasonReference[0].reference.split('/')[1],
+            display: medicationAdministration.reasonReference[0].display ?? '',
+          }
+        : undefined,
+      manufacturer: manufacturerOrg?.name,
     },
     administrationDetails:
       isAdministered && medication
@@ -142,26 +162,32 @@ function mapMedicationAdministrationToImmunizationOrder(
             expDate: medication.batch?.expirationDate ?? '',
             mvx: findCoding(administrationCodesExtensions, MVX_CODE_SYSTEM_URL)?.code ?? '',
             cvx: findCoding(administrationCodesExtensions, CVX_CODE_SYSTEM_URL)?.code ?? '',
-            cpt: findCoding(administrationCodesExtensions, CODE_SYSTEM_CPT)?.code,
+            cptCodes: administrationCodesExtensions
+              ?.filter((ext) => ext.valueCodeableConcept?.coding?.[0]?.system === CODE_SYSTEM_CPT)
+              .map((ext) => ({
+                code: ext.valueCodeableConcept?.coding?.[0]?.code ?? '',
+                display: ext.valueCodeableConcept?.coding?.[0]?.display ?? '',
+              }))
+              .filter((c) => c.code !== ''),
             ndc: findCoding(administrationCodesExtensions, CODE_SYSTEM_NDC)?.code ?? '',
             administeredProvider: getProvider(medicationAdministration, PRACTITIONER_ADMINISTERED_MEDICATION_CODE),
             administeredDateTime: medicationAdministration.effectiveDateTime ?? '',
-            visGivenDate: medicationAdministration.extension?.find(
-              (e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL
-            )?.valueDate,
-            emergencyContact: emergencyContactReatedPerson
+            visGivenDate: medication?.extension?.find((e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL)
+              ?.valueDate,
+            emergencyContact: emergencyContactRelatedPerson
               ? {
-                  fullName: emergencyContactReatedPerson.name?.[0].text ?? '',
-                  mobile: emergencyContactReatedPerson.telecom?.[0].value ?? '',
+                  fullName: emergencyContactRelatedPerson.name?.[0].text ?? '',
+                  mobile: emergencyContactRelatedPerson.telecom?.[0].value ?? '',
                   relationship:
                     getCoding(
-                      emergencyContactReatedPerson.relationship,
+                      emergencyContactRelatedPerson.relationship,
                       VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM
                     )?.code ?? '',
                 }
               : undefined,
           }
         : undefined,
+    encounterId: medicationAdministration.context?.reference?.split('/')[1] ?? '',
   };
 }
 

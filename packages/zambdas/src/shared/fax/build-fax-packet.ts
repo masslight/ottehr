@@ -1,0 +1,290 @@
+import Oystehr from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
+import { DocumentReference, List } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
+import {
+  FAX_PACKET_MAX_BYTES,
+  FAX_PACKET_MAX_PAGES,
+  FaxPacketSource,
+  FaxRecipient,
+} from 'utils/lib/types/api/fax.types';
+import { getMimeType } from 'utils/lib/utils/file';
+import { mapWithConcurrency } from '../concurrency';
+import { createFaxCoverSheetPdfBytes } from '../pdf/fax-cover-sheet-pdf';
+import { makeFaxPacketDocumentReference } from '../pdf/make-fax-packet-document-reference';
+import {
+  createFaxAttachmentPlaceholderPdf,
+  downloadFileBytes,
+  mergePdfDocuments,
+  normalizeFileToPdf,
+} from '../pdf/merge-pdfs';
+import { PdfInfo } from '../pdf/pdf-utils';
+import { FaxCoverSheetData, FaxCoverSheetSubject } from '../pdf/types';
+import { makeZ3Url } from '../presigned-file-urls/helpers';
+import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
+import { FaxPacketPart } from './collect-visit-documents';
+
+/**
+ * One cover sheet's worth of documents, merged into a single PDF. A packet has one section per
+ * visit, so a multi-visit send introduces each visit with its own cover sheet.
+ */
+export interface FaxPacketSection {
+  subject: FaxCoverSheetSubject;
+  bytes: Uint8Array;
+  pageCount: number;
+  parts: FaxPacketPart[];
+}
+
+/**
+ * The selected documents merged into PDFs, without cover sheets.
+ *
+ * The body is identical for every recipient (only the cover sheets differ), so it is built once per
+ * request and reused. If recipients later get per-recipient options that affect the body, this will need to
+ * be rebuilt per recipient.
+ */
+export interface FaxPacketBody {
+  sections: FaxPacketSection[];
+  /** Document pages across every section; cover sheets are added per recipient. */
+  pageCount: number;
+  parts: FaxPacketPart[];
+}
+
+/**
+ * How many source documents are fetched at once. A medical-record packet spans every document on
+ * file, so an unbounded fan-out would open one Z3 round-trip per document simultaneously.
+ */
+const PART_DOWNLOAD_CONCURRENCY = 5;
+
+/**
+ * Running total of the source bytes pulled for one packet, so an oversized selection is rejected
+ * while it downloads instead of after the whole thing has been fetched and merged. Shared across a
+ * multi-visit packet's sections, because the limit applies to the packet as a whole.
+ */
+export interface FaxPacketByteBudget {
+  consume: (byteCount: number) => void;
+}
+
+export const createFaxPacketByteBudget = (
+  sourceType: FaxPacketSource['type'],
+  maxBytes: number = FAX_PACKET_MAX_BYTES
+): FaxPacketByteBudget => {
+  let used = 0;
+  return {
+    consume: (byteCount) => {
+      used += byteCount;
+      if (used > maxBytes) {
+        throw new FaxPacketError(
+          `Fax packet source documents are over ${(used / (1024 * 1024)).toFixed(1)} MB, which exceeds the ` +
+            `${MAX_BYTES_MB} MB limit. ${faxPacketLimitGuidance(sourceType)}`
+        );
+      }
+    },
+  };
+};
+
+/** Merges already-collected parts into one section. */
+export async function buildFaxPacketSection(args: {
+  token: string;
+  subject: FaxCoverSheetSubject;
+  parts: FaxPacketPart[];
+  /** Defaults to a budget covering this section alone; pass one in to span a multi-section packet. */
+  budget?: FaxPacketByteBudget;
+}): Promise<FaxPacketSection> {
+  const { token, subject, parts } = args;
+  const budget = args.budget ?? createFaxPacketByteBudget('visit');
+
+  const partBytes = await mapWithConcurrency(parts, PART_DOWNLOAD_CONCURRENCY, async (part) => {
+    let raw: Uint8Array;
+    try {
+      raw = part.bytes ?? (await downloadPart(part, token));
+    } catch (error) {
+      if (error instanceof FaxPacketError) throw error;
+      const reason = error instanceof Error ? error.message : 'could not be retrieved';
+      throw new FaxPacketError(`Fax packet part "${part.title}" ${reason}. The entire fax was not sent.`, error);
+    }
+
+    // Counted before rendering so an oversized selection stops downloading the rest.
+    budget.consume(raw.length);
+
+    try {
+      return await normalizeFileToPdf(raw, part.contentType ?? (part.z3Url ? getMimeType(part.z3Url) : undefined));
+    } catch (error) {
+      // The recipient must be told when content is omitted. Preserve the packet order with a notice
+      // page instead of silently dropping the attachment or rejecting the remaining documents.
+      console.error(`[fax-packet] could not render "${part.title}"; inserting a replacement notice`, error);
+      try {
+        return await createFaxAttachmentPlaceholderPdf(part.title);
+      } catch (placeholderError) {
+        throw new FaxPacketError(
+          `Fax packet part "${part.title}" could not be rendered and its replacement notice could not be created. ` +
+            'The entire fax was not sent.',
+          placeholderError
+        );
+      }
+    }
+  });
+
+  let merged: Awaited<ReturnType<typeof mergePdfDocuments>>;
+  try {
+    merged = await mergePdfDocuments(partBytes);
+  } catch (error) {
+    throw new Error('A fax packet source document is not a valid PDF. The entire fax was not sent.', { cause: error });
+  }
+  const { bytes, pageCount } = merged;
+  return { subject, bytes, pageCount, parts };
+}
+
+const downloadPart = async (part: FaxPacketPart, token: string): Promise<Uint8Array> => {
+  if (!part.z3Url) throw new Error('has neither generated bytes nor a stored file');
+  return downloadFileBytes(part.z3Url, token);
+};
+
+/** A failure already phrased for the user, so the per-part handler passes it through untouched. */
+class FaxPacketError extends Error {
+  constructor(message: string, cause?: unknown) {
+    super(message, cause === undefined ? undefined : { cause });
+    this.name = 'FaxPacketError';
+  }
+}
+
+/** Collapses sections into the shape the sender works with. */
+export const toFaxPacketBody = (sections: FaxPacketSection[]): FaxPacketBody => ({
+  sections,
+  pageCount: sections.reduce((total, section) => total + section.pageCount, 0),
+  parts: sections.flatMap((section) => section.parts),
+});
+
+export const interleaveFaxPacketSections = (
+  covers: Uint8Array[],
+  sections: Pick<FaxPacketSection, 'bytes'>[]
+): Uint8Array[] => {
+  if (covers.length !== sections.length) throw new Error('Every fax packet section requires one cover sheet');
+  return covers.flatMap((cover, index) => [cover, sections[index].bytes]);
+};
+
+const MAX_BYTES_MB = (FAX_PACKET_MAX_BYTES / (1024 * 1024)).toFixed(0);
+
+export const faxPacketLimitGuidance = (sourceType: FaxPacketSource['type']): string => {
+  switch (sourceType) {
+    case 'visit':
+      return 'Select fewer visit documents and try again.';
+    case 'visits':
+      return 'Select fewer visits and try again.';
+    case 'medical-record':
+      return 'Fax the needed documents individually instead.';
+    case 'document':
+      return 'Reduce the document below the fax limit before trying again.';
+  }
+};
+
+/**
+ * Renders the recipient's cover sheet, merges it in front of the already-built body, enforces the
+ * transmission limits and uploads the result, then records it as a DocumentReference.
+ *
+ * Never re-collects or re-merges the body: `body` is passed in precisely so that a multi-recipient
+ * send does that work once.
+ */
+export async function buildAndUploadPacketForRecipient(args: {
+  oystehr: Oystehr;
+  token: string;
+  secrets: Secrets | null;
+  body: FaxPacketBody;
+  recipient: FaxRecipient;
+  /** Sender + generatedAt; each section supplies its own subject, and totalPages is filled in here. */
+  coverSheet: Omit<FaxCoverSheetData, 'totalPages' | 'recipient' | 'subject'>;
+  patientId: string;
+  /** Absent when the packet does not belong to a single visit. */
+  appointmentId?: string;
+  encounterId?: string;
+  sourceType: FaxPacketSource['type'];
+  listResources: List[];
+}): Promise<{ pdfInfo: PdfInfo; documentReference: DocumentReference; pageCount: number }> {
+  const {
+    oystehr,
+    token,
+    secrets,
+    body,
+    recipient,
+    coverSheet,
+    patientId,
+    appointmentId,
+    encounterId,
+    sourceType,
+    listResources,
+  } = args;
+
+  const recipientDetails = {
+    name: recipient.name,
+    organization: recipient.organization,
+    faxNumber: recipient.faxNumber,
+    phoneNumber: recipient.phoneNumber,
+  };
+
+  // Every cover sheet prints the whole transmission's page count, which depends on how long the
+  // cover sheets themselves are. One correction pass is enough: the count only ever grows the
+  // footer text.
+  const renderCovers = async (totalPages: number): Promise<Uint8Array[]> =>
+    Promise.all(
+      body.sections.map((section) =>
+        createFaxCoverSheetPdfBytes({
+          ...coverSheet,
+          subject: section.subject,
+          recipient: recipientDetails,
+          totalPages,
+        })
+      )
+    );
+  let covers = await renderCovers(body.sections.length + body.pageCount);
+  let merged = await mergePdfDocuments(interleaveFaxPacketSections(covers, body.sections));
+  const coverPages = merged.pageCount - body.pageCount;
+
+  if (coverPages !== body.sections.length) {
+    covers = await renderCovers(coverPages + body.pageCount);
+    merged = await mergePdfDocuments(interleaveFaxPacketSections(covers, body.sections));
+  }
+
+  // Enforced before the upload so an oversized packet leaves nothing behind in storage.
+  if (merged.pageCount > FAX_PACKET_MAX_PAGES) {
+    throw new Error(
+      `Fax packet is ${merged.pageCount} pages, which exceeds the ${FAX_PACKET_MAX_PAGES} page limit. ` +
+        faxPacketLimitGuidance(sourceType)
+    );
+  }
+  if (merged.bytes.length > FAX_PACKET_MAX_BYTES) {
+    throw new Error(
+      `Fax packet is ${(merged.bytes.length / (1024 * 1024)).toFixed(1)} MB, which exceeds the ${MAX_BYTES_MB} MB ` +
+        `limit. ${faxPacketLimitGuidance(sourceType)}`
+    );
+  }
+
+  // A retry must re-send the original bytes, so every packet is its own immutable file: the unique
+  // filename doubles as the DocumentReference title, which is what keeps earlier packets from being
+  // superseded (see makeFaxPacketDocumentReference).
+  const fileName = `FaxPacket-${DateTime.now().toUTC().toFormat('yyyy-MM-dd-HHmmss')}-${randomUUID()}.pdf`;
+
+  const uploadURL = makeZ3Url({
+    secrets,
+    bucketName: BUCKET_NAMES.FAXES,
+    patientID: patientId,
+    fileName,
+  });
+
+  const presignedUploadUrl = await createPresignedUrl(token, uploadURL, 'upload');
+
+  await uploadObjectToZ3(merged.bytes, presignedUploadUrl);
+
+  const pdfInfo: PdfInfo = { title: fileName, uploadURL };
+
+  const documentReference = await makeFaxPacketDocumentReference({
+    oystehr,
+    pdfInfo,
+    patientId,
+    appointmentId,
+    encounterId,
+    listResources,
+  });
+
+  return { pdfInfo, documentReference, pageCount: merged.pageCount };
+}

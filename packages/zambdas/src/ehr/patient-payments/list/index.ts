@@ -1,37 +1,26 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Account, PaymentNotice } from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import { Account } from 'fhir/r4b';
 import Stripe from 'stripe';
+import { Secrets } from 'utils/lib/secrets';
+import { ListPatientPaymentInput, ListPatientPaymentResponse } from 'utils/lib/types/api/patient-payment-types';
 import {
-  CardPaymentDTO,
-  CashPaymentDTO,
-  convertPaymentNoticeListToCashPaymentDTOs,
   FHIR_RESOURCE_NOT_FOUND,
-  getSecret,
-  getStripeCustomerIdFromAccount,
   INVALID_INPUT_ERROR,
-  isValidUUID,
-  ListPatientPaymentInput,
-  ListPatientPaymentResponse,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
-  PatientPaymentDTO,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  getStripeClient,
-  lambdaResponse,
-  STRIPE_PAYMENT_ID_SYSTEM,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { lambdaResponse } from '../../../shared/lambda';
+import { wrapHandler } from '../../../shared/sentry';
+import { getStripeClient } from '../../../shared/stripeIntegration';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
+import { getPaymentsForPatient } from '../helpers';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
@@ -39,131 +28,63 @@ let oystehrM2MClientToken: string;
 const ZAMBDA_NAME = 'patient-payments-list';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.group('validateRequestParameters');
+  let validatedParameters: ReturnType<typeof validateRequestParameters>;
   try {
-    console.group('validateRequestParameters');
-    let validatedParameters: ReturnType<typeof validateRequestParameters>;
-    try {
-      validatedParameters = validateRequestParameters(input);
-      console.log(JSON.stringify(validatedParameters, null, 4));
-    } catch (error: any) {
-      console.log(error);
-      return lambdaResponse(400, { message: error.message });
-    }
-
-    const secrets = input.secrets;
-    const { patientId } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-
-    if (!oystehrM2MClientToken) {
-      console.log('getting m2m token for service calls');
-      oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
-
-    const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
-
-    const accountResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehrClient);
-    const account: Account | undefined = accountResources.account;
-
-    if (!account?.id) {
-      throw FHIR_RESOURCE_NOT_FOUND('Account');
-    }
-
-    const effectInput = await complexValidation(
-      {
-        ...validatedParameters,
-        secrets: input.secrets,
-      },
-      oystehrClient
-    );
-
-    const response = await performEffect(effectInput);
-
-    return lambdaResponse(200, response);
+    validatedParameters = validateRequestParameters(input);
+    console.log(JSON.stringify(validatedParameters, null, 4));
   } catch (error: any) {
-    console.error(error);
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('patient-payments-list', error, ENVIRONMENT);
+    console.log(error);
+    return lambdaResponse(400, { message: error.message });
   }
+
+  const secrets = input.secrets;
+  const { patientId } = validatedParameters;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+
+  if (!oystehrM2MClientToken) {
+    console.log('getting m2m token for service calls');
+    oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
+  } else {
+    console.log('already have a token, no need to update');
+  }
+
+  const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
+
+  const accountResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehrClient);
+  const account: Account | undefined = accountResources.account;
+
+  if (!account?.id) {
+    throw FHIR_RESOURCE_NOT_FOUND('Account');
+  }
+
+  const effectInput = await complexValidation(
+    {
+      ...validatedParameters,
+      secrets: input.secrets,
+    },
+    oystehrClient
+  );
+
+  const response = await performEffect(effectInput);
+
+  return lambdaResponse(200, response);
 });
 interface EffectInput extends ListPatientPaymentInput {
+  oystehrClient: Oystehr;
   stripeClient: Stripe;
   patientAccount: Account;
-  fhirPaymentNotices: PaymentNotice[];
 }
 const performEffect = async (input: EffectInput): Promise<ListPatientPaymentResponse> => {
-  const { patientAccount: account, patientId, encounterId, stripeClient, fhirPaymentNotices } = input;
-  const stripePayments: Stripe.PaymentIntent[] = [];
-  const paymentMethods: Stripe.PaymentMethod[] = [];
-  const customerId = account ? getStripeCustomerIdFromAccount(account) : undefined;
-  if (encounterId && customerId) {
-    if (customerId) {
-      const [paymentIntents, pms] = await Promise.all([
-        stripeClient.paymentIntents.search({
-          query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
-          limit: 20, // default is 10
-        }),
-        stripeClient.paymentMethods.list({
-          customer: customerId,
-          type: 'card',
-        }),
-      ]);
+  const { patientAccount: account, patientId, encounterId, oystehrClient, stripeClient } = input;
 
-      console.log('Payment Intent created:', JSON.stringify(paymentIntents, null, 2));
-      stripePayments.push(...paymentIntents.data);
-      paymentMethods.push(...pms.data);
-    }
-  } else if (customerId) {
-    const [paymentIntents, pms] = await Promise.all([
-      stripeClient.paymentIntents.list({
-        customer: getStripeCustomerIdFromAccount(account),
-      }),
-      stripeClient.paymentMethods.list({
-        customer: customerId,
-        type: 'card',
-      }),
-    ]);
-    stripePayments.push(...paymentIntents.data);
-    paymentMethods.push(...pms.data);
-  }
-
-  const cardPayments: CardPaymentDTO[] = fhirPaymentNotices
-    .flatMap((paymentNotice) => {
-      const pnStripeId = paymentNotice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
-      if (!pnStripeId) {
-        // not a card payment, skip!
-        return [];
-      }
-      const paymentIntent = stripePayments.find((pi) => pi.id === pnStripeId);
-      const stripePaymentId = paymentIntent ? paymentIntent.id : pnStripeId;
-      const last4 = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.card?.last4;
-      const paymentMethodId = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.id;
-      const dateISO = DateTime.fromISO(paymentNotice.created).toISO();
-      if (!dateISO || !paymentNotice.id) {
-        console.log('missing data for payment notice:', paymentNotice.id, 'dateISO', dateISO);
-        return [];
-      }
-      return {
-        paymentMethod: 'card' as const,
-        stripePaymentId,
-        amountInCents: (paymentNotice.amount.value ?? 0) * 100,
-        description: paymentIntent?.description ?? undefined,
-        stripePaymentMethodId: paymentMethodId,
-        fhirPaymentNotificationId: paymentNotice.id,
-        cardLast4: last4,
-        dateISO,
-      };
-    })
-    .slice(0, 20); // We only fetch the last 20 payments from stripe, which should be more than enough for pretty much any real world use case
-
-  // todo: the data here should be fetched from candid and then linked to the payment notice ala stripe,
-  // but that awaits the candid integration portion
-  const cashPayments: CashPaymentDTO[] = convertPaymentNoticeListToCashPaymentDTOs(fhirPaymentNotices, encounterId);
-
-  const payments: PatientPaymentDTO[] = [...cardPayments, ...cashPayments].sort((a, b) => {
-    return DateTime.fromISO(b.dateISO).toMillis() - DateTime.fromISO(a.dateISO).toMillis();
+  const payments = await getPaymentsForPatient({
+    oystehrClient,
+    stripeClient,
+    account,
+    patientId,
+    encounterId,
   });
 
   return {
@@ -201,19 +122,12 @@ const complexValidation = async (
     });
   }
 
-  const fhirPaymentNotices: PaymentNotice[] = (
-    await oystehrClient.fhir.search<PaymentNotice>({
-      resourceType: 'PaymentNotice',
-      params,
-    })
-  ).unbundle();
-
   return {
     patientId,
     encounterId,
     stripeClient,
     patientAccount: account,
-    fhirPaymentNotices,
+    oystehrClient,
   };
 };
 
@@ -226,7 +140,7 @@ const validateRequestParameters = (input: ZambdaInput): ListPatientPaymentInput 
     throw MISSING_REQUEST_BODY;
   }
 
-  const { patientId, encounterId } = JSON.parse(input.body);
+  const { patientId, encounterId } = safeJsonParse(input.body);
 
   if (!patientId) {
     throw MISSING_REQUIRED_PARAMETERS(['patientId']);

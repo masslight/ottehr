@@ -1,8 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ServiceRequest } from 'fhir/r4b';
-import { getSecret, RadiologyLaunchViewerZambdaOutput, RoleType, Secrets, SecretsKeys, User } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { ACCESSION_NUMBER_CODE_SYSTEM, ADVAPACS_VIEWER_LAUNCH_URL } from '../shared';
+import { ACCESSION_NUMBER_CODE_SYSTEM, ADVAPACS_VIEWER_LAUNCH_URL } from 'utils/lib/fhir/radiology';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { RadiologyLaunchViewerZambdaOutput } from 'utils/lib/types/api/radiology';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -17,46 +21,20 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'radiology-launch-viewer';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const secrets = validateSecrets(unsafeInput.secrets);
+  const secrets = validateSecrets(unsafeInput.secrets);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    const validatedInput = await validateInput(unsafeInput, oystehr);
+  const validatedInput = await validateInput(unsafeInput, oystehr);
 
-    await accessCheck(validatedInput.callerAccessToken, secrets);
+  const result: RadiologyLaunchViewerZambdaOutput = await performEffect(validatedInput, secrets);
 
-    const result: RadiologyLaunchViewerZambdaOutput = await performEffect(validatedInput, secrets);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(result),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(result),
+  };
 });
-
-const accessCheck = async (callerAccessToken: string, secrets: Secrets): Promise<void> => {
-  const callerUser = await getCallerUserWithAccessToken(callerAccessToken, secrets);
-
-  if (callerUser.profile.indexOf('Practitioner/') === -1) {
-    throw new Error('Caller does not have a practitioner profile');
-  }
-  if (callerUser.roles?.find((role) => role.name === RoleType.Provider) === undefined) {
-    throw new Error('Caller does not have provider role');
-  }
-};
-
-const getCallerUserWithAccessToken = async (token: string, secrets: Secrets): Promise<User> => {
-  const oystehr = createOystehrClient(token, secrets);
-  return await oystehr.user.me();
-};
 
 const performEffect = async (
   validatedInput: ValidatedInput,

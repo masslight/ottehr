@@ -1,5 +1,9 @@
+import Oystehr, { OystehrConfig } from '@oystehr/sdk';
 import { expect, Locator, Page } from '@playwright/test';
+import { DocumentReference } from 'fhir/r4b';
+import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
+import { ResourceHandler } from '../resource-handler';
 
 export async function waitForSnackbar(page: Page): Promise<void> {
   // for this moment it's the easiest way to check for snackbar, data-key didn't work out
@@ -7,9 +11,15 @@ export async function waitForSnackbar(page: Page): Promise<void> {
   await expect(snackbar).toBeVisible();
 }
 
-export async function awaitAppointmentsTableToBeVisible(page: Page): Promise<void> {
-  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable)).toBeVisible();
-  await expect(page.getByTestId(dataTestIds.dashboard.loadingIndicator)).not.toBeVisible();
+/**
+ * Removes any visible notistack snackbars from the DOM. Error/success toasts render in an overlay
+ * container that can intercept pointer events and block clicks on underlying controls (e.g. the side
+ * menu). Use this before interacting with elements that a lingering snackbar might cover.
+ */
+export async function dismissSnackbars(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    document.querySelectorAll('.notistack-SnackbarContainer').forEach((el) => el.remove());
+  });
 }
 
 export async function telemedDialogConfirm(page: Page): Promise<void> {
@@ -34,4 +44,36 @@ export async function checkDropdownHasOptionAndSelectIt(
 
 export async function getDropdownOption(page: Page, pattern: string): Promise<Locator> {
   return page.locator('[role="option"]', { hasText: new RegExp(pattern, 'i') }).first();
+}
+
+export async function hideTooltip(page: Page, timeout = 2000): Promise<void> {
+  await page.mouse.move(0, 0);
+
+  const tooltip = page.locator('[role="tooltip"]');
+  await expect(tooltip).toHaveCount(0, { timeout });
+}
+
+export function verifyVisitNotePdfDocumentReference(
+  visitNoteDocRef: DocumentReference,
+  resourceHandler: ResourceHandler
+): void {
+  expect(visitNoteDocRef.type?.coding?.[0]?.code).toBe('75498-6');
+  expect(visitNoteDocRef.type?.coding?.[0]?.display).toBe('Visit details');
+  expect(visitNoteDocRef.type?.text).toBe('Visit details');
+  expect(visitNoteDocRef.subject?.reference).toBe(`Patient/${resourceHandler.patient.id}`);
+  expect(visitNoteDocRef.context?.encounter?.[0]?.reference).toBe(`Encounter/${resourceHandler.encounter.id}`);
+  expect(visitNoteDocRef.context?.related?.[0]?.reference).toBe(`Appointment/${resourceHandler.appointment.id}`);
+  expect(visitNoteDocRef.content?.[0]?.attachment?.url).toBeDefined();
+}
+
+export function createE2eTestOystehrClient(token: string, overrides?: Partial<OystehrConfig>): Oystehr {
+  return new Oystehr({
+    accessToken: token,
+    services: {
+      fhirApiUrl: process.env.FHIR_API,
+      projectApiUrl: process.env.PROJECT_API_ZAMBDA_URL,
+    },
+    ...overrides,
+    ignoreTags: [...(overrides?.ignoreTags ?? []), BILLING_RESOURCE_TAG],
+  });
 }

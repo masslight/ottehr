@@ -1,0 +1,418 @@
+import { Add as AddIcon, Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
+import {
+  Alert,
+  Autocomplete,
+  Box,
+  Button,
+  Chip,
+  FormControl,
+  InputAdornment,
+  InputLabel,
+  MenuItem,
+  Select,
+  TextField,
+  Typography,
+} from '@mui/material';
+import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
+import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { ClaimsQueueItemStatuses } from 'utils/lib/types/api/rcm-claims/claim.types';
+import { SearchErasInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { BillingPatientOption, BillingPayerOption, EraListItem } from 'utils/lib/types/data/billing/billing.types';
+import { formatAntCaseString } from 'utils/lib/types/data/billing/claim-status';
+import { formatCurrency } from 'utils/lib/utils/convert';
+import { searchBillingEras, searchBillingPayers } from '../api/api';
+import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { DateRangeInput } from '../components/DateInput';
+import { ImportEraDialog } from '../components/ImportEraDialog';
+import { useApiClients } from '../hooks/useAppClients';
+import { useDebounce } from '../hooks/useDebounce';
+
+interface Filters {
+  // ERA-level
+  checkNumber?: string;
+  eraDateFrom?: string;
+  eraDateTo?: string;
+  eraStatus?: string;
+  payerId?: string;
+  matchingStatus?: string;
+  // Claim-level
+  searchText?: string;
+  claimStatus?: string;
+  dosFrom?: string;
+  dosTo?: string;
+  patientId?: string;
+}
+
+const columns: GridColDef[] = [
+  { field: 'checkNumber', headerName: 'Check No.', width: 150 },
+  { field: 'paymentDate', headerName: 'Check Date', width: 120 },
+  {
+    field: 'paymentAmount',
+    headerName: 'Amount',
+    width: 110,
+    align: 'right',
+    headerAlign: 'right',
+    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+  },
+  { field: 'payerName', headerName: 'Payer', flex: 1, minWidth: 200 },
+  {
+    field: 'status',
+    headerName: 'Status',
+    width: 130,
+    renderCell: ({ value }) => (
+      <Chip
+        label={String(value ?? '')}
+        color={value === 'complete' ? 'success' : 'warning'}
+        variant="outlined"
+        size="small"
+        sx={{ borderRadius: '4px', fontSize: 12 }}
+      />
+    ),
+  },
+  { field: 'claimCount', headerName: 'Claims', width: 80, align: 'right', headerAlign: 'right' },
+  { field: 'matchedCount', headerName: 'Matched', width: 90, align: 'right', headerAlign: 'right' },
+  { field: 'unmatchedCount', headerName: 'Unmatched', width: 100, align: 'right', headerAlign: 'right' },
+];
+
+export default function ERAList(): ReactElement {
+  const navigate = useNavigate();
+  const { oystehrZambda } = useApiClients();
+
+  const [eras, setEras] = useState<EraListItem[]>([]);
+  const [totalRows, setTotalRows] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+  const [showImportDialog, setShowImportDialog] = useState(false);
+
+  // ERA-level filters
+  const [checkNumber, setCheckNumber] = useState('');
+  const [eraDateFrom, setEraDateFrom] = useState('');
+  const [eraDateTo, setEraDateTo] = useState('');
+  const [eraStatus, setEraStatus] = useState('');
+  const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
+  const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
+  const [matchingStatus, setMatchingStatus] = useState('');
+
+  // Claim-level filters
+  const [searchText, setSearchText] = useState('');
+  const [claimStatus, setClaimStatus] = useState('');
+  const [dosFrom, setDosFrom] = useState('');
+  const [dosTo, setDosTo] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
+
+  const { debounce } = useDebounce();
+
+  const fetchEras = useCallback(
+    async (filters: Filters, pagination: GridPaginationModel): Promise<void> => {
+      if (!oystehrZambda) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const params: SearchErasInput = {
+          pageSize: pagination.pageSize,
+          offset: pagination.page * pagination.pageSize,
+        };
+        if (filters.checkNumber) params.checkNumber = filters.checkNumber;
+        if (filters.eraDateFrom) params.eraDateFrom = filters.eraDateFrom;
+        if (filters.eraDateTo) params.eraDateTo = filters.eraDateTo;
+        if (filters.eraStatus) params.eraStatus = filters.eraStatus;
+        if (filters.payerId) params.payerId = filters.payerId;
+        if (filters.matchingStatus) params.matchingStatus = filters.matchingStatus;
+        if (filters.searchText) params.searchText = filters.searchText;
+        if (filters.claimStatus) params.claimStatus = filters.claimStatus;
+        if (filters.dosFrom) params.dosFrom = filters.dosFrom;
+        if (filters.dosTo) params.dosTo = filters.dosTo;
+        if (filters.patientId) params.patientId = filters.patientId;
+        const data = await searchBillingEras(oystehrZambda, params);
+        setEras(data.eras ?? []);
+        setTotalRows(data.total ?? 0);
+      } catch (err) {
+        setError(getApiError({ error: err, defaultError: 'Failed to load ERAs' }));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [oystehrZambda]
+  );
+
+  const searchPayers = useCallback(
+    (query: string): void => {
+      if (!oystehrZambda) return;
+      debounce(async () => {
+        try {
+          const res = await searchBillingPayers(oystehrZambda, query ? { name: query } : {});
+          setPayerOptions(res.payers ?? []);
+        } catch {
+          setPayerOptions([]);
+        }
+      }, 'payer');
+    },
+    [oystehrZambda, debounce]
+  );
+
+  const initialLoadDone = useRef(false);
+  useEffect(() => {
+    if (!oystehrZambda || initialLoadDone.current) return;
+    initialLoadDone.current = true;
+    void fetchEras({}, paginationModel);
+  }, [oystehrZambda, fetchEras, paginationModel]);
+
+  const currentFilters = useCallback(
+    (overrides?: Filters): Filters => ({
+      checkNumber: overrides?.checkNumber ?? checkNumber,
+      eraDateFrom: overrides?.eraDateFrom ?? eraDateFrom,
+      eraDateTo: overrides?.eraDateTo ?? eraDateTo,
+      eraStatus: overrides?.eraStatus ?? eraStatus,
+      payerId: overrides?.payerId ?? selectedPayer?.payerId,
+      matchingStatus: overrides?.matchingStatus ?? matchingStatus,
+      searchText: overrides?.searchText ?? searchText,
+      claimStatus: overrides?.claimStatus ?? claimStatus,
+      dosFrom: overrides?.dosFrom ?? dosFrom,
+      dosTo: overrides?.dosTo ?? dosTo,
+      patientId: overrides?.patientId ?? selectedPatient?.id,
+    }),
+    [
+      checkNumber,
+      eraDateFrom,
+      eraDateTo,
+      eraStatus,
+      selectedPayer,
+      matchingStatus,
+      searchText,
+      claimStatus,
+      dosFrom,
+      dosTo,
+      selectedPatient,
+    ]
+  );
+
+  const applyFilters = useCallback(
+    (overrides?: Filters): void => {
+      setPaginationModel((prev) => ({ ...prev, page: 0 }));
+      void fetchEras(currentFilters(overrides), { ...paginationModel, page: 0 });
+    },
+    [fetchEras, currentFilters, paginationModel]
+  );
+
+  const handlePaginationChange = (model: GridPaginationModel): void => {
+    setPaginationModel(model);
+    void fetchEras(currentFilters(), model);
+  };
+
+  const handleDebouncedFilter =
+    (setter: (v: string) => void, key: keyof Filters) =>
+    (value: string): void => {
+      setter(value);
+      debounce(() => applyFilters({ [key]: value }), key);
+    };
+
+  const clearFilters = (): void => {
+    setCheckNumber('');
+    setEraDateFrom('');
+    setEraDateTo('');
+    setEraStatus('');
+    setSelectedPayer(null);
+    setSearchText('');
+    setClaimStatus('');
+    setDosFrom('');
+    setDosTo('');
+    setSelectedPatient(null);
+    const resetPage = { ...paginationModel, page: 0 };
+    setPaginationModel(resetPage);
+    void fetchEras({}, resetPage);
+  };
+
+  const hasFilters =
+    checkNumber ||
+    eraDateFrom ||
+    eraDateTo ||
+    eraStatus ||
+    selectedPayer ||
+    matchingStatus ||
+    searchText ||
+    claimStatus ||
+    dosFrom ||
+    dosTo ||
+    selectedPatient;
+
+  return (
+    <Box sx={{ p: 0 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+        <Typography variant="h4" color="primary.dark" fontWeight={600}>
+          ERAs
+        </Typography>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setShowImportDialog(true)}>
+          Import ERA
+        </Button>
+      </Box>
+
+      <TextField
+        fullWidth
+        size="small"
+        placeholder="Search by patient name..."
+        value={searchText}
+        onChange={(e) => handleDebouncedFilter(setSearchText, 'searchText')(e.target.value)}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon fontSize="small" color="action" />
+            </InputAdornment>
+          ),
+        }}
+        sx={{ mb: 2 }}
+      />
+
+      <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
+        ERA Filters
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+        <TextField
+          size="small"
+          label="Check Number"
+          value={checkNumber}
+          onChange={(e) => handleDebouncedFilter(setCheckNumber, 'checkNumber')(e.target.value)}
+          sx={{ minWidth: 140 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel>ERA Status</InputLabel>
+          <Select
+            value={eraStatus}
+            label="ERA Status"
+            onChange={(e) => {
+              setEraStatus(e.target.value);
+              applyFilters({ eraStatus: e.target.value });
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="queued">Queued</MenuItem>
+            <MenuItem value="complete">Complete</MenuItem>
+            <MenuItem value="error">Error</MenuItem>
+            <MenuItem value="partial">Partial</MenuItem>
+          </Select>
+        </FormControl>
+        <Autocomplete
+          size="small"
+          options={payerOptions}
+          getOptionLabel={(o) => o.name}
+          onInputChange={(_, value, reason) => {
+            if (reason === 'input') searchPayers(value);
+          }}
+          onOpen={() => searchPayers('')}
+          filterOptions={(x) => x}
+          value={selectedPayer}
+          onChange={(_, v) => {
+            setSelectedPayer(v);
+            applyFilters({ payerId: v?.payerId ?? '' });
+          }}
+          renderInput={(params) => <TextField {...params} label="Payer" />}
+          isOptionEqualToValue={(o, v) => o.payerId === v.payerId}
+          sx={{ minWidth: 200 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Matching Status</InputLabel>
+          <Select
+            value={matchingStatus}
+            label="Matching Status"
+            onChange={(e) => {
+              setMatchingStatus(e.target.value);
+              applyFilters({ matchingStatus: e.target.value });
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="anyUnmatched">Any Unmatched</MenuItem>
+          </Select>
+        </FormControl>
+        <DateRangeInput
+          label="ERA Date"
+          valueFrom={eraDateFrom}
+          valueTo={eraDateTo}
+          onChange={(from, to) => {
+            setEraDateFrom(from);
+            setEraDateTo(to);
+            applyFilters({
+              eraDateFrom: from,
+              eraDateTo: to,
+            });
+          }}
+        />
+      </Box>
+
+      <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
+        Claim Filters (matched ERAs only)
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>Claim Status</InputLabel>
+          <Select
+            value={claimStatus}
+            label="Claim Status"
+            onChange={(e) => {
+              setClaimStatus(e.target.value);
+              applyFilters({ claimStatus: e.target.value });
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            {ClaimsQueueItemStatuses.map((s) => (
+              <MenuItem key={s} value={s}>
+                {formatAntCaseString(s)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <DateRangeInput
+          label="Service Date"
+          valueFrom={dosFrom}
+          valueTo={dosTo}
+          onChange={(from, to) => {
+            setDosFrom(from);
+            setDosTo(to);
+            applyFilters({
+              dosFrom: from,
+              dosTo: to,
+            });
+          }}
+        />
+
+        {hasFilters && (
+          <Button variant="text" size="small" startIcon={<ClearIcon />} onClick={clearFilters}>
+            Clear filters
+          </Button>
+        )}
+      </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      <DataGridPro
+        rows={eras}
+        columns={columns}
+        loading={loading}
+        rowCount={totalRows}
+        paginationMode="server"
+        paginationModel={paginationModel}
+        onPaginationModelChange={handlePaginationChange}
+        onRowClick={(params) => navigate(`/eras/${params.id}`)}
+        disableRowSelectionOnClick
+        disableColumnMenu
+        pageSizeOptions={[25, 50, 100]}
+        slots={dataGridSlots({ showCsvExport: true, csvFileName: 'eras' })}
+        pagination={true}
+        sx={{ ...dataGridSx, height: 'calc(100vh - 430px)' }}
+      />
+      {showImportDialog && (
+        <ImportEraDialog
+          onClose={() => {
+            setShowImportDialog(false);
+            void fetchEras({}, paginationModel);
+          }}
+        />
+      )}
+    </Box>
+  );
+}

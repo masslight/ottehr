@@ -1,21 +1,23 @@
-import { DeleteChartDataRequest } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { DeleteChartDataRequest } from 'utils/lib/types/api/chart-data/delete-chart-data.types';
+import { z } from 'zod';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
+
+const DeleteChartDataBodySchema = z
+  .object({
+    encounterId: z.string(),
+  })
+  .passthrough();
 
 export function validateRequestParameters(input: ZambdaInput): DeleteChartDataRequest & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
     throw new Error('No request body provided');
   }
 
-  const data = JSON.parse(input.body) as DeleteChartDataRequest;
-
-  const { encounterId } = data;
-
-  if (encounterId === undefined) {
-    throw new Error('These fields are required: "encounterId"');
-  }
+  const data = safeValidate(DeleteChartDataBodySchema, safeJsonParse(input.body));
 
   return {
-    ...data,
+    ...(data as DeleteChartDataRequest),
     secrets: input.secrets,
   };
 }

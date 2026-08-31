@@ -1,7 +1,12 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "pipeline": {
+  "globalPassThroughEnv": ["ENV", "PLAYWRIGHT_SUITE_ID", "PLAYWRIGHT_REPORT_SUFFIX", "PLAYWRIGHT_EXTRA_ARGS", "IS_LOGIN_TEST", "INTEGRATION_TEST", "SMOKE_TEST", "E2E_SERVE_MODE", "RUNNER_NAME", "GITHUB_SHA"],
+  "tasks": {
     "start": {
+      "cache": false,
+      "persistent": true
+    },
+    "start:iac": {
       "cache": false,
       "persistent": true
     },
@@ -16,27 +21,149 @@
       "dependsOn": ["build", "lint"]
     },
     "test": {
-      "dependsOn": ["build"],
+      "dependsOn": ["^build"],
+      "env": ["ENV"],
+      "outputs": ["coverage/**"],
       "inputs": [
-        "apps/**/*.tsx",
-        "apps/**/*.ts",
-        "packages/**/*.ts",
-        "packages/**/*.tsx",
-        "src/**/*.tsx",
         "src/**/*.ts",
+        "src/**/*.tsx",
+        "lib/**/*.ts",
+        "lib/**/*.tsx",
         "test/**/*.ts",
-        "test/**/*.tsx"
+        "test/**/*.tsx",
+        "tests/**/*.ts",
+        "tests/**/*.tsx",
+        "*.ts",
+        "*.tsx",
+        "vitest.config.ts",
+        "vitest.config.*.ts",
+        "vitest.setup.ts",
+        "tsconfig*.json",
+        "package.json"
       ]
     },
-    "lint": {},
+    "test:ci": {
+      "dependsOn": ["^build"],
+      "env": ["ENV", "CI"],
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "lib/**/*.ts",
+        "lib/**/*.tsx",
+        "test/**/*.ts",
+        "test/**/*.tsx",
+        "tests/**/*.ts",
+        "tests/**/*.tsx",
+        "*.ts",
+        "*.tsx",
+        "vitest.config.ts",
+        "vitest.config.*.ts",
+        "vitest.setup.ts",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
+    "test:unit:ci": {
+      "dependsOn": ["^build"],
+      "env": ["ENV", "CI"],
+      "outputs": ["coverage/unit/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "lib/**/*.ts",
+        "lib/**/*.tsx",
+        "test/**/*.ts",
+        "test/**/*.tsx",
+        "tests/**/*.ts",
+        "tests/**/*.tsx",
+        "*.ts",
+        "*.tsx",
+        "vitest.config.ts",
+        "vitest.config.*.ts",
+        "vitest.setup.ts",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
+    "test:integration:ci": {
+      "dependsOn": ["^build"],
+      "env": ["ENV", "CI"],
+      "outputs": ["coverage/integration/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "lib/**/*.ts",
+        "lib/**/*.tsx",
+        "test/**/*.ts",
+        "test/**/*.tsx",
+        "tests/**/*.ts",
+        "tests/**/*.tsx",
+        "*.ts",
+        "*.tsx",
+        "vitest.config.ts",
+        "vitest.config.*.ts",
+        "vitest.setup.ts",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
+    "test:component:ci": {
+      "dependsOn": ["^build"],
+      "env": ["ENV", "CI"],
+      "outputs": ["coverage/component/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "lib/**/*.ts",
+        "lib/**/*.tsx",
+        "test/**/*.ts",
+        "test/**/*.tsx",
+        "tests/**/*.ts",
+        "tests/**/*.tsx",
+        "*.ts",
+        "*.tsx",
+        "vitest.config.ts",
+        "vitest.config.*.ts",
+        "vitest.setup.ts",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
+    "lint": {
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "src/**/*.js",
+        "src/**/*.jsx",
+        "lib/**/*.ts",
+        "lib/**/*.tsx",
+        "lib/**/*.js",
+        "lib/**/*.jsx",
+        "test/**/*.ts",
+        "test/**/*.tsx",
+        "tests/**/*.ts",
+        "tests/**/*.tsx",
+        "scripts/**/*.ts",
+        "*.ts",
+        "*.tsx",
+        "*.js",
+        "*.jsx",
+        ".eslintrc*",
+        ".eslintignore",
+        "eslint.config.*",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
     "lint:fix": {
       "cache": false
     },
-    "integration:zambdas": {
+    "e2e:login": {
       "cache": false,
       "dependsOn": ["^build"]
     },
-    "e2e:login": {
+    "e2e:login:ui": {
       "cache": false,
       "dependsOn": ["^build"]
     },

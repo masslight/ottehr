@@ -1,37 +1,62 @@
+import type { ExamCardComponent } from 'config-types';
 import { CodeableConcept, QuestionnaireResponse } from 'fhir/r4b';
-import {
-  AdditionalBooleanQuestionsFieldsNames,
-  convertToBoolean,
-  ExamCardComponent,
-  examConfig,
-  ExamObservationDTO,
-  getQuestionnaireResponseByLinkId,
-  ObservationDTO,
-} from 'utils';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
+import { examConfig } from 'utils/lib/ottehr-config/examination';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ObservationDTO } from 'utils/lib/types/data/screening-questions/types';
+import { convertToBoolean } from 'utils/lib/utils/convert';
 
 export const createAdditionalQuestions = (questionnaireResponse: QuestionnaireResponse): ObservationDTO[] => {
-  return Object.values(AdditionalBooleanQuestionsFieldsNames)
+  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+
+  return questionnaireFields
     .filter((field) => {
-      const response = getQuestionnaireResponseByLinkId(field, questionnaireResponse);
+      const response = getQuestionnaireResponseByLinkId(field.fhirField, questionnaireResponse);
       const valueString = response?.answer?.[0]?.valueString;
       return valueString !== undefined;
     })
     .map((field) => {
-      const response = getQuestionnaireResponseByLinkId(field, questionnaireResponse);
+      if (field.type !== 'radio') {
+        throw Error('Only radio fields are supported. No options found for field: ' + field.fhirField);
+      }
+
+      const response = getQuestionnaireResponseByLinkId(field.fhirField, questionnaireResponse);
       const valueString = response?.answer?.[0]?.valueString;
+
+      const hasOnlyYesNoOptions =
+        field.options &&
+        field.options.length === 2 &&
+        field.options.every((opt) => {
+          const lowerCaseValueString = opt.fhirValue.toLowerCase();
+          return lowerCaseValueString === 'yes' || lowerCaseValueString === 'no';
+        });
+
+      if (!hasOnlyYesNoOptions) {
+        throw Error(
+          'Only radio fields with Yes/No options are supported. No options found for field: ' + field.fhirField
+        );
+      }
+
+      const value = convertToBoolean(valueString);
+
+      if (typeof value !== 'boolean') {
+        throw Error('Invalid value for field: ' + field.fhirField);
+      }
+
       return {
-        field,
-        value: convertToBoolean(valueString) || false,
+        field: field.fhirField,
+        value,
       };
     });
 };
 
-export function createExamObservations(isInPersonAppointment?: boolean): (ExamObservationDTO & {
+export function getAllExamFieldsMetadata(): (ExamObservationDTO & {
   code?: CodeableConcept;
   bodySite?: CodeableConcept;
   label?: string;
 })[] {
-  const config = examConfig[isInPersonAppointment ? 'inPerson' : 'telemed'].default.components;
+  const config = examConfig.default.components;
 
   const observations: (ExamObservationDTO & {
     code?: CodeableConcept;
@@ -75,6 +100,13 @@ export function createExamObservations(isInPersonAppointment?: boolean): (ExamOb
           });
         });
       } else if (component.type === 'multi-select') {
+        observations.push({
+          field: fieldName,
+          value: component.defaultValue || false,
+          label: component.label,
+          code: component.code,
+          bodySite: component.bodySite,
+        });
         Object.entries(component.options).forEach(([optionName, option]: [string, any]) => {
           observations.push({
             field: optionName,
@@ -83,6 +115,14 @@ export function createExamObservations(isInPersonAppointment?: boolean): (ExamOb
             code: option.code,
             bodySite: option.bodySite,
           });
+        });
+      } else if (component.type === 'checkbox-with-modal') {
+        observations.push({
+          field: fieldName,
+          value: component.defaultValue || false,
+          label: component.label,
+          code: component.code,
+          bodySite: component.bodySite,
         });
       }
     });
@@ -96,10 +136,95 @@ export function createExamObservations(isInPersonAppointment?: boolean): (ExamOb
   return observations;
 }
 
-export const createExamObservationComments = (
-  isInPersonAppointment?: boolean
-): (ObservationDTO & { label: string })[] => {
-  const config = examConfig[isInPersonAppointment ? 'inPerson' : 'telemed'].default.components;
+export function createExamObservations(): (ExamObservationDTO & {
+  code?: CodeableConcept;
+  bodySite?: CodeableConcept;
+  label?: string;
+})[] {
+  const config = examConfig.default.components;
+
+  const observations: (ExamObservationDTO & {
+    code?: CodeableConcept;
+    bodySite?: CodeableConcept;
+    label: string;
+  })[] = [];
+
+  const extractObservationsFromComponents = (
+    components: Record<string, ExamCardComponent>,
+    section: 'normal' | 'abnormal' | 'comment'
+  ): void => {
+    Object.entries(components).forEach(([fieldName, component]) => {
+      if (component.type === 'checkbox') {
+        if (component.defaultValue === true) {
+          observations.push({
+            field: fieldName,
+            value: true,
+            label: component.label,
+            code: component.code,
+            bodySite: component.bodySite,
+          });
+        }
+      } else if (component.type === 'dropdown') {
+        Object.entries(component.components).forEach(([optionName, option]: [string, any]) => {
+          if (option.defaultValue === true) {
+            observations.push({
+              field: optionName,
+              value: true,
+              label: option.label,
+              code: option.code,
+              bodySite: option.bodySite,
+            });
+          }
+        });
+      } else if (component.type === 'column') {
+        extractObservationsFromComponents(component.components, section);
+      } else if (component.type === 'form') {
+        Object.entries(component.components).forEach(([elementName, element]: [string, any]) => {
+          if (element.defaultValue === true) {
+            observations.push({
+              field: elementName,
+              value: true,
+              label: element.label,
+              code: element.code,
+              bodySite: element.bodySite,
+            });
+          }
+        });
+      } else if (component.type === 'multi-select') {
+        if (component.defaultValue === true) {
+          observations.push({
+            field: fieldName,
+            value: true,
+            label: component.label,
+            code: component.code,
+            bodySite: component.bodySite,
+          });
+        }
+        Object.entries(component.options).forEach(([optionName, option]: [string, any]) => {
+          if (option.defaultValue === true) {
+            observations.push({
+              field: optionName,
+              value: true,
+              label: option.label,
+              code: option.code,
+              bodySite: option.bodySite,
+            });
+          }
+        });
+      }
+    });
+  };
+
+  Object.values(config).forEach((examItem) => {
+    extractObservationsFromComponents(examItem.components.normal, 'normal');
+    extractObservationsFromComponents(examItem.components.abnormal, 'abnormal');
+  });
+
+  return observations;
+}
+
+export const createExamObservationComments = (): (ObservationDTO & { label: string })[] => {
+  const config = examConfig.default.components;
 
   const comments: (ObservationDTO & { label: string })[] = [];
 

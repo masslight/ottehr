@@ -7,11 +7,12 @@ export function saveOrUpdateResourceRequest<F extends FhirResource>(
   return resource.id === undefined ? saveResourceRequest(resource) : updateResourceRequest(resource);
 }
 
-export function saveResourceRequest<F extends FhirResource>(resource: F): BatchInputPostRequest<F> {
+export function saveResourceRequest<F extends FhirResource>(resource: F, fullUrl?: string): BatchInputPostRequest<F> {
   return {
     method: 'POST',
     url: `/${resource.resourceType}`,
     resource: resource,
+    fullUrl,
   };
 }
 

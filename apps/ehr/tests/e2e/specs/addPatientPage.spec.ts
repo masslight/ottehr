@@ -1,13 +1,17 @@
 import { Page, test } from '@playwright/test';
+import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { waitForResponseWithData } from 'test-utils';
-import { unpackFhirResponse } from 'utils';
+import { addProcessIdMetaTagToAppointment, waitForResponseWithData } from 'test-utils';
+import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
+import { unpackFhirResponse } from 'utils/lib/fhir/helpers';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import {
   PATIENT_BIRTH_DATE_LONG,
   PATIENT_BIRTH_DATE_SHORT,
-  PATIENT_EMAIL,
+  // PATIENT_EMAIL,
   PATIENT_FIRST_NAME,
   PATIENT_LAST_NAME,
   PATIENT_PHONE_NUMBER,
@@ -18,8 +22,6 @@ import { expectAddPatientPage } from '../page/AddPatientPage';
 import { expectVisitsPage } from '../page/VisitsPage';
 
 const PATIENT_PREFILL_NAME = PATIENT_FIRST_NAME + ' ' + PATIENT_LAST_NAME;
-const PATIENT_INPUT_BIRTHDAY = PATIENT_BIRTH_DATE_SHORT;
-const REASON_FOR_VISIT = PATIENT_REASON_FOR_VISIT;
 
 // todo: remove hardcoded values, use constants from resource-handler
 const NEW_PATIENT_1_LAST_NAME = 'new_1' + PATIENT_LAST_NAME;
@@ -33,99 +35,36 @@ const VISIT_TYPES = {
   POST_TELEMED: 'Post Telemed lab Only',
 };
 
+// Which visit types the EHR "Add Visit" dropdown actually offers is per-instance config
+// (BOOKING_CONFIG.ehrBookingOptions). Some instances are walk-in only, so a test that selects a
+// visit type the instance doesn't offer can never pass. Skip such a test rather than fail it.
+const offeredVisitTypeLabels = new Set(BOOKING_CONFIG.ehrBookingOptions.map((option) => option.label));
+
 const PROCESS_ID = `addPatientPage.spec.ts-${DateTime.now().toMillis()}`;
 
 const resourceHandler = new ResourceHandler(PROCESS_ID);
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/visits/add');
+  page.on('response', async (response) => {
+    if (response.url().includes('/create-appointment/')) {
+      const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
+      const oystehr = await ResourceHandler.getOystehr();
+      const appointment = await oystehr.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: appointmentId,
+      });
+      await oystehr.fhir.update(addProcessIdMetaTagToAppointment(appointment, PROCESS_ID));
+    }
+  });
+});
+test.afterAll(async () => {
+  await resourceHandler.cleanupResources();
 });
 
-test('Open "Add patient page", click "Cancel", navigates back to visits page', async ({ page }) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.clickCancelButton();
-
-  await expectVisitsPage(page);
-});
-
-test('Open "Add patient page", click "Search patient", validation error on "Mobile phone" field shown', async ({
-  page,
-}) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.clickSearchForPatientsButton();
-  await addPatientPage.verifyMobilePhoneNumberValidationErrorShown();
-});
-
-test('Open "Add patient page" then enter invalid phone number, click "Search patient", validation error on "Mobile phone" field shown', async ({
-  page,
-}) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.enterMobilePhone('123');
-  await addPatientPage.clickSearchForPatientsButton();
-  await addPatientPage.verifyMobilePhoneNumberValidationErrorShown();
-});
-
-test('Add button does nothing when any required field is empty', async ({ page }) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifySearchForPatientsErrorShown();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.clickSearchForPatientsButton();
-  await addPatientPage.clickPatientNotFoundButton();
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.enterFirstName(PATIENT_FIRST_NAME);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.enterLastName(PATIENT_LAST_NAME);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.enterDateOfBirth(PATIENT_INPUT_BIRTHDAY);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.selectSexAtBirth(PATIENT_INPUT_GENDER);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.selectReasonForVisit(REASON_FOR_VISIT);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.selectVisitType(VISIT_TYPES.PRE_BOOK);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.clickCloseSelectDateWarningDialog();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.selectVisitType(VISIT_TYPES.POST_TELEMED);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.clickCloseSelectDateWarningDialog();
-  await addPatientPage.verifyPageStillOpened();
-});
-
-test('Open "Add patient page" then enter invalid date of birth, click "Add", validation error on "Date of Birth" field shown', async ({
-  page,
-}) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
-  await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
-  await addPatientPage.clickSearchForPatientsButton();
-  await addPatientPage.clickPatientNotFoundButton();
-  await addPatientPage.enterDateOfBirth('3');
-  await addPatientPage.verifyDateFormatValidationErrorShown();
-});
+// Note: Simple validation tests have been migrated to component tests
+// See: tests/component/AddPatientValidation.test.tsx
+// These tests run much faster (~4s vs ~60s) and are more reliable
 
 test.describe('For new patient', () => {
   test(
@@ -134,6 +73,10 @@ test.describe('For new patient', () => {
       tag: '@skipOnIntegration',
     },
     async ({ page }) => {
+      test.skip(
+        !offeredVisitTypeLabels.has(VISIT_TYPES.WALK_IN),
+        'Walk-in in-person visits are not offered by this instance'
+      );
       const { appointmentId } = await createAppointment(page, VISIT_TYPES.WALK_IN, false, NEW_PATIENT_1_LAST_NAME);
 
       const visitsPage = await expectVisitsPage(page);
@@ -144,7 +87,11 @@ test.describe('For new patient', () => {
   );
 
   test('Add pre-book visit for new patient', async ({ page }) => {
-    const { appointmentId, slotTime } = await createAppointment(
+    test.skip(
+      !offeredVisitTypeLabels.has(VISIT_TYPES.PRE_BOOK),
+      'Pre-booked in-person visits are not offered by this instance'
+    );
+    const { appointmentId, slotDate } = await createAppointment(
       page,
       VISIT_TYPES.PRE_BOOK,
       false,
@@ -153,8 +100,12 @@ test.describe('For new patient', () => {
 
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+    // The first available slot may roll to tomorrow when the day's schedule is past
+    // closing time. The tracking-board date filter defaults to today in the location's
+    // timezone, so without this it'd show zero rows even though the appointment exists.
+    if (slotDate) await visitsPage.selectDate(slotDate);
     await visitsPage.clickPrebookedTab();
-    await visitsPage.verifyVisitPresent(appointmentId, slotTime);
+    await visitsPage.verifyVisitPresent(appointmentId);
   });
 
   test.skip('Add post-telemed visit for new patient', { tag: '@flaky' }, async ({ page }) => {
@@ -179,12 +130,8 @@ test.describe.skip(
   },
   () => {
     test.beforeAll(async () => {
-      if (process.env.INTEGRATION_TEST === 'true') {
-        await resourceHandler.setResourcesFast();
-      } else {
-        await resourceHandler.setResources();
-        await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-      }
+      await resourceHandler.setResources({ skipPaperwork: true });
+      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
     });
 
     test.afterAll(async () => {
@@ -225,11 +172,17 @@ async function createAppointment(
   visitType: (typeof VISIT_TYPES)[keyof typeof VISIT_TYPES],
   existingPatient = false,
   lastName?: string
-): Promise<{ appointmentId: string; slotTime: string | undefined }> {
+): Promise<{ appointmentId: string; slotTime: string | undefined; slotDate: string | undefined }> {
   const addPatientPage = await expectAddPatientPage(page);
+  await addPatientPage.selectVisitType(visitType);
+  await addPatientPage.selectServiceCategory(BOOKING_CONFIG.serviceCategories[0].category.display);
+  const serviceCategoryCode = BOOKING_CONFIG.serviceCategories[0].category.code;
   await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
   await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
   await addPatientPage.clickSearchForPatientsButton();
+
+  const reasonForVisitOptions = getReasonForVisitOptionsForServiceCategory(serviceCategoryCode);
+  const reasonForVisit = reasonForVisitOptions[0]?.label || PATIENT_REASON_FOR_VISIT;
 
   if (existingPatient) {
     await addPatientPage.selectExistingPatient(PATIENT_PREFILL_NAME);
@@ -238,21 +191,23 @@ async function createAppointment(
     await addPatientPage.verifyPrefilledPatientName(PATIENT_PREFILL_NAME);
     await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
     await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_INPUT_GENDER);
-    await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL);
-    await addPatientPage.selectReasonForVisit(PATIENT_REASON_FOR_VISIT);
+    // await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL); // this has been removed
+    await addPatientPage.selectReasonForVisit(reasonForVisit);
   } else {
     await addPatientPage.clickPatientNotFoundButton();
     await addPatientPage.enterFirstName(PATIENT_FIRST_NAME);
     await addPatientPage.enterLastName(lastName || '');
     await addPatientPage.enterDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
     await addPatientPage.selectSexAtBirth(PATIENT_INPUT_GENDER);
-    await addPatientPage.selectReasonForVisit(PATIENT_REASON_FOR_VISIT);
+    await addPatientPage.selectReasonForVisit(reasonForVisit);
   }
 
   let slotTime: string | undefined;
-  await addPatientPage.selectVisitType(visitType);
+  let slotDate: string | undefined;
   if (visitType !== VISIT_TYPES.WALK_IN) {
-    slotTime = await addPatientPage.selectFirstAvailableSlot();
+    const slot = await addPatientPage.selectFirstAvailableSlot();
+    slotTime = slot.time;
+    slotDate = slot.date || undefined;
   }
 
   const appointmentCreationResponse = waitForResponseWithData(page, /\/create-appointment\//);
@@ -262,5 +217,6 @@ async function createAppointment(
   if (!response.appointmentId) {
     throw new Error('Appointment ID should be present in the response');
   }
-  return { appointmentId: response.appointmentId, slotTime };
+
+  return { appointmentId: response.appointmentId, slotTime, slotDate };
 }

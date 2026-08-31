@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import setup from '../../scripts/setup/setup.utils.mjs';
+import { validateE2EIntakeUser } from './validate-e2e-intake-user.js';
 
 const isCI = Boolean(process.env.CI);
 const playwrightUserFile = './playwright/user.json';
@@ -12,7 +13,7 @@ if (!isCI) {
     await setup.loadEnvFilesFromRepo('git@github.com:masslight/ottehr-secrets.git', [
       {
         localEnvFolder: './env/',
-        repoEnvFolder: './ottehr-secrets/intake/app/',
+        repoEnvFolder: './ottehr-secrets/ottehr/apps/intake/env/',
         envsToCopy: [
           '.env.demo',
           '.env.local',
@@ -27,16 +28,24 @@ if (!isCI) {
         ],
       },
       {
-        localEnvFolder: '../../packages/zambdas/.env',
-        repoEnvFolder: './ottehr-secrets/zambdas/',
+        localEnvFolder: '../../config/.env',
+        repoEnvFolder: './ottehr-secrets/ottehr/zambdas/.env',
         envsToCopy: ['demo.json', 'development.json', 'local.json', 'staging.json', 'testing.json'],
       },
     ]);
   })();
 }
 
-// Create the playwright/user.json file if it doesn't exist
-if (!fs.existsSync(playwrightUserFile)) {
+let isUserValid = false;
+try {
+  validateE2EIntakeUser(playwrightUserFile);
+  isUserValid = true;
+} catch (error) {
+  console.error('Failed to validate user:', error);
+}
+
+// Create a blank playwright/user.json file if it doesn't exist or the login is expired
+if (!isUserValid) {
   const playwrightDir = path.dirname(playwrightUserFile);
   if (!fs.existsSync(playwrightDir)) {
     fs.mkdirSync(playwrightDir, { recursive: true });

@@ -1,23 +1,21 @@
 import { Box, Button, Grid, Typography } from '@mui/material';
 import { ReactElement } from 'react';
 import { FieldValues } from 'react-hook-form';
-import { FileURLs } from 'utils';
-import {
-  ControlledCheckBox,
-  DateInput,
-  FileUpload,
-  FormInput,
-  FormList,
-  FreeMultiSelectInput,
-  RadioInput,
-  RadioListInput,
-  SelectInput,
-  YearInput,
-} from '../../components/form';
+import ControlledCheckBox from 'src/components/form/ControlledCheckBox';
+import DateInput from 'src/components/form/DateInput';
+import FileUpload from 'src/components/form/FileUpload';
+import FormInput from 'src/components/form/FormInput';
+import { FormList } from 'src/components/form/FormList';
+import FreeMultiSelectInput from 'src/components/form/FreeMultiSelectInput';
+import RadioInput from 'src/components/form/RadioInput';
+import RadioListInput from 'src/components/form/RadioListInput';
+import SelectInput from 'src/components/form/SelectInput';
+import YearInput from 'src/components/form/YearInput';
+import { FormInputTypeField, FormInputTypeGroup, OverrideValues } from 'src/types/form/form-input-type';
+import { FileURLs } from 'utils/lib/types/common';
 import CoalescedDateInput from '../../components/form/CoalescedDateInput';
 import { DateFieldMap } from '../../components/form/DateInput';
 import { PhotosUpload } from '../../components/form/PhotosUpload';
-import { FormInputTypeField, FormInputTypeGroup, OverrideValues } from '../../types';
 
 function checkRequire(item: FormInputTypeField, values: FieldValues): boolean {
   if (item.required && !item.requireWhen) {
@@ -208,7 +206,6 @@ export const getFormInputField = (
                 required={formInput.required}
                 options={formInput.radioOptions}
                 borderColor={formInput.borderColor}
-                borderSelected={formInput.borderSelected}
                 backgroundSelected={formInput.backgroundSelected}
                 getSelected={methods.watch}
                 // radioStyling={{
@@ -314,7 +311,7 @@ export const getFormInputField = (
             return (
               <Button
                 variant="outlined"
-                color={formInput.buttonProps?.color}
+                color={formInput.buttonProps?.color ?? 'secondary'}
                 type={formInput.buttonProps?.onClick ? 'button' : 'submit'}
                 onClick={formInput.buttonProps?.onClick}
                 startIcon={formInput.buttonProps?.startIcon}

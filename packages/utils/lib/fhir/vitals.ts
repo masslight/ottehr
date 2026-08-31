@@ -1,24 +1,34 @@
-import { CodeableConcept, Observation, ObservationComponent } from 'fhir/r4b';
+import { CodeableConcept, Observation, ObservationComponent, Practitioner, Reference } from 'fhir/r4b';
+import { getVitalObservationFhirComponentInterpretations } from '../helpers/vitals/utils';
 import {
-  getVitalObservationFhirComponentInterpretations,
-  ObservationDTO,
   VitalBloodPressureObservationMethod,
   VitalFieldNames,
   VitalHeartbeatObservationMethod,
+  VitalsOxygenSatObservationMethod,
+  VitalTemperatureObservationMethod,
+} from '../types/api/chart-data/chart-data.constants';
+import {
   VitalsBaseObservationDTO,
   VitalsBloodPressureObservationDTO,
+  VitalsBMIObservationDTO,
+  VitalsDotVisionScreening,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
+  VitalsLastMenstrualPeriodObservationDTO,
   VitalsObservationDTO,
   VitalsOxygenSatObservationDTO,
-  VitalsOxygenSatObservationMethod,
   VitalsRespirationRateObservationDTO,
   VitalsTemperatureObservationDTO,
   VitalsVisionObservationDTO,
   VitalsVisionOption,
   VitalsWeightObservationDTO,
-  VitalTemperatureObservationMethod,
-} from 'utils';
+  VitalsWeightOption,
+  VitalsWeightPatientRefusedDTO,
+} from '../types/api/chart-data/chart-data.types';
+import { PATIENT_VITALS_META_SYSTEM } from '../types/api/chart-data/chart-data.types';
+import { ObservationDTO } from '../types/data/screening-questions/types';
+import { PRIVATE_EXTENSION_BASE_URL } from './constants';
+import { getFullName } from './patient';
 
 export const SNOMED_SYSTEM = 'http://snomed.info/sct';
 export const LOINC_SYSTEM = 'http://loinc.org';
@@ -27,6 +37,7 @@ export const VITAL_TEMPERATURE_OBS_METHOD_CODE_ORAL = '89003005';
 export const VITAL_TEMPERATURE_OBS_METHOD_CODE_RECTAL = '18649001';
 export const VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_AXILLARY = '8328-7';
 export const VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_TEMPORAL = '75539-7';
+export const VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_EAR = '76011-6';
 
 export const VITAL_HEARTBEAT_OBS_METHOD_CODE_SITTING = '33586001';
 export const VITAL_HEARTBEAT_OBS_METHOD_CODE_STANDING = '10904000';
@@ -44,10 +55,49 @@ export const VITAL_OXY_SATURATION_OBS_METHOD_CODE_SUPPLEMENTAL_O2 = '250591006';
 
 export const VITAL_LEFT_EYE_SNOMED_CODE = '8976008';
 export const VITAL_RIGHT_EYE_SNOMED_CODE = '8977004';
+export const VITAL_BOTH_EYES_SNOMED_CODE = '51440002';
 
-export const VITAL_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE = '9876543';
-export const VITAL_CHILD_WITH_GLASSES_OPTION_SNOMED_CODE = '1234567';
-export const VITAL_CHILD_WITHOUT_GLASSES_OPTION_SNOMED_CODE = '7654321';
+export const VITAL_VISION_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE = '9876543';
+export const VITAL_VISION_WITH_GLASSES_OPTION_SNOMED_CODE = '1234567';
+export const VITAL_VISION_WITHOUT_GLASSES_OPTION_SNOMED_CODE = '7654321';
+
+// DOT (FMCSA form MCSA-5875) vision screening component codes.
+// Color vision and monocular vision are modelled the FHIR-idiomatic way: the component code names
+// the observable being assessed, and the answer is a coded value (valueCodeableConcept) using
+// standard SNOMED CT findings/observables rather than a bare boolean. The specialist-referral item
+// and the "received referral documentation" item are encoded as plain booleans (valueBoolean). The
+// referral document itself is a real FHIR DocumentReference linked from the Observation via
+// derivedFrom (see getDotVisionDocumentDerivedFrom / extractDotVisionScreening).
+
+// Horizontal field of vision (degrees), modelled as Visual field + Horizontal qualifier + per-eye
+// anatomical structure, with the measurement as a valueQuantity.
+export const VITAL_VISION_DOT_VISUAL_FIELD_SNOMED_CODE = '73750009'; // Visual field (observable entity)
+export const VITAL_VISION_DOT_HORIZONTAL_QUALIFIER_CODE = '24020000'; // Horizontal (qualifier value)
+export const VITAL_VISION_DOT_LEFT_EYE_STRUCTURE_CODE = '1290031003'; // Structure of left eye proper (body structure)
+export const VITAL_VISION_DOT_RIGHT_EYE_STRUCTURE_CODE = '1290032005'; // Structure of right eye proper (body structure)
+
+// Color vision: observable as the component code, normal/abnormal finding as the value.
+export const VITAL_VISION_DOT_COLOR_RECOGNITION_SNOMED_CODE = '363981009'; // Color vision, function (observable entity)
+export const VITAL_VISION_DOT_COLOR_NORMAL_CODE = '827066007'; // Normal color vision (finding)
+export const VITAL_VISION_DOT_COLOR_ABNORMAL_CODE = '23289000'; // Abnormal color vision (finding)
+
+// Monocular vision: the monocular-vision observable as the component code, monocular/binocular
+// observable as the value (yes = monocular, no = binocular).
+export const VITAL_VISION_DOT_MONOCULAR_OBSERVABLE_CODE = '54055001'; // Monocular vision, function (observable entity)
+export const VITAL_VISION_DOT_BINOCULAR_OBSERVABLE_CODE = '68362006'; // Binocular vision (observable entity)
+
+// Specialist referral (the fact the applicant was referred).
+export const VITAL_VISION_DOT_REFERRAL_SNOMED_CODE = '3457005'; // Patient referral (procedure)
+
+export const VITAL_VISION_DOT_LOCAL_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/dot-vision-screening`;
+export const VITAL_VISION_DOT_RECEIVED_DOC_CODE = 'received-referral-documentation';
+
+export const VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE = '8675309';
+
+export const VITAL_LAST_MENSTRUAL_PERIOD_LOINC_CODE = '8665-2';
+export const VITAL_LAST_MENSTRUAL_PERIOD_UNSURE_OPTION_SNOMED_CODE = '261665006';
+
+export const VITAL_BMI_LOINC_CODE = '39156-5';
 
 export const getTempObservationMethodCodable = (
   tempDTO: VitalsTemperatureObservationDTO
@@ -104,6 +154,18 @@ export const getTempObservationMethodCodable = (
     };
   }
 
+  if (obsMethod === VitalTemperatureObservationMethod.Ear) {
+    return {
+      coding: [
+        {
+          system: LOINC_SYSTEM,
+          code: VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_EAR,
+          display: 'Ear temperature',
+        },
+      ],
+    };
+  }
+
   return undefined;
 };
 
@@ -127,6 +189,10 @@ export const extractTemperatureObservationMethod = (
 
   if (obsMethodCode === VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_TEMPORAL) {
     return VitalTemperatureObservationMethod.Temporal;
+  }
+
+  if (obsMethodCode === VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_EAR) {
+    return VitalTemperatureObservationMethod.Ear;
   }
 
   return undefined;
@@ -386,6 +452,48 @@ export const extractOxySaturationObservationMethod = (
   return undefined;
 };
 
+export const getWeightObservationComponents = (weightDTO: VitalsWeightObservationDTO): ObservationComponent[] => {
+  let result: ObservationComponent[] = [];
+  const hasPatientRefused = (dto: VitalsWeightObservationDTO): dto is VitalsWeightPatientRefusedDTO =>
+    !!dto.extraWeightOptions?.includes('patient_refused');
+
+  const makeExtraWeightOptionComponent = (option: VitalsWeightOption, optionValue: boolean): ObservationComponent => {
+    let optionCode = '';
+    let optionLabel = '';
+    if (option === 'patient_refused') {
+      optionCode = VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE;
+      optionLabel = 'Patient Refused';
+    }
+
+    const optionCodeable: CodeableConcept = {
+      coding: [
+        {
+          system: SNOMED_SYSTEM,
+          code: optionCode,
+          display: optionLabel,
+        },
+      ],
+    };
+    const weightOptionComponent: ObservationComponent = {
+      code: optionCodeable,
+      valueBoolean: optionValue,
+    };
+    return weightOptionComponent;
+  };
+
+  if (hasPatientRefused(weightDTO)) {
+    return [makeExtraWeightOptionComponent('patient_refused', true)];
+  }
+
+  const extraWeightOptionsComponents = (weightDTO.extraWeightOptions ?? []).map((option) =>
+    makeExtraWeightOptionComponent(option as VitalsWeightOption, true)
+  );
+
+  result = [...result, ...extraWeightOptionsComponents];
+
+  return result;
+};
+
 export const getVisionObservationComponents = (visionDTO: VitalsVisionObservationDTO): ObservationComponent[] => {
   let result: ObservationComponent[] = [];
 
@@ -425,14 +533,32 @@ export const getVisionObservationComponents = (visionDTO: VitalsVisionObservatio
     result.push(rightEyeVisionComponent);
   }
 
+  if (visionDTO.bothEyesVisionText) {
+    const bothEyesCode: CodeableConcept = {
+      coding: [
+        {
+          system: SNOMED_SYSTEM,
+          code: VITAL_BOTH_EYES_SNOMED_CODE,
+          display: 'Both eyes observation',
+        },
+      ],
+    };
+    const bothEyesVisionComponent: ObservationComponent = {
+      code: bothEyesCode,
+      valueString: visionDTO.bothEyesVisionText,
+    };
+
+    result.push(bothEyesVisionComponent);
+  }
+
   const makeExtraVisionOptionComponent = (option: VitalsVisionOption, optionValue: boolean): ObservationComponent => {
     let optionCode = '';
     if (option === 'child_too_young') {
-      optionCode = VITAL_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE;
     } else if (option === 'with_glasses') {
-      optionCode = VITAL_CHILD_WITH_GLASSES_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_WITH_GLASSES_OPTION_SNOMED_CODE;
     } else if (option === 'without_glasses') {
-      optionCode = VITAL_CHILD_WITHOUT_GLASSES_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_WITHOUT_GLASSES_OPTION_SNOMED_CODE;
     }
 
     let optionLabel = '';
@@ -466,7 +592,194 @@ export const getVisionObservationComponents = (visionDTO: VitalsVisionObservatio
 
   result = [...result, ...extraVisionOptionsComponents];
 
+  result = [...result, ...getDotVisionScreeningComponents(visionDTO.dotVisionScreening)];
+
   return result;
+};
+
+const makeDotBooleanComponent = (
+  system: string,
+  code: string,
+  display: string,
+  value: boolean
+): ObservationComponent => ({
+  code: { coding: [{ system, code, display }] },
+  valueBoolean: value,
+});
+
+// A yes/no item whose answer is a SNOMED coded value: the component code names the observable, the
+// value picks the matching finding/observable concept.
+const makeDotCodedAnswerComponent = (
+  observableCode: string,
+  observableDisplay: string,
+  yes: { code: string; display: string },
+  no: { code: string; display: string },
+  value: boolean
+): ObservationComponent => ({
+  code: { coding: [{ system: SNOMED_SYSTEM, code: observableCode, display: observableDisplay }] },
+  valueCodeableConcept: { coding: [{ system: SNOMED_SYSTEM, ...(value ? yes : no) }] },
+});
+
+const makeDotHorizontalFieldComponent = (
+  eyeStructureCode: string,
+  eyeStructureDisplay: string,
+  value: number
+): ObservationComponent => ({
+  code: {
+    coding: [
+      { system: SNOMED_SYSTEM, code: VITAL_VISION_DOT_VISUAL_FIELD_SNOMED_CODE, display: 'Visual field' },
+      { system: SNOMED_SYSTEM, code: VITAL_VISION_DOT_HORIZONTAL_QUALIFIER_CODE, display: 'Horizontal' },
+      { system: SNOMED_SYSTEM, code: eyeStructureCode, display: eyeStructureDisplay },
+    ],
+  },
+  valueQuantity: { value, unit: 'degrees', system: 'http://unitsofmeasure.org', code: 'deg' },
+});
+
+export const getDotVisionScreeningComponents = (dot: VitalsDotVisionScreening | undefined): ObservationComponent[] => {
+  if (!dot) return [];
+  const components: ObservationComponent[] = [];
+
+  if (dot.horizontalFieldLeftDegrees != null) {
+    components.push(
+      makeDotHorizontalFieldComponent(
+        VITAL_VISION_DOT_LEFT_EYE_STRUCTURE_CODE,
+        'Structure of left eye proper',
+        dot.horizontalFieldLeftDegrees
+      )
+    );
+  }
+  if (dot.horizontalFieldRightDegrees != null) {
+    components.push(
+      makeDotHorizontalFieldComponent(
+        VITAL_VISION_DOT_RIGHT_EYE_STRUCTURE_CODE,
+        'Structure of right eye proper',
+        dot.horizontalFieldRightDegrees
+      )
+    );
+  }
+  if (dot.canRecognizeColors != null) {
+    components.push(
+      makeDotCodedAnswerComponent(
+        VITAL_VISION_DOT_COLOR_RECOGNITION_SNOMED_CODE,
+        'Color vision, function',
+        { code: VITAL_VISION_DOT_COLOR_NORMAL_CODE, display: 'Normal color vision' },
+        { code: VITAL_VISION_DOT_COLOR_ABNORMAL_CODE, display: 'Abnormal color vision' },
+        dot.canRecognizeColors
+      )
+    );
+  }
+  if (dot.hasMonocularVision != null) {
+    components.push(
+      makeDotCodedAnswerComponent(
+        VITAL_VISION_DOT_MONOCULAR_OBSERVABLE_CODE,
+        'Monocular vision, function',
+        { code: VITAL_VISION_DOT_MONOCULAR_OBSERVABLE_CODE, display: 'Monocular vision' },
+        { code: VITAL_VISION_DOT_BINOCULAR_OBSERVABLE_CODE, display: 'Binocular vision' },
+        dot.hasMonocularVision
+      )
+    );
+  }
+  if (dot.referredToSpecialist != null) {
+    components.push(
+      makeDotBooleanComponent(
+        SNOMED_SYSTEM,
+        VITAL_VISION_DOT_REFERRAL_SNOMED_CODE,
+        'Patient referral',
+        dot.referredToSpecialist
+      )
+    );
+  }
+  if (dot.receivedDocumentation != null) {
+    components.push(
+      makeDotBooleanComponent(
+        VITAL_VISION_DOT_LOCAL_SYSTEM,
+        VITAL_VISION_DOT_RECEIVED_DOC_CODE,
+        'Received documentation from ophthalmologist or optometrist',
+        dot.receivedDocumentation
+      )
+    );
+  }
+  // NOTE: the referral document is NOT stored as a component — FHIR R4 Observation.component has no
+  // valueReference. It is a real FHIR DocumentReference linked via Observation.derivedFrom instead
+  // (see getDotVisionDocumentDerivedFrom / extractDotVisionScreening).
+
+  return components;
+};
+
+// The referral document lives as a DocumentReference; link it from the Observation via derivedFrom
+// (reference + title as display). Only emit once the DocumentReference has actually been created.
+export const getDotVisionDocumentDerivedFrom = (dot: VitalsDotVisionScreening | undefined): Reference[] => {
+  if (!dot?.document?.documentReferenceId) return [];
+  return [
+    {
+      reference: `DocumentReference/${dot.document.documentReferenceId}`,
+      display: dot.document.title,
+    },
+  ];
+};
+
+export const extractDotVisionScreening = (
+  components: ObservationComponent[],
+  derivedFrom?: Reference[]
+): VitalsDotVisionScreening | undefined => {
+  const findByCode = (code: string): ObservationComponent | undefined =>
+    components.find((cmp) => cmp.code?.coding?.some((coding) => coding?.code === code));
+
+  const hasCode = (cmp: ObservationComponent, code: string): boolean =>
+    !!cmp.code?.coding?.some((coding) => coding?.code === code);
+
+  const valueHasCode = (cmp: ObservationComponent | undefined, code: string): boolean =>
+    !!cmp?.valueCodeableConcept?.coding?.some((coding) => coding?.code === code);
+
+  const findHorizontalField = (eyeStructureCode: string): number | undefined =>
+    components.find((cmp) => hasCode(cmp, VITAL_VISION_DOT_VISUAL_FIELD_SNOMED_CODE) && hasCode(cmp, eyeStructureCode))
+      ?.valueQuantity?.value;
+
+  // For coded yes/no answers, resolve the boolean from which finding/observable the value carries.
+  const codedAnswer = (observableCode: string, yesCode: string, noCode: string): boolean | undefined => {
+    const cmp = findByCode(observableCode);
+    if (valueHasCode(cmp, yesCode)) return true;
+    if (valueHasCode(cmp, noCode)) return false;
+    return undefined;
+  };
+
+  const leftField = findHorizontalField(VITAL_VISION_DOT_LEFT_EYE_STRUCTURE_CODE);
+  const rightField = findHorizontalField(VITAL_VISION_DOT_RIGHT_EYE_STRUCTURE_CODE);
+  const canRecognizeColors = codedAnswer(
+    VITAL_VISION_DOT_COLOR_RECOGNITION_SNOMED_CODE,
+    VITAL_VISION_DOT_COLOR_NORMAL_CODE,
+    VITAL_VISION_DOT_COLOR_ABNORMAL_CODE
+  );
+  const hasMonocularVision = codedAnswer(
+    VITAL_VISION_DOT_MONOCULAR_OBSERVABLE_CODE,
+    VITAL_VISION_DOT_MONOCULAR_OBSERVABLE_CODE,
+    VITAL_VISION_DOT_BINOCULAR_OBSERVABLE_CODE
+  );
+  const referredToSpecialist = findByCode(VITAL_VISION_DOT_REFERRAL_SNOMED_CODE)?.valueBoolean;
+  const receivedDocumentation = findByCode(VITAL_VISION_DOT_RECEIVED_DOC_CODE)?.valueBoolean;
+
+  // The document is linked via Observation.derivedFrom; url is not persisted (DocumentReference is
+  // the source of truth), so it stays undefined when re-read from FHIR.
+  const documentRef = (derivedFrom ?? []).find((ref) => ref.reference?.startsWith('DocumentReference/'));
+  const document: VitalsDotVisionScreening['document'] = documentRef
+    ? {
+        documentReferenceId: documentRef.reference?.split('/').pop(),
+        title: documentRef.display ?? 'Referral documentation',
+      }
+    : undefined;
+
+  const dot: VitalsDotVisionScreening = {
+    horizontalFieldLeftDegrees: leftField,
+    horizontalFieldRightDegrees: rightField,
+    canRecognizeColors,
+    hasMonocularVision,
+    referredToSpecialist,
+    receivedDocumentation,
+    document,
+  };
+
+  const hasAnyValue = Object.values(dot).some((v) => v !== undefined);
+  return hasAnyValue ? dot : undefined;
 };
 
 export const extractVisionValues = (
@@ -474,6 +787,7 @@ export const extractVisionValues = (
 ): {
   leftEyeVisText?: string;
   rightEyeVisText?: string;
+  bothEyesVisText?: string;
   visionOptions?: VitalsVisionOption[];
 } => {
   const leftEyeComponent = components.find((cmp) => {
@@ -488,14 +802,20 @@ export const extractVisionValues = (
 
   const rightEyeVisionText = rightEyeComponent?.valueString || rightEyeComponent?.valueQuantity?.value?.toString();
 
+  const bothEyesComponent = components.find((cmp) => {
+    return cmp.code?.coding?.find((coding) => coding?.code === VITAL_BOTH_EYES_SNOMED_CODE);
+  });
+
+  const bothEyesVisionText = bothEyesComponent?.valueString || bothEyesComponent?.valueQuantity?.value?.toString();
+
   const getVisionExtraOptionValue = (option: VitalsVisionOption): boolean | undefined => {
     let optionCode = '';
     if (option === 'child_too_young') {
-      optionCode = VITAL_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE;
     } else if (option === 'with_glasses') {
-      optionCode = VITAL_CHILD_WITH_GLASSES_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_WITH_GLASSES_OPTION_SNOMED_CODE;
     } else if (option === 'without_glasses') {
-      optionCode = VITAL_CHILD_WITHOUT_GLASSES_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_WITHOUT_GLASSES_OPTION_SNOMED_CODE;
     }
 
     const optionComponent = components.find((cmp) => {
@@ -510,6 +830,7 @@ export const extractVisionValues = (
   return {
     leftEyeVisText: leftEyeVisionText,
     rightEyeVisText: rightEyeVisionText,
+    bothEyesVisText: bothEyesVisionText,
     visionOptions: storedExtraVisionOptions,
   };
 };
@@ -518,13 +839,19 @@ export function isVitalObservation(data: ObservationDTO): data is VitalsObservat
   return (
     isWeightVitalObservation(data) ||
     isHeightVitalObservation(data) ||
+    isBMIVitalObservation(data) ||
     isTemperatureVitalObservation(data) ||
     isHeartbeatVitalObservation(data) ||
     isBloodPressureVitalObservation(data) ||
     isOxygenSaturationVitalObservation(data) ||
     isRespirationRateVitalObservation(data) ||
-    isVisionVitalObservation(data)
+    isVisionVitalObservation(data) ||
+    isLastMenstrualPeriodVitalObservation(data)
   );
+}
+
+export function isBMIVitalObservation(data: ObservationDTO): data is VitalsBMIObservationDTO {
+  return data.field === VitalFieldNames.VitalBMI;
 }
 
 export function isWeightVitalObservation(data: ObservationDTO): data is VitalsWeightObservationDTO {
@@ -565,6 +892,13 @@ export function isRespirationRateVitalObservation(data: ObservationDTO): data is
 export function isOxygenSaturationVitalObservation(data: ObservationDTO): data is VitalsOxygenSatObservationDTO {
   const fieldName = data.field;
   return fieldName === VitalFieldNames.VitalOxygenSaturation;
+}
+
+export function isLastMenstrualPeriodVitalObservation(
+  data: ObservationDTO
+): data is VitalsLastMenstrualPeriodObservationDTO {
+  const fieldName = data.field;
+  return fieldName === VitalFieldNames.VitalLastMenstrualPeriod;
 }
 
 export function toVitalTemperatureObservationMethod(
@@ -657,7 +991,10 @@ export function fillVitalObservationAttributes(
     return {
       ...baseResource,
       code: { coding: [{ system: LOINC_SYSTEM, code: '29463-7', display: 'Body weight' }] },
-      valueQuantity: { value: weightDTO.value, system: 'http://unitsofmeasure.org', unit: 'kg' },
+      valueQuantity: weightDTO.value
+        ? { value: weightDTO.value, system: 'http://unitsofmeasure.org', unit: 'kg' }
+        : undefined,
+      component: getWeightObservationComponents(weightDTO),
     };
   }
 
@@ -670,11 +1007,57 @@ export function fillVitalObservationAttributes(
     };
   }
 
+  if (isBMIVitalObservation(vitalDTO)) {
+    const bmiDTO = vitalDTO as VitalsBMIObservationDTO;
+    return {
+      ...baseResource,
+      code: {
+        coding: [{ system: LOINC_SYSTEM, code: VITAL_BMI_LOINC_CODE, display: 'Body mass index (BMI) [Ratio]' }],
+      },
+      valueQuantity: { value: bmiDTO.value, system: 'http://unitsofmeasure.org', unit: 'kg/m2' },
+    };
+  }
+
   if (isVisionVitalObservation(vitalDTO)) {
     const visionDTO = vitalDTO as VitalsVisionObservationDTO;
+    const derivedFrom = getDotVisionDocumentDerivedFrom(visionDTO.dotVisionScreening);
     return {
       ...baseResource,
       component: getVisionObservationComponents(visionDTO),
+      ...(derivedFrom.length > 0 ? { derivedFrom } : {}),
+    };
+  }
+
+  if (isLastMenstrualPeriodVitalObservation(vitalDTO)) {
+    const lmpDTO = vitalDTO as VitalsLastMenstrualPeriodObservationDTO;
+    return {
+      ...baseResource,
+      code: {
+        coding: [
+          {
+            system: LOINC_SYSTEM,
+            code: VITAL_LAST_MENSTRUAL_PERIOD_LOINC_CODE,
+            display: 'Last menstrual period start date',
+          },
+        ],
+      },
+      valueDateTime: lmpDTO.value || undefined,
+      component: lmpDTO.isUnsure
+        ? [
+            {
+              code: {
+                coding: [
+                  {
+                    system: SNOMED_SYSTEM,
+                    code: VITAL_LAST_MENSTRUAL_PERIOD_UNSURE_OPTION_SNOMED_CODE,
+                    display: 'Unknown',
+                  },
+                ],
+              },
+              valueBoolean: true,
+            },
+          ]
+        : undefined,
     };
   }
 
@@ -757,13 +1140,26 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
   }
 
   if (fieldName === VitalFieldNames.VitalWeight) {
-    const obsNumericalValue = observation.valueQuantity?.value ?? 0;
-    const result: VitalsWeightObservationDTO = {
-      ...baseProps,
-      field: VitalFieldNames.VitalWeight,
-      value: obsNumericalValue,
-    };
-    return result;
+    const obsNumericalValue = observation.valueQuantity?.value;
+    const weightValues = extractWeightValues(observation.component ?? []);
+    const hasPatientRefused = weightValues.weightOptions?.includes('patient_refused');
+
+    if (hasPatientRefused) {
+      const result: VitalsWeightObservationDTO = {
+        ...baseProps,
+        field: VitalFieldNames.VitalWeight,
+        extraWeightOptions: ['patient_refused'],
+      };
+      return result;
+    } else {
+      const result: VitalsWeightObservationDTO = {
+        ...baseProps,
+        field: VitalFieldNames.VitalWeight,
+        value: obsNumericalValue ?? 0,
+        extraWeightOptions: weightValues.weightOptions,
+      };
+      return result;
+    }
   }
 
   if (fieldName === VitalFieldNames.VitalHeight) {
@@ -776,6 +1172,16 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
     return result;
   }
 
+  if (fieldName === VitalFieldNames.VitalBMI) {
+    const obsNumericalValue = observation.valueQuantity?.value ?? 0;
+    const result: VitalsBMIObservationDTO = {
+      ...baseProps,
+      field: VitalFieldNames.VitalBMI,
+      value: obsNumericalValue,
+    };
+    return result;
+  }
+
   if (fieldName === VitalFieldNames.VitalVision) {
     const visionValues = extractVisionValues(observation.component ?? []);
     const result: VitalsVisionObservationDTO = {
@@ -783,10 +1189,88 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
       field: VitalFieldNames.VitalVision,
       leftEyeVisionText: visionValues.leftEyeVisText ?? '',
       rightEyeVisionText: visionValues.rightEyeVisText ?? '',
+      bothEyesVisionText: visionValues.bothEyesVisText,
       extraVisionOptions: visionValues.visionOptions,
+      dotVisionScreening: extractDotVisionScreening(observation.component ?? [], observation.derivedFrom),
+    };
+    return result;
+  }
+
+  if (fieldName === VitalFieldNames.VitalLastMenstrualPeriod) {
+    const hasUnsure = observation.component?.some(
+      (cmp) =>
+        cmp.code?.coding?.some((coding) => coding.code === VITAL_LAST_MENSTRUAL_PERIOD_UNSURE_OPTION_SNOMED_CODE) &&
+        cmp.valueBoolean === true
+    );
+
+    const result: VitalsLastMenstrualPeriodObservationDTO = {
+      ...baseProps,
+      field: VitalFieldNames.VitalLastMenstrualPeriod,
+      value: observation.valueDateTime ?? '',
+      isUnsure: hasUnsure,
     };
     return result;
   }
 
   return undefined;
+}
+
+const extractWeightValues = (
+  components: ObservationComponent[]
+): {
+  weightOptions?: VitalsWeightOption[];
+} => {
+  const getWeightExtraOptionValue = (option: VitalsWeightOption): boolean | undefined => {
+    let optionCode = '';
+
+    if (option === 'patient_refused') {
+      optionCode = VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE;
+    }
+
+    const optionComponent = components.find((cmp) => {
+      return cmp.code?.coding?.find((coding) => coding?.code === optionCode);
+    });
+
+    return optionComponent?.valueBoolean;
+  };
+
+  const allExtraWeightOptions: VitalsWeightOption[] = ['patient_refused'];
+  const storedExtraWeightOptions = allExtraWeightOptions.filter((option) => getWeightExtraOptionValue(option) === true);
+
+  return {
+    weightOptions: storedExtraWeightOptions,
+  };
+};
+
+export function parseLastMenstrualPeriodObservation(
+  observation: Observation,
+  performer: Practitioner
+): VitalsLastMenstrualPeriodObservationDTO | undefined {
+  const fieldCode = observation?.meta?.tag?.find(
+    (tag) => tag.system === `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}`
+  )?.code;
+
+  if (fieldCode !== VitalFieldNames.VitalLastMenstrualPeriod) return undefined;
+
+  const components = observation.component || [];
+  const hasUnsure = components.some(
+    (cmp) =>
+      cmp.code?.coding?.some(
+        (coding) =>
+          coding.code === VITAL_LAST_MENSTRUAL_PERIOD_UNSURE_OPTION_SNOMED_CODE && coding.system === SNOMED_SYSTEM
+      ) && cmp.valueBoolean === true
+  );
+
+  const value = observation.valueDateTime;
+  if (value === undefined && !hasUnsure) return undefined;
+
+  return {
+    resourceId: observation.id,
+    field: VitalFieldNames.VitalLastMenstrualPeriod,
+    value: value ?? '',
+    isUnsure: hasUnsure,
+    authorId: performer.id,
+    authorName: getFullName(performer),
+    lastUpdated: observation.effectiveDateTime || '',
+  };
 }

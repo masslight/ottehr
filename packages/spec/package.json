@@ -1,0 +1,17 @@
+{
+  "name": "spec",
+  "version": "1.42.1",
+  "description": "Library for interacting with Ottehr spec and var files",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint-terraform": "terraform fmt",
+    "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts --report-unused-disable-directives --max-warnings 0 .",
+    "test": "vitest run",
+    "test:ci": "vitest run --passWithNoTests --reporter=dot --reporter=github-actions",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^24.2.1",
+    "vitest": "^3.2.4"
+  }
+}

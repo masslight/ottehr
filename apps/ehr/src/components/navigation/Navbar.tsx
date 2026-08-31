@@ -5,7 +5,8 @@ import { AppBar, Container, Tab, Toolbar, useMediaQuery, useTheme } from '@mui/m
 import { ReactElement, SyntheticEvent, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
-import { PROJECT_NAME, RoleType } from 'utils';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { AppTab, useNavStore } from '../../state/nav.store';
 import MobileMenu from './MobileMenu';
@@ -21,35 +22,43 @@ export type NavbarItems = {
 };
 
 const administratorNavbarItems: NavbarItems = {
-  'In Person': { urls: ['/visits', '/visit'] },
-  Schedules: { urls: ['/schedules', '/schedule'] },
+  'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
-  Employees: { urls: ['/employees', '/employee'] },
-  'Telemedicine:Admin': { urls: ['/telemed-admin'] },
-  Telemedicine: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
+  Admin: { urls: ['/admin'] },
+  Reports: { urls: ['/reports'] },
 };
 
 const managerNavbarItems: NavbarItems = {
-  'In Person': { urls: ['/visits', '/visit'] },
-  Schedules: { urls: ['/schedules', '/schedule'] },
+  'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
-  Employees: { urls: ['/employees', '/employee'] },
-  'Telemedicine:Admin': { urls: ['/telemed-admin'] },
-  Telemedicine: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
+  Admin: { urls: ['/admin'] },
+  Tasks: { urls: ['/tasks', '/inbound-fax'] },
+  Reports: { urls: ['/reports'] },
 };
 
 const staffNavbarItems: NavbarItems = {
-  'In Person': { urls: ['/visits', '/visit'] },
+  'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
+  Admin: { urls: ['/admin'] },
+  Tasks: { urls: ['/tasks', '/inbound-fax'] },
+  Reports: { urls: ['/reports'] },
 };
 
 const providerNavbarItems: NavbarItems = {
-  'In Person': { urls: ['/visits', '/visit'] },
+  'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
-  Telemedicine: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
+  Tasks: { urls: ['/tasks', '/inbound-fax'] },
+  Reports: { urls: ['/reports'] },
 };
 
-const hideNavbarPathPatterns = [/^\/telemed\/appointments\//, /^\/patient\/[^/]+\/info$/];
+const customerSupportNavbarItems: NavbarItems = {
+  'Tracking Board': { urls: ['/visits', '/visit'] },
+  Patients: { urls: ['/patients', '/patient'] },
+  Admin: { urls: ['/admin'] },
+  Reports: { urls: ['/reports'] },
+};
+
+const hideNavbarPathPatterns = [/^\/telemed\/appointments\/(?!.*\/visit-details$)/, /^\/patient\/[^/]+\/info$/];
 
 export default function Navbar(): ReactElement | null {
   const location = useLocation();
@@ -70,8 +79,13 @@ export default function Navbar(): ReactElement | null {
       if (user.hasRole([RoleType.Staff])) {
         navItems = { ...navItems, ...staffNavbarItems };
       }
-      if (user.hasRole([RoleType.Provider])) {
+      // Clinicians get the same navigation as Providers; the NPI-gated actions within those pages are
+      // disabled separately based on NPI presence.
+      if (user.hasRole([RoleType.Provider, RoleType.Clinician])) {
         navItems = { ...navItems, ...providerNavbarItems };
+      }
+      if (user.hasRole([RoleType.CustomerSupport])) {
+        navItems = { ...navItems, ...customerSupportNavbarItems };
       }
     }
     return navItems;
@@ -84,7 +98,7 @@ export default function Navbar(): ReactElement | null {
 
   useEffect(() => {
     if (!currentTab) {
-      useNavStore.setState({ currentTab: 'In Person' });
+      useNavStore.setState({ currentTab: 'Tracking Board' });
     }
 
     (Object.keys(navbarItems) as AppTab[]).forEach((navbarItem) => {
@@ -114,7 +128,7 @@ export default function Navbar(): ReactElement | null {
           <Link to="/">
             <img
               src={logo}
-              alt={`${PROJECT_NAME} logo`}
+              alt={`${BRANDING_CONFIG.projectName} logo`}
               style={{
                 marginRight: 20,
                 marginTop: 10,

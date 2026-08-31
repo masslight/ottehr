@@ -1,13 +1,24 @@
 import Oystehr, { BatchInputDeleteRequest, FhirSearchParams } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Coding, FhirResource, Observation, Patient, Person } from 'fhir/r4b';
-import { chunkThings, getAllFhirSearchPages } from '../fhir';
-import { sleep } from '../helpers';
+import {
+  Appointment,
+  Coding,
+  FhirResource,
+  HealthcareService,
+  Observation,
+  Patient,
+  Person,
+  Questionnaire,
+  RelatedPerson,
+} from 'fhir/r4b';
+import { chunkThings } from '../fhir/chat';
+import { getAllFhirSearchPages } from '../fhir/getAllFhirSearchPages';
+import { sleep } from '../helpers/helpers';
 
 export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Promise<boolean> => {
   const allResources = await getAppointmentGraphByTag(oystehr, tag);
 
-  const [deleteRequests, persons] = generateDeleteRequestsAndPerson(allResources);
+  const [deleteRequests, persons] = generateDeleteRequestsAndPerson(allResources, tag);
 
   await Promise.all(persons.map((person) => patchPerson(oystehr, person, allResources)));
 
@@ -43,7 +54,18 @@ export const NEVER_DELETE = [
   'HealthcareService',
 ];
 
-const generateDeleteRequestsAndPerson = (allResources: FhirResource[]): [BatchInputDeleteRequest[], Person[]] => {
+export const resourceBelongsToRunTag = (resource: FhirResource, runTag: Coding | undefined): boolean => {
+  if (!runTag?.code || !resource.meta?.tag) {
+    return false;
+  }
+
+  return resource.meta.tag.some((t) => t.system === runTag.system && t.code === runTag.code);
+};
+
+const generateDeleteRequestsAndPerson = (
+  allResources: FhirResource[],
+  runCleanupTag?: Coding
+): [BatchInputDeleteRequest[], Person[]] => {
   const deleteRequests: BatchInputDeleteRequest[] = [];
 
   const personsSoFar = new Set<string>();
@@ -57,16 +79,20 @@ const generateDeleteRequestsAndPerson = (allResources: FhirResource[]): [BatchIn
   const addedSoFar = new Set<string>();
   deleteRequests.push(
     ...allResources.flatMap((resourceTemp) => {
-      if (NEVER_DELETE.includes(resourceTemp.resourceType)) {
+      if (NEVER_DELETE.includes(resourceTemp.resourceType) && !resourceBelongsToRunTag(resourceTemp, runCleanupTag)) {
         return [] as BatchInputDeleteRequest[];
-      } else {
-        const url = `${resourceTemp.resourceType}/${resourceTemp.id}`;
-        if (addedSoFar.has(url)) {
-          return [] as BatchInputDeleteRequest[];
-        }
-        addedSoFar.add(url);
-        return [{ method: 'DELETE', url }] as BatchInputDeleteRequest[];
       }
+      const url = `${resourceTemp.resourceType}/${resourceTemp.id}`;
+      if (addedSoFar.has(url)) {
+        return [] as BatchInputDeleteRequest[];
+      }
+      addedSoFar.add(url);
+
+      if (NEVER_DELETE.includes(resourceTemp.resourceType)) {
+        console.log(`[cleanAppointmentGraph] deleting ${url}`);
+      }
+
+      return [{ method: 'DELETE', url }] as BatchInputDeleteRequest[];
     })
   );
 
@@ -155,114 +181,130 @@ const getAppointmentGraphByTag = async (
   includeObservations = false
 ): Promise<FhirResource[]> => {
   const { system, code } = tag;
+  const params = [
+    {
+      name: '_tag',
+      value: `${system}|${code}`,
+    },
+    {
+      name: '_sort',
+      value: '-_lastUpdated',
+    },
+    {
+      name: '_include',
+      value: 'Appointment:patient',
+    },
+    {
+      name: '_include',
+      value: 'Appointment:slot',
+    },
+    {
+      name: '_include',
+      value: 'Appointment:location',
+    },
+    {
+      name: '_revinclude',
+      value: 'Task:focus',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'RelatedPerson:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Encounter:participant',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Encounter:appointment',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'DocumentReference:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'QuestionnaireResponse:encounter',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Person:relatedperson',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Communication:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'MedicationAdministration:context',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'MedicationStatement:part-of',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'ClinicalImpression:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'AuditEvent:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'ServiceRequest:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'DiagnosticReport:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Specimen:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Account:patient',
+    },
+    {
+      // Integration tests seed a Consent referencing the patient; without this revinclude it is
+      // unreachable from the Appointment graph and survives cleanup (a leak).
+      name: '_revinclude:iterate',
+      value: 'Consent:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Coverage:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'MedicationRequest:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Procedure:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Task:based-on',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Task:encounter',
+    },
+  ];
+  if (!code) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+    // Always exclude fresh resources (< 1 hour) to protect currently running tests
+    params.push({
+      name: '_lastUpdated',
+      value: `lt${oneHourAgo}`,
+    });
+  }
   const appointmentSearchParams: FhirSearchParams<Appointment | Patient> = {
     resourceType: 'Appointment',
-    params: [
-      {
-        name: '_tag',
-        value: `${system}|${code}`,
-      },
-      {
-        name: '_sort',
-        value: '-_lastUpdated',
-      },
-      {
-        name: '_include',
-        value: 'Appointment:patient',
-      },
-      {
-        name: '_include',
-        value: 'Appointment:slot',
-      },
-      {
-        name: '_include',
-        value: 'Appointment:location',
-      },
-      {
-        name: '_revinclude',
-        value: 'Task:focus',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'RelatedPerson:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Encounter:participant',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Encounter:appointment',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'DocumentReference:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'QuestionnaireResponse:encounter',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Person:relatedperson',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Communication:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'MedicationAdministration:context',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'MedicationStatement:part-of',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'ClinicalImpression:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'AuditEvent:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'ServiceRequest:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'DiagnosticReport:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Specimen:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Account:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Coverage:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'MedicationRequest:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Procedure:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Task:based-on',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Task:encounter',
-      },
-    ],
+    params,
   };
 
   // we limit the matches per search to 20 because the include list is very large and we want to avoid swelling the overall
@@ -305,4 +347,385 @@ const getAppointmentGraphByTag = async (
   const dedupedLength = dedupedResources.length;
   console.log(`Removed ${startLength - dedupedLength} duplicate resources`);
   return dedupedResources;
+};
+
+export const cleanupE2ELocations = async (oystehr: Oystehr, tag: string): Promise<void> => {
+  const params = [
+    {
+      name: '_tag',
+      value: tag,
+    },
+  ];
+  const processId = tag.split('|')[1];
+  if (!processId) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    params.push({
+      name: '_lastUpdated',
+      value: `lt${oneHourAgo}`,
+    });
+  }
+  const locationsToDelete = (
+    await oystehr.fhir.search({
+      resourceType: 'Location',
+      params,
+    })
+  ).unbundle();
+
+  const batchDeleteRequests: BatchInputDeleteRequest[] = locationsToDelete.map((location) => ({
+    method: 'DELETE',
+    url: `Location/${location.id}`,
+  }));
+
+  await oystehr.fhir.batch({
+    requests: batchDeleteRequests,
+  });
+
+  console.log(`Deleted ${locationsToDelete.length} E2E test locations`);
+};
+
+export const cleanupE2ESchedules = async (oystehr: Oystehr, tag: string): Promise<void> => {
+  const params = [
+    {
+      name: '_tag',
+      value: tag,
+    },
+  ];
+  const processId = tag.split('|')[1];
+  if (!processId) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    params.push({
+      name: '_lastUpdated',
+      value: `lt${oneHourAgo}`,
+    });
+  }
+  const schedulesToDelete = (
+    await oystehr.fhir.search({
+      resourceType: 'Schedule',
+      params,
+    })
+  ).unbundle();
+
+  const batchDeleteRequests: BatchInputDeleteRequest[] = schedulesToDelete.map((schedule) => ({
+    method: 'DELETE',
+    url: `Schedule/${schedule.id}`,
+  }));
+
+  await oystehr.fhir.batch({
+    requests: batchDeleteRequests,
+  });
+
+  console.log(`Deleted ${schedulesToDelete.length} E2E test schedules`);
+};
+
+export const cleanupIntegrationTestLocations = async (oystehr: Oystehr): Promise<void> => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+  // Clean up both in-person and telemed test locations
+  const testLocationNames = ['BusySlotsTestLocation', 'BusySlotsTestTelemedLocation'];
+
+  for (const locationName of testLocationNames) {
+    const locationsToDelete = (
+      await oystehr.fhir.search({
+        resourceType: 'Location',
+        params: [
+          {
+            name: 'name',
+            value: locationName,
+          },
+          {
+            name: '_lastUpdated',
+            value: `lt${oneHourAgo}`,
+          },
+          {
+            name: '_revinclude',
+            value: 'Schedule:actor',
+          },
+        ],
+      })
+    ).unbundle();
+
+    if (locationsToDelete.length > 0) {
+      console.log(`Found ${locationsToDelete.length} "${locationName}" resources to delete`);
+
+      const batchDeleteRequests: BatchInputDeleteRequest[] = locationsToDelete.map((res) => ({
+        method: 'DELETE',
+        url: `${res.resourceType}/${res.id}`,
+      }));
+
+      await oystehr.fhir.batch({
+        requests: batchDeleteRequests,
+      });
+    }
+  }
+};
+
+/**
+ * Clean up appointments and related resources from integration tests.
+ *
+ * Integration tests use the OTTEHR_AUTOMATED_TEST tag system with DELETE_ME-{processId} codes.
+ * This function finds appointments with this tag and cleans up the entire appointment graph.
+ */
+export const INTEGRATION_TEST_TAG_SYSTEM = 'OTTEHR_AUTOMATED_TEST';
+
+export const cleanupIntegrationTestAppointments = async (oystehr: Oystehr): Promise<void> => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+  // Search for appointments tagged with OTTEHR_AUTOMATED_TEST system
+  // The code starts with DELETE_ME- but we search by system only to catch all
+  const appointmentSearchParams: FhirSearchParams<Appointment | Patient> = {
+    resourceType: 'Appointment',
+    params: [
+      {
+        name: '_tag',
+        value: `${INTEGRATION_TEST_TAG_SYSTEM}|`,
+      },
+      {
+        name: '_lastUpdated',
+        value: `lt${oneHourAgo}`,
+      },
+      {
+        name: '_sort',
+        value: '-_lastUpdated',
+      },
+      {
+        name: '_include',
+        value: 'Appointment:patient',
+      },
+      {
+        name: '_include',
+        value: 'Appointment:slot',
+      },
+      {
+        name: '_revinclude',
+        value: 'Encounter:appointment',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'QuestionnaireResponse:encounter',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'RelatedPerson:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Person:relatedperson',
+      },
+    ],
+  };
+
+  const allResources = await getAllFhirSearchPages(appointmentSearchParams, oystehr, 10);
+
+  if (allResources.length === 0) {
+    console.log('No integration test appointments found to clean up');
+    return;
+  }
+
+  console.log(`Found ${allResources.length} integration test resources to clean up`);
+
+  const [deleteRequests, persons] = generateDeleteRequestsAndPerson(allResources);
+
+  // Patch Person resources to remove links to RelatedPersons we're about to delete
+  await Promise.all(persons.map((person) => patchPerson(oystehr, person, allResources)));
+
+  // Delete resources in batches
+  try {
+    const chunkedRequests = chunkThings(deleteRequests, 100);
+    for (let i = 0; i < chunkedRequests.length; i++) {
+      try {
+        const result = await oystehr.fhir.transaction({ requests: [...chunkedRequests[i]] });
+        console.log(
+          `Successfully deleted integration test resources, chunk ${i + 1} of ${chunkedRequests.length}`,
+          result?.entry?.[0]?.response?.status
+        );
+      } catch (e) {
+        console.log(
+          `Error deleting integration test resources, chunk ${i + 1} of ${chunkedRequests.length}: ${e}`,
+          JSON.stringify(e)
+        );
+        console.log('Continuing with additional requests...');
+      }
+      await sleep(250);
+    }
+  } catch (e) {
+    console.log(`Error deleting integration test resources: ${e}`, JSON.stringify(e));
+  }
+};
+
+/**
+ * Clean up Patients tagged with OTTEHR_AUTOMATED_TEST that may have been orphaned.
+ * These are created by integration tests for new patient scenarios.
+ */
+export const cleanupIntegrationTestPatients = async (oystehr: Oystehr): Promise<void> => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+  const patientsToDelete = (
+    await oystehr.fhir.search<Patient | RelatedPerson | Person>({
+      resourceType: 'Patient',
+      params: [
+        {
+          name: '_tag',
+          value: `${INTEGRATION_TEST_TAG_SYSTEM}|`,
+        },
+        {
+          name: '_lastUpdated',
+          value: `lt${oneHourAgo}`,
+        },
+        {
+          name: '_revinclude',
+          value: 'RelatedPerson:patient',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Person:relatedperson',
+        },
+      ],
+    })
+  ).unbundle();
+
+  if (patientsToDelete.length === 0) {
+    console.log('No integration test patients found to clean up');
+    return;
+  }
+
+  console.log(`Found ${patientsToDelete.length} integration test patient resources to clean up`);
+
+  const [deleteRequests, persons] = generateDeleteRequestsAndPerson(patientsToDelete);
+
+  // Patch Person resources to remove links to RelatedPersons we're about to delete
+  await Promise.all(persons.map((person) => patchPerson(oystehr, person, patientsToDelete)));
+
+  // Delete resources in batches
+  try {
+    const chunkedRequests = chunkThings(deleteRequests, 100);
+    for (let i = 0; i < chunkedRequests.length; i++) {
+      try {
+        await oystehr.fhir.transaction({ requests: [...chunkedRequests[i]] });
+        console.log(`Successfully deleted integration test patients, chunk ${i + 1} of ${chunkedRequests.length}`);
+      } catch (e) {
+        console.log(
+          `Error deleting integration test patients, chunk ${i + 1} of ${chunkedRequests.length}: ${e}`,
+          JSON.stringify(e)
+        );
+      }
+      await sleep(250);
+    }
+  } catch (e) {
+    console.log(`Error deleting integration test patients: ${e}`, JSON.stringify(e));
+  }
+};
+
+/**
+ * Clean up HealthcareServices tagged with OTTEHR_AUTOMATED_TEST that may have been orphaned.
+ * Created by integration tests that exercise the service-category catalog or group scoping
+ * (e.g. get-service-categories tests).
+ */
+export const cleanupIntegrationTestHealthcareServices = async (oystehr: Oystehr): Promise<void> => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+  // Paginated: matches the pattern used for Appointments above so older
+  // orphans on later pages aren't left behind.
+  const servicesToDelete = await getAllFhirSearchPages<HealthcareService>(
+    {
+      resourceType: 'HealthcareService',
+      params: [
+        {
+          name: '_tag',
+          value: `${INTEGRATION_TEST_TAG_SYSTEM}|`,
+        },
+        {
+          name: '_lastUpdated',
+          value: `lt${oneHourAgo}`,
+        },
+      ],
+    },
+    oystehr
+  );
+
+  if (servicesToDelete.length === 0) {
+    console.log('No integration test HealthcareServices found to clean up');
+    return;
+  }
+
+  console.log(`Found ${servicesToDelete.length} integration test HealthcareService resources to clean up`);
+
+  const batchDeleteRequests: BatchInputDeleteRequest[] = servicesToDelete
+    .filter((res) => res.id)
+    .map((res) => ({
+      method: 'DELETE',
+      url: `HealthcareService/${res.id}`,
+    }));
+
+  try {
+    const chunkedRequests = chunkThings(batchDeleteRequests, 100);
+    for (let i = 0; i < chunkedRequests.length; i++) {
+      try {
+        await oystehr.fhir.batch({ requests: [...chunkedRequests[i]] });
+        console.log(
+          `Successfully deleted integration test HealthcareServices, chunk ${i + 1} of ${chunkedRequests.length}`
+        );
+      } catch (e) {
+        console.log(
+          `Error deleting integration test HealthcareServices, chunk ${i + 1} of ${chunkedRequests.length}: ${e}`,
+          JSON.stringify(e)
+        );
+      }
+      await sleep(250);
+    }
+  } catch (e) {
+    console.log(`Error deleting integration test HealthcareServices: ${e}`, JSON.stringify(e));
+  }
+};
+
+export const cleanupIntegrationTestQuestionnaires = async (oystehr: Oystehr): Promise<void> => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+  const questionnairesToDelete = await getAllFhirSearchPages<Questionnaire>(
+    {
+      resourceType: 'Questionnaire',
+      params: [
+        {
+          name: '_tag',
+          value: `${INTEGRATION_TEST_TAG_SYSTEM}|`,
+        },
+        {
+          name: '_lastUpdated',
+          value: `lt${oneHourAgo}`,
+        },
+      ],
+    },
+    oystehr
+  );
+
+  if (questionnairesToDelete.length === 0) {
+    console.log('No integration test Questionnaires found to clean up');
+    return;
+  }
+
+  console.log(`Found ${questionnairesToDelete.length} integration test Questionnaire resources to clean up`);
+
+  const batchDeleteRequests: BatchInputDeleteRequest[] = questionnairesToDelete
+    .filter((res) => res.id)
+    .map((res) => ({
+      method: 'DELETE',
+      url: `Questionnaire/${res.id}`,
+    }));
+
+  try {
+    const chunkedRequests = chunkThings(batchDeleteRequests, 100);
+    for (let i = 0; i < chunkedRequests.length; i++) {
+      try {
+        await oystehr.fhir.batch({ requests: [...chunkedRequests[i]] });
+        console.log(`Successfully deleted integration test Questionnaire, chunk ${i + 1} of ${chunkedRequests.length}`);
+      } catch (e) {
+        console.log(
+          `Error deleting integration test Questionnaire, chunk ${i + 1} of ${chunkedRequests.length}: ${e}`,
+          JSON.stringify(e)
+        );
+      }
+      await sleep(250);
+    }
+  } catch (e) {
+    console.log(`Error deleting integration test Questionnaires: ${e}`, JSON.stringify(e));
+  }
 };

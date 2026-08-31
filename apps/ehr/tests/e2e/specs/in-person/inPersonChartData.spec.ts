@@ -1,0 +1,1180 @@
+import { BrowserContext, expect, Locator, Page, test } from '@playwright/test';
+import { DateTime } from 'luxon';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { HospitalizationOptions } from 'src/features/visits/in-person/components/hospitalization/hospitalizationOptions';
+import { clickAndWaitForChartDataDeletion, waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
+import { HospitalizationPage } from 'tests/e2e/page/HospitalizationPage';
+import { InPersonAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmentPage';
+import { expectExamPage } from 'tests/e2e/page/in-person/InPersonExamsPage';
+import {
+  expectInPersonProgressNotePage,
+  InPersonProgressNotePage,
+} from 'tests/e2e/page/in-person/InPersonProgressNotePage';
+import { MedicationInfo, MedicationsPage } from 'tests/e2e/page/in-person/MedicationsPage';
+import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
+import { MedicalConditionsPage } from 'tests/e2e/page/MedicalConditionsPage';
+import { expectDialog } from 'tests/e2e/page/patient-information/Dialog';
+import { SideMenu } from 'tests/e2e/page/SideMenu';
+import { SurgicalHistoryPage } from 'tests/e2e/page/SurgicalHistoryPage';
+import { VitalsPage } from 'tests/e2e/page/VitalsPage';
+import {
+  captureAllCheckboxStates,
+  ComponentTestResult,
+  normalFindingCheckboxes,
+  testCheckboxComponent,
+  testDropdownComponent,
+  testFormComponent,
+  testMultiSelectComponent,
+  testTextComponent,
+  waitForFieldSave,
+} from 'tests/e2e-utils/helpers/exam-tab.test-helpers';
+import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { PROVIDER_CONFIG } from 'utils/lib/ottehr-config/provider';
+import { ProgressNoteConfig } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
+import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils/lib/utils/progress-note-config';
+import { ResourceHandler } from '../../../e2e-utils/resource-handler';
+import { AllergiesPage, expectAllergiesPage } from '../../page/in-person/AllergiesPage';
+
+const PROCESS_ID = `inPersonChartData.spec.ts-${DateTime.now().toMillis()}`;
+const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
+const ALLERGY = 'Aspirin';
+
+const MEDICAL_CONDITION = 'Paratyphoid fever A';
+
+let SURGERY: string;
+let mdmDefaultText = DEFAULT_PROGRESS_NOTE_CONFIG.medicalDecisionDefaultText;
+let mdmRequired = DEFAULT_PROGRESS_NOTE_CONFIG.mdmRequired;
+
+const DIAGNOSIS_CODE = 'J45.901';
+const DIAGNOSIS_NAME = 'injury';
+const E_M_CODE = '99202';
+const CPT_CODE = '24640';
+const CPT_CODE_2 = '72146';
+
+const HOSPITALIZATION_REASON_1 = HospitalizationOptions[0].display;
+const HOSPITALIZATION_REASON_2 = HospitalizationOptions[1].display;
+const HOSPITALIZATION_NOTE_1 = 'Test hospitalization note 1';
+const HOSPITALIZATION_NOTE_2 = 'Test hospitalization note 2';
+const HOSPITALIZATION_NOTE_1_EDITED = 'Test hospitalization note 1 edited';
+const TEMPERATURE_C = '37.5';
+const TEMPERATURE_ABNORMAL_C = '38.3';
+const HEARTBEAT_BPM = '75';
+const RESPIRATION_RATE = '16';
+const BLOOD_PRESSURE_SYSTOLIC = '120';
+const BLOOD_PRESSURE_DIASTOLIC = '80';
+const BLOOD_PRESSURE_SYSTOLIC_INVALID = '110';
+const BLOOD_PRESSURE_DIASTOLIC_INVALID = '115';
+const INVALID_BLOOD_PRESSURE_MESSAGE = /Diastolic value cannot be greater than or equal to Systolic value/;
+const OXYGEN_SAT = '98';
+const WEIGHT_KG = '70';
+const HEIGHT_CM = '175';
+const VISION_LEFT = '2.5';
+const VISION_RIGHT = '3.1';
+const VISION_CPT_CODE = PROVIDER_CONFIG.assessment.visionAutoCptCodes?.[0];
+const LMP_DATE = '01/15/2024';
+const VITALS_NOTE_1 = 'Test vitals note 1';
+const VITALS_NOTE_2 = 'Test vitals note 2';
+const VITALS_NOTE_1_EDITED = 'Test vitals note 1 edited';
+
+const SCHEDULED_MEDICATION_A: MedicationInfo = {
+  name: 'Warfarin Sodium  Powder',
+  dose: '1 mg',
+  date: '11/28/2025 01:00 PM',
+};
+
+const SCHEDULED_MEDICATION_B: MedicationInfo = {
+  name: 'Albuterol Sulfate  Powder',
+  dose: '10 g',
+  date: '01/01/2025 03:00 PM',
+};
+
+const AS_NEEDED_MEDICATION_C: MedicationInfo = {
+  name: 'Water Oral Oral Liquid',
+  dose: '2 mg',
+  date: '02/02/2025 02:00 PM',
+};
+
+const AS_NEEDED_MEDICATION_D: MedicationInfo = {
+  name: 'Banana Cream Flavor  Liquid',
+  dose: '5 mg',
+  date: '03/03/2025 05:00 PM',
+};
+
+const MEDICATION_NOTE_1 = 'Test medication note 1';
+const MEDICATION_NOTE_2 = 'Test medication note 2';
+const MEDICATION_NOTE_1_EDITED = 'Test medication note 1 edited';
+
+const DEFAULT_TIMEOUT = { timeout: 15000 };
+const LMP_DATE_UNSURE = '01/20/2024';
+
+test.describe('In-Person Visit Chart Data', async () => {
+  let page: Page;
+  let context: BrowserContext;
+
+  test.beforeAll(async ({ browser }) => {
+    // Chart data only; nothing here reads a paperwork-derived field, and submitting paperwork
+    // costs ~12s of sequential patches and polling per appointment.
+    await resourceHandler.setResources({ skipPaperwork: true });
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+
+    const oystehr = await ResourceHandler.getOystehr();
+    const progressNoteConfig = chooseJson<ProgressNoteConfig>(
+      await oystehr.zambda.execute({ id: 'get-progress-note-config' })
+    );
+    mdmDefaultText =
+      progressNoteConfig?.medicalDecisionDefaultText ?? DEFAULT_PROGRESS_NOTE_CONFIG.medicalDecisionDefaultText;
+    mdmRequired = progressNoteConfig?.mdmRequired ?? DEFAULT_PROGRESS_NOTE_CONFIG.mdmRequired;
+
+    context = await browser.newContext();
+    page = await context.newPage();
+  });
+
+  test.afterAll(async () => {
+    await page.close();
+    await context.close();
+    await resourceHandler.cleanupResources();
+  });
+
+  let allergyPage: AllergiesPage;
+  let medicationsPage: MedicationsPage;
+  let medicalConditionsPage: MedicalConditionsPage;
+  let surgicalHistoryPage: SurgicalHistoryPage;
+  let hospitalizationPage: HospitalizationPage;
+  let sideMenu: SideMenu;
+  let progressNotePage: InPersonProgressNotePage;
+  let vitalsPage: VitalsPage;
+
+  test.describe.configure({ mode: 'serial' });
+
+  test.describe('Basic medical data', async () => {
+    test.describe('Open visit and fill chart data', async () => {
+      test('Allergies', async () => {
+        await openVisit(page);
+        sideMenu = new SideMenu(page);
+        await sideMenu.clickAllergies();
+        allergyPage = new AllergiesPage(page);
+        medicationsPage = new MedicationsPage(page);
+        medicalConditionsPage = new MedicalConditionsPage(page);
+        surgicalHistoryPage = new SurgicalHistoryPage(page);
+        hospitalizationPage = new HospitalizationPage(page);
+        progressNotePage = new InPersonProgressNotePage(page);
+        vitalsPage = new VitalsPage(page);
+
+        await test.step('ALG-1.1 Add allergy', async () => {
+          await allergyPage.addAllergy(ALLERGY);
+        });
+        await test.step('ALG-1.2 Check added allergy is shown in In-Person header', async () => {
+          await allergyPage.checkAddedAllergyIsShownInHeader(ALLERGY);
+        });
+      });
+
+      test('Medications', async () => {
+        const practitionerName = await getCurrentPractitionerFirstLastName();
+        await sideMenu.clickMedications();
+        await test.step('MED-1.1 Add Medications', async () => {
+          await medicationsPage.addMedication(SCHEDULED_MEDICATION_A, practitionerName, 'scheduled');
+          await medicationsPage.addMedication(SCHEDULED_MEDICATION_B, practitionerName, 'scheduled');
+          await medicationsPage.addMedication(AS_NEEDED_MEDICATION_C, practitionerName, 'as-needed');
+          await medicationsPage.addMedication(AS_NEEDED_MEDICATION_D, practitionerName, 'as-needed');
+          await medicationsPage.addMedicationNote(MEDICATION_NOTE_1);
+          await medicationsPage.addMedicationNote(MEDICATION_NOTE_2);
+        });
+      });
+
+      test('Medical Conditions', async () => {
+        await sideMenu.clickMedicalConditions();
+        await test.step('MC-1.1 Add Medical Condition', async () => {
+          await medicalConditionsPage.addAMedicalCondition(MEDICAL_CONDITION);
+        });
+      });
+
+      test('Surgical History', async () => {
+        await sideMenu.clickSurgicalHistory();
+        await test.step('SH-1.1 Add Surgery', async () => {
+          SURGERY = await surgicalHistoryPage.addSurgery();
+        });
+      });
+
+      test('Hospitalization', async () => {
+        await sideMenu.clickHospitalization();
+        await test.step('HS-1.1 Add Hospitalization', async () => {
+          await hospitalizationPage.addHospitalization(HOSPITALIZATION_REASON_1);
+          await hospitalizationPage.addHospitalization(HOSPITALIZATION_REASON_2);
+          await hospitalizationPage.addHospitalizationNote(HOSPITALIZATION_NOTE_1);
+          await hospitalizationPage.addHospitalizationNote(HOSPITALIZATION_NOTE_2);
+        });
+      });
+
+      test('VIT-1. Add all vitals observations and notes', async () => {
+        await sideMenu.clickVitals();
+        await test.step('VIT-1.1 Add temperature observation', async () => {
+          await vitalsPage.addTemperatureObservation(TEMPERATURE_C);
+        });
+        await test.step('VIT-1.2 Add heartbeat observation', async () => {
+          await vitalsPage.addHeartbeatObservation(HEARTBEAT_BPM);
+        });
+        await test.step('VIT-1.3 Add respiration rate observation', async () => {
+          await vitalsPage.addRespirationRateObservation(RESPIRATION_RATE);
+        });
+        await test.step('VIT-1.4 Add blood pressure observation', async () => {
+          await vitalsPage.expectInvalidBloodPressureError(
+            BLOOD_PRESSURE_SYSTOLIC_INVALID,
+            BLOOD_PRESSURE_DIASTOLIC_INVALID,
+            INVALID_BLOOD_PRESSURE_MESSAGE
+          );
+          await vitalsPage.addBloodPressureObservation(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
+        });
+        await test.step('VIT-1.5 Add oxygen saturation observation', async () => {
+          await vitalsPage.addOxygenSaturationObservation(OXYGEN_SAT);
+        });
+        await test.step('VIT-1.6 Add weight observation', async () => {
+          await vitalsPage.addWeightObservation(WEIGHT_KG);
+          await new InPersonHeader(page).verifyWeight(WEIGHT_KG);
+        });
+        await test.step('VIT-1.7 Add weight observation with Patient Refused', async () => {
+          await vitalsPage.addWeightObservationPatientRefused();
+          await new InPersonHeader(page).verifyWeightPatientRefused();
+        });
+        await test.step('VIT-1.8 Add height observation', async () => {
+          await vitalsPage.addHeightObservation(HEIGHT_CM);
+        });
+        await test.step('VIT-1.9 Add vision observation', async () => {
+          await vitalsPage.addVisionObservation(VISION_LEFT, VISION_RIGHT);
+        });
+        await test.step('VIT-1.10 Add last menstrual period observation', async () => {
+          await vitalsPage.addLastMenstrualPeriodObservation(LMP_DATE);
+        });
+        await test.step('VIT-1.11 Add last menstrual period observation with Unsure', async () => {
+          await vitalsPage.addLastMenstrualPeriodObservationUnsure(LMP_DATE_UNSURE);
+        });
+        await test.step('VIT-1.12 Add Vitals notes', async () => {
+          await vitalsPage.addVitalsNote(VITALS_NOTE_1);
+          await vitalsPage.addVitalsNote(VITALS_NOTE_2);
+        });
+        await test.step('VIT-1.13 Add abnormal vital value', async () => {
+          await vitalsPage.addTemperatureObservation(TEMPERATURE_ABNORMAL_C, true);
+        });
+        await test.step('VIT-1.14 Verify abnormal vital Dialog', async () => {
+          await page.getByTestId(dataTestIds.sideMenu.sideMenuItem('allergies')).click();
+          const abnormalVitalDialog = await expectDialog(page);
+          await abnormalVitalDialog.verifyTitle('Critical & Abnormal Vital Values');
+          await abnormalVitalDialog.verifyModalContent(
+            'You have entered critical and/or abnormal value(s). Please verify:'
+          );
+          await abnormalVitalDialog.verifyModalContent('Temp (C)');
+          await abnormalVitalDialog.verifyModalContent(TEMPERATURE_ABNORMAL_C);
+          await abnormalVitalDialog.verifyAlertIconVisible();
+          await abnormalVitalDialog.clickCancelButton(); // clickCancelButton() is used because it corresponds to 'Continue' button in UI.
+          await expectAllergiesPage(page);
+        });
+      });
+
+      test('VIT-2. Vitals billing codes', async () => {
+        if (!VISION_CPT_CODE) test.skip();
+        else {
+          await test.step('Check that billing code is created when vision is added', async () => {
+            // Navigate to Assessment to verify CPT code was auto-added
+            const assessmentPage = new InPersonAssessmentPage(page);
+            await sideMenu.clickAssessment();
+            await assessmentPage.expectBillingCodesElement();
+
+            // Verify the vision CPT code was automatically added
+            await assessmentPage.verifyCptCode(VISION_CPT_CODE);
+
+            // Clean up by deleting the code
+            await assessmentPage.deleteCptCode(VISION_CPT_CODE);
+          });
+        }
+      });
+    });
+
+    test.describe('Check progress note page for the filled in data presence', async () => {
+      test('ALG-1.3 Verify Progress Note shows Allergy', async () => {
+        await sideMenu.clickReviewAndSign();
+        await progressNotePage.verifyAddedAllergyIsShown(ALLERGY);
+      });
+
+      test('MED-1.2 Verify Progress Note shows medications', async () => {
+        await progressNotePage.verifyMedication(SCHEDULED_MEDICATION_A.name);
+        await progressNotePage.verifyMedication(SCHEDULED_MEDICATION_B.name);
+        await progressNotePage.verifyMedication(AS_NEEDED_MEDICATION_C.name);
+        await progressNotePage.verifyMedication(AS_NEEDED_MEDICATION_D.name);
+        await progressNotePage.verifyMedicationNote(MEDICATION_NOTE_1);
+        await progressNotePage.verifyMedicationNote(MEDICATION_NOTE_2);
+      });
+
+      test('MC-1.2 Verify Progress Note shows Medical Condition', async () => {
+        await progressNotePage.verifyAddedMedicalConditionIsShown(MEDICAL_CONDITION);
+      });
+
+      test('SH-1.2 Verify Progress Note shows surgeries', async () => {
+        await progressNotePage.verifyAddedSurgeryIsShown(SURGERY);
+      });
+
+      test('HS-1.2 Verify Progress Note shows hospitalizations', async () => {
+        await progressNotePage.verifyHospitalization(HOSPITALIZATION_REASON_1);
+        await progressNotePage.verifyHospitalization(HOSPITALIZATION_REASON_2);
+        await progressNotePage.verifyHospitalizationNote(HOSPITALIZATION_NOTE_1);
+        await progressNotePage.verifyHospitalizationNote(HOSPITALIZATION_NOTE_2);
+      });
+
+      test('VIT-2. Verify Progress Note shows Vitals and notes', async () => {
+        await test.step('VIT-2.1 Verify temperature in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(TEMPERATURE_C);
+        });
+        await test.step('VIT-2.2 Verify heartbeat in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(HEARTBEAT_BPM + '/min');
+        });
+        await test.step('VIT-2.3 Verify respiration rate in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(RESPIRATION_RATE + '/min');
+        });
+        await test.step('VIT-2.4 Verify blood pressure in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(`${BLOOD_PRESSURE_SYSTOLIC}/${BLOOD_PRESSURE_DIASTOLIC}`);
+        });
+        await test.step('VIT-2.5 Verify oxygen saturation in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(OXYGEN_SAT);
+        });
+        await test.step('VIT-2.6 Verify weight in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(WEIGHT_KG);
+        });
+        await test.step('VIT-2.7 Verify Patient Refused in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown('Patient Refused');
+        });
+        await test.step('VIT-2.8 Verify height in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(HEIGHT_CM);
+        });
+        await test.step('VIT-2.9 Verify vision in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(VISION_LEFT);
+          await progressNotePage.verifyVitalIsShown(VISION_RIGHT);
+        });
+        await test.step('VIT-2.10 Verify last menstrual period in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(LMP_DATE);
+        });
+
+        await test.step('VIT-2.11 Verify Unsure in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown('Unsure');
+        });
+
+        await test.step('VIT-2.12 Verify Vitals notes in progress note', async () => {
+          await progressNotePage.verifyVitalsNote(VITALS_NOTE_1);
+          await progressNotePage.verifyVitalsNote(VITALS_NOTE_2);
+        });
+        await test.step('VIT-2.13 Verify abnormal temperature in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(TEMPERATURE_ABNORMAL_C, true);
+        });
+      });
+    });
+
+    test.describe('Modify filled in chart data', async () => {
+      test('Modify allergies and check header', async () => {
+        await test.step('ALG-1.4 Open Allergies page and Remove allergy', async () => {
+          await sideMenu.clickAllergies();
+          await allergyPage.removeAllergy();
+        });
+        await test.step('ALG-1.5 Check removed allergy is not shown in In-Person header', async () => {
+          await allergyPage.checkRemovedAllergyIsNotShownInHeader(ALLERGY);
+        });
+      });
+
+      test('MED-1.3 Perform changes on Medications page', async () => {
+        await sideMenu.clickMedications();
+        await medicationsPage.removeMedication({ ...SCHEDULED_MEDICATION_A }, 'scheduled');
+        await medicationsPage.removeMedication({ ...AS_NEEDED_MEDICATION_C }, 'as-needed');
+        await medicationsPage.editMedicationNote(MEDICATION_NOTE_1, MEDICATION_NOTE_1_EDITED);
+        await medicationsPage.deleteMedicationNote(MEDICATION_NOTE_2);
+      });
+
+      test('MC-1.3 Open Medical Conditions page and Remove Medical Condition', async () => {
+        await sideMenu.clickMedicalConditions();
+        await medicalConditionsPage.removeMedicalCondition();
+      });
+
+      test('SH-1.3 Remove Surgery', async () => {
+        await sideMenu.clickSurgicalHistory();
+        await surgicalHistoryPage.removeSurgery();
+      });
+
+      test('HS-1.3 Perform changes on Hospitalization page', async () => {
+        await sideMenu.clickHospitalization();
+        await hospitalizationPage.removeHospitalization(HOSPITALIZATION_REASON_2);
+        await hospitalizationPage.editHospitalizationNote(HOSPITALIZATION_NOTE_1, HOSPITALIZATION_NOTE_1_EDITED);
+        await hospitalizationPage.deleteHospitalizationNote(HOSPITALIZATION_NOTE_2);
+      });
+
+      test('VIT-3. Remove Vitals', async () => {
+        await sideMenu.clickVitals();
+        await test.step('VIT-3.1 Delete temperature observation', async () => {
+          await vitalsPage.removeTemperatureObservationFromHistory(TEMPERATURE_C);
+        });
+
+        await test.step('VIT-3.2 Delete heartbeat observation', async () => {
+          await vitalsPage.removeHeartbeatObservationFromHistory(HEARTBEAT_BPM);
+        });
+
+        await test.step('VIT-3.3 Delete respiration rate observation', async () => {
+          await vitalsPage.removeRespirationRateObservationFromHistory(RESPIRATION_RATE);
+        });
+
+        await test.step('VIT-3.4 Delete blood pressure observation', async () => {
+          await vitalsPage.removeBloodPressureObservationFromHistory(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
+        });
+
+        await test.step('VIT-3.5 Delete oxygen saturation observation', async () => {
+          await vitalsPage.removeOxygenSaturationObservationFromHistory(OXYGEN_SAT);
+        });
+
+        await test.step('VIT-3.6 Delete weight observation', async () => {
+          await vitalsPage.removeWeightObservationFromHistory(WEIGHT_KG);
+        });
+
+        await test.step('VIT-3.7 Delete Patient Refused weight observation', async () => {
+          await vitalsPage.removeWeightObservationFromHistory('Patient Refused');
+          await new InPersonHeader(page).verifyWeightNotShown();
+        });
+
+        await test.step('VIT-3.8 Delete height observation', async () => {
+          await vitalsPage.removeHeightObservationFromHistory(HEIGHT_CM);
+        });
+
+        await test.step('VIT-3.9 Delete vision observation', async () => {
+          await vitalsPage.removeVisionObservationFromHistory(VISION_LEFT, VISION_RIGHT);
+        });
+        await test.step('VIT-3.10 Delete Unsure last menstrual period observation', async () => {
+          await vitalsPage.removeLastMenstrualPeriodObservationFromHistory('Unsure');
+        });
+
+        await test.step('VIT-3.11 Delete last menstrual period observation', async () => {
+          await vitalsPage.removeLastMenstrualPeriodObservationFromHistory(LMP_DATE);
+        });
+
+        await test.step('VIT-3.12 Delete and edit vitals notes', async () => {
+          await vitalsPage.editVitalsNote(VITALS_NOTE_1, VITALS_NOTE_1_EDITED);
+          await vitalsPage.deleteVitalsNote(VITALS_NOTE_2);
+        });
+        await test.step('VIT-3.13 Delete abnormal temperature observation', async () => {
+          await vitalsPage.removeTemperatureObservationFromHistory(TEMPERATURE_ABNORMAL_C);
+        });
+      });
+    });
+
+    test.describe('Check progress note page for the modified data', async () => {
+      test('ALG-1.6 Verify Progress Note does not show removed Allergy', async () => {
+        await sideMenu.clickReviewAndSign();
+        const progressNotePage = await expectInPersonProgressNotePage(page);
+        await progressNotePage.verifyRemovedAllergyIsNotShown(ALLERGY);
+      });
+
+      test('MED-1.4 Verify medications changed data on Progress note', async () => {
+        await progressNotePage.verifyMedication(SCHEDULED_MEDICATION_B.name);
+        await progressNotePage.verifyMedication(AS_NEEDED_MEDICATION_D.name);
+        await progressNotePage.verifyMedicationNotShown(SCHEDULED_MEDICATION_A.name);
+        await progressNotePage.verifyMedicationNotShown(AS_NEEDED_MEDICATION_C.name);
+        await progressNotePage.verifyMedicationNote(MEDICATION_NOTE_1_EDITED);
+        await progressNotePage.verifyMedicationNoteNotShown(MEDICATION_NOTE_2);
+      });
+
+      test('MC-1.4 Verify Progress Note does not show removed Medical Condition', async () => {
+        await progressNotePage.verifyRemovedMedicalConditionIsNotShown(MEDICAL_CONDITION);
+      });
+
+      test('SH-1.4 Verify Progress Note does not show removed surgery', async () => {
+        await progressNotePage.verifyRemovedSurgeryIsNotShown(SURGERY);
+      });
+
+      test('HS-1.4 Verify hospitalizations changed data on Progress note', async () => {
+        await progressNotePage.verifyHospitalization(HOSPITALIZATION_REASON_1);
+        await progressNotePage.verifyHospitalizationNotShown(HOSPITALIZATION_REASON_2);
+        await progressNotePage.verifyHospitalizationNote(HOSPITALIZATION_NOTE_1_EDITED);
+        await progressNotePage.verifyHospitalizationNoteNotShown(HOSPITALIZATION_NOTE_2);
+      });
+
+      test('VIT-4. Verify Progress Note does not show removed Vitals', async () => {
+        await test.step('VIT-4.1 Verify temperature in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(TEMPERATURE_C);
+        });
+        await test.step('VIT-4.2 Verify heartbeat in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(HEARTBEAT_BPM);
+        });
+        await test.step('VIT-4.3 Verify respiration rate in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(RESPIRATION_RATE);
+        });
+        await test.step('VIT-4.4 Verify blood pressure in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(`${BLOOD_PRESSURE_SYSTOLIC}/${BLOOD_PRESSURE_DIASTOLIC}`);
+        });
+        await test.step('VIT-4.5 Verify oxygen saturation in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(OXYGEN_SAT);
+        });
+        await test.step('VIT-4.6 Verify weight in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(WEIGHT_KG);
+        });
+        await test.step('VIT-4.7 Verify Patient Refused in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown('Patient Refused');
+        });
+        await test.step('VIT-4.8 Verify height in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(HEIGHT_CM);
+        });
+        await test.step('VIT-4.9 Verify vision in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(VISION_LEFT);
+          await progressNotePage.verifyVitalNotShown(VISION_RIGHT);
+        });
+        await test.step('VIT-4.10 Verify Unsure last menstrual period observation in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown('Unsure');
+        });
+        await test.step('VIT-4.11 Verify last menstrual period observation in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(LMP_DATE);
+        });
+        await test.step('VIT-4.12 Verify Vitals notes in progress note', async () => {
+          await progressNotePage.verifyVitalsNote(VITALS_NOTE_1_EDITED);
+          await progressNotePage.verifyVitalsNoteNotShown(VITALS_NOTE_2);
+        });
+        await test.step('VIT-4.13 Verify abnormal temperature in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(TEMPERATURE_ABNORMAL_C);
+        });
+      });
+    });
+  });
+
+  test.describe('Assessment page tests', () => {
+    let assessmentPage: InPersonAssessmentPage;
+
+    test('Check assessment page initial state and default MDM saving', async () => {
+      assessmentPage = new InPersonAssessmentPage(page);
+      await sideMenu.clickAssessment();
+      await assessmentPage.expectDiagnosisDropdown();
+      await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).not.toBeVisible();
+      await expect(page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis)).not.toBeVisible();
+      await assessmentPage.expectMdmField({ text: mdmDefaultText });
+    });
+
+    test('Remove MDM and check missing required fields on review and sign page', async () => {
+      const mdmDeleted = waitForChartDataDeletion(page);
+      await assessmentPage.fillMdmField('');
+      await mdmDeleted;
+
+      // MDM is stored as a ClinicalImpression and read back through an eventually-consistent FHIR
+      // search. The delete request has returned, but get-chart-data can still surface the old value
+      // for a short window. The Review & Sign page does a single chart-fields fetch with no retry,
+      // so navigating too early reads the stale MDM and the "Medical decision making" missing-field
+      // link never renders. Wait until the deletion is actually reflected by reloading the
+      // assessment page until the MDM field reads back empty (i.e. get-chart-data is consistent).
+      await expect(async () => {
+        await page.reload();
+        const mdmTextarea = page
+          .getByTestId(dataTestIds.assessmentCard.medicalDecisionField)
+          .locator('textarea:visible')
+          .first();
+        await expect(mdmTextarea).toBeVisible({ timeout: 10000 });
+        await expect(mdmTextarea).toHaveValue('', { timeout: 10000 });
+      }).toPass({ timeout: 60000, intervals: [2000, 3000, 5000, 10000] });
+
+      await sideMenu.clickReviewAndSign();
+      await progressNotePage.expectLoaded();
+      await progressNotePage.verifyReviewAndSignButtonDisabled();
+      await test.step('Verify missing card is visible and has all required missing fields', async () => {
+        await expect(page.getByTestId(dataTestIds.progressNotePage.missingCard)).toBeVisible();
+        await expect(page.getByTestId(dataTestIds.progressNotePage.emCodeLink)).toBeVisible();
+        if (mdmRequired) {
+          await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
+        } else {
+          await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).not.toBeVisible();
+        }
+        await expect(page.getByTestId(dataTestIds.progressNotePage.primaryDiagnosisLink)).toBeVisible();
+        await expect(page.getByTestId(dataTestIds.progressNotePage.hpiLink)).toBeVisible();
+      });
+      await page.getByTestId(dataTestIds.progressNotePage.primaryDiagnosisLink).click();
+      await assessmentPage.expectDiagnosisDropdown();
+      await assessmentPage.expectEmCodeDropdown();
+      await assessmentPage.expectMdmField();
+    });
+
+    test('Search and select diagnoses', async () => {
+      await sideMenu.clickAssessment();
+      await assessmentPage.expectDiagnosisDropdown();
+
+      // Test ICD 10 code search
+      await test.step('Search for ICD 10 code', async () => {
+        const diagnosisSaved = waitForSaveChartDataResponse(
+          page,
+          (json) =>
+            !!json.chartData.diagnosis?.some((x) =>
+              x.code.toLocaleLowerCase().includes(DIAGNOSIS_CODE.toLocaleLowerCase())
+            )
+        );
+        await assessmentPage.selectDiagnosis({ diagnosisCode: DIAGNOSIS_CODE });
+        await diagnosisSaved;
+      });
+
+      let primaryDiagnosisValue: string | null = null;
+      let primaryDiagnosis: Locator | null = null;
+      await test.step('Verify primary diagnosis is visible', async () => {
+        primaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);
+        await expect(primaryDiagnosis).toBeVisible();
+
+        primaryDiagnosisValue = await primaryDiagnosis.textContent();
+        expect(primaryDiagnosisValue).toContain(DIAGNOSIS_CODE);
+      });
+
+      // Test diagnosis name search
+      await test.step('Search for diagnosis name', async () => {
+        const diagnosisSaved = waitForSaveChartDataResponse(
+          page,
+          (json) =>
+            !!json.chartData.diagnosis?.some((x) =>
+              x.display.toLocaleLowerCase().includes(DIAGNOSIS_NAME.toLocaleLowerCase())
+            )
+        );
+        await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS_NAME });
+        await diagnosisSaved;
+      });
+
+      let secondaryDiagnosis: Locator | null = null;
+      let secondaryDiagnosisValue: string | null = null;
+      await test.step('Verify secondary diagnosis is visible', async () => {
+        secondaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis);
+        await expect(secondaryDiagnosis).toBeVisible();
+
+        secondaryDiagnosisValue = await secondaryDiagnosis.textContent();
+        expect(secondaryDiagnosisValue?.toLocaleLowerCase()).toContain(DIAGNOSIS_NAME.toLocaleLowerCase());
+      });
+
+      // Verify diagnoses on Review and Sign page
+      await test.step('Verify diagnoses on Review and Sign page', async () => {
+        await sideMenu.clickReviewAndSign();
+        await progressNotePage.expectLoaded();
+
+        // Verify both diagnoses are present
+        await expect(page.getByText(primaryDiagnosisValue!, { exact: false })).toBeVisible();
+        await expect(page.getByText(secondaryDiagnosisValue!, { exact: false })).toBeVisible();
+      });
+    });
+
+    test('Change primary diagnosis', async () => {
+      await sideMenu.clickAssessment();
+      await assessmentPage.expectDiagnosisDropdown();
+      // Get initial values
+      const initialPrimaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);
+      const initialSecondaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis);
+      const initialPrimaryValue = await initialPrimaryDiagnosis.textContent();
+      const initialSecondaryValue = await initialSecondaryDiagnosis.textContent();
+
+      // Make secondary diagnosis primary
+      await test.step('Make secondary diagnosis primary', async () => {
+        await page.getByTestId(dataTestIds.diagnosisContainer.makePrimaryButton).click();
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.makePrimaryButton)).toBeDisabled();
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.makePrimaryButton)).toBeEnabled();
+
+        // After the primary diagnosis is updated, the secondary diagnosis should be updated, they should be swapped
+        const newPrimaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);
+        const newSecondaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis);
+        await expect(newPrimaryDiagnosis).toHaveText(initialSecondaryValue!, { ignoreCase: true });
+        await expect(newSecondaryDiagnosis).toHaveText(initialPrimaryValue!, { ignoreCase: true });
+      });
+
+      // Verify on Review and Sign page
+      await test.step('Verify swapped diagnoses on Review and Sign page', async () => {
+        await sideMenu.clickReviewAndSign();
+        await progressNotePage.expectLoaded();
+
+        // Verify both diagnoses are present
+        await expect(page.getByText(initialSecondaryValue!, { exact: false })).toBeVisible();
+        await expect(page.getByText(initialPrimaryValue!, { exact: false })).toBeVisible();
+      });
+    });
+
+    test('Delete primary diagnosis', async () => {
+      await sideMenu.clickAssessment();
+      await assessmentPage.expectDiagnosisDropdown();
+      const primaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);
+      const primaryDiagnosisValue = await primaryDiagnosis.textContent();
+
+      // Get secondary diagnosis value before deletion
+      const secondaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis);
+      const secondaryDiagnosisValue = await secondaryDiagnosis.textContent();
+
+      // Delete primary diagnosis
+      await test.step('Delete primary diagnosis', async () => {
+        // One click triggers both the delete (removing the primary) and a save (promoting
+        // the secondary to primary). Register both listeners before clicking.
+        const deletion = waitForChartDataDeletion(page);
+        const save = waitForSaveChartDataResponse(page);
+        await page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosisDeleteButton).first().click();
+        await Promise.all([deletion, save]);
+
+        // Verify secondary diagnosis is promoted to primary
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).toBeVisible();
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis)).not.toBeVisible();
+
+        const newPrimaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);
+        const newPrimaryValue = await newPrimaryDiagnosis.textContent();
+        expect(newPrimaryValue?.toLocaleLowerCase()).toEqual(secondaryDiagnosisValue?.toLocaleLowerCase());
+      });
+
+      // Verify on Review and Sign page
+      await test.step('Verify promoted diagnosis on Review and Sign page, deleted diagnosis is not present', async () => {
+        await sideMenu.clickReviewAndSign();
+        await progressNotePage.expectLoaded();
+
+        // Verify only one diagnosis is present
+        await expect(page.getByText(secondaryDiagnosisValue!, { exact: false })).toBeVisible();
+        await expect(page.getByText(primaryDiagnosisValue!, { exact: false })).not.toBeVisible(DEFAULT_TIMEOUT);
+      });
+    });
+
+    test('Medical Decision Making functionality', async () => {
+      await sideMenu.clickAssessment();
+      await assessmentPage.expectDiagnosisDropdown();
+
+      // Check default text
+      await assessmentPage.expectMdmField({ text: '' });
+
+      // Edit the text and wait for the debounced save to complete
+      const newText = 'Updated medical decision making text';
+      const mdmSaved = waitForSaveChartDataResponse(page, (json) => json.chartData.medicalDecision?.text === newText);
+      await assessmentPage.fillMdmField(newText);
+      await mdmSaved;
+
+      // Verify text is updated
+      await assessmentPage.expectMdmField({ text: newText });
+
+      // Navigate to Review and Sign to verify text is displayed
+      await sideMenu.clickReviewAndSign();
+      await progressNotePage.expectLoaded();
+      await expect(page.getByText(newText)).toBeVisible();
+    });
+
+    test('Add E&M code', async () => {
+      await sideMenu.clickAssessment();
+      await assessmentPage.expectDiagnosisDropdown();
+
+      // Select E&M code
+      await test.step('Select E&M code', async () => {
+        await assessmentPage.selectEmCode(E_M_CODE);
+      });
+
+      await test.step('Verify E&M code is added', async () => {
+        const value = await page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown).locator('input').inputValue();
+
+        // Navigate to Review and Sign to verify code is displayed
+        await sideMenu.clickReviewAndSign();
+        await progressNotePage.expectLoaded();
+        await expect(page.getByText(value)).toBeVisible();
+      });
+    });
+
+    test('Add CPT codes', async () => {
+      await sideMenu.clickAssessment();
+      await assessmentPage.expectDiagnosisDropdown();
+
+      // Select CPT code
+      await test.step('Select CPT code', async () => {
+        await assessmentPage.selectCptCode(CPT_CODE);
+        await assessmentPage.selectCptCode(CPT_CODE_2);
+      });
+
+      await test.step('Verify CPT codes are added to progress note', async () => {
+        const value = await page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(CPT_CODE)).textContent();
+        expect(value).toContain(CPT_CODE);
+
+        const value2 = await page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(CPT_CODE_2)).textContent();
+        expect(value2).toContain(CPT_CODE_2);
+
+        // Navigate to Review and Sign to verify code is displayed
+        await sideMenu.clickReviewAndSign();
+        await progressNotePage.expectLoaded();
+        await expect(page.getByText(value!)).toBeVisible();
+        await expect(page.getByText(value2!)).toBeVisible();
+      });
+    });
+
+    test('Remove CPT codes', async () => {
+      await sideMenu.clickAssessment();
+      await assessmentPage.expectDiagnosisDropdown();
+
+      const value = await page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(CPT_CODE)).textContent();
+      expect(value).toContain(CPT_CODE);
+
+      const value2 = await page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(CPT_CODE_2)).textContent();
+      expect(value2).toContain(CPT_CODE_2);
+
+      await clickAndWaitForChartDataDeletion(
+        page,
+        page.getByTestId(dataTestIds.billingContainer.deleteCptCodeButton(CPT_CODE))
+      );
+
+      await clickAndWaitForChartDataDeletion(
+        page,
+        page.getByTestId(dataTestIds.billingContainer.deleteCptCodeButton(CPT_CODE_2))
+      );
+
+      await sideMenu.clickReviewAndSign();
+      await progressNotePage.expectLoaded();
+      await expect(page.getByText(value!)).not.toBeVisible();
+      await expect(page.getByText(value2!)).not.toBeVisible();
+    });
+  });
+
+  test.describe('Exam page tests', async () => {
+    // Test data - stores results for each component type
+    const testResults: {
+      checkbox?: ComponentTestResult;
+      dropdown?: ComponentTestResult;
+      multiSelect?: ComponentTestResult;
+      form?: ComponentTestResult;
+      text?: ComponentTestResult;
+      comment?: { rowIndex: number; text: string };
+    } = {};
+
+    test('Should test basic checkbox functionality (abnormal and normal)', async () => {
+      await sideMenu.clickExam();
+      await expectExamPage(page);
+      const examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
+
+      // Find first checkbox component
+      const checkboxComponent = examTable.locator('[data-testid^="exam-component-checkbox-"]').first();
+      const componentExists = await checkboxComponent.count();
+
+      if (componentExists > 0) {
+        testResults.checkbox = await testCheckboxComponent(page, examTable);
+      }
+
+      // Add a comment if not already added
+      if (testResults.checkbox) {
+        const row = examTable.getByRole('row').nth(testResults.checkbox.rowIndex);
+        const commentCell = row.getByRole('cell').nth(3);
+        const textbox = commentCell.getByRole('textbox');
+        const comment = `Test comment ${DateTime.now().toMillis()}`;
+        await textbox.fill(comment);
+        await waitForFieldSave(textbox);
+        testResults.comment = { rowIndex: testResults.checkbox.rowIndex, text: comment };
+      }
+    });
+
+    test('Should test text component if present', async () => {
+      const examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
+
+      // Find first text component in abnormal column
+      const textComponent = examTable
+        .locator('tbody [role="row"] [role="cell"]:nth-child(3) [data-testid^="exam-component-text-"]')
+        .first();
+      const componentExists = await textComponent.count();
+
+      if (componentExists > 0) {
+        const result = await testTextComponent(page, examTable);
+        if (result) {
+          testResults.text = result;
+        }
+      }
+    });
+
+    test('Should test dropdown component if present', async () => {
+      const examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
+
+      // Find first dropdown component
+      const dropdownComponent = examTable.locator('[data-testid^="exam-component-dropdown-"]').first();
+      const componentExists = await dropdownComponent.count();
+
+      if (componentExists > 0) {
+        testResults.dropdown = await testDropdownComponent(page, examTable);
+      }
+    });
+
+    test('Should test multi-select component if present', async () => {
+      const examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
+
+      // Find first multi-select component
+      const multiSelectComponent = examTable.locator('[data-testid^="exam-component-multi-select-"]').first();
+      const componentExists = await multiSelectComponent.count();
+
+      if (componentExists > 0) {
+        // Check if the multi-select has either a checkbox (inactive) or combobox (active)
+        const hasCheckbox = (await multiSelectComponent.getByRole('checkbox').count()) > 0;
+        const hasCombobox = (await multiSelectComponent.getByRole('combobox').count()) > 0;
+
+        if (hasCheckbox || hasCombobox) {
+          testResults.multiSelect = await testMultiSelectComponent(page, examTable);
+        }
+      }
+    });
+
+    test('Should test form component if present', async () => {
+      const examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
+
+      // Find first form component
+      const formComponent = examTable.locator('[data-testid^="exam-component-form-"]').first();
+      const componentExists = await formComponent.count();
+
+      if (componentExists > 0) {
+        testResults.form = await testFormComponent(page, examTable);
+      }
+    });
+
+    test('Should persist all component states after page reload', async () => {
+      let examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
+
+      // Capture current checkbox states BEFORE reload (if checkbox test was run)
+      const preReloadAbnormalStates: boolean[] = [];
+      const preReloadNormalStates: boolean[] = [];
+      if (testResults.checkbox) {
+        const row = examTable.getByRole('row').nth(testResults.checkbox.rowIndex);
+        const abnormalCell = row.getByRole('cell').nth(2);
+        const normalCell = row.getByRole('cell').nth(1);
+
+        const abnormalCheckboxes = abnormalCell.getByRole('checkbox');
+        const abnormalCount = await abnormalCheckboxes.count();
+        for (let i = 0; i < abnormalCount; i++) {
+          preReloadAbnormalStates.push(await abnormalCheckboxes.nth(i).isChecked());
+        }
+
+        const normalCheckboxes = normalFindingCheckboxes(normalCell);
+        const normalCount = await normalCheckboxes.count();
+        for (let i = 0; i < normalCount; i++) {
+          preReloadNormalStates.push(await normalCheckboxes.nth(i).isChecked());
+        }
+      }
+
+      // Reload the page
+      await page.reload();
+      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable)).toBeVisible();
+
+      examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
+
+      // Verify checkbox persistence - independent test step that checks ALL checkboxes in the entire table
+      await test.step('Verify all checkbox states persisted', async () => {
+        const checkboxData = testResults.checkbox;
+        if (!checkboxData) {
+          return;
+        }
+
+        const row = examTable.getByRole('row').nth(checkboxData.rowIndex);
+        const abnormalCell = row.getByRole('cell').nth(2);
+        const normalCell = row.getByRole('cell').nth(1);
+
+        const abnormalCheckboxes = abnormalCell.getByRole('checkbox');
+        const normalCheckboxes = normalFindingCheckboxes(normalCell);
+
+        // Verify ALL abnormal checkboxes match expected states IN THE TESTED ROW
+        const abnormalCount = await abnormalCheckboxes.count();
+        for (let i = 0; i < abnormalCount; i++) {
+          const checkbox = abnormalCheckboxes.nth(i);
+          const label = (await checkbox.locator('../..').locator('p').textContent()) || `checkbox ${i}`;
+
+          // Compare against the state BEFORE reload (not initial state from checkbox test)
+          const expectedState = preReloadAbnormalStates[i];
+          if (expectedState) {
+            await expect(
+              checkbox,
+              `Abnormal checkbox "${label}" (row ${checkboxData.rowIndex}, index ${i}) should be checked (pre-reload state)`
+            ).toBeChecked();
+          } else {
+            await expect(
+              checkbox,
+              `Abnormal checkbox "${label}" (row ${checkboxData.rowIndex}, index ${i}) should NOT be checked (pre-reload state)`
+            ).not.toBeChecked();
+          }
+        }
+        // Verify ALL normal checkboxes match expected states IN THE TESTED ROW
+        const normalCount = await normalCheckboxes.count();
+        for (let i = 0; i < normalCount; i++) {
+          const checkbox = normalCheckboxes.nth(i);
+          const label = (await checkbox.locator('../..').locator('p').textContent()) || `checkbox ${i}`;
+
+          // Compare against the state BEFORE reload (not initial state from checkbox test)
+          const expectedState = preReloadNormalStates[i];
+          if (expectedState) {
+            await expect(
+              checkbox,
+              `Normal checkbox "${label}" (row ${checkboxData.rowIndex}, index ${i}) should be checked (pre-reload state)`
+            ).toBeChecked();
+          } else {
+            await expect(
+              checkbox,
+              `Normal checkbox "${label}" (row ${checkboxData.rowIndex}, index ${i}) should NOT be checked (pre-reload state)`
+            ).not.toBeChecked();
+          }
+        }
+
+        // Now capture ALL checkbox states from the ENTIRE exam table for progress note verification
+        // This must be done AFTER all tests have modified checkboxes, just before going to progress note
+        const allCheckboxStates = await captureAllCheckboxStates(examTable);
+        checkboxData.abnormalCheckboxLabels = allCheckboxStates.abnormalCheckboxLabels;
+        checkboxData.normalCheckboxLabels = allCheckboxStates.normalCheckboxLabels;
+      });
+
+      // Verify comment persistence
+      if (testResults.comment) {
+        const row = examTable.getByRole('row').nth(testResults.comment.rowIndex);
+        const commentCell = row.getByRole('cell').nth(3);
+        const textbox = commentCell.getByRole('textbox');
+        await expect(textbox).toHaveValue(testResults.comment.text);
+      }
+
+      // Verify dropdown persistence
+      if (testResults.dropdown) {
+        // Dropdown component state persisted; value verified later on progress note
+      }
+
+      // Verify multi-select persistence
+      if (testResults.multiSelect) {
+        const row = examTable.getByRole('row').nth(testResults.multiSelect.rowIndex);
+        const abnormalCell = row.getByRole('cell').nth(2);
+
+        // Check that selected options are still visible in the Select component
+        if (testResults.multiSelect.selectedOptions && testResults.multiSelect.selectedOptions.length > 0) {
+          // The multi-select renders selected options in two places:
+          // 1. As comma-separated text in the combobox input
+          // 2. As visible text elements below the combobox with descriptions
+
+          // Wait for combobox to be visible
+          const combobox = abnormalCell.getByRole('combobox');
+          await expect(combobox).toBeVisible();
+
+          // Verify combobox displays all selected options
+          const selectText = await combobox.textContent();
+          for (const option of testResults.multiSelect.selectedOptions) {
+            expect(selectText).toContain(option);
+          }
+
+          // Verify selected options are also displayed as visible text below the combobox
+          // These are rendered as separate elements (not inside the combobox)
+          const multiSelectContainer = abnormalCell.locator('[data-testid^="exam-component-multi-select-"]');
+          for (const option of testResults.multiSelect.selectedOptions) {
+            // Look for the option text outside the combobox/Select component
+            const optionTextElement = multiSelectContainer.locator(`text=${option}`).last();
+            await expect(optionTextElement).toBeVisible();
+          }
+        }
+      }
+
+      // Verify form persistence
+      if (testResults.form) {
+        const row = examTable.getByRole('row').nth(testResults.form.rowIndex);
+        const abnormalCell = row.getByRole('cell').nth(2);
+
+        // Check that form entry is still visible
+        if (testResults.form.formEntryText) {
+          await expect(abnormalCell.locator(`p:has-text("${testResults.form.formEntryText}")`)).toBeVisible();
+        }
+      }
+
+      // All component states persisted after page reload
+    });
+
+    test('Should verify all findings on Review and Sign page', async () => {
+      // Navigate to Review and Sign tab
+      await sideMenu.clickReviewAndSign();
+      await progressNotePage.expectLoaded();
+
+      const examinationsContainer = page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabExaminationsContainer);
+      await expect(examinationsContainer).toBeVisible();
+
+      const examinationsText = await examinationsContainer.textContent();
+      expect(examinationsText).toBeTruthy();
+
+      // Verify each component type appears in progress note
+      if (testResults.checkbox) {
+        await test.step('Verify checkbox component appears in progress note', async () => {
+          const checkboxData = testResults.checkbox!;
+
+          // Verify checked abnormal checkboxes appear (should have red indicators)
+          if (checkboxData.abnormalCheckboxLabels) {
+            for (const { label, checked } of checkboxData.abnormalCheckboxLabels) {
+              if (checked) {
+                // Checked abnormal MUST appear in progress note
+                expect(examinationsText).toContain(label);
+              } else {
+                // Unchecked abnormal MUST NOT appear in progress note
+                expect(examinationsText).not.toContain(label);
+              }
+            }
+          }
+
+          // Verify checked normal checkboxes appear (should have green indicators)
+          if (checkboxData.normalCheckboxLabels) {
+            for (const { label, checked } of checkboxData.normalCheckboxLabels) {
+              if (checked) {
+                // Checked normal MUST appear in progress note
+                expect(examinationsText).toContain(label);
+              } else {
+                // Unchecked normal MUST NOT appear in progress note
+                expect(examinationsText).not.toContain(label);
+              }
+            }
+          }
+        });
+      }
+
+      if (testResults.text) {
+        await test.step('Verify text component appears in progress note', async () => {
+          // Verify the entered text value appears in progress note
+          if (testResults.text!.textValue) {
+            expect(examinationsText).toContain(testResults.text!.textValue);
+          }
+        });
+      }
+
+      if (testResults.comment) {
+        await test.step('Verify comment appears in progress note', async () => {
+          expect(examinationsText).toContain(testResults.comment!.text);
+        });
+      }
+
+      if (testResults.dropdown) {
+        await test.step('Verify dropdown component appears in progress note', async () => {
+          // Verify the selected dropdown value appears in progress note
+          if (testResults.dropdown!.dropdownValue) {
+            expect(examinationsText).toContain(testResults.dropdown!.dropdownValue);
+          }
+        });
+      }
+
+      if (testResults.multiSelect) {
+        await test.step('Verify multi-select component appears in progress note', async () => {
+          // Multi-select options should appear in examination text
+          if (testResults.multiSelect!.selectedOptions) {
+            for (const option of testResults.multiSelect!.selectedOptions) {
+              expect(examinationsText).toContain(option);
+            }
+          }
+        });
+      }
+
+      if (testResults.form) {
+        await test.step('Verify form component appears in progress note', async () => {
+          // Form entries should appear in examination text
+          // Note: The form entry may have a label prefix (e.g., "Rashes: ") added on the review page
+          if (testResults.form!.formEntryText) {
+            // Split the form entry by '|' and check that each part appears (case-insensitive)
+            const formParts = testResults.form!.formEntryText.split('|').map((part) => part.trim().toLowerCase());
+            for (const part of formParts) {
+              expect(examinationsText?.toLowerCase() || '').toContain(part);
+            }
+          }
+        });
+      }
+
+      // Count tested components
+      const _testedComponents = [
+        testResults.checkbox,
+        testResults.text,
+        testResults.dropdown,
+        testResults.multiSelect,
+        testResults.form,
+      ].filter(Boolean).length;
+
+      // Verified component types on Review and Sign page: ${_testedComponents}
+    });
+  });
+});
+
+async function openVisit(page: Page): Promise<void> {
+  await page.goto(`in-person/${resourceHandler.appointment.id}`);
+  const inPersonHeader = new InPersonHeader(page);
+  await inPersonHeader.selectIntakePractitioner();
+  await inPersonHeader.selectProviderPractitioner();
+}
+
+async function getCurrentPractitionerFirstLastName(): Promise<string> {
+  const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
+  return getLastName(testUserPractitioner) + ', ' + getFirstName(testUserPractitioner);
+}

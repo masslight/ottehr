@@ -6,6 +6,7 @@ import {
   ContactPoint,
   DocumentReference,
   Encounter,
+  FhirResource,
   HealthcareService,
   Location,
   Practitioner,
@@ -13,7 +14,8 @@ import {
   QuestionnaireResponse,
   Task,
 } from 'fhir/r4b';
-import { ScheduleExtension } from '../utils';
+import { ottehrCodeSystemUrl } from '../fhir/systemUrls';
+import { ScheduleExtension } from '../utils/scheduleUtils';
 import { TIMEZONES } from './constants';
 
 export interface PatientBaseInfo {
@@ -30,13 +32,15 @@ export interface FileUpload {
   };
 }
 
+export interface FileURLInfo {
+  localUrl?: string;
+  presignedUrl?: string;
+  z3Url?: string;
+  imgBase64?: string;
+  description?: string;
+}
 export interface FileURLs {
-  [key: string]: {
-    localUrl?: string;
-    presignedUrl?: string;
-    z3Url?: string;
-    imgBase64?: string;
-  };
+  [key: string]: FileURLInfo;
 }
 export interface AvailableLocationInformation {
   id: string | undefined;
@@ -99,7 +103,10 @@ export type FormItemType =
   | 'Form list'
   | 'Attachment'
   | 'Credit Card'
+  | 'Medical History'
   | 'Call Out'
+  | 'Link'
+  | 'Decimal'
   | undefined;
 
 export type PromiseReturnType<T> = T extends Promise<infer R> ? R : never;
@@ -285,6 +292,8 @@ export const AllStates: ValuePair[] = [
 
 export type StateCode = (typeof AllStates)[number]['value'];
 
+export const STATE_CODES = new Set<string>(AllStates.map((state) => state.value));
+
 export const stateCodeToFullName: Readonly<Record<StateCode, string>> = {
   AL: 'Alabama',
   AK: 'Alaska',
@@ -363,6 +372,7 @@ export type StateType = (typeof AllStates extends readonly (infer TElementType)[
 export interface VirtualLocationBody {
   name: string;
   state: StateType;
+  meta?: Location['meta'];
 }
 
 export const AllStatesToVirtualLocationLabels: {
@@ -479,6 +489,8 @@ export const FacilitiesTelemed: FacilityInfo[] = [
 export interface InHouseMedicationInfo {
   name: string;
   NDC: string;
+  CPT?: string;
+  HCPCS?: string;
   erxData: {
     id: string;
   };
@@ -497,36 +509,76 @@ export const InHouseMedications: InHouseMedicationInfo[] = [
   { name: 'Amoxicillin Clavulanate', NDC: '65862-535-75', erxData: { id: '22329' } },
 ];
 
-export type TaskStatus = 'completed' | 'failed' | 'rejected' | undefined;
+export type TaskStatus = Task['status'];
 
-export interface TaskSubscriptionInput {
-  task: Task;
-}
+export const OttehrTaskSystem = ottehrCodeSystemUrl('ottehr-system-task');
 
 type Appointment_Update_Task_Codes = 'cancelled' | 'ready' | 'checkin' | 'record-wait-time';
 type Appointment_Created_Task_Codes = 'create-appointment-confirmation-messages';
-
-type Task_Codes = Appointment_Update_Task_Codes | Appointment_Created_Task_Codes;
+type Send_Claim_Task_Codes = 'send-claim';
+type Task_Visit_Note_PDF_And_Email_Codes = 'visit-note-pdf-and-email';
+type Task_Patient_Payment_Candid_Sync_And_Receipt_Codes = 'patient-payment-candid-sync-and-receipt';
+type Task_Harvest_Paperwork_Codes = 'harvest-paperwork';
+type Task_Merge_Patients_Codes = 'merge-patients';
+type Task_Send_Fax_Packet_Codes = 'send-fax-packet';
+type Task_Generate_Patient_Statement_Codes = 'generate-statement' | 'send-invoice-to-patient';
+type Task_Send_Patient_Statement_By_Mail_Codes = 'send-patient-statement-by-mail';
+type Task_Codes =
+  | Appointment_Update_Task_Codes
+  | Appointment_Created_Task_Codes
+  | Send_Claim_Task_Codes
+  | Task_Generate_Patient_Statement_Codes
+  | Task_Send_Patient_Statement_By_Mail_Codes
+  | Task_Visit_Note_PDF_And_Email_Codes
+  | Task_Patient_Payment_Candid_Sync_And_Receipt_Codes
+  | Task_Harvest_Paperwork_Codes
+  | Task_Merge_Patients_Codes
+  | Task_Send_Fax_Packet_Codes;
 
 export const Task_Email_Communication_Url = 'urgent-care-email';
 export const Task_Text_Communication_Url = 'urgent-care-text';
 export const Task_Update_Appointment_Url = 'urgent-care-update-appointment';
 export const Task_Send_Messages_Url = 'urgent-care-send-messages';
 export const Task_Sync_DocumentRef_Url = 'urgent-care-sync-document-ref';
+export const Task_Claims_System_Url = 'https://fhir.ottehr.com/CodeSystem/claim-sync';
+export const Task_Visit_Note_PDF_And_Email_Url = 'https://fhir.ottehr.com/CodeSystem/visit-note-pdf-and-email';
+export const Task_Patient_Payment_Candid_Sync_And_Receipt_Url =
+  'https://fhir.ottehr.com/CodeSystem/patient-payment-candid-sync-and-receipt';
+export const Task_Generate_Patient_Statement_Url = 'https://fhir.ottehr.com/CodeSystem/generate-patient-statement';
+export const Task_Send_Patient_Statement_By_Mail_Url = 'https://fhir.ottehr.com/CodeSystem/patient-statement-mail';
 
 type Task_System_Member =
   | typeof Task_Email_Communication_Url
   | typeof Task_Text_Communication_Url
   | typeof Task_Update_Appointment_Url
   | typeof Task_Send_Messages_Url
-  | typeof Task_Sync_DocumentRef_Url;
+  | typeof Task_Sync_DocumentRef_Url
+  | typeof Task_Claims_System_Url
+  | typeof Task_Visit_Note_PDF_And_Email_Url
+  | typeof Task_Patient_Payment_Candid_Sync_And_Receipt_Url
+  | typeof Task_Generate_Patient_Statement_Url
+  | typeof Task_Send_Patient_Statement_By_Mail_Url
+  | typeof OttehrTaskSystem;
 
 export type TaskCoding = {
   readonly system: Task_System_Member;
   readonly code: Task_Codes;
 };
 
-type TaskId = 'cancelEmail' | 'readyText' | 'checkInText' | 'recordWaitTime' | 'confirmationMessages';
+type TaskId =
+  | 'cancelEmail'
+  | 'readyText'
+  | 'checkInText'
+  | 'recordWaitTime'
+  | 'confirmationMessages'
+  | 'sendClaim'
+  | 'visitNotePDFAndEmail'
+  | 'patientPaymentCandidSyncAndReceipt'
+  | 'harvestPaperwork'
+  | 'mergePatients'
+  | 'generatePatientStatement'
+  | 'sendPatientStatementByMail'
+  | 'sendFaxPacket';
 type TaskIndicator = {
   [key in TaskId]: TaskCoding;
 };
@@ -552,11 +604,66 @@ export const TaskIndicator: TaskIndicator = {
     system: Task_Send_Messages_Url,
     code: 'create-appointment-confirmation-messages',
   },
+  sendClaim: {
+    system: Task_Claims_System_Url,
+    code: 'send-claim',
+  },
+  visitNotePDFAndEmail: {
+    system: Task_Visit_Note_PDF_And_Email_Url,
+    code: 'visit-note-pdf-and-email',
+  },
+  patientPaymentCandidSyncAndReceipt: {
+    system: Task_Patient_Payment_Candid_Sync_And_Receipt_Url,
+    code: 'patient-payment-candid-sync-and-receipt',
+  },
+  harvestPaperwork: {
+    system: OttehrTaskSystem,
+    code: 'harvest-paperwork',
+  },
+  mergePatients: {
+    system: OttehrTaskSystem,
+    code: 'merge-patients',
+  },
+  generatePatientStatement: {
+    system: Task_Generate_Patient_Statement_Url,
+    code: 'generate-statement',
+  },
+  sendPatientStatementByMail: {
+    system: Task_Send_Patient_Statement_By_Mail_Url,
+    code: 'send-patient-statement-by-mail',
+  },
+  sendFaxPacket: {
+    system: OttehrTaskSystem,
+    code: 'send-fax-packet',
+  },
 };
+
+export const TASK_INPUT_TYPE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/task-input-type';
+export enum TASK_INPUT_TYPE_CODES {
+  PAGE_INDEX = 'page-index',
+  OTHER_PATIENT_ID = 'other-patient-id',
+  PROVIDER_PROFILE = 'provider-profile',
+  SKIP_EMAIL = 'skip-email',
+}
 
 export enum ServiceMode {
   'in-person' = 'in-person',
   'virtual' = 'virtual',
+}
+
+export const SERVICE_MODE_LABEL: Record<ServiceMode, string> = {
+  [ServiceMode['in-person']]: 'In-Person',
+  [ServiceMode.virtual]: 'Virtual',
+};
+
+/**
+ * Booking-flow capability a service supports. Narrower than the appointment-
+ * lifecycle `VisitType` enum elsewhere in the codebase — this enum is the
+ * single source of truth for "can this service be prebooked / walked into".
+ */
+export enum ServiceVisitType {
+  'prebook' = 'prebook',
+  'walk-in' = 'walk-in',
 }
 
 export enum ScheduleType {
@@ -701,4 +808,27 @@ export interface CanonicalUrl {
 export type Timezone = (typeof TIMEZONES)[number];
 export interface GetVisitLabelInput {
   encounterId: string;
+}
+
+export interface GetVisitDetailsPDFInput {
+  appointmentId: string;
+}
+
+export type PersistedFhirResource<T extends FhirResource> = T & {
+  id: string;
+};
+
+export type CPTCodeOption = {
+  code: string;
+  display: string;
+};
+
+export interface LabelConfig {
+  heightInches: number;
+  widthInches: number;
+  marginTopInches: number;
+  marginBottomInches: number;
+  marginLeftInches: number;
+  marginRightInches: number;
+  printerDPI: number;
 }

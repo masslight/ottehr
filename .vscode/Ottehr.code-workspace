@@ -13,6 +13,10 @@
       "path": "../apps/intake"
     },
     {
+      "name": "Billing UI",
+      "path": "../apps/billing"
+    },
+    {
       "name": "Zambdas",
       "path": "../packages/zambdas"
     },
@@ -27,6 +31,10 @@
     {
       "name": "Test Utilities",
       "path": "../packages/test-utils"
+    },
+    {
+      "name": "PACS Poll",
+      "path": "../packages/pacs-poll"
     }
   ],
   "settings": {
@@ -36,6 +44,11 @@
     }
   },
   "extensions": {
-    "recommendations": ["dbaeumer.vscode-eslint", "streetsidesoftware.code-spell-checker", "eamodio.gitlens"]
+    "recommendations": [
+      "dbaeumer.vscode-eslint",
+      "streetsidesoftware.code-spell-checker",
+      "eamodio.gitlens",
+      "usernamehw.errorlens"
+    ]
   }
 }

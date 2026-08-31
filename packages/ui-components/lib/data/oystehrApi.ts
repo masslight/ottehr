@@ -1,52 +1,60 @@
 // cSpell:ignore fhirify
 import Oystehr, { ZambdaExecuteResult } from '@oystehr/sdk';
 import { QuestionnaireItemAnswerOption, QuestionnaireResponse } from 'fhir/r4b';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { BookableItemListResponse, GetBookableItemListParams } from 'utils/lib/types/common';
 import {
-  APIError,
-  BookableItemListResponse,
-  CancelAppointmentRequestParams,
-  CancelInviteParticipantRequestParameters,
-  CancelInviteParticipantResponse,
-  chooseJson,
-  CreateAppointmentUCTelemedParams,
-  CreateAppointmentUCTelemedResponse,
-  CreditCardInfo,
-  GetAnswerOptionsRequest,
   GetAppointmentsRequest,
-  GetBookableItemListParams,
-  GetEligibilityParameters,
-  GetEligibilityResponse,
-  GetPaperworkRequestParams,
   GetPastVisitsResponse,
-  GetScheduleRequestParams,
-  GetScheduleResponse,
-  GetTelemedAppointmentsRequest,
   GetTelemedAppointmentsResponseEhr,
-  GetTelemedLocationsResponse,
-  GetVisitDetailsRequest,
-  GetVisitDetailsResponse,
-  InviteParticipantRequestParameters,
-  isoStringFromMDYString,
-  JoinCallRequestParameters,
-  JoinCallResponse,
-  ListInvitedParticipantsRequestParameters,
-  ListInvitedParticipantsResponse,
-  PaperworkResponseWithoutResponses,
+} from 'utils/lib/types/data/appointments/appointments.types';
+import { GetScheduleRequestParams, GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import { WaitingRoomInput, WaitingRoomResponse } from 'utils/lib/types/data/get-wait-status.types';
+import { GetPaperworkRequestParams, PaperworkResponseWithoutResponses } from 'utils/lib/types/data/paperwork.types';
+import {
   PatchPaperworkParameters,
-  PatientInfo,
+  SubmitPaperworkParameters,
+  UCGetPaperworkResponse,
+} from 'utils/lib/types/data/paperwork/paperwork.types';
+import {
+  CreditCardInfo,
+  GetPatientBalancesZambdaInput,
+  GetPatientBalancesZambdaOutput,
   PaymentMethodDeleteParameters,
   PaymentMethodListParameters,
   PaymentMethodSetDefaultParameters,
   PaymentMethodSetupParameters,
-  SubmitPaperworkParameters,
-  UCGetPaperworkResponse,
+  PaymentMethodSetupZambdaOutput,
+} from 'utils/lib/types/data/payment/payment-method-types';
+import {
+  CancelAppointmentRequestParams,
+  GetAllInsuranceOptionsRequest,
+  GetAnswerOptionsRequest,
+  GetPatientInsuranceOptionsRequest,
+  GetTelemedAppointmentsRequest,
+  GetVisitDetailsRequest,
+  GetVisitDetailsResponse,
   UpdateAppointmentRequestParams,
   UpdateAppointmentResponse,
+} from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import {
+  CreateAppointmentUCTelemedParams,
+  CreateAppointmentUCTelemedResponse,
+  PatientInfo,
+} from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { GetEligibilityParameters, GetEligibilityResponse } from 'utils/lib/types/data/telemed/eligibility.types';
+import { GetTelemedLocationsResponse } from 'utils/lib/types/data/telemed/get-telemed-locations.types';
+import { JoinCallRequestParameters, JoinCallResponse } from 'utils/lib/types/data/telemed/join-call.types';
+import {
+  CancelInviteParticipantRequestParameters,
+  CancelInviteParticipantResponse,
+  InviteParticipantRequestParameters,
+  ListInvitedParticipantsRequestParameters,
+  ListInvitedParticipantsResponse,
   VideoChatCreateInviteResponse,
-  WaitingRoomInput,
-  WaitingRoomResponse,
-} from 'utils';
-import { GetOystehrAPIParams } from '../main';
+} from 'utils/lib/types/data/telemed/video-chat-invites.types';
+import { APIError } from 'utils/lib/types/errors';
+import { GetOystehrAPIParams } from '../types/data/types';
 
 type ZambdaName =
   | 'cancel appointment'
@@ -58,9 +66,12 @@ type ZambdaName =
   | 'get eligibility'
   | 'get visit details'
   | 'get answer options'
+  | 'get patient insurance options'
+  | 'get all insurance options'
   | 'get schedule'
   | 'get paperwork'
   | 'get patients'
+  | 'get patient balances'
   | 'get payment methods'
   | 'get presigned file url'
   | 'get telemed states'
@@ -86,9 +97,12 @@ const zambdasPublicityMap: Record<ZambdaName, boolean> = {
   'get eligibility': false,
   'get visit details': false,
   'get answer options': false,
+  'get patient insurance options': false,
+  'get all insurance options': false,
   'get schedule': true,
   'get paperwork': true,
   'get patients': false,
+  'get patient balances': false,
   'get payment methods': false,
   'get presigned file url': true,
   'get telemed states': true,
@@ -121,10 +135,13 @@ export const getOystehrAPI = (
   getEligibility: typeof getEligibility;
   getVisitDetails: typeof getVisitDetails;
   getAnswerOptions: typeof getAnswerOptions;
+  getPatientInsuranceOptions: typeof getPatientInsuranceOptions;
+  getAllInsuranceOptions: typeof getAllInsuranceOptions;
   getSchedule: typeof getSchedule;
   getPaperworkPublic: typeof getPaperworkPublic;
   getPaperwork: typeof getPaperwork;
   getPatients: typeof getPatients;
+  getPatientBalances: typeof getPatientBalances;
   getPaymentMethods: typeof getPaymentMethods;
   getTelemedStates: typeof getTelemedStates;
   getWaitStatus: typeof getWaitStatus;
@@ -149,9 +166,12 @@ export const getOystehrAPI = (
     getEligibilityZambdaID,
     getVisitDetailsZambdaID,
     getAnswerOptionsZambdaID,
+    getPatientInsuranceOptionsZambdaID,
+    getAllInsuranceOptionsZambdaID,
     getScheduleZambdaID,
     getPaperworkZambdaID,
     getPatientsZambdaID,
+    getPatientBalancesZambdaID,
     getPaymentMethodsZambdaID,
     getPresignedFileURLZambdaID,
     getTelemedLocationsZambdaID: getTelemedStatesZambdaID,
@@ -178,9 +198,12 @@ export const getOystehrAPI = (
     'get eligibility': getEligibilityZambdaID,
     'get visit details': getVisitDetailsZambdaID,
     'get answer options': getAnswerOptionsZambdaID,
+    'get patient insurance options': getPatientInsuranceOptionsZambdaID,
+    'get all insurance options': getAllInsuranceOptionsZambdaID,
     'get schedule': getScheduleZambdaID,
     'get paperwork': getPaperworkZambdaID,
     'get patients': getPatientsZambdaID,
+    'get patient balances': getPatientBalancesZambdaID,
     'get payment methods': getPaymentMethodsZambdaID,
     'get presigned file url': getPresignedFileURLZambdaID,
     'get telemed states': getTelemedStatesZambdaID,
@@ -251,8 +274,7 @@ export const getOystehrAPI = (
   const createAppointment = async (
     parameters: CreateAppointmentUCTelemedParams
   ): Promise<CreateAppointmentUCTelemedResponse> => {
-    const fhirParams = fhirifyAppointmentInputs({ ...parameters });
-    return await makeZapRequest('create appointment', fhirParams);
+    return await makeZapRequest('create appointment', parameters);
   };
 
   const createZ3Object = async (
@@ -310,6 +332,18 @@ export const getOystehrAPI = (
     return await makeZapRequest('get answer options', parameters);
   };
 
+  const getPatientInsuranceOptions = async (
+    parameters: GetPatientInsuranceOptionsRequest
+  ): Promise<QuestionnaireItemAnswerOption[]> => {
+    return await makeZapRequest('get patient insurance options', parameters);
+  };
+
+  const getAllInsuranceOptions = async (
+    parameters: GetAllInsuranceOptionsRequest
+  ): Promise<QuestionnaireItemAnswerOption[]> => {
+    return await makeZapRequest('get all insurance options', parameters);
+  };
+
   const getSchedule = async (parameters: GetScheduleRequestParams): Promise<GetScheduleResponse> => {
     return await makeZapRequest('get schedule', parameters);
   };
@@ -326,6 +360,12 @@ export const getOystehrAPI = (
 
   const getPatients = async (): Promise<{ patients: PatientInfo[] }> => {
     return await makeZapRequest('get patients');
+  };
+
+  const getPatientBalances = async (
+    parameters: GetPatientBalancesZambdaInput
+  ): Promise<GetPatientBalancesZambdaOutput> => {
+    return await makeZapRequest('get patient balances', parameters);
   };
 
   const getPaymentMethods = async (parameters: PaymentMethodListParameters): Promise<{ cards: CreditCardInfo[] }> => {
@@ -359,7 +399,9 @@ export const getOystehrAPI = (
     return await makeZapRequest('set default payment method', parameters);
   };
 
-  const setupPaymentMethod = async (parameters: PaymentMethodSetupParameters): Promise<string> => {
+  const setupPaymentMethod = async (
+    parameters: PaymentMethodSetupParameters
+  ): Promise<PaymentMethodSetupZambdaOutput> => {
     return await makeZapRequest('setup payment method', parameters);
   };
 
@@ -420,10 +462,13 @@ export const getOystehrAPI = (
     getEligibility,
     getVisitDetails,
     getAnswerOptions,
+    getPatientInsuranceOptions,
+    getAllInsuranceOptions,
     getSchedule,
     getPaperworkPublic,
     getPaperwork,
     getPatients,
+    getPatientBalances,
     getPaymentMethods,
     getTelemedStates,
     getWaitStatus,
@@ -438,20 +483,6 @@ export const getOystehrAPI = (
     videoChatListInvites,
     listBookables,
   };
-};
-
-const fhirifyAppointmentInputs = (inputs: CreateAppointmentUCTelemedParams): CreateAppointmentUCTelemedParams => {
-  const returnParams = { ...inputs };
-  const { patient } = returnParams;
-
-  const { dateOfBirth: patientBirthDate } = patient as PatientInfo;
-  if (patient) {
-    patient.dateOfBirth = isoStringFromMDYString(patientBirthDate ?? '');
-  }
-
-  returnParams.patient = patient;
-
-  return returnParams;
 };
 
 const InternalError: APIError = {

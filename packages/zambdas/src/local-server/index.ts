@@ -1,6 +1,7 @@
 import cors from 'cors';
 import express, { NextFunction, Request, Response } from 'express';
-import ottehrSpec from '../../../../config/ottehr-spec.json';
+import billingZambdasSpec from '../../../../config/billing-app-core/zambdas.json';
+import zambdasSpec from '../../../../config/oystehr-core/zambdas.json';
 import { expressLambda } from './utils';
 
 const app = express();
@@ -15,23 +16,36 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 
 app.use(cors());
 
-Object.entries(ottehrSpec.zambdas).forEach(([_key, spec]) => {
-  const executeOrExecutePublic = spec.type === 'http_auth' ? 'execute' : 'execute-public';
-  const path = `/local/zambda/${spec.name}/${executeOrExecutePublic}`;
-  app.post(path, async (req, res) => {
-    const { index } = await import(`../../${spec.src}`);
-    await expressLambda(index, req, res);
-  });
-  app.head('/', async (req, res) => {
-    res.send({
-      status: 200,
+// Register routes lazily to avoid Vite SSR import issues during module initialization
+function registerRoutes(): void {
+  Object.entries({ ...zambdasSpec.zambdas, ...billingZambdasSpec.zambdas }).forEach(([_key, spec]) => {
+    const executeOrExecutePublic = spec.type === 'http_auth' ? 'execute' : 'execute-public';
+    const path = `/local/zambda/${spec.name}/${executeOrExecutePublic}`;
+    app.post(path, async (req, res) => {
+      const { index } = await import(`../../${spec.src}`);
+      await expressLambda(index, req, res);
     });
+    app.head('/', async (req, res) => {
+      res.send({
+        status: 200,
+      });
+    });
+    console.log(`Registered POST: ${path}`);
   });
-  console.log(`Registered POST: ${path}`);
-});
+}
 
-app.listen(3000, () => {
-  console.log(`Zambda local server is running on port 3000`);
-});
+// Register routes immediately (will be called by tests or when server starts)
+registerRoutes();
+
+// Only start the server if not in test environment
+if (process.env.VITEST !== 'true') {
+  // Port defaults to 3000; override with PORT so an ephemeral server (e.g. the
+  // daily-census cron) can run on a dedicated port without colliding with the
+  // interactive dev server on 3000.
+  const port = Number(process.env.PORT) || 3000;
+  app.listen(port, () => {
+    console.log(`Zambda local server is running on port ${port}`);
+  });
+}
 
 export default app;

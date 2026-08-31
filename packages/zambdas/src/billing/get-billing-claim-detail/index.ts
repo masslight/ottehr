@@ -1,0 +1,360 @@
+import Oystehr from '@oystehr/sdk';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { Claim, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { getCoveragePlanType } from 'utils/lib/fhir/billing';
+import { SubscriberRelationship } from 'utils/lib/fhir/constants';
+import { getCoding, getExtension, getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { getPayerId } from 'utils/lib/helpers/helpers';
+import { asEraClaimStatusCode, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import {
+  BillingPolicyHolderSummary,
+  ClaimAttachment,
+  ClaimDetailResponse,
+} from 'utils/lib/types/data/billing/billing.types';
+import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import {
+  extractClaimResponseAmounts,
+  extractRemitAdjustments,
+  fetchClaimEraLinks,
+  fetchClaimResponsesByClaimIds,
+  fetchPatientPaymentsByEncounterIds,
+  sortClaimResponsesByRecency,
+  summarizeClaimPayments,
+  sumPatientPayments,
+  toClaimPatientPayment,
+} from '../claim-amounts';
+import { getCLIA } from '../service-facility.helpers';
+import {
+  CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM,
+  CODE_SYSTEM_NUBC_REVENUE,
+  copySourceId,
+  createBillingClient,
+  createEraReadClient,
+  ERA_STATUS_CODE_EXTENSION,
+  EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+  EXTENSION_CLAIM_FREQUENCY_CODE,
+  EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+  EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+  fetchClaimGraph,
+  fhirName,
+  formatAddress,
+  getClaimPcn,
+  getClaimService,
+  getClaimStatus,
+  getClaimType,
+  getEraCheckNumber,
+  getTaxonomy,
+  resolvePayersByRef,
+  toAddressParts,
+} from '../shared';
+import { GetClaimDetailParams, validateRequestParameters } from './validateRequestParameters';
+
+let m2mToken: string;
+const ZAMBDA_NAME = 'get-billing-claim-detail';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const params = validateRequestParameters(input);
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
+  const oystehr = createBillingClient(m2mToken, params.secrets);
+  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
+
+  const response = await performEffect(oystehr, eraReadClient, params);
+  return { statusCode: 200, body: JSON.stringify(response) };
+});
+
+export async function performEffect(
+  oystehr: Oystehr,
+  eraReadClient: Oystehr,
+  params: GetClaimDetailParams
+): Promise<ClaimDetailResponse> {
+  const { claimId } = params;
+  // One shared fetch of the claim + its referenced working copies (also used by the rules engine).
+  const graph = await fetchClaimGraph(oystehr, claimId);
+  const {
+    claim,
+    patient,
+    billingProvider: provider,
+    serviceFacility: facility,
+    renderingProvider,
+    documentReferences,
+  } = graph;
+
+  // Coverages come back focal-first: the focal coverage is the claim's primary insurance.
+  const [coverage, secondaryCoverage, tertiaryCoverage, quaternaryCoverage] = graph.coverages;
+  const subscriberRef = coverage?.subscriber?.reference;
+  const subscriber = subscriberRef?.startsWith('RelatedPerson/')
+    ? graph.subscribers.find((s) => s.id === subscriberRef.replace('RelatedPerson/', ''))
+    : undefined;
+  const policyHolder = extractPolicyHolder(subscriber);
+
+  const encounterId =
+    claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value ?? '';
+
+  // Other claims via Person lookup, this claim's ERA adjudications, and its patient payments
+  const [otherClaims, claimResponsesByClaimId, paymentsByEncounter] = await Promise.all([
+    fetchOtherClaims(oystehr, patient?.id, claimId),
+    fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
+    encounterId
+      ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
+      : Promise.resolve(new Map<string, PaymentNotice[]>()),
+  ]);
+  const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
+  const { paymentReconciliations, claimResponseByPrId } = await fetchClaimEraLinks(eraReadClient, claimResponses);
+
+  const patientPaymentNotices = paymentsByEncounter.get(encounterId) ?? [];
+  const patientPaid = sumPatientPayments(patientPaymentNotices);
+  const patientPayments = patientPaymentNotices
+    .map(toClaimPatientPayment)
+    .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
+
+  // Resolve primary, secondary, remit, and insurance payment payers from the Oystehr payer list
+  const payersByRef = await resolvePayersByRef(oystehr, [
+    claim.insurer?.reference,
+    secondaryCoverage?.payor?.[0]?.reference,
+    tertiaryCoverage?.payor?.[0]?.reference,
+    quaternaryCoverage?.payor?.[0]?.reference,
+    ...claimResponses.map((cr) => cr.insurer?.reference),
+    ...paymentReconciliations.map((pr) => pr.paymentIssuer?.reference),
+  ]);
+  const insurer = claim.insurer?.reference ? payersByRef.get(claim.insurer.reference) : undefined;
+  const secondaryInsurer = secondaryCoverage?.payor?.[0]?.reference
+    ? payersByRef.get(secondaryCoverage.payor[0].reference)
+    : undefined;
+  const tertiaryInsurer = tertiaryCoverage?.payor?.[0]?.reference
+    ? payersByRef.get(tertiaryCoverage.payor[0].reference)
+    : undefined;
+  const quaternaryInsurer = quaternaryCoverage?.payor?.[0]?.reference
+    ? payersByRef.get(quaternaryCoverage.payor[0].reference)
+    : undefined;
+
+  const billed = claim.total?.value ?? 0;
+  const payments = summarizeClaimPayments(claimResponses, billed, patientPaid);
+  const remits = [...claimResponses].reverse().map((cr) => {
+    const amounts = extractClaimResponseAmounts(cr);
+    const payer = cr.insurer?.reference ? payersByRef.get(cr.insurer.reference) : undefined;
+    return {
+      claimResponseId: cr.id ?? '',
+      date: cr.created ?? '',
+      payerName: payer?.name ?? cr.insurer?.display ?? '',
+      status: cr.outcome ?? '',
+      eraStatusCode: asEraClaimStatusCode(
+        cr.extension?.find((ext) => ext.url === ERA_STATUS_CODE_EXTENSION)?.valueString
+      ),
+      allowed: amounts.allowed ?? null,
+      paid: amounts.paid,
+      patientResp: amounts.patientResp ?? null,
+      adjustments: extractRemitAdjustments(cr),
+    };
+  });
+  const paymentMillis = (pr: PaymentReconciliation): number =>
+    DateTime.fromISO(pr.paymentDate ?? pr.created ?? '').toMillis() || 0;
+  const insurancePayments = [...paymentReconciliations]
+    .sort((a, b) => paymentMillis(b) - paymentMillis(a))
+    .map((pr) => {
+      // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on one
+      // of this ERA's ClaimResponses
+      const linkedCr = claimResponseByPrId.get(pr.id ?? '');
+      const payerRef = pr.paymentIssuer?.reference ?? linkedCr?.insurer?.reference;
+      const payer = payerRef ? payersByRef.get(payerRef) : undefined;
+      return {
+        paymentReconciliationId: pr.id ?? '',
+        checkNumber: getEraCheckNumber(pr) ?? '',
+        paymentDate: pr.paymentDate ?? pr.created ?? '',
+        paymentAmount: pr.paymentAmount?.value ?? 0,
+        payerName: payer?.name ?? pr.paymentIssuer?.display ?? '',
+        status: pr.outcome ?? pr.status ?? '',
+      };
+    });
+  const status = getClaimStatus(claim);
+  const patientAddr = patient?.address?.[0];
+  const facilityTypeCode = getExtension(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
+  const frequencyCode = getExtension(claim, EXTENSION_CLAIM_FREQUENCY_CODE)?.valueString ?? '1';
+  const attachments = documentReferences.flatMap<ClaimAttachment>((dr) => {
+    const si = claim.supportingInfo?.find(
+      (si) => si.valueReference?.reference?.replace('DocumentReference/', '') === dr.id
+    );
+    if (!si) return [];
+    return [
+      {
+        sequence: si.sequence,
+        id: dr.id!,
+        fileName: dr.content[0].attachment.title!,
+        reportTypeCode: si.code?.coding?.find((coding) => coding.system === CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM)
+          ?.code,
+        dateAdded: dr.date!,
+      },
+    ];
+  });
+
+  return {
+    id: claim.id ?? '',
+    encounterId,
+    appointmentId:
+      claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-appointment-id'))?.value ?? '',
+    type: getClaimType(claim),
+    status,
+    statuses: getClaimStatusValues(claim),
+    created: claim.created ?? '',
+    service: getClaimService(claim),
+    patientName: fhirName(patient),
+    patientDob: patient?.birthDate ?? '',
+    patientGender: patient?.gender ?? '',
+    patientId: patient?.id ?? '',
+    patientOriginalId: copySourceId(patient) ?? '',
+    patientAddress: formatAddress(patientAddr),
+    patientAddressParts: toAddressParts(patientAddr),
+    coverageFhirId: coverage?.id ?? '',
+    payorFhirId: insurer?.id ?? '',
+    payerName: insurer?.name ?? '',
+    payerId: getPayerId(insurer) ?? '',
+    memberId: coverage?.subscriberId ?? '',
+    subscriberId: coverage?.subscriberId ?? '',
+    planType: getCoveragePlanType(coverage) ?? '',
+    relationship: (coverage?.relationship?.coding?.[0]?.display as SubscriberRelationship) ?? '',
+    policyHolder,
+    responsibleParty: 'Primary',
+    secondaryCoverageFhirId: secondaryCoverage?.id ?? '',
+    secondaryPayerName: secondaryInsurer?.name ?? '',
+    secondaryPayerId: getPayerId(secondaryInsurer) ?? '',
+    secondaryMemberId: secondaryCoverage?.subscriberId ?? '',
+    tertiaryCoverageFhirId: tertiaryCoverage?.id ?? '',
+    tertiaryPayerName: tertiaryInsurer?.name ?? '',
+    tertiaryPayerId: getPayerId(tertiaryInsurer) ?? '',
+    tertiaryMemberId: tertiaryCoverage?.subscriberId ?? '',
+    quaternaryCoverageFhirId: quaternaryCoverage?.id ?? '',
+    quaternaryPayerName: quaternaryInsurer?.name ?? '',
+    quaternaryPayerId: getPayerId(quaternaryInsurer) ?? '',
+    quaternaryMemberId: quaternaryCoverage?.subscriberId ?? '',
+    nonInsurancePayerFhirId: '',
+    nonInsurancePayerName: '',
+    renderingProviderId: renderingProvider?.id ?? '',
+    renderingProviderType: renderingProvider?.resourceType ?? '',
+    renderingProvider: renderingProvider
+      ? renderingProvider.resourceType === 'Practitioner'
+        ? fhirName(renderingProvider)
+        : renderingProvider.name ?? ''
+      : '',
+    renderingNpi: renderingProvider ? getNPI(renderingProvider) ?? '' : '',
+    renderingTaxonomy: renderingProvider ? getTaxonomy(renderingProvider) : '',
+    billingProviderFhirId: provider?.id ?? '',
+    billingProviderType: provider?.resourceType ?? '',
+    billingProvider: provider
+      ? provider.resourceType === 'Practitioner'
+        ? fhirName(provider)
+        : provider.name ?? ''
+      : '',
+    billingNpi: provider ? getNPI(provider) ?? '' : '',
+    billingTin: provider ? getTaxID(provider) ?? '' : '',
+    billingTaxonomy: provider ? getTaxonomy(provider) : '',
+    facilityFhirId: facility?.id ?? '',
+    serviceFacility: facility?.name ?? '',
+    serviceFacilityId: facility?.id ?? '',
+    serviceFacilityAddress: formatAddress(facility?.address),
+    serviceFacilityAddressParts: toAddressParts(facility?.address),
+    serviceFacilityNpi: facility ? getNPI(facility) ?? '' : '',
+    serviceFacilityClia: facility ? getCLIA(facility) ?? '' : '',
+    diagnoses: (claim.diagnosis ?? []).map((dx) => ({
+      sequence: dx.sequence,
+      code: dx.diagnosisCodeableConcept?.coding?.[0]?.code ?? '',
+      display:
+        dx.diagnosisCodeableConcept?.coding?.[0]?.display ?? dx.diagnosisCodeableConcept?.coding?.[0]?.code ?? '',
+    })),
+    serviceLines: (claim.item ?? []).map((item) => ({
+      sequence: item.sequence,
+      cptCode: item.productOrService?.coding?.[0]?.code ?? '',
+      description: item.productOrService?.coding?.[0]?.display ?? '',
+      modifiers: (item.modifier ?? []).map((m) => m.coding?.[0]?.code ?? '').filter(Boolean),
+      units: item.quantity?.value ?? 1,
+      charges: item.net?.value ?? 0,
+      serviceDate: item.servicedPeriod?.start ?? item.servicedDate ?? claim.created ?? '',
+      placeOfService: item.locationCodeableConcept?.coding?.[0]?.code ?? '',
+      diagnosisPointers: item.diagnosisSequence ?? [],
+      revenueCode: getCoding(item.revenue, CODE_SYSTEM_NUBC_REVENUE)?.code ?? '',
+    })),
+    billed,
+    allowed: payments.allowed,
+    insurancePaid: payments.insurancePaid,
+    patientResp: payments.patientResp,
+    patientPaid: payments.patientPaid,
+    balance: payments.balance,
+    adjudicated: payments.adjudicated,
+    remits,
+    insurancePayments,
+    patientPayments,
+    otherClaims,
+    tags: (claim.meta?.tag ?? [])
+      .filter((t) => t.system === CLAIM_TAG_SYSTEM)
+      .map((t) => t.code ?? '')
+      .filter(Boolean),
+    pcn: getClaimPcn(claim),
+    billType: facilityTypeCode ? `0${facilityTypeCode}${frequencyCode}` : '',
+    patientDischargeStatusCode: getExtension(claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS)?.valueString ?? '',
+    admissionType: getExtension(claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE)?.valueString ?? '',
+    admissionSource: getExtension(claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',
+    attachments,
+  };
+}
+
+// Flatten the working-copy subscriber RelatedPerson into the policy-holder summary the UI prefills from.
+function extractPolicyHolder(subscriber: RelatedPerson | undefined): BillingPolicyHolderSummary | null {
+  if (!subscriber) return null;
+  const name = subscriber.name?.[0];
+  return {
+    firstName: name?.given?.[0] ?? '',
+    middleName: name?.given?.[1] ?? '',
+    lastName: name?.family ?? '',
+    dob: subscriber.birthDate ?? '',
+    gender: subscriber.gender ?? '',
+    addressParts: toAddressParts(subscriber.address?.[0]),
+  };
+}
+
+async function fetchOtherClaims(
+  oystehr: Oystehr,
+  patientId: string | undefined,
+  currentClaimId: string
+): Promise<ClaimDetailResponse['otherClaims']> {
+  if (!patientId) return [];
+
+  let patientIds = [patientId];
+  const personResult = await oystehr.fhir.search<Person>({
+    resourceType: 'Person',
+    params: [{ name: 'link', value: `Patient/${patientId}` }],
+  });
+  const person = personResult.unbundle()[0];
+  if (person?.link) {
+    const linkedIds = person.link
+      .map((l) => l.target?.reference)
+      .filter((ref): ref is string => !!ref && ref.startsWith('Patient/'))
+      .map((ref) => ref.replace('Patient/', ''));
+    patientIds = [...new Set([...patientIds, ...linkedIds])];
+  }
+
+  const patientParam = patientIds.map((pid) => `Patient/${pid}`).join(',');
+  const otherQuery = `/Claim?patient=${patientParam}&_sort=-created&_count=20`;
+  const otherResources = await getResourcesFromBatchInlineRequests(oystehr, [otherQuery]);
+  const otherClaims = otherResources.filter((r) => r.resourceType === 'Claim' && r.id !== currentClaimId) as Claim[];
+
+  const payersByRef = await resolvePayersByRef(
+    oystehr,
+    otherClaims.map((c) => c.insurer?.reference)
+  );
+
+  return otherClaims.map((c) => ({
+    id: c.id ?? '',
+    type: getClaimType(c),
+    status: getClaimStatus(c),
+    arStage: getClaimStatusValues(c).arStage,
+    serviceDate: c.item?.[0]?.servicedPeriod?.start ?? c.created ?? '',
+    payerName: (c.insurer?.reference ? payersByRef.get(c.insurer.reference) : undefined)?.name ?? '',
+    billed: c.total?.value ?? 0,
+    cptCodes: (c.item ?? []).map((item) => item.productOrService?.coding?.[0]?.code ?? '').filter(Boolean),
+  }));
+}

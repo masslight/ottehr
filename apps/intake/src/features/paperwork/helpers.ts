@@ -1,4 +1,4 @@
-import { APIError, APIErrorCode, isApiError } from 'utils';
+import { APIError, APIErrorCode, isApiError } from 'utils/lib/types/errors';
 
 export type FormValidationErrorObject = { [pageId: string]: string[] };
 export const getFormValidationErrors = (error: any): FormValidationErrorObject | undefined => {

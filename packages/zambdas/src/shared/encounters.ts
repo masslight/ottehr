@@ -1,13 +1,60 @@
 import Oystehr from '@oystehr/sdk';
 import { Address, Appointment, Encounter, Location } from 'fhir/r4b';
-import {
-  getEncounterForAppointment,
-  getVirtualServiceResourceExtension,
-  SLUG_SYSTEM,
-  TELEMED_VIDEO_ROOM_CODE,
-  VisitType,
-} from 'utils';
-import { getParticipantFromAppointment } from '../shared';
+import { getVirtualServiceResourceExtension } from 'utils/lib/fhir/appointments';
+import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { TELEMED_VIDEO_ROOM_CODE } from 'utils/lib/types/constants';
+import { VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { getParticipantFromAppointment } from './helpers';
+
+/**
+ * Fetches the appointment's encounters and returns the main one whose lifecycle we act on (e.g. on cancel).
+ *
+ * An appointment can be referenced by several encounters, so we pick by statusHistory + type:
+ *
+ * - Regular visit: exactly one non-follow-up encounter with statusHistory → return it. Annotation
+ *   follow-ups (lab-result etc.) attached to the same appointment have no statusHistory and are ignored.
+ *
+ * - Scheduled follow-up appointment: no visit encounter, but owns a single follow-up encounter with
+ *   statusHistory → return that one.
+ *
+ * NOTE: this relies on follow-up visits being modeled as above (annotation follow-ups without
+ * statusHistory, scheduled follow-ups owning their own appointment with a single encounter). If that
+ * structure changes, update this logic to keep the selection algorithm valid.
+ */
+const fetchMainEncounter = async (appointmentID: string, oystehr: Oystehr): Promise<Encounter> => {
+  const encounters = (
+    await oystehr.fhir.search<Encounter>({
+      resourceType: 'Encounter',
+      params: [{ name: 'appointment', value: `Appointment/${appointmentID}` }],
+    })
+  ).unbundle();
+
+  const withStatusHistory = encounters.filter((enc) => enc.statusHistory?.length);
+
+  if (withStatusHistory.length === 0) {
+    throw new Error('Encounter status history not found');
+  }
+
+  const mainEncounters = withStatusHistory.filter((enc) => !isFollowupEncounter(enc));
+
+  if (mainEncounters.length > 1) {
+    throw new Error('Multiple main encounters with statusHistory');
+  }
+
+  if (mainEncounters.length === 1) {
+    return mainEncounters[0];
+  }
+
+  // No main encounter → scheduled follow-up appointment, which owns its single follow-up encounter.
+  const followupEncounters = withStatusHistory.filter((enc) => isFollowupEncounter(enc));
+
+  if (followupEncounters.length > 1) {
+    throw new Error('Multiple follow-up encounters with statusHistory');
+  }
+
+  return followupEncounters[0];
+};
 
 export const getVideoEncounterForAppointment = async (
   appointmentID: string,
@@ -52,11 +99,16 @@ export interface LocationInformation {
   address: Address | undefined;
 }
 
-export const getEncounterDetails = async (appointmentID: string, oystehr: Oystehr): Promise<EncounterDetails> => {
+// Loads the main (non-follow-up) encounter for an appointment plus the derived details used by the cancel flow.
+export const getMainEncounterDetails = async (appointmentID: string, oystehr: Oystehr): Promise<EncounterDetails> => {
   let curStatusHistoryIdx, location, visitType, appointmentStart, patientID, canceledHistoryIdx;
-  const encounter = await getEncounterForAppointment(appointmentID, oystehr);
+
+  const encounter = await fetchMainEncounter(appointmentID, oystehr);
+
   let appointment: Appointment | undefined = undefined;
+
   console.log('Got encounter with id', encounter.id);
+
   if (encounter.statusHistory) {
     curStatusHistoryIdx = encounter.statusHistory.findIndex((history) => !history.period.end);
     canceledHistoryIdx = encounter.statusHistory.findIndex(

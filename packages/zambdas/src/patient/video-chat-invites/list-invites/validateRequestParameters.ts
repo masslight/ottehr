@@ -1,16 +1,19 @@
-import { ListInvitedParticipantsInput } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { ListInvitedParticipantsInput } from 'utils/lib/types/data/telemed/video-chat-invites.types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { z } from 'zod';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
+
+const ListInvitesBodySchema = z.object({
+  appointmentId: z.string().min(1),
+});
 
 export function validateRequestParameters(input: ZambdaInput): ListInvitedParticipantsInput {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw INVALID_INPUT_ERROR('No request body provided');
   }
 
-  const { appointmentId } = JSON.parse(input.body);
-
-  if (!appointmentId) {
-    throw new Error('appointmentId is not defined');
-  }
+  const { appointmentId } = safeValidate(ListInvitesBodySchema, safeJsonParse(input.body));
 
   return {
     appointmentId,

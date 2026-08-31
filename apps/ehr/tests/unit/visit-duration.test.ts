@@ -1,7 +1,8 @@
 // import { DateTime } from 'luxon';
 // import { getDurationOfStatus, getVisitTotalTime } from 'utils';
 import { Encounter } from 'fhir/r4b';
-import { getVisitStatusHistory } from 'utils';
+import { PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { describe, expect, test } from 'vitest';
 
 const finishedEncounter: Encounter = {
@@ -74,7 +75,7 @@ const finishedEncounter: Encounter = {
         {
           coding: [
             {
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+              system: PARTICIPATION_CODE_SYSTEM,
               code: 'ADM',
               display: 'admitter',
             },
@@ -95,7 +96,7 @@ const finishedEncounter: Encounter = {
         {
           coding: [
             {
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+              system: PARTICIPATION_CODE_SYSTEM,
               code: 'ATND',
               display: 'attender',
             },
@@ -176,7 +177,7 @@ const unexpectedPractitioner: Encounter = {
         {
           coding: [
             {
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+              system: PARTICIPATION_CODE_SYSTEM,
               code: 'nurse',
               display: 'Nurse',
             },

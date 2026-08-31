@@ -1,0 +1,89 @@
+import {
+  ASQObservationDTO,
+  ObservationBooleanFieldDTO,
+  SaveableDTO,
+  VitalsObservationDTO,
+} from '../../api/chart-data/chart-data.types';
+import {
+  HISTORY_OBTAINED_FROM_FIELD,
+  HistorySourceKeys,
+  PATIENT_VACCINATION_STATUS,
+  PatientVaccinationKeys,
+  RecentVisitKeys,
+  SEEN_IN_LAST_THREE_YEARS_FIELD,
+} from './constants';
+
+// Re-export config contract types from config-types
+export type {
+  ScreeningConditionalSave,
+  ScreeningField,
+  ScreeningFieldOption,
+  ScreeningFieldType,
+  ScreeningNoteField,
+  ScreeningQuestionsConfig,
+} from 'config-types';
+
+// Backwards compatibility aliases for existing code
+import type { ScreeningField, ScreeningFieldOption, ScreeningFieldType, ScreeningNoteField } from 'config-types';
+
+export type Field = ScreeningField;
+export type FieldType = ScreeningFieldType;
+export type Option = ScreeningFieldOption;
+export type NoteField = ScreeningNoteField;
+
+export type ObservationDTO =
+  | ObservationTextFieldDTO
+  | ObservationBooleanFieldDTO
+  | VitalsObservationDTO
+  | ObservationDateFieldDTO
+  | ObservationDateRangeFieldDTO;
+
+export type ObservationTextFieldDTO =
+  | ObservationHistoryObtainedFromDTO
+  | ObservationSeenInLastThreeYearsDTO
+  | ASQObservationDTO
+  | PatientVaccinationDTO
+  | ObservationDateFieldDTO;
+
+export type ObservationHistoryObtainedFromDTO =
+  | CustomOptionObservationHistoryObtainedFromDTO
+  | ListOptionObservationHistoryObtainedFromDTO;
+
+export type CustomOptionObservationHistoryObtainedFromDTO = {
+  field: typeof HISTORY_OBTAINED_FROM_FIELD;
+  value: HistorySourceKeys.NotObtainedOther;
+  note: string;
+} & SaveableDTO;
+
+export type ListOptionObservationHistoryObtainedFromDTO = {
+  field: typeof HISTORY_OBTAINED_FROM_FIELD;
+  value: Exclude<HistorySourceKeys, HistorySourceKeys.NotObtainedOther>;
+} & SaveableDTO;
+
+export type ObservationSeenInLastThreeYearsDTO = {
+  field: typeof SEEN_IN_LAST_THREE_YEARS_FIELD;
+  value: RecentVisitKeys;
+} & SaveableDTO;
+
+export type PatientVaccinationDTO = {
+  field: typeof PATIENT_VACCINATION_STATUS;
+  value: PatientVaccinationKeys;
+  note?: string;
+} & SaveableDTO;
+
+export interface AiSuggestionItem {
+  display: string;
+  searchTerms: string[];
+}
+
+export type ObservationDateFieldDTO = {
+  field: string;
+  value: string;
+  note?: string;
+  items?: AiSuggestionItem[];
+} & SaveableDTO;
+
+export type ObservationDateRangeFieldDTO = {
+  field: string;
+  value: [string, string];
+} & SaveableDTO;

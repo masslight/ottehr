@@ -1,5 +1,6 @@
 export * from './date';
 export * from './file';
+export * from './image-orientation';
 export * from './objects';
 export * from './pdf';
 export * from './timeout';
@@ -9,3 +10,7 @@ export * from './convert';
 export * from './dateUtils';
 export * from './visitUtils';
 export * from './e2eCleanup';
+export * from './e2eTestConstants';
+export * from './printing';
+export * from './progress-note-config';
+export * from './support-dialog';

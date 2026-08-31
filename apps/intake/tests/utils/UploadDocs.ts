@@ -1,6 +1,7 @@
 // cSpell:ignore filechooser
 import { expect, Locator, Page } from '@playwright/test';
 import path, { dirname } from 'path';
+import { FileUploadHelpers } from 'tests/utils/playwright-helpers/interactions';
 import { fileURLToPath } from 'url';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 
@@ -20,30 +21,60 @@ export class UploadDocs {
   }
 
   async uploadPhoto(locator: string, fileName: string): Promise<Locator> {
-    let requestUrl: string | undefined;
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
 
-    // Listen for all network requests
-    this.page.on('request', (request) => {
-      // Check if the request URL matches the pattern you are looking for
-      if (request.url().includes(`${process.env.WEBSITE_URL}`)) {
-        requestUrl = request.url();
-      }
-    });
-
-    const [fileChooser] = await Promise.all([
-      this.page.waitForEvent('filechooser'),
-      this.page.locator(locator).click(),
-    ]);
-
     const filePath = path.join(this.getPathToProjectRoot(__dirname), `/images-for-tests/${fileName}`);
-    await fileChooser.setFiles(filePath);
-    await expect(this.page.getByTestId(dataTestIds.fileCardUploadingButton)).toBeVisible({ visible: false });
 
-    expect(requestUrl).toBeDefined();
-    const uploadedPhoto = this.page.locator(`img[src*="${requestUrl}"]`);
-    await expect(uploadedPhoto).toBeVisible();
+    // Extract id value from selector (supports both #id and [id="value"] formats)
+    let idValue: string;
+    if (locator.startsWith('#')) {
+      idValue = locator.replace('#', '');
+    } else if (locator.startsWith('[id=')) {
+      const match = locator.match(/\[id=["']([^"']+)["']\]/);
+      idValue = match ? match[1] : locator;
+    } else {
+      idValue = locator;
+    }
+
+    // Check if THIS specific field has "Click to re-upload" link (scoped to field container)
+    const fieldContainer = this.page.locator(`[for="${idValue}"]`).locator('..');
+    const reuploadLink = fieldContainer.getByText('Click to re-upload');
+    const hasReupload = (await reuploadLink.count()) > 0;
+
+    // If the field is already uploaded in this session (CardDisplay renders instead
+    // of an Upload button), the Clear button will be present. Refilling is a no-op —
+    // return the existing image without re-invoking the file chooser (which would
+    // time out looking for the missing Upload button).
+    const clearButton = fieldContainer.getByTestId(dataTestIds.fileCardClearButton);
+    const alreadyUploaded = (await clearButton.count()) > 0;
+
+    if (alreadyUploaded && !hasReupload) {
+      const existing = fieldContainer.locator('img').first();
+      await expect(existing).toBeVisible({ timeout: 5000 });
+      return existing;
+    }
+
+    if (hasReupload) {
+      // File already uploaded, use reupload helper
+      await FileUploadHelpers.reuploadFile(this.page, locator, filePath);
+    } else {
+      // File not uploaded yet, use regular upload helper
+      await FileUploadHelpers.uploadFile(this.page, locator, filePath);
+    }
+
+    await expect(fieldContainer.getByTestId(dataTestIds.fileCardUploadingButton)).toHaveCount(0, { timeout: 60000 });
+    await expect(fieldContainer.getByTestId(dataTestIds.fileCardClearButton)).toHaveCount(1, { timeout: 60000 });
+
+    // Find the uploaded image within the field container
+    // The image src will be a blob URL (created via URL.createObjectURL)
+    const uploadedPhoto = fieldContainer.locator('img').first();
+    await expect(uploadedPhoto).toBeVisible({ timeout: 60000 });
+
+    // Verify the image has a valid src (should be a blob URL)
+    const imageSrc = await uploadedPhoto.getAttribute('src');
+    expect(imageSrc).toBeTruthy();
+
     return uploadedPhoto;
   }
 

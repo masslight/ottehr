@@ -1,14 +1,20 @@
-import { GetVisitLabelInput, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { GetVisitLabelInput } from 'utils/lib/types/common';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { z } from 'zod';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
+
+const GetVisitLabelBodySchema = z.object({
+  encounterId: z.string().uuid(),
+});
 
 export function validateRequestParameters(input: ZambdaInput): GetVisitLabelInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { encounterId } = JSON.parse(input.body) as GetVisitLabelInput;
-
-  if (!encounterId) throw MISSING_REQUIRED_PARAMETERS([encounterId]);
+  const parsed = safeJsonParse(input.body);
+  const { encounterId } = safeValidate(GetVisitLabelBodySchema, parsed);
 
   return {
     encounterId,

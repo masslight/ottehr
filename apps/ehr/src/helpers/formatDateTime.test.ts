@@ -1,12 +1,12 @@
 import { DateTime } from 'luxon';
-import { calculatePatientAge } from 'utils';
+import { calculatePatientAge, formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   datesCompareFn,
-  formatDateUsingSlashes,
   formatHourNumber,
   formatISODateToLocaleDate,
   formatISOStringToDateAndTime,
+  formatVisitDateTimeWithZone,
   getTimezone,
 } from './formatDateTime';
 
@@ -77,15 +77,15 @@ describe('formatDateTime helpers', () => {
 
   describe('formatDateUsingSlashes', () => {
     it('should format date using slashes', () => {
-      expect(formatDateUsingSlashes('2023-05-15')).toBe('05/15/2023');
+      expect(formatDateForDisplay('2023-05-15')).toBe('05/15/2023');
     });
 
     it('should return undefined for undefined input', () => {
-      expect(formatDateUsingSlashes(undefined)).toBeUndefined();
+      expect(formatDateForDisplay(undefined)).toBe('');
     });
 
     it('should handle invalid date strings', () => {
-      expect(formatDateUsingSlashes('invalid-date')).toBe('Invalid DateTime');
+      expect(formatDateForDisplay('invalid-date')).toBe('');
     });
   });
 
@@ -165,6 +165,24 @@ describe('formatDateTime helpers', () => {
     it('should return default timezone if extension array is empty', () => {
       const location = { extension: [] };
       expect(getTimezone(location as any)).toBe('America/New_York');
+    });
+  });
+
+  describe('formatVisitDateTimeWithZone', () => {
+    it('uses the office IANA timezone and generic regional abbreviation', () => {
+      expect(formatVisitDateTimeWithZone('2026-07-02T15:30:00.000Z', 'America/New_York')).toBe(
+        '07/02/2026 11:30 AM ET'
+      );
+    });
+
+    it('falls back to the explicit offset carried by an older payload', () => {
+      expect(formatVisitDateTimeWithZone('2026-04-11T09:30:00.000-04:00')).toBe('04/11/2026 09:30 AM UTC-4');
+    });
+
+    it('falls back to the explicit offset when an invalid IANA timezone is supplied', () => {
+      expect(formatVisitDateTimeWithZone('2026-04-11T09:30:00.000-04:00', 'Not/A_Zone')).toBe(
+        '04/11/2026 09:30 AM UTC-4'
+      );
     });
   });
 });

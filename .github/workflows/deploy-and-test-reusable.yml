@@ -1,0 +1,453 @@
+name: Deploy and Test Pipeline (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      should_run_deploy:
+        required: true
+        type: boolean
+      node_version:
+        required: true
+        type: string
+      aws_deploy_role:
+        required: true
+        type: string
+      secrets_repository:
+        required: true
+        type: string
+      run_automated_tests:
+        required: false
+        type: boolean
+        default: true
+      run_ehr_e2e:
+        required: false
+        type: boolean
+        default: true
+      run_intake_e2e:
+        required: false
+        type: boolean
+        default: true
+      pr_body:
+        required: false
+        type: string
+        default: ""
+      github_ref:
+        required: true
+        type: string
+      is_pull_request:
+        required: true
+        type: boolean
+
+jobs:
+  deploy:
+    if: inputs.should_run_deploy
+    runs-on: ubuntu-latest-8-cores
+    timeout-minutes: 25
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
+    steps:
+      - name: Log deployment info
+        run: |
+          echo "Deploying to environment: ${{ inputs.environment }}"
+          echo "Branch: ${{ inputs.github_ref }}"
+
+      - name: Checkout repository
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      # This job applies terraform before any test job pulls config out of the state, so it is the one
+      # that seeds the provider cache for the rest of the run.
+      - name: Cache Terraform providers
+        uses: ./.github/actions/terraform-plugin-cache
+
+      - name: HashiCorp - Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: "1.12.2"
+
+      - name: Cache node modules
+        id: npm-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            deploy/node_modules
+          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-cache-
+
+      - name: Install dependencies
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: for i in {1..3}; do npm ci && s=0 && break || s=$? && sleep 5; done; (exit $s)
+
+      - name: Resolve secrets branch
+        id: resolve-secrets
+        uses: ./.github/actions/resolve-secrets-branch
+        with:
+          core-branch: ${{ github.head_ref || github.ref_name }}
+          secrets-repository: ${{ inputs.secrets_repository }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          token: ${{ github.token }}
+
+      - name: Check out secrets repo
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
+        with:
+          repository: ${{ inputs.secrets_repository }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          ref: ${{ steps.resolve-secrets.outputs.branch }}
+          path: "secrets"
+
+      - name: Populate and validate secrets
+        uses: ./.github/actions/populate-secrets
+        with:
+          environment: ${{ inputs.environment }}
+
+      - name: Configure AWS Credentials
+        id: configure-aws-credentials
+        uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3.0.2
+        with:
+          role-to-assume: ${{ inputs.aws_deploy_role }}
+          aws-region: us-east-1
+          output-credentials: true
+
+      - name: Configure AWS CLI
+        run: |
+          aws_profile=$(grep '"aws_profile"' "scripts/deploy/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+          if [ -z "$aws_profile" ]; then
+            aws_profile=$(grep "profile" "deploy/backend.config" | sed 's/.* = "\(.*\)".*/\1/')
+          fi
+          profile="${aws_profile:-ottehr}"
+          echo "Using AWS profile: ${profile}"
+          aws configure --profile "${profile}" set aws_access_key_id ${{ steps.configure-aws-credentials.outputs.aws-access-key-id }}
+          aws configure --profile "${profile}" set aws_secret_access_key ${{ steps.configure-aws-credentials.outputs.aws-secret-access-key }}
+          aws configure --profile "${profile}" set aws_session_token ${{ steps.configure-aws-credentials.outputs.aws-session-token }}
+          aws configure --profile "${profile}" set region us-east-1
+
+      - name: Deploy Ottehr Resources Using Terraform
+        working-directory: deploy
+        run: |
+          ENV="${{ inputs.environment }}"
+          npm run terraform-init -- -input=false
+          npm run apply-$ENV
+
+  # Builds the EHR bundle that the E2E job serves. Deliberately has no `needs`, so it runs alongside
+  # the terraform apply rather than adding its ~60s to the critical path once testing starts.
+  #
+  # The env file it builds against is generated from terraform state, which the apply running next to
+  # it can change. Rather than serialize behind the apply, the .env used is uploaded with the bundle
+  # and the E2E job compares it against its own post-apply copy, discarding the bundle and building
+  # normally if they differ. Stale config therefore costs a rebuild, never a wrong test result.
+  build-ehr-bundle:
+    if: |
+      always() && !cancelled() && inputs.run_ehr_e2e &&
+      (github.event_name != 'pull_request' || !contains(inputs.pr_body, '/skip-ehr-e2e'))
+    # Purely an optimization, so it must never fail the pipeline. It reads terraform state while the
+    # apply is writing it, which can fail transiently; if it does, no artifact is produced, the E2E
+    # job's download is a no-op and it builds in-job exactly as it did before this job existed.
+    continue-on-error: true
+    runs-on: ubuntu-latest-8-cores
+    timeout-minutes: 20
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Restore node modules
+        id: npm-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            deploy/node_modules
+          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-cache-
+
+      - name: Install dependencies
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: for i in {1..3}; do npm ci && s=0 && break || s=$? && sleep 5; done; (exit $s)
+
+      - name: Resolve secrets branch
+        id: resolve-secrets
+        uses: ./.github/actions/resolve-secrets-branch
+        with:
+          core-branch: ${{ github.head_ref || github.ref_name }}
+          secrets-repository: ${{ inputs.secrets_repository }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          token: ${{ github.token }}
+
+      - name: Check out secrets repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ inputs.secrets_repository }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          ref: ${{ steps.resolve-secrets.outputs.branch }}
+          path: "secrets"
+
+      - name: Populate and validate secrets
+        uses: ./.github/actions/populate-secrets
+        with:
+          environment: ${{ inputs.environment }}
+          copy-test-config-files: true
+          aws-deploy-role: ${{ inputs.aws_deploy_role }}
+          pull-generated-config-from-terraform-state: true
+
+      - name: Build EHR bundle
+        working-directory: apps/ehr
+        env:
+          ENV: ${{ inputs.environment }}
+          NODE_OPTIONS: "--max-old-space-size=8192"
+        run: |
+          npx turbo run build --filter=ehr-ui^...
+          npm run build-bundle
+
+      # Ship the env this was built against under a distinct name, so downloading it can't clobber the
+      # copy the E2E job generates for itself — comparing the two is the whole point.
+      - name: Record the env the bundle was built against
+        run: cp "apps/ehr/env/.env.${{ inputs.environment }}" "apps/ehr/env/.env.${{ inputs.environment }}.prebuilt"
+
+      - name: Upload EHR bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ehr-bundle-${{ inputs.environment }}
+          path: |
+            apps/ehr/build
+            apps/ehr/env/.env.${{ inputs.environment }}.prebuilt
+          retention-days: 1
+          include-hidden-files: true
+
+  # The intake counterpart of build-ehr-bundle above; same optimistic-build-and-verify contract. Deliberately has no `needs`, so it runs alongside
+  # the terraform apply rather than adding its ~60s to the critical path once testing starts.
+  #
+  # The env file it builds against is generated from terraform state, which the apply running next to
+  # it can change. Rather than serialize behind the apply, the .env used is uploaded with the bundle
+  # and the E2E job compares it against its own post-apply copy, discarding the bundle and building
+  # normally if they differ. Stale config therefore costs a rebuild, never a wrong test result.
+  build-intake-bundle:
+    if: |
+      always() && !cancelled() && inputs.run_intake_e2e &&
+      (github.event_name != 'pull_request' || !contains(inputs.pr_body, '/skip-intake-e2e'))
+    # Purely an optimization, so it must never fail the pipeline. It reads terraform state while the
+    # apply is writing it, which can fail transiently; if it does, no artifact is produced, the E2E
+    # job's download is a no-op and it builds in-job exactly as it did before this job existed.
+    continue-on-error: true
+    runs-on: ubuntu-latest-8-cores
+    timeout-minutes: 20
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Restore node modules
+        id: npm-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            deploy/node_modules
+          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-cache-
+
+      - name: Install dependencies
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: for i in {1..3}; do npm ci && s=0 && break || s=$? && sleep 5; done; (exit $s)
+
+      - name: Resolve secrets branch
+        id: resolve-secrets
+        uses: ./.github/actions/resolve-secrets-branch
+        with:
+          core-branch: ${{ github.head_ref || github.ref_name }}
+          secrets-repository: ${{ inputs.secrets_repository }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          token: ${{ github.token }}
+
+      - name: Check out secrets repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ inputs.secrets_repository }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          ref: ${{ steps.resolve-secrets.outputs.branch }}
+          path: "secrets"
+
+      - name: Populate and validate secrets
+        uses: ./.github/actions/populate-secrets
+        with:
+          environment: ${{ inputs.environment }}
+          copy-test-config-files: true
+          aws-deploy-role: ${{ inputs.aws_deploy_role }}
+          pull-generated-config-from-terraform-state: true
+
+      - name: Build intake bundle
+        working-directory: apps/intake
+        env:
+          ENV: ${{ inputs.environment }}
+          NODE_OPTIONS: "--max-old-space-size=8192"
+        run: |
+          npx turbo run build --filter=intake-ui^...
+          npm run build-bundle
+
+      # Ship the env this was built against under a distinct name, so downloading it can't clobber the
+      # copy the E2E job generates for itself — comparing the two is the whole point.
+      - name: Record the env the bundle was built against
+        run: cp "apps/intake/env/.env.${{ inputs.environment }}" "apps/intake/env/.env.${{ inputs.environment }}.prebuilt"
+
+      - name: Upload intake bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: intake-bundle-${{ inputs.environment }}
+          path: |
+            apps/intake/build
+            apps/intake/env/.env.${{ inputs.environment }}.prebuilt
+          retention-days: 1
+          include-hidden-files: true
+
+  automated-tests:
+    needs: deploy
+    if: |
+      always() && !cancelled() &&
+      (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') &&
+      inputs.run_automated_tests &&
+      !contains(inputs.pr_body, '/skip-automated-tests')
+    uses: ./.github/workflows/automated-tests.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+
+  ehr-e2e-tests:
+    # Depends on build-ehr-bundle only for ordering: without it this job can reach its download step
+    # before the bundle is uploaded, silently fall back to building in-job, and quietly lose the
+    # saving. The if: below deliberately doesn't gate on that job's result — it is
+    # continue-on-error, and a failed or skipped build must still let the tests run and build
+    # for themselves.
+    needs: [deploy, build-ehr-bundle]
+    if: |
+      always() && !cancelled() &&
+      (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') &&
+      inputs.run_ehr_e2e
+    uses: ./.github/workflows/e2e-ehr.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      aws_deploy_role: ${{ inputs.aws_deploy_role }}
+
+  intake-e2e-tests:
+    # Depends on build-intake-bundle only for ordering: without it this job can reach its download step
+    # before the bundle is uploaded, silently fall back to building in-job, and quietly lose the
+    # saving. The if: below deliberately doesn't gate on that job's result — it is
+    # continue-on-error, and a failed or skipped build must still let the tests run and build
+    # for themselves.
+    needs: [deploy, build-intake-bundle]
+    if: |
+      always() && !cancelled() &&
+      (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') &&
+      inputs.run_intake_e2e
+    uses: ./.github/workflows/e2e-intake.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      aws_deploy_role: ${{ inputs.aws_deploy_role }}
+
+  # Create status check aliases for required checks
+  status-aliases:
+    needs: [deploy, ehr-e2e-tests, intake-e2e-tests]
+    if: always() && !cancelled() && inputs.is_pull_request
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Check for skip commands
+        env:
+          HAS_SKIP_BUILD_AND_LINT: ${{ contains(inputs.pr_body, '/skip-build-and-lint') }}
+          HAS_SKIP_AUTOMATED_TESTS: ${{ contains(inputs.pr_body, '/skip-automated-tests') }}
+          HAS_SKIP_EHR_E2E: ${{ contains(inputs.pr_body, '/skip-ehr-e2e') }}
+          HAS_SKIP_INTAKE_E2E: ${{ contains(inputs.pr_body, '/skip-intake-e2e') }}
+          HAS_SKIP_TERRAFORM_APPLY: ${{ contains(inputs.pr_body, '/skip-terraform-apply') }}
+        run: |
+          FOUND_COMMANDS=()
+
+          [ "$HAS_SKIP_BUILD_AND_LINT" == "true" ] && FOUND_COMMANDS+=("/skip-build-and-lint")
+          [ "$HAS_SKIP_AUTOMATED_TESTS" == "true" ] && FOUND_COMMANDS+=("/skip-automated-tests")
+          [ "$HAS_SKIP_EHR_E2E" == "true" ] && FOUND_COMMANDS+=("/skip-ehr-e2e")
+          [ "$HAS_SKIP_INTAKE_E2E" == "true" ] && FOUND_COMMANDS+=("/skip-intake-e2e")
+          [ "$HAS_SKIP_TERRAFORM_APPLY" == "true" ] && FOUND_COMMANDS+=("/skip-terraform-apply")
+
+          if [ ${#FOUND_COMMANDS[@]} -gt 0 ]; then
+            echo "Found skip commands in PR description:"
+            for cmd in "${FOUND_COMMANDS[@]}"; do
+              echo "  - $cmd"
+            done
+            echo ""
+            echo "Skip commands are not allowed for merging. Please remove them before merging."
+            exit 1
+          fi
+
+          echo "No skip commands found"
+
+      - name: Create EHR E2E status alias
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ehrJob = '${{ needs.ehr-e2e-tests.result }}';
+            // Treat skipped as success (tests skipped due to no relevant changes is acceptable)
+            const conclusion = ehrJob === 'success' || ehrJob === 'skipped' ? 'success' : ehrJob === 'failure' ? 'failure' : 'error';
+            const description = ehrJob === 'skipped' ? 'EHR E2E tests: skipped (no relevant changes)' : `EHR E2E tests: ${conclusion}`;
+
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: conclusion,
+              context: 'ehr-e2e-tests',
+              description: description,
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            });
+
+      - name: Create Intake E2E status alias
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const intakeJob = '${{ needs.intake-e2e-tests.result }}';
+            // Treat skipped as success (tests skipped due to no relevant changes is acceptable)
+            const conclusion = intakeJob === 'success' || intakeJob === 'skipped' ? 'success' : intakeJob === 'failure' ? 'failure' : 'error';
+            const description = intakeJob === 'skipped' ? 'Intake E2E tests: skipped (no relevant changes)' : `Intake E2E tests: ${conclusion}`;
+
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: conclusion,
+              context: 'intake-e2e-tests',
+              description: description,
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            });

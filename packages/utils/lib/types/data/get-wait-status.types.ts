@@ -1,4 +1,4 @@
-import { TelemedAppointmentStatus } from 'utils';
+import { AppointmentType, VisitStatusHistoryLabel } from '../api/appointment.types';
 
 export interface WaitingRoomInput {
   appointmentID: string;
@@ -6,7 +6,8 @@ export interface WaitingRoomInput {
 }
 
 export interface WaitingRoomResponse {
-  status: TelemedAppointmentStatus;
+  appointmentType: AppointmentType;
+  status: VisitStatusHistoryLabel;
   estimatedTime?: number;
   encounterId?: string;
 }

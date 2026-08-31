@@ -1,17 +1,18 @@
 import Oystehr from '@oystehr/sdk';
-import { Appointment, CodeableConcept, Encounter } from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import { Appointment, CodeableConcept, Consent, DocumentReference, Encounter } from 'fhir/r4b';
+import { CODE_SYSTEM_SERVICE_CATEGORY_CODES } from '../helpers/rcm/constants';
+import { AppointmentAttendanceType, AppointmentType } from '../types/api/appointment.types';
+import { REASON_FOR_VISIT_SEPARATOR, TELEMED_VIDEO_ROOM_CODE } from '../types/constants';
+import { EncounterVirtualServiceExtension } from '../types/data/oystehr-api.types.ts/telemed.types';
+import { PAPERWORK_CONSENT_CODE_UNIQUE } from '../types/data/paperwork/paperwork.constants';
 import {
-  AppointmentType,
-  diffInMinutes,
-  EncounterVirtualServiceExtension,
   FHIR_APPOINTMENT_TYPE_MAP,
-  OTTEHR_MODULE,
+  FHIR_ZAPEHR_URL,
   PUBLIC_EXTENSION_BASE_URL,
-  TELEMED_VIDEO_ROOM_CODE,
-  TelemedAppointmentStatusEnum,
-  TelemedStatusHistoryElement,
-} from 'utils';
+  SERVICE_CATEGORY_SYSTEM,
+} from './constants';
+import { getCoding } from './helpers';
+import { OTTEHR_MODULE } from './moduleIdentification';
 
 export async function cancelAppointmentResource(
   appointment: Appointment,
@@ -46,31 +47,6 @@ export async function cancelAppointmentResource(
     throw new Error(`Failed to cancel Appointment: ${JSON.stringify(error)}`);
   }
 }
-
-export const isAppointmentVirtual = (appointment: Appointment): boolean => {
-  return appointment.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM) || false;
-};
-
-export const getAppointmentWaitingTime = (statuses?: TelemedStatusHistoryElement[]): number | undefined => {
-  if (!statuses) {
-    return undefined;
-  }
-
-  const onVideoIndex = statuses?.findIndex((status) => status.status === TelemedAppointmentStatusEnum['on-video']);
-
-  const statusesToWait = onVideoIndex === -1 ? statuses : statuses.slice(0, onVideoIndex);
-
-  const start = statusesToWait.at(0)?.start;
-  const end = statusesToWait.at(-1)?.end;
-
-  if (!start)
-    throw new Error(
-      `Can't getAppointmentWaitingTime because start time of ${JSON.stringify(statusesToWait.at(0))} status is empty`
-    );
-  return end
-    ? diffInMinutes(DateTime.fromISO(end), DateTime.fromISO(start))
-    : diffInMinutes(DateTime.now(), DateTime.fromISO(start));
-};
 
 export async function getAppointmentResourceById(
   appointmentID: string,
@@ -127,4 +103,140 @@ export const appointmentTypeForAppointment = (appointment: Appointment): Appoint
   return appointment.appointmentType?.text
     ? FHIR_APPOINTMENT_TYPE_MAP[appointment.appointmentType?.text] || 'walk-in'
     : 'walk-in';
+};
+
+export const appointmentAttendanceTypeAppointment = (
+  appointment: Appointment
+): AppointmentAttendanceType | undefined => {
+  return appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP)
+    ? 'in-person'
+    : appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM)
+    ? 'virtual'
+    : undefined;
+};
+
+interface GetConsentAndRelatedDocRefsForAppointmentParams {
+  appointmentId: string;
+  patientId: string;
+}
+export interface GetConsentAndRelatedDocRefsForAppointmentResult {
+  consents: Consent[] | undefined;
+  docRefs: DocumentReference[] | undefined;
+}
+
+export const getConsentAndRelatedDocRefsForAppointment = async (
+  input: GetConsentAndRelatedDocRefsForAppointmentParams,
+  oystehr: Oystehr
+): Promise<GetConsentAndRelatedDocRefsForAppointmentResult> => {
+  const { appointmentId, patientId } = input;
+  let docRefs: DocumentReference[] | undefined = undefined;
+  let consents: Consent[] | undefined = undefined;
+  console.log('searching for old consent doc refs');
+  docRefs = (
+    await oystehr.fhir.search<DocumentReference>({
+      resourceType: 'DocumentReference',
+      params: [
+        {
+          name: 'status',
+          value: 'current',
+        },
+        {
+          name: 'type',
+          value: `${PAPERWORK_CONSENT_CODE_UNIQUE.system}|${PAPERWORK_CONSENT_CODE_UNIQUE.code}`,
+        },
+        {
+          name: 'subject',
+          value: `Patient/${patientId}`,
+        },
+        {
+          name: 'related',
+          value: `Appointment/${appointmentId}`,
+        },
+      ],
+    })
+  ).unbundle();
+  if (docRefs?.[0]?.id) {
+    console.log('searching for old consent resources');
+    consents = (
+      await oystehr.fhir.search<Consent>({
+        resourceType: 'Consent',
+        params: [
+          { name: 'patient', value: `Patient/${patientId}` },
+          { name: 'status', value: 'active' },
+          { name: 'source-reference', value: `DocumentReference/${docRefs?.[0]?.id}` },
+        ],
+      })
+    ).unbundle();
+  }
+  return { consents, docRefs };
+};
+
+export const getReasonForVisitFromAppointment = (appointment?: Appointment): string | undefined => {
+  if (!appointment?.description) {
+    return undefined;
+  }
+  const complaints = (appointment?.description ?? '').split(',');
+  return complaints.map((complaint) => complaint.trim()).join(', ');
+};
+
+export const getReasonForVisitAndAdditionalDetailsFromAppointment = (
+  appointment?: Appointment
+): { reasonForVisit?: string; additionalDetails?: string } => {
+  if (!appointment?.description) {
+    return {};
+  }
+  const complaints = (appointment?.description ?? '').split(REASON_FOR_VISIT_SEPARATOR);
+
+  return {
+    reasonForVisit: complaints[0]?.trim(),
+    additionalDetails: complaints[1]
+      ?.trim()
+      .split(',')
+      .map((complaint) => complaint.trim())
+      .join(', '),
+  };
+};
+
+export const isAppointmentWorkersComp = (appointment: Appointment): boolean => {
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  return serviceCategory === CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp'];
+};
+
+export const isAppointmentOccupationalMedicine = (appointment: Appointment): boolean => {
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  return serviceCategory === CODE_SYSTEM_SERVICE_CATEGORY_CODES['occupational-medicine'];
+};
+
+export const isAppointmentPreOp = (appointment: Appointment): boolean => {
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  return serviceCategory === CODE_SYSTEM_SERVICE_CATEGORY_CODES['pre-op'];
+};
+
+export const isAppointmentUrgentCare = (appointment: Appointment): boolean => {
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  return serviceCategory === CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care'];
+};
+
+export const isAppointmentAutoAccident = (appointment: Appointment): boolean => {
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  const { reasonForVisit } = getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
+  return serviceCategory === CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care'] && reasonForVisit === 'Auto accident';
+};
+
+export const getCancellationReasonDisplay = (appointment?: Appointment): string | undefined => {
+  if (!appointment?.cancelationReason?.coding?.[0]) {
+    return undefined;
+  }
+
+  const coding = appointment.cancelationReason.coding[0];
+  const baseDisplay = coding.display;
+  const additionalInfo = coding.extension?.find(
+    (ext) => ext.url === `${FHIR_ZAPEHR_URL}/StructureDefinition/cancellation-reason-additional-info`
+  )?.valueString;
+
+  if (additionalInfo) {
+    return `${baseDisplay} - ${additionalInfo}`;
+  }
+
+  return baseDisplay;
 };

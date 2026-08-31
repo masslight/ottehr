@@ -8,17 +8,19 @@ interface SetDefaultPaymentMethodParams {
 }
 
 export const useSetDefaultPaymentMethod = (
-  beneficiaryPatientId: string | undefined
+  beneficiaryPatientId: string | undefined,
+  appointmentId: string | undefined
 ): UseMutationResult<void, Error, SetDefaultPaymentMethodParams> => {
   const { oystehrZambda: oystehr } = useApiClients();
 
   return useMutation({
     mutationFn: async ({ paymentMethodId, onSuccess, onError }: SetDefaultPaymentMethodParams) => {
-      if (oystehr && beneficiaryPatientId) {
+      if (oystehr && beneficiaryPatientId && appointmentId) {
         return oystehr.zambda
           .execute({
             id: 'payment-methods-set-default',
             beneficiaryPatientId,
+            appointmentId,
             paymentMethodId,
           })
           .then(() => {

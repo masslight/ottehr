@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import {
   Coverage,
   CoverageEligibilityRequest,
@@ -7,13 +8,12 @@ import {
   Organization,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  ELIGIBILITY_BENEFIT_CODES,
-  InsuranceCheckStatusWithDate,
-  InsuranceEligibilityCheckStatus,
-  parseCoverageEligibilityResponse,
-  removeTimeFromDate,
-} from 'utils';
+import { parseCoverageEligibilityResponse } from 'utils/lib/fhir/billing';
+import { findOrgMatchingReference, getPayerUrl } from 'utils/lib/helpers/helpers';
+import { ELIGIBILITY_BENEFIT_CODES } from 'utils/lib/telemed/constants';
+import { InsuranceEligibilityCheckStatus } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { InsuranceCheckStatusWithDate } from 'utils/lib/types/data/telemed/eligibility.types';
+import { removeTimeFromDate } from 'utils/lib/utils/date';
 
 interface InsuranceIds {
   primary: string;
@@ -24,28 +24,12 @@ export const getInsurancePlansAndOrgs = async (
   planIds: InsuranceIds,
   oystehrClient: Oystehr
 ): Promise<Organization[]> => {
-  const orgs = (
-    await oystehrClient.fhir.search<Organization>({
-      resourceType: 'Organization',
-      params: [
-        {
-          name: '_id',
-          value: `${planIds.primary}${planIds.secondary ? `,${planIds.secondary}` : ''}`,
-        },
-      ],
-    })
-  ).unbundle();
+  const orgs = [
+    await oystehrClient.rcm.getPayer({ id: planIds.primary }),
+    ...(planIds.secondary ? [await oystehrClient.rcm.getPayer({ id: planIds.secondary })] : []),
+  ];
 
-  const sorted = orgs.sort((r1, r2) => {
-    if (r1.id === planIds.primary) {
-      return -1;
-    } else if (r2.id === planIds.secondary) {
-      return 1;
-    }
-    return 0;
-  });
-  console.log('sorted', JSON.stringify(sorted, null, 2));
-  return sorted;
+  return orgs;
 };
 
 export interface MakeCoverageEligibilityRequestInput {
@@ -118,15 +102,19 @@ export const parseEligibilityCheckResponsePromiseResult = async (
     return parseCoverageEligibilityResponse(coverageResponse);
   } catch (error: any) {
     console.error('API response included an error', error);
+    captureException(error);
     return { status: InsuranceEligibilityCheckStatus.eligibilityNotChecked, dateISO: now };
   }
 };
 
 export const getPayorRef = (coverage: Coverage, orgs: Organization[]): string | undefined => {
-  const payor = orgs.find((org) => {
-    return coverage.payor.some((res) => {
-      return res.reference === `Organization/${org.id}`;
-    });
-  });
-  return payor ? `Organization/${payor.id}` : undefined;
+  let payor: Organization | undefined;
+  for (const payorRef of coverage.payor) {
+    const match = findOrgMatchingReference(payorRef.reference, orgs);
+    if (match) {
+      payor = match;
+      break;
+    }
+  }
+  return payor ? getPayerUrl(payor.id!) : undefined;
 };

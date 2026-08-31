@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { LoadingSpinner } from 'src/telemed/components/LoadingSpinner';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
+import { useGetWaitStatus } from 'src/telemed/features/waiting-room/waiting-room.queries';
 import { intakeFlowPageRoute } from '../../../App';
-import { LoadingSpinner } from '../../components';
-import { useAppointmentStore } from '../../features/appointments';
-import { useIntakeCommonStore } from '../../features/common';
-import { useGetWaitStatus } from '../../features/waiting-room';
 import CallEndedPage from '../CallEndedPage';
 
 export function IOSCallEndedPage(): JSX.Element {
@@ -24,7 +24,7 @@ export function IOSCallEndedPage(): JSX.Element {
       if (!data) {
         return;
       }
-      if (data?.status == 'complete') {
+      if (data?.status == 'completed') {
         useIntakeCommonStore.setState({ error: 'The call has ended. Please, request another visit' });
         navigate(intakeFlowPageRoute.Homepage.path);
       }

@@ -1,0 +1,9 @@
+{
+  "schema-version": "2025-09-25",
+  "project": {
+    "PROJECT": {
+      "signupEnabled": true,
+      "defaultPatientRoleId": "#{ref/roles/PATIENT/id}"
+    }
+  }
+}

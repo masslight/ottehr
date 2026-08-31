@@ -1,10 +1,9 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import mixpanel from 'mixpanel-browser';
 import React, { useCallback } from 'react';
-import { PROJECT_NAME, PROJECT_WEBSITE } from 'utils';
+import { useIntakeCommonStore } from 'src/features/common/intake-common.store';
+import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
+import { intakeLogo } from '../branding/assets';
 import { useClearStores } from '../features';
-import { useIntakeCommonStore } from '../features/common';
-import { ottehrLogo as logo } from '../themes/ottehr';
 import { ContainerProps, CustomContainer } from './CustomContainerFactory';
 import Footer from './Footer';
 
@@ -18,7 +17,6 @@ export const PageContainer: React.FC<PageContainerProps> = (props) => {
 
   const logoutHandler = useCallback(async () => {
     clearStore(lastUsedLocationPath);
-    mixpanel.reset();
     // for some reason this is necessary to get auth0 to clear out its local state
     void logout({ logoutParams: { returnTo: PROJECT_WEBSITE } });
     void logout({ logoutParams: { localOnly: true } });
@@ -27,8 +25,8 @@ export const PageContainer: React.FC<PageContainerProps> = (props) => {
     ...props,
     logoutHandler,
     footer: <Footer />,
-    logo,
-    alt: `${PROJECT_NAME} In Person`,
+    logo: intakeLogo,
+    alt: `${BRANDING_CONFIG.projectName} In Person`,
   };
   return <CustomContainer showLanguagePicker={true} {...passThroughProps} />;
 };

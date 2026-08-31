@@ -1,18 +1,15 @@
 import Oystehr from '@oystehr/sdk';
-import { Operation } from 'fast-json-patch';
 import { Appointment, Bundle, Coding, Flag, Patient, Resource } from 'fhir/r4b';
 import { diff, IChange } from 'json-diff-ts';
 import { DateTime } from 'luxon';
-import {
-  CRITICAL_CHANGE_SYSTEM,
-  FhirAppointmentType,
-  getCriticalUpdateTagOp,
-  getFullName,
-  STATUS_UPDATE_TAG_SYSTEM,
-} from 'utils';
+import { CRITICAL_CHANGE_SYSTEM, getCriticalUpdateTagOp, STATUS_UPDATE_TAG_SYSTEM } from 'utils/lib/fhir/helpers';
+import { getFullName } from 'utils/lib/fhir/patient';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { GetVisitFaxHistoryOutput } from 'utils/lib/types/api/visit-details/visit-details.types';
+import { FhirAppointmentType } from 'utils/lib/types/common';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { HOP_QUEUE_URI } from '../constants';
 import { appointmentTypeLabels } from '../types/types';
-import { formatDateUsingSlashes } from './formatDateTime';
 
 const CREATED_BY_SYSTEM = 'created-by'; // exists in intake as well
 
@@ -23,6 +20,7 @@ export enum ActivityName {
   movedToNext = 'Moved to next in queue',
   paperworkStarted = 'Paperwork started',
   statusChange = 'Status Update',
+  faxSent = 'Fax Sent',
 }
 export interface ActivityLogData {
   activityDateTimeISO: string | undefined;
@@ -30,6 +28,7 @@ export interface ActivityLogData {
   activityName: ActivityName;
   activityNameSupplement?: string;
   activityBy: string;
+  activityLink?: string;
   moreDetails?: {
     valueBefore: string;
     valueAfter: string;
@@ -40,20 +39,6 @@ export interface NoteHistory {
   note: string;
   noteAddedByAndWhen: string;
 }
-
-export const cleanUpStaffHistoryTag = (resource: Resource, field: string): Operation | undefined => {
-  // going forward we will be using the history of the patient resource so this isn't needed
-  // check if there is a tag to clean up
-  const staffHistoryTagIdx = resource.meta?.tag?.findIndex((tag) => tag.system === `staff-update-history-${field}`);
-  if (staffHistoryTagIdx !== undefined && staffHistoryTagIdx >= 0) {
-    return {
-      op: 'remove',
-      path: `/meta/tag/${staffHistoryTagIdx}`,
-    };
-  } else {
-    return;
-  }
-};
 
 export const getAppointmentAndPatientHistory = async (
   appointment: Appointment | undefined,
@@ -106,13 +91,23 @@ export const getAppointmentAndPatientHistory = async (
   return { patientHistory, appointmentHistory };
 };
 
-export const formatActivityLogs = (
-  appointment: Appointment,
-  appointmentHistory: Appointment[],
-  patientHistory: Patient[],
-  paperworkStartedFlag: Flag | undefined,
-  timezone: string
-): ActivityLogData[] => {
+interface GetActivityLogsInput {
+  appointment: Appointment;
+  appointmentHistory: Appointment[];
+  patientHistory: Patient[];
+  paperworkStartedFlag: Flag | undefined;
+  faxesSent: GetVisitFaxHistoryOutput['faxesSent'] | undefined;
+  timezone: string;
+}
+
+export const formatActivityLogs = ({
+  appointment,
+  appointmentHistory,
+  patientHistory,
+  paperworkStartedFlag,
+  faxesSent,
+  timezone,
+}: GetActivityLogsInput): ActivityLogData[] => {
   const logs: ActivityLogData[] = [];
 
   // check each patient history object against the previous for diffs
@@ -153,8 +148,8 @@ export const formatActivityLogs = (
           activityDateTime: formatActivityDateTime(curPatientHistory.meta?.lastUpdated || '', timezone),
           activityBy: activityBy ? activityBy : 'n/a',
           moreDetails: {
-            valueBefore: formatDateUsingSlashes(previousPatientHistory.birthDate) || '',
-            valueAfter: formatDateUsingSlashes(curPatientHistory.birthDate) || '',
+            valueBefore: formatDateForDisplay(previousPatientHistory.birthDate),
+            valueAfter: formatDateForDisplay(curPatientHistory.birthDate),
           },
         };
         logs.push(dobChangeActivityLog);
@@ -205,6 +200,17 @@ export const formatActivityLogs = (
       }
     });
   }
+
+  faxesSent?.forEach((fax) => {
+    logs.push({
+      activityName: ActivityName.faxSent,
+      activityNameSupplement: formatPhoneNumberDisplay(fax.recipientNumber),
+      activityDateTimeISO: fax.created,
+      activityDateTime: formatActivityDateTime(fax.created || '', timezone),
+      activityBy: fax.sender.display || 'n/a',
+      activityLink: fax.sender.id ? `/admin/employee/${fax.sender.id}` : undefined,
+    });
+  });
 
   if (paperworkStartedFlag) {
     const paperworkStartedActivityLog = formatPaperworkStartedLog(paperworkStartedFlag, timezone);
@@ -283,7 +289,7 @@ const getStatusToDisplay = (diff: IChange): string => {
 
 export const formatActivityDateTime = (dateTime: string, timezone: string): string => {
   const date = DateTime.fromISO(dateTime).setZone(timezone);
-  const dateFormatted = formatDateUsingSlashes(date.toISO() || '');
+  const dateFormatted = formatDateForDisplay(date.toISO() || '');
   const timeFormatted = date.toLocaleString(DateTime.TIME_SIMPLE);
   const timezoneShort = date.offsetNameShort;
   return `${dateFormatted} ${timeFormatted} ${timezoneShort ?? ''}`;
@@ -323,4 +329,4 @@ export const formatNotesHistory = (timezone: string, appointmentHistory: Appoint
   return notes;
 };
 
-export { getCriticalUpdateTagOp, CRITICAL_CHANGE_SYSTEM };
+export { CRITICAL_CHANGE_SYSTEM, getCriticalUpdateTagOp };

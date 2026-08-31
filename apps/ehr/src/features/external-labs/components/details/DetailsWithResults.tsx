@@ -1,30 +1,41 @@
-import { Button, Typography } from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { LabOrderDetailedPageDTO, TaskReviewedParameters } from 'utils';
-import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { PageTitleStyled } from 'src/features/visits/shared/components/PageTitle';
+import {
+  LabOrderDetailedPageDTO,
+  ReflexLabDTO,
+  TaskReviewedParameters,
+  UnsolicitedLabDTO,
+} from 'utils/lib/types/data/labs/labs.types';
 import { OrderCollection } from '../OrderCollection';
 import { ResultItem } from './ResultItem';
 
 export const DetailsWithResults: React.FC<{
-  labOrder: LabOrderDetailedPageDTO;
-  markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId: string }) => Promise<void>;
+  labOrder: LabOrderDetailedPageDTO | UnsolicitedLabDTO | ReflexLabDTO;
+  markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId?: string }) => Promise<void>;
   loading: boolean;
-}> = ({ labOrder, markTaskAsReviewed, loading }) => {
-  const navigate = useNavigate();
-  console.log('labOrder', labOrder);
+  onBack: () => void;
+}> = ({ labOrder, markTaskAsReviewed, loading, onBack }) => {
+  const drCentricResult = 'drCentricResultType' in labOrder || 'isUnsolicited' in labOrder;
 
-  const handleBack = (): void => {
-    navigate(-1);
-  };
+  let serviceRequestId: string | undefined, appointmentId: string | undefined;
+  if (!drCentricResult) {
+    serviceRequestId = labOrder.serviceRequestId;
+    appointmentId = labOrder.appointmentId;
+  }
 
   return (
-    <>
-      <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
+    <Box data-testid={dataTestIds.externalLabs.detailsPg.pageContainer}>
+      <PageTitleStyled>
+        ({labOrder.testItemCode}) {labOrder.testItem}
+      </PageTitleStyled>
 
-      <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-        {labOrder.diagnoses}
-      </Typography>
+      {!drCentricResult && (
+        <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+          {labOrder.diagnoses}
+        </Typography>
+      )}
 
       {labOrder.resultsDetails.map((result, idx) => (
         <ResultItem
@@ -32,9 +43,9 @@ export const DetailsWithResults: React.FC<{
           onMarkAsReviewed={() =>
             markTaskAsReviewed({
               taskId: result.taskId,
-              serviceRequestId: labOrder.serviceRequestId,
+              serviceRequestId: serviceRequestId,
               diagnosticReportId: result.diagnosticReportId,
-              appointmentId: labOrder.appointmentId,
+              appointmentId: appointmentId,
             })
           }
           resultDetails={result}
@@ -43,7 +54,15 @@ export const DetailsWithResults: React.FC<{
         />
       ))}
 
-      <OrderCollection showActionButtons={false} showOrderInfo={false} isAOECollapsed={true} labOrder={labOrder} />
+      {!drCentricResult && (
+        <OrderCollection
+          showActionButtons={false}
+          showOrderInfo={false}
+          isAOECollapsed={true}
+          labOrder={labOrder}
+          onBack={onBack}
+        />
+      )}
 
       <Button
         variant="outlined"
@@ -55,10 +74,10 @@ export const DetailsWithResults: React.FC<{
           marginTop: 2,
           textTransform: 'none',
         }}
-        onClick={handleBack}
+        onClick={onBack}
       >
         Back
       </Button>
-    </>
+    </Box>
   );
 };

@@ -1,7 +1,17 @@
 import Oystehr from '@oystehr/sdk';
-import { NOT_AUTHORIZED, PaymentMethodSetDefaultParameters, Secrets } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { PaymentMethodSetDefaultParameters } from 'utils/lib/types/data/payment/payment-method-types';
+import { MISSING_REQUEST_BODY, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { z } from 'zod';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 import { getStripeCustomerId } from '../helpers';
+
+const PaymentMethodSetDefaultBodySchema = z.object({
+  beneficiaryPatientId: z.string().uuid(),
+  paymentMethodId: z.string().min(1),
+  appointmentId: z.string().uuid(),
+});
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -10,22 +20,19 @@ export function validateRequestParameters(
   if (!authorization) {
     throw NOT_AUTHORIZED;
   }
+
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  const { beneficiaryPatientId, paymentMethodId } = JSON.parse(input.body);
-
-  if (!beneficiaryPatientId) {
-    throw new Error('beneficiaryPatientId is not defined');
-  }
-
-  if (!paymentMethodId) {
-    throw new Error('paymentMethodId is not defined');
-  }
+  const { beneficiaryPatientId, paymentMethodId, appointmentId } = safeValidate(
+    PaymentMethodSetDefaultBodySchema,
+    safeJsonParse(input.body)
+  );
 
   return {
     beneficiaryPatientId,
+    appointmentId,
     paymentMethodId,
     secrets: input.secrets,
   };
@@ -33,6 +40,7 @@ export function validateRequestParameters(
 
 interface ComplexValidationInput {
   patientId: string;
+  appointmentId: string;
   oystehrClient: Oystehr;
 }
 export async function complexValidation(input: ComplexValidationInput): Promise<{ stripeCustomerId: string }> {

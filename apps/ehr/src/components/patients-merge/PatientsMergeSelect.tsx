@@ -18,9 +18,11 @@ import {
 import { Patient } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
-import { getFullName, standardizePhoneNumber } from 'utils';
-import { formatDateUsingSlashes } from '../../helpers/formatDateTime';
-import { ConfirmationDialog, DeleteIconButton } from '../../telemed';
+import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { getFullName } from 'utils/lib/fhir/patient';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { RoundedButton } from '../RoundedButton';
 import { useGetPatientById, useGetPatientsForMerge } from './queries';
 
@@ -54,7 +56,7 @@ export const PatientsMergeSelect: FC<PatientsMergeSelectProps> = (props) => {
         return {
           pid: patient.id!,
           name: getFullName(patient),
-          dob: formatDateUsingSlashes(patient.birthDate),
+          dob: formatDateForDisplay(patient.birthDate),
           primaryNumber: standardizePhoneNumber(isPatientNumberPrimary ? patientNumber : parentNumber),
           secondaryNumber: standardizePhoneNumber(isPatientNumberPrimary ? parentNumber : patientNumber),
         };

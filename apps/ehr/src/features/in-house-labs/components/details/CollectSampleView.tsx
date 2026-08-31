@@ -17,18 +17,17 @@ import {
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getOrCreateVisitLabel } from 'src/api/api';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { usePrintVisitLabel } from 'src/features/visits/shared/hooks/usePrintVisitLabel';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import {
-  getFormattedDiagnoses,
-  InHouseOrderDetailPageItemDTO,
-  LoadingState,
-  MarkAsCollectedData,
-  PageName,
-} from 'utils';
+import { getFormattedDiagnoses } from 'utils/lib/helpers/in-house-labs';
+import { LoadingState, PageName } from 'utils/lib/types/data/in-house/in-house.constants';
+import { InHouseOrderDetailPageItemDTO, MarkAsCollectedData } from 'utils/lib/types/data/in-house/in-house.types';
 import { useApiClients } from '../../../../hooks/useAppClients';
-import { useAppointmentData } from '../../../../telemed/state/appointment/appointment.store';
 import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
 
 interface CollectSampleViewProps {
@@ -44,7 +43,6 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
   onSubmit,
   setLoadingState,
 }) => {
-  console.log('Props', testDetails);
   const [showSampleCollection, setShowSampleCollection] = useState(true);
   const [sourceType, setSourceType] = useState('');
   const [collectedById, setCollectedById] = useState('');
@@ -59,6 +57,9 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
   const { encounter } = useAppointmentData();
   const currentUser = useEvolveUser();
   const [loading, setLoading] = useState(false);
+  const isSubmitting = useRef(false);
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { printVisitLabel } = usePrintVisitLabel();
 
   // set default collected by to current user if no choice made
   useEffect(() => {
@@ -81,11 +82,15 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
   };
 
   const handleMarkAsCollected = async (): Promise<void> => {
+    if (isSubmitting.current) return;
+    isSubmitting.current = true;
     setLoading(true);
     setError('');
     const isoDate = date.toISO();
     if (!isoDate) {
       setError('Issue parsing date');
+      setLoading(false);
+      isSubmitting.current = false;
       return;
     }
     try {
@@ -102,6 +107,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
       setError(sdkError.message);
     } finally {
       setLoading(false);
+      isSubmitting.current = false;
     }
   };
 
@@ -117,7 +123,8 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
       }
 
       const labelPdf = labelPdfs[0];
-      window.open(labelPdf.presignedURL, '_blank');
+
+      await printVisitLabel({ pdfPresignedUrl: labelPdf?.presignedURL ?? '', encounterId: encounter.id });
       setLabelButtonLoading(false);
     }
   };
@@ -173,6 +180,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
           <Box sx={{ p: 3 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
               <Typography
+                data-testid={dataTestIds.collectSamplePage.testName}
                 variant="h5"
                 sx={{
                   fontSize: '1.5rem',
@@ -183,6 +191,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
                 {testDetails.testItemName}
               </Typography>
               <Box
+                data-testid={dataTestIds.collectSamplePage.status}
                 sx={{
                   bgcolor: '#E8EAED',
                   color: '#5F6368',
@@ -221,6 +230,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
                   <Grid container spacing={2} sx={{ padding: '4px 0 20px 0' }}>
                     <Grid item xs={12}>
                       <TextField
+                        data-testid={dataTestIds.collectSamplePage.source}
                         fullWidth
                         label="Source"
                         value={sourceType}
@@ -264,6 +274,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
 
                     <Grid item xs={12}>
                       <TextField
+                        data-testid={dataTestIds.collectSamplePage.collectedBy}
                         fullWidth
                         select
                         label="Collected by"
@@ -317,6 +328,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
 
                     <Grid item xs={6}>
                       <TextField
+                        data-testid={dataTestIds.collectSamplePage.collectionDate}
                         fullWidth
                         label="Collection date"
                         type="date"
@@ -363,6 +375,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
                     <Grid item xs={6}>
                       <FormControl fullWidth>
                         <TextField
+                          data-testid={dataTestIds.collectSamplePage.collectionTime}
                           label="Collection time"
                           type="time"
                           value={timeValue}
@@ -437,10 +450,11 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
               </Button>
 
               <LoadingButton
+                data-testid={dataTestIds.collectSamplePage.markCollectedButton}
                 loading={loading}
                 variant="contained"
                 onClick={handleMarkAsCollected}
-                disabled={!sourceType || !collectedById || !date.isValid}
+                disabled={!collectedById || !date.isValid || isReadOnly || loading}
                 sx={{
                   borderRadius: '20px',
                   px: 3,

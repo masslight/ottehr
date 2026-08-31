@@ -1,0 +1,46 @@
+import DeleteIcon from '@mui/icons-material/DeleteOutlined';
+import { Box, Button, Typography } from '@mui/material';
+import { FC } from 'react';
+import { PHONE_NOT_ON_FILE } from 'utils/lib/types/constants';
+import { PlacesResult } from 'utils/lib/types/data/search-places';
+
+export interface PharmacyDisplayProps {
+  selectedPlace: PlacesResult;
+  clearPharmacyData: () => void;
+  dataTestIds: { text: string; button: string };
+}
+
+export const PharmacyDisplay: FC<PharmacyDisplayProps> = (props: PharmacyDisplayProps) => {
+  const { selectedPlace, clearPharmacyData, dataTestIds } = props;
+
+  const handleResetPharmacySelection = (): void => {
+    clearPharmacyData();
+  };
+
+  return (
+    <Box display="flex" justifyContent="space-between" alignItems="center">
+      <Box data-testid={dataTestIds.text}>
+        <Typography>{selectedPlace.name}</Typography>
+        <Typography variant="body2" color="text.secondary">
+          {selectedPlace.address}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {selectedPlace.phone || PHONE_NOT_ON_FILE}
+        </Typography>
+      </Box>
+      <Box>
+        <Button
+          data-testid={dataTestIds.button}
+          onClick={handleResetPharmacySelection}
+          sx={{
+            textTransform: 'none',
+            borderRadius: 28,
+            fontWeight: 'bold',
+          }}
+        >
+          <DeleteIcon sx={{ color: '#B22020' }} />
+        </Button>
+      </Box>
+    </Box>
+  );
+};

@@ -1,5 +1,5 @@
+import { type AnswerLoadingOptions } from 'config-types';
 import {
-  FhirResource,
   QuestionnaireItem,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
@@ -7,7 +7,7 @@ import {
 } from 'fhir/r4b';
 import { AvailableLocationInformation, FileURLs, PatientBaseInfo } from '../../common';
 import { PaperworkResponse } from '../paperwork.types';
-import { VisitType } from '../telemed';
+import type { VisitType } from '../telemed/appointments/create-appointment.types';
 
 export interface UpdatePaperworkInput {
   appointmentID: string;
@@ -23,7 +23,7 @@ export interface UpdatePaperworkResponse {
 
 export interface QuestionnaireItemConditionDefinition {
   question: string;
-  operator: '=' | '!=' | '>' | '<' | '>=' | '<=';
+  operator: '=' | '!=' | '>' | '<' | '>=' | '<=' | 'exists';
   answerString?: string;
   answerBoolean?: boolean;
   answerDate?: string;
@@ -40,30 +40,28 @@ export interface QuestionnaireItemTextWhen extends QuestionnaireItemConditionDef
   substituteText: string;
 }
 
-const QuestionnaireDataTypes = [
-  'ZIP',
-  'Email',
-  'Phone Number',
-  'DOB',
-  'Signature',
-  'Image',
-  'PDF',
-  'Payment Validation',
-  'Call Out',
-] as const;
-export type QuestionnaireDataType = (typeof QuestionnaireDataTypes)[number];
+// Re-export from config-types for backwards compatibility
+import {
+  type QuestionnaireDataType as _QuestionnaireDataType,
+  QuestionnaireDataTypes as _QuestionnaireDataTypes,
+  QuestionnaireDataTypeSchema as _QuestionnaireDataTypeSchema,
+} from 'config-types';
+export const QuestionnaireDataTypeSchema = _QuestionnaireDataTypeSchema;
+export const QuestionnaireDataTypes = _QuestionnaireDataTypes;
+export type QuestionnaireDataType = _QuestionnaireDataType;
+
 export const validateQuestionnaireDataType = (str: any): QuestionnaireDataType | undefined => {
   if (str === undefined) {
     return undefined;
   }
   if (typeof str === 'string') {
-    return QuestionnaireDataTypes.includes(str as QuestionnaireDataType) ? (str as QuestionnaireDataType) : undefined;
+    return QuestionnaireDataTypeSchema.safeParse(str).data;
   }
   return undefined;
 };
 
 export const FormDisplayElementList = ['p', 'h3', 'h4', 'h5'] as const;
-export const FormSelectionElementList = ['Radio', 'Radio List', 'Select', 'Free Select', 'Button'] as const;
+export const FormSelectionElementList = ['Radio', 'Radio List', 'Select', 'Free Select', 'Button', 'Link'] as const;
 export type FormDisplayElement = (typeof FormDisplayElementList)[number];
 export type FormSelectionElement = (typeof FormSelectionElementList)[number];
 export type FormElement = FormDisplayElement | FormSelectionElement;
@@ -72,17 +70,16 @@ export enum QuestionnaireItemGroupType {
   ListWithForm = 'list-with-form',
   GrayContainedWidget = 'gray-contained-widget',
   CreditCardCollection = 'credit-card-collection',
+  PharmacyCollection = 'pharmacy-collection',
 }
 
-export interface AnswerOptionSource {
-  resourceType: FhirResource['resourceType'];
-  query: string;
-}
+// Re-export FHIR types from config-types for backwards compatibility
+export { FhirResourceTypeSchema, AnswerOptionSourceSchema } from 'config-types';
+export type { FhirResourceType, AnswerOptionSource, AnswerLoadingOptions } from 'config-types';
 
-export interface AnswerLoadingOptions {
-  strategy: 'prefetch' | 'dynamic';
-  answerSource?: AnswerOptionSource; // required when Item.answerValueSet is not defined
-}
+// Re-export harvest config from config-types
+export { pageHarvestStrategy } from 'config-types';
+export type { HarvestStrategy } from 'config-types';
 
 export type InputWidthOption = 's' | 'm' | 'l' | 'max';
 export interface QuestionnaireItemExtension {
@@ -95,20 +92,35 @@ export interface QuestionnaireItemExtension {
   categoryTag?: string;
   dataType?: QuestionnaireDataType;
   disabledDisplay?: 'hidden' | 'protected';
-  filterWhen?: QuestionnaireItemConditionDefinition;
+  filterWhen?: QuestionnaireItemConditionDefinition[];
   groupType?: QuestionnaireItemGroupType;
+  /**
+   * Suppresses the "control label" — the bold-color heading rendered above
+   * the input in the intake paperwork UI. Optional-tri-state:
+   * `undefined` = no extension set (styler falls back to the hardcoded
+   * linkId list in `useStyleItems.tsx` for back-compat with pre-extension
+   * questionnaire archives); `true` = hide; `false` = force-show even if
+   * the linkId is on the legacy list.
+   */
+  hideControlLabel?: boolean;
   infoText?: string;
   inputWidth?: InputWidthOption;
   minRows?: number;
   preferredElement?: FormElement;
   requireWhen?: QuestionnaireItemConditionDefinition;
   secondaryInfoText?: string;
-  textWhen?: QuestionnaireItemTextWhen;
+  textWhen?: QuestionnaireItemTextWhen[];
   validateAgeOver?: number;
   complexValidation?: {
     type: string; // only 'insurance validation' is supported out of the box right now, but defining this as string to allow for easy customization for other use cases
     triggerWhen?: QuestionnaireItemConditionDefinition;
   };
+  requiredBooleanValue?: boolean; // if the item is of type boolean and required, this indicates whether it must be true or false
+  // permittedStringValues?: string[]; // todo when needed
+  answerDisplayFilters?: {
+    conditions: { question: string; operator: string; answer: string }[];
+    includeValues: string[];
+  }[];
 }
 export interface AppointmentSummary {
   id: string;
@@ -118,7 +130,6 @@ export interface AppointmentSummary {
   serviceMode: string;
   status?: string;
   // otherOffices: { display: string; url: string }[];
-  unconfirmedDateOfBirth?: string;
 }
 
 // it's pretty tedious to have this one-property interface and have to drill down to get the bits you're really after
@@ -141,12 +152,16 @@ export type FullAccessPaperworkSupportingInfo = Omit<PaperworkSupportingInfo, 'p
   updateTimestamp: number | undefined;
 };
 
-export interface UCGetPaperworkResponse {
+export interface QAndQRResponse {
+  allItems: IntakeQuestionnaireItem[];
+  questionnaireResponse: QuestionnaireResponse;
+  questionnaireTitle?: string;
+}
+
+export interface UCGetPaperworkResponse extends QAndQRResponse {
   appointment: AppointmentSummary;
   patient: PaperworkPatient;
   updateTimestamp: number | undefined;
-  allItems: IntakeQuestionnaireItem[];
-  questionnaireResponse: QuestionnaireResponse | undefined;
 }
 export interface IntakeQuestionnaireItem
   extends QuestionnaireItemExtension,
@@ -201,6 +216,7 @@ export interface SubmitPaperworkParameters {
 export interface PatchPaperworkParameters {
   answers: QuestionnaireResponseItem;
   questionnaireResponseId: string;
+  appointmentId?: string;
 }
 
 interface ComplexValidationBaseCase {

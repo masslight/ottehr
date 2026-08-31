@@ -13,59 +13,63 @@ import {
   useTheme,
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
-import { Appointment, Location } from 'fhir/r4b';
-import { ReactElement, useMemo, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Appointment } from 'fhir/r4b';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
+import EditPatientInfoDialog from 'src/components/dialogs/EditPatientInfoDialog';
+import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
 import { formatLastModifiedTag } from '../helpers';
 import { patchAppointmentComment } from '../helpers';
 import { NoteHistory } from '../helpers/activityLogsUtils';
 import { EvolveUser } from '../hooks/useEvolveUser';
-import { EditPatientInfoDialog } from './dialogs';
 
 interface AppointmentNotesHistoryProps {
   appointment: Appointment | undefined;
-  location: Location;
   curNoteAndHistory: NoteHistory[] | undefined;
+  timezone?: string;
   user: EvolveUser | undefined;
   oystehr: Oystehr | undefined;
-  setAppointment: (value: React.SetStateAction<Appointment | undefined>) => void;
   getAndSetHistoricResources: ({ logs, notes }: { logs?: boolean; notes?: boolean }) => Promise<void>;
 }
 
 export default function AppointmentNotesHistory({
   appointment,
-  location,
   curNoteAndHistory,
+  timezone,
   user,
   oystehr,
-  setAppointment,
   getAndSetHistoricResources,
 }: AppointmentNotesHistoryProps): ReactElement {
   const theme = useTheme();
   // for historical notes (not sure if needed)
-  const noteLastModified = formatLastModifiedTag('comment', appointment, location);
+  const noteLastModified = formatLastModifiedTag('comment', appointment, timezone);
   const [noteEdit, setNoteEdit] = useState<string>(appointment?.comment || '');
   const [editNoteDialogOpen, setEditNoteDialogOpen] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<boolean>(false);
+
+  useEffect(() => {
+    setNoteEdit(appointment?.comment || '');
+  }, [appointment]);
+
+  const queryClient = useQueryClient();
+  const updateAppointmentNoteMutation = useMutation({
+    mutationFn: async () => {
+      if (!appointment || !oystehr || !user) {
+        throw new Error('Missing required data');
+      }
+      return patchAppointmentComment(appointment!, noteEdit, user, oystehr!);
+    },
+    onSuccess: async (updatedAppointment) => {
+      queryClient.setQueryData(['get-visit-details', appointment?.id], (old: EHRVisitDetails | undefined) =>
+        old ? { ...old, appointment: updatedAppointment } : old
+      );
+      await getAndSetHistoricResources({ notes: true });
+      setEditNoteDialogOpen(false);
+    },
+  });
 
   const handleNoteUpdate = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
-    setLoading(true);
-    if (!appointment || !oystehr) {
-      setError(true);
-    } else {
-      try {
-        const updatedAppointment = await patchAppointmentComment(appointment, noteEdit, user, oystehr);
-        console.log('updatedAppointment', updatedAppointment);
-        setAppointment(updatedAppointment);
-        await getAndSetHistoricResources({ notes: true });
-        setEditNoteDialogOpen(false);
-      } catch (e) {
-        console.log('error updating appointment', e);
-        setError(true);
-      }
-    }
-    setLoading(false);
+    await updateAppointmentNoteMutation.mutateAsync();
   };
 
   const noteBlock = (note: string, dtAdded: string, showEdit: boolean): ReactElement => (
@@ -107,7 +111,7 @@ export default function AppointmentNotesHistory({
           }}
           variant="body2"
         >
-          {note === '' && `note removed `}
+          {note === '' && 'note removed '}
           {dtAdded}
         </Typography>
         {note === '' && showEdit && (
@@ -218,17 +222,18 @@ export default function AppointmentNotesHistory({
               multiline
               label="Note"
               required
-              sx={{ width: '500px' }}
+              fullWidth
               value={noteEdit}
               onChange={(e) => setNoteEdit(e.target.value.trimStart())}
+              disabled={updateAppointmentNoteMutation.isPending}
               inputProps={{ maxLength: 160 }}
             />
           </>
         }
         onSubmit={handleNoteUpdate}
         submitButtonName="Update note"
-        loading={loading}
-        error={error}
+        loading={updateAppointmentNoteMutation.isPending}
+        error={updateAppointmentNoteMutation.isError}
         errorMessage="Failed to update note"
       />
     </Paper>

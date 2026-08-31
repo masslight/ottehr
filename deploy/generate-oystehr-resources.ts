@@ -1,21 +1,154 @@
+/**
+ * Generates Terraform JSON configuration files from Ottehr spec files.
+ *
+ * This script reads JSON spec files from config/oystehr/ and config/oystehr-core/,
+ * and optionally from config/oystehr/env/<env>/ for environment-specific resources,
+ * then generates Terraform-compatible JSON files in the output directory.
+ *
+ * Usage: tsx generate-oystehr-resources.ts <config-dir> <env> <output-path>
+ *
+ * @see packages/spec/README.md for schema documentation
+ */
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { BRANDING_CONFIG, FEATURE_FLAGS_CONFIG, SENDGRID_CONFIG } from 'utils';
+import { SpecFile } from '../packages/spec/src/schema';
+import { Schema20250319 } from '../packages/spec/src/schema-20250319';
+import { Schema20250925 } from '../packages/spec/src/schema-20250925';
 
-const validSchemas: { [key: string]: (spec: any, vars: any, outputPath: string) => Promise<void> } = {
-  '2025-03-19': generate20250319,
+const validSchemas = ['2025-03-19', '2025-09-25'];
+
+// Environments that don't configure it fall back to these defaults so the
+// deploy still succeeds, without them the unresolved "#{var/...}" literal is rejected by Oystehr at app create time.
+const BILLING_VAR_DEFAULTS: { [key: string]: string } = {
+  BILLING_APP_NAME: 'Ottehr Billing',
+  BILLING_APP_LOGO_URI:
+    'https://assets-global.website-files.com/653fce065d76f84cf31488ae/65438838a5f9308ca9498887_otter%20logo%20dark.svg',
+  BILLING_LOGIN_REDIRECT_URL: 'https://billing-local.ottehr.com',
+  BILLING_ALLOWED_URL_1: 'https://billing-local.ottehr.com',
+  BILLING_INTEGRATION: '',
+  PATIENT_BALANCE_SOURCE: 'candid',
+  STRIPE_WEBHOOK_SECRET: '',
+  STRIPE_PLATFORM_WEBHOOK_SECRET: '',
 };
 
 const zambdasDirPath = path.resolve(__dirname, '../packages/zambdas');
 
 // args
-const args = process.argv.slice(2);
-if (args.length !== 3) {
-  console.error('Usage: tsx generate-oystehr-resources.ts <config-dir> <var-file> <output-path>');
-  process.exit(1);
+
+async function generate(input: GenerateResourcesArgs): Promise<void> {
+  const { configDir, env, outputPath } = input;
+  await generateSendgridResources({ configDir, env });
+  const varFile = `../config/.env/${env}.json`;
+  await generateOystehrResources({
+    configDir: `${configDir}/oystehr`,
+    coreConfigDir: `${configDir}/oystehr-core`,
+    billingCoreConfigDir: `${configDir}/billing-app-core`,
+    varFile,
+    outputPath: `${outputPath}/oystehr`,
+    billingOutputPath: `${outputPath}/billing_app`,
+    env,
+  });
+  await generateRuntimeSeedRemovals({
+    runtimeSeedDir: `${configDir}/runtime-seed`,
+    outputFile: `${outputPath}/oystehr/removed-locations.tf.json`,
+  });
 }
 
-async function generate(): Promise<void> {
-  const [configDir, varFile, outputPath] = args;
+/**
+ * Resources under config/runtime-seed/ are provisioned at runtime by seed
+ * scripts (e.g. seed-runtime-resources), NOT emitted as Terraform resources.
+ * Environments that were deployed before this move still have those resources
+ * in Terraform state, so a plain apply would try to destroy them. This emits a
+ * `removed { ... destroy = false }` block per resource key, dropping them from
+ * state without touching the live FHIR resource — letting the runtime seed
+ * adopt their lifecycle. It reads whatever the active instance actually ships,
+ * so the removals are always instance-correct. Once every environment has
+ * applied past this migration, this file (and config/runtime-seed itself
+ * remaining in state) is a no-op and the generated output is empty.
+ */
+async function generateRuntimeSeedRemovals(input: { runtimeSeedDir: string; outputFile: string }): Promise<void> {
+  const { runtimeSeedDir, outputFile } = input;
+  const resourceKeys: string[] = [];
+  try {
+    const files = await fs.readdir(runtimeSeedDir, { withFileTypes: true });
+    for (const file of files) {
+      if (!file.name.endsWith('.json')) {
+        continue;
+      }
+      const content = await fs.readFile(path.join(runtimeSeedDir, file.name), 'utf-8');
+      let parsed: { fhirResources?: Record<string, unknown> };
+      try {
+        parsed = JSON.parse(content);
+      } catch (err) {
+        throw new Error(`Error parsing runtime-seed file ${file.name}: ${err}`);
+      }
+      resourceKeys.push(...Object.keys(parsed.fhirResources ?? {}));
+    }
+  } catch (err: any) {
+    // No runtime-seed directory → nothing has been moved out of Terraform.
+    if (err.code !== 'ENOENT') {
+      throw err;
+    }
+  }
+
+  if (resourceKeys.length === 0) {
+    await fs.rm(outputFile, { force: true });
+    return;
+  }
+
+  const removed = resourceKeys.map((key) => ({
+    from: `oystehr_fhir_resource.${key}`,
+    lifecycle: { destroy: false },
+  }));
+  await fs.writeFile(outputFile, JSON.stringify({ removed }, null, 2));
+}
+interface GenerateSendgridResources {
+  configDir: string;
+  env: string;
+}
+
+async function generateSendgridResources(input: GenerateSendgridResources): Promise<void> {
+  const { configDir, env } = input;
+  const templates = Object.values(SENDGRID_CONFIG.templates || {})
+    .filter(Boolean)
+    .reduce(
+      (acc, entry) => {
+        if (entry && entry.templateName) {
+          const { templateName, ...rest } = entry;
+          const keyName = `${templateName}`;
+          acc[keyName] = rest;
+        }
+        return acc;
+      },
+      {} as Record<string, any>
+    );
+  let { projectName } = BRANDING_CONFIG;
+  if (!projectName) {
+    throw new Error('Project name is not defined');
+  }
+  projectName += `-${env}`;
+  const tfModel = {
+    projectName,
+    featureFlag: FEATURE_FLAGS_CONFIG.sendgridEnabled,
+    templates,
+  };
+  const stringifiedConfig = JSON.stringify(tfModel, null, 2);
+  await fs.mkdir(`${configDir}/sendgrid`, { recursive: true });
+  await fs.writeFile(`${configDir}/sendgrid/sendgrid.json`, stringifiedConfig, 'utf8');
+}
+
+interface GenerateFhirResourcesArgs {
+  configDir: string;
+  coreConfigDir: string;
+  billingCoreConfigDir: string;
+  varFile: string;
+  outputPath: string;
+  billingOutputPath: string;
+  env: string;
+}
+async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promise<void> {
+  const { configDir, coreConfigDir, billingCoreConfigDir, varFile, outputPath, billingOutputPath, env } = input;
 
   if (!configDir) {
     throw new Error('Config directory is required.');
@@ -29,299 +162,198 @@ async function generate(): Promise<void> {
     throw new Error('Output path is required.');
   }
 
-  // Ensure output directory exists
+  // Ensure output directories exist
   await fs.mkdir(outputPath, { recursive: true });
+  await fs.mkdir(billingOutputPath, { recursive: true });
 
+  const coreSpecs = await getCoreSpecs(configDir, coreConfigDir, env);
+  const billingSpecs = await getBillingSpecs(billingCoreConfigDir);
+
+  let vars: any;
+  try {
+    vars = JSON.parse(await fs.readFile(varFile, 'utf-8'));
+  } catch (err) {
+    throw new Error(`Error parsing variable file ${varFile}: ${err}`);
+  }
+  if (!isObject(vars)) {
+    throw new Error(`Variable file ${varFile} is not a valid JSON map.`);
+  }
+  const coreVars = { ...BILLING_VAR_DEFAULTS, ...vars };
+  const billingVars = { ...BILLING_VAR_DEFAULTS, ...vars };
+
+  await validateAndGenerateSpecFiles(coreSpecs, coreVars, outputPath);
+  if (billingSpecs.length > 0) {
+    await validateAndGenerateSpecFiles(billingSpecs, billingVars, billingOutputPath);
+  }
+}
+
+async function getCoreSpecs(configDir: string, coreConfigDir: string, env: string): Promise<SpecFile[]> {
   // Read all spec files from the config directory
   const specFiles = await fs.readdir(configDir, { withFileTypes: true });
   const jsonSpecFiles = specFiles
-    .filter((file) => file.isFile() && file.name.endsWith('.json'))
+    .filter((file) => file.name.endsWith('.json'))
     .map((file) => path.join(configDir, file.name));
 
-  const specs = await Promise.all(
+  // Read core config spec files if the directory exists
+  try {
+    const coreSpecFiles = await fs.readdir(coreConfigDir, { withFileTypes: true });
+    const coreJsonSpecFiles = coreSpecFiles
+      .filter((file) => file.name.endsWith('.json'))
+      .map((file) => path.join(coreConfigDir, file.name));
+    jsonSpecFiles.push(...coreJsonSpecFiles);
+  } catch (err: any) {
+    if (err.code !== 'ENOENT') {
+      throw err;
+    }
+    console.log(`No core config directory found at: ${coreConfigDir}`);
+  }
+
+  // Read environment-specific specs if directory exists
+  const envConfigDir = path.join(configDir, 'env', env);
+  try {
+    const envDirStats = await fs.stat(envConfigDir);
+    if (envDirStats.isDirectory()) {
+      console.log(`Loading environment-specific configs from: ${envConfigDir}`);
+      const envSpecFiles = await fs.readdir(envConfigDir, { withFileTypes: true });
+      const envJsonSpecFiles = envSpecFiles
+        .filter((file) => file.name.endsWith('.json'))
+        .map((file) => path.join(envConfigDir, file.name));
+
+      jsonSpecFiles.push(...envJsonSpecFiles);
+    }
+  } catch (err: any) {
+    // ONLY ignore "directory not found" - propagate other errors
+    if (err.code !== 'ENOENT') {
+      throw err;
+    }
+    console.log(`No environment-specific config directory for: ${env}`);
+  }
+
+  const specs: SpecFile[] = await Promise.all(
     jsonSpecFiles.map(async (file) => {
       const content = await fs.readFile(file, 'utf-8');
-      return { path: file, spec: JSON.parse(content) as unknown };
+      try {
+        return { path: file, spec: JSON.parse(content) as { [key: string]: unknown } };
+      } catch (err) {
+        throw new Error(`Error parsing JSON file ${file}: ${err}`);
+      }
     })
   );
 
+  return specs;
+}
+
+async function getBillingSpecs(billingCoreConfigDir: string): Promise<SpecFile[]> {
+  // Read core config spec files if the directory exists
+  const jsonSpecFiles: string[] = [];
+  try {
+    const coreSpecFiles = await fs.readdir(billingCoreConfigDir, { withFileTypes: true });
+    const coreJsonSpecFiles = coreSpecFiles
+      .filter((file) => (file.isFile() || file.isSymbolicLink()) && file.name.endsWith('.json'))
+      .map((file) => path.join(billingCoreConfigDir, file.name));
+    jsonSpecFiles.push(...coreJsonSpecFiles);
+  } catch (err: any) {
+    if (err.code !== 'ENOENT') {
+      throw err;
+    }
+    console.log(`No core config directory found at: ${billingCoreConfigDir}`);
+  }
+
+  const specs: SpecFile[] = await Promise.all(
+    jsonSpecFiles.map(async (file) => {
+      const content = await fs.readFile(file, 'utf-8');
+      try {
+        return { path: file, spec: JSON.parse(content) as { [key: string]: unknown } };
+      } catch (err) {
+        throw new Error(`Error parsing JSON file ${file}: ${err}`);
+      }
+    })
+  );
+
+  return specs;
+}
+
+async function validateAndGenerateSpecFiles(specs: SpecFile[], vars: any, outputPath: string): Promise<void> {
   if (!specs.every((spec) => isObject(spec) && isObject(spec.spec))) {
     throw new Error('One or more spec files are not valid JSON maps.');
   }
   const schemaVersion = isObject(specs[0].spec) && specs[0].spec['schema-version'];
-  if (
-    !schemaVersion ||
-    !(typeof schemaVersion === 'string') ||
-    !Object.prototype.hasOwnProperty.call(validSchemas, schemaVersion)
-  ) {
+  if (!schemaVersion || !(typeof schemaVersion === 'string') || !validSchemas.includes(schemaVersion)) {
     throw new Error(`Invalid or missing schema version: ${schemaVersion}`);
   }
   if (!specs.every((spec) => isObject(spec.spec) && spec.spec['schema-version'] === schemaVersion)) {
     throw new Error('All spec files must have the same schema version.');
   }
 
-  const vars = JSON.parse(await fs.readFile(varFile, 'utf-8'));
-  if (!isObject(vars)) {
-    throw new Error(`Variable file ${varFile} is not a valid JSON map.`);
-  }
-
   // Generate resources for specs
-  await validSchemas[schemaVersion](specs, vars, outputPath);
-}
-
-type ValidSpec20250319 = {
-  apps: { [key: string]: any };
-  buckets: { [key: string]: any };
-  fhirResources: { [key: string]: any };
-  labRoutes: { [key: string]: any };
-  m2ms: { [key: string]: any };
-  roles: { [key: string]: any };
-  secrets: { [key: string]: any };
-  zambdas: { [key: string]: any };
-};
-
-async function generate20250319(
-  specs: { path: string; spec: { [key: string]: any } }[],
-  vars: { [key: string]: any },
-  outputPath: string
-): Promise<void> {
-  const resources: ValidSpec20250319 = {
-    apps: {},
-    buckets: {},
-    fhirResources: {},
-    labRoutes: {},
-    m2ms: {},
-    roles: {},
-    secrets: {},
-    zambdas: {},
-  };
-  for (const [_, specFile] of specs.entries()) {
-    const spec = validateSpec20250319(specFile);
-    resources.apps = { ...resources.apps, ...(spec.apps as object) };
-    resources.buckets = { ...resources.buckets, ...(spec.buckets as object) };
-    resources.fhirResources = { ...resources.fhirResources, ...(spec.fhirResources as object) };
-    resources.labRoutes = { ...resources.labRoutes, ...(spec.labRoutes as object) };
-    resources.m2ms = { ...resources.m2ms, ...(spec.m2ms as object) };
-    resources.roles = { ...resources.roles, ...(spec.roles as object) };
-    resources.secrets = { ...resources.secrets, ...(spec.secrets as object) };
-    resources.zambdas = { ...resources.zambdas, ...(spec.zambdas as object) };
+  if (schemaVersion === '2025-03-19') {
+    const schema = new Schema20250319(specs, vars, outputPath, zambdasDirPath);
+    await schema.generate();
   }
-
-  // Write out resources
-  const appOutFile = path.join(outputPath, 'apps.tf.json');
-  const appResources: { resource: { oystehr_application: { [key: string]: any } } } = {
-    resource: { oystehr_application: {} },
-  };
-  for (const [appName, app] of Object.entries(resources.apps)) {
-    appResources.resource.oystehr_application[appName] = {
-      name: getValue(app.name, vars, resources),
-      description: getValue(app.description, vars, resources),
-      login_redirect_uri: getValue(app.loginRedirectUri, vars, resources),
-      login_with_email_enabled: getValue(app.loginWithEmailEnabled, vars, resources),
-      allowed_callback_urls: JSON.parse(getValue(JSON.stringify(app.allowedCallbackUrls ?? []), vars, resources)),
-      allowed_logout_urls: JSON.parse(getValue(JSON.stringify(app.allowedLogoutUrls ?? []), vars, resources)),
-      allowed_web_origins_urls: JSON.parse(getValue(JSON.stringify(app.allowedWebOriginsUrls ?? []), vars, resources)),
-      allowed_cors_origins_urls: JSON.parse(
-        getValue(JSON.stringify(app.allowedCorsOriginsUrls ?? []), vars, resources)
-      ),
-      passwordless_sms: getValue(app.passwordlessSMS, vars, resources),
-      mfa_enabled: getValue(app.mfaEnabled, vars, resources),
-      should_send_invite_email: getValue(app.shouldSendInviteEmail, vars, resources),
-      logo_uri: getValue(app.logoUri, vars, resources),
-      refresh_token_enabled: getValue(app.refreshTokenEnabled, vars, resources),
-    };
+  if (schemaVersion === '2025-09-25') {
+    const schema = new Schema20250925(specs, vars, outputPath, zambdasDirPath);
+    await schema.generate();
   }
-  await fs.writeFile(appOutFile, JSON.stringify(appResources, null, 2));
-
-  const bucketOutFile = path.join(outputPath, 'buckets.tf.json');
-  const bucketResources: { resource: { oystehr_z3_bucket: { [key: string]: any } } } = {
-    resource: { oystehr_z3_bucket: {} },
-  };
-  for (const [bucketName, bucket] of Object.entries(resources.buckets)) {
-    bucketResources.resource.oystehr_z3_bucket[bucketName] = {
-      name: getValue(bucket.name, vars, resources),
-    };
-  }
-  await fs.writeFile(bucketOutFile, JSON.stringify(bucketResources, null, 2));
-
-  const fhirOutFile = path.join(outputPath, 'fhir-resources.tf.json');
-  const fhirResources: { resource: { oystehr_fhir_resource: { [key: string]: any } } } = {
-    resource: { oystehr_fhir_resource: {} },
-  };
-  for (const [resourceKey, resource] of Object.entries(resources.fhirResources)) {
-    fhirResources.resource.oystehr_fhir_resource[resourceKey] = {
-      type: getValue(resource.resourceType, vars, resources),
-      data: JSON.parse(getValue(JSON.stringify(resource), vars, resources)),
-    };
-  }
-  await fs.writeFile(fhirOutFile, JSON.stringify(fhirResources, null, 2));
-
-  const labRoutesOutFile = path.join(outputPath, 'lab-routes.tf.json');
-  const labRoutesResources: { resource: { oystehr_lab_route: { [key: string]: any } } } = {
-    resource: { oystehr_lab_route: {} },
-  };
-  for (const [routeName, route] of Object.entries(resources.labRoutes)) {
-    labRoutesResources.resource.oystehr_lab_route[routeName] = {
-      account_number: getValue(route.accountNumber, vars, resources),
-      lab_id: getValue(route.labId, vars, resources),
-    };
-  }
-  await fs.writeFile(labRoutesOutFile, JSON.stringify(labRoutesResources, null, 2));
-
-  const m2msOutFile = path.join(outputPath, 'm2ms.tf.json');
-  const m2mResources: { resource: { oystehr_m2m: { [key: string]: any } } } = {
-    resource: { oystehr_m2m: {} },
-  };
-  for (const [m2mName, m2m] of Object.entries(resources.m2ms)) {
-    m2mResources.resource.oystehr_m2m[m2mName] = {
-      name: getValue(m2m.name, vars, resources),
-      description: getValue(m2m.description, vars, resources),
-      access_policy: {
-        rule: JSON.parse(getValue(JSON.stringify(m2m.accessPolicy), vars, resources)),
-      },
-      roles: getValue(m2m.roles, vars, resources),
-      jwks_url: getValue(m2m.jwksUrl, vars, resources),
-    };
-  }
-  await fs.writeFile(m2msOutFile, JSON.stringify(m2mResources, null, 2));
-
-  const rolesOutFile = path.join(outputPath, 'roles.tf.json');
-  const roleResources: { resource: { oystehr_role: { [key: string]: any } } } = {
-    resource: { oystehr_role: {} },
-  };
-  for (const [roleName, role] of Object.entries(resources.roles)) {
-    roleResources.resource.oystehr_role[roleName] = {
-      name: getValue(role.name, vars, resources),
-      description: getValue(role.description, vars, resources),
-      access_policy: {
-        rule: JSON.parse(getValue(JSON.stringify(role.accessPolicy), vars, resources)),
-      },
-    };
-  }
-  await fs.writeFile(rolesOutFile, JSON.stringify(roleResources, null, 2));
-
-  const secretsOutFile = path.join(outputPath, 'secrets.tf.json');
-  const secretResources: { resource: { oystehr_secret: { [key: string]: any } } } = {
-    resource: { oystehr_secret: {} },
-  };
-  for (const [secretName, secret] of Object.entries(resources.secrets)) {
-    secretResources.resource.oystehr_secret[secretName] = {
-      name: getValue(secret.name, vars, resources),
-      value: getValue(secret.value, vars, resources),
-    };
-  }
-  await fs.writeFile(secretsOutFile, JSON.stringify(secretResources, null, 2));
-
-  const zambdasOutFile = path.join(outputPath, 'zambdas.tf.json');
-  const zambdaResources: { resource: { oystehr_zambda: { [key: string]: any } } } = {
-    resource: { oystehr_zambda: {} },
-  };
-  for (const [zambdaName, zambda] of Object.entries(resources.zambdas)) {
-    zambdaResources.resource.oystehr_zambda[zambdaName] = {
-      name: getValue(zambda.name, vars, resources),
-      runtime: getValue(zambda.runtime, vars, resources),
-      memory_size: getValue(zambda.memorySize, vars, resources),
-      timeout: getValue(zambda.timeout, vars, resources),
-      trigger_method: getValue(zambda.type, vars, resources),
-      schedule: getValue(zambda.schedule, vars, resources),
-      source: path.join(zambdasDirPath, getValue(zambda.zip, vars, resources)),
-    };
-  }
-  await fs.writeFile(zambdasOutFile, JSON.stringify(zambdaResources, null, 2));
-}
-
-function validateSpec20250319(specFile: { path: string; spec: { [key: string]: unknown } }): ValidSpec20250319 {
-  const spec = specFile.spec;
-  for (const key of Object.keys(spec)) {
-    if (
-      ![
-        'schema-version',
-        'apps',
-        'buckets',
-        'fhirResources',
-        'labRoutes',
-        'm2ms',
-        'roles',
-        'secrets',
-        'zambdas',
-      ].includes(key)
-    ) {
-      throw new Error(`${specFile.path} has unknown top-level key: ${key}`);
-    }
-  }
-  if (
-    !['apps', 'buckets', 'fhirResources', 'labRoutes', 'm2ms', 'roles', 'secrets', 'zambdas'].some((key) =>
-      Object.prototype.hasOwnProperty.call(spec, key)
-    )
-  ) {
-    throw new Error(
-      `${specFile.path} must have at least one of the following top-level keys: apps, buckets, fhirResources, labRoutes, m2ms, roles, secrets, zambdas.`
-    );
-  }
-  return spec as unknown as ValidSpec20250319;
-}
-
-function getValue(value: any, vars: { [key: string]: any }, resources: ValidSpec20250319): any {
-  if (typeof value !== 'string') {
-    return value;
-  }
-  const varReplacedValue = value.replace(/#\{var\/([^}]+)\}/g, (match: string, varName: string) => {
-    if (Object.prototype.hasOwnProperty.call(vars, varName)) {
-      return vars[varName];
-    }
-    return match;
-  });
-  const refReplacedValue = varReplacedValue.replace(
-    /#\{ref\/([^}/]+)\/([^}/]+)\/([^}]+)\}/g,
-    (match: string, resourceType: string, resourceName: string, fieldName: string) => {
-      if (isResourceType(resourceType) && Object.prototype.hasOwnProperty.call(resources[resourceType], resourceName)) {
-        const oystehrResource = oystehrResourceFromResourceType(resourceType);
-        return `\${${oystehrResource}.${resourceName}.${fieldName}}`;
-      }
-      return match;
-    }
-  );
-  return refReplacedValue;
-}
-
-function oystehrResourceFromResourceType(resourceType: keyof ValidSpec20250319): string {
-  switch (resourceType) {
-    case 'apps':
-      return 'oystehr_application';
-    case 'buckets':
-      return 'oystehr_z3_bucket';
-    case 'fhirResources':
-      return 'oystehr_fhir_resource';
-    case 'labRoutes':
-      return 'oystehr_lab_route';
-    case 'm2ms':
-      return 'oystehr_m2m';
-    case 'roles':
-      return 'oystehr_role';
-    case 'secrets':
-      return 'oystehr_secret';
-    case 'zambdas':
-      return 'oystehr_zambda';
-    default:
-      throw new Error(`Unknown resource type: ${resourceType}`);
-  }
-}
-
-function isResourceType(resourceType: string): resourceType is keyof ValidSpec20250319 {
-  return ['apps', 'buckets', 'fhirResources', 'labRoutes', 'm2ms', 'roles', 'secrets', 'zambdas'].includes(
-    resourceType
-  );
 }
 
 function isObject(spec: any): spec is { [key: string]: unknown } {
   return spec && typeof spec === 'object' && !Array.isArray(spec);
 }
 
-generate()
-  .then(() => {
-    console.log('Done!');
-  })
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
+interface GenerateResourcesArgs {
+  configDir: string;
+  env: string;
+  outputPath: string;
+}
+
+const validateInput = (): GenerateResourcesArgs => {
+  const args = process.argv.slice(2);
+  if (args.length !== 3) {
+    throw new Error('Usage: tsx generate-oystehr-resources.ts <config-dir> <env> <output-path>');
+  }
+
+  const [configDir, env, outputPath] = args;
+
+  console.log('env', env);
+
+  if (!configDir) {
+    throw new Error('Config directory is required.');
+  }
+
+  if (!env) {
+    throw new Error('Environment is required.');
+  }
+
+  if (!outputPath) {
+    throw new Error('Output path is required.');
+  }
+
+  return { configDir, env, outputPath };
+};
+
+// Export for testing
+export {
+  generate,
+  generateOystehrResources,
+  generateRuntimeSeedRemovals,
+  isObject,
+  validateInput,
+  validSchemas,
+  type GenerateResourcesArgs,
+  type GenerateFhirResourcesArgs,
+};
+
+// Only run when executed directly (not when imported for testing)
+const isMainModule = require.main === module || process.argv[1]?.endsWith('generate-oystehr-resources.ts');
+
+if (isMainModule) {
+  const validatedArgs = validateInput();
+  generate(validatedArgs)
+    .then(() => {
+      console.log('Done!');
+    })
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
+}

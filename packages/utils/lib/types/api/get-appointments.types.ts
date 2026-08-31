@@ -1,11 +1,14 @@
-import { InPersonAppointmentInformation } from '..';
+import { InPersonAppointmentInformation } from '../data/appointments/appointments.types';
 
 export interface GetAppointmentsZambdaInput {
-  searchDate: string;
-  locationID?: string;
-  providerIDs?: string[];
-  groupIDs?: string[];
+  searchDateFrom: string;
+  searchDateTo: string;
+  timezone: string;
+  locationIds?: string[];
+  providerIds?: string[];
+  serviceCategories?: string[];
   visitType: string[];
+  supervisorApprovalEnabled?: boolean;
 }
 
 export interface GetAppointmentsZambdaOutput {

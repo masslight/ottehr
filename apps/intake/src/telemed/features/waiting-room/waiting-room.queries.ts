@@ -1,9 +1,13 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { OystehrAPIClient } from 'ui-components';
-import { useSuccessQuery } from 'utils';
-import { CancelInviteParticipantRequestParameters, InviteParticipantRequestParameters, PromiseReturnType } from 'utils';
-import { useOystehrAPIClient } from '../../utils';
-import { useAppointmentStore } from '../appointments';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
+import { OystehrAPIClient } from 'ui-components/lib/data/oystehrApi';
+import { useSuccessQuery } from 'utils/lib/frontend';
+import { PromiseReturnType } from 'utils/lib/types/common';
+import {
+  CancelInviteParticipantRequestParameters,
+  InviteParticipantRequestParameters,
+} from 'utils/lib/types/data/telemed/video-chat-invites.types';
 
 export const useGetWaitStatus = (
   onSuccess: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getWaitStatus']>> | null) => void,

@@ -2,7 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { createFilesDocumentReferences, DISCHARGE_SUMMARY_CODE } from 'utils';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { DISCHARGE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { PdfInfo } from './pdf-utils';
 
 export async function makeDischargeSummaryPdfDocumentReference(
@@ -11,7 +12,8 @@ export async function makeDischargeSummaryPdfDocumentReference(
   patientId: string,
   appointmentId: string,
   encounterId: string,
-  listResources: List[]
+  listResources: List[],
+  attached?: string[]
 ): Promise<DocumentReference> {
   const { docRefs } = await createFilesDocumentReferences({
     files: [
@@ -38,6 +40,7 @@ export async function makeDischargeSummaryPdfDocumentReference(
           {
             reference: `Appointment/${appointmentId}`,
           },
+          ...(attached?.map((id) => ({ reference: `DocumentReference/${id}` })) ?? []),
         ],
         encounter: [{ reference: `Encounter/${encounterId}` }],
       },

@@ -1,7 +1,8 @@
-import Oystehr, { BatchInputPostRequest, FhirSearchParams, SearchParam } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, SearchParam, TransactionBundle } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Account,
+  Address,
   Appointment,
   Bundle,
   CodeableConcept,
@@ -11,6 +12,7 @@ import {
   Coverage,
   DocumentReference,
   DomainResource,
+  Element,
   Encounter,
   Extension,
   FhirResource,
@@ -25,55 +27,70 @@ import {
   Organization,
   Patient,
   Practitioner,
-  QuestionnaireResponse,
   Reference,
   RelatedPerson,
   Resource,
+  Schedule,
   ServiceRequest,
+  Signature,
+  Slot,
   Task,
   TaskInput,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  addOperation,
-  findExistingListByDocumentTypeCode,
-  getPatchOperationsForNewMetaTags,
-  LAB_RESULT_DOC_REF_CODING_CODE,
-  PatientMasterRecordResourceType,
-  replaceOperation,
-  TaskCoding,
-  TELEMED_VIDEO_ROOM_CODE,
-  User,
-  VisitStatusWithoutUnknown,
-} from 'utils';
-import {
-  BookableResource,
-  EncounterVirtualServiceExtension,
-  HealthcareServiceWithLocationContext,
-  PractitionerLicense,
-  PractitionerQualificationCode,
-  PROJECT_WEBSITE,
-  ServiceMode,
-  VisitType,
-} from '../types';
+import { getPayerId, getPayerUrl } from '../helpers/helpers';
+import { docRefIsLabGeneratedResult, docRefIsOgHl7Transmission } from '../helpers/labs/helpers';
+import { addOperation, replaceOperation } from '../helpers/operations';
+import { CODE_SYSTEM_COVERAGE_CLASS } from '../helpers/rcm/constants';
+import { PROJECT_WEBSITE } from '../ottehr-config/branding';
+import { VisitStatusWithoutUnknown } from '../types/api/appointment.types';
+import { CPTCodeDTO } from '../types/api/chart-data/chart-data.types';
+import { PractitionerLicense, PractitionerQualificationCode } from '../types/api/practitioner.types';
+import { ScheduleOwnerFhirResource } from '../types/api/schedules';
+import { User } from '../types/api/user.types';
+import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskCoding } from '../types/common';
+import { BookableResource, ServiceMode } from '../types/common';
+import { TELEMED_VIDEO_ROOM_CODE } from '../types/constants';
+import { FHIR_CODE_REGEX } from '../types/constants';
+import { LAB_RESULT_DOC_REF_CODING_CODE } from '../types/data/labs/labs.constants';
+import { EncounterVirtualServiceExtension } from '../types/data/oystehr-api.types.ts/telemed.types';
+import { HealthcareServiceWithLocationContext } from '../types/data/paperwork.types';
+import { VisitType } from '../types/data/telemed/appointments/create-appointment.types';
+import { APPOINTMENT_NOT_FOUND_ERROR, SCHEDULE_NOT_FOUND_ERROR } from '../types/errors';
+import { getMimeType } from '../utils/file';
+import { isValidUUID } from '../validation/helper';
 import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
+  ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,
+  APPOINTMENT_LOCKED_META_TAG,
+  APPOINTMENT_LOCKED_META_TAG_SYSTEM,
+  BirthSex,
   COVERAGE_MEMBER_IDENTIFIER_BASE,
+  ENCOUNTER_LOCKED_META_TAG,
+  ENCOUNTER_LOCKED_META_TAG_SYSTEM,
   FHIR_EXTENSION,
+  FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
+  FOLDERS_CONFIG,
   PRACTITIONER_QUALIFICATION_CODE_SYSTEM,
   PRACTITIONER_QUALIFICATION_EXTENSION_URL,
   PRACTITIONER_QUALIFICATION_STATE_SYSTEM,
   PUBLIC_EXTENSION_BASE_URL,
+  RELATED_PERSON_RELATIONSHIP_SYSTEM,
   SCHEDULE_STRATEGY_SYSTEM,
   ScheduleStrategy,
   SERVICE_MODE_SYSTEM,
   ServiceModeCoding,
   SLUG_SYSTEM,
+  SUBSCRIBER_RELATIONSHIP_CODE_MAP,
+  SUBSCRIBER_RELATIONSHIP_SYSTEM,
 } from './constants';
+import { createPatientDocumentList, findExistingListByDocumentTypeCode } from './list';
+import { PatientMasterRecordResourceType } from './patientMasterRecord';
+import { getPatchOperationsForNewMetaTags, getPatchOperationToRemoveMetaTags } from './resourcePatch';
 
 export function isFHIRError(error: any): boolean {
   return !(error instanceof Error) && typeof error === 'object' && error.resourceType === 'OperationOutcome';
@@ -95,15 +112,65 @@ export function handleUnknownError(error: any): any {
   return errorToThrow;
 }
 
+/**
+ * The fax number an Organization sends from, as stored on its `fax` telecom. Returned unformatted so
+ * callers can display or standardize it themselves.
+ */
+export function getOrganizationFaxNumber(organization: Organization | undefined): string | undefined {
+  return organization?.telecom?.find((telecom) => telecom.system === 'fax')?.value;
+}
+
 export function getNPI(resource: Practitioner | Organization | Location | HealthcareService): string | undefined {
   return resource.identifier?.find((ident) => {
     return ident.system === FHIR_IDENTIFIER_NPI;
   })?.value;
 }
-export function getTaxID(resource: Practitioner | Organization | Location | HealthcareService): string | undefined {
+
+// Set, replace, or (when npi is empty/null) remove both NPI identifiers.
+export function setNpi(resource: Practitioner | Organization | Location, npi: string | null): void {
+  const identifier = resource.identifier ?? [];
+
+  // The `system|value` identifier is used for search
+  const existing = identifier.find((id) => id.system === FHIR_IDENTIFIER_NPI);
+  if (npi) {
+    if (existing) existing.value = npi;
+    else identifier.push({ system: FHIR_IDENTIFIER_NPI, value: npi });
+    resource.identifier = identifier;
+  } else if (existing) {
+    resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_NPI);
+  }
+
+  // The `system|code|value` identifier is used by Oystehr RCM and not supported for search by Oystehr FHIR
+  const existingCoded = identifier.find(
+    (id) =>
+      id.type?.coding?.[0].system === FHIR_IDENTIFIER_SYSTEM && id.type?.coding?.[0].code === FHIR_IDENTIFIER_CODE_NPI
+  );
+  if (npi) {
+    if (existingCoded) existingCoded.value = npi;
+    else
+      identifier.push({
+        type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_NPI }] },
+        value: npi,
+      });
+    resource.identifier = identifier;
+  } else if (existingCoded) {
+    resource.identifier = identifier.filter(
+      (id) =>
+        !id.type ||
+        !id.type.coding ||
+        !id.type.coding.some(
+          (coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === FHIR_IDENTIFIER_CODE_NPI
+        )
+    );
+  }
+}
+
+export function getTaxID(
+  resource: Practitioner | Organization | Location | HealthcareService | Patient
+): string | undefined {
   // https://docs.oystehr.com/services/rcm/eligibility/#provider-practitioner--practitionerrole--organization
   return resource.identifier?.find((ident) => {
-    if (resource.resourceType === 'Practitioner') {
+    if (resource.resourceType === 'Practitioner' || resource.resourceType === 'Patient') {
       return ident.type?.coding?.some(
         (tc) =>
           tc.system === FHIR_IDENTIFIER_SYSTEM &&
@@ -211,6 +278,7 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
 export interface FileDocDataForDocReference {
   url: string;
   title: string;
+  language?: string;
 }
 
 export interface CreateDocumentReferenceInput {
@@ -266,12 +334,18 @@ export async function createFilesDocumentReferences(
       // If different version exists, mark it as superseded
       const oldDoc = docsJson.find((doc) => {
         if (!isLabsResultDoc) {
-          return doc.content[0]?.attachment.title === file.title;
+          return (
+            doc.content[0]?.attachment.title === file.title &&
+            (doc.content[0]?.attachment.language ?? 'en') === (file.language ?? 'en')
+          );
         } else {
           console.log('isLabsResultDoc');
-          // any docRefs for the related DR should be superseded
-          // there should only be one current docRef per DR
-          return true;
+          const isLabGeneratedDocRef = docRefIsLabGeneratedResult(doc);
+          console.log('isLabGeneratedDocRef:', isLabGeneratedDocRef);
+          const isOgTransmissionDocRef = docRefIsOgHl7Transmission(doc);
+          console.log('isOgTransmissionDocRef:', isOgTransmissionDocRef);
+          const docShouldBeSuperseded = !isLabGeneratedDocRef && !isOgTransmissionDocRef;
+          return docShouldBeSuperseded;
         }
       });
       if (oldDoc) {
@@ -283,8 +357,7 @@ export async function createFilesDocumentReferences(
       }
 
       // Create all DocumentReferences
-      const urlExt = file.url.split('.').slice(-1).toString();
-      const contentType = urlExt === 'pdf' ? 'application/pdf' : urlExt === 'jpg' ? 'image/jpeg' : `image/${urlExt}`;
+      const contentType = getMimeType(file.url);
 
       const writeDRFullUrl = generateUUID ? generateUUID() : undefined;
 
@@ -305,6 +378,7 @@ export async function createFilesDocumentReferences(
                 url: file.url,
                 contentType,
                 title: file.title,
+                language: file.language,
               },
             },
           ],
@@ -321,7 +395,16 @@ export async function createFilesDocumentReferences(
       const docRef = docRefBundle.entry?.[0]?.resource;
       // Collect document reference to list by type
       if (listResources && type.coding?.[0]?.code && docRef) {
-        const typeCode = type.coding[0].code;
+        let typeCode = type.coding[0].code;
+        if (type.coding.length > 1) {
+          // If there is more than 1 it is the consents special case. take the one that has the https://fhir.ottehr.com/CodeSystem/consent-source system
+          const maybeConsentCoding = type.coding.find(
+            (coding) => coding.system === 'https://fhir.ottehr.com/CodeSystem/consent-source'
+          );
+          if (maybeConsentCoding && maybeConsentCoding.code) {
+            typeCode = maybeConsentCoding.code;
+          }
+        }
         if (!newEntriesByType[typeCode]) {
           newEntriesByType[typeCode] = [];
         }
@@ -341,11 +424,17 @@ export async function createFilesDocumentReferences(
     if (listResources) {
       const newListResources: List[] = [];
       for (const [typeCode, newEntries] of Object.entries(newEntriesByType)) {
-        const list = findExistingListByDocumentTypeCode(listResources, typeCode);
-        if (!list?.id) {
-          console.log(`default list for files with typeCode: ${typeCode} not found. Add typeCode to FOLDERS_CONFIG`);
-          // TODO: Create List with default config
-        } else {
+        let list = findExistingListByDocumentTypeCode(listResources, typeCode);
+        if (!list) {
+          const config = FOLDERS_CONFIG.find((config) => config.documentTypeCode === typeCode);
+          const patientReference = (references as any).subject?.reference;
+          if (config && typeof patientReference === 'string' && patientReference.startsWith('Patient/')) {
+            list = await oystehr.fhir.create<List>(createPatientDocumentList(patientReference, config));
+          } else {
+            console.log(`Can't create a list for config "${typeCode}" and patient "${patientReference}"`);
+          }
+        }
+        if (list?.id) {
           const updatedFolderEntries = [...(list?.entry ?? []), ...newEntries];
           const patchListWithDocRefOperation: Operation =
             list?.entry && list.entry?.length > 0
@@ -404,6 +493,8 @@ export const makeAppointmentTask = (input: AppointmentTaskInput): Task => {
   return {
     resourceType: 'Task',
     status: 'requested',
+    // todo add title here
+    // description: `Task for appointment ${appointmentID}`,
     intent: 'plan',
     focus: {
       type: 'Appointment',
@@ -498,131 +589,19 @@ export const getLastUpdateTimestampForResource = (resource: Resource): number | 
   return undefined;
 };
 
-export async function getQuestionnaireResponse(
-  questionnaireID: string,
-  encounterID: string,
-  oystehr: Oystehr
-): Promise<QuestionnaireResponse | undefined> {
-  const questionnaireResponse = (
-    await oystehr.fhir.search<QuestionnaireResponse>({
-      resourceType: 'QuestionnaireResponse',
-      params: [
-        {
-          name: 'questionnaire',
-          value: `Questionnaire/${questionnaireID}`,
-        },
-        {
-          name: 'encounter',
-          value: `Encounter/${encounterID}`,
-        },
-      ],
-    })
-  ).unbundle();
-
-  if (questionnaireResponse.length === 1) {
-    return questionnaireResponse[0];
-  }
-  return undefined;
-}
-
-export async function getRecentQuestionnaireResponse(
-  questionnaireID: string,
-  patientID: string,
-  oystehr: Oystehr
-): Promise<QuestionnaireResponse | undefined> {
-  console.log('questionnaireID', questionnaireID);
-  const questionnaireResponse = (
-    await oystehr.fhir.search<QuestionnaireResponse>({
-      resourceType: 'QuestionnaireResponse',
-      params: [
-        {
-          name: 'questionnaire',
-          value: `Questionnaire/${questionnaireID}`,
-        },
-        {
-          name: 'subject',
-          value: `Patient/${patientID}`,
-        },
-        {
-          name: 'source:missing',
-          value: 'false',
-        },
-        {
-          name: '_sort',
-          value: '-_lastUpdated',
-        },
-        {
-          name: '_count',
-          value: '1',
-        },
-      ],
-    })
-  ).unbundle();
-
-  console.log('questionnaireResponse found', questionnaireResponse);
-
-  if (questionnaireResponse.length === 1) {
-    return questionnaireResponse[0];
-  }
-  return undefined;
-}
-
-export async function getRecentQrsQuestionnaireResponse(
-  patientId: string,
-  oystehr: Oystehr
-): Promise<QuestionnaireResponse | undefined> {
-  // TODO: since there is an Oystehr bug where 'contains' doesn't work, I will filter this in code and not limit to
-  // _count=1. All commented out code in this function are because of this.
-  const questionnaireResponse = (
-    await oystehr.fhir.search<QuestionnaireResponse>({
-      resourceType: 'QuestionnaireResponse',
-      params: [
-        // {
-        //   name: 'questionnaire:contains',
-        //   value: 'qrs-paperwork-ip',
-        // },
-        {
-          name: 'subject',
-          value: `Patient/${patientId}`,
-        },
-        {
-          name: 'status',
-          value: 'completed',
-        },
-        {
-          name: '_sort',
-          value: '-_lastUpdated',
-        },
-        // {
-        //   name: '_count',
-        //   value: '1',
-        // },
-      ],
-    })
-  ).unbundle();
-
-  const qrsQuestionnaireResponse = questionnaireResponse.filter(
-    (response) => response.questionnaire?.includes('qrs-paperwork-ip')
-  );
-
-  console.log('qrsQuestionnaireResponse found', qrsQuestionnaireResponse);
-
-  return qrsQuestionnaireResponse[0];
-  // if (questionnaireResponse.length === 1) {
-  //   return questionnaireResponse[0];
-  // }
-  // return undefined;
-}
-
 export const CRITICAL_CHANGE_SYSTEM = 'critical-update-by'; // exists in ehr as well
 export const STATUS_UPDATE_TAG_SYSTEM = 'status-update';
 
-export const getCriticalUpdateTagOp = (resource: Resource, updateBy: string): Operation => {
-  const recordUpdateByTag = {
+export const createCriticalUpdateTag = (updateBy: string): Coding => {
+  return {
     system: CRITICAL_CHANGE_SYSTEM,
     display: updateBy,
     version: DateTime.now().toISO() || '',
   };
+};
+
+export const getCriticalUpdateTagOp = (resource: Resource, updateBy: string): Operation => {
+  const recordUpdateByTag = createCriticalUpdateTag(updateBy);
 
   if (!resource.meta?.tag) {
     return {
@@ -680,22 +659,79 @@ export const getLocationIdFromAppointment = (appointment: Appointment): string |
     ?.actor?.reference?.replace('Location/', '');
 };
 
+// Helper functions for appointment locking meta tags
+export const isAppointmentLocked = (appointment: Appointment): boolean => {
+  return (
+    appointment.meta?.tag?.some(
+      (tag) => tag.system === APPOINTMENT_LOCKED_META_TAG_SYSTEM && tag.code === APPOINTMENT_LOCKED_META_TAG.code
+    ) ?? false
+  );
+};
+
+export const getAppointmentLockMetaTagOperations = (appointment: Appointment, isLocked: boolean): Operation[] => {
+  const lockedTag = APPOINTMENT_LOCKED_META_TAG;
+
+  if (isLocked) {
+    // Add the locked tag if it doesn't exist
+    return getPatchOperationsForNewMetaTags(appointment, [lockedTag]);
+  } else {
+    // Remove the locked tag if it exists
+    return [getPatchOperationToRemoveMetaTags(appointment, [lockedTag])];
+  }
+};
+
+// Helper functions for encounter locking meta tags. Used for annotation follow-ups, which have no own
+// Appointment to carry the APPOINTMENT_LOCKED tag, so the lock is stored on the Encounter instead.
+export const isEncounterLocked = (encounter: Encounter): boolean => {
+  return (
+    encounter.meta?.tag?.some(
+      (tag) => tag.system === ENCOUNTER_LOCKED_META_TAG_SYSTEM && tag.code === ENCOUNTER_LOCKED_META_TAG.code
+    ) ?? false
+  );
+};
+
+export const getEncounterLockMetaTagOperations = (encounter: Encounter, isLocked: boolean): Operation[] => {
+  const lockedTag = ENCOUNTER_LOCKED_META_TAG;
+
+  if (isLocked) {
+    // Add the locked tag if it doesn't exist
+    return getPatchOperationsForNewMetaTags(encounter, [lockedTag]);
+  } else {
+    // Remove the locked tag if it exists
+    return [getPatchOperationToRemoveMetaTags(encounter, [lockedTag])];
+  }
+};
+
 export const getAbbreviationFromLocation = (location: Location): string | undefined => {
   return location.address?.state;
 };
 
-export function getTaskResource(coding: TaskCoding, appointmentID: string): Task {
+export function getTaskResource(coding: TaskCoding, title: string, appointmentID: string, encounterId?: string): Task {
   return {
     resourceType: 'Task',
     status: 'requested',
+    description: title,
     intent: 'plan',
     focus: {
       type: 'Appointment',
       reference: appointmentID.startsWith('urn:uuid:') ? appointmentID : `Appointment/${appointmentID}`,
     },
+    encounter: encounterId ? { type: 'Encounter', reference: `Encounter/${encounterId}` } : undefined,
     code: {
       coding: [coding],
     },
+  };
+}
+
+// Task.input that tells the visit-note-pdf-and-email subscription handler to regenerate the PDF but
+// skip the patient completion email (used when the email was already sent on an earlier sign/save).
+// The producer contract here is the counterpart to `resolveSkipEmail` in the subscription handler.
+export function getSkipEmailTaskInput(): TaskInput {
+  return {
+    type: {
+      coding: [{ system: TASK_INPUT_TYPE_SYSTEM, code: TASK_INPUT_TYPE_CODES.SKIP_EMAIL }],
+    },
+    valueString: 'true',
   };
 }
 export const getStartTimeFromEncounterStatusHistory = (encounter: Encounter): string | undefined => {
@@ -840,7 +876,9 @@ function parseBundleIntoResources(bundle: Bundle): Resource[] {
       const innerBundle = entry.resource as Bundle;
       const innerEntry = innerBundle.entry;
       if (!innerEntry) {
-        throw new Error('could not parse search bundle');
+        console.log('no inner entry found in bundle');
+        // A FHIR searchset bundle with 0 results may omit the entry field entirely — that's valid.
+        return;
       }
       innerEntry.forEach((e) => {
         if (e.resource?.resourceType && e.resource?.id) result.push(e.resource);
@@ -869,28 +907,6 @@ export async function getInsuranceOrgById(id: string, oystehr: Oystehr): Promise
   });
   return insuranceOrg;
 }
-
-export const getUnconfirmedDOBForAppointment = (appointment?: Appointment): string | undefined => {
-  if (!appointment) return;
-  const unconfirmedDobExt = appointment.extension?.find((ext) => {
-    return ext.url.replace('http:', 'https:') === FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url;
-  });
-  return unconfirmedDobExt?.valueString || unconfirmedDobExt?.valueDate;
-};
-
-export const getUnconfirmedDOBIdx = (appointment?: Appointment): number | undefined => {
-  if (!appointment) return;
-  return appointment.extension?.findIndex((ext) => {
-    return ext.url.replace('http:', 'https:') === FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url;
-  });
-};
-
-export const getIpAddress = (questionnaireResponse?: QuestionnaireResponse): string | undefined => {
-  if (!questionnaireResponse) return;
-  return questionnaireResponse.extension?.find((ext) => {
-    return ext.url.replace('http:', 'https:') === FHIR_EXTENSION.QuestionnaireResponse.ipAddress.url;
-  })?.valueString;
-};
 
 export function filterResources(allResources: Resource[], resourceType: string): Resource[] {
   return allResources.filter((res) => res.resourceType === resourceType && res.id);
@@ -966,6 +982,14 @@ export const extractExtensionValue = (extension: any): any => {
     return extension.valueCodeableConcept.coding?.[0]?.display;
   }
   return undefined;
+};
+
+export const getBooleanExtensionValue = (
+  resource: { extension?: Extension[] } | undefined,
+  url: string
+): boolean | undefined => {
+  const extension = resource?.extension?.find((extension) => extension.url === url);
+  return typeof extension?.valueBoolean === 'boolean' ? extension.valueBoolean : undefined;
 };
 
 export function getArrayInfo(path: string): { isArray: boolean; parentPath: string; index: number } {
@@ -1107,6 +1131,59 @@ export const genderMap = {
 
 export type Gender = (typeof genderMap)[keyof typeof genderMap];
 
+// Minimal subscriber/policy-holder shape shared by the clinical EHR and billing app for building a
+// coverage subscriber RelatedPerson.
+export interface CoverageSubscriberInput {
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  dob?: string;
+  address?: Address;
+  // Either birthSex or gender can be passed into this and we want to accept either
+  birthSex?: BirthSex;
+  gender?: string;
+}
+
+// CodeableConcept for Coverage.relationship.
+export const getSubscriberRelationshipCodeableConcept = (relationship: string): CodeableConcept => ({
+  coding: [
+    {
+      system: SUBSCRIBER_RELATIONSHIP_SYSTEM,
+      code: SUBSCRIBER_RELATIONSHIP_CODE_MAP[relationship] || 'other',
+      display: relationship,
+    },
+  ],
+});
+
+// Build the RelatedPerson that represents a coverage's subscriber / policy holder. The clinical EHR
+// contains this on the Coverage; the billing app persists it standalone so it can be searched. The
+// resource shape is identical either way.
+export const buildCoverageSubscriberRelatedPerson = (
+  patientId: string,
+  subscriber: CoverageSubscriberInput,
+  relationship: string
+): RelatedPerson => ({
+  resourceType: 'RelatedPerson',
+  name: createFhirHumanName(subscriber.firstName, subscriber.middleName, subscriber.lastName),
+  birthDate: subscriber.dob,
+  gender: subscriber.birthSex
+    ? mapBirthSexToGender(subscriber.birthSex)
+    : (subscriber.gender as (RelatedPerson | Patient)['gender']) ?? 'unknown',
+  patient: { reference: `Patient/${patientId}` },
+  address: subscriber.address ? [subscriber.address] : undefined,
+  relationship: [
+    {
+      coding: [
+        {
+          system: RELATED_PERSON_RELATIONSHIP_SYSTEM,
+          code: SUBSCRIBER_RELATIONSHIP_CODE_MAP[relationship] || 'other',
+          display: relationship,
+        },
+      ],
+    },
+  ],
+});
+
 export const getMemberIdFromCoverage = (coverage: Coverage): string | undefined => {
   return coverage.identifier?.find((ident) => {
     return ident.type?.coding?.some(
@@ -1118,11 +1195,12 @@ export const getMemberIdFromCoverage = (coverage: Coverage): string | undefined 
 };
 
 export const createCoverageMemberIdentifier = (memberId: string, insuranceOrg: Organization): Identifier => {
+  const payerId = getPayerId(insuranceOrg);
   return {
     ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
     value: memberId,
     assigner: {
-      reference: `Organization/${insuranceOrg.id}`,
+      reference: isValidUUID(insuranceOrg.id ?? '') ? `Organization/${insuranceOrg.id}` : getPayerUrl(payerId!),
       display: insuranceOrg.name,
     },
   };
@@ -1279,14 +1357,6 @@ export function slashPathToLodashPath(slashPath: string): string {
     .replace(/\.\[/g, '[');
 }
 
-export const deduplicateUnbundledResources = <T extends Resource>(unbundledResources: T[]): T[] => {
-  const uniqueObjects: Record<string, T> = {};
-  unbundledResources.forEach((object) => {
-    uniqueObjects[`${object.resourceType}/${object.id}`] = object;
-  });
-  return Object.values(uniqueObjects);
-};
-
 export const takeContainedOrFind = <T extends Resource>(
   referenceString: string,
   resourceList: Resource[],
@@ -1330,10 +1400,41 @@ export const checkBundleOutcomeOk = (bundle: Bundle): boolean => {
   return outcomeEntry;
 };
 
-export const getStripeCustomerIdFromAccount = (account: Account): string | undefined => {
-  return account.identifier?.find((ident) => {
+export const getStripeCustomerIdFromAccount = (
+  account: Account,
+  stripeAccount: string | undefined
+): string | undefined => {
+  if (!stripeAccount) {
+    return account.identifier?.find((ident) => {
+      return ident.system === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE && !ident.extension;
+    })?.value;
+  } else {
+    return account.identifier?.find((ident) => {
+      return (
+        ident.system === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE &&
+        ident.extension?.some((ext) => {
+          return ext.url === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT && ext.valueString === stripeAccount;
+        })
+      );
+    })?.value;
+  }
+};
+
+export const getAllStripeCustomerAccountPairs = (
+  account: Account
+): { stripeAccount: string | undefined; customerId: string }[] => {
+  const stripeIdentifiers = account.identifier?.filter((ident) => {
     return ident.system === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE;
-  })?.value;
+  });
+  if (!stripeIdentifiers) {
+    return [];
+  }
+  return stripeIdentifiers.map((ident) => {
+    const stripeAccount = ident.extension?.find((ext) => {
+      return ext.url === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT;
+    })?.valueString;
+    return { stripeAccount, customerId: ident.value ?? '' };
+  });
 };
 
 export const getActiveAccountGuarantorReference = (account: Account): string | undefined => {
@@ -1347,55 +1448,6 @@ export const getSlugForBookableResource = (resource: BookableResource): string |
   })?.value;
 };
 
-const OTTEHR_FHIR_URL = 'https://fhir.ottehr.com';
-
-export const ottehrCodeSystemUrl = (name: string): string => {
-  return OTTEHR_FHIR_URL + '/CodeSystem/' + name;
-};
-
-export const ottehrValueSetUrl = (name: string): string => {
-  return OTTEHR_FHIR_URL + '/ValueSet/' + name;
-};
-
-export const ottehrExtensionUrl = (name: string): string => {
-  return OTTEHR_FHIR_URL + '/Extension/' + name;
-};
-
-export const ottehrIdentifierSystem = (name: string): string => {
-  return OTTEHR_FHIR_URL + '/Identifier/' + name;
-};
-
-export async function getAllFhirSearchPages<T extends FhirResource>(
-  fhirSearchParams: FhirSearchParams<T>,
-  oystehr: Oystehr,
-  maxMatchPerBatch = 1000
-): Promise<T[]> {
-  let currentIndex = 0;
-  let total = 1;
-  const result: T[] = [];
-  const params = fhirSearchParams.params ?? [];
-  params.push({ name: '_count', value: `${maxMatchPerBatch}` }); // Set the count to 100 for each page
-  params.push({ name: '_total', value: 'accurate' });
-  while (currentIndex < total) {
-    const bundledResponse = await oystehr.fhir.search<T>({
-      resourceType: fhirSearchParams.resourceType,
-      params: [...params, { name: '_offset', value: `${currentIndex}` }],
-    });
-    const matchedCount = bundledResponse.entry?.filter((entry) => entry.search?.mode === 'match').length || 0;
-    total = bundledResponse.total || 0;
-    const unbundled = bundledResponse.unbundle();
-    result.push(...unbundled);
-    currentIndex += matchedCount;
-  }
-
-  console.log(
-    'Found',
-    currentIndex,
-    `${fhirSearchParams.resourceType} resources and ${result.length - currentIndex} included resources`
-  );
-  return result;
-}
-
 export function getCoding(
   codeableConcept: CodeableConcept | CodeableConcept[] | undefined,
   system: string
@@ -1408,4 +1460,306 @@ export function getCoding(
     }
   }
   return undefined;
+}
+
+export const getAddressString = (addressResource: Address | undefined): string => {
+  if (!addressResource) {
+    return '';
+  }
+  const { line, city, state, postalCode } = addressResource;
+
+  let address = '';
+  if (line?.[0]) {
+    address += line?.[0];
+    if (line?.[1]) {
+      address += `, ${line?.[1]}`;
+    }
+  }
+  if (city) {
+    if (address.length > 0) {
+      address += ', ';
+    }
+    address += city;
+  }
+  if (state) {
+    if (address.length > 0) {
+      address += ', ';
+    }
+    address += state;
+  }
+  if (postalCode) {
+    if (address.length > 0) {
+      address += ' ';
+    }
+    address += postalCode;
+  }
+  return address;
+};
+
+export const getAddressStringForScheduleResource = (
+  scheduleResource: ScheduleOwnerFhirResource | undefined
+): string | undefined => {
+  if (!scheduleResource) {
+    return undefined;
+  }
+  let address: string | undefined;
+  if (scheduleResource.resourceType === 'Location') {
+    address = getAddressString(scheduleResource.address);
+  } else if (scheduleResource.resourceType === 'Practitioner') {
+    address = getAddressString(scheduleResource.address?.[0]);
+  }
+  console.log('getAddressStringForScheduleResource', scheduleResource.resourceType, address);
+  return address;
+};
+
+export function getExtension(resource: DomainResource | Element, url: string): Extension | undefined {
+  return resource.extension?.find((extension) => extension.url === url);
+}
+
+/**
+ * Returns the value of a typed key on the first extension matching `url`. Use this to read
+ * `valueString`/`valueBoolean`/etc. from a resource extension in a single call without manually
+ * narrowing through `.extension?.find(...)?.valueX`.
+ */
+export function getExtensionValue<K extends keyof Extension>(
+  resource: DomainResource | Element | undefined,
+  url: string,
+  key: K
+): Extension[K] | undefined {
+  if (!resource) return undefined;
+  return getExtension(resource, url)?.[key];
+}
+
+export const cleanUpStaffHistoryTag = (resource: Resource, field: string): Operation | undefined => {
+  // going forward we will be using the history of the patient resource so this isn't needed
+  // check if there is a tag to clean up
+  const staffHistoryTagIdx = resource.meta?.tag?.findIndex((tag) => tag.system === `staff-update-history-${field}`);
+  if (staffHistoryTagIdx !== undefined && staffHistoryTagIdx >= 0) {
+    return {
+      op: 'remove',
+      path: `/meta/tag/${staffHistoryTagIdx}`,
+    };
+  } else {
+    return;
+  }
+};
+
+export const getAttestedConsentFromEncounter = (encounter: Encounter): Signature | undefined => {
+  console.log('getAttestedConsentFromEncounter', JSON.stringify(encounter));
+  return encounter.extension?.find((ext) => ext.url === FHIR_EXTENSION.Encounter.attestedConsent.url)?.valueSignature;
+};
+
+export const getInsuranceNameFromCoverage = (coverage: Coverage): string | undefined => {
+  return coverage?.class?.find(
+    (cls) => cls.type.coding?.find((coding) => coding.system === CODE_SYSTEM_COVERAGE_CLASS && coding.code === 'plan')
+  )?.name;
+};
+
+export function getPatientReferenceFromAccount(account: Account): string | undefined {
+  return account.subject?.find((subj) => subj.reference?.includes('Patient/'))?.reference;
+}
+
+export function getResponsiblePartyFromAccount(
+  account: Account,
+  resources: Resource[]
+): Patient | RelatedPerson | undefined {
+  const responsiblePartyRef = getActiveAccountGuarantorReference(account);
+  if (!responsiblePartyRef) return undefined;
+  return takeContainedOrFind<RelatedPerson | Patient>(responsiblePartyRef, resources, account);
+}
+
+export const getScheduleOwnerFromAppointmentOrEncounter = async (
+  input: { appointmentId?: string; encounterId?: string },
+  oystehr: Oystehr
+): Promise<Location | HealthcareService | Practitioner> => {
+  const { appointmentId, encounterId } = input;
+  const appointmentSearchParams: SearchParam[] = [
+    {
+      name: '_include',
+      value: 'Appointment:actor',
+    },
+    {
+      name: '_include',
+      value: 'Appointment:slot',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Slot:schedule',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Schedule:actor:Location',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Schedule:actor:Practitioner',
+    },
+  ];
+
+  if (appointmentId) {
+    appointmentSearchParams.push({
+      name: '_id',
+      value: appointmentId,
+    });
+  } else if (encounterId) {
+    appointmentSearchParams.push({ name: '_has:Encounter:appointment:_id', value: encounterId });
+  } else {
+    throw new Error('Either appointmentId or encounterId must be provided');
+  }
+
+  const allResources = (
+    await oystehr.fhir.search<Appointment | Slot | Schedule | Location | HealthcareService | Practitioner>({
+      resourceType: 'Appointment',
+      params: appointmentSearchParams,
+    })
+  ).unbundle();
+  console.log(`successfully retrieved ${allResources.length} appointment resources`);
+  const fhirAppointment = allResources.find((resource) => resource.resourceType === 'Appointment') as Appointment;
+  const fhirLocation = allResources.find((resource) => resource.resourceType === 'Location');
+  const fhirHS = allResources.find((resource) => resource.resourceType === 'HealthcareService');
+  const fhirPractitioner = allResources.find((resource) => resource.resourceType === 'Practitioner');
+
+  let scheduleOwner: Location | HealthcareService | Practitioner | undefined;
+  if (fhirLocation) {
+    scheduleOwner = fhirLocation as Location;
+  } else if (fhirHS) {
+    scheduleOwner = fhirHS as HealthcareService;
+  } else if (fhirPractitioner) {
+    scheduleOwner = fhirPractitioner as Practitioner;
+  }
+
+  if (!fhirAppointment) {
+    throw APPOINTMENT_NOT_FOUND_ERROR;
+  }
+
+  if (!scheduleOwner) {
+    throw SCHEDULE_NOT_FOUND_ERROR;
+  }
+
+  return scheduleOwner;
+};
+
+export function makeCptCodeDisplay(cptCode: CPTCodeDTO): string {
+  const dtoHasMod = cptCode.modifier && cptCode.modifier.length > 0;
+
+  const modifierCodesString = dtoHasMod ? `${cptCode.modifier?.map((mod) => `-${mod.code}`).join('')}` : '';
+
+  const modifierDescriptionString = dtoHasMod ? `${cptCode.modifier?.map((mod) => ` - ${mod.display}`).join('')}` : '';
+
+  return `${cptCode.code}${modifierCodesString} ${cptCode.display}${modifierDescriptionString}`;
+}
+
+const OPTIMISTIC_LOCK_MAX_RETRIES = 3;
+
+/**
+ * True when an error thrown by the Oystehr SDK represents an optimistic-locking version
+ * conflict (HTTP 412 Precondition Failed from an If-Match header), meaning the resource
+ * changed between read and write and the operation can be safely re-read and retried.
+ */
+export function isVersionConflictError(error: unknown): boolean {
+  const err = error as { code?: unknown; statusCode?: unknown; message?: unknown } | null | undefined;
+  return (
+    err?.code === 412 || err?.statusCode === 412 || (typeof err?.message === 'string' && err.message.includes('412'))
+  );
+}
+
+/**
+ * Runs an optimistically-locked FHIR write, retrying on version conflict (412).
+ *
+ * The callback re-runs from scratch on each attempt and is responsible for re-reading the
+ * If-Match-guarded resource itself, so every retry writes against the current version instead
+ * of the one that just lost the race. Non-conflict errors, and a conflict on the final
+ * attempt, are rethrown. Prefer patchWithOptimisticLock for a plain single-resource PATCH;
+ * this is the underlying engine for writes it can't express (e.g. a transaction that pairs
+ * the guarded PATCH with other requests).
+ */
+export async function withVersionConflictRetries<T>(
+  fn: (attempt: number) => Promise<T>,
+  opts?: { maxAttempts?: number; onConflict?: (attempt: number) => void }
+): Promise<T> {
+  const maxAttempts = opts?.maxAttempts ?? OPTIMISTIC_LOCK_MAX_RETRIES;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn(attempt);
+    } catch (error) {
+      if (attempt >= maxAttempts || !isVersionConflictError(error)) {
+        throw error;
+      }
+      opts?.onConflict?.(attempt);
+    }
+  }
+}
+
+/**
+ * Patches a FHIR resource with optimistic locking (E-tag).
+ *
+ * Uses the resource's versionId as an If-Match header so the FHIR server
+ * rejects the PATCH with 412 if another process modified the resource
+ * concurrently. On 412, re-fetches the resource, recomputes patch operations
+ * (important since they may use array indices), and retries.
+ */
+export async function patchWithOptimisticLock<T extends FhirResource & { id: string }>(
+  oystehr: Oystehr,
+  initialResource: T,
+  computeOps: (resource: T) => Operation[] | Promise<Operation[]>
+): Promise<void> {
+  const { resourceType } = initialResource;
+  let current = initialResource;
+
+  await withVersionConflictRetries(
+    async (attempt) => {
+      if (attempt > 1) {
+        current = (await oystehr.fhir.get<T>({ resourceType, id: current.id } as any)) as T;
+      }
+      const operations = await computeOps(current);
+      if (operations.length === 0) return;
+
+      const versionId = current.meta?.versionId;
+      await oystehr.fhir.patch(
+        { resourceType, id: current.id, operations },
+        versionId ? { optimisticLockingVersionId: versionId } : undefined
+      );
+    },
+    {
+      onConflict: (attempt) =>
+        console.log(
+          `${resourceType}/${current.id} PATCH conflict (412), re-fetching and retrying (attempt ${attempt}/${
+            OPTIMISTIC_LOCK_MAX_RETRIES - 1
+          })`
+        ),
+    }
+  );
+}
+
+export function makeOptimisticLockIfMatchHeader(res: FhirResource | string): string | undefined {
+  let versionId: string | undefined;
+
+  if (typeof res === 'string') {
+    versionId = res;
+  } else {
+    versionId = res.meta?.versionId;
+  }
+
+  return versionId ? `W/"${versionId}"` : undefined;
+}
+
+export const resourceHasTagSystem = (resource: FhirResource, system: string): boolean =>
+  resource.meta?.tag?.some((t) => t.system === system) ?? false;
+
+export const getTag = (resource: Resource, tagSystem: string, tagCode?: string): Coding | undefined => {
+  if (tagCode) return resource.meta?.tag?.find((tag) => tag.system === tagSystem && tag.code === tagCode);
+  else return resource.meta?.tag?.find((tag) => tag.system === tagSystem);
+};
+
+// https://hl7.org/fhir/R4B/datatypes.html#code
+export function sanitizeStringForFhirCode(input: string): Coding['code'] {
+  if (!FHIR_CODE_REGEX.test(input)) {
+    return input.trim().replace(/\s+/g, ' ');
+  } else {
+    return input;
+  }
+}
+
+export function transactionWasSuccessful(transactionResponse: Pick<TransactionBundle<FhirResource>, 'entry'>): boolean {
+  return transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2') ?? false;
 }

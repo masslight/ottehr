@@ -1,0 +1,44 @@
+import { Secrets } from 'utils/lib/secrets';
+import { UpdateRadiologyOrderZambdaInput, UpdateRadiologyOrderZambdaInputSchema } from 'utils/lib/types/api/radiology';
+import { validateJsonBody } from '../../../shared/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
+
+export interface ValidatedInput {
+  body: UpdateRadiologyOrderZambdaInput;
+  callerAccessToken: string;
+}
+
+export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput> => {
+  // Shape only; the edit payload's CPT/ICD-10 codes are validated in performEffect.
+  const body = safeValidate(UpdateRadiologyOrderZambdaInputSchema, validateJsonBody(input));
+
+  const callerAccessToken = input.headers.Authorization.replace('Bearer ', '');
+  if (callerAccessToken == null) {
+    throw new Error('Caller access token is required');
+  }
+
+  return {
+    body,
+    callerAccessToken,
+  };
+};
+
+export const validateSecrets = (secrets: Secrets | null): Secrets => {
+  if (!secrets) {
+    throw new Error('Secrets are required');
+  }
+
+  const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_API } = secrets;
+  if (!AUTH0_ENDPOINT || !AUTH0_CLIENT || !AUTH0_SECRET || !AUTH0_AUDIENCE || !FHIR_API || !PROJECT_API) {
+    throw new Error('Missing required secrets');
+  }
+  return {
+    AUTH0_ENDPOINT,
+    AUTH0_CLIENT,
+    AUTH0_SECRET,
+    AUTH0_AUDIENCE,
+    FHIR_API,
+    PROJECT_API,
+  };
+};

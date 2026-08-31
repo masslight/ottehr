@@ -2,28 +2,19 @@ import Oystehr, { BatchInput, BatchInputRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Bundle, Encounter, Patient, Resource } from 'fhir/r4b';
+import { getTelemedLocation } from 'utils/lib/fhir/location';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
-  createOystehrClient,
-  FHIR_EXTENSION,
-  getPatchBinary,
-  getPatchOperationToUpdateExtension,
-  getSecret,
-  getTelemedLocation,
-  RequiredProps,
-  SecretsKeys,
   UpdateAppointmentRequestParams,
   UpdateAppointmentResponse,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createUpdateUserRelatedResources,
-  creatingPatientUpdateRequest,
-  getUser,
-  topLevelCatch,
-  userHasAccessToPatient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import { RequiredProps } from 'utils/lib/types/typescript-helpers';
+import { createUpdateUserRelatedResources, creatingPatientUpdateRequest } from '../../../shared/appointment/helpers';
+import { checkOrCreateM2MClientToken, getUser, userHasAccessToPatient } from '../../../shared/auth';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateUpdateAppointmentParams } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'telemed-update-appointment';
@@ -33,22 +24,13 @@ let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
-  try {
-    const validatedParameters = validateUpdateAppointmentParams(input);
+  const validatedParameters = validateUpdateAppointmentParams(input);
 
-    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, input.secrets);
+  oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, input.secrets);
 
-    const response = await performEffect({ input, params: validatedParameters });
+  const response = await performEffect({ input, params: validatedParameters });
 
-    return response;
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('update-appointment', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
-  }
+  return response;
 });
 
 interface PerformEffectInputProps {
@@ -96,7 +78,7 @@ export async function updateAppointment(
   user: User
 ): Promise<UpdateAppointmentResponse> {
   let updatePatientRequest: BatchInputRequest<Patient> | undefined = undefined;
-  const { patient, unconfirmedDateOfBirth, locationState } = params;
+  const { patient, locationState } = params;
 
   // if it is a returning patient
   const resources = (
@@ -154,17 +136,6 @@ export async function updateAppointment(
   }
 
   const patchApptOps: Operation[] = [];
-
-  if (unconfirmedDateOfBirth) {
-    const op = getPatchOperationToUpdateExtension(fhirAppointment, {
-      url: FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url,
-      valueDate: unconfirmedDateOfBirth,
-    });
-
-    if (op) {
-      patchApptOps.push(op);
-    }
-  }
 
   const transactionInput: BatchInput<Appointment | Patient> = {
     requests: [...patientRequests],

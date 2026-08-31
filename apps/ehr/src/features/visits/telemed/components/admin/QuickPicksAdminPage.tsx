@@ -1,0 +1,612 @@
+import { TabContext, TabList, TabPanel } from '@mui/lab';
+import { Autocomplete, Box, debounce, Tab, TextField } from '@mui/material';
+import { ErxSearchAllergensResponse, ErxSearchMedicationsResponse } from '@oystehr/sdk';
+import React, { ReactElement, useCallback, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+  createAllergyQuickPick,
+  createMedicalConditionQuickPick,
+  createMedicationHistoryQuickPick,
+  createPatientInstructionQuickPick,
+  createQuickTextQuickPick,
+  getAllergyQuickPicks,
+  getMedicalConditionQuickPicks,
+  getMedicationHistoryQuickPicks,
+  getPatientInstructionQuickPicks,
+  getQuickTextQuickPicks,
+  removeQuickPick,
+  updatePatientInstructionQuickPick,
+  updateQuickTextQuickPick,
+} from 'src/api/api';
+import {
+  ExtractObjectType,
+  useGetAllergiesSearch,
+  useGetMedicationsSearch,
+  useICD10SearchNew,
+} from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import { useApiClients } from 'src/hooks/useAppClients';
+import {
+  AllergyQuickPickData,
+  MedicalConditionQuickPickData,
+  MedicationHistoryQuickPickData,
+  PatientInstructionQuickPickData,
+  QuickTextQuickPickData,
+} from 'utils/lib/types/api/quick-picks.types';
+import ImmunizationQuickPicksPage from './ImmunizationQuickPicksPage';
+import InHouseMedicationQuickPicksPage from './InHouseMedicationQuickPicksPage';
+import InsuranceQuickPickPage from './InsuranceQuickPickPage';
+import ProcedureQuickPicksPage from './ProcedureQuickPicksPage';
+import QuickPickEditor from './QuickPickEditor';
+import { QuickTextTemplateField } from './QuickTextTemplateField';
+import RadiologyQuickPicksPage from './RadiologyQuickPicksPage';
+
+const AllergenSearchField: React.FC<{
+  value: string;
+  onChange: (value: string) => void;
+  onExtraData?: (data: Record<string, string>) => void;
+}> = ({ value, onChange, onExtraData }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const { isFetching: isSearching, data } = useGetAllergiesSearch(debouncedSearchTerm);
+
+  const options = useMemo(() => {
+    if (!data || isSearching) return [];
+    return data.map((allergy) => {
+      const brandName = allergy.brandName;
+      if (brandName && brandName !== allergy.name) {
+        return { ...allergy, name: `${allergy.name} (${brandName})` };
+      }
+      return allergy;
+    });
+  }, [data, isSearching]);
+
+  const debouncedSetSearch = useMemo(
+    () =>
+      debounce((term: string) => {
+        if (term.length > 2) {
+          setDebouncedSearchTerm(term);
+        }
+      }, 800),
+    []
+  );
+
+  const selectedOption = value ? ({ name: value } as ExtractObjectType<ErxSearchAllergensResponse>) : null;
+
+  return (
+    <Autocomplete
+      value={selectedOption}
+      inputValue={searchTerm || value}
+      onInputChange={(_e, newInputValue, reason) => {
+        if (reason === 'input') {
+          setSearchTerm(newInputValue);
+          debouncedSetSearch(newInputValue);
+        }
+      }}
+      onChange={(_e, selected) => {
+        if (selected) {
+          onChange(selected.name);
+          onExtraData?.({ allergyId: selected.id?.toString() ?? '' });
+          setSearchTerm('');
+        } else {
+          onChange('');
+          onExtraData?.({ allergyId: '' });
+        }
+      }}
+      getOptionLabel={(option) => (typeof option === 'string' ? option : option.name || '')}
+      isOptionEqualToValue={(option, val) => option.name === val.name}
+      options={options}
+      loading={isSearching}
+      filterOptions={(x) => x}
+      fullWidth
+      noOptionsText={
+        debouncedSearchTerm && debouncedSearchTerm.length > 2 && options.length === 0
+          ? 'Nothing found for this search criteria'
+          : 'Start typing to load results'
+      }
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label="Agent/Substance"
+          placeholder="Search allergens..."
+          required
+          InputLabelProps={{ shrink: true }}
+        />
+      )}
+    />
+  );
+};
+
+const MedicationSearchField: React.FC<{
+  value: string;
+  onChange: (value: string) => void;
+  onExtraData?: (data: Record<string, string>) => void;
+}> = ({ value, onChange, onExtraData }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const { isFetching: isSearching, data } = useGetMedicationsSearch(debouncedSearchTerm);
+  const options = data || [];
+
+  const debouncedSetSearch = useMemo(
+    () =>
+      debounce((term: string) => {
+        if (term.length > 2) {
+          setDebouncedSearchTerm(term);
+        }
+      }, 800),
+    []
+  );
+
+  const selectedOption = value ? ({ name: value } as ExtractObjectType<ErxSearchMedicationsResponse>) : null;
+
+  return (
+    <Autocomplete
+      value={selectedOption}
+      inputValue={searchTerm || value}
+      onInputChange={(_e, newInputValue, reason) => {
+        if (reason === 'input') {
+          setSearchTerm(newInputValue);
+          debouncedSetSearch(newInputValue);
+        }
+      }}
+      onChange={(_e, selected) => {
+        if (selected) {
+          onChange(selected.name);
+          onExtraData?.({
+            strength: selected.strength ?? '',
+            medicationId: selected.id?.toString() ?? '',
+          });
+          setSearchTerm('');
+        } else {
+          onChange('');
+          onExtraData?.({ strength: '', medicationId: '' });
+        }
+      }}
+      getOptionLabel={(option) =>
+        typeof option === 'string' ? option : `${option.name}${option.strength ? ` (${option.strength})` : ''}`
+      }
+      isOptionEqualToValue={(option, val) => option.name === val.name}
+      options={options}
+      loading={isSearching}
+      filterOptions={(x) => x}
+      fullWidth
+      noOptionsText={
+        debouncedSearchTerm && debouncedSearchTerm.length > 2 && options.length === 0
+          ? 'Nothing found for this search criteria'
+          : 'Start typing to load results'
+      }
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label="Medication"
+          placeholder="Search medications..."
+          required
+          InputLabelProps={{ shrink: true }}
+        />
+      )}
+    />
+  );
+};
+
+const MedicalConditionSearchField: React.FC<{
+  value: string;
+  onChange: (value: string) => void;
+  onExtraData?: (data: Record<string, string>) => void;
+}> = ({ value, onChange, onExtraData }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const { isFetching: isSearching, data } = useICD10SearchNew({ search: debouncedSearchTerm });
+  const options = data?.codes || [];
+
+  const debouncedSetSearch = useMemo(
+    () =>
+      debounce((term: string) => {
+        setDebouncedSearchTerm(term);
+      }, 800),
+    []
+  );
+
+  const selectedOption = value ? { display: value, code: '' } : null;
+
+  return (
+    <Autocomplete
+      value={selectedOption}
+      inputValue={searchTerm || value}
+      onInputChange={(_e, newInputValue, reason) => {
+        if (reason === 'input') {
+          setSearchTerm(newInputValue);
+          debouncedSetSearch(newInputValue);
+        }
+      }}
+      onChange={(_e, selected) => {
+        if (selected) {
+          onChange(selected.display);
+          onExtraData?.({ code: selected.code });
+          setSearchTerm('');
+        } else {
+          onChange('');
+          onExtraData?.({ code: '' });
+        }
+      }}
+      getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
+      isOptionEqualToValue={(option, val) => option.display === val.display}
+      options={options}
+      loading={isSearching}
+      filterOptions={(x) => x}
+      fullWidth
+      noOptionsText={
+        debouncedSearchTerm && options.length === 0
+          ? 'Nothing found for this search criteria'
+          : 'Start typing to load results'
+      }
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label="Medical Condition"
+          placeholder="Search ICD-10 codes..."
+          required
+          InputLabelProps={{ shrink: true }}
+        />
+      )}
+    />
+  );
+};
+
+export default function QuickPicksAdminPage(): ReactElement {
+  const navigate = useNavigate();
+  const { _, subTab } = useParams();
+  const { oystehrZambda } = useApiClients();
+
+  // ── Allergy callbacks ──
+  const fetchAllergies = useCallback(async () => {
+    if (!oystehrZambda) return [];
+    const response = await getAllergyQuickPicks(oystehrZambda);
+    return response.quickPicks;
+  }, [oystehrZambda]);
+
+  const createAllergy = useCallback(
+    async (data: Omit<AllergyQuickPickData, 'id'>) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      const response = await createAllergyQuickPick(oystehrZambda, { quickPick: data });
+      return response.quickPick;
+    },
+    [oystehrZambda]
+  );
+
+  const removeAllergy = useCallback(
+    async (id: string) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      await removeQuickPick(oystehrZambda, id);
+    },
+    [oystehrZambda]
+  );
+
+  // ── Medical condition callbacks ──
+  const fetchConditions = useCallback(async () => {
+    if (!oystehrZambda) return [];
+    const response = await getMedicalConditionQuickPicks(oystehrZambda);
+    return response.quickPicks;
+  }, [oystehrZambda]);
+
+  const createCondition = useCallback(
+    async (data: Omit<MedicalConditionQuickPickData, 'id'>) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      const response = await createMedicalConditionQuickPick(oystehrZambda, { quickPick: data });
+      return response.quickPick;
+    },
+    [oystehrZambda]
+  );
+
+  const removeCondition = useCallback(
+    async (id: string) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      await removeQuickPick(oystehrZambda, id);
+    },
+    [oystehrZambda]
+  );
+
+  // ── Medication callbacks ──
+  const fetchMedications = useCallback(async () => {
+    if (!oystehrZambda) return [];
+    const response = await getMedicationHistoryQuickPicks(oystehrZambda);
+    return response.quickPicks;
+  }, [oystehrZambda]);
+
+  const createMedication = useCallback(
+    async (data: Omit<MedicationHistoryQuickPickData, 'id'>) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      const response = await createMedicationHistoryQuickPick(oystehrZambda, { quickPick: data });
+      return response.quickPick;
+    },
+    [oystehrZambda]
+  );
+
+  const removeMedication = useCallback(
+    async (id: string) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      await removeQuickPick(oystehrZambda, id);
+    },
+    [oystehrZambda]
+  );
+
+  // ── Patient instruction callbacks ──
+  const fetchPatientInstructions = useCallback(async () => {
+    if (!oystehrZambda) return [];
+    const response = await getPatientInstructionQuickPicks(oystehrZambda);
+    return response.quickPicks;
+  }, [oystehrZambda]);
+
+  const createPatientInstruction = useCallback(
+    async (data: Omit<PatientInstructionQuickPickData, 'id'>) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      const response = await createPatientInstructionQuickPick(oystehrZambda, { quickPick: data });
+      return response.quickPick;
+    },
+    [oystehrZambda]
+  );
+
+  const updatePatientInstruction = useCallback(
+    async (id: string, data: Omit<PatientInstructionQuickPickData, 'id'>) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      const response = await updatePatientInstructionQuickPick(oystehrZambda, id, data);
+      return response.quickPick;
+    },
+    [oystehrZambda]
+  );
+
+  const removePatientInstruction = useCallback(
+    async (id: string) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      await removeQuickPick(oystehrZambda, id);
+    },
+    [oystehrZambda]
+  );
+
+  // ── Quick text callbacks ──
+  const fetchQuickTexts = useCallback(async () => {
+    if (!oystehrZambda) return [];
+    const response = await getQuickTextQuickPicks(oystehrZambda);
+    return response.quickPicks;
+  }, [oystehrZambda]);
+
+  const createQuickText = useCallback(
+    async (data: Omit<QuickTextQuickPickData, 'id'>) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      const response = await createQuickTextQuickPick(oystehrZambda, { quickPick: data });
+      return response.quickPick;
+    },
+    [oystehrZambda]
+  );
+
+  const updateQuickText = useCallback(
+    async (id: string, data: Omit<QuickTextQuickPickData, 'id'>) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      const response = await updateQuickTextQuickPick(oystehrZambda, id, data);
+      return response.quickPick;
+    },
+    [oystehrZambda]
+  );
+
+  const removeQuickText = useCallback(
+    async (id: string) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      await removeQuickPick(oystehrZambda, id);
+    },
+    [oystehrZambda]
+  );
+
+  return (
+    <Box>
+      <TabContext value={subTab ?? 'procedures'}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <TabList
+            onChange={(_, v) => navigate(`/admin/quick-picks/${v}`)}
+            aria-label="Quick pick categories"
+            variant="scrollable"
+            scrollButtons="auto"
+          >
+            <Tab label="Procedures" value="procedures" sx={{ textTransform: 'none' }} />
+            <Tab label="Allergies" value="allergies" sx={{ textTransform: 'none' }} />
+            <Tab label="Medical Conditions" value="medical-conditions" sx={{ textTransform: 'none' }} />
+            <Tab label="Medications" value="medications" sx={{ textTransform: 'none' }} />
+            <Tab label="Radiology" value="radiology" sx={{ textTransform: 'none' }} />
+            <Tab label="Immunizations" value="immunizations" sx={{ textTransform: 'none' }} />
+            <Tab label="In-House Medications" value="in-house-medications" sx={{ textTransform: 'none' }} />
+            <Tab label="Insurance" value="insurance" sx={{ textTransform: 'none' }} />
+            <Tab label="Patient Instructions" value="patient-instructions" sx={{ textTransform: 'none' }} />
+            <Tab label="Quick Texts" value="quick-texts" sx={{ textTransform: 'none' }} />
+          </TabList>
+        </Box>
+
+        <TabPanel value="procedures" sx={{ px: 0 }}>
+          <ProcedureQuickPicksPage />
+        </TabPanel>
+
+        <TabPanel value="allergies" sx={{ px: 0 }}>
+          <QuickPickEditor<AllergyQuickPickData>
+            title="Allergy Quick Picks"
+            description="Manage common allergies that appear as quick picks when documenting patient allergies."
+            columns={[{ label: 'Name', getValue: (item) => item.name }]}
+            fields={[
+              {
+                key: 'name',
+                label: 'Agent/Substance',
+                required: true,
+                renderField: (value, onValueChange, onExtraData) => (
+                  <AllergenSearchField value={value} onChange={onValueChange} onExtraData={onExtraData} />
+                ),
+              },
+            ]}
+            editable={false}
+            fetchItems={fetchAllergies}
+            createItem={createAllergy}
+            removeItem={removeAllergy}
+            buildItemFromFields={(values) => ({
+              name: values.name.trim(),
+              ...(values.allergyId ? { allergyId: Number(values.allergyId) } : {}),
+            })}
+          />
+        </TabPanel>
+
+        <TabPanel value="medical-conditions" sx={{ px: 0 }}>
+          <QuickPickEditor<MedicalConditionQuickPickData>
+            title="Medical Condition Quick Picks"
+            description="Manage common medical conditions that appear as quick picks when documenting patient history."
+            columns={[
+              { label: 'Display Name', getValue: (item) => item.display },
+              { label: 'ICD-10 Code', getValue: (item) => item.code ?? '', width: 150 },
+            ]}
+            fields={[
+              {
+                key: 'display',
+                label: 'Medical Condition',
+                required: true,
+                renderField: (value, onValueChange, onExtraData) => (
+                  <MedicalConditionSearchField value={value} onChange={onValueChange} onExtraData={onExtraData} />
+                ),
+              },
+            ]}
+            editable={false}
+            fetchItems={fetchConditions}
+            createItem={createCondition}
+            removeItem={removeCondition}
+            buildItemFromFields={(values) => ({
+              display: values.display.trim(),
+              ...(values.code?.trim() ? { code: values.code.trim() } : {}),
+            })}
+          />
+        </TabPanel>
+
+        <TabPanel value="medications" sx={{ px: 0 }}>
+          <QuickPickEditor<MedicationHistoryQuickPickData>
+            title="Medication Quick Picks"
+            description="Manage common medications that appear as quick picks when documenting current medications."
+            columns={[
+              { label: 'Name', getValue: (item) => item.name },
+              { label: 'Strength', getValue: (item) => item.strength ?? '', width: 150 },
+            ]}
+            fields={[
+              {
+                key: 'name',
+                label: 'Medication',
+                required: true,
+                renderField: (value, onValueChange, onExtraData) => (
+                  <MedicationSearchField value={value} onChange={onValueChange} onExtraData={onExtraData} />
+                ),
+              },
+            ]}
+            editable={false}
+            fetchItems={fetchMedications}
+            createItem={createMedication}
+            removeItem={removeMedication}
+            buildItemFromFields={(values) => ({
+              name: values.name.trim(),
+              ...(values.strength?.trim() ? { strength: values.strength.trim() } : {}),
+              ...(values.medicationId ? { medicationId: Number(values.medicationId) } : {}),
+            })}
+          />
+        </TabPanel>
+        <TabPanel value="radiology" sx={{ px: 0 }}>
+          <RadiologyQuickPicksPage />
+        </TabPanel>
+        <TabPanel value="immunizations" sx={{ px: 0 }}>
+          <ImmunizationQuickPicksPage />
+        </TabPanel>
+        <TabPanel value="in-house-medications" sx={{ px: 0 }}>
+          <InHouseMedicationQuickPicksPage />
+        </TabPanel>
+        <TabPanel value="insurance" sx={{ px: 0 }}>
+          <InsuranceQuickPickPage />
+        </TabPanel>
+        <TabPanel value="patient-instructions" sx={{ px: 0 }}>
+          <QuickPickEditor<PatientInstructionQuickPickData>
+            title="Patient Instruction Quick Picks"
+            description="Manage instruction templates that appear as Practice Quick Picks in the Plan / Patient Instructions section."
+            columns={[
+              { label: 'Title', getValue: (item) => item.name },
+              { label: 'Instruction', getValue: (item) => item.text },
+            ]}
+            fields={[
+              { key: 'name', label: 'Instruction title', required: true, placeholder: 'e.g. Concussion follow-up' },
+              {
+                key: 'text',
+                label: 'Instruction',
+                required: true,
+                placeholder: 'Full instruction text…',
+                multiline: true,
+                rows: 6,
+              },
+            ]}
+            editable={true}
+            fetchItems={fetchPatientInstructions}
+            createItem={createPatientInstruction}
+            updateItem={updatePatientInstruction}
+            removeItem={removePatientInstruction}
+            buildItemFromFields={(values) => ({
+              name: values.name.trim(),
+              text: values.text.trim(),
+            })}
+            getFieldValues={(item) => ({ name: item.name, text: item.text })}
+          />
+        </TabPanel>
+        <TabPanel value="quick-texts" sx={{ px: 0 }}>
+          <QuickPickEditor<QuickTextQuickPickData>
+            title="Quick Texts"
+            description="Manage SMS message templates that providers can pick from when sending texts to patients. Type {{ in a message to insert a placeholder, or click a suggestion chip below the editor."
+            itemLabel="Quick Text"
+            columns={[
+              { label: 'Name', getValue: (item) => item.name },
+              { label: 'English', getValue: (item) => item.english },
+              { label: 'Spanish', getValue: (item) => item.spanish ?? '' },
+            ]}
+            fields={[
+              { key: 'name', label: 'Name', required: true, placeholder: 'e.g. Paperwork reminder' },
+              {
+                key: 'english',
+                label: 'English',
+                required: true,
+                maxLength: 300,
+                renderField: (value, onValueChange) => (
+                  <QuickTextTemplateField
+                    label="English"
+                    required
+                    value={value}
+                    onChange={onValueChange}
+                    maxLength={300}
+                  />
+                ),
+              },
+              {
+                key: 'spanish',
+                label: 'Spanish (optional)',
+                maxLength: 300,
+                renderField: (value, onValueChange) => (
+                  <QuickTextTemplateField
+                    label="Spanish (optional)"
+                    value={value}
+                    onChange={onValueChange}
+                    maxLength={300}
+                  />
+                ),
+              },
+            ]}
+            editable={true}
+            fetchItems={fetchQuickTexts}
+            createItem={createQuickText}
+            updateItem={updateQuickText}
+            removeItem={removeQuickText}
+            buildItemFromFields={(values) => ({
+              name: values.name.trim(),
+              english: values.english.trim(),
+              ...(values.spanish?.trim() ? { spanish: values.spanish.trim() } : {}),
+            })}
+            getFieldValues={(item) => ({
+              name: item.name,
+              english: item.english,
+              spanish: item.spanish ?? '',
+            })}
+          />
+        </TabPanel>
+      </TabContext>
+    </Box>
+  );
+}

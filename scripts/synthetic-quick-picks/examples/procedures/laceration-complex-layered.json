@@ -1,0 +1,40 @@
+{
+  "name": "Laceration Repair — Complex / Layered Closure",
+  "procedureType": "laceration-repair",
+  "cptCodes": [
+    {
+      "code": "13132",
+      "display": "Repair, complex, forehead/cheeks/chin/mouth/neck/axillae/genitalia/hands/feet, 2.6–7.5 cm"
+    },
+    {
+      "code": "13121",
+      "display": "Repair, complex, scalp/arms/legs, 2.6–7.5 cm"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "S01.91XA",
+      "display": "Unspecified open wound of unspecified part of head, initial encounter"
+    }
+  ],
+  "bodySite": "face",
+  "bodySide": "not-applicable",
+  "technique": [
+    "sterile"
+  ],
+  "medicationUsed": "local",
+  "suppliesUsed": [
+    "suture-kit",
+    "other"
+  ],
+  "otherSuppliesUsed": "4-0 vicryl deep + 5-0 nylon surface, lidocaine 1% w/ epi",
+  "complications": "none",
+  "patientResponse": "tolerated-well",
+  "postInstructions": [
+    "wound-care",
+    "fu-with-pcp",
+    "other"
+  ],
+  "otherPostInstructions": "Plastics referral if cosmetic concern; suture removal in 5–7 days",
+  "timeSpent": "20-30-min"
+}

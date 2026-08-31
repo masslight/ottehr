@@ -5,15 +5,19 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Box } from '@mui/material';
+import { palette } from '@theme/index';
 import { useLocalVideo, useToggleLocalMute } from 'amazon-chime-sdk-component-library-react';
 import { FC, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { CallSettings } from 'src/telemed/components/CallSettings/CallSettings';
+import { CallSettingsTooltip } from 'src/telemed/components/CallSettingsTooltip';
+import { IconButtonContained } from 'src/telemed/components/IconButtonContained';
+import { SideCardList } from 'src/telemed/components/SideCardList';
+import { ConfirmEndCallDialog } from 'src/telemed/features/video-call/ConfirmEndCallDialog';
+import { CustomDialog } from 'ui-components/lib/components/intake/CustomDialog';
 import { intakeFlowPageRoute } from '../../../App';
-import { CustomDialog } from '../../../components/CustomDialog';
 import { otherColors } from '../../../IntakeThemeProvider';
-import { CallSettings, CallSettingsTooltip, IconButtonContained, SideCardList } from '../../components';
 import { useIsMobile } from '../../hooks/useIsMobile';
-import { ConfirmEndCallDialog } from '.';
 
 export const VideoControls: FC = () => {
   const { toggleVideo, isVideoEnabled } = useLocalVideo();
@@ -52,7 +56,7 @@ export const VideoControls: FC = () => {
       <Box
         sx={{
           alignItems: 'center',
-          backgroundColor: otherColors.appBarBackground,
+          backgroundColor: palette.primary.dark,
           display: 'flex',
           gap: 3,
           justifyContent: 'center',
@@ -63,19 +67,15 @@ export const VideoControls: FC = () => {
           {isVideoEnabled ? (
             <VideocamIcon sx={{ color: otherColors.white }} />
           ) : (
-            <VideocamOffIcon sx={{ color: otherColors.appBarBackground }} />
+            <VideocamOffIcon sx={{ color: otherColors.white }} />
           )}
         </IconButtonContained>
         <IconButtonContained onClick={toggleMute} variant={!muted ? undefined : 'disabled'}>
-          {!muted ? (
-            <MicIcon sx={{ color: otherColors.white }} />
-          ) : (
-            <MicOffIcon sx={{ color: otherColors.appBarBackground }} />
-          )}
+          {!muted ? <MicIcon sx={{ color: otherColors.white }} /> : <MicOffIcon sx={{ color: otherColors.white }} />}
         </IconButtonContained>
         {isRegularParticipant && isMobile && (
           <IconButtonContained onClick={() => setIsMoreOpen(!isMoreOpen)} variant={isMoreOpen ? 'disabled' : undefined}>
-            <MoreVertIcon sx={{ color: isMoreOpen ? otherColors.appBarBackground : otherColors.white }} />
+            <MoreVertIcon sx={{ color: otherColors.white }} />
           </IconButtonContained>
         )}
         <CallSettingsTooltip

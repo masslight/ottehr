@@ -1,12 +1,11 @@
 import { Operation } from 'fast-json-patch';
 import { Coverage, Organization, Patient, RelatedPerson } from 'fhir/r4b';
+import { getPayerId } from 'utils/lib/helpers/helpers';
 import {
   eligibilityRequirementKeys,
-  getPayerId,
   InsurancePlanDTO,
   InsurancePlanRequirementKeyBooleans,
-  InsurancePlanRequirementKeys,
-} from 'utils';
+} from 'utils/lib/types/data/telemed/insurances.types';
 import { create } from 'zustand';
 
 export interface Insurance {
@@ -27,11 +26,9 @@ type PatientState = {
   policyHolders: RelatedPerson[];
   patchOperations: ResourcePatches;
   tempInsurances: Insurance[];
-  insurancePlans: InsurancePlanDTO[];
 };
 interface PatientStoreActions {
   setPatient: (patient: Patient | null) => void;
-  setInsurancePlans: (insurancePlans: InsurancePlanDTO[]) => void;
   reset: () => void;
 }
 
@@ -40,7 +37,6 @@ const PATIENT_INITIAL: PatientState = {
   insurances: [],
   policyHolders: [],
   tempInsurances: [],
-  insurancePlans: [],
   patchOperations: {
     patient: [],
     coverages: {},
@@ -51,7 +47,6 @@ const PATIENT_INITIAL: PatientState = {
 export const usePatientStore = create<PatientState & PatientStoreActions>()((set) => ({
   ...PATIENT_INITIAL,
   setPatient: (patient) => set({ patient }),
-  setInsurancePlans: (insurancePlans) => set({ insurancePlans }),
   reset: () => {
     set({
       patchOperations: PATIENT_INITIAL.patchOperations,
@@ -60,7 +55,7 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
 }));
 
 export const createInsurancePlanDto = (organization: Organization): InsurancePlanDTO => {
-  const { id, name, partOf, extension } = organization;
+  const { id, name, partOf } = organization;
 
   if (!id || !name) {
     throw new Error('Insurance is missing id, name or owning organization.');
@@ -81,12 +76,6 @@ export const createInsurancePlanDto = (organization: Organization): InsurancePla
       eligibilityRequirementKeys.map((key) => [key, false])
     ) as InsurancePlanRequirementKeyBooleans),
   };
-
-  extension
-    ?.find((extension) => extension.url === 'https://extensions.fhir.zapehr.com/insurance-requirements')
-    ?.extension?.forEach((requirement) => {
-      insurancePlanDto[requirement.url as InsurancePlanRequirementKeys] = requirement.valueBoolean || false;
-    });
 
   return insurancePlanDto;
 };

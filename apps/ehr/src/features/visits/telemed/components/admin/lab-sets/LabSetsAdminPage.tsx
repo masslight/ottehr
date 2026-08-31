@@ -1,0 +1,147 @@
+import { Add } from '@mui/icons-material';
+import SearchIcon from '@mui/icons-material/Search';
+import {
+  Box,
+  Button,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TablePagination,
+  TableRow,
+  TextField,
+  Typography,
+  useTheme,
+} from '@mui/material';
+import { ReactElement, useCallback, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { BooleanStateChip } from 'src/components/BooleanStateChip';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
+import { useAdminGetLabSetsList } from 'src/features/visits/telemed/components/admin/admin.queries';
+import { LabSetDTO, LabSetStatus } from 'utils/lib/types/data/labs/lab-set.schema';
+import { LabTypeDisplay } from 'utils/lib/types/data/labs/labs.types';
+
+const DEFAULT_ROWS_PER_PAGE = 10;
+
+export default function LabSetsAdminPage(): ReactElement {
+  const theme = useTheme();
+  const { data, isPending, isError, error } = useAdminGetLabSetsList();
+  const [labSetFilter, setLabSetFilter] = useState('');
+  const [pageNumber, setPageNumber] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_ROWS_PER_PAGE);
+
+  const filteredLabSets: LabSetDTO[] =
+    data?.labSetDTO?.filter((labSet) => labSet.listName.toLowerCase().includes(labSetFilter.toLowerCase())) ?? [];
+
+  const currentPageLabSets = filteredLabSets.slice(pageNumber * rowsPerPage, (pageNumber + 1) * rowsPerPage);
+
+  // the unknown is a MUI thing for the pagination component
+  const handlePageChange = useCallback((_: unknown, newPage: number): void => {
+    setPageNumber(newPage);
+  }, []);
+
+  const handleRowsPerPageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>): void => {
+    setRowsPerPage(parseInt(event.target.value));
+    setPageNumber(0);
+  }, []);
+
+  const NUM_LOADING_EFFECT_ROWS = 3;
+  const loadingEffectRow = (key: string): JSX.Element => (
+    <TableRow key={key}>
+      <TableCell>
+        <Skeleton width="40%" height="100%" />
+      </TableCell>
+      <TableCell>
+        <Skeleton width="20%" height="100%" />
+      </TableCell>
+      <TableCell>
+        <Skeleton height="100%" />
+      </TableCell>
+    </TableRow>
+  );
+
+  const populatedDataRow = (set: LabSetDTO, key: string): JSX.Element => (
+    <TableRow key={key}>
+      <TableCell>
+        <Link
+          to={`/admin/lab-sets/${set.listId}`}
+          style={{
+            display: 'contents',
+            color: theme.palette.primary.main,
+          }}
+        >
+          {set.listName}
+        </Link>
+      </TableCell>
+      <TableCell>{LabTypeDisplay[set.listType]}</TableCell>
+      <TableCell>
+        <BooleanStateChip label={set.listStatus} state={set.listStatus === LabSetStatus.active} />
+      </TableCell>
+    </TableRow>
+  );
+
+  return (
+    <Box>
+      <AdminHeaderActionSlot>
+        <Button component={Link} to="/admin/lab-sets/add" color="primary" variant="contained" startIcon={<Add />}>
+          Add Lab Set
+        </Button>
+      </AdminHeaderActionSlot>
+      <TableContainer sx={{ overflowX: 'auto' }}>
+        <TextField
+          fullWidth
+          id="lab-set-search-field"
+          label="Lab Sets"
+          onChange={(e) => {
+            setLabSetFilter(e.target.value);
+          }}
+          InputProps={{ endAdornment: <SearchIcon /> }}
+          margin="dense"
+        ></TextField>
+
+        {isError ? (
+          <>
+            <Typography sx={{ py: 1 }} color="error">
+              An error occurred getting the lab sets:
+            </Typography>
+            <Typography sx={{ py: 1 }} color="error">
+              {error.message}
+            </Typography>
+          </>
+        ) : (
+          <Table sx={{ minWidth: 650 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', width: '40%' }}>Name</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Type</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }} align="left">
+                  Status
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {/* load fake rows for nice effect */}
+              {isPending &&
+                [...Array(NUM_LOADING_EFFECT_ROWS).keys()].map((id) => loadingEffectRow(`loading-effect-row-${id}`))}
+              {currentPageLabSets && currentPageLabSets.map((lab) => populatedDataRow(lab, lab.listId))}
+            </TableBody>
+          </Table>
+        )}
+
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 50, 100]}
+          component="div"
+          count={filteredLabSets.length}
+          rowsPerPage={rowsPerPage}
+          page={pageNumber}
+          onPageChange={handlePageChange}
+          onRowsPerPageChange={handleRowsPerPageChange}
+          data-testid={dataTestIds.pagination.paginationContainer}
+        />
+      </TableContainer>
+    </Box>
+  );
+}

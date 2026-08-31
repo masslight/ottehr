@@ -1,0 +1,204 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { DiagnosticReport, Encounter, Patient, ServiceRequest } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import {
+  ORDER_TYPE_CODE_SYSTEM,
+  RADIOLOGY_REPORT_SUPPRESSED_TAG,
+  SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
+} from 'utils/lib/fhir/radiology';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+
+interface RadiologyStudyReportItem {
+  serviceRequestId: string;
+  patientName?: string;
+  appointmentId: string;
+}
+
+let oystehrToken: string;
+
+const ZAMBDA_NAME = 'daily-radiology-report';
+
+/**
+ * This zambda checks for any radiology studies that have been stuck in preliminary status to long and throws if it finds any
+ * It provides observability into radiology studies that need attention
+ */
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`Input: ${JSON.stringify(input)}`);
+  const { secrets } = input;
+
+  // Get M2M token for FHIR access
+  if (!oystehrToken) {
+    oystehrToken = await getAuth0Token(secrets);
+  }
+
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
+
+  const sevenDaysAgo = DateTime.now().toUTC().minus({ days: 7 }).startOf('day');
+  const now = DateTime.now().toUTC();
+
+  console.log(`Fetching radiology studies for date range: ${sevenDaysAgo.toISO()} to ${now.toISO()}`);
+
+  // Fetch in batches of 1 day to avoid 5MB response payload limit
+  const serviceRequests: ServiceRequest[] = [];
+  const diagnosticReports: DiagnosticReport[] = [];
+  const encounters: Encounter[] = [];
+  const patients: Patient[] = [];
+
+  const batchSizeDays = 1;
+  const numberOfBatches = 7;
+
+  for (let i = 0; i < numberOfBatches; i++) {
+    const batchStart = sevenDaysAgo.plus({ days: i * batchSizeDays });
+    const batchEnd = sevenDaysAgo.plus({ days: (i + 1) * batchSizeDays });
+
+    console.log(`Fetching batch ${i + 1}/${numberOfBatches}: ${batchStart.toISO()} to ${batchEnd.toISO()}`);
+
+    // Search for radiology service requests within the batch date range
+    const searchParams: { name: string; value: string }[] = [
+      { name: '_tag', value: `${ORDER_TYPE_CODE_SYSTEM}|radiology` },
+      { name: 'status:not', value: 'revoked' },
+      { name: 'authored', value: `ge${batchStart.toISO()}` },
+      { name: 'authored', value: `le${batchEnd.toISO()}` },
+      { name: '_count', value: '1000' },
+      { name: '_revinclude', value: 'DiagnosticReport:based-on' },
+      { name: '_include', value: 'ServiceRequest:encounter' },
+      { name: '_include', value: 'ServiceRequest:subject' },
+    ];
+
+    const searchResponse = await oystehr.fhir.search({
+      resourceType: 'ServiceRequest',
+      params: searchParams,
+    });
+
+    const batchResources = searchResponse.unbundle();
+
+    // Aggregate results from this batch
+    const batchServiceRequests = batchResources.filter((r) => r.resourceType === 'ServiceRequest') as ServiceRequest[];
+    const batchDiagnosticReports = batchResources.filter(
+      (r) => r.resourceType === 'DiagnosticReport'
+    ) as DiagnosticReport[];
+    const batchEncounters = batchResources.filter((r) => r.resourceType === 'Encounter') as Encounter[];
+    const batchPatients = batchResources.filter((r) => r.resourceType === 'Patient') as Patient[];
+
+    console.log(`Batch ${i + 1} found ${batchServiceRequests.length} radiology studies`);
+
+    // Add to aggregated lists, avoiding duplicates by ID
+    batchServiceRequests.forEach((sr) => {
+      if (!serviceRequests.find((existing) => existing.id === sr.id)) {
+        serviceRequests.push(sr);
+      }
+    });
+    batchDiagnosticReports.forEach((dr) => {
+      if (!diagnosticReports.find((existing) => existing.id === dr.id)) {
+        diagnosticReports.push(dr);
+      }
+    });
+    batchEncounters.forEach((enc) => {
+      if (!encounters.find((existing) => existing.id === enc.id)) {
+        encounters.push(enc);
+      }
+    });
+    batchPatients.forEach((pat) => {
+      if (!patients.find((existing) => existing.id === pat.id)) {
+        patients.push(pat);
+      }
+    });
+  }
+
+  console.log(`Found ${serviceRequests.length} radiology studies`);
+
+  if (serviceRequests.length === 0) {
+    const message = `No radiology studies found since ${sevenDaysAgo.toFormat('yyyy-MM-dd')}`;
+    console.log(message);
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({}),
+    };
+  }
+
+  // Parse studies into report items
+  const studiesAwaitingFinalReportMoreThan24Hours: RadiologyStudyReportItem[] = serviceRequests
+    .map((serviceRequest): RadiologyStudyReportItem | undefined => {
+      if (!serviceRequest.id) {
+        throw new Error('ServiceRequest is missing id');
+      }
+      const encounterId = serviceRequest.encounter?.reference?.split('/')[1];
+      const encounter = encounters.find((e) => e.id === encounterId);
+      const appointmentId = encounter?.appointment?.[0]?.reference?.split('/')[1] || '';
+
+      const patientId = serviceRequest.subject?.reference?.split('/')[1];
+      const patient = patients.find((p) => p.id === patientId);
+      const patientName = patient?.name?.[0]
+        ? `${patient.name[0].family}, ${patient.name[0].given?.[0] || ''}`
+        : undefined;
+
+      // Determine status based on service request and diagnostic reports
+      const relatedDiagnosticReports = diagnosticReports.filter(
+        (report) => report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
+      );
+
+      const isSuppressed = serviceRequest.meta?.tag?.some(
+        (tag) =>
+          tag.system === RADIOLOGY_REPORT_SUPPRESSED_TAG.system && tag.code === RADIOLOGY_REPORT_SUPPRESSED_TAG.code
+      );
+      if (isSuppressed) {
+        return;
+      }
+
+      const maybeNeedsToBeSentForTeleradTime = serviceRequest?.extension?.find(
+        (ext) => ext.url === SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL
+      )?.valueDateTime;
+
+      if (!maybeNeedsToBeSentForTeleradTime) {
+        return; // requesting telerad is optional, if it was not requested then all is well and the report can't be late.
+      }
+
+      const needsToBeSentTime = DateTime.fromISO(maybeNeedsToBeSentForTeleradTime).toUTC();
+      const now = DateTime.now().toUTC();
+      const timeSinceNeedsToBeSent = now.diff(needsToBeSentTime, 'hours').hours;
+
+      const finalReport = relatedDiagnosticReports.find(
+        (r) => r.status === 'final' || r.status === 'amended' || r.status === 'corrected'
+      );
+
+      if (!finalReport && timeSinceNeedsToBeSent > 24) {
+        return {
+          serviceRequestId: serviceRequest.id,
+          patientName,
+          appointmentId,
+        };
+      }
+
+      return undefined;
+    })
+    .filter((maybeStudyReportItem) => maybeStudyReportItem !== undefined);
+
+  if (studiesAwaitingFinalReportMoreThan24Hours.length > 0) {
+    const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
+    let outputStrings = '';
+    outputStrings += 'Studies awaiting final report for more than 24 hours:';
+    studiesAwaitingFinalReportMoreThan24Hours.forEach((study) => {
+      const consoleUrl = `https://console.oystehr.com/app/${projectId}/fhir/ServiceRequest/${study.serviceRequestId}`;
+      outputStrings += `\nServiceRequest/${study.serviceRequestId}, Patient: ${
+        study.patientName || 'Unknown'
+      }, Appointment ID: ${study.appointmentId}`;
+      outputStrings += `\n  Console: ${consoleUrl}`;
+    });
+    outputStrings += `\n\nTo suppress a study from this report, add this tag to the ServiceRequest in the Oystehr console:`;
+    outputStrings += `\n  ${JSON.stringify(RADIOLOGY_REPORT_SUPPRESSED_TAG)}`;
+    console.log(outputStrings);
+    throw new Error(outputStrings);
+  } else {
+    console.log('No studies are awaiting final report for more than 24 hours.');
+  }
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({}),
+  };
+});

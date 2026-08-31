@@ -1,21 +1,20 @@
 import { useMemo } from 'react';
+import { useParams } from 'react-router-dom';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
-import { getInHouseLabsUrl } from 'src/features/css-module/routing/helpers';
-import { useAppointmentData } from 'src/telemed';
+import { getInHouseLabsUrl } from 'src/features/visits/in-person/routing/helpers';
 
 export const InHouseLabsBreadcrumbs: React.FC<{ children: React.ReactNode; pageName: string }> = ({
   children,
   pageName,
 }) => {
-  const { appointment } = useAppointmentData();
-  const appointmentId = appointment?.id;
+  const { id: appointmentIdFromUrl } = useParams();
 
   const baseCrumb = useMemo(() => {
     return {
       label: 'In-House Labs',
-      path: appointmentId ? getInHouseLabsUrl(appointmentId) : null,
+      path: appointmentIdFromUrl ? getInHouseLabsUrl(appointmentIdFromUrl) : null,
     };
-  }, [appointmentId]);
+  }, [appointmentIdFromUrl]);
 
   return (
     <BaseBreadcrumbs sectionName={pageName} baseCrumb={baseCrumb}>

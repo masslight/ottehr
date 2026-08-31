@@ -1,0 +1,79 @@
+import { Encounter, Task } from 'fhir/r4b';
+import { FollowupSubtype } from '../../fhir/encounter';
+import { ServiceMode } from '../common';
+import { AppointmentType, VisitStatusLabel } from './appointment.types';
+
+export interface GetPatientVisitListInput {
+  patientId: string;
+  type?: AppointmentType[];
+  serviceMode?: ServiceMode;
+  status?: string[];
+  from?: string; // ISO date string
+  to?: string; // ISO date string
+  sortDirection?: 'asc' | 'desc';
+  supervisorApprovalEnabled?: boolean;
+}
+
+interface BaseAppointmentHistoryRow {
+  appointmentId: string;
+  type: AppointmentType | undefined;
+  length: number;
+  serviceMode: ServiceMode;
+  serviceCategory?: string;
+  visitReason: string | undefined;
+  office: string | undefined;
+  dateTime: string | undefined;
+  /** IANA timezone of the visit's office, when the Location supplies one. */
+  timezone?: string;
+  encounterId: string | undefined;
+  sendInvoiceTask: Task | undefined;
+  provider:
+    | {
+        name: string;
+        id: string;
+      }
+    | undefined;
+}
+
+export interface FollowUpVisitHistoryRow {
+  encounterId: string;
+  originalEncounterId: string | undefined;
+  originalAppointmentId: string | undefined;
+  status: Encounter['status'];
+  type: string | undefined;
+  serviceCategory?: string;
+  dateTime: string | undefined;
+  /** IANA timezone of the follow-up's office, when the Location supplies one. */
+  timezone?: string;
+  visitReason: string | undefined;
+  office: string | undefined;
+  provider:
+    | {
+        name: string;
+        id: string;
+      }
+    | undefined;
+  followupSubtype?: FollowupSubtype;
+  appointmentId?: string;
+}
+
+type InPersonAppointmentHistoryRow = BaseAppointmentHistoryRow & {
+  serviceMode: Omit<ServiceMode, 'virtual'>;
+  status: VisitStatusLabel | undefined;
+  followUps: FollowUpVisitHistoryRow[] | undefined;
+};
+type VirtualAppointmentHistoryRow = BaseAppointmentHistoryRow & {
+  serviceMode: ServiceMode.virtual;
+  status: VisitStatusLabel | undefined;
+  followUps: FollowUpVisitHistoryRow[] | undefined;
+};
+
+export type AppointmentHistoryRow = InPersonAppointmentHistoryRow | VirtualAppointmentHistoryRow;
+
+export interface PatientVisitListResponse {
+  visits: AppointmentHistoryRow[];
+  metadata: {
+    totalCount: number;
+    sortDirection: 'asc' | 'desc';
+  };
+}

@@ -2,21 +2,15 @@ import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Communication, Device, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  chunkThings,
-  GetConversationInput,
-  getFirstName,
-  getFullestAvailableName,
-  getLastName,
-  getMessageFromComm,
-  getMessageHasBeenRead,
-  getSecret,
-  PROJECT_NAME,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { chunkThings, getMessageFromComm, getMessageHasBeenRead } from 'utils/lib/fhir/chat';
+import { getFirstName, getFullestAvailableName, getLastName } from 'utils/lib/fhir/patient';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { Secrets } from 'utils/lib/secrets';
+import { GetConversationInput } from 'utils/lib/types/api/get-conversation.types';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 
 export interface GetConversationInputValidated extends GetConversationInput {
   secrets: Secrets;
@@ -46,144 +40,127 @@ const CHUNK_SIZE = 100;
 const MAX_MESSAGE_COUNT = '1000';
 
 export const index = wrapHandler('get-conversation', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const { secrets, smsNumbers, timezone } = validatedParameters;
-    console.groupEnd();
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  const { patientId, timezone, secrets } = validatedParameters;
+  console.groupEnd();
+  if (!oystehrToken) {
+    console.log('getting token');
+    oystehrToken = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
+  }
 
-    const oystehr = createOystehrClient(oystehrToken, secrets);
-    const uniqueNumbers = Array.from(new Set(smsNumbers));
-    const smsQuery = uniqueNumbers.map((number) => `${number}`).join(',');
-    console.log('smsQuery', smsQuery);
-    console.time('sms-query');
-    const allRecipients = (
-      await oystehr.fhir.search({
-        resourceType: 'RelatedPerson',
-        params: [{ name: 'telecom', value: smsQuery }],
-      })
-    )
-      .unbundle()
-      .map((recipient) => `RelatedPerson/${recipient.id}`);
-    console.timeEnd('sms-query');
-    console.log(
-      `found ${allRecipients.length} related persons with the sms number ${smsQuery}; searching messages for all those recipients`
-    );
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
-    console.time('get_sent_and_received_messages');
-    const [sentMessages, receivedMessages] = await Promise.all([
-      // todo: use safe batch pattern here :(
-      getSentMessages(allRecipients, oystehr),
-      getReceivedMessages(allRecipients, oystehr),
-    ]);
-    console.timeEnd('get_sent_and_received_messages');
+  const relatedResults = (
+    await oystehr.fhir.search<RelatedPerson>({
+      resourceType: 'RelatedPerson',
+      params: [{ name: 'patient', value: `Patient/${patientId}` }],
+    })
+  ).unbundle();
 
-    console.time('structure_conversation_data');
-    const rpMap: Record<string, RelatedPerson> = {};
-    const senderMap: Record<string, Device | Practitioner> = {};
-    const patientMap: Record<string, Patient> = {};
-    const sentCommunications: Communication[] = [];
-    const receivedCommunications: Communication[] = [];
+  const relatedPersonRefs = relatedResults.filter((r) => r.id).map((r) => `RelatedPerson/${r.id}`);
 
-    sentMessages.forEach((resource) => {
-      if (resource.resourceType === 'Communication') {
-        sentCommunications.push(resource as Communication);
-      } else if (resource.resourceType === 'Device' && resource.id) {
-        senderMap[`Device/${resource.id}`] = resource as Device;
-      } else if (resource.resourceType === 'Practitioner' && resource.id) {
-        senderMap[`Practitioner/${resource.id}`] = resource as Practitioner;
-      }
-    });
-
-    receivedMessages.forEach((resource) => {
-      if (resource.resourceType === 'Communication') {
-        receivedCommunications.push(resource as Communication);
-      } else if (resource.resourceType === 'RelatedPerson' && resource.id) {
-        rpMap[`RelatedPerson/${resource.id}`] = resource as RelatedPerson;
-      } else if (resource.resourceType === 'Patient' && resource.id) {
-        patientMap[`Patient/${resource.id}`] = resource as Patient;
-      }
-    });
-
-    console.log('sent messages found: ', sentCommunications.length);
-    console.log('received messages found: ', receivedCommunications.length);
-
-    const sentMessagesToReturn: ProtoConversationItem[] = sentCommunications.map((comm: Communication) => {
-      const content = getMessageFromComm(comm);
-
-      return {
-        id: comm.id ?? '',
-        content,
-        isRead: true,
-        sentWhen: comm.sent ?? '',
-        sender: getSenderNameFromComm(comm, senderMap),
-        isFromPatient: false,
-      };
-    });
-
-    const receivedMessagesToReturn: ProtoConversationItem[] = receivedCommunications.map((comm: Communication) => {
-      const content = getMessageFromComm(comm);
-      const sender = getPatientSenderNameFromComm(comm, rpMap, patientMap);
-      return {
-        id: comm.id ?? '',
-        content,
-        isRead: getMessageHasBeenRead(comm),
-        sentWhen: comm.sent ?? '',
-        sender,
-        isFromPatient: true,
-      };
-    });
-
-    const allMessages: ConversationItem[] = [...sentMessagesToReturn, ...receivedMessagesToReturn]
-      .sort((m1, m2) => {
-        const time1 = DateTime.fromISO(m1.sentWhen);
-        const time2 = DateTime.fromISO(m2.sentWhen);
-
-        if (time1.equals(time2)) {
-          return 0;
-        }
-        return time1 < time2 ? -1 : 1;
-      })
-      .map((message) => {
-        const { id, sentWhen, content, isRead, sender, isFromPatient } = message;
-        const dateTime = DateTime.fromISO(sentWhen).setZone(timezone);
-        const sentDay = dateTime.toLocaleString(
-          { day: 'numeric', month: 'numeric', year: '2-digit' },
-          { locale: 'en-us' }
-        );
-        const sentTime = dateTime.toLocaleString({ timeStyle: 'short' }, { locale: 'en-us' });
-        return {
-          id,
-          content,
-          isRead,
-          sender,
-          sentDay,
-          sentTime,
-          isFromPatient,
-        };
-      });
-    console.time('structure_conversation_data');
-
-    console.log('messages to return: ', allMessages.length);
-
+  if (relatedPersonRefs.length === 0) {
     return {
       statusCode: 200,
-      body: JSON.stringify(allMessages),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('get-conversation', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
+      body: JSON.stringify([]),
     };
   }
+
+  const [sentMessages, receivedMessages] = await Promise.all([
+    getSentMessages(relatedPersonRefs, oystehr),
+    getReceivedMessages(relatedPersonRefs, oystehr),
+  ]);
+
+  console.time('structure_conversation_data');
+  const rpMap: Record<string, RelatedPerson> = {};
+  const senderMap: Record<string, Device | Practitioner> = {};
+  const patientMap: Record<string, Patient> = {};
+  const sentCommunications: Communication[] = [];
+  const receivedCommunications: Communication[] = [];
+
+  sentMessages.forEach((resource) => {
+    if (resource.resourceType === 'Communication') {
+      sentCommunications.push(resource as Communication);
+    } else if (resource.resourceType === 'Device' && resource.id) {
+      senderMap[`Device/${resource.id}`] = resource as Device;
+    } else if (resource.resourceType === 'Practitioner' && resource.id) {
+      senderMap[`Practitioner/${resource.id}`] = resource as Practitioner;
+    }
+  });
+
+  receivedMessages.forEach((resource) => {
+    if (resource.resourceType === 'Communication') {
+      receivedCommunications.push(resource as Communication);
+    } else if (resource.resourceType === 'RelatedPerson' && resource.id) {
+      rpMap[`RelatedPerson/${resource.id}`] = resource as RelatedPerson;
+    } else if (resource.resourceType === 'Patient' && resource.id) {
+      patientMap[`Patient/${resource.id}`] = resource as Patient;
+    }
+  });
+
+  const dedupedSentMessages = dedupeCommunications(sentCommunications);
+
+  console.log('sent messages found: ', dedupedSentMessages.length);
+  console.log('received messages found: ', receivedCommunications.length);
+
+  const sentItems: ProtoConversationItem[] = dedupedSentMessages.map((comm) => ({
+    id: comm.id ?? '',
+    content: getMessageFromComm(comm),
+    isRead: true,
+    sentWhen: comm.sent ?? '',
+    sender: getSenderNameFromComm(comm, senderMap),
+    isFromPatient: false,
+  }));
+
+  const receivedItems: ProtoConversationItem[] = receivedCommunications.map((comm) => ({
+    id: comm.id ?? '',
+    content: getMessageFromComm(comm),
+    isRead: getMessageHasBeenRead(comm),
+    sentWhen: comm.sent ?? '',
+    sender: getPatientSenderNameFromComm(comm, rpMap, patientMap),
+    isFromPatient: true,
+  }));
+
+  const allMessages: ConversationItem[] = [...sentItems, ...receivedItems]
+    .sort((m1, m2) => {
+      const time1 = DateTime.fromISO(m1.sentWhen);
+      const time2 = DateTime.fromISO(m2.sentWhen);
+
+      if (time1.equals(time2)) {
+        return 0;
+      }
+      return time1 < time2 ? -1 : 1;
+    })
+    .map((message) => {
+      const { id, sentWhen, content, isRead, sender, isFromPatient } = message;
+      const dateTime = DateTime.fromISO(sentWhen).setZone(timezone);
+      const sentDay = dateTime.toLocaleString(
+        { day: 'numeric', month: 'numeric', year: '2-digit' },
+        { locale: 'en-us' }
+      );
+      const sentTime = dateTime.toLocaleString({ timeStyle: 'short' }, { locale: 'en-us' });
+
+      return {
+        id,
+        content,
+        isRead,
+        sender,
+        sentDay,
+        sentTime,
+        isFromPatient,
+      };
+    });
+  console.time('structure_conversation_data');
+
+  console.log('messages to return: ', allMessages.length);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(allMessages),
+  };
 });
 
 function validateRequestParameters(input: ZambdaInput): GetConversationInputValidated {
@@ -191,17 +168,14 @@ function validateRequestParameters(input: ZambdaInput): GetConversationInputVali
     throw new Error('No request body provided');
   }
 
-  const secrets = input.secrets;
-  const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-  const smsPhoneRegex = env === 'production' ? /^(\+1)\d{10}$/ : /^\+\d{1,3}\d{10}$/;
-  const { smsNumbers, timezone } = JSON.parse(input.body);
+  const { patientId, timezone } = JSON.parse(input.body);
 
-  if (smsNumbers === undefined || smsNumbers.length === 0) {
-    throw new Error('These fields are required: "smsNumbers"');
+  if (!patientId) {
+    throw new Error('Field "patientId" is required');
   }
 
-  if (timezone === undefined) {
-    throw new Error('These fields are required: "timezone"');
+  if (!timezone) {
+    throw new Error('Field "timezone" is required');
   }
 
   const now = DateTime.now().setZone(timezone);
@@ -209,24 +183,48 @@ function validateRequestParameters(input: ZambdaInput): GetConversationInputVali
     throw new Error(`Field "timezone" is invalid ${now.invalidExplanation ?? ''}`);
   }
 
-  smsNumbers.forEach((smsNumber: any) => {
-    if (typeof smsNumber !== 'string') {
-      throw new Error('Field "smsNumbers" must be a list of strings');
-    }
-    if (!smsPhoneRegex.test(smsNumber)) {
-      throw new Error('smsNumber must be of the form "+1", followed by 10 digits');
-    }
-  });
-
   if (!input.secrets) {
     throw new Error('No secrets provided');
   }
 
   return {
-    smsNumbers: Array.from(new Set(smsNumbers)),
+    patientId,
     timezone,
     secrets: input.secrets,
   };
+}
+
+function dedupeCommunications(comms: Communication[], gapMs = 500): Communication[] {
+  const sorted = [...comms].sort((a, b) => {
+    const t1 = new Date(a.sent ?? 0).getTime();
+    const t2 = new Date(b.sent ?? 0).getTime();
+    return t1 - t2;
+  });
+
+  const groups = new Map<string, Communication[]>();
+
+  for (const c of sorted) {
+    const content = c.payload?.[0]?.contentString ?? '';
+    const sender = c.sender?.reference ?? 'unknown';
+    const key = `${content}_${sender}`;
+
+    const currentTime = new Date(c.sent ?? 0).getTime();
+
+    if (!groups.has(key)) {
+      groups.set(key, [c]);
+      continue;
+    }
+
+    const group = groups.get(key)!;
+    const last = group[group.length - 1];
+    const lastTime = new Date(last.sent ?? 0).getTime();
+
+    if (Math.abs(currentTime - lastTime) > gapMs) {
+      group.push(c);
+    }
+  }
+
+  return Array.from(groups.values()).flat();
 }
 
 const getPatientSenderNameFromComm = (
@@ -276,7 +274,7 @@ const getSenderNameFromComm = (communication: Communication, map: Record<string,
       }
     }
   }
-  return `${PROJECT_NAME} Team`;
+  return `${BRANDING_CONFIG.projectName} Team`;
 };
 
 const getReceivedMessages = async (

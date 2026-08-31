@@ -28,21 +28,29 @@ test('Should log in', async ({ page, context, browser }) => {
     console.log('No authorization page detected, continuing with test');
   }
 
-  await page.waitForURL('/visits');
+  console.log('Waiting for /visits or ZapEHR modal...');
+
+  const result = await Promise.race([
+    page.waitForURL((url) => url.pathname === '/visits', { timeout: 35000 }).then(() => 'visits'),
+    page
+      .getByText(/continue with zapehr/i)
+      .waitFor({ timeout: 35000 })
+      .then(() => 'modal'),
+  ]);
+
+  console.log(`Race resolved with: ${result}`);
+
+  if (result === 'modal') {
+    console.log('ZapEHR modal detected, clicking...');
+    await page.getByText(/continue with zapehr/i).click();
+    console.log('Waiting for /visits after modal...');
+    await page.waitForURL((url) => url.pathname === '/visits');
+  }
+
+  console.log('Reached /visits');
 
   // save login context
   await context.storageState({ path: './playwright/user.json' });
-
-  // Try to handle additional auth modal if it appears
-  try {
-    // Look for the ZapEHR button with case-insensitive text matching
-    const zapehrButton = page.getByText(/continue with zapehr/i);
-    await zapehrButton.waitFor({ timeout: 5000 });
-    await zapehrButton.click();
-    console.log('Auth modal detected, logged in through ZapEHR');
-  } catch {
-    console.log('Auth modal not detected, continuing');
-  }
 
   await expect(page.getByTestId('PersonIcon')).toBeVisible({ timeout: 30_000 });
 });

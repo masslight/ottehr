@@ -1,9 +1,9 @@
 import { Patient } from 'fhir/r4b';
-import JSZip from 'jszip';
 import { DateTime } from 'luxon';
 import {
   PageSizes,
   PDFDocument,
+  PDFFont,
   popGraphicsState,
   pushGraphicsState,
   RotationTypes,
@@ -11,71 +11,8 @@ import {
   StandardFonts,
   translate,
 } from 'pdf-lib';
-import { getPresignedURL } from '../helpers';
-
-// Get the image's EXIF orientation
-// https://github.com/Hopding/pdf-lib/issues/1284
-// https://stackoverflow.com/a/32490603
-// Returns either the image orientation or -1 if none found
-function getImageOrientation(file: ArrayBuffer): number {
-  const view = new DataView(file);
-
-  const length = view.byteLength;
-  let offset = 2;
-
-  while (offset < length) {
-    if (view.getUint16(offset + 2, false) <= 8) return -1;
-    const marker = view.getUint16(offset, false);
-    offset += 2;
-
-    // If EXIF buffer segment exists find the orientation
-    if (marker == 0xffe1) {
-      if (view.getUint32((offset += 2), false) != 0x45786966) {
-        return -1;
-      }
-
-      const little = view.getUint16((offset += 6), false) == 0x4949;
-      offset += view.getUint32(offset + 4, little);
-      const tags = view.getUint16(offset, little);
-      offset += 2;
-      for (let i = 0; i < tags; i++) {
-        if (view.getUint16(offset + i * 12, little) == 0x0112) {
-          return view.getUint16(offset + i * 12 + 8, little);
-        }
-      }
-    } else if ((marker & 0xff00) != 0xff00) {
-      break;
-    } else {
-      offset += view.getUint16(offset, false);
-    }
-  }
-  return -1;
-}
-
-// Get rotation in degrees from EXIF orientation
-// https://sirv.com/help/articles/rotate-photos-to-be-upright/#exif-orientation-values
-// x-mirrored: the image is flipped horizontally
-// y-mirrored: the image is flipped vertically
-function getOrientationCorrection(orientation: number): { degrees: number; mirrored?: 'x' | 'y' } {
-  switch (orientation) {
-    case 2:
-      return { degrees: 0, mirrored: 'x' };
-    case 3:
-      return { degrees: -180 };
-    case 4:
-      return { degrees: 180, mirrored: 'x' };
-    case 5:
-      return { degrees: 90, mirrored: 'y' };
-    case 6:
-      return { degrees: -90 };
-    case 7:
-      return { degrees: -90, mirrored: 'y' };
-    case 8:
-      return { degrees: 90 };
-    default:
-      return { degrees: 0 };
-  }
-}
+import { MIME_TYPES } from './file';
+import { getImageOrientation, getOrientationCorrection } from './image-orientation';
 
 export async function drawCardsPDF(
   cardFrontBytes: ArrayBuffer | undefined,
@@ -281,7 +218,7 @@ export async function uploadPDF(
   const uploadRequest = await fetch(presignedURLResponse.signedUrl, {
     method: 'PUT',
     headers: {
-      'Content-Type': 'application/pdf',
+      'Content-Type': MIME_TYPES.PDF,
     },
     body: pdfBytes,
   });
@@ -292,58 +229,99 @@ export async function uploadPDF(
   console.log('upload to z3 using presigned url succeeded');
 }
 
-async function uploadPDFWithAttachments(
-  pdfBytes: Uint8Array,
-  fileURL: string,
-  token: string,
-  attachmentUrls: string[],
-  patientId?: string
-): Promise<void> {
-  if (!patientId) {
-    throw new Error('patient ID is undefined!');
-  }
+export interface FitWrappedTextToBannerResult {
+  fontSize: number;
+  lines: string[];
+  lineHeight: number;
+  ascender: number;
+  blockHeight: number;
+}
 
-  console.log(`Found ${attachmentUrls.length} attachments. Building ZIP…`);
+function wrapTextToFont(text: string, font: PDFFont, fontSize: number, maxWidth: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let currentLine = '';
 
-  const zip = new JSZip();
-  const fileName = fileURL.split('/').pop()?.split('.').slice(0, -1).join('.') || 'file';
-  zip.file(`${fileName}.pdf`, pdfBytes);
-
-  for (const url of attachmentUrls) {
-    try {
-      const presignedUrl = await getPresignedURL(url, token);
-
-      if (!presignedUrl) continue;
-
-      const res = await fetch(presignedUrl);
-      if (!res.ok) {
-        console.warn(`Skipping ${url}: ${res.status} ${res.statusText}`);
-        continue;
-      }
-      const data = new Uint8Array(await res.arrayBuffer());
-      const filename = url.split('/').pop() || `attachment`;
-      zip.file(`attachments/${filename}`, data);
-    } catch (err) {
-      console.warn(`Error fetching ${url}:`, err);
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    if (font.widthOfTextAtSize(testLine, fontSize) > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
     }
   }
 
-  const zipBytes = await zip.generateAsync({ type: 'uint8array' });
-  console.log('ZIP built, uploading…');
-
-  return uploadPDF(zipBytes, fileURL, token, patientId);
+  if (currentLine) lines.push(currentLine);
+  return lines.length > 0 ? lines : [''];
 }
 
-export async function uploadDocument(
-  pdfBytes: Uint8Array,
-  fileURL: string,
-  token: string,
-  patientId?: string,
-  attachmentUrls?: string[]
-): Promise<void> {
-  if (attachmentUrls && attachmentUrls.length > 0) {
-    return uploadPDFWithAttachments(pdfBytes, fileURL, token, attachmentUrls, patientId);
-  } else {
-    return uploadPDF(pdfBytes, fileURL, token, patientId);
+function clampLinesWithEllipsis(
+  lines: string[],
+  font: PDFFont,
+  fontSize: number,
+  maxWidth: number,
+  maxLines: number
+): string[] {
+  if (lines.length <= maxLines) return lines;
+
+  const clamped = lines.slice(0, maxLines);
+  const ellipsis = '...';
+  let lastLine = clamped[maxLines - 1].trimEnd();
+
+  while (lastLine.length > 0 && font.widthOfTextAtSize(`${lastLine}${ellipsis}`, fontSize) > maxWidth) {
+    lastLine = lastLine.slice(0, -1).trimEnd();
   }
+
+  clamped[maxLines - 1] = lastLine ? `${lastLine}${ellipsis}` : ellipsis;
+  return clamped;
+}
+
+export function fitWrappedTextToBanner({
+  text,
+  font,
+  maxWidth,
+  initialFontSize,
+  minFontSize,
+  lineHeightRatio,
+  bannerHeight,
+  verticalPadding,
+  maxLines,
+}: {
+  text: string;
+  font: PDFFont;
+  maxWidth: number;
+  initialFontSize: number;
+  minFontSize: number;
+  lineHeightRatio: number;
+  bannerHeight: number;
+  verticalPadding: number;
+  maxLines: number;
+}): FitWrappedTextToBannerResult {
+  for (let fontSize = initialFontSize; fontSize >= minFontSize; fontSize -= 1) {
+    const lines = wrapTextToFont(text, font, fontSize, maxWidth);
+    if (lines.length > maxLines) continue;
+
+    const lineHeight = fontSize * lineHeightRatio;
+    const ascender = font.heightAtSize(fontSize, { descender: false });
+    const blockHeight = ascender + (lines.length - 1) * lineHeight;
+
+    if (blockHeight <= bannerHeight - verticalPadding * 2) {
+      return { fontSize, lines, lineHeight, ascender, blockHeight };
+    }
+  }
+
+  const fontSize = minFontSize;
+  const lines = clampLinesWithEllipsis(
+    wrapTextToFont(text, font, fontSize, maxWidth),
+    font,
+    fontSize,
+    maxWidth,
+    maxLines
+  );
+  const lineHeight = fontSize * lineHeightRatio;
+  const ascender = font.heightAtSize(fontSize, { descender: false });
+  const blockHeight = ascender + (lines.length - 1) * lineHeight;
+
+  return { fontSize, lines, lineHeight, ascender, blockHeight };
 }

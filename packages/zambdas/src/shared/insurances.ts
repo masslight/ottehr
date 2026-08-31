@@ -1,15 +1,13 @@
 import { Organization } from 'fhir/r4b';
+import { getPayerId } from 'utils/lib/helpers/helpers';
 import {
   eligibilityRequirementKeys,
-  getPayerId,
-  INSURANCE_REQ_EXTENSION_URL,
   InsurancePlanDTO,
   InsurancePlanRequirementKeyBooleans,
-  InsurancePlanRequirementKeys,
-} from 'utils';
+} from 'utils/lib/types/data/telemed/insurances.types';
 
 export const createInsurancePlanDto = (insuranceOrg: Organization): InsurancePlanDTO => {
-  const { id, name, extension } = insuranceOrg;
+  const { id, name } = insuranceOrg;
 
   const payerId = getPayerId(insuranceOrg);
 
@@ -29,12 +27,6 @@ export const createInsurancePlanDto = (insuranceOrg: Organization): InsurancePla
       eligibilityRequirementKeys.map((key) => [key, false])
     ) as InsurancePlanRequirementKeyBooleans),
   };
-
-  extension
-    ?.find((extension) => extension.url === INSURANCE_REQ_EXTENSION_URL)
-    ?.extension?.forEach((requirement) => {
-      insurancePlanDto[requirement.url as InsurancePlanRequirementKeys] = requirement.valueBoolean || false;
-    });
 
   return insurancePlanDto;
 };

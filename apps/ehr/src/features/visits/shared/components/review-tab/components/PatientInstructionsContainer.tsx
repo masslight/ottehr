@@ -1,0 +1,131 @@
+import { Box, Link, Stack, Typography } from '@mui/material';
+import { FC, Fragment } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
+import { AssessmentTitle } from 'src/components/AssessmentTitle';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import {
+  SectionHeading,
+  useNoteSectionTitleInCardHeader,
+} from 'src/features/visits/shared/components/NoteSectionHeading';
+import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
+import {
+  dispositionCheckboxOptions,
+  getSpecialtyTransferDisplay,
+  mapDispositionTypeToLabel,
+} from 'utils/lib/fhir/disposition';
+import {
+  followUpInOptions,
+  NOTHING_TO_EAT_OR_DRINK_FIELD,
+  NOTHING_TO_EAT_OR_DRINK_LABEL,
+  REFUSAL_OF_EMS_TRANSPORT_FIELD,
+  REFUSAL_OF_EMS_TRANSPORT_LABEL,
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { useChartFields } from '../../../hooks/useChartFields';
+import { usePatientInstructionsVisibility } from '../../../hooks/usePatientInstructionsVisibility';
+import { useChartData } from '../../../stores/appointment/appointment.store';
+
+export const PatientInstructionsContainer: FC = () => {
+  const titleInCardHeader = useNoteSectionTitleInCardHeader();
+  const { data: chartFields } = useChartFields({
+    requestedFields: { disposition: {} },
+  });
+
+  const { chartData } = useChartData();
+
+  const instructions = chartData?.instructions;
+  const disposition = chartFields?.disposition;
+  const schoolWorkExcuses = useExcusePresignedFiles(chartData?.schoolWorkNotes);
+
+  const { showInstructions, showDischargeInstructions, showFollowUp, showSchoolWorkExcuse } =
+    usePatientInstructionsVisibility();
+
+  const sections = [
+    showInstructions && (
+      <>
+        <AssessmentTitle>Patient instructions</AssessmentTitle>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {instructions?.map((instruction) => (
+            <>
+              <Typography color="primary.dark">{instruction.title}</Typography>
+              <Typography key={instruction.resourceId} style={{ whiteSpace: 'pre-line' }}>
+                {instruction.text}
+              </Typography>
+            </>
+          ))}
+        </Box>
+      </>
+    ),
+    showDischargeInstructions && (
+      <>
+        <AssessmentTitle>
+          Disposition - {disposition?.type ? mapDispositionTypeToLabel[disposition.type] : 'Not provided'}
+        </AssessmentTitle>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {disposition?.specialty && disposition.specialty.length > 0 && (
+            <Typography>{getSpecialtyTransferDisplay(disposition.specialty, disposition.specialtyOther)}</Typography>
+          )}
+          {disposition?.note && <Typography sx={{ whiteSpace: 'pre-wrap' }}>{disposition?.note}</Typography>}
+          {disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD] && <Typography>{NOTHING_TO_EAT_OR_DRINK_LABEL}</Typography>}
+          {disposition?.[REFUSAL_OF_EMS_TRANSPORT_FIELD] && <Typography>{REFUSAL_OF_EMS_TRANSPORT_LABEL}</Typography>}
+          {disposition?.labService && disposition.labService.length > 0 && (
+            <Typography>Lab Services: {disposition.labService.join(', ')}</Typography>
+          )}
+
+          {disposition?.virusTest && disposition.virusTest.length > 0 && (
+            <Typography>Virus Tests: {disposition.virusTest.join(', ')}</Typography>
+          )}
+
+          {typeof disposition?.followUpIn === 'number' && (
+            <Typography>
+              Follow-up visit{' '}
+              {disposition.followUpIn === 0
+                ? followUpInOptions.find((option) => option.value === disposition.followUpIn)?.label
+                : `in ${followUpInOptions.find((option) => option.value === disposition.followUpIn)?.label}`}
+            </Typography>
+          )}
+
+          {disposition?.reason && disposition.reason.length > 0 && (
+            <Typography>Reason for transfer: {disposition.reason}</Typography>
+          )}
+        </Box>
+      </>
+    ),
+    showFollowUp && (
+      <>
+        <AssessmentTitle>Subspecialty follow-up</AssessmentTitle>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {disposition?.followUp?.map((followUp) => {
+            const option = dispositionCheckboxOptions.find((o) => o.name === followUp.type);
+            if (!option) return null;
+            const note = followUp.type === 'other' && followUp.note ? `: ${followUp.note}` : '';
+            return <Typography key={followUp.type}>{`${option.label}${note}`}</Typography>;
+          })}
+        </Box>
+      </>
+    ),
+    showSchoolWorkExcuse && (
+      <>
+        <AssessmentTitle>School / Work Excuse</AssessmentTitle>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {schoolWorkExcuses.map((excuse) => (
+            <Link component={RouterLink} to={excuse.presignedUrl!} target="_blank" key={excuse.id}>
+              {excuse.name}
+            </Link>
+          ))}
+        </Box>
+      </>
+    ),
+  ].filter(Boolean);
+
+  return (
+    <Box data-testid={dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer}>
+      {!titleInCardHeader && <SectionHeading>Plan</SectionHeading>}
+
+      <Stack spacing={1} sx={{ width: '100%' }}>
+        {sections.map((section, index) => (
+          <Fragment key={index}>{section}</Fragment>
+        ))}
+      </Stack>
+    </Box>
+  );
+};

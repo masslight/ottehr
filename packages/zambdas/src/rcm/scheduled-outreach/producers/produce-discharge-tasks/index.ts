@@ -1,0 +1,45 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { wrapHandler } from '../../../../shared/sentry';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { produceDischargeOutreach } from '../shared/produce-discharge-outreach';
+
+let m2mToken: string;
+
+const ZAMBDA_NAME = 'produce-outreach-discharge-tasks';
+
+/**
+ * Zambda handler: thin wrapper over produceDischargeOutreach.
+ *
+ * Input body: { encounterId: string }
+ */
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  if (!input.body) throw MISSING_REQUIRED_PARAMETERS(['body']);
+  if (!input.secrets) throw new Error('Secrets are not defined');
+
+  const body = JSON.parse(input.body);
+
+  const encounterId = body.encounterId;
+  if (!encounterId || typeof encounterId !== 'string') {
+    throw INVALID_INPUT_ERROR('encounterId is required and must be a non-empty string');
+  }
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, input.secrets);
+
+  const result = await produceDischargeOutreach({
+    encounterId,
+    oystehr,
+    validateStatus: true,
+  });
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      discharge: { created: result.discharge.created.length, skipped: result.discharge.skipped.length },
+      dateOfVisit: { created: result.dateOfVisit.created.length, skipped: result.dateOfVisit.skipped.length },
+    }),
+  };
+});

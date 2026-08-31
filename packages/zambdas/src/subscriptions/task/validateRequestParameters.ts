@@ -1,29 +1,37 @@
 import { Task } from 'fhir/r4b';
-import { Secrets, TaskSubscriptionInput } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { z } from 'zod';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
-// Note that this file is copied from BH and needs significant changes
-export function validateRequestParameters(input: ZambdaInput): TaskSubscriptionInput & { secrets: Secrets | null } {
+export interface TaskSubscriptionInput {
+  task: Task;
+  secrets: Secrets;
+}
+
+const TaskBodySchema = z
+  .object({
+    resourceType: z.literal('Task'),
+    status: z.string(),
+  })
+  .passthrough()
+  .refine((t) => t.status !== 'completed', { message: 'task is already completed', path: ['status'] })
+  .refine((t) => t.status !== 'failed', { message: 'task has already failed', path: ['status'] });
+
+export function validateRequestParameters(input: ZambdaInput): TaskSubscriptionInput & { secrets: Secrets } {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  const task = JSON.parse(input.body);
-
-  if (task.resourceType !== 'Task') {
-    throw new Error(`resource parsed should be a task but was a ${task.resourceType}`);
+  if (!input.secrets) {
+    throw MISSING_REQUEST_SECRETS;
   }
 
-  if (task.status === 'completed') {
-    throw new Error(`task is already completed`);
-  }
-
-  if (task.status === 'failed') {
-    throw new Error(`task has already failed`);
-  }
+  const task = safeValidate(TaskBodySchema, safeJsonParse(input.body)) as unknown as Task;
 
   return {
-    task: task as Task,
+    task,
     secrets: input.secrets,
   };
 }

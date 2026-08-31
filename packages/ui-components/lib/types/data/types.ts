@@ -13,9 +13,12 @@ export type GetOystehrAPIParams = {
   getEligibilityZambdaID?: string;
   getVisitDetailsZambdaID?: string;
   getAnswerOptionsZambdaID?: string;
+  getPatientInsuranceOptionsZambdaID?: string;
+  getAllInsuranceOptionsZambdaID?: string;
   getScheduleZambdaID?: string;
   getPaperworkZambdaID?: string;
   getPatientsZambdaID?: string;
+  getPatientBalancesZambdaID?: string;
   getPaymentMethodsZambdaID?: string;
   getPresignedFileURLZambdaID?: string;
   getTelemedLocationsZambdaID?: string;

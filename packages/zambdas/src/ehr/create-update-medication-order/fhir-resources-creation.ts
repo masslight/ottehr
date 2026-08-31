@@ -1,3 +1,4 @@
+// cSpell:ignore algy
 import {
   CodeableConcept,
   DetectedIssue,
@@ -6,33 +7,36 @@ import {
   MedicationRequest,
   MedicationStatement,
 } from 'fhir/r4b';
+import { createReference } from 'utils/lib/fhir/helpers';
+import { getCreatedTheOrderProviderId } from 'utils/lib/fhir/medication-administration';
+import { CODE_SYSTEM_ACT_CODE_V3 } from 'utils/lib/helpers/rcm/constants';
 import {
-  AllergyInteraction,
-  CODE_SYSTEM_ACT_CODE_V3,
-  createReference,
-  DrugInteraction,
-  getCreatedTheOrderProviderId,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
   INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
   INTERACTIONS_UNAVAILABLE,
   ISSUE_TYPE_CODE_SYSTEM,
-  MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
-  MEDICATION_ADMINISTRATION_CSS_RESOURCE_SYSTEM,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_REASON_CODE,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
   MEDICATION_DISPENSABLE_DRUG_ID,
+  PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_MEDICATION_CODE,
+} from 'utils/lib/types/api/medication-administration.constants';
+import {
+  AllergyInteraction,
+  DrugInteraction,
   MedicationApplianceLocation,
   MedicationApplianceRoute,
   MedicationData,
   MedicationInteractions,
-  PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
-  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
-  PRACTITIONER_ORDERED_MEDICATION_CODE,
-} from 'utils';
-import { fillMeta } from '../../shared';
+} from 'utils/lib/types/api/medication-administration.types';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { fillMeta } from '../../shared/helpers';
 
 export interface MedicationAdministrationData {
   orderData: MedicationData;
@@ -74,8 +78,8 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
   resource.meta = {
     tag: [
       {
-        system: MEDICATION_ADMINISTRATION_CSS_RESOURCE_SYSTEM,
-        code: MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
+        system: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
+        code: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
       },
     ],
   };
@@ -183,7 +187,31 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
         },
       ],
     };
-  if (orderData.associatedDx) resource.reasonReference = [{ reference: `Condition/${orderData.associatedDx}` }];
+  if (orderData.associatedDx)
+    resource.reasonReference = [
+      {
+        reference: isValidUUID(orderData.associatedDx) ? `Condition/${orderData.associatedDx}` : orderData.associatedDx,
+      },
+    ];
+
+  // Store user-selected CPT/HCPCS codes on the MedicationAdministration
+  if (orderData.cptCodes && orderData.cptCodes.length > 0) {
+    if (!resource.extension) resource.extension = [];
+    // Remove any existing CPT code extensions before adding updated ones
+    resource.extension = resource.extension.filter(
+      (ext) => ext.url !== 'https://fhir.ottehr.com/Extension/medication-cpt-codes'
+    );
+    resource.extension.push({
+      url: 'https://fhir.ottehr.com/Extension/medication-cpt-codes',
+      valueString: JSON.stringify(orderData.cptCodes),
+    });
+  } else if (resource.extension) {
+    resource.extension = resource.extension.filter(
+      (ext) => ext.url !== 'https://fhir.ottehr.com/Extension/medication-cpt-codes'
+    );
+    if (resource.extension.length === 0) delete resource.extension;
+  }
+
   return resource;
 }
 

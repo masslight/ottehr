@@ -1,10 +1,16 @@
 import { Box, Button, Tab, Tabs, Typography, useTheme } from '@mui/material';
+import { StaticDatePicker } from '@mui/x-date-pickers';
+import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { nextAvailableFrom } from 'utils';
+import { ReactNode, SyntheticEvent, useCallback, useMemo, useState } from 'react';
+import { getLocations } from 'src/api/api';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { BOOKING_CONFIG, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
+import { ScheduleType } from 'utils/lib/types/common';
+import { nextAvailableFrom } from 'utils/lib/utils/scheduleUtils';
 import { Slots } from './Slots';
-
 interface TabPanelProps {
   children?: ReactNode;
   dir?: string;
@@ -52,6 +58,11 @@ const tabProps = (
 interface SlotPickerProps {
   slotData: Slot[] | undefined;
   slotsLoading: boolean;
+  /** The slug + schedule type of the bookable target (Location, Group, or PR-direct). */
+  bookableSlug?: string;
+  bookableScheduleType?: ScheduleType;
+  /** Service category (required for group bookings; inferred or omitted otherwise). */
+  serviceCategoryCode?: ServiceCategoryCode;
   timezone: string;
   selectedSlot: Slot | undefined;
   setSelectedSlot: (slot: Slot | undefined) => void;
@@ -60,13 +71,24 @@ interface SlotPickerProps {
 const SlotPicker = ({
   slotData,
   slotsLoading,
+  bookableSlug,
+  bookableScheduleType = ScheduleType.location,
+  serviceCategoryCode,
   timezone,
   selectedSlot,
   setSelectedSlot,
 }: SlotPickerProps): JSX.Element => {
+  const { oystehrZambda } = useApiClients();
   const theme = useTheme();
+  // "Other dates" calendar range in months, from the per-project booking config;
+  // defaults to 1 month when unset (beam sets 12). The tab is always shown here —
+  // slots for a picked day are fetched on demand (handleSelectOtherDate).
+  const prebookMonthsAhead = BOOKING_CONFIG.prebookMaxMonthsAhead ?? 1;
   const [currentTab, setCurrentTab] = useState(0);
   const [nextDay, setNextDay] = useState<boolean>(false);
+  const [otherDateSlots, setOtherDateSlots] = useState<Slot[]>([]);
+  const [otherDateSlotsLoading, setOtherDateSlotsLoading] = useState(false);
+  const [selectedOtherDate, setSelectedOtherDate] = useState<DateTime | undefined>();
 
   const [slotsList, daySlotsMap] = useMemo(() => {
     if (slotData) {
@@ -118,29 +140,21 @@ const SlotPicker = ({
     return { firstAvailableDay, secondAvailableDay };
   }, [slotsList, timezone]);
 
-  const isFirstAppointment = useMemo(() => {
-    return slotsList && slotsList[0] ? selectedSlot === slotsList[0] : false;
-  }, [selectedSlot, slotsList]);
-
-  const handleChange = (_: SyntheticEvent, newCurrentTab: number): void => {
-    setCurrentTab(newCurrentTab);
-  };
-
-  const [selectedOtherDate, setSelectedOtherDate] = useState<DateTime | undefined>();
-
-  useEffect(() => {
-    if (selectedOtherDate === undefined && secondAvailableDay != undefined) {
-      setSelectedOtherDate(nextAvailableFrom(secondAvailableDay, slotsList, timezone));
-    }
-  }, [secondAvailableDay, selectedOtherDate, slotsList, timezone]);
+  const handleChangeTab = useCallback((_: SyntheticEvent, newTab: number) => {
+    setCurrentTab(newTab);
+    if (newTab >= 2) setSelectedOtherDate(undefined); // reset the selected date
+  }, []);
 
   const selectedDate = useMemo(() => {
     if (currentTab === 0) {
       return firstAvailableDay;
-    } else if (currentTab === 1) {
+    } else if (secondAvailableDay && currentTab === 1) {
       return secondAvailableDay;
     } else {
-      return selectedOtherDate;
+      if (selectedOtherDate) {
+        return selectedOtherDate;
+      }
+      return firstAvailableDay;
     }
   }, [currentTab, firstAvailableDay, secondAvailableDay, selectedOtherDate]);
 
@@ -154,7 +168,36 @@ const SlotPicker = ({
     [daySlotsMap]
   );
 
+  const isFirstAppointment = selectedSlot === slotsList[0];
   const slotsExist = getSlotsForDate(firstAvailableDay).length > 0 || getSlotsForDate(secondAvailableDay).length > 0;
+
+  const handleSelectOtherDate = useCallback(
+    async (newDate: DateTime | null) => {
+      if (!newDate) return;
+      setSelectedOtherDate(newDate);
+
+      try {
+        setOtherDateSlotsLoading(true);
+
+        if (!bookableSlug || !oystehrZambda) return;
+
+        const response = await getLocations(oystehrZambda, {
+          slug: bookableSlug,
+          scheduleType: bookableScheduleType,
+          selectedDate: newDate.toISODate() ?? undefined,
+          ...(serviceCategoryCode ? { serviceCategoryCode } : {}),
+        });
+
+        setOtherDateSlots(response.available?.map((s) => s.slot) ?? []);
+      } catch (error) {
+        console.error('Error loading slots for date:', error);
+      } finally {
+        setOtherDateSlotsLoading(false);
+      }
+    },
+    [oystehrZambda, bookableSlug, bookableScheduleType, serviceCategoryCode]
+  );
+
   return (
     <Box sx={{ backgroundColor: theme.palette.background.default, padding: 2, borderRadius: 2, marginTop: 2 }}>
       <Box
@@ -220,7 +263,7 @@ const SlotPicker = ({
               <Box sx={{ width: '100%' }}>
                 <Tabs
                   value={currentTab}
-                  onChange={handleChange}
+                  onChange={handleChangeTab}
                   TabIndicatorProps={{
                     style: {
                       // background: otherColors.borderLightBlue,
@@ -254,6 +297,16 @@ const SlotPicker = ({
                       }}
                     />
                   )}
+                  <Tab
+                    label="Other dates"
+                    {...tabProps(secondAvailableDay ? 2 : 1)}
+                    sx={{
+                      color: currentTab === 2 ? theme.palette.secondary.main : theme.palette.text.secondary,
+                      opacity: 1,
+                      textTransform: 'capitalize',
+                      fontWeight: 500,
+                    }}
+                  />
                 </Tabs>
               </Box>
               <Box>
@@ -286,6 +339,45 @@ const SlotPicker = ({
                     selectedSlot={selectedSlot}
                     setSelectedSlot={setSelectedSlot}
                   />
+                </TabPanel>
+                <TabPanel value={currentTab} index={secondAvailableDay ? 2 : 1} dir={theme.direction}>
+                  <LocalizationProvider dateAdapter={AdapterLuxon}>
+                    <StaticDatePicker
+                      displayStaticWrapperAs="desktop"
+                      disableHighlightToday={true}
+                      views={['month', 'day']}
+                      value={selectedOtherDate ?? null}
+                      onChange={handleSelectOtherDate}
+                      shouldDisableDate={(date) => {
+                        const today = DateTime.now().startOf('day');
+                        const tomorrow = today.plus({ days: 1 });
+                        return date <= tomorrow.endOf('day');
+                      }}
+                      // Minus one day for timezone shenanigans
+                      minDate={firstAvailableDay?.minus({ days: 1 })}
+                      // Allow booking up to prebookMonthsAhead out (default 1).
+                      // Slots for the picked day are fetched on demand.
+                      maxDate={firstAvailableDay?.plus({ months: prebookMonthsAhead })}
+                    />
+                  </LocalizationProvider>
+                  {selectedOtherDate && (
+                    <>
+                      <Typography
+                        variant="h3"
+                        color="#000000"
+                        sx={{ textAlign: 'center', fontSize: '20px', color: theme.palette.primary.main }}
+                      >
+                        {selectedOtherDate.toLocaleString(DateTime.DATE_HUGE)}
+                      </Typography>
+                      <Slots
+                        slots={otherDateSlots}
+                        timezone={timezone}
+                        selectedSlot={selectedSlot}
+                        setSelectedSlot={setSelectedSlot}
+                        loading={currentTab === (secondAvailableDay ? 2 : 1) && otherDateSlotsLoading}
+                      />
+                    </>
+                  )}
                 </TabPanel>
               </Box>
             </Box>

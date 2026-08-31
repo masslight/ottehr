@@ -1,5 +1,6 @@
-import { GetNursingOrdersInputSchema, GetNursingOrdersInputValidated } from 'utils';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { GetNursingOrdersInputSchema, GetNursingOrdersInputValidated } from 'utils/lib/types/data/orders/types';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 export function validateRequestParameters(input: ZambdaInput): GetNursingOrdersInputValidated {
   console.group('validateRequestParameters');
@@ -8,7 +9,7 @@ export function validateRequestParameters(input: ZambdaInput): GetNursingOrdersI
     throw new Error('No request body provided');
   }
 
-  const parsedJSON = JSON.parse(input.body) as unknown;
+  const parsedJSON = safeJsonParse(input.body) as unknown;
 
   const { searchBy } = safeValidate(GetNursingOrdersInputSchema, parsedJSON);
 

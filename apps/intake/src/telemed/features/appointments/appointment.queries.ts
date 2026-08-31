@@ -1,23 +1,17 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { OystehrAPIClient } from 'ui-components';
-import {
-  BookableItemListResponse,
-  GetBookableItemListParams,
-  GetScheduleRequestParams,
-  GetScheduleResponse,
-  GetTelemedLocationsResponse,
-  PatientInfo,
-  PromiseReturnType,
-  useSuccessQuery,
-} from 'utils';
+import { OystehrAPIClient } from 'ui-components/lib/data/oystehrApi';
+import { useSuccessQuery } from 'utils/lib/frontend';
+import { BookableItemListResponse, GetBookableItemListParams, PromiseReturnType } from 'utils/lib/types/common';
+import { GetScheduleRequestParams, GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { GetTelemedLocationsResponse } from 'utils/lib/types/data/telemed/get-telemed-locations.types';
 
 export const useCreateAppointmentMutation = (): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrAPIClient['createAppointment']>>,
   Error,
   {
     apiClient: OystehrAPIClient;
-    unconfirmedDateOfBirth?: string;
     patientInfo: PatientInfo;
     stateInfo: { locationState: string };
   }
@@ -25,13 +19,11 @@ export const useCreateAppointmentMutation = (): UseMutationResult<
   useMutation({
     mutationFn: ({
       apiClient,
-      unconfirmedDateOfBirth,
       patientInfo,
       stateInfo,
     }: {
       apiClient: OystehrAPIClient;
       patientInfo: PatientInfo;
-      unconfirmedDateOfBirth?: string;
       stateInfo: { locationState: string };
     }) => {
       return apiClient.createAppointment({
@@ -39,7 +31,6 @@ export const useCreateAppointmentMutation = (): UseMutationResult<
         patient: patientInfo,
         timezone: DateTime.now().zoneName,
         locationState: stateInfo.locationState,
-        unconfirmedDateOfBirth,
       });
     },
   });
@@ -75,28 +66,22 @@ export const useUpdateAppointmentMutation = (): UseMutationResult<
   });
 };
 
-export const useCancelAppointmentMutation = (): UseMutationResult<
+export const useCancelTelemedAppointmentMutation = (): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrAPIClient['cancelAppointment']>>,
   Error,
   {
     apiClient: OystehrAPIClient;
     appointmentID: string;
     cancellationReason: string;
+    cancellationReasonAdditional?: string;
   }
 > =>
   useMutation({
-    mutationFn: ({
-      apiClient,
-      appointmentID,
-      cancellationReason,
-    }: {
-      apiClient: OystehrAPIClient;
-      appointmentID: string;
-      cancellationReason: string;
-    }) => {
+    mutationFn: ({ apiClient, appointmentID, cancellationReason, cancellationReasonAdditional }) => {
       return apiClient.cancelAppointment({
         appointmentID,
         cancellationReason,
+        cancellationReasonAdditional,
       });
     },
   });

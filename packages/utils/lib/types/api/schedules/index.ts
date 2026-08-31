@@ -1,6 +1,6 @@
-import { HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
-import { Closure, Timezone } from '../../../main';
-import { DailySchedule, ScheduleOverrides } from '../../../utils';
+import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { DailySchedule, ScheduleOverrides } from '../../../utils/scheduleUtils';
+import { Closure, Timezone } from '../../common';
 
 export interface UpdateScheduleParams {
   scheduleId: string;
@@ -12,13 +12,19 @@ export interface UpdateScheduleParams {
   closures?: Closure[];
 }
 
+export interface TelecomUpdate {
+  phone?: string | null;
+  url?: string | null;
+  fax?: string | null;
+}
+
 export interface CreateScheduleParams extends Omit<UpdateScheduleParams, 'schedule'> {
   ownerId: string;
   ownerType: ScheduleOwnerFhirResource['resourceType'];
   schedule: DailySchedule;
 }
 
-export type ScheduleOwnerFhirResource = Location | Practitioner | HealthcareService;
+export type ScheduleOwnerFhirResource = Location | Practitioner | PractitionerRole | HealthcareService;
 
 export interface ListScheduleOwnersParams {
   ownerType: ScheduleOwnerFhirResource['resourceType'];
@@ -27,9 +33,20 @@ export interface ListScheduleOwnersParams {
 export interface ScheduleOwnerListItem {
   resourceType: ScheduleOwnerFhirResource['resourceType'];
   id: string;
+  /** Display name. For provider rows, the practitioner's full name. */
   name: string;
   address?: string;
   hours?: string;
+  /** Populated only for Practitioner rows on the provider-schedules tab —
+   *  each provider can have multiple PRs, so we aggregate across them. */
+  providerSchedulesSummary?: {
+    locationNames: string[];
+    categoryLabels: string[];
+    scheduleCount: number;
+  };
+  supportPhoneNumber?: string;
+  /** Whether the owner is active. For Location rows: `status === 'active'`. */
+  active?: boolean;
 }
 
 export interface ScheduleListItem {
@@ -41,6 +58,23 @@ export interface ScheduleListItem {
     open: string;
     close: string;
   };
+  /**
+   * Owner-context for provider (PractitionerRole) child rows: the Location the
+   * role is bound to, so the combined Schedules list can render a "Provider ·
+   * Location" pair per schedule. Absent for Location-owned schedules (there the
+   * owner IS the location).
+   */
+  locationId?: string;
+  locationName?: string;
+  /** Service categories this schedule offers (PR schedules). */
+  categoryLabels?: string[];
+  /**
+   * Effective liveness of THIS schedule for booking: `Schedule.active` combined
+   * with the owning PractitionerRole's `active` (a PR schedule needs both). For
+   * Location/Group schedules this is just `Schedule.active`; the owner-level
+   * status is carried separately on the owner.
+   */
+  active?: boolean;
 }
 
 export interface SchedulesAndOwnerListItem {
@@ -49,6 +83,56 @@ export interface SchedulesAndOwnerListItem {
 }
 export interface ListScheduleOwnersResponse {
   list: SchedulesAndOwnerListItem[];
+}
+
+/**
+ * A row in the Provider groups list — a HealthcareService booking pool. Summarizes
+ * the two things that define a group: WHO it pools (all active providers, or the
+ * providers at specific locations) and WHAT services can be booked through it.
+ */
+export interface ProviderGroupListItem {
+  id: string;
+  name: string;
+  /** HealthcareService.active. */
+  active: boolean;
+  /** SLUG_SYSTEM identifier, for the booking link. */
+  slug?: string;
+  /** True when the group pools from every active provider (the `allLocations` lever). */
+  poolsAllProviders: boolean;
+  /** Names of the locations the group pools from — empty when `poolsAllProviders`. */
+  locationNames: string[];
+  /** Distinct active providers currently in the pool. */
+  providerCount: number;
+  /**
+   * Display names of the service categories bookable through the group (its
+   * `type[]` allow-list). Empty means the group does not restrict services —
+   * render as "All services".
+   */
+  serviceLabels: string[];
+}
+
+export interface ListProviderGroupsResponse {
+  groups: ProviderGroupListItem[];
+}
+
+export interface ToggleGroupActiveParams {
+  groupId: string;
+  /** `true` → active, `false` → inactive (archived; drops out of booking). */
+  active: boolean;
+}
+
+export interface ToggleScheduleActiveParams {
+  scheduleId: string;
+  /** `true` → active, `false` → inactive (this schedule drops out of booking). */
+  active: boolean;
+}
+
+export interface CreateProviderGroupParams {
+  name: string;
+  /** True → pool every active provider (`.location[]` left empty). */
+  allLocations: boolean;
+  /** Locations to pool from when `allLocations` is false. */
+  locationIds?: string[];
 }
 
 export interface GetScheduleByIdParams {

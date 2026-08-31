@@ -7,7 +7,10 @@
     "paths": {
       "@theme/*": ["../../apps/intake/src/themes/ottehr/*"],
       "@defaultTheme/*": ["../../apps/intake/src/themes/ottehr/*"]
-    }
+    },
+    "target": "esnext",
+    "lib": ["esnext.array", "dom"],
+    "module": "ESNext",
   },
   "include": [".", ".eslintrc.cjs"]
 }

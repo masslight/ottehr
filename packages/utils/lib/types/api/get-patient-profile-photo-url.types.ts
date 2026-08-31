@@ -8,7 +8,7 @@ export interface GetOrUploadPatientProfilePhotoZambdaResponse {
 
 const UploadInputSchema = z.object({
   action: z.literal('upload'),
-  patientId: z.string(),
+  patientId: z.string().uuid(),
 });
 
 export type UploadPatientProfilePhotoInput = z.infer<typeof UploadInputSchema>;

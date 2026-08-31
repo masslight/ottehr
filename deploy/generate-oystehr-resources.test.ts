@@ -1,0 +1,529 @@
+import fs from 'node:fs/promises';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Mock fs module before importing the module under test
+vi.mock('node:fs/promises');
+
+vi.mock('utils', () => ({
+  BRANDING_CONFIG: { projectName: 'test-project' },
+  SENDGRID_CONFIG: { templates: {} },
+}));
+
+// Import after mocks are set up
+import {
+  GenerateFhirResourcesArgs,
+  generateOystehrResources,
+  generateRuntimeSeedRemovals,
+  isObject,
+  validSchemas,
+} from './generate-oystehr-resources';
+
+// Type definitions for test data
+interface ZambdaSpec {
+  name: string;
+  type: 'http_auth' | 'http_open' | 'cron' | 'subscription';
+  runtime: string;
+  src: string;
+  zip: string;
+  timeout?: string;
+  memorySize?: string;
+  schedule?: { expression: string };
+  subscription?: { criteria: string; reason: string; event?: string };
+}
+
+interface SpecFile {
+  'schema-version': string;
+  zambdas?: Record<string, ZambdaSpec>;
+  apps?: Record<string, unknown>;
+  roles?: Record<string, unknown>;
+}
+
+type VarsFile = Record<string, string>;
+
+// Helper to create mock Dirent objects
+const createMockDirent = (
+  name: string,
+  isFile: boolean
+): { name: string; isFile: () => boolean; isDirectory: () => boolean } => ({
+  name,
+  isFile: () => isFile,
+  isDirectory: () => !isFile,
+});
+
+// Helper to create ENOENT error
+const createEnoentError = (): NodeJS.ErrnoException => {
+  const error = new Error('ENOENT: no such file or directory') as NodeJS.ErrnoException;
+  error.code = 'ENOENT';
+  return error;
+};
+
+// Helper to create test args
+const createTestArgs = (overrides: Partial<GenerateFhirResourcesArgs> = {}): GenerateFhirResourcesArgs => ({
+  configDir: '/config/oystehr',
+  coreConfigDir: '/config/oystehr-core',
+  billingCoreConfigDir: '/config/billing-app-core',
+  varFile: '/config/.env/local.json',
+  outputPath: '/output',
+  billingOutputPath: '/billing-output',
+  env: 'local',
+  ...overrides,
+});
+
+// Type-safe mock setup helpers
+const mockFsForSuccess = (): void => {
+  vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+  vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+  vi.mocked(fs.rm).mockResolvedValue(undefined);
+};
+
+describe('generate-oystehr-resources', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('isObject', () => {
+    it('returns true for plain objects', () => {
+      expect(isObject({})).toBe(true);
+      expect(isObject({ key: 'value' })).toBe(true);
+    });
+
+    it('returns false for arrays', () => {
+      expect(isObject([])).toBe(false);
+      expect(isObject([1, 2, 3])).toBe(false);
+    });
+
+    it('returns false for null and undefined', () => {
+      expect(isObject(null)).toBeFalsy();
+      expect(isObject(undefined)).toBeFalsy();
+    });
+
+    it('returns false for primitives', () => {
+      expect(isObject('string')).toBe(false);
+      expect(isObject(123)).toBe(false);
+      expect(isObject(true)).toBe(false);
+    });
+  });
+
+  describe('validSchemas', () => {
+    it('contains expected schema versions', () => {
+      expect(validSchemas).toContain('2025-03-19');
+      expect(validSchemas).toContain('2025-09-25');
+      expect(validSchemas).toHaveLength(2);
+    });
+  });
+
+  describe('generateOystehrResources', () => {
+    describe('environment-specific config loading', () => {
+      it('loads env-specific configs when directory exists', async () => {
+        const baseSpec: SpecFile = {
+          'schema-version': '2025-09-25',
+          zambdas: {
+            'BASE-ZAMBDA': {
+              name: 'base',
+              type: 'http_auth',
+              runtime: 'nodejs20.x',
+              src: 'src/test/index',
+              zip: '.dist/zips/base.zip',
+            },
+          },
+        };
+        const envSpec: SpecFile = {
+          'schema-version': '2025-09-25',
+          zambdas: {
+            'ENV-ZAMBDA': {
+              name: 'env',
+              type: 'cron',
+              runtime: 'nodejs20.x',
+              src: 'src/test/index',
+              zip: '.dist/zips/env.zip',
+              schedule: { expression: 'cron(0 * * * ? *)' },
+            },
+          },
+        };
+        const vars: VarsFile = { TEST_VAR: 'value' };
+
+        mockFsForSuccess();
+
+        vi.mocked(fs.readdir).mockImplementation(async (dirPath) => {
+          const pathStr = String(dirPath);
+          if (pathStr === '/config/oystehr') {
+            return [createMockDirent('zambdas.json', true)] as never;
+          }
+          if (pathStr === '/config/oystehr/env/local') {
+            return [createMockDirent('zambdas.json', true)] as never;
+          }
+          return [];
+        });
+
+        vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => true } as Awaited<ReturnType<typeof fs.stat>>);
+
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
+          const pathStr = String(filePath);
+          if (pathStr === '/config/oystehr/zambdas.json') {
+            return JSON.stringify(baseSpec);
+          }
+          if (pathStr === '/config/oystehr/env/local/zambdas.json') {
+            return JSON.stringify(envSpec);
+          }
+          if (pathStr.includes('.env/local.json')) {
+            return JSON.stringify(vars);
+          }
+          throw new Error(`Unexpected file read: ${pathStr}`);
+        });
+
+        await generateOystehrResources(createTestArgs());
+
+        expect(fs.readFile).toHaveBeenCalledWith('/config/oystehr/zambdas.json', 'utf-8');
+        expect(fs.readFile).toHaveBeenCalledWith('/config/oystehr/env/local/zambdas.json', 'utf-8');
+      });
+
+      it('skips env-specific configs when directory does not exist (ENOENT)', async () => {
+        const baseSpec: SpecFile = {
+          'schema-version': '2025-09-25',
+          zambdas: {
+            'BASE-ZAMBDA': {
+              name: 'base',
+              type: 'http_auth',
+              runtime: 'nodejs20.x',
+              src: 'src/test/index',
+              zip: '.dist/zips/base.zip',
+            },
+          },
+        };
+        const vars: VarsFile = { TEST_VAR: 'value' };
+
+        mockFsForSuccess();
+
+        vi.mocked(fs.readdir).mockImplementation(async (dirPath) => {
+          if (String(dirPath) === '/config/oystehr') {
+            return [createMockDirent('zambdas.json', true)] as never;
+          }
+          return [];
+        });
+
+        vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
+
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
+          const pathStr = String(filePath);
+          if (pathStr === '/config/oystehr/zambdas.json') {
+            return JSON.stringify(baseSpec);
+          }
+          if (pathStr.includes('.env/production.json')) {
+            return JSON.stringify(vars);
+          }
+          throw new Error(`Unexpected file read: ${pathStr}`);
+        });
+
+        await expect(
+          generateOystehrResources(createTestArgs({ env: 'production', varFile: '/config/.env/production.json' }))
+        ).resolves.not.toThrow();
+
+        expect(fs.stat).toHaveBeenCalledWith('/config/oystehr/env/production');
+      });
+
+      it('propagates non-ENOENT errors', async () => {
+        mockFsForSuccess();
+        vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('zambdas.json', true)] as never);
+
+        const eaccesError = new Error('EACCES: permission denied') as NodeJS.ErrnoException;
+        eaccesError.code = 'EACCES';
+        vi.mocked(fs.stat).mockRejectedValue(eaccesError);
+
+        await expect(generateOystehrResources(createTestArgs())).rejects.toThrow('EACCES');
+      });
+    });
+
+    describe('schema version validation', () => {
+      it('throws error when specs have different schema versions', async () => {
+        const spec1: SpecFile = { 'schema-version': '2025-09-25', zambdas: {} };
+        const spec2: SpecFile = { 'schema-version': '2025-03-19', zambdas: {} };
+        const vars: VarsFile = {};
+
+        mockFsForSuccess();
+        vi.mocked(fs.readdir).mockResolvedValue([
+          createMockDirent('spec1.json', true),
+          createMockDirent('spec2.json', true),
+        ] as never);
+        vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
+
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
+          const pathStr = String(filePath);
+          if (pathStr.endsWith('spec1.json')) return JSON.stringify(spec1);
+          if (pathStr.endsWith('spec2.json')) return JSON.stringify(spec2);
+          if (pathStr.includes('.env/')) return JSON.stringify(vars);
+          throw new Error(`Unexpected file: ${pathStr}`);
+        });
+
+        await expect(generateOystehrResources(createTestArgs())).rejects.toThrow(
+          'All spec files must have the same schema version'
+        );
+      });
+
+      it('throws error for invalid schema version', async () => {
+        const spec: SpecFile = { 'schema-version': '2099-01-01', zambdas: {} };
+        const vars: VarsFile = {};
+
+        mockFsForSuccess();
+        vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('spec.json', true)] as never);
+        vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
+
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
+          const pathStr = String(filePath);
+          if (pathStr.endsWith('spec.json')) return JSON.stringify(spec);
+          if (pathStr.includes('.env/')) return JSON.stringify(vars);
+          throw new Error(`Unexpected file: ${pathStr}`);
+        });
+
+        await expect(generateOystehrResources(createTestArgs())).rejects.toThrow('Invalid or missing schema version');
+      });
+    });
+
+    describe('input validation', () => {
+      it('throws error when configDir is empty', async () => {
+        await expect(generateOystehrResources(createTestArgs({ configDir: '' }))).rejects.toThrow(
+          'Config directory is required'
+        );
+      });
+
+      it('throws error when varFile is empty', async () => {
+        await expect(generateOystehrResources(createTestArgs({ varFile: '' }))).rejects.toThrow(
+          'Variable file is required'
+        );
+      });
+
+      it('throws error when outputPath is empty', async () => {
+        await expect(generateOystehrResources(createTestArgs({ outputPath: '' }))).rejects.toThrow(
+          'Output path is required'
+        );
+      });
+    });
+
+    describe('JSON parsing', () => {
+      it('throws error for invalid JSON in spec file', async () => {
+        mockFsForSuccess();
+        vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('bad.json', true)] as never);
+        vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
+
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
+          const pathStr = String(filePath);
+          if (pathStr.endsWith('bad.json')) return 'not valid json {{{';
+          if (pathStr.includes('.env/')) return '{}';
+          throw new Error(`Unexpected file: ${pathStr}`);
+        });
+
+        await expect(generateOystehrResources(createTestArgs())).rejects.toThrow('Error parsing JSON file');
+      });
+
+      it('throws error for invalid JSON in var file', async () => {
+        const spec: SpecFile = { 'schema-version': '2025-09-25', zambdas: {} };
+
+        mockFsForSuccess();
+        vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('spec.json', true)] as never);
+        vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
+
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
+          const pathStr = String(filePath);
+          if (pathStr.endsWith('spec.json')) return JSON.stringify(spec);
+          if (pathStr.includes('.env/')) return 'not valid json';
+          throw new Error(`Unexpected file: ${pathStr}`);
+        });
+
+        await expect(generateOystehrResources(createTestArgs())).rejects.toThrow('Error parsing variable file');
+      });
+
+      it('throws error when var file is not an object', async () => {
+        const spec: SpecFile = { 'schema-version': '2025-09-25', zambdas: {} };
+
+        mockFsForSuccess();
+        vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('spec.json', true)] as never);
+        vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
+
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
+          const pathStr = String(filePath);
+          if (pathStr.endsWith('spec.json')) return JSON.stringify(spec);
+          if (pathStr.includes('.env/')) return JSON.stringify(['array', 'not', 'object']);
+          throw new Error(`Unexpected file: ${pathStr}`);
+        });
+
+        await expect(generateOystehrResources(createTestArgs())).rejects.toThrow('is not a valid JSON map');
+      });
+    });
+
+    describe('billing var defaults', () => {
+      const billingSpec = {
+        'schema-version': '2025-09-25',
+        apps: {
+          OTTEHR_BILLING: {
+            name: '#{var/BILLING_APP_NAME}',
+            loginRedirectUri: '#{var/BILLING_LOGIN_REDIRECT_URL}',
+            allowedCallbackUrls: ['#{var/BILLING_ALLOWED_URL_1}'],
+            logoUri: '#{var/BILLING_APP_LOGO_URI}',
+          },
+        },
+      };
+      const coreSpec = {
+        'schema-version': '2025-09-25',
+        apps: {
+          OTTEHR_CORE: {
+            name: 'Core App',
+            loginRedirectUri: 'https://localhost:3000',
+            allowedCallbackUrls: ['https://localhost:3000'],
+          },
+        },
+        secrets: {
+          BILLING_INTEGRATION_FEATURE_FLAG: { name: 'BILLING_INTEGRATION', value: '#{var/BILLING_INTEGRATION}' },
+          PATIENT_BALANCE_SOURCE: { name: 'PATIENT_BALANCE_SOURCE', value: '#{var/PATIENT_BALANCE_SOURCE}' },
+          STRIPE_WEBHOOK_SECRET: { name: 'STRIPE_WEBHOOK_SECRET', value: '#{var/STRIPE_WEBHOOK_SECRET}' },
+          STRIPE_PLATFORM_WEBHOOK_SECRET: {
+            name: 'STRIPE_PLATFORM_WEBHOOK_SECRET',
+            value: '#{var/STRIPE_PLATFORM_WEBHOOK_SECRET}',
+          },
+        },
+      };
+      const setupMocks = (vars: VarsFile): void => {
+        mockFsForSuccess();
+        vi.mocked(fs.readdir).mockImplementation(async (dirPath) => {
+          if (String(dirPath) === '/config/oystehr') {
+            return [createMockDirent('apps.json', true)] as never;
+          }
+          if (String(dirPath) === '/config/billing-app-core') {
+            return [createMockDirent('apps.json', true)] as never;
+          }
+          return [];
+        });
+        vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
+          const pathStr = String(filePath);
+          if (pathStr.endsWith('apps.json')) {
+            if (pathStr.includes('billing-app-core')) {
+              return JSON.stringify(billingSpec);
+            } else {
+              return JSON.stringify(coreSpec);
+            }
+          }
+          if (pathStr.includes('.env/')) return JSON.stringify(vars);
+          throw new Error(`Unexpected file: ${pathStr}`);
+        });
+      };
+
+      const writtenJson = (fileName: string): any => {
+        const call = vi.mocked(fs.writeFile).mock.calls.find((args) => String(args[0]).endsWith(fileName));
+        expect(call).toBeDefined();
+        return JSON.parse(String(call![1]));
+      };
+
+      it('falls back to defaults for missing BILLING_* vars so unconfigured envs still deploy', async () => {
+        setupMocks({});
+
+        await generateOystehrResources(createTestArgs());
+
+        const billingApp = writtenJson('billing-output/apps.tf.json').resource.oystehr_application.OTTEHR_BILLING;
+        expect(billingApp.login_redirect_uri).toBe('https://billing-local.ottehr.com');
+        expect(billingApp.allowed_callback_urls).toEqual(['https://billing-local.ottehr.com']);
+        expect(billingApp.name).toBe('Ottehr Billing');
+        const billingSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.BILLING_INTEGRATION_FEATURE_FLAG;
+        expect(billingSecret.value).toBe('');
+        const balanceSourceSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.PATIENT_BALANCE_SOURCE;
+        expect(balanceSourceSecret.value).toBe('candid');
+        const connectedWebhookSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_WEBHOOK_SECRET;
+        expect(connectedWebhookSecret.value).toBe('');
+        const platformWebhookSecret =
+          writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_PLATFORM_WEBHOOK_SECRET;
+        expect(platformWebhookSecret.value).toBe('');
+      });
+
+      it('prefers configured BILLING_* vars over defaults', async () => {
+        setupMocks({
+          BILLING_LOGIN_REDIRECT_URL: 'https://billing.example.com/',
+          BILLING_INTEGRATION: 'all',
+          PATIENT_BALANCE_SOURCE: 'ottehr',
+          STRIPE_WEBHOOK_SECRET: 'whsec_connected',
+          STRIPE_PLATFORM_WEBHOOK_SECRET: 'whsec_platform',
+        });
+
+        await generateOystehrResources(createTestArgs());
+
+        const billingApp = writtenJson('billing-output/apps.tf.json').resource.oystehr_application.OTTEHR_BILLING;
+        expect(billingApp.login_redirect_uri).toBe('https://billing.example.com/');
+        expect(billingApp.name).toBe('Ottehr Billing');
+        const billingSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.BILLING_INTEGRATION_FEATURE_FLAG;
+        expect(billingSecret.value).toBe('all');
+        const balanceSourceSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.PATIENT_BALANCE_SOURCE;
+        expect(balanceSourceSecret.value).toBe('ottehr');
+        const connectedWebhookSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_WEBHOOK_SECRET;
+        expect(connectedWebhookSecret.value).toBe('whsec_connected');
+        const platformWebhookSecret =
+          writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_PLATFORM_WEBHOOK_SECRET;
+        expect(platformWebhookSecret.value).toBe('whsec_platform');
+      });
+    });
+  });
+});
+
+describe('generateRuntimeSeedRemovals', () => {
+  const OUT = '/out/removed-locations.tf.json';
+  const SEED_DIR = '/config/runtime-seed';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFsForSuccess();
+  });
+
+  const writtenRemoved = (): { removed: { from: string; lifecycle: { destroy: unknown } }[] } =>
+    JSON.parse(vi.mocked(fs.writeFile).mock.calls[0][1] as string);
+
+  it('emits exactly one destroy=false removal block per seed resource key', async () => {
+    vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('locations.json', true)] as never);
+    vi.mocked(fs.readFile).mockImplementation(async () =>
+      JSON.stringify({ fhirResources: { LOCATION_A: { resource: {} }, SCHEDULE_A: { resource: {} } } })
+    );
+
+    await generateRuntimeSeedRemovals({ runtimeSeedDir: SEED_DIR, outputFile: OUT });
+
+    expect(fs.writeFile).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(fs.writeFile).mock.calls[0][0]).toBe(OUT);
+    const { removed } = writtenRemoved();
+    expect(removed).toEqual([
+      { from: 'oystehr_fhir_resource.LOCATION_A', lifecycle: { destroy: false } },
+      { from: 'oystehr_fhir_resource.SCHEDULE_A', lifecycle: { destroy: false } },
+    ]);
+    // The non-destructive guarantee: every block must be destroy=false.
+    expect(removed.every((b) => b.lifecycle.destroy === false)).toBe(true);
+    expect(fs.rm).not.toHaveBeenCalled();
+  });
+
+  it('aggregates keys across seed files and ignores non-json', async () => {
+    vi.mocked(fs.readdir).mockResolvedValue([
+      createMockDirent('a.json', true),
+      createMockDirent('b.json', true),
+      createMockDirent('README.md', true),
+    ] as never);
+    vi.mocked(fs.readFile).mockImplementation(async (p) => {
+      if (String(p).endsWith('a.json')) return JSON.stringify({ fhirResources: { A: {} } });
+      if (String(p).endsWith('b.json')) return JSON.stringify({ fhirResources: { B: {} } });
+      throw new Error(`unexpected read: ${String(p)}`);
+    });
+
+    await generateRuntimeSeedRemovals({ runtimeSeedDir: SEED_DIR, outputFile: OUT });
+
+    expect(writtenRemoved().removed.map((b) => b.from)).toEqual(['oystehr_fhir_resource.A', 'oystehr_fhir_resource.B']);
+  });
+
+  it('removes the output file (no stale blocks) when there are no seed resources', async () => {
+    vi.mocked(fs.readdir).mockResolvedValue([] as never);
+
+    await generateRuntimeSeedRemovals({ runtimeSeedDir: SEED_DIR, outputFile: OUT });
+
+    expect(fs.rm).toHaveBeenCalledWith(OUT, { force: true });
+    expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+
+  it('treats a missing runtime-seed dir (ENOENT) as empty', async () => {
+    vi.mocked(fs.readdir).mockRejectedValue(Object.assign(new Error('nope'), { code: 'ENOENT' }));
+
+    await generateRuntimeSeedRemovals({ runtimeSeedDir: SEED_DIR, outputFile: OUT });
+
+    expect(fs.rm).toHaveBeenCalledWith(OUT, { force: true });
+    expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+});

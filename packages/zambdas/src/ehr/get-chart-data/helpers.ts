@@ -1,15 +1,18 @@
-import { BatchInputGetRequest } from '@oystehr/sdk';
-import { Bundle, Encounter, FhirResource, Patient, Resource } from 'fhir/r4b';
+import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
+import { Bundle, Encounter, FhirResource, MedicationAdministration, Patient, Procedure, Resource } from 'fhir/r4b';
 import {
-  addSearchParams,
-  ChartDataFields,
-  ChartDataRequestedFields,
-  ChartDataWithResources,
-  GetChartDataResponse,
-  SearchParams,
-} from 'utils';
+  getCptCodesFromMA,
+  getDosageFromMA,
+  getMedicationFromMA,
+  getNdcCodeFromMedication,
+  MedicationCptCodeEntry,
+} from 'utils/lib/fhir/medication-administration';
+import { addSearchParams, SearchParams } from 'utils/lib/fhir/uri';
+import { ChartDataWithResources, PharmacyDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ChartDataRequestedFields, GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { SCHOOL_WORK_NOTE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { handleCustomDTOExtractions, mapResourceToChartDataResponse } from '../../shared/chart-data';
-import { makeEncounterLabResults } from '../shared/labs';
+import { makeEncounterLabResults } from '../lab/shared/labs';
 
 type RequestOptions = ChartDataRequestedFields[keyof ChartDataRequestedFields];
 
@@ -178,7 +181,9 @@ export async function convertSearchResultsToResponse(
   m2mToken: string,
   patientId: string,
   encounterId: string,
-  fields?: (keyof ChartDataFields)[]
+  fields?: (keyof ChartDataRequestedFields)[],
+  patientResource?: Patient,
+  oystehr?: Oystehr
 ): Promise<ChartDataWithResources> {
   let getChartDataResponse: GetChartDataResponse = {
     patientId,
@@ -193,18 +198,23 @@ export async function convertSearchResultsToResponse(
           allergies: [],
           surgicalHistory: [],
           examObservations: [],
+          rosObservations: [],
           cptCodes: [],
           instructions: [],
           diagnosis: [],
           schoolWorkNotes: [],
           observations: [],
           practitioners: [],
-          aiPotentialDiagnosis: [],
+          aiChat: {
+            documents: [],
+            providers: [],
+          },
         }),
   };
   const resources = parseBundleResources(bundle);
 
   const chartDataResources: Resource[] = [];
+
   resources.forEach((resource) => {
     // handle additional get-chart-data related fields
     if (resource.resourceType === 'Practitioner') {
@@ -217,12 +227,120 @@ export async function convertSearchResultsToResponse(
     if (updatedChartData.resourceMapped) chartDataResources.push(resource);
   });
 
+  if (getChartDataResponse.cptCodes?.length && oystehr) {
+    // Build procedure ID → MA ID map from partOf references
+    const procedureMaIdMap = new Map<string, string>();
+    resources.forEach((r) => {
+      if (r.resourceType === 'Procedure' && r.id) {
+        const proc = r as Procedure;
+        const maRef = proc.partOf?.find((ref) => ref.reference?.startsWith('MedicationAdministration/'));
+        if (maRef?.reference) {
+          procedureMaIdMap.set(r.id, maRef.reference.replace('MedicationAdministration/', ''));
+        }
+      }
+    });
+
+    if (procedureMaIdMap.size > 0) {
+      const maIds = [...new Set(procedureMaIdMap.values())];
+      const maBundle = await oystehr.fhir.search<MedicationAdministration>({
+        resourceType: 'MedicationAdministration',
+        params: [{ name: '_id', value: maIds.join(',') }],
+      });
+      const maMap = new Map<string, MedicationAdministration>();
+      maBundle.unbundle().forEach((ma) => {
+        if (ma.id) maMap.set(ma.id, ma);
+      });
+
+      const procedureBillingMap = new Map<
+        string,
+        { ndcCode?: string; dose?: number; doseUnits?: string; cptEntries?: MedicationCptCodeEntry[] }
+      >();
+      procedureMaIdMap.forEach((maId, procedureId) => {
+        const ma = maMap.get(maId);
+        if (!ma) return;
+        const med = getMedicationFromMA(ma);
+        const ndc = med ? getNdcCodeFromMedication(med) : undefined;
+        const dosage = getDosageFromMA(ma);
+        const cptEntries = getCptCodesFromMA(ma);
+        if (ndc || dosage || cptEntries) {
+          procedureBillingMap.set(procedureId, {
+            ndcCode: ndc,
+            dose: dosage?.dose,
+            doseUnits: dosage?.units,
+            cptEntries,
+          });
+        }
+      });
+
+      if (procedureBillingMap.size > 0) {
+        getChartDataResponse.cptCodes = getChartDataResponse.cptCodes.map((cpt) => {
+          const billing = cpt.resourceId ? procedureBillingMap.get(cpt.resourceId) : undefined;
+          if (!billing) return cpt;
+          const billableUnits = billing.cptEntries?.find((entry) => entry.code === cpt.code)?.billableUnits;
+          return {
+            ...cpt,
+            ...(billing.ndcCode != null && { ndcCode: billing.ndcCode }),
+            ...(billing.dose != null && { dose: billing.dose, doseUnits: billing.doseUnits }),
+            ...(billableUnits != null && { billableUnits }),
+          };
+        });
+      }
+    }
+  }
+
   getChartDataResponse = handleCustomDTOExtractions(getChartDataResponse, resources) as GetChartDataResponse;
   if (getChartDataResponse.externalLabResults || getChartDataResponse.inHouseLabResults) {
     console.log('constructing lab result configs');
-    const { externalLabResultConfig, inHouseLabResultConfig } = await makeEncounterLabResults(resources, m2mToken);
+    const { externalLabResultConfig, inHouseLabResultConfig } = await makeEncounterLabResults(
+      resources,
+      m2mToken,
+      oystehr
+    );
     if (getChartDataResponse.externalLabResults) getChartDataResponse.externalLabResults = externalLabResultConfig;
     if (getChartDataResponse.inHouseLabResults) getChartDataResponse.inHouseLabResults = inHouseLabResultConfig;
+  }
+
+  if (fields?.includes('preferredPharmacies')) {
+    const qr = resources.find((r) => r.resourceType === 'QuestionnaireResponse');
+
+    const pharmacies: PharmacyDTO[] = (patientResource?.contained ?? [])
+      .filter((r) => r.resourceType === 'Organization')
+      .map((org) => ({
+        name: org.name || '',
+        address: org.address?.[0]?.text || '',
+        phone: org.telecom?.find((t) => t.system === 'phone')?.value,
+      }));
+
+    if (qr) {
+      const getAnswer = (linkId: string): string | undefined =>
+        qr.item?.find((i) => i.linkId === linkId)?.answer?.[0]?.valueString;
+
+      const qrName = getAnswer('pharmacy-name');
+      const qrAddress = getAnswer('pharmacy-address');
+      const qrPhone = getAnswer('pharmacy-phone');
+
+      pharmacies.forEach((ph) => {
+        if (
+          (qrName && ph.name?.toLowerCase() === qrName.toLowerCase()) ||
+          (qrAddress && ph.address?.toLowerCase().includes(qrAddress.toLowerCase())) ||
+          (qrPhone && ph.phone === qrPhone)
+        ) {
+          ph.primary = true;
+        }
+      });
+    }
+
+    getChartDataResponse.preferredPharmacies = pharmacies;
+  }
+
+  const encounter = resources.find((r) => r.resourceType === 'Encounter');
+
+  if (encounter && fields?.includes('reasonForVisit')) {
+    const ext = encounter.extension?.find((e) => e.url === `reason-for-visit`);
+
+    getChartDataResponse.reasonForVisit = {
+      text: ext?.valueString ?? '',
+    };
   }
 
   return {
@@ -231,14 +349,21 @@ export async function convertSearchResultsToResponse(
   };
 }
 
-export const configProceduresRequestsForGetChartData = (encounterId: string): BatchInputGetRequest => {
+export const configProceduresRequestsForGetChartData = (encounterIds: string | string[]): BatchInputGetRequest => {
+  const encounterRefs = Array.isArray(encounterIds)
+    ? encounterIds.map((id) => `Encounter/${id}`).join(',')
+    : `Encounter/${encounterIds}`;
   return {
     method: 'GET',
-    url: `/ServiceRequest?encounter=Encounter/${encounterId}&status=completed`,
+    url: `/ServiceRequest?encounter=${encounterRefs}&status=completed`,
   };
 };
 
-export const defaultChartDataFieldsSearchParams: Partial<Record<keyof GetChartDataResponse, { _tag: string }>> = {
+export const defaultChartDataFieldsSearchParams: Partial<
+  Record<keyof GetChartDataResponse, { _tag?: string; _sort?: string }>
+> = {
   medications: { _tag: 'current-medication' },
   inhouseMedications: { _tag: 'in-house-medication' },
+  schoolWorkNotes: { _tag: SCHOOL_WORK_NOTE },
+  instructions: { _sort: '-sent' },
 };

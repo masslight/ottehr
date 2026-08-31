@@ -1,0 +1,373 @@
+import Oystehr, { SearchParam } from '@oystehr/sdk';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import {
+  Account,
+  Appointment,
+  Encounter as FhirEncounter,
+  Location,
+  Patient,
+  RelatedPerson,
+  Resource,
+  Slot,
+  Task as FhirTask,
+} from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import {
+  FHIR_EXTENSION,
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
+  PATIENT_BILLING_ACCOUNT_TYPE,
+  RCM_TASK_SYSTEM,
+  RcmTaskCode,
+} from 'utils/lib/fhir/constants';
+import {
+  getAddressString,
+  getPatientReferenceFromAccount,
+  getResponsiblePartyFromAccount,
+} from 'utils/lib/fhir/helpers';
+import {
+  getAddressForIndividual,
+  getEmailForIndividual,
+  getFullName,
+  getPhoneNumberForIndividual,
+  mapGenderToLabel,
+} from 'utils/lib/fhir/patient';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { invoiceTaskSourceSearchParam, parseInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
+import {
+  GET_INVOICES_TASKS_ZAMBDA_KEY,
+  GetInvoicesTasksInput,
+  GetInvoicesTasksResponse,
+  INVOICE_TASK_BUSINESS_STATUS_SYSTEM,
+  INVOICEABLE_PATIENTS_PAGE_SIZE,
+  InvoiceablePatientReport,
+  InvoiceSortDirectionValues,
+  InvoiceSortFieldValues,
+  ZERO_BALANCE_BUSINESS_STATUS_CODE,
+} from 'utils/lib/types/api/invoicing.types';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { formatDateConfigurable } from 'utils/lib/utils/dateUtils';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { accountMatchesType } from '../shared/harvest';
+import { validateRequestParameters } from './validateRequestParameters';
+
+let m2mToken: string;
+const ZAMBDA_NAME = GET_INVOICES_TASKS_ZAMBDA_KEY;
+
+type PatientRelationshipToInsured = 'Self' | 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
+interface TaskGroup {
+  task: FhirTask;
+  encounter: FhirEncounter;
+  patient: Patient;
+  account?: Account;
+  appointment?: Appointment;
+  location?: Location;
+  slot?: Slot;
+  responsibleParty?: Patient | RelatedPerson;
+  relatedPerson?: RelatedPerson;
+}
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const validatedParams = validateRequestParameters(input);
+  const { secrets } = validatedParams;
+  const start = performance.now();
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+  const fhirSearchStart = performance.now();
+  const fhirResources = await getFhirResourcesGrouped(oystehr, validatedParams);
+  const fhirSearchEnd = performance.now();
+  const taskGroups = fhirResources.taskGroups;
+
+  const response = performEffect(taskGroups, fhirResources.bundleTotal);
+  const end = performance.now();
+  console.log('Whole zambda execution time:', Math.round((end - start) / 1000), 'seconds.');
+  console.log('FHIR search execution time: ', Math.round((fhirSearchEnd - fhirSearchStart) / 1000), 'seconds.');
+  // console.log('Candid search execution time: ', Math.round((candidSearchEnd - fhirSearchEnd) / 1000), 'seconds.');
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
+});
+
+function performEffect(taskGroups: TaskGroup[], total: number): GetInvoicesTasksResponse {
+  const reports: InvoiceablePatientReport[] = [];
+
+  taskGroups.forEach((group) => {
+    const { task, patient, appointment, responsibleParty, slot } = group;
+    const taskInput = parseInvoiceTaskInput(task);
+
+    const patientName = getFullName(patient);
+    const patientDob = formatDateConfigurable({ isoDate: patient.birthDate });
+    const patientGenderLabel = patient?.gender && mapGenderToLabel[patient.gender];
+
+    const responsiblePartyName = responsibleParty && getFullName(responsibleParty);
+    const responsiblePartyPhoneNumber = responsibleParty && getPhoneNumberForIndividual(responsibleParty);
+    const responsiblePartyEmail = responsibleParty && getEmailForIndividual(responsibleParty);
+    const responsiblePartyAddress = responsibleParty && getAddressForIndividual(responsibleParty);
+    const responsiblePartyFullAddress = getAddressString(responsiblePartyAddress);
+
+    const patientAddress = getAddressForIndividual(patient);
+    const patientFullAddress = getAddressString(patientAddress);
+
+    let timezone = TIMEZONES[0]; // default timezone
+    if (slot && slot.start) {
+      // we can just grab the tz from the slot rather than getting the schedule resource
+      const slotDateTime = DateTime.fromISO(slot.start, { setZone: true });
+      if (slotDateTime.isValid) {
+        timezone = slotDateTime.zoneName;
+      }
+    }
+    const visitDate = formatDateConfigurable({ isoDate: appointment?.start, timezone });
+    const patientPhoneNumber = group.relatedPerson && getPhoneNumberForIndividual(group.relatedPerson);
+
+    const officePhone = standardizePhoneNumber(group.location?.telecom?.find((t) => t.system === 'phone')?.value);
+    const locationReviewLink = group.location?.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)
+      ?.valueUrl;
+
+    reports.push({
+      claimId: taskInput.claimId ?? '---',
+      finalizationDateISO: taskInput.finalizationDate ?? '---',
+      amountInvoiceable: taskInput.amountCents ?? 0,
+      visitDate: visitDate ?? '---',
+      location: group.location?.name ?? '---',
+      appointmentId: appointment?.id,
+      officePhone,
+      locationReviewLink,
+      task: task,
+      patient: {
+        patientId: patient.id!,
+        fullName: patientName,
+        dob: patientDob,
+        gender: patientGenderLabel,
+        phoneNumber: patientPhoneNumber ?? '---',
+        fullAddress: patientFullAddress || undefined,
+        city: patientAddress?.city,
+        state: patientAddress?.state,
+      },
+      responsibleParty: {
+        fullName: responsiblePartyName,
+        email: responsiblePartyEmail,
+        phoneNumber: responsiblePartyPhoneNumber,
+        relationshipToPatient: responsibleParty && getResponsiblePartyRelationship(responsibleParty)?.toLowerCase(),
+        fullAddress: responsiblePartyFullAddress || undefined,
+        city: responsiblePartyAddress?.city,
+        state: responsiblePartyAddress?.state,
+      },
+    });
+  });
+
+  return { reports, totalCount: total };
+}
+
+async function getFhirResourcesGrouped(
+  oystehr: Oystehr,
+  complexValidatedInput: GetInvoicesTasksInput
+): Promise<{ taskGroups: TaskGroup[]; bundleTotal: number }> {
+  const { page, status, patientId, sortField, sortDirection, hideZeroBalance, source } = complexValidatedInput;
+  const resolvedSortField = sortField ?? InvoiceSortFieldValues.finalizationDate;
+  const resolvedSortDirection = sortDirection ?? InvoiceSortDirectionValues.desc;
+  const sortPrefix = resolvedSortDirection === InvoiceSortDirectionValues.desc ? '-' : '';
+  // finalizationDate is stored in authoredOn; appointmentDate in executionPeriod (start == end).
+  // FHIR sorts Period by lower bound (asc) and upper bound (desc) — setting start == end makes
+  // both directions sort by the appointment date correctly.
+  // _id tiebreaker ensures stable ordering across pages when multiple records share the same date.
+  const fhirSortParam =
+    resolvedSortField === InvoiceSortFieldValues.finalizationDate
+      ? `${sortPrefix}authored-on,${sortPrefix}_id`
+      : `${sortPrefix}period,${sortPrefix}_id`;
+
+  const params: SearchParam[] = [
+    {
+      name: '_sort',
+      value: fhirSortParam,
+    },
+    {
+      name: '_total',
+      value: 'accurate',
+    },
+    {
+      name: '_count',
+      value: INVOICEABLE_PATIENTS_PAGE_SIZE,
+    },
+    {
+      name: 'authored-on:missing',
+      value: 'false',
+    },
+    {
+      name: 'code',
+      value: `${RCM_TASK_SYSTEM}|${RcmTaskCode.sendInvoiceToPatient}`,
+    },
+    {
+      name: '_include',
+      value: 'Task:encounter',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Encounter:patient',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Encounter:appointment',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Appointment:location',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Appointment:slot',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'RelatedPerson:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Account:patient',
+    },
+  ];
+  if (page) {
+    params.push({
+      name: '_offset',
+      value: page * INVOICEABLE_PATIENTS_PAGE_SIZE,
+    });
+  }
+  if (status) {
+    params.push({
+      name: 'status',
+      value: status,
+    });
+  }
+  if (patientId) {
+    console.log('adding patientId to search params: ', patientId);
+    params.push({
+      name: 'patient',
+      value: `Patient/${patientId}`,
+    });
+  }
+  if (hideZeroBalance) {
+    params.push({
+      name: 'business-status:not',
+      value: `${INVOICE_TASK_BUSINESS_STATUS_SYSTEM}|${ZERO_BALANCE_BUSINESS_STATUS_CODE}`,
+    });
+  }
+  const sourceParam = invoiceTaskSourceSearchParam(source);
+  if (sourceParam) {
+    params.push(sourceParam);
+  }
+  const bundle = await oystehr.fhir.search({
+    resourceType: 'Task',
+    params,
+  });
+  const resources = bundle.unbundle() as Resource[];
+  const tasks = resources.filter((r) => r.resourceType === 'Task') as FhirTask[];
+
+  console.log(
+    `Tasks found: ${tasks.length} (page: ${page}, status: ${status}, patientId: ${patientId}, hideZeroBalance: ${hideZeroBalance})`
+  );
+
+  const resultGroups: TaskGroup[] = [];
+
+  tasks.forEach((task) => {
+    const encounterId = task.encounter?.reference?.replace('Encounter/', '');
+    const encounter = findResourceById<FhirEncounter>('Encounter', encounterId, resources);
+    if (!encounter) {
+      console.error(
+        `Task with id: ${task.id} was not included in the bundle because it's missing encounter with id: ${encounterId}`
+      );
+      return;
+    }
+
+    const patientId = encounter.subject?.reference?.replace('Patient/', '');
+    const patient = findResourceById<Patient>('Patient', patientId, resources);
+    if (!patient || !patientId) {
+      console.error(
+        `Task with id: ${task.id} was not included in the bundle because it's missing patient with id: ${patientId}`
+      );
+      return;
+    }
+
+    const appointmentId = encounter.appointment
+      ?.find((ref) => ref.reference?.includes('Appointment/'))
+      ?.reference?.replace('Appointment/', '');
+    const appointment = findResourceById<Appointment>('Appointment', appointmentId, resources);
+
+    const locationId = appointment?.participant
+      ?.find((p) => p.actor?.reference?.includes('Location/'))
+      ?.actor?.reference?.replace('Location/', '');
+    const location = findResourceById<Location>('Location', locationId, resources);
+
+    const slotId = appointment?.slot?.find((s) => s.reference?.includes('Slot/'))?.reference?.replace('Slot/', '');
+    const slot = findResourceById<Slot>('Slot', slotId, resources);
+
+    const account = resources.find(
+      (res) =>
+        res.resourceType === 'Account' &&
+        accountMatchesType(res as Account, PATIENT_BILLING_ACCOUNT_TYPE) &&
+        getPatientReferenceFromAccount(res as Account)?.includes(patientId)
+    ) as Account;
+    const responsibleParty = account ? getResponsiblePartyFromAccount(account, resources) : undefined;
+
+    const relatedPerson = resources.find(
+      (resource) =>
+        resource.resourceType === 'RelatedPerson' &&
+        (resource as RelatedPerson).patient?.reference?.includes(patientId) &&
+        (resource as RelatedPerson).relationship?.find(
+          (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
+        )
+    ) as RelatedPerson;
+
+    resultGroups.push({
+      task,
+      encounter,
+      patient,
+      account,
+      appointment,
+      responsibleParty,
+      relatedPerson,
+      location,
+      slot,
+    });
+  });
+
+  console.log(
+    `Task groups built: ${resultGroups.length} of ${tasks.length} tasks on this page (bundle.total: ${bundle.total})`
+  );
+
+  if (resultGroups.length < tasks.length) {
+    console.warn(`${tasks.length - resultGroups.length} task(s) dropped due to missing encounter or patient in bundle`);
+  }
+
+  return { taskGroups: resultGroups, bundleTotal: bundle.total ?? resultGroups.length };
+}
+
+function findResourceById<T extends Resource>(
+  resourceType: Resource['resourceType'],
+  id: string | undefined,
+  resources: Resource[]
+): T | undefined {
+  if (!id) return undefined;
+  return resources.find((res) => res.resourceType === resourceType && res.id === id) as T;
+}
+
+export function getResponsiblePartyRelationship(
+  responsibleParty: RelatedPerson | Patient
+): PatientRelationshipToInsured | undefined {
+  let result: PatientRelationshipToInsured | undefined = undefined;
+  if (responsibleParty.resourceType === 'Patient') return 'Self';
+  responsibleParty.relationship?.find(
+    (rel) =>
+      rel.coding?.find((coding) => {
+        if (coding.system === FHIR_EXTENSION.RelatedPerson.responsiblePartyRelationship.url) {
+          result = coding.code as PatientRelationshipToInsured;
+          return true;
+        }
+        return false;
+      })
+  );
+  return result;
+}

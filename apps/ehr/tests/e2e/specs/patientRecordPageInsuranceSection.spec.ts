@@ -1,22 +1,26 @@
 import { test } from '@playwright/test';
-import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { Organization, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { hasAttorneyInformationPage, hasEmployerInformationPage } from 'utils/lib/helpers/create-demo-visits';
 import {
-  chooseJson,
+  getAttorneyInformationStepAnswers,
   getConsentStepAnswers,
   getContactInformationAnswers,
+  getEmergencyContactStepAnswers,
+  getEmployerInformationStepAnswers,
   getPatientDetailsStepAnswers,
+  getPayerId,
   getPaymentOptionInsuranceAnswers,
   getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
   isoToDateObject,
-  ORG_TYPE_CODE_SYSTEM,
-  ORG_TYPE_PAYER_CODE,
-} from 'utils';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
+} from 'utils/lib/helpers/helpers';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import {
   PATIENT_INSURANCE_MEMBER_ID,
   PATIENT_INSURANCE_MEMBER_ID_2,
+  PATIENT_INSURANCE_PLAN_TYPE,
+  PATIENT_INSURANCE_PLAN_TYPE_2,
   PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS,
   PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE,
   PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_AS_PATIENT,
@@ -73,10 +77,19 @@ const NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE = 'AK';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP = '78956';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO = 'testing';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2 = 'testing2';
-const NEW_PATIENT_INSURANCE_CARRIER = '6 Degrees Health Incorporated';
-const NEW_PATIENT_INSURANCE_CARRIER_2 = 'AAA - Minnesota/Iowa';
+const NEW_PATIENT_INSURANCE_CARRIER = '20446 - 6 Degrees Health Incorporated';
+const NEW_PATIENT_INSURANCE_PLAN_TYPE = '11 - Other Non-Federal Programs';
+const NEW_PATIENT_INSURANCE_CARRIER_2 = '11983 - AAA - Minnesota/Iowa';
+const NEW_PATIENT_INSURANCE_PLAN_TYPE_2 = '14 - EPO';
+
+const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
 
 test.describe('Insurance Information Section non-mutating tests', () => {
+  // Serial so the shared appointment is created once. Without it, fullyParallel spreads these tests
+  // across workers and beforeAll — an appointment creation plus the harvest wait — runs once per
+  // worker. These tests only read, so serializing them costs far less than the extra setups.
+  test.describe.configure({ mode: 'serial' });
+
   let resourceHandler: ResourceHandler;
   let primaryInsuranceCarrier: string;
   let secondaryInsuranceCarrier: string;
@@ -99,61 +112,109 @@ test.describe('Insurance Information Section non-mutating tests', () => {
     async ({ page }) => {
       const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
       const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-      await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
-      await primaryInsuranceCard.verifyAdditionalFieldsAreHidden();
+      // verifyAllFieldsAreVisible() uses non-blocking isVisible() checks, so it does not actually
+      // wait for the card to load; gate on the carrier being rendered before reading field values.
+      await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+      await primaryInsuranceCard.verifyAllFieldsAreVisible();
       await primaryInsuranceCard.verifyInsuranceType('Primary');
       await primaryInsuranceCard.verifyInsuranceCarrier(primaryInsuranceCarrier);
-      await primaryInsuranceCard.verifyMemberId(PATIENT_INSURANCE_MEMBER_ID);
-      await primaryInsuranceCard.clickShowMoreButton();
-      await primaryInsuranceCard.verifyAdditionalFieldsAreVisible();
-      await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
-      await primaryInsuranceCard.verifyPolicyHoldersFirstName(PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME);
-      await primaryInsuranceCard.verifyPolicyHoldersLastName(PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME);
-      await primaryInsuranceCard.verifyPolicyHoldersMiddleName(PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
-      await primaryInsuranceCard.verifyPolicyHoldersDateOfBirth(POLICY_HOLDER_DATE_OF_BIRTH);
-      await primaryInsuranceCard.verifyPolicyHoldersSex(PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX);
-      await primaryInsuranceCard.verifyInsuranceStreetAddress(PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS);
-      await primaryInsuranceCard.verifyInsuranceAddressLine2(PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE);
-      await primaryInsuranceCard.verifyInsuranceCity(PATIENT_INSURANCE_POLICY_HOLDER_CITY);
-      await primaryInsuranceCard.verifyInsuranceState(PATIENT_INSURANCE_POLICY_HOLDER_STATE);
-      await primaryInsuranceCard.verifyInsuranceZip(PATIENT_INSURANCE_POLICY_HOLDER_ZIP);
-      await primaryInsuranceCard.verifyPatientsRelationshipToInjured(
+      await primaryInsuranceCard.verifyTextField(insuranceSection.items[0].memberId.key, PATIENT_INSURANCE_MEMBER_ID);
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].firstName.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME
+      );
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].lastName.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME
+      );
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].middleName.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME
+      );
+      await primaryInsuranceCard.verifyTextField(insuranceSection.items[0].birthDate.key, POLICY_HOLDER_DATE_OF_BIRTH);
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].birthSex.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX
+      );
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].streetAddress.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS
+      );
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].addressLine2.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE
+      );
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].city.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_CITY
+      );
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].state.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_STATE
+      );
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].zip.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_ZIP
+      );
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].relationship.key,
         PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED
       );
-      await primaryInsuranceCard.verifyAdditionalInsuranceInformation('');
-      await primaryInsuranceCard.clickShowMoreButton();
-      await primaryInsuranceCard.verifyAdditionalFieldsAreHidden();
-      await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+      await primaryInsuranceCard.verifyTextField(insuranceSection.items[0].additionalInformation.key, '');
 
       const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
-      await secondaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
-      await secondaryInsuranceCard.verifyAdditionalFieldsAreHidden();
-      await secondaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+      await secondaryInsuranceCard.verifyAllFieldsAreVisible();
       await secondaryInsuranceCard.verifyInsuranceType('Secondary');
       await secondaryInsuranceCard.verifyInsuranceCarrier(secondaryInsuranceCarrier);
-      await secondaryInsuranceCard.verifyMemberId(PATIENT_INSURANCE_MEMBER_ID_2);
-      await secondaryInsuranceCard.clickShowMoreButton();
-      await secondaryInsuranceCard.verifyAdditionalFieldsAreVisible();
-      await secondaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
-      await secondaryInsuranceCard.verifyPolicyHoldersFirstName(PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME);
-      await secondaryInsuranceCard.verifyPolicyHoldersLastName(PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME);
-      await secondaryInsuranceCard.verifyPolicyHoldersMiddleName(PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME);
-      await secondaryInsuranceCard.verifyPolicyHoldersDateOfBirth(POLICY_HOLDER_2_DATE_OF_BIRTH);
-      await secondaryInsuranceCard.verifyPolicyHoldersSex(PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX);
-      await secondaryInsuranceCard.verifyInsuranceStreetAddress(PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS);
-      await secondaryInsuranceCard.verifyInsuranceAddressLine2(
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].memberId.key,
+        PATIENT_INSURANCE_MEMBER_ID_2
+      );
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].firstName.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME
+      );
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].lastName.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME
+      );
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].middleName.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME
+      );
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].birthDate.key,
+        POLICY_HOLDER_2_DATE_OF_BIRTH
+      );
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].birthSex.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX
+      );
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].streetAddress.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS
+      );
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].addressLine2.key,
         PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE
       );
-      await secondaryInsuranceCard.verifyInsuranceCity(PATIENT_INSURANCE_POLICY_HOLDER_2_CITY);
-      await secondaryInsuranceCard.verifyInsuranceState(PATIENT_INSURANCE_POLICY_HOLDER_2_STATE);
-      await secondaryInsuranceCard.verifyInsuranceZip(PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP);
-      await secondaryInsuranceCard.verifyPatientsRelationshipToInjured(
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].city.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_2_CITY
+      );
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].state.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_2_STATE
+      );
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].zip.key,
+        PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP
+      );
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].relationship.key,
         PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED
       );
-      await secondaryInsuranceCard.verifyAdditionalInsuranceInformation('');
-      await secondaryInsuranceCard.clickShowMoreButton();
-      await secondaryInsuranceCard.verifyAdditionalFieldsAreHidden();
-      await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+      await secondaryInsuranceCard.verifyTextField(insuranceSection.items[1].additionalInformation.key, '');
     }
   );
 
@@ -162,40 +223,66 @@ test.describe('Insurance Information Section non-mutating tests', () => {
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-    await primaryInsuranceCard.clickShowMoreButton();
-    await primaryInsuranceCard.clearMemberIdField();
-    await primaryInsuranceCard.clearPolicyHolderFirstNameField();
-    await primaryInsuranceCard.clearPolicyHolderLastNameField();
-    await primaryInsuranceCard.clearDateOfBirthFromInsuranceContainer();
-    await primaryInsuranceCard.clearStreetAddressFromInsuranceContainer();
-    await primaryInsuranceCard.clearCityFromInsuranceContainer();
-    await primaryInsuranceCard.clearZipFromInsuranceContainer();
+    await primaryInsuranceCard.clearField(insuranceSection.items[0].memberId.key);
+    await primaryInsuranceCard.clearField(insuranceSection.items[0].firstName.key);
+    await primaryInsuranceCard.clearField(insuranceSection.items[0].lastName.key);
+    await primaryInsuranceCard.clearField(insuranceSection.items[0].birthDate.key);
+    await primaryInsuranceCard.clearField(insuranceSection.items[0].streetAddress.key);
+    await primaryInsuranceCard.clearField(insuranceSection.items[0].city.key);
+    await primaryInsuranceCard.clearField(insuranceSection.items[0].zip.key);
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
-    await secondaryInsuranceCard.clickShowMoreButton();
-    await secondaryInsuranceCard.clearMemberIdField();
-    await secondaryInsuranceCard.clearPolicyHolderFirstNameField();
-    await secondaryInsuranceCard.clearPolicyHolderLastNameField();
-    await secondaryInsuranceCard.clearDateOfBirthFromInsuranceContainer();
-    await secondaryInsuranceCard.clearStreetAddressFromInsuranceContainer();
-    await secondaryInsuranceCard.clearCityFromInsuranceContainer();
-    await secondaryInsuranceCard.clearZipFromInsuranceContainer();
+    await secondaryInsuranceCard.clearField(insuranceSection.items[1].memberId.key);
+    await secondaryInsuranceCard.clearField(insuranceSection.items[1].firstName.key);
+    await secondaryInsuranceCard.clearField(insuranceSection.items[1].lastName.key);
+    await secondaryInsuranceCard.clearField(insuranceSection.items[1].birthDate.key);
+    await secondaryInsuranceCard.clearField(insuranceSection.items[1].streetAddress.key);
+    await secondaryInsuranceCard.clearField(insuranceSection.items[1].city.key);
+    await secondaryInsuranceCard.clearField(insuranceSection.items[1].zip.key);
     await patientInformationPage.clickSaveChangesButton();
 
-    await primaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.memberId);
-    await primaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.policyHoldersFirstName);
-    await primaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.policyHoldersLastName);
-    await primaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.policyHoldersDateOfBirth);
-    await primaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.streetAddress);
-    await primaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.city);
-    await primaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.zip);
+    // Primary insurance validation errors - using config keys
+    await primaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].memberId.key);
+    await primaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].firstName.key);
+    await primaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].lastName.key);
+    await primaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].birthDate.key);
+    await primaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].streetAddress.key);
+    await primaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].city.key);
+    await primaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].zip.key);
 
-    await secondaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.memberId);
-    await secondaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.policyHoldersFirstName);
-    await secondaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.policyHoldersLastName);
-    await secondaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.policyHoldersDateOfBirth);
-    await secondaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.streetAddress);
-    await secondaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.city);
-    await secondaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.zip);
+    // Secondary insurance validation errors - using config keys
+    await secondaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[1].memberId.key);
+    await secondaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[1].firstName.key);
+    await secondaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[1].lastName.key);
+    await secondaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[1].birthDate.key);
+    await secondaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[1].streetAddress.key);
+    await secondaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[1].city.key);
+    await secondaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[1].zip.key);
+  });
+
+  // Kept with the read-only tests: every save here is rejected by field validation, so nothing is
+  // persisted and the shared appointment survives it — the same reasoning as the required-field
+  // test above. Declared last so that even if a save ever did get through, it cannot affect the
+  // tests that read the seeded values.
+  test('Enter invalid zip on Insurance information block, validation error are shown', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+    // Gate the first interaction on the card being fully rendered; otherwise the immediate
+    // field interaction can race the insurance section's render under load and time out.
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+    await primaryInsuranceCard.enterTextField(insuranceSection.items[0].zip.key, '11');
+    await patientInformationPage.clickSaveChangesButton();
+    await primaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
+    await primaryInsuranceCard.enterTextField(insuranceSection.items[0].zip.key, '11223344');
+    await patientInformationPage.clickSaveChangesButton();
+    await primaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
+
+    const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
+    await secondaryInsuranceCard.enterTextField(insuranceSection.items[1].zip.key, '11');
+    await patientInformationPage.clickSaveChangesButton();
+    await secondaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
+    await secondaryInsuranceCard.enterTextField(insuranceSection.items[1].zip.key, '11223344');
+    await patientInformationPage.clickSaveChangesButton();
+    await secondaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
   });
 });
 
@@ -203,86 +290,137 @@ test.describe('Insurance Information Section mutating tests', () => {
   let resourceHandler: ResourceHandler;
 
   test.beforeAll(async () => {
-    const [createdResourceHandler, _createdPrimaryInsuranceCarrier, _createdSecondaryInsuranceCarrier] =
-      await createResourceHandler();
+    // No appointment here — beforeEach creates a fresh one for every test in this describe, so one
+    // made here would be immediately replaced and paid for once per worker.
+    const [createdResourceHandler] = await buildResourceHandler();
     resourceHandler = createdResourceHandler;
   });
 
   test.beforeEach(async () => {
     await resourceHandler.setResources();
-    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+    await waitForAppointmentReady(resourceHandler);
   });
 
   test.afterEach(async () => {
     await resourceHandler.cleanupResources();
   });
 
-  test('Enter invalid zip on Insurance information block, validation error are shown', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-    await primaryInsuranceCard.clickShowMoreButton();
-    await primaryInsuranceCard.enterZipFromInsuranceContainer('11');
-    await patientInformationPage.clickSaveChangesButton();
-    await primaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
-    await primaryInsuranceCard.enterZipFromInsuranceContainer('11223344');
-    await patientInformationPage.clickSaveChangesButton();
-    await primaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
-
-    const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
-    await secondaryInsuranceCard.clickShowMoreButton();
-    await secondaryInsuranceCard.enterZipFromInsuranceContainer('11');
-    await patientInformationPage.clickSaveChangesButton();
-    await secondaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
-    await secondaryInsuranceCard.enterZipFromInsuranceContainer('11223344');
-    await patientInformationPage.clickSaveChangesButton();
-    await secondaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
-  });
-
   test('Updated values from Insurance information block are saved and displayed correctly', async ({ page }) => {
+    test.slow();
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-    await primaryInsuranceCard.clickShowMoreButton();
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
     await primaryInsuranceCard.selectInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER);
-    await primaryInsuranceCard.enterMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID);
-    await primaryInsuranceCard.enterPolicyHolderFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME);
-    await primaryInsuranceCard.enterPolicyHolderMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
-    await primaryInsuranceCard.enterPolicyHolderLastName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME);
-    await primaryInsuranceCard.enterDateOfBirthFromInsuranceContainer(
+    await primaryInsuranceCard.selectFieldOption(
+      insuranceSection.items[0].insurancePlanType.key,
+      NEW_PATIENT_INSURANCE_PLAN_TYPE
+    );
+    await primaryInsuranceCard.enterTextField(insuranceSection.items[0].memberId.key, NEW_PATIENT_INSURANCE_MEMBER_ID);
+    await primaryInsuranceCard.enterTextField(
+      insuranceSection.items[0].firstName.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME
+    );
+    await primaryInsuranceCard.enterTextField(
+      insuranceSection.items[0].middleName.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME
+    );
+    await primaryInsuranceCard.enterTextField(
+      insuranceSection.items[0].lastName.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME
+    );
+    await primaryInsuranceCard.enterDateField(
+      insuranceSection.items[0].birthDate.key,
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH
     );
-    await primaryInsuranceCard.selectPolicyHoldersBirthSex(NEW_PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX);
-    await primaryInsuranceCard.enterPolicyHolderStreetAddress(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS);
-    await primaryInsuranceCard.enterPolicyHolderAddressLine2(
+    await primaryInsuranceCard.selectFieldOption(
+      insuranceSection.items[0].birthSex.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX
+    );
+    await primaryInsuranceCard.enterTextField(
+      insuranceSection.items[0].streetAddress.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS
+    );
+    await primaryInsuranceCard.enterTextField(
+      insuranceSection.items[0].addressLine2.key,
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE
     );
-    await primaryInsuranceCard.enterPolicyHolderCity(NEW_PATIENT_INSURANCE_POLICY_HOLDER_CITY);
-    await primaryInsuranceCard.selectPolicyHoldersState(NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE);
-    await primaryInsuranceCard.enterZipFromInsuranceContainer(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP);
-    await primaryInsuranceCard.selectPatientsRelationship(NEW_PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED);
-    await primaryInsuranceCard.enterAdditionalInsuranceInformation(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO);
+    await primaryInsuranceCard.enterTextField(
+      insuranceSection.items[0].city.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_CITY
+    );
+    await primaryInsuranceCard.selectFieldOption(
+      insuranceSection.items[0].state.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE
+    );
+    await primaryInsuranceCard.enterTextField(
+      insuranceSection.items[0].zip.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP
+    );
+    await primaryInsuranceCard.selectFieldOption(
+      insuranceSection.items[0].relationship.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED
+    );
+    await primaryInsuranceCard.enterTextField(
+      insuranceSection.items[0].additionalInformation.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO
+    );
 
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
-    await secondaryInsuranceCard.clickShowMoreButton();
     await secondaryInsuranceCard.selectInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER_2);
-    await secondaryInsuranceCard.enterMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID_2);
-    await secondaryInsuranceCard.enterPolicyHolderFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME);
-    await secondaryInsuranceCard.enterPolicyHolderMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME);
-    await secondaryInsuranceCard.enterPolicyHolderLastName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME);
-    await secondaryInsuranceCard.enterDateOfBirthFromInsuranceContainer(
+    await secondaryInsuranceCard.selectFieldOption(
+      insuranceSection.items[1].insurancePlanType.key,
+      NEW_PATIENT_INSURANCE_PLAN_TYPE_2
+    );
+    await secondaryInsuranceCard.enterTextField(
+      insuranceSection.items[1].memberId.key,
+      NEW_PATIENT_INSURANCE_MEMBER_ID_2
+    );
+    await secondaryInsuranceCard.enterTextField(
+      insuranceSection.items[1].firstName.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME
+    );
+    await secondaryInsuranceCard.enterTextField(
+      insuranceSection.items[1].middleName.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME
+    );
+    await secondaryInsuranceCard.enterTextField(
+      insuranceSection.items[1].lastName.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME
+    );
+    await secondaryInsuranceCard.enterDateField(
+      insuranceSection.items[1].birthDate.key,
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_DATE_OF_BIRTH
     );
-    await secondaryInsuranceCard.selectPolicyHoldersBirthSex(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX);
-    await secondaryInsuranceCard.enterPolicyHolderStreetAddress(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS);
-    await secondaryInsuranceCard.enterPolicyHolderAddressLine2(
+    await secondaryInsuranceCard.selectFieldOption(
+      insuranceSection.items[1].birthSex.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX
+    );
+    await secondaryInsuranceCard.enterTextField(
+      insuranceSection.items[1].streetAddress.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS
+    );
+    await secondaryInsuranceCard.enterTextField(
+      insuranceSection.items[1].addressLine2.key,
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE
     );
-    await secondaryInsuranceCard.enterPolicyHolderCity(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_CITY);
-    await secondaryInsuranceCard.selectPolicyHoldersState(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_STATE);
-    await secondaryInsuranceCard.enterZipFromInsuranceContainer(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP);
-    await secondaryInsuranceCard.selectPatientsRelationship(
+    await secondaryInsuranceCard.enterTextField(
+      insuranceSection.items[1].city.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_CITY
+    );
+    await secondaryInsuranceCard.selectFieldOption(
+      insuranceSection.items[1].state.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_STATE
+    );
+    await secondaryInsuranceCard.enterTextField(
+      insuranceSection.items[1].zip.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP
+    );
+    await secondaryInsuranceCard.selectFieldOption(
+      insuranceSection.items[1].relationship.key,
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED
     );
-    await secondaryInsuranceCard.enterAdditionalInsuranceInformation(
+    await secondaryInsuranceCard.enterTextField(
+      insuranceSection.items[1].additionalInformation.key,
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2
     );
 
@@ -290,46 +428,117 @@ test.describe('Insurance Information Section mutating tests', () => {
     await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
     await patientInformationPage.reloadPatientInformationPage();
     await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await primaryInsuranceCard.clickShowMoreButton();
-    await secondaryInsuranceCard.clickShowMoreButton();
 
     await primaryInsuranceCard.verifyInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER);
-    await primaryInsuranceCard.verifyMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID);
-    await primaryInsuranceCard.verifyPolicyHoldersFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME);
-    await primaryInsuranceCard.verifyPolicyHoldersMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
-    await primaryInsuranceCard.verifyPolicyHoldersLastName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME);
-    await primaryInsuranceCard.verifyPolicyHoldersDateOfBirth(NEW_PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH);
-    await primaryInsuranceCard.verifyPolicyHoldersSex(NEW_PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX);
-    await primaryInsuranceCard.verifyInsuranceStreetAddress(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS);
-    await primaryInsuranceCard.verifyInsuranceAddressLine2(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE);
-    await primaryInsuranceCard.verifyInsuranceCity(NEW_PATIENT_INSURANCE_POLICY_HOLDER_CITY);
-    await primaryInsuranceCard.verifyInsuranceState(NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE);
-    await primaryInsuranceCard.verifyInsuranceZip(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP);
-    await primaryInsuranceCard.verifyPatientsRelationshipToInjured(
+    await primaryInsuranceCard.verifyTextField(
+      insuranceSection.items[0].insurancePlanType.key,
+      NEW_PATIENT_INSURANCE_PLAN_TYPE
+    );
+    await primaryInsuranceCard.verifyTextField(insuranceSection.items[0].memberId.key, NEW_PATIENT_INSURANCE_MEMBER_ID);
+    await primaryInsuranceCard.verifyTextField(
+      insuranceSection.items[0].firstName.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME
+    );
+    await primaryInsuranceCard.verifyTextField(
+      insuranceSection.items[0].middleName.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME
+    );
+    await primaryInsuranceCard.verifyTextField(
+      insuranceSection.items[0].lastName.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME
+    );
+    await primaryInsuranceCard.verifyTextField(
+      insuranceSection.items[0].birthDate.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH
+    );
+    await primaryInsuranceCard.verifyTextField(
+      insuranceSection.items[0].birthSex.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX
+    );
+    await primaryInsuranceCard.verifyTextField(
+      insuranceSection.items[0].streetAddress.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS
+    );
+    await primaryInsuranceCard.verifyTextField(
+      insuranceSection.items[0].addressLine2.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE
+    );
+    await primaryInsuranceCard.verifyTextField(
+      insuranceSection.items[0].city.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_CITY
+    );
+    await primaryInsuranceCard.verifyTextField(
+      insuranceSection.items[0].state.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE
+    );
+    await primaryInsuranceCard.verifyTextField(
+      insuranceSection.items[0].zip.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP
+    );
+    await primaryInsuranceCard.verifyTextField(
+      insuranceSection.items[0].relationship.key,
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED
     );
-    await primaryInsuranceCard.verifyAdditionalInsuranceInformation(
+    await primaryInsuranceCard.verifyTextField(
+      insuranceSection.items[0].additionalInformation.key,
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO
     );
 
     await secondaryInsuranceCard.verifyInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER_2);
-    await secondaryInsuranceCard.verifyMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID_2);
-    await secondaryInsuranceCard.verifyPolicyHoldersFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME);
-    await secondaryInsuranceCard.verifyPolicyHoldersMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME);
-    await secondaryInsuranceCard.verifyPolicyHoldersLastName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME);
-    await secondaryInsuranceCard.verifyPolicyHoldersDateOfBirth(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_DATE_OF_BIRTH);
-    await secondaryInsuranceCard.verifyPolicyHoldersSex(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX);
-    await secondaryInsuranceCard.verifyInsuranceStreetAddress(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS);
-    await secondaryInsuranceCard.verifyInsuranceAddressLine2(
+    await secondaryInsuranceCard.verifyTextField(
+      insuranceSection.items[1].insurancePlanType.key,
+      NEW_PATIENT_INSURANCE_PLAN_TYPE_2
+    );
+    await secondaryInsuranceCard.verifyTextField(
+      insuranceSection.items[1].memberId.key,
+      NEW_PATIENT_INSURANCE_MEMBER_ID_2
+    );
+    await secondaryInsuranceCard.verifyTextField(
+      insuranceSection.items[1].firstName.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME
+    );
+    await secondaryInsuranceCard.verifyTextField(
+      insuranceSection.items[1].middleName.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME
+    );
+    await secondaryInsuranceCard.verifyTextField(
+      insuranceSection.items[1].lastName.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME
+    );
+    await secondaryInsuranceCard.verifyTextField(
+      insuranceSection.items[1].birthDate.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_DATE_OF_BIRTH
+    );
+    await secondaryInsuranceCard.verifyTextField(
+      insuranceSection.items[1].birthSex.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX
+    );
+    await secondaryInsuranceCard.verifyTextField(
+      insuranceSection.items[1].streetAddress.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS
+    );
+    await secondaryInsuranceCard.verifyTextField(
+      insuranceSection.items[1].addressLine2.key,
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE
     );
-    await secondaryInsuranceCard.verifyInsuranceCity(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_CITY);
-    await secondaryInsuranceCard.verifyInsuranceState(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_STATE);
-    await secondaryInsuranceCard.verifyInsuranceZip(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP);
-    await secondaryInsuranceCard.verifyPatientsRelationshipToInjured(
+    await secondaryInsuranceCard.verifyTextField(
+      insuranceSection.items[1].city.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_CITY
+    );
+    await secondaryInsuranceCard.verifyTextField(
+      insuranceSection.items[1].state.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_STATE
+    );
+    await secondaryInsuranceCard.verifyTextField(
+      insuranceSection.items[1].zip.key,
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP
+    );
+    await secondaryInsuranceCard.verifyTextField(
+      insuranceSection.items[1].relationship.key,
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED
     );
-    await secondaryInsuranceCard.verifyAdditionalInsuranceInformation(
+    await secondaryInsuranceCard.verifyTextField(
+      insuranceSection.items[1].additionalInformation.key,
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2
     );
   });
@@ -341,12 +550,22 @@ test.describe('Insurance Information Section mutating tests', () => {
 
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+    await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+    await primaryInsuranceCard.selectFieldOption(
+      insuranceSection.items[0].insurancePlanType.key,
+      PATIENT_INSURANCE_PLAN_TYPE
+    );
+    await secondaryInsuranceCard.selectFieldOption(
+      insuranceSection.items[1].insurancePlanType.key,
+      PATIENT_INSURANCE_PLAN_TYPE_2
+    );
 
-    await primaryInsuranceCard.clickShowMoreButton();
-    await secondaryInsuranceCard.clickShowMoreButton();
-
-    await primaryInsuranceCard.enterAdditionalInsuranceInformation('Primary test info');
-    await secondaryInsuranceCard.enterAdditionalInsuranceInformation('Secondary test info');
+    await primaryInsuranceCard.enterTextField(insuranceSection.items[0].additionalInformation.key, 'Primary test info');
+    await secondaryInsuranceCard.enterTextField(
+      insuranceSection.items[1].additionalInformation.key,
+      'Secondary test info'
+    );
 
     await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
     await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
@@ -358,58 +577,95 @@ test.describe('Insurance Information Section mutating tests', () => {
     await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
     await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
 
-    await primaryInsuranceCard.clickShowMoreButton();
-    await secondaryInsuranceCard.clickShowMoreButton();
+    await primaryInsuranceCard.verifyTextField(
+      insuranceSection.items[0].additionalInformation.key,
+      'Primary test info'
+    );
+    await secondaryInsuranceCard.verifyTextField(
+      insuranceSection.items[1].additionalInformation.key,
+      'Secondary test info'
+    );
 
-    await primaryInsuranceCard.verifyAdditionalInsuranceInformation('Primary test info');
-    await secondaryInsuranceCard.verifyAdditionalInsuranceInformation('Secondary test info');
-
-    await primaryInsuranceCard.enterAdditionalInsuranceInformation('');
-    await secondaryInsuranceCard.enterAdditionalInsuranceInformation('');
+    await primaryInsuranceCard.enterTextField(insuranceSection.items[0].additionalInformation.key, '');
+    await secondaryInsuranceCard.enterTextField(insuranceSection.items[1].additionalInformation.key, '');
 
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
 
     await patientInformationPage.reloadPatientInformationPage();
-    await primaryInsuranceCard.clickShowMoreButton();
-    await secondaryInsuranceCard.clickShowMoreButton();
 
-    await primaryInsuranceCard.verifyAdditionalInsuranceInformation('');
-    await secondaryInsuranceCard.verifyAdditionalInsuranceInformation('');
+    await primaryInsuranceCard.verifyTextField(insuranceSection.items[0].additionalInformation.key, '');
+    await secondaryInsuranceCard.verifyTextField(insuranceSection.items[1].additionalInformation.key, '');
   });
 
-  test('Check [Add insurance] button is hidden when both primary and secondary insurances are present,[Add insurance] button is present if primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Primary"', async ({
+  // Both removals in one test, on one appointment. They were two tests, and each paid its own
+  // ~14.4s beforeEach appointment to assert one line about the same screen. Merging is safe rather
+  // than merely cheaper because the app derives the pre-filled type from a single predicate:
+  //   const newInsuranceOrdinal = coverages.some((c) => c.startingPriority === 1) ? 2 : 1;
+  // Only the presence of a primary matters, not how many coverages remain, so removing primary last
+  // (leaving none) exercises the same branch the old test reached by removing it first (leaving the
+  // secondary). No case is lost.
+  test('[Add insurance] is hidden while both insurances are present, and the new insurance Type is pre-filled with whichever priority is missing', async ({
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+
+    // Nothing to add while both priorities are filled.
     await patientInformationPage.verifyAddInsuranceButtonIsHidden();
-    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-    await primaryInsuranceCard.clickShowMoreButton();
-    await primaryInsuranceCard.clickRemoveInsuranceButton();
-    await patientInformationPage.verifyCoverageRemovedMessageShown();
-    const addInsuranceDialog = await patientInformationPage.clickAddInsuranceButton();
-    await addInsuranceDialog.verifyTypeField('Primary', false);
-  });
 
-  test('Check [Add insurance] button is present if Primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Secondary"', async ({
-    page,
-  }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    // Remove the secondary while the primary stays: the gap is Secondary.
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
-    await secondaryInsuranceCard.clickShowMoreButton();
+    await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
     await secondaryInsuranceCard.clickRemoveInsuranceButton();
-    await patientInformationPage.verifyCoverageRemovedMessageShown();
-    const addInsuranceDialog = await patientInformationPage.clickAddInsuranceButton();
-    await addInsuranceDialog.verifyTypeField('Secondary', false);
+    await patientInformationPage.verifySavedInsuranceCount(1);
+    const secondaryGapCard = await patientInformationPage.clickAddInsuranceButton();
+    await secondaryGapCard.verifyInsuranceType('Secondary');
+    await patientInformationPage.clickCancelAddInsuranceButton();
+    await patientInformationPage.verifySavedInsuranceCount(1);
+
+    // Now remove the primary as well: with no primary on the account the gap is Primary. Both
+    // removals are confirmed by the saved count rather than the toast, which the first attempt at
+    // this test relied on -- the first toast was still on screen, so it reported success while the
+    // primary was in fact still there, and the run failed further down with a pre-filled 'Secondary'.
+    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+    await primaryInsuranceCard.clickRemoveInsuranceButton();
+    await patientInformationPage.verifySavedInsuranceCount(0);
+    const primaryGapCard = await patientInformationPage.clickAddInsuranceButton();
+    await primaryGapCard.verifyInsuranceType('Primary');
   });
 });
 
-async function createResourceHandler(): Promise<[ResourceHandler, string, string]> {
+// This spec seeds a patient with a primary and secondary insurance.
+const EXPECTED_COVERAGE_COUNT = 2;
+
+// The harvesting-completed tag can be set before the incremental sub-harvest-paperwork page Tasks
+// finish writing the Coverage resources (waitForPageHarvestTasks can observe 0 active tasks before
+// they're created/indexed), so waitTillHarvestingDone returning does not guarantee the Coverages
+// are queryable. Poll for the Coverages directly in addition to preprocessing/harvesting; this
+// waits exactly as long as needed, and fails loudly if harvest never produces them.
+function waitForAppointmentReady(resourceHandler: ResourceHandler): Promise<unknown> {
+  return Promise.all([
+    resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
+    resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
+    resourceHandler.waitTillCoveragesExist(resourceHandler.patient.id!, EXPECTED_COVERAGE_COUNT),
+    // The Coverages existing is not enough: the insurance cards read the billing Account's coverage
+    // array, which harvest populates separately. Waiting only on the Coverages let the page load with
+    // the secondary card missing, and since it only fetches on mount the card never arrived — the
+    // "#insurance-carrier-2 element(s) not found" flake.
+    resourceHandler.waitTillAccountCoveragesExist(resourceHandler.patient.id!, EXPECTED_COVERAGE_COUNT),
+  ]);
+}
+
+// Builds the handler and resolves the payer names its paperwork answers use. Deliberately does not
+// create an appointment: a describe whose every test creates its own in beforeEach would otherwise
+// pay for an extra unused one in beforeAll — once per worker that picks up any of its tests.
+async function buildResourceHandler(): Promise<[ResourceHandler, string, string]> {
   let insuranceCarrier1: QuestionnaireItemAnswerOption | undefined = undefined;
   let insuranceCarrier2: QuestionnaireItemAnswerOption | undefined = undefined;
   const PROCESS_ID = `patientRecordInsuranceSection-${DateTime.now().toMillis()}`;
   const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person', async ({ patientInfo }) => {
-    return [
+    const answers = [];
+    answers.push(
       getContactInformationAnswers({
         firstName: patientInfo.firstName,
         lastName: patientInfo.lastName,
@@ -421,6 +677,7 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
       getPatientDetailsStepAnswers({}),
       getPaymentOptionInsuranceAnswers({
         insuranceCarrier: insuranceCarrier1!,
+        insurancePlanType: PATIENT_INSURANCE_PLAN_TYPE,
         insuranceMemberId: PATIENT_INSURANCE_MEMBER_ID,
         insurancePolicyHolderFirstName: PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME,
         insurancePolicyHolderLastName: PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME,
@@ -435,6 +692,7 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
         insurancePolicyHolderZip: PATIENT_INSURANCE_POLICY_HOLDER_ZIP,
         insurancePolicyHolderRelationshipToInsured: PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED,
         insuranceCarrier2: insuranceCarrier2!,
+        insurancePlanType2: PATIENT_INSURANCE_PLAN_TYPE_2,
         insuranceMemberId2: PATIENT_INSURANCE_MEMBER_ID_2,
         insurancePolicyHolderFirstName2: PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME,
         insurancePolicyHolderLastName2: PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME,
@@ -450,31 +708,62 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
         insurancePolicyHolderRelationshipToInsured2: PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
       }),
       getResponsiblePartyStepAnswers({}),
-      getConsentStepAnswers({}),
-      getPrimaryCarePhysicianStepAnswers({}),
-    ];
+      getEmergencyContactStepAnswers({}),
+      getPrimaryCarePhysicianStepAnswers({})
+    );
+    if (hasEmployerInformationPage()) {
+      answers.push(getEmployerInformationStepAnswers({}));
+    }
+    if (hasAttorneyInformationPage()) {
+      answers.push(getAttorneyInformationStepAnswers({}));
+    }
+    answers.push(getConsentStepAnswers({}));
+    return answers;
   });
   const oystehr = await ResourceHandler.getOystehr();
-  const insuranceCarriersOptionsResponse = await oystehr.zambda.execute({
-    id: 'get-answer-options',
-    answerSource: {
-      resourceType: 'Organization',
-      query: `active=true&type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+  // Carriers come from the Oystehr payer list — the same backing source as the intake paperwork
+  // options (get-patient-insurance-payers) and the EHR patient-record carrier field
+  // (get-all-insurance-payers with prependIdentifier). Payer-type FHIR Organizations are the
+  // legacy source and are no longer seeded on new environments, so sourcing carriers from them
+  // here made every test in this file fail on envs that only have the payer list.
+  const payersPage = await oystehr.rcm.listPayers({ limit: 50 });
+  const payersById = new Map<string, Organization>();
+  for (const payer of payersPage.data) {
+    const payerId = getPayerId(payer);
+    const payerName = payer.alias?.[0] ?? payer.name;
+    if (typeof payerId === 'string' && typeof payerName === 'string' && !payersById.has(payerId)) {
+      payersById.set(payerId, payer);
+    }
+  }
+  const [payer1, payer2] = [...payersById.values()];
+  if (!payer1 || !payer2) {
+    throw new Error(
+      `Expected the Oystehr payer list (oystehr.rcm.listPayers) to contain at least 2 usable payers ` +
+        `but found ${payersById.size} of ${payersPage.data.length} listed. The insurance paperwork and ` +
+        `patient-record carrier options are built from this list, so these tests cannot run without it.`
+    );
+  }
+  const toCarrierAnswer = (payer: Organization): QuestionnaireItemAnswerOption => ({
+    valueReference: {
+      reference: oystehr.rcm.constructPayerUrl({ id: getPayerId(payer)! }),
+      display: `${payer.alias?.[0] ?? payer.name}`,
     },
   });
+  insuranceCarrier1 = toCarrierAnswer(payer1);
+  insuranceCarrier2 = toCarrierAnswer(payer2);
+  // The EHR patient-record field labels its options "<payerId> - <name>" (prependIdentifier), and
+  // because these payers are in the current list the value renders without a "(historical)" suffix.
+  const insuranceCarrier1ForResult = `${getPayerId(payer1)} - ${payer1.alias?.[0] ?? payer1.name}`;
+  const insuranceCarrier2ForResult = `${getPayerId(payer2)} - ${payer2.alias?.[0] ?? payer2.name}`;
+  console.log('carriers: ', JSON.stringify([insuranceCarrier1ForResult, insuranceCarrier2ForResult]));
 
-  const insuranceCarriersOptions = chooseJson(insuranceCarriersOptionsResponse) as QuestionnaireItemAnswerOption[];
-  insuranceCarrier1 = insuranceCarriersOptions.at(0);
-  insuranceCarrier2 = insuranceCarriersOptions.at(1);
+  return [resourceHandler, insuranceCarrier1ForResult ?? '', insuranceCarrier2ForResult ?? ''];
+}
 
-  await resourceHandler.setResources();
-  await Promise.all([
-    resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
-    resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
-  ]);
-  return [
-    resourceHandler,
-    insuranceCarrier1?.valueReference?.display ?? '',
-    insuranceCarrier2?.valueReference?.display ?? '',
-  ];
+// For the describes that share one appointment across their tests.
+async function createResourceHandler(): Promise<[ResourceHandler, string, string]> {
+  const built = await buildResourceHandler();
+  await built[0].setResources();
+  await waitForAppointmentReady(built[0]);
+  return built;
 }

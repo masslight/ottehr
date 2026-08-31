@@ -1,0 +1,297 @@
+import { Badge, Box } from '@mui/material';
+import { Link } from 'react-router-dom';
+import { MappedStatusChip } from 'src/components/MappedStatusChip';
+import { OrdersToolTip } from 'src/features/common/OrdersToolTip';
+import { LabsOrderStatusChip } from 'src/features/external-labs/components/ExternalLabsStatusChip';
+import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
+import { InHouseLabsStatusChip } from 'src/features/in-house-labs/components/InHouseLabsStatusChip';
+import { NursingOrdersStatusChip } from 'src/features/nursing-orders/components/NursingOrdersStatusChip';
+import { RadiologyTableStatusChip } from 'src/features/radiology/components/RadiologyTableStatusChip';
+import { MedicationStatusChip } from 'src/features/visits/in-person/components/medication-administration/statuses/MedicationStatusChip';
+import {
+  getErxUrl,
+  getExternalLabOrderEditUrl,
+  getExternalLabOrdersUrl,
+  getImmunizationMARUrl,
+  getImmunizationVaccineDetailsUrl,
+  getInHouseLabOrderDetailsUrl,
+  getInHouseLabsUrl,
+  getInHouseMedicationDetailsUrl,
+  getInHouseMedicationMARUrl,
+  getNursingOrderDetailsUrl,
+  getNursingOrdersUrl,
+  getProcedureDetailsUrl,
+  getProceduresUrl,
+  getRadiologyExternalOrderDetailsUrl,
+  getRadiologyOrderEditUrl,
+  getRadiologyUrl,
+} from 'src/features/visits/in-person/routing/helpers';
+import { sidebarMenuIcons } from 'src/features/visits/shared/components/Sidebar';
+import { hasAtLeastOneOrder } from 'src/helpers';
+import { MedicationOrderStatuses } from 'utils/lib/types/api/medication-administration.types';
+import { RadiologyOrderStatus } from 'utils/lib/types/api/radiology';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
+import { TestStatus } from 'utils/lib/types/data/in-house/in-house.types';
+import { ExternalLabsStatus } from 'utils/lib/types/data/labs/labs.types';
+import { NursingOrdersStatus } from 'utils/lib/types/data/orders/constants';
+import { OrdersForTrackingBoardRow, OrderToolTipConfig } from 'utils/lib/types/data/orders/types';
+import { GenericToolTip } from '../../../../components/GenericToolTip';
+import { medicationStatusMapper } from './plan-tab/ERxContainer';
+
+interface OrdersIconsToolTipProps {
+  appointment: InPersonAppointmentInformation;
+  orders: OrdersForTrackingBoardRow;
+}
+
+const EXTERNAL_LAB_ORDERS_PENDING_BADGE_STATUSES = [ExternalLabsStatus.pending, ExternalLabsStatus.ready];
+const IN_HOUSE_LAB_ORDERS_PENDING_BADGE_STATUSES: TestStatus[] = ['ORDERED', 'COLLECTED'];
+const NURSING_ORDERS_PENDING_BADGE_STATUSES = [NursingOrdersStatus.pending];
+const FILTERED_IN_HOUSE_MEDICATIONS_PENDING_BADGE_STATUSES = [MedicationOrderStatuses.pending];
+const RADIOLOGY_ORDERS_PENDING_BADGE_STATUSES = [RadiologyOrderStatus.pending];
+
+export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointment, orders }) => {
+  const ordersExistForAppointment = hasAtLeastOneOrder(orders);
+  if (!ordersExistForAppointment) return null;
+
+  const navAppointmentId = appointment.parentAppointmentId || appointment.id;
+
+  const {
+    externalLabOrders,
+    inHouseLabOrders,
+    nursingOrders,
+    inHouseMedications,
+    radiologyOrders,
+    erxOrders,
+    procedures,
+    immunizationOrders,
+  } = orders;
+
+  const filteredInHouseMedications = inHouseMedications?.filter((med) => med?.status !== 'cancelled');
+
+  const orderConfigs: OrderToolTipConfig[] = [];
+
+  const withEncounter = (url: string): string => {
+    if (!appointment.encounterId) return url;
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}encounterId=${appointment.encounterId}`;
+  };
+
+  if (externalLabOrders?.length) {
+    const externalLabOrderConfig: OrderToolTipConfig = {
+      icon: sidebarMenuIcons['External Labs'],
+      title: 'External Labs',
+      tableUrl: withEncounter(getExternalLabOrdersUrl(navAppointmentId)),
+      unreadBadge: Boolean(
+        externalLabOrders.find((ord) => EXTERNAL_LAB_ORDERS_PENDING_BADGE_STATUSES.includes(ord.orderStatus))
+      ),
+      orders: externalLabOrders.map((order) => ({
+        fhirResourceId: order.serviceRequestId,
+        itemDescription: order.testItem,
+        detailPageUrl: withEncounter(getExternalLabOrderEditUrl(navAppointmentId, order.serviceRequestId)),
+        statusChip: <LabsOrderStatusChip status={order.orderStatus} />,
+        unreadBadge: EXTERNAL_LAB_ORDERS_PENDING_BADGE_STATUSES.includes(order.orderStatus),
+      })),
+    };
+    orderConfigs.push(externalLabOrderConfig);
+  }
+
+  if (inHouseLabOrders?.length) {
+    const inHouseLabOrderConfig: OrderToolTipConfig = {
+      icon: sidebarMenuIcons['In-House Labs'],
+      title: 'In-House Labs',
+      tableUrl: withEncounter(getInHouseLabsUrl(navAppointmentId)),
+      unreadBadge: Boolean(
+        inHouseLabOrders.find((ord) => IN_HOUSE_LAB_ORDERS_PENDING_BADGE_STATUSES.includes(ord.status))
+      ),
+      orders: inHouseLabOrders.map((order) => ({
+        fhirResourceId: order.serviceRequestId,
+        itemDescription: order.testItemName,
+        detailPageUrl: withEncounter(getInHouseLabOrderDetailsUrl(navAppointmentId, order.serviceRequestId)),
+        statusChip: <InHouseLabsStatusChip status={order.status} />,
+        unreadBadge: IN_HOUSE_LAB_ORDERS_PENDING_BADGE_STATUSES.includes(order.status),
+      })),
+    };
+    orderConfigs.push(inHouseLabOrderConfig);
+  }
+
+  if (nursingOrders?.length) {
+    const nursingOrdersConfig: OrderToolTipConfig = {
+      icon: sidebarMenuIcons['Nursing Orders'],
+      title: 'Nursing Orders',
+      tableUrl: withEncounter(getNursingOrdersUrl(navAppointmentId)),
+      unreadBadge: Boolean(nursingOrders.find((ord) => NURSING_ORDERS_PENDING_BADGE_STATUSES.includes(ord.status))),
+      orders: nursingOrders
+        .filter((order) => order.status !== NursingOrdersStatus.cancelled)
+        .map((order) => ({
+          fhirResourceId: order.serviceRequestId,
+          itemDescription: order.note,
+          detailPageUrl: withEncounter(getNursingOrderDetailsUrl(navAppointmentId, order.serviceRequestId)),
+          statusChip: <NursingOrdersStatusChip status={order.status} />,
+          unreadBadge: NURSING_ORDERS_PENDING_BADGE_STATUSES.includes(order.status),
+        })),
+    };
+    if (nursingOrdersConfig.orders.length > 0) orderConfigs.push(nursingOrdersConfig);
+  }
+
+  if (filteredInHouseMedications?.length) {
+    const inHouseMedicationConfig: OrderToolTipConfig = {
+      icon: sidebarMenuIcons['Med. Administration'],
+      title: 'In-House Medications',
+      tableUrl: withEncounter(getInHouseMedicationMARUrl(navAppointmentId)),
+      unreadBadge: Boolean(
+        filteredInHouseMedications.find((ord) =>
+          FILTERED_IN_HOUSE_MEDICATIONS_PENDING_BADGE_STATUSES.includes(ord.status as MedicationOrderStatuses)
+        )
+      ),
+      orders: filteredInHouseMedications.map((med) => {
+        const isPending = med.status === 'pending';
+        const targetUrl = isPending
+          ? `${getInHouseMedicationDetailsUrl(navAppointmentId)}?scrollTo=${med.id}`
+          : `${getInHouseMedicationMARUrl(navAppointmentId)}?scrollTo=${med.id}`;
+
+        return {
+          fhirResourceId: med.id,
+          itemDescription: med.medicationName,
+          detailPageUrl: withEncounter(targetUrl),
+          statusChip: <MedicationStatusChip medication={med} />,
+          unreadBadge: FILTERED_IN_HOUSE_MEDICATIONS_PENDING_BADGE_STATUSES.includes(
+            med.status as MedicationOrderStatuses
+          ),
+        };
+      }),
+    };
+    orderConfigs.push(inHouseMedicationConfig);
+  }
+
+  if (radiologyOrders?.length) {
+    const radiologyOrdersConfig: OrderToolTipConfig = {
+      icon: sidebarMenuIcons['Radiology'],
+      title: 'Radiology Orders',
+      tableUrl: withEncounter(getRadiologyUrl(navAppointmentId)),
+      unreadBadge: Boolean(radiologyOrders.find((ord) => RADIOLOGY_ORDERS_PENDING_BADGE_STATUSES.includes(ord.status))),
+      orders: radiologyOrders.map((order) => ({
+        fhirResourceId: order.serviceRequestId,
+        itemDescription: order.studyType,
+        detailPageUrl: withEncounter(
+          order.external
+            ? getRadiologyExternalOrderDetailsUrl(navAppointmentId, order.serviceRequestId)
+            : getRadiologyOrderEditUrl(navAppointmentId, order.serviceRequestId)
+        ),
+        statusChip: <RadiologyTableStatusChip status={order.status} />,
+        unreadBadge: RADIOLOGY_ORDERS_PENDING_BADGE_STATUSES.includes(order.status),
+      })),
+    };
+    orderConfigs.push(radiologyOrdersConfig);
+  }
+
+  if (erxOrders?.length) {
+    const ordersConfig: OrderToolTipConfig = {
+      icon: sidebarMenuIcons['eRX'],
+      title: 'eRx',
+      tableUrl: withEncounter(getErxUrl(navAppointmentId)),
+      orders: erxOrders.map((order) => ({
+        fhirResourceId: order.resourceId ?? '',
+        itemDescription: order.name ?? '',
+        detailPageUrl: withEncounter(getErxUrl(navAppointmentId)),
+        statusChip: <MappedStatusChip status={order.status ?? 'unknown'} mapper={medicationStatusMapper} />,
+      })),
+    };
+    orderConfigs.push(ordersConfig);
+  }
+
+  if (procedures?.length) {
+    const proceduresConfig: OrderToolTipConfig = {
+      icon: sidebarMenuIcons['Procedures'],
+      title: 'Procedures',
+      tableUrl: withEncounter(getProceduresUrl(navAppointmentId)),
+      orders: procedures.map((procedure) => ({
+        fhirResourceId: procedure.resourceId ?? '',
+        itemDescription: procedure.procedureType ?? '',
+        detailPageUrl: withEncounter(
+          procedure.resourceId
+            ? getProcedureDetailsUrl(navAppointmentId, procedure.resourceId)
+            : getProceduresUrl(navAppointmentId)
+        ),
+        statusChip: <></>,
+      })),
+    };
+    orderConfigs.push(proceduresConfig);
+  }
+
+  if (immunizationOrders?.length) {
+    const config: OrderToolTipConfig = {
+      icon: sidebarMenuIcons['Immunization'],
+      title: 'Immunizations',
+      tableUrl: withEncounter(getImmunizationMARUrl(navAppointmentId)),
+      orders: immunizationOrders
+        .filter((order) => order.status !== 'cancelled')
+        .map((order) => {
+          const isPending = order.status === 'pending';
+          const targetUrl = isPending
+            ? `${getImmunizationVaccineDetailsUrl(navAppointmentId)}?scrollTo=${order.id}`
+            : `${getImmunizationMARUrl(navAppointmentId)}?scrollTo=${order.id}`;
+          return {
+            fhirResourceId: order.id ?? '',
+            itemDescription: order.details.medication.name,
+            detailPageUrl: withEncounter(targetUrl),
+            statusChip: <OrderStatusChip status={order.status} />,
+            unreadBadge: order.status === 'pending',
+          };
+        }),
+    };
+    config.unreadBadge = config.orders.find((order) => order.unreadBadge) != null;
+    if (config.orders.length > 0) orderConfigs.push(config);
+  }
+
+  return (
+    <GenericToolTip title={<OrdersToolTip orderConfigs={orderConfigs} />} customWidth="none" placement="top">
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, auto)', gap: 1 }}>
+        {orderConfigs.map((config) => {
+          const button = (
+            <Link to={config.tableUrl} style={{ textDecoration: 'none' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: 0,
+                  color: '#0F347C',
+                  backgroundColor: '#2169F514',
+                  borderRadius: '50%',
+                  width: '28px',
+                  height: '28px',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {config.icon}
+              </Box>
+            </Link>
+          );
+          return (
+            <Box key={`${config.title}-icon-indicator`}>
+              {config.unreadBadge ? (
+                <Badge
+                  variant="dot"
+                  color="warning"
+                  sx={{
+                    '& .MuiBadge-badge': {
+                      width: '9px',
+                      height: '9px',
+                      borderRadius: '50%',
+                      top: '4px',
+                      right: '11px',
+                      zIndex: 'auto',
+                    },
+                  }}
+                >
+                  {button}
+                </Badge>
+              ) : (
+                button
+              )}
+            </Box>
+          );
+        })}
+      </Box>
+    </GenericToolTip>
+  );
+};

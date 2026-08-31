@@ -10,8 +10,9 @@ import {
   RelatedPersonMaps,
   SMSModel,
   SMSRecipient,
-} from '../types';
-import { getPatchBinary, getPatchOperationForNewMetaTag, getSMSNumberForIndividual } from '.';
+} from '../types/api/messaging.types';
+import { getSMSNumberForIndividual } from './patient';
+import { getPatchBinary, getPatchOperationForNewMetaTag } from './resourcePatch';
 
 export const ZAP_SMS_MEDIUM_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ParticipationMode';
 export const ZAP_SMS_MEDIUM_CODE = 'SMSWRIT';
@@ -157,6 +158,11 @@ export const getCommunicationsAndSenders = async (
   oystehr: Oystehr,
   uniqueNumbers: string[]
 ): Promise<(Communication | RelatedPerson)[]> => {
+  // // If there are no phone numbers, return empty array to avoid FHIR error
+  if (uniqueNumbers.length === 0) {
+    return [];
+  }
+
   return (
     await oystehr.fhir.search<Communication | RelatedPerson>({
       resourceType: 'Communication',
@@ -190,7 +196,7 @@ export const createSmsModel = (patientId: string, allRelatedPersonMaps: RelatedP
   return undefined;
 };
 
-function filterValidRecipients(relatedPersons: RelatedPerson[]): SMSRecipient[] {
+function filterValidRecipients(relatedPersons: RelatedPerson[] = []): SMSRecipient[] {
   // some slack alerts suggest this could be undefined, but that would mean there are patients with no RP
   // or some bug preventing rp from being returned with the query
   return relatedPersons

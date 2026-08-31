@@ -1,39 +1,82 @@
 import Oystehr, { BatchInputRequest, OystehrConfig } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   Attachment,
+  DomainResource,
   Encounter,
+  Extension,
   FhirResource,
   Location,
   Meta,
   QuestionnaireResponse,
   RelatedPerson,
   Resource,
+  Schedule,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  EncounterVirtualServiceExtension,
-  findQuestionnaireResponseItemLinkId,
-  getSecret,
-  pickFirstValueFromAnswerItem,
-  PRIVATE_EXTENSION_BASE_URL,
-  PUBLIC_EXTENSION_BASE_URL,
-  Secrets,
-  SecretsKeys,
-  TELEMED_VIDEO_ROOM_CODE,
-} from 'utils';
-import { ZambdaInput } from './types';
+import { BILLING_RESOURCE_TAG, PRIVATE_EXTENSION_BASE_URL, PUBLIC_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { undefinedIfEmptyArray } from 'utils/lib/fhir/helpers';
+import { pickFirstValueFromAnswerItem } from 'utils/lib/helpers/paperwork/paperwork';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { TELEMED_VIDEO_ROOM_CODE, TIMEZONES } from 'utils/lib/types/constants';
+import { EncounterVirtualServiceExtension } from 'utils/lib/types/data/oystehr-api.types.ts/telemed.types';
+import { findQuestionnaireResponseItemLinkId } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { ZambdaInput } from './types/common';
+import { safeJsonParse } from './validation';
 
-export function createOystehrClient(token: string, secrets: Secrets | null): Oystehr {
-  const FHIR_API = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, '');
-  const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
-  const CLIENT_CONFIG: OystehrConfig = {
+export const fhirApiUrlFromAuth0Audience = (auth0Audience: string): string => {
+  switch (auth0Audience) {
+    case 'https://dev.api.zapehr.com':
+      return 'https://dev.fhir-api.zapehr.com';
+    case 'https://dev2.api.zapehr.com':
+      return 'https://dev2.fhir-api.zapehr.com';
+    case 'https://testing.api.zapehr.com':
+      return 'https://testing.fhir-api.zapehr.com';
+    case 'https://staging.api.zapehr.com':
+      return 'https://staging.fhir-api.zapehr.com';
+    case 'https://api.zapehr.com':
+      return 'https://fhir-api.zapehr.com';
+    default:
+      throw `Unexpected auth0 audience value, could not map to a projectApiUrl. auth0Audience was: ${auth0Audience}`;
+  }
+};
+
+// todo remove code duplication with configure-secrets
+export const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {
+  switch (auth0Audience) {
+    case 'https://dev.api.zapehr.com':
+      return 'https://dev.project-api.zapehr.com/v1';
+    case 'https://dev2.api.zapehr.com':
+      return 'https://dev2.project-api.zapehr.com/v1';
+    case 'https://testing.api.zapehr.com':
+      return 'https://testing.project-api.zapehr.com/v1';
+    case 'https://staging.api.zapehr.com':
+      return 'https://staging.project-api.zapehr.com/v1';
+    case 'https://api.zapehr.com':
+      return 'https://project-api.zapehr.com/v1';
+    default:
+      throw `Unexpected auth0 audience value, could not map to a projectApiUrl. auth0Audience was: ${auth0Audience}`;
+  }
+};
+
+export function createClinicalOystehrClient(
+  token: string | undefined,
+  secrets: Secrets | null,
+  overrides?: Partial<OystehrConfig>
+): Oystehr {
+  return new Oystehr({
     accessToken: token,
-    fhirApiUrl: FHIR_API,
-    projectApiUrl: PROJECT_API,
-  };
-  return new Oystehr(CLIENT_CONFIG);
+    services: {
+      fhirApiUrl: fhirApiUrlFromAuth0Audience(getSecret(SecretsKeys.AUTH0_AUDIENCE, secrets)),
+      projectApiUrl: projectApiUrlFromAuth0Audience(getSecret(SecretsKeys.AUTH0_AUDIENCE, secrets)),
+    },
+    ...overrides,
+    ignoreTags: [...(overrides?.ignoreTags ?? []), BILLING_RESOURCE_TAG],
+  });
 }
 
 export interface SMSModel {
@@ -143,28 +186,39 @@ export const fillMeta = (code: string, system: string): Meta => ({
   ],
 });
 
+export const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
+
+export const rcmMeta = (
+  type: 'fee-schedule' | 'charge-master' | 'invoice-config' | 'scheduled-outreach-config'
+): Meta => ({
+  tag: [
+    { system: RCM_TAG_SYSTEM, code: 'rcm' },
+    { system: RCM_TAG_SYSTEM, code: type },
+  ],
+});
+
 export function assertDefined<T>(value: T, name: string): NonNullable<T> {
   if (value == null) {
-    throw `"${name}" is undefined`;
+    throw new Error(`"${name}" is undefined`);
   }
   return value;
 }
 
 export const validateString = (value: any, propertyName: string): string => {
   if (typeof value !== 'string') {
-    throw new Error(`"${propertyName}" property must be a string`);
+    throw INVALID_INPUT_ERROR(`"${propertyName}" property must be a string`);
   }
   return value;
 };
 
 export function validateJsonBody(input: ZambdaInput): any {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw INVALID_INPUT_ERROR('Request body is required');
   }
   try {
-    return JSON.parse(input.body);
+    return safeJsonParse(input.body);
   } catch {
-    throw new Error('Invalid JSON in request body');
+    throw INVALID_INPUT_ERROR('Invalid JSON in request body');
   }
 }
 
@@ -208,8 +262,9 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
   let parsedExtValue: { display: string; url: string }[] = [];
   try {
     parsedExtValue = JSON.parse(rawExtensionValue);
-  } catch {
+  } catch (e) {
     console.log('Location other-offices extension is formatted incorrectly');
+    captureException(e);
     return [];
   }
 
@@ -222,10 +277,30 @@ export function checkPaperworkComplete(questionnaireResponse: QuestionnaireRespo
     const photoIdFrontItem = findQuestionnaireResponseItemLinkId('photo-id-front', questionnaireResponse?.item ?? []);
     if (photoIdFrontItem) {
       photoIdFront = pickFirstValueFromAnswerItem(photoIdFrontItem, 'attachment');
+    } else {
+      return true;
     }
     if (photoIdFront) {
       return true;
     }
   }
   return false;
+}
+
+export function resolveTimezone(schedule?: Schedule, location?: Location, fallback: string = TIMEZONES[0]): string {
+  if (schedule) {
+    return getTimezone(schedule);
+  }
+  if (location) {
+    return getTimezone(location);
+  }
+  return fallback;
+}
+
+export function updateExtension(resource: DomainResource, extension: Extension): void {
+  resource.extension = [...(resource.extension ?? []).filter((ext) => ext.url !== extension.url), extension];
+}
+
+export function removeExtension(resource: DomainResource, url: string): void {
+  resource.extension = undefinedIfEmptyArray((resource.extension ?? []).filter((ext) => ext.url !== url));
 }

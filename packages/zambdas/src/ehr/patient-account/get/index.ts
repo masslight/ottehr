@@ -1,26 +1,17 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage, CoverageEligibilityResponse, Practitioner } from 'fhir/r4b';
-import {
-  CoverageCheckWithDetails,
-  getSecret,
-  INVALID_RESOURCE_ID_ERROR,
-  isValidUUID,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUIRED_PARAMETERS,
-  PatientAccountResponse,
-  pullCoverageIdentifyingDetails,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import { parseCoverageEligibilityResponse } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { pullCoverageIdentifyingDetails } from 'utils/lib/fhir/billing';
+import { parseCoverageEligibilityResponse } from 'utils/lib/fhir/billing';
+import { getPreferredPharmacyFromPatient } from 'utils/lib/fhir/patient';
+import { Secrets } from 'utils/lib/secrets';
+import { CoverageCheckWithDetails, PatientAccountResponse } from 'utils/lib/types/api/patient-account';
+import { INVALID_RESOURCE_ID_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'get-patient-account';
@@ -28,34 +19,35 @@ const ZAMBDA_NAME = 'get-patient-account';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const resources = await performEffect(validatedParameters, oystehr);
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  const resources = await performEffect(validatedParameters, oystehr);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(resources),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('get-patient-account', error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(resources),
+  };
 });
 
 const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAccountResponse> => {
   const { patientId } = input;
+  console.log('performing effect for patient account get');
+  console.time('getAccountAndCoverageResourcesForPatient');
   const accountAndCoverages = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+  console.timeEnd('getAccountAndCoverageResourcesForPatient');
   const primaryCarePhysician = accountAndCoverages.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
   ) as Practitioner;
-  const eligibilityCheckResults = (
+  // due to really huge CEResponses causing response-too-large errors, we need to chop our querying for the CEResponses into
+  // manageable chunks. We'll do this by first querying for just the IDs of the CEResponses, then querying for the full resources in parallel.
+  // Even just two resources returned in a query can still result in response-too-large errors based on prod data we've encountered.
+  console.time('fetching CER IDs');
+  const eligibilityCheckIds = (
     await oystehr.fhir.search<CoverageEligibilityResponse>({
       resourceType: 'CoverageEligibilityResponse',
       params: [
@@ -67,9 +59,28 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
           name: '_sort',
           value: '-created',
         },
+        {
+          name: '_elements',
+          value: 'id',
+        },
+        {
+          name: '_count', // we shouldn't need more than the most recent 10 eligibility checks
+          value: '10',
+        },
       ],
     })
-  ).unbundle();
+  )
+    .unbundle()
+    .map((cer) => cer.id)
+    .filter((id): id is string => !!id);
+  console.log('fetching the following CERs:', JSON.stringify(eligibilityCheckIds));
+
+  const eligibilityCheckResults: CoverageEligibilityResponse[] = await Promise.all(
+    eligibilityCheckIds.map((id) =>
+      oystehr.fhir.get<CoverageEligibilityResponse>({ resourceType: 'CoverageEligibilityResponse', id })
+    )
+  );
+
   const coverageIdsToFetch = eligibilityCheckResults.flatMap((ecr) => {
     if (ecr.insurance?.[0]?.coverage?.reference) {
       const [resourceType, id] = ecr.insurance[0].coverage.reference.split('/');
@@ -107,10 +118,14 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
       } as CoverageCheckWithDetails;
     })
     .filter((result) => result !== null) as CoverageCheckWithDetails[];
+  console.timeEnd('fetching CER IDs');
+  const { patient } = accountAndCoverages;
+  const pharmacy = getPreferredPharmacyFromPatient(patient);
   return {
     ...accountAndCoverages,
     primaryCarePhysician,
     coverageChecks: mapped,
+    pharmacy,
   };
 };
 

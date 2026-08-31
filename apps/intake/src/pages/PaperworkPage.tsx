@@ -13,37 +13,36 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { QuestionnaireResponse, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
+import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { t } from 'i18next';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import ottehrApi from 'src/api/ottehrApi';
+import { PageContainer } from 'src/components/CustomContainer';
+import { usePaperworkComponentHelpers } from 'src/hooks/usePaperworkComponentHelpers';
+import { useGetPaymentMethods, useSetupPaymentMethod } from 'src/telemed/features/paperwork/paperwork.queries';
+import { PaperworkContext } from 'ui-components/lib/components/paperwork/context';
+import { usePaperworkContext } from 'ui-components/lib/components/paperwork/context';
+import PagedQuestionnaire from 'ui-components/lib/components/paperwork/PagedQuestionnaire';
+import { getIntakeFormPageSubtitle } from 'utils/lib/config-helpers/intake-paperwork';
+import { convertQRItemToLinkIdMap, convertQuestionnaireItemToQRLinkIdMap } from 'utils/lib/helpers/paperwork/paperwork';
+import { evalComplexValidationTrigger, evalEnableWhen } from 'utils/lib/helpers/paperwork/validation';
+import { getSelectors } from 'utils/lib/store';
 import {
-  APIError,
   ComplexValidationResult,
   ComplexValidationResultFailureCase,
-  convertQRItemToLinkIdMap,
-  convertQuestionnaireItemToQRLinkIdMap,
-  evalComplexValidationTrigger,
-  evalEnableWhen,
   findQuestionnaireResponseItemLinkId,
   flattenIntakeQuestionnaireItems,
-  getSelectors,
-  InsuranceEligibilityCheckStatus,
   IntakeQuestionnaireItem,
-  isApiError,
-  NO_READ_ACCESS_TO_PATIENT_ERROR,
   QuestionnaireFormFields,
   UCGetPaperworkResponse,
-  uuidRegex,
-} from 'utils';
+} from 'utils/lib/types/data/paperwork/paperwork.types';
+import { APIError, isApiError, NO_READ_ACCESS_TO_PATIENT_ERROR } from 'utils/lib/types/errors';
+import { uuidRegex } from 'utils/lib/validation/regex';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { ottehrApi } from '../api';
 import api from '../api/ottehrApi';
-import { PageContainer } from '../components';
-import { PaperworkContext, usePaperworkContext } from '../features/paperwork';
-import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useGetFullName } from '../hooks/useGetFullName';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
@@ -59,12 +58,16 @@ type PaperworkState = {
   updateTimestamp: number | undefined;
   paperworkInProgress: { [pageId: string]: QuestionnaireFormFields };
   paperworkResponse: UCGetPaperworkResponse | undefined;
+  // The appointment `paperworkInProgress` belongs to (see setResponse).
+  paperworkAppointmentId: string | undefined;
+  continueLabel: string | undefined;
 };
 
 interface PaperworkStateActions {
-  setResponse: (response: UCGetPaperworkResponse) => void;
+  setResponse: (response: UCGetPaperworkResponse, appointmentId: string) => void;
   saveProgress: (pageId: string, responses: any) => void;
   patchCompletedPaperwork: (QR: QuestionnaireResponse) => void;
+  setContinueLabel: (label: string | undefined) => void;
   clear: () => void;
 }
 
@@ -72,19 +75,25 @@ const PAPERWORK_STATE_INITIAL: PaperworkState = {
   updateTimestamp: undefined,
   paperworkInProgress: {},
   paperworkResponse: undefined,
+  paperworkAppointmentId: undefined,
+  continueLabel: undefined,
 };
 
 export const usePaperworkStore = create<PaperworkState & PaperworkStateActions>()(
   persist(
     (set) => ({
       ...PAPERWORK_STATE_INITIAL,
-      setResponse: (response: UCGetPaperworkResponse) => {
+      setResponse: (response: UCGetPaperworkResponse, appointmentId: string) => {
         set((state) => {
-          // console.log('response.paperwork', response.paperwork);
-          // console.log('state.paperwork', state.paperwork);
+          // Drop persisted in-progress answers when the appointment changes so a prior
+          // interrupted session can't override this appointment's server answers; the
+          // same appointment (e.g. a mid-paperwork refresh) keeps its progress.
+          const appointmentChanged = state.paperworkAppointmentId !== appointmentId;
           return {
             ...state,
             paperworkResponse: response,
+            paperworkAppointmentId: appointmentId,
+            paperworkInProgress: appointmentChanged ? {} : state.paperworkInProgress,
           };
         });
       },
@@ -108,6 +117,12 @@ export const usePaperworkStore = create<PaperworkState & PaperworkStateActions>(
           paperworkInProgress: {},
         }));
       },
+      setContinueLabel: (label: string | undefined) => {
+        set((state) => ({
+          ...state,
+          continueLabel: label,
+        }));
+      },
       clear: () => {
         set(PAPERWORK_STATE_INITIAL);
       },
@@ -124,12 +139,10 @@ export const PaperworkHome: FC = () => {
   const [authedFetchState, setAuthedFetchState] = useState(AuthedLoadingState.initial);
   const [saveButtonDisabled, setSaveButtonDisabled] = useState(false);
 
-  const { paperworkInProgress, paperworkResponse, updateTimestamp, setResponse } = getSelectors(usePaperworkStore, [
-    'paperworkInProgress',
-    'setResponse',
-    'paperworkResponse',
-    'updateTimestamp',
-  ]);
+  const { paperworkInProgress, paperworkResponse, updateTimestamp, setResponse, setContinueLabel } = getSelectors(
+    usePaperworkStore,
+    ['paperworkInProgress', 'setResponse', 'paperworkResponse', 'updateTimestamp', 'setContinueLabel']
+  );
 
   const { allItems, questionnaireResponse, appointment, patient } = useMemo(() => {
     if (paperworkResponse === undefined) {
@@ -157,7 +170,7 @@ export const PaperworkHome: FC = () => {
         const paperworkResponse = await ottehrApi.getPaperwork(zambdaClient, {
           appointmentID: apptId,
         });
-        setResponse(paperworkResponse);
+        setResponse(paperworkResponse, apptId);
         setAuthedFetchState(AuthedLoadingState.complete);
       } catch (e) {
         if (isApiError(e)) {
@@ -207,6 +220,24 @@ export const PaperworkHome: FC = () => {
     });
   }, [allItems]);
 
+  const {
+    data: stripeSetupData,
+    isFetching: isSetupDataLoading,
+    refetch: refetchSetupData,
+  } = useSetupPaymentMethod(patient?.id, appointmentId);
+
+  const {
+    data: cardData,
+    isFetching: cardsAreLoading,
+    refetch: refetchPaymentMethods,
+  } = useGetPaymentMethods({
+    beneficiaryPatientId: patient?.id,
+    appointmentId,
+    setupCompleted: Boolean(stripeSetupData),
+  });
+
+  const paperworkComponentHelpers = usePaperworkComponentHelpers();
+
   const outletContext: PaperworkContext = useMemo(() => {
     return {
       appointment,
@@ -219,10 +250,19 @@ export const PaperworkHome: FC = () => {
       patient,
       updateTimestamp,
       saveButtonDisabled,
+      cardsAreLoading,
+      paymentMethods: cardData?.cards ?? [],
+      paymentMethodStateInitializing:
+        (stripeSetupData === undefined && isSetupDataLoading) || (cardData?.cards.length === 0 && cardsAreLoading),
+      stripeSetupData,
+      setContinueLabel,
+      refetchPaymentMethods,
+      refetchSetupData,
       setSaveButtonDisabled,
       findAnswerWithLinkId: (linkId: string): QuestionnaireResponseItem | undefined => {
         return findQuestionnaireResponseItemLinkId(linkId, completedPaperwork);
       },
+      paperworkComponentHelpers,
     };
   }, [
     appointment,
@@ -234,6 +274,14 @@ export const PaperworkHome: FC = () => {
     patient,
     updateTimestamp,
     saveButtonDisabled,
+    cardsAreLoading,
+    cardData?.cards,
+    stripeSetupData,
+    isSetupDataLoading,
+    setContinueLabel,
+    refetchPaymentMethods,
+    refetchSetupData,
+    paperworkComponentHelpers,
   ]);
 
   const redirectTarget = useMemo(() => {
@@ -266,11 +314,14 @@ export const PaperworkHome: FC = () => {
     );
   }
   if (redirectTarget) {
-    // console.log('redirecting...', redirectTarget);
     return <Navigate to={redirectTarget} replace={true} />;
   }
   return <Outlet context={{ ...outletContext }} />;
 };
+
+function extractPageLinkIds(items: IntakeQuestionnaireItem[] = []): string[] {
+  return items.flatMap((item) => [item.linkId, ...(item.item ? extractPageLinkIds(item.item) : [])]);
+}
 
 export const PaperworkPage: FC = () => {
   const navigate = useNavigate();
@@ -290,11 +341,10 @@ export const PaperworkPage: FC = () => {
     patient: paperworkPatient,
     questionnaireResponse,
     allItems,
+    setContinueLabel,
   } = usePaperworkContext();
 
   const questionnaireResponseId = questionnaireResponse?.id;
-  // this is just for avoiding duplicates in the mixpanel tracking
-  const [lastLoggedPageName, setLastLoggedPageName] = useState<string>();
 
   const patientFullName = useGetFullName(paperworkPatient);
 
@@ -332,22 +382,23 @@ export const PaperworkPage: FC = () => {
       const paperworkValues = convertQRItemToLinkIdMap(qr.item);
       let idx = 1;
       let nextPage = paperworkPages[currentIndex + idx];
-      while (nextPage && !evalEnableWhen(nextPage, allItems, paperworkValues)) {
+      while (nextPage && !evalEnableWhen(nextPage, allItems, paperworkValues, questionnaireResponse)) {
         idx += 1;
         nextPage = paperworkPages[currentIndex + idx];
       }
       return nextPage;
     },
-    [allItems, currentIndex, paperworkPages]
+    [allItems, currentIndex, paperworkPages, questionnaireResponse]
   );
 
-  useEffect(() => {
-    if (pageName !== lastLoggedPageName) {
-      setLastLoggedPageName(pageName);
-    }
-  }, [lastLoggedPageName, pageName]);
-
   const [loading, setLoading] = useState<boolean>(false);
+  // when the page changes, update continue label
+  useEffect(() => {
+    if (!setContinueLabel) {
+      return;
+    }
+    setContinueLabel(undefined);
+  }, [setContinueLabel, pageName]);
 
   const controlButtons = useMemo(
     () => ({
@@ -376,9 +427,13 @@ export const PaperworkPage: FC = () => {
   const finishPaperworkPage = useCallback(
     async (data: QuestionnaireFormFields): Promise<void> => {
       if (data && appointmentID && zambdaClient && currentPage && questionnaireResponseId && paperworkPatient) {
+        const pageLinkIds = extractPageLinkIds(currentPage.item ?? []);
         const raw = (Object.values(data) ?? []) as QuestionnaireResponseItem[];
         const responseItems = raw
           .filter((item) => {
+            if (!pageLinkIds.includes(item.linkId)) {
+              return false;
+            }
             if (item.linkId === undefined || (item.answer === undefined && item.item === undefined)) {
               return false;
             }
@@ -400,10 +455,12 @@ export const PaperworkPage: FC = () => {
             const updatedPaperwork = await api.patchPaperwork(zambdaClient, {
               answers: { linkId: currentPage.linkId, item },
               questionnaireResponseId,
+              appointmentId: appointmentID,
             });
             patchCompletedPaperwork(updatedPaperwork);
             saveProgress(currentPage.linkId, undefined);
             const nextPage = getNextPage(updatedPaperwork);
+
             navigate(
               `/paperwork/${appointmentID}/${nextPage !== undefined ? slugFromLinkId(nextPage.linkId) : 'review'}`
             );
@@ -416,12 +473,14 @@ export const PaperworkPage: FC = () => {
         };
         try {
           if (currentPage.complexValidation !== undefined && evalComplexValidationTrigger(currentPage, responseItems)) {
-            setValidationRoadblockConfig({
-              type: 'in-progress',
-              title: 'Hang tight',
-              message: "We're verifying your insurance information. This shouldn't take long...",
-            });
-            const complexValidationResult = await performComplexValidation(
+            if (currentPage.complexValidation.type !== 'insurance eligibility') {
+              setValidationRoadblockConfig({
+                type: 'in-progress',
+                title: 'Hang tight',
+                message: "We're verifying your insurance information. This shouldn't take long...",
+              });
+            }
+            const complexValidationResultPromise = performComplexValidation(
               {
                 appointmentId: appointmentID,
                 patientId: paperworkPatient.id ?? '',
@@ -430,37 +489,41 @@ export const PaperworkPage: FC = () => {
               },
               zambdaClient
             );
-            const { valueEntries } = complexValidationResult;
-            Object.entries(valueEntries).forEach((e) => {
-              const [key, val] = e;
-              const existingIdx = responseItems.findIndex((i) => {
-                return i.linkId === key;
-              });
-              if (existingIdx >= 0) {
-                responseItems[existingIdx] = { linkId: key, answer: val };
-              } else {
-                responseItems.push({ linkId: key, answer: val });
-              }
-            });
 
-            if (complexValidationResult.type === 'failure') {
-              const { attemptCureAction, canProceed } = complexValidationResult;
-              const edConfig: ValidationRoadblockConfig = {
-                ...complexValidationResult,
-              };
-              if (canProceed) {
-                edConfig.onContinueClick = async () => {
-                  setValidationRoadblockConfig(undefined);
-                  await handlePatchPaperwork(responseItems, zambdaClient);
+            if (currentPage.complexValidation.type !== 'insurance eligibility') {
+              const complexValidationResult = await complexValidationResultPromise;
+              const { valueEntries } = complexValidationResult;
+              Object.entries(valueEntries).forEach((e) => {
+                const [key, val] = e;
+                const existingIdx = responseItems.findIndex((i) => {
+                  return i.linkId === key;
+                });
+                if (existingIdx >= 0) {
+                  responseItems[existingIdx] = { linkId: key, answer: val };
+                } else {
+                  responseItems.push({ linkId: key, answer: val });
+                }
+              });
+
+              if (complexValidationResult.type === 'failure') {
+                const { attemptCureAction, canProceed } = complexValidationResult;
+                const edConfig: ValidationRoadblockConfig = {
+                  ...complexValidationResult,
                 };
+                if (canProceed) {
+                  edConfig.onContinueClick = async () => {
+                    setValidationRoadblockConfig(undefined);
+                    await handlePatchPaperwork(responseItems, zambdaClient);
+                  };
+                }
+                if (attemptCureAction) {
+                  edConfig.onRetryClick = () => {
+                    setValidationRoadblockConfig(undefined);
+                  };
+                }
+                setValidationRoadblockConfig(edConfig);
+                return;
               }
-              if (attemptCureAction) {
-                edConfig.onRetryClick = () => {
-                  setValidationRoadblockConfig(undefined);
-                };
-              }
-              setValidationRoadblockConfig(edConfig);
-              return;
             }
           }
           setValidationRoadblockConfig(undefined);
@@ -486,12 +549,7 @@ export const PaperworkPage: FC = () => {
   );
 
   return (
-    <PageContainer
-      title={pageName ?? ''}
-      patientFullName={
-        pageName === 'Photo ID' && patientFullName ? `Adult Guardian for ${patientFullName}` : patientFullName
-      }
-    >
+    <PageContainer>
       {empty ? (
         <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <CircularProgress />
@@ -501,6 +559,8 @@ export const PaperworkPage: FC = () => {
           <PagedQuestionnaire
             onSubmit={finishPaperworkPage}
             pageId={currentPage?.linkId ?? ''}
+            pageItem={currentPage}
+            pageSubtitle={getIntakeFormPageSubtitle(currentPage?.linkId ?? '', patientFullName ?? '')}
             options={{ controlButtons }}
             items={questionnaireItems}
             defaultValues={paperworkGroupDefaults}
@@ -511,6 +571,7 @@ export const PaperworkPage: FC = () => {
                 saveProgress(pageId, data);
               }
             }}
+            skipValidation={false}
           />
           <ComplexValidationRoadblock
             open={validationRoadblockConfig !== undefined}
@@ -544,7 +605,7 @@ const performComplexValidation = async (
   const { appointmentId, patientId, responseItems, type } = input;
 
   if (type === 'insurance eligibility') {
-    const eligibilityRes = await api.getEligibility(
+    void api.getEligibility(
       {
         appointmentId,
         patientId,
@@ -554,47 +615,6 @@ const performComplexValidation = async (
       },
       client
     );
-    const { primary, secondary } = eligibilityRes;
-    const valueEntryValues: QuestionnaireResponseItemAnswer[] = [{ valueString: primary!.status }];
-    if (secondary?.status != undefined) {
-      valueEntryValues.push({ valueString: secondary?.status });
-    }
-    if (
-      primary?.status === InsuranceEligibilityCheckStatus.eligibilityConfirmed ||
-      primary?.status === InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported
-    ) {
-      return {
-        type: 'success',
-        valueEntries: {
-          'insurance-eligibility-verification-status': valueEntryValues,
-        },
-      };
-    } else {
-      let message = '';
-      let title = '';
-      let attemptCureAction: string | undefined;
-      if (primary?.status === InsuranceEligibilityCheckStatus.eligibilityNotChecked) {
-        title = 'Coverage could not be verified';
-        message =
-          'System not responding; unable to verify eligibility. Please see the front desk when you arrive to get help with your insurance information.';
-      }
-      if (primary?.status === InsuranceEligibilityCheckStatus.eligibilityNotConfirmed) {
-        title = 'Coverage not found';
-        message =
-          'We were unable to verify insurance eligibility. Please select "Try again" to confirm the information was entered correctly or see the front desk when you arrive to get help with your insurance information.';
-        attemptCureAction = 'Try again';
-      }
-      return {
-        type: 'failure',
-        title,
-        canProceed: true,
-        message,
-        attemptCureAction,
-        valueEntries: {
-          'insurance-eligibility-verification-status': valueEntryValues,
-        },
-      };
-    }
   }
   return {
     type: 'success',
@@ -633,6 +653,7 @@ const ComplexValidationRoadblock: FC<ValidationRoadblockProps> = ({
           key="validation-roadblock-retry-button"
           data-testid="validation-roadblock-retry-button"
           variant={onContinueClick ? 'outlined' : 'contained'}
+          color="secondary"
           onClick={onRetryClick}
           size={isMobile ? 'small' : 'large'}
           sx={{
@@ -649,6 +670,7 @@ const ComplexValidationRoadblock: FC<ValidationRoadblockProps> = ({
           key="validation-roadblock-continue-button'"
           data-testid="validation-roadblock-continue-button"
           variant="contained"
+          color="secondary"
           onClick={onContinueClick}
           size={isMobile ? 'small' : 'large'}
           sx={{

@@ -4,14 +4,30 @@ import path from 'path';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
 
-dotenv.config({ path: path.resolve(__dirname, 'env/.env.local') });
+const envName = process.env.ENV || 'local';
+dotenv.config({ path: path.resolve(__dirname, `env/.env.${envName}`) });
 
 export default defineConfig({
   test: {
-    globals: true,
+    // Disable globals to avoid conflicts with Playwright's expect in CI
+    globals: false,
     include: ['**/*.test.tsx'],
-    setupFiles: './tests/component/setup.ts',
+    setupFiles: ['../../packages/test-utils/lib/no-network.setup.ts', './tests/component/setup.ts'],
     environment: 'happy-dom',
+    retry: 1,
+    coverage: {
+      provider: 'v8',
+      reporter: ['lcov', 'text-summary', 'json'],
+      reportsDirectory: './coverage/component',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/**/*.spec.{ts,tsx}',
+        'src/**/*.d.ts',
+        'src/**/types/**',
+        'src/**/__mocks__/**',
+      ],
+    },
   },
   plugins: [tsconfigPaths(), react()],
 });

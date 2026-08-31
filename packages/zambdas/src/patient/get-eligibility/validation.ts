@@ -1,27 +1,26 @@
 // cSpell:ignore olicy
 import Oystehr from '@oystehr/sdk';
 import { Appointment, QuestionnaireResponseItem } from 'fhir/r4b';
+import { BillingProviderDataObject, getBillingProviderData, GetBillingProviderInput } from 'utils/lib/fhir/billing';
+import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
 import {
-  APIErrorCode,
-  BillingProviderDataObject,
   BillingProviderResource,
-  flattenItems,
-  getBillingProviderData,
-  GetBillingProviderInput,
   GetEligibilityInsuranceData,
   GetEligibilityPolicyHolder,
-  getSecret,
-  InsurancePlanDTO,
+} from 'utils/lib/types/data/telemed/eligibility.types';
+import { InsurancePlanDTO } from 'utils/lib/types/data/telemed/insurances.types';
+import {
+  APIErrorCode,
+  BILLING_PROVIDER_RESOURCE_NOT_FOUND,
   INVALID_INPUT_ERROR,
-  isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
-  PatientAccountAndCoverageResources,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
+} from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
-import { ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
 
 interface GetEligibilityStandardInput {
   type: 'standard';
@@ -241,7 +240,7 @@ const mapResponseItemsToInsuranceData = (
       memberId = i.answer?.[0]?.valueString;
     }
     if (i.linkId === `insurance-carrier${suffix}`) {
-      insuranceId = i.answer?.[0]?.valueReference?.reference?.split('/')?.[1];
+      insuranceId = i.answer?.[0]?.valueReference?.reference?.split('/')?.pop();
     }
   });
   if (insuranceId === undefined || memberId === undefined) {
@@ -340,14 +339,14 @@ export const getDefaultBillingProviderResource = async (
 ): Promise<BillingProviderResource> => {
   const defaultBillingResource = getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets);
   if (!defaultBillingResource) {
-    throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND;
+    throw BILLING_PROVIDER_RESOURCE_NOT_FOUND;
   }
 
   const defaultBillingResourceType = defaultBillingResource.split('/')[0];
   const defaultBillingResourceId = defaultBillingResource.split('/')[1];
 
   if (defaultBillingResourceType === undefined || defaultBillingResourceId === undefined) {
-    throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND;
+    throw BILLING_PROVIDER_RESOURCE_NOT_FOUND;
   }
 
   const fetchedResources = await oystehrClient.fhir.search<BillingProviderResource>({
@@ -362,7 +361,7 @@ export const getDefaultBillingProviderResource = async (
 
   const billingResource = fetchedResources?.unbundle()[0];
   if (!billingResource) {
-    throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND;
+    throw BILLING_PROVIDER_RESOURCE_NOT_FOUND;
   }
   return billingResource;
 };

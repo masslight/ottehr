@@ -1,45 +1,50 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_EXTENSION, getSecret, OTTEHR_MODULE, SecretsKeys } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
 import { SubmitPaperworkEffectInput, validateSubmitInputs } from '../validateRequestParameters';
+import { handleReviewTaskAndPdf } from './taskPdfHandler';
 
 // Lifting the token out of the handler function allows it to persist across warm lambda invocations.
 export let token: string;
 
 export const index = wrapHandler('submit-paperwork', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const secrets = input.secrets;
-    if (!token) {
-      console.log('getting token');
-      token = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(token, secrets);
-
-    const effectInput = await validateSubmitInputs(input, oystehr);
-
-    console.log('effect input', JSON.stringify(effectInput));
-
-    const qr = await performEffect(effectInput, oystehr);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(qr),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('submit-paperwork', error, ENVIRONMENT);
+  const secrets = input.secrets;
+  if (!token) {
+    console.log('getting token');
+    token = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
   }
+
+  const oystehr = createClinicalOystehrClient(token, secrets);
+
+  const effectInput = await validateSubmitInputs(input, oystehr);
+
+  console.log('effect input', JSON.stringify(effectInput));
+
+  const qr = await performEffect(effectInput, oystehr, token);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(qr),
+  };
 });
 
-const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr): Promise<QuestionnaireResponse> => {
-  const { updatedAnswers, questionnaireResponseId, ipAddress, secrets, currentQRStatus, appointmentId } = input;
+const performEffect = async (
+  input: SubmitPaperworkEffectInput,
+  oystehr: Oystehr,
+  token: string
+): Promise<QuestionnaireResponse> => {
+  const { updatedAnswers, questionnaireResponseId, secrets, currentQRStatus, appointmentId, createReviewTaskAndPdf } =
+    input;
 
   let newStatus = 'completed';
   if (currentQRStatus === 'completed' || currentQRStatus === 'amended') {
@@ -66,50 +71,40 @@ const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr
           path: '/authored',
           value: DateTime.now().toISO(),
         },
-        {
-          op: 'add',
-          path: '/extension',
-          value: [
-            {
-              ...FHIR_EXTENSION.Paperwork.submitterIP,
-              valueString: ipAddress,
-            },
-          ],
-        },
       ],
     });
 
-    const appointmentPromise = appointmentId
-      ? (async (): Promise<null | Appointment> => {
-          try {
-            const appointment = await oystehr.fhir.get<Appointment>({
-              resourceType: 'Appointment',
-              id: appointmentId,
-            });
+    const appointmentPromise = (async (): Promise<null | Appointment> => {
+      if (!appointmentId) return null;
+      try {
+        const appointment = await oystehr.fhir.get<Appointment>({
+          resourceType: 'Appointment',
+          id: appointmentId,
+        });
 
-            const appointmentStatus = appointment.status;
-            const isOttehrTm = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM);
+        const appointmentStatus = appointment.status;
+        const isOttehrTm = isTelemedAppointment(appointment);
 
-            if (isOttehrTm && appointmentStatus === 'proposed') {
-              return oystehr.fhir.patch<Appointment>({
-                id: appointmentId,
-                resourceType: 'Appointment',
-                operations: [
-                  {
-                    op: 'replace',
-                    path: '/status',
-                    value: 'arrived',
-                  },
-                ],
-              });
-            }
-            return null;
-          } catch (e) {
-            console.log('error updating appointment status', JSON.stringify(e, null, 2));
-            return null;
-          }
-        })()
-      : Promise.resolve(null);
+        if (isOttehrTm && appointmentStatus === 'proposed') {
+          return oystehr.fhir.patch<Appointment>({
+            id: appointmentId,
+            resourceType: 'Appointment',
+            operations: [
+              {
+                op: 'replace',
+                path: '/status',
+                value: 'arrived',
+              },
+            ],
+          });
+        }
+        return null;
+      } catch (e) {
+        console.log('error updating appointment status', JSON.stringify(e, null, 2));
+        captureException(e);
+        return null;
+      }
+    })();
 
     return Promise.all([paperworkPromise, appointmentPromise]);
   };
@@ -121,6 +116,13 @@ const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr
     await createAuditEvent(AuditableZambdaEndpoints.submitPaperwork, oystehr, input, patientId, secrets);
   } catch (e) {
     console.log('error writing audit event', JSON.stringify(e, null, 2));
+    captureException(e);
   }
+
+  if (createReviewTaskAndPdf) {
+    console.log('entering createReviewTaskAndPdf');
+    await handleReviewTaskAndPdf({ questionnaireResponse: patchedPaperwork, oystehr, secrets, oystehrToken: token });
+  }
+
   return patchedPaperwork;
 };

@@ -1,56 +1,47 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Extension, Schedule } from 'fhir/r4b';
+import { SCHEDULE_EXTENSION_URL, SLUG_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { Closure } from 'utils/lib/types/common';
+import { MISSING_SCHEDULE_EXTENSION_ERROR, SCHEDULE_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
 import {
-  Closure,
   DailySchedule,
   getScheduleExtension,
-  getSecret,
-  MISSING_SCHEDULE_EXTENSION_ERROR,
-  SCHEDULE_EXTENSION_URL,
-  SCHEDULE_NOT_FOUND_ERROR,
   ScheduleExtension,
   ScheduleOverrides,
-  ScheduleOwnerFhirResource,
-  SecretsKeys,
-  SLUG_SYSTEM,
-  TIMEZONE_EXTENSION_URL,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from 'utils/lib/utils/scheduleUtils';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { UpdateScheduleBasicInput, validateUpdateScheduleParameters } from '../shared';
 
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'update-schedule';
 
+// This zambda owns the *schedule-level* fields only: the schedule extension (hours/overrides/
+// closures), the timezone (mirrored onto the owner), and the owner's slug identifier. The
+// intrinsic Location fields (service modes, payment ids, rooms, name, description, address,
+// telecom, reviewLink) are edited via the pure, Schedule-independent update-location zambda.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateUpdateScheduleParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const effectInput = await complexValidation(validatedParameters, oystehr);
+  console.group('validateRequestParameters');
+  const validatedParameters = validateUpdateScheduleParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets } = validatedParameters;
 
-    const updatedSchedule = await performEffect(effectInput, oystehr);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  const effectInput = await complexValidation(validatedParameters, oystehr);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(updatedSchedule),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('update-schedule', error, ENVIRONMENT);
-  }
+  const updatedSchedule = await performEffect(effectInput, oystehr);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(updatedSchedule),
+  };
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Schedule> => {
@@ -61,7 +52,6 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
     closures,
     scheduleOverrides: {},
   };
-  // console.log('new schedule', JSON.stringify(newSchedule, null, 2));
   if (newSchedule !== undefined) {
     scheduleExtension.schedule = newSchedule;
   }
@@ -81,30 +71,36 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
     }
     return true;
   });
-  // console.log('scheduleExtension', JSON.stringify(scheduleExtension, null, 2));
   const scheduleJson = JSON.stringify(scheduleExtension);
   newExtension.push({
     url: SCHEDULE_EXTENSION_URL,
     valueString: scheduleJson,
   });
-  if (timezone) {
+  if (timezone !== undefined) {
+    // Validator guarantees a non-empty IANA tz string here; the strict-undefined check is
+    // intentional so the truthy fast-path can't accidentally re-introduce an empty-string wipe.
     newExtension.push({
       url: TIMEZONE_EXTENSION_URL,
       valueString: timezone,
     });
   }
-  // todo: this isn't very "RESTful" but works for now while further decoupling the schedule from the owner a potential
-  // future task. note timezone is duplication on both schedule and owner for now.
+  // Mirror timezone + slug onto the owner. Timezone is duplicated on both the schedule and its
+  // owner for now; further decoupling the schedule from the owner is a potential future task.
   console.log('owner slug', ownerSlug);
-  if (owner && (timezone || ownerSlug)) {
+  if (owner && (timezone !== undefined || ownerSlug !== undefined)) {
+    // Preserve the existing timezone extension unless the caller is explicitly updating it.
     const ownerExtension = (owner.extension ?? []).filter((ext: Extension) => {
-      if (ext.url === TIMEZONE_EXTENSION_URL) {
+      if (timezone !== undefined && ext.url === TIMEZONE_EXTENSION_URL) {
         return false;
       }
       return true;
     });
-    const ownerIdentifier = (owner.identifier ?? []).filter((id) => id.system !== SLUG_SYSTEM);
-    if (timezone) {
+    // Preserve existing slug identifier unless caller is explicitly updating slug
+    // (undefined = preserve, empty string = clear, non-empty = replace).
+    const ownerIdentifier = (owner.identifier ?? []).filter((id) =>
+      ownerSlug !== undefined ? id.system !== SLUG_SYSTEM : true
+    );
+    if (timezone !== undefined) {
       ownerExtension.push({
         url: TIMEZONE_EXTENSION_URL,
         valueString: timezone,
@@ -116,11 +112,12 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
         value: ownerSlug,
       });
     }
-    await oystehr.fhir.update({
+    const ownerUpdate: ScheduleOwnerFhirResource = {
       ...owner,
       extension: ownerExtension,
       identifier: ownerIdentifier,
-    });
+    };
+    await oystehr.fhir.update(ownerUpdate);
   }
 
   return await oystehr.fhir.update<Schedule>({
@@ -163,7 +160,12 @@ const complexValidation = async (input: UpdateScheduleBasicInput, oystehr: Oyste
   const [actorType, actorId] = (schedule.actor ?? [])[0]?.reference?.split('/') ?? [];
   console.log('actorType, actorId', actorType, actorId);
   let owner: ScheduleOwnerFhirResource | undefined;
-  if (actorType === 'Location' || actorType === 'HealthcareService' || actorType === 'Practitioner') {
+  if (
+    actorType === 'Location' ||
+    actorType === 'HealthcareService' ||
+    actorType === 'Practitioner' ||
+    actorType === 'PractitionerRole'
+  ) {
     owner = await oystehr.fhir.get<ScheduleOwnerFhirResource>({ resourceType: actorType, id: actorId });
   }
 

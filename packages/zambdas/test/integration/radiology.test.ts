@@ -1,82 +1,35 @@
 import Oystehr from '@oystehr/sdk';
-import { DomainResource, Encounter, Patient, Practitioner } from 'fhir/r4b';
-import { CreateRadiologyZambdaOrderInput, CreateRadiologyZambdaOrderOutput, RoleType } from 'utils';
-import { inject } from 'vitest';
-import { AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } from '../../.env/local.json';
-import { getAuth0Token } from '../../src/shared';
-import { SECRETS } from '../data/secrets';
+import { DomainResource, Procedure, ServiceRequest } from 'fhir/r4b';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { CreateRadiologyZambdaOrderInput, CreateRadiologyZambdaOrderOutput } from 'utils/lib/types/api/radiology';
+import {
+  InsertFullAppointmentDataBaseResult,
+  insertInPersonAppointmentBase,
+  setupIntegrationTest,
+} from '../helpers/integration-test-seed-data-setup';
 
 describe('radiology integration tests', () => {
-  let oystehrLocalZambdas: Oystehr;
-  let oystehr: Oystehr;
-  let token = null;
-  let encounter: Encounter;
+  let oystehrTestUserM2M: Oystehr;
+  let oystehrAdmin: Oystehr;
   const resourcesToCleanup: DomainResource[] = [];
 
+  let baseResources: InsertFullAppointmentDataBaseResult;
+  let appointmentBaseCleanup: () => Promise<void>;
+
   beforeAll(async () => {
-    const { AUTH0_ENDPOINT, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
-    token = await getAuth0Token({
-      AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
-      AUTH0_SECRET: AUTH0_SECRET_TESTS,
-      AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-    });
-
-    const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
-    expect(EXECUTE_ZAMBDA_URL).toBeDefined();
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectId: PROJECT_ID,
-    });
-
-    oystehrLocalZambdas = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      projectId: PROJECT_ID,
-    });
-
-    const practitionerForM2M = await oystehr.fhir.create<Practitioner>({
-      resourceType: 'Practitioner',
-      name: [{ given: ['M2M'], family: 'Client' }],
-      birthDate: '1978-01-01',
-      telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
-    });
-
-    const projectRoles = await oystehr.role.list();
-    const providerRoleId = projectRoles.find((role) => role.name === RoleType.Provider)?.id;
-    expect(providerRoleId).toBeDefined();
-
-    await oystehr.m2m.update({
-      id: (await oystehr.m2m.me()).id,
-      profile: `Practitioner/${practitionerForM2M.id}`,
-      roles: [providerRoleId!],
-    });
-
-    const patient = await oystehr.fhir.create<Patient>({
-      resourceType: 'Patient',
-      name: [{ given: ['Test'], family: 'Patient' }],
-      birthDate: '2000-01-01',
-      gender: 'female',
-    });
-    resourcesToCleanup.push(patient);
-
-    encounter = await oystehr.fhir.create<Encounter>({
-      resourceType: 'Encounter',
-      status: 'in-progress',
-      class: { code: 'AMB' },
-      subject: { reference: `Patient/${patient.id}` },
-    });
-    resourcesToCleanup.push(encounter);
-    expect(encounter).toBeDefined();
-  });
+    const setup = await setupIntegrationTest('integration/radiology.test.ts', M2MClientMockType.provider);
+    appointmentBaseCleanup = setup.cleanup;
+    oystehrTestUserM2M = setup.oystehrTestUserM2M;
+    oystehrAdmin = setup.oystehr;
+    baseResources = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
+  }, 60_000);
 
   afterAll(async () => {
-    if (!oystehr) {
+    if (!oystehrAdmin) {
       throw new Error('oystehr is null! could not clean up!');
     }
-    await cleanupResources(oystehr);
+    await cleanupResources(oystehrAdmin);
+    await appointmentBaseCleanup();
   });
 
   const cleanupResources = async (oystehr: Oystehr): Promise<void> => {
@@ -92,16 +45,18 @@ describe('radiology integration tests', () => {
   describe('create order', () => {
     it('should create a radiology order -- success', async () => {
       const createOrderInput: CreateRadiologyZambdaOrderInput = {
-        encounterId: encounter.id!,
-        diagnosisCode: 'W21.89XA',
+        encounterId: baseResources.encounter.id!,
+        diagnosisCodes: ['W21.89XA'],
         cptCode: '73562',
+        lateralityModifier: undefined,
         stat: true,
         clinicalHistory: 'Took an arrow to the knee',
+        consentObtained: true,
       };
       let orderOutput: any;
       try {
         orderOutput = (
-          await oystehrLocalZambdas.zambda.execute({
+          await oystehrTestUserM2M.zambda.execute({
             id: 'RADIOLOGY-CREATE-ORDER',
             ...createOrderInput,
           })
@@ -111,8 +66,74 @@ describe('radiology integration tests', () => {
         orderOutput = error as Error;
       }
       expect(orderOutput).toBeDefined();
-      expect(orderOutput).toHaveProperty('output');
-      expect(orderOutput.output).toHaveProperty('serviceRequestId');
+      expect(orderOutput).toHaveProperty('serviceRequestId');
+      expect(orderOutput).toHaveProperty('cptCodesSaved');
+
+      // In-house orders are performed and billed by the practice, so — unlike external ones — they
+      // must still get their `cpt-code` Procedure, which is what surfaces the CPT on the Assessment
+      // page. Asserted explicitly so the external-order carve-out can't quietly widen to in-house.
+      expect(orderOutput.cptCodesSaved).toHaveLength(1);
+      expect(orderOutput.cptCodesSaved[0].code).toBe('73562');
+
+      const procedures = (
+        await oystehrAdmin.fhir.search<Procedure>({
+          resourceType: 'Procedure',
+          params: [{ name: 'based-on', value: `ServiceRequest/${orderOutput.serviceRequestId}` }],
+        })
+      ).unbundle();
+      expect(procedures).toHaveLength(1);
+      expect(procedures[0].code?.coding?.[0]?.code).toBe('73562');
+      expect(procedures[0].meta?.tag?.some((tag) => tag.code === 'cpt-code')).toBe(true);
+      procedures.forEach((procedure) => resourcesToCleanup.push(procedure));
+
+      resourcesToCleanup.push(
+        await oystehrAdmin.fhir.get<ServiceRequest>({
+          resourceType: 'ServiceRequest',
+          id: orderOutput.serviceRequestId,
+        })
+      );
+    });
+
+    it('should not create a billing CPT Procedure for an external order', async () => {
+      // The outside facility performs and bills for the study, so the practice must not charge for it:
+      // no `cpt-code` Procedure means no CPT on the chart's Assessment / Payment Considerations.
+      // External (print-only) orders skip the AdvaPACS transmit, so this works without AdvaPACS creds.
+      const createOrderInput: CreateRadiologyZambdaOrderInput = {
+        encounterId: baseResources.encounter.id!,
+        diagnosisCodes: ['W21.89XA'],
+        cptCode: '73562',
+        lateralityModifier: undefined,
+        stat: false,
+        clinicalHistory: 'Took an arrow to the knee',
+        consentObtained: false,
+        external: true,
+        performingOrganization: { name: 'Test Imaging Center' },
+      };
+
+      const orderOutput = (
+        await oystehrTestUserM2M.zambda.execute({
+          id: 'RADIOLOGY-CREATE-ORDER',
+          ...createOrderInput,
+        })
+      ).output as CreateRadiologyZambdaOrderOutput;
+
+      expect(orderOutput.serviceRequestId).toBeDefined();
+      expect(orderOutput.cptCodesSaved).toBeUndefined();
+
+      resourcesToCleanup.push(
+        await oystehrAdmin.fhir.get<ServiceRequest>({
+          resourceType: 'ServiceRequest',
+          id: orderOutput.serviceRequestId,
+        })
+      );
+
+      const procedures = (
+        await oystehrAdmin.fhir.search<Procedure>({
+          resourceType: 'Procedure',
+          params: [{ name: 'based-on', value: `ServiceRequest/${orderOutput.serviceRequestId}` }],
+        })
+      ).unbundle();
+      expect(procedures).toEqual([]);
     });
   });
 });

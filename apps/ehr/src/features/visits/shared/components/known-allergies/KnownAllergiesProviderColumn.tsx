@@ -1,0 +1,477 @@
+import { otherColors } from '@ehrTheme/colors';
+import {
+  Autocomplete,
+  Box,
+  Card,
+  CircularProgress,
+  debounce,
+  Divider,
+  FormControlLabel,
+  Stack,
+  Switch,
+  TextField,
+  Typography,
+} from '@mui/material';
+import { ErxSearchAllergensResponse } from '@oystehr/sdk';
+import { enqueueSnackbar } from 'notistack';
+import { FC, useCallback, useMemo, useRef, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { sortByRecencyAndStatus } from 'src/helpers';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
+import { useMergedAllergyQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { AllergyDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { AllergyQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
+import { useChartDataArrayValue } from '../../hooks/useChartDataArrayValue';
+import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
+import {
+  ExtractObjectType,
+  useGetAllergiesSearch,
+  useTriggerErxPatientSync,
+} from '../../stores/appointment/appointment.queries';
+import {
+  ChartDataState,
+  useAppointmentData,
+  useChartData,
+  useDeleteChartData,
+  useSaveChartData,
+} from '../../stores/appointment/appointment.store';
+import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
+import { QuickPicksButton } from '../QuickPicksButton';
+
+export const KnownAllergiesProviderColumn: FC = () => {
+  const { chartData, isLoading: isChartDataLoading } = useChartData();
+  const { appointment, patient, encounter } = useAppointmentData();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const allergies = sortByRecencyAndStatus(chartData?.allergies ?? []);
+  const length = allergies.length;
+
+  // Keep the eRx provider's allergy list in sync after each add/toggle (delete doesn't produce bug).
+  // Runs in the background (see useTriggerErxPatientSync).
+  const { triggerSync } = useTriggerErxPatientSync({ patient, encounter });
+
+  return (
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+      data-testid={dataTestIds.allergies.knownAllergiesColumn}
+    >
+      {isChartDataLoading && <ProviderSideListSkeleton />}
+
+      {length > 0 && !isChartDataLoading && (
+        <Box
+          sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+          data-testid={dataTestIds.allergies.knownAllergiesList}
+        >
+          {allergies.map((value, index) => (
+            <AllergyListItem
+              key={value.resourceId || `new${index}`}
+              value={value}
+              index={index}
+              length={length}
+              onAllergyChange={triggerSync}
+            />
+          ))}
+        </Box>
+      )}
+
+      {allergies.length === 0 && isReadOnly && !isChartDataLoading && isTelemedAppointment(appointment) && (
+        <Typography color="secondary.light">Missing. Patient input must be reconciled by provider</Typography>
+      )}
+
+      {!isReadOnly && <AddAllergyField onAllergyChange={triggerSync} />}
+    </Box>
+  );
+};
+
+const setUpdatedAllergy = (
+  chartDataSetState: (updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>)) => void,
+  updatedAllergy?: AllergyDTO
+): void => {
+  if (updatedAllergy) {
+    // todo: check is valid
+    chartDataSetState((prevState) => ({
+      chartData: {
+        ...prevState.chartData!,
+        allergies: prevState.chartData?.allergies?.map((allergy) =>
+          allergy.resourceId === updatedAllergy.resourceId ? updatedAllergy : allergy
+        ),
+      },
+    }));
+  }
+};
+
+const AllergyListItem: FC<{
+  value: AllergyDTO;
+  index: number;
+  length: number;
+  onAllergyChange: () => void;
+}> = ({ value, index, length, onAllergyChange }) => {
+  const [note, setNote] = useState(value.note || '');
+  const areNotesEqual = note.trim() === (value.note || '');
+  const { chartDataSetState } = useChartData({ refetchOnMount: false });
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
+  const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
+  const isLoading = isUpdateLoading || isDeleteLoading;
+  const isLoadingOrAwaiting = isLoading || !areNotesEqual;
+  const isAlreadySaved = !!value.resourceId;
+
+  const updateNote = useMemo(
+    () =>
+      debounce((input: string) => {
+        updateChartData(
+          {
+            allergies: [{ ...value, note: input.trim() || undefined }],
+          },
+          {
+            onSuccess: (data) => {
+              const updatedAllergy = data.chartData.allergies?.[0];
+              setUpdatedAllergy(chartDataSetState, updatedAllergy);
+            },
+            onError: () => {
+              enqueueSnackbar('An error has occurred while updating allergy note. Please try again.', {
+                variant: 'error',
+              });
+            },
+          }
+        );
+      }, 1500),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [value.current]
+  );
+
+  const updateCurrent = (newCurrentValue: boolean): void => {
+    updateChartData(
+      {
+        allergies: [{ ...value, current: newCurrentValue, note: newCurrentValue ? undefined : value.note }],
+      },
+      {
+        onSuccess: (data) => {
+          if (newCurrentValue) {
+            setNote('');
+          }
+          const updatedAllergy = data.chartData.allergies?.[0];
+          setUpdatedAllergy(chartDataSetState, updatedAllergy);
+          onAllergyChange();
+        },
+        onError: () => {
+          enqueueSnackbar('An error has occurred while updating allergy status. Please try again.', {
+            variant: 'error',
+          });
+        },
+      }
+    );
+  };
+
+  const deleteAllergy = (): void => {
+    // Optimistic update
+    chartDataSetState(
+      (prevState) => ({
+        chartData: {
+          ...prevState.chartData!,
+          allergies: prevState.chartData?.allergies?.filter((allergy) => allergy.resourceId !== value.resourceId),
+        },
+      }),
+      { invalidateQueries: false }
+    );
+    deleteChartData(
+      {
+        allergies: [value],
+      },
+      {
+        onSuccess: () => {
+          // No need to update again, optimistic update already applied
+        },
+        onError: () => {
+          enqueueSnackbar('An error has occurred while deleting allergy. Please try again.', {
+            variant: 'error',
+          });
+          // Rollback to previous state
+          chartDataSetState((prevState) => ({
+            chartData: {
+              ...prevState.chartData!,
+              allergies: [...(prevState.chartData?.allergies || []), value],
+            },
+          }));
+        },
+      }
+    );
+  };
+
+  return (
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+      data-testid={dataTestIds.allergies.knownAllergiesListItem}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography
+          sx={{
+            color: (theme) => (!value.current ? theme.palette.text.secondary : undefined),
+          }}
+        >
+          {value.name}
+          {isReadOnly &&
+            ` | ${value.current ? 'Current' : 'Inactive now'}${value.note ? ' | Note: ' + value.note : ''}`}
+        </Typography>
+
+        {!isReadOnly && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <FormControlLabel
+              control={<Switch checked={value.current} onChange={(e) => updateCurrent(e.target.checked)} />}
+              label={value.current ? 'Current' : 'Inactive now'}
+              disabled={isLoadingOrAwaiting || !isAlreadySaved}
+              labelPlacement="start"
+              sx={{
+                '& .MuiFormControlLabel-label': {
+                  marginRight: 1,
+                  textAlign: 'right',
+                  color: (theme) => (!value.current ? theme.palette.text.secondary : undefined),
+                },
+              }}
+            />
+            <DeleteIconButton
+              disabled={isLoadingOrAwaiting || !isAlreadySaved}
+              onClick={deleteAllergy}
+              dataTestId={dataTestIds.allergies.knownAllergiesListItemDeleteButton}
+            />
+          </Box>
+        )}
+      </Box>
+
+      {!value.current && !isReadOnly && (
+        <TextField
+          value={note}
+          onChange={(e) => {
+            setNote(e.target.value);
+            updateNote(e.target.value);
+          }}
+          disabled={(isLoading && areNotesEqual) || !isAlreadySaved}
+          size="small"
+          fullWidth
+          label="Notes for inactive allergy"
+          InputProps={{
+            endAdornment: !areNotesEqual && (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CircularProgress size="20px" />
+              </Box>
+            ),
+          }}
+        />
+      )}
+
+      {index + 1 !== length && <Divider />}
+    </Box>
+  );
+};
+
+const AddAllergyField: FC<{ onAllergyChange: () => void }> = ({ onAllergyChange }) => {
+  const { quickPicks: allergyQuickPicks, loading: allergyQuickPicksLoading } = useMergedAllergyQuickPicks();
+  const { chartData, isChartDataLoading, setPartialChartData } = useChartData();
+  const { onSubmit, isLoading } = useChartDataArrayValue('allergies');
+
+  const methods = useForm<{ value: ExtractObjectType<ErxSearchAllergensResponse> | null; otherAllergyName: string }>({
+    defaultValues: { value: null, otherAllergyName: '' },
+  });
+
+  const { control, reset, handleSubmit } = methods;
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [isOtherOptionSelected, setIsOtherOptionSelected] = useState(false);
+  const { isFetching: isSearching, data } = useGetAllergiesSearch(debouncedSearchTerm);
+
+  const allergiesSearchOptions = useMemo(() => {
+    if (!data || isSearching) return [];
+
+    // Process the data to include brand name
+    const allergiesWithBrand = data.map((allergy) => {
+      const brandName = allergy.brandName;
+      if (brandName && brandName !== allergy.name) {
+        return {
+          ...allergy,
+          name: `${allergy.name} (${brandName})`,
+        };
+      }
+      return allergy;
+    });
+
+    return [...allergiesWithBrand, { name: 'Other' } as unknown as ExtractObjectType<ErxSearchAllergensResponse>];
+  }, [data, isSearching]);
+
+  const debouncedHandleInputChange = useMemo(
+    () =>
+      debounce((data) => {
+        if (data.length > 2) {
+          setDebouncedSearchTerm(data);
+        }
+      }, 800),
+    []
+  );
+
+  const handleSelectOption = async (data: ExtractObjectType<ErxSearchAllergensResponse> | null): Promise<void> => {
+    if (data) {
+      const newValue = {
+        name: data.name,
+        id: data.id?.toString(),
+        current: true,
+        lastUpdated: new Date().toISOString(),
+      };
+      const prevAllergies = [...(chartData?.allergies ?? [])];
+
+      try {
+        setPartialChartData(
+          {
+            allergies: [...(chartData?.allergies || []), newValue],
+          },
+          { invalidateQueries: false }
+        );
+        await onSubmit(newValue);
+        onAllergyChange();
+        reset({ value: null, otherAllergyName: '' });
+        setIsOtherOptionSelected(false);
+      } catch {
+        // Rollback to previous state
+        setPartialChartData({
+          allergies: prevAllergies,
+        });
+      }
+    }
+  };
+
+  const handleQuickPickSelect = async (quickPick: (typeof allergyQuickPicks)[number]): Promise<void> => {
+    const quickPickAsAllergy = {
+      name: quickPick.name,
+      id: quickPick.allergyId,
+    } as ExtractObjectType<ErxSearchAllergensResponse>;
+    await handleSelectOption(quickPickAsAllergy);
+  };
+
+  const handleQuickPickSelectRef = useRef(handleQuickPickSelect);
+  handleQuickPickSelectRef.current = handleQuickPickSelect;
+
+  const commandPaletteItems = useMemo(
+    () =>
+      allergyQuickPicks.map((quickPick) => ({
+        id: `allergy-${quickPick.id ?? quickPick.name}`,
+        label: quickPick.name,
+        category: 'Add Allergy',
+        onSelect: () => void handleQuickPickSelectRef.current(quickPick),
+      })),
+    [allergyQuickPicks]
+  );
+  useCommandPaletteSource('allergy-quick-picks', commandPaletteItems);
+
+  const handlePendingQuickPick = useCallback((payload: AllergyQuickPickData) => {
+    void handleQuickPickSelectRef.current(payload as (typeof allergyQuickPicks)[number]);
+  }, []);
+  usePendingQuickPick('allergies', handlePendingQuickPick);
+
+  const onSubmitForm = async (data: {
+    value: ExtractObjectType<ErxSearchAllergensResponse> | null;
+    otherAllergyName: string;
+  }): Promise<void> => {
+    if (data.value) {
+      const allergyData = {
+        ...data.value,
+        name: 'Other' + (data.otherAllergyName ? ` (${data.otherAllergyName})` : ''),
+      };
+      await handleSelectOption(allergyData);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmitForm)}>
+      <Card
+        elevation={0}
+        sx={{
+          p: 3,
+          backgroundColor: otherColors.formCardBg,
+          borderRadius: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
+        <QuickPicksButton
+          quickPicks={allergyQuickPicks}
+          loading={allergyQuickPicksLoading}
+          getLabel={(quickPick) => quickPick.name}
+          onSelect={handleQuickPickSelect}
+          disabled={isChartDataLoading || isLoading}
+        />
+        <Controller
+          name="value"
+          control={control}
+          rules={{ required: true }}
+          render={({ field: { value, onChange } }) => (
+            <Autocomplete
+              value={value || null}
+              onChange={(_e, data) => {
+                onChange((data || '') as any);
+                if (data?.name === 'Other') {
+                  setIsOtherOptionSelected(true);
+                } else {
+                  setIsOtherOptionSelected(false);
+                  void handleSelectOption(data);
+                }
+              }}
+              getOptionLabel={(option) => (typeof option === 'string' ? option : option.name || '')}
+              fullWidth
+              size="small"
+              loading={isSearching}
+              filterOptions={(options) => options}
+              isOptionEqualToValue={(option, value) => option.name === value.name}
+              disablePortal
+              blurOnSelect
+              disabled={isChartDataLoading || isLoading}
+              options={allergiesSearchOptions}
+              noOptionsText={
+                debouncedSearchTerm && debouncedSearchTerm.length > 2 && allergiesSearchOptions.length === 0
+                  ? 'Nothing found for this search criteria'
+                  : 'Start typing to load results'
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                  data-testid={dataTestIds.allergies.knownAllergiesInput}
+                  label="Agent/Substance"
+                  placeholder="Search"
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    '& .MuiInputLabel-root': {
+                      fontWeight: 'bold',
+                    },
+                  }}
+                />
+              )}
+            />
+          )}
+        />
+        {isOtherOptionSelected && (
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Controller
+              name="otherAllergyName"
+              control={control}
+              render={({ field: { value, onChange } }) => (
+                <TextField
+                  value={value || ''}
+                  onChange={(e) => onChange(e.target.value)}
+                  label="Other allergy"
+                  placeholder="Please specify"
+                  fullWidth
+                  size="small"
+                />
+              )}
+            />
+            <RoundedButton type="submit" disabled={isLoading}>
+              Add
+            </RoundedButton>
+          </Stack>
+        )}
+      </Card>
+    </form>
+  );
+};

@@ -1,26 +1,20 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Extension, Schedule } from 'fhir/r4b';
+import { SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
+import { CreateScheduleParams } from 'utils/lib/types/api/schedules';
 import {
-  CreateScheduleParams,
   FHIR_RESOURCE_NOT_FOUND,
-  getSecret,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
-  SCHEDULE_EXTENSION_URL,
-  ScheduleExtension,
-  Secrets,
-  SecretsKeys,
-  TIMEZONE_EXTENSION_URL,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from 'utils/lib/types/errors';
+import { ScheduleExtension } from 'utils/lib/utils/scheduleUtils';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateUpdateScheduleParameters } from '../shared';
 
 let m2mToken: string;
@@ -28,27 +22,21 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'create-schedule';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const effectInput = await complexValidation(validatedParameters, oystehr);
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  const effectInput = await complexValidation(validatedParameters, oystehr);
 
-    const updatedSchedule = await performEffect(effectInput, oystehr);
+  const updatedSchedule = await performEffect(effectInput, oystehr);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(updatedSchedule),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('create-schedule', error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(updatedSchedule),
+  };
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Schedule> => {
@@ -77,10 +65,8 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   if (typeof ownerId !== 'string') {
     throw INVALID_INPUT_ERROR('"ownerId" must be a string');
   }
-  if (typeof ownerType !== 'string' || !['Location', 'Practitioner', 'HealthcareService'].includes(ownerType)) {
-    throw INVALID_INPUT_ERROR(
-      '"ownerType" must be a string and one of: "Location", "Practitioner", "HealthcareService"'
-    );
+  if (typeof ownerType !== 'string' || !['Location', 'HealthcareService'].includes(ownerType)) {
+    throw INVALID_INPUT_ERROR('"ownerType" must be a string and one of: "Location", "HealthcareService"');
   }
   const { secrets, scheduleId, timezone, schedule, scheduleOverrides, closures } =
     validateUpdateScheduleParameters(input);
@@ -97,7 +83,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     scheduleOverrides,
     closures,
     ownerId,
-    ownerType: ownerType as 'Location' | 'Practitioner' | 'HealthcareService',
+    ownerType: ownerType as 'Location' | 'HealthcareService',
   };
 };
 

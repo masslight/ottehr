@@ -2,8 +2,8 @@ import { Box, Card, Grid, Typography, useTheme } from '@mui/material';
 import { FC, ReactElement } from 'react';
 
 export interface CardWithDescriptionProps {
-  icon: string;
-  iconAlt: string;
+  icon?: string;
+  iconAlt?: string;
   iconHeight: string | number;
   mainText: string;
   descText: string | ReactElement;
@@ -23,6 +23,14 @@ const CardWithDescription: FC<CardWithDescriptionProps> = ({
   marginBottom,
 }) => {
   const theme = useTheme();
+  const hasIcon = Boolean(icon);
+  const hasIconAlt = Boolean(iconAlt);
+  const shouldRenderIcon = hasIcon && hasIconAlt;
+
+  if (hasIcon !== hasIconAlt) {
+    console.warn('CardWithDescription: icon and iconAlt must be provided together.');
+  }
+
   return (
     <Card
       sx={{
@@ -36,10 +44,18 @@ const CardWithDescription: FC<CardWithDescriptionProps> = ({
     >
       <Box sx={{ m: 0, px: { xs: 3, md: 3 }, py: 2 }}>
         <Grid container direction="row" spacing={{ xs: 0, md: 5 }} alignItems="center">
-          <Grid item xs={12} md={2} textAlign={{ xs: 'center', md: 'start' }} sx={{ marginTop: '0 !important' }}>
-            <img src={icon} alt={iconAlt} height={iconHeight} />
-          </Grid>
-          <Grid item xs={12} md={10} textAlign={{ xs: 'center', md: 'start' }} sx={{ marginTop: '0 !important' }}>
+          {shouldRenderIcon && (
+            <Grid item xs={12} md={2} textAlign={{ xs: 'center', md: 'start' }} sx={{ marginTop: '0 !important' }}>
+              <img src={icon} alt={iconAlt} height={iconHeight} />
+            </Grid>
+          )}
+          <Grid
+            item
+            xs={12}
+            md={shouldRenderIcon ? 10 : 12}
+            textAlign={{ xs: 'center', md: 'start' }}
+            sx={{ marginTop: '0 !important' }}
+          >
             <Typography sx={{ fontSize: '16px', fontWeight: '700' }} color="primary.contrast">
               {mainText}
             </Typography>

@@ -1,5 +1,14 @@
-import { NOT_AUTHORIZED, PaymentMethodListParameters, Secrets } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { PaymentMethodListParameters } from 'utils/lib/types/data/payment/payment-method-types';
+import { MISSING_REQUEST_BODY, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { z } from 'zod';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
+
+const PaymentMethodListBodySchema = z.object({
+  beneficiaryPatientId: z.string().uuid(),
+  appointmentId: z.string().uuid(),
+});
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -8,18 +17,16 @@ export function validateRequestParameters(
   if (!authorization) {
     throw NOT_AUTHORIZED;
   }
+
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  const { beneficiaryPatientId } = JSON.parse(input.body);
-
-  if (!beneficiaryPatientId) {
-    throw new Error('beneficiaryPatientId is not defined');
-  }
+  const { beneficiaryPatientId, appointmentId } = safeValidate(PaymentMethodListBodySchema, safeJsonParse(input.body));
 
   return {
     beneficiaryPatientId,
+    appointmentId,
     secrets: input.secrets,
     authorization,
   };

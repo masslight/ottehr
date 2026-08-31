@@ -1,17 +1,12 @@
 import { NotificationsOutlined } from '@mui/icons-material';
 import { alpha, Badge, Box, Button, Menu, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import { EventHandler, FC, memo, MouseEvent, useEffect, useMemo, useState } from 'react';
+import { EventHandler, FC, memo, MouseEvent, useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  getProviderNotificationSettingsForPractitioner,
-  ProviderNotificationMethod,
-  ProviderNotificationSettings,
-} from 'utils';
-import useEvolveUser from '../../hooks/useEvolveUser';
-import { IconButtonContained } from '../../telemed/components/IconButtonContained';
+import { IconButtonContained } from 'src/features/visits/shared/components/IconButtonContained';
 import { useGetProviderNotifications, useUpdateProviderNotificationsMutation } from './notifications.queries';
-import { useProviderNotificationsStore } from './notifications.store';
+
+const MAX_NOTIFICATION_MESSAGE_LENGTH = 140;
 
 type ProviderNotificationDisplay = {
   id: string;
@@ -19,25 +14,16 @@ type ProviderNotificationDisplay = {
   isUnread: boolean;
   link?: string;
   sent: string;
+  timestamp?: string;
 };
 
 export const ProviderNotifications: FC = memo(() => {
   const theme = useTheme();
-  const user = useEvolveUser();
   const navigate = useNavigate();
   const { data: notificationsData } = useGetProviderNotifications();
   const updateNotifications = useUpdateProviderNotificationsMutation();
   const [notificationsOpen, setNotificationsOpen] = useState<boolean>(false);
-  const [notificationsElement, setNotificationsElement] = useState<undefined | HTMLElement>(undefined);
-
-  const { enabled: notificationsEnabled, method: notificationMethod }: ProviderNotificationSettings = useMemo(
-    () =>
-      getProviderNotificationSettingsForPractitioner(user?.profileResource) || {
-        method: ProviderNotificationMethod['phone and computer'],
-        enabled: false,
-      },
-    [user?.profileResource]
-  );
+  const anchorRef = useRef<HTMLButtonElement>(null);
 
   const notifications: ProviderNotificationDisplay[] = useMemo(() => {
     return (
@@ -51,31 +37,31 @@ export const ProviderNotifications: FC = memo(() => {
           sent: notification.communication.sent
             ? DateTime.fromISO(notification.communication.sent).toRelative()!
             : 'N/A',
-          link: notification.appointmentID ? `/telemed/appointments/${notification.appointmentID}` : undefined,
+          timestamp: notification.communication.sent,
+          link: notification.appointmentID ? `/visit/${notification.appointmentID}` : notification.link,
         };
       }) || []
-    ).sort((a, b) => (a.sent && b.sent && DateTime.fromISO(a.sent) > DateTime.fromISO(b.sent) ? -1 : 0));
+    ).sort((a, b) => {
+      if (!a.timestamp || !b.timestamp) return 0;
+      return b.timestamp.localeCompare(a.timestamp);
+    });
   }, [notificationsData]);
 
   const hasUnread = notifications.some((notification) => notification.isUnread);
 
-  useEffect(() => {
-    useProviderNotificationsStore.setState({ notificationsEnabled, notificationMethod: notificationMethod });
-  }, [notificationsEnabled, notificationMethod]);
-
-  const handleIconButtonClick: EventHandler<MouseEvent<HTMLElement>> = (event) => {
+  const handleIconButtonClick: EventHandler<MouseEvent<HTMLElement>> = useCallback(() => {
     setNotificationsOpen(true);
-    setNotificationsElement(event.currentTarget);
     if (hasUnread) {
       void updateNotifications.mutateAsync({
         ids: notifications.filter((notification) => notification.isUnread).map((notification) => notification.id),
         status: 'completed',
       });
     }
-  };
+  }, [hasUnread, notifications, updateNotifications]);
 
   const IconButton = (
     <IconButtonContained
+      ref={anchorRef}
       id="notifications-button"
       sx={{ marginRight: { sm: 0, md: 2 } }}
       aria-controls="notifications-menu"
@@ -90,38 +76,34 @@ export const ProviderNotifications: FC = memo(() => {
 
   return (
     <>
-      {hasUnread ? (
-        <Badge
-          variant="dot"
-          color="warning"
-          sx={{
-            '& .MuiBadge-badge': {
-              width: '10px',
-              height: '10px',
-              borderRadius: '10px',
-              top: '6px',
-              right: '21px',
-            },
-          }}
-        >
-          {IconButton}
-        </Badge>
-      ) : (
-        IconButton
-      )}
+      <Badge
+        variant="dot"
+        color="warning"
+        invisible={!hasUnread}
+        sx={{
+          '& .MuiBadge-badge': {
+            width: '10px',
+            height: '10px',
+            borderRadius: '10px',
+            top: '6px',
+            right: '21px',
+          },
+        }}
+      >
+        {IconButton}
+      </Badge>
       <Menu
         id="notifications-menu"
-        anchorEl={notificationsElement}
+        anchorEl={anchorRef.current}
         open={notificationsOpen}
         onClose={() => {
           setNotificationsOpen(false);
-          setNotificationsElement(undefined);
         }}
         MenuListProps={{
           'aria-labelledby': 'notifications-button',
         }}
       >
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: 3, maxWidth: '400px' }}>
           <Typography sx={{ fontWeight: 'bold' }} variant="h5" color="primary.dark">
             Notifications
           </Typography>
@@ -153,9 +135,11 @@ interface MenuItemProps {
   subtitle: string;
 }
 
-const MenuItem = ({ onClick, title, subtitle }: MenuItemProps): JSX.Element => {
+const MenuItem = ({ onClick, cursor, title, subtitle }: MenuItemProps): JSX.Element => {
   const theme = useTheme();
 
+  // A notification with nowhere to go must not offer a click affordance: no pointer, no hover highlight.
+  const isNavigable = cursor === 'pointer';
   const titleColor = theme.palette.getContrastText(theme.palette.background.default);
   return (
     <Button
@@ -169,14 +153,22 @@ const MenuItem = ({ onClick, title, subtitle }: MenuItemProps): JSX.Element => {
         py: 1,
         px: 2,
         mt: 1,
-        cursor: 'pointer',
-        '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.1) },
+        cursor,
+        // Spelled out for both cases: leaving the hover rule off would fall back to MUI's own Button
+        // hover, which is the highlight we're trying not to show. The non-navigable case repeats the
+        // resting background above, so hovering changes nothing.
+        '&:hover': {
+          backgroundColor: isNavigable ? alpha(theme.palette.primary.main, 0.1) : theme.palette.background.default,
+        },
       }}
+      disableRipple={!isNavigable}
       onClick={onClick}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'start', textTransform: 'none' }}>
         <Typography variant="body1" color={titleColor}>
-          {title}
+          {title.length > MAX_NOTIFICATION_MESSAGE_LENGTH
+            ? title.substring(0, MAX_NOTIFICATION_MESSAGE_LENGTH) + '...'
+            : title}
         </Typography>
         {subtitle && (
           <Typography variant="caption" sx={{ mt: 1 }} color={alpha(titleColor, 0.5)}>

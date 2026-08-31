@@ -1,11 +1,29 @@
-import { PRIVATE_EXTENSION_BASE_URL } from '../../fhir';
-import { ChartDataRequestedFields, CSS_NOTE_ID, NOTE_TYPE, VitalFieldNames } from '../../types';
+import { PRIVATE_EXTENSION_BASE_URL } from '../../fhir/constants';
+import { SearchParams } from '../../fhir/uri';
+import { VitalFieldNames } from '../../types/api/chart-data/chart-data.constants';
+import { IN_PERSON_NOTE_ID } from '../../types/api/chart-data/chart-data.types';
+import { NOTE_TYPE } from '../../types/api/chart-data/chart-data.types';
+import { ChartDataRequestedFields } from '../../types/api/chart-data/get-chart-data.types';
 import { createVitalsSearchConfig } from './create-vitals-search-config.helper';
 
-export const getProgressNoteChartDataRequestedFields = (): ChartDataRequestedFields => ({
+export const vitalsObservationsRequest: SearchParams = {
+  _search_by: 'encounter',
+  _sort: '-_lastUpdated',
+  _count: 100,
+  _tag: Object.values(VitalFieldNames)
+    .map((name) => (createVitalsSearchConfig(name, 'encounter').searchParams as { _tag: string })._tag)
+    .join(','),
+};
+
+export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
+  chiefComplaint: { _tag: 'chief-complaint' },
+  reasonForVisit: {},
+  mechanismOfInjury: { _tag: 'mechanism-of-injury' },
+  historyOfPresentIllness: { _tag: 'history-of-present-illness' },
+  ros: { _tag: 'ros' },
   episodeOfCare: {},
   prescribedMedications: {},
-  disposition: {},
+  disposition: { _tag: 'disposition-follow-up,sub-follow-up' },
   notes: {
     _sort: '-_lastUpdated',
     _count: 1000,
@@ -19,27 +37,25 @@ export const getProgressNoteChartDataRequestedFields = (): ChartDataRequestedFie
       NOTE_TYPE.MEDICAL_CONDITION,
       NOTE_TYPE.SURGICAL_HISTORY,
       NOTE_TYPE.MEDICATION,
+      NOTE_TYPE.ADDENDUM,
     ]
-      .map((note) => `${PRIVATE_EXTENSION_BASE_URL}/${note}|${CSS_NOTE_ID}`)
+      .map((note) => `${PRIVATE_EXTENSION_BASE_URL}/${note}|${IN_PERSON_NOTE_ID}`)
       .join(','),
   },
-  vitalsObservations: {
-    _search_by: 'encounter',
-    _sort: '-_lastUpdated',
-    _count: 100,
-    _tag: Object.values(VitalFieldNames)
-      .map((name) => (createVitalsSearchConfig(name, 'encounter').searchParams as { _tag: string })._tag)
-      .join(','),
-  },
+  vitalsObservations: vitalsObservationsRequest,
   externalLabResults: {},
   inHouseLabResults: {},
+  // DocumentReference:related pulls in external orders' uploaded result files (they have no DiagnosticReport).
+  radiologyOrders: { _tag: 'radiology', _revinclude: ['DiagnosticReport:based-on', 'DocumentReference:related'] },
   practitioners: {},
   medicalDecision: {
     _tag: 'medical-decision',
   },
-});
+};
 
 export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFields = {
+  chiefComplaint: { _tag: 'chief-complaint' },
+  ros: { _tag: 'ros' },
   prescribedMedications: {},
   disposition: {},
   medicalDecision: {
@@ -48,4 +64,12 @@ export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFiel
   surgicalHistoryNote: {
     _tag: 'surgical-history-note',
   },
+  notes: {
+    _sort: '-_lastUpdated',
+    _count: 1000,
+    _tag: [NOTE_TYPE.VITALS, NOTE_TYPE.ADDENDUM]
+      .map((note) => `${PRIVATE_EXTENSION_BASE_URL}/${note}|${IN_PERSON_NOTE_ID}`)
+      .join(','),
+  },
+  vitalsObservations: vitalsObservationsRequest,
 };

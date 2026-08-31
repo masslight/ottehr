@@ -2,11 +2,9 @@ import {
   Autocomplete,
   Box,
   Button,
-  Checkbox,
   Chip,
   CircularProgress,
   FormControl,
-  FormControlLabel,
   Grid,
   InputLabel,
   MenuItem,
@@ -19,62 +17,165 @@ import {
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
-import React, { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { ActionsList } from 'src/components/ActionsList';
+import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
+import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { getAttendingPractitionerId, isApiError, TestItem } from 'utils';
+import { LabSets } from 'src/features/external-labs/components/LabSets';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import { usePrintVisitLabel } from 'src/features/visits/shared/hooks/usePrintVisitLabel';
+import {
+  useGetCreateInHouseLabResources,
+  useICD10SearchNew,
+} from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useDebounce } from 'src/shared/hooks/useDebounce';
+import { useCreateInHouseLabStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
-import { createInHouseLabOrder, getCreateInHouseLabOrderResources, getOrCreateVisitLabel } from '../../../api/api';
+import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
+import { LabSetDTO } from 'utils/lib/types/data/labs/lab-set.schema';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
+import { isApiError } from 'utils/lib/types/errors';
+import { createInHouseLabOrder, getOrCreateVisitLabel } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { ActionsList, DeleteIconButton, useDebounce, useICD10SearchNew } from '../../../telemed';
-import { useAppointmentData, useChartData } from '../../../telemed/state/appointment/appointment.store';
+import { InHouseLabSelect } from '../components/create/InHouseLabSelect';
+import { InHouseSelectedTestTable } from '../components/create/InHouseSelectedTestTable';
 import { InHouseLabsNotesCard } from '../components/details/InHouseLabsNotesCard';
 import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
 
-export const InHouseLabOrderCreatePage: React.FC = () => {
+export interface InHouseLabOrderPrefill {
+  testItemName?: string;
+  diagnoses?: DiagnosisDTO[];
+  type?: 'repeat' | 'reflex';
+}
+
+interface InHouseLabOrderCreatePageProps {
+  prefill?: InHouseLabOrderPrefill;
+  onFinished?: (serviceRequestId?: string) => void;
+  onBack?: () => void;
+}
+
+export const InHouseLabOrderCreatePage: React.FC<InHouseLabOrderCreatePageProps> = ({
+  prefill,
+  onFinished,
+  onBack,
+}) => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
+  const isInlineFlow = useIsInlineFlow();
+  const { id: appointmentIdFromUrl } = useParams();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
-  const [availableTests, setAvailableTests] = useState<TestItem[]>([]);
-  const [selectedTest, setSelectedTest] = useState<TestItem | null>(null);
-  const [relatedCptCode, setRelatedCptCode] = useState<string>('');
-  const [notes, setNotes] = useState<string>('');
-  const [providerName, setProviderName] = useState<string>('');
   const [error, setError] = useState<string[] | undefined>(undefined);
-  const [repeatTest, setRepeatTest] = useState<boolean>(false);
+  const { encounter } = useAppointmentData();
+  const { chartData, setPartialChartData } = useChartData();
+  const didPrimaryDiagnosisInit = useRef(false);
+  const didPrefillInit = useRef(false);
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
+  const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
+  const apiClient = useOystehrAPIClient();
 
-  const prefillData = location.state as {
-    testItemName?: string;
-    diagnoses?: DiagnosisDTO[];
+  const { printVisitLabel } = usePrintVisitLabel();
+
+  const formStateDefaults: {
+    tests: DataEntryTestItem[];
+    assessmentDx: DiagnosisDTO[];
+    newDx: DiagnosisDTO[];
+    notes: string;
+  } = {
+    tests: [],
+    assessmentDx: [],
+    newDx: [],
+    notes: '',
   };
 
-  const { encounter, appointment } = useAppointmentData();
-  const { chartData, setPartialChartData } = useChartData();
-  const { diagnosis = [] } = chartData || {};
-  const didPrimaryDiagnosisInit = useRef(false);
+  const { setDraft, getDraft, clearDraft, hasDraft } = useCreateInHouseLabStore();
+  useMarkDraftNavigatedAway({ encounterId: encounter.id ?? '', setDraft, hasDraft });
+  const draft = encounter.id ? getDraft(encounter.id) : {};
+
+  const [selectedTests, setSelectedTests] = useState<DataEntryTestItem[]>(draft.testItems ?? formStateDefaults.tests);
+  const [notes, setNotes] = useState<string>(draft.notes ?? formStateDefaults.notes);
+
+  const diagnosis = useMemo<DiagnosisDTO[]>(
+    () => (isFollowup ? mainEncounterChartData?.diagnosis || [] : chartData?.diagnosis || []),
+    [mainEncounterChartData?.diagnosis, chartData?.diagnosis, isFollowup]
+  );
 
   // already added diagnoses may have "added via in-house lab order" flag with true and false values
   // so, the "select dx" dropdown will show all diagnoses that are displayed on the Assessment page regardless of their source
-  const [selectedAssessmentDiagnoses, setSelectedAssessmentDiagnoses] = useState<DiagnosisDTO[]>([]);
+  const [selectedAssessmentDiagnoses, setSelectedAssessmentDiagnoses] = useState<DiagnosisDTO[]>(
+    draft.selectedAssessmentDx ?? formStateDefaults.assessmentDx
+  );
 
   // new diagnoses, the will have "added via in-house lab order" flag with true value,
   // and they will be linked to appointment resources in the create-in-house-lab-order zambda
-  const [selectedNewDiagnoses, setSelectedNewDiagnoses] = useState<DiagnosisDTO[]>([]);
+  const [selectedNewDiagnoses, setSelectedNewDiagnoses] = useState<DiagnosisDTO[]>(
+    draft.selectedNewDx ?? formStateDefaults.newDx
+  );
 
-  // init selectedAssessmentDiagnoses with primary diagnosis
-  useEffect(() => {
+  const handleUpdateSelectedTests = useCallback(
+    (tests: DataEntryTestItem[]): void => {
+      setSelectedTests(tests);
+      if (encounter.id) setDraft(encounter.id, { testItems: tests });
+    },
+    [setSelectedTests, setDraft, encounter.id]
+  );
+
+  const handleUpdateAssessmentDx = useCallback(
+    (dx: DiagnosisDTO[]): void => {
+      setSelectedAssessmentDiagnoses(dx);
+      if (encounter.id) setDraft(encounter.id, { selectedAssessmentDx: dx });
+    },
+    [setSelectedAssessmentDiagnoses, setDraft, encounter.id]
+  );
+
+  const handleUpdateNewDx = (dx: DiagnosisDTO[]): void => {
+    setSelectedNewDiagnoses(dx);
+    if (encounter.id) setDraft(encounter.id, { selectedNewDx: dx });
+  };
+
+  const handleUpdateNote = (notes: string): void => {
+    setNotes(notes);
+    if (encounter.id) setDraft(encounter.id, { notes });
+  };
+
+  const determinePrimaryDiagnosis = useCallback((): DiagnosisDTO[] | undefined => {
     if (didPrimaryDiagnosisInit.current) {
       return;
     }
-    const primaryDiagnosis = [chartData?.diagnosis?.find((d) => d.isPrimary)].filter((d): d is DiagnosisDTO => !!d);
+    const primaryDiagnosis = [diagnosis.find((d) => d.isPrimary)].filter((d): d is DiagnosisDTO => !!d);
+    return primaryDiagnosis;
+  }, [diagnosis]);
 
-    if (primaryDiagnosis.length && !selectedAssessmentDiagnoses.length) {
+  const handleClearForm = (): void => {
+    if (encounter.id) clearDraft(encounter.id);
+    // we recompute here so we don't get an unexpected result due to the ref used in determinePrimaryDiagnosis
+    const primaryDiagnosis = [diagnosis.find((d) => d.isPrimary)].filter((d): d is DiagnosisDTO => !!d);
+    setSelectedTests(formStateDefaults.tests);
+    setSelectedAssessmentDiagnoses(primaryDiagnosis.length ? primaryDiagnosis : formStateDefaults.assessmentDx);
+    setSelectedNewDiagnoses(formStateDefaults.newDx);
+    setNotes(formStateDefaults.notes);
+  };
+
+  // init selectedAssessmentDiagnoses with primary diagnosis from main encounter
+  // uses raw setter (not handleUpdateAssessmentDx) to avoid writing to the draft on auto-init
+  useEffect(() => {
+    if (draft.selectedAssessmentDx) return;
+    const primaryDiagnosis = determinePrimaryDiagnosis();
+    if (primaryDiagnosis?.length && !selectedAssessmentDiagnoses.length) {
       setSelectedAssessmentDiagnoses(primaryDiagnosis);
       didPrimaryDiagnosisInit.current = true;
     }
-  }, [chartData?.diagnosis, selectedAssessmentDiagnoses]);
+  }, [determinePrimaryDiagnosis, selectedAssessmentDiagnoses, draft.selectedAssessmentDx]);
 
   // used to fetch dx icd10 codes
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -89,69 +190,61 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
   const attendingPractitionerId = getAttendingPractitionerId(encounter);
 
+  const { data: createInHouseLabResources } = useGetCreateInHouseLabResources({
+    encounterId: encounter?.id,
+  });
+
+  const availableTests = Object.values(createInHouseLabResources?.labs || {});
+  const providerName = createInHouseLabResources?.providerName ?? '';
+  const labSets = createInHouseLabResources?.labSets;
+  const prefillData = prefill ?? (location.state as InHouseLabOrderPrefill);
+
   useEffect(() => {
-    if (!oystehrZambda) {
+    if (!prefillData || didPrefillInit.current || !availableTests.length) {
       return;
     }
 
-    const fetchLabs = async (): Promise<void> => {
-      try {
-        setLoading(true);
-        const response = await getCreateInHouseLabOrderResources(oystehrZambda, {
-          encounterId: encounter.id,
-        });
-        const testItems = Object.values(response.labs || {});
-        setAvailableTests(testItems.sort((a, b) => a.name.localeCompare(b.name)));
-        setProviderName(response.providerName);
-      } catch (error) {
-        console.error('Error fetching labs:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    const { testItemName, diagnoses } = prefillData;
 
-    if (encounter.id) {
-      void fetchLabs();
+    if (testItemName) {
+      const found = availableTests.find((test) => test.name === testItemName);
+      if (!found) {
+        console.log(`Cannot find test ${testItemName} in available tests`, availableTests);
+        return;
+      }
+      if (prefillData.type === 'repeat') {
+        found.orderMode = 'repeat';
+      }
+      console.log('"found" test', found);
+      handleUpdateSelectedTests([found]);
     }
-  }, [oystehrZambda, encounter?.id]);
 
-  useEffect(() => {
-    if (prefillData) {
-      const { testItemName, diagnoses } = prefillData;
-      if (testItemName) {
-        const found = availableTests.find((test) => test.name === testItemName);
-        console.log('found', found);
-        if (found) {
-          setSelectedTest(found);
-          setRepeatTest(true);
-          setRelatedCptCode(found.cptCode[0]); // we dont have any tests with more than one
-        }
-      }
-      if (diagnoses) {
-        setSelectedAssessmentDiagnoses(diagnoses);
-      }
+    if (diagnoses) {
+      handleUpdateAssessmentDx(diagnoses);
     }
-  }, [prefillData, availableTests]);
+
+    didPrefillInit.current = true;
+  }, [prefillData, availableTests, handleUpdateAssessmentDx, handleUpdateSelectedTests]);
 
   const handleBack = (): void => {
-    navigate(-1);
+    if (encounter.id) clearDraft(encounter.id);
+    if (onBack) onBack();
+    else navigate(-1);
   };
 
-  const canBeSubmitted = !!(encounter?.id && selectedTest && relatedCptCode);
+  const canBeSubmitted = !!(encounter?.id && selectedTests.length > 0);
 
   const handleSubmit = async (e: React.FormEvent | React.MouseEvent, shouldPrintLabel = false): Promise<void> => {
     e.preventDefault();
     setLoading(true);
     const GENERIC_ERROR_MSG = 'There was an error creating in-house lab order';
-    if (oystehrZambda && canBeSubmitted) {
+    if (oystehrZambda && canBeSubmitted && encounter.id) {
       try {
         const res = await createInHouseLabOrder(oystehrZambda, {
-          encounterId: encounter.id!,
-          testItem: selectedTest,
-          cptCode: relatedCptCode,
+          encounterId: encounter.id,
+          testItems: selectedTests,
           diagnosesAll: [...selectedAssessmentDiagnoses, ...selectedNewDiagnoses],
           diagnosesNew: selectedNewDiagnoses,
-          isRepeatTest: repeatTest,
           notes: notes,
         });
 
@@ -164,23 +257,38 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         }
 
         // update chart data local state with new diagnoses after successful creation to see actual diagnoses in the Assessment page
-        setPartialChartData({
-          diagnosis: [...(chartData?.diagnosis || []), ...savedDiagnoses],
-        });
+        if (!isFollowup) {
+          setPartialChartData({
+            diagnosis: [...diagnosis, ...savedDiagnoses],
+          });
+        }
 
         if (shouldPrintLabel) {
-          const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId: encounter.id! });
+          const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId: encounter.id });
 
           if (labelPdfs.length !== 1) {
             setError(['Expected 1 label pdf, received unexpected number']);
           }
 
           const labelPdf = labelPdfs[0];
-          window.open(labelPdf.presignedURL, '_blank');
+
+          await printVisitLabel({ pdfPresignedUrl: labelPdf?.presignedURL ?? '', encounterId: encounter.id });
         }
 
-        if (res.serviceRequestId) {
-          navigate(`/in-person/${appointment?.id}/in-house-lab-orders/${res.serviceRequestId}/order-details`);
+        // clear out the draft data on successful submit
+        clearDraft(encounter.id);
+
+        if (res.serviceRequestIds.length === 1) {
+          // we will only nav forward if one test was created, else we will direct the user back to the table
+          if (onFinished) onFinished(res.serviceRequestIds[0]);
+          else
+            navigate(
+              `/in-person/${appointmentIdFromUrl}/in-house-lab-orders/${res.serviceRequestIds[0]}/order-details`
+            );
+        } else if (onFinished) {
+          onFinished(undefined);
+        } else {
+          navigate(`/in-person/${appointmentIdFromUrl}/in-house-lab-orders`);
         }
       } catch (e) {
         const sdkError = e as Oystehr.OystehrSdkError;
@@ -196,7 +304,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
       }
     } else if (!canBeSubmitted) {
       const errorMessage: string[] = [];
-      if (!selectedTest) errorMessage.push('Please select a test to order');
+      if (!selectedTests.length) errorMessage.push('Please select a test to order');
       if (!attendingPractitionerId) errorMessage.push('No attending practitioner has been assigned to this encounter');
       if (errorMessage.length === 0) errorMessage.push(GENERIC_ERROR_MSG);
       setError(errorMessage);
@@ -204,340 +312,265 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     }
   };
 
-  const handleTestSelection = (selectedTest: string): void => {
+  const handleTestSelectionChange = (newSelectedNames: string[]): void => {
     if (!availableTests?.length) {
       return;
     }
+    const determineTests = (): DataEntryTestItem[] => {
+      // Add newly checked tests
+      const testsToAdd = newSelectedNames
+        .filter((name) => !selectedTests.some((test) => test.name === name))
+        .map((name) => availableTests.find((test) => test.name === name))
+        .filter((test): test is DataEntryTestItem => test !== undefined);
 
-    const foundEntry = availableTests.find((test) => test.name === selectedTest);
+      // Remove tests that were unchecked in the dropdown
+      // Only remove tests that are present in availableTests (i.e. came from the dropdown)
+      const testsAfterRemovals = selectedTests.filter((test) => {
+        const isAvailableTest = availableTests.some((availableTest) => availableTest.name === test.name);
+        return !isAvailableTest || newSelectedNames.includes(test.name);
+      });
 
-    if (!foundEntry) {
-      return;
-    }
-
-    setSelectedTest(foundEntry);
-    setRelatedCptCode(foundEntry.cptCode[0]); // we dont have any tests with more than one
+      return [...testsAfterRemovals, ...testsToAdd];
+    };
+    handleUpdateSelectedTests(determineTests());
   };
 
-  return (
-    <DetailPageContainer>
-      <InHouseLabsBreadcrumbs pageName="Order In-House Lab">
-        <Typography variant="h4" color="primary.dark" sx={{ mb: 3 }}>
-          Order In-house Lab
-        </Typography>
+  const handleSetSelectedLabsViaLabSets = async (labSet: LabSetDTO): Promise<void> => {
+    if (labSet.listType === LabType.inHouse) {
+      const res = await apiClient?.getCreateInHouseLabOrderResources({
+        selectedLabSet: labSet,
+      });
+      const labs = res?.labs;
 
-        <Paper sx={{ p: 4 }}>
-          {loading ? (
-            <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-              <CircularProgress />
-            </Box>
-          ) : (
-            <form onSubmit={handleSubmit}>
-              <Grid container spacing={3}>
-                <Grid item xs={12}>
-                  <FormControl
-                    fullWidth
-                    required
+      if (labs) {
+        const determineTests = (): DataEntryTestItem[] => {
+          const existingCodes = new Set(selectedTests.map((lab) => lab.adId));
+
+          const newLabs = labs.filter((lab) => !existingCodes.has(lab.adId));
+
+          return [...selectedTests, ...newLabs];
+        };
+        handleUpdateSelectedTests(determineTests());
+      }
+    }
+  };
+
+  const content = (
+    <>
+      <Typography data-testid={dataTestIds.orderInHouseLabPage.title} variant="h4" color="primary.dark" sx={{ mb: 3 }}>
+        Order In-House Lab
+      </Typography>
+      {encounter.id && hasDraft(encounter.id) && (
+        <UnsavedDraftWarning
+          message={
+            draft.hasNavigatedAway
+              ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
+              : 'You have a lab order in progress. Your draft will be saved.'
+          }
+        />
+      )}
+
+      <Paper sx={{ p: 4 }}>
+        {loading ? (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+            <CircularProgress />
+          </Box>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <InHouseLabSelect
+                  availableTests={availableTests}
+                  selectedTestNames={selectedTests.map((t) => t.name)}
+                  onChange={handleTestSelectionChange}
+                />
+
+                {labSets && <LabSets labSets={labSets} setSelectedLabs={handleSetSelectedLabsViaLabSets} />}
+
+                {selectedTests.length > 0 && (
+                  <InHouseSelectedTestTable
+                    selectedTests={selectedTests}
+                    setSelectedTests={handleUpdateSelectedTests}
+                    displayRunAsRepeat={true}
+                  />
+                )}
+              </Grid>
+
+              <Grid item xs={12}>
+                <FormControl
+                  fullWidth
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      height: '40px',
+                    },
+                    '& .MuiSelect-select': {
+                      display: 'flex',
+                      alignItems: 'center',
+                      paddingTop: 0,
+                      paddingBottom: 0,
+                    },
+                  }}
+                >
+                  <InputLabel
+                    id="diagnosis-label"
                     sx={{
-                      '& .MuiInputBase-root': {
-                        height: '40px',
-                      },
-                      '& .MuiSelect-select': {
-                        display: 'flex',
-                        alignItems: 'center',
-                        paddingTop: 0,
-                        paddingBottom: 0,
+                      transform: 'translate(14px, 10px) scale(1)',
+                      '&.MuiInputLabel-shrink': {
+                        transform: 'translate(14px, -9px) scale(0.75)',
                       },
                     }}
                   >
-                    <InputLabel
-                      id="test-type-label"
-                      sx={{
-                        transform: 'translate(14px, 10px) scale(1)',
-                        '&.MuiInputLabel-shrink': {
-                          transform: 'translate(14px, -9px) scale(0.75)',
-                        },
-                      }}
-                    >
-                      Test
-                    </InputLabel>
-                    <Select
-                      labelId="test-type-label"
-                      id="test-type"
-                      value={selectedTest?.name || ''}
-                      label="Test"
-                      onChange={(e) => handleTestSelection(e.target.value)}
-                    >
-                      {availableTests.map((test) => (
-                        <MenuItem key={test.name} value={test.name}>
-                          {test.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
+                    Select Dx
+                  </InputLabel>
+                  <Select
+                    data-testid={dataTestIds.orderInHouseLabPage.diagnosis}
+                    labelId="diagnosis-label"
+                    id="diagnosis"
+                    multiple
+                    value={selectedAssessmentDiagnoses.map((dx) => dx.code)}
+                    label="Select Dx"
+                    onChange={(e) => {
+                      const dxCodesFromSelect = Array.isArray(e.target.value) ? e.target.value : [e.target.value];
 
-                {relatedCptCode && (
-                  <>
-                    <Grid item xs={selectedTest?.repeatable ? 8.5 : 12}>
-                      <TextField
-                        InputProps={{
-                          readOnly: true,
-                          sx: {
-                            '& input': {
-                              cursor: 'default',
-                            },
-                            height: '40px',
-                          },
-                        }}
-                        fullWidth
-                        label="CPT Code"
-                        focused={false}
-                        value={relatedCptCode}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            '&:hover .MuiOutlinedInput-notchedOutline': {
-                              borderColor: 'rgba(0, 0, 0, 0.23)',
-                            },
-                          },
-                        }}
-                      />
-                    </Grid>
-                    {selectedTest?.repeatable && (
-                      <Grid item xs={3.5}>
-                        <FormControlLabel
-                          sx={{
-                            backgroundColor: 'transparent',
-                            pr: 0,
-                          }}
-                          control={
-                            <Checkbox size="small" checked={repeatTest} onChange={() => setRepeatTest(!repeatTest)} />
+                      const diagnosesFromSelect = dxCodesFromSelect
+                        .map((code) => diagnosis.find((dx) => dx.code === code))
+                        .filter((dx): dx is DiagnosisDTO => Boolean(dx));
+
+                      handleUpdateAssessmentDx([...diagnosesFromSelect]);
+                    }}
+                    renderValue={(selected) => {
+                      if (selected.length === 0) {
+                        return <em>Select diagnoses</em>;
+                      }
+                      return selected.map((code) => {
+                        const dx = diagnosis.find((d) => d.code === code);
+                        return dx ? <Chip key={dx.code} size="small" label={`${dx.code} ${dx.display}`} /> : code;
+                      });
+                    }}
+                  >
+                    {diagnosis?.map((dx) => (
+                      <MenuItem key={dx.code} value={dx.code}>
+                        {dx.code} {dx.display}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Autocomplete
+                  blurOnSelect
+                  id="select-additional-dx"
+                  size="small"
+                  fullWidth
+                  filterOptions={(x) => x}
+                  noOptionsText={
+                    debouncedSearchTerm && icdSearchOptions.length === 0
+                      ? 'Nothing found for this search criteria'
+                      : 'Start typing to load results'
+                  }
+                  value={null}
+                  isOptionEqualToValue={(option, value) => value.code === option.code}
+                  onChange={(_event, selectedDx) => {
+                    if (!selectedDx) {
+                      return;
+                    }
+                    const alreadySelected =
+                      selectedNewDiagnoses.find((tempDx) => tempDx.code === selectedDx?.code) ||
+                      selectedAssessmentDiagnoses.find((tempDx) => tempDx.code === selectedDx?.code);
+                    if (!alreadySelected) {
+                      handleUpdateNewDx([
+                        ...selectedNewDiagnoses,
+                        { ...selectedDx, addedViaLabOrder: true, isPrimary: false },
+                      ]);
+                    } else {
+                      enqueueSnackbar('This Dx is already added to the order', {
+                        variant: 'error',
+                      });
+                    }
+                  }}
+                  loading={isSearching}
+                  options={icdSearchOptions}
+                  getOptionLabel={(option) =>
+                    typeof option === 'string' ? option : `${option.code} ${option.display}`
+                  }
+                  renderInput={(params) => (
+                    <TextField
+                      data-testid={dataTestIds.orderInHouseLabPage.additionalDx}
+                      {...params}
+                      onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                      label="Additional Dx"
+                      placeholder="Search for Dx if not on list above"
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  )}
+                />
+              </Grid>
+
+              {(selectedAssessmentDiagnoses.length > 0 || selectedNewDiagnoses.length > 0) && (
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <ActionsList
+                      data={selectedAssessmentDiagnoses}
+                      getKey={(value, index) => value.resourceId || index}
+                      renderItem={(value) => (
+                        <Typography>
+                          {value.display} {value.code}
+                        </Typography>
+                      )}
+                      renderActions={(value) => (
+                        <DeleteIconButton
+                          onClick={() =>
+                            handleUpdateAssessmentDx(
+                              selectedAssessmentDiagnoses.filter((dxVal) => dxVal.code !== value.code)
+                            )
                           }
-                          label={<Typography variant="body1">Run as Repeat</Typography>}
                         />
-                      </Grid>
-                    )}
-                  </>
-                )}
-
-                {repeatTest && (
-                  <>
-                    <Grid item xs={10}>
-                      <TextField
-                        InputProps={{
-                          readOnly: true,
-                          sx: {
-                            '& input': {
-                              cursor: 'default',
-                            },
-                            height: '40px',
-                          },
-                        }}
-                        fullWidth
-                        label="CPT Code Modifier"
-                        focused={false}
-                        value={'91'}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            '&:hover .MuiOutlinedInput-notchedOutline': {
-                              borderColor: 'rgba(0, 0, 0, 0.23)',
-                            },
-                          },
-                        }}
-                      />
-                    </Grid>
-                    {/* indicates that the test is “CLIA waived”, should just be hardcoded for repeats */}
-                    <Grid item xs={2} sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Typography variant="body1">QW</Typography>
-                    </Grid>
-                  </>
-                )}
-
-                <Grid item xs={12}>
-                  <FormControl
-                    fullWidth
-                    sx={{
-                      '& .MuiInputBase-root': {
-                        height: '40px',
-                      },
-                      '& .MuiSelect-select': {
-                        display: 'flex',
-                        alignItems: 'center',
-                        paddingTop: 0,
-                        paddingBottom: 0,
-                      },
-                    }}
-                  >
-                    <InputLabel
-                      id="diagnosis-label"
-                      sx={{
-                        transform: 'translate(14px, 10px) scale(1)',
-                        '&.MuiInputLabel-shrink': {
-                          transform: 'translate(14px, -9px) scale(0.75)',
-                        },
-                      }}
-                    >
-                      Select Dx
-                    </InputLabel>
-                    <Select
-                      labelId="diagnosis-label"
-                      id="diagnosis"
-                      multiple
-                      value={selectedAssessmentDiagnoses.map((dx) => dx.code)}
-                      label="Select Dx"
-                      onChange={(e) => {
-                        const dxCodesFromSelect = Array.isArray(e.target.value) ? e.target.value : [e.target.value];
-
-                        const diagnosesFomSelect = dxCodesFromSelect
-                          .map((code) => diagnosis.find((dx) => dx.code === code))
-                          .filter((dx): dx is DiagnosisDTO => Boolean(dx));
-
-                        setSelectedAssessmentDiagnoses([...diagnosesFomSelect]);
-                      }}
-                      renderValue={(selected) => {
-                        if (selected.length === 0) {
-                          return <em>Select diagnoses</em>;
-                        }
-                        return selected.map((code) => {
-                          const dx = diagnosis.find((d) => d.code === code);
-                          return dx ? <Chip key={dx.code} size="small" label={`${dx.code} ${dx.display}`} /> : code;
-                        });
-                      }}
-                    >
-                      {diagnosis?.map((dx) => (
-                        <MenuItem key={dx.code} value={dx.code}>
-                          {dx.code} {dx.display}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                      )}
+                    />
+                    <ActionsList
+                      data={selectedNewDiagnoses}
+                      getKey={(value, index) => value.resourceId || index}
+                      renderItem={(value) => (
+                        <Typography>
+                          {value.display} {value.code}
+                        </Typography>
+                      )}
+                      renderActions={(value) => (
+                        <DeleteIconButton
+                          onClick={() =>
+                            handleUpdateNewDx(selectedNewDiagnoses.filter((dxVal) => dxVal.code !== value.code))
+                          }
+                        />
+                      )}
+                    />
+                  </Box>
                 </Grid>
+              )}
 
+              <Grid item xs={12}>
+                <InHouseLabsNotesCard
+                  data-testid={dataTestIds.orderInHouseLabPage.notes}
+                  notes={notes}
+                  notesLabel={'Notes (optional)'}
+                  readOnly={false}
+                  additionalBoxSxProps={{ mb: 3 }}
+                  additionalTextFieldProps={{ minRows: 4 }}
+                  handleNotesUpdate={(newNote: string) => handleUpdateNote(newNote)}
+                />
+              </Grid>
+
+              {providerName && (
                 <Grid item xs={12}>
-                  <Autocomplete
-                    blurOnSelect
-                    id="select-additional-dx"
-                    size="small"
-                    fullWidth
-                    filterOptions={(x) => x}
-                    noOptionsText={
-                      debouncedSearchTerm && icdSearchOptions.length === 0
-                        ? 'Nothing found for this search criteria'
-                        : 'Start typing to load results'
-                    }
-                    value={null}
-                    isOptionEqualToValue={(option, value) => value.code === option.code}
-                    onChange={(_event, selectedDx) => {
-                      if (!selectedDx) {
-                        return;
-                      }
-                      const alreadySelected =
-                        selectedNewDiagnoses.find((tempDx) => tempDx.code === selectedDx?.code) ||
-                        selectedAssessmentDiagnoses.find((tempDx) => tempDx.code === selectedDx?.code);
-                      if (!alreadySelected) {
-                        setSelectedNewDiagnoses((diagnoses) => [
-                          ...diagnoses,
-                          { ...selectedDx, addedViaLabOrder: true, isPrimary: false },
-                        ]);
-                      } else {
-                        enqueueSnackbar('This Dx is already added to the order', {
-                          variant: 'error',
-                        });
-                      }
-                    }}
-                    loading={isSearching}
-                    options={icdSearchOptions}
-                    getOptionLabel={(option) =>
-                      typeof option === 'string' ? option : `${option.code} ${option.display}`
-                    }
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        onChange={(e) => debouncedHandleInputChange(e.target.value)}
-                        label="Additional Dx"
-                        placeholder="Search for Dx if not on list above"
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    )}
-                  />
+                  <Typography variant="body1" sx={{ mt: 2 }}>
+                    Ordering provider: {providerName}
+                  </Typography>
                 </Grid>
+              )}
 
-                {(selectedAssessmentDiagnoses.length > 0 || selectedNewDiagnoses.length > 0) && (
-                  <Grid item xs={12}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <ActionsList
-                        data={selectedAssessmentDiagnoses}
-                        getKey={(value, index) => value.resourceId || index}
-                        renderItem={(value) => (
-                          <Typography>
-                            {value.display} {value.code}
-                          </Typography>
-                        )}
-                        renderActions={(value) => (
-                          <DeleteIconButton
-                            onClick={() =>
-                              setSelectedAssessmentDiagnoses((diagnoses) =>
-                                diagnoses.filter((dxVal) => dxVal.code !== value.code)
-                              )
-                            }
-                          />
-                        )}
-                      />
-                      <ActionsList
-                        data={selectedNewDiagnoses}
-                        getKey={(value, index) => value.resourceId || index}
-                        renderItem={(value) => (
-                          <Typography>
-                            {value.display} {value.code}
-                          </Typography>
-                        )}
-                        renderActions={(value) => (
-                          <DeleteIconButton
-                            onClick={() =>
-                              setSelectedNewDiagnoses((diagnoses) =>
-                                diagnoses.filter((dxVal) => dxVal.code !== value.code)
-                              )
-                            }
-                          />
-                        )}
-                      />
-                    </Box>
-                  </Grid>
-                )}
-
-                {/* <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    id="notes"
-                    label="Notes (optional)"
-                    multiline
-                    rows={4}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                  />
-                </Grid> */}
-
-                <Grid item xs={12}>
-                  <InHouseLabsNotesCard
-                    notes={notes}
-                    notesLabel={'Notes (optional)'}
-                    readOnly={false}
-                    additionalBoxSxProps={{ mb: 3 }}
-                    additionalTextFieldProps={{ minRows: 4 }}
-                    handleNotesUpdate={(newNote: string) => setNotes(newNote)}
-                  />
-                </Grid>
-
-                {providerName && (
-                  <Grid item xs={12}>
-                    <Typography variant="body1" sx={{ mt: 2 }}>
-                      Ordering provider: {providerName}
-                    </Typography>
-                  </Grid>
-                )}
-
-                <Grid item xs={12} sx={{ mt: 3 }}>
-                  <Stack direction="row" spacing={2} justifyContent="space-between">
+              <Grid item xs={12} sx={{ mt: 3 }}>
+                <Stack direction="row" spacing={2} justifyContent="space-between">
+                  <Box>
                     <Button
                       variant="outlined"
                       onClick={handleBack}
@@ -549,49 +582,79 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     >
                       Cancel
                     </Button>
-                    <Box>
+                    {encounter.id && hasDraft(encounter.id) && (
                       <Button
-                        variant="contained"
-                        onClick={(e) => handleSubmit(e, true)}
-                        disabled={!canBeSubmitted}
+                        variant="outlined"
                         sx={{
                           borderRadius: '50px',
                           px: 4,
                           py: 1,
-                          mr: 2,
+                          ml: 2,
+                        }}
+                        onClick={() => {
+                          handleClearForm();
                         }}
                       >
-                        Order & Print Label
+                        Clear Form
                       </Button>
-                      <Button
-                        variant="contained"
-                        type="submit"
-                        disabled={!canBeSubmitted}
-                        sx={{
-                          borderRadius: '50px',
-                          px: 4,
-                          py: 1,
-                        }}
-                      >
-                        Order
-                      </Button>
-                    </Box>
-                  </Stack>
-                </Grid>
-                {error &&
-                  error.length > 0 &&
-                  error.map((msg, idx) => (
-                    <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
-                      <Typography sx={{ color: theme.palette.error.main }}>
-                        {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
-                      </Typography>
-                    </Grid>
-                  ))}
+                    )}
+                  </Box>
+
+                  <Box>
+                    <Button
+                      data-testid={dataTestIds.orderInHouseLabPage.orderAndPrintLabelButton}
+                      variant="contained"
+                      onClick={(e) => handleSubmit(e, true)}
+                      disabled={!canBeSubmitted}
+                      sx={{
+                        borderRadius: '50px',
+                        px: 4,
+                        py: 1,
+                        mr: 2,
+                      }}
+                    >
+                      Order & Print Label
+                    </Button>
+                    <Button
+                      data-testid={dataTestIds.orderInHouseLabPage.orderInHouseLabButton}
+                      variant="contained"
+                      type="submit"
+                      disabled={!canBeSubmitted}
+                      sx={{
+                        borderRadius: '50px',
+                        px: 4,
+                        py: 1,
+                      }}
+                    >
+                      Order
+                    </Button>
+                  </Box>
+                </Stack>
               </Grid>
-            </form>
-          )}
-        </Paper>
-      </InHouseLabsBreadcrumbs>
+              {error &&
+                error.length > 0 &&
+                error.map((msg, idx) => (
+                  <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
+                    <Typography
+                      data-testid={dataTestIds.orderInHouseLabPage.error}
+                      sx={{ color: theme.palette.error.main }}
+                    >
+                      {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
+                    </Typography>
+                  </Grid>
+                ))}
+            </Grid>
+          </form>
+        )}
+      </Paper>
+    </>
+  );
+
+  if (isInlineFlow) return content;
+
+  return (
+    <DetailPageContainer>
+      <InHouseLabsBreadcrumbs pageName="Order In-House Lab">{content}</InHouseLabsBreadcrumbs>
     </DetailPageContainer>
   );
 };

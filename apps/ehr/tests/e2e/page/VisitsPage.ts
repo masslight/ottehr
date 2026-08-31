@@ -1,4 +1,5 @@
 import { expect, Page } from '@playwright/test';
+import { DateTime } from 'luxon';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 
 export class VisitsPage {
@@ -13,7 +14,7 @@ export class VisitsPage {
     if (time) {
       visitLocator = visitLocator.filter({ hasText: time });
     }
-    await expect(visitLocator).toBeVisible();
+    await expect(visitLocator).toBeVisible({ timeout: 30000 });
   }
 
   async verifyVisitsStatus(appointmentId: string, visitStatus: string): Promise<void> {
@@ -25,67 +26,101 @@ export class VisitsPage {
   }
 
   async clickIntakeButton(appointmentId: string): Promise<void> {
-    await this.#page
+    const intakeButton = this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
-      .getByTestId(dataTestIds.dashboard.intakeButton)
-      .click();
+      .getByTestId(dataTestIds.dashboard.intakeButton);
+    await intakeButton.waitFor({ state: 'visible', timeout: 60000 });
+    await intakeButton.click();
+  }
+
+  async clickReadyButton(appointmentId: string): Promise<void> {
+    const readyButton = this.#page
+      .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
+      .getByTestId(dataTestIds.dashboard.readyButton);
+    await readyButton.waitFor({ state: 'visible', timeout: 60000 });
+    await readyButton.click();
   }
 
   async clickVisitDetailsButton(appointmentId: string): Promise<void> {
-    await this.#page
+    const visitDetailsButton = this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
-      .getByTestId(dataTestIds.dashboard.visitDetailsButton)
-      .click();
+      .getByTestId(dataTestIds.dashboard.visitDetailsButton);
+    await visitDetailsButton.waitFor({ state: 'visible', timeout: 60000 });
+    await visitDetailsButton.click();
   }
 
   async clickProgressNoteButton(appointmentId: string): Promise<void> {
-    await this.#page
+    const progressNoteButton = this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
-      .getByTestId(dataTestIds.dashboard.progressNoteButton)
-      .click();
+      .getByTestId(dataTestIds.dashboard.progressNoteButton);
+    await progressNoteButton.waitFor({ state: 'visible', timeout: 60000 });
+    await progressNoteButton.click();
   }
 
   async clickArrivedButton(appointmentId: string): Promise<void> {
-    await this.#page
+    const arrivedButton = this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
-      .getByTestId(dataTestIds.dashboard.arrivedButton)
-      .click();
+      .getByTestId(dataTestIds.dashboard.arrivedButton);
+    // Wait for button to be visible and enabled before clicking
+    await arrivedButton.waitFor({ state: 'visible', timeout: 60000 });
+    await expect(arrivedButton).toBeEnabled({ timeout: 5000 });
+    await arrivedButton.click();
   }
 
   async clickOnPatientName(appointmentId: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
       .getByTestId(dataTestIds.dashboard.patientName)
-      .click();
+      .click({ timeout: 25000 });
   }
 
   async clickChatButton(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.dashboard.chatButton).click();
+    await this.#page.getByTestId(dataTestIds.dashboard.chatButton).click({ timeout: 25000 });
   }
 
   async clickPrebookedTab(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.prebookedTab).click();
-    await this.#page.waitForTimeout(15000);
   }
 
   async clickInOfficeTab(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.inOfficeTab).click();
-    await this.#page.waitForTimeout(15000);
   }
 
   async clickDischargedTab(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.dischargedTab).click();
-    await this.#page.waitForTimeout(15000);
   }
 
   async clickCancelledTab(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.cancelledTab).click();
-    await this.#page.waitForTimeout(15000);
   }
 
   async selectLocation(locationName: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.locationSelect).click();
     await this.#page.locator(`li[role="option"]:has-text("${locationName}")`).first().click();
+    await this.#page.keyboard.press('Escape');
+  }
+
+  /**
+   * Set the tracking-board date filter. Accepts MM/DD/YYYY format. The picker defaults
+   * to "today in the location's timezone" — call this when the appointment under test
+   * is scheduled for a different date (e.g. the first available pre-book slot rolled to
+   * tomorrow because the day's schedule is past closing).
+   */
+  async selectDate(date: string): Promise<void> {
+    const target = DateTime.fromFormat(date, 'MM/dd/yyyy');
+    await this.#page.getByTestId(dataTestIds.dashboard.dateFilter).click();
+    const dayButton = this.#page.getByTestId(dataTestIds.dashboard.datePickerDay(target.toISODate() ?? ''));
+    // The calendar opens on the currently selected month, which is not necessarily this month —
+    // step toward the target based on the month the calendar actually shows, re-read each pass.
+    for (let i = 0; i < 24 && !(await dayButton.isVisible()); i++) {
+      const shownMonthText = await this.#page.locator('.MuiPickersCalendarHeader-label').first().innerText();
+      const shownMonth = DateTime.fromFormat(shownMonthText, 'MMMM yyyy');
+      const monthArrowLabel =
+        shownMonth.isValid && target < shownMonth.startOf('month') ? 'Previous month' : 'Next month';
+      await this.#page.getByRole('button', { name: monthArrowLabel }).click();
+    }
+    // Clicking a day in single-date mode commits it as both range boundaries and closes the picker.
+    await dayButton.click();
   }
 
   async selectGroup(groupName: string): Promise<void> {
@@ -98,8 +133,20 @@ export class VisitsPage {
   }
 }
 
+async function waitForTrackingBoardReady(page: Page): Promise<void> {
+  await page.waitForURL(
+    (url) =>
+      url.pathname === '/visits' &&
+      url.searchParams.has('tab') &&
+      url.searchParams.has('visitType') &&
+      url.searchParams.has('dateFrom') &&
+      url.searchParams.has('dateTo'),
+    { timeout: 30000 }
+  );
+}
+
 export async function expectVisitsPage(page: Page): Promise<VisitsPage> {
-  await page.waitForURL(/visits/);
+  await waitForTrackingBoardReady(page);
   return new VisitsPage(page);
 }
 

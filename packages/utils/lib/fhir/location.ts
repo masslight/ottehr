@@ -1,23 +1,70 @@
 import Oystehr from '@oystehr/sdk';
-import { Encounter, HealthcareService, Location, Practitioner, Resource, Schedule } from 'fhir/r4b';
+import { Encounter, HealthcareService, Location, Practitioner, PractitionerRole, Resource, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  AvailableLocationInformation,
-  OVERRIDE_DATE_FORMAT,
-  ScheduleListItem,
-  ScheduleType,
-  TelemedLocation,
-  TIMEZONES,
-} from '../types';
-import { DOW, getScheduleExtension, getTimezone } from '../utils';
+import { ScheduleListItem } from '../types/api/schedules';
+import { AvailableLocationInformation, OVERRIDE_DATE_FORMAT, ScheduleType, ServiceMode } from '../types/common';
+import { TIMEZONES } from '../types/constants';
+import { TelemedLocation } from '../types/data/telemed/get-telemed-locations.types';
+import { DOW, getScheduleExtension, getTimezone } from '../utils/scheduleUtils';
 import { PUBLIC_EXTENSION_BASE_URL, SLUG_SYSTEM } from './constants';
+import { getAllFhirSearchPages } from './getAllFhirSearchPages';
 import { getFullName } from './patient';
 
-export const isLocationFacilityGroup = (location: Location): boolean => {
-  return Boolean(
-    location.extension?.find((ext) => ext.url === 'https://extensions.fhir.zapehr.com/location-form-pre-release')
-      ?.valueCoding?.code === 'si'
+export const LOCATION_FORM_EXTENSION_URL = `${PUBLIC_EXTENSION_BASE_URL}/location-form-pre-release`;
+export const LOCATION_PHYSICAL_TYPE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/location-physical-type';
+export const LOCATION_VIRTUAL_CODE = 'vi';
+export const LOCATION_FACILITY_GROUP_CODE = 'si';
+// Project-specific "form" marker written on the same location-form extension.
+// It is NOT a real HL7 location-physical-type code (that value set has no
+// in-person member) — it mirrors the loose convention already used for
+// 'vi' (virtual) and 'si' (facility group), which lets a Location be tagged
+// as both virtual and in-person at once.
+export const LOCATION_IN_PERSON_CODE = 'in-person';
+
+// Marks a Location created through the EHR admin "Add location" UI, as opposed
+// to one provisioned by terraform / setup scripts. Manually-created Locations
+// get their slug auto-generated from the name at create time; the admin is then
+// allowed to edit that slug afterward (terraform-managed slugs stay read-only).
+export const LOCATION_MANUALLY_CREATED_EXTENSION_URL = `${PUBLIC_EXTENSION_BASE_URL}/location-manually-created`;
+
+export const isLocationManuallyCreated = (location: Location): boolean =>
+  Boolean(
+    location.extension?.some((ext) => ext.url === LOCATION_MANUALLY_CREATED_EXTENSION_URL && ext.valueBoolean === true)
   );
+
+/**
+ * Whether a Location is bookable at all, as far as its active state is concerned.
+ *
+ * Deactivating a Location in Admin > Locations must remove it from *every* booking flow — the staff
+ * picker, the patient list, slug resolution, group-member resolution and slot creation. Each of
+ * those filters independently (some server-side, some over resources already in hand), so this pair
+ * exists to keep the rule identical across all of them rather than restated at each site.
+ *
+ * The rule is "not explicitly inactive", not "is explicitly active": `Location.status` is optional
+ * in FHIR, and a Location without one — seeded, imported, or created outside `scaffoldLocation` —
+ * must stay bookable. Using `=== 'active'` in some places and `!== 'inactive'` in others is exactly
+ * how a status-less Location came to be hidden from the patient list while still bookable by link.
+ *
+ * This does NOT cover the other bookability criteria (a slug, a service mode, an actual Schedule);
+ * callers still apply those. See {@link LOCATION_BOOKABLE_SEARCH_PARAM} for the server-side form.
+ */
+export const isLocationBookable = (location: Pick<Location, 'status'>): boolean => location.status !== 'inactive';
+
+/**
+ * The FHIR search-param form of {@link isLocationBookable}, for queries that must exclude
+ * deactivated Locations at the server rather than after the fact.
+ *
+ * `status:not` because Location has no `active` search param (unlike PractitionerRole and
+ * HealthcareService, which use `active:not`), and because `:not` also matches resources where the
+ * field is absent — the status-less Locations described above.
+ */
+export const LOCATION_BOOKABLE_SEARCH_PARAM = { name: 'status:not', value: 'inactive' } as const;
+
+const hasLocationFormCoding = (location: Location | Schedule, code: string): boolean =>
+  Boolean(location.extension?.some((ext) => ext.url === LOCATION_FORM_EXTENSION_URL && ext.valueCoding?.code === code));
+
+export const isLocationFacilityGroup = (location: Location): boolean => {
+  return hasLocationFormCoding(location, LOCATION_FACILITY_GROUP_CODE);
 };
 
 export async function getLocationResource(locationID: string, oystehr: Oystehr): Promise<Location | undefined> {
@@ -39,10 +86,47 @@ export async function getLocationResource(locationID: string, oystehr: Oystehr):
 }
 
 export const isLocationVirtual = (location: Location | Schedule): location is Location => {
-  return Boolean(
-    location.extension?.find((ext) => ext.url === `${PUBLIC_EXTENSION_BASE_URL}/location-form-pre-release`)?.valueCoding
-      ?.code === 'vi'
-  );
+  // Use `.some` rather than `.find(...)?.code === 'vi'`: a Location may now carry
+  // multiple codings on this URL (e.g. both virtual and in-person, plus a
+  // facility-group 'si'), and `.find` only inspects whichever coding happens to
+  // come first — which would silently break detection for dual-mode Locations.
+  return hasLocationFormCoding(location, LOCATION_VIRTUAL_CODE);
+};
+
+/**
+ * True when the Location should appear in in-person contexts (booking pick-lists,
+ * lab-ordering locations, etc.). A Location can be both virtual and in-person.
+ *
+ * Backward-compat: Locations created before the in-person flag existed have no
+ * explicit in-person coding, so they're treated as in-person unless they're
+ * virtual — preserving the legacy "no location-form coding = physical location"
+ * semantic. A virtual-only Location stays out of in-person lists until an admin
+ * explicitly marks it in-person.
+ */
+export const isLocationInPerson = (location: Location | Schedule): boolean => {
+  return hasLocationFormCoding(location, LOCATION_IN_PERSON_CODE) || !isLocationVirtual(location);
+};
+
+/**
+ * The single capability seam for "can this Location fulfill this service mode?"
+ *
+ * Today capability is read straight off the Location's mode codings
+ * (isLocationVirtual / isLocationInPerson). This is deliberately the ONLY place
+ * booking reconciles a requested service mode against a Location: both the
+ * get-schedule surfacing filter (which prunes member schedules a group offers
+ * in a mode their Location can't serve) and the create-appointment guard call
+ * through here.
+ *
+ * It is intentionally a chokepoint. The known-flawed part of the current model
+ * is that virtual capability + state licensure are proxied through virtual
+ * Location resources rather than owned by the provider. When that moves to a
+ * provider-credentialing model, booking's mode-capability rule should be
+ * changeable by replacing this function's body (and, for virtual, threading the
+ * patient's jurisdiction), without hunting the check across the surfacing and
+ * validation paths. Keep new mode-vs-Location checks funneled through here.
+ */
+export const locationSupportsServiceMode = (location: Location, mode: ServiceMode): boolean => {
+  return mode === ServiceMode.virtual ? isLocationVirtual(location) : isLocationInPerson(location);
 };
 
 export const filterVirtualLocations = (resources: Resource[]): Location[] => {
@@ -72,8 +156,8 @@ export async function getTelemedLocation(oystehr: Oystehr, state: string): Promi
 }
 
 export async function getTelemedLocations(oystehr: Oystehr): Promise<TelemedLocation[] | undefined> {
-  const resources = (
-    await oystehr.fhir.search<Location | Schedule>({
+  const resources = await getAllFhirSearchPages<Location | Schedule>(
+    {
       resourceType: 'Location',
       params: [
         {
@@ -81,8 +165,9 @@ export async function getTelemedLocations(oystehr: Oystehr): Promise<TelemedLoca
           value: 'Schedule:actor:Location',
         },
       ],
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
 
   const telemedLocations = resources.filter(
     (location) => location.resourceType === 'Location' && isLocationVirtual(location)
@@ -114,8 +199,6 @@ export async function getTelemedLocations(oystehr: Oystehr): Promise<TelemedLoca
   ) as TelemedLocation[];
   return filteredLocations;
 }
-
-export const TELEMED_INITIAL_STATES = ['NJ', 'OH'];
 
 export const defaultLocation: Location = {
   resourceType: 'Location',
@@ -183,7 +266,7 @@ export const defaultLocation: Location = {
 // todo 1.8: this needs to take a schedule (or be async and go get a schedule), have a better name
 // also check that this data is truly needed everywhere it is used
 export function getLocationInformation(
-  scheduleResource: Location | Practitioner | HealthcareService,
+  scheduleResource: Location | Practitioner | PractitionerRole | HealthcareService,
   schedule?: Schedule
 ): AvailableLocationInformation {
   const slug = scheduleResource.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value;
@@ -198,6 +281,12 @@ export function getLocationInformation(
       scheduleType = ScheduleType['group'];
       break;
     case 'Practitioner':
+      scheduleType = ScheduleType['provider'];
+      break;
+    case 'PractitionerRole':
+      // A PractitionerRole scheduleOwner surfaces as a "provider" for the
+      // patient-facing flows — from the patient's perspective they're still
+      // booking with a specific provider, just via the role binding.
       scheduleType = ScheduleType['provider'];
       break;
   }
@@ -217,7 +306,13 @@ export function getLocationInformation(
   };
 }
 
-function getName(item: Location | Practitioner | HealthcareService): string {
+function getName(item: Location | Practitioner | PractitionerRole | HealthcareService): string {
+  if (item.resourceType === 'PractitionerRole') {
+    // PractitionerRoles don't carry a display name — the caller should fetch
+    // the underlying Practitioner for a pretty label. Return a role-id-scoped
+    // placeholder so reports/UIs don't blow up.
+    return `Role ${item.id ?? ''}`.trim() || 'Unknown';
+  }
   if (!item.name) {
     return 'Unknown';
   }

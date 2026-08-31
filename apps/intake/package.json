@@ -1,42 +1,53 @@
 {
   "name": "intake-ui",
-  "version": "1.15.6",
+  "version": "1.42.1",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "vite --mode ${ENV:-default}",
+    "start": "npm run start:iac",
     "start:local": "ENV=default npm run start",
     "start:demo": "ENV=demo npm run start",
-    "build": "tsc && vite build --mode default",
+    "start:labcorp": "ENV=labcorp-local npm run start",
+    "start:iac": "vite --mode ${ENV:-default}",
+    "start:local:iac": "ENV=default npm run start:iac",
+    "start:demo:iac": "ENV=demo npm run start:iac",
+    "build": "concurrently --kill-others-on-fail \"tsc\" \"vite build --mode default\"",
     "build:env": "ENV=$npm_config_env ROBOTS_FILE=lowers npm run build-skeleton",
+    "build:local": "npm run build",
+    "build:e2e": "ENV=e2e ROBOTS_FILE=lowers npm run build-skeleton",
+    "build:e2e2": "ENV=e2e2 ROBOTS_FILE=lowers npm run build-skeleton",
+    "build:e2e3": "ENV=e2e3 ROBOTS_FILE=lowers npm run build-skeleton",
+    "build:e2e5": "NODE_OPTIONS=${NODE_OPTIONS:---max-old-space-size=8192} ENV=e2e5 ROBOTS_FILE=lowers npm run build-skeleton",
+    "build:e2e4": "NODE_OPTIONS=${NODE_OPTIONS:---max-old-space-size=8192} ENV=e2e4 ROBOTS_FILE=lowers npm run build-skeleton",
     "build:development": "ENV=development ROBOTS_FILE=lowers npm run build-skeleton",
     "build:testing": "ENV=testing ROBOTS_FILE=lowers npm run build-skeleton",
     "build:staging": "ENV=staging ROBOTS_FILE=lowers npm run build-skeleton",
     "build:demo": "ENV=demo ROBOTS_FILE=lowers npm run build-skeleton",
-    "build-skeleton": "tsc && vite build --mode ${ENV} && cp src/themes/ottehr/robots-${ROBOTS_FILE}.txt build/robots.txt",
-    "ci-deploy:development": "SOURCEMAPS=true VITE_APP_ENV=development VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') npm run build:development && aws s3 sync build/ s3://ottehr-dee6ce00-3e2f-45bc-bb3f-ab534e660109-intake.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id EE5NJVFS1PRSN --paths '/*' --region us-east-1",
-    "ci-deploy:testing": "SOURCEMAPS=true VITE_APP_ENV=testing VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') npm run build:testing && aws s3 sync build/ s3://ottehr-aa616522-24b3-493b-b730-6cf48089c8bf-intake.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id EJ314KY116TGI --paths '/*' --region us-east-1",
-    "ci-deploy:staging": "SOURCEMAPS=true VITE_APP_ENV=staging VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') npm run build:staging && aws s3 sync build/ s3://ottehr-4644976f-3ae4-490c-8c7a-f7ddb22e01e0-intake.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id E2IPEEEP9PTTDC --paths '/*' --region us-east-1",
-    "ci-deploy:demo": "SOURCEMAPS=true VITE_APP_ENV=demo VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') npm run build:demo && aws s3 sync build/ s3://telemed.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id EIYX001DGGQK8 --paths '/*' --region us-east-1",
-    "ci-deploy-skeleton": "SOURCEMAPS=true VITE_APP_ENV=${ENV} VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') npm run build:env --env=${ENV} && aws s3 sync build/ s3://intake-${PREFIX}.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_ID} --paths '/*' --region us-east-1",
+    "build:production": "ENV=production ROBOTS_FILE=production npm run build-skeleton",
+    "preview": "vite preview --port 3002",
+    "build-skeleton": "tsc && npm run build-bundle",
+    "build-bundle": "VITE_APP_ENV=${ENV} VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') vite build --mode ${ENV} && cp src/themes/ottehr/robots-${ROBOTS_FILE:-lowers}.txt build/robots.txt",
     "unit-tests": "vitest --config ./vitest.config.ts",
     "component-tests": "vitest --config ./vitest.config.component-tests.ts",
     "test": "npm run unit-tests -- --watch=false && npm run component-tests -- --watch=false",
+    "test:unit:ci": "vitest run --config ./vitest.config.ts --passWithNoTests --reporter=dot --reporter=github-actions",
+    "test:component:ci": "vitest run --config ./vitest.config.component-tests.ts --passWithNoTests --reporter=dot --reporter=github-actions",
     "list-distributions": "aws cloudfront list-distributions --query 'DistributionList.Items[*].Id' --output text",
     "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 .",
     "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 --fix .",
     "e2e:login": "npm run e2e-skeleton ./tests/login/",
-    "e2e:specs": "npm run e2e-skeleton ./tests/specs/",
-    "e2e:specs:ui": "npm run e2e-skeleton ./tests/specs/ -- --ui",
-    "e2e:specs:in-person": "npm run e2e-skeleton ./tests/specs/in-person/ -- --ui",
-    "e2e:specs:telemed": "npm run e2e-skeleton ./tests/specs/telemed/ -- --ui",
+    "e2e:specs": "npm run e2e-skeleton -- --project=e2e $PLAYWRIGHT_EXTRA_ARGS",
+    "e2e:specs:ui": "npm run e2e-skeleton -- --project=e2e --ui $PLAYWRIGHT_EXTRA_ARGS",
+    "e2e:specs:legacy": "npm run e2e-skeleton -- --project=chromium $PLAYWRIGHT_EXTRA_ARGS",
+    "e2e:specs:legacy:in-person": "npm run e2e-skeleton -- --project=chromium ./tests/specs/in-person/ --ui",
+    "e2e:specs:legacy:telemed": "npm run e2e-skeleton -- --project=chromium ./tests/specs/telemed/ --ui",
     "e2e:manual-login": "node ./auth.setup.js",
-    "e2e-skeleton": "env-cmd -f ./env/tests.${ENV}.json playwright test",
+    "e2e-skeleton": "cross-env NODE_OPTIONS='--preserve-symlinks --import tsx/esm' env-cmd -f ./env/tests.${ENV}.json npx playwright test",
     "setup-test-deps": "node setup-test-deps.js"
   },
   "engines": {
-    "node": ">=20.0.0",
-    "npm": ">=9.0.0"
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
   },
   "browserslist": {
     "production": [
@@ -51,6 +62,7 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "tsconfig": "*",
     "vite-plugin-istanbul": "^6.0.2",
     "vitest": "^3.0.4"
@@ -61,7 +73,6 @@
     "@stripe/stripe-js": "^3.5.0",
     "react-markdown": "^9.0.0",
     "ui-components": "*",
-    "utils": "*",
-    "vitest": "^3.0.4"
+    "utils": "*"
   }
 }

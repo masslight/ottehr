@@ -1,26 +1,28 @@
-import { InitTelemedSessionRequestParams } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { InitTelemedSessionRequestParams } from 'utils/lib/types/api/init-telemed-session/init-telemed-session.types';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { z } from 'zod';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
+
+const InitTelemedSessionSchema = z.object({
+  appointmentId: z.string().uuid(),
+  userId: z.string().uuid(),
+});
 
 export function validateRequestParameters(
   input: ZambdaInput
 ): InitTelemedSessionRequestParams & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  const { appointmentId, userId } = JSON.parse(input.body);
+  const parsedJSON = safeJsonParse(input.body);
 
-  if (appointmentId === undefined) {
-    throw new Error('These fields are required: "appointmentId"');
-  }
-
-  if (userId === undefined) {
-    throw new Error('These fields are required: "userName"');
-  }
+  const { appointmentId, userId } = safeValidate(InitTelemedSessionSchema, parsedJSON);
 
   return {
-    appointmentId: appointmentId,
-    userId: userId,
+    appointmentId,
+    userId,
     secrets: input.secrets,
   };
 }

@@ -1,22 +1,47 @@
 import { Appointment, Encounter, EncounterParticipant, EncounterStatusHistory } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { FHIR_EXTENSION } from '../fhir/constants';
 import {
-  InPersonAppointmentInformation,
+  SupervisorApprovalStatus,
   VisitStatusHistoryEntry,
   VisitStatusHistoryLabel,
   VisitStatusLabel,
-} from 'utils';
+} from '../types/api/appointment.types';
+import { InPersonAppointmentInformation } from '../types/data/appointments/appointments.types';
+
+export const NON_LOS_STATUSES: VisitStatusHistoryLabel[] = [
+  'pending',
+  'no show',
+  'cancelled',
+  'completed',
+  'discharged',
+  'awaiting supervisor approval',
+];
 
 export const getDurationOfStatus = (statusEntry: VisitStatusHistoryEntry, dateTimeNow: DateTime): number => {
+  const minutesElapsed = (end: DateTime, start: DateTime): number => {
+    const minutes = Math.floor(end.diff(start, 'minutes').minutes);
+    return Number.isFinite(minutes) ? Math.max(0, minutes) : 0;
+  };
+
   if (statusEntry.period.start && statusEntry.period.end) {
-    return DateTime.fromISO(statusEntry.period.end).diff(DateTime.fromISO(statusEntry.period.start), 'minutes').minutes;
+    return minutesElapsed(DateTime.fromISO(statusEntry.period.end), DateTime.fromISO(statusEntry.period.start));
   } else if (statusEntry.period.start) {
-    const stopCountingForStatus: VisitStatusHistoryLabel[] = ['cancelled', 'no show', 'completed'];
-    if (!stopCountingForStatus.includes(statusEntry.status)) {
-      return dateTimeNow.diff(DateTime.fromISO(statusEntry.period.start), 'minutes').minutes;
-    }
+    return minutesElapsed(dateTimeNow, DateTime.fromISO(statusEntry.period.start));
   }
   return 0;
+};
+
+export const getTelemedLength = (history?: EncounterStatusHistory[]): number => {
+  const value = history?.find((item) => item.status === 'in-progress');
+  if (!value || !value.period.start) {
+    return 0;
+  }
+
+  const { start, end } = value.period;
+  const duration = DateTime.fromISO(start).diff(end ? DateTime.fromISO(end) : DateTime.now(), ['minute']);
+
+  return Math.abs(duration.minutes);
 };
 
 export const getVisitTotalTime = (
@@ -26,7 +51,7 @@ export const getVisitTotalTime = (
 ): number => {
   if (appointment.start) {
     return visitStatusHistory
-      .filter((status) => status.status !== 'pending')
+      .filter((status) => !NON_LOS_STATUSES.includes(status.status))
       .reduce((accumulator, statusTemp) => {
         return accumulator + getDurationOfStatus(statusTemp, dateTimeNow);
       }, 0);
@@ -38,7 +63,11 @@ export const formatMinutes = (minutes: number): string => {
   return minutes.toLocaleString('en', { maximumFractionDigits: 0 });
 };
 
-export const getVisitStatus = (appointment: Appointment, encounter: Encounter): VisitStatusLabel => {
+export const getInPersonVisitStatus = (
+  appointment: Appointment,
+  encounter: Encounter,
+  supervisorApprovalEnabled = false
+): VisitStatusLabel => {
   const admitterParticipant = encounter.participant?.find(
     (p) => p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ADM'))
   );
@@ -59,7 +88,7 @@ export const getVisitStatus = (appointment: Appointment, encounter: Encounter): 
       return 'discharged';
     } else if (attenderParticipant?.period?.start) {
       return 'provider';
-    } else if (admitterParticipant?.period?.end) {
+    } else if (!admitterParticipant || admitterParticipant?.period?.end) {
       return 'ready for provider';
     } else {
       return 'intake';
@@ -69,22 +98,67 @@ export const getVisitStatus = (appointment: Appointment, encounter: Encounter): 
   } else if (appointment.status === 'noshow') {
     return 'no show';
   } else if (encounter.status === 'finished') {
+    const awaitingSupervisorApproval = encounter.extension?.some(
+      (extension) => extension.url === 'awaiting-supervisor-approval' && extension.valueBoolean === true
+    );
+
+    if (supervisorApprovalEnabled && awaitingSupervisorApproval) {
+      return 'awaiting supervisor approval';
+    }
+
     return 'completed';
   }
 
   return 'unknown';
 };
 
+/**
+ * Visit statuses past the point of charting — the visit is a record to read, not work in progress.
+ *
+ * Deliberately separate from the appointment lock meta tag (`isAppointmentLocked`): that tag is only
+ * written by sign-appointment, so visits signed before locking was introduced carry none, and a
+ * visit awaiting supervisor approval is never tagged at all. Anything gating the chart on "still
+ * being worked" has to consult the status too, or it retroactively hides finished visits.
+ */
+export const FINISHED_VISIT_STATUSES: readonly VisitStatusLabel[] = [
+  'completed',
+  'awaiting supervisor approval',
+  'cancelled',
+  'no show',
+];
+
+/** True when the visit has reached a status past charting. See {@link FINISHED_VISIT_STATUSES}. */
+export const isVisitFinished = (appointment?: Appointment, encounter?: Encounter): boolean => {
+  if (!appointment || !encounter) {
+    return false;
+  }
+  // Supervisor approval resolved as enabled so the awaiting-approval status surfaces; with it off
+  // that same visit reports 'completed', and both are finished for this purpose.
+  return FINISHED_VISIT_STATUSES.includes(getInPersonVisitStatus(appointment, encounter, true));
+};
+
 export const getVisitStatusHistory = (encounter: Encounter): VisitStatusHistoryEntry[] => {
   const visitHistory: VisitStatusHistoryEntry[] = [];
 
   encounter?.statusHistory?.forEach((statusHist: EncounterStatusHistory) => {
-    if (statusHist.status === 'in-progress') {
-      if (encounter?.participant) {
-        const inProgressHistories = getInProgressVisitHistories(statusHist, encounter.participant);
-        visitHistory.push(...inProgressHistories);
-      }
+    const ottehrStatusFromExtension = statusHist.extension?.find(
+      (ext) => ext.url === FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url
+    )?.valueCode;
+
+    if (ottehrStatusFromExtension) {
+      visitHistory.push({
+        status: ottehrStatusFromExtension as VisitStatusHistoryLabel,
+        period: {
+          ...(statusHist.period.start && { start: statusHist.period.start }),
+          ...(statusHist.period.end && { end: statusHist.period.end }),
+        },
+      });
+    } else if (statusHist.status === 'in-progress' && encounter?.participant) {
+      // fallback: that's old logic, but that's wrong, because we need to compare with history participants, not with current ones
+      const inProgressHistories = getInProgressVisitHistories(statusHist, encounter.participant);
+      visitHistory.push(...inProgressHistories);
     } else {
+      // fallback to old logic
       const curVisitHistory: any = {};
       if (statusHist.status === 'planned') {
         curVisitHistory.status = 'pending';
@@ -95,13 +169,17 @@ export const getVisitStatusHistory = (encounter: Encounter): VisitStatusHistoryE
       } else if (statusHist.status === 'finished') {
         curVisitHistory.status = 'completed';
       }
-      curVisitHistory.period = statusHist.period;
-      visitHistory.push(curVisitHistory);
+
+      if (curVisitHistory.status) {
+        curVisitHistory.period = statusHist.period;
+        visitHistory.push(curVisitHistory);
+      }
     }
   });
   return visitHistory;
 };
 
+// for backward compatibility
 const getInProgressVisitHistories = (
   statusHistory: EncounterStatusHistory,
   participantArray: EncounterParticipant[]
@@ -114,7 +192,7 @@ const getInProgressVisitHistories = (
     if (isAdmitter && participantDetails?.period && participantDetails?.period?.start) {
       acc.push({
         status: 'intake',
-        period: participantDetails.period,
+        period: { ...participantDetails.period },
       });
       // add a status history for 'ready for provider' with a start time == intake end time
       if (participantDetails.period?.end) {
@@ -127,7 +205,7 @@ const getInProgressVisitHistories = (
     } else if (isAttender && participantDetails?.period && participantDetails?.period?.start) {
       acc.push({
         status: 'provider',
-        period: participantDetails.period,
+        period: { ...participantDetails.period },
       });
       // add a status history for 'discharged' with a start time == provider end time
       if (participantDetails.period?.end) {
@@ -167,4 +245,23 @@ const getInProgressVisitHistories = (
   }
 
   return histories;
+};
+
+export const getSupervisorApprovalStatus = (
+  appointment?: Appointment,
+  encounter?: Encounter
+): SupervisorApprovalStatus => {
+  if (!appointment || !encounter) {
+    return 'loading';
+  }
+
+  const visitStatus = getInPersonVisitStatus(appointment, encounter, true);
+
+  if (visitStatus === 'awaiting supervisor approval') {
+    return 'waiting-for-approval';
+  } else if (visitStatus === 'completed') {
+    return 'approved';
+  }
+
+  return 'unknown';
 };

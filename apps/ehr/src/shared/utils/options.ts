@@ -1,24 +1,18 @@
-import { medicationApplianceLocations, medicationApplianceRoutes } from 'utils';
-
-export const UNIT_OPTIONS = [
-  { value: 'mg', label: 'mg' },
-  { value: 'ml', label: 'mL' },
-  { value: 'g', label: 'g' },
-  { value: 'cc', label: 'cc' },
-  { value: 'unit', label: 'unit' },
-  { value: 'application', label: 'application' },
-];
+import {
+  medicationApplianceLocations,
+  medicationApplianceRoutes,
+} from 'utils/lib/types/api/medication-administration.types';
 
 export const ROUTE_OPTIONS = Object.entries(medicationApplianceRoutes)
   .map(([_, value]) => ({
-    value: value.code,
-    label: value.display ?? '',
+    code: value.code,
+    name: value.display ?? '',
   }))
-  ?.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+  ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 
 export const LOCATION_OPTIONS = Object.entries(medicationApplianceLocations)
   .map(([_, value]) => ({
-    value: value.code,
-    label: value.display ?? '',
+    code: value.code,
+    name: value.name ?? '',
   }))
-  ?.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+  ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));

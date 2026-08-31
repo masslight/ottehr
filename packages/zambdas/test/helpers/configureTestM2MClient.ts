@@ -1,14 +1,12 @@
-import Oystehr from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { SECRETS } from '../data/secrets';
 
 export const ensureM2MPractitionerProfile = async (token: string): Promise<void> => {
   const { FHIR_API, PROJECT_ID, PROJECT_API } = SECRETS;
-  const projectApiClient = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: FHIR_API,
-    projectApiUrl: PROJECT_API,
+  const projectApiClient = createClinicalOystehrClient(token, SECRETS, {
     projectId: PROJECT_ID,
+    services: { fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API },
   });
 
   const practitionerForM2M = await projectApiClient.fhir.create<Practitioner>({
@@ -51,3 +49,8 @@ export const ensureM2MPractitionerProfile = async (token: string): Promise<void>
   });
   expect(m2mPractitioner).toBeDefined();
 };
+
+export enum m2mClientMockType {
+  mockProvider = 'mock-provider',
+  mockPatient = 'mock-patient',
+}
