@@ -195,6 +195,7 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
   const diagnosticReports: DiagnosticReport[] = [];
   const observations: Observation[] = [];
   const schedules: Schedule[] = [];
+  const serviceRequests: ServiceRequest[] = [];
 
   resourceSearch.forEach((resource) => {
     if (resource.resourceType === 'Patient') patients.push(resource);
@@ -223,7 +224,6 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
   const diagnosticReport = diagnosticReports[0];
   const schedule = schedules.length ? schedules[0] : undefined;
 
-  const serviceRequests: ServiceRequest[] = [];
   if (type === 'unsolicited') {
     serviceRequests.push(
       ...resourceSearch.filter(
