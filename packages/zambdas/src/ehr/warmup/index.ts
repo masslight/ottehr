@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
-import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { ZambdaInput } from '../../shared/types/common';
 
 let m2mToken: string;
 
@@ -83,6 +84,39 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     );
     console.timeEnd(`Zambda Execute Auth warmup 2. Performed ${WARMUP_SIZE} execute-auth requests at the same instant`);
     // console.log('execute auth warmup 2 results: ', JSON.stringify(executeAuthWarmupResults2));
+
+    console.time(`Terminology CPT search warmup. Performed ${WARMUP_SIZE} CPT search requests at the same instant`);
+    const _cptWarmupResults = await Promise.allSettled(
+      Array.from({ length: WARMUP_SIZE }, () =>
+        oystehr.terminology.searchCpt({ searchType: 'code', strictMatch: true, query: 'warmup-attempt', limit: 1 })
+      )
+    );
+    console.timeEnd(`Terminology CPT search warmup. Performed ${WARMUP_SIZE} CPT search requests at the same instant`);
+    // console.log('CPT search warmup results: ', JSON.stringify(cptWarmupResults));
+
+    console.time(`Terminology HCPCS search warmup. Performed ${WARMUP_SIZE} HCPCS search requests at the same instant`);
+    const _hcpcsWarmupResults = await Promise.allSettled(
+      Array.from({ length: WARMUP_SIZE }, () =>
+        oystehr.terminology.searchHcpcs({ searchType: 'code', strictMatch: true, query: 'warmup-attempt', limit: 1 })
+      )
+    );
+    console.timeEnd(
+      `Terminology HCPCS search warmup. Performed ${WARMUP_SIZE} HCPCS search requests at the same instant`
+    );
+    // console.log('HCPCS search warmup results: ', JSON.stringify(hcpcsWarmupResults));
+
+    console.time(
+      `Terminology ICD-10 search warmup. Performed ${WARMUP_SIZE} ICD-10 search requests at the same instant`
+    );
+    const _icd10WarmupResults = await Promise.allSettled(
+      Array.from({ length: WARMUP_SIZE }, () =>
+        oystehr.terminology.searchIcd10({ searchType: 'code', strictMatch: true, query: 'warmup-attempt', limit: 1 })
+      )
+    );
+    console.timeEnd(
+      `Terminology ICD-10 search warmup. Performed ${WARMUP_SIZE} ICD-10 search requests at the same instant`
+    );
+    // console.log('ICD-10 search warmup results: ', JSON.stringify(icd10WarmupResults));
 
     return {
       body: JSON.stringify('warmup completed'),
