@@ -526,7 +526,8 @@ export default function PatientPaymentList({
 
   const removeCardOnFile = useMutation({
     mutationFn: async () => {
-      if (!oystehrZambda || !patient?.id || !appointment?.id) throw new Error('Oystehr client is not available');
+      if (!oystehrZambda || !patient?.id || !appointment?.id)
+        throw new Error('Missing oystehr client, patient id, or appointment id');
       await oystehrZambda.zambda.execute({
         id: 'payment-methods-unset-default',
         beneficiaryPatientId: patient.id,

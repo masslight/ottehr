@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
-import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
@@ -21,12 +21,7 @@ export const index = wrapHandler(
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!oystehrM2MClientToken) {
-      console.log('getting m2m token for service calls');
-      oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
+    oystehrM2MClientToken = await checkOrCreateM2MClientToken(oystehrM2MClientToken, secrets);
     const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
 
     void (await validateUserHasAccessToPatientAccount(
