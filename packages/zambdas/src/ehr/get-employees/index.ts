@@ -2,7 +2,6 @@ import Oystehr, { RoleListItem, UserListItem } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Practitioner, PractitionerQualification, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getResourcesFromBatchInlineRequests } from 'utils/lib/fhir/helpers';
 import { getFirstName, getLastName, getProviderNotificationPreferencesV2 } from 'utils/lib/fhir/patient';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
@@ -77,19 +76,64 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     .filter((employee) => employee.profile?.startsWith('Practitioner/'))
     .map((employee) => employee.profile.split('/')[1]);
 
-  // Lite mode skips the organization-wide Encounter queries (used only for `seenPatientRecently`)
-  // and trims Practitioner _elements to just what's needed for names.
-  const fhirRequests = lite
-    ? [`Practitioner?_id=${practitionerIds.join(',')}&_elements=id,name`]
-    : (() => {
-        const encounterCutDate = DateTime.now().minus({ minutes: 30 }).toFormat("yyyy-MM-dd'T'HH:mm");
-        return [
-          `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,meta,qualification,name,extension,telecom`,
-          `Encounter?status=in-progress&_elements=id,participant`,
-          `Encounter?status=finished&date=gt${encounterCutDate}&_elements=id,participant`,
-        ];
-      })();
-  const getResourcesRequest = getResourcesFromBatchInlineRequests(oystehr, fhirRequests);
+  // Lite mode skips the Encounter queries (used only for `seenPatientRecently`) and trims
+  // Practitioner _elements to just what's needed for names.
+  //
+  // These used to be one `fhir.batch` of inline GETs, but a FHIR batch runs its entries one after
+  // another server-side, so the batch cost the SUM of the three searches — and one of them dominated
+  // everything. Issued as concurrent searches, the cost is the max instead. They are also POST
+  // searches rather than batch GETs, so the participant filter below is not constrained by URL
+  // length.
+  const encounterCutDate = DateTime.now().minus({ minutes: 30 }).toFormat("yyyy-MM-dd'T'HH:mm");
+  const practitionerRefs = practitionerIds.map((id) => `Practitioner/${id}`);
+
+  const practitionerSearch: Promise<Resource[]> = practitionerIds.length
+    ? oystehr.fhir
+        .search<Practitioner>({
+          resourceType: 'Practitioner',
+          params: [
+            { name: '_id', value: practitionerIds.join(',') },
+            {
+              name: '_elements',
+              value: lite ? 'id,name' : 'id,meta,qualification,name,extension,telecom',
+            },
+            { name: '_count', value: `${practitionerIds.length}` },
+          ],
+        })
+        .then((bundle) => bundle.unbundle())
+    : Promise.resolve([]);
+
+  const encounterSearches: Promise<Resource[]>[] = lite
+    ? []
+    : [
+        oystehr.fhir
+          .search<FhirResource>({
+            resourceType: 'Encounter',
+            params: [
+              { name: 'status', value: 'in-progress' },
+              { name: '_elements', value: 'id,participant' },
+            ],
+          })
+          .then((bundle) => bundle.unbundle()),
+        // Scoped to the employees whose refs are the only ones this endpoint goes on to test. The
+        // unscoped version of this search was by far the most expensive thing the endpoint did
+        // (measured at ~3.5s against ~190ms scoped); the result is the same, because an encounter can
+        // only contribute an employee's ref if that employee participates in it, which is exactly
+        // what the filter selects for.
+        oystehr.fhir
+          .search<FhirResource>({
+            resourceType: 'Encounter',
+            params: [
+              { name: 'status', value: 'finished' },
+              { name: 'date', value: `gt${encounterCutDate}` },
+              ...(practitionerRefs.length ? [{ name: 'participant', value: practitionerRefs.join(',') }] : []),
+              { name: '_elements', value: 'id,participant' },
+            ],
+          })
+          .then((bundle) => bundle.unbundle()),
+      ];
+
+  const getResourcesRequest = Promise.all([practitionerSearch, ...encounterSearches]).then((results) => results.flat());
 
   console.log('Do mixed promises in parallel...');
 
