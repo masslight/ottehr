@@ -46,6 +46,7 @@ import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination
 import { radiologyStudiesConfig } from 'utils/lib/ottehr-config/radiology';
 import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { procedureQuickPickContext } from '../executor/procedure-quick-pick';
+import { matchStaticOptions } from '../executor/static-options';
 import {
   Catalogue,
   CatalogueMatch,
@@ -262,21 +263,6 @@ export function useCatalogue(options: UseCatalogueOptions = {}): Catalogue {
       },
     }),
     [examLeaves, oystehr, loadTemplates, searchInHouseLabs, searchExternalLabs, loadProcedureQuickPicks]
-  );
-}
-
-/**
- * A named-option list (`{ display, code }`) matched against the dictated name. `payload` carries the
- * whole option, because the write needs its code and not just its label.
- */
-function matchStaticOptions(query: CatalogueQuery, options: { display?: string; code?: string }[]): CatalogueMatch[] {
-  return matchNamedCatalogue(query.display, query.searchTerms, options, (option) => option.display ?? '').map(
-    (scored) => ({
-      id: scored.item.code ?? scored.item.display ?? '',
-      display: scored.item.display ?? '',
-      score: scored.score,
-      payload: scored.item,
-    })
   );
 }
 

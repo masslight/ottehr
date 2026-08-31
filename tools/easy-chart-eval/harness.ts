@@ -12,8 +12,11 @@ import { findExamLeafMatches, findRosMatches, RosCatalogueEntry } from 'utils/li
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { buildChartSnapshot } from '../../apps/ehr/src/features/easy-chart/executor/chartSnapshot';
+import { matchStaticOptions } from '../../apps/ehr/src/features/easy-chart/executor/static-options';
 import { CatalogueMatch, CatalogueQuery, CatalogueResult } from '../../apps/ehr/src/features/easy-chart/executor/types';
 import { Catalogue, ChartWriter, HandlerContext } from '../../apps/ehr/src/features/easy-chart/executor/types';
+import { HospitalizationOptions } from '../../apps/ehr/src/features/visits/in-person/components/hospitalization/hospitalizationOptions';
+import { SURGICAL_HISTORY_OPTIONS } from '../../apps/ehr/src/features/visits/shared/components/medical-history-tab/SurgicalHistory/surgicalHistoryOptions';
 
 /** Resolve a query to itself: the dictated name IS the match. Used where a real catalogue would put a
  * practice's inventory between the model and the score. */
@@ -54,8 +57,14 @@ export function buildEvalContext(): { context: HandlerContext; writer: ChartWrit
     medications: echo,
     allergies: echo,
     conditions: echo,
-    surgicalHistory: echo,
-    hospitalizations: echo,
+    // REAL, not stubbed. Both are static lists compiled into the app — 31 CPT-coded operations and 29
+    // SNOMED-coded admission reasons — identical for every practice, so there is no per-customer
+    // inventory to keep out of the score and nothing was bought by stubbing them. What it COST was the
+    // code: these handlers chart `{ display: match.display, ...match.payload }`, and `echo` carries no
+    // payload, so the row went in as a bare label while the gold note holds a code. Resolved through the
+    // app's own matchStaticOptions so this cannot drift from what ships.
+    surgicalHistory: async (query) => matchStaticOptions(query, SURGICAL_HISTORY_OPTIONS),
+    hospitalizations: async (query) => matchStaticOptions(query, HospitalizationOptions),
     templates: echo,
     procedures: echo,
     labs: echo,
