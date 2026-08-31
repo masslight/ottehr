@@ -995,7 +995,8 @@ export default function PatientPaymentList({
             </GenericToolTip>
           )}
         </Box>
-        {(patientCreditCents ?? 0) > 0 && (
+        {/* Outstanding credit banner intentionally hidden (OTR-3309) */}
+        {false && (patientCreditCents ?? 0) > 0 && (
           <Alert
             severity="success"
             variant="outlined"
