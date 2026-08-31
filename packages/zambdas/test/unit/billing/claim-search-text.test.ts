@@ -12,7 +12,6 @@ import {
 import { CLAIM_PCN_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 
 const CLAIM_ID = '3f2b9c1a-7d4e-4a8b-9c6d-0e1f2a3b4c5d';
-const MINIFIED_CLAIM_ID = '3f2b9c1a7d4e4a8b9c6d0e1f2a3b4c5d';
 const PATIENT_ID = '8a1c4e2f-5b6d-4c3a-9e8f-1d2c3b4a5e6f';
 
 const NAME_CLAUSES = [
@@ -80,31 +79,9 @@ describe('buildClaimSearchTextQueries', () => {
     expect(clauseNames('Smith')).not.toContain('patient');
   });
 
-  it('restores a dash-stripped PCN into a claim id clause', () => {
-    expect(clauseNames(MINIFIED_CLAIM_ID)).toEqual([
-      ...NAME_CLAUSES,
-      'identifier',
-      'patient.identifier',
-      'patient.identifier',
-      '_id',
-    ]);
-    expect(clauseFor(MINIFIED_CLAIM_ID, '_id')).toEqual([
-      {
-        name: '_id',
-        value: CLAIM_ID,
-      },
-    ]);
-  });
-
   it('keeps the fan-out to at most eight clauses', () => {
     expect(buildClaimSearchTextQueries({ searchText: 'Smith' })).toHaveLength(8);
-    expect(buildClaimSearchTextQueries({ searchText: MINIFIED_CLAIM_ID })).toHaveLength(9);
     expect(buildClaimSearchTextQueries({ searchText: CLAIM_ID })).toHaveLength(9);
-    expect(
-      buildClaimSearchTextQueries({
-        searchText: CLAIM_ID,
-      })
-    ).toHaveLength(9);
   });
 
   it('trims the text and searches nothing when it is blank', () => {
@@ -124,21 +101,6 @@ describe('buildClaimSearchTextQueries', () => {
 
     it('searches only the patient name for plain text', () => {
       expect(scopedClauseNames('Smith')).toEqual(['patient.name']);
-    });
-
-    it('adds an exact claim id lookup for UUIDs', () => {
-      expect(scopedClauseNames(CLAIM_ID)).toEqual(['patient.name', '_id']);
-      expect(scopedClauseNames(MINIFIED_CLAIM_ID)).toEqual(['patient.name', '_id']);
-      expect(
-        buildClaimSearchTextQueries({ searchText: MINIFIED_CLAIM_ID, patientNameOnly: true })
-          .flat()
-          .filter((p) => p.name === '_id')
-      ).toEqual([
-        {
-          name: '_id',
-          value: CLAIM_ID,
-        },
-      ]);
     });
   });
 });

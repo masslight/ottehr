@@ -1,6 +1,6 @@
 {
   "name": "billing-ui",
-  "version": "1.41.4",
+  "version": "1.42.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -49,6 +49,7 @@
     "@mui/x-date-pickers-pro": "^6.3.0",
     "csv-parse": "^6.2.1",
     "notistack": "^3.0.1",
+    "react-dropzone": "^20.1.1",
     "tsconfig": "*",
     "utils": "*"
   }

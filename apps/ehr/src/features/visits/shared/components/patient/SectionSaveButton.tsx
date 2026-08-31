@@ -1,5 +1,5 @@
 import { Save } from '@mui/icons-material';
-import { Button, CircularProgress } from '@mui/material';
+import { Button, CircularProgress, Tooltip } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Reference } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
@@ -14,6 +14,7 @@ import { createQuestionnaireItemsMap } from 'utils/lib/types/data/paperwork/crea
 import { structureQuestionnaireResponse } from '../../../../../helpers/qr-structure';
 import { useUpdatePatientAccount } from '../../../../../hooks/useGetPatient';
 import { buildVisitEmployerUpdate, OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY } from '../../visitEmployer';
+import { useSaveBlockedReason } from './SaveBlockedReasonContext';
 import { scrollToFirstInvalidField } from './scrollToFirstInvalidField';
 
 const questionnaire = PATIENT_RECORD_QUESTIONNAIRE();
@@ -70,6 +71,9 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
   const { oystehrZambda } = useApiClients();
   const { watch, formState, resetField, getValues, trigger, getFieldState } = useFormContext();
   const { dirtyFields } = formState;
+  // Set by the visit page, which requires the consent attestation before any of the patient record
+  // can be written. Undefined everywhere else, so the standalone patient-info page is unaffected.
+  const saveBlockedReason = useSaveBlockedReason();
 
   const employerFieldDirty = Boolean(dirtyFields[OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY]);
   const saveEmployerViaVisitDetails = useUpdateVisitDetailsForEmployer && Boolean(appointmentId) && employerFieldDirty;
@@ -205,16 +209,25 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
 
   if (!isDirty) return null;
 
-  return (
+  const saveButton = (
     <Button
       variant="outlined"
       size="small"
       startIcon={isSaving ? <CircularProgress size={14} /> : <Save fontSize="small" />}
-      disabled={isSaving}
+      disabled={isSaving || Boolean(saveBlockedReason)}
       onClick={handleSave}
       sx={{ textTransform: 'none', fontSize: '13px', py: 0.25, px: 1.5 }}
     >
       Save
     </Button>
+  );
+
+  if (!saveBlockedReason) return saveButton;
+
+  return (
+    <Tooltip title={saveBlockedReason}>
+      {/* A disabled button emits no pointer events, so the tooltip needs an enabled wrapper. */}
+      <span>{saveButton}</span>
+    </Tooltip>
   );
 };

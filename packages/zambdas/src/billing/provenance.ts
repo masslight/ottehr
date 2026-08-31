@@ -410,7 +410,7 @@ export interface ClaimProvenanceArgs {
   claimReference: string;
   before?: Resource;
   after?: Resource;
-  agent: ProvenanceAgent;
+  agent: ProvenanceAgent | ProvenanceAgent[];
   activity: ClaimProvenanceActivityKey;
   recorded: string;
   // Versioned reference of the prior version (e.g. Coverage/abc/_history/3), when known.
@@ -512,7 +512,7 @@ export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPos
     activity: {
       coding: [CLAIM_PROVENANCE_ACTIVITY[args.activity]],
     },
-    agent: [args.agent],
+    agent: Array.isArray(args.agent) ? args.agent : [args.agent],
     ...(entity.length > 0 ? { entity } : {}),
     extension,
   };
@@ -547,7 +547,7 @@ export interface ClaimResourceChange {
   resource: FhirResource;
   // Snapshot fetched before mutating; omit only when the write is a create.
   before?: FhirResource;
-  agent: ProvenanceAgent;
+  agent: ProvenanceAgent | ProvenanceAgent[];
   claimReference: string;
   // Defaults to 'update'.
   activity?: ClaimProvenanceActivityKey;
@@ -612,7 +612,7 @@ export async function commitClaimMetaTagsWithProvenance(
   claim: Claim,
   updatedTags: Coding[],
   activity: Extract<ClaimProvenanceActivityKey, 'statusChange' | 'tagChange'>,
-  agent: ProvenanceAgent
+  agent: ProvenanceAgent | ProvenanceAgent[]
 ): Promise<void> {
   const claimReference = `Claim/${claim.id}`;
   const afterClaim: Claim = { ...claim, meta: { ...claim.meta, tag: updatedTags } };
@@ -681,7 +681,7 @@ export async function addErrorProvenanceForClaimSubmission(
   oystehr: Oystehr,
   claim: Claim,
   error: Error,
-  agent: ProvenanceAgent,
+  agent: ProvenanceAgent[],
   rule?: ClaimHistoryRuleRef
 ): Promise<void> {
   const claimReference = `Claim/${claim.id}`;
@@ -733,7 +733,7 @@ export async function applyClaimStatusFieldClearingHold(
   claim: Claim,
   field: ClaimStatusFieldKey,
   value: string,
-  agent: ProvenanceAgent
+  agent: ProvenanceAgent | ProvenanceAgent[]
 ): Promise<void> {
   const updatedTags = buildUpdatedClaimStatusTags(claim, field, value).filter(
     (t) => !(t.system === CLAIM_TAG_SYSTEM && t.code === HOLD_TAG_NAME)

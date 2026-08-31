@@ -144,6 +144,7 @@ const makeMockOrder = (
   orderAddedDateTime: '2024-12-20T10:00:00Z',
   providerName: 'Dr. Test',
   providerId: ORDERING_PROVIDER_ID,
+  canEditPreliminaryReport: false,
   canEditFinalReport: false,
   diagnosis: 'Chest pain',
   status: RadiologyOrderStatus.preliminary,
@@ -701,7 +702,12 @@ describe('RadiologyOrderDetailsPage - final report', () => {
         const reportText = 'Impression: 38.5° — no fracture, per Dr. Fauré';
         mockUsePatientRadiologyOrders.mockReturnValue(
           makeHookResult({
-            orders: [makeMockOrder({ preliminaryReport: btoa(unescape(encodeURIComponent(reportText))) })],
+            orders: [
+              makeMockOrder({
+                preliminaryReport: btoa(unescape(encodeURIComponent(reportText))),
+                canEditPreliminaryReport: true,
+              }),
+            ],
           })
         );
         renderPage();
@@ -744,8 +750,15 @@ describe('RadiologyOrderDetailsPage - final report', () => {
       const editFinalButton = (): HTMLElement | null =>
         screen.queryByTestId(dataTestIds.radiologyPage.editReportButton('final'));
 
+      // A preliminary read the order list says this user may correct — same story as the final read below:
+      // which callers earn it is the order list's decision, so the page tests drive the flag directly.
+      const editablePrelimOrder = (
+        overrides: Partial<GetRadiologyOrderListZambdaOrder> = {}
+      ): GetRadiologyOrderListZambdaOrder =>
+        makeMockOrder({ preliminaryReport: btoa(PRELIM_TEXT), canEditPreliminaryReport: true, ...overrides });
+
       // A final read the order list says this user may correct. Which callers earn that is the order list's
-      // decision, covered in `radiology-order-list-final-read-editing.test.ts`; the page only obeys the flag.
+      // decision, covered in `radiology-order-list-report-editing.test.ts`; the page only obeys the flag.
       const ownFinalOrder = (
         overrides: Partial<GetRadiologyOrderListZambdaOrder> = {}
       ): GetRadiologyOrderListZambdaOrder =>
@@ -758,27 +771,26 @@ describe('RadiologyOrderDetailsPage - final report', () => {
         });
 
       describe('preliminary read', () => {
-        it.each([
-          RadiologyOrderStatus.preliminary,
-          RadiologyOrderStatus.pendingFinal,
-          // Still correctable once the final read is back — it survives as its own report until sign-off.
-          RadiologyOrderStatus.final,
-        ])('offers the edit icon for status "%s"', (status) => {
-          mockUsePatientRadiologyOrders.mockReturnValue(
-            makeHookResult({ orders: [makeMockOrder({ status, preliminaryReport: btoa(PRELIM_TEXT) })] })
-          );
+        it('offers the edit icon when the order says this user may correct the read', () => {
+          mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [editablePrelimOrder()] }));
           renderPage();
           expect(editPrelimButton()).toBeInTheDocument();
         });
 
-        it('does not offer the edit icon once the order has been reviewed', () => {
+        it('does not offer it when the order says otherwise', () => {
           mockUsePatientRadiologyOrders.mockReturnValue(
-            makeHookResult({
-              orders: [makeMockOrder({ status: RadiologyOrderStatus.reviewed, preliminaryReport: btoa(PRELIM_TEXT) })],
-            })
+            makeHookResult({ orders: [editablePrelimOrder({ canEditPreliminaryReport: false })] })
           );
           renderPage();
           expect(editPrelimButton()).not.toBeInTheDocument();
+        });
+
+        it('still offers it once the final read is back, until sign-off', () => {
+          mockUsePatientRadiologyOrders.mockReturnValue(
+            makeHookResult({ orders: [editablePrelimOrder({ status: RadiologyOrderStatus.final })] })
+          );
+          renderPage();
+          expect(editPrelimButton()).toBeInTheDocument();
         });
 
         it('does not offer the edit icon when the progress note is locked', () => {
@@ -788,9 +800,7 @@ describe('RadiologyOrderDetailsPage - final report', () => {
             isEncounterAssignedToCurrentPractitioner: true,
             visitType: 'main',
           } as any);
-          mockUsePatientRadiologyOrders.mockReturnValue(
-            makeHookResult({ orders: [makeMockOrder({ preliminaryReport: btoa(PRELIM_TEXT) })] })
-          );
+          mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [editablePrelimOrder()] }));
           renderPage();
           expect(editPrelimButton()).not.toBeInTheDocument();
         });
@@ -798,7 +808,7 @@ describe('RadiologyOrderDetailsPage - final report', () => {
         it('opens a field seeded with the saved read, with <br> back as newlines', async () => {
           const user = userEvent.setup();
           mockUsePatientRadiologyOrders.mockReturnValue(
-            makeHookResult({ orders: [makeMockOrder({ preliminaryReport: btoa('Line one<br>Line two') })] })
+            makeHookResult({ orders: [editablePrelimOrder({ preliminaryReport: btoa('Line one<br>Line two') })] })
           );
           renderPage();
 
@@ -813,7 +823,7 @@ describe('RadiologyOrderDetailsPage - final report', () => {
           const mockHandleUpdateReport = vi.fn().mockResolvedValue(true);
           mockUsePatientRadiologyOrders.mockReturnValue(
             makeHookResult({
-              orders: [makeMockOrder({ preliminaryReport: btoa(PRELIM_TEXT) })],
+              orders: [editablePrelimOrder()],
               handleUpdateReport: mockHandleUpdateReport,
             })
           );
@@ -837,7 +847,7 @@ describe('RadiologyOrderDetailsPage - final report', () => {
           const user = userEvent.setup();
           mockUsePatientRadiologyOrders.mockReturnValue(
             makeHookResult({
-              orders: [makeMockOrder({ preliminaryReport: btoa(PRELIM_TEXT) })],
+              orders: [editablePrelimOrder()],
               handleUpdateReport: vi.fn().mockResolvedValue(false),
             })
           );
@@ -858,7 +868,7 @@ describe('RadiologyOrderDetailsPage - final report', () => {
           const mockHandleUpdateReport = vi.fn();
           mockUsePatientRadiologyOrders.mockReturnValue(
             makeHookResult({
-              orders: [makeMockOrder({ preliminaryReport: btoa(PRELIM_TEXT) })],
+              orders: [editablePrelimOrder()],
               handleUpdateReport: mockHandleUpdateReport,
             })
           );
@@ -907,7 +917,7 @@ describe('RadiologyOrderDetailsPage - final report', () => {
 
       describe('with both reads open at once', () => {
         const orderWithBothReads = (): GetRadiologyOrderListZambdaOrder =>
-          ownFinalOrder({ preliminaryReport: btoa(PRELIM_TEXT) });
+          ownFinalOrder({ preliminaryReport: btoa(PRELIM_TEXT), canEditPreliminaryReport: true });
 
         it('saves only the read whose checkmark was clicked', async () => {
           const user = userEvent.setup();
@@ -974,9 +984,7 @@ describe('RadiologyOrderDetailsPage - final report', () => {
       describe('saving an unchanged read', () => {
         it('keeps the checkmark disabled until the text actually changes', async () => {
           const user = userEvent.setup();
-          mockUsePatientRadiologyOrders.mockReturnValue(
-            makeHookResult({ orders: [makeMockOrder({ preliminaryReport: btoa(PRELIM_TEXT) })] })
-          );
+          mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [editablePrelimOrder()] }));
           renderPage();
 
           await user.click(editPrelimButton()!);
