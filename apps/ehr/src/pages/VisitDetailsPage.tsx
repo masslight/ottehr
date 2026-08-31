@@ -96,6 +96,7 @@ import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
 import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
+import { PatientNotesButton } from '../features/patient-notes/components/PatientNotesButton';
 import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
 import { formatLastModifiedTag } from '../helpers';
 import {
@@ -958,20 +959,23 @@ export default function VisitDetailsPage(): ReactElement {
               {loading || activityLogsLoading || !patient ? (
                 <Skeleton aria-busy="true" width={200} height="" />
               ) : (
-                <Box
-                  onClick={() => navigate(`/patient/${patientId}/info`)}
-                  sx={{ cursor: 'pointer', display: 'flex', gap: 1 }}
-                >
-                  <AssignmentIndOutlinedIcon
-                    sx={{ width: '27px', height: '27px', color: 'primary.light', alignSelf: 'center' }}
-                  ></AssignmentIndOutlinedIcon>
-                  <Typography
-                    variant="h2"
-                    color="primary.dark"
-                    data-testid={dataTestIds.appointmentPage.patientFullName}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box
+                    onClick={() => navigate(`/patient/${patientId}/info`)}
+                    sx={{ cursor: 'pointer', display: 'flex', gap: 1 }}
                   >
-                    {fullName}
-                  </Typography>
+                    <AssignmentIndOutlinedIcon
+                      sx={{ width: '27px', height: '27px', color: 'primary.light', alignSelf: 'center' }}
+                    ></AssignmentIndOutlinedIcon>
+                    <Typography
+                      variant="h2"
+                      color="primary.dark"
+                      data-testid={dataTestIds.appointmentPage.patientFullName}
+                    >
+                      {fullName}
+                    </Typography>
+                  </Box>
+                  <PatientNotesButton patientId={patientId} />
                 </Box>
               )}
 

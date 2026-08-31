@@ -1,0 +1,20 @@
+import { GetPatientNotesInput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { z } from 'zod';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
+
+const GetPatientNotesSchema = z.object({
+  patientId: z.string().uuid(),
+});
+
+export function validateRequestParameters(input: ZambdaInput): GetPatientNotesInput & Pick<ZambdaInput, 'secrets'> {
+  if (!input.body) {
+    throw MISSING_REQUEST_BODY;
+  }
+
+  const parsedJSON = safeJsonParse(input.body);
+  const { patientId } = safeValidate(GetPatientNotesSchema, parsedJSON);
+
+  return { patientId, secrets: input.secrets };
+}
