@@ -148,7 +148,7 @@ import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
 import { otherColors } from '../themes/ottehr/colors';
-import { formatDate } from '../utils/format';
+import { formatDate, formatDateTime } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
 
 type UpdateFn = (
@@ -1568,7 +1568,7 @@ function AttachmentsSection({
   };
 
   const openAddDialog = (): void => {
-    addReset({ name: '', reportTypeCode: '' });
+    addReset({ name: '', reportTypeCode: 'OZ' });
     setShowAddDialog(true);
   };
   const closeAddDialog = (): void => {
@@ -1686,7 +1686,7 @@ function AttachmentsSection({
                           ?.label
                       }
                     </TableCell>
-                    <TableCell>{line.dateAdded}</TableCell>
+                    <TableCell>{formatDateTime(line.dateAdded)}</TableCell>
                     <TableCell>
                       <Box
                         sx={{
@@ -1731,7 +1731,7 @@ function AttachmentsSection({
                             }}
                           >
                             <ListItemIcon>
-                              <DeleteIcon color="error" />
+                              <DeleteIcon fontSize="small" color="error" />
                             </ListItemIcon>
                             <ListItemText>Delete document</ListItemText>
                           </MenuItem>
