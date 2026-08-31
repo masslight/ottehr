@@ -151,7 +151,10 @@ export function buildLineItems(
   for (const cpt of allCodes) {
     const cptModifier = cpt.modifier?.[0]?.code;
     const { billableUnits } = cpt;
-    const units = billableUnits != null && Number.isFinite(billableUnits) && billableUnits > 0 ? billableUnits : 1;
+    const units =
+      billableUnits != null && Number.isFinite(billableUnits) && billableUnits > 0
+        ? Math.max(1, Math.ceil(billableUnits))
+        : 1;
     let noModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
     let anyModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
     let exactMatched = false;

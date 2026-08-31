@@ -58,6 +58,20 @@ describe('buildLineItems', () => {
     expect(items.map((i) => i.units)).toEqual([1, 1, 1]);
   });
 
+  it('rounds fractional billableUnits up to a whole unit', () => {
+    const items = buildLineItems(
+      feeSchedule,
+      [
+        { code: 'J0171', display: 'A', billableUnits: 0.5 },
+        { code: 'J0171', display: 'B', billableUnits: 2.3 },
+      ],
+      undefined
+    );
+
+    expect(items.map((i) => i.amount)).toEqual([25, 75]);
+    expect(items.map((i) => i.units)).toEqual([1, 3]);
+  });
+
   it('applies units to codes missing from the fee schedule (fee unknown)', () => {
     const items = buildLineItems(feeSchedule, [{ code: 'J9999', display: 'Unknown', billableUnits: 4 }], undefined);
 
