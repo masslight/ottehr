@@ -29,9 +29,17 @@ vi.mock('../../src/hooks/usePendingQuickPick', () => ({
   usePendingQuickPick: vi.fn(),
 }));
 
+const TEST_QUICK_PICK = {
+  id: 'qp-1',
+  name: 'Test Quick Pick',
+  procedureType: 'incision-and-drainage',
+  procedureDetails: 'Quick pick procedure details',
+  cptCodes: [{ code: '10060', display: 'Incision and drainage of abscess' }],
+};
+
 vi.mock('../../src/hooks/useMergedQuickPicks', () => ({
   sortQuickPicks: vi.fn(),
-  useMergedProcedureQuickPicks: () => ({ quickPicks: [], loading: false, refetch: vi.fn() }),
+  useMergedProcedureQuickPicks: () => ({ quickPicks: [TEST_QUICK_PICK], loading: false, refetch: vi.fn() }),
 }));
 
 vi.mock('../../src/shared/hooks/useDebounce', () => ({
@@ -85,7 +93,9 @@ vi.mock('../../src/features/visits/shared/components/PageTitle', () => ({
 }));
 
 vi.mock('../../src/features/visits/shared/components/QuickPicksButton', () => ({
-  QuickPicksButton: () => <div />,
+  QuickPicksButton: ({ quickPicks, onSelect }: any) => (
+    <button onClick={() => onSelect(quickPicks[0])}>Select Quick Pick</button>
+  ),
 }));
 
 vi.mock('../../src/features/visits/shared/components/assessment-tab/DiagnosesField', () => ({
@@ -217,6 +227,28 @@ describe('ProceduresNew — draft store', () => {
     await user.click(screen.getByRole('button', { name: /clear form/i }));
     await waitFor(() => {
       expect(screen.getByRole('textbox', { name: /procedure details/i })).toHaveValue('');
+    });
+  });
+
+  // --- Quick Picks persist to the draft ---
+
+  it('selecting a quick pick persists its procedureType to the draft', async () => {
+    const user = userEvent.setup();
+    renderComponent();
+    await user.click(screen.getByRole('button', { name: /select quick pick/i }));
+    await waitFor(() => {
+      expect(useProcedureStore.getState().getDraft(ENCOUNTER_ID).procedureType).toBe(TEST_QUICK_PICK.procedureType);
+    });
+  });
+
+  it('selecting a quick pick persists its other fields to the draft', async () => {
+    const user = userEvent.setup();
+    renderComponent();
+    await user.click(screen.getByRole('button', { name: /select quick pick/i }));
+    await waitFor(() => {
+      expect(useProcedureStore.getState().getDraft(ENCOUNTER_ID).procedureDetails).toBe(
+        TEST_QUICK_PICK.procedureDetails
+      );
     });
   });
 });
