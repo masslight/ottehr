@@ -495,25 +495,8 @@ export function getEraCheckNumber(
 
 export const CLAIM_PCN_IDENTIFIER_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-claim-patient-control-number';
 
-export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string {
-  return (
-    claim.identifier?.find((id) => id.system === CLAIM_PCN_IDENTIFIER_SYSTEM)?.value ??
-    claim.id?.replaceAll('-', '') ??
-    ''
-  );
-}
-
-export function claimIdFromPcn(pcn: string): string | undefined {
-  const minified = pcn.toLowerCase();
-  if (!/^[0-9a-f]{32}$/.test(minified)) return undefined;
-  const claimId = [
-    minified.slice(0, 8),
-    minified.slice(8, 12),
-    minified.slice(12, 16),
-    minified.slice(16, 20),
-    minified.slice(20),
-  ].join('-');
-  return isValidUUID(claimId) ? claimId : undefined;
+export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string | undefined {
+  return claim.identifier?.find((id) => id.system === CLAIM_PCN_IDENTIFIER_SYSTEM)?.value;
 }
 
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';

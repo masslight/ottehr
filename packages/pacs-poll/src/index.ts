@@ -86,6 +86,10 @@ const findServiceRequestsToSend = async (oystehr: Oystehr): Promise<ServiceReque
     { name: 'authored', value: `ge${twoWeeksAgo.toISODate()}` },
     { name: '_count', value: SEARCH_PAGE_SIZE.toString() },
     { name: '_sort', value: '_id' },
+    {
+      name: '_tag',
+      value: 'https://fhir.ottehr.com/CodeSystem/order-type-tag|radiology',
+    },
   ];
 
   let offset = 0;

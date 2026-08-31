@@ -490,7 +490,7 @@ export interface ClaimDetailResponse {
     cptCodes: string[];
   }[];
   tags: string[];
-  pcn: string;
+  pcn?: string;
   billType: string;
   patientDischargeStatusCode: string;
   admissionType: string;

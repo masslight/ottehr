@@ -89,6 +89,30 @@ describe('service line action schemas', () => {
     ).toBe(false);
     expect(RuleActionSchema.safeParse({ type: 'removeServiceLines' }).success).toBe(false);
   });
+
+  it('parses updateServiceLines set values as a literal date or a derived date source', () => {
+    const literal = {
+      type: 'updateServiceLines',
+      match: { type: 'all' },
+      set: { property: 'serviceDate', value: '2026-02-02' },
+    };
+    expect(RuleActionSchema.parse(literal)).toEqual(literal);
+
+    const firstLine = {
+      type: 'updateServiceLines',
+      match: { type: 'all' },
+      set: { property: 'serviceDate', value: { source: 'firstServiceLineDate' } },
+    };
+    expect(RuleActionSchema.parse(firstLine)).toEqual(firstLine);
+
+    expect(
+      RuleActionSchema.safeParse({
+        type: 'updateServiceLines',
+        match: { type: 'all' },
+        set: { property: 'serviceDate', value: { source: 'bogus' } },
+      }).success
+    ).toBe(false);
+  });
 });
 
 describe('addServiceLine action schema', () => {
@@ -118,6 +142,21 @@ describe('addServiceLine action schema', () => {
 
     expect(RuleActionSchema.safeParse({ type: 'addServiceLine', line: { charges: '30' } }).success).toBe(false);
     expect(RuleActionSchema.safeParse({ type: 'addServiceLine', line: { cptCode: '99050' } }).success).toBe(false);
+  });
+
+  it('parses a derived date source for serviceDate, rejecting an unknown source', () => {
+    const firstLine = {
+      type: 'addServiceLine',
+      line: { cptCode: '99050', charges: '30', serviceDate: { source: 'firstServiceLineDate' } },
+    };
+    expect(RuleActionSchema.parse(firstLine)).toEqual(firstLine);
+
+    expect(
+      RuleActionSchema.safeParse({
+        type: 'addServiceLine',
+        line: { cptCode: '99050', charges: '30', serviceDate: { source: 'bogus' } },
+      }).success
+    ).toBe(false);
   });
 });
 
@@ -273,6 +312,13 @@ describe('rule value validation', () => {
     expect(serviceLineSetValueProblem(lineDate, undefined, '02/02/2026')).toContain('ISO');
     expect(serviceLineSetValueProblem(modifiers, 'add', '')).toBe('Value is required');
     expect(serviceLineSetValueProblem(modifiers, undefined, '')).toBeUndefined(); // "set" clears
+
+    // A derived date source is only accepted on date-typed properties.
+    expect(serviceLineSetValueProblem(lineDate, undefined, { source: 'firstServiceLineDate' })).toBeUndefined();
+    expect(serviceLineSetValueProblem(lineDate, undefined, { source: 'bogus' } as never)).toBe('Unknown date source');
+    expect(serviceLineSetValueProblem(units, undefined, { source: 'firstServiceLineDate' } as never)).toBe(
+      'This property does not accept a derived date value'
+    );
   });
 
   it('validates add-line place of service and service date formats', () => {
@@ -281,6 +327,21 @@ describe('rule value validation', () => {
     expect(addServiceLineFieldProblem('placeOfService', '')).toBeUndefined();
     expect(addServiceLineFieldProblem('serviceDate', '2026-02-02')).toBeUndefined();
     expect(addServiceLineFieldProblem('serviceDate', '02/02/2026')).toContain('ISO date');
+    expect(addServiceLineFieldProblem('serviceDate', undefined)).toBeUndefined(); // inherits first line's date
+    expect(addServiceLineFieldProblem('serviceDate', '')).toBeUndefined();
+    expect(addServiceLineFieldProblem('serviceDate', { source: 'firstServiceLineDate' })).toBeUndefined();
+    expect(addServiceLineFieldProblem('serviceDate', { source: 'bogus' } as never)).toBe('Unknown date source');
+  });
+
+  it('requires diagnosis pointers only when diagnosisMode is "specific"', () => {
+    // No mode and no pointers: defaults to the primary diagnosis, so blank is fine.
+    expect(addServiceLineFieldProblem('diagnosisPointers', undefined)).toBeUndefined();
+    expect(addServiceLineFieldProblem('diagnosisPointers', undefined, { diagnosisMode: 'primary' })).toBeUndefined();
+    expect(addServiceLineFieldProblem('diagnosisPointers', undefined, { diagnosisMode: 'all' })).toBeUndefined();
+    // Explicit 'specific' with no pointers is a mistake, not "use the default".
+    expect(addServiceLineFieldProblem('diagnosisPointers', '', { diagnosisMode: 'specific' })).toContain('required');
+    expect(addServiceLineFieldProblem('diagnosisPointers', '  ', { diagnosisMode: 'specific' })).toContain('required');
+    expect(addServiceLineFieldProblem('diagnosisPointers', '1,2', { diagnosisMode: 'specific' })).toBeUndefined();
   });
 
   it('collects applyTag names across nested conditionals', () => {
@@ -633,6 +694,31 @@ describe('validateRuleFieldReferences', () => {
     expect(problems[1]).toContain('updates unknown service line property "alsoNotOne"');
     expect(problems[2]).toContain('matches service lines on "modifiers" with unsupported operator "gt"');
     expect(problems[3]).toContain('uses operation "add" on non-list service line property "units"');
+  });
+
+  it('rejects a derived date-source value on a non-date service line property', () => {
+    const problems = validateRuleFieldReferences(
+      ruleWith({
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: {
+              type: 'actions',
+              actions: [
+                {
+                  type: 'updateServiceLines',
+                  match: { type: 'all' },
+                  set: { property: 'cptCode', value: { source: 'firstServiceLineDate' } as never },
+                },
+              ],
+            },
+          },
+        ],
+      })
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('updates service line property "cptCode" with an invalid value');
+    expect(problems[0]).toContain('does not accept a derived date value');
   });
 
   it('validates the applyChargeMasterPrices line match like the other service-line actions', () => {
