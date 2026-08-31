@@ -61,6 +61,7 @@ import {
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { otherColors } from '../../themes/ottehr/colors';
+import { DateInput } from '../DateInput';
 import { FacilitySelect } from '../FacilitySelect';
 import { PayerSelect } from '../PayerSelect';
 import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
@@ -253,7 +254,19 @@ function TypedValueInput({
       </FormControl>
     );
   }
-  if ((valueType === 'date' || valueType === 'number') && !multiple) {
+  if (valueType === 'date' && !multiple) {
+    return (
+      <DateInput
+        label={label ?? 'Value'}
+        size="small"
+        value={valueToText(value)}
+        onChange={(value) => onChange(value)}
+        error={error}
+        helperText={helperText}
+      />
+    );
+  }
+  if (valueType === 'number' && !multiple) {
     return (
       <TextField
         size="small"
@@ -488,7 +501,6 @@ function DateOrSourceInput({
   value,
   onChange,
   label,
-  required,
   error,
   helperText,
   inputRef,
@@ -522,18 +534,13 @@ function DateOrSourceInput({
         )}
       </FormControl>
       {source === EXACT_DATE_SOURCE && (
-        <TextField
-          size="small"
-          type="date"
+        <DateInput
           label={label ?? 'Date'}
+          size="small"
           value={typeof value === 'string' ? value : ''}
-          onChange={(e) => onChange(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          required={required}
+          onChange={(value) => onChange(value)}
           error={error}
           helperText={helperText}
-          inputRef={inputRef}
-          sx={{ minWidth: 200 }}
         />
       )}
     </Box>
