@@ -38,7 +38,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log(error);
     return lambdaResponse(400, { message: error.message });
   }
-  const { paymentNoticeId, reason, notes } = validatedParameters;
+  const { encounterId, paymentNoticeId, reason, notes } = validatedParameters;
   const secrets = input.secrets;
 
   await requireUserWithRole(getUserToken(input), secrets, PAYMENT_MANAGEMENT_ROLES);
@@ -49,6 +49,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
 
   const notice = await oystehrClient.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: paymentNoticeId });
+
+  if (notice.request?.reference !== `Encounter/${encounterId}`) {
+    throw INVALID_INPUT_ERROR('PaymentNotice does not belong to the specified encounter.');
+  }
 
   const stripePaymentId = notice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
   const paymentMethod = notice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString;

@@ -57,6 +57,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const notice = await oystehrClient.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: paymentNoticeId });
 
+  if (notice.request?.reference !== `Encounter/${encounterId}`) {
+    throw INVALID_INPUT_ERROR('PaymentNotice does not belong to the specified encounter.');
+  }
+
   const stripePaymentId = notice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
   if (!stripePaymentId) {
     throw INVALID_INPUT_ERROR('This payment is not linked to a Stripe payment and cannot be refunded.');

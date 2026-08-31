@@ -1645,7 +1645,16 @@ export default function PatientPaymentList({
                   <Fragment key={idForPaymentDTO(payment)}>
                     <TableRow
                       hover
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`View details for ${paymentDateString} payment of ${formattedPaymentAmount}`}
                       onClick={() => setDetailsPaymentId(idForPaymentDTO(payment))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setDetailsPaymentId(idForPaymentDTO(payment));
+                        }
+                      }}
                       sx={{ cursor: 'pointer', '&:last-child td': { borderBottom: 0 } }}
                     >
                       <>
