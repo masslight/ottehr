@@ -82,8 +82,27 @@ export interface ChartPlanRequest {
   chartState?: string;
   /** Exam findings already checked, so remove-exam-finding can name them exactly. */
   chartedExamFindings?: string[];
-  /** Practice template titles the model may apply. */
+  /** Practice template titles the model may apply. Ignored when `reconcileTemplate` is set. */
   templateTitles?: string[];
+  /**
+   * This call runs AFTER a template was applied, to reconcile what it charted against the narrative.
+   *
+   * A template writes across many sections at once — default normal exam findings, a default diagnosis,
+   * MDM, patient instructions — and the plan that asked for it could not have known any of that: the
+   * model is shown template TITLES only, never contents. So the steps that should answer the template
+   * ("remove the normal the provider contradicted", "remove the default diagnosis the visit does not
+   * support") were never emitted, because at plan time nothing knew there would be anything to answer.
+   *
+   * Setting this does TWO things server-side, and both matter:
+   *   - the practice's template list is NOT sent, so there is no title for the model to apply a second
+   *     time. Instructing it not to is weaker than giving it nothing to reach for;
+   *   - a reconciliation instruction is force-included, because "chart only what is new" — which is what
+   *     `incremental` says — is an instruction to ADD, and reconciliation is the opposite of adding.
+   *
+   * A BOOLEAN, deliberately, not the template's name: nothing caller-supplied belongs inside the model's
+   * instructions, and the chart state the server reads for itself already lists what the template wrote.
+   */
+  reconcileTemplate?: boolean;
   /**
    * Used to read the REAL patient age and sex from the chart and to verify the caller may touch this
    * encounter. Ambient recordings contain cross-talk about other patients; demographics are never

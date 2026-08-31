@@ -25,6 +25,7 @@
 // The unscoped useChartData call stays, for ONE reason: only a request with requestedFields omitted
 // returns `aiChat`, i.e. the ambient-scribe transcripts.
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
@@ -131,7 +132,17 @@ export interface EasyChartData {
   vitals: GetVitalsResponseData | undefined;
   isLoading: boolean;
   isFetching: boolean;
-  refetch: () => Promise<void>;
+  /**
+   * Refresh every query behind `chartData` AND hand back the result.
+   *
+   * Returning it is not a convenience. A caller that has to act on what a write produced — the
+   * post-template reconciliation is the one that does — cannot read it off `chartData`, because that
+   * binding belongs to the render it was captured in and the refresh has not re-rendered anything yet.
+   * Waiting a tick for the re-render is the other way, and it is a race with no upper bound. The value
+   * is read straight out of react-query by the query's OWN key, so it is exactly what the next render
+   * will see.
+   */
+  refetch: () => Promise<GetChartDataResponse | undefined>;
 }
 
 export function useEasyChartData(encounterId: string | undefined, enabled = true): EasyChartData {
@@ -169,11 +180,22 @@ export function useEasyChartData(encounterId: string | undefined, enabled = true
   const baseRefetch = base.refetch;
   const fieldsRefetch = fields.refetch;
   const vitalsRefetch = vitals.refetch;
+  // The unscoped query's own key, so the fresh value is read back from the exact entry that was just
+  // refreshed rather than from a prefix match — several chart queries can be mounted at once, and a
+  // loose match would hand back whichever one react-query listed first.
+  const baseQueryKey = base.queryKey;
+  const queryClient = useQueryClient();
   // All three, so every caller of `refetch` refreshes the whole note. Leaving vitals out of here is how the
   // assistant charts a reading and the section stays a step behind until a reload.
-  const refetch = useCallback(async (): Promise<void> => {
-    await Promise.all([baseRefetch(), fieldsRefetch(), vitalsRefetch()]);
-  }, [baseRefetch, fieldsRefetch, vitalsRefetch]);
+  const refetch = useCallback(async (): Promise<GetChartDataResponse | undefined> => {
+    const [, fieldsResult] = await Promise.all([baseRefetch(), fieldsRefetch(), vitalsRefetch()]);
+    const freshBase = queryClient.getQueryData<GetChartDataResponse>(baseQueryKey);
+    // `fields` is typed loosely by the shared hook; its response is the requested subset of chart data.
+    const freshFields = fieldsResult.data as Partial<GetChartDataResponse> | undefined;
+    if (!freshBase && !freshFields) return undefined;
+    // Scoped second, the same precedence the render-time merge uses — see the header.
+    return { ...(freshBase ?? {}), ...(freshFields ?? {}) } as GetChartDataResponse;
+  }, [baseRefetch, fieldsRefetch, vitalsRefetch, queryClient, baseQueryKey]);
 
   return {
     chartData,

@@ -33,7 +33,7 @@ import {
   readVisitContext,
 } from '../easy-chart-shared/visit-context';
 import { getChartData } from '../get-chart-data';
-import { buildHistoryDigest } from './helpers';
+import { buildHistoryDigest, TEMPLATE_RECONCILE_INSTRUCTION } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-plan';
@@ -64,14 +64,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   //
   // Two calls, the same pair the visit-note PDF uses (assemble-progress-note-input.ts): the unscoped one
   // for the default set, the scoped one for fields get-chart-data only fetches when named.
+  //
+  // TEMPLATES ARE NOT LISTED on a reconciliation call. The prompt tail's empty-list branch already says
+  // "none. Do NOT emit apply-template", so withholding the list is a HARDER constraint than an
+  // instruction not to use it — there is no title left to name. That matters because the failure being
+  // prevented is real: a second apply-template either duplicates the first or, if a different title comes
+  // back, overwrites the wrong fields. It also takes the whole practice list out of the tail, which is
+  // the largest per-call block on a request that has nothing to do with choosing a template.
   const [chart, templateTitles] = await Promise.all([
     encounterId ? readChart(oystehr, m2mToken, encounterId) : undefined,
-    readTemplateTitles(oystehr, ZAMBDA_NAME),
+    params.reconcileTemplate ? undefined : readTemplateTitles(oystehr, ZAMBDA_NAME),
   ]);
 
   const tail: PromptTailInput = {
     narrative,
-    templateTitles: templateTitles ?? params.templateTitles,
+    // The caller-supplied fallback is dropped too on a reconciliation call, or the client could put the
+    // list back that the server just withheld.
+    templateTitles: params.reconcileTemplate ? undefined : templateTitles ?? params.templateTitles,
     patientLine: visit?.patientLine,
     // The CHART wins. A caller-supplied status is the fallback for the case where there was no encounter
     // to read at all (see CallerPatientStatus) — it must never override what the record says.
@@ -84,6 +93,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     noteContext: buildNoteContext(chart ? buildNoteContextFromChart(chart) : params.noteContext),
     historyDigest: buildHistoryDigest(params.history),
     incremental: params.incremental,
+    // Force-included rather than left to the model, for the same reason the review's disposition check is:
+    // `incremental` tells it to chart only what is NEW, and reconciliation is the opposite instruction.
+    // Composed here from the chart THIS zambda read — nothing caller-supplied reaches the prompt.
+    mustAddress: params.reconcileTemplate ? TEMPLATE_RECONCILE_INSTRUCTION : undefined,
   };
   const prompt = buildPrompt('plan', tail);
   console.log(`[${ZAMBDA_NAME}] prompt ${prompt.length} chars, narrative ${narrative.length} chars`);

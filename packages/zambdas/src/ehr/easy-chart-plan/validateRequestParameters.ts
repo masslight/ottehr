@@ -36,6 +36,7 @@ export function validateRequestParameters(input: ZambdaInput): ChartPlanRequest 
     templateTitles: asStringArray(body.templateTitles),
     encounterId: body.encounterId,
     incremental: body.incremental === true,
+    reconcileTemplate: body.reconcileTemplate === true,
     // Only the two known values; anything else is dropped rather than passed to the prompt.
     patientStatus:
       body.patientStatus === 'new' || body.patientStatus === 'established' ? body.patientStatus : undefined,

@@ -11,11 +11,25 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import {
+  collectResourceIds,
+  diffCreatedResourceIds,
+} from 'src/features/visits/shared/stores/appointment/chart-resource-ids';
 import { ConversationTurn, ModelUsage, PlannedAction, ReviewSuggestion } from 'utils/lib/easy-chart/api';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { buildChartSnapshot } from '../executor/chartSnapshot';
 import { runPlan } from '../executor/runPlan';
-import { Catalogue, ChartWriter, ExecutionMode, PickerRequest, PickerResponse, PlanStep } from '../executor/types';
+import { mergeTemplateReconciliation, templateStepIndex } from '../executor/template-reconcile';
+import {
+  Catalogue,
+  ChartSnapshot,
+  ChartWriter,
+  ExecutionMode,
+  HandlerContext,
+  PickerRequest,
+  PickerResponse,
+  PlanStep,
+} from '../executor/types';
 
 /** How long a call must run before the elapsed counter appears. */
 const ELAPSED_VISIBLE_AFTER_MS = 4000;
@@ -57,8 +71,13 @@ export interface UseChartAssistantOptions {
   chartData: GetChartDataResponse | undefined;
   catalogue: Catalogue;
   writer: ChartWriter;
-  /** Refetch the chart after a turn writes, so the next turn's snapshot knows what landed. */
-  refetchChart: () => Promise<void>;
+  /**
+   * Refetch the chart after a turn writes, so the next turn's snapshot knows what landed.
+   *
+   * Returns the fresh chart, because the post-template reconciliation has to ACT on it within the same
+   * turn — reading it back off a render that has not happened yet is a race.
+   */
+  refetchChart: () => Promise<GetChartDataResponse | undefined>;
   /**
    * Called with each step's created ids, so a surface that attributes rows to the assistant can do so.
    *
@@ -169,6 +188,9 @@ export function useChartAssistant(options: UseChartAssistantOptions): ChartAssis
         addUsage(response.usage);
 
         // A rejected action is a step the provider must still see: it was voiced, and it did not land.
+        // MUTABLE: the post-template reconciliation is a second planner call, and its rejections are
+        // steps the provider must see for the same reason the first call's are — they were voiced and
+        // they did not land.
         const rejectedSteps: PlanStep[] = response.rejected.map((rejection, index) => ({
           index: -1 - index,
           action: { kind: rejection.kind, display: rejection.display } as PlannedAction,
@@ -190,22 +212,132 @@ export function useChartAssistant(options: UseChartAssistantOptions): ChartAssis
         // narrative runs in bulk, where a picker per ambiguous item is unusable.
         const mode: ExecutionMode = response.actions.length > 3 ? 'bulk' : 'interactive';
 
-        const { steps } = await runPlan(
-          response.actions,
-          {
-            mode,
-            encounterId: options.encounterId,
-            catalogue: options.catalogue,
-            writer: options.writer,
-            chart: buildChartSnapshot(chartRef.current),
-            ask: (request) => new Promise((resolve) => setPendingPick({ ...request, resolve })),
-            say: (text, kind) => push({ role: 'assistant', kind, text }),
-          },
-          {
-            onStepStart: (step) => setLiveSteps((current) => replaceStep(current, step)),
-            onStepSettled: (step) => setLiveSteps((current) => replaceStep(current, step)),
+        const contextFor = (chart: ChartSnapshot): HandlerContext => ({
+          mode,
+          encounterId: options.encounterId,
+          catalogue: options.catalogue,
+          writer: options.writer,
+          chart,
+          ask: (request) => new Promise((resolve) => setPendingPick({ ...request, resolve })),
+          say: (text, kind) => push({ role: 'assistant', kind, text }),
+        });
+        const stepCallbacks = {
+          onStepStart: (step: PlanStep) => setLiveSteps((current) => replaceStep(current, step)),
+          onStepSettled: (step: PlanStep) => setLiveSteps((current) => replaceStep(current, step)),
+        };
+
+        // THE PLAN SPLITS AT apply-template, and only there.
+        //
+        // A template writes across many sections at once, and this plan was built without knowing what:
+        // the planner is shown template TITLES, never contents. That leaves the rest of the plan wrong in
+        // two ways at once — steps that now duplicate what the template charted, and the steps that should
+        // answer it (remove the normal the provider contradicted, remove a default diagnosis this visit
+        // does not support) which were never emitted because nothing knew there would be anything to
+        // answer. Re-reading the chart fixes the first; only a second planner call can produce the second.
+        //
+        // So: run up to and including the template, re-read, reconcile, and run the merged remainder.
+        const templateAt = templateStepIndex(response.actions);
+        let steps: PlanStep[];
+
+        if (templateAt < 0) {
+          ({ steps } = await runPlan(
+            response.actions,
+            contextFor(buildChartSnapshot(chartRef.current)),
+            stepCallbacks
+          ));
+        } else {
+          // Snapshotted BEFORE the template runs, so the re-read below can say which rows it added — see
+          // the attribution note where the diff is taken.
+          const idsBeforeTemplate = collectResourceIds(chartRef.current);
+          const head = await runPlan(
+            response.actions.slice(0, templateAt + 1),
+            contextFor(buildChartSnapshot(chartRef.current)),
+            stepCallbacks
+          );
+          const pending = response.actions.slice(templateAt + 1);
+          const templateApplied = head.steps[templateAt]?.outcome?.status === 'applied';
+
+          if (!templateApplied) {
+            // No template landed — it matched nothing, or the write failed. There is nothing to reconcile
+            // against, and spending a model call to be told so would just make a failed step slower.
+            const tail = await runPlan(pending, contextFor(head.chart), {
+              ...stepCallbacks,
+              indexOffset: templateAt + 1,
+            });
+            steps = [...head.steps, ...tail.steps];
+          } else {
+            // The re-read is not optional: apply-template reports how many resources it created and not
+            // WHAT they are, so `advanceSnapshot` has nothing to record and every later step would resolve
+            // against a chart missing everything the template wrote.
+            const fresh = await options.refetchChart();
+            const freshChart = buildChartSnapshot(fresh);
+
+            // ATTRIBUTE THE TEMPLATE'S ROWS TO THE TEMPLATE.
+            //
+            // A template charts a diagnosis, an E&M level and a screenful of exam findings without the
+            // provider having said a word, and it is the most common way a diagnosis reaches the chart at
+            // all. Unattributed, those rows are indistinguishable from ones the provider entered
+            // themselves, so the one affordance that would catch a wrong default — "this was inferred,
+            // check it" — is exactly the one they bypass.
+            //
+            // The ids can only be known here: apply-template reports its warnings and nothing else, so the
+            // before/after diff over the re-read chart is the only thing that says what it wrote. Reported
+            // as INFERRED, not sourced, because a template's contents come from its title, never from the
+            // narrative.
+            const templateIds = diffCreatedResourceIds(idsBeforeTemplate, collectResourceIds(fresh));
+            const templateStep = head.steps[templateAt];
+            if (templateStep?.outcome?.status === 'applied' && templateIds.length > 0) {
+              templateStep.outcome = {
+                ...templateStep.outcome,
+                createdResourceIds: templateIds,
+                inferredResourceIds: templateIds,
+              };
+            }
+
+            let reconciliation: PlannedAction[] = [];
+            try {
+              const reconcile = await apiClient.easyChartPlan({
+                narrative: message,
+                encounterId: options.encounterId,
+                incremental: true,
+                // Withholds the practice's template list AND force-includes the reconciliation
+                // instruction — see ChartPlanRequest.reconcileTemplate for why both are needed.
+                reconcileTemplate: true,
+                history: history.current.slice(-HISTORY_TURNS),
+              });
+              addUsage(reconcile.usage);
+              reconciliation = reconcile.actions;
+              for (const rejection of reconcile.rejected) {
+                rejectedSteps.push({
+                  index: -1 - rejectedSteps.length,
+                  action: { kind: rejection.kind, display: rejection.display } as PlannedAction,
+                  label: rejection.display ? `${rejection.kind}: ${rejection.display}` : rejection.kind,
+                  outcome: { status: 'skipped', reason: rejection.reason },
+                });
+              }
+            } catch (error) {
+              // Deliberate degrade, and a LOUD one. The rest of the plan still runs against the re-read
+              // chart, so nothing duplicates — but the reconciliation is what would have taken back the
+              // template's wrong defaults, and a provider who is not told that stays unaware the note may
+              // assert a normal they contradicted.
+              console.error('[easy-chart] post-template reconciliation failed', error);
+              push({
+                role: 'assistant',
+                kind: 'provider-note',
+                text:
+                  'The template was applied, but the pass that checks its defaults against your dictation ' +
+                  'could not run. Check the exam findings and the diagnosis before signing.',
+              });
+            }
+
+            const remainder = mergeTemplateReconciliation({ pending, reconciliation, chart: freshChart });
+            const tail = await runPlan(remainder, contextFor(freshChart), {
+              ...stepCallbacks,
+              indexOffset: templateAt + 1,
+            });
+            steps = [...head.steps, ...tail.steps];
           }
-        );
+        }
 
         const allSteps = [...steps, ...rejectedSteps];
         push({ role: 'assistant', kind: 'plan', steps: allSteps });

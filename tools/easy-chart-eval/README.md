@@ -36,6 +36,25 @@ npx tsx tools/easy-chart-eval/run.ts --case case-07 --token "$TOKEN"
 npx tsx tools/easy-chart-eval/run.ts --token "$TOKEN" --out tools/easy-chart-eval/results
 ```
 
+## Comparing runs
+
+```bash
+# terminal tables + a self-contained HTML page written into the current run's directory
+npm run easy-chart:eval:report -- <baselineRunDir> <currentRunDir>
+
+# several runs against one baseline, terminal only
+npm run easy-chart:eval:report -- run-a run-b run-c --no-html
+```
+
+Every view is a DELTA, because a single number cannot tell you whether a change helped: a run that
+lifts diagnosis recall while dropping four exam findings improves the headline and worsens the note.
+The per-case table is the one to read — a total that moves by +0.002 has, in practice, been fourteen
+of twenty cases moving between -0.19 and +0.33.
+
+It reads `summary.json` and `*.score.json` and never `*.result.json`, which is where the clinical text
+lives; the score files are counts and case ids only. The HTML it writes is therefore free of patient
+data, and it still lands in a gitignored directory on purpose.
+
 Authenticate with a `client_credentials` token for the project's test M2M client: the endpoints
 recognise it and skip the role check, because a service client has no user profile and could never
 pass one.

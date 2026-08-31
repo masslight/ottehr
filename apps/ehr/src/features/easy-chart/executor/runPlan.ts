@@ -19,6 +19,15 @@ export interface RunPlanOptions {
   onStepSettled?: (step: PlanStep) => void;
   /** Stop early — the provider navigated away or cancelled. Remaining steps settle as skipped. */
   signal?: AbortSignal;
+  /**
+   * Number the steps from here instead of from zero.
+   *
+   * For a turn that runs as more than ONE plan — the post-template reconciliation splits at the template
+   * — because the UI tracks a live step by its index. Two runs both numbering from zero make the second
+   * run's first step overwrite the first run's, so the provider watches finished steps turn back into
+   * running ones.
+   */
+  indexOffset?: number;
 }
 
 export interface PlanResult {
@@ -81,7 +90,7 @@ export async function runPlan(
   // whole does, not on what any one step can see.
   const planned = reclaimPrimaryOnSwap(actions, context.chart);
   const steps: PlanStep[] = planned.map((action, index) => ({
-    index,
+    index: (options.indexOffset ?? 0) + index,
     action,
     label: describeAction(action),
   }));

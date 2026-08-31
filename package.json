@@ -13,6 +13,7 @@
     "load-secrets": "NODE_OPTIONS='--preserve-symlinks' tsx ./scripts/load-secrets.ts",
     "lint": "npm run lint:eslint",
     "easy-chart:eval": "NODE_OPTIONS='--preserve-symlinks' tsx tools/easy-chart-eval/run.ts",
+    "easy-chart:eval:report": "NODE_OPTIONS='--preserve-symlinks' tsx tools/easy-chart-eval/report.ts",
     "lint:eslint": "turbo lint",
     "lint:eslint:fix": "turbo lint:fix",
     "lint:fix": "npm run lint:eslint:fix",

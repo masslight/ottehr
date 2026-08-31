@@ -39,3 +39,39 @@ export function buildHistoryDigest(history?: ConversationTurn[]): string | undef
   });
   return lines.join('\n');
 }
+
+/**
+ * The reconciliation instruction for the pass that runs right after a template was applied.
+ *
+ * WHY IT HAS TO BE SPELLED OUT. The call is `incremental`, and that block tells the model to chart only
+ * what is NEW — the exact opposite of what is wanted here, which is to look at what is already there and
+ * take back the parts the visit does not support. Left to the model's discretion this measured
+ * unreliable on the neighbouring surface: the review's disposition check swung 53% → 36% → 35% across
+ * runs of one corpus with no code change, which is why that one is force-included too.
+ *
+ * The template's contributions are not named here and do not need to be — the ALREADY ON THE CHART block
+ * above is built from the chart this zambda just read, so it lists them, and it is the only description
+ * of them the model can trust.
+ *
+ * Note-text fields are excluded deliberately. A template's CC/HPI/MDM defaults are boilerplate that the
+ * dictated text must supersede, and the FIRST pass already wrote that text from the narrative. Asking for
+ * it again buys nothing and costs the one failure mode worth avoiding here: a re-summarised HPI, where a
+ * detailed history comes back as "Patient presents with <dx>".
+ */
+export const TEMPLATE_RECONCILE_INSTRUCTION = `A TEMPLATE WAS JUST APPLIED. Everything it charted is listed in the ALREADY ON THE CHART block above,
+mixed in with what was there before. A template fills in generic defaults — normal exam findings, a
+default diagnosis, default codes — chosen from its title alone, WITHOUT seeing this visit's narrative.
+Your job on this call is to reconcile those defaults against the narrative:
+
+  - remove-exam-finding for every charted NORMAL the narrative contradicts (the template asserts
+    "Oropharynx clear" and the provider dictated an injected oropharynx: remove the normal, then add the
+    finding the provider actually described);
+  - remove-diagnosis for a charted diagnosis this visit's narrative does not support. When the narrative
+    supports a different one, emit the removal AND the add-diagnosis that replaces it — never a bare
+    removal that leaves the note with no diagnosis;
+  - remove-cpt for a charted procedure code the narrative does not say was performed.
+
+Then add anything the narrative states that is still missing. Do NOT re-emit anything the ALREADY ON THE
+CHART block lists — it is already done. Do NOT emit edit-note-text on this call: the note's free-text
+fields were written from this same narrative on the previous pass and must not be rewritten from a
+summary. Remove ONLY on a clear contradiction with what the provider said; when in doubt, leave it.`;
