@@ -43,7 +43,7 @@ export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunR
     // rejection as the outcome check below, so it gets the same non-crashing treatment. Other status
     // codes (401/403 auth, 404, 5xx, ...) are not requests the payer rejected — let those crash.
     const sdkError = error as Partial<Oystehr.OystehrSdkError>;
-    if (sdkError.code === 400) {
+    if (sdkError.code && (sdkError.code === 400 || (sdkError.code >= 4000 && sdkError.code < 5000))) {
       throw new ClaimSubmissionRejectedError(sdkError.message || 'Claim submission was rejected by Oystehr.');
     }
     throw error;
