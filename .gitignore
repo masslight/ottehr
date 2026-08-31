@@ -41,3 +41,8 @@ terraform.json
 
 .claude
 scripts/setup/project/setup-progress.json
+# Local fixture cache written by the zambda perf bench (packages/zambdas/scripts/perf)
+packages/zambdas/.perf-bench/
+
+# Throwaway probe scripts used while investigating a specific endpoint
+packages/zambdas/scripts/perf/probe*.ts
