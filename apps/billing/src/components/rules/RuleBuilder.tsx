@@ -255,9 +255,10 @@ function TypedValueInput({
     );
   }
   if (valueType === 'date' && !multiple) {
+    const definedLabel = label ?? 'Value';
     return (
       <DateInput
-        label={label ?? 'Value'}
+        label={required ? `${definedLabel} *` : definedLabel}
         size="small"
         value={valueToText(value)}
         onChange={(value) => onChange(value)}
@@ -501,6 +502,7 @@ function DateOrSourceInput({
   value,
   onChange,
   label,
+  required,
   error,
   helperText,
   inputRef,
@@ -510,6 +512,7 @@ function DateOrSourceInput({
   label?: string;
 } & ValueInputValidationProps): ReactElement {
   const source: DateSourceSelectValue = value && typeof value === 'object' ? value.source : EXACT_DATE_SOURCE;
+  const definedLabel = label ?? 'Date';
   return (
     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
       <FormControl size="small" sx={{ minWidth: 220 }}>
@@ -535,7 +538,7 @@ function DateOrSourceInput({
       </FormControl>
       {source === EXACT_DATE_SOURCE && (
         <DateInput
-          label={label ?? 'Date'}
+          label={required ? `${definedLabel} *` : definedLabel}
           size="small"
           value={typeof value === 'string' ? value : ''}
           onChange={(value) => onChange(value)}
