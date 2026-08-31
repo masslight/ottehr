@@ -1,0 +1,13 @@
+{
+    "schema-version": "2025-09-25",
+    "buckets": {
+        "CLAIM_ATTACHMENTS": {
+            "name": "#{var/PROJECT_ID}-billing-app",
+            "retainInEnvironments": [
+                "production",
+                "staging",
+                "demo"
+            ]
+        }
+    }
+}

@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
 import {
+  AddClaimAttachmentInputSchema,
   AddClaimNoteInputSchema,
   BulkAddChargeItemDefinitionProcedureCodesInputSchema,
   CreateBillingClaimInputSchema,
@@ -13,7 +14,9 @@ import {
   DeleteBillingProviderInputSchema,
   DeleteBillingTagInputSchema,
   DeleteChargeItemDefinitionInputSchema,
+  DeleteClaimAttachmentInputSchema,
   DeleteServiceFacilityInputSchema,
+  DownloadClaimAttachmentInputSchema,
   ExportBillingClaimsInputSchema,
   ExportClaimX12InputSchema,
   GetBillingClaimsExportStatusInputSchema,
@@ -32,6 +35,7 @@ import {
   MatchClaimResponseToClaimInputSchema,
   PatientPaymentsDrilldownParamsSchema,
   RecordBillingManualPaymentInputSchema,
+  RenameClaimAttachmentInputSchema,
   ReportDateWindowParams,
   SaveBillingTagInputSchema,
   SaveServiceFacilityInputSchema,
@@ -54,6 +58,7 @@ import {
   UpdateChargeItemDefinitionInputSchema,
 } from 'utils/lib/types/data/billing/billing.schemas';
 import {
+  AddClaimAttachmentResponse,
   BillingChargeItemDefinition,
   BillingClaimsExportKickOffResponse,
   BillingClaimsExportStatusResponse,
@@ -63,6 +68,7 @@ import {
   CreatedClaimResponse,
   CreatedResourceResponse,
   DeletedResponse,
+  DownloadClaimAttachmentResponse,
   EraDetailResponse,
   ExportClaimX12Response,
   GetBillingCardsOnFileReportResponse,
@@ -530,3 +536,25 @@ export const recordBillingManualPayment = (
   parameters: z.input<typeof RecordBillingManualPaymentInputSchema>
 ): Promise<RecordBillingManualPaymentResponse> =>
   executeBillingZambda(oystehr, 'record-billing-manual-payment', parameters);
+
+// --- Claim Attachments ---
+
+export const addClaimAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof AddClaimAttachmentInputSchema>
+): Promise<AddClaimAttachmentResponse> => executeBillingZambda(oystehr, 'add-claim-attachment', parameters);
+
+export const renameClaimAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof RenameClaimAttachmentInputSchema>
+): Promise<void> => executeBillingZambda(oystehr, 'rename-claim-attachment', parameters);
+
+export const deleteClaimAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DeleteClaimAttachmentInputSchema>
+): Promise<void> => executeBillingZambda(oystehr, 'delete-claim-attachment', parameters);
+
+export const downloadClaimAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DownloadClaimAttachmentInputSchema>
+): Promise<DownloadClaimAttachmentResponse> => executeBillingZambda(oystehr, 'download-claim-attachment', parameters);

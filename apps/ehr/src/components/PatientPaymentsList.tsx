@@ -4,6 +4,7 @@ import {
   Alert,
   Box,
   Button,
+  ButtonBase,
   capitalize,
   Checkbox,
   Chip,
@@ -76,6 +77,7 @@ import {
 import { APIError, APIErrorCode, isApiError } from 'utils/lib/types/errors';
 import { sendReceiptByEmail } from '../api/api';
 import PaymentDialog from './dialogs/PaymentDialog';
+import RemoveCardOnFileDialog from './dialogs/RemoveCardOnFileDialog';
 import SendReceiptByEmailDialog, { SendReceiptFormData } from './dialogs/SendReceiptByEmailDialog';
 import { GenericToolTip } from './GenericToolTip';
 import { RefreshableStatusChip } from './RefreshableStatusWidget';
@@ -127,21 +129,34 @@ interface LineItem {
   modifier?: string;
   description: string;
   amount: number;
+  units: number;
   feeUnknown?: boolean;
 }
 
-function buildLineItems(
+export function buildLineItems(
   feeSchedule: ChargeItemDefinition | null | undefined,
-  cptCodes: { code: string; display: string; modifier?: { code: string; display: string }[] }[] | undefined,
+  cptCodes:
+    | { code: string; display: string; modifier?: { code: string; display: string }[]; billableUnits?: number }[]
+    | undefined,
   emCode: { code: string; display: string; modifier?: { code: string; display: string }[] } | undefined
 ): LineItem[] {
   if (!feeSchedule?.propertyGroup || (!cptCodes?.length && !emCode)) return [];
 
-  const allCodes = [...(cptCodes ?? []), ...(emCode ? [emCode] : [])];
+  const allCodes: {
+    code: string;
+    display: string;
+    modifier?: { code: string; display: string }[];
+    billableUnits?: number;
+  }[] = [...(cptCodes ?? []), ...(emCode ? [emCode] : [])];
   const items: LineItem[] = [];
 
   for (const cpt of allCodes) {
     const cptModifier = cpt.modifier?.[0]?.code;
+    const { billableUnits } = cpt;
+    const units =
+      billableUnits != null && Number.isFinite(billableUnits) && billableUnits > 0
+        ? Math.max(1, Math.ceil(billableUnits))
+        : 1;
     let noModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
     let anyModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
     let exactMatched = false;
@@ -158,7 +173,8 @@ function buildLineItems(
           code: cpt.code,
           modifier: cptModifier,
           description: cpt.display || fsCoding.display || '',
-          amount: pc.amount?.value ?? 0,
+          amount: (pc.amount?.value ?? 0) * units,
+          units,
         });
         exactMatched = true;
         noModifierFallbackPg = undefined;
@@ -180,7 +196,8 @@ function buildLineItems(
         code: cpt.code,
         modifier: cptModifier,
         description: cpt.display || fsCoding?.display || '',
-        amount: pc.amount?.value ?? 0,
+        amount: (pc.amount?.value ?? 0) * units,
+        units,
       });
     } else if (!exactMatched) {
       // Code not found in fee schedule — include with unknown fee
@@ -189,6 +206,7 @@ function buildLineItems(
         modifier: cptModifier,
         description: cpt.display || '',
         amount: 0,
+        units,
         feeUnknown: true,
       });
     }
@@ -253,6 +271,7 @@ export default function PatientPaymentList({
   const queryClient = useQueryClient();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
+  const [removeCardDialogOpen, setRemoveCardDialogOpen] = useState(false);
   const {
     data: hasCreditCardOnFileFromList = false,
     isSuccess: cardOnFileKnown,
@@ -512,6 +531,7 @@ export default function PatientPaymentList({
     : 'checking card on file';
   const cardOnFileChipLabel = hasCreditCardOnFileFromList === true ? 'ON FILE' : 'NO CARD';
   const cardOnFileTooltipText = hasCreditCardOnFileFromList === true ? 'Credit card on file' : 'No card on file';
+  const cardOnFileClickable = cardOnFileKnown && hasCreditCardOnFileFromList === true;
 
   const handlePaymentDialogClose = useCallback(() => {
     setPaymentDialogOpen(false);
@@ -519,6 +539,26 @@ export default function PatientPaymentList({
       void refetchCardOnFile();
     }
   }, [oystehrZambda, patient?.id, appointment?.id, refetchCardOnFile]);
+
+  const removeCardOnFile = useMutation({
+    mutationFn: async () => {
+      if (!oystehrZambda || !patient?.id || !appointment?.id)
+        throw new Error('Missing oystehr client, patient id, or appointment id');
+      await oystehrZambda.zambda.execute({
+        id: 'payment-methods-unset-default',
+        beneficiaryPatientId: patient.id,
+        appointmentId: appointment.id,
+      });
+    },
+    onSuccess: async () => {
+      setRemoveCardDialogOpen(false);
+      enqueueSnackbar('Card on file removed', { variant: 'success' });
+      await refetchCardOnFile();
+    },
+    onError: () => {
+      enqueueSnackbar('Something went wrong! Unable to remove card on file.', { variant: 'error' });
+    },
+  });
 
   const stripeCustomerDeletedError =
     paymentListError && isApiError(paymentListError)
@@ -982,7 +1022,8 @@ export default function PatientPaymentList({
             </GenericToolTip>
           )}
         </Box>
-        {(patientCreditCents ?? 0) > 0 && (
+        {/* Outstanding credit banner intentionally hidden (OTR-3309) */}
+        {false && (patientCreditCents ?? 0) > 0 && (
           <Alert
             severity="success"
             variant="outlined"
@@ -1019,6 +1060,7 @@ export default function PatientPaymentList({
                             <Typography variant="body2" fontWeight={600}>
                               {item.code}
                               {item.modifier ? ` (${item.modifier})` : ''}
+                              {item.units > 1 ? ` × ${item.units}` : ''}
                             </Typography>
                           </TableCell>
                           <TableCell>
@@ -1235,6 +1277,7 @@ export default function PatientPaymentList({
                                     <Typography variant="body2" fontWeight={600}>
                                       {item.code}
                                       {item.modifier ? ` (${item.modifier})` : ''}
+                                      {item.units > 1 ? ` × ${item.units}` : ''}
                                     </Typography>
                                   </TableCell>
                                   <TableCell>
@@ -1353,6 +1396,7 @@ export default function PatientPaymentList({
                             <Typography variant="body2" fontWeight={600}>
                               {item.code}
                               {item.modifier ? ` (${item.modifier})` : ''}
+                              {item.units > 1 ? ` × ${item.units}` : ''}
                             </Typography>
                           </TableCell>
                           <TableCell>
@@ -1547,7 +1591,20 @@ export default function PatientPaymentList({
                 )
               }
             >
-              <Box sx={{ ml: 'auto', display: 'inline-flex', alignItems: 'center' }} aria-label={cardOnFileStatusLabel}>
+              <Box
+                component={cardOnFileClickable ? ButtonBase : 'div'}
+                sx={{
+                  ml: 'auto',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  ...(cardOnFileClickable && {
+                    borderRadius: 1,
+                    '&:hover': { opacity: 0.75 },
+                  }),
+                }}
+                aria-label={cardOnFileStatusLabel}
+                onClick={cardOnFileClickable ? () => setRemoveCardDialogOpen(true) : undefined}
+              >
                 <svg width="38" height="38" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect
                     x="10"
@@ -1698,6 +1755,12 @@ export default function PatientPaymentList({
           recipientName: responsibleParty?.fullName,
           recipientEmail: responsibleParty?.email,
         }}
+      />
+      <RemoveCardOnFileDialog
+        open={removeCardDialogOpen}
+        onClose={() => setRemoveCardDialogOpen(false)}
+        onRemove={() => removeCardOnFile.mutate()}
+        loading={removeCardOnFile.isPending}
       />
       <Snackbar
         // anchorOrigin={{ vertical: snackbarOpen.vertical, horizontal: snackbarOpen.horizontal }}

@@ -444,6 +444,34 @@
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/claim-response/sub-claim-response-adjust-status/index",
       "zip": ".dist/zips/sub-claim-response-adjust-status.zip"
+    },
+    "ADD-CLAIM-ATTACHMENT": {
+      "name": "add-claim-attachment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/add-claim-attachment/index",
+      "zip": ".dist/zips/add-claim-attachment.zip"
+    },
+    "RENAME-CLAIM-ATTACHMENT": {
+      "name": "rename-claim-attachment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/rename-claim-attachment/index",
+      "zip": ".dist/zips/rename-claim-attachment.zip"
+    },
+    "DELETE-CLAIM-ATTACHMENT": {
+      "name": "delete-claim-attachment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-claim-attachment/index",
+      "zip": ".dist/zips/delete-claim-attachment.zip"
+    },
+    "DOWNLOAD-CLAIM-ATTACHMENT": {
+      "name": "download-claim-attachment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/download-claim-attachment/index",
+      "zip": ".dist/zips/download-claim-attachment.zip"
     }
   },
   "fhirResources": {
