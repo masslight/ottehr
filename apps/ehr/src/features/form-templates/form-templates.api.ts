@@ -7,6 +7,8 @@ import {
   CreateFormTemplateUploadUrlOutput,
   DeleteFormTemplateInput,
   DeleteFormTemplateOutput,
+  FillFormTemplateInput,
+  FillFormTemplateOutput,
   FormTemplateAnalysisStatus,
   GetFormTemplateDetailInput,
   GetFormTemplateDetailOutput,
@@ -21,6 +23,7 @@ import {
 } from 'utils/lib/types/api/form-template.types';
 
 const ANALYZE_FORM_TEMPLATE_ZAMBDA_ID = 'analyze-form-template';
+const FILL_FORM_TEMPLATE_ZAMBDA_ID = 'fill-form-template';
 const CREATE_FORM_TEMPLATE_UPLOAD_URL_ZAMBDA_ID = 'create-form-template-upload-url';
 const GET_FORM_TEMPLATE_DETAIL_ZAMBDA_ID = 'get-form-template-detail';
 const REPLACE_FORM_TEMPLATE_PDF_ZAMBDA_ID = 'replace-form-template-pdf';
@@ -36,6 +39,20 @@ export const listFormTemplates = async (
   try {
     const response = await oystehr.zambda.execute({ id: LIST_FORM_TEMPLATES_ZAMBDA_ID, ...parameters });
     return chooseJson(response) as ListFormTemplatesOutput;
+  } catch (error: unknown) {
+    console.error(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+/** Builds a copy of a template prefilled from one encounter, and returns a URL to open it. */
+export const fillFormTemplate = async (
+  oystehr: Oystehr,
+  parameters: FillFormTemplateInput
+): Promise<FillFormTemplateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: FILL_FORM_TEMPLATE_ZAMBDA_ID, ...parameters });
+    return chooseJson(response) as FillFormTemplateOutput;
   } catch (error: unknown) {
     console.error(error);
     throw apiErrorToThrow(error);

@@ -662,6 +662,21 @@ export const FORM_TEMPLATE_CATEGORY_CODING: Coding = {
 export const FORM_TEMPLATE_CATEGORY_SEARCH_PARAM = `${DOCUMENT_CATEGORY_SYSTEM}|form-template`;
 
 /**
+ * A prefilled copy of a template, produced for one encounter.
+ *
+ * Distinct from the template category so a chart listing cannot pick up templates, and a template listing
+ * cannot pick up instances — they live in different buckets and mean different things.
+ */
+export const FORM_INSTANCE_CATEGORY_CODING: Coding = {
+  system: DOCUMENT_CATEGORY_SYSTEM,
+  code: 'form-instance',
+  display: 'Filled Form',
+};
+
+/** `system|code` form, for `category=` searches. Never written to a resource. */
+export const FORM_INSTANCE_CATEGORY_SEARCH_PARAM = `${DOCUMENT_CATEGORY_SYSTEM}|form-instance`;
+
+/**
  * Whether a template's PDF has fillable fields, recorded as a second `category` coding.
  *
  * This lives in `category` rather than alongside the field inventory in an extension because listings
@@ -717,6 +732,8 @@ export const BUCKET_NAMES = {
   PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
   /** Admin-authored fillable PDF form templates. Org-level: no patient path segment. */
   FORM_TEMPLATES: 'form-templates',
+  /** Prefilled copies of those templates, one per encounter. Patient-scoped, unlike the templates. */
+  FORM_INSTANCES: 'form-instances',
   RADIOLOGY_REPORTS: 'radiology-reports',
   REPORTS: 'invoiceable-patients-reports',
   BILLING_CLAIM_EXPORTS: 'billing-claim-exports',

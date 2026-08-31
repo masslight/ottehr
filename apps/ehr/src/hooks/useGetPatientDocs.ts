@@ -692,10 +692,16 @@ const useSearchPatientDocuments = (
       const searchResultsResources: FhirResource[] = data;
       console.log(`useSearchPatientDocuments() search results cnt=[${searchResultsResources.length}]`);
 
-      //&& resource.status === 'current'
+      // Superseded documents are excluded, but nothing narrower than that. A document can be a legitimate
+      // work in progress — a prefilled form waiting to be completed is `preliminary` and still wanted here
+      // — whereas `superseded` says a newer copy of this same document already exists, so listing it only
+      // offers a way to pick the stale one.
       const docRefsResources =
         searchResultsResources
-          ?.filter((resource: FhirResource) => resource.resourceType === 'DocumentReference')
+          ?.filter(
+            (resource: FhirResource) =>
+              resource.resourceType === 'DocumentReference' && resource.status !== 'superseded'
+          )
           ?.map((docRefResource: FhirResource) => docRefResource as DocumentReference) ?? [];
 
       const documents = docRefsResources.map((docRef) => createDocumentInfo(docRef));

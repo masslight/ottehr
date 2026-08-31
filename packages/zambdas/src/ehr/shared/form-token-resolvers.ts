@@ -235,10 +235,13 @@ export const TOKEN_RESOLVERS: Record<string, FormTokenResolver> = {
   // ── Insurance ─────────────────────────────────────────────────────────────
   // Which coverage is primary and which is secondary comes from the appointment, not from the Coverage
   // resources, so both are resolved into the context rather than read off the note input's single one.
-  'insurance.primaryPayerName': (ctx) =>
-    ctx.insurance?.primary?.payerName ?? ctx.appointmentPackage?.insurancePlan?.name,
-  'insurance.primaryMemberId': (ctx) =>
-    memberId(ctx.insurance?.primary?.coverage) ?? memberId(ctx.appointmentPackage?.coverage),
+  // No fallback to `appointmentPackage.insurancePlan`: that field is declared on the package type but
+  // never populated by the loader, so it reads as a safety net while being dead code.
+  'insurance.primaryPayerName': (ctx) => ctx.insurance?.primary?.payerName,
+  // No second fallback to the appointment package's coverage: that coverage is now folded into
+  // `insurance.primary` upstream, and reading it here as well gave the member ID a path to resolve that
+  // the payer name did not — which is precisely how a form came out with an ID and no insurer.
+  'insurance.primaryMemberId': (ctx) => memberId(ctx.insurance?.primary?.coverage),
   'insurance.secondaryPayerName': (ctx) => ctx.insurance?.secondary?.payerName,
   'insurance.secondaryMemberId': (ctx) => memberId(ctx.insurance?.secondary?.coverage),
 

@@ -99,6 +99,31 @@ export interface FormFieldOption {
   label: string;
 }
 
+/** What a prefill run managed to place, so the provider is told rather than left to notice. */
+export interface FormFillReport {
+  /** Fields written from the mapping. */
+  filledCount: number;
+  /** Bindings that produced nothing, with the reason. */
+  skipped: { fieldName: string; tokenKey: string; reason: string }[];
+}
+
+export interface FillFormTemplateInput {
+  /** The template to fill. */
+  documentReferenceId: string;
+  /** The visit supplying the context. */
+  appointmentId: string;
+}
+
+export interface FillFormTemplateOutput {
+  /** The DocumentReference created for the filled copy. */
+  documentReferenceId: string;
+  /** Short-lived URL the chart opens in a new tab. */
+  presignedUrl: string;
+  /** Download name, distinct per encounter rather than per template. */
+  fileName: string;
+  report: FormFillReport;
+}
+
 export interface FormFieldInfo {
   /** Fully-qualified field name — the parent chain joined by dots. */
   name: string;
