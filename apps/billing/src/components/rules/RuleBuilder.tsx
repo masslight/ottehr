@@ -61,6 +61,7 @@ import {
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { otherColors } from '../../themes/ottehr/colors';
+import { DateInput } from '../DateInput';
 import { FacilitySelect } from '../FacilitySelect';
 import { PayerSelect } from '../PayerSelect';
 import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
@@ -253,7 +254,20 @@ function TypedValueInput({
       </FormControl>
     );
   }
-  if ((valueType === 'date' || valueType === 'number') && !multiple) {
+  if (valueType === 'date' && !multiple) {
+    const definedLabel = label ?? 'Value';
+    return (
+      <DateInput
+        label={required ? `${definedLabel} *` : definedLabel}
+        size="small"
+        value={valueToText(value)}
+        onChange={(value) => onChange(value)}
+        error={error}
+        helperText={helperText}
+      />
+    );
+  }
+  if (valueType === 'number' && !multiple) {
     return (
       <TextField
         size="small"
@@ -498,6 +512,7 @@ function DateOrSourceInput({
   label?: string;
 } & ValueInputValidationProps): ReactElement {
   const source: DateSourceSelectValue = value && typeof value === 'object' ? value.source : EXACT_DATE_SOURCE;
+  const definedLabel = label ?? 'Date';
   return (
     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
       <FormControl size="small" sx={{ minWidth: 220 }}>
@@ -522,18 +537,13 @@ function DateOrSourceInput({
         )}
       </FormControl>
       {source === EXACT_DATE_SOURCE && (
-        <TextField
+        <DateInput
+          label={required ? `${definedLabel} *` : definedLabel}
           size="small"
-          type="date"
-          label={label ?? 'Date'}
           value={typeof value === 'string' ? value : ''}
-          onChange={(e) => onChange(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          required={required}
+          onChange={(value) => onChange(value)}
           error={error}
           helperText={helperText}
-          inputRef={inputRef}
-          sx={{ minWidth: 200 }}
         />
       )}
     </Box>
