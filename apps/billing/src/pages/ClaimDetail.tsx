@@ -1538,6 +1538,7 @@ function AttachmentsSection({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteDocRefId, setDeleteDocRefId] = useState<string | null>(null);
   const [deleteFormIsSubmitting, setDeleteFormIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const addFormMethods = useForm<{ name: string; reportTypeCode: string; file: File }>({
     defaultValues: { name: '', reportTypeCode: '' },
   });
@@ -1562,6 +1563,10 @@ function AttachmentsSection({
     setAnchorEl(null);
   };
 
+  const closeAddDialog = (): void => {
+    setShowAddDialog(false);
+    setSubmitError('');
+  };
   const onAdd = async ({
     name,
     reportTypeCode,
@@ -1573,6 +1578,7 @@ function AttachmentsSection({
   }): Promise<string | null> => {
     if (!oystehrZambda) return null;
     try {
+      setSubmitError('');
       const { uploadUrl } = await addClaimAttachment(oystehrZambda, {
         claimId: claim.id,
         name,
@@ -1586,42 +1592,52 @@ function AttachmentsSection({
         body: file,
       });
       await refetchClaim();
-      setShowAddDialog(false);
+      closeAddDialog();
       addReset();
     } catch (err) {
-      return getApiError({ error: err, defaultError: 'Failed to add attachment' });
+      const errorMessage = getApiError({ error: err, defaultError: 'Failed to add attachment' });
+      setSubmitError(errorMessage);
+      return errorMessage;
     }
     return null;
   };
   const closeRenameDialog = (): void => {
     setShowRenameDialog(false);
     setRenameDocRefId(null);
+    setSubmitError('');
   };
   const onRename = async ({ name }: { name: string }): Promise<string | null> => {
     if (!oystehrZambda || !renameDocRefId) return null;
     try {
+      setSubmitError('');
       await renameClaimAttachment(oystehrZambda, { documentReferenceId: renameDocRefId, name });
       await refetchClaim();
       closeRenameDialog();
       renameReset();
     } catch (err) {
-      return getApiError({ error: err, defaultError: 'Failed to rename attachment' });
+      const errorMessage = getApiError({ error: err, defaultError: 'Failed to rename attachment' });
+      setSubmitError(errorMessage);
+      return errorMessage;
     }
     return null;
   };
   const closeDeleteDialog = (): void => {
     setShowDeleteDialog(false);
     setDeleteDocRefId(null);
+    setSubmitError('');
   };
   const onDelete = async (): Promise<string | null> => {
     if (!oystehrZambda || !deleteDocRefId) return null;
     setDeleteFormIsSubmitting(true);
     try {
+      setSubmitError('');
       await deleteClaimAttachment(oystehrZambda, { claimId: claim.id, documentReferenceId: deleteDocRefId });
       await refetchClaim();
       closeDeleteDialog();
     } catch (err) {
-      return getApiError({ error: err, defaultError: 'Failed to delete attachment' });
+      const errorMessage = getApiError({ error: err, defaultError: 'Failed to delete attachment' });
+      setSubmitError(errorMessage);
+      return errorMessage;
     } finally {
       setDeleteFormIsSubmitting(false);
     }
@@ -1723,12 +1739,12 @@ function AttachmentsSection({
       </ReadOnlySection>
 
       {/* Add Dialog */}
-      <Dialog open={showAddDialog} onClose={() => setShowAddDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog open={showAddDialog} onClose={() => closeAddDialog()} maxWidth="sm" fullWidth>
         <DialogTitle
           sx={{ px: 3, pt: 3, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
         >
           <Typography variant="h5">Add Attachment</Typography>
-          <IconButton size="small" onClick={() => setShowAddDialog(false)} aria-label="Close">
+          <IconButton size="small" onClick={() => closeAddDialog()} aria-label="Close">
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
@@ -1736,6 +1752,11 @@ function AttachmentsSection({
           <FormProvider {...addFormMethods}>
             <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                {submitError && (
+                  <Alert severity="error" sx={{ mb: 1 }}>
+                    {submitError}
+                  </Alert>
+                )}
                 <Controller
                   name="name"
                   control={addFormControl}
@@ -1793,7 +1814,7 @@ function AttachmentsSection({
           </FormProvider>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowAddDialog(false)}>Cancel</Button>
+          <Button onClick={() => closeAddDialog()}>Cancel</Button>
           <Button
             variant="contained"
             startIcon={addFormIsSubmitting ? <CircularProgress size={14} /> : <SaveIcon fontSize="small" />}
@@ -1819,6 +1840,11 @@ function AttachmentsSection({
           <FormProvider {...renameFormMethods}>
             <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                {submitError && (
+                  <Alert severity="error" sx={{ mb: 1 }}>
+                    {submitError}
+                  </Alert>
+                )}
                 <Controller
                   name="name"
                   control={renameFormControl}
@@ -1863,7 +1889,13 @@ function AttachmentsSection({
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
-        <DialogContent></DialogContent>
+        <DialogContent>
+          {submitError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {submitError}
+            </Alert>
+          )}
+        </DialogContent>
         <DialogActions>
           <Button onClick={() => closeDeleteDialog()}>Cancel</Button>
           <Button

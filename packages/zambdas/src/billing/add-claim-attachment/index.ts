@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimSupportingInfo, DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { AddClaimAttachmentResponse } from 'utils/lib/types/data/billing/billing.types';
+import { sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -63,7 +64,7 @@ export async function performEffect(
             params.secrets['PROJECT_API'],
             params.secrets['PROJECT_ID'],
             claim.id,
-            params.name
+            sanitizeFileNameForZ3(params.name)
           ),
           contentType: `application/${extension}`,
           title: params.name,
