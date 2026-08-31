@@ -37,24 +37,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
-  const oneMonthAgo = DateTime.now().toUTC().minus({ days: 30 }).startOf('day');
+  const sevenDaysAgo = DateTime.now().toUTC().minus({ days: 7 }).startOf('day');
   const now = DateTime.now().toUTC();
 
-  console.log(`Fetching radiology studies for date range: ${oneMonthAgo.toISO()} to ${now.toISO()}`);
+  console.log(`Fetching radiology studies for date range: ${sevenDaysAgo.toISO()} to ${now.toISO()}`);
 
-  // Fetch in batches of 3 days to avoid 5MB response payload limit
+  // Fetch in batches of 1 day to avoid 5MB response payload limit
   const serviceRequests: ServiceRequest[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const encounters: Encounter[] = [];
   const patients: Patient[] = [];
 
-  // Calculate 10 batches of 3 days each to cover 30 days
-  const batchSizeDays = 3;
-  const numberOfBatches = 10;
+  const batchSizeDays = 1;
+  const numberOfBatches = 7;
 
   for (let i = 0; i < numberOfBatches; i++) {
-    const batchStart = oneMonthAgo.plus({ days: i * batchSizeDays });
-    const batchEnd = oneMonthAgo.plus({ days: (i + 1) * batchSizeDays });
+    const batchStart = sevenDaysAgo.plus({ days: i * batchSizeDays });
+    const batchEnd = sevenDaysAgo.plus({ days: (i + 1) * batchSizeDays });
 
     console.log(`Fetching batch ${i + 1}/${numberOfBatches}: ${batchStart.toISO()} to ${batchEnd.toISO()}`);
 
@@ -113,7 +112,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`Found ${serviceRequests.length} radiology studies`);
 
   if (serviceRequests.length === 0) {
-    const message = `No radiology studies found since ${oneMonthAgo.toFormat('yyyy-MM-dd')}`;
+    const message = `No radiology studies found since ${sevenDaysAgo.toFormat('yyyy-MM-dd')}`;
     console.log(message);
 
     return {
