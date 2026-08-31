@@ -383,6 +383,14 @@ export interface ClaimRemit {
   adjustments: ClaimRemitAdjustment[];
 }
 
+export interface ClaimAttachment {
+  sequence: number;
+  id: string;
+  fileName: string;
+  reportTypeCode?: string;
+  dateAdded: string;
+}
+
 export interface ClaimDetailResponse {
   id: string;
   // Clinical Encounter this claim was generated from (from the claim's claim-encounter-id identifier).
@@ -495,6 +503,7 @@ export interface ClaimDetailResponse {
   patientDischargeStatusCode: string;
   admissionType: string;
   admissionSource: string;
+  attachments: ClaimAttachment[];
 }
 
 interface Paginated {
@@ -663,4 +672,12 @@ export interface RecordBillingManualPaymentResponse {
   paymentNoticeId: string;
   // present when the notice is linked to an existing billing Claim
   claimId?: string;
+}
+
+export interface AddClaimAttachmentResponse {
+  uploadUrl: string;
+}
+
+export interface DownloadClaimAttachmentResponse {
+  downloadUrl: string;
 }
