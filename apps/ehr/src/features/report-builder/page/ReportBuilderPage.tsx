@@ -2,6 +2,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import SaveIcon from '@mui/icons-material/Save';
 import {
+  Alert,
   Box,
   Button,
   CircularProgress,
@@ -149,9 +150,9 @@ export default function ReportBuilderPage(): React.ReactElement {
           </Box>
 
           {rb.error && (
-            <Box sx={{ mb: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
-              <Typography color="error">{rb.error}</Typography>
-            </Box>
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {rb.error}
+            </Alert>
           )}
 
           {rb.canCreate && (
@@ -193,9 +194,9 @@ export default function ReportBuilderPage(): React.ReactElement {
           )}
 
           {rb.generateError && (
-            <Box sx={{ mb: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
-              <Typography color="error">{rb.generateError}</Typography>
-            </Box>
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {rb.generateError}
+            </Alert>
           )}
 
           {rb.unavailableRequest && (
@@ -314,12 +315,10 @@ export default function ReportBuilderPage(): React.ReactElement {
                   </Collapse>
 
                   {rb.renderError && (
-                    <Box sx={{ mb: 2, p: 2, bgcolor: 'warning.light', borderRadius: 1 }}>
-                      <Typography variant="body2">
-                        The report failed to run: {rb.renderError}.{' '}
-                        {rb.canCreate ? 'Adjust your request and regenerate.' : 'Ask an administrator to rebuild it.'}
-                      </Typography>
-                    </Box>
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                      The report failed to run: {rb.renderError}.{' '}
+                      {rb.canCreate ? 'Adjust your request and regenerate.' : 'Ask an administrator to rebuild it.'}
+                    </Alert>
                   )}
 
                   <Box
