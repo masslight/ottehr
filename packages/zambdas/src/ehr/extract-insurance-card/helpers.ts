@@ -159,7 +159,12 @@ export async function extractInsuranceCardFieldsFromImage(
   } catch (error) {
     // A 4xx from Vertex AI means the uploaded image itself was rejected (e.g. unreadable or
     // unsupported content). Surface that as a 400 bad-request rather than crashing with a 500.
-    if (error instanceof VertexAIRequestError && error.status !== undefined && error.status >= 400 && error.status < 500) {
+    if (
+      error instanceof VertexAIRequestError &&
+      error.status !== undefined &&
+      error.status >= 400 &&
+      error.status < 500
+    ) {
       throw INVALID_INPUT_ERROR(
         'The uploaded insurance card image could not be processed. Please upload a clearer image of the insurance card.'
       );
