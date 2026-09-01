@@ -3,7 +3,7 @@ import { Box, IconButton, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { showEnvironmentBanner } from 'src/App';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { PatientNotes as PatientNotesButton } from 'src/features/patient-notes/components/PatientNotes';
+import { PatientNotesButton } from 'src/features/patient-notes/components/PatientNotesButton';
 import { PrintVisitLabelButton } from 'src/features/visits/in-person/components/PrintVisitLabelButton';
 import { BANNER_HEIGHT } from 'src/helpers/misc.helper';
 import { useGetPatient } from 'src/hooks/useGetPatient';

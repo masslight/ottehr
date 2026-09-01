@@ -32,7 +32,7 @@ import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDia
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
 import { FaxVisitOption, SendFaxDialog, useSendFax } from 'src/features/fax';
-import { PatientNotes as PatientNotesButton } from 'src/features/patient-notes/components/PatientNotes';
+import { PatientNotesButton } from 'src/features/patient-notes/components/PatientNotesButton';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { PatientAvatar } from 'src/features/visits/shared/components/patient/info/Avatar';
 import Contacts from 'src/features/visits/shared/components/patient/info/Contacts';
