@@ -103,8 +103,12 @@ const refundStatusLabel = (refund: PaymentRefundDTO): string => {
 const isSettledRefund = (refund: PaymentRefundDTO): boolean =>
   refund.status !== 'failed' && refund.status !== 'canceled';
 
-const REFUNDABLE_METHODS = ['card', 'card-reader'];
+const REFUNDABLE_METHODS = ['card', 'card-reader', 'cash', 'check', 'external-card-reader'];
 const VOIDABLE_METHODS = ['cash', 'check', 'external-card-reader'];
+// refunds for these are recorded in the EHR only; the money goes back to the patient by hand
+const MANUAL_REFUND_METHODS = ['cash', 'check', 'external-card-reader'];
+const isManualRefundPayment = (payment: PatientPaymentDTO): boolean =>
+  MANUAL_REFUND_METHODS.includes(payment.paymentMethod);
 
 function PaymentActionDialog({
   action,
@@ -184,7 +188,11 @@ function PaymentActionDialog({
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {action === 'refund'
-            ? `Up to ${formatCents(remainingCents)} can be refunded to the original payment method via Stripe.`
+            ? isManualRefundPayment(payment)
+              ? `Up to ${formatCents(
+                  remainingCents
+                )} can be recorded as refunded. Return the money to the patient directly — this only records the refund.`
+              : `Up to ${formatCents(remainingCents)} can be refunded to the original credit card.`
             : 'The payment will be voided and no longer counted toward the total collected.'}
         </Typography>
         {action === 'refund' && (
@@ -269,7 +277,10 @@ export default function PaymentDetailsDialog({
     netCents > 0 &&
     !!payment.fhirPaymentNotificationId;
   const voidApplies =
-    VOIDABLE_METHODS.includes(payment.paymentMethod) && !payment.voided && !!payment.fhirPaymentNotificationId;
+    VOIDABLE_METHODS.includes(payment.paymentMethod) &&
+    !payment.voided &&
+    refundedCents <= 0 &&
+    !!payment.fhirPaymentNotificationId;
 
   const detailRows: { label: string; value: string | ReactElement }[] = [
     {
@@ -299,7 +310,7 @@ export default function PaymentDetailsDialog({
       : []),
     ...(payment.description ? [{ label: 'Description', value: payment.description }] : []),
     ...(payment.paymentMethod === 'card' && payment.stripePaymentId
-      ? [{ label: 'Stripe payment', value: payment.stripePaymentId }]
+      ? [{ label: 'Credit card payment', value: payment.stripePaymentId }]
       : []),
   ];
 
@@ -350,12 +361,12 @@ export default function PaymentDetailsDialog({
                     payment.voidReason ? ` (${payment.voidReason.toLowerCase()})` : ''
                   } and is not counted toward the total collected.`
                 : refundState === 'full'
-                ? 'This payment has been fully refunded via Stripe and is not counted toward the total collected.'
-                : `${formatCents(
-                    refundedCents
-                  )} of this payment has been refunded via Stripe. Only the remaining ${formatCents(
-                    netCents
-                  )} counts toward the total collected.`}
+                ? `This payment has been fully refunded${
+                    isManualRefundPayment(payment) ? '' : ' to the credit card'
+                  } and is not counted toward the total collected.`
+                : `${formatCents(refundedCents)} of this payment has been refunded${
+                    isManualRefundPayment(payment) ? '' : ' to the credit card'
+                  }. Only the remaining ${formatCents(netCents)} counts toward the total collected.`}
             </Typography>
           </Box>
         )}
@@ -397,9 +408,11 @@ export default function PaymentDetailsDialog({
                       <Typography variant="body2" fontWeight={600}>
                         Refund
                       </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
-                        {refund.stripeRefundId}
-                      </Typography>
+                      {!refund.stripeRefundId.startsWith('manual_') && (
+                        <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
+                          {refund.stripeRefundId}
+                        </Typography>
+                      )}
                       {refund.reason && (
                         <Typography variant="caption" color="text.secondary" display="block">
                           {refund.reason.replace(/_/g, ' ')}
@@ -465,7 +478,7 @@ export default function PaymentDetailsDialog({
                 disabled={!canManagePayments}
                 onClick={() => setAction('refund')}
               >
-                Refund Payment
+                {isManualRefundPayment(payment) ? 'Record Refund' : 'Refund Payment'}
               </Button>
             </span>
           </Tooltip>

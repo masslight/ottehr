@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
-import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
 import { parsePaymentRefundsFromNotice, settledRefundTotalInCents } from 'utils/lib/fhir/paymentRefunds';
 import { getPaymentNoticeSubmitterRef, getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { convertPaymentNoticeListToCashPaymentDTOs } from 'utils/lib/helpers/helpers';
@@ -392,7 +392,8 @@ const resolveTakenByNames = async (
       ).unbundle();
       for (const practitioner of practitioners) {
         if (!practitioner.id) continue;
-        const name = getFullestAvailableName(practitioner);
+        // first + last only, matching the display stamped at write time
+        const name = [getFirstName(practitioner), getLastName(practitioner)].filter(Boolean).join(' ');
         if (!name) continue;
         for (const noticeId of noticeIdsByPractitionerId.get(practitioner.id) ?? []) {
           takenByByNoticeId.set(noticeId, name);

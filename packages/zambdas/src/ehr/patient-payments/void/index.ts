@@ -3,7 +3,12 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { PAYMENT_METHOD_EXTENSION_URL, PAYMENT_VOID_EXTENSION_URL } from 'utils/lib/fhir/constants';
-import { buildPaymentVoidExtension, PaymentVoidInfo } from 'utils/lib/fhir/paymentRefunds';
+import {
+  buildPaymentVoidExtension,
+  parsePaymentRefundsFromNotice,
+  PaymentVoidInfo,
+  settledRefundTotalInCents,
+} from 'utils/lib/fhir/paymentRefunds';
 import {
   PAYMENT_REFUND_VOID_REASONS,
   VoidPatientPaymentInput,
@@ -81,6 +86,9 @@ const complexValidation = async (params: VoidPatientPaymentInput, oystehrClient:
   }
   if (notice.status === 'cancelled') {
     throw INVALID_INPUT_ERROR('This payment has already been voided.');
+  }
+  if (settledRefundTotalInCents(parsePaymentRefundsFromNotice(notice)) > 0) {
+    throw INVALID_INPUT_ERROR('This payment has refunds recorded and can no longer be voided.');
   }
 
   return { notice, paymentNoticeId, reason, notes };
