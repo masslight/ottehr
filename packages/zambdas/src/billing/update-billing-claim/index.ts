@@ -412,6 +412,13 @@ async function attachClaimResources(
     }
   }
 
+  if (fields.admissionDate != null && fields.dischargeDate != null) {
+    claim.billablePeriod = {
+      start: fields.admissionDate,
+      end: fields.dischargeDate,
+    };
+  }
+
   return commitClaimResourceChange(oystehr, {
     resource: claim,
     before,

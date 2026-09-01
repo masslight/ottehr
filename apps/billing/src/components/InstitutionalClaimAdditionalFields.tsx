@@ -1,16 +1,19 @@
 import { Stack, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { DateInput } from './DateInput';
 
 export interface InstitutionalClaimAdditionalFieldsData {
   billType: string;
   patientDischargeStatusCode: string;
   admissionType: string;
   admissionSource: string;
+  admissionDate: string;
+  dischargeDate: string;
 }
 
 export function InstitutionalClaimAdditionalFields(): ReactElement {
-  const { control } = useFormContext();
+  const { control, getValues } = useFormContext();
   return (
     <Stack spacing={2}>
       <Controller
@@ -80,6 +83,44 @@ export function InstitutionalClaimAdditionalFields(): ReactElement {
             error={!!fieldError}
             helperText={fieldError?.message}
             inputProps={{ maxLength: 1 }}
+          />
+        )}
+      />
+      <Controller
+        name="admissionDate"
+        control={control}
+        rules={{
+          validate: (value) =>
+            !getValues('dischargeDate') || !!value || 'Admission date is required when discharge date is set',
+        }}
+        render={({ field, fieldState: { error: fieldError } }) => (
+          <DateInput
+            label="Admission Date"
+            size="small"
+            fullWidth
+            value={field.value ?? ''}
+            onChange={(value) => field.onChange(value)}
+            error={!!fieldError}
+            helperText={fieldError?.message}
+          />
+        )}
+      />
+      <Controller
+        name="dischargeDate"
+        control={control}
+        rules={{
+          validate: (value) =>
+            !getValues('admissionDate') || !!value || 'Discharge date is required when admission date is set',
+        }}
+        render={({ field, fieldState: { error: fieldError } }) => (
+          <DateInput
+            label="Discharge Date"
+            size="small"
+            fullWidth
+            value={field.value ?? ''}
+            onChange={(value) => field.onChange(value)}
+            error={!!fieldError}
+            helperText={fieldError?.message}
           />
         )}
       />

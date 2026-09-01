@@ -101,6 +101,49 @@ describe('update-billing-claim validateRequestParameters', () => {
       })
     ).toThrow(/plan type/i);
   });
+
+  it('accepts an admission date and discharge date set together', () => {
+    const result = validateRequestParameters({
+      headers: null,
+      body: body({
+        admissionDate: '2026-01-01',
+        dischargeDate: '2026-01-31',
+      }),
+      secrets: {},
+    });
+    expect(result).toMatchObject({
+      fields: {
+        admissionDate: '2026-01-01',
+        dischargeDate: '2026-01-31',
+      },
+    });
+  });
+
+  it('rejects an admission date without a discharge date', () => {
+    expect(() =>
+      validateRequestParameters({
+        headers: null,
+        body: body({
+          admissionDate: '2026-01-01',
+          dischargeDate: '',
+        }),
+        secrets: {},
+      })
+    ).toThrow(/discharge date is required/i);
+  });
+
+  it('rejects a discharge date without an admission date', () => {
+    expect(() =>
+      validateRequestParameters({
+        headers: null,
+        body: body({
+          admissionDate: '',
+          dischargeDate: '2026-01-31',
+        }),
+        secrets: {},
+      })
+    ).toThrow(/admission date is required/i);
+  });
 });
 
 describe('update-billing-claim performEffect', () => {
@@ -166,5 +209,27 @@ describe('update-billing-claim performEffect', () => {
     const written = writtenResources(transaction);
     expect(written.some((r) => r.resourceType === 'Claim')).toBe(true);
     expect(written.some((r) => r.resourceType === 'Coverage')).toBe(false);
+  });
+
+  it('writes the admission/discharge period to Claim.billablePeriod', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await performEffect(
+      oystehr,
+      {
+        resourceType: 'Claim',
+        resourceId: CLAIM_ID,
+        claimId: CLAIM_ID,
+        fields: {
+          admissionDate: '2026-01-01',
+          dischargeDate: '2026-01-31',
+        },
+        secrets: {},
+      },
+      agent
+    );
+
+    const claimWrite = writtenResources(transaction).find((r) => r.resourceType === 'Claim') as Claim;
+    expect(claimWrite.billablePeriod).toEqual({ start: '2026-01-01', end: '2026-01-31' });
   });
 });
