@@ -74,12 +74,22 @@ interface CheckForAbnormalValueInput {
   patientDOB: string;
   patientSex: string | undefined; // optional, used for ageSexFunction rules
   vitalsObservation: VitalsObservationDTO;
-  configOverride?: any; // optional override for primarily for testing purposes
+  configOverride?: any; // defaults to the static config
+  /** Instant the age band is resolved against. Defaults to now. */
+  asOfDate?: string;
 }
+
+const resolveAsOf = (asOfDate: string | undefined): DateTime => {
+  if (!asOfDate) return DateTime.now();
+  const parsed = DateTime.fromISO(asOfDate);
+  return parsed.isValid ? parsed : DateTime.now();
+};
+
 export const getVitalObservationAlertLevel = (input: CheckForAbnormalValueInput): VitalAlertCriticality | undefined => {
-  const { patientDOB: dob, patientSex, vitalsObservation, configOverride } = input;
+  const { patientDOB: dob, patientSex, vitalsObservation, configOverride, asOfDate } = input;
   const vitalsKey = vitalsObservation.field;
-  const patientAgeInMonths = DateTime.fromISO(dob).diffNow('months').months * -1;
+  const asOf = resolveAsOf(asOfDate);
+  const patientAgeInMonths = asOf.diff(DateTime.fromISO(dob), 'months').months;
 
   const getVitalCriticalityFromAlertLevels = (
     alertLevels: FHIRObservationInterpretation[]
@@ -102,7 +112,7 @@ export const getVitalObservationAlertLevel = (input: CheckForAbnormalValueInput)
     return undefined;
   };
 
-  const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob, configOverride);
+  const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob, configOverride, asOf);
 
   const { type } = rulesOrComponents;
   if (type === 'rules') {
@@ -138,10 +148,11 @@ export const getVitalObservationAlertLevel = (input: CheckForAbnormalValueInput)
 export const getVitalObservationFhirInterpretations = (
   input: CheckForAbnormalValueInput
 ): CodeableConcept[] | undefined => {
-  const { patientDOB: dob, patientSex, vitalsObservation, configOverride } = input;
+  const { patientDOB: dob, patientSex, vitalsObservation, configOverride, asOfDate } = input;
   const vitalsKey = vitalsObservation.field;
-  const patientAgeInMonths = DateTime.fromISO(dob).diffNow('months').months * -1;
-  const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob, configOverride);
+  const asOf = resolveAsOf(asOfDate);
+  const patientAgeInMonths = asOf.diff(DateTime.fromISO(dob), 'months').months;
+  const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob, configOverride, asOf);
   // console.log('rules for', vitalsKey, rulesOrComponents.length);
   const { type } = rulesOrComponents;
   console.log('vitals key:', vitalsKey, 'type:', type, patientSex);
@@ -162,10 +173,11 @@ export const getVitalObservationFhirInterpretations = (
 export const getVitalObservationFhirComponentInterpretations = (
   input: CheckForAbnormalValueInput
 ): { [componentName: string]: CodeableConcept[] } | undefined => {
-  const { patientDOB: dob, patientSex, vitalsObservation, configOverride } = input;
+  const { patientDOB: dob, patientSex, vitalsObservation, configOverride, asOfDate } = input;
   const vitalsKey = vitalsObservation.field;
-  const patientAgeInMonths = DateTime.fromISO(dob).diffNow('months').months * -1;
-  const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob, configOverride);
+  const asOf = resolveAsOf(asOfDate);
+  const patientAgeInMonths = asOf.diff(DateTime.fromISO(dob), 'months').months;
+  const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob, configOverride, asOf);
   const { type } = rulesOrComponents;
   if (type === 'components') {
     const { components } = rulesOrComponents;
@@ -207,7 +219,8 @@ const getAlertLevelsFromInterpretations = (alertLevels: FHIRObservationInterpret
 const findRulesForVitalsKeyAndDOB = (
   key: VitalFieldNames,
   dob: string,
-  configOverride?: any // optional override for primarily for testing purposes
+  configOverride?: any, // defaults to the static config
+  asOf: DateTime = DateTime.now()
 ):
   | { type: 'rules'; rules: AlertRule[] }
   | { type: 'components'; components: { [componentName: string]: AlertRule[] } } => {
@@ -216,7 +229,6 @@ const findRulesForVitalsKeyAndDOB = (
   }
 
   const dateOfBirth = DateTime.fromISO(dob);
-  const now = DateTime.now();
   const alertThresholds: AlertThreshold[] = VitalsDef(configOverride)[key]?.alertThresholds ?? [];
   const alertComponents: { [componentName: string]: AlertRule[] } = {};
   if (key === 'vital-blood-pressure' || key === 'vital-vision') {
@@ -224,29 +236,29 @@ const findRulesForVitalsKeyAndDOB = (
     const components = VitalsDef(configOverride)[key]?.components;
     if (components) {
       Object.entries(components).forEach(([name, component]) => {
-        alertComponents[name] = getRulesForPatientDOB(component.alertThresholds ?? [], dateOfBirth, now);
+        alertComponents[name] = getRulesForPatientDOB(component.alertThresholds ?? [], dateOfBirth, asOf);
       });
     }
     return { type: 'components', components: alertComponents };
   }
-  return { type: 'rules', rules: getRulesForPatientDOB(alertThresholds, dateOfBirth, now) };
+  return { type: 'rules', rules: getRulesForPatientDOB(alertThresholds, dateOfBirth, asOf) };
 };
 
 const getRulesForPatientDOB = (
   alertThresholds: AlertThreshold[],
   dateOfBirth: DateTime,
-  now: DateTime
+  asOf: DateTime
 ): AlertRule[] => {
   const rules = alertThresholds
     .filter((threshold) => {
       const { minAge, maxAge } = threshold;
       let inRange = true;
       if (minAge) {
-        const patientAge = now.diff(dateOfBirth, minAge.unit)[minAge.unit];
+        const patientAge = asOf.diff(dateOfBirth, minAge.unit)[minAge.unit];
         inRange &&= patientAge >= minAge.value;
       }
       if (maxAge) {
-        const patientAge = now.diff(dateOfBirth, maxAge.unit)[maxAge.unit];
+        const patientAge = asOf.diff(dateOfBirth, maxAge.unit)[maxAge.unit];
         inRange &&= patientAge < maxAge.value;
       }
       return inRange;

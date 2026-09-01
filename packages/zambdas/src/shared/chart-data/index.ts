@@ -52,6 +52,7 @@ import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { getVitalObservationFhirInterpretations } from 'utils/lib/helpers/vitals/utils';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import { VitalsSchema } from 'utils/lib/ottehr-config/vitals';
 import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
 import {
   DispositionMetaFieldsNames,
@@ -399,7 +400,9 @@ export function makeObservationResource(
   data: ObservationDTO,
   metaSystem: string,
   patientDOB?: string,
-  patientSex?: string
+  patientSex?: string,
+  /** Omit to use the static default thresholds. */
+  vitalsAlertConfig?: VitalsSchema
 ): Observation {
   const base: Observation = {
     id: data.resourceId,
@@ -433,9 +436,10 @@ export function makeObservationResource(
         patientDOB,
         vitalsObservation: data,
         patientSex,
+        configOverride: vitalsAlertConfig,
       });
     }
-    return fillVitalObservationAttributes({ ...base, interpretation }, data, patientDOB);
+    return fillVitalObservationAttributes({ ...base, interpretation }, data, patientDOB, vitalsAlertConfig);
   }
 
   if (isObservationBooleanFieldDTO(data)) {

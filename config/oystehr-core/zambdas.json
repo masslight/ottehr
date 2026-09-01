@@ -2339,6 +2339,20 @@
       "src": "src/ehr/progress-note-config/admin-update-progress-note-config/index",
       "zip": ".dist/zips/admin-update-progress-note-config.zip"
     },
+    "GET-VITALS-ALERT-CONFIG": {
+      "name": "get-vitals-alert-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/vitals-alert-config/get-vitals-alert-config/index",
+      "zip": ".dist/zips/get-vitals-alert-config.zip"
+    },
+    "ADMIN-UPDATE-VITALS-ALERT-CONFIG": {
+      "name": "admin-update-vitals-alert-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/vitals-alert-config/admin-update-vitals-alert-config/index",
+      "zip": ".dist/zips/admin-update-vitals-alert-config.zip"
+    },
     "GET-PUBLIC-SUPPORT-DIALOG": {
       "name": "get-public-support-dialog",
       "type": "http_open",

@@ -250,6 +250,11 @@ import {
   VisitsOverviewReportZambdaInput,
   VisitsOverviewReportZambdaOutput,
 } from 'utils/lib/types/api/visits-overview-report.types';
+import {
+  GetVitalsAlertConfigInput,
+  GetVitalsAlertConfigOutput,
+  UpdateVitalsAlertConfigInput,
+} from 'utils/lib/types/api/vitals-alert-config/vitals-alert-config.types';
 import { GetVisitDetailsPDFInput, GetVisitLabelInput } from 'utils/lib/types/common';
 import {
   AdminCreateTemplateInput,
@@ -2644,6 +2649,37 @@ export const adminUpdateProgressNoteConfig = async (
   try {
     await oystehr.zambda.execute({
       id: 'admin-update-progress-note-config',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getVitalsAlertConfig = async (
+  oystehr: Oystehr,
+  parameters?: GetVitalsAlertConfigInput
+): Promise<GetVitalsAlertConfigOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-vitals-alert-config',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdateVitalsAlertConfig = async (
+  oystehr: Oystehr,
+  parameters: UpdateVitalsAlertConfigInput
+): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'admin-update-vitals-alert-config',
       ...parameters,
     });
   } catch (error: unknown) {

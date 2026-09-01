@@ -15,7 +15,7 @@ import {
   VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
 } from 'utils/lib/fhir/vitals';
-import { convertVitalsListToMap, getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
+import { convertVitalsListToMap } from 'utils/lib/helpers/vitals/utils';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
   PATIENT_VITALS_META_SYSTEM,
@@ -37,6 +37,11 @@ import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
+import {
+  getVitalsEngineConfig,
+  resolveVitalAlertCriticality,
+  VitalAlertContext,
+} from '../../../../shared/vitals-alert-config';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-vitals-for-list-of-encounters';
@@ -61,13 +66,21 @@ const performEffect = async (
   input: EffectInput,
   oystehr: Oystehr
 ): Promise<GetVitalsForListOfEncountersResponseData> => {
-  const { encounters } = input;
+  const { encounters, patientsById } = input;
+  const vitalsAlertConfig = await getVitalsEngineConfig(oystehr);
   // Fetch current vitals for the encounter
   const encountersVitalsMap: GetVitalsForListOfEncountersResponseData = {};
   await Promise.all(
     encounters.map(async (encounter) => {
       console.log(`Fetching vitals for encounter id: ${encounter.id}`);
-      const vitalsList = await fetchVitalsForEncounter(encounter.id, oystehr);
+      // The alert context is per-encounter because patients differ across the result set.
+      const patient = patientsById[encounter.patientId];
+      const alertContext: VitalAlertContext = {
+        patientDOB: patient?.birthDate,
+        patientSex: patient?.gender,
+        vitalsAlertConfig,
+      };
+      const vitalsList = await fetchVitalsForEncounter(encounter.id, oystehr, alertContext);
       const vitalsMap = convertVitalsListToMap(vitalsList);
       encountersVitalsMap[encounter.id] = vitalsMap;
     })
@@ -75,7 +88,11 @@ const performEffect = async (
   return encountersVitalsMap;
 };
 
-const fetchVitalsForEncounter = async (encounterId: string, oystehr: Oystehr): Promise<VitalsObservationDTO[]> => {
+const fetchVitalsForEncounter = async (
+  encounterId: string,
+  oystehr: Oystehr,
+  alertContext: VitalAlertContext
+): Promise<VitalsObservationDTO[]> => {
   const currentVitalsAndPerformers = (
     await oystehr.fhir.search<Observation | Practitioner>({
       resourceType: 'Observation',
@@ -94,12 +111,16 @@ const fetchVitalsForEncounter = async (encounterId: string, oystehr: Oystehr): P
     (res) => res.resourceType === 'Practitioner'
   ) as Practitioner[];
 
-  return parseResourcesToDTOs(observations, practitioners);
+  return parseResourcesToDTOs(observations, practitioners, alertContext);
 };
 
 const fieldNameSchema = z.nativeEnum(VitalFieldNames);
 
-const parseResourcesToDTOs = (observations: Observation[], practitioners: Practitioner[]): VitalsObservationDTO[] => {
+const parseResourcesToDTOs = (
+  observations: Observation[],
+  practitioners: Practitioner[],
+  alertContext: VitalAlertContext
+): VitalsObservationDTO[] => {
   const observationPerformerMap = new Map<string, Practitioner>();
   observations.forEach((obs) => {
     const performer = practitioners.find(
@@ -142,7 +163,7 @@ const parseResourcesToDTOs = (observations: Observation[], practitioners: Practi
       }
 
       if (vitalObservation) {
-        vitalObservation.alertCriticality = getVitalDTOCriticalityFromObservation(observation);
+        vitalObservation.alertCriticality = resolveVitalAlertCriticality(observation, vitalObservation, alertContext);
         return vitalObservation;
       }
       return [];
@@ -309,6 +330,8 @@ interface EncounterWithIdAndPatientId extends Encounter {
 
 interface EffectInput {
   encounters: EncounterWithIdAndPatientId[];
+  /** Keyed by patient id; supplies the birth date and sex thresholds are evaluated against. */
+  patientsById: Record<string, Patient>;
 }
 
 const complexValidation = async (input: InputParameters, oystehr: Oystehr): Promise<EffectInput> => {
@@ -336,15 +359,20 @@ const complexValidation = async (input: InputParameters, oystehr: Oystehr): Prom
   }
 
   const encountersToReturn: EncounterWithIdAndPatientId[] = [];
+  const patientsById: Record<string, Patient> = {};
 
   for (const maybeEncounter of maybeEncounters) {
     const encounterPatientId = maybeEncounter.subject?.reference?.replace('Patient/', '');
-    const patientId = resourcesFound.find((res) => res.resourceType === 'Patient' && res.id === encounterPatientId)?.id;
+    const patient = resourcesFound.find((res) => res.resourceType === 'Patient' && res.id === encounterPatientId) as
+      | Patient
+      | undefined;
+    const patientId = patient?.id;
 
     // ignore encounters that don't have associated resources not to drop response for other encounters
-    if (!maybeEncounter || !patientId || !maybeEncounter.id) {
+    if (!maybeEncounter || !patient || !patientId || !maybeEncounter.id) {
       continue;
     }
+    patientsById[patientId] = patient;
     // The cast is not strictly necessary since we've checked maybeEncounter.id exists,
     // but TypeScript cannot guarantee at compile time that maybeEncounter has an id.
     // To avoid the cast, we use an object spread to assert the type:
@@ -355,5 +383,6 @@ const complexValidation = async (input: InputParameters, oystehr: Oystehr): Prom
 
   return {
     encounters: encountersToReturn,
+    patientsById,
   };
 };

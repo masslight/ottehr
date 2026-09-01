@@ -61,6 +61,7 @@ import { getMyPractitionerId } from '../../shared/practitioners';
 import { saveOrUpdateResourceRequest } from '../../shared/resources.helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { getVitalsEngineConfig } from '../../shared/vitals-alert-config';
 import {
   createExamObservationComments,
   getAllExamFieldsMetadata,
@@ -132,9 +133,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   //   getChartData(oystehr, encounterId),
   // ]);
 
-  const [allResources, currentPractitioner] = await Promise.all([
+  const [allResources, currentPractitioner, vitalsAlertConfig] = await Promise.all([
     getEncounterAndRelatedResources(oystehr, encounterId),
     getUserPractitioner(oystehr, userToken, secrets),
+    getVitalsEngineConfig(oystehr),
   ]);
 
   const encounter = allResources.filter((resource) => resource.resourceType === 'Encounter')[0] as Encounter;
@@ -233,7 +235,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           element,
           ADDITIONAL_QUESTIONS_META_SYSTEM,
           patient.birthDate,
-          patient.gender
+          patient.gender,
+          vitalsAlertConfig
         )
       )
     );
@@ -250,7 +253,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           element,
           PATIENT_VITALS_META_SYSTEM,
           patient.birthDate,
-          patient.gender
+          patient.gender,
+          vitalsAlertConfig
         )
       )
     );
