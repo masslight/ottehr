@@ -1,12 +1,16 @@
 import { Box, Typography, useTheme } from '@mui/material';
-import { Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
+import { Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { FC, SetStateAction, useEffect, useMemo, useState } from 'react';
 import { QuestionnaireResponseViewer } from 'src/components/QuestionnaireResponseViewer';
 import { PaperworkProvider } from 'ui-components/lib/components/paperwork/context';
 import PagedQuestionnaire from 'ui-components/lib/components/paperwork/PagedQuestionnaire';
 import { convertQRItemToLinkIdMap, convertQuestionnaireItemToQRLinkIdMap } from 'utils/lib/helpers/paperwork/paperwork';
+import { evalEnableWhen } from 'utils/lib/helpers/paperwork/validation';
 import { makeStandaloneFormDTO } from 'utils/lib/helpers/practice-managed-questionnaires';
-import { QuestionnaireFormFields } from 'utils/lib/types/data/paperwork/paperwork.types';
+import {
+  flattenIntakeQuestionnaireItems,
+  QuestionnaireFormFields,
+} from 'utils/lib/types/data/paperwork/paperwork.types';
 import { stubPaperworkContext, stubPaperworkResponseForPreview } from '../questionnaire-utils';
 
 interface QuestionnairePreviewProps {
@@ -17,6 +21,13 @@ interface QuestionnairePreviewProps {
   setCompleted: (value: SetStateAction<boolean>) => void;
   // full will enforce validation schema while ui-only lets users quickly flip through pages without entering data
   previewMode: 'ui-only' | 'full';
+  // Optional: pre-seed hidden/context answers (per page linkId, values keyed by bare linkId) so enableWhen
+  // conditions on readOnly fields resolve. Merged in front of entered answers so page submits never clobber them.
+  stubAnswersByPage?: Record<string, QuestionnaireResponseItem[]>;
+  // Optional: override the stub QR status (drives $status conditions, e.g. the consent page).
+  responseStatus?: QuestionnaireResponse['status'];
+  // Optional: hide pages whose page-level enableWhen fails given the seeded context + entered answers.
+  filterPagesByEnableWhen?: boolean;
 }
 
 export const QuestionnairePreview: FC<QuestionnairePreviewProps> = ({
@@ -26,6 +37,9 @@ export const QuestionnairePreview: FC<QuestionnairePreviewProps> = ({
   completed,
   setCompleted,
   previewMode,
+  stubAnswersByPage,
+  responseStatus,
+  filterPagesByEnableWhen = false,
 }) => {
   const [continueLabel, setContinueLabel] = useState<string | undefined>('Continue');
   const [answersByPage, setAnswersByPage] = useState<Record<string, QuestionnaireResponseItem[]>>({});
@@ -37,18 +51,34 @@ export const QuestionnairePreview: FC<QuestionnairePreviewProps> = ({
   const liveQuestionnaireResponse = useMemo(() => {
     return {
       ...questionnaireResponse,
+      status: responseStatus ?? questionnaireResponse.status,
       item: questionnaireResponse.item?.map((page) => ({
         ...page,
-        item: answersByPage[page.linkId ?? ''] ?? page.item,
+        // stubbed context answers are prepended and re-applied every render, so submitting a page
+        // (which only carries its rendered fields) never clobbers them.
+        item: [
+          ...(stubAnswersByPage?.[page.linkId ?? ''] ?? []),
+          ...(answersByPage[page.linkId ?? ''] ?? page.item ?? []),
+        ],
       })),
     };
-  }, [questionnaireResponse, answersByPage]);
+  }, [questionnaireResponse, answersByPage, stubAnswersByPage, responseStatus]);
 
   const pages = useMemo(() => {
-    return (allItems ?? []).filter((item) => {
-      return item.linkId;
+    const allPages = (allItems ?? []).filter((item) => item.linkId);
+    if (!filterPagesByEnableWhen) return allPages;
+
+    // Values map keyed by bare linkId (mirrors the engine's render-path map) so page-level enableWhen
+    // — including cross-page/dotted refs and $status — resolves against the seeded context + answers.
+    const flatItems = flattenIntakeQuestionnaireItems(allItems ?? []);
+    const valuesByLinkId: Record<string, QuestionnaireResponseItem> = {};
+    liveQuestionnaireResponse.item?.forEach((page) => {
+      page.item?.forEach((answer) => {
+        if (answer.linkId) valuesByLinkId[answer.linkId] = answer;
+      });
     });
-  }, [allItems]);
+    return allPages.filter((page) => evalEnableWhen(page, flatItems, valuesByLinkId, liveQuestionnaireResponse));
+  }, [allItems, filterPagesByEnableWhen, liveQuestionnaireResponse]);
 
   const stubContext = useMemo(
     () => stubPaperworkContext(pages, allItems, liveQuestionnaireResponse, setContinueLabel, continueLabel),
@@ -69,6 +99,14 @@ export const QuestionnairePreview: FC<QuestionnairePreviewProps> = ({
       setContinueLabel('Continue'); // allows control buttons to fall back to the default
     }
   }, [isLastPage, setContinueLabel]);
+
+  // If enableWhen page-filtering shrinks the list below the current index, clamp to the last visible
+  // page (skip while the form is completed, where the index intentionally runs past the last page).
+  useEffect(() => {
+    if (!completed && pages.length > 0 && currentPageIndex > pages.length - 1) {
+      setCurrentPageIndex(pages.length - 1);
+    }
+  }, [completed, pages.length, currentPageIndex, setCurrentPageIndex]);
 
   const paperworkGroupDefaults = useMemo(() => {
     const currentPageFields = convertQuestionnaireItemToQRLinkIdMap(currentPage?.item);

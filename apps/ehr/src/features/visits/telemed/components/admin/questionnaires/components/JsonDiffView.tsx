@@ -1,21 +1,41 @@
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { Accordion, AccordionDetails, AccordionSummary, Box, Chip, Typography } from '@mui/material';
+import UndoIcon from '@mui/icons-material/Undo';
+import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Chip, Typography } from '@mui/material';
 import { compare, getValueByPointer, Operation } from 'fast-json-patch';
 import { FC, useMemo } from 'react';
 
-interface JsonDiffViewProps {
-  current: unknown;
-  draft: unknown;
-}
+export type DiffKind = 'added' | 'removed' | 'changed';
 
-type DiffKind = 'added' | 'removed' | 'changed';
-
-interface DiffRow {
+export interface DiffRow {
   kind: DiffKind;
   path: string;
   before?: unknown;
   after?: unknown;
 }
+
+interface JsonDiffViewProps {
+  current: unknown;
+  draft: unknown;
+  // When provided, each diff card (except the required version bump) gets a "Discard change" button
+  // that reverts that single path in the draft back to the current value.
+  onDiscard?: (row: DiffRow) => void;
+}
+
+// Diffs are noise for these keys — every draft differs from the active resource here, and it never
+// reflects a meaningful content change. Stripped from both sides before diffing (see stripDiffNoise).
+const IGNORED_PATHS: ReadonlyArray<(doc: Record<string, any>) => void> = [
+  (doc) => delete doc.id,
+  (doc) => {
+    if (doc.meta && typeof doc.meta === 'object') {
+      delete doc.meta.versionId;
+      delete doc.meta.lastUpdated;
+      if (Object.keys(doc.meta).length === 0) delete doc.meta;
+    }
+  },
+];
+
+// The version bump is required, so reverting it is never allowed — no discard button on this card.
+const NON_DISCARDABLE_PATHS = new Set<string>(['/version']);
 
 const KIND_STYLES: Record<DiffKind, { label: string; color: string; bg: string }> = {
   added: { label: 'Added', color: '#1B5E20', bg: 'rgba(46, 125, 50, 0.12)' },
@@ -29,6 +49,14 @@ const formatValue = (value: unknown): string => {
   if (value === undefined) return '(none)';
   const str = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
   return str.length > MAX_VALUE_CHARS ? `${str.slice(0, MAX_VALUE_CHARS)}…` : str;
+};
+
+/** Returns a deep clone with the ignored (noise) keys removed, so they never surface as diffs. */
+const stripDiffNoise = (doc: unknown): unknown => {
+  if (typeof doc !== 'object' || doc === null) return doc;
+  const clone = structuredClone(doc) as Record<string, any>;
+  IGNORED_PATHS.forEach((strip) => strip(clone));
+  return clone;
 };
 
 const toDiffRows = (current: unknown, ops: Operation[]): DiffRow[] =>
@@ -61,11 +89,17 @@ const safeGet = (document: unknown, pointer: string): unknown => {
 
 /**
  * Shows a structured diff between the current active questionnaire and an imported/saved draft, using a
- * JSON Patch (fast-json-patch) so every change is a precise path + before/after. A collapsible raw view
- * of the full draft JSON is included beneath the change list.
+ * JSON Patch (fast-json-patch) so every change is a precise path + before/after. `id`, `meta.versionId`,
+ * and `meta.lastUpdated` are ignored. When `onDiscard` is supplied each card (except the version bump)
+ * can revert its single change. A collapsible raw view of the full draft JSON is included beneath.
  */
-export const JsonDiffView: FC<JsonDiffViewProps> = ({ current, draft }) => {
-  const rows = useMemo(() => toDiffRows(current, compare(current as object, draft as object)), [current, draft]);
+export const JsonDiffView: FC<JsonDiffViewProps> = ({ current, draft, onDiscard }) => {
+  const rows = useMemo(() => {
+    const strippedCurrent = stripDiffNoise(current);
+    const strippedDraft = stripDiffNoise(draft);
+    // before/after values are read from the (noise-stripped) current; item pointer paths are unaffected.
+    return toDiffRows(strippedCurrent, compare(strippedCurrent as object, strippedDraft as object));
+  }, [current, draft]);
 
   return (
     <Box>
@@ -80,6 +114,7 @@ export const JsonDiffView: FC<JsonDiffViewProps> = ({ current, draft }) => {
           </Typography>
           {rows.map((row, i) => {
             const style = KIND_STYLES[row.kind];
+            const canDiscard = !!onDiscard && !NON_DISCARDABLE_PATHS.has(row.path);
             return (
               <Box key={`${row.path}-${i}`} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
@@ -95,9 +130,19 @@ export const JsonDiffView: FC<JsonDiffViewProps> = ({ current, draft }) => {
                       color: style.color,
                     }}
                   />
-                  <Typography variant="caption" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                  <Typography variant="caption" sx={{ fontFamily: 'monospace', wordBreak: 'break-all', flexGrow: 1 }}>
                     {row.path}
                   </Typography>
+                  {canDiscard && (
+                    <Button
+                      size="small"
+                      startIcon={<UndoIcon sx={{ fontSize: 14 }} />}
+                      onClick={() => onDiscard?.(row)}
+                      sx={{ flexShrink: 0, textTransform: 'none', minWidth: 'auto' }}
+                    >
+                      Discard change
+                    </Button>
+                  )}
                 </Box>
                 {row.kind !== 'added' && <DiffValue label="Before" value={row.before} color="#B71C1C" />}
                 {row.kind !== 'removed' && <DiffValue label="After" value={row.after} color="#1B5E20" />}

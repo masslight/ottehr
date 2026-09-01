@@ -1,5 +1,7 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import {
   Accordion,
@@ -7,6 +9,7 @@ import {
   AccordionSummary,
   Alert,
   Box,
+  Button,
   Chip,
   Divider,
   IconButton,
@@ -14,16 +17,19 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { applyOperation, getValueByPointer } from 'fast-json-patch';
 import { Questionnaire } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import PageContainer from 'src/layout/PageContainer';
+import { validateSystemManagedImport } from 'utils/lib/helpers/system-managed-questionnaires';
 import { useClearSystemManagedDraft, useSaveSystemManagedDraft } from '../admin.queries';
 import { ImportVersionDialog } from './components/ImportVersionDialog';
-import { JsonDiffView } from './components/JsonDiffView';
+import { DiffRow, JsonDiffView } from './components/JsonDiffView';
 import { ReadOnlyPagesView } from './components/ReadOnlyPagesView';
+import { TestDraftDialog } from './components/TestDraftDialog';
 
 interface SystemManagedQuestionnaireDetailProps {
   questionnaire: Questionnaire;
@@ -50,6 +56,7 @@ export const SystemManagedQuestionnaireDetail: FC<SystemManagedQuestionnaireDeta
 
   const [importedDraft, setImportedDraft] = useState<Questionnaire | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
 
   const { mutateAsync: saveDraft, isPending: isSaving } = useSaveSystemManagedDraft(questionnaire.id);
   const { mutateAsync: clearDraft, isPending: isClearing } = useClearSystemManagedDraft(questionnaire.id);
@@ -75,6 +82,39 @@ export const SystemManagedQuestionnaireDetail: FC<SystemManagedQuestionnaireDeta
     await clearDraft({ url: questionnaire.url });
     setImportedDraft(null);
     enqueueSnackbar('Draft cleared', { variant: 'success' });
+  };
+
+  // Revert a single diff path in the in-memory imported draft back to the active value, then re-validate.
+  const handleDiscardChange = (row: DiffRow): void => {
+    if (!importedDraft) return;
+    const currentVal = getValueByPointer(questionnaire as object, row.path);
+    const op =
+      currentVal === undefined
+        ? ({ op: 'remove', path: row.path } as const)
+        : row.kind === 'removed'
+        ? ({ op: 'add', path: row.path, value: currentVal } as const)
+        : ({ op: 'replace', path: row.path, value: currentVal } as const);
+
+    let reverted: Questionnaire;
+    try {
+      reverted = applyOperation(structuredClone(importedDraft), op).newDocument;
+    } catch (e) {
+      enqueueSnackbar(`Could not discard change: ${e instanceof Error ? e.message : String(e)}`, { variant: 'error' });
+      return;
+    }
+
+    const validation = validateSystemManagedImport({ imported: reverted, current: questionnaire });
+    if (!validation.ok) {
+      enqueueSnackbar(`Cannot discard this change: ${validation.errors[0]}`, { variant: 'error' });
+      return;
+    }
+    setImportedDraft(reverted);
+  };
+
+  const handleCopyActiveJson = (): void => {
+    void navigator.clipboard.writeText(JSON.stringify(questionnaire, null, 2)).then(() => {
+      enqueueSnackbar('JSON copied to clipboard', { variant: 'success' });
+    });
   };
 
   return (
@@ -174,10 +214,22 @@ export const SystemManagedQuestionnaireDetail: FC<SystemManagedQuestionnaireDeta
                     : ' — saved draft. Review the changes below.'}
                 </Typography>
 
-                <JsonDiffView current={questionnaire} draft={reviewDraft} />
+                <JsonDiffView
+                  current={questionnaire}
+                  draft={reviewDraft}
+                  onDiscard={isUnsaved ? handleDiscardChange : undefined}
+                />
 
                 <Divider sx={{ my: 2 }} />
                 <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                  <RoundedButton
+                    variant="outlined"
+                    startIcon={<PlayArrowIcon />}
+                    onClick={() => setTestDialogOpen(true)}
+                    sx={{ mr: 'auto' }}
+                  >
+                    Test Draft
+                  </RoundedButton>
                   {isUnsaved ? (
                     <>
                       <RoundedButton variant="outlined" onClick={() => setImportedDraft(null)} disabled={isSaving}>
@@ -203,9 +255,23 @@ export const SystemManagedQuestionnaireDetail: FC<SystemManagedQuestionnaireDeta
 
             <Accordion variant="outlined" defaultExpanded={!reviewDraft} sx={{ '&:before': { display: 'none' } }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="h4" sx={{ color: '#0F347C' }}>
-                  Active Version JSON
-                </Typography>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', mr: 1 }}
+                >
+                  <Typography variant="h4" sx={{ color: '#0F347C' }}>
+                    Active Version JSON
+                  </Typography>
+                  <Button
+                    size="small"
+                    startIcon={<ContentCopyIcon />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCopyActiveJson();
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </Box>
               </AccordionSummary>
               <AccordionDetails>
                 <Box
@@ -236,6 +302,10 @@ export const SystemManagedQuestionnaireDetail: FC<SystemManagedQuestionnaireDeta
           current={questionnaire}
           onValidated={handleValidated}
         />
+
+        {reviewDraft && (
+          <TestDraftDialog open={testDialogOpen} onClose={() => setTestDialogOpen(false)} questionnaire={reviewDraft} />
+        )}
       </>
     </PageContainer>
   );
