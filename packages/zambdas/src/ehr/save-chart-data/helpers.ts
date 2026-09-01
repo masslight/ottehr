@@ -122,9 +122,12 @@ export function getEncounterClinicAddress(encounter: Encounter, allResources: Re
   const location = allResources.find(
     (resource): resource is Location => resource.resourceType === 'Location' && resource.id === locationId
   );
-  if (!location || isLocationVirtual(location) || !location.address?.line?.[0]) return undefined;
+  if (!location) return undefined;
 
-  return getAddressString(location.address);
+  const { address } = location;
+  if (isLocationVirtual(location) || !address?.line?.[0]) return undefined;
+
+  return getAddressString(address);
 }
 
 export function filterServiceRequestsFromFhir(
