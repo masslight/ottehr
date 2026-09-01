@@ -35,7 +35,8 @@ import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
 import { formatLabelValue } from 'src/shared/utils/formatLabelValue';
-import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
+import { ROOM_EXTENSION_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
   getAnnotationFollowupStatusLabel,
   getEncounterLocationId,
@@ -285,6 +286,16 @@ export const Header = (): JSX.Element => {
           (insuranceData?.coverages.secondary && getInsuranceNameFromCoverage(insuranceData?.coverages.secondary))
   );
   const patientName = formatLabelValue(mappedData?.patientName, 'Name');
+  const patientFirstLastName = [patient?.firstName, patient?.lastName].filter(Boolean).join(' ') || undefined;
+  const room = appointment?.extension?.find((ext) => ext.url === ROOM_EXTENSION_URL)?.valueString;
+
+  useEffect(() => {
+    const tabTitle = formatPatientTabTitle(patientFirstLastName, room);
+    if (tabTitle) {
+      document.title = tabTitle;
+    }
+  }, [patientFirstLastName, room]);
+
   const pronouns = formatLabelValue(mappedData?.pronouns, 'Pronouns');
   const gender = formatLabelValue(mappedData?.gender, 'Gender');
   const language = formatLabelValue(mappedData?.preferredLanguage, 'Lang');

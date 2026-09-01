@@ -43,8 +43,9 @@ import { formatVisitDateTimeWithZone } from 'src/helpers/formatDateTime';
 import { useDownloadMedicalRecord } from 'src/hooks/useDownloadMedicalRecord';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useGetActiveMergeTask } from 'src/hooks/useGetPatient';
+import { formatPatientTabTitle } from 'src/shared/utils';
 import { otherColors } from 'src/themes/ottehr/colors';
-import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
+import { getFirstName, getFullestAvailableName, getLastName } from 'utils/lib/fhir/patient';
 import { GetMergePatientsTaskResponse, MergePatientsResponse } from 'utils/lib/types/api/patient-account';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
@@ -235,9 +236,11 @@ export default function PatientPage(): JSX.Element {
     openFaxDialog();
   };
 
+  const tabTitle = (patient && formatPatientTabTitle(getFullestAvailableName(patient))) ?? 'Patient Profile';
+
   return (
     <>
-      <PageContainer tabTitle="Patient Profile">
+      <PageContainer tabTitle={tabTitle}>
         <Stack spacing={2}>
           <CustomBreadcrumbs
             chain={[
