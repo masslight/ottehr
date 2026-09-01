@@ -28,7 +28,7 @@ import { ZambdaInput } from '../../../shared/types/common';
 import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM } from '../../payments';
 import { BILLING_WORKING_COPY_TAG, fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
 import { ReportDefinition } from '../framework/types';
-import { toDay } from '../shared';
+import { listStripeAccounts, toDay } from '../shared';
 
 const NOTICE_PAGE_SIZE = 200;
 const RESOURCE_BATCH_SIZE = 100;
@@ -287,40 +287,6 @@ async function loadNoticeContext(
 
 // platform account plus connected accounts stamped on billing provider organizations; the
 // platform's own id can be stamped on an org too and must not be listed a second time
-async function listStripeAccounts(oystehr: Oystehr, stripe: Stripe): Promise<(string | undefined)[]> {
-  const [orgs, platformAccount] = await Promise.all([fetchAllOrganizations(oystehr), stripe.accounts.retrieve()]);
-  const connectedAccounts = [
-    ...new Set(
-      orgs
-        .flatMap((org) => org.identifier ?? [])
-        .filter((identifier) => identifier.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)
-        .map((identifier) => identifier.value)
-        .filter((value): value is string => !!value && value !== platformAccount.id)
-    ),
-  ];
-  console.log(
-    `[patient-payments] listStripeAccounts: ${connectedAccounts.length} connected + platform`,
-    JSON.stringify({ platform: platformAccount.id, connected: connectedAccounts })
-  );
-  return [undefined, ...connectedAccounts];
-}
-
-async function fetchAllOrganizations(oystehr: Oystehr): Promise<Organization[]> {
-  const orgs: Organization[] = [];
-  await fetchAllPages(async (offset, count) => {
-    const bundle = await oystehr.fhir.search<Organization>({
-      resourceType: 'Organization',
-      params: [
-        { name: '_elements', value: 'id,identifier' },
-        { name: '_count', value: String(count) },
-        { name: '_offset', value: String(offset) },
-      ],
-    });
-    orgs.push(...bundle.unbundle());
-    return bundle;
-  }, 200);
-  return orgs;
-}
 
 const chargeStripeIds = (charge: Stripe.Charge): string[] =>
   [

@@ -1,13 +1,49 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, ClaimResponse, PaymentReconciliation } from 'fhir/r4b';
+import { Claim, ClaimResponse, Organization, PaymentReconciliation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import Stripe from 'stripe';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { fetchAllPages } from '../../shared/fhir';
+import { STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
 
 export const ERA_PAGE_SIZE = 200;
 export const CLAIM_BATCH_SIZE = 100;
 export const UNKNOWN_PAYER_NAME = 'Unknown Payer';
 export const WATERFALL_UNKNOWN_MONTH = 'unknown';
+
+// Platform account plus connected accounts stamped on billing provider organizations; the
+// platform's own id can be stamped on an org too and must not be listed a second time.
+// Orgs are paged by link.next — _total-based paging can stop after one page on large stores.
+export async function listStripeAccounts(oystehr: Oystehr, stripe: Stripe): Promise<(string | undefined)[]> {
+  const orgs: Organization[] = [];
+  const fetchOrgs = fetchAllPages(async (offset, count) => {
+    const bundle = await oystehr.fhir.search<Organization>({
+      resourceType: 'Organization',
+      params: [
+        { name: '_elements', value: 'id,identifier' },
+        { name: '_count', value: String(count) },
+        { name: '_offset', value: String(offset) },
+      ],
+    });
+    orgs.push(...bundle.unbundle());
+    return bundle;
+  }, 200);
+  const [platformAccount] = await Promise.all([stripe.accounts.retrieve(), fetchOrgs]);
+  const connectedAccounts = [
+    ...new Set(
+      orgs
+        .flatMap((org) => org.identifier ?? [])
+        .filter((identifier) => identifier.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)
+        .map((identifier) => identifier.value)
+        .filter((value): value is string => !!value && value !== platformAccount.id)
+    ),
+  ];
+  console.log(
+    `listStripeAccounts: ${connectedAccounts.length} connected + platform (${orgs.length} orgs scanned)`,
+    JSON.stringify({ platform: platformAccount.id, connected: connectedAccounts })
+  );
+  return [undefined, ...connectedAccounts];
+}
 
 export const toDay = (value?: string): string | null =>
   value ? DateTime.fromISO(value, { setZone: true }).toISODate() : null;

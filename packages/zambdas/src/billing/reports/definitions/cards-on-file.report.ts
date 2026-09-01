@@ -1,17 +1,17 @@
 import Oystehr from '@oystehr/sdk';
-import { Appointment, Organization, Patient } from 'fhir/r4b';
+import { Appointment, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { Secrets } from 'utils/lib/secrets';
 import { EmptyReportParamsSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { CardOnFileReportRow, GetBillingCardsOnFileReportResponse } from 'utils/lib/types/data/billing/billing.types';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { fetchAllPages } from '../../../shared/fhir';
 import { getRateLimitedStripeClient, patientIdFromStripeMetadata } from '../../../shared/stripeIntegration';
-import { fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
+import { fhirName } from '../../shared';
 import { lookupCardsWithDirectory } from '../card-directory';
 import { ProgressFn, ReportComputeContext, ReportDefinition } from '../framework/types';
+import { listStripeAccounts } from '../shared';
 
 const CUSTOMER_PAGE_SIZE = 100;
 // customers listed per worker run; the build checkpoints and continues in a chained task
@@ -261,31 +261,6 @@ async function drainChunk(
 
 // platform account plus connected accounts stamped on billing provider organizations; the
 // platform's own id can be stamped on an org too and must not be listed a second time
-async function listStripeAccounts(oystehr: Oystehr, stripe: Stripe): Promise<(string | undefined)[]> {
-  // paged: connected accounts must not fall off a single-page result
-  const [orgs, platformAccount] = await Promise.all([
-    getAllFhirSearchPages<Organization>(
-      { resourceType: 'Organization', params: [{ name: '_elements', value: 'id,identifier' }] },
-      oystehr
-    ),
-    stripe.accounts.retrieve(),
-  ]);
-  const connectedAccounts = [
-    ...new Set(
-      orgs
-        .flatMap((org) => org.identifier ?? [])
-        .filter((identifier) => identifier.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)
-        .map((identifier) => identifier.value)
-        .filter((value): value is string => !!value && value !== platformAccount.id)
-    ),
-  ];
-  console.log(
-    `[cards-on-file] listStripeAccounts: ${connectedAccounts.length} connected + platform`,
-    JSON.stringify({ platform: platformAccount.id, connected: connectedAccounts })
-  );
-  return [undefined, ...connectedAccounts];
-}
-
 interface OpenInvoiceSummary {
   count: number;
   amountDue: number;
