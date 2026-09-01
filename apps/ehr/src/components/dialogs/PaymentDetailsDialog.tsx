@@ -1,6 +1,8 @@
 import CloseIcon from '@mui/icons-material/Close';
 import LoadingButton from '@mui/lab/LoadingButton';
 import {
+  Alert,
+  alpha,
   Box,
   Button,
   capitalize,
@@ -81,8 +83,8 @@ export const RefundChip = ({
         fontWeight: 700,
         letterSpacing: '0.4px',
         height: 20,
-        color: '#8A1538',
-        backgroundColor: '#FBE9E7',
+        color: 'error.dark',
+        backgroundColor: (theme) => alpha(theme.palette.error.light, 0.12),
       }}
     />
   );
@@ -172,7 +174,13 @@ function PaymentActionDialog({
   const showAmountError = !!amountError && !processing;
 
   return (
-    <Dialog open onClose={processing ? undefined : onClose} maxWidth="xs" fullWidth>
+    <Dialog
+      open
+      onClose={processing ? undefined : onClose}
+      maxWidth="xs"
+      fullWidth
+      sx={{ '.MuiPaper-root': { padding: 1 } }}
+    >
       <IconButton
         aria-label="close"
         onClick={onClose}
@@ -315,7 +323,7 @@ export default function PaymentDetailsDialog({
   ];
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth sx={{ '.MuiPaper-root': { padding: 1 } }}>
       <IconButton
         aria-label="close"
         onClick={handleClose}
@@ -346,29 +354,19 @@ export default function PaymentDetailsDialog({
           ))}
         </Box>
         {refundState !== 'none' && (
-          <Box
-            sx={{
-              mt: 2,
-              p: 1.5,
-              backgroundColor: '#FBE9E7',
-              borderRadius: 1,
-              borderLeft: '4px solid #8A1538',
-            }}
-          >
-            <Typography variant="body2" sx={{ color: '#8A1538', fontWeight: 600 }}>
-              {refundState === 'voided'
-                ? `This payment has been voided${
-                    payment.voidReason ? ` (${payment.voidReason.toLowerCase()})` : ''
-                  } and is not counted toward the total collected.`
-                : refundState === 'full'
-                ? `This payment has been fully refunded${
-                    isManualRefundPayment(payment) ? '' : ' to the credit card'
-                  } and is not counted toward the total collected.`
-                : `${formatCents(refundedCents)} of this payment has been refunded${
-                    isManualRefundPayment(payment) ? '' : ' to the credit card'
-                  }. Only the remaining ${formatCents(netCents)} counts toward the total collected.`}
-            </Typography>
-          </Box>
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            {refundState === 'voided'
+              ? `This payment has been voided${
+                  payment.voidReason ? ` (${payment.voidReason.toLowerCase()})` : ''
+                } and is not counted toward the total collected.`
+              : refundState === 'full'
+              ? `This payment has been fully refunded${
+                  isManualRefundPayment(payment) ? '' : ' to the credit card'
+                } and is not counted toward the total collected.`
+              : `${formatCents(refundedCents)} of this payment has been refunded${
+                  isManualRefundPayment(payment) ? '' : ' to the credit card'
+                }. Only the remaining ${formatCents(netCents)} counts toward the total collected.`}
+          </Alert>
         )}
         {(refunds.length > 0 || refundState === 'partial' || refundState === 'full') && (
           <>
