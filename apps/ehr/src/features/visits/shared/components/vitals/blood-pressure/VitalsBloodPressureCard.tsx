@@ -94,7 +94,7 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({ field
   };
 
   return (
-    <Box sx={{ mt: 3 }}>
+    <Box>
       <AccordionCard
         label={`BP (mm Hg) ${latestPressureValueLabel ?? ''}`}
         collapsed={isCollapsed}
