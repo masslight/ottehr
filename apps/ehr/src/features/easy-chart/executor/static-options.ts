@@ -33,3 +33,47 @@ export function matchStaticOptions(
     })
   );
 }
+
+/**
+ * Title matching for catalogues whose rows are NAMED rather than coded — templates are the only one. Exact match wins outright;
+ * a containment is plausible; token overlap is a weak last resort. Anything with no overlap at all
+ * is left out, so a wrong template can never be applied on a thin match — a mismatched template
+ * pollutes the note with the wrong exam and MDM scaffolding, and is worse than no template.
+ *
+ * Here for the same reason as matchStaticOptions: the eval harness resolves templates too, and it
+ * stubbed them to accept ANY title as a match — so a title the model invented resolved as though the
+ * practice had it. Sharing this function is what makes the harness refuse an invented name the way
+ * production does.
+ */
+export function matchByTitle(rows: { id: string; title: string }[], query: CatalogueQuery): CatalogueMatch[] {
+  const terms = [query.display, ...(query.searchTerms ?? [])].map((t) => t?.toLowerCase().trim()).filter(Boolean);
+  const matches: CatalogueMatch[] = [];
+
+  for (const row of rows) {
+    const title = row.title.toLowerCase();
+    const titleTokens = new Set(title.split(/[^a-z0-9]+/).filter((t) => t.length > 2));
+    let best = 0;
+
+    for (const term of terms as string[]) {
+      if (title === term) {
+        best = 1;
+        break;
+      }
+      if (title.includes(term) || term.includes(title)) {
+        best = Math.max(best, 0.8);
+        continue;
+      }
+      const termTokens = (term.split(/[^a-z0-9]+/) ?? []).filter((t) => t.length > 2);
+      if (termTokens.length === 0) continue;
+      const hits = termTokens.filter((t) => titleTokens.has(t)).length;
+      // Require BOTH sides to be mostly covered. "Ankle Sprain" must not match a "Sprain/strain with
+      // xray" template on the single word "sprain" — a fracture that got an x-ray is not a sprain.
+      if (hits === 0) continue;
+      best = Math.max(best, Math.min(hits / termTokens.length, hits / titleTokens.size) * 0.7);
+    }
+
+    if (best > 0) matches.push({ id: row.id, display: row.title, score: best });
+  }
+
+  return matches.sort((a, b) => b.score - a.score);
+}

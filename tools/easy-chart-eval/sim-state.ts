@@ -14,12 +14,25 @@ import { NOTE_TEXT_FIELDS } from 'utils/lib/easy-chart/actions';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { PlanStep } from '../../apps/ehr/src/features/easy-chart/executor/types';
 import { emptySimState, SimFinalState, SimSource } from './score-harvested';
+import { resolveTemplateByDisplay } from './template-catalog';
 
 /**
  * Note fields the model can edit. Imported rather than re-listed: a local copy would silently stop
  * folding a field the vocabulary gained, and the scorer would read that as the model never writing it.
  */
 const NOTE_FIELDS: readonly string[] = NOTE_TEXT_FIELDS;
+
+/**
+ * Extra bookkeeping the sim records about templates. Extra keys are ignored by the scorer, which reads
+ * only the fields it knows — so these ride along in the result file and the run summary without changing
+ * a single score, which is what makes them safe to add.
+ */
+export type SimStateWithTemplateStats = SimFinalState & {
+  /** How many diagnoses templates actually contributed. */
+  templateDxApplied?: number;
+  /** Titles the model asked for that the practice does not have. */
+  templateTitleUnmatched?: string[];
+};
 
 export function foldStepsIntoState(steps: PlanStep[], source: SimSource, into?: SimFinalState): SimFinalState {
   const state = into ?? emptySimState();
@@ -151,9 +164,50 @@ export function foldStepsIntoState(steps: PlanStep[], source: SimSource, into?: 
       case 'add-nursing-order':
         state.nursingOrders.push(typeof action.text === 'string' ? action.text : display);
         break;
-      case 'apply-template':
+      case 'apply-template': {
         state.templatesApplied.push(display);
+        // CHART THE TEMPLATE'S DIAGNOSES, mirroring the apply-template zambda's create loop.
+        //
+        // Without this the step recorded a TITLE and nothing else, so the most common way a diagnosis
+        // reaches a real chart was invisible to the score: the note the clinician signed held the
+        // template's dx, the simulated one did not, and the diagnoses section was marked down for a
+        // miss the planner never made. Templates fire on 28 of 40 cases, so this is not an edge.
+        //
+        // Only the diagnoses. Default exam findings, MDM and instructions live in the template's
+        // contained Observations and Communications and are still not simulated — see template-catalog.
+        const stats = state as SimStateWithTemplateStats;
+        stats.templateDxApplied ??= 0;
+        stats.templateTitleUnmatched ??= [];
+        const template = resolveTemplateByDisplay(display);
+        if (!template) {
+          // A name the practice does not have. Recorded rather than ignored: "the model invented a
+          // template" and "the template charted nothing" are different failures.
+          stats.templateTitleUnmatched.push(display);
+          break;
+        }
+        for (const dx of template.diagnoses) {
+          const active = state.diagnoses.filter((item) => !item.removed);
+          if (active.some((item) => (item.code ?? '').toUpperCase() === dx.code.toUpperCase())) {
+            state.skipped.push({
+              kind: action.kind,
+              display: `${dx.code} — ${dx.display}`,
+              reason: 'template dx already charted',
+            });
+            continue;
+          }
+          // Rank 1 is the template's primary, but a primary already on the chart is NEVER usurped —
+          // the same rule the zambda's append semantics apply.
+          const hasPrimary = active.some((item) => item.isPrimary);
+          state.diagnoses.push({
+            display: dx.display,
+            code: dx.code,
+            ...(dx.rank === 1 && !hasPrimary ? { isPrimary: true } : {}),
+            source,
+          });
+          stats.templateDxApplied += 1;
+        }
         break;
+      }
       case 'provider-note':
       case 'reply':
         state.providerNotes.push(typeof action.text === 'string' ? action.text : display);

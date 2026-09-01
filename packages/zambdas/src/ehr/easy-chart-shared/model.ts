@@ -181,6 +181,15 @@ async function callVertex(
           temperature: 0,
           responseMimeType: 'application/json',
           responseSchema,
+          // THINKING OFF. Measured on a realistic prompt: 7.1s with it against 2.1s without, and 1042
+          // thought tokens against an answer of 146 — seven times more spent on reasoning than on the
+          // reply, none of which `candidatesTokenCount` reports, so it is invisible in the usage line.
+          //
+          // Latency is a product requirement here, not a preference: the provider is dictating and
+          // watching, and every second is one they stand still for. `thinkingLevel: 'LOW'` is not an
+          // option — it measured 244 thought tokens against 264 for the default, i.e. it changes almost
+          // nothing. A budget of 0 is the only setting that actually turns it off.
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -210,7 +219,11 @@ async function callVertex(
     model: EASY_CHART_PRIMARY_MODEL,
     inputTokens: meta.promptTokenCount ?? 0,
     outputTokens: meta.candidatesTokenCount ?? 0,
+    // A SUBSET of promptTokenCount above, not an addition to it — see ModelUsage. Anthropic reports the
+    // opposite convention, which is why the two mappings look inconsistent and are not.
     cacheReadTokens: meta.cachedContentTokenCount ?? 0,
+    // Hardcoded because Gemini has no cache-write metric at all: implicit caching costs nothing to
+    // populate and explicit caching is billed per hour of storage. Not an unmapped field.
     cacheWriteTokens: 0,
     thinkingTokens: meta.thoughtsTokenCount ?? 0,
   });

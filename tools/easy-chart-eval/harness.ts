@@ -12,11 +12,12 @@ import { findExamLeafMatches, findRosMatches, RosCatalogueEntry } from 'utils/li
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { buildChartSnapshot } from '../../apps/ehr/src/features/easy-chart/executor/chartSnapshot';
-import { matchStaticOptions } from '../../apps/ehr/src/features/easy-chart/executor/static-options';
+import { matchByTitle, matchStaticOptions } from '../../apps/ehr/src/features/easy-chart/executor/static-options';
 import { CatalogueMatch, CatalogueQuery, CatalogueResult } from '../../apps/ehr/src/features/easy-chart/executor/types';
 import { Catalogue, ChartWriter, HandlerContext } from '../../apps/ehr/src/features/easy-chart/executor/types';
 import { HospitalizationOptions } from '../../apps/ehr/src/features/visits/in-person/components/hospitalization/hospitalizationOptions';
 import { SURGICAL_HISTORY_OPTIONS } from '../../apps/ehr/src/features/visits/shared/components/medical-history-tab/SurgicalHistory/surgicalHistoryOptions';
+import { resolveTemplateByDisplay, templateTitles } from './template-catalog';
 
 /** Resolve a query to itself: the dictated name IS the match. Used where a real catalogue would put a
  * practice's inventory between the model and the score. */
@@ -65,7 +66,13 @@ export function buildEvalContext(): { context: HandlerContext; writer: ChartWrit
     // app's own matchStaticOptions so this cannot drift from what ships.
     surgicalHistory: async (query) => matchStaticOptions(query, SURGICAL_HISTORY_OPTIONS),
     hospitalizations: async (query) => matchStaticOptions(query, HospitalizationOptions),
-    templates: echo,
+    // REAL titles from the seed, not an echo. The stub accepted ANY title as a match, so a template name
+    // the model invented resolved as though the practice had it — and `templateTitleUnmatched` in the sim
+    // could never count anything. `payload` carries the entry so the sim can chart its diagnoses.
+    templates: async (query) => {
+      const matches = matchByTitle(templateTitles(), query);
+      return matches.map((match) => ({ ...match, payload: resolveTemplateByDisplay(match.display) }));
+    },
     procedures: echo,
     labs: echo,
     radiology: echo,

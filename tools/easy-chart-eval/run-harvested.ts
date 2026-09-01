@@ -19,12 +19,18 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ChartPlanRequest, ChartPlanResponse, ChartReviewRequest, ChartReviewResponse } from 'utils/lib/easy-chart/api';
+import {
+  buildChartStateSummary,
+  buildNoteContextFromChart,
+  chartedExamFindingLabels,
+} from 'utils/lib/easy-chart/chart-state';
 import { runPlan } from '../../apps/ehr/src/features/easy-chart/executor/runPlan';
 import { GoldData } from './gold-types';
 import { buildEvalContext } from './harness';
 import type { SimFinalState } from './score-harvested';
 import { aggregateScores, CaseScore, formatCaseLine, formatSummary, scoreCase } from './score-harvested';
 import { foldStepsIntoState } from './sim-state';
+import { simStateToChartData } from './sim-to-chart';
 import { mintToken } from './token';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -111,34 +117,25 @@ interface RunResult {
 }
 
 /**
- * Summarise the post-plan state for the review request, in the same shape the client sends.
+ * What the endpoints need to describe the chart to the model, built from the simulated state.
  *
- * The review pass reads the note AS WRITTEN back against the narrative, so it must be told what the plan
- * just charted. Built from the folded state rather than from a live chart because the eval's writer is a
- * fake — nothing was actually persisted to read back.
+ * Goes through `simStateToChartData` and the PRODUCTION renderers rather than assembling prose here. The
+ * hand-rolled version this replaces described seven section kinds and omitted exam findings, ROS, vitals,
+ * procedures, radiology, labs, instructions, surgical history and hospitalizations — so the review pass was
+ * told about a chart with no exam on it, and `chartedExamFindings` was never sent at all, which left the
+ * server's removal guard rejecting every `remove-*` with "the chart is empty".
  */
-function reviewContextFrom(state: SimFinalState): { chartState?: string; noteContext?: Record<string, string> } {
-  const lines: string[] = [];
-  for (const dx of state.diagnoses.filter((d) => !d.removed)) {
-    lines.push(`- Diagnosis: ${dx.display}${dx.isPrimary ? ' (primary)' : ''}${dx.code ? ` [${dx.code}]` : ''}`);
-  }
-  for (const item of state.allergies.filter((i) => !i.removed)) lines.push(`- Allergy: ${item.display}`);
-  for (const item of state.conditions.filter((i) => !i.removed)) lines.push(`- Past medical history: ${item.display}`);
-  for (const item of state.medications.filter((i) => !i.removed)) lines.push(`- Medication: ${item.display}`);
-  for (const cpt of state.cptCodes.filter((c) => !c.removed)) lines.push(`- CPT: ${cpt.code ?? ''} ${cpt.display}`);
-  const em = [...state.emEvents].reverse().find((e) => e.type === 'set');
-  if (em) lines.push(`- E&M: ${em.code ?? ''} ${em.display ?? ''}`);
-  if (state.disposition?.type) lines.push(`- Disposition: ${state.disposition.type}`);
-  for (const lab of state.labsOrdered) lines.push(`- Lab ordered (${lab.kind}): ${lab.display}`);
-
-  const noteContext: Record<string, string> = {};
-  for (const [field, value] of Object.entries(state.noteText)) {
-    if (value?.text?.trim()) noteContext[field] = value.text;
-  }
-
+function chartContextFrom(state: SimFinalState): {
+  chartState?: string;
+  chartedExamFindings?: string[];
+  noteContext?: Record<string, string>;
+} {
+  const chart = simStateToChartData(state);
+  const examFindings = chartedExamFindingLabels(chart);
   return {
-    chartState: lines.length > 0 ? lines.join('\n') : undefined,
-    noteContext: Object.keys(noteContext).length > 0 ? noteContext : undefined,
+    chartState: buildChartStateSummary(chart),
+    ...(examFindings.length > 0 ? { chartedExamFindings: examFindings } : {}),
+    noteContext: buildNoteContextFromChart(chart),
   };
 }
 
@@ -198,7 +195,7 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
   readDispositionTrigger(response.triggers);
   if (!options.skipReview) {
     try {
-      const reviewContext = reviewContextFrom(state);
+      const reviewContext = chartContextFrom(state);
       // Same status the planner got: without it review renders "PATIENT STATUS: unknown" and re-codes
       // every new patient into the established E&M family.
       const reviewResponse = await review(options, {

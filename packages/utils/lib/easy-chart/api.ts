@@ -6,9 +6,26 @@ import { RawAction, Surface } from './actions';
  * Per-call model accounting. Returned by EVERY model call, because an LLM feature without per-call
  * accounting produces a surprise invoice.
  *
- * `cacheReadTokens` is the figure that matters most for cost: it is the only way to tell that prompt
- * caching is actually working. A cache read of zero across a whole session means the static-prefix
- * ordering broke and every call is being billed in full.
+ * THE TWO PROVIDERS DO NOT MEAN THE SAME THING BY THESE FIELDS, and adding them up the same way is
+ * wrong for one of them:
+ *
+ *   - Gemini's `promptTokenCount`, which lands in `inputTokens`, ALREADY INCLUDES the cached part;
+ *     `cachedContentTokenCount` is a subset of it, not an addition to it. So the billed input is
+ *     `inputTokens`, and `inputTokens + cacheReadTokens` double-counts the hits.
+ *   - Anthropic reports `input_tokens` EXCLUDING both cache figures, so there the billed input really
+ *     is the sum of the three.
+ *
+ * `cacheWriteTokens` is ALWAYS 0 for Gemini, and that is not a gap in our reporting: the API has no
+ * such field. Implicit caching charges nothing to populate, and explicit caching is billed as storage
+ * per hour rather than as write tokens. Only Anthropic reports `cache_creation`.
+ *
+ * `outputTokens` is Gemini's `candidatesTokenCount`, which EXCLUDES `thoughtsTokenCount` — a thinking
+ * model can spend far more on thoughts than on the answer, so `thinkingTokens` has to be added before
+ * output cost means anything.
+ *
+ * A cache read of zero is worth looking at but is not by itself proof of a broken prefix: Gemini's
+ * implicit caching has a minimum prompt size and only fires on a repeated prefix, so a short or
+ * first-of-its-kind request legitimately reports zero.
  */
 export interface ModelUsage {
   provider: 'vertex' | 'anthropic';
