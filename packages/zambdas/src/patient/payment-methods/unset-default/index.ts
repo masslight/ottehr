@@ -47,6 +47,12 @@ export const index = wrapHandler(
       const defaultPaymentMethodId =
         typeof defaultPaymentMethod === 'string' ? defaultPaymentMethod : defaultPaymentMethod?.id;
 
+      // detach first so a failed detach can be retried (clearing the default first would lose the PM id)
+      if (defaultPaymentMethodId) {
+        const detached = await stripeClient.paymentMethods.detach(defaultPaymentMethodId, { stripeAccount });
+        console.log(`payment method ${detached.id} detached from customer ${customer.id}`);
+      }
+
       // empty string clears invoice_settings.default_payment_method on the Stripe customer
       await stripeClient.customers.update(
         stripeCustomerId,
@@ -60,13 +66,6 @@ export const index = wrapHandler(
         }
       );
       console.log('customer updated, default payment method for invoices removed', customer.id);
-
-      if (defaultPaymentMethodId) {
-        const detached = await stripeClient.paymentMethods.detach(defaultPaymentMethodId, undefined, {
-          stripeAccount,
-        });
-        console.log(`payment method ${detached.id} detached from customer ${customer.id}`);
-      }
     } catch (stripeError: any) {
       throw checkForStripeCustomerDeletedError(stripeError);
     }
