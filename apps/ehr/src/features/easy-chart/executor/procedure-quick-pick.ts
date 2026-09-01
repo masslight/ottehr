@@ -21,13 +21,13 @@
 // template asserted ten fields, and each of those ten has to be confirmed on its own.
 
 import { DateTime } from 'luxon';
+import { CPTCodeDTO, DiagnosisDTO, ProcedureDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
   combineMultipleValuesForSave,
   mergeOtherFromQuickPick,
   OTHER,
-} from 'src/features/visits/in-person/pages/procedureOtherFields';
-import { CPTCodeDTO, DiagnosisDTO, ProcedureDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+} from '../../visits/in-person/pages/procedureOtherFields';
 import { PROCEDURE_REVIEW_FIELDS } from '../components/procedure-fields';
 
 /** Everything the write needs, resolved by the catalogue so the writer guesses at nothing. */

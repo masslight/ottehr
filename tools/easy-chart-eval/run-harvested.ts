@@ -24,12 +24,13 @@ import {
   buildNoteContextFromChart,
   chartedExamFindingLabels,
 } from 'utils/lib/easy-chart/chart-state';
+import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { runPlan } from '../../apps/ehr/src/features/easy-chart/executor/runPlan';
 import { GoldData } from './gold-types';
 import { buildEvalContext } from './harness';
 import type { SimFinalState } from './score-harvested';
 import { aggregateScores, CaseScore, formatCaseLine, formatSummary, scoreCase } from './score-harvested';
-import { foldStepsIntoState } from './sim-state';
+import { foldProcedureWritesIntoState, foldStepsIntoState } from './sim-state';
 import { simStateToChartData } from './sim-to-chart';
 import { mintToken } from './token';
 
@@ -51,6 +52,37 @@ interface Options {
   rescore: boolean;
   /** Skip the second look — useful for isolating a planner change without paying for review. */
   skipReview: boolean;
+  /**
+   * The practice's procedure quick-picks, fetched once at startup.
+   *
+   * Undefined when the fetch failed — which the catalogue reports as UNAVAILABLE rather than empty, so a
+   * broken fetch cannot be mistaken for a practice that configured none.
+   */
+  quickPicks?: ProcedureQuickPickData[];
+}
+
+/**
+ * The practice's procedure quick-picks, from the same zambda the app calls.
+ *
+ * Fetched ONCE per run rather than per case: it is practice configuration, it does not change between
+ * cases, and forty identical calls would just be slower.
+ */
+async function fetchQuickPicks(options: Options): Promise<ProcedureQuickPickData[] | undefined> {
+  try {
+    const response = await fetch(`${options.url}/local/zambda/admin-get-quick-picks/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${options.token}` },
+      body: JSON.stringify({ category: 'procedure-quick-pick' }),
+    });
+    if (!response.ok) throw new Error(`admin-get-quick-picks returned ${response.status}`);
+    const body = unwrap<{ quickPicks?: ProcedureQuickPickData[] }>(JSON.parse(await response.text()));
+    return body.quickPicks ?? [];
+  } catch (error) {
+    // Not fatal — every other section still scores. Loud, because a silent fallback would make the
+    // procedure and CPT sections quietly unmeasurable again, which is the state this replaced.
+    console.error(`  could not fetch procedure quick-picks: ${error instanceof Error ? error.message : String(error)}`);
+    return undefined;
+  }
 }
 
 function parseArgs(argv: string[]): Options {
@@ -167,9 +199,11 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
     ...(patientStatus ? { patientStatus } : {}),
   });
 
-  const { context } = buildEvalContext();
+  const { context, writerLog } = buildEvalContext({ quickPicks: options.quickPicks });
   const planRun = await runPlan(response.actions, context);
   const state = foldStepsIntoState(planRun.steps, 'planner');
+  // What a composite write charted beyond the step's own row — see foldProcedureWritesIntoState.
+  foldProcedureWritesIntoState(writerLog, 'planner', state);
 
   // THE SECOND LOOK, folded into the SAME state with source 'review'.
   //
@@ -260,6 +294,10 @@ async function main(): Promise<void> {
   if (!options.token && !options.rescore) {
     options.token = await mintToken();
     console.log('Minted an M2M token from the environment.');
+  }
+  if (!options.rescore) {
+    options.quickPicks = await fetchQuickPicks(options);
+    console.log(`Procedure quick-picks: ${options.quickPicks?.length ?? 'unavailable'}`);
   }
 
   let scores: CaseScore[];

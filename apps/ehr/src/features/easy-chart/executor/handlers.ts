@@ -87,6 +87,7 @@ async function addFromCatalogue(
   }
   const written = await options.write(pick.match);
   const composite: CompositeWriteResult = Array.isArray(written) ? { createdResourceIds: written } : written;
+  if (composite.skipReason) return skipped(composite.skipReason);
   return applied(composite.createdResourceIds, {
     lowConfidence: pick.lowConfidence,
     note: pick.note,
@@ -101,6 +102,12 @@ interface CompositeWriteResult {
   createdResourceIds: string[];
   inferredResourceIds?: string[];
   templateFilledFields?: { resourceId: string; fields: string[] }[];
+  /**
+   * Set when the write could not proceed on what the catalogue handed back. The step settles as
+   * SKIPPED with this reason rather than as applied-with-nothing — a step that reports success having
+   * charted nothing reads to a provider as "there was nothing to chart".
+   */
+  skipReason?: string;
 }
 
 /**
@@ -390,7 +397,19 @@ export const HANDLERS = {
       noun: 'procedure',
       unsupported: !context.writer.supports.procedures,
       write: async (match) => {
-        const payload = match.payload as ProcedureQuickPickContext;
+        const payload = match.payload as ProcedureQuickPickContext | undefined;
+        // THE CAST IS NOT A GUARANTEE. `payload` is whatever the catalogue chose to attach, and a
+        // catalogue that attaches none — the eval harness stubbed procedures exactly that way — turned
+        // `payload.dto` into a TypeError. A handler that throws reports the step as failed with a raw
+        // `Cannot read properties of undefined (reading 'dto')`, which tells a provider nothing about
+        // what went wrong or what to do instead. Skipping with the reason is the honest outcome, and it
+        // is what every other unresolvable catalogue result already produces.
+        if (!payload?.dto) {
+          return {
+            createdResourceIds: [],
+            skipReason: `the procedure catalogue returned no quick-pick for "${match.display}" — chart it from the Procedures tab`,
+          };
+        }
         // A quick-pick whose template names no procedureType writes a row with NO NAME — the note then
         // shows a "Procedure" heading with a body site under it and nothing identifying what was done.
         // The provider named it, so fall back to that: an identifiable row beats a blank one, and the

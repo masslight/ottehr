@@ -9,11 +9,19 @@
 
 import { buildExamLeafCatalogue } from 'utils/lib/config-helpers/exam-leaves';
 import { findExamLeafMatches, findRosMatches, RosCatalogueEntry } from 'utils/lib/easy-chart/matchers';
+import { matchNamedCatalogue } from 'utils/lib/easy-chart/order-matching';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
+import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { buildChartSnapshot } from '../../apps/ehr/src/features/easy-chart/executor/chartSnapshot';
+import { procedureQuickPickContext } from '../../apps/ehr/src/features/easy-chart/executor/procedure-quick-pick';
 import { matchByTitle, matchStaticOptions } from '../../apps/ehr/src/features/easy-chart/executor/static-options';
-import { CatalogueMatch, CatalogueQuery, CatalogueResult } from '../../apps/ehr/src/features/easy-chart/executor/types';
+import {
+  CatalogueMatch,
+  CatalogueQuery,
+  CatalogueResult,
+  catalogueUnavailable,
+} from '../../apps/ehr/src/features/easy-chart/executor/types';
 import { Catalogue, ChartWriter, HandlerContext } from '../../apps/ehr/src/features/easy-chart/executor/types';
 import { HospitalizationOptions } from '../../apps/ehr/src/features/visits/in-person/components/hospitalization/hospitalizationOptions';
 import { SURGICAL_HISTORY_OPTIONS } from '../../apps/ehr/src/features/visits/shared/components/medical-history-tab/SurgicalHistory/surgicalHistoryOptions';
@@ -24,7 +32,39 @@ import { resolveTemplateByDisplay, templateTitles } from './template-catalog';
 const echo = async (query: CatalogueQuery): Promise<CatalogueResult> =>
   query.display.trim() ? [{ id: query.display, display: query.display, score: 1 }] : [];
 
-export function buildEvalContext(): { context: HandlerContext; writer: ChartWriter } {
+/**
+ * What the fake writer recorded while a plan ran.
+ *
+ * The sim state is folded from plan STEPS, and a step cannot say what a composite write charted on its
+ * behalf: `add-procedure` hands the writer a quick-pick context carrying the procedure's linked
+ * diagnoses and CPT codes, and in production `addProcedure` saves all three. The step reports ids, not
+ * kinds — so without this log the codes a procedure charted were invisible, and the `cpt` section was
+ * scored against a chart that could never contain them.
+ */
+export interface EvalWriterLog {
+  procedures: {
+    display: string;
+    diagnoses: { code?: string; display?: string }[];
+    cptCodes: { code?: string; display?: string }[];
+  }[];
+}
+
+export interface EvalContextOptions {
+  /**
+   * The practice's procedure quick-picks, fetched once by the runner.
+   *
+   * Absent means the catalogue reports itself UNAVAILABLE rather than empty — the same distinction the
+   * app draws, and the reason a missing fetch cannot masquerade as "the practice has no quick-picks".
+   */
+  quickPicks?: ProcedureQuickPickData[];
+}
+
+export function buildEvalContext(options: EvalContextOptions = {}): {
+  context: HandlerContext;
+  writer: ChartWriter;
+  writerLog: EvalWriterLog;
+} {
+  const writerLog: EvalWriterLog = { procedures: [] };
   const examLeaves = buildExamLeafCatalogue(DefaultExamComponentsConfig);
   // Built exactly as the client builds it (see useCatalogue's ROS_ENTRIES). An earlier version of this
   // harness read a `components` field that does not exist and passed the wrong entry shape, so EVERY ros
@@ -49,7 +89,23 @@ export function buildEvalContext(): { context: HandlerContext; writer: ChartWrit
     orderRadiology: async () => [`row-${nextId++}`],
     createNursingOrder: async () => [`row-${nextId++}`],
     applyTemplate: async () => [`row-${nextId++}`],
-    addProcedure: async () => ({ createdResourceIds: [`row-${nextId++}`], inferredResourceIds: [] }),
+    // Records what the quick-pick brought with it. In the app this write also saves the linked
+    // diagnoses and CPT codes; the sim learns about them here and nowhere else.
+    addProcedure: async (context) => {
+      const procedureResourceId = `row-${nextId++}`;
+      const linked = [...(context.diagnoses ?? []), ...(context.cptCodes ?? [])].map(() => `row-${nextId++}`);
+      writerLog.procedures.push({
+        display: context.dto?.procedureType ?? '',
+        diagnoses: context.diagnoses ?? [],
+        cptCodes: context.cptCodes ?? [],
+      });
+      return {
+        createdResourceIds: [procedureResourceId, ...linked],
+        procedureResourceId,
+        inferredResourceIds: linked,
+        templateFilledFields: context.templateFilledFields ?? [],
+      };
+    },
   };
 
   const catalogue: Catalogue = {
@@ -69,11 +125,30 @@ export function buildEvalContext(): { context: HandlerContext; writer: ChartWrit
     // REAL titles from the seed, not an echo. The stub accepted ANY title as a match, so a template name
     // the model invented resolved as though the practice had it — and `templateTitleUnmatched` in the sim
     // could never count anything. `payload` carries the entry so the sim can chart its diagnoses.
+    // REAL quick-picks, so `add-procedure` resolves to a context carrying its `dto`, its linked
+    // diagnoses and its CPT codes. The stub returned a match with NO payload, which the handler then
+    // dereferenced — a TypeError that read as a model failure, and which also meant the CPT codes a
+    // procedure charts in production could never appear in the score.
+    procedures: async (query) => {
+      if (!options.quickPicks) {
+        return catalogueUnavailable('procedure quick-picks were not fetched for this run');
+      }
+      return matchNamedCatalogue(query.display, query.searchTerms, options.quickPicks, (pick) => pick.name).map(
+        (scored) => ({
+          id: scored.item.id ?? scored.item.name,
+          display: scored.item.name,
+          score: scored.score,
+          // No procedureType NAME map here: it comes from a FHIR ValueSet the harness does not read, so
+          // the code stands in for the name. The handler's own fallback covers the display.
+          payload: procedureQuickPickContext(scored.item, new Map()),
+        })
+      );
+    },
+
     templates: async (query) => {
       const matches = matchByTitle(templateTitles(), query);
       return matches.map((match) => ({ ...match, payload: resolveTemplateByDisplay(match.display) }));
     },
-    procedures: echo,
     labs: echo,
     radiology: echo,
   };
@@ -83,7 +158,7 @@ export function buildEvalContext(): { context: HandlerContext; writer: ChartWrit
     encounterId: 'eval',
     catalogue,
     writer,
-    chart: buildChartSnapshot(null),
+    chart: buildChartSnapshot(undefined),
     // Bulk mode should never ask; if it does, that is a defect worth failing loudly on rather than
     // hanging a batch run.
     ask: async () => {
@@ -92,7 +167,7 @@ export function buildEvalContext(): { context: HandlerContext; writer: ChartWrit
     say: () => undefined,
   };
 
-  return { context, writer };
+  return { context, writer, writerLog };
 }
 
 export type { CatalogueMatch };

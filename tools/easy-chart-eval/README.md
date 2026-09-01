@@ -36,6 +36,23 @@ npx tsx tools/easy-chart-eval/run.ts --case case-07 --token "$TOKEN"
 npx tsx tools/easy-chart-eval/run.ts --token "$TOKEN" --out tools/easy-chart-eval/results
 ```
 
+## Start the server WITHOUT file watching
+
+```bash
+cd packages/zambdas && NODE_OPTIONS='--preserve-symlinks' \
+  npx tsx src/local-server/index.ts -- secrets=.env/zambda-secrets-local.json
+```
+
+NOT `npm run zambdas:start`. That runs `tsx watch --include './src/**/*'`, so editing anything under
+`packages/zambdas/src/` restarts the server — and a restart mid-run kills every remaining case with
+`fetch failed`. It happened twice while this harness was being built, once from each side of the
+keyboard, and cost about sixty paid cases: the first thirty minutes of a run survive and the rest is
+gone. Changing the model constant to start a second experiment is exactly the edit that does it.
+
+The trade is that a model or prompt change now needs a manual restart to take effect. For eval runs
+that is the right way round — a restart you asked for beats one that lands halfway through forty
+billable cases.
+
 ## Comparing runs
 
 ```bash

@@ -13,6 +13,7 @@
 import { NOTE_TEXT_FIELDS } from 'utils/lib/easy-chart/actions';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { PlanStep } from '../../apps/ehr/src/features/easy-chart/executor/types';
+import { EvalWriterLog } from './harness';
 import { emptySimState, SimFinalState, SimSource } from './score-harvested';
 import { resolveTemplateByDisplay } from './template-catalog';
 
@@ -30,9 +31,41 @@ const NOTE_FIELDS: readonly string[] = NOTE_TEXT_FIELDS;
 export type SimStateWithTemplateStats = SimFinalState & {
   /** How many diagnoses templates actually contributed. */
   templateDxApplied?: number;
+  /** How many default exam findings templates actually contributed. */
+  templateExamApplied?: number;
   /** Titles the model asked for that the practice does not have. */
   templateTitleUnmatched?: string[];
 };
+
+/**
+ * Fold what a composite write charted on a step's behalf.
+ *
+ * `add-procedure` is the only one: the quick-pick carries the procedure's linked diagnoses and CPT
+ * codes, and in the app `addProcedure` saves all three in one go. The plan STEP reports resource ids
+ * and not kinds, so folding from steps alone can never see them — which is why the `cpt` section was
+ * scored against a chart that structurally could not hold the codes a procedure charts.
+ *
+ * Deduped the same way the app's `linkQuickPickCodes` is: a code already on the chart is LINKED to,
+ * not charted twice.
+ */
+export function foldProcedureWritesIntoState(log: EvalWriterLog, source: SimSource, state: SimFinalState): void {
+  for (const write of log.procedures) {
+    if (write.display.trim()) state.procedures.push(write.display.trim());
+    for (const dx of write.diagnoses) {
+      if (!dx.code && !dx.display) continue;
+      const active = state.diagnoses.filter((item) => !item.removed);
+      if (active.some((item) => (item.code ?? '').toUpperCase() === (dx.code ?? '').toUpperCase() && dx.code)) continue;
+      state.diagnoses.push({ display: dx.display ?? '', ...(dx.code ? { code: dx.code } : {}), source });
+    }
+    for (const cpt of write.cptCodes) {
+      if (!cpt.code && !cpt.display) continue;
+      const active = state.cptCodes.filter((item) => !item.removed);
+      if (active.some((item) => (item.code ?? '').toUpperCase() === (cpt.code ?? '').toUpperCase() && cpt.code))
+        continue;
+      state.cptCodes.push({ display: cpt.display ?? '', ...(cpt.code ? { code: cpt.code } : {}), source });
+    }
+  }
+}
 
 export function foldStepsIntoState(steps: PlanStep[], source: SimSource, into?: SimFinalState): SimFinalState {
   const state = into ?? emptySimState();
@@ -205,6 +238,20 @@ export function foldStepsIntoState(steps: PlanStep[], source: SimSource, into?: 
             source,
           });
           stats.templateDxApplied += 1;
+        }
+
+        // AND ITS DEFAULT EXAM FINDINGS — ~28 per template, and the reason the exam section could not be
+        // measured. Until these were charted the scorer compared against a chart that pretended the
+        // template had ticked nothing, so every normal it had already charted read as a planner miss.
+        //
+        // Deduped by FIELD, which is the key the scorer compares on: a template normal for a finding the
+        // dictation already charted must not appear twice, and a later `remove-exam-finding` resolves
+        // against one row rather than picking arbitrarily between two.
+        stats.templateExamApplied ??= 0;
+        for (const finding of template.examFindings) {
+          if (state.examObservations.some((obs) => !obs.removed && obs.field === finding.field)) continue;
+          state.examObservations.push({ field: finding.field, label: finding.label, source });
+          stats.templateExamApplied += 1;
         }
         break;
       }

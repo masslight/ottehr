@@ -10,16 +10,16 @@
 // environments were seeded from, so it is the right offline stand-in. Resolution goes through the app's own
 // `matchByTitle`, not a copy: an invented name has to be refused here exactly as it is in production.
 //
-// SCOPE, STATED PLAINLY. Only the template's DIAGNOSES are read. A template also carries default exam
-// findings, MDM and patient instructions — those are contained Observations and Communications, and
-// simulating them is a separate piece of work nobody has done on either branch. So after this the chart
-// state knows about a template's diagnoses and still knows nothing about its exam, which is why the
-// exam section stays blind to template contributions.
+// SCOPE, STATED PLAINLY. Diagnoses and default EXAM FINDINGS are read; MDM and patient instructions are
+// not. Exam matters most of the three: a template carries ~35 default normals, and until they were read
+// the exam section was scored against a chart that pretended none of them existed — the planner was
+// credited with a miss for every normal the template had already charted. MDM and instructions are
+// contained Communications and remain unsimulated, so the free-text metrics stay presence-only.
 
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Condition, Encounter, List } from 'fhir/r4b';
+import { Condition, Encounter, List, Observation } from 'fhir/r4b';
 import { chartDataTagSystem } from 'utils/lib/fhir/constants';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { matchByTitle } from '../../apps/ehr/src/features/easy-chart/executor/static-options';
@@ -37,9 +37,16 @@ export interface TemplateCatalogDx {
   rank?: number;
 }
 
+/** A default exam finding. `field` is the catalogue key the SCORER compares on; the label is for display. */
+export interface TemplateCatalogExam {
+  field: string;
+  label: string;
+}
+
 export interface TemplateCatalogEntry {
   title: string;
   diagnoses: TemplateCatalogDx[];
+  examFindings: TemplateCatalogExam[];
 }
 
 /** A contained Condition counts as a diagnosis only when it carries the chart-data `diagnosis` tag. */
@@ -51,6 +58,24 @@ const icdCoding = (condition: Condition): { code?: string; display?: string } | 
   condition.code?.coding?.find(
     (coding) => coding.system === CODE_SYSTEM_ICD_10 || coding.system === LEGACY_ICD_10_CODE_SYSTEM
   );
+
+/**
+ * The exam field key an Observation carries, when it is a checkbox finding that is TICKED.
+ *
+ * Two exclusions, both deliberate. An Observation with no `valueBoolean` is a section COMMENT — the seed
+ * holds 41 of them (`oral-comment`, `head-comment`), free text rather than a finding, and charting one as
+ * a finding would invent an observation the template never asserts. A `valueBoolean` of false is an
+ * explicit negative and is not a charted finding either.
+ */
+const examFieldOf = (resource: {
+  resourceType?: string;
+  meta?: Observation['meta'];
+  valueBoolean?: boolean;
+}): string | undefined => {
+  if (resource.resourceType !== 'Observation' || resource.valueBoolean !== true) return undefined;
+  const tag = resource.meta?.tag?.find((t) => t.system === chartDataTagSystem('exam-observation-field'));
+  return tag?.code;
+};
 
 let cached: TemplateCatalogEntry[] | undefined;
 
@@ -64,12 +89,21 @@ export function loadTemplateCatalog(): TemplateCatalogEntry[] {
     const contained = templateList.contained ?? [];
     const templateEncounter = contained.find((r): r is Encounter => r.resourceType === 'Encounter');
     const diagnoses: TemplateCatalogDx[] = [];
+    const examFindings: TemplateCatalogExam[] = [];
 
     // Walked in ENTRY order, mirroring the zambda's create loop, so a multi-diagnosis template keeps
     // the order it declares — which is what decides the primary when no rank is given.
     for (const entry of templateList.entry ?? []) {
       const referenced = contained.find((r) => r.id === entry.item?.reference?.replace('#', ''));
-      if (!referenced || !isDiagnosisCondition(referenced)) continue;
+      if (!referenced) continue;
+
+      const examField = examFieldOf(referenced as Observation);
+      if (examField) {
+        examFindings.push({ field: examField, label: (referenced as Observation).code?.text ?? examField });
+        continue;
+      }
+
+      if (!isDiagnosisCondition(referenced)) continue;
       const condition = referenced as Condition;
       const coding = icdCoding(condition);
       if (!coding?.code) continue;
@@ -82,7 +116,7 @@ export function loadTemplateCatalog(): TemplateCatalogEntry[] {
         ...(encounterDx?.rank !== undefined ? { rank: encounterDx.rank } : {}),
       });
     }
-    return { title: templateList.title ?? '', diagnoses };
+    return { title: templateList.title ?? '', diagnoses, examFindings };
   });
   return cached;
 }
