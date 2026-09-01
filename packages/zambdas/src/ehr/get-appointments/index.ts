@@ -17,14 +17,13 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { appointmentAttendanceTypeAppointment, appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
-import { chunkThings, getChatContainsUnreadMessages, ZAP_SMS_MEDIUM_CODE } from 'utils/lib/fhir/chat';
 import {
-  PRIVATE_EXTENSION_BASE_URL,
-  ROOM_EXTENSION_URL,
-  SERVICE_CATEGORY_SYSTEM,
-  TIMEZONE_EXTENSION_URL,
-} from 'utils/lib/fhir/constants';
+  appointmentAttendanceTypeAppointment,
+  appointmentTypeForAppointment,
+  getAppointmentRoom,
+} from 'utils/lib/fhir/appointments';
+import { chunkThings, getChatContainsUnreadMessages, ZAP_SMS_MEDIUM_CODE } from 'utils/lib/fhir/chat';
+import { PRIVATE_EXTENSION_BASE_URL, SERVICE_CATEGORY_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { getAttestedConsentFromEncounter, getCoding } from 'utils/lib/fhir/helpers';
 import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
@@ -798,7 +797,7 @@ const makeAppointmentInformation = (
   const timezoneResourceId = getTimezoneResourceIdFromAppointment(appointment);
   const appointmentTimezone = timezoneResourceId && timezoneMap.get(timezoneResourceId);
 
-  const room = appointment.extension?.find((ext) => ext.url === ROOM_EXTENSION_URL)?.valueString;
+  const room = getAppointmentRoom(appointment);
 
   return {
     id: appointment.id || 'Unknown',

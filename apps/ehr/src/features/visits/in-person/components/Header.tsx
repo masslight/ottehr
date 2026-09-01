@@ -35,6 +35,7 @@ import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
 import { formatLabelValue } from 'src/shared/utils/formatLabelValue';
+import { getAppointmentRoom } from 'utils/lib/fhir/appointments';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
   getAnnotationFollowupStatusLabel,
@@ -272,6 +273,7 @@ export const Header = (): JSX.Element => {
       ? 'Scheduled'
       : 'On Demand'
     : undefined;
+  const room = appointment ? getAppointmentRoom(appointment) : undefined;
   const visitTypeAndCategory = [isInPersonAppointment(appointment) ? 'In Person' : 'Virtual', serviceCategory]
     .filter(Boolean)
     .join(' | ');
@@ -438,6 +440,11 @@ export const Header = (): JSX.Element => {
                   {visitBookingType && (
                     <Grid item>
                       <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitBookingType}</PatientMetadata>
+                    </Grid>
+                  )}
+                  {room && (
+                    <Grid item>
+                      <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>Room: {room}</PatientMetadata>
                     </Grid>
                   )}
                   <Grid item>

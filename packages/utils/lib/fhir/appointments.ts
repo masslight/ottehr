@@ -9,10 +9,15 @@ import {
   FHIR_APPOINTMENT_TYPE_MAP,
   FHIR_ZAPEHR_URL,
   PUBLIC_EXTENSION_BASE_URL,
+  ROOM_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from './constants';
 import { getCoding } from './helpers';
 import { OTTEHR_MODULE } from './moduleIdentification';
+
+export function getAppointmentRoom(appointment: Appointment): string | undefined {
+  return appointment.extension?.find((ext) => ext.url === ROOM_EXTENSION_URL)?.valueString;
+}
 
 export async function cancelAppointmentResource(
   appointment: Appointment,
