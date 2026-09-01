@@ -1,4 +1,4 @@
-# Tracking board: consolidate the refresh into one `get-tracking-board` zambda
+# Tracking board: consolidate the refresh into one `get-appointments` call
 
 Status: proposal / implementation plan
 Scope: `apps/ehr` tracking board (`/visits`), `packages/zambdas`, `packages/utils`, `config/oystehr-core`
@@ -72,20 +72,25 @@ searches carrying large `_include` graphs (Coverage, Observations, Slots, Schedu
 
 ### 2.1 Contract
 
-New zambda `get-tracking-board` (`packages/zambdas/src/ehr/get-tracking-board/`). It accepts the same body as
-`get-appointments` and returns the appointment buckets plus the fully grouped order and vitals maps the table
-already consumes:
+Extend `get-appointments` rather than add a zambda. Its only runtime caller today is the tracking board page
+(`getAppointments` in `apps/ehr/src/api/api.ts`). The shared `ui-components` client's `getAppointments` resolves to
+`telemed-get-appointments`, no zambda calls it, and the remaining references are its own tests, a permissions script
+that lists it, and comments. A second zambda would add an IaC entry, a permissions-script entry and a deploy surface
+without protecting any caller. Instead the request gains opt-in `include` flags and the response gains two optional
+maps; with the flags absent, behavior and payload are unchanged.
 
 ```ts
-// packages/utils/lib/types/api/get-tracking-board.types.ts
-export interface GetTrackingBoardZambdaInput extends GetAppointmentsZambdaInput {
-  /** Defaults to everything. Lets a caller skip orders/vitals (and lets us feature-gate cheaply). */
+// packages/utils/lib/types/api/get-appointments.types.ts
+export interface GetAppointmentsZambdaInput {
+  // ...existing fields
+  /** Opt-in. Absent = today's response, byte for byte. The tracking board passes both. */
   include?: { orders?: boolean; vitals?: boolean };
 }
 
-export interface GetTrackingBoardZambdaOutput extends GetAppointmentsZambdaOutput {
-  orders: OrdersForTrackingBoardTable; // already keyed by appointmentId / encounterId, exactly what AppointmentTable takes
-  vitals: GetVitalsForListOfEncountersResponseData; // abnormal entries only (alertCriticality set)
+export interface GetAppointmentsZambdaOutput {
+  // ...existing buckets
+  orders?: OrdersForTrackingBoardTable; // when include.orders; keyed by appointmentId / encounterId, what AppointmentTable takes
+  vitals?: GetVitalsForListOfEncountersResponseData; // when include.vitals; abnormal entries only (alertCriticality set)
 }
 ```
 
@@ -94,12 +99,14 @@ table, row, and tooltip components need no prop changes.
 
 ### 2.2 Server-side flow
 
-Phase A: appointments (existing logic, extracted)
+Phase A: appointments (existing logic, restructured in place)
 
-- Move the body of `get-appointments/index.ts` into an exported `getTrackingBoardAppointments(oystehr, params)`
-  (for example `get-appointments/core.ts`) that returns the four buckets and the internal maps the next phase needs:
-  `apptRefToEncounterMap`, `practitionerIdToResourceMap`, `locationIdToResourceMap`, and the timezone map.
-- `get-appointments` becomes a thin wrapper around it, so existing callers and the integration test keep working.
+- Split the body of `get-appointments/index.ts` into a `fetchAppointmentBuckets(oystehr, params)` step that returns
+  the four buckets plus the internal maps the next phase needs (`apptRefToEncounterMap`,
+  `practitionerIdToResourceMap`, `locationIdToResourceMap`, the timezone map) and a handler that runs Phases B and C
+  only when `include` asks for them.
+- With `include` absent the handler returns exactly what it returns today, so the existing unit and integration tests
+  keep passing unchanged.
 
 Phase B: orders + vitals in one batch Bundle
 
@@ -187,10 +194,9 @@ Phase C: map and group
 - If a batch entry fails, return the appointments with that order type empty and log to Sentry; the board today
   already tolerates individual order endpoints failing (each hook swallows its error). Consider an
   `errors?: { orders?: string[] }` field so the UI can show a subtle "orders may be incomplete" hint.
-- Zambda config: add `GET-TRACKING-BOARD` to `config/oystehr-core/zambdas.json` (`type: http_auth`,
-  `src: src/ehr/get-tracking-board/index`, `zip: .dist/zips/get-tracking-board.zip`). `bundle.ts` and the local
-  Express server both read that file, so nothing else needs registering. EHR roles grant `Zambda:Function:*`, so no
-  `roles.json` change. Set an explicit `timeout` only if measurements say the default is tight.
+- No IaC change: the zambda keeps its name, its `config/oystehr-core/zambdas.json` entry, its `Zambda:Function:*`
+  role grants and its line in `scripts/update-permissions-for-users.ts`. Set an explicit `timeout` only if
+  measurements say the default is tight once orders and vitals are included.
 
 ### 2.4 Details worth deciding up front
 
@@ -214,7 +220,8 @@ Phase C: map and group
 
 ### 3.1 One hook
 
-`apps/ehr/src/hooks/useGetTrackingBoard.ts` (React Query):
+`apps/ehr/src/hooks/useGetTrackingBoard.ts` (React Query), calling `getAppointments` with
+`include: { orders: true, vitals: true }`:
 
 - `queryKey: ['tracking-board', { dateFrom, dateTo, locationIds, providerIds, serviceCategories, visitType, timezone }]`
 - `refetchInterval: TRACKING_BOARD_REFRESH_MS` (start at the current 30 000; it is now one request, so shortening
@@ -248,15 +255,17 @@ the `appointmentsVersion` counter, and the 300 ms debounce. `updateAppointments`
 
 PR 1 (backend, additive, no UI change)
 
-1. Extract `getTrackingBoardAppointments` from `get-appointments/index.ts`; keep the zambda as a wrapper. Run the
-   existing `get-appointments` unit and integration tests.
-2. Add `get-tracking-board` built first by composition: Phase A plus the exported fetchers the legacy zambdas already
-   expose (`getMedicationOrders`, `getErxOrders`, `getImmunizationOrders`, `getRadiologyOrders`, `getLabResources`
-   - `mapResourcesToLabOrderDTOs`, `getInHouseResources` + mapper, nursing helpers, procedure SR search +
-     `makeProceduresDTOFromFhirResources`, vitals fetch). This already collapses 8 browser requests to 1 and, by
-     construction, returns byte-identical DTOs, which is the parity baseline for step 3.
-3. Replace the composed fetch layer with the Phase B batch from 2.2 and the partition/map/group code.
-4. Types in `utils`, config entry, unit tests, integration test (below).
+1. Restructure `get-appointments/index.ts` into Phase A plus an `include`-gated tail, and add `include` to
+   `validateRequestParameters` (absent by default). Run the existing `get-appointments` unit and integration tests:
+   nothing observable changes yet.
+2. Implement the tail first by composition, using the fetchers the legacy zambdas already export
+   (`getMedicationOrders`, `getErxOrders`, `getImmunizationOrders`, `getRadiologyOrders`, `getLabResources` with
+   `mapResourcesToLabOrderDTOs`, `getInHouseResources` with its mapper, the nursing helpers, the procedure
+   ServiceRequest search with `makeProceduresDTOFromFhirResources`, the vitals fetch). Behind the flag this already
+   collapses 8 browser requests to 1 and, by construction, returns byte-identical DTOs, which is the parity baseline
+   for step 3.
+3. Replace the composed tail with the Phase B batch from 2.2 and the partition/map/group code.
+4. Types in `utils`, unit tests, integration test (below). No config entry.
 
 PR 2 (frontend)
 
@@ -270,8 +279,8 @@ PR 2 (frontend)
 PR 3 (cleanup, after PR 2 has been out for a release)
 
 - Remove the `encounterIds` branches from the seven legacy order zambdas if nothing else calls them, or leave them
-  (they are not on the hot path any more). Decide whether `get-appointments` stays as a public endpoint for
-  downstream forks; it costs nothing as a wrapper.
+  (they are not on the hot path any more). Decide whether `include` should default to on once the board is the only
+  caller; today's opt-in default exists only to keep the first backend PR observably inert.
 
 ## 5. Verification
 
@@ -285,11 +294,12 @@ Unit tests (`packages/zambdas`, offline `--project unit`)
 - Chunking and the response-size fallback.
 - Per-order mapping failure is isolated (a throwing mapper drops one order, not the response).
 
-Integration test (`packages/zambdas/test/integration/get-tracking-board.test.ts`)
+Integration test (extend `packages/zambdas/test/integration/get-appointments.test.ts`)
 
 - Seed a graph with `setupIntegrationTest`, create one nursing order and one in-house medication through the
-  existing zambdas, call `get-tracking-board`, assert the appointment appears in `inOffice` and both orders appear
-  under the right keys.
+  existing zambdas, call `get-appointments` with `include: { orders: true, vitals: true }`, assert the appointment
+  appears in `inOffice` and both orders appear under the right keys.
+- A no-`include` case asserting `orders` and `vitals` are absent, so the legacy response shape stays pinned.
 - Parity: for the same seeded day, call the eight legacy endpoints and deep-compare their DTOs with the new response.
   Keep this while PR 1 step 3 is in review; drop it in PR 3.
 
@@ -322,7 +332,7 @@ Targets to record before and after (Network tab, one tick)
   encounters per tab and set `include.orders=false` beyond that, surfacing "too broad for order icons" in the UI.
 - Batch execution order and limits on Oystehr are not documented (entries per bundle, whether entries run in
   parallel, the response cap). The composition step in PR 1 is the place to measure them before the lean batch lands.
-- The new zambda bundles the external-lab helpers (large module). Cold start grows somewhat; warm invocations are
+- `get-appointments` now bundles the external-lab helpers (large module). Cold start grows somewhat; warm invocations are
   what the 30 s loop hits.
 - Until PR 3 the `encounterIds` code paths live in two places. That is deliberate: the legacy zambdas still serve the
   chart pages by `encounterId`/`patientId`, and the board no longer depends on them.
