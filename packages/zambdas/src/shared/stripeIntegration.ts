@@ -82,6 +82,7 @@ export const stripeRefundToDTO = (refund: Stripe.Refund): PaymentRefundDTO => ({
   // refunds issued from the EHR carry the staff-selected reason (and notes) in metadata
   reason: refund.metadata?.reason ?? refund.reason ?? undefined,
   notes: refund.metadata?.notes ?? undefined,
+  refundedBy: refund.metadata?.refundedBy ?? undefined,
 });
 
 // stamps refund state onto the original PaymentNotice so consumers can read it from FHIR without Stripe

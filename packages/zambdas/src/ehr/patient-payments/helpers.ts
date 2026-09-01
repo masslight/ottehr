@@ -1,11 +1,12 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
-import { Account, PaymentNotice } from 'fhir/r4b';
+import { Account, PaymentNotice, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { parsePaymentRefundsFromNotice, settledRefundTotalInCents } from 'utils/lib/fhir/paymentRefunds';
-import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
+import { getPaymentNoticeSubmitterRef, getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { convertPaymentNoticeListToCashPaymentDTOs } from 'utils/lib/helpers/helpers';
 import { CashPaymentDTO, PatientPaymentDTO, PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
@@ -359,6 +360,52 @@ const resolveRefundsForPaymentNotice = async (
   }
 };
 
+// Submitter names by notice id. Notices written since the display was stamped on the submitter
+// reference resolve locally; older ones fall back to one batched Practitioner lookup.
+const resolveTakenByNames = async (
+  fhirPaymentNotices: PaymentNotice[],
+  oystehrClient: Oystehr
+): Promise<Map<string, string>> => {
+  const takenByByNoticeId = new Map<string, string>();
+  const noticeIdsByPractitionerId = new Map<string, string[]>();
+
+  for (const notice of fhirPaymentNotices) {
+    if (!notice.id) continue;
+    const submitter = getPaymentNoticeSubmitterRef(notice);
+    if (!submitter?.reference) continue;
+    if (submitter.display) {
+      takenByByNoticeId.set(notice.id, submitter.display);
+      continue;
+    }
+    const [resourceType, resourceId] = submitter.reference.split('/');
+    if (resourceType !== 'Practitioner' || !resourceId) continue;
+    noticeIdsByPractitionerId.set(resourceId, [...(noticeIdsByPractitionerId.get(resourceId) ?? []), notice.id]);
+  }
+
+  if (noticeIdsByPractitionerId.size > 0) {
+    try {
+      const practitioners = (
+        await oystehrClient.fhir.search<Practitioner>({
+          resourceType: 'Practitioner',
+          params: [{ name: '_id', value: [...noticeIdsByPractitionerId.keys()].join(',') }],
+        })
+      ).unbundle();
+      for (const practitioner of practitioners) {
+        if (!practitioner.id) continue;
+        const name = getFullestAvailableName(practitioner);
+        if (!name) continue;
+        for (const noticeId of noticeIdsByPractitionerId.get(practitioner.id) ?? []) {
+          takenByByNoticeId.set(noticeId, name);
+        }
+      }
+    } catch (error) {
+      console.error('Error resolving payment submitter names', error);
+    }
+  }
+
+  return takenByByNoticeId;
+};
+
 async function buildPaymentDTOs(
   fhirPaymentNotices: PaymentNotice[],
   stripePayments: Stripe.PaymentIntent[],
@@ -370,6 +417,7 @@ async function buildPaymentDTOs(
 ): Promise<PatientPaymentDTO[]> {
   const paymentMethodCache = new Map<string, Stripe.PaymentMethod>(paymentMethods.map((pm) => [pm.id, pm]));
   const paymentIntentCache = new Map<string, Stripe.PaymentIntent>(stripePayments.map((pi) => [pi.id, pi]));
+  const takenByByNoticeId = await resolveTakenByNames(fhirPaymentNotices, oystehrClient);
 
   const cardPaymentsNested: PatientPaymentDTO[][] = await Promise.all(
     fhirPaymentNotices.map(async (paymentNotice) => {
@@ -441,6 +489,8 @@ async function buildPaymentDTOs(
       const refundFields = refunds?.length
         ? { refunds, refundedAmountInCents: settledRefundTotalInCents(refunds) }
         : {};
+      const takenBy = takenByByNoticeId.get(paymentNotice.id);
+      const takenByField = takenBy ? { takenBy } : {};
 
       if (paymentMethod === 'card-reader') {
         return [
@@ -452,6 +502,7 @@ async function buildPaymentDTOs(
             cardBrand,
             cardLast4: last4,
             dateISO,
+            ...takenByField,
             ...refundFields,
           },
         ];
@@ -468,6 +519,7 @@ async function buildPaymentDTOs(
           cardBrand,
           cardLast4: last4,
           dateISO,
+          ...takenByField,
           ...refundFields,
         },
       ];
@@ -478,7 +530,13 @@ async function buildPaymentDTOs(
 
   // todo: the data here should be fetched from candid and then linked to the payment notice ala stripe,
   // but that awaits the candid integration portion
-  const cashPayments: CashPaymentDTO[] = convertPaymentNoticeListToCashPaymentDTOs(fhirPaymentNotices, encounterId);
+  const cashPayments: CashPaymentDTO[] = convertPaymentNoticeListToCashPaymentDTOs(fhirPaymentNotices, encounterId).map(
+    (cashPayment) => {
+      if (cashPayment.takenBy || !cashPayment.fhirPaymentNotificationId) return cashPayment;
+      const takenBy = takenByByNoticeId.get(cashPayment.fhirPaymentNotificationId);
+      return takenBy ? { ...cashPayment, takenBy } : cashPayment;
+    }
+  );
 
   const deDuplicatedCashPayments = cashPayments.filter((cashPayment) => {
     if (!cashPayment.fhirPaymentNotificationId) {

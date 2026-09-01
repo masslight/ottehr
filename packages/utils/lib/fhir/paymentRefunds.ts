@@ -13,6 +13,7 @@ export const buildPaymentRefundsExtension = (refunds: PaymentRefundDTO[]): Exten
       ...(refund.status ? [{ url: 'status', valueString: refund.status }] : []),
       ...(refund.reason ? [{ url: 'reason', valueString: refund.reason }] : []),
       ...(refund.notes ? [{ url: 'notes', valueString: refund.notes }] : []),
+      ...(refund.refundedBy ? [{ url: 'refundedBy', valueString: refund.refundedBy }] : []),
     ],
   })),
 });
@@ -36,6 +37,7 @@ export const parsePaymentRefundsFromNotice = (notice: PaymentNotice): PaymentRef
       status: field('status')?.valueString,
       reason: field('reason')?.valueString,
       notes: field('notes')?.valueString,
+      refundedBy: field('refundedBy')?.valueString,
     });
   }
   return refunds;
@@ -59,6 +61,7 @@ export interface PaymentVoidInfo {
   reason: string;
   notes?: string;
   voidedAtISO: string;
+  voidedBy?: string; // display name of the logged-in user who voided the payment
 }
 
 export const buildPaymentVoidExtension = (info: PaymentVoidInfo): Extension => ({
@@ -67,6 +70,7 @@ export const buildPaymentVoidExtension = (info: PaymentVoidInfo): Extension => (
     { url: 'reason', valueString: info.reason },
     { url: 'voidedAt', valueDateTime: info.voidedAtISO },
     ...(info.notes ? [{ url: 'notes', valueString: info.notes }] : []),
+    ...(info.voidedBy ? [{ url: 'voidedBy', valueString: info.voidedBy }] : []),
   ],
 });
 
@@ -77,5 +81,5 @@ export const parsePaymentVoidFromNotice = (notice: PaymentNotice): PaymentVoidIn
   const reason = field('reason')?.valueString;
   const voidedAtISO = field('voidedAt')?.valueDateTime;
   if (!reason || !voidedAtISO) return undefined;
-  return { reason, voidedAtISO, notes: field('notes')?.valueString };
+  return { reason, voidedAtISO, notes: field('notes')?.valueString, voidedBy: field('voidedBy')?.valueString };
 };

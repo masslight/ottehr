@@ -17,6 +17,7 @@ import { getUserToken, requireUserWithRole } from '../../../shared/auth';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
+import { practitionerRefForUser } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -40,7 +41,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
   const secrets = input.secrets;
 
-  await requireUserWithRole(getUserToken(input), secrets, PAYMENT_MANAGEMENT_ROLES);
+  const user = await requireUserWithRole(getUserToken(input), secrets, PAYMENT_MANAGEMENT_ROLES);
 
   if (!oystehrM2MClientToken) {
     oystehrM2MClientToken = await getAuth0Token(secrets);
@@ -49,8 +50,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const effectInput = await complexValidation(validatedParameters, oystehrClient);
 
+  const voidedBy = (await practitionerRefForUser(user, oystehrClient)).display;
+
   const billingClient = createBillingClient(oystehrM2MClientToken, secrets);
-  const response = await performEffect(effectInput, oystehrClient, billingClient);
+  const response = await performEffect({ ...effectInput, voidedBy }, oystehrClient, billingClient);
   return lambdaResponse(200, response);
 });
 
@@ -59,6 +62,7 @@ interface VoidEffectInput {
   paymentNoticeId: string;
   reason: VoidPatientPaymentInput['reason'];
   notes?: string;
+  voidedBy?: string;
 }
 
 const complexValidation = async (params: VoidPatientPaymentInput, oystehrClient: Oystehr): Promise<VoidEffectInput> => {
@@ -87,12 +91,13 @@ const performEffect = async (
   oystehrClient: Oystehr,
   billingClient: Oystehr
 ): Promise<VoidPatientPaymentResponse> => {
-  const { notice, paymentNoticeId, reason, notes } = input;
+  const { notice, paymentNoticeId, reason, notes, voidedBy } = input;
 
   const voidInfo: PaymentVoidInfo = {
     reason,
     notes,
     voidedAtISO: DateTime.now().toISO(),
+    voidedBy,
   };
 
   await voidNotice(oystehrClient, notice, voidInfo);

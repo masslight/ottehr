@@ -1,3 +1,4 @@
+import CloseIcon from '@mui/icons-material/Close';
 import LoadingButton from '@mui/lab/LoadingButton';
 import {
   Box,
@@ -9,6 +10,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  IconButton,
   InputAdornment,
   MenuItem,
   Table,
@@ -167,6 +169,15 @@ function PaymentActionDialog({
 
   return (
     <Dialog open onClose={processing ? undefined : onClose} maxWidth="xs" fullWidth>
+      <IconButton
+        aria-label="close"
+        onClick={onClose}
+        disabled={processing}
+        size="medium"
+        sx={{ position: 'absolute', right: 12, top: 12 }}
+      >
+        <CloseIcon fontSize="medium" sx={{ color: '#938B7D' }} />
+      </IconButton>
       <DialogTitle variant="h4" color="primary.dark">
         {action === 'refund' ? 'Refund Payment' : 'Void Payment'}
       </DialogTitle>
@@ -219,9 +230,10 @@ function PaymentActionDialog({
         />
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button variant="text" sx={buttonSx} disabled={processing} onClick={onClose}>
+        <Button variant="outlined" sx={buttonSx} disabled={processing} onClick={onClose}>
           Cancel
         </Button>
+        <Box sx={{ flexGrow: 1 }} />
         <LoadingButton
           variant="contained"
           color="error"
@@ -271,6 +283,7 @@ export default function PaymentDetailsDialog({
     },
     { label: 'Date', value: formatDate(payment.dateISO) },
     { label: 'Amount', value: formatCents(payment.amountInCents) },
+    ...(payment.takenBy ? [{ label: 'Taken by', value: payment.takenBy }] : []),
     ...(refundState === 'partial' || refundState === 'full'
       ? [
           { label: 'Refunded', value: `-${formatCents(refundedCents)}` },
@@ -281,6 +294,7 @@ export default function PaymentDetailsDialog({
       ? [
           ...(payment.voidReason ? [{ label: 'Void reason', value: payment.voidReason }] : []),
           ...(payment.voidNotes ? [{ label: 'Void notes', value: payment.voidNotes }] : []),
+          ...(payment.voidedBy ? [{ label: 'Voided by', value: payment.voidedBy }] : []),
         ]
       : []),
     ...(payment.description ? [{ label: 'Description', value: payment.description }] : []),
@@ -291,6 +305,14 @@ export default function PaymentDetailsDialog({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      <IconButton
+        aria-label="close"
+        onClick={handleClose}
+        size="medium"
+        sx={{ position: 'absolute', right: 12, top: 12 }}
+      >
+        <CloseIcon fontSize="medium" sx={{ color: '#938B7D' }} />
+      </IconButton>
       <DialogTitle variant="h4" color="primary.dark" sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
         Payment Details
         <RefundChip state={refundState} />
@@ -386,6 +408,11 @@ export default function PaymentDetailsDialog({
                       {refund.notes && (
                         <Typography variant="caption" color="text.secondary" display="block">
                           {refund.notes}
+                        </Typography>
+                      )}
+                      {refund.refundedBy && (
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          by {refund.refundedBy}
                         </Typography>
                       )}
                     </TableCell>

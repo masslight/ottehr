@@ -29,6 +29,7 @@ import {
   parsePaymentVoidFromNotice,
   settledRefundTotalInCents,
 } from '../fhir/paymentRefunds';
+import { getPaymentNoticeSubmitterRef } from '../fhir/payments';
 import { CONSENT_FORMS_CONFIG } from '../ottehr-config/consent-forms';
 import { patientScreeningQuestionsConfig } from '../ottehr-config/screening-questions';
 import { CashPaymentDTO } from '../types/api/patient-payment-types';
@@ -1651,14 +1652,18 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
   const refunds = parsePaymentRefundsFromNotice(paymentNotice);
   const voidInfo = parsePaymentVoidFromNotice(paymentNotice);
   const voided = !!voidInfo || paymentNotice.status === 'cancelled';
+  const takenBy = getPaymentNoticeSubmitterRef(paymentNotice)?.display;
 
   return {
     paymentMethod: paymentMethod as 'cash' | 'check' | 'card-reader' | 'external-card-reader',
     amountInCents: Math.round(amount.value * 100),
     dateISO: created,
     fhirPaymentNotificationId: id,
+    ...(takenBy ? { takenBy } : {}),
     ...(refunds ? { refunds, refundedAmountInCents: settledRefundTotalInCents(refunds) } : {}),
-    ...(voided ? { voided: true, voidReason: voidInfo?.reason, voidNotes: voidInfo?.notes } : {}),
+    ...(voided
+      ? { voided: true, voidReason: voidInfo?.reason, voidNotes: voidInfo?.notes, voidedBy: voidInfo?.voidedBy }
+      : {}),
   };
 };
 

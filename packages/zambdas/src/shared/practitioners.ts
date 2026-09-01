@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { User } from '@oystehr/sdk';
 import { Practitioner, Reference } from 'fhir/r4b';
 import { userMe } from 'utils/lib/auth/user-me.helper';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
@@ -42,4 +42,20 @@ export async function resolveCallerPractitionerRef(
 
   const practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId });
   return { reference: user.profile, display: getFullestAvailableName(practitioner) ?? user.name };
+}
+
+/**
+ * Same as resolveCallerPractitionerRef but for an already-resolved user, and never throws:
+ * a failed name lookup falls back to the Oystehr user name rather than blocking the caller's action.
+ */
+export async function practitionerRefForUser(user: User, oystehr: Oystehr): Promise<Reference> {
+  const practitionerId = removePrefix('Practitioner/', user.profile ?? '');
+  if (!practitionerId) return { reference: user.profile, display: user.name };
+  try {
+    const practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId });
+    return { reference: user.profile, display: getFullestAvailableName(practitioner) ?? user.name };
+  } catch (error) {
+    console.error('Failed to resolve practitioner name for user', user.id, error);
+    return { reference: user.profile, display: user.name };
+  }
 }

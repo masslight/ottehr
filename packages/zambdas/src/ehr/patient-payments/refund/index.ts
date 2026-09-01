@@ -22,6 +22,7 @@ import { getUserToken, requireUserWithRole } from '../../../shared/auth';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
+import { practitionerRefForUser } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
 import {
   applyRefundsToPaymentNotice,
@@ -49,7 +50,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
   const secrets = input.secrets;
 
-  await requireUserWithRole(getUserToken(input), secrets, PAYMENT_MANAGEMENT_ROLES);
+  const user = await requireUserWithRole(getUserToken(input), secrets, PAYMENT_MANAGEMENT_ROLES);
 
   if (!oystehrM2MClientToken) {
     oystehrM2MClientToken = await getAuth0Token(secrets);
@@ -59,7 +60,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const effectInput = await complexValidation(validatedParameters, oystehrClient, stripeClient);
 
-  const response = await performEffect(effectInput, oystehrClient, stripeClient);
+  const refundedBy = (await practitionerRefForUser(user, oystehrClient)).display;
+
+  const response = await performEffect({ ...effectInput, refundedBy }, oystehrClient, stripeClient);
   return lambdaResponse(200, response);
 });
 
@@ -71,6 +74,7 @@ interface RefundEffectInput {
   refundAmountInCents: number;
   reason: RefundPatientPaymentInput['reason'];
   notes?: string;
+  refundedBy?: string;
 }
 
 const complexValidation = async (
@@ -127,7 +131,8 @@ const performEffect = async (
   oystehrClient: Oystehr,
   stripeClient: Stripe
 ): Promise<RefundPatientPaymentResponse> => {
-  const { notice, stripePaymentId, stripeAccount, existingRefunds, refundAmountInCents, reason, notes } = input;
+  const { notice, stripePaymentId, stripeAccount, existingRefunds, refundAmountInCents, reason, notes, refundedBy } =
+    input;
 
   let refund: Stripe.Refund;
   try {
@@ -136,7 +141,8 @@ const performEffect = async (
         payment_intent: stripePaymentId,
         amount: refundAmountInCents,
         reason: reason === 'Duplicate charge' ? 'duplicate' : 'requested_by_customer',
-        metadata: { reason, ...(notes ? { notes } : {}) },
+        // carried in metadata so webhook re-stamps of refund state preserve who issued it
+        metadata: { reason, ...(notes ? { notes } : {}), ...(refundedBy ? { refundedBy } : {}) },
       },
       { stripeAccount }
     );
