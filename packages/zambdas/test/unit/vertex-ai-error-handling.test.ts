@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { invokeChatbotVertexAI } from '../../src/shared/ai';
+import { invokeChatbotVertexAI, VertexAIRequestError } from '../../src/shared/ai';
 import { lambdaResponse } from '../../src/shared/lambda';
 import { wrapHandler } from '../../src/shared/sentry';
 import { ZambdaInput } from '../../src/shared/types/common';
@@ -103,6 +103,15 @@ describe('invokeChatbotVertexAI error handling', () => {
     });
 
     await expect(invoke()).rejects.toThrow(/Vertex AI request failed: 400 Bad Request.*INVALID_ARGUMENT/s);
+
+    // The thrown error carries the HTTP status so callers can translate a Vertex 4xx into a 400 instead
+    // of letting it crash as a 500.
+    const error = await invoke().then(
+      () => null,
+      (error: unknown) => error
+    );
+    expect(error).toBeInstanceOf(VertexAIRequestError);
+    expect((error as VertexAIRequestError).status).toBe(400);
   });
 
   test('a non-retryable failure is not retried', async () => {
