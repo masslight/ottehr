@@ -365,20 +365,6 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
   console.timeEnd('parse_search_results');
 
-  // Everything below depends only on the main appointment search, so it all goes out in a single
-  // round trip rather than the chain of serialized awaits this used to be. Three things made the
-  // old shape slow, and all three are addressed here:
-  //   1. the RelatedPerson fallback was awaited on its own before anything else was even issued,
-  //      costing a full FHIR round trip that nothing but the Communication search depends on;
-  //   2. Provenances were fetched with one search PER ENCOUNTER — 30 concurrent searches for a
-  //      30-row board, whose tail latency dominated the response;
-  //   3. the missing-parent-Encounter search was awaited after that group, adding another round trip
-  //      whenever the board contained follow-up visits.
-  //
-  // The Communication search is the one genuinely dependent step (it filters on RelatedPerson
-  // phone numbers). It is issued speculatively with the numbers the main search already surfaced,
-  // and only if the fallback turns up a number that search didn't cover do we make a second,
-  // narrow call — so in the common case the whole tail is a single wave.
   console.time('related_resources');
 
   const patientIdsForSearch = patientIds.join(',');
@@ -419,8 +405,6 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     .map((enc) => enc.id)
     .filter(isTruthy);
 
-  // One search per chunk of encounters instead of one per encounter. `target` takes a comma-separated
-  // OR list; chunking only bounds the response size, since the SDK sends searches as POST bodies.
   const provenancePromises = chunkThings(encounterIds, PROVENANCE_SEARCH_CHUNK_SIZE).map((encounterIdChunk) =>
     oystehr.fhir.search<Provenance>({
       resourceType: 'Provenance',
