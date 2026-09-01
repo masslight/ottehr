@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
-import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
+import { checkForStripeCustomerDeletedError, STRIPE_CUSTOMER_ID_DOES_NOT_EXIST_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
@@ -39,8 +39,22 @@ export const index = wrapHandler(
     const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient);
 
     try {
+      const customer = await stripeClient.customers.retrieve(stripeCustomerId, { stripeAccount });
+      if (customer.deleted) {
+        throw STRIPE_CUSTOMER_ID_DOES_NOT_EXIST_ERROR;
+      }
+      const defaultPaymentMethod = customer.invoice_settings?.default_payment_method;
+      const defaultPaymentMethodId =
+        typeof defaultPaymentMethod === 'string' ? defaultPaymentMethod : defaultPaymentMethod?.id;
+
+      // detach first so a failed detach can be retried (clearing the default first would lose the PM id)
+      if (defaultPaymentMethodId) {
+        const detached = await stripeClient.paymentMethods.detach(defaultPaymentMethodId, { stripeAccount });
+        console.log(`payment method ${detached.id} detached from customer ${customer.id}`);
+      }
+
       // empty string clears invoice_settings.default_payment_method on the Stripe customer
-      const customer = await stripeClient.customers.update(
+      await stripeClient.customers.update(
         stripeCustomerId,
         {
           invoice_settings: {

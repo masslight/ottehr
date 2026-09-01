@@ -1,9 +1,11 @@
 import Oystehr from '@oystehr/sdk';
-import { Account, Identifier, Patient, RelatedPerson } from 'fhir/r4b';
+import { Account, Identifier, Patient, PaymentNotice, RelatedPerson } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
 import { getEmailForIndividual, getFullName } from 'utils/lib/fhir/patient';
+import { parsePaymentRefundsFromNotice, upsertPaymentRefundsExtension } from 'utils/lib/fhir/paymentRefunds';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { makeStripeCustomerId } from '../patient/payment-methods/helpers';
 
 export interface StripeEnvironmentConfig {
@@ -95,6 +97,43 @@ export const stripeEncounterMetadata = (params: { encounterId: string; patientId
 export const stripeEncounterMetadataQuery = (encounterId: string): string =>
   `metadata['${STRIPE_METADATA_KEYS.legacyEncounterId}']:"${encounterId}" OR ` +
   `metadata['${STRIPE_METADATA_KEYS.encounterId}']:"${encounterId}"`;
+
+export const stripeRefundToDTO = (refund: Stripe.Refund): PaymentRefundDTO => ({
+  stripeRefundId: refund.id,
+  amountInCents: refund.amount ?? 0,
+  dateISO: new Date(refund.created * 1000).toISOString(),
+  status: refund.status ?? undefined,
+  // refunds issued from the EHR carry the staff-selected reason (and notes) in metadata
+  reason: refund.metadata?.reason ?? refund.reason ?? undefined,
+  notes: refund.metadata?.notes ?? undefined,
+  refundedBy: refund.metadata?.refundedBy ?? undefined,
+});
+
+// stamps refund state onto the original PaymentNotice so consumers can read it from FHIR without Stripe
+export const applyRefundsToPaymentNotice = async (
+  oystehr: Oystehr,
+  notice: PaymentNotice,
+  refunds: PaymentRefundDTO[]
+): Promise<void> => {
+  if (!notice.id) return;
+  const existing = parsePaymentRefundsFromNotice(notice);
+  if (refunds.length === 0 && !existing) return;
+  const canonical = (list: PaymentRefundDTO[]): string =>
+    JSON.stringify([...list].sort((a, b) => a.stripeRefundId.localeCompare(b.stripeRefundId)));
+  if (existing && canonical(existing) === canonical(refunds)) return;
+
+  await oystehr.fhir.patch<PaymentNotice>({
+    resourceType: 'PaymentNotice',
+    id: notice.id,
+    operations: [
+      {
+        op: notice.extension !== undefined ? 'replace' : 'add',
+        path: '/extension',
+        value: upsertPaymentRefundsExtension(notice.extension, refunds),
+      },
+    ],
+  });
+};
 
 interface EnsureStripeCustomerIdParams {
   guarantorResource: Patient | RelatedPerson | undefined;
