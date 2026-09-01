@@ -1,9 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Communication } from 'fhir/r4b';
+import { Communication, Practitioner } from 'fhir/r4b';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { SavePatientNoteOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, fillMeta } from '../../../shared/helpers';
+import { getMyPractitionerId } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -15,16 +16,33 @@ const PATIENT_NOTE_ID = 'patient-note';
 const PATIENT_NOTE_SYSTEM = 'patient';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { note, secrets } = validateRequestParameters(input);
+  const { note, userToken, secrets } = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+  // Resolve true caller identity from the token — never trust client-supplied authorId
+  const callerId = await getMyPractitionerId(userToken, secrets);
+  const callerPractitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: callerId });
+  const callerName = callerPractitioner.name?.[0]
+    ? [callerPractitioner.name[0].given?.join(' '), callerPractitioner.name[0].family].filter(Boolean).join(' ')
+    : note.authorName;
 
   let existing: Communication | undefined;
   if (note.resourceId) {
     try {
       existing = await oystehr.fhir.get<Communication>({ resourceType: 'Communication', id: note.resourceId });
-    } catch {
-      // Resource not found — create a new one
+    } catch (error) {
+      if (!(error && typeof error === 'object' && (error as { code?: unknown }).code === 404)) {
+        throw error;
+      }
+    }
+
+    // On update, verify the caller is the original author
+    if (existing) {
+      const senderId = existing.sender?.reference?.split('/')[1];
+      if (callerId !== senderId) {
+        throw new Error('You are not authorized to edit this note');
+      }
     }
   }
 
@@ -38,8 +56,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     meta: fillMeta(PATIENT_NOTE_ID, PATIENT_NOTE_SYSTEM),
     subject: { reference: `Patient/${note.patientId}` },
     sender: {
-      reference: `Practitioner/${note.authorId}`,
-      display: note.authorName,
+      reference: `Practitioner/${callerId}`,
+      display: callerName,
     },
     sent,
     payload: [{ contentString: note.text }],
@@ -57,8 +75,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       resourceId: saved.id,
       patientId: note.patientId,
       text: saved.payload?.[0]?.contentString ?? '',
-      authorId: note.authorId,
-      authorName: note.authorName,
+      authorId: callerId,
+      authorName: callerName,
       lastUpdated: saved.meta?.lastUpdated ?? '',
       edited: isNoteEdited(sent, saved.meta?.lastUpdated),
     },
@@ -67,5 +85,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return {
     body: JSON.stringify(output),
     statusCode: 200,
+    headers: { 'Content-Type': 'application/json' },
   };
 });

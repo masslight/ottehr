@@ -1,11 +1,11 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, UseMutationResult, useQueryClient } from '@tanstack/react-query';
 import { PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { savePatientNote } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 
 export const useSavePatientNote = (
   patientId: string | undefined
-): ReturnType<typeof useMutation<PatientNoteDTO, Error, PatientNoteDTO>> => {
+): UseMutationResult<PatientNoteDTO, Error, PatientNoteDTO> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 

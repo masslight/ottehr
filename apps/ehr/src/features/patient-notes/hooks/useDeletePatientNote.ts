@@ -1,10 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, UseMutationResult, useQueryClient } from '@tanstack/react-query';
 import { deletePatientNote } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 
-export const useDeletePatientNote = (
-  patientId: string | undefined
-): ReturnType<typeof useMutation<void, Error, string>> => {
+export const useDeletePatientNote = (patientId: string | undefined): UseMutationResult<void, Error, string> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 
