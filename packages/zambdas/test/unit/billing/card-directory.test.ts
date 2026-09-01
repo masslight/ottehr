@@ -12,7 +12,8 @@ const staleISO = DateTime.now().minus({ hours: 48 }).toUTC().toISO() ?? '';
 const visaCard = { id: 'pm_visa', brand: 'visa', last4: '4242' };
 
 const secrets = { PROJECT_ID: 'test-project' } as unknown as Secrets;
-const DIRECTORY_PAYLOAD_PATH = 'billing-reports/card-directory:v1:all.json.gz';
+// 'card-directory:v1:all' after Z3 object-name sanitization
+const DIRECTORY_PAYLOAD_PATH = 'billing-reports/card-directory_v1_all.json.gz';
 
 interface Upload {
   path: string;

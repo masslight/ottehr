@@ -4,12 +4,10 @@ import { gunzipSync, gzipSync } from 'zlib';
 import { BILLING_APP_BUCKET } from '../../shared';
 import { ReportPayload } from './types';
 
-// Report caches are gzipped JSON objects in the billing-app Z3 bucket. The payload object is
-// the raw source of truth (worker resume state included); a sanitized `.public` sibling is what
-// presigned download URLs point at when the definition sanitizes; a tiny `.meta.json` sidecar
-// lets the HTTP zambda report status without downloading the payload.
+// Gzipped JSON cache objects in the billing-app Z3 bucket: raw payload, a sanitized `.public`
+// sibling served to downloads when the definition sanitizes, and a `.meta.json` status sidecar.
 
-// `<kind>:<cacheVersion>:<paramsKey>` — the cache key for one report entry
+// `<kind>:<cacheVersion>:<paramsKey>`
 export function fullCacheKey<Params>(
   definition: { kind: string; cacheVersion: string; cacheKeyOf: (params: Params) => string },
   params: Params
@@ -36,10 +34,8 @@ export interface ReportDetailEnvelope<Detail> extends ReportPayload {
   detail: Detail;
 }
 
-// sidecar written on save; read by the status line instead of the (possibly huge) payload
 export interface ReportCacheMeta {
   generatedAt: string;
-  // stored (gzip) size of the served payload object
   sizeBytes: number;
   truncated?: boolean;
 }
@@ -47,9 +43,12 @@ export interface ReportCacheMeta {
 const bucketNameOf = (secrets: Secrets | null): string =>
   BILLING_APP_BUCKET(getSecret(SecretsKeys.PROJECT_ID, secrets));
 
-const payloadPath = (cacheKey: string): string => `billing-reports/${cacheKey}.json.gz`;
-const publicPath = (cacheKey: string): string => `billing-reports/${cacheKey}.public.json.gz`;
-const metaPath = (cacheKey: string): string => `billing-reports/${cacheKey}.meta.json`;
+// Z3 object names allow only letters, numbers and + ! - _ ' ( ) . @ $
+const objectKeyOf = (cacheKey: string): string => cacheKey.replace(/[^A-Za-z0-9+!\-_'().@$]/g, '_');
+
+const payloadPath = (cacheKey: string): string => `billing-reports/${objectKeyOf(cacheKey)}.json.gz`;
+const publicPath = (cacheKey: string): string => `billing-reports/${objectKeyOf(cacheKey)}.public.json.gz`;
+const metaPath = (cacheKey: string): string => `billing-reports/${objectKeyOf(cacheKey)}.meta.json`;
 
 async function presignDownload(oystehr: Oystehr, secrets: Secrets | null, objectPath: string): Promise<string> {
   const result = await oystehr.z3.getPresignedUrl({
@@ -60,7 +59,6 @@ async function presignDownload(oystehr: Oystehr, secrets: Secrets | null, object
   return result.signedUrl;
 }
 
-// undefined = object does not exist (a cache miss, not an error)
 async function downloadObject(
   oystehr: Oystehr,
   secrets: Secrets | null,
@@ -98,7 +96,6 @@ export async function loadReportCache<Payload extends ReportPayload>(
   return (await loadReportCacheWithSize<Payload>(oystehr, secrets, cacheKey))?.payload;
 }
 
-// raw payload plus its stored (gzip) size; server-side use only (drilldown filtering, previous)
 export async function loadReportCacheWithSize<Payload extends ReportPayload>(
   oystehr: Oystehr,
   secrets: Secrets | null,
@@ -107,7 +104,6 @@ export async function loadReportCacheWithSize<Payload extends ReportPayload>(
   try {
     const gzipBytes = await downloadObject(oystehr, secrets, payloadPath(cacheKey));
     if (!gzipBytes) return undefined;
-    // plain Uint8Array keeps zlib typings happy across @types/node versions
     const payload = JSON.parse(gunzipSync(new Uint8Array(gzipBytes)).toString('utf8'));
     return { payload, sizeBytes: gzipBytes.length };
   } catch (err) {
@@ -116,7 +112,7 @@ export async function loadReportCacheWithSize<Payload extends ReportPayload>(
   }
 }
 
-// cheap existence + status probe; undefined = never computed
+// undefined = never computed
 export async function loadReportCacheMeta(
   oystehr: Oystehr,
   secrets: Secrets | null,
@@ -132,8 +128,7 @@ export async function loadReportCacheMeta(
   }
 }
 
-// Short-lived presigned URL for the served payload object, minted on demand at display time.
-// Callers must check loadReportCacheMeta first — presigning does not verify existence.
+// presigning does not verify existence — callers check loadReportCacheMeta first
 export async function getReportDownloadUrl(
   oystehr: Oystehr,
   secrets: Secrets | null,
@@ -155,7 +150,6 @@ export async function saveReportCache<Payload extends ReportPayload>(
   try {
     const rawBytes = gzipJson(payload);
     await uploadObject(oystehr, secrets, payloadPath(cacheKey), rawBytes, 'application/gzip');
-    // downloads serve the sanitized copy; the raw object keeps worker-only state
     let servedBytes = rawBytes;
     if (definition.sanitizePayload) {
       servedBytes = gzipJson(definition.sanitizePayload(payload));
