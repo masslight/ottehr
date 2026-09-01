@@ -13,6 +13,29 @@ interface ReportEnvelope {
   status?: ReportRefreshStatus;
 }
 
+// wire shape when the payload lives in Z3: fetch it via the short-lived presigned URL
+type WireReport<T> = T & { downloadUrl?: string };
+
+async function downloadReportPayload<T>(downloadUrl: string): Promise<T> {
+  const response = await fetch(downloadUrl);
+  if (!response.ok || !response.body) {
+    throw new Error(`Report download failed: ${response.status} ${response.statusText}`);
+  }
+  const json = response.body.pipeThrough(new DecompressionStream('gzip'));
+  return new Response(json).json();
+}
+
+// swaps a downloadUrl envelope for the real payload; a poll that serves the same snapshot
+// reuses the previously downloaded payload instead of re-fetching it
+async function resolveReport<T extends ReportEnvelope>(wire: WireReport<T>, previous: T | null): Promise<T> {
+  if (!wire.downloadUrl) return wire;
+  if (previous && previous.generatedAt === wire.generatedAt) {
+    return { ...previous, ...wire };
+  }
+  const payload = await downloadReportPayload<T>(wire.downloadUrl);
+  return { ...payload, ...wire };
+}
+
 export interface UseBillingReportResult<T extends ReportEnvelope> {
   report: T | null;
   status: ReportRefreshStatus | undefined;
@@ -44,7 +67,7 @@ export function useBillingReport<T extends ReportEnvelope>(options: {
       setLoading(true);
       setError(null);
       try {
-        let current = await fetch(oystehrZambda, refresh);
+        let current = await resolveReport<T>(await fetch(oystehrZambda, refresh), null);
         if (generation.current !== myGeneration) return;
         setReport(current);
         setLoading(false);
@@ -52,7 +75,7 @@ export function useBillingReport<T extends ReportEnvelope>(options: {
         while (current.status?.state === 'running' && polls < MAX_POLLS) {
           await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
           if (generation.current !== myGeneration) return;
-          current = await fetch(oystehrZambda);
+          current = await resolveReport<T>(await fetch(oystehrZambda), current);
           if (generation.current !== myGeneration) return;
           setReport(current);
           polls += 1;

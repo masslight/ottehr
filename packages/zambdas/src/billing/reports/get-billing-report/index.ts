@@ -10,8 +10,14 @@ import { safeValidate } from '../../../shared/validation';
 import { createBillingClient } from '../../shared';
 import { findActiveRefreshTask, findRecentFailedRefreshTask, kickOffRefreshTask } from '../framework/refresh-task';
 import { reportRegistry } from '../framework/registry';
-import { detailCacheKey, fullCacheKey, loadReportCacheWithSize, ReportDetailEnvelope } from '../framework/report-cache';
-import { ReportPayload } from '../framework/types';
+import {
+  detailCacheKey,
+  fullCacheKey,
+  getReportDownloadUrl,
+  loadReportCacheMeta,
+  loadReportCacheWithSize,
+  ReportDetailEnvelope,
+} from '../framework/report-cache';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -22,14 +28,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
 
-  const response = await performEffect(oystehr, kind, params, refresh, drilldown);
+  const response = await performEffect(oystehr, secrets, kind, params, refresh, drilldown);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-// Serves the cache and queues async refreshes; the worker computes. Drilldowns are pure
-// filters over the cached detail.
+// Serves the cache and queues async refreshes; the worker computes. The full payload is served
+// as a short-lived presigned Z3 download URL minted per request; drilldowns are pure filters
+// over the cached detail, returned inline (they are small).
 export async function performEffect(
   oystehr: Oystehr,
+  secrets: ZambdaInput['secrets'],
   kind: RefreshReportKind,
   rawParams: unknown,
   refresh: boolean | undefined,
@@ -45,6 +53,7 @@ export async function performEffect(
     const drillParams = safeValidate(definition.drilldown.paramsSchema, rawDrilldown);
     const cachedDetail = await loadReportCacheWithSize<ReportDetailEnvelope<unknown>>(
       oystehr,
+      secrets,
       detailCacheKey(definition, params)
     );
     const status = await statusOf(oystehr, cacheKey, cachedDetail?.payload.generatedAt, undefined);
@@ -63,17 +72,21 @@ export async function performEffect(
   let active = refresh
     ? await kickOffRefreshTask(oystehr, { kind, params, cacheKey })
     : await findActiveRefreshTask(oystehr, cacheKey);
-  const cached = await loadReportCacheWithSize<ReportPayload>(oystehr, cacheKey);
+  const meta = await loadReportCacheMeta(oystehr, secrets, cacheKey);
   // never computed: queue the first build instead of risking the request timeout
-  if (!cached && !active) {
+  if (!meta && !active) {
     active = await kickOffRefreshTask(oystehr, { kind, params, cacheKey });
   }
 
-  const status = await statusOf(oystehr, cacheKey, cached?.payload.generatedAt, active);
-  const payload = cached ? definition.sanitizePayload?.(cached.payload) ?? cached.payload : definition.emptyPayload();
-  if (cached) status.cacheSizeBytes = cached.sizeBytes;
-  if (payload.truncated) status.truncated = true;
-  return { ...payload, fromCache: !!cached, status };
+  const status = await statusOf(oystehr, cacheKey, meta?.generatedAt, active);
+  if (!meta) {
+    return { ...definition.emptyPayload(), fromCache: false, status };
+  }
+  status.cacheSizeBytes = meta.sizeBytes;
+  if (meta.truncated) status.truncated = true;
+  // minted fresh per request; the frontend downloads the payload directly from Z3
+  const downloadUrl = await getReportDownloadUrl(oystehr, secrets, definition, cacheKey);
+  return { downloadUrl, generatedAt: meta.generatedAt, fromCache: true, status };
 }
 
 async function statusOf(
