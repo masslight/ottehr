@@ -1,6 +1,7 @@
 import { Stack, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { DateInput } from './DateInput';
 
 export interface InstitutionalClaimAdditionalFieldsData {
@@ -13,7 +14,7 @@ export interface InstitutionalClaimAdditionalFieldsData {
 }
 
 export function InstitutionalClaimAdditionalFields(): ReactElement {
-  const { control, getValues } = useFormContext();
+  const { control } = useFormContext();
   return (
     <Stack spacing={2}>
       <Controller
@@ -89,10 +90,7 @@ export function InstitutionalClaimAdditionalFields(): ReactElement {
       <Controller
         name="admissionDate"
         control={control}
-        rules={{
-          validate: (value) =>
-            !getValues('dischargeDate') || !!value || 'Admission date is required when discharge date is set',
-        }}
+        rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
         render={({ field, fieldState: { error: fieldError } }) => (
           <DateInput
             label="Admission Date"
@@ -108,10 +106,7 @@ export function InstitutionalClaimAdditionalFields(): ReactElement {
       <Controller
         name="dischargeDate"
         control={control}
-        rules={{
-          validate: (value) =>
-            !getValues('admissionDate') || !!value || 'Discharge date is required when admission date is set',
-        }}
+        rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
         render={({ field, fieldState: { error: fieldError } }) => (
           <DateInput
             label="Discharge Date"
