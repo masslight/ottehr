@@ -298,6 +298,10 @@ async function listStripeAccounts(oystehr: Oystehr, stripe: Stripe): Promise<(st
         .filter((value): value is string => !!value && value !== platformAccount.id)
     ),
   ];
+  console.log(
+    `[patient-payments] listStripeAccounts: ${connectedAccounts.length} connected + platform`,
+    JSON.stringify({ platform: platformAccount.id, connected: connectedAccounts })
+  );
   return [undefined, ...connectedAccounts];
 }
 

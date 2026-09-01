@@ -301,6 +301,10 @@ async function listStripeAccounts(oystehr: Oystehr, stripe: Stripe): Promise<(st
         .filter((value): value is string => !!value && value !== platformAccount.id)
     ),
   ];
+  console.log(
+    `[invoice] listStripeAccounts: ${connectedAccounts.length} connected + platform`,
+    JSON.stringify({ platform: platformAccount.id, connected: connectedAccounts })
+  );
   return [undefined, ...connectedAccounts];
 }
 
@@ -314,6 +318,7 @@ async function listOpenInvoices(
   const seenInvoiceIds = new Set<string>();
   // account failures propagate: a partial result must not be cached as the complete report
   for (const stripeAccount of accounts) {
+    let accountCount = 0;
     const listing = stripe.invoices.list(
       {
         status: 'open',
@@ -327,11 +332,13 @@ async function listOpenInvoices(
       { stripeAccount }
     );
     for await (const invoice of listing) {
+      accountCount += 1;
       if (seenInvoiceIds.has(invoice.id)) continue;
       seenInvoiceIds.add(invoice.id);
       invoices.push({ invoice, stripeAccount });
       if (invoices.length % 250 === 0) await onCount?.(invoices.length);
     }
+    console.log(`[invoice] open invoices from account ${stripeAccount ?? 'platform'}: ${accountCount}`);
   }
   return invoices;
 }

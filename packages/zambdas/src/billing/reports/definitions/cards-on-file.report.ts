@@ -279,6 +279,10 @@ async function listStripeAccounts(oystehr: Oystehr, stripe: Stripe): Promise<(st
         .filter((value): value is string => !!value && value !== platformAccount.id)
     ),
   ];
+  console.log(
+    `[cards-on-file] listStripeAccounts: ${connectedAccounts.length} connected + platform`,
+    JSON.stringify({ platform: platformAccount.id, connected: connectedAccounts })
+  );
   return [undefined, ...connectedAccounts];
 }
 
@@ -343,6 +347,10 @@ export async function listCustomersChunk(
       if (customers.length % 1000 < CUSTOMER_PAGE_SIZE) await onCount?.(customers.length);
     }
     if (!page.has_more || page.data.length === 0) {
+      console.log(
+        `[cards-on-file] finished account ${stripeAccount ?? 'platform'} ` +
+          `(index ${building.accountIndex}/${building.accounts.length})`
+      );
       building.accountIndex += 1;
       building.cursor = undefined;
     }
