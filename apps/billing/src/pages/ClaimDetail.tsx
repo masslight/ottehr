@@ -154,7 +154,8 @@ import { PatientDemographicsSection } from './PatientDetail';
 type UpdateFn = (
   resourceType: string,
   resourceId: string,
-  fields: z.input<typeof UpdateBillingResourceInputSchema>['fields']
+  fields: z.input<typeof UpdateBillingResourceInputSchema>['fields'],
+  refetchClaim?: boolean
 ) => Promise<string | null>;
 
 function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | undefined {
@@ -225,7 +226,8 @@ export default function ClaimDetail(): ReactElement {
     async (
       resourceType: string,
       resourceId: string,
-      fields: z.input<typeof UpdateBillingResourceInputSchema>['fields']
+      fields: z.input<typeof UpdateBillingResourceInputSchema>['fields'],
+      refetchClaim: boolean = true
     ): Promise<string | null> => {
       if (!oystehrZambda || !id) return 'Client not ready';
       try {
@@ -238,7 +240,9 @@ export default function ClaimDetail(): ReactElement {
       } catch (err) {
         return getApiError({ error: err, defaultError: 'Failed to save changes' });
       }
-      await fetchDetail();
+      if (refetchClaim) {
+        await fetchDetail();
+      }
       return null;
     },
     [oystehrZambda, fetchDetail, id]
@@ -655,9 +659,9 @@ export default function ClaimDetail(): ReactElement {
             ) : (
               <></>
             )}
-            <RenderingProviderSection claim={claim} updateResource={updateResource} />
-            <FacilitySection claim={claim} updateResource={updateResource} />
-            <BillingProviderSection claim={claim} updateResource={updateResource} />
+            <RenderingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
+            <FacilitySection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
+            <BillingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
             {claim.type === 'institutional' && (
               <InstitutionalClaimAdditionalFieldsSection claim={claim} updateResource={updateResource} />
             )}
@@ -964,9 +968,11 @@ export function InsuranceSection({
 function RenderingProviderSection({
   claim,
   updateResource,
+  refetchClaim,
 }: {
   claim: ClaimDetailResponse;
   updateResource: UpdateFn;
+  refetchClaim: () => Promise<void>;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
 
@@ -1005,15 +1011,24 @@ function RenderingProviderSection({
         'providerId' in payload && payload.providerId && !selectedProvider ? payload.providerId : undefined;
       if (!providerId) {
         if (selectedProvider?.id) {
-          const attachError = await updateResource('Claim', claim.id, {
-            renderingProvider: {
-              id: selectedProvider.id,
-              type: selectedProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
+          const attachError = await updateResource(
+            'Claim',
+            claim.id,
+            {
+              renderingProvider: {
+                id: selectedProvider.id,
+                type: selectedProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
+              },
             },
-          });
+            false
+          );
           if (attachError) return attachError;
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           providerId = updatedClaim.renderingProviderId;
+          await updateBillingProvider(oystehrZambda, { ...payload, providerId, claimId: claim.id });
+          await refetchClaim();
+          resetFields();
+          return null;
         } else {
           // No base selected, make a new one and attach it, returning early
           const result = await createBillingProvider(oystehrZambda, payload);
@@ -1037,6 +1052,7 @@ function RenderingProviderSection({
 
   return (
     <ProviderDetailForm
+      title="Rendering Provider"
       provider={selectedProvider ?? claimProvider}
       role="rendering"
       onSave={handleSave}
@@ -1055,9 +1071,11 @@ function RenderingProviderSection({
 function FacilitySection({
   claim,
   updateResource,
+  refetchClaim,
 }: {
   claim: ClaimDetailResponse;
   updateResource: UpdateFn;
+  refetchClaim: () => Promise<void>;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
 
@@ -1086,12 +1104,21 @@ function FacilitySection({
       let facilityId = payload.facilityId && !selected ? payload.facilityId : undefined;
       if (!facilityId) {
         if (selected?.id) {
-          const attachError = await updateResource('Claim', claim.id, {
-            facilityId: selected.id,
-          });
+          const attachError = await updateResource(
+            'Claim',
+            claim.id,
+            {
+              facilityId: selected.id,
+            },
+            false
+          );
           if (attachError) return attachError;
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           facilityId = updatedClaim.serviceFacilityId;
+          await saveBillingServiceFacility(oystehrZambda, { ...payload, facilityId, claimId: claim.id });
+          await refetchClaim();
+          resetFields();
+          return null;
         } else {
           // No base selected, make a new one and attach it, returning early
           const result = await saveBillingServiceFacility(oystehrZambda, payload);
@@ -1129,9 +1156,11 @@ function FacilitySection({
 function BillingProviderSection({
   claim,
   updateResource,
+  refetchClaim,
 }: {
   claim: ClaimDetailResponse;
   updateResource: UpdateFn;
+  refetchClaim: () => Promise<void>;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
 
@@ -1179,6 +1208,10 @@ function BillingProviderSection({
           if (attachError) return attachError;
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           providerId = updatedClaim.billingProviderFhirId;
+          await updateBillingProvider(oystehrZambda, { ...payload, providerId, claimId: claim.id });
+          await refetchClaim();
+          resetFields();
+          return null;
         } else {
           // No base selected, make a new one and attach it, returning early
           const result = await createBillingProvider(oystehrZambda, payload);
@@ -1202,6 +1235,7 @@ function BillingProviderSection({
 
   return (
     <ProviderDetailForm
+      title="Billing Provider"
       provider={selectedProvider ?? claimProvider}
       role="billing"
       onSave={handleSave}
