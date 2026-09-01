@@ -80,11 +80,6 @@ const performEffect = async (
   return encountersVitalsMap;
 };
 
-// The tracking board asks for vitals for every visible encounter at once, and this used to issue one
-// Observation search PER ENCOUNTER — 30 concurrent searches for a 30-row board, whose tail latency
-// dominated the response. `encounter` takes a comma-separated OR list, so a whole chunk of encounters
-// resolves in one search; chunking bounds how large a single response can get. Verified against the
-// per-encounter version: identical observations, across the same set of encounters.
 const VITALS_ENCOUNTER_CHUNK_SIZE = 25;
 
 const fetchVitalsForEncounters = async (
