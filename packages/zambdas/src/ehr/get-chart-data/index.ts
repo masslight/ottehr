@@ -248,10 +248,6 @@ export async function getChartData(
   }
 
   if (requestedFields?.preferredPharmacies) {
-    // This used to be gated on the patient already having contained pharmacy Organizations, which
-    // required the patient resource up front. The response's pharmacy list is built entirely from
-    // patient.contained and the QuestionnaireResponse only marks which of those is primary, so
-    // issuing the search unconditionally produces the same output.
     chartDataRequests.push(
       createFindResourceRequest(encounterId, 'QuestionnaireResponse', { _search_by: 'encounter' })
     );
@@ -263,8 +259,8 @@ export async function getChartData(
   console.timeLog('check', 'before resources fetch');
   console.log('Starting a transaction to retrieve chart data...');
 
-  // The patient resource is fetched alongside the chart batch rather than ahead of it, and is
-  // kept out of the merged bundle below so the set of resources feeding the response is unchanged.
+  // Fetched concurrently with the chart batch and kept out of the merged bundle, so only the chart
+  // requests' resources feed the response.
   const patientPromise = oystehr.fhir
     .batch<Patient>({
       requests: [{ method: 'GET', url: encounterSubjectScopedSearchUrl('Patient', null, encounterId) }],
@@ -291,8 +287,6 @@ export async function getChartData(
             requests: [
               {
                 method: 'GET',
-                // Same count as `Appointment?patient._id=<patientId>`, reached through the encounter
-                // so it needs no prefetched patient id.
                 url: `/Appointment?patient:Patient._has:Encounter:subject:_id=${encounterId}&_summary=count`,
               },
             ],
@@ -308,8 +302,7 @@ export async function getChartData(
   const result = batchResult;
   console.log('Retrieved chart data...');
 
-  // Same guarantees the old prefetch enforced, in the same order, now that the resources have
-  // arrived: the encounter must exist, and it must have a patient as its subject.
+  // The encounter must exist and must have a patient as its subject.
   const encounter = parseChartDataBundle(result).find((resource) => resource.resourceType === 'Encounter');
   if (encounter === undefined) throw new Error(`Encounter with ID ${encounterId} must exist... `);
   if (patient === undefined) throw new Error(`Encounter  ${encounterId} must be associated with a patient... `);

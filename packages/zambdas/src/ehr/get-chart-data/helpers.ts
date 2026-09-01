@@ -52,8 +52,8 @@ type ResourceTypeWithEncounterAsContext = Extract<SupportedResourceType, 'Medica
 
 /**
  * Every chart search is built from the encounter id alone — patient-scoped ones included, via
- * createFindResourceRequestByEncounterSubject. That is what lets getChartData issue its whole
- * request set in a single wave instead of first resolving the patient in a serialized round trip.
+ * createFindResourceRequestByEncounterSubject — so getChartData can issue its whole request set
+ * in a single wave.
  */
 export function createFindResourceRequest(
   encounterId: string,
