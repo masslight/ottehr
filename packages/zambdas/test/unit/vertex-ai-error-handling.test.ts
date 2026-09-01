@@ -1,11 +1,22 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
 import { Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { invokeChatbotVertexAI } from '../../src/shared/ai';
+import { lambdaResponse } from '../../src/shared/lambda';
+import { wrapHandler } from '../../src/shared/sentry';
+import { ZambdaInput } from '../../src/shared/types/common';
 
-// Sentry is initialised at module scope in the lambda wrapper; captureException is all this path touches.
+// Stands in for the SDK the real handler wrapper is built on: captureException is the only call whose
+// arguments matter here, the rest exist so `wrapHandler` runs its actual code instead of a stub.
 const captureException = vi.fn();
 vi.mock('@sentry/aws-serverless', () => ({
   captureException: (...args: unknown[]) => captureException(...args),
+  captureMessage: vi.fn(),
+  init: vi.fn(),
+  isInitialized: vi.fn(() => true),
+  setTag: vi.fn(),
+  setTags: vi.fn(),
+  wrapHandler: (handler: unknown) => handler, // the real one only adds tracing
 }));
 
 // Keyed off SecretsKeys so the test breaks if the code starts reading a different secret.
@@ -13,6 +24,9 @@ const secrets: Secrets = {
   [SecretsKeys.GOOGLE_CLOUD_PROJECT_ID]: 'test-project',
   [SecretsKeys.GOOGLE_CLOUD_API_KEY]: 'test-key',
 };
+
+// sendErrors drops events on 'local', so a deployed environment is what proves reporting still happens.
+const deployedSecrets: Secrets = { ...secrets, [SecretsKeys.ENVIRONMENT]: 'development' };
 
 const responseOf = (
   status: number,
@@ -64,6 +78,20 @@ const invoke = async (): Promise<string> => {
   const result = await outcome;
   if (!result.ok) throw result.error;
   return result.value;
+};
+
+// The same call as `invoke`, but through the wrapper every zambda is deployed behind — so the assertions
+// below are about what Sentry actually receives in production, not about a hand-rolled catch block.
+const invokeThroughHandler = async (): Promise<APIGatewayProxyResult> => {
+  const handler = wrapHandler('test-ai-zambda', async (input: ZambdaInput) => {
+    const text = await invokeChatbotVertexAI([{ text: 'hello' }], input.secrets);
+    return lambdaResponse(200, { text });
+  }) as unknown as (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
+
+  // The handler swallows the throw into a 500, so nothing here is ever an unhandled rejection.
+  const outcome = handler({ headers: null, body: null, secrets: deployedSecrets });
+  await vi.advanceTimersByTimeAsync(10_000);
+  return outcome;
 };
 
 describe('invokeChatbotVertexAI error handling', () => {
@@ -159,6 +187,48 @@ describe('invokeChatbotVertexAI error handling', () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(3);
     // One failure, one Sentry event. Each attempt used to report itself, so a single exhausted ladder
     // raised three — before the handler's topLevelCatch reported the thrown error as a fourth.
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  test('an exhausted retry ladder still reaches Sentry — exactly once — through the handler', async () => {
+    // The counterpart to the two assertions above: dropping captureException from the attempt only holds up
+    // if the failure a caller actually sees is still reported. It is, by the handler, once per invocation.
+    respondWith(503, { error: { code: 503, message: 'The service is currently unavailable.' } });
+
+    const response = await invokeThroughHandler();
+
+    expect(response.statusCode).toBe(500);
+    expect(captureException).toHaveBeenCalledOnce();
+    // And it carries the diagnosis, not a bare AggregateError, so the Sentry issue is actionable.
+    const reported = captureException.mock.calls[0][0] as Error;
+    expect(reported.message).toMatch(/Vertex AI request failed after 3 attempts/);
+    expect(reported.message).toMatch(/503.*currently unavailable/s);
+  });
+
+  test('a non-retryable failure reaches Sentry once, on its only attempt', async () => {
+    // With no retry there is no second attempt to report the error later, so this is the case where moving
+    // reporting to the handler could plausibly have lost the event altogether.
+    respondWith(400, {
+      error: { code: 400, message: 'Request contains an invalid argument.', status: 'INVALID_ARGUMENT' },
+    });
+
+    const response = await invokeThroughHandler();
+
+    expect(response.statusCode).toBe(500);
+    expect(captureException).toHaveBeenCalledOnce();
+    expect((captureException.mock.calls[0][0] as Error).message).toMatch(
+      /Vertex AI request failed: 400 Bad Request.*INVALID_ARGUMENT/s
+    );
+  });
+
+  test('a success reports nothing at all', async () => {
+    // Guards the other direction: a handler that reported on the happy path would satisfy every assertion
+    // above while re-creating the alert noise this change removed.
+    respondWith(200, { candidates: [{ content: { parts: [{ text: 'the transcript' }] } }] });
+
+    const response = await invokeThroughHandler();
+
+    expect(response.statusCode).toBe(200);
     expect(captureException).not.toHaveBeenCalled();
   });
 
