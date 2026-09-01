@@ -183,7 +183,7 @@ const performManualRefund = async (
     {
       stripeRefundId: refundId,
       amountInCents: refundAmountInCents,
-      dateISO: DateTime.now().toUTC().toISO(),
+      dateISO: DateTime.now().toUTC().toISO() ?? new Date().toISOString(),
       status: 'succeeded',
       reason,
       notes,
@@ -212,7 +212,7 @@ const performManualRefund = async (
       refundId,
       amountInCents: refundAmountInCents,
       paymentMethod,
-      createdISO: DateTime.now().toUTC().toISO(),
+      createdISO: DateTime.now().toUTC().toISO() ?? new Date().toISOString(),
       reason,
       secrets,
     });

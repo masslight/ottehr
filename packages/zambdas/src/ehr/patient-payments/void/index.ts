@@ -104,7 +104,7 @@ const performEffect = async (
   const voidInfo: PaymentVoidInfo = {
     reason,
     notes,
-    voidedAtISO: DateTime.now().toISO(),
+    voidedAtISO: DateTime.now().toUTC().toISO() ?? new Date().toISOString(),
     voidedBy,
   };
 
