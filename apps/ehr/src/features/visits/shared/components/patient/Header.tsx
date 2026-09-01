@@ -54,8 +54,8 @@ export const Header: FC<HeaderProps> = ({ handleDiscard, id }) => {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Box sx={{ display: 'flex', rowGap: 0.5, columnGap: 2, flexWrap: 'wrap' }}>
               <FullNameDisplay patient={patient} loading={loading} variant="h5" />
-              <PrintVisitLabelButton encounterId={latestAppointmentEncounterId} />
               <PatientNotesButton patientId={id} />
+              <PrintVisitLabelButton encounterId={latestAppointmentEncounterId} />
               <Summary patient={patient} loading={loading} />
             </Box>
             <Contacts patient={patient} loading={loading} />
