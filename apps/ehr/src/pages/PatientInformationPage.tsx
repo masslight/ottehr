@@ -9,7 +9,7 @@ import {
   Reference,
 } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { FC, Fragment, ReactElement, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, ReactElement, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { updatePatientVisitDetails } from 'src/api/api';
@@ -59,7 +59,6 @@ import {
   useRemovePatientCoverage,
   useUpdatePatientAccount,
 } from '../hooks/useGetPatient';
-import { getPatientAccountSectionOrder, PatientAccountSection } from './patientAccountSectionOrder';
 
 const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2'];
 const ANSWER_TYPES: ('String' | 'Boolean' | 'Reference' | 'Attachment')[] = [
@@ -613,23 +612,14 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     />
   );
 
-  const patientAccountSections: Record<PatientAccountSection, ReactNode> = {
-    insurance: insuranceSection,
-    responsible: (
-      <ResponsibleInformationContainer
-        isLoading={isFetching || submitQR.isPending}
-        patientId={patient?.id}
-        encounterId={appointmentContext?.encounterId}
-      />
-    ),
-    workersComp: (
-      <EmployerInformationContainer
-        isLoading={isFetching || submitQR.isPending}
-        patientId={patient?.id}
-        encounterId={appointmentContext?.encounterId}
-      />
-    ),
-  };
+  const isWorkersCompVisit = appointmentContext?.appointmentServiceCategory === 'workers-comp';
+  const workersCompSection = (
+    <EmployerInformationContainer
+      isLoading={isFetching || submitQR.isPending}
+      patientId={patient?.id}
+      encounterId={appointmentContext?.encounterId}
+    />
+  );
 
   return (
     <div>
@@ -674,9 +664,14 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                     />
                   </Box>
                   <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {getPatientAccountSectionOrder(appointmentContext?.appointmentServiceCategory).map((section) => (
-                      <Fragment key={section}>{patientAccountSections[section]}</Fragment>
-                    ))}
+                    {isWorkersCompVisit && workersCompSection}
+                    {insuranceSection}
+                    <ResponsibleInformationContainer
+                      isLoading={isFetching || submitQR.isPending}
+                      patientId={patient?.id}
+                      encounterId={appointmentContext?.encounterId}
+                    />
+                    {!isWorkersCompVisit && workersCompSection}
                     <OccupationalMedicineEmployerInformationContainer
                       isLoading={isFetching || submitQR.isPending}
                       patientId={patient?.id}
