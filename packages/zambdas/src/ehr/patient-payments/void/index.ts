@@ -38,7 +38,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log(error);
     return lambdaResponse(400, { message: error.message });
   }
-  const { encounterId, paymentNoticeId, reason, notes } = validatedParameters;
   const secrets = input.secrets;
 
   await requireUserWithRole(getUserToken(input), secrets, PAYMENT_MANAGEMENT_ROLES);
@@ -47,6 +46,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     oystehrM2MClientToken = await getAuth0Token(secrets);
   }
   const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
+
+  const effectInput = await complexValidation(validatedParameters, oystehrClient);
+
+  const billingClient = createBillingClient(oystehrM2MClientToken, secrets);
+  const response = await performEffect(effectInput, oystehrClient, billingClient);
+  return lambdaResponse(200, response);
+});
+
+interface VoidEffectInput {
+  notice: PaymentNotice;
+  paymentNoticeId: string;
+  reason: VoidPatientPaymentInput['reason'];
+  notes?: string;
+}
+
+const complexValidation = async (params: VoidPatientPaymentInput, oystehrClient: Oystehr): Promise<VoidEffectInput> => {
+  const { encounterId, paymentNoticeId, reason, notes } = params;
 
   const notice = await oystehrClient.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: paymentNoticeId });
 
@@ -63,6 +79,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw INVALID_INPUT_ERROR('This payment has already been voided.');
   }
 
+  return { notice, paymentNoticeId, reason, notes };
+};
+
+const performEffect = async (
+  input: VoidEffectInput,
+  oystehrClient: Oystehr,
+  billingClient: Oystehr
+): Promise<VoidPatientPaymentResponse> => {
+  const { notice, paymentNoticeId, reason, notes } = input;
+
   const voidInfo: PaymentVoidInfo = {
     reason,
     notes,
@@ -72,7 +98,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   await voidNotice(oystehrClient, notice, voidInfo);
 
   // billing copies carry the clinical notice id as their dedup identifier
-  const billingClient = createBillingClient(oystehrM2MClientToken, secrets);
   const billingNotices = (
     await billingClient.fhir.search<PaymentNotice>({
       resourceType: 'PaymentNotice',
@@ -84,12 +109,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     await voidNotice(billingClient, billingNotice, voidInfo);
   }
 
-  const response: VoidPatientPaymentResponse = {
+  return {
     paymentNoticeId,
     voidedBillingNoticeCount: billingNotices.length,
   };
-  return lambdaResponse(200, response);
-});
+};
 
 const voidNotice = async (oystehr: Oystehr, notice: PaymentNotice, voidInfo: PaymentVoidInfo): Promise<void> => {
   if (!notice.id || notice.status === 'cancelled') return;

@@ -1,16 +1,18 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PaymentNotice } from 'fhir/r4b';
+import Stripe from 'stripe';
 import { settledRefundTotalInCents } from 'utils/lib/fhir/paymentRefunds';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import {
   PAYMENT_REFUND_VOID_REASONS,
+  PaymentRefundDTO,
   RefundPatientPaymentInput,
   RefundPatientPaymentResponse,
 } from 'utils/lib/types/api/patient-payment-types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import {
   INVALID_INPUT_ERROR,
-  isApiError,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   parseStripeError,
@@ -45,7 +47,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log(error);
     return lambdaResponse(400, { message: error.message });
   }
-  const { encounterId, paymentNoticeId, reason, notes, amountInCents: requestedAmountInCents } = validatedParameters;
   const secrets = input.secrets;
 
   await requireUserWithRole(getUserToken(input), secrets, PAYMENT_MANAGEMENT_ROLES);
@@ -54,6 +55,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     oystehrM2MClientToken = await getAuth0Token(secrets);
   }
   const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
+  const stripeClient = getStripeClient(secrets);
+
+  const effectInput = await complexValidation(validatedParameters, oystehrClient, stripeClient);
+
+  const response = await performEffect(effectInput, oystehrClient, stripeClient);
+  return lambdaResponse(200, response);
+});
+
+interface RefundEffectInput {
+  notice: PaymentNotice;
+  stripePaymentId: string;
+  stripeAccount: string | undefined;
+  existingRefunds: PaymentRefundDTO[];
+  refundAmountInCents: number;
+  reason: RefundPatientPaymentInput['reason'];
+  notes?: string;
+}
+
+const complexValidation = async (
+  params: RefundPatientPaymentInput,
+  oystehrClient: Oystehr,
+  stripeClient: Stripe
+): Promise<RefundEffectInput> => {
+  const { encounterId, paymentNoticeId, reason, notes, amountInCents: requestedAmountInCents } = params;
 
   const notice = await oystehrClient.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: paymentNoticeId });
 
@@ -69,28 +94,44 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw INVALID_INPUT_ERROR('This payment has been voided.');
   }
 
-  const stripeClient = getStripeClient(secrets);
   const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehrClient);
 
+  let existingRefunds: PaymentRefundDTO[];
   try {
-    const existingRefunds = (
+    existingRefunds = (
       await stripeClient.refunds.list({ payment_intent: stripePaymentId, limit: 100 }, { stripeAccount })
     ).data.map(stripeRefundToDTO);
+  } catch (error: unknown) {
+    console.error('Stripe refund lookup failed', error);
+    throw parseStripeError(error);
+  }
 
-    const amountInCents = Math.round((notice.amount?.value ?? 0) * 100);
-    const remainingInCents = amountInCents - settledRefundTotalInCents(existingRefunds);
-    if (remainingInCents <= 0) {
-      throw INVALID_INPUT_ERROR('This payment has already been fully refunded.');
-    }
+  const amountInCents = Math.round((notice.amount?.value ?? 0) * 100);
+  const remainingInCents = amountInCents - settledRefundTotalInCents(existingRefunds);
+  if (remainingInCents <= 0) {
+    throw INVALID_INPUT_ERROR('This payment has already been fully refunded.');
+  }
 
-    const refundAmountInCents = requestedAmountInCents ?? remainingInCents;
-    if (refundAmountInCents > remainingInCents) {
-      throw INVALID_INPUT_ERROR(
-        `Refund amount exceeds the remaining refundable amount of ${(remainingInCents / 100).toFixed(2)}.`
-      );
-    }
+  const refundAmountInCents = requestedAmountInCents ?? remainingInCents;
+  if (refundAmountInCents > remainingInCents) {
+    throw INVALID_INPUT_ERROR(
+      `Refund amount exceeds the remaining refundable amount of ${(remainingInCents / 100).toFixed(2)}.`
+    );
+  }
 
-    const refund = await stripeClient.refunds.create(
+  return { notice, stripePaymentId, stripeAccount, existingRefunds, refundAmountInCents, reason, notes };
+};
+
+const performEffect = async (
+  input: RefundEffectInput,
+  oystehrClient: Oystehr,
+  stripeClient: Stripe
+): Promise<RefundPatientPaymentResponse> => {
+  const { notice, stripePaymentId, stripeAccount, existingRefunds, refundAmountInCents, reason, notes } = input;
+
+  let refund: Stripe.Refund;
+  try {
+    refund = await stripeClient.refunds.create(
       {
         payment_intent: stripePaymentId,
         amount: refundAmountInCents,
@@ -99,18 +140,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       },
       { stripeAccount }
     );
-
-    // stamp the notice right away so the UI reflects the refund without waiting for the webhook
-    await applyRefundsToPaymentNotice(oystehrClient, notice, [...existingRefunds, stripeRefundToDTO(refund)]);
-
-    const response: RefundPatientPaymentResponse = { refundId: refund.id, amountInCents: refundAmountInCents };
-    return lambdaResponse(200, response);
   } catch (error: unknown) {
-    if (isApiError(error)) throw error;
     console.error('Stripe refund failed', error);
     throw parseStripeError(error);
   }
-});
+
+  // stamp the notice right away so the UI reflects the refund without waiting for the webhook
+  await applyRefundsToPaymentNotice(oystehrClient, notice, [...existingRefunds, stripeRefundToDTO(refund)]);
+
+  return { refundId: refund.id, amountInCents: refundAmountInCents };
+};
 
 const validateRequestParameters = (input: ZambdaInput): RefundPatientPaymentInput => {
   if (!input.body) {
