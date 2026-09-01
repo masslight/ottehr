@@ -3,6 +3,7 @@ import {
   ArrowBack as ArrowBackIcon,
   Close as CloseIcon,
   Delete as DeleteIcon,
+  DeleteForever as DeleteForeverIcon,
   DeleteOutline as DeleteOutlineIcon,
   Description as DescriptionIcon,
   Download as DownloadIcon,
@@ -147,7 +148,7 @@ import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
 import { otherColors } from '../themes/ottehr/colors';
-import { formatDate } from '../utils/format';
+import { formatDate, formatDateTime } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
 
 type UpdateFn = (
@@ -1538,6 +1539,7 @@ function AttachmentsSection({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteDocRefId, setDeleteDocRefId] = useState<string | null>(null);
   const [deleteFormIsSubmitting, setDeleteFormIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const addFormMethods = useForm<{ name: string; reportTypeCode: string; file: File }>({
     defaultValues: { name: '', reportTypeCode: '' },
   });
@@ -1554,14 +1556,25 @@ function AttachmentsSection({
     handleSubmit: renameFormHandleSubmit,
     formState: { isSubmitting: renameFormIsSubmitting },
   } = addFormMethods;
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const openMenu = (event: React.MouseEvent<HTMLElement>): void => {
+  const [deleteFileName, setDeleteFileName] = useState('');
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [menuLineId, setMenuLineId] = useState<string | null>(null);
+  const openMenu = (event: React.MouseEvent<HTMLElement>, lineId: string): void => {
     setAnchorEl(event.currentTarget);
+    setMenuLineId(lineId);
   };
   const closeMenu = (): void => {
     setAnchorEl(null);
   };
 
+  const openAddDialog = (): void => {
+    addReset({ name: '', reportTypeCode: 'OZ' });
+    setShowAddDialog(true);
+  };
+  const closeAddDialog = (): void => {
+    setShowAddDialog(false);
+    setSubmitError('');
+  };
   const onAdd = async ({
     name,
     reportTypeCode,
@@ -1573,6 +1586,7 @@ function AttachmentsSection({
   }): Promise<string | null> => {
     if (!oystehrZambda) return null;
     try {
+      setSubmitError('');
       const { uploadUrl } = await addClaimAttachment(oystehrZambda, {
         claimId: claim.id,
         name,
@@ -1586,42 +1600,51 @@ function AttachmentsSection({
         body: file,
       });
       await refetchClaim();
-      setShowAddDialog(false);
+      closeAddDialog();
       addReset();
     } catch (err) {
-      return getApiError({ error: err, defaultError: 'Failed to add attachment' });
+      const errorMessage = getApiError({ error: err, defaultError: 'Failed to add attachment' });
+      setSubmitError(errorMessage);
+      return errorMessage;
     }
     return null;
   };
   const closeRenameDialog = (): void => {
     setShowRenameDialog(false);
     setRenameDocRefId(null);
+    setSubmitError('');
   };
   const onRename = async ({ name }: { name: string }): Promise<string | null> => {
     if (!oystehrZambda || !renameDocRefId) return null;
     try {
+      setSubmitError('');
       await renameClaimAttachment(oystehrZambda, { documentReferenceId: renameDocRefId, name });
       await refetchClaim();
       closeRenameDialog();
-      renameReset();
     } catch (err) {
-      return getApiError({ error: err, defaultError: 'Failed to rename attachment' });
+      const errorMessage = getApiError({ error: err, defaultError: 'Failed to rename attachment' });
+      setSubmitError(errorMessage);
+      return errorMessage;
     }
     return null;
   };
   const closeDeleteDialog = (): void => {
     setShowDeleteDialog(false);
     setDeleteDocRefId(null);
+    setSubmitError('');
   };
   const onDelete = async (): Promise<string | null> => {
     if (!oystehrZambda || !deleteDocRefId) return null;
     setDeleteFormIsSubmitting(true);
     try {
+      setSubmitError('');
       await deleteClaimAttachment(oystehrZambda, { claimId: claim.id, documentReferenceId: deleteDocRefId });
       await refetchClaim();
       closeDeleteDialog();
     } catch (err) {
-      return getApiError({ error: err, defaultError: 'Failed to delete attachment' });
+      const errorMessage = getApiError({ error: err, defaultError: 'Failed to delete attachment' });
+      setSubmitError(errorMessage);
+      return errorMessage;
     } finally {
       setDeleteFormIsSubmitting(false);
     }
@@ -1638,7 +1661,7 @@ function AttachmentsSection({
 
   return (
     <>
-      <ReadOnlySection title="Attachments" onAdd={() => setShowAddDialog(true)}>
+      <ReadOnlySection title="Attachments" onAdd={() => openAddDialog()}>
         {claim.attachments.length > 0 ? (
           <TableContainer>
             <Table size="small">
@@ -1663,7 +1686,7 @@ function AttachmentsSection({
                           ?.label
                       }
                     </TableCell>
-                    <TableCell>{line.dateAdded}</TableCell>
+                    <TableCell>{formatDateTime(line.dateAdded)}</TableCell>
                     <TableCell>
                       <Box
                         sx={{
@@ -1677,11 +1700,15 @@ function AttachmentsSection({
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="More Actions">
-                          <IconButton aria-label="More actions" onClick={openMenu}>
+                          <IconButton aria-label="More actions" onClick={(e) => openMenu(e, line.id)}>
                             <MoreVertIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={closeMenu}>
+                        <Menu
+                          anchorEl={anchorEl}
+                          open={Boolean(anchorEl) && menuLineId === line.id}
+                          onClose={closeMenu}
+                        >
                           <MenuItem
                             onClick={() => {
                               setShowRenameDialog(true);
@@ -1698,12 +1725,13 @@ function AttachmentsSection({
                           <MenuItem
                             onClick={() => {
                               setShowDeleteDialog(true);
+                              setDeleteFileName(line.fileName);
                               setDeleteDocRefId(line.id);
                               closeMenu();
                             }}
                           >
                             <ListItemIcon>
-                              <DeleteIcon color="error" />
+                              <DeleteIcon fontSize="small" color="error" />
                             </ListItemIcon>
                             <ListItemText>Delete document</ListItemText>
                           </MenuItem>
@@ -1723,12 +1751,12 @@ function AttachmentsSection({
       </ReadOnlySection>
 
       {/* Add Dialog */}
-      <Dialog open={showAddDialog} onClose={() => setShowAddDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog open={showAddDialog} onClose={() => closeAddDialog()} maxWidth="sm" fullWidth>
         <DialogTitle
           sx={{ px: 3, pt: 3, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
         >
           <Typography variant="h5">Add Attachment</Typography>
-          <IconButton size="small" onClick={() => setShowAddDialog(false)} aria-label="Close">
+          <IconButton size="small" onClick={() => closeAddDialog()} aria-label="Close">
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
@@ -1736,6 +1764,11 @@ function AttachmentsSection({
           <FormProvider {...addFormMethods}>
             <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                {submitError && (
+                  <Alert severity="error" sx={{ mb: 1 }}>
+                    {submitError}
+                  </Alert>
+                )}
                 <Controller
                   name="name"
                   control={addFormControl}
@@ -1793,7 +1826,7 @@ function AttachmentsSection({
           </FormProvider>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowAddDialog(false)}>Cancel</Button>
+          <Button onClick={() => closeAddDialog()}>Cancel</Button>
           <Button
             variant="contained"
             startIcon={addFormIsSubmitting ? <CircularProgress size={14} /> : <SaveIcon fontSize="small" />}
@@ -1819,6 +1852,11 @@ function AttachmentsSection({
           <FormProvider {...renameFormMethods}>
             <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                {submitError && (
+                  <Alert severity="error" sx={{ mb: 1 }}>
+                    {submitError}
+                  </Alert>
+                )}
                 <Controller
                   name="name"
                   control={renameFormControl}
@@ -1863,12 +1901,19 @@ function AttachmentsSection({
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
-        <DialogContent></DialogContent>
+        <DialogContent>
+          {submitError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {submitError}
+            </Alert>
+          )}
+          Are you sure you want to delete "{deleteFileName}"? This cannot be undone.
+        </DialogContent>
         <DialogActions>
           <Button onClick={() => closeDeleteDialog()}>Cancel</Button>
           <Button
             variant="contained"
-            startIcon={deleteFormIsSubmitting ? <CircularProgress size={14} /> : <SaveIcon fontSize="small" />}
+            startIcon={deleteFormIsSubmitting ? <CircularProgress size={14} /> : <DeleteForeverIcon fontSize="small" />}
             onClick={onDelete}
             disabled={deleteFormIsSubmitting}
           >
