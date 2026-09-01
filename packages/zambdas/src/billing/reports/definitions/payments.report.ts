@@ -77,15 +77,6 @@ export const paymentsReport: ReportDefinition<
       detail,
     };
   },
-  // shed oldest checks first
-  shrinkDetail: (detail) =>
-    detail.eras.length > 1
-      ? {
-          eras: [...detail.eras]
-            .sort((a, b) => b.checkDate.localeCompare(a.checkDate))
-            .slice(0, Math.floor(detail.eras.length / 2)),
-        }
-      : undefined,
   drilldown: {
     paramsSchema: GetBillingPaymentsReportDrilldownInputSchema,
     empty: () => ({ eras: [] }),

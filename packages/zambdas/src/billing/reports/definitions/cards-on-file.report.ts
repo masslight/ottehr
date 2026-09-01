@@ -3,6 +3,7 @@ import { Appointment, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { Secrets } from 'utils/lib/secrets';
 import { EmptyReportParamsSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { CardOnFileReportRow, GetBillingCardsOnFileReportResponse } from 'utils/lib/types/data/billing/billing.types';
 import { isValidUUID } from 'utils/lib/validation/helper';
@@ -71,21 +72,6 @@ export const cardsOnFileReport: ReportDefinition<Record<string, never>, CardsOnF
   }),
   usesPrevious: true,
   sanitizePayload: stripState,
-  // an oversized mid-build checkpoint finalizes early; then shed the queue, then tail rows
-  shrink: (payload) => {
-    if (payload.building) {
-      console.warn('Cards-on-file build state over the size cap; finalizing early');
-      return { ...finalizeBuild(payload, payload.building), truncated: true };
-    }
-    if ((payload.pendingLookups?.length ?? 0) > 0) {
-      console.warn('Cards-on-file cache over the size cap; dropping pending lookup queue');
-      return { ...payload, pendingLookups: undefined, pendingCardLookups: 0, truncated: true };
-    }
-    if (payload.rows.length > 1) {
-      return { ...payload, rows: payload.rows.slice(0, Math.floor(payload.rows.length / 2)), truncated: true };
-    }
-    return undefined;
-  },
   compute: async (ctx, _params, onProgress) => {
     const payload = await advanceCardsReport(ctx, onProgress);
     return { payload, continueRefresh: !!payload.building || (payload.pendingLookups?.length ?? 0) > 0 };
@@ -114,7 +100,7 @@ async function advanceCardsReport(
     return buildChunk(oystehr, stripe, untaggedClient, previous, building, onProgress);
   }
   if (previous && !building && (previous.pendingLookups?.length ?? 0) > 0) {
-    return drainChunk(oystehr, stripe, previous, onProgress);
+    return drainChunk(oystehr, secrets, stripe, previous, onProgress);
   }
 
   // fresh build: snapshot accounts and open invoices, then run the first listing chunk.
@@ -243,6 +229,7 @@ export function finalizeBuild(served: CardsOnFilePayload, building: CardsBuildSt
 // One batch of queued card lookups against the served rows
 async function drainChunk(
   oystehr: Oystehr,
+  secrets: Secrets | null,
   stripe: Stripe,
   state: CardsOnFilePayload,
   onProgress?: ProgressFn
@@ -251,7 +238,7 @@ async function drainChunk(
   await onProgress?.(`resolving cards… ${pending.length.toLocaleString('en-US')} remaining`);
   const batch = pending.slice(0, PM_LOOKUPS_PER_RUN);
   const rest = pending.slice(PM_LOOKUPS_PER_RUN);
-  const cards = await lookupCardsWithDirectory(oystehr, stripe, batch);
+  const cards = await lookupCardsWithDirectory(oystehr, secrets, stripe, batch);
 
   const rowByCustomerId = new Map(state.rows.map((row) => [row.stripeCustomerId, row]));
   for (const [customerId, card] of cards) {

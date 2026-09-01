@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
+import { Secrets } from 'utils/lib/secrets';
 import { loadReportCache, saveReportCache } from './framework/report-cache';
 import { ReportPayload } from './framework/types';
 
@@ -35,16 +36,6 @@ export const CARD_ENTRY_TTL_HOURS = 24;
 const MAX_ENTRIES = 30000;
 const LOOKUP_CONCURRENCY = 8;
 
-const directoryCacheDefinition = {
-  // shed oldest entries when the directory outgrows the cache cap
-  shrink: (payload: CardDirectoryPayload): CardDirectoryPayload | undefined => {
-    const entries = Object.entries(payload.entries);
-    if (entries.length < 2) return undefined;
-    entries.sort(([, a], [, b]) => a.resolvedAt.localeCompare(b.resolvedAt));
-    return { ...payload, entries: Object.fromEntries(entries.slice(Math.floor(entries.length / 2))) };
-  },
-};
-
 const isFresh = (entry: CardDirectoryEntry | undefined, staleBefore: number): entry is CardDirectoryEntry =>
   !!entry && DateTime.fromISO(entry.resolvedAt).toMillis() > staleBefore;
 
@@ -53,6 +44,7 @@ const isFresh = (entry: CardDirectoryEntry | undefined, staleBefore: number): en
 // the "missing key = no card" convention of the report builders.
 export async function lookupCardsWithDirectory(
   oystehr: Oystehr,
+  secrets: Secrets | null,
   stripe: Stripe,
   lookups: CardLookup[],
   onDone?: (done: number) => Promise<void>
@@ -60,7 +52,7 @@ export async function lookupCardsWithDirectory(
   const cardByCustomerId = new Map<string, CardSummary>();
   if (lookups.length === 0) return cardByCustomerId;
 
-  const directory = (await loadReportCache<CardDirectoryPayload>(oystehr, DIRECTORY_CACHE_KEY))?.entries ?? {};
+  const directory = (await loadReportCache<CardDirectoryPayload>(oystehr, secrets, DIRECTORY_CACHE_KEY))?.entries ?? {};
   const staleBefore = DateTime.now().minus({ hours: CARD_ENTRY_TTL_HOURS }).toMillis();
 
   const misses: CardLookup[] = [];
@@ -88,7 +80,7 @@ export async function lookupCardsWithDirectory(
       done += Math.min(LOOKUP_CONCURRENCY, misses.length - i);
       await onDone?.(done);
     }
-    await saveDirectory(oystehr, directory);
+    await saveDirectory(oystehr, secrets, directory);
   }
   return cardByCustomerId;
 }
@@ -122,14 +114,18 @@ async function lookupCard(
   }
 }
 
-async function saveDirectory(oystehr: Oystehr, entries: Record<string, CardDirectoryEntry>): Promise<void> {
+async function saveDirectory(
+  oystehr: Oystehr,
+  secrets: Secrets | null,
+  entries: Record<string, CardDirectoryEntry>
+): Promise<void> {
   let bounded = entries;
   const keys = Object.keys(entries);
   if (keys.length > MAX_ENTRIES) {
     const sorted = Object.entries(entries).sort(([, a], [, b]) => b.resolvedAt.localeCompare(a.resolvedAt));
     bounded = Object.fromEntries(sorted.slice(0, MAX_ENTRIES));
   }
-  await saveReportCache<CardDirectoryPayload>(oystehr, directoryCacheDefinition, DIRECTORY_CACHE_KEY, {
+  await saveReportCache<CardDirectoryPayload>(oystehr, secrets, {}, DIRECTORY_CACHE_KEY, {
     generatedAt: DateTime.now().toUTC().toISO() ?? '',
     entries: bounded,
   });

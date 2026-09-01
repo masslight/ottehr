@@ -60,11 +60,6 @@ export const patientPaymentsReport: ReportDefinition<
     const detail = await detailOf(ctx.oystehr, context, ctx.secrets);
     return { payload, detail };
   },
-  // shed oldest payments first
-  shrinkDetail: (detail) =>
-    detail.payments.length > 1
-      ? { payments: detail.payments.slice(0, Math.floor(detail.payments.length / 2)) }
-      : undefined,
   drilldown: {
     paramsSchema: PatientPaymentsDrilldownParamsSchema,
     empty: () => ({ payments: [] }),

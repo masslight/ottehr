@@ -3,6 +3,7 @@ import { Appointment, Encounter, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { Secrets } from 'utils/lib/secrets';
 import { EmptyReportParamsSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   GetBillingInvoiceReportResponse,
@@ -106,6 +107,7 @@ async function computeInvoiceReport(
   await onProgress?.(`resolving cards for ${pastDueCustomers.size.toLocaleString('en-US')} past-due customers…`);
   const cardByCustomerId = await resolveCards(
     oystehr,
+    secrets,
     stripe,
     [...pastDueCustomers.values()],
     invoices,
@@ -342,6 +344,7 @@ interface CardSummaryLike {
 // default payment method, else legacy default card source, else the shared card directory
 async function resolveCards(
   oystehr: Oystehr,
+  secrets: Secrets | null,
   stripe: Stripe,
   customers: { customerId: string; stripeAccount: string | undefined }[],
   invoices: InvoiceWithAccount[],
@@ -378,9 +381,15 @@ async function resolveCards(
     needLookup.push(entry);
   }
 
-  const looked: Map<string, CardSummary> = await lookupCardsWithDirectory(oystehr, stripe, needLookup, async (done) => {
-    if (done % 100 < 8 || done === needLookup.length) await onProgress?.(done, needLookup.length);
-  });
+  const looked: Map<string, CardSummary> = await lookupCardsWithDirectory(
+    oystehr,
+    secrets,
+    stripe,
+    needLookup,
+    async (done) => {
+      if (done % 100 < 8 || done === needLookup.length) await onProgress?.(done, needLookup.length);
+    }
+  );
   for (const [customerId, card] of looked) {
     cardByCustomerId.set(customerId, { brand: card.brand, last4: card.last4 });
   }
