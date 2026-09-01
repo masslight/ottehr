@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Bundle, CodeableConcept, Coding, Encounter, FhirResource, Location, Resource, ServiceRequest } from 'fhir/r4b';
 import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
 import { getAddressString } from 'utils/lib/fhir/helpers';
+import { isLocationVirtual } from 'utils/lib/fhir/location';
 import { DispositionMetaFieldsNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { ChartDataWithResources } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
@@ -111,8 +112,8 @@ export async function getEncounterAndRelatedResources(oystehr: Oystehr, encounte
 
 /**
  * Address of the clinic the visit took place at, printed under the logo on the school/work note.
- * Telemed encounters point at a virtual Location that only carries a state, so a Location without a
- * street line is skipped rather than rendered as a partial address.
+ * Virtual Locations are skipped even when they have an address, and a Location without a street line
+ * is skipped rather than rendered as a partial address.
  */
 export function getEncounterClinicAddress(encounter: Encounter, allResources: Resource[]): string | undefined {
   const locationId = getEncounterLocationId(encounter);
@@ -121,7 +122,7 @@ export function getEncounterClinicAddress(encounter: Encounter, allResources: Re
   const location = allResources.find(
     (resource): resource is Location => resource.resourceType === 'Location' && resource.id === locationId
   );
-  if (!location?.address?.line?.[0]) return undefined;
+  if (!location || isLocationVirtual(location) || !location.address?.line?.[0]) return undefined;
 
   return getAddressString(location.address);
 }

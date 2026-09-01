@@ -1,5 +1,6 @@
 import { Encounter, Location, Resource } from 'fhir/r4b';
 import { PDFDocument } from 'pdf-lib';
+import { LOCATION_FORM_EXTENSION_URL, LOCATION_VIRTUAL_CODE } from 'utils/lib/fhir/location';
 import { SchoolWorkNoteExcuseDocDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, test } from 'vitest';
 import { getEncounterClinicAddress } from '../../src/ehr/save-chart-data/helpers';
@@ -21,7 +22,13 @@ const virtualLocation: Location = {
   resourceType: 'Location',
   id: 'virtual-location',
   name: 'Virtual LC',
-  address: { state: 'LC' },
+  extension: [
+    {
+      url: LOCATION_FORM_EXTENSION_URL,
+      valueCoding: { code: LOCATION_VIRTUAL_CODE },
+    },
+  ],
+  address: { line: ['123 Virtual Way'], city: 'Virtual City', state: 'LC', postalCode: '20003' },
 };
 
 const makeEncounter = (locationId?: string): Encounter => ({
@@ -68,7 +75,7 @@ describe('getEncounterClinicAddress', () => {
     expect(getEncounterClinicAddress(makeEncounter('clinic-location'), [virtualLocation])).toBeUndefined();
   });
 
-  test('returns undefined for a virtual location, which only carries a state', () => {
+  test('returns undefined for a virtual location even when it has a street address', () => {
     expect(getEncounterClinicAddress(makeEncounter('virtual-location'), [virtualLocation])).toBeUndefined();
   });
 });
