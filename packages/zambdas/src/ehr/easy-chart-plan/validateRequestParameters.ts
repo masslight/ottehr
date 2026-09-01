@@ -1,4 +1,4 @@
-import { ChartPlanRequest, ConversationTurn } from 'utils/lib/easy-chart/api';
+import { ChartPlanRequest, ConversationTurn, PLAN_STAGES, PlanStage } from 'utils/lib/easy-chart/api';
 import { pickNoteContext } from 'utils/lib/easy-chart/note-fields';
 import { ZambdaInput } from '../../shared/types/common';
 
@@ -37,6 +37,13 @@ export function validateRequestParameters(input: ZambdaInput): ChartPlanRequest 
     encounterId: body.encounterId,
     incremental: body.incremental === true,
     reconcileTemplate: body.reconcileTemplate === true,
+    // Only a declared stage name. Anything else is dropped rather than reaching buildPrompt, which
+    // would otherwise fall through to the full-plan branch under a name nobody declared — a caller
+    // typo would then silently get the whole vocabulary instead of the slice it asked for.
+    stage: PLAN_STAGES.includes(body.stage as PlanStage) ? (body.stage as PlanStage) : undefined,
+    // Carried through as a plain string; the HANDLER validates it against the practice's own template
+    // list before it can reach the prompt. Validating here would need a second read of that list.
+    appliedTemplate: typeof body.appliedTemplate === 'string' ? body.appliedTemplate.trim() || undefined : undefined,
     // Only the two known values; anything else is dropped rather than passed to the prompt.
     patientStatus:
       body.patientStatus === 'new' || body.patientStatus === 'established' ? body.patientStatus : undefined,

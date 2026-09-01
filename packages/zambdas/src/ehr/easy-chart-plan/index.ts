@@ -10,6 +10,7 @@
 // a FHIR bundle. For this feature the candidates ARE the generated note. Envelope only.
 
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Surface } from 'utils/lib/easy-chart/actions';
 import { ChartPlanResponse, PlannedAction } from 'utils/lib/easy-chart/api';
 import {
   buildChartStateSummary,
@@ -17,6 +18,7 @@ import {
   chartedExamFindingLabels,
 } from 'utils/lib/easy-chart/chart-state';
 import { buildPrompt, PromptTailInput } from 'utils/lib/easy-chart/prompt';
+import { capabilitiesForSurface } from 'utils/lib/easy-chart/registry';
 import { buildResponseSchema } from 'utils/lib/easy-chart/schema';
 import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -65,22 +67,36 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Two calls, the same pair the visit-note PDF uses (assemble-progress-note-input.ts): the unscoped one
   // for the default set, the scoped one for fields get-chart-data only fetches when named.
   //
-  // TEMPLATES ARE NOT LISTED on a reconciliation call. The prompt tail's empty-list branch already says
-  // "none. Do NOT emit apply-template", so withholding the list is a HARDER constraint than an
-  // instruction not to use it — there is no title left to name. That matters because the failure being
-  // prevented is real: a second apply-template either duplicates the first or, if a different title comes
-  // back, overwrites the wrong fields. It also takes the whole practice list out of the tail, which is
-  // the largest per-call block on a request that has nothing to do with choosing a template.
-  const [chart, templateTitles] = await Promise.all([
+  // THE TEMPLATE LIST GOES ONLY WHERE apply-template EXISTS. The prompt tail's empty-list branch already
+  // says "none. Do NOT emit apply-template", so withholding the list is a HARDER constraint than telling
+  // the model not to use one — there is no title left to name. Derived from the SURFACE rather than
+  // hand-listed, so a stage that gains the capability gains the list with it and one that never had it
+  // never sees the practice's 57 titles. Before this every stage got them, including `coding` and
+  // `orders`, which cannot apply a template at all: the largest block in the tail, eight times a visit,
+  // on calls that could do nothing with it.
+  const surface: Surface = params.stage ?? 'plan';
+  const templatesUsable = !params.reconcileTemplate && capabilitiesForSurface(surface).includes('apply-template');
+  // Read ONCE, and only when something needs it — either to offer the list, or to check the applied title
+  // against it. Reading it twice in separate branches added a serial round trip to exactly the stage
+  // calls that withholding the list was meant to make cheaper.
+  const [chart, practiceTitles] = await Promise.all([
     encounterId ? readChart(oystehr, m2mToken, encounterId) : undefined,
-    params.reconcileTemplate ? undefined : readTemplateTitles(oystehr, ZAMBDA_NAME),
+    templatesUsable || params.appliedTemplate ? readTemplateTitles(oystehr, ZAMBDA_NAME) : undefined,
   ]);
+  const templateTitles = templatesUsable ? practiceTitles : undefined;
+  // Named to the model only when the practice really has it: a caller-supplied string is not trusted into
+  // the prompt, a title matched against the server's own list is.
+  const appliedTemplate =
+    params.appliedTemplate && (practiceTitles ?? []).includes(params.appliedTemplate)
+      ? params.appliedTemplate
+      : undefined;
 
   const tail: PromptTailInput = {
     narrative,
-    // The caller-supplied fallback is dropped too on a reconciliation call, or the client could put the
-    // list back that the server just withheld.
-    templateTitles: params.reconcileTemplate ? undefined : templateTitles ?? params.templateTitles,
+    // The caller-supplied fallback is dropped wherever the list is withheld, or the client could put back
+    // exactly what the server just decided not to send.
+    templateTitles: templatesUsable ? templateTitles ?? params.templateTitles : undefined,
+    appliedTemplate,
     patientLine: visit?.patientLine,
     // The CHART wins. A caller-supplied status is the fallback for the case where there was no encounter
     // to read at all (see CallerPatientStatus) — it must never override what the record says.
@@ -98,12 +114,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Composed here from the chart THIS zambda read — nothing caller-supplied reaches the prompt.
     mustAddress: params.reconcileTemplate ? TEMPLATE_RECONCILE_INSTRUCTION : undefined,
   };
-  const prompt = buildPrompt('plan', tail);
+  // The stage IS the surface: the vocabulary, the response schema and the action-shape prose all come
+  // from the registry keyed on it, so a stage costs a preamble and its own rules and nothing else.
+  const prompt = buildPrompt(surface, tail);
   console.log(`[${ZAMBDA_NAME}] prompt ${prompt.length} chars, narrative ${narrative.length} chars`);
 
   const { parsed, usage, escalation } = await callModelForJson(
     prompt,
-    buildResponseSchema('plan'),
+    buildResponseSchema(surface),
     secrets,
     ZAMBDA_NAME,
     (raw) => {

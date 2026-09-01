@@ -58,6 +58,14 @@ export interface EvalTokenUsage {
   cacheReadTokens?: number;
   cacheWriteTokens?: number;
   thinkingTokens?: number;
+  /**
+   * How many model calls these totals cover.
+   *
+   * One, until a visit became several staged calls. Without it a staged run and a single-call run report
+   * the same shape and the reader cannot tell which cost what — the token totals move, but nothing says
+   * how many calls they were spread over.
+   */
+  calls?: number;
   /** Why a call escalated, kept as free-form so the runner can map whatever the endpoint reports. */
   escalation?: {
     escalated?: boolean;
@@ -1046,7 +1054,10 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
     for (const phase of ['planner', 'review'] as const) {
       const u = s.usage?.[phase];
       if (!u) continue;
-      usage[phase].calls++;
+      // The case's OWN call count when it reports one — a staged visit is several calls, and counting
+      // one per case would report a six-call visit as a one-call visit. Falls back to 1 for a score file
+      // written before `calls` existed, which is exactly what it meant then.
+      usage[phase].calls += u.calls ?? 1;
       usage[phase].inputTokens += u.inputTokens ?? 0;
       usage[phase].outputTokens += u.outputTokens ?? 0;
       usage[phase].cacheReadTokens += u.cacheReadTokens ?? 0;

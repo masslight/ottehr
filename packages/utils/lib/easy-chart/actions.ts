@@ -22,8 +22,26 @@ import { DispositionType } from '../types/api/chart-data/chart-data.types';
 /**
  * Where an action may be offered. The planner charts a visit; the review pass corrects a note it
  * did not write, and is deliberately offered a much narrower vocabulary.
+ *
+ * `findings` is a STAGE rather than a separate feature: one call whose whole vocabulary is the exam,
+ * the ROS and the vitals. It exists because those three are pure enumeration and they lose when they
+ * share a call with everything else — a planner asked for the note AND the codes AND the disposition
+ * spends its output on the shorter sections and stops early on the long ones. Measured: exam recall sat
+ * at 0.18 and ROS at 0.36 while their precision stayed high, which is the signature of stopping early
+ * rather than of guessing wrong.
  */
-export const SURFACES = ['plan', 'review'] as const;
+export const SURFACES = [
+  'plan',
+  'review',
+  'template',
+  'findings',
+  'history',
+  'story',
+  'diagnoses',
+  'orders',
+  'plan-text',
+  'coding',
+] as const;
 export type Surface = (typeof SURFACES)[number];
 
 /**

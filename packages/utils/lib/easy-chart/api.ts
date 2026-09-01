@@ -79,6 +79,25 @@ export interface ConversationTurn {
   skipped?: string[];
 }
 
+/**
+ * The stages of a split plan, in the order the graph runs them.
+ *
+ * `findings`, `history` and `story` are independent transcription and can run in parallel; `orders` needs
+ * the diagnoses; `plan-text` needs the orders; `coding` needs everything, because an E&M level is a
+ * function of the documented complexity and a CPT follows from what was actually performed.
+ */
+export const PLAN_STAGES = [
+  'template',
+  'findings',
+  'history',
+  'story',
+  'diagnoses',
+  'orders',
+  'plan-text',
+  'coding',
+] as const;
+export type PlanStage = (typeof PLAN_STAGES)[number];
+
 export interface ChartPlanRequest {
   /** The provider's dictation, paste, transcript or typed request. */
   narrative: string;
@@ -120,6 +139,31 @@ export interface ChartPlanRequest {
    * instructions, and the chart state the server reads for itself already lists what the template wrote.
    */
   reconcileTemplate?: boolean;
+  /**
+   * Which STAGE of the plan this call is, i.e. which slice of the vocabulary it may use.
+   *
+   * Omitted means the whole plan in one call, which is what shipped first and remains the default. A
+   * stage narrows both the schema and the prompt together — narrowing only the schema was measured and
+   * is catastrophic: told to decompose the whole narrative but permitted to emit only exam findings, the
+   * model returned 469 of them for a visit whose note holds two. The prose is what tells it when to
+   * stop, so a stage without its own prose is not a stage.
+   */
+  stage?: PlanStage;
+  /**
+   * The template applied to this visit already, by TITLE.
+   *
+   * Later stages are told to reconcile a template's defaults against the narrative — a template picks its
+   * diagnosis and its ~28 normal exam findings from its own title, having never seen this visit. Without
+   * this they were asked to do that blind: the chart state lists what is on the chart and says nothing
+   * about where any of it came from, so "check the template's default diagnosis" had no referent and the
+   * stage removed things by guesswork.
+   *
+   * Caller-supplied, and therefore VALIDATED against the practice's own template list before it reaches
+   * the prompt — a title that is not in that list is dropped rather than echoed. The rule that no
+   * caller-controlled text lands inside the model's instructions still holds; what lands is a string the
+   * server matched against its own data.
+   */
+  appliedTemplate?: string;
   /**
    * Used to read the REAL patient age and sex from the chart and to verify the caller may touch this
    * encounter. Ambient recordings contain cross-talk about other patients; demographics are never

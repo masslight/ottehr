@@ -62,9 +62,15 @@ mention:
      add-nursing-order.
  11. Billing — ALWAYS exactly one set-em-code, plus add-cpt for anything else performed.`;
 
-const PLAN_RULES = `RULES:
-- Steps must be in the canonical order above.
-- Each step is one self-contained action. "add diagnoses X and Y" is TWO add-diagnosis steps.
+/**
+ * The rules that are about READING A TRANSCRIPT rather than about which section to fill.
+ *
+ * Split out so a per-section stage gets them without a copy. Eight of the eleven plan rules turned out
+ * to be of this kind — same-patient, negative confirmations, provenance, never invent negatives — which
+ * is why the prompt does NOT decompose cleanly by section and why duplicating it per stage would mean
+ * eight hand-tuned rules in N places to keep in sync.
+ */
+const SHARED_TRANSCRIPT_RULES = `- Each step is one self-contained action. "add diagnoses X and Y" is TWO add-diagnosis steps.
 - Do not emit duplicate or redundant steps. Several edits to the same note field fold into a single
   edit-note-text carrying the combined final text.
 - Omit anything you cannot classify or that the narrative does not justify. If nothing applies,
@@ -98,6 +104,174 @@ const PLAN_RULES = `RULES:
   STRING. Never fabricate one. Each quote is checked against the narrative and dropped if it is not
   really there, and an empty sourceText is the signal that tells the provider to look closely, so
   guessing defeats the purpose.`;
+
+/** What the full planner adds on top: ordering, which only exists when a plan has several sections. */
+const PLAN_RULES = `RULES:
+- Steps must be in the canonical order above.
+${SHARED_TRANSCRIPT_RULES}`;
+
+const FINDINGS_PREAMBLE = `You are recording the OBJECTIVE FINDINGS of a clinical encounter from the provider's free-text
+NARRATIVE, which appears at the END of this message after the instructions, along with the per-visit
+context: the patient and what is ALREADY ON THE CHART.
+
+Your ONLY job on this call is the physical exam, the review of systems, and the vitals. Diagnoses, the
+note's free text, orders, codes and the disposition are charted by other calls and are NOT yours — do
+not emit them, and do not let them distract from the one thing that is.
+
+BE EXHAUSTIVE. Every exam finding the provider describes, every symptom the patient reports OR denies,
+every reading spoken aloud. These sections are long by nature and are the ones a general pass leaves
+half-finished; there is nothing else competing for your output here, so go through the narrative to the
+end and chart all of it.
+
+THE NARRATIVE IS A REAL-TIME RECORD — a LATER statement that revises an earlier one GOVERNS. If the
+provider re-examines and finds something different, chart the FINAL version.
+
+Return a JSON object with an "actions" array.`;
+
+const FINDINGS_RULES = `RULES:
+${SHARED_TRANSCRIPT_RULES}
+- ORDER DOES NOT MATTER on this call — there is only one section group, so chart findings as you meet
+  them in the narrative rather than sorting them.`;
+
+/**
+ * The remaining stages, in the order the graph runs them.
+ *
+ * Each is a PREAMBLE plus its own rules; the vocabulary, the response schema and the per-action prose all
+ * come from the registry keyed on the surface, so a stage costs only the prose below. The shared
+ * transcript rules are included by reference rather than copied — they were tuned against eval runs, and
+ * eight of the eleven plan rules are of that kind.
+ *
+ * WHAT EACH STAGE MAY SEE is not expressed here but in WHEN it runs: every stage is handed the chart as
+ * it stands after the previous ones, through the ALREADY ON THE CHART and CURRENT NOTE TEXT blocks. That
+ * is why the later stages can be told to reason about what is already there without being told what it is.
+ */
+const STAGE_SCOPE_NOTE = `Other calls chart the rest of this visit. Emit ONLY the actions listed below —
+anything else is not yours, and the vocabulary here does not contain it.`;
+
+const HISTORY_PREAMBLE = `You are recording the patient's BACKGROUND from the provider's free-text NARRATIVE, which appears at
+the END of this message: allergies, past medical history, home medications, past surgeries and past
+hospitalizations.
+
+${STAGE_SCOPE_NOTE}
+
+This is history, NOT today's visit. Today's diagnoses, today's exam and today's orders belong to other
+calls. A condition the patient is being diagnosed with now is not past medical history; a medication
+being prescribed now is not a home medication.
+
+Return a JSON object with an "actions" array.`;
+
+const HISTORY_RULES = `RULES:
+${SHARED_TRANSCRIPT_RULES}
+- THE NEGATIVE-CONFIRMATION RULE MATTERS MOST HERE, because this is where those statements are made.
+  "No known drug allergies"/"NKDA", "no current medications", "PMH unremarkable", "no prior surgeries",
+  "no hospitalizations" are NOT chartable items — emit nothing for them. They belong in the note's free
+  text, which another call writes.`;
+
+const STORY_PREAMBLE = `You are writing the NARRATIVE FIELDS of a visit note from the provider's free-text NARRATIVE, which
+appears at the END of this message.
+
+${STAGE_SCOPE_NOTE}
+
+Exactly three fields are yours: chiefComplaint, historyOfPresentIllness and mechanismOfInjury. The
+medical decision making is written by a LATER call that can see the diagnoses and the orders — do NOT
+write it here, and do not emit edit-note-text for "medicalDecision" or "ros".
+
+This is also the call that SPEAKS to the provider. If the narrative asks a question, or contains
+something they need told rather than charted, that is a reply or a provider-note and it belongs here —
+the other calls chart and say nothing.
+
+Return a JSON object with an "actions" array.`;
+
+const STORY_RULES = `RULES:
+${SHARED_TRANSCRIPT_RULES}
+- Emit AT MOST ONE edit-note-text per field, carrying that field's complete final text.`;
+
+const ORDERS_PREAMBLE = `You are recording what was ORDERED OR PERFORMED at this visit, from the provider's free-text
+NARRATIVE at the END of this message: lab tests, imaging, procedures and nursing orders.
+
+${STAGE_SCOPE_NOTE}
+
+The diagnoses are already on the chart — see ALREADY ON THE CHART below. Orders are filed against them,
+so read them before you decide what was ordered and why.
+
+ONLY WHAT THIS VISIT ORDERED OR DID. A test whose RESULT is being discussed was ordered earlier and is
+not a new order; a procedure the provider says they are NOT doing is not a procedure.
+
+Return a JSON object with an "actions" array.`;
+
+const ORDERS_RULES = `RULES:
+${SHARED_TRANSCRIPT_RULES}`;
+
+const PLAN_TEXT_PREAMBLE = `You are writing the PLAN of a visit note from the provider's free-text NARRATIVE at the END of this
+message: the medical decision making, the patient instructions and the disposition.
+
+${STAGE_SCOPE_NOTE}
+
+Everything charted so far is below — the diagnoses, the exam, the orders. The MDM is the reasoning that
+connects them: what was considered, what was ruled out, what was done and why. Write it against what is
+actually on the chart, not against what you would have charted.
+
+Your edit-note-text is for "medicalDecision" ONLY. The chief complaint, the HPI and the mechanism of
+injury were written by an earlier call — do not rewrite them.
+
+Return a JSON object with an "actions" array.`;
+
+const PLAN_TEXT_RULES = `RULES:
+${SHARED_TRANSCRIPT_RULES}
+- Emit AT MOST ONE edit-note-text, for "medicalDecision", carrying its complete final text.`;
+
+const CODING_PREAMBLE = `You are assigning the BILLING CODES for this visit from the chart as it now stands, shown below, and
+the provider's free-text NARRATIVE at the END of this message.
+
+${STAGE_SCOPE_NOTE}
+
+You run LAST, and that is the point: the E&M level follows from the documented complexity — the history,
+the exam, the diagnoses, the orders and the medical decision making, all of which are now on the chart
+below. Read them before you choose. A CPT code follows from a procedure or a point-of-care test that was
+actually PERFORMED at this visit; if none was, emit none.
+
+Return a JSON object with an "actions" array.`;
+
+const CODING_RULES = `RULES:
+${SHARED_TRANSCRIPT_RULES}
+- Exactly one set-em-code per visit. Never emit two.`;
+
+const TEMPLATE_PREAMBLE = `You are deciding whether one of this practice's saved TEMPLATES fits this visit, from the provider's
+free-text NARRATIVE at the END of this message.
+
+${STAGE_SCOPE_NOTE}
+
+This is the FIRST call of the visit and the only one that may apply a template. Everything a template
+brings — its default exam findings, its diagnosis, its MDM scaffolding — lands on the chart before any
+other call runs, and every later call sees it and reconciles against it. That is why a wrong template
+here is expensive and a missing one is cheap.
+
+Emit ONE apply-template, or NOTHING. Never two.
+
+Return a JSON object with an "actions" array.`;
+
+const TEMPLATE_RULES = `RULES:
+${SHARED_TRANSCRIPT_RULES}
+- IMPORTANT: When no template clearly corresponds to this visit's primary presentation, return an EMPTY actions
+  array. No template is a good outcome; the wrong one is not.`;
+
+const DIAGNOSES_PREAMBLE = `You are assigning this visit's DIAGNOSES from the provider's free-text NARRATIVE at the END of this
+message, and from what is already on the chart below.
+
+${STAGE_SCOPE_NOTE}
+
+The history, the exam, the ROS and the vitals have already been charted — read them below before you
+decide. If a template was applied it has charted a DEFAULT diagnosis, and that default was chosen from
+the template's title without ever seeing this narrative: check it against what the provider actually
+said, and when it is wrong, emit remove-diagnosis for it AND add-diagnosis for the one the visit
+supports. Never a bare removal that leaves the note with no diagnosis.
+
+Return a JSON object with an "actions" array.`;
+
+const DIAGNOSES_RULES = `RULES:
+${SHARED_TRANSCRIPT_RULES}
+- Exactly ONE diagnosis carries isPrimary=true across the whole visit. When the chart already has a
+  primary, an addition is secondary — do not usurp it.`;
 
 const REVIEW_PREAMBLE = `You are a clinical documentation reviewer. A provider just charted a visit note from the NARRATIVE
 that appears at the END of this message; the structured items now on the chart are in the ALREADY ON
@@ -214,10 +388,26 @@ charted through this interface.\n\n${docs.join('\n\n')}`;
  * The cacheable prefix for a surface. Deterministic: same registry in, same bytes out. Callers must
  * not interpolate anything into it.
  */
+/** Per-stage prose. A surface absent here is not a stage and falls through to the full-plan branch. */
+const STAGE_PROSE: Partial<Record<Surface, { preamble: string; rules: string }>> = {
+  template: { preamble: TEMPLATE_PREAMBLE, rules: TEMPLATE_RULES },
+  diagnoses: { preamble: DIAGNOSES_PREAMBLE, rules: DIAGNOSES_RULES },
+  findings: { preamble: FINDINGS_PREAMBLE, rules: FINDINGS_RULES },
+  history: { preamble: HISTORY_PREAMBLE, rules: HISTORY_RULES },
+  story: { preamble: STORY_PREAMBLE, rules: STORY_RULES },
+  orders: { preamble: ORDERS_PREAMBLE, rules: ORDERS_RULES },
+  'plan-text': { preamble: PLAN_TEXT_PREAMBLE, rules: PLAN_TEXT_RULES },
+  coding: { preamble: CODING_PREAMBLE, rules: CODING_RULES },
+};
+
 export function buildStaticInstructions(surface: Surface): string {
   if (surface === 'review') {
     return [REVIEW_PREAMBLE, REVIEW_CHECKS, actionShapesBlock('review'), REVIEW_RULES].join('\n\n');
   }
+  // No ORDERING block for a stage: it has no canonical order of its own, and leaving the plan's in would
+  // tell the model to sort by sections it cannot emit.
+  const stage = STAGE_PROSE[surface];
+  if (stage) return [stage.preamble, actionShapesBlock(surface), stage.rules].join('\n\n');
   return [PLAN_PREAMBLE, PLAN_ORDERING, actionShapesBlock('plan'), PLAN_RULES].join('\n\n');
 }
 
@@ -226,6 +416,8 @@ export interface PromptTailInput {
   narrative: string;
   /** Practice template titles. Empty list is stated explicitly rather than omitted. */
   templateTitles?: string[];
+  /** Title of the template already applied to this visit, server-validated. See ChartPlanRequest. */
+  appliedTemplate?: string;
   /**
    * Authoritative demographics, read from the chart — NEVER inferred from the narrative. Ambient
    * recordings contain cross-talk about other patients.
@@ -280,6 +472,17 @@ export function buildVariableTail(input: PromptTailInput): string {
       ? `PATIENT STATUS: ${input.patientStatus === 'new' ? 'NEW to the practice' : 'ESTABLISHED with the practice'}.`
       : 'PATIENT STATUS: unknown — do not guess; use the established-patient E&M family (99212-99215).'
   );
+
+  // THE FACT ONLY, and deliberately nothing more.
+  //
+  // A first version added a paragraph here telling the stage to treat the template's contents as defaults
+  // and confirm them against the narrative. That instruction cannot be followed: the chart state lists
+  // rows and never says which came from a template, so the model was told to find something it has no way
+  // to identify. It went looking anyway, and blind removals rose from 11 to 29. Stating the fact and
+  // leaving the reasoning to the stage's own rules is what the tail is for.
+  if (input.appliedTemplate?.trim()) {
+    parts.push(`TEMPLATE APPLIED THIS VISIT: "${input.appliedTemplate.trim()}"`);
+  }
 
   if (input.noteContext) parts.push(`CURRENT NOTE TEXT:\n${input.noteContext}`);
 

@@ -58,7 +58,7 @@ const DISPOSITION_TYPE_LIST = PLANNABLE_DISPOSITION_TYPES.map((t) => `"${t}"`).j
 
 export const CAPABILITIES = {
   'apply-template': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'template'],
     required: ['display'],
     promptDoc: `- apply-template: { kind, display, searchTerms } — match against the practice's saved templates by
   their EXACT listed titles; never invent a template name.
@@ -81,7 +81,7 @@ export const CAPABILITIES = {
   },
 
   'add-allergy': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'history'],
     required: ['display'],
     chartField: 'allergies',
     promptDoc: `- add-allergy: { kind, display, searchTerms } — an allergy the provider states the patient HAS, or
@@ -95,14 +95,14 @@ export const CAPABILITIES = {
   Prefer the specific agent or class for other drug allergies ("penicillin" → Penicillins).`,
   },
   'remove-allergy': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'history'],
     required: ['display'],
     chartField: 'allergies',
     promptDoc: `- remove-allergy: { kind, display, searchTerms } — remove an allergy already on the chart.`,
   },
 
   'add-condition': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'history'],
     required: ['display'],
     chartField: 'conditions',
     promptDoc: `- add-condition: { kind, display, searchTerms, code } — the patient's BACKGROUND history, distinct
@@ -117,14 +117,14 @@ export const CAPABILITIES = {
   "current smoker" → F17.210.`,
   },
   'remove-condition': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'history'],
     required: ['display'],
     chartField: 'conditions',
     promptDoc: `- remove-condition: { kind, display, searchTerms } — remove a past-history condition already on the chart.`,
   },
 
   'add-medication': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'history'],
     required: ['display'],
     chartField: 'medications',
     promptDoc: `- add-medication: { kind, display, searchTerms, strength, doseForm } — a medication the patient
@@ -144,40 +144,40 @@ export const CAPABILITIES = {
   not a procedure — but it still has billing consequences; see add-cpt.`,
   },
   'remove-medication': {
-    surfaces: ['plan', 'review'],
+    surfaces: ['plan', 'review', 'history'],
     required: ['display'],
     chartField: 'medications',
     promptDoc: `- remove-medication: { kind, display, searchTerms } — remove a medication already on the chart.`,
   },
 
   'add-surgical-history': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'history'],
     required: ['display'],
     chartField: 'surgicalHistory',
     promptDoc: `- add-surgical-history: { kind, display, searchTerms } — a past operation the narrative states.`,
   },
   'remove-surgical-history': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'history'],
     required: ['display'],
     chartField: 'surgicalHistory',
     promptDoc: `- remove-surgical-history: { kind, display, searchTerms } — remove a surgical-history item already on the chart.`,
   },
 
   'add-hospitalization': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'history'],
     required: ['display'],
     chartField: 'episodeOfCare',
     promptDoc: `- add-hospitalization: { kind, display, searchTerms } — a past hospitalization the narrative states.`,
   },
   'remove-hospitalization': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'history'],
     required: ['display'],
     chartField: 'episodeOfCare',
     promptDoc: `- remove-hospitalization: { kind, display, searchTerms } — remove a hospitalization already on the chart.`,
   },
 
   'edit-note-text': {
-    surfaces: ['plan', 'review'],
+    surfaces: ['plan', 'review', 'story', 'plan-text'],
     required: ['field', 'newText'],
     chartField: ['chiefComplaint', 'historyOfPresentIllness', 'mechanismOfInjury', 'ros', 'medicalDecision'],
     promptDoc: `- edit-note-text: { kind, field, newText } — field is one of: ${NOTE_FIELD_LIST}.
@@ -219,7 +219,7 @@ export const CAPABILITIES = {
   },
 
   'set-vital': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'findings'],
     required: ['field', 'display'],
     chartField: 'vitalsObservations',
     promptDoc: `- set-vital: { kind, field, display } — field is one of: ${VITAL_FIELD_LIST}.
@@ -235,7 +235,7 @@ export const CAPABILITIES = {
   },
 
   'add-exam-finding': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'findings'],
     required: ['display'],
     chartField: 'examObservations',
     promptDoc: `- add-exam-finding: { kind, display, searchTerms } — matched against the practice's exam-template leaf
@@ -259,7 +259,7 @@ export const CAPABILITIES = {
   Never pad the exam with findings nobody addressed.`,
   },
   'remove-exam-finding': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'findings'],
     required: ['display'],
     chartField: 'examObservations',
     promptDoc: `- remove-exam-finding: { kind, display, searchTerms } — an applied template fills in a FULL normal
@@ -282,7 +282,7 @@ export const CAPABILITIES = {
   },
 
   'add-ros-finding': {
-    surfaces: ['plan', 'review'],
+    surfaces: ['plan', 'review', 'findings'],
     required: ['display'],
     chartField: 'rosObservations',
     promptDoc: `- add-ros-finding: { kind, display, searchTerms } — a structured Review-of-Systems finding. The display
@@ -301,7 +301,7 @@ export const CAPABILITIES = {
     {"kind":"add-ros-finding","display":"Reports headache","searchTerms":["headache","cephalgia"]}`,
   },
   'remove-ros-finding': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'findings'],
     required: ['display'],
     chartField: 'rosObservations',
     promptDoc: `- remove-ros-finding: { kind, display, searchTerms } — remove a ROS symptom already on the chart. KEEP
@@ -310,7 +310,7 @@ export const CAPABILITIES = {
   },
 
   'add-diagnosis': {
-    surfaces: ['plan', 'review'],
+    surfaces: ['plan', 'review', 'diagnoses'],
     required: ['display'],
     chartField: 'diagnosis',
     promptDoc: `- add-diagnosis: { kind, display, searchTerms, code, isPrimary } — mark isPrimary=true for exactly ONE
@@ -347,7 +347,7 @@ export const CAPABILITIES = {
   Do not chart the same diagnosis twice, and never more than one primary.`,
   },
   'remove-diagnosis': {
-    surfaces: ['plan', 'review'],
+    surfaces: ['plan', 'review', 'diagnoses'],
     required: ['display'],
     chartField: 'diagnosis',
     promptDoc: `- remove-diagnosis: { kind, display, searchTerms } — remove a diagnosis already on the chart. When you
@@ -358,7 +358,7 @@ export const CAPABILITIES = {
   },
 
   'add-in-house-lab': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'orders'],
     required: ['display'],
     promptDoc: `- add-in-house-lab: { kind, display, searchTerms } — an IN-OFFICE / point-of-care test ORDERED this
   visit: rapid strep, rapid flu/COVID/RSV, urinalysis or urine dip, mono spot, fingerstick glucose,
@@ -368,14 +368,14 @@ export const CAPABILITIES = {
   Do NOT also emit add-cpt for a test you order this way; the lab order carries its own billing.`,
   },
   'add-external-lab': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'orders'],
     required: ['display'],
     promptDoc: `- add-external-lab: { kind, display, searchTerms } — a SEND-OUT / reference-lab test ORDERED this
   visit: CBC, CMP/BMP, lipid panel, TSH, A1c, cultures, anything drawn and sent out. Same
   results-are-not-orders and no-extra-CPT rules as add-in-house-lab.`,
   },
   'add-radiology': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'orders'],
     required: ['display'],
     promptDoc: `- add-radiology: { kind, display, searchTerms } — order an imaging study. display is the study name
   including view count and body site ("3-view right ankle X-ray"); searchTerms are 1–3 alternates the
@@ -384,7 +384,7 @@ export const CAPABILITIES = {
   },
 
   'add-procedure': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'orders'],
     required: ['display'],
     chartField: 'procedures',
     promptDoc: `- add-procedure: { kind, display, searchTerms } — matched against the practice's procedure quick picks.
@@ -393,7 +393,7 @@ export const CAPABILITIES = {
   administration CPT), even when the narrative groups it under "procedures".`,
   },
   'update-procedure': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'orders'],
     required: ['updates'],
     chartField: 'procedures',
     promptDoc: `- update-procedure: { kind, updates: [{field, value}, …], procedureMatch } — set fields on a procedure
@@ -405,7 +405,7 @@ export const CAPABILITIES = {
   },
 
   'set-em-code': {
-    surfaces: ['plan', 'review'],
+    surfaces: ['plan', 'review', 'coding'],
     required: ['code'],
     chartField: 'emCode',
     promptDoc: `- set-em-code: { kind, code, display } — ALWAYS emit exactly one. Templates never carry an E&M code,
@@ -422,14 +422,14 @@ export const CAPABILITIES = {
   the LOWER — the goal is that a defensible level is always present and the provider can adjust.`,
   },
   'remove-em-code': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'coding'],
     required: [],
     chartField: 'emCode',
     promptDoc: `- remove-em-code: { kind } or { kind, code } — clear the charted E&M level.`,
   },
 
   'add-cpt': {
-    surfaces: ['plan', 'review'],
+    surfaces: ['plan', 'review', 'coding'],
     required: ['code'],
     chartField: 'cptCodes',
     promptDoc: `- add-cpt: { kind, code, display } — an additional CPT/HCPCS code for something actually PERFORMED
@@ -454,14 +454,14 @@ export const CAPABILITIES = {
   Every CPT/HCPCS code is validated downstream and dropped if it is not real.`,
   },
   'remove-cpt': {
-    surfaces: ['plan', 'review'],
+    surfaces: ['plan', 'review', 'coding'],
     required: ['code'],
     chartField: 'cptCodes',
     promptDoc: `- remove-cpt: { kind, code } — remove a CPT code already on the chart.`,
   },
 
   'set-disposition': {
-    surfaces: ['plan', 'review'],
+    surfaces: ['plan', 'review', 'plan-text'],
     required: ['dispositionType', 'text'],
     chartField: 'disposition',
     promptDoc: `- set-disposition: { kind, dispositionType, text, followUpInDays } — where the patient goes after this
@@ -480,7 +480,7 @@ export const CAPABILITIES = {
   },
 
   'add-patient-instruction': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'plan-text'],
     required: ['text'],
     chartField: 'instructions',
     promptDoc: `- add-patient-instruction: { kind, text } — patient-FACING guidance, written as a directive TO THE
@@ -497,7 +497,7 @@ export const CAPABILITIES = {
   },
 
   'add-nursing-order': {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'orders'],
     required: ['text'],
     promptDoc: `- add-nursing-order: { kind, text } — a task for nursing staff, phrased as a directive ("Apply a
   posterior short-leg splint to the right ankle."). Triggered by "nursing order for wound care", "have
@@ -505,7 +505,7 @@ export const CAPABILITIES = {
   },
 
   'provider-note': {
-    surfaces: ['plan', 'review'],
+    surfaces: ['plan', 'review', 'story'],
     required: ['text'],
     promptDoc: `- provider-note: { kind, text } — a message for the PROVIDER, rendered in the chat and never written to
   the chart, for something dictated that these actions CANNOT chart. Use it for results of tests
@@ -526,7 +526,7 @@ export const CAPABILITIES = {
   },
 
   reply: {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'story'],
     required: ['text'],
     promptDoc: `- reply: { kind, text } — the ANSWER to a question the provider asked. Writes nothing to the chart.
   Use it when the message is a question about the note or the visit ("what's still missing before I can
@@ -537,7 +537,7 @@ export const CAPABILITIES = {
   },
 
   unknown: {
-    surfaces: ['plan'],
+    surfaces: ['plan', 'story'],
     required: [],
     promptDoc: `- unknown: { kind, message } — use sparingly; prefer omitting an action you cannot classify. If the
   message contains nothing chartable at all, return an empty actions array rather than guessing.`,
