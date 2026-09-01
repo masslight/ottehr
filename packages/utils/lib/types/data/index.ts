@@ -31,5 +31,6 @@ export * from './custom-folder.types';
 export * from './patient-education.types';
 export * from './legacy-data';
 export * from './practice-managed-questionnaires';
+export * from './system-managed-questionnaires';
 export * from './send-patient-form';
 export * from './paperwork-flows';

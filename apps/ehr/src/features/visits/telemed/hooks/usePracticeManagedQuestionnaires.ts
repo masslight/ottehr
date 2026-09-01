@@ -25,9 +25,12 @@ export const usePracticeManagedQuestionnaires = (): UsePracticeManagedQuestionna
     staleTime: 30_000, // 30 sec
   });
 
+  // system-managed forms sort to the top, then everything else alphabetically by title
   const sorted = (data?.practiceManagedQuestionnaires || [])
     .slice()
-    .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    .sort(
+      (a, b) => Number(b.isSystemManaged) - Number(a.isSystemManaged) || (a.title || '').localeCompare(b.title || '')
+    );
 
   return {
     active: sorted.filter((q) => !isRetiredQuestionnaire(q)),

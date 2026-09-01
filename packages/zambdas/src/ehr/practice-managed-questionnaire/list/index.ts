@@ -1,7 +1,7 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
-import { PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
+import { PRACTICE_MANAGED_QUESTIONNAIRE_TAG, SYSTEM_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   PracticeManagedQuestionnaireDTO,
@@ -38,6 +38,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function makeListResponse(oystehr: Oystehr): Promise<PracticeManagedQuestionnaireListOutput> {
+  const [practiceManagedDtos, systemManagedDtos] = await Promise.all([
+    listPracticeManaged(oystehr),
+    listSystemManaged(oystehr),
+  ]);
+
+  const res: PracticeManagedQuestionnaireListOutput = {
+    practiceManagedQuestionnaires: [...systemManagedDtos, ...practiceManagedDtos],
+  };
+
+  console.log('returning list successfully');
+  return res;
+}
+
+async function listPracticeManaged(oystehr: Oystehr): Promise<PracticeManagedQuestionnaireDTO[]> {
   const searchParams: SearchParam[] = [
     { name: '_sort', value: 'title' },
     { name: '_tag', value: PRACTICE_MANAGED_QUESTIONNAIRE_TAG.code },
@@ -45,10 +59,7 @@ async function makeListResponse(oystehr: Oystehr): Promise<PracticeManagedQuesti
   ];
 
   const practiceManagedFhirQuestionnaires = await getAllFhirSearchPages<Questionnaire>(
-    {
-      resourceType: 'Questionnaire',
-      params: searchParams,
-    },
+    { resourceType: 'Questionnaire', params: searchParams },
     oystehr
   );
 
@@ -56,25 +67,74 @@ async function makeListResponse(oystehr: Oystehr): Promise<PracticeManagedQuesti
 
   const currentVersions = latestVersionPerUrl(practiceManagedFhirQuestionnaires);
 
-  console.log(`Total current versions: ${currentVersions.length}`);
+  return currentVersions.map((questionnaire) => ({
+    id: questionnaire.id ?? '',
+    title: questionnaire.title ?? '',
+    status: questionnaire.status,
+    url: questionnaire.url ?? '',
+    isSystemManaged: false,
+  }));
+}
 
-  const practiceManagedQuestionnaires = currentVersions.map((questionnaire) => {
-    const dto: PracticeManagedQuestionnaireDTO = {
-      id: questionnaire.id ?? '',
-      title: questionnaire.title ?? '',
-      status: questionnaire.status,
-      url: questionnaire.url ?? '',
-    };
+/**
+ * System-managed questionnaires are versioned as separate resources sharing a canonical url. The list
+ * row for each url is its highest active version; if a `status: draft` sibling exists it is surfaced via
+ * `hasDraft`/`draftId`/`draftVersion` (there is no separate draft row).
+ */
+async function listSystemManaged(oystehr: Oystehr): Promise<PracticeManagedQuestionnaireDTO[]> {
+  const { system, code } = SYSTEM_MANAGED_QUESTIONNAIRE_TAG;
+  const searchParams: SearchParam[] = [
+    { name: '_tag', value: `${system}|${code}` },
+    { name: '_elements', value: questionnaireElements.join(',') },
+  ];
 
-    return dto;
-  });
+  const systemManagedFhirQuestionnaires = await getAllFhirSearchPages<Questionnaire>(
+    { resourceType: 'Questionnaire', params: searchParams },
+    oystehr
+  );
 
-  const res: PracticeManagedQuestionnaireListOutput = {
-    practiceManagedQuestionnaires,
-  };
+  console.log(`Total system managed questionnaires found: ${systemManagedFhirQuestionnaires.length}`);
 
-  console.log('returning list successfully');
-  return res;
+  const activeByUrl = new Map<string, FhirQuestionnaireSubset>();
+  const draftByUrl = new Map<string, FhirQuestionnaireSubset>();
+
+  for (const questionnaire of systemManagedFhirQuestionnaires) {
+    const url = questionnaire.url;
+    if (!url) continue;
+
+    const bucket =
+      questionnaire.status === 'draft' ? draftByUrl : questionnaire.status === 'active' ? activeByUrl : null;
+    if (!bucket) continue; // ignore retired/superseded versions
+
+    const current = bucket.get(url);
+    if (!current || isLatestVersion(questionnaire, current)) {
+      bucket.set(url, questionnaire);
+    }
+  }
+
+  // include any url that has an active version (preferred) or, failing that, a draft
+  const urls = new Set<string>([...activeByUrl.keys(), ...draftByUrl.keys()]);
+
+  const dtos: PracticeManagedQuestionnaireDTO[] = [];
+  for (const url of urls) {
+    const active = activeByUrl.get(url);
+    const draft = draftByUrl.get(url);
+    const row = active ?? draft;
+    if (!row) continue;
+
+    dtos.push({
+      id: row.id ?? '',
+      title: row.title ?? '',
+      status: row.status,
+      url,
+      isSystemManaged: true,
+      hasDraft: Boolean(draft),
+      ...(draft?.id ? { draftId: draft.id } : {}),
+      ...(draft?.version ? { draftVersion: draft.version } : {}),
+    });
+  }
+
+  return dtos.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
 }
 
 function latestVersionPerUrl(questionnaires: FhirQuestionnaireSubset[]): FhirQuestionnaireSubset[] {

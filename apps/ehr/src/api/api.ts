@@ -353,7 +353,6 @@ import {
   PracticeManagedQuestionnaireCreateInput,
   PracticeManagedQuestionnaireCreateOutput,
   PracticeManagedQuestionnaireGetInput,
-  PracticeManagedQuestionnaireGetOutput,
   PracticeManagedQuestionnaireListOutput,
   PracticeManagedQuestionnaireUpdateInput,
   PracticeManagedQuestionnaireUpdateOutput,
@@ -372,6 +371,13 @@ import {
   GetLocationSupportPhonesOutput,
   GetSupportDialogOutput,
 } from 'utils/lib/types/data/support-dialog';
+import {
+  ClearSystemManagedDraftInput,
+  ClearSystemManagedDraftOutput,
+  ManagedQuestionnaireGetOutput,
+  SaveSystemManagedDraftInput,
+  SaveSystemManagedDraftOutput,
+} from 'utils/lib/types/data/system-managed-questionnaires/system-managed-questionnaire.types';
 import { InviteParticipantRequestParameters } from 'utils/lib/types/data/telemed/video-chat-invites.types';
 import {
   UploadDotVisionDocumentInput,
@@ -510,6 +516,8 @@ const MANAGED_QUESTIONNAIRE_GET_ZAMBDA_ID = 'practice-managed-questionnaire-get'
 const MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID = 'practice-managed-questionnaire-list';
 const MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID = 'practice-managed-questionnaire-update';
 const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'practice-managed-questionnaire-create';
+const SYSTEM_MANAGED_QUESTIONNAIRE_SAVE_DRAFT_ZAMBDA_ID = 'system-managed-questionnaire-save-draft';
+const SYSTEM_MANAGED_QUESTIONNAIRE_CLEAR_DRAFT_ZAMBDA_ID = 'system-managed-questionnaire-clear-draft';
 const PAPERWORK_FLOW_LIST_ZAMBDA_ID = 'paperwork-flow-list';
 const PAPERWORK_FLOW_CREATE_ZAMBDA_ID = 'paperwork-flow-create';
 const PAPERWORK_FLOW_UPDATE_ZAMBDA_ID = 'paperwork-flow-update';
@@ -3442,7 +3450,7 @@ export const migrateExamData = async (
 export async function practiceManagedQuestionnaireGet(
   oystehr: Oystehr,
   parameters: PracticeManagedQuestionnaireGetInput
-): Promise<PracticeManagedQuestionnaireGetOutput> {
+): Promise<ManagedQuestionnaireGetOutput> {
   try {
     const response = await oystehr.zambda.execute({ id: MANAGED_QUESTIONNAIRE_GET_ZAMBDA_ID, ...parameters });
     return chooseJson(response);
@@ -3487,6 +3495,38 @@ export const practiceManagedQuestionnaireCreate = async (
   try {
     const response = await oystehr.zambda.execute({
       id: MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const systemManagedQuestionnaireSaveDraft = async (
+  oystehr: Oystehr,
+  parameters: SaveSystemManagedDraftInput
+): Promise<SaveSystemManagedDraftOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: SYSTEM_MANAGED_QUESTIONNAIRE_SAVE_DRAFT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const systemManagedQuestionnaireClearDraft = async (
+  oystehr: Oystehr,
+  parameters: ClearSystemManagedDraftInput
+): Promise<ClearSystemManagedDraftOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: SYSTEM_MANAGED_QUESTIONNAIRE_CLEAR_DRAFT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

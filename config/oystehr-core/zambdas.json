@@ -2486,6 +2486,20 @@
       "src": "src/ehr/practice-managed-questionnaire/create/index",
       "zip": ".dist/zips/practice-managed-questionnaire-create.zip"
     },
+    "SYSTEM_MANAGED_QUESTIONNAIRE_SAVE_DRAFT": {
+      "name": "system-managed-questionnaire-save-draft",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/system-managed-questionnaire/save-draft/index",
+      "zip": ".dist/zips/system-managed-questionnaire-save-draft.zip"
+    },
+    "SYSTEM_MANAGED_QUESTIONNAIRE_CLEAR_DRAFT": {
+      "name": "system-managed-questionnaire-clear-draft",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/system-managed-questionnaire/clear-draft/index",
+      "zip": ".dist/zips/system-managed-questionnaire-clear-draft.zip"
+    },
     "PAPERWORK_FLOW_LIST": {
       "name": "paperwork-flow-list",
       "type": "http_auth",

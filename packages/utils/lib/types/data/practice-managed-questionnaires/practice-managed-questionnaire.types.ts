@@ -60,6 +60,15 @@ export type PracticeManagedQuestionnaireDTO = {
   title: string;
   status: Questionnaire['status'];
   url: string;
+  // true when this row is a system-managed (ottehr-authored) form; such rows are read-only, sorted to
+  // the top of the list, cannot be deleted, and (when a draft exists) expose draft metadata below.
+  isSystemManaged: boolean;
+  // system-managed only: whether a saved draft (status: draft) currently exists for this url
+  hasDraft?: boolean;
+  // system-managed only: the FHIR id of the saved draft, if any
+  draftId?: string;
+  // system-managed only: the draft's version, if any (for display)
+  draftVersion?: string;
 };
 
 export type StandaloneFormDTO = Omit<QAndQRResponse, 'questionnaireTitle'> & {

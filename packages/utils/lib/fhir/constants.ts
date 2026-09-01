@@ -493,6 +493,16 @@ export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
   code: 'practice-managed',
 };
 
+/**
+ * meta.tag identifying a Questionnaire as system-managed (ottehr-authored form whose logic the visual
+ * builder cannot represent). These are read-only in the admin portal and are versioned by importing
+ * next-version FHIR JSON, which is validated against the paperwork engine and harvest module.
+ */
+export const SYSTEM_MANAGED_QUESTIONNAIRE_TAG = {
+  system: ottehrCodeSystemUrl('questionnaire-type'),
+  code: 'system-managed',
+};
+
 /** meta.tag identifying a paperwork flow Questionnaire. */
 export const PAPERWORK_FLOW_TAG = {
   system: `${PRIVATE_EXTENSION_BASE_URL}/flow-type`,

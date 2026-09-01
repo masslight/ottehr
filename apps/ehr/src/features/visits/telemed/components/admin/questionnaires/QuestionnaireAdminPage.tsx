@@ -146,6 +146,36 @@ export const QuestionnaireAdminPage: FC = () => {
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {q.title || '(untitled)'}
+                        {q.isSystemManaged && (
+                          <Chip
+                            label="System Managed"
+                            size="small"
+                            sx={{
+                              borderRadius: '4px',
+                              height: '17px',
+                              '& .MuiChip-label': { padding: '2px 8px 0px 8px' },
+                              fontSize: 12,
+                              fontWeight: 500,
+                              backgroundColor: 'rgba(15, 52, 124, 0.12)',
+                              color: '#0F347C',
+                            }}
+                          />
+                        )}
+                        {q.isSystemManaged && q.hasDraft && (
+                          <Chip
+                            label={q.draftVersion ? `Draft v${q.draftVersion}` : 'Draft'}
+                            size="small"
+                            sx={{
+                              borderRadius: '4px',
+                              height: '17px',
+                              '& .MuiChip-label': { padding: '2px 8px 0px 8px' },
+                              fontSize: 12,
+                              fontWeight: 500,
+                              backgroundColor: 'rgba(237, 108, 2, 0.15)',
+                              color: '#ED6C02',
+                            }}
+                          />
+                        )}
                         {deleted && (
                           <Chip
                             label="Deleted"
@@ -177,21 +207,24 @@ export const QuestionnaireAdminPage: FC = () => {
                         </Tooltip>
                       ) : (
                         <>
-                          <Tooltip title="Edit">
+                          <Tooltip title={q.isSystemManaged ? 'View' : 'Edit'}>
                             <IconButton size="small" onClick={() => navigate(`/admin/questionnaires/${q.id}`)}>
                               <EditIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="Delete">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              disabled={isUpdating}
-                              onClick={() => toggleStatus({ questionnaireId: q.id, newStatus: 'retired' })}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                          {/* system-managed forms cannot be deleted */}
+                          {!q.isSystemManaged && (
+                            <Tooltip title="Delete">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                disabled={isUpdating}
+                                onClick={() => toggleStatus({ questionnaireId: q.id, newStatus: 'retired' })}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </>
                       )}
                     </TableCell>

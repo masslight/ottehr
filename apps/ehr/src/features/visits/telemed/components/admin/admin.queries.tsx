@@ -25,6 +25,8 @@ import {
   practiceManagedQuestionnaireGet,
   practiceManagedQuestionnaireUpdate,
   removeQuickPick,
+  systemManagedQuestionnaireClearDraft,
+  systemManagedQuestionnaireSaveDraft,
   updateEmCode,
   updateImmunizationQuickPick,
   updateInHouseMedicationQuickPick,
@@ -67,7 +69,6 @@ import {
   PracticeManagedQuestionnaireCreateInput,
   PracticeManagedQuestionnaireCreateOutput,
   PracticeManagedQuestionnaireGetInput,
-  PracticeManagedQuestionnaireGetOutput,
   PracticeManagedQuestionnaireUpdateInput,
   PracticeManagedQuestionnaireUpdateOutput,
 } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
@@ -77,6 +78,13 @@ import {
   GetLabelPrintingConfigOutput,
 } from 'utils/lib/types/data/printing';
 import { AdminUpdateSupportDialogInput, GetSupportDialogOutput } from 'utils/lib/types/data/support-dialog';
+import {
+  ClearSystemManagedDraftInput,
+  ClearSystemManagedDraftOutput,
+  ManagedQuestionnaireGetOutput,
+  SaveSystemManagedDraftInput,
+  SaveSystemManagedDraftOutput,
+} from 'utils/lib/types/data/system-managed-questionnaires/system-managed-questionnaire.types';
 import { APIError, isApiError } from 'utils/lib/types/errors';
 
 export const useInsurancesQuery = (ids?: string[], enabled?: boolean): UseQueryResult<Organization[], Error> => {
@@ -694,7 +702,7 @@ export const usePracticeManagedQuestionnaireCreate = (): UseMutationResult<
 
 export const useGetPracticeManagedQuestionnaireGet = (
   input: PracticeManagedQuestionnaireGetInput
-): UseQueryResult<PracticeManagedQuestionnaireGetOutput, Error> => {
+): UseQueryResult<ManagedQuestionnaireGetOutput, Error> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
@@ -735,6 +743,58 @@ export const usePracticeManagedQuestionnaireUpdate = (
       if (isApiError(error)) {
         message = (error as APIError).message;
       }
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useSaveSystemManagedDraft = (
+  questionnaireId?: string
+): UseMutationResult<SaveSystemManagedDraftOutput, Error, SaveSystemManagedDraftInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['system-managed-questionnaire-save-draft', questionnaireId],
+    mutationFn: async (input: SaveSystemManagedDraftInput) => {
+      if (!oystehrZambda) throw new Error('oystehr client is undefined');
+      return systemManagedQuestionnaireSaveDraft(oystehrZambda, input);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['practice-managed-questionnaire-list'] }),
+        queryClient.invalidateQueries({ queryKey: ['practice-managed-questionnaire-get', questionnaireId] }),
+      ]);
+    },
+    onError: (error: any) => {
+      safelyCaptureException(error);
+      const message = isApiError(error) ? (error as APIError).message : 'Failed to save draft.';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useClearSystemManagedDraft = (
+  questionnaireId?: string
+): UseMutationResult<ClearSystemManagedDraftOutput, Error, ClearSystemManagedDraftInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['system-managed-questionnaire-clear-draft', questionnaireId],
+    mutationFn: async (input: ClearSystemManagedDraftInput) => {
+      if (!oystehrZambda) throw new Error('oystehr client is undefined');
+      return systemManagedQuestionnaireClearDraft(oystehrZambda, input);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['practice-managed-questionnaire-list'] }),
+        queryClient.invalidateQueries({ queryKey: ['practice-managed-questionnaire-get', questionnaireId] }),
+      ]);
+    },
+    onError: (error: any) => {
+      safelyCaptureException(error);
+      const message = isApiError(error) ? (error as APIError).message : 'Failed to clear draft.';
       enqueueSnackbar(message, { variant: 'error' });
     },
   });

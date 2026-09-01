@@ -7,6 +7,7 @@ import PageContainer from 'src/layout/PageContainer';
 import { PracticeManagedQuestionnaire } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { useGetPracticeManagedQuestionnaireGet, usePracticeManagedQuestionnaireUpdate } from '../admin.queries';
 import { QuestionnaireBuilder } from './components/QuestionnaireBuilder';
+import { SystemManagedQuestionnaireDetail } from './SystemManagedQuestionnaireDetail';
 
 export const QuestionnaireDetail: FC = () => {
   const { questionnaireId } = useParams();
@@ -24,8 +25,6 @@ export const QuestionnaireDetail: FC = () => {
   } = useGetPracticeManagedQuestionnaireGet({
     questionnaireId: questionnaireId as string,
   });
-
-  const questionnaire = data?.practiceManagedQuestionnaire;
 
   const handleSave = useCallback(
     async (questionnaire: PracticeManagedQuestionnaire) => {
@@ -53,7 +52,7 @@ export const QuestionnaireDetail: FC = () => {
     );
   }
 
-  if (!questionnaire || fetchError) {
+  if (!data || fetchError) {
     return (
       <PageContainer>
         <Box sx={{ p: 3 }}>
@@ -72,6 +71,13 @@ export const QuestionnaireDetail: FC = () => {
       </PageContainer>
     );
   }
+
+  // System-managed forms are read-only and versioned by importing next-version JSON.
+  if (data.isSystemManaged) {
+    return <SystemManagedQuestionnaireDetail questionnaire={data.questionnaire} draft={data.draft} />;
+  }
+
+  const questionnaire = data.practiceManagedQuestionnaire;
 
   return (
     <PageContainer>
