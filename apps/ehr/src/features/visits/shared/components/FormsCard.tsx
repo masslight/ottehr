@@ -1,4 +1,4 @@
-import { Alert, Box, CircularProgress, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Link as MuiLink, Stack, Typography } from '@mui/material';
 import { FC, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useFillFormTemplate, useFormTemplates } from 'src/features/form-templates/useFormTemplates';
@@ -10,6 +10,10 @@ export const FormsCard: FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [pendingId, setPendingId] = useState<string | undefined>();
+  // The most recently produced form, kept so it stays reachable after its tab is closed.
+  const [readyForm, setReadyForm] = useState<
+    { documentReferenceId: string; url: string; fileName: string } | undefined
+  >();
 
   const { patient, appointment } = useAppointmentData();
   // Published templates only — drafts are visible on the admin page and nowhere else.
@@ -23,30 +27,22 @@ export const FormsCard: FC = () => {
   const openForm = (documentReferenceId: string): void => {
     if (!appointment?.id || pendingId) return;
 
-    // The tab is opened now, while the click is still the reason anything is happening. Opening it after
-    // the request resolves would be a popup with no gesture behind it, which browsers block by default —
-    // and the provider would be left with a form that silently never appeared.
-    const tab = window.open('', '_blank');
-
     setError(undefined);
+    setReadyForm(undefined);
     setPendingId(documentReferenceId);
 
     fillTemplate.mutate(
       { documentReferenceId, appointmentId: appointment.id },
       {
-        onSuccess: ({ presignedUrl }) => {
-          if (tab) {
-            tab.location.href = presignedUrl;
-          } else {
-            // Blocked despite the gesture. Navigating the current tab would lose the chart, so say so
-            // rather than doing something the provider did not ask for.
-            setError('Your browser blocked the new tab. Allow pop-ups for this site and try again.');
-          }
+        onSuccess: ({ presignedUrl, fileName }) => {
+          // Opening only once the form exists keeps the provider in the chart while it is built rather
+          // than staring at a blank tab. Browsers only honour a programmatic `open` for a few seconds
+          // after the click behind it, and a fill can outlast that, so the open is attempted and the link
+          // below stands whether or not it succeeded.
+          window.open(presignedUrl, '_blank', 'noopener');
+          setReadyForm({ documentReferenceId, url: presignedUrl, fileName });
         },
-        onError: (err: Error) => {
-          tab?.close();
-          setError(err.message || 'The form could not be prepared.');
-        },
+        onError: (err: Error) => setError(err.message || 'The form could not be prepared.'),
         onSettled: () => setPendingId(undefined),
       }
     );
@@ -74,6 +70,24 @@ export const FormsCard: FC = () => {
           {error && (
             <Alert severity="error" onClose={() => setError(undefined)}>
               {error}
+            </Alert>
+          )}
+
+          {readyForm && (
+            <Alert
+              severity="success"
+              onClose={() => setReadyForm(undefined)}
+              action={
+                // Regenerating matters because the link is short-lived, and because the chart may have
+                // moved on: a form built before the vitals were taken is already out of date.
+                <Button size="small" disabled={!!pendingId} onClick={() => openForm(readyForm.documentReferenceId)}>
+                  Regenerate
+                </Button>
+              }
+            >
+              <MuiLink href={readyForm.url} target="_blank" rel="noopener">
+                Open {readyForm.fileName}
+              </MuiLink>
             </Alert>
           )}
 

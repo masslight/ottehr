@@ -52,6 +52,13 @@ export const DocumentRow: FC<DocumentRowProps> = (props) => {
       <Typography sx={{ flexGrow: 1 }} fontWeight={500}>
         {label}
       </Typography>
+      {/* Named rather than left to the spinner alone: producing the document can take several seconds,
+          and a bare spinner does not say whether anything is going to happen at the end of it. */}
+      {loading && (
+        <Typography variant="body2" color="text.secondary">
+          Preparing…
+        </Typography>
+      )}
       {onDelete && (
         <DeleteIconButton
           onClick={(e) => {
