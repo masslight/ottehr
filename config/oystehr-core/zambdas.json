@@ -751,6 +751,27 @@
         "expression": "cron(*/5 * * * ? *)"
       }
     },
+    "GET-PROVIDER-NOTIFICATIONS": {
+      "name": "get-provider-notifications",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/notifications/get-provider-notifications/index",
+      "zip": ".dist/zips/get-provider-notifications.zip"
+    },
+    "MARK-PROVIDER-NOTIFICATIONS-READ": {
+      "name": "mark-provider-notifications-read",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/notifications/mark-provider-notifications-read/index",
+      "zip": ".dist/zips/mark-provider-notifications-read.zip"
+    },
+    "UPDATE-PROVIDER-NOTIFICATION-SETTINGS": {
+      "name": "update-provider-notification-settings",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/notifications/update-provider-notification-settings/index",
+      "zip": ".dist/zips/update-provider-notification-settings.zip"
+    },
     "SEND-MESSAGE-CRON": {
       "name": "send-message-cron",
       "type": "cron",
@@ -1104,6 +1125,13 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/locations/get-location/index",
       "zip": ".dist/zips/get-location.zip"
+    },
+    "LIST-ACTIVE-LOCATIONS": {
+      "name": "list-active-locations",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/locations/list-active-locations/index",
+      "zip": ".dist/zips/list-active-locations.zip"
     },
     "UPDATE-LOCATION": {
       "name": "update-location",
@@ -1487,6 +1515,20 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/terminal/finalize-payment/index",
       "zip": ".dist/zips/patient-payments-terminal-finalize-payment.zip"
+    },
+    "PATIENT-PAYMENTS-REFUND": {
+      "name": "patient-payments-refund",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/patient-payments/refund/index",
+      "zip": ".dist/zips/patient-payments-refund.zip"
+    },
+    "PATIENT-PAYMENTS-VOID": {
+      "name": "patient-payments-void",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/patient-payments/void/index",
+      "zip": ".dist/zips/patient-payments-void.zip"
     },
     "FAILING-ENDPOINT": {
       "name": "failing-endpoint",
