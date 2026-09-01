@@ -1,8 +1,10 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, ClaimResponse, Organization, PaymentReconciliation } from 'fhir/r4b';
+import { Claim, ClaimResponse, Location, Organization, PaymentReconciliation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
+import { SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { isValidUUID } from 'utils/lib/validation/helper';
+import { stripeAccountIdRegex } from 'utils/lib/validation/regex';
 import { fetchAllPages } from '../../shared/fhir';
 import { STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
 
@@ -11,10 +13,13 @@ export const CLAIM_BATCH_SIZE = 100;
 export const UNKNOWN_PAYER_NAME = 'Unknown Payer';
 export const WATERFALL_UNKNOWN_MONTH = 'unknown';
 
-// Platform account plus connected accounts stamped on billing provider organizations; the
-// platform's own id can be stamped on an org too and must not be listed a second time.
-// Orgs are paged by link.next — _total-based paging can stop after one page on large stores.
-export async function listStripeAccounts(oystehr: Oystehr, stripe: Stripe): Promise<(string | undefined)[]> {
+// Platform account + connected accounts from Organization identifiers and Location
+// schedule-owner extensions; candidates verified against Stripe (test data carries junk ids).
+export async function listStripeAccounts(
+  oystehr: Oystehr,
+  untaggedClient: Oystehr,
+  stripe: Stripe
+): Promise<(string | undefined)[]> {
   const orgs: Organization[] = [];
   const fetchOrgs = fetchAllPages(async (offset, count) => {
     const bundle = await oystehr.fhir.search<Organization>({
@@ -28,19 +33,48 @@ export async function listStripeAccounts(oystehr: Oystehr, stripe: Stripe): Prom
     orgs.push(...bundle.unbundle());
     return bundle;
   }, 200);
-  const [platformAccount] = await Promise.all([stripe.accounts.retrieve(), fetchOrgs]);
-  const connectedAccounts = [
-    ...new Set(
-      orgs
+  const locations: Location[] = [];
+  const fetchLocations = fetchAllPages(async (offset, count) => {
+    const bundle = await untaggedClient.fhir.search<Location>({
+      resourceType: 'Location',
+      params: [
+        { name: '_elements', value: 'id,extension' },
+        { name: '_count', value: String(count) },
+        { name: '_offset', value: String(offset) },
+      ],
+    });
+    locations.push(...bundle.unbundle());
+    return bundle;
+  }, 200);
+  const [platformAccount] = await Promise.all([stripe.accounts.retrieve(), fetchOrgs, fetchLocations]);
+
+  const candidates = new Set(
+    [
+      ...orgs
         .flatMap((org) => org.identifier ?? [])
         .filter((identifier) => identifier.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)
-        .map((identifier) => identifier.value)
-        .filter((value): value is string => !!value && value !== platformAccount.id)
-    ),
-  ];
+        .map((identifier) => identifier.value),
+      ...locations.map(
+        (location) =>
+          location.extension?.find((ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL)?.valueString
+      ),
+    ].filter((value): value is string => !!value && value !== platformAccount.id && stripeAccountIdRegex.test(value))
+  );
+
+  const connectedAccounts: string[] = [];
+  const unreachable: string[] = [];
+  for (const account of candidates) {
+    try {
+      await stripe.accounts.retrieve(account);
+      connectedAccounts.push(account);
+    } catch {
+      unreachable.push(account);
+    }
+  }
   console.log(
-    `listStripeAccounts: ${connectedAccounts.length} connected + platform (${orgs.length} orgs scanned)`,
-    JSON.stringify({ platform: platformAccount.id, connected: connectedAccounts })
+    `listStripeAccounts: ${connectedAccounts.length} connected + platform ` +
+      `(${orgs.length} orgs, ${locations.length} locations scanned)`,
+    JSON.stringify({ platform: platformAccount.id, connected: connectedAccounts, unreachable })
   );
   return [undefined, ...connectedAccounts];
 }

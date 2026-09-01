@@ -209,7 +209,7 @@ async function loadNoticeContext(
   const synthetic = new WeakSet<PaymentNotice>();
   await onProgress?.('listing Stripe charges…');
   try {
-    const charges = await listWindowCharges(oystehr, params, secrets);
+    const charges = await listWindowCharges(oystehr, untaggedClient, params, secrets);
     const chargeByAnyId = new Map<string, Stripe.Charge>();
     for (const charge of charges) {
       for (const id of chargeStripeIds(charge)) chargeByAnyId.set(id, charge);
@@ -301,11 +301,12 @@ const isFullyRefunded = (charge: Stripe.Charge): boolean =>
 // succeeded charges across all accounts in the window
 async function listWindowCharges(
   oystehr: Oystehr,
+  untaggedClient: Oystehr,
   params: ReportDateWindowParams,
   secrets: ZambdaInput['secrets']
 ): Promise<Stripe.Charge[]> {
   const stripe = getRateLimitedStripeClient(secrets);
-  const accounts = await listStripeAccounts(oystehr, stripe);
+  const accounts = await listStripeAccounts(oystehr, untaggedClient, stripe);
   const createdWindow = {
     ...(params.dateFrom ? { gte: Math.floor(DateTime.fromISO(params.dateFrom).toSeconds()) } : {}),
     ...(params.dateTo ? { lt: Math.floor(DateTime.fromISO(params.dateTo).plus({ days: 1 }).toSeconds()) } : {}),

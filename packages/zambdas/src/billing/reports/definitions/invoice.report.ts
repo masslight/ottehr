@@ -61,7 +61,7 @@ async function computeInvoiceReport(
   const nowSeconds = Math.floor(Date.now() / 1000);
 
   await onProgress?.('listing Stripe accounts…');
-  const accounts = await listStripeAccounts(oystehr, stripe);
+  const accounts = await listStripeAccounts(oystehr, untaggedClient, stripe);
 
   // month-end snapshots are immutable once past: reuse cached points and full-scan the invoice
   // history only when one is missing (cold cache or a month rolled over)

@@ -106,7 +106,7 @@ async function advanceCardsReport(
   // fresh build: snapshot accounts and open invoices, then run the first listing chunk.
   // The served rows stay untouched until the new build completes.
   await onProgress?.('listing Stripe accounts…');
-  const accounts = await listStripeAccounts(oystehr, stripe);
+  const accounts = await listStripeAccounts(oystehr, untaggedClient, stripe);
   await onProgress?.('listing open invoices…');
   const openInvoices = await fetchOpenInvoices(stripe, accounts);
   const newBuild: CardsBuildState = {
