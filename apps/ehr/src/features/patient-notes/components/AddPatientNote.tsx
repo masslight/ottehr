@@ -59,7 +59,7 @@ export const AddPatientNote: React.FC<AddPatientNoteProps> = ({ patientId }) => 
         sx={{ height: '56px', minWidth: '80px', px: 2 }}
         startIcon={isPending ? <CircularProgress size={20} color="inherit" /> : null}
       >
-        {isPending ? 'Saving...' : 'Save Note'}
+        {isPending ? 'Saving...' : 'Save Patient Note'}
       </RoundedButton>
     </Box>
   );
