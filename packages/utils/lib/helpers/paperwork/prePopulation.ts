@@ -165,7 +165,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   const patientLastName = getLastName(patient) ?? '';
 
   const patientPhone =
-    patient?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ??
+    patient?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ||
     formattedVerifiedPhoneNumber;
 
   // https://github.com/masslight/ottehr/issues/5984 - because the "additional info / tell us more" field gets appended
