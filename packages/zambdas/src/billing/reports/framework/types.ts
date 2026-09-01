@@ -18,7 +18,7 @@ export type ReportComputeContext<Payload> = ReportContext & { previous?: Payload
 
 export interface ReportPayload {
   generatedAt: string;
-  // set by definitions whose compute or shrink dropped data
+  // set by definitions whose compute dropped data
   truncated?: boolean;
 }
 
@@ -43,11 +43,8 @@ export interface ReportDefinition<Params, Payload extends ReportPayload, Detail 
   usesPrevious?: boolean;
   // compute persists its own cache (e.g. resumable drain state); worker skips the central save
   savesOwnCache?: boolean;
-  // strip internal state before a cached payload leaves the server
+  // strip internal state before the payload is written to the served (public) cache object
   sanitizePayload?: (payload: Payload) => Payload;
-  // shed data until an oversized payload fits the cache cap; undefined = skip the save
-  shrink?: (payload: Payload) => Payload | undefined;
-  shrinkDetail?: (detail: Detail) => Detail | undefined;
   // when the detail keys differently than the report (e.g. window-independent)
   detailCacheKeyOf?: (params: Params) => string;
   // drilldowns are pure filters over the cached detail

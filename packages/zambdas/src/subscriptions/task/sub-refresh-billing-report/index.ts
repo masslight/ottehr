@@ -34,7 +34,7 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, _oystehr) => {
   const onProgress = (message: string): Promise<void> => updateRefreshTaskProgress(oystehr, taskId, message);
 
   const previous = definition.usesPrevious
-    ? await loadReportCache(oystehr, fullCacheKey(definition, params))
+    ? await loadReportCache(oystehr, secrets, fullCacheKey(definition, params))
     : undefined;
   const { payload, detail, continueRefresh } = await definition.compute(
     { oystehr, untaggedClient, secrets, previous },
@@ -42,21 +42,14 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, _oystehr) => {
     onProgress
   );
   if (!definition.savesOwnCache) {
-    await saveReportCache(oystehr, definition, fullCacheKey(definition, params), payload);
+    await saveReportCache(oystehr, secrets, definition, fullCacheKey(definition, params), payload);
   }
   if (detail !== undefined && definition.drilldown) {
-    // envelope gives the generic cache a generatedAt; shrink adapts through it
-    await saveReportCache(
-      oystehr,
-      {
-        shrink: (envelope: { generatedAt: string; detail: unknown }) => {
-          const shrunk = definition.shrinkDetail?.(envelope.detail);
-          return shrunk ? { ...envelope, detail: shrunk } : undefined;
-        },
-      },
-      detailCacheKey(definition, params),
-      { generatedAt: payload.generatedAt, detail }
-    );
+    // envelope gives the generic cache a generatedAt
+    await saveReportCache(oystehr, secrets, {}, detailCacheKey(definition, params), {
+      generatedAt: payload.generatedAt,
+      detail,
+    });
   }
   if (continueRefresh && input.task) {
     // created before this task completes so pollers never see a gap in 'running' status
