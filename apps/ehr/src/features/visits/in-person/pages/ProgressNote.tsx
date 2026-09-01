@@ -1,6 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
-import { PatientNotesButton } from 'src/features/patient-notes/components/PatientNotesButton';
+import { PatientNotes as PatientNotesButton } from 'src/features/patient-notes/components/PatientNotes';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { AddendumCard } from '../../shared/components/review-tab/AddendumCard';

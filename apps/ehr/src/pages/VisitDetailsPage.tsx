@@ -96,7 +96,7 @@ import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
 import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
-import { PatientNotesButton } from '../features/patient-notes/components/PatientNotesButton';
+import { PatientNotes as PatientNotesButton } from '../features/patient-notes/components/PatientNotes';
 import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
 import { formatLastModifiedTag } from '../helpers';
 import {

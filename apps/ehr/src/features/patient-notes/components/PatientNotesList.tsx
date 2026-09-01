@@ -1,4 +1,4 @@
-import { Box, Button, CircularProgress, Divider, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import React, { useState } from 'react';
 import { usePatientNotes } from '../hooks/usePatientNotes';
 import { PatientNoteItem } from './PatientNoteItem';
@@ -23,7 +23,7 @@ export const PatientNotesList: React.FC<PatientNotesListProps> = ({ patientId })
 
   if (isError) {
     return (
-      <Typography color="error" variant="body2" sx={{ py: 2 }}>
+      <Typography color="error" variant="body2" sx={{ px: 3, py: 2 }}>
         Failed to load notes.
       </Typography>
     );
@@ -31,7 +31,7 @@ export const PatientNotesList: React.FC<PatientNotesListProps> = ({ patientId })
 
   if (!notes?.length) {
     return (
-      <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ px: 3, py: 2 }}>
         No patient notes yet.
       </Typography>
     );
@@ -41,18 +41,17 @@ export const PatientNotesList: React.FC<PatientNotesListProps> = ({ patientId })
   const hasMore = notes.length > visibleCount;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+    <>
       {visible.map((note, i) => (
-        <React.Fragment key={note.resourceId ?? i}>
-          {i > 0 && <Divider />}
-          <PatientNoteItem note={note} />
-        </React.Fragment>
+        <PatientNoteItem key={note.resourceId ?? i} note={note} />
       ))}
       {hasMore && (
-        <Button size="small" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
-          Load more ({notes.length - visibleCount} remaining)
-        </Button>
+        <Box sx={{ px: 3, py: 1 }}>
+          <Button size="small" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
+            Load more ({notes.length - visibleCount} remaining)
+          </Button>
+        </Box>
       )}
-    </Box>
+    </>
   );
 };

@@ -1,5 +1,16 @@
-import { Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
+import {
+  Box,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import React, { useState } from 'react';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { TextFieldStyled } from 'src/features/visits/shared/components/generic-notes-list/components/ui/TextFieldStyled';
 import { PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { useSavePatientNote } from '../hooks/useSavePatientNote';
 
@@ -9,6 +20,7 @@ interface EditPatientNoteModalProps {
 }
 
 export const EditPatientNoteModal: React.FC<EditPatientNoteModalProps> = ({ note, onClose }) => {
+  const theme = useTheme();
   const [text, setText] = useState(note.text);
   const { mutateAsync: save, isPending } = useSavePatientNote(note.patientId);
 
@@ -20,30 +32,40 @@ export const EditPatientNoteModal: React.FC<EditPatientNoteModalProps> = ({ note
 
   return (
     <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Edit Patient Note</DialogTitle>
+      <DialogTitle>
+        <Box display="flex" alignItems="center" color={theme.palette.primary.dark}>
+          <Typography variant="h4">Edit Patient Note</Typography>
+        </Box>
+      </DialogTitle>
       <DialogContent>
-        <TextField
-          multiline
-          minRows={3}
+        <TextFieldStyled
+          autoFocus
+          margin="dense"
+          id="patient-note-text"
+          label="Patient Note"
+          type="text"
           fullWidth
+          multiline
+          rows={6}
+          variant="outlined"
           value={text}
           onChange={(e) => setText(e.target.value)}
           disabled={isPending}
-          sx={{ mt: 1 }}
+          sx={{ mt: 2 }}
         />
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={isPending}>
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleSave}
+      <DialogActions sx={{ px: 3, py: 1, pb: 3 }}>
+        <RoundedButton onClick={onClose} variant="text" sx={{ mr: 1 }} disabled={isPending}>
+          Leave
+        </RoundedButton>
+        <RoundedButton
           disabled={!text.trim() || isPending}
-          startIcon={isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
+          onClick={handleSave}
+          variant="contained"
+          startIcon={isPending ? <CircularProgress size={20} color="inherit" /> : null}
         >
           {isPending ? 'Saving...' : 'Save'}
-        </Button>
+        </RoundedButton>
       </DialogActions>
     </Dialog>
   );

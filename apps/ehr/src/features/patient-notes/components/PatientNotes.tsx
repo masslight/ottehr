@@ -2,13 +2,13 @@ import { StickyNote2Outlined as NoteIcon } from '@mui/icons-material';
 import { Badge, IconButton, Tooltip } from '@mui/material';
 import React, { useState } from 'react';
 import { usePatientNotes } from '../hooks/usePatientNotes';
-import { PatientNotesDrawer } from './PatientNotesDrawer';
+import { PatientNotesDialog } from './PatientNotesDialog';
 
-interface PatientNotesButtonProps {
+interface PatientNotesProps {
   patientId?: string;
 }
 
-export const PatientNotesButton: React.FC<PatientNotesButtonProps> = ({ patientId }) => {
+export const PatientNotes: React.FC<PatientNotesProps> = ({ patientId }) => {
   const [open, setOpen] = useState(false);
   const { data: notes } = usePatientNotes(patientId);
   const count = notes?.length ?? 0;
@@ -25,7 +25,7 @@ export const PatientNotesButton: React.FC<PatientNotesButtonProps> = ({ patientI
         </IconButton>
       </Tooltip>
 
-      <PatientNotesDrawer patientId={patientId} open={open} onClose={() => setOpen(false)} />
+      <PatientNotesDialog patientId={patientId} open={open} onClose={() => setOpen(false)} />
     </>
   );
 };

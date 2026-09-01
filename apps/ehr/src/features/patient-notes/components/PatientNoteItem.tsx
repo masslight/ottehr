@@ -1,7 +1,8 @@
 import { EditOutlined as EditIcon } from '@mui/icons-material';
-import { Box, Chip, IconButton, Typography, useTheme } from '@mui/material';
+import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { useState } from 'react';
+import { BoxStyled } from 'src/features/visits/shared/components/generic-notes-list/components/ui/BoxStyled';
 import { PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import { EditPatientNoteModal } from './EditPatientNoteModal';
@@ -22,42 +23,27 @@ export const PatientNoteItem: React.FC<PatientNoteItemProps> = ({ note }) => {
 
   return (
     <>
-      <Box
-        sx={{
-          py: 1.5,
-          px: 2,
-          borderRadius: 1,
-          border: `1px solid ${theme.palette.divider}`,
-          position: 'relative',
-        }}
-      >
-        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mb: 0.5 }}>
-          {note.text}
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <Typography variant="caption" color="text.secondary">
+      <BoxStyled>
+        <Box sx={{ py: 1, pr: 4 }}>
+          <Typography variant="body1">{note.text}</Typography>
+          <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
             {formattedDate} by {note.authorName || note.authorId}
+            {note.edited ? ' (edited)' : ''}
           </Typography>
-          {note.edited && (
-            <Chip label="edited" size="small" variant="outlined" sx={{ height: 16, fontSize: '0.65rem' }} />
-          )}
         </Box>
         {canEdit && (
-          <IconButton
-            size="small"
-            aria-label="edit note"
-            onClick={() => setIsEditOpen(true)}
-            sx={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              color: theme.palette.primary.dark,
-            }}
-          >
-            <EditIcon fontSize="small" />
-          </IconButton>
+          <Box sx={{ minWidth: '72px', py: 1 }}>
+            <IconButton
+              size="small"
+              aria-label="edit note"
+              sx={{ color: theme.palette.primary.dark }}
+              onClick={() => setIsEditOpen(true)}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Box>
         )}
-      </Box>
+      </BoxStyled>
 
       {isEditOpen && <EditPatientNoteModal note={note} onClose={() => setIsEditOpen(false)} />}
     </>
