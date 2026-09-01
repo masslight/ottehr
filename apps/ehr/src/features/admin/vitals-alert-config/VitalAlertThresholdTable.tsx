@@ -13,6 +13,7 @@ import {
   VitalsAlertConfig,
 } from 'utils/lib/types/api/vitals-alert-config/vitals-alert-config.types';
 import { formatVitalAlertAgeRange } from 'utils/lib/utils/vitals-alert-config';
+import { parseNumberInput } from './helpers';
 
 interface VitalAlertThresholdTableProps {
   control: Control<VitalsAlertConfig>;
@@ -76,12 +77,8 @@ export const VitalAlertThresholdTable = ({
                       render={({ field: { value, onChange, ...field }, fieldState }) => (
                         <TextField
                           {...field}
-                          // The empty string is how a level is cleared.
                           value={value ?? ''}
-                          onChange={(event) => {
-                            const raw = event.target.value;
-                            onChange(raw === '' ? undefined : Number(raw));
-                          }}
+                          onChange={(event) => onChange(parseNumberInput(event.target.value))}
                           type="number"
                           size="small"
                           inputProps={{ step: 'any', 'aria-label': `${VITAL_ALERT_LEVEL_LABELS[level]}` }}

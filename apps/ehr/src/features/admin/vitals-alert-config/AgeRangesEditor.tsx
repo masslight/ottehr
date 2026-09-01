@@ -12,6 +12,7 @@ import {
   VitalsAlertConfig,
 } from 'utils/lib/types/api/vitals-alert-config/vitals-alert-config.types';
 import { formatVitalAlertAgeRange } from 'utils/lib/utils/vitals-alert-config';
+import { parseNumberInput } from './helpers';
 
 const AGE_UNITS = VitalsAgeUnitSchema.options;
 
@@ -93,7 +94,7 @@ export const AgeRangesEditor = ({
                   <TextField
                     {...field}
                     value={value ?? ''}
-                    onChange={(event) => onChange(event.target.value === '' ? undefined : Number(event.target.value))}
+                    onChange={(event) => onChange(parseNumberInput(event.target.value))}
                     type="number"
                     size="small"
                     label="From"
@@ -131,9 +132,9 @@ export const AgeRangesEditor = ({
                     {...field}
                     value={value ?? ''}
                     onChange={(event) => {
-                      const raw = event.target.value;
-                      onChange(raw === '' ? undefined : Number(raw));
-                      if (raw !== '') {
+                      const parsed = parseNumberInput(event.target.value);
+                      onChange(parsed);
+                      if (parsed !== undefined) {
                         onMaxAgeValueEntered(index);
                       }
                     }}
