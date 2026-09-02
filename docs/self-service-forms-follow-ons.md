@@ -6,7 +6,8 @@ building, and is recorded here so the reasoning survives into the tickets rather
 **Part I** covers binding a group of form fields to a variable-length collection from the encounter —
 medications, labs, diagnoses — with the concrete instance chosen at fill time. **Part II** covers letting a
 model propose an initial mapping for an admin to review. **Part III** covers extending the provenance guard,
-built for the forms flow, to the general document upload path that currently bypasses it.
+built for the forms flow, to the general document upload path that currently bypasses it. **Part IV** records
+why completed forms are kept out of the fax packet, and what including them would take.
 
 ---
 
@@ -209,3 +210,50 @@ the shape of its upload, not by registering with anything.
   this system generates?
 - Should a refused upload be recorded — an attempt to file another patient's document onto a chart is
   arguably an auditable event, and today it leaves only a log line.
+
+---
+
+## Part IV — Completed forms and the fax packet (decided against, for now)
+
+Recorded because "why aren't completed forms faxed?" is a question the code does not answer on its own.
+
+### 1. What happens today
+
+Completed forms are **not** included in the "Fax Patient Docs" packet. They can be faxed **individually**
+from the documents list.
+
+The two paths are built on different rules, and each is right for its job:
+
+| Path | Rule |
+| --- | --- |
+| Fax packet (`findVisitDocuments`) | A closed enum of five kinds, each found by an explicit `type` code — progress note, discharge summary, lab results, radiology results, patient education. |
+| Per-document fax (`isDocumentFaxable`) | Permissive: everything qualifies whose stored attachment is a format a fax can carry, minus two type codes that would fail downstream. |
+
+### 2. Why they miss the packet
+
+Every packet kind is keyed on `type`. Completed forms deliberately have no fixed type code — clinical type
+varies per template, so `type` is inherited from the template and `category` carries the "this is a form
+instance" fact. The decision that keeps forms flexible is the same one that makes them invisible to a
+type-keyed collector; they would have to be found by `category` + `docStatus`, an axis no other kind uses.
+
+### 3. Why it stays that way
+
+The packet's value is that its contents are predictable. Admin-authored forms are heterogeneous — some
+belong with a records request, some emphatically do not — and sweeping them in would mean an unrelated form
+travelling to a payer because it happened to be returned on the same visit. Individual faxing already
+covers the cases that need sending, so nothing is stuck.
+
+Revisit if product asks for custom forms in the packet explicitly.
+
+### 4. What including them would take
+
+A sixth `FaxDocumentKind`, a label, an entry in `FAX_DOCUMENT_ORDER`, and one search keyed on category
+rather than type. Three things would need deciding first:
+
+- **Drafts must be excluded** — `docStatus: final` only. The `hide-while-preliminary` tag does not help
+  here; the collector would need its own filter. Faxing a half-filled prefilled draft to a payer is the
+  failure to avoid.
+- **One checkbox or several.** All completed forms under a single kind makes a visit with three returned
+  forms all-or-nothing, which is exactly the imprecision that argued against inclusion.
+- **`related` vs `encounter` scoping.** Form instances set `context.encounter`, but the progress note is
+  found by `related=Appointment`, so confirm which the dialog scopes by.

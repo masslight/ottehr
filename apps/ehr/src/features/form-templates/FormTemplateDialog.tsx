@@ -7,6 +7,8 @@ import {
   DialogTitle,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -16,7 +18,12 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { FormTemplateItem } from 'utils/lib/types/api/form-template.types';
-import { createFormTemplateWithPdf, replaceFormTemplateWithPdf, updateFormTemplate } from './form-templates.api';
+import {
+  createFormTemplateFromUrl,
+  createFormTemplateWithPdf,
+  replaceFormTemplateWithPdf,
+  updateFormTemplate,
+} from './form-templates.api';
 import { clearMappingDraft } from './mapping-draft';
 import { FORM_TEMPLATES_QUERY_KEY } from './useFormTemplates';
 
@@ -35,6 +42,11 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose, item }) => 
   const [title, setTitle] = useState(item?.title ?? '');
   const [description, setDescription] = useState(item?.description ?? '');
   const [file, setFile] = useState<File | null>(null);
+  // Only offered when creating. Replacing an existing template's PDF stays file-only: that path hands back
+  // a candidate location and swaps the template once the replacement analyses cleanly, which the import
+  // does not do.
+  const [source, setSource] = useState<'file' | 'link'>('file');
+  const [sourceUrl, setSourceUrl] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
@@ -63,6 +75,14 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose, item }) => 
           return { replaced };
         }
         return {};
+      }
+
+      if (source === 'link') {
+        return createFormTemplateFromUrl(oystehrZambda, {
+          title: title.trim(),
+          description: description.trim() || undefined,
+          sourceUrl: sourceUrl.trim(),
+        });
       }
 
       if (!file) throw new Error('A PDF file is required');
@@ -109,11 +129,14 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose, item }) => 
 
   const isBusy = saveMutation.isPending;
   const titleError = submitAttempted && !title.trim() ? 'This field is required' : undefined;
-  const fileError = submitAttempted && !isEdit && !file ? 'A PDF file is required' : undefined;
+  const usingLink = !isEdit && source === 'link';
+  const fileError = submitAttempted && !isEdit && !usingLink && !file ? 'A PDF file is required' : undefined;
+  const urlError = submitAttempted && usingLink && !sourceUrl.trim() ? 'A link to the PDF is required' : undefined;
 
   const handleSubmit = (): void => {
     setSubmitAttempted(true);
-    if (!title.trim() || (!isEdit && !file)) return;
+    if (!title.trim()) return;
+    if (usingLink ? !sourceUrl.trim() : !isEdit && !file) return;
     saveMutation.mutate();
   };
 
@@ -142,19 +165,50 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose, item }) => 
             fullWidth
           />
 
-          <RoundedButton component="label" variant="outlined" startIcon={<UploadFileIcon />} disabled={isBusy}>
-            {file ? file.name : isEdit ? 'Replace PDF' : 'Choose PDF'}
-            <input
-              type="file"
-              accept="application/pdf,.pdf"
-              hidden
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          {!isEdit && (
+            <ToggleButtonGroup
+              value={source}
+              exclusive
+              size="small"
+              disabled={isBusy}
+              onChange={(_, next) => next && setSource(next as 'file' | 'link')}
+            >
+              <ToggleButton value="file">Upload a PDF</ToggleButton>
+              <ToggleButton value="link">Import from a link</ToggleButton>
+            </ToggleButtonGroup>
+          )}
+
+          {usingLink ? (
+            <TextField
+              label="Link to the PDF"
+              placeholder="https://example.gov/forms/dwc073.pdf"
+              value={sourceUrl}
+              onChange={(e) => setSourceUrl(e.target.value)}
+              disabled={isBusy}
+              error={!!urlError}
+              helperText={
+                urlError ??
+                'The PDF is downloaded and stored here, so the template keeps working if the publisher moves or revises it.'
+              }
+              fullWidth
             />
-          </RoundedButton>
-          {fileError && (
-            <Typography color="error" variant="body2">
-              {fileError}
-            </Typography>
+          ) : (
+            <>
+              <RoundedButton component="label" variant="outlined" startIcon={<UploadFileIcon />} disabled={isBusy}>
+                {file ? file.name : isEdit ? 'Replace PDF' : 'Choose PDF'}
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  hidden
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                />
+              </RoundedButton>
+              {fileError && (
+                <Typography color="error" variant="body2">
+                  {fileError}
+                </Typography>
+              )}
+            </>
           )}
           <Typography variant="body2" color={isEdit && file ? 'warning.main' : 'text.secondary'}>
             {!isEdit

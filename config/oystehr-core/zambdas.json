@@ -2500,6 +2500,13 @@
       "src": "src/ehr/save-completed-form/index",
       "zip": ".dist/zips/save-completed-form.zip"
     },
+    "IMPORT-FORM-TEMPLATE-FROM-URL": {
+      "name": "import-form-template-from-url",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/import-form-template-from-url/index",
+      "zip": ".dist/zips/import-form-template-from-url.zip"
+    },
     "FILL-FORM-TEMPLATE": {
       "name": "fill-form-template",
       "type": "http_auth",

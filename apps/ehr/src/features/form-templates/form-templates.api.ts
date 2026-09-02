@@ -14,6 +14,8 @@ import {
   FormTemplateAnalysisStatus,
   GetFormTemplateDetailInput,
   GetFormTemplateDetailOutput,
+  ImportFormTemplateFromUrlInput,
+  ImportFormTemplateFromUrlOutput,
   ListFormTemplatesInput,
   ListFormTemplatesOutput,
   ReplaceFormTemplatePdfInput,
@@ -30,6 +32,7 @@ const ANALYZE_FORM_TEMPLATE_ZAMBDA_ID = 'analyze-form-template';
 const FILL_FORM_TEMPLATE_ZAMBDA_ID = 'fill-form-template';
 const CREATE_COMPLETED_FORM_UPLOAD_URL_ZAMBDA_ID = 'create-completed-form-upload-url';
 const SAVE_COMPLETED_FORM_ZAMBDA_ID = 'save-completed-form';
+const IMPORT_FORM_TEMPLATE_FROM_URL_ZAMBDA_ID = 'import-form-template-from-url';
 const CREATE_FORM_TEMPLATE_UPLOAD_URL_ZAMBDA_ID = 'create-form-template-upload-url';
 const GET_FORM_TEMPLATE_DETAIL_ZAMBDA_ID = 'get-form-template-detail';
 const REPLACE_FORM_TEMPLATE_PDF_ZAMBDA_ID = 'replace-form-template-pdf';
@@ -253,6 +256,41 @@ export const REJECTION_MESSAGES: Record<string, string> = {
   dynamicXfa:
     'This PDF uses Adobe’s dynamic XFA format, which browsers cannot display. Please upload a standard PDF version of the form.',
   unreadable: 'This file could not be read as a PDF. Please check the file and try again.',
+};
+
+const importFormTemplateFromUrl = async (
+  oystehr: Oystehr,
+  parameters: ImportFormTemplateFromUrlInput
+): Promise<ImportFormTemplateFromUrlOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: IMPORT_FORM_TEMPLATE_FROM_URL_ZAMBDA_ID, ...parameters });
+    return chooseJson(response) as ImportFormTemplateFromUrlOutput;
+  } catch (error: unknown) {
+    console.error(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+/**
+ * Creates a template from a published PDF at a public address.
+ *
+ * Two steps rather than the file path's three: the server fetches the bytes itself, so there is no browser
+ * upload in the middle. Analysis is the same second step either way, and still deletes the record outright
+ * if the PDF turns out to be unusable.
+ */
+export const createFormTemplateFromUrl = async (
+  oystehr: Oystehr,
+  parameters: ImportFormTemplateFromUrlInput
+): Promise<{ created: ImportFormTemplateFromUrlOutput; analysis: AnalyzeFormTemplateOutput }> => {
+  const created = await importFormTemplateFromUrl(oystehr, parameters);
+  const analysis = await analyzeFormTemplate(oystehr, { documentReferenceId: created.documentReferenceId });
+
+  const rejection = REJECTION_MESSAGES[analysis.status as FormTemplateAnalysisStatus];
+  if (rejection) {
+    throw new Error(rejection);
+  }
+
+  return { created, analysis };
 };
 
 /**

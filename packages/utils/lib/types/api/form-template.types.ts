@@ -126,6 +126,27 @@ export interface FillFormTemplateOutput {
   report: FormFillReport;
 }
 
+/**
+ * Importing a template by address instead of by file.
+ *
+ * A copy is fetched and stored rather than the address being referenced: the publisher of a government
+ * form will move, revise, or withdraw it, and a template that resolves differently next year is a
+ * template nobody can trust. The address is kept as provenance, not as the source of the bytes.
+ */
+export interface ImportFormTemplateFromUrlInput {
+  title: string;
+  description?: string;
+  /** Public https address of the PDF. Fetched once, server-side. */
+  sourceUrl: string;
+}
+
+export interface ImportFormTemplateFromUrlOutput {
+  documentReferenceId: string;
+  identifier: string;
+  /** Where the bytes actually came from, after any redirects. */
+  resolvedFrom: string;
+}
+
 /** Presign step for returning a completed form. Writes nothing — see `DocumentVerificationResult`. */
 export interface CreateCompletedFormUploadUrlInput {
   /** The visit the form belongs to. The patient is resolved from it server-side, never sent by the client. */
