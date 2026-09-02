@@ -7,7 +7,7 @@ import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getProgressNoteConfigPayload } from '../../shared/progress-note-config';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { assembleNoteReviewText, buildNoteReviewPrompt, coerceSuggestions } from './helpers';
+import { assembleNoteReviewText, buildNoteReviewPrompt, coerceSuggestions, describeJsonShape } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -88,7 +88,7 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
   } else if (type === 'procedure' || type === 'missing-hpi' || type === 'note-review') {
     const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets, suggestionSchema);
     // Same reason: a note-review response can quote the note back. A malformed payload is logged
-    // truncated below, which is enough to see what shape came back.
+    // as its structure below, which is what makes the failure diagnosable.
     if (type === 'note-review') {
       console.log(`note-review response: ${aiResponseString.length} chars`);
     } else {
@@ -107,7 +107,11 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
       if (coerced === null) {
         // These strings render straight into the Review & Sign page. A malformed payload becomes
         // "no warnings" rather than something the UI has to defend against mid-render.
-        console.error('Note review response was not a list of suggestions:', aiResponseString.slice(0, 500));
+        console.error(
+          `Note review response was not a list of suggestions: ${describeJsonShape(suggestions)} (${
+            aiResponseString.length
+          } chars)`
+        );
       }
       suggestions = { suggestions: coerced ?? [] };
     }

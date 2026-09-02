@@ -71,3 +71,30 @@ export function coerceSuggestions(parsed: unknown): string[] | null {
   if (!Array.isArray(suggestions)) return null;
   return suggestions.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
 }
+
+/**
+ * Describes the structure of a parsed AI payload without reproducing any of its content.
+ *
+ * A malformed note-review response is the case where the model has left the schema, so it is also
+ * the case most likely to be quoting the progress note back. Types and key names are enough to tell
+ * `{ warnings: [...] }` from `{ suggestions: "..." }` from a bare array; the strings themselves are
+ * never what makes that diagnosable.
+ */
+export function describeJsonShape(value: unknown, depth = 0): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) {
+    if (value.length === 0) return 'array[0]';
+    const elementTypes = [...new Set(value.map((item) => describeJsonShape(item, depth + 1)))];
+    return `array[${value.length} of ${elementTypes.slice(0, 3).join('|')}]`;
+  }
+  if (typeof value !== 'object') return typeof value;
+  if (depth >= 2) return 'object';
+
+  const keys = Object.keys(value);
+  const described = keys
+    .slice(0, 10)
+    // Key names come from the model, so they are bounded too.
+    .map((key) => `${key.slice(0, 40)}: ${describeJsonShape((value as Record<string, unknown>)[key], depth + 1)}`);
+  if (keys.length > described.length) described.push(`…${keys.length - described.length} more`);
+  return `object{${described.join(', ')}}`;
+}

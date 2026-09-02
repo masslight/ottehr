@@ -1,7 +1,7 @@
 import { Role, User } from '@oystehr/sdk';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { describe, expect, test } from 'vitest';
-import { buildNoteReviewPrompt, coerceSuggestions } from '../../src/ehr/ai-suggestion-notes/helpers';
+import { buildNoteReviewPrompt, coerceSuggestions, describeJsonShape } from '../../src/ehr/ai-suggestion-notes/helpers';
 import { validateRequestParameters } from '../../src/ehr/ai-suggestion-notes/validateRequestParameters';
 import { resolveSignReviewPrompt } from '../../src/ehr/progress-note-config/admin-update-progress-note-config/helpers';
 import { progressNoteDataToText } from '../../src/shared/pdf/progress-note-text';
@@ -256,5 +256,39 @@ describe('progressNoteDataToText', () => {
     expect(text).toContain('MDM:\nSplint applied');
     expect(text).toContain('- Procedure: Splint application | Body site: Wrist (Left)');
     expect(text).toContain('LAB ORDERS:\n- CBC');
+  });
+});
+
+describe('describeJsonShape', () => {
+  test('names the keys and types of an off-schema payload without its content', () => {
+    const shape = describeJsonShape({
+      warnings: ['Patient Jane Doe has no ROS documented', 'MDM missing'],
+      note: 'Wrist strain after a fall at 123 Main St',
+    });
+
+    expect(shape).toBe('object{warnings: array[2 of string], note: string}');
+  });
+
+  test('reports a scalar where a list was expected', () => {
+    expect(describeJsonShape({ suggestions: 'Go to ROS' })).toBe('object{suggestions: string}');
+    expect(describeJsonShape([])).toBe('array[0]');
+    expect(describeJsonShape(null)).toBe('null');
+  });
+
+  test('leaks nothing from a payload that is entirely note text', () => {
+    const phi = 'Jane Doe, DOB 1990-01-01, wrist pain';
+    const shape = describeJsonShape({ suggestions: [{ text: phi, patient: { name: phi } }] });
+
+    expect(shape).not.toContain('Jane');
+    expect(shape).not.toContain('1990');
+    // Nesting past the second level collapses to a bare type, which is all a nested payload needs
+    // to be recognizable as one.
+    expect(shape).toBe('object{suggestions: array[1 of object]}');
+  });
+
+  test('bounds a wide object and a long key', () => {
+    const wide = Object.fromEntries(Array.from({ length: 14 }, (_, i) => [`key${i}`, i]));
+    expect(describeJsonShape(wide)).toContain('…4 more');
+    expect(describeJsonShape({ ['x'.repeat(80)]: 1 })).toBe(`object{${'x'.repeat(40)}: number}`);
   });
 });
