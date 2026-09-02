@@ -255,6 +255,8 @@ export const REJECTION_MESSAGES: Record<string, string> = {
     'This PDF needs a password to open, so its fields cannot be read. Please upload a copy that opens without one.',
   fillingNotPermitted:
     'The publisher of this PDF has disallowed filling in its form fields, so it cannot be prefilled. Please use a copy that permits form filling.',
+  certified:
+    'This PDF carries a certifying signature, and prefilling it would invalidate that signature — recipients would see the form flagged as altered. Please use an unsigned copy of the form.',
   dynamicXfa:
     'This PDF uses Adobe’s dynamic XFA format, which browsers cannot display. Please upload a standard PDF version of the form.',
   unreadable: 'This file could not be read as a PDF. Please check the file and try again.',

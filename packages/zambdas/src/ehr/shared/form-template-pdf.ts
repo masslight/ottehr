@@ -40,6 +40,27 @@ const TU = PDFName.of('TU');
 const isDynamicXfa = (doc: PDFDocument): boolean => doc.catalog.get(NEEDS_RENDERING)?.toString() === 'true';
 
 /**
+ * True when the document carries a certifying signature.
+ *
+ * Such a signature declares what may be changed after signing, and a viewer that finds the document
+ * altered beyond that says so — "the document has been altered" on a form arriving at a payer reads as
+ * tampering. Filling would break it in every case, not only where the signature forbids filling outright:
+ * a permitted change still has to be appended as an incremental update, and we rewrite the whole file.
+ *
+ * So these are refused rather than filled. The failure this avoids is one the recipient sees and we do
+ * not, which is the worst shape a defect can take.
+ *
+ * ⚠️ Specifically `/DocMDP`. `/Perms` also holds `/UR3` — Adobe Reader Extensions, which grant old
+ * versions of Reader the right to save a filled form. Those are invalidated by any edit too, but nothing
+ * displays a warning about it and modern viewers never needed them, so a document carrying only `UR3` is
+ * perfectly usable. Rejecting on `/Perms` alone would turn away good forms: DWC073 is one.
+ */
+const isCertified = (doc: PDFDocument): boolean => {
+  const perms = doc.catalog.lookupMaybe(PDFName.of('Perms'), PDFDict);
+  return !!perms?.get(PDFName.of('DocMDP'));
+};
+
+/**
  * Prepares an uploaded PDF for analysis and storage.
  *
  * Today this only removes a redundant XFA representation. Acrobat prefers XFA when both are present, so a
@@ -211,6 +232,10 @@ export const analyzeFormTemplatePdf = async (
 
   if (isDynamicXfa(doc)) {
     return { status: 'dynamicXfa', fields: [] };
+  }
+
+  if (isCertified(doc)) {
+    return { status: 'certified', fields: [] };
   }
 
   // Decryption rewrites the file, so the stored object has to be replaced even when nothing else changed.

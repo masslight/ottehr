@@ -213,6 +213,8 @@ export type FormTemplateAnalysisStatus =
   | 'encrypted'
   /** Openable, but its own permissions forbid filling in form fields, so we decline to decrypt it. */
   | 'fillingNotPermitted'
+  /** Carries a certifying signature, which any prefill would invalidate. */
+  | 'certified'
   | 'dynamicXfa'
   | 'unreadable';
 
