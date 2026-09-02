@@ -206,7 +206,15 @@ export interface FormFieldInfo {
  * `fillable` is the only status that supports mapping. `printable` still yields a usable template — a form
  * with no fields is a perfectly good handout — it just cannot be prefilled.
  */
-export type FormTemplateAnalysisStatus = 'fillable' | 'printable' | 'encrypted' | 'dynamicXfa' | 'unreadable';
+export type FormTemplateAnalysisStatus =
+  | 'fillable'
+  | 'printable'
+  /** Needs a password we do not have. */
+  | 'encrypted'
+  /** Openable, but its own permissions forbid filling in form fields, so we decline to decrypt it. */
+  | 'fillingNotPermitted'
+  | 'dynamicXfa'
+  | 'unreadable';
 
 export interface FormTemplateAnalysis {
   status: FormTemplateAnalysisStatus;

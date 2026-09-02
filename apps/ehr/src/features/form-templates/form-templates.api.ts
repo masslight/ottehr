@@ -252,7 +252,9 @@ export const replaceFormTemplateWithPdf = async (
 /** Why a PDF could not be accepted, in terms an administrator can act on. */
 export const REJECTION_MESSAGES: Record<string, string> = {
   encrypted:
-    'This PDF is password- or permission-protected, so its fields cannot be read. Please upload a copy without security restrictions.',
+    'This PDF needs a password to open, so its fields cannot be read. Please upload a copy that opens without one.',
+  fillingNotPermitted:
+    'The publisher of this PDF has disallowed filling in its form fields, so it cannot be prefilled. Please use a copy that permits form filling.',
   dynamicXfa:
     'This PDF uses Adobe’s dynamic XFA format, which browsers cannot display. Please upload a standard PDF version of the form.',
   unreadable: 'This file could not be read as a PDF. Please check the file and try again.',

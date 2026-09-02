@@ -19,6 +19,7 @@ import {
   FormFieldType,
   FormTemplateAnalysis,
 } from 'utils/lib/types/api/form-template.types';
+import { decryptTemplatePdf } from './form-template-decrypt';
 
 /**
  * Result of preparing an uploaded PDF for analysis.
@@ -45,8 +46,8 @@ const isDynamicXfa = (doc: PDFDocument): boolean => doc.catalog.get(NEEDS_RENDER
  * form we fill through its AcroForm layer would look correct in Chrome and blank in Acrobat; deleting the
  * entry forces every viewer down the path we actually write to.
  *
- * This is also where decryption belongs when it lands: it must run before classification, so an encrypted
- * file is judged on its real field count rather than being reported as unreadable.
+ * Decryption is not done here: it has to happen on the raw bytes before this document was parsed at all,
+ * so it lives in `decryptTemplatePdf` and runs earlier.
  */
 export const normalizeTemplatePdf = async (doc: PDFDocument): Promise<NormalizedPdf | undefined> => {
   const acroForm = doc.catalog.AcroForm();
@@ -184,14 +185,26 @@ const describeField = (field: PDFField, pageIndex: Map<PDFDict, number>): FormFi
 export const analyzeFormTemplatePdf = async (
   bytes: Uint8Array
 ): Promise<FormTemplateAnalysis & { normalized?: NormalizedPdf }> => {
+  // Before anything else: an encrypted document parses into damaged nonsense rather than failing cleanly,
+  // so it has to be decrypted here or judged on a structure that is not really the document's.
+  const decryption = await decryptTemplatePdf(bytes);
+  if (decryption.kind === 'passwordProtected') {
+    return { status: 'encrypted', fields: [] };
+  }
+  if (decryption.kind === 'fillingNotPermitted') {
+    return { status: 'fillingNotPermitted', fields: [] };
+  }
+  const workingBytes = decryption.kind === 'decrypted' ? decryption.bytes : bytes;
+
   let doc: PDFDocument;
   try {
-    doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    doc = await PDFDocument.load(workingBytes, { ignoreEncryption: true });
   } catch (error) {
     console.warn('Could not parse uploaded form template', error);
     return { status: 'unreadable', fields: [] };
   }
 
+  // A backstop rather than a live path: decryption above either removed this or returned already.
   if (doc.isEncrypted) {
     return { status: 'encrypted', fields: [] };
   }
@@ -200,7 +213,10 @@ export const analyzeFormTemplatePdf = async (
     return { status: 'dynamicXfa', fields: [] };
   }
 
-  const normalized = await normalizeTemplatePdf(doc);
+  // Decryption rewrites the file, so the stored object has to be replaced even when nothing else changed.
+  const normalized =
+    (await normalizeTemplatePdf(doc)) ??
+    (decryption.kind === 'decrypted' ? { bytes: workingBytes, changed: true } : undefined);
 
   const fields = doc.getForm().getFields();
   if (fields.length === 0) {
