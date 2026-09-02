@@ -12,7 +12,7 @@ import { ExportBillingClaimsInput } from 'utils/lib/types/data/billing/billing.s
 import { CLAIM_EXPORT_HEADERS, claimExportRow } from '../../../billing/claim-export-csv';
 import {
   buildClaimFilterParams,
-  CLAIM_LIST_INCLUDE_PARAMS,
+  CLAIM_LIST_PARAMS,
   claimMatchesServiceDateRange,
   enrichAndMapClaims,
   fetchClaimsPageByIds,
@@ -160,7 +160,7 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
     const bundle = await oystehr.fhir.search<Claim>({
       resourceType: 'Claim',
       params: [
-        ...CLAIM_LIST_INCLUDE_PARAMS,
+        ...CLAIM_LIST_PARAMS,
         ...filterParams,
         {
           name: '_count',

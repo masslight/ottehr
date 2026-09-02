@@ -48,6 +48,48 @@ export const CLAIM_LIST_INCLUDE_PARAMS: ClaimSearchParam[] = [
   },
 ];
 
+// WARNING: this list must cover every field read from resources returned by the claim list search
+// bundle. If you access a new field on any of these resource types downstream (including via
+// mapClaimToItem's helpers or enrichAndMapClaims' follow-up fetches), you MUST add it here —
+// otherwise the server strips it via _elements and it arrives as undefined.
+export const CLAIM_LIST_ELEMENTS = [
+  'Claim.id',
+  'Claim.meta',
+  'Claim.status',
+  'Claim.type',
+  // fetchPatientPaidByClaimId keys the patient payment total off the claim-encounter-id identifier.
+  'Claim.identifier',
+  'Claim.created',
+  'Claim.total',
+  'Claim.patient',
+  'Claim.insurer',
+  'Claim.facility',
+  // Not mapped, but kept so the server can still resolve _include Claim:provider.
+  'Claim.provider',
+  'Claim.careTeam',
+  'Claim.insurance',
+  'Claim.item',
+  'Patient.id',
+  'Patient.name',
+  'Patient.birthDate',
+  'Location.id',
+  'Location.name',
+  'Practitioner.id',
+  'Practitioner.name',
+  'Organization.id',
+  'Organization.name',
+].join(',');
+
+// The include + _elements pair every claim list read uses. Paired in one constant so a new list
+// query cannot pick up the includes and forget to narrow the fields they drag in.
+export const CLAIM_LIST_PARAMS: ClaimSearchParam[] = [
+  ...CLAIM_LIST_INCLUDE_PARAMS,
+  {
+    name: '_elements',
+    value: CLAIM_LIST_ELEMENTS,
+  },
+];
+
 export type ClaimFilterInput = Pick<
   SearchBillingClaimsInput,
   | 'type'
@@ -164,6 +206,11 @@ export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: s
 export const CLAIM_SEARCH_TEXT_MATCH_LIMIT = 1000;
 export const CLAIM_SEARCH_TEXT_CONCURRENCY = 4;
 
+export const claimScanElements = (withServiceDate: boolean): ClaimSearchParam => ({
+  name: '_elements',
+  value: withServiceDate ? 'id,meta,created,item' : 'id,meta',
+});
+
 export function buildClaimSearchTextQueries({
   searchText,
   patientNameOnly,
@@ -272,12 +319,7 @@ export async function searchClaimsBySearchText({
   patientNameOnly?: boolean;
 }): Promise<{ claims: FhirResourceReturnValue<Claim>[]; incomplete: boolean }> {
   const pageParams: ClaimSearchParam[] = [
-    {
-      name: '_elements',
-      // getClaimServiceDate reads item and created, and Claim has no service-date search parameter,
-      // so that filter has to run in memory over these ids.
-      value: withServiceDateElements ? 'id,meta,created,item' : 'id,meta',
-    },
+    claimScanElements(withServiceDateElements),
     {
       name: '_count',
       value: String(CLAIM_SEARCH_TEXT_MATCH_LIMIT),
@@ -358,7 +400,7 @@ export async function fetchClaimsPageByIds({
         name: '_id',
         value: claimIds.join(','),
       },
-      ...CLAIM_LIST_INCLUDE_PARAMS,
+      ...CLAIM_LIST_PARAMS,
       {
         name: '_count',
         value: String(claimIds.length),
@@ -412,6 +454,10 @@ export async function enrichAndMapClaims({
         {
           name: '_id',
           value: uniqueCoverageIds.join(','),
+        },
+        {
+          name: '_count',
+          value: String(uniqueCoverageIds.length),
         },
       ],
     });

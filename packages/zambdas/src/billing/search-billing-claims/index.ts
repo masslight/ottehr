@@ -8,7 +8,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import {
   buildClaimFilterParams,
-  CLAIM_LIST_INCLUDE_PARAMS,
+  CLAIM_LIST_PARAMS,
   claimMatchesServiceDateRange,
   enrichAndMapClaims,
   fetchClaimsPageByIds,
@@ -74,7 +74,7 @@ async function performEffect(
     includedResources = await getAllFhirSearchPages<Claim | Patient | Location | Practitioner | Organization>(
       {
         resourceType: 'Claim',
-        params: [...CLAIM_LIST_INCLUDE_PARAMS, ...filterParams],
+        params: [...CLAIM_LIST_PARAMS, ...filterParams],
       },
       oystehr
     );
@@ -87,7 +87,7 @@ async function performEffect(
     const bundle = await oystehr.fhir.search<Claim>({
       resourceType: 'Claim',
       params: [
-        ...CLAIM_LIST_INCLUDE_PARAMS,
+        ...CLAIM_LIST_PARAMS,
         ...filterParams,
         { name: '_count', value: String(pageSize) },
         { name: '_offset', value: String(offset) },

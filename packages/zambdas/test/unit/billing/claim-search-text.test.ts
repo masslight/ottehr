@@ -3,9 +3,11 @@ import { Claim, Resource } from 'fhir/r4b';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
 import {
   buildClaimSearchTextQueries,
+  CLAIM_LIST_ELEMENTS,
   CLAIM_LIST_INCLUDE_PARAMS,
   CLAIM_SEARCH_TEXT_MATCH_LIMIT,
   describeClaimSearchClause,
+  enrichAndMapClaims,
   fetchClaimsPageByIds,
   searchClaimsBySearchText,
 } from '../../../src/billing/claim-search';
@@ -499,6 +501,89 @@ const stubPageClient = (
   };
 };
 
+describe('enrichAndMapClaims', () => {
+  const stubEnrichClient = (): {
+    oystehr: Oystehr;
+    search: Mock;
+  } => {
+    const search = vi.fn().mockResolvedValue({
+      entry: [],
+      unbundle: () => [],
+    });
+    return {
+      oystehr: {
+        fhir: {
+          search,
+        },
+      } as unknown as Oystehr,
+      search,
+    };
+  };
+
+  const coverageSearchParams = (search: Mock): SearchParam[] => {
+    const call = search.mock.calls.find(([arg]) => arg.resourceType === 'Coverage');
+    if (!call) throw new Error('expected a Coverage search');
+    return call[0].params as SearchParam[];
+  };
+
+  const claimWithCoverage = (id: string, coverageId: string): Claim =>
+    ({
+      resourceType: 'Claim',
+      id,
+      status: 'active',
+      created: '2026-07-01',
+      type: {
+        coding: [],
+      },
+      total: {
+        value: 100,
+        currency: 'USD',
+      },
+      insurance: [
+        {
+          sequence: 1,
+          focal: true,
+          coverage: {
+            reference: `Coverage/${coverageId}`,
+          },
+        },
+      ],
+      meta: {
+        tag: [],
+      },
+    }) as unknown as Claim;
+
+  it('asks for as many coverages as the page has, rather than leaning on the default page size', async () => {
+    const claims = Array.from({ length: 60 }, (_unused, index) =>
+      claimWithCoverage(`claim-${index}`, `coverage-${index}`)
+    );
+    const { oystehr, search } = stubEnrichClient();
+
+    await enrichAndMapClaims({
+      oystehr,
+      claims,
+      includedResources: [],
+    });
+
+    const coverageParams = coverageSearchParams(search);
+    expect(paramNamed(coverageParams, '_count')?.value).toBe('60');
+  });
+
+  it('asks for each coverage once when claims share one', async () => {
+    const { oystehr, search } = stubEnrichClient();
+
+    await enrichAndMapClaims({
+      oystehr,
+      claims: [claimWithCoverage('claim-1', 'coverage-1'), claimWithCoverage('claim-2', 'coverage-1')],
+      includedResources: [],
+    });
+
+    const coverageParams = coverageSearchParams(search);
+    expect(paramNamed(coverageParams, '_id')?.value).toBe('coverage-1');
+    expect(paramNamed(coverageParams, '_count')?.value).toBe('1');
+  });
+});
+
 describe('fetchClaimsPageByIds', () => {
   it('asks for exactly the page it was given, with the resources the list renders', async () => {
     const { oystehr, search } = stubPageClient([makeClaim('claim-1'), makeClaim('claim-2')]);
@@ -515,6 +600,10 @@ describe('fetchClaimsPageByIds', () => {
         value: 'claim-1,claim-2',
       },
       ...CLAIM_LIST_INCLUDE_PARAMS,
+      {
+        name: '_elements',
+        value: CLAIM_LIST_ELEMENTS,
+      },
       {
         name: '_count',
         value: '2',
