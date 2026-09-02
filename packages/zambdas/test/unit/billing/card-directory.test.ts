@@ -13,7 +13,9 @@ const visaCard = { id: 'pm_visa', brand: 'visa', last4: '4242' };
 
 const secrets = { PROJECT_ID: 'test-project' } as unknown as Secrets;
 // 'card-directory:v1:all' after Z3 object-name sanitization
-const DIRECTORY_PAYLOAD_PATH = 'billing-reports/card-directory_v1_all.json.gz';
+const DIRECTORY_KEY_PATH = 'billing-reports/card-directory_v1_all';
+const DIRECTORY_META_PATH = `${DIRECTORY_KEY_PATH}.meta.json`;
+const DIRECTORY_PAYLOAD_PATH = `${DIRECTORY_KEY_PATH}/rev-1.json.gz`;
 
 interface Upload {
   path: string;
@@ -41,19 +43,34 @@ const clientWith = (
     entries !== undefined
       ? gzipSync(new Uint8Array(Buffer.from(JSON.stringify({ generatedAt: freshISO, entries }), 'utf8')))
       : undefined;
+  const meta =
+    entries !== undefined
+      ? JSON.stringify({ generatedAt: freshISO, sizeBytes: gz?.length ?? 0, objectPath: DIRECTORY_PAYLOAD_PATH })
+      : undefined;
   const fetchMock = vi.fn(async (url: string) => {
+    if (meta && String(url).endsWith(DIRECTORY_META_PATH)) {
+      return {
+        ok: true,
+        status: 200,
+        arrayBuffer: async () => Uint8Array.from(Buffer.from(meta)).buffer,
+      } as unknown as Response;
+    }
     if (gz && String(url).endsWith(DIRECTORY_PAYLOAD_PATH)) {
       return { ok: true, status: 200, arrayBuffer: async () => Uint8Array.from(gz).buffer } as unknown as Response;
     }
     return { ok: false, status: 404, statusText: 'Not Found' } as unknown as Response;
   });
   vi.stubGlobal('fetch', fetchMock);
-  const oystehr = { z3: { getPresignedUrl, uploadFile } } as unknown as Oystehr;
+  const deleteObject = vi.fn(async () => ({}));
+  const oystehr = { z3: { getPresignedUrl, uploadFile, deleteObject } } as unknown as Oystehr;
   return { oystehr, uploads, uploadFile, fetchMock };
 };
 
 const savedEntries = async (uploads: Upload[]): Promise<Record<string, any>> => {
-  const payloadUpload = uploads.find((upload) => upload.path === DIRECTORY_PAYLOAD_PATH);
+  // saves write a new generation under the key prefix, then commit it via the meta
+  const payloadUpload = uploads.find(
+    (upload) => upload.path.startsWith(`${DIRECTORY_KEY_PATH}/`) && upload.path.endsWith('.json.gz')
+  );
   expect(payloadUpload).toBeDefined();
   const bytes = Buffer.from(await payloadUpload!.file.arrayBuffer());
   return JSON.parse(gunzipSync(new Uint8Array(bytes)).toString('utf8')).entries;

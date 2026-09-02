@@ -125,8 +125,13 @@ async function saveDirectory(
     const sorted = Object.entries(entries).sort(([, a], [, b]) => b.resolvedAt.localeCompare(a.resolvedAt));
     bounded = Object.fromEntries(sorted.slice(0, MAX_ENTRIES));
   }
-  await saveReportCache<CardDirectoryPayload>(oystehr, secrets, {}, DIRECTORY_CACHE_KEY, {
-    generatedAt: DateTime.now().toUTC().toISO() ?? '',
-    entries: bounded,
-  });
+  try {
+    await saveReportCache<CardDirectoryPayload>(oystehr, secrets, {}, DIRECTORY_CACHE_KEY, {
+      generatedAt: DateTime.now().toUTC().toISO() ?? '',
+      entries: bounded,
+    });
+  } catch (err) {
+    // the directory is a shared optimization; losing a write only costs future Stripe lookups
+    console.warn('Failed to save card directory:', (err as Error)?.message);
+  }
 }
