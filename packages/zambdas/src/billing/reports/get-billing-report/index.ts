@@ -51,12 +51,13 @@ export async function performEffect(
   if (rawDrilldown !== undefined) {
     if (!definition.drilldown) throw INVALID_INPUT_ERROR(`Report kind '${kind}' does not support drilldown`);
     const drillParams = safeValidate(definition.drilldown.paramsSchema, rawDrilldown);
-    const cachedDetail = await loadReportCacheWithSize<ReportDetailEnvelope<unknown>>(
-      oystehr,
-      secrets,
-      detailCacheKey(definition, params)
-    );
-    const status = await statusOf(oystehr, cacheKey, cachedDetail?.payload.generatedAt, undefined);
+    const [cachedDetail, meta] = await Promise.all([
+      loadReportCacheWithSize<ReportDetailEnvelope<unknown>>(oystehr, secrets, detailCacheKey(definition, params)),
+      loadReportCacheMeta(oystehr, secrets, cacheKey),
+    ]);
+    // status anchors on the main report snapshot so a missing detail doesn't surface
+    // historical failures as errors or drop lastCompletedAt
+    const status = await statusOf(oystehr, cacheKey, meta?.generatedAt ?? cachedDetail?.payload.generatedAt, undefined);
     if (!cachedDetail) {
       return { ...definition.drilldown.empty(), generatedAt: '', fromCache: false, status };
     }
