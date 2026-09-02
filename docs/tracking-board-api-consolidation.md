@@ -346,12 +346,13 @@ Manual QA checklist
 
 Targets to record before and after (Network tab, one tick)
 
-| Metric                                      | Before                                                                                | After                                                                                |
-| ------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------- | --- | -------------------------- | --- | --- |
-| Browser requests per tick                   | 8 (+2 on encounter-set change)                                                        | 1                                                                                    |
-| Server round trips per tick                 | about 21-24 FHIR/API calls, 7 of them sequenced behind get-appointments on the client | 2 (appointment search, then one batch), 3 when a next page or a size split is needed |
-| \1                                          | FHIR response bytes per tick                                                          | record during Phase 1                                                                | record again after Phase 4 | \n  | Encounter fetches per tick | 7   | 1   |
-| Data freshness for vitals and immunizations | on focus / encounter change only                                                      | every tick                                                                           |
+| Metric                                      | Before                                                                                        | After                                                                                |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Browser requests per tick                   | 8 (+2 on encounter-set change)                                                                | 1                                                                                    |
+| Server round trips per tick                 | about 21-24 FHIR/API calls, 7 of them sequenced behind get-appointments on the client         | 2 (appointment search, then one batch), 3 when a next page or a size split is needed |
+| Order-search payload                        | Coverage, Slot, Schedule, Patient, Practitioner and Observation-result includes on every tick | none of those; Task, DiagnosticReport, Provenance and ActivityDefinition only        |
+| FHIR response bytes per tick                | record during Phase 1                                                                         | record again after Phase 4                                                           |
+| Data freshness for vitals and immunizations | on focus / encounter change only                                                              | every tick                                                                           |
 
 ## 6. Risks and open questions
 
