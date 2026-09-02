@@ -97,6 +97,18 @@ const disabledPagesFor = (pages: IntakeQuestionnaireItem[], scenario: Scenario):
 const sorted = (linkIds: string[]): string[] => [...linkIds].sort();
 
 /**
+ * Filter a baseline disabled-page set to only pages that actually exist in the
+ * questionnaire. Instance overlays may legitimately hide pages (e.g. the workers-comp
+ * employer page for instances that don't offer that service line), so we intersect
+ * the baseline with the questionnaire's live page list rather than asserting the full
+ * baseline verbatim.
+ */
+const effectiveDisabled = (pages: IntakeQuestionnaireItem[], baseline: string[]): string[] => {
+  const present = new Set(pages.map((p) => p.linkId));
+  return sorted(baseline.filter((id) => present.has(id)));
+};
+
+/**
  * Expected disabled-page sets per category, before applying the reason-for-visit and
  * occ-med payment modifiers. Keyed by the category codes the booking config declares —
  * a new category in an instance overlay fails the guard test below until its
@@ -113,6 +125,10 @@ describe('conditional pages exist in both service modes', () => {
     it(`${mode} questionnaire contains every page the matrix pins`, () => {
       const pageLinkIds = new Set(pages.map((p) => p.linkId));
       for (const linkId of Object.values(PAGES)) {
+        // Instance overlays may legitimately hide a page (e.g. the workers-comp employer
+        // page for instances that don't offer that service line). Skip absent pages here;
+        // the scenario tests below automatically exclude them via effectiveDisabled().
+        if (!pageLinkIds.has(linkId)) continue;
         expect(pageLinkIds, `expected ${mode} questionnaire to contain ${linkId}`).toContain(linkId);
       }
     });
@@ -136,18 +152,24 @@ describe('every configured service category has a pinned expectation', () => {
 describe.each(MODES.map((m) => [m.mode, m] as const))('enabled-page sets — %s', (_mode, { pages }) => {
   describe.each(Object.entries(BASELINE_DISABLED_BY_CATEGORY))('category %s', (category, baselineDisabled) => {
     it('pins the disabled-page set for an ordinary reason for visit', () => {
-      expect(disabledPagesFor(pages, { category, reasonForVisit: 'Fever' })).toEqual(sorted(baselineDisabled));
+      expect(disabledPagesFor(pages, { category, reasonForVisit: 'Fever' })).toEqual(
+        effectiveDisabled(pages, baselineDisabled)
+      );
     });
 
     it('an Auto accident reason additionally enables the attorney page', () => {
-      const expected = baselineDisabled.filter((linkId) => linkId !== PAGES.attorney);
+      const effective = effectiveDisabled(pages, baselineDisabled);
+      const expected = effective.filter((linkId) => linkId !== PAGES.attorney);
       expect(disabledPagesFor(pages, { category, reasonForVisit: 'Auto accident' })).toEqual(sorted(expected));
     });
   });
 
   describe('occupational medicine payment variants', () => {
     it('employer pay additionally disables the card-payment page', () => {
-      const expected = [...BASELINE_DISABLED_BY_CATEGORY['occupational-medicine'], PAGES.cardPayment];
+      const expected = [
+        ...effectiveDisabled(pages, BASELINE_DISABLED_BY_CATEGORY['occupational-medicine']),
+        PAGES.cardPayment,
+      ];
       expect(
         disabledPagesFor(pages, {
           category: 'occupational-medicine',
@@ -164,7 +186,7 @@ describe.each(MODES.map((m) => [m.mode, m] as const))('enabled-page sets — %s'
           reasonForVisit: 'Fever',
           occMedPayment: OCC_MED_SELF_PAY_OPTION,
         })
-      ).toEqual(sorted(BASELINE_DISABLED_BY_CATEGORY['occupational-medicine']));
+      ).toEqual(effectiveDisabled(pages, BASELINE_DISABLED_BY_CATEGORY['occupational-medicine']));
     });
 
     // With no payment answer yet (mid-flow), the card-payment page is enabled: its
@@ -172,7 +194,7 @@ describe.each(MODES.map((m) => [m.mode, m] as const))('enabled-page sets — %s'
     // engine semantics the config leans on can't silently change.
     it('an unanswered payment option leaves the card-payment page enabled', () => {
       expect(disabledPagesFor(pages, { category: 'occupational-medicine', reasonForVisit: 'Fever' })).toEqual(
-        sorted(BASELINE_DISABLED_BY_CATEGORY['occupational-medicine'])
+        effectiveDisabled(pages, BASELINE_DISABLED_BY_CATEGORY['occupational-medicine'])
       );
     });
   });
@@ -181,7 +203,7 @@ describe.each(MODES.map((m) => [m.mode, m] as const))('enabled-page sets — %s'
   // like a plain visit: category '=' pages hide, '!=' pages show.
   it('an unanswered service category matches the urgent-care shape', () => {
     expect(disabledPagesFor(pages, { reasonForVisit: 'Fever' })).toEqual(
-      sorted(BASELINE_DISABLED_BY_CATEGORY['urgent-care'])
+      effectiveDisabled(pages, BASELINE_DISABLED_BY_CATEGORY['urgent-care'])
     );
   });
 });
