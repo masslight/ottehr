@@ -187,12 +187,10 @@ Step C: map and group
   answering 400 while 100 answered 200. The response cap surfaces as "exceeds the maximum allowed size"
   (`isResponseSizeExceededError`); because a batch response aggregates every entry, split the batch in two (orders,
   vitals) or halve the encounter chunks on that error instead of failing the request.
-- Entry count: existing zambdas send 25 to 100 entries per batch; Step B is typically 5 to 12 entries for a
-  single-location day.
-- One batch versus several in parallel: the server may execute a batch's entries sequentially, so one large batch can
-  be slower end to end than two or three smaller batches in flight at once (`get-chart-data` already runs three
-  batches in parallel). Measure both shapes in the parity test; default to two parallel batches (orders; vitals plus
-  the Step A follow-ups) if a single batch loses.
+- Entry count and concurrency: Oystehr runs a batch's same-method entries concurrently, up to 20 at a time. Step B
+  is typically 5 to 12 `GET` entries for a single-location day, so the whole batch executes in parallel server-side.
+  Keep each batch at or under 20 entries; when very broad filters produce more encounter chunks than that, spread them
+  across parallel batches instead of letting the extra entries queue behind the limit.
 - Step B runs strictly after Step A because it needs the encounter ids, so the request costs one extra network hop
   over `get-appointments` alone. That is still far below the slowest of today's eight parallel requests plus their
   serialization on the client.
@@ -338,8 +336,9 @@ Targets to record before and after (Network tab, one tick)
 - Very broad filters (several locations over the 7-day maximum range) can produce hundreds of eligible encounters.
   Chunking handles correctness; if latency or the response cap becomes a problem, cap orders/vitals to the first N
   encounters per tab and return the remaining rows without them, surfacing "too broad for order icons" in the UI.
-- Batch execution order and limits on Oystehr are not documented (entries per bundle, whether entries run in
-  parallel, the response cap). The composition step in Phase 1 is the place to measure them before the lean batch lands.
+- Two Oystehr batch limits are still unverified: the maximum entries per bundle and the response cap. Execution is
+  not in question, since same-method entries run concurrently up to 20 at a time. The composition step in Phase 1 is
+  the place to measure the two limits before the lean batch lands.
 - `get-appointments` now bundles the external-lab helpers (large module). Cold start grows somewhat; warm invocations are
   what the 30 s loop hits.
 - Until Phase 3 the `encounterIds` code paths live in two places. That is deliberate: the legacy zambdas still serve the
