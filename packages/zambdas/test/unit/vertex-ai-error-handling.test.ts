@@ -243,3 +243,115 @@ describe('invokeChatbotVertexAI error handling', () => {
     expect(url).toContain('key=test-key');
   });
 });
+
+// HTTP 200 is not enough to call an attempt successful — it has to have produced text. These cover the
+// production failure in ai-interview-summary: gemini-3.1-flash-lite answered 200 with usageMetadata and no
+// `candidates` at all, having spent the turn on thinking tokens. `resolved` was set on `response.ok`, so
+// that empty body won Promise.any and the two remaining attempts were skipped as superseded.
+describe('invokeChatbotVertexAI empty-output retries', () => {
+  const EMPTY_200 = {
+    usageMetadata: { promptTokenCount: 1525, totalTokenCount: 1798, thoughtsTokenCount: 273 },
+  };
+  const TEXT_200 = { candidates: [{ content: { parts: [{ text: 'the summary' }] } }] };
+
+  test('a valid 200 wins on the first attempt, with no further request', async () => {
+    respondWith(200, TEXT_200);
+
+    await expect(invoke()).resolves.toBe('the summary');
+    expect(globalThis.fetch).toHaveBeenCalledOnce();
+  });
+
+  test('an empty 200 is retried, and the next attempt wins', async () => {
+    respondInSequence([200, EMPTY_200], [200, TEXT_200]);
+
+    await expect(invoke()).resolves.toBe('the summary');
+    // Two: the empty attempt no longer resolves the ladder, and the winner stops the third.
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  test('an empty 200 fails as a diagnosable error, not a TypeError', async () => {
+    respondWith(200, EMPTY_200);
+
+    const error = await invoke().then(
+      () => null,
+      (error: Error) => error
+    );
+    // `response.candidates[0]` on a candidate-less body is where the old TypeError came from.
+    expect(error).not.toBeInstanceOf(TypeError);
+    expect(error?.message).toMatch(/Vertex AI returned no text/);
+    // The reason has to name the cause, or the Sentry issue says only that something was empty.
+    expect(error?.message).toMatch(/thoughtsTokenCount/);
+  });
+
+  test('a ladder of empty 200s is exhausted rather than resolved with an empty result', async () => {
+    respondWith(200, EMPTY_200);
+
+    const error = await invoke().then(
+      () => null,
+      (error: Error) => error
+    );
+    expect(error?.message).toMatch(/Vertex AI request failed after 3 attempts/);
+    expect(error?.message).toMatch(/Vertex AI returned no text/);
+    // The whole point: all three attempts are spent, where the first empty 200 used to end the ladder.
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  // Every shape short of usable text has to stay retryable, and none may throw on the way there.
+  test.each([
+    ['no candidates property', EMPTY_200],
+    ['an empty candidates array', { candidates: [] }],
+    ['an empty first candidate', { candidates: [{}] }],
+    ['no content', { candidates: [{ finishReason: 'SAFETY' }] }],
+    ['no parts', { candidates: [{ content: {} }] }],
+    ['an empty parts array', { candidates: [{ content: { parts: [] } }] }],
+    ['a part with no text', { candidates: [{ content: { parts: [{ inlineData: 'x' }] } }] }],
+    ['empty text', { candidates: [{ content: { parts: [{ text: '' }] } }] }],
+    // Whitespace has a non-zero length, so a bare `length === 0` guard let it through as a success and the
+    // caller died in fixAndParseJsonObjectFromString instead — or charted a blank transcript.
+    ['whitespace-only text', { candidates: [{ content: { parts: [{ text: '\n  \t' }] } }] }],
+  ])('a 200 with %s stays retryable', async (_name, body) => {
+    respondInSequence([200, body], [200, TEXT_200]);
+
+    await expect(invoke()).resolves.toBe('the summary');
+  });
+
+  test('a whitespace-only ladder fails rather than returning blank text', async () => {
+    respondWith(200, { candidates: [{ content: { parts: [{ text: '\n' }] } }] });
+
+    const error = await invoke().then(
+      () => null,
+      (error: Error) => error
+    );
+    expect(error?.message).toMatch(/Vertex AI returned no text/);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  test('a body with no candidates carries the body, since the reason fields are absent too', async () => {
+    // `{}` serializes every reason field to undefined, leaving `Vertex AI returned no text: {}` — no more
+    // actionable than the TypeError it replaced. No candidate means no generated output to leak.
+    respondWith(200, {});
+
+    const error = await invoke().then(
+      () => null,
+      (error: Error) => error
+    );
+    expect(error?.message).toMatch(/Vertex AI returned no text/);
+    expect(error?.message).not.toMatch(/no text: \{\}$/);
+    expect(error?.message).toContain('{}');
+  });
+
+  test('a candidate carrying content still reports the reason only', async () => {
+    // The other side of that: `content` present means the model produced something, and a sibling part can
+    // hold partial transcript. This is the case that must never widen to include the body.
+    respondWith(200, {
+      candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ inlineData: 'patient reports chest pain' }] } }],
+    });
+
+    const error = await invoke().then(
+      () => null,
+      (error: Error) => error
+    );
+    expect(error?.message).toMatch(/MAX_TOKENS/);
+    expect(error?.message).not.toContain('chest pain');
+  });
+});
