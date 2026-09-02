@@ -24,6 +24,7 @@ import { BookableScheduleData, ScheduleStrategy, SLUG_SYSTEM } from 'utils/lib/f
 import { getGroupAllLocations, walkGroupMemberPractitionerRoleSchedules } from 'utils/lib/fhir/healthcareService';
 import { scheduleStrategyForHealthcareService, unbundleBatchPostOutput } from 'utils/lib/fhir/helpers';
 import { LOCATION_BOOKABLE_SEARCH_PARAM } from 'utils/lib/fhir/location';
+import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { checkResourceHasSlug } from 'utils/lib/helpers/helpers';
 import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
 import {
@@ -600,7 +601,7 @@ export async function fetchAllPages(
         pageFetched = true;
       } catch (error: unknown) {
         console.log(`Error fetching page: ${error}`, JSON.stringify(error));
-        if (error instanceof Oystehr.OystehrSdkError && (error.code === 4130 || (error.code as any) === '4130')) {
+        if (isResponseSizeExceededError(error)) {
           pageSize = Math.floor(pageSize / 2);
         } else {
           throw error;

@@ -12,6 +12,7 @@ import {
 import { DateTime } from 'luxon';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { NEVER_DELETE, resourceBelongsToRunTag } from 'utils/lib/utils/e2eCleanup';
 
 const CHUNK_SIZE = 50;
@@ -211,7 +212,7 @@ const getPatientAndResourcesById = async (
     allResources = await getAllFhirSearchPages(fhirSearchParams, oystehr, 10);
   } catch (error: unknown) {
     console.log(`Error fetching resources: ${error}`, JSON.stringify(error));
-    if (error instanceof Oystehr.OystehrSdkError && error.code === 4130) {
+    if (isResponseSizeExceededError(error)) {
       // if it fails because of the 6Mb limit, try splitting the request into more pages
       try {
         allResources = await getAllFhirSearchPages(fhirSearchParams, oystehr, 5);
