@@ -65,6 +65,7 @@ export enum APIErrorCode {
   MANAGED_QUESTIONNAIRE_GENERAL = 4407,
   INSURANCE_CARD_IMAGE_GENERAL = 4408,
   PAPERWORK_FLOW_GENERAL = 4409,
+  UNSOLICITED_RESULTS_ALREADY_MATCHED = 4410,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -121,6 +122,9 @@ export const isApiError = (errorObject: unknown | undefined): boolean => {
 
   return false;
 };
+
+export const errorHasStatusCode = (error: any, statusCode: number): boolean =>
+  error?.code === statusCode || error?.statusCode === statusCode || error?.message?.includes(`${statusCode}`);
 
 export const NOT_AUTHORIZED: APIError = {
   code: APIErrorCode.NOT_AUTHORIZED,
@@ -426,6 +430,13 @@ export const MISSING_NLM_API_KEY_ERROR: APIError = {
 export const EXTERNAL_LAB_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.EXTERNAL_LAB_GENERAL,
+    message,
+  };
+};
+
+export const EXTERNAL_LAB_UNSOLICITED_RESULTS_ALREADY_MATCHED = (message: string): APIError => {
+  return {
+    code: APIErrorCode.UNSOLICITED_RESULTS_ALREADY_MATCHED,
     message,
   };
 };

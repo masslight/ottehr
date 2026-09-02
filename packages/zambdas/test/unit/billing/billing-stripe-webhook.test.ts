@@ -28,10 +28,16 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   createBillingClient: vi.fn(),
 }));
 
+vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  createClinicalOystehrClient: vi.fn(),
+}));
+
 import { index, performEffect } from '../../../src/billing/billing-stripe-webhook';
 import { validateRequestParameters } from '../../../src/billing/billing-stripe-webhook/validateRequestParameters';
 import { createBillingClient } from '../../../src/billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../src/shared/auth';
+import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
 import { ZambdaInput } from '../../../src/shared/types/common';
 
@@ -97,16 +103,20 @@ const claim = {
 
 const makeOystehr = (
   claimResults: Claim[][],
-  orgResults: Organization[][] = []
-): { oystehr: Oystehr; create: Mock; update: Mock } => {
+  orgResults: Organization[][] = [],
+  noticeResults: PaymentNotice[][] = []
+): { oystehr: Oystehr; create: Mock; update: Mock; patch: Mock } => {
   const claimQueue = [...claimResults];
   const orgQueue = [...orgResults];
+  const noticeQueue = [...noticeResults];
   const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
     const results =
       resourceType === 'Claim'
         ? claimQueue.shift() ?? []
         : resourceType === 'Organization'
         ? orgQueue.shift() ?? []
+        : resourceType === 'PaymentNotice'
+        ? noticeQueue.shift() ?? []
         : [];
     return Promise.resolve({ unbundle: () => results });
   });
@@ -114,8 +124,9 @@ const makeOystehr = (
     .fn()
     .mockImplementation((resource: PaymentNotice) => Promise.resolve({ ...resource, id: 'pn-new' }));
   const update = vi.fn().mockResolvedValue({});
+  const patch = vi.fn().mockResolvedValue({});
   const batch = vi.fn().mockResolvedValue({ entry: [] });
-  return { oystehr: { fhir: { search, create, update, batch } } as unknown as Oystehr, create, update };
+  return { oystehr: { fhir: { search, create, update, patch, batch } } as unknown as Oystehr, create, update, patch };
 };
 
 const signedInput = (event: Stripe.Event, webhookSecret = WEBHOOK_SECRET): ZambdaInput => {
@@ -336,6 +347,53 @@ describe('billing-stripe-webhook', () => {
     const notice = create.mock.calls[1][0];
     expect(notice.status).toBe('cancelled');
     expect(notice.contained[0].outcome).toBe('error');
+  });
+
+  it('stamps refund state on the source payment notices in both projects', async () => {
+    const retrieve = vi.fn().mockResolvedValue(makeCharge());
+    const refundsList = vi.fn().mockResolvedValue({
+      data: [{ id: 're_1', amount: 400, currency: 'usd', created: 1751990000, status: 'succeeded' }],
+    });
+    (getStripeClient as Mock).mockReturnValue({
+      charges: { retrieve },
+      refunds: { list: refundsList },
+    } as unknown as Stripe);
+    const billingNotice = {
+      resourceType: 'PaymentNotice',
+      id: 'pn-billing',
+      status: 'active',
+      identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' }],
+    } as PaymentNotice;
+    const clinicalNotice = {
+      resourceType: 'PaymentNotice',
+      id: 'pn-clinical',
+      status: 'active',
+      identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' }],
+    } as PaymentNotice;
+    const { oystehr, patch } = makeOystehr([[claim], [claim]], [], [[billingNotice]]);
+    const clinical = makeOystehr([], [], [[clinicalNotice]]);
+    (createClinicalOystehrClient as Mock).mockReturnValue(clinical.oystehr);
+    const refund = {
+      id: 're_1',
+      charge: 'ch_1',
+      amount: 400,
+      currency: 'usd',
+      created: 1751990000,
+      status: 'succeeded',
+    };
+
+    await performEffect(oystehr, { event: makeEvent('refund.created', refund), secrets });
+
+    expect(refundsList).toHaveBeenCalledWith({ charge: 'ch_1', limit: 100 }, { stripeAccount: undefined });
+    expect(patch).toHaveBeenCalledTimes(1);
+    expect(patch.mock.calls[0][0].id).toBe('pn-billing');
+    expect(clinical.patch).toHaveBeenCalledTimes(1);
+    const clinicalPatch = clinical.patch.mock.calls.find((c) => c[0].id === 'pn-clinical');
+    const extension = clinicalPatch?.[0].operations[0].value.find((ext: { url: string }) =>
+      ext.url.endsWith('/payment-refunds')
+    );
+    expect(extension.extension[0].extension).toContainEqual({ url: 'refundId', valueString: 're_1' });
+    expect(extension.extension[0].extension).toContainEqual({ url: 'amountInCents', valueInteger: 400 });
   });
 });
 

@@ -1,14 +1,10 @@
 import { Stack, Typography } from '@mui/material';
 import React from 'react';
-import { MedicalHistoryDoubleCard } from 'src/features/visits/shared/components/medical-history-tab/MedicalHistoryDoubleCard';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
-import { HospitalizationForm } from '../components/hospitalization/HospitalizationForm';
-import { HospitalizationNotes } from '../components/hospitalization/HospitalizationNotes';
-import { HospitalizationPatientComponent } from '../components/hospitalization/HospitalizationPatientComponent';
-import { InfoAlert } from '../components/InfoAlert';
+import { HospitalizationBody } from '../components/hospitalization/HospitalizationBody';
 import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
 interface HospitalizationProps {
   appointmentID?: string;
@@ -37,14 +33,7 @@ export const Hospitalization: React.FC<HospitalizationProps> = () => {
         label="Hospitalization"
         showIntakeNotesButton={interactionMode === 'main'}
       />
-      <InfoAlert text="Ask: Has the patient had any prior overnight hospital stays or hospital admissions?" />
-      <MedicalHistoryDoubleCard
-        patientSide={<HospitalizationPatientComponent />}
-        patientSideLabel="Patient provided"
-        providerSide={<HospitalizationForm />}
-        providerSideLabel="Healthcare staff input"
-      />
-      <HospitalizationNotes />
+      <HospitalizationBody />
     </Stack>
   );
 };

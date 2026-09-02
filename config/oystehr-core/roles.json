@@ -1303,6 +1303,15 @@
           ]
         },
         {
+          "action": [
+            "eRx:GetMedicationHistory"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "eRx:Patient"
+          ]
+        },
+        {
           "resource": [
             "FHIR:AllergyIntolerance:*",
             "FHIR:MedicationStatement:*"

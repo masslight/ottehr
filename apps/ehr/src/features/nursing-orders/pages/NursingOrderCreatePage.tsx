@@ -2,6 +2,7 @@ import { Box, CircularProgress, Divider, Paper, Stack, TextField, Typography } f
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createNursingOrder } from 'src/api/api';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
@@ -11,9 +12,14 @@ import { useMarkDraftNavigatedAway, useNursingOrderStore } from 'src/state/draft
 import { CreateNursingOrderInput } from 'utils/lib/types/data/orders/types';
 import { BreadCrumbs } from '../components/BreadCrumbs';
 
-export const NursingOrderCreatePage: React.FC = () => {
+interface NursingOrderCreatePageProps {
+  onFinished?: () => void;
+}
+
+export const NursingOrderCreatePage: React.FC<NursingOrderCreatePageProps> = ({ onFinished }) => {
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
+  const isInlineFlow = useIsInlineFlow();
   const [loading, setLoading] = useState(false);
   const { patient, encounter } = useAppointmentData();
 
@@ -39,7 +45,8 @@ export const NursingOrderCreatePage: React.FC = () => {
 
   const handleBack = (): void => {
     if (encounter.id) clearDraft(encounter.id);
-    navigate(-1);
+    if (onFinished) onFinished();
+    else navigate(-1);
   };
 
   const handleSubmit = async (event: React.FormEvent): Promise<void> => {
@@ -76,11 +83,14 @@ export const NursingOrderCreatePage: React.FC = () => {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, maxWidth: '680px' }}>
-        <BreadCrumbs />
-
-        <Typography variant="h4" color="primary.dark" data-testid={dataTestIds.nursingOrderCreatePage.title}>
-          Nursing Order
-        </Typography>
+        {!isInlineFlow && (
+          <>
+            <BreadCrumbs />
+            <Typography variant="h4" color="primary.dark" data-testid={dataTestIds.nursingOrderCreatePage.title}>
+              Nursing Order
+            </Typography>
+          </>
+        )}
 
         {encounter.id && hasDraft(encounter.id) && (
           <UnsavedDraftWarning

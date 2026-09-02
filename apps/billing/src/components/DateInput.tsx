@@ -3,7 +3,7 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { CalendarIcon, PickersActionBarProps } from '@mui/x-date-pickers-pro';
 import { DatePicker, DateRange, DateRangeCalendar, LocalizationProvider, RangePosition } from '@mui/x-date-pickers-pro';
 import { DateTime } from 'luxon';
-import { MouseEvent, ReactElement, useState } from 'react';
+import { MouseEvent, ReactElement, ReactNode, useState } from 'react';
 import { DISPLAY_DATE_FORMAT } from 'utils/lib/utils';
 
 const RANGE_CALENDAR_SX = {
@@ -45,7 +45,7 @@ interface SharedWrapperProps {
   size?: 'small' | 'medium';
   fullWidth?: boolean;
   error?: boolean;
-  helperText?: string;
+  helperText?: ReactNode | string;
   dataTestId?: string;
 }
 
