@@ -1,49 +1,68 @@
 import Oystehr from '@oystehr/sdk';
+import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
+import {
+  InsertFullAppointmentDataBaseResult,
+  insertInPersonAppointmentBase,
+  setupIntegrationTest,
+} from '../helpers/integration-test-seed-data-setup';
 
-// Happy path for get-appointments: given a search date, timezone, visit types
-// and a provider filter, returns the appointments payload (empty list is a
-// valid happy-path result for an arbitrary provider/day).
+// Happy path for get-appointments: seeds one in-person visit, moves it in-office, and asks for the board of its
+// Location for today. The seed graph has no Practitioner participant, so the queries filter by Location, not provider.
 describe('get-appointments integration — happy path', () => {
   let oystehrZambdas: Oystehr;
-  let practitionerId: string;
+  let base: InsertFullAppointmentDataBaseResult;
+  let locationId: string;
   let cleanup: () => Promise<void>;
+
+  // The seed's Appointment.start is "now" in UTC, so the search day is today in UTC as well.
+  const boardParams = (): Record<string, unknown> => {
+    const today = DateTime.now().toUTC().toISODate();
+    return { searchDateFrom: today, searchDateTo: today, timezone: 'UTC', locationIds: [locationId] };
+  };
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('get-appointments.test.ts', M2MClientMockType.provider);
     oystehrZambdas = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
-    practitionerId = setup.testUserM2MProfile.replace('Practitioner/', '');
+    base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
+    locationId = base.encounter.location?.[0]?.location?.reference?.replace('Location/', '') ?? '';
+    expect(locationId).not.toBe('');
+    // The seed is a booked visit without a module tag. Tag it in-person and mark it arrived so the board buckets it
+    // in-office, one of the two buckets whose encounters get order icons and vitals badges.
+    await setup.oystehr.fhir.patch<Appointment>({
+      resourceType: 'Appointment',
+      id: base.appointment.id!,
+      operations: [
+        { op: 'replace', path: '/status', value: 'arrived' },
+        { op: 'add', path: '/meta/tag/-', value: { code: OTTEHR_MODULE.IP } },
+      ],
+    });
   }, 60_000);
 
   afterAll(async () => {
     await cleanup();
   });
 
-  it('returns appointments for a provider on a given day', async () => {
+  it('returns the seeded visit in-office for its location on the day', async () => {
     const response = await oystehrZambdas.zambda.execute({
       id: 'get-appointments',
-      searchDateFrom: DateTime.now().toISODate(),
-      searchDateTo: DateTime.now().toISODate(),
-      timezone: 'America/New_York',
-      visitType: ['in-person-walk-in'],
-      providerIds: [practitionerId],
+      ...boardParams(),
+      visitType: ['in-person-pre-booked'],
     });
-    expect(response.output).toBeDefined();
+    const output = response.output as GetAppointmentsZambdaOutput;
+    expect(output.inOffice.map((appointment) => appointment.id)).toContain(base.appointment.id);
   });
 
   it('always returns the grouped order table and abnormal vitals', async () => {
     const response = await oystehrZambdas.zambda.execute({
       id: 'get-appointments',
-      searchDateFrom: DateTime.now().toISODate(),
-      searchDateTo: DateTime.now().toISODate(),
-      timezone: 'America/New_York',
-      visitType: ['in-person-walk-in'],
-      providerIds: [practitionerId],
+      ...boardParams(),
+      visitType: ['in-person-pre-booked'],
     });
     const output = response.output as GetAppointmentsZambdaOutput;
     expect(Object.keys(output.orders ?? {}).sort()).toEqual(
@@ -65,11 +84,8 @@ describe('get-appointments integration — happy path', () => {
   // fields (ordering physician, visit date, timezone, billing type) are allowed to differ by design.
   it('groups the same orders the legacy per-type endpoints return for the same encounters', async () => {
     const params = {
-      searchDateFrom: DateTime.now().toISODate(),
-      searchDateTo: DateTime.now().toISODate(),
-      timezone: 'America/New_York',
+      ...boardParams(),
       visitType: ['in-person-walk-in', 'in-person-pre-booked', 'in-person-post-telemed'],
-      providerIds: [practitionerId],
     };
     const response = await oystehrZambdas.zambda.execute({
       id: 'get-appointments',
@@ -77,11 +93,9 @@ describe('get-appointments integration — happy path', () => {
     });
     const output = response.output as GetAppointmentsZambdaOutput;
     const encounterIds = [...output.inOffice, ...output.completed].map((appointment) => appointment.encounterId);
-    if (encounterIds.length === 0) {
-      // Nothing on the board for this provider today; the legacy endpoints reject an empty encounter list.
-      expect(Object.values(output.orders ?? {}).every((group) => Object.keys(group).length === 0)).toBe(true);
-      return;
-    }
+    // The seeded visit is in-office, so the comparison below always runs: this test must not pass by comparing
+    // nothing. (The seed carries no orders, so it proves the pipeline and shapes agree; add orders to sharpen it.)
+    expect(encounterIds).toContain(base.encounter.id);
 
     const execute = async <T>(body: { id: string } & Record<string, unknown>): Promise<T> =>
       (await oystehrZambdas.zambda.execute(body)).output as T;

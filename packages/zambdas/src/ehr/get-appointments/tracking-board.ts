@@ -50,7 +50,7 @@ import {
 } from '../lab/external/get-lab-orders/helpers';
 import { mapResourcesToInHouseOrderDTOs } from '../lab/in-house/get-in-house-orders/helpers';
 import { parseResultsToOrder } from '../radiology/order-list';
-import { buildSearchUrl, executeBatchSearches } from './batch-search';
+import { buildSearchUrl, executeBatchSearches, MAX_ENTRIES_PER_BATCH } from './batch-search';
 import { isResponseSizeExceededError } from './helpers';
 
 /**
@@ -62,7 +62,7 @@ import { isResponseSizeExceededError } from './helpers';
  * `AppointmentTable` reads, grouped by appointment or encounter, so the page needs no per-type requests.
  */
 
-export type TrackingBoardExtras = Pick<GetAppointmentsZambdaOutput, 'orders' | 'vitals'>;
+export type TrackingBoardExtras = Pick<GetAppointmentsZambdaOutput, 'orders' | 'vitals' | 'ordersAndVitalsIncomplete'>;
 
 /** The response shape with nothing on the board, for empty days and for a failed fetch. */
 export const emptyTrackingBoardExtras = (): TrackingBoardExtras => ({
@@ -175,34 +175,47 @@ export interface TrackingBoardResources {
 const hasDiagnosticReportBasedOn = (task: Task): boolean =>
   !!task.basedOn?.some((ref) => ref.reference?.startsWith('DiagnosticReport/'));
 
+const referencesAny = (references: { reference?: string }[] | undefined, targets: Set<string>): boolean =>
+  references?.some((ref) => !!ref.reference && targets.has(ref.reference)) ?? false;
+
 /**
  * External lab statuses need the review Tasks based on each DiagnosticReport. The batch asks for them with
  * `_revinclude:iterate`; if a server did not iterate over the revincluded reports, fall back to the search
- * get-lab-orders runs, so a status is never computed from missing Tasks.
+ * get-lab-orders runs, so a status is never computed from missing Tasks. Only reports based on an external lab
+ * order count: in-house lab and radiology reports never carry report-based Tasks, so their presence alone must not
+ * cost the board a third hop on every tick.
  */
 const withLabResultTasks = async (
   oystehr: Oystehr,
   fetched: TrackingBoardResources
 ): Promise<TrackingBoardResources> => {
-  const diagnosticReports = fetched.resources.filter(
-    (resource): resource is DiagnosticReport => resource.resourceType === 'DiagnosticReport'
+  const externalLabOrderRefs = new Set(
+    fetched.resources
+      .filter((resource): resource is ServiceRequest => resource.resourceType === 'ServiceRequest')
+      .filter((serviceRequest) => classifyServiceRequest(serviceRequest) === 'externalLab')
+      .map((serviceRequest) => `ServiceRequest/${serviceRequest.id}`)
   );
-  if (diagnosticReports.length === 0) return fetched;
+  const externalLabReports = fetched.resources.filter(
+    (resource): resource is DiagnosticReport =>
+      resource.resourceType === 'DiagnosticReport' && referencesAny(resource.basedOn, externalLabOrderRefs)
+  );
+  if (externalLabReports.length === 0) return fetched;
 
+  const externalLabReportRefs = new Set(externalLabReports.map((report) => `DiagnosticReport/${report.id}`));
   const hasReportTasks = fetched.resources.some(
-    (resource) => resource.resourceType === 'Task' && hasDiagnosticReportBasedOn(resource as Task)
+    (resource) => resource.resourceType === 'Task' && referencesAny((resource as Task).basedOn, externalLabReportRefs)
   );
   if (hasReportTasks) return fetched;
 
-  console.log('no result-review Tasks came back with the DiagnosticReports; fetching them directly');
-  const tasks = await fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports);
+  console.log('no result-review Tasks came back with the external lab DiagnosticReports; fetching them directly');
+  const tasks = await fetchFinalAndPrelimAndCorrectedTasks(oystehr, externalLabReports);
   return { ...fetched, resources: [...fetched.resources, ...tasks] };
 };
 
 /**
- * Runs Step B: the batch of searches for the given encounters. Retries with smaller encounter chunks when the
- * aggregate response exceeds Oystehr's size cap. Throws only when even the smallest chunks fail; the caller then
- * renders the board without icons rather than failing the page.
+ * Runs Step B: the batch of searches for the given encounters. Retries with smaller encounter chunks and fewer
+ * entries per bundle when a response exceeds Oystehr's size cap. Throws only when even the smallest split fails; the
+ * caller then renders the board without icons rather than failing the page.
  */
 export const fetchTrackingBoardResources = async ({
   oystehr,
@@ -218,11 +231,12 @@ export const fetchTrackingBoardResources = async ({
   }
 
   let chunkSizes: TrackingBoardChunkSizes = { orders: ORDER_ENCOUNTER_CHUNK_SIZE, vitals: VITALS_ENCOUNTER_CHUNK_SIZE };
+  let maxEntriesPerBatch = MAX_ENTRIES_PER_BATCH;
   for (let attempt = 0; ; attempt++) {
     const urls = buildTrackingBoardSearchUrls(encounterIds, chunkSizes);
     const startedAt = Date.now();
     try {
-      const fetched = await executeBatchSearches(oystehr, urls, { fhirApiUrl });
+      const fetched = await executeBatchSearches(oystehr, urls, { fhirApiUrl, maxEntriesPerBatch });
       console.log(
         `tracking board batch: ${urls.length} entries for ${encounterIds.length} encounters in ${
           Date.now() - startedAt
@@ -230,15 +244,25 @@ export const fetchTrackingBoardResources = async ({
       );
       return await withLabResultTasks(oystehr, fetched);
     } catch (error) {
-      const canShrink = chunkSizes.orders > MIN_ENCOUNTER_CHUNK_SIZE || chunkSizes.vitals > MIN_ENCOUNTER_CHUNK_SIZE;
+      const canShrink =
+        chunkSizes.orders > MIN_ENCOUNTER_CHUNK_SIZE ||
+        chunkSizes.vitals > MIN_ENCOUNTER_CHUNK_SIZE ||
+        maxEntriesPerBatch > 1;
       if (!isResponseSizeExceededError(error) || !canShrink || attempt >= MAX_SIZE_RETRIES) {
         throw error;
       }
+      // The cap is on a whole batch response, so smaller encounter chunks alone only help once the extra entries
+      // spill into another bundle. Halve the entries per bundle too, so each retry roughly quarters the bytes any
+      // one response carries.
       chunkSizes = {
         orders: Math.max(MIN_ENCOUNTER_CHUNK_SIZE, Math.ceil(chunkSizes.orders / 2)),
         vitals: Math.max(MIN_ENCOUNTER_CHUNK_SIZE, Math.ceil(chunkSizes.vitals / 2)),
       };
-      console.warn('tracking board batch exceeded the response size cap; retrying with smaller chunks', chunkSizes);
+      maxEntriesPerBatch = Math.max(1, Math.ceil(maxEntriesPerBatch / 2));
+      console.warn('tracking board batch exceeded the response size cap; retrying with a smaller split', {
+        ...chunkSizes,
+        maxEntriesPerBatch,
+      });
     }
   }
 };
@@ -541,12 +565,14 @@ export const buildTrackingBoardExtras = ({
   fetched,
   ...ordersInput
 }: BuildTrackingBoardExtrasInput): TrackingBoardExtras => {
-  if (fetched.failedUrls.length > 0) {
+  const incomplete = fetched.failedUrls.length > 0;
+  if (incomplete) {
     console.error(`tracking board: ${fetched.failedUrls.length} batch entries failed; icons may be incomplete`);
   }
   const pools = poolTrackingBoardResources(fetched.resources);
   return {
     orders: buildOrdersForTrackingBoard({ ...ordersInput, pools }),
     vitals: buildVitalsForTrackingBoard(pools),
+    ...(incomplete ? { ordersAndVitalsIncomplete: true } : {}),
   };
 };

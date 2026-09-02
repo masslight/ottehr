@@ -91,6 +91,45 @@ describe('useGetTrackingBoard', () => {
     expect(result.current.data?.vitals).toBe(vitals);
   });
 
+  it('keeps the previous orders and vitals when the server reports them incomplete', async () => {
+    const orders = { inHouseMedicationsByEncounterId: { 'enc-1': [{ id: 'med-1' }] } };
+    const vitals = { 'enc-1': { 'vital-temperature': [{ resourceId: 'obs-1' }] } };
+    const rows = [{ id: 'appt-1', encounterId: 'enc-1' }];
+    vi.mocked(getAppointments)
+      .mockResolvedValueOnce({
+        message: 'ok',
+        preBooked: [],
+        inOffice: rows,
+        completed: [],
+        cancelled: [],
+        orders,
+        vitals,
+      } as any)
+      // One of the order searches failed server-side: the maps came back empty and flagged.
+      .mockResolvedValueOnce({
+        message: 'ok',
+        preBooked: [],
+        inOffice: [...rows, { id: 'appt-2', encounterId: 'enc-2' }],
+        completed: [],
+        cancelled: [],
+        orders: {} as any,
+        vitals: {},
+        ordersAndVitalsIncomplete: true,
+      } as any);
+
+    const { result } = renderHook(() => useGetTrackingBoard(filters), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.orders).toBe(orders);
+
+    await result.current.refetch();
+
+    // The rows are the new tick's; the icons and badges are the last complete ones.
+    await waitFor(() => expect(result.current.data?.inOffice).toHaveLength(2));
+    expect(getAppointments).toHaveBeenCalledTimes(2);
+    expect(result.current.data?.orders).toBe(orders);
+    expect(result.current.data?.vitals).toBe(vitals);
+  });
+
   it('does not fetch without a location, provider or service category to scope the search', () => {
     const { result } = renderHook(
       () => useGetTrackingBoard({ ...filters, locationIds: [], providerIds: [], serviceCategories: [] }),

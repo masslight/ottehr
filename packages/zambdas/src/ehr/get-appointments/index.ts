@@ -39,7 +39,7 @@ import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
 import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
 import { CONSENT_FORMS_CONFIG } from 'utils/lib/ottehr-config/consent-forms';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { GetAppointmentsZambdaInput, GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
 import { SMSModel, SMSRecipient } from 'utils/lib/types/api/messaging.types';
 import {
@@ -412,7 +412,8 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   const trackingBoardResourcesPromise: Promise<TrackingBoardResources> = fetchTrackingBoardResources({
     oystehr,
     encounterIds: trackingBoardEncounterIds,
-    fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets),
+    // Optional: it only shortens `next` links, and a missing secret must not fail the page (see the catch below).
+    fhirApiUrl: getOptionalSecret(SecretsKeys.FHIR_API, secrets),
   }).catch((error) => {
     // The board can render without its icons; log and fall back to empty maps rather than fail the page.
     console.error('tracking board orders/vitals fetch failed', error);
@@ -686,6 +687,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   } catch (error) {
     console.error('tracking board orders/vitals mapping failed', error);
     captureException(error);
+    trackingBoardExtras = { ...emptyTrackingBoardExtras(), ordersAndVitalsIncomplete: true };
   }
 
   const response: GetAppointmentsZambdaOutput = {

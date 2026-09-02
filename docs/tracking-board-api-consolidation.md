@@ -176,7 +176,9 @@ Step C: map and group
 - Batch semantics: in a `batch` Bundle each entry succeeds or fails on its own (`entry.response.status`); a failed
   entry does not fail the bundle, which is exactly the isolation the board wants. Read entries by position, the way
   `parseChartDataBundle` and `get-conversation` do.
-- No paging inside a batch: each entry returns one page, so set `_count` generously (the vitals search already uses 1000) and check each nested bundle for a `link[rel=next]`; if any appear, issue one follow-up batch with those URLs.
+- No paging inside a batch: each entry returns one page, so set `_count` generously (the vitals search already uses 1000) and check each nested bundle for a `link[rel=next]`; if any appear, issue one follow-up batch. The follow-up
+  entry is the original request with `_offset` advanced by `_count`, not the server's link: every entry sets `_count`,
+  and a server link may percent-encode the values the batch parser only accepts raw.
   `searchAndGetAllPages` stays for the standalone appointment search only. The legacy order searches each return one
   page today: `_count=100` for labs, `20` for radiology (`DEFAULT_RADIOLOGY_ITEMS_PER_PAGE`, because the board never
   passes `itemsPerPage`) and the server default for nursing, medications, eRx and immunizations, so a busy
@@ -185,8 +187,9 @@ Step C: map and group
   limit; the SDK sidesteps it for standalone searches by POSTing, but a batch entry's `url` is inline, so keep comma
   lists to about 50 references (roughly 3.5 KB). The ad-hoc reporting code measured a comma list of 1249 references
   answering 400 while 100 answered 200. The response cap surfaces as "exceeds the maximum allowed size"
-  (`isResponseSizeExceededError`); because a batch response aggregates every entry, split the batch in two (orders,
-  vitals) or halve the encounter chunks on that error instead of failing the request.
+  (`isResponseSizeExceededError`); because a batch response aggregates every entry, on that error halve both the
+  encounter chunks and the entries per bundle and retry instead of failing the request. Halving the chunks alone
+  does not help while every entry still fits in one bundle: the same bytes come back in the same response.
 - Entry count and concurrency: Oystehr runs a batch's same-method entries concurrently, up to 20 at a time. Step B
   is typically 5 to 12 `GET` entries for a single-location day, so the whole batch executes in parallel server-side.
   Keep each batch at or under 20 entries; when very broad filters produce more encounter chunks than that, spread them
@@ -194,9 +197,10 @@ Step C: map and group
 - Step B runs strictly after Step A because it needs the encounter ids, so the request costs one extra network hop
   over `get-appointments` alone. That is still far below the slowest of today's eight parallel requests plus their
   serialization on the client.
-- If a batch entry fails, return the appointments with that order type empty and log to Sentry; the board today
-  already tolerates individual order endpoints failing (each hook swallows its error). Consider an
-  `errors?: { orders?: string[] }` field so the UI can show a subtle "orders may be incomplete" hint.
+- If a batch entry fails, return the appointments with that order type empty, log to Sentry, and set
+  `ordersAndVitalsIncomplete` on the response. The old per-type hooks kept their last successful data when a request
+  failed, so the board hook does the same: on a flagged response it keeps the previous tick's `orders` and `vitals`
+  for that query key rather than blanking every icon and badge until the next tick.
 - No IaC change: the zambda keeps its name, its `config/oystehr-core/zambdas.json` entry, its `Zambda:Function:*`
   role grants and its line in `scripts/update-permissions-for-users.ts`. Set an explicit `timeout` only if
   measurements say the default is tight once orders and vitals are included.
@@ -397,3 +401,12 @@ Where the build departs from the plan above, and why:
   `encounterIds` branches: the `searchBy` unions they belong to are what the reused mappers key list-versus-detail
   on, and the radiology and immunization variants still serve chart pages. The board-only vitals list hook
   (`useGetVitalsForEncounters`) was dead after Phase 2 and is removed; its zambda stays as a public endpoint.
+- Self-review fixes after the first CI run: the response-size retry now halves the entries per bundle along with the
+  encounter chunks (shrinking chunks alone re-sent the same bytes while every entry fit in one bundle); a next page is
+  the original request with `_offset` advanced rather than the server's link; the result-review Task fallback only
+  considers reports based on external lab orders (in-house and radiology reports never have report-based Tasks, so
+  it fired on most boards); a failed batch entry sets `ordersAndVitalsIncomplete` and the hook keeps the previous
+  tick's maps; `FHIR_API` is read as an optional secret so its absence cannot fail the page; the integration test
+  seeds its own arrived in-person visit and queries by its Location, so the parity comparison runs instead of
+  returning early on an empty board; and `react-page-visibility` is dropped from the EHR's dependencies, the page
+  having been its only importer.

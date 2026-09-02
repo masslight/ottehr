@@ -23,4 +23,9 @@ export interface GetAppointmentsZambdaOutput {
   orders: OrdersForTrackingBoardTable;
   /** Abnormal (alertCriticality) vitals only, keyed by encounter id; only encounters with one appear. */
   vitals: GetVitalsForListOfEncountersResponseData;
+  /**
+   * Set when one or more of the order/vitals searches failed, so `orders` and `vitals` may be missing entries. The
+   * appointment buckets are unaffected. The board keeps the previous tick's icons rather than blanking them.
+   */
+  ordersAndVitalsIncomplete?: boolean;
 }

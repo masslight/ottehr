@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import {
   Appointment,
   Bundle,
+  DiagnosticReport,
   Encounter,
   FhirResource,
   MedicationAdministration,
@@ -9,6 +10,7 @@ import {
   Observation,
   Practitioner,
   ServiceRequest,
+  Task,
 } from 'fhir/r4b';
 import { ERX_MEDICATION_META_TAG_CODE, PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
@@ -21,6 +23,7 @@ import {
   buildSearchUrl,
   executeBatchSearches,
   MAX_ENTRIES_PER_BATCH,
+  nextPageUrl,
   toBatchRelativeUrl,
 } from '../../src/ehr/get-appointments/batch-search';
 import {
@@ -29,6 +32,7 @@ import {
   buildVitalsForTrackingBoard,
   classifyServiceRequest,
   emptyTrackingBoardExtras,
+  fetchTrackingBoardResources,
   partitionServiceRequests,
   poolTrackingBoardResources,
   selectTrackingBoardEncounterIds,
@@ -84,6 +88,26 @@ describe('batch-search', () => {
     );
   });
 
+  test('nextPageUrl advances _offset on the request itself, and only falls back to the server link without _count', () => {
+    // The follow-up keeps the raw values the batch parser accepts; the server's (possibly encoded) link is ignored.
+    expect(
+      nextPageUrl(
+        'ServiceRequest?encounter=Encounter/a&status:not=revoked&_count=500',
+        'https://fhir.example.com/r4/ServiceRequest?encounter=Encounter%2Fa&status%3Anot=revoked&_count=500&_offset=500',
+        'https://fhir.example.com/r4'
+      )
+    ).toBe('ServiceRequest?encounter=Encounter/a&status:not=revoked&_count=500&_offset=500');
+    // A later page advances the existing offset.
+    expect(nextPageUrl('Observation?_count=1000&_offset=1000', undefined, undefined)).toBe(
+      'Observation?_count=1000&_offset=2000'
+    );
+    // No `_count` means no known page size: use the server's link, made relative, or nothing.
+    expect(nextPageUrl('Task?based-on=x', 'https://fhir.example.com/r4/Task?based-on=x&_page=2', undefined)).toBe(
+      'Task?based-on=x&_page=2'
+    );
+    expect(nextPageUrl('Task?based-on=x', undefined, undefined)).toBeUndefined();
+  });
+
   test('executeBatchSearches splits entries at the concurrency limit, isolates failed entries and follows next links', async () => {
     const batchCalls: string[][] = [];
     const batch = vi.fn(async ({ requests }: { requests: { url: string }[] }): Promise<Bundle<FhirResource>> => {
@@ -100,7 +124,7 @@ describe('batch-search', () => {
             resourceType: 'Bundle',
             type: 'searchset',
             entry: [{ resource: { resourceType: 'Task', id: url, status: 'requested', intent: 'order' } }],
-            ...(url.includes('paged') && !url.includes('_page')
+            ...(url.includes('paged') && !url.includes('_page') && !url.includes('_offset')
               ? { link: [{ relation: 'next', url: `https://fhir.example.com/r4/${url}&_page=2` }] }
               : {}),
           };
@@ -110,15 +134,21 @@ describe('batch-search', () => {
     });
     const oystehr = { fhir: { batch } } as unknown as Oystehr;
 
-    const urls = [...Array.from({ length: 23 }, (_, index) => `Task?_id=t${index}`), 'Task?fail=1', 'Task?paged=1'];
+    const urls = [
+      ...Array.from({ length: 23 }, (_, index) => `Task?_id=t${index}`),
+      'Task?fail=1',
+      'Task?paged=1',
+      'Task?paged=2&_count=1',
+    ];
     const result = await executeBatchSearches(oystehr, urls, { fhirApiUrl: 'https://fhir.example.com/r4' });
 
-    // 25 entries -> 20 + 5, then one follow-up batch for the next page.
-    expect(batchCalls.map((call) => call.length)).toEqual([MAX_ENTRIES_PER_BATCH, 5, 1]);
-    expect(batchCalls[2]).toEqual(['Task?paged=1&_page=2']);
+    // 26 entries -> 20 + 6, then one follow-up batch carrying both next pages.
+    expect(batchCalls.map((call) => call.length)).toEqual([MAX_ENTRIES_PER_BATCH, 6, 2]);
+    // Without `_count` the server's link is followed (made relative); with it the request itself is advanced a page.
+    expect(batchCalls[2]).toEqual(['Task?paged=1&_page=2', 'Task?paged=2&_count=1&_offset=1']);
     expect(result.failedUrls).toEqual(['Task?fail=1']);
-    // 23 plain + paged page 1 + paged page 2
-    expect(result.resources).toHaveLength(25);
+    // 23 plain + two paged searches with two pages each
+    expect(result.resources).toHaveLength(27);
   });
 });
 
@@ -325,5 +355,101 @@ describe('buildVitalsForTrackingBoard', () => {
     expect(temperatures[0].resourceId).toBe('o-1');
     expect(temperatures[0].alertCriticality).toBeDefined();
     expect(temperatures[0].authorName).toContain('Ann');
+  });
+});
+
+describe('fetchTrackingBoardResources', () => {
+  const sizeCapError = (): Error =>
+    new Error('Response payload size exceeds the maximum allowed size (6,291,456 bytes)');
+  const searchsetOf = (resources: FhirResource[]): Bundle<FhirResource> => ({
+    resourceType: 'Bundle',
+    type: 'searchset',
+    entry: resources.map((resource) => ({ resource })),
+  });
+  const batchResponse = (searchsets: Bundle<FhirResource>[]): Bundle<FhirResource> => ({
+    resourceType: 'Bundle',
+    type: 'batch-response',
+    entry: searchsets.map((searchset) => ({ response: { status: '200 OK' }, resource: searchset })),
+  });
+
+  test('on a response size error it shrinks the entries per bundle as well as the encounter chunks', async () => {
+    // Stand-in for the byte cap: a bundle with more than six entries is "too large".
+    const bundleSizes: number[] = [];
+    const batch = vi.fn(async ({ requests }: { requests: { url: string }[] }): Promise<Bundle<FhirResource>> => {
+      bundleSizes.push(requests.length);
+      if (requests.length > 6) throw sizeCapError();
+      return batchResponse(requests.map(() => searchsetOf([])));
+    });
+    const search = vi.fn();
+    const oystehr = { fhir: { batch, search } } as unknown as Oystehr;
+
+    const result = await fetchTrackingBoardResources({ oystehr, encounterIds: encounterIds(100) });
+
+    expect(result).toEqual({ resources: [], failedUrls: [] });
+    // 100 encounters: 10 entries in one bundle, too large; then 20 entries as two bundles of 10, still too large;
+    // then 39 entries as bundles of at most 5. Halving only the encounter chunks would have kept every retry in
+    // 20-entry bundles carrying the same bytes.
+    expect(bundleSizes.slice(0, 3)).toEqual([10, 10, 10]);
+    expect(bundleSizes.slice(3)).toHaveLength(8);
+    expect(bundleSizes.slice(3).every((size) => size <= 5)).toBe(true);
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  test('any other error is not retried', async () => {
+    const batch = vi.fn(async (): Promise<Bundle<FhirResource>> => {
+      throw new Error('boom');
+    });
+    const oystehr = { fhir: { batch, search: vi.fn() } } as unknown as Oystehr;
+
+    await expect(fetchTrackingBoardResources({ oystehr, encounterIds: encounterIds(3) })).rejects.toThrow('boom');
+    expect(batch).toHaveBeenCalledTimes(1);
+  });
+
+  test('fetches result-review Tasks directly only for external lab reports that came back without them', async () => {
+    const externalLabOrder = serviceRequest('sr-ext', {
+      code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: '1' }] },
+    });
+    const inHouseOrder = serviceRequest('sr-ih', {
+      code: { coding: [{ system: IN_HOUSE_TEST_CODE_SYSTEM, code: '2' }] },
+    });
+    const report = (id: string, orderId: string): DiagnosticReport => ({
+      resourceType: 'DiagnosticReport',
+      id,
+      status: 'final',
+      code: {},
+      basedOn: [{ reference: `ServiceRequest/${orderId}` }],
+    });
+    const reviewTask = (id: string, reportId: string): Task => ({
+      resourceType: 'Task',
+      id,
+      status: 'ready',
+      intent: 'order',
+      basedOn: [{ reference: `DiagnosticReport/${reportId}` }],
+    });
+    const search = vi.fn(async () => ({ unbundle: () => [] }));
+    const clientReturning = (resources: FhirResource[]): Oystehr =>
+      ({
+        fhir: { batch: vi.fn(async () => batchResponse([searchsetOf(resources)])), search },
+      }) as unknown as Oystehr;
+    const fetchWith = (resources: FhirResource[]): ReturnType<typeof fetchTrackingBoardResources> =>
+      fetchTrackingBoardResources({ oystehr: clientReturning(resources), encounterIds: encounterIds(1) });
+
+    // An in-house report never has report-based Tasks: expected, so no extra hop.
+    await fetchWith([inHouseOrder, report('dr-ih', 'sr-ih')]);
+    expect(search).not.toHaveBeenCalled();
+
+    // An external lab report whose review Task came back in the batch: nothing to fetch.
+    await fetchWith([externalLabOrder, report('dr-ext', 'sr-ext'), reviewTask('t-1', 'dr-ext')]);
+    expect(search).not.toHaveBeenCalled();
+
+    // An external lab report without one: the legacy Task search runs, for that report only.
+    await fetchWith([externalLabOrder, report('dr-ext', 'sr-ext'), inHouseOrder, report('dr-ih', 'sr-ih')]);
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(search).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceType: 'Task',
+        params: [{ name: 'based-on', value: 'DiagnosticReport/dr-ext' }],
+      })
+    );
   });
 });

@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery, UseQueryResult } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { emptyOrdersForTrackingBoardTable } from 'utils/lib/helpers/tracking-board';
@@ -22,7 +22,7 @@ export interface TrackingBoardFilters {
 }
 
 /** The appointment buckets plus the grouped order and abnormal-vitals maps, exactly what AppointmentTabs renders. */
-export type TrackingBoardData = Omit<Required<GetAppointmentsZambdaOutput>, 'message'>;
+export type TrackingBoardData = Omit<Required<GetAppointmentsZambdaOutput>, 'message' | 'ordersAndVitalsIncomplete'>;
 
 /**
  * Mirrors the zambda's own date validation so a malformed or over-long `dateFrom`/`dateTo` link never issues a
@@ -54,15 +54,20 @@ export const useGetTrackingBoard = (
   options: { enabled?: boolean } = {}
 ): UseQueryResult<TrackingBoardData, Error> => {
   const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
   const { dateFrom, dateTo, locationIds, providerIds, serviceCategories, visitType } = filters;
   const enabled =
     (options.enabled ?? true) &&
     !!oystehrZambda &&
     hasTrackingBoardScope(filters) &&
     isValidTrackingBoardDateRange(dateFrom, dateTo);
+  const queryKey = [
+    TRACKING_BOARD_QUERY_KEY,
+    { dateFrom, dateTo, locationIds, providerIds, serviceCategories, visitType },
+  ];
 
   return useQuery({
-    queryKey: [TRACKING_BOARD_QUERY_KEY, { dateFrom, dateTo, locationIds, providerIds, serviceCategories, visitType }],
+    queryKey,
     queryFn: async (): Promise<TrackingBoardData> => {
       if (!oystehrZambda) throw new Error('oystehrZambda not defined');
       if (!dateFrom || !dateTo) throw new Error('a date range is required');
@@ -79,6 +84,17 @@ export const useGetTrackingBoard = (
       };
       const result = await getAppointments(oystehrZambda, input);
 
+      // When one of the server's order/vitals searches failed, the maps are missing entries. Keep the previous
+      // tick's maps for this key instead of blanking every icon and badge for 30 s; the rows themselves are current.
+      const previous = result.ordersAndVitalsIncomplete
+        ? queryClient.getQueryData<TrackingBoardData>(queryKey)
+        : undefined;
+      if (result.ordersAndVitalsIncomplete) {
+        console.warn('tracking board orders/vitals were incomplete; keeping the previous icons', {
+          keptPrevious: previous !== undefined,
+        });
+      }
+
       // The zambda always returns both maps; the fallbacks only cover a rolling deploy where the backend still
       // runs the shape from before they were added.
       return {
@@ -86,8 +102,8 @@ export const useGetTrackingBoard = (
         inOffice: result.inOffice ?? [],
         completed: result.completed ?? [],
         cancelled: result.cancelled ?? [],
-        orders: result.orders ?? emptyOrdersForTrackingBoardTable(),
-        vitals: result.vitals ?? {},
+        orders: previous?.orders ?? result.orders ?? emptyOrdersForTrackingBoardTable(),
+        vitals: previous?.vitals ?? result.vitals ?? {},
       };
     },
     enabled,
