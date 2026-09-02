@@ -70,6 +70,7 @@ import { deleteResourceRequest } from '../delete-chart-data/helpers';
 import {
   filterServiceRequestsFromFhir,
   getEncounterAndRelatedResources,
+  getEncounterClinicAddress,
   validateBundleAndExtractSavedChartData,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -415,7 +416,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   if (newSchoolWorkNote) {
     if (appointment?.id === undefined) throw new Error(`No appointment found for encounterId: ${encounterId}`);
-    const pdfInfo = await createSchoolWorkNotePDF(newSchoolWorkNote, patient, secrets, m2mToken);
+    const pdfInfo = await createSchoolWorkNotePDF(
+      newSchoolWorkNote,
+      patient,
+      secrets,
+      m2mToken,
+      getEncounterClinicAddress(encounter, allResources)
+    );
     additionalResourcesForResponse.push(
       await makeSchoolWorkDR(
         oystehr,

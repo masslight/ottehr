@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { UpdateProgressNoteConfigInputValidated } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
@@ -6,9 +6,14 @@ import { RoleType } from 'utils/lib/types/api/user.types';
 import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { topLevelCatch } from '../../../shared/lambda';
-import { saveProgressNoteConfig } from '../../../shared/progress-note-config';
+import {
+  findProgressNoteConfigBasic,
+  progressNoteConfigPayloadFromBasic,
+  saveProgressNoteConfig,
+} from '../../../shared/progress-note-config';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
+import { resolveSignReviewPrompt } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -24,7 +29,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { secrets } = validatedInput;
 
     console.group('complexValidation');
-    await complexValidation(validatedInput);
+    const user = await complexValidation(validatedInput);
     console.groupEnd();
     console.debug('complexValidation success');
 
@@ -32,7 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     console.group('performEffect');
-    await performEffect(validatedInput, oystehr);
+    await performEffect(validatedInput, oystehr, user);
     console.groupEnd();
     console.debug('performEffect success');
 
@@ -43,14 +48,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-const complexValidation = async (validatedInput: UpdateProgressNoteConfigInputValidated): Promise<void> => {
+const complexValidation = async (validatedInput: UpdateProgressNoteConfigInputValidated): Promise<User> => {
   const { userToken, secrets } = validatedInput;
-  await requireUserWithRole(userToken, secrets, [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]);
+  return requireUserWithRole(userToken, secrets, [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]);
 };
 
 const performEffect = async (
   validatedInput: UpdateProgressNoteConfigInputValidated,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  user: User
 ): Promise<void> => {
   const {
     mdmRequired,
@@ -59,13 +65,25 @@ const performEffect = async (
     anotherDispositionDefaultText,
     edDispositionDefaultText,
     vitalsUnitInputOrder,
+    signReviewPrompt,
   } = validatedInput;
-  await saveProgressNoteConfig(oystehr, {
-    mdmRequired,
-    medicalDecisionDefaultText,
-    pcpNoTypeDispositionDefaultText,
-    anotherDispositionDefaultText,
-    edDispositionDefaultText,
-    vitalsUnitInputOrder,
-  });
+
+  // One read backs both the sign-review-prompt check and the save's optimistic lock, so a prompt
+  // change landing in between is reported as a conflict rather than silently reverted.
+  const existingBasic = await findProgressNoteConfigBasic(oystehr);
+  const storedConfig = progressNoteConfigPayloadFromBasic(existingBasic);
+
+  await saveProgressNoteConfig(
+    oystehr,
+    {
+      mdmRequired,
+      medicalDecisionDefaultText,
+      pcpNoTypeDispositionDefaultText,
+      anotherDispositionDefaultText,
+      edDispositionDefaultText,
+      vitalsUnitInputOrder,
+      signReviewPrompt: resolveSignReviewPrompt(user, signReviewPrompt, storedConfig.signReviewPrompt),
+    },
+    { existingBasic }
+  );
 };

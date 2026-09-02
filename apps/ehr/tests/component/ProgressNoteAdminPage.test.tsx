@@ -10,6 +10,8 @@ import {
 } from 'src/api/api';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils/lib/utils/progress-note-config';
 import { DEFAULT_VITALS_ALERT_CONFIG } from 'utils/lib/utils/vitals-alert-config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -27,6 +29,10 @@ vi.mock('src/hooks/useAppClients', () => ({
   useApiClients: vi.fn(),
 }));
 
+vi.mock('src/hooks/useEvolveUser', () => ({
+  default: vi.fn(),
+}));
+
 vi.mock('notistack', () => ({
   enqueueSnackbar: vi.fn(),
 }));
@@ -39,6 +45,18 @@ vi.mock('src/layout/PageContainer', () => ({
 const mockOystehrZambda = {} as any;
 const requiredProgressNoteConfig = { ...DEFAULT_PROGRESS_NOTE_CONFIG, mdmRequired: true };
 const optionalProgressNoteConfig = { ...DEFAULT_PROGRESS_NOTE_CONFIG, mdmRequired: false };
+
+/**
+ * The prompt is customer-support-only, so a save from anyone else must leave the field out rather
+ * than round-trip the value the form loaded — the server reads absence as "keep the stored prompt".
+ */
+const { signReviewPrompt: _signReviewPrompt, ...requiredConfigWithoutPrompt } = requiredProgressNoteConfig;
+
+const asUser = (...roles: RoleType[]): void => {
+  vi.mocked(useEvolveUser).mockReturnValue({
+    hasRole: (requested: RoleType[]) => requested.some((role) => roles.includes(role)),
+  } as any);
+};
 
 const createTestQueryClient = (): QueryClient =>
   new QueryClient({
@@ -72,6 +90,7 @@ describe('ProgressNoteAdminPage', () => {
     vi.mocked(useApiClients).mockReturnValue({ oystehrZambda: mockOystehrZambda } as any);
     vi.mocked(getVitalsAlertConfig).mockResolvedValue(DEFAULT_VITALS_ALERT_CONFIG);
     vi.mocked(adminUpdateVitalsAlertConfig).mockResolvedValue(undefined);
+    asUser(RoleType.Administrator);
   });
 
   it('renders the MDM switch checked when mdmRequired is true', async () => {
@@ -104,7 +123,7 @@ describe('ProgressNoteAdminPage', () => {
 
     await waitFor(() => {
       expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, {
-        ...requiredProgressNoteConfig,
+        ...requiredConfigWithoutPrompt,
         mdmRequired: false,
       });
     });
@@ -121,7 +140,7 @@ describe('ProgressNoteAdminPage', () => {
     fireEvent.click(getSaveButton());
 
     await waitFor(() => {
-      expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, requiredProgressNoteConfig);
+      expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, requiredConfigWithoutPrompt);
     });
   });
 
@@ -150,7 +169,7 @@ describe('ProgressNoteAdminPage', () => {
 
     await waitFor(() => {
       expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, {
-        ...requiredProgressNoteConfig,
+        ...requiredConfigWithoutPrompt,
         medicalDecisionDefaultText: 'Updated default MDM text.',
       });
     });
@@ -210,8 +229,62 @@ describe('ProgressNoteAdminPage', () => {
 
     await waitFor(() => {
       expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, {
-        ...requiredProgressNoteConfig,
+        ...requiredConfigWithoutPrompt,
         vitalsUnitInputOrder: 'imperial-metric',
+      });
+    });
+  });
+
+  it('does not offer the note review prompt to a non-customer-support user', async () => {
+    vi.mocked(getProgressNoteConfig).mockResolvedValue({
+      ...requiredProgressNoteConfig,
+      signReviewPrompt: 'Confirm at least 4 ROS systems are documented.',
+    });
+
+    render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => expect(getMdmDefaultField()).toBeInTheDocument());
+    expect(screen.queryByLabelText('Note review requirements')).not.toBeInTheDocument();
+  });
+
+  it('omits the stored prompt from a non-customer-support save', async () => {
+    // The stale-prompt case: customer support edited the prompt after this form loaded. Submitting
+    // the loaded copy would either revert their edit or be rejected outright.
+    vi.mocked(getProgressNoteConfig).mockResolvedValue({
+      ...requiredProgressNoteConfig,
+      signReviewPrompt: 'Confirm at least 4 ROS systems are documented.',
+    });
+    vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);
+
+    render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => expect(getMdmDefaultField()).toBeInTheDocument());
+    fireEvent.change(getMdmDefaultField(), { target: { value: 'Updated default MDM text.' } });
+    fireEvent.click(getSaveButton());
+
+    await waitFor(() => {
+      expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, {
+        ...requiredConfigWithoutPrompt,
+        medicalDecisionDefaultText: 'Updated default MDM text.',
+      });
+    });
+  });
+
+  it('saves the prompt edited by customer support', async () => {
+    asUser(RoleType.CustomerSupport);
+    vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
+    vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);
+
+    render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+    const promptField = await screen.findByLabelText('Note review requirements');
+    fireEvent.change(promptField, { target: { value: 'Confirm at least 4 ROS systems are documented.' } });
+    fireEvent.click(getSaveButton());
+
+    await waitFor(() => {
+      expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, {
+        ...requiredProgressNoteConfig,
+        signReviewPrompt: 'Confirm at least 4 ROS systems are documented.',
       });
     });
   });
@@ -271,7 +344,7 @@ describe('ProgressNoteAdminPage', () => {
 
     await waitFor(() =>
       expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, {
-        ...requiredProgressNoteConfig,
+        ...requiredConfigWithoutPrompt,
         mdmRequired: false,
       })
     );
