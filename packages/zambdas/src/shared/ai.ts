@@ -153,7 +153,12 @@ export async function invokeChatbotVertexAI(
 
   let resolved = false;
   let terminal = false; // a non-retryable status came back; further attempts would just resend the payload
-  let terminalError: Error | undefined; // that status's own error, so it is reported instead of the ladder's
+  // Promise.any cannot reject until every attempt has, so on its own a rejected terminal attempt left the
+  // caller waiting out the later attempts' backoff sleeps. Racing this against the ladder surfaces it now.
+  let failTerminally: (error: Error) => void = () => undefined;
+  const terminalFailure = new Promise<never>((_resolve, reject) => {
+    failTerminally = reject;
+  });
   const requests = backoffTimes.map(async (backoffTime) => {
     await new Promise((resolve) => setTimeout(resolve, backoffTime));
 
@@ -190,10 +195,11 @@ export async function invokeChatbotVertexAI(
           throw new Error(`Retryable error: ${response.status} ${errorBody.slice(0, 500)}`);
         }
         terminal = true;
-        terminalError = new Error(
+        const failure = new Error(
           `Vertex AI request failed: ${response.status} ${response.statusText} ${errorBody.slice(0, 1000)}`
         );
-        throw terminalError;
+        failTerminally(failure);
+        throw failure;
       }
 
       const body = await response.text();
@@ -216,17 +222,17 @@ export async function invokeChatbotVertexAI(
       // lands a blank transcript on the chart, and it would do so with the attempt already counted a success.
       if (typeof text !== 'string' || text.trim().length === 0) {
         // No candidate text means the model refused, was cut off (safety block, MAX_TOKENS finishReason), or
-        // spent the whole turn on thinking tokens and emitted none.
-        const reason = JSON.stringify({
-          finishReason: candidate?.finishReason,
-          promptFeedback: parsed?.promptFeedback,
-          usageMetadata: parsed?.usageMetadata,
-        });
-        // Normally the reason and not the body: a cut-off candidate can still carry partial transcript. But a
-        // candidate with no `content` holds nothing the model generated, and those are exactly the bodies
-        // whose reason fields are all absent too — `{}` on its own is as undiagnosable as the old TypeError.
-        const detail = candidate?.content == null ? `${reason} ${body.slice(0, 1000)}` : reason;
-        throw new Error(`Vertex AI returned no text: ${detail}`);
+        // spent the whole turn on thinking tokens and emitted none. Everything outside `candidates` is
+        // metadata — quota, model build, response id, prompt feedback — so it is reported whole: it names the
+        // cause where a hand-picked field or two left `{}`. `candidates` is dropped wholesale rather than
+        // inspected shape by shape, because one that was cut off can still hold a partial transcript and a
+        // sibling can hold a whole one, and neither belongs in a log or a Sentry issue.
+        // Capped like every other body interpolated here: dropping `candidates` bounds what this can say
+        // about a Gemini response, but not about a gateway envelope that carries the request back, which on
+        // the transcription path is the base64 audio — and this reason is logged and shipped to Sentry.
+        const { candidates: _candidates, ...metadata } = parsed ?? {};
+        const reason = JSON.stringify({ finishReason: candidate?.finishReason, ...metadata }).slice(0, 1000);
+        throw new Error(`Vertex AI returned no text: ${reason}`);
       }
 
       // Only an attempt that produced usable text may win. This used to be set on `response.ok` alone, so a
@@ -246,17 +252,15 @@ export async function invokeChatbotVertexAI(
   try {
     // Every attempt now resolves only with validated text, so Promise.any picks the first usable result
     // rather than the first HTTP 200.
-    return await Promise.any(requests);
+    return await Promise.race([Promise.any(requests), terminalFailure]);
   } catch (error) {
-    // A status no resend can recover from is its own diagnosis; wrapping it in the ladder's message would
-    // bury it and group it with exhausted ladders in Sentry.
-    if (terminalError != null) throw terminalError;
+    // Only Promise.any rejects with an AggregateError; anything else came from the terminal signal. Such a
+    // status is its own diagnosis, and wrapping it in the ladder's message would bury it and group it with
+    // exhausted ladders in Sentry.
+    if (!(error instanceof AggregateError)) throw error;
     // AggregateError's own message is just "All promises were rejected", so unpack the reasons — otherwise
     // the most common failure mode stays as opaque as the TypeError this used to throw.
-    const reasons =
-      error instanceof AggregateError
-        ? error.errors.map((reason) => (reason instanceof Error ? reason.message : String(reason)))
-        : [error instanceof Error ? error.message : String(error)];
+    const reasons = error.errors.map((reason) => (reason instanceof Error ? reason.message : String(reason)));
     throw new Error(`Vertex AI request failed after ${requests.length} attempts: ${reasons.join('; ')}`);
   }
 }
