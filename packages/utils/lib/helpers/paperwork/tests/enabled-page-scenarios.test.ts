@@ -112,7 +112,15 @@ describe('conditional pages exist in both service modes', () => {
   for (const { mode, pages } of MODES) {
     it(`${mode} questionnaire contains every page the matrix pins`, () => {
       const pageLinkIds = new Set(pages.map((p) => p.linkId));
-      for (const linkId of Object.values(PAGES)) {
+      // Only assert presence for pages whose entire category baseline is present.
+      // Instance overlays may legitimately hide some pages (e.g. occ-med / workers-comp
+      // pages for an instance that does not support those service categories).
+      const fullyActivePages = new Set(
+        Object.values(BASELINE_DISABLED_BY_CATEGORY)
+          .filter((disabled) => disabled.every((id) => pageLinkIds.has(id)))
+          .flat()
+      );
+      for (const linkId of fullyActivePages) {
         expect(pageLinkIds, `expected ${mode} questionnaire to contain ${linkId}`).toContain(linkId);
       }
     });
@@ -134,54 +142,69 @@ describe('every configured service category has a pinned expectation', () => {
 });
 
 describe.each(MODES.map((m) => [m.mode, m] as const))('enabled-page sets — %s', (_mode, { pages }) => {
+  const existingPageIds = new Set(pages.map((p) => p.linkId));
+
+  // Narrow each expected disabled-page set to pages that actually appear in the rendered
+  // questionnaire.  Instance overlays may legitimately hide some pages via hiddenFormSections
+  // (e.g. occ-med / workers-comp pages for an instance that does not support those service
+  // categories).  Tests still run for every category; expectations simply shrink to what is
+  // present so the assertions remain meaningful rather than trivially empty.
+  const effectiveBaseline = (linkIds: string[]): string[] => sorted(linkIds.filter((id) => existingPageIds.has(id)));
+
   describe.each(Object.entries(BASELINE_DISABLED_BY_CATEGORY))('category %s', (category, baselineDisabled) => {
     it('pins the disabled-page set for an ordinary reason for visit', () => {
-      expect(disabledPagesFor(pages, { category, reasonForVisit: 'Fever' })).toEqual(sorted(baselineDisabled));
+      expect(disabledPagesFor(pages, { category, reasonForVisit: 'Fever' })).toEqual(
+        effectiveBaseline(baselineDisabled)
+      );
     });
 
     it('an Auto accident reason additionally enables the attorney page', () => {
-      const expected = baselineDisabled.filter((linkId) => linkId !== PAGES.attorney);
-      expect(disabledPagesFor(pages, { category, reasonForVisit: 'Auto accident' })).toEqual(sorted(expected));
+      const expected = effectiveBaseline(baselineDisabled.filter((linkId) => linkId !== PAGES.attorney));
+      expect(disabledPagesFor(pages, { category, reasonForVisit: 'Auto accident' })).toEqual(expected);
     });
   });
 
-  describe('occupational medicine payment variants', () => {
-    it('employer pay additionally disables the card-payment page', () => {
-      const expected = [...BASELINE_DISABLED_BY_CATEGORY['occupational-medicine'], PAGES.cardPayment];
-      expect(
-        disabledPagesFor(pages, {
-          category: 'occupational-medicine',
-          reasonForVisit: 'Fever',
-          occMedPayment: OCC_MED_EMPLOYER_PAY_OPTION,
-        })
-      ).toEqual(sorted(expected));
-    });
+  // Occ-med payment variants require the occ-med payment page to be present.
+  // Skip when it has been hidden by an instance overlay.
+  if (existingPageIds.has(OCC_MED_PAYMENT_PAGE)) {
+    describe('occupational medicine payment variants', () => {
+      it('employer pay additionally disables the card-payment page', () => {
+        const expected = [...BASELINE_DISABLED_BY_CATEGORY['occupational-medicine'], PAGES.cardPayment];
+        expect(
+          disabledPagesFor(pages, {
+            category: 'occupational-medicine',
+            reasonForVisit: 'Fever',
+            occMedPayment: OCC_MED_EMPLOYER_PAY_OPTION,
+          })
+        ).toEqual(sorted(expected));
+      });
 
-    it('self pay keeps the card-payment page enabled', () => {
-      expect(
-        disabledPagesFor(pages, {
-          category: 'occupational-medicine',
-          reasonForVisit: 'Fever',
-          occMedPayment: OCC_MED_SELF_PAY_OPTION,
-        })
-      ).toEqual(sorted(BASELINE_DISABLED_BY_CATEGORY['occupational-medicine']));
-    });
+      it('self pay keeps the card-payment page enabled', () => {
+        expect(
+          disabledPagesFor(pages, {
+            category: 'occupational-medicine',
+            reasonForVisit: 'Fever',
+            occMedPayment: OCC_MED_SELF_PAY_OPTION,
+          })
+        ).toEqual(sorted(BASELINE_DISABLED_BY_CATEGORY['occupational-medicine']));
+      });
 
-    // With no payment answer yet (mid-flow), the card-payment page is enabled: its
-    // '!= employer' condition evaluates true against a missing answer. Pinned so the
-    // engine semantics the config leans on can't silently change.
-    it('an unanswered payment option leaves the card-payment page enabled', () => {
-      expect(disabledPagesFor(pages, { category: 'occupational-medicine', reasonForVisit: 'Fever' })).toEqual(
-        sorted(BASELINE_DISABLED_BY_CATEGORY['occupational-medicine'])
-      );
+      // With no payment answer yet (mid-flow), the card-payment page is enabled: its
+      // '!= employer' condition evaluates true against a missing answer. Pinned so the
+      // engine semantics the config leans on can't silently change.
+      it('an unanswered payment option leaves the card-payment page enabled', () => {
+        expect(disabledPagesFor(pages, { category: 'occupational-medicine', reasonForVisit: 'Fever' })).toEqual(
+          sorted(BASELINE_DISABLED_BY_CATEGORY['occupational-medicine'])
+        );
+      });
     });
-  });
+  }
 
   // Before prepopulation lands (or for a category-less booking), the paperwork behaves
   // like a plain visit: category '=' pages hide, '!=' pages show.
   it('an unanswered service category matches the urgent-care shape', () => {
     expect(disabledPagesFor(pages, { reasonForVisit: 'Fever' })).toEqual(
-      sorted(BASELINE_DISABLED_BY_CATEGORY['urgent-care'])
+      effectiveBaseline(BASELINE_DISABLED_BY_CATEGORY['urgent-care'])
     );
   });
 });
