@@ -2,16 +2,6 @@ import { InPersonAppointmentInformation } from '../data/appointments/appointment
 import { OrdersForTrackingBoardTable } from '../data/orders/types';
 import { GetVitalsForListOfEncountersResponseData } from './chart-data/get-vitals.types';
 
-/**
- * Transitional (tracking board consolidation, phases 1 and 2): opts the response into the tracking
- * board's grouped order and abnormal-vitals maps. Absent means today's appointments-only response,
- * byte for byte. Phase 3 removes the flag and always returns both maps.
- */
-export interface GetAppointmentsInclude {
-  orders?: boolean;
-  vitals?: boolean;
-}
-
 export interface GetAppointmentsZambdaInput {
   searchDateFrom: string;
   searchDateTo: string;
@@ -21,7 +11,6 @@ export interface GetAppointmentsZambdaInput {
   serviceCategories?: string[];
   visitType: string[];
   supervisorApprovalEnabled?: boolean;
-  include?: GetAppointmentsInclude;
 }
 
 export interface GetAppointmentsZambdaOutput {
@@ -30,8 +19,8 @@ export interface GetAppointmentsZambdaOutput {
   inOffice: InPersonAppointmentInformation[];
   completed: InPersonAppointmentInformation[];
   cancelled: InPersonAppointmentInformation[];
-  /** Present only when `include.orders` was requested; keyed the way AppointmentTable reads it. */
-  orders?: OrdersForTrackingBoardTable;
-  /** Present only when `include.vitals` was requested; abnormal (alertCriticality) entries only. */
-  vitals?: GetVitalsForListOfEncountersResponseData;
+  /** Every order on the in-office and discharged rows, keyed the way AppointmentTable reads it. */
+  orders: OrdersForTrackingBoardTable;
+  /** Abnormal (alertCriticality) vitals only, keyed by encounter id; only encounters with one appear. */
+  vitals: GetVitalsForListOfEncountersResponseData;
 }

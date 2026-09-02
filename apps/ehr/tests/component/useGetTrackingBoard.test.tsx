@@ -41,14 +41,15 @@ describe('useGetTrackingBoard', () => {
     vi.mocked(useApiClients).mockReturnValue({ oystehrZambda: {} as any } as any);
   });
 
-  it('asks get-appointments for the orders and vitals maps and fills them in when the response omits them', async () => {
+  it('fetches the board and fills in empty maps when an older backend omits them', async () => {
+    // An older backend, from before the maps became required, still answers without them.
     vi.mocked(getAppointments).mockResolvedValue({
       message: 'ok',
       preBooked: [],
-      inOffice: [{ id: 'appt-1', encounterId: 'enc-1' } as any],
+      inOffice: [{ id: 'appt-1', encounterId: 'enc-1' }],
       completed: [],
       cancelled: [],
-    });
+    } as any);
 
     const { result } = renderHook(() => useGetTrackingBoard(filters), { wrapper: createWrapper() });
 
@@ -62,8 +63,8 @@ describe('useGetTrackingBoard', () => {
       providerIds: [],
       serviceCategories: [],
       visitType: filters.visitType,
-      include: { orders: true, vitals: true },
     });
+    expect(input).not.toHaveProperty('include');
     expect(result.current.data?.inOffice).toHaveLength(1);
     expect(result.current.data?.orders.externalLabOrdersByAppointmentId).toEqual({});
     expect(result.current.data?.orders.proceduresByEncounterId).toEqual({});

@@ -76,11 +76,11 @@ export const useGetTrackingBoard = (
         serviceCategories,
         visitType,
         supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
-        // Transitional flag (tracking board consolidation phases 1 and 2); phase 3 makes both unconditional.
-        include: { orders: true, vitals: true },
       };
       const result = await getAppointments(oystehrZambda, input);
 
+      // The zambda always returns both maps; the fallbacks only cover a rolling deploy where the backend still
+      // runs the shape from before they were added.
       return {
         preBooked: result.preBooked ?? [],
         inOffice: result.inOffice ?? [],

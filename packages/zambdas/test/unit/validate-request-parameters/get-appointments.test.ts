@@ -76,25 +76,12 @@ describe('get-appointments - validateRequestParameters', () => {
     expect(result.supervisorApprovalEnabled).toBe(false);
   });
 
-  test('should accept the transitional include flags', () => {
-    const input = createMockZambdaInput({ ...validBody, include: { orders: true, vitals: false } });
+  test('should ignore the retired include field an older client may still send', () => {
+    const input = createMockZambdaInput({ ...validBody, include: { orders: true, vitals: true } });
     const result = validateRequestParameters(input);
 
-    expect(result.include).toEqual({ orders: true, vitals: false });
-  });
-
-  test('should leave include undefined when omitted', () => {
-    const input = createMockZambdaInput(validBody);
-    const result = validateRequestParameters(input);
-
-    expect(result.include).toBeUndefined();
-  });
-
-  test('should reject include with a non-boolean value or an unknown key', () => {
-    expect(() =>
-      validateRequestParameters(createMockZambdaInput({ ...validBody, include: { orders: 'yes' } }))
-    ).toThrow();
-    expect(() => validateRequestParameters(createMockZambdaInput({ ...validBody, include: { labs: true } }))).toThrow();
+    expect(result).not.toHaveProperty('include');
+    expect(result.locationIds).toEqual(validBody.locationIds);
   });
 
   test('should throw when body is missing', () => {

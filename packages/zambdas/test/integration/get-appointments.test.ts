@@ -36,7 +36,7 @@ describe('get-appointments integration — happy path', () => {
     expect(response.output).toBeDefined();
   });
 
-  it('keeps the legacy response shape when include is absent', async () => {
+  it('always returns the grouped order table and abnormal vitals', async () => {
     const response = await oystehrZambdas.zambda.execute({
       id: 'get-appointments',
       searchDateFrom: DateTime.now().toISODate(),
@@ -44,21 +44,6 @@ describe('get-appointments integration — happy path', () => {
       timezone: 'America/New_York',
       visitType: ['in-person-walk-in'],
       providerIds: [practitionerId],
-    });
-    const output = response.output as GetAppointmentsZambdaOutput;
-    expect(output.orders).toBeUndefined();
-    expect(output.vitals).toBeUndefined();
-  });
-
-  it('returns the grouped order table and abnormal vitals when include asks for them', async () => {
-    const response = await oystehrZambdas.zambda.execute({
-      id: 'get-appointments',
-      searchDateFrom: DateTime.now().toISODate(),
-      searchDateTo: DateTime.now().toISODate(),
-      timezone: 'America/New_York',
-      visitType: ['in-person-walk-in'],
-      providerIds: [practitionerId],
-      include: { orders: true, vitals: true },
     });
     const output = response.output as GetAppointmentsZambdaOutput;
     expect(Object.keys(output.orders ?? {}).sort()).toEqual(
@@ -89,7 +74,6 @@ describe('get-appointments integration — happy path', () => {
     const response = await oystehrZambdas.zambda.execute({
       id: 'get-appointments',
       ...params,
-      include: { orders: true },
     });
     const output = response.output as GetAppointmentsZambdaOutput;
     const encounterIds = [...output.inOffice, ...output.completed].map((appointment) => appointment.encounterId);
@@ -99,7 +83,7 @@ describe('get-appointments integration — happy path', () => {
       return;
     }
 
-    const execute = async <T>(body: Record<string, unknown>): Promise<T> =>
+    const execute = async <T>(body: { id: string } & Record<string, unknown>): Promise<T> =>
       (await oystehrZambdas.zambda.execute(body)).output as T;
     const searchBy = { field: 'encounterIds', value: encounterIds };
     const rendered = (rows: Record<string, unknown>[]): string[] => rows.map((row) => JSON.stringify(row)).sort();

@@ -1,6 +1,6 @@
 # Tracking board: consolidate the refresh into one `get-appointments` call
 
-Status: Phases 1 and 2 implemented on this branch (see "Implementation notes" at the end); Phases 3 and 4 pending
+Status: Phases 1 to 3 implemented on this branch (see "Implementation notes" at the end); Phase 4 pending
 Scope: `apps/ehr` tracking board (`/visits`), `packages/zambdas`, `packages/utils`, `config/oystehr-core`
 
 ## 1. What happens today
@@ -94,10 +94,10 @@ export interface GetAppointmentsZambdaOutput {
 }
 ```
 
-Transitional shape, Phases 1 and 2 only: the request carries an opt-in `include?: { orders?: boolean; vitals?: boolean }`
-and the two maps are optional. With the flag absent the response is today's, byte for byte, which keeps the first
-backend PR observably inert while the frontend still consumes the old shape. Phase 3 deletes the flag and makes the
-maps required.
+Transitional shape, Phases 1 and 2 only (removed in Phase 3): the request carried an opt-in
+`include?: { orders?: boolean; vitals?: boolean }` and the two maps were optional, so the first backend PR was
+observably inert while the frontend still consumed the old shape. The validator now strips an `include` an older
+client may still send.
 
 `OrdersForTrackingBoardTable` and the per-type DTOs already exist in `utils/lib/types/data/orders/types.ts`, so the
 table, row, and tooltip components need no prop changes.
@@ -369,7 +369,7 @@ Targets to record before and after (Network tab, one tick)
 - Until Phase 3 the `encounterIds` code paths live in two places. That is deliberate: the legacy zambdas still serve the
   chart pages by `encounterId`/`patientId`, and the board no longer depends on them.
 
-## 7. Implementation notes (Phases 1 and 2)
+## 7. Implementation notes (Phases 1 to 3)
 
 Where the build departs from the plan above, and why:
 
@@ -392,3 +392,8 @@ Where the build departs from the plan above, and why:
   invalidate the tracking board key directly.
 - Verified here: zambda and EHR typechecks, lint, the get-appointments unit tests (49) and the tracking board hook
   and tabs component tests (14). Not run here: the integration suite (needs Oystehr secrets) and E2E.
+- Phase 3: `include` is gone from the types, the validator, the hook and the tests; `orders` and `vitals` are required
+  and always returned, and the validator strips a stray `include` from older clients. The legacy zambdas keep their
+  `encounterIds` branches: the `searchBy` unions they belong to are what the reused mappers key list-versus-detail
+  on, and the radiology and immunization variants still serve chart pages. The board-only vitals list hook
+  (`useGetVitalsForEncounters`) was dead after Phase 2 and is removed; its zambda stays as a public endpoint.

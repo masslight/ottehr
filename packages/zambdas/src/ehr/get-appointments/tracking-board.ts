@@ -22,7 +22,7 @@ import { isDeletedMedicationOrder } from 'utils/lib/helpers/order-status.helper'
 import { emptyOrdersForTrackingBoardTable } from 'utils/lib/helpers/tracking-board';
 import { convertVitalsListToMap, getAbnormalVitals } from 'utils/lib/helpers/vitals/utils';
 import { GetVitalsForListOfEncountersResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
-import { GetAppointmentsInclude, GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
+import { GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
 import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
 import { OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
@@ -62,19 +62,12 @@ import { isResponseSizeExceededError } from './helpers';
  * `AppointmentTable` reads, grouped by appointment or encounter, so the page needs no per-type requests.
  */
 
-export type TrackingBoardInclude = Required<GetAppointmentsInclude>;
-
-export const resolveTrackingBoardInclude = (include: GetAppointmentsInclude | undefined): TrackingBoardInclude => ({
-  orders: !!include?.orders,
-  vitals: !!include?.vitals,
-});
+export type TrackingBoardExtras = Pick<GetAppointmentsZambdaOutput, 'orders' | 'vitals'>;
 
 /** The response shape with nothing on the board, for empty days and for a failed fetch. */
-export const emptyTrackingBoardExtras = (
-  include: TrackingBoardInclude
-): Pick<GetAppointmentsZambdaOutput, 'orders' | 'vitals'> => ({
-  ...(include.orders ? { orders: emptyOrdersForTrackingBoardTable() } : {}),
-  ...(include.vitals ? { vitals: {} } : {}),
+export const emptyTrackingBoardExtras = (): TrackingBoardExtras => ({
+  orders: emptyOrdersForTrackingBoardTable(),
+  vitals: {},
 });
 
 /**
@@ -128,53 +121,48 @@ export interface TrackingBoardChunkSizes {
  */
 export const buildTrackingBoardSearchUrls = (
   encounterIds: string[],
-  include: TrackingBoardInclude,
   chunkSizes: TrackingBoardChunkSizes = { orders: ORDER_ENCOUNTER_CHUNK_SIZE, vitals: VITALS_ENCOUNTER_CHUNK_SIZE }
 ): string[] => {
   const urls: string[] = [];
 
-  if (include.orders) {
-    chunkThings(encounterIds, chunkSizes.orders).forEach((chunk) => {
-      const encounterRefs = chunk.map((id) => `Encounter/${id}`).join(',');
-      urls.push(
-        buildSearchUrl('ServiceRequest', [
-          { name: 'encounter', value: encounterRefs },
-          // "revoked" orders are soft-deleted across every order type.
-          { name: 'status:not', value: 'revoked' },
-          { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
-          { name: '_revinclude', value: 'Task:based-on' },
-          { name: '_revinclude', value: 'DiagnosticReport:based-on' },
-          { name: '_revinclude:iterate', value: 'Task:based-on' },
-          { name: '_revinclude', value: 'Provenance:target' },
-          { name: '_include', value: 'ServiceRequest:instantiates-canonical' },
-          { name: '_include', value: 'ServiceRequest:requester' },
-        ])
-      );
-      urls.push(
-        buildSearchUrl('MedicationAdministration', [
-          { name: 'context', value: encounterRefs },
-          { name: '_tag', value: `${MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE},${IMMUNIZATION_TAG_CODE}` },
-          { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
-          // The in-house medication mapper requires the patient and the ordering practitioner to be present.
-          { name: '_include', value: 'MedicationAdministration:subject' },
-          { name: '_include', value: 'MedicationAdministration:performer' },
-        ])
-      );
-      urls.push(
-        buildSearchUrl('MedicationRequest', [
-          { name: 'encounter', value: encounterRefs },
-          { name: '_tag', value: ERX_MEDICATION_META_TAG_CODE },
-          { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
-        ])
-      );
-    });
-  }
+  chunkThings(encounterIds, chunkSizes.orders).forEach((chunk) => {
+    const encounterRefs = chunk.map((id) => `Encounter/${id}`).join(',');
+    urls.push(
+      buildSearchUrl('ServiceRequest', [
+        { name: 'encounter', value: encounterRefs },
+        // "revoked" orders are soft-deleted across every order type.
+        { name: 'status:not', value: 'revoked' },
+        { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
+        { name: '_revinclude', value: 'Task:based-on' },
+        { name: '_revinclude', value: 'DiagnosticReport:based-on' },
+        { name: '_revinclude:iterate', value: 'Task:based-on' },
+        { name: '_revinclude', value: 'Provenance:target' },
+        { name: '_include', value: 'ServiceRequest:instantiates-canonical' },
+        { name: '_include', value: 'ServiceRequest:requester' },
+      ])
+    );
+    urls.push(
+      buildSearchUrl('MedicationAdministration', [
+        { name: 'context', value: encounterRefs },
+        { name: '_tag', value: `${MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE},${IMMUNIZATION_TAG_CODE}` },
+        { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
+        // The in-house medication mapper requires the patient and the ordering practitioner to be present.
+        { name: '_include', value: 'MedicationAdministration:subject' },
+        { name: '_include', value: 'MedicationAdministration:performer' },
+      ])
+    );
+    urls.push(
+      buildSearchUrl('MedicationRequest', [
+        { name: 'encounter', value: encounterRefs },
+        { name: '_tag', value: ERX_MEDICATION_META_TAG_CODE },
+        { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
+      ])
+    );
+  });
 
-  if (include.vitals) {
-    chunkThings(encounterIds, chunkSizes.vitals).forEach((chunk) => {
-      urls.push(buildSearchUrl('Observation', vitalsObservationSearchParams(chunk)));
-    });
-  }
+  chunkThings(encounterIds, chunkSizes.vitals).forEach((chunk) => {
+    urls.push(buildSearchUrl('Observation', vitalsObservationSearchParams(chunk)));
+  });
 
   return urls;
 };
@@ -219,21 +207,19 @@ const withLabResultTasks = async (
 export const fetchTrackingBoardResources = async ({
   oystehr,
   encounterIds,
-  include,
   fhirApiUrl,
 }: {
   oystehr: Oystehr;
   encounterIds: string[];
-  include: TrackingBoardInclude;
   fhirApiUrl?: string;
 }): Promise<TrackingBoardResources> => {
-  if (encounterIds.length === 0 || (!include.orders && !include.vitals)) {
+  if (encounterIds.length === 0) {
     return { resources: [], failedUrls: [] };
   }
 
   let chunkSizes: TrackingBoardChunkSizes = { orders: ORDER_ENCOUNTER_CHUNK_SIZE, vitals: VITALS_ENCOUNTER_CHUNK_SIZE };
   for (let attempt = 0; ; attempt++) {
-    const urls = buildTrackingBoardSearchUrls(encounterIds, include, chunkSizes);
+    const urls = buildTrackingBoardSearchUrls(encounterIds, chunkSizes);
     const startedAt = Date.now();
     try {
       const fetched = await executeBatchSearches(oystehr, urls, { fhirApiUrl });
@@ -548,21 +534,19 @@ export const buildVitalsForTrackingBoard = (
 
 export interface BuildTrackingBoardExtrasInput extends Omit<BuildOrdersInput, 'pools'> {
   fetched: TrackingBoardResources;
-  include: TrackingBoardInclude;
 }
 
 /** Turns Step B's raw resources into the `orders` and `vitals` fields of the response. */
 export const buildTrackingBoardExtras = ({
   fetched,
-  include,
   ...ordersInput
-}: BuildTrackingBoardExtrasInput): Pick<GetAppointmentsZambdaOutput, 'orders' | 'vitals'> => {
+}: BuildTrackingBoardExtrasInput): TrackingBoardExtras => {
   if (fetched.failedUrls.length > 0) {
     console.error(`tracking board: ${fetched.failedUrls.length} batch entries failed; icons may be incomplete`);
   }
   const pools = poolTrackingBoardResources(fetched.resources);
   return {
-    ...(include.orders ? { orders: buildOrdersForTrackingBoard({ ...ordersInput, pools }) } : {}),
-    ...(include.vitals ? { vitals: buildVitalsForTrackingBoard(pools) } : {}),
+    orders: buildOrdersForTrackingBoard({ ...ordersInput, pools }),
+    vitals: buildVitalsForTrackingBoard(pools),
   };
 };

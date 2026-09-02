@@ -124,7 +124,7 @@ describe('batch-search', () => {
 
 describe('tracking board search plan', () => {
   test('one entry per resource family per encounter chunk, with only the includes the mappers read', () => {
-    const urls = buildTrackingBoardSearchUrls(encounterIds(120), { orders: true, vitals: true });
+    const urls = buildTrackingBoardSearchUrls(encounterIds(120));
 
     const byType = (prefix: string): string[] => urls.filter((url) => url.startsWith(`${prefix}?`));
     expect(byType('ServiceRequest')).toHaveLength(3);
@@ -151,10 +151,9 @@ describe('tracking board search plan', () => {
     expect(byType('MedicationRequest')[0]).toContain(`_tag=${ERX_MEDICATION_META_TAG_CODE}`);
   });
 
-  test('include flags gate the entry families', () => {
-    expect(buildTrackingBoardSearchUrls(encounterIds(10), { orders: true, vitals: false })).toHaveLength(3);
-    expect(buildTrackingBoardSearchUrls(encounterIds(10), { orders: false, vitals: true })).toHaveLength(1);
-    expect(buildTrackingBoardSearchUrls([], { orders: true, vitals: true })).toHaveLength(0);
+  test('no encounters means no entries', () => {
+    expect(buildTrackingBoardSearchUrls([])).toHaveLength(0);
+    expect(buildTrackingBoardSearchUrls(encounterIds(10))).toHaveLength(4);
   });
 
   test('selectTrackingBoardEncounterIds takes every in-office and discharged row, once', () => {
@@ -182,11 +181,11 @@ describe('tracking board search plan', () => {
     );
   });
 
-  test('emptyTrackingBoardExtras only carries the maps that were asked for', () => {
-    const ordersOnly = emptyTrackingBoardExtras({ orders: true, vitals: false });
-    expect(Object.keys(ordersOnly.orders ?? {})).toHaveLength(8);
-    expect(ordersOnly.vitals).toBeUndefined();
-    expect(emptyTrackingBoardExtras({ orders: false, vitals: true })).toEqual({ vitals: {} });
+  test('emptyTrackingBoardExtras carries both maps, empty', () => {
+    const extras = emptyTrackingBoardExtras();
+    expect(Object.keys(extras.orders)).toHaveLength(8);
+    expect(Object.values(extras.orders).every((group) => Object.keys(group).length === 0)).toBe(true);
+    expect(extras.vitals).toEqual({});
   });
 });
 

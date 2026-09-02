@@ -70,7 +70,6 @@ import {
   buildTrackingBoardExtras,
   emptyTrackingBoardExtras,
   fetchTrackingBoardResources,
-  resolveTrackingBoardInclude,
   selectTrackingBoardEncounterIds,
   TrackingBoardResources,
 } from './tracking-board';
@@ -170,11 +169,8 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     providerIds,
     serviceCategories,
     supervisorApprovalEnabled,
-    include,
     secrets,
   } = validatedParameters;
-
-  const trackingBoardInclude = resolveTrackingBoardInclude(include);
 
   console.groupEnd();
   console.debug('validateRequestParameters success');
@@ -288,7 +284,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       inOffice,
       completed,
       cancelled,
-      ...emptyTrackingBoardExtras(trackingBoardInclude),
+      ...emptyTrackingBoardExtras(),
     };
 
     return {
@@ -413,20 +409,16 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   const trackingBoardEncounterIds = appointmentQueues
     ? selectTrackingBoardEncounterIds(appointmentQueues, apptRefToEncounterMap)
     : [];
-  const trackingBoardResourcesPromise: Promise<TrackingBoardResources> | undefined =
-    trackingBoardInclude.orders || trackingBoardInclude.vitals
-      ? fetchTrackingBoardResources({
-          oystehr,
-          encounterIds: trackingBoardEncounterIds,
-          include: trackingBoardInclude,
-          fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets),
-        }).catch((error) => {
-          // The board can render without its icons; log and fall back to empty maps rather than fail the page.
-          console.error('tracking board orders/vitals fetch failed', error);
-          captureException(error);
-          return { resources: [], failedUrls: ['*'] };
-        })
-      : undefined;
+  const trackingBoardResourcesPromise: Promise<TrackingBoardResources> = fetchTrackingBoardResources({
+    oystehr,
+    encounterIds: trackingBoardEncounterIds,
+    fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets),
+  }).catch((error) => {
+    // The board can render without its icons; log and fall back to empty maps rather than fail the page.
+    console.error('tracking board orders/vitals fetch failed', error);
+    captureException(error);
+    return { resources: [], failedUrls: ['*'] };
+  });
 
   console.time('related_resources');
 
@@ -681,22 +673,19 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   }
 
   // Step C: the batch has had the whole related-resource round trip to land; mapping is local work.
-  let trackingBoardExtras = emptyTrackingBoardExtras(trackingBoardInclude);
-  if (trackingBoardResourcesPromise) {
-    try {
-      trackingBoardExtras = buildTrackingBoardExtras({
-        fetched: await trackingBoardResourcesPromise,
-        include: trackingBoardInclude,
-        encounterIds: trackingBoardEncounterIds,
-        encounters: Object.values(apptRefToEncounterMap),
-        appointments,
-        practitioners: Object.values(practitionerIdToResourceMap),
-        environment: getSecret(SecretsKeys.ENVIRONMENT, secrets),
-      });
-    } catch (error) {
-      console.error('tracking board orders/vitals mapping failed', error);
-      captureException(error);
-    }
+  let trackingBoardExtras = emptyTrackingBoardExtras();
+  try {
+    trackingBoardExtras = buildTrackingBoardExtras({
+      fetched: await trackingBoardResourcesPromise,
+      encounterIds: trackingBoardEncounterIds,
+      encounters: Object.values(apptRefToEncounterMap),
+      appointments,
+      practitioners: Object.values(practitionerIdToResourceMap),
+      environment: getSecret(SecretsKeys.ENVIRONMENT, secrets),
+    });
+  } catch (error) {
+    console.error('tracking board orders/vitals mapping failed', error);
+    captureException(error);
   }
 
   const response: GetAppointmentsZambdaOutput = {
