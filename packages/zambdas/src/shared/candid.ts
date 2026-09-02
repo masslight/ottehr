@@ -233,8 +233,14 @@ const createCandidCreateEncounterInput = async (
   const coverage = coverages.primary;
   const coverageSubscriber = coverages.primarySubscriber;
   const coveragePayor = findOrgMatchingReference(coverage?.payor[0]?.reference, insuranceOrgs);
-  if (coverage && (!coverageSubscriber || !coveragePayor)) {
+  if (coverage && !coverageSubscriber) {
     throw MISSING_PATIENT_COVERAGE_INFO_ERROR;
+  }
+  if (coverage && !coveragePayor) {
+    console.warn(
+      `[CLAIM SUBMISSION] Payer Organization not found for coverage ${coverage.id} ` +
+        `(payor reference: ${coverage.payor?.[0]?.reference}). Falling back to cash payer.`
+    );
   }
 
   if (!encounter.id) {
@@ -312,13 +318,14 @@ const createCandidCreateEncounterInput = async (
     ),
     procedures,
     medicationAdministrations,
-    insuranceResources: coverage
-      ? {
-          coverage,
-          subscriber: coverageSubscriber!,
-          payor: coveragePayor!,
-        }
-      : undefined,
+    insuranceResources:
+      coverage && coveragePayor
+        ? {
+            coverage,
+            subscriber: coverageSubscriber!,
+            payor: coveragePayor,
+          }
+        : undefined,
     accident: conditions.find((condition) => chartDataResourceHasMetaTagByCode(condition, 'accident')),
     emCodes,
   };
@@ -684,17 +691,29 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
   if (occupationalMedicineAccount) {
     const ownerOrganizationId = occupationalMedicineAccount.owner?.reference?.split('/')[1];
     if (ownerOrganizationId) {
-      const occupationalMedicineEmployerOrganization = await oystehr.fhir.get<Organization>({
-        id: occupationalMedicineAccount.owner?.reference?.split('/')[1] || '',
-        resourceType: 'Organization',
-      });
-      nonInsurancePayerId = occupationalMedicineEmployerOrganization.identifier?.find(
-        (identifier) => identifier.system === CANDID_NON_INSURANCE_PAYER_ID_IDENTIFIER_SYSTEM
-      )?.value;
-      if (!nonInsurancePayerId) {
-        console.error(
-          `Occupational Medicine Employer Organization ${ownerOrganizationId} does not have a Candid Non-Insurance Payer ID.`
-        );
+      try {
+        const occupationalMedicineEmployerOrganization = await oystehr.fhir.get<Organization>({
+          id: ownerOrganizationId,
+          resourceType: 'Organization',
+        });
+        nonInsurancePayerId = occupationalMedicineEmployerOrganization.identifier?.find(
+          (identifier) => identifier.system === CANDID_NON_INSURANCE_PAYER_ID_IDENTIFIER_SYSTEM
+        )?.value;
+        if (!nonInsurancePayerId) {
+          console.error(
+            `Occupational Medicine Employer Organization ${ownerOrganizationId} does not have a Candid Non-Insurance Payer ID.`
+          );
+        }
+      } catch (error: unknown) {
+        const status = Number((error as any)?.status ?? (error as any)?.statusCode ?? (error as any)?.code);
+        if (status === 410) {
+          console.warn(
+            `[CLAIM SUBMISSION] Occupational Medicine Employer Organization ${occupationalMedicineAccount.owner?.reference} ` +
+              `is deleted (410 Gone). Falling back to cash payer.`
+          );
+        } else {
+          throw error;
+        }
       }
     } else {
       console.error(
@@ -1260,14 +1279,19 @@ export async function createEncounterFromAppointment(
   }
 
   // here we're setting claim type (self-pay or insurance-pay), if nothing provided it'll be insurance-pay
+  // **
   // WC visits always bill through WC insurance, so they are always InsurancePay even when the
   // encounter's paymentVariant is selfPay (a WC patient without general insurance selects
   // "I will pay without insurance" on the payment page, which sets selfPay, but the WC insurer
   // is still the responsible party for the claim).
+  // **
+  // if insurance resources are missing we're defaulting to self pay
+  // in particular we're handling deleted payor Organization resource so it'll not be an error just self pay variant
   const packageEncounter = visitResources.encounter;
   const paymentVariantFromEncounter = getPaymentVariantFromEncounter(packageEncounter);
   const candidResponsibleParty: ResponsiblePartyType =
-    !isAppointmentWorkersComp(visitResources.appointment) && paymentVariantFromEncounter === PaymentVariant.selfPay
+    (!isAppointmentWorkersComp(visitResources.appointment) && paymentVariantFromEncounter === PaymentVariant.selfPay) ||
+    !createEncounterInput.insuranceResources
       ? ResponsiblePartyType.SelfPay
       : ResponsiblePartyType.InsurancePay;
   if (candidResponsibleParty && candidEncounterId) {
