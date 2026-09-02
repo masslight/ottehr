@@ -31,67 +31,23 @@ import {
   useProcedureStore,
   useVitalsDraftStore,
 } from 'src/state/draft-data.store';
-import { extractObservationsFromExamComponents } from 'utils/lib/config-helpers/exam-observations';
-import { examConfig } from 'utils/lib/ottehr-config/examination';
-import { InPersonRosConfig, rosField, RosFindingState } from 'utils/lib/ottehr-config/review-of-systems';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { AISuggestionNotes } from 'utils/lib/types/api/ai-suggestions-notes';
-import { ExamObservationDTO, VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { hashInput } from '../../hooks/useBillingSuggestions';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useAiSuggestionNotes } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
-import { useExamObservationsStore } from '../../stores/appointment/exam-observations.store';
-import { useRosObservationsStore } from '../../stores/appointment/ros-observations.store';
+import {
+  useExamObservationsInitializationStore,
+  useExamObservationsStore,
+} from '../../stores/appointment/exam-observations.store';
+import {
+  useRosObservationsInitializationStore,
+  useRosObservationsStore,
+} from '../../stores/appointment/ros-observations.store';
 import { useGetVitals } from '../vitals/hooks/useGetVitals';
-
-// Compact text serialization of the note sections the practice-level sign-review prompt may evaluate
-const serializeVitals = (vitals: GetVitalsResponseData | undefined): string[] => {
-  return Object.entries(vitals ?? {}).flatMap(([field, observations]) =>
-    (observations as VitalsObservationDTO[]).map((obs) => {
-      const label = field.replace(/^vital-/, '').replace(/-/g, ' ');
-      const value =
-        'systolicPressure' in obs ? `${obs.systolicPressure}/${obs.diastolicPressure}` : String(obs.value ?? '');
-      return `${label}: ${value}`;
-    })
-  );
-};
-
-const serializeNoteDetails = (
-  rosState: Record<string, ExamObservationDTO>,
-  examState: Record<string, ExamObservationDTO>,
-  hpi: string | undefined,
-  mdm: string | undefined,
-  vitals: GetVitalsResponseData | undefined
-): string => {
-  const rosLines = Object.values(InPersonRosConfig).flatMap((system) => {
-    const items = Object.entries(system.items).flatMap(([baseKey, item]) =>
-      [RosFindingState.Denies, RosFindingState.Reports]
-        .filter((state) => rosState[rosField(baseKey, state)]?.value === true)
-        .map((state) => `${state} ${item.label} (checked)`)
-    );
-    return items.length > 0 ? [`${system.label}: ${items.join(', ')}`] : [];
-  });
-  const examLines = Object.entries(examConfig.default.components).flatMap(([, section]) => {
-    const items = [
-      ...extractObservationsFromExamComponents(section.components.normal, 'normal', examState),
-      ...extractObservationsFromExamComponents(section.components.abnormal, 'abnormal', examState),
-    ].map((item) => `${item.label}${item.abnormal ? ' (abnormal)' : ''} (checked)`);
-    return items.length > 0 ? [`${section.label}: ${items.join(', ')}`] : [];
-  });
-  return [
-    `HPI: ${hpi ?? ''}`,
-    `MDM: ${mdm ?? ''}`,
-    'VITALS:',
-    ...serializeVitals(vitals),
-    'ROS:',
-    ...rosLines,
-    'EXAM:',
-    ...examLines,
-  ].join('\n');
-};
 
 export const MissingCard: FC = () => {
   const { id: appointmentIdFromUrl } = useParams();
@@ -156,31 +112,61 @@ export const MissingCard: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hpi]);
 
-  // Non-blocking, AI-generated note-review warnings driven by the practice-level sign-review prompt
+  // Non-blocking, AI-generated note-review warnings driven by the practice-level sign-review prompt.
+  // The prompt and the note content both live server-side; this only names the visit to review.
   const apiClient = useOystehrAPIClient();
   const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
   const rosState = useRosObservationsStore();
   const examState = useExamObservationsStore();
+  const hasRosInitialData = useRosObservationsInitializationStore((state) => state.hasInitialData);
+  const hasExamInitialData = useExamObservationsInitializationStore((state) => state.hasInitialData);
   const signReviewPrompt = progressNoteConfig?.signReviewPrompt?.trim();
-  const { data: vitals, isLoading: isVitalsLoading } = useGetVitals(signReviewPrompt ? encounter.id : undefined);
-  const noteDetails = useMemo(
-    () => (signReviewPrompt ? serializeNoteDetails(rosState, examState, hpi, medicalDecision, vitals) : ''),
-    [signReviewPrompt, rosState, examState, hpi, medicalDecision, vitals]
+  // Vitals live outside chart data, and a prompt may well be about them (e.g. DOT color vision), so
+  // they have to take part in the cache key. PatientVitalsContainer on this same page already runs
+  // this query under the same key, so this shares its result rather than adding a request.
+  const { data: vitals } = useGetVitals(signReviewPrompt ? encounter?.id : undefined);
+  // Keyed on the note state this page already knows about, so the AI re-runs when the note changes
+  // and not on every mount. None of it is sent — the zambda assembles the note itself.
+  const noteStateHash = useMemo(
+    () => hashInput([chartData, chartFields, rosState, examState, vitals]),
+    [chartData, chartFields, rosState, examState, vitals]
   );
-  const { data: noteReview, isLoading: isNoteReviewLoading } = useQuery<AISuggestionNotes>({
-    queryKey: ['note-review-suggestions', encounter.id, hashInput(signReviewPrompt + noteDetails)],
-    queryFn: () => apiClient!.aiSuggestionNotes({ type: 'note-review', reviewPrompt: signReviewPrompt!, noteDetails }),
+  const {
+    data: noteReview,
+    isLoading: isNoteReviewLoading,
+    isError: isNoteReviewError,
+  } = useQuery<AISuggestionNotes>({
+    queryKey: ['note-review-suggestions', encounter?.id, noteStateHash],
+    queryFn: () =>
+      apiClient!.aiSuggestionNotes({
+        type: 'note-review',
+        appointmentId: appointmentIdFromUrl!,
+        encounterId: encounter!.id!,
+      }),
     enabled:
       !!apiClient &&
       !!signReviewPrompt &&
-      !!encounter.id &&
+      !!appointmentIdFromUrl &&
+      !!encounter?.id &&
       !isAppointmentReadOnly &&
       !isChartDataLoading &&
-      !isVitalsLoading,
+      // The ROS and exam stores are hydrated from a parent effect. Waiting for both avoids firing a
+      // review against an empty chart and flashing a warning the note doesn't actually deserve.
+      hasRosInitialData &&
+      hasExamInitialData,
     staleTime: Infinity,
     retry: 0,
   });
-  const noteReviewSuggestions = (signReviewPrompt && noteReview?.suggestions) || [];
+
+  useEffect(() => {
+    if (isNoteReviewError) {
+      safelyCaptureException(new Error('AI note review failed for encounter ' + encounter?.id));
+    }
+  }, [isNoteReviewError, encounter?.id]);
+
+  // Defensive: these strings come from a model, and a bad shape must not take down Review & Sign.
+  const noteReviewSuggestions = Array.isArray(noteReview?.suggestions) ? noteReview.suggestions : [];
+  const showNoteReviewStatus = !!signReviewPrompt && (isNoteReviewLoading || isNoteReviewError);
 
   if (
     primaryDiagnosis &&
@@ -191,8 +177,7 @@ export const MissingCard: FC = () => {
     !isPatientVerificationMissing &&
     !accidentMissingDate &&
     !accidentMissingState &&
-    noteReviewSuggestions.length === 0 &&
-    !isNoteReviewLoading
+    noteReviewSuggestions.length === 0
   ) {
     return null;
   }
@@ -343,9 +328,20 @@ export const MissingCard: FC = () => {
               </Link>
             </div>
           )}
-          {isNoteReviewLoading && <CircularProgress size={14} />}
-          {noteReviewSuggestions.map((suggestion) => (
-            <Box key={suggestion} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {showNoteReviewStatus && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {isNoteReviewLoading ? (
+                <>
+                  <CircularProgress size={14} />
+                  <Typography color="text.secondary">Reviewing note…</Typography>
+                </>
+              ) : (
+                <Typography color="text.secondary">Note review unavailable</Typography>
+              )}
+            </Box>
+          )}
+          {noteReviewSuggestions.map((suggestion, index) => (
+            <Box key={`${index}-${suggestion}`} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <WarningAmber sx={{ fontSize: '18px', color: otherColors.orange700 }} />
               <Typography>{suggestion}</Typography>
             </Box>

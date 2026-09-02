@@ -202,10 +202,19 @@ export default function ProgressNoteAdminPage(): ReactElement {
               <>
                 <Divider />
                 <Box>
+                  <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+                    Note review at signing
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Requirements checked against the note when a provider opens Review &amp; Sign. Anything not met is
+                    shown to the provider as an informational warning — it never blocks signing. Write it as
+                    instructions to a reviewer, e.g. &quot;Confirm at least 4 ROS systems are documented with at least
+                    one item each&quot;. Leave blank to turn the review off.
+                  </Typography>
                   <ConfigTextAreaField
                     control={control}
                     name="signReviewPrompt"
-                    label="Note review prompt (shown at signing)"
+                    label="Note review requirements"
                     minRows={4}
                   />
                 </Box>

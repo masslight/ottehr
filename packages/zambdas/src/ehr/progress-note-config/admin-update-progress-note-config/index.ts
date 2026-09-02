@@ -1,8 +1,9 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { UpdateProgressNoteConfigInputValidated } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
+import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { topLevelCatch } from '../../../shared/lambda';
@@ -24,7 +25,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { secrets } = validatedInput;
 
     console.group('complexValidation');
-    await complexValidation(validatedInput);
+    const user = await complexValidation(validatedInput);
     console.groupEnd();
     console.debug('complexValidation success');
 
@@ -32,7 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     console.group('performEffect');
-    await performEffect(validatedInput, oystehr);
+    await performEffect(validatedInput, oystehr, user);
     console.groupEnd();
     console.debug('performEffect success');
 
@@ -43,14 +44,34 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-const complexValidation = async (validatedInput: UpdateProgressNoteConfigInputValidated): Promise<void> => {
+const complexValidation = async (validatedInput: UpdateProgressNoteConfigInputValidated): Promise<User> => {
   const { userToken, secrets } = validatedInput;
-  await requireUserWithRole(userToken, secrets, [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]);
+  return requireUserWithRole(userToken, secrets, [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]);
+};
+
+/**
+ * The sign-review prompt is configured by Ottehr customer support on the practice's behalf, so
+ * Administrators and Managers may submit this form but may not change that one field.
+ *
+ * Absent means "unchanged": older clients that omit the field can't wipe the stored prompt, and a
+ * non-customer-support user round-tripping the value their form loaded stays a no-op. Only an
+ * explicitly different value counts as an edit.
+ */
+export const assertSignReviewPromptChangeAllowed = (
+  user: User,
+  incomingPrompt: string | undefined,
+  storedPrompt: string | undefined
+): void => {
+  if (incomingPrompt === undefined || incomingPrompt === storedPrompt) return;
+  if (!user.roles?.some((role) => role.name === RoleType.CustomerSupport)) {
+    throw NOT_AUTHORIZED;
+  }
 };
 
 const performEffect = async (
   validatedInput: UpdateProgressNoteConfigInputValidated,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  user: User
 ): Promise<void> => {
   const {
     mdmRequired,
@@ -61,6 +82,11 @@ const performEffect = async (
     vitalsUnitInputOrder,
     signReviewPrompt,
   } = validatedInput;
+
+  const storedConfig = await getProgressNoteConfigPayload(oystehr);
+
+  assertSignReviewPromptChangeAllowed(user, signReviewPrompt, storedConfig.signReviewPrompt);
+
   await saveProgressNoteConfig(oystehr, {
     mdmRequired,
     medicalDecisionDefaultText,
@@ -68,8 +94,6 @@ const performEffect = async (
     anotherDispositionDefaultText,
     edDispositionDefaultText,
     vitalsUnitInputOrder,
-    // Absent means "unchanged" so older clients that omit the field can't wipe the stored
-    // prompt; an explicit empty string is the deliberate clear.
-    signReviewPrompt: signReviewPrompt ?? (await getProgressNoteConfigPayload(oystehr)).signReviewPrompt,
+    signReviewPrompt: signReviewPrompt ?? storedConfig.signReviewPrompt,
   });
 };

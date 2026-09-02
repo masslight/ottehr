@@ -1,18 +1,37 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { ReactNode } from 'react';
 import { BrowserRouter, useNavigate, useParams } from 'react-router-dom';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import { MissingCard } from '../../src/features/visits/shared/components/review-tab/MissingCard';
+import { useGetVitals } from '../../src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { useChartFields } from '../../src/features/visits/shared/hooks/useChartFields';
+import { useGetAppointmentAccessibility } from '../../src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useOystehrAPIClient } from '../../src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useAiSuggestionNotes } from '../../src/features/visits/shared/stores/appointment/appointment.queries';
 import {
   useAppointmentData,
   useChartData,
 } from '../../src/features/visits/shared/stores/appointment/appointment.store';
+import { useExamObservationsInitializationStore } from '../../src/features/visits/shared/stores/appointment/exam-observations.store';
+import { useRosObservationsInitializationStore } from '../../src/features/visits/shared/stores/appointment/ros-observations.store';
 
 vi.mock('../../src/features/visits/shared/hooks/useChartFields', () => ({
   useChartFields: vi.fn(),
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useOystehrAPIClient', () => ({
+  useOystehrAPIClient: vi.fn(),
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
+  useGetAppointmentAccessibility: vi.fn(),
+}));
+
+vi.mock('../../src/features/visits/shared/components/vitals/hooks/useGetVitals', () => ({
+  useGetVitals: vi.fn(),
 }));
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
@@ -44,6 +63,22 @@ const mockUseAiSuggestionNotes = vi.mocked(useAiSuggestionNotes);
 const mockUseNavigate = vi.mocked(useNavigate);
 const mockUseParams = vi.mocked(useParams);
 const mockUseProgressNoteConfig = vi.mocked(useProgressNoteConfig);
+const mockUseOystehrAPIClient = vi.mocked(useOystehrAPIClient);
+const mockUseGetAppointmentAccessibility = vi.mocked(useGetAppointmentAccessibility);
+const mockUseGetVitals = vi.mocked(useGetVitals);
+
+const aiSuggestionNotes = vi.fn();
+
+const createWrapper = (): (({ children }: { children: ReactNode }) => JSX.Element) => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
+  });
+  return ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>{children}</BrowserRouter>
+    </QueryClientProvider>
+  );
+};
 
 describe('MissingCard', () => {
   beforeEach(() => {
@@ -53,8 +88,13 @@ describe('MissingCard', () => {
       return 0;
     });
 
+    // The note review waits on both observation stores having been hydrated from chart data.
+    useRosObservationsInitializationStore.setState({ hasInitialData: true });
+    useExamObservationsInitializationStore.setState({ hasInitialData: true });
+
     mockUseAppointmentData.mockReturnValue({
       appointment: { id: 'appointment-123' },
+      encounter: { id: 'encounter-123' },
     } as any);
     mockUseParams.mockReturnValue({ id: 'appointment-123' } as any);
 
@@ -81,14 +121,32 @@ describe('MissingCard', () => {
     mockUseProgressNoteConfig.mockReturnValue({
       data: { mdmRequired: true },
     } as any);
+
+    aiSuggestionNotes.mockResolvedValue({ suggestions: [] });
+    mockUseOystehrAPIClient.mockReturnValue({ aiSuggestionNotes } as any);
+    mockUseGetAppointmentAccessibility.mockReturnValue({ isAppointmentReadOnly: false } as any);
+    mockUseGetVitals.mockReturnValue({ data: undefined } as any);
   });
 
   const renderComponent = (): void => {
+    const Wrapper = createWrapper();
     render(
-      <BrowserRouter>
+      <Wrapper>
         <MissingCard />
-      </BrowserRouter>
+      </Wrapper>
     );
+  };
+
+  /** Everything present, so the card is driven only by the note review. */
+  const withCompleteNote = (): void => {
+    mockUseChartFields.mockReturnValue({
+      data: {
+        medicalDecision: { text: 'Medical decision' },
+        chiefComplaint: { text: 'Chief complaint' },
+        patientInfoConfirmed: { value: true },
+      },
+      isFetching: false,
+    } as any);
   };
 
   it('shows the patient verification link for in-person visits when verification is missing', () => {
@@ -146,5 +204,134 @@ describe('MissingCard', () => {
 
     expect(screen.queryByTestId(dataTestIds.progressNotePage.missingCard)).not.toBeInTheDocument();
     expect(screen.queryByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).not.toBeInTheDocument();
+  });
+
+  describe('AI note review', () => {
+    it('does not request a review when no prompt is configured', async () => {
+      mockUseNavigate.mockReturnValue(vi.fn());
+      withCompleteNote();
+      mockUseProgressNoteConfig.mockReturnValue({ data: { mdmRequired: true } } as any);
+
+      renderComponent();
+
+      await waitFor(() =>
+        expect(screen.queryByTestId(dataTestIds.progressNotePage.missingCard)).not.toBeInTheDocument()
+      );
+      expect(aiSuggestionNotes).not.toHaveBeenCalled();
+    });
+
+    it('renders the returned warnings and sends only the visit identifiers', async () => {
+      mockUseNavigate.mockReturnValue(vi.fn());
+      withCompleteNote();
+      mockUseProgressNoteConfig.mockReturnValue({
+        data: { mdmRequired: true, signReviewPrompt: 'Check ROS and Exam' },
+      } as any);
+      aiSuggestionNotes.mockResolvedValue({
+        suggestions: [
+          'Please go to ROS and verify 4 systems/1 item each selected',
+          'Please go to EXAM and verify 4 systems/1 item each selected',
+        ],
+      });
+
+      renderComponent();
+
+      expect(await screen.findByText('Please go to ROS and verify 4 systems/1 item each selected')).toBeVisible();
+      expect(screen.getByText('Please go to EXAM and verify 4 systems/1 item each selected')).toBeVisible();
+      expect(aiSuggestionNotes).toHaveBeenCalledWith({
+        type: 'note-review',
+        appointmentId: 'appointment-123',
+        encounterId: 'encounter-123',
+      });
+    });
+
+    it('waits for the ROS and exam stores to hydrate before reviewing', async () => {
+      mockUseNavigate.mockReturnValue(vi.fn());
+      withCompleteNote();
+      useRosObservationsInitializationStore.setState({ hasInitialData: false });
+      mockUseProgressNoteConfig.mockReturnValue({
+        data: { mdmRequired: true, signReviewPrompt: 'Check ROS and Exam' },
+      } as any);
+
+      renderComponent();
+
+      await waitFor(() =>
+        expect(screen.queryByTestId(dataTestIds.progressNotePage.missingCard)).not.toBeInTheDocument()
+      );
+      expect(aiSuggestionNotes).not.toHaveBeenCalled();
+    });
+
+    it('does not review a read-only appointment', async () => {
+      mockUseNavigate.mockReturnValue(vi.fn());
+      withCompleteNote();
+      mockUseGetAppointmentAccessibility.mockReturnValue({ isAppointmentReadOnly: true } as any);
+      mockUseProgressNoteConfig.mockReturnValue({
+        data: { mdmRequired: true, signReviewPrompt: 'Check ROS and Exam' },
+      } as any);
+
+      renderComponent();
+
+      await waitFor(() =>
+        expect(screen.queryByTestId(dataTestIds.progressNotePage.missingCard)).not.toBeInTheDocument()
+      );
+      expect(aiSuggestionNotes).not.toHaveBeenCalled();
+    });
+
+    it('re-reviews when a vital is recorded, so a vitals-based prompt can clear', async () => {
+      mockUseNavigate.mockReturnValue(vi.fn());
+      withCompleteNote();
+      mockUseProgressNoteConfig.mockReturnValue({
+        data: { mdmRequired: true, signReviewPrompt: 'Confirm color vision is documented' },
+      } as any);
+      aiSuggestionNotes.mockResolvedValue({ suggestions: ['Please document Color Vision results prior to signing.'] });
+
+      const { rerender, Wrapper } = (() => {
+        const Wrapper = createWrapper();
+        const { rerender } = render(
+          <Wrapper>
+            <MissingCard />
+          </Wrapper>
+        );
+        return { rerender, Wrapper };
+      })();
+
+      expect(await screen.findByText('Please document Color Vision results prior to signing.')).toBeVisible();
+      expect(aiSuggestionNotes).toHaveBeenCalledTimes(1);
+
+      // Vitals live outside chart data, so they have to participate in the cache key themselves.
+      mockUseGetVitals.mockReturnValue({ data: { 'vital-vision': [{ resourceId: 'obs-1' }] } } as any);
+      aiSuggestionNotes.mockResolvedValue({ suggestions: [] });
+      rerender(
+        <Wrapper>
+          <MissingCard />
+        </Wrapper>
+      );
+
+      await waitFor(() => expect(aiSuggestionNotes).toHaveBeenCalledTimes(2));
+    });
+
+    it('survives a malformed suggestions payload', async () => {
+      mockUseNavigate.mockReturnValue(vi.fn());
+      mockUseProgressNoteConfig.mockReturnValue({
+        data: { mdmRequired: true, signReviewPrompt: 'Check ROS and Exam' },
+      } as any);
+      aiSuggestionNotes.mockResolvedValue({ suggestions: 'not a list' });
+
+      renderComponent();
+
+      // Patient verification is still missing, so the card stays open and must render without throwing.
+      expect(await screen.findByTestId(dataTestIds.progressNotePage.patientVerificationLink)).toBeVisible();
+    });
+
+    it('reports an unavailable review rather than silently passing the note', async () => {
+      mockUseNavigate.mockReturnValue(vi.fn());
+      mockUseProgressNoteConfig.mockReturnValue({
+        data: { mdmRequired: true, signReviewPrompt: 'Check ROS and Exam' },
+      } as any);
+      aiSuggestionNotes.mockRejectedValue(new Error('vertex unavailable'));
+
+      renderComponent();
+
+      expect(await screen.findByText('Note review unavailable')).toBeVisible();
+    });
   });
 });

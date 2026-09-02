@@ -8,6 +8,8 @@ export type VitalsUnitInputOrder = (typeof VITALS_UNIT_INPUT_ORDERS)[number];
 
 export const DEFAULT_VITALS_UNIT_INPUT_ORDER: VitalsUnitInputOrder = 'metric-imperial';
 
+export const SIGN_REVIEW_PROMPT_MAX_LENGTH = 4000;
+
 export const VITALS_UNIT_INPUT_ORDER_LABELS: Record<VitalsUnitInputOrder, string> = {
   'metric-imperial': 'Metric / Imperial',
   'imperial-metric': 'Imperial / Metric',
@@ -36,7 +38,9 @@ export const UpdateProgressNoteConfigInputSchema = z.object({
   // Optional with a default so older Admin clients/scripts that omit this field keep working;
   // the read path applies the same default for stored configs that predate this setting.
   vitalsUnitInputOrder: z.enum(VITALS_UNIT_INPUT_ORDERS).default(DEFAULT_VITALS_UNIT_INPUT_ORDER),
-  signReviewPrompt: z.string().optional(),
+  // Bounded because the value is stored on a FHIR extension and prepended to every note-review
+  // call; absent means "leave the stored prompt alone", an empty string is a deliberate clear.
+  signReviewPrompt: z.string().max(SIGN_REVIEW_PROMPT_MAX_LENGTH).optional(),
 });
 export type UpdateProgressNoteConfigInput = z.infer<typeof UpdateProgressNoteConfigInputSchema>;
 
