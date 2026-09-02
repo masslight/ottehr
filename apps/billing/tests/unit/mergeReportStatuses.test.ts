@@ -39,6 +39,13 @@ describe('mergeReportStatuses', () => {
     expect(mergeReportStatuses(completed, never)).toBe(never);
   });
 
+  it('compares completions as instants, not strings', () => {
+    // lexicographically '2026-08-27T05:00:00-05:00' < '2026-08-27T09:00:00Z' but it is the later instant
+    const laterInstant = idle('2026-08-27T05:00:00-05:00'); // 10:00Z
+    const earlierInstant = idle('2026-08-27T09:00:00Z');
+    expect(mergeReportStatuses(laterInstant, earlierInstant)).toBe(earlierInstant);
+  });
+
   it('returns a single status unchanged', () => {
     const only = idle('2026-08-27T10:00:00Z');
     expect(mergeReportStatuses(only)).toBe(only);

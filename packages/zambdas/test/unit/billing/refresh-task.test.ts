@@ -28,6 +28,7 @@ interface FhirMocks {
   search?: ReturnType<typeof vi.fn>;
   create?: ReturnType<typeof vi.fn>;
   patch?: ReturnType<typeof vi.fn>;
+  get?: ReturnType<typeof vi.fn>;
 }
 
 const clientWith = (fhir: FhirMocks): Oystehr => ({ fhir }) as unknown as Oystehr;
@@ -126,12 +127,27 @@ describe('kickOffRefreshTask', () => {
     expect(create).toHaveBeenCalledTimes(1);
   });
 
-  it('still creates when cancelling a stale task fails', async () => {
+  it('throws when a stale task cannot be cancelled and is still active', async () => {
+    const stale = refreshTask('stale', staleISO);
+    const create = vi.fn();
+    const oystehr = clientWith({
+      search: vi.fn().mockResolvedValue(searchResult([stale])),
+      create,
+      patch: vi.fn().mockRejectedValue(new Error('gone')),
+      get: vi.fn().mockResolvedValue(stale),
+    });
+
+    await expect(kickOffRefreshTask(oystehr, kickoffInput)).rejects.toThrow(/could not cancel stale refresh/i);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('still creates when the failed cancel turns out to be already resolved', async () => {
     const created = refreshTask('created', freshISO);
     const oystehr = clientWith({
       search: vi.fn().mockResolvedValue(searchResult([refreshTask('stale', staleISO)])),
       create: vi.fn().mockResolvedValue(created),
-      patch: vi.fn().mockRejectedValue(new Error('gone')),
+      patch: vi.fn().mockRejectedValue(new Error('conflict')),
+      get: vi.fn().mockResolvedValue({ ...refreshTask('stale', staleISO), status: 'cancelled' }),
     });
 
     expect(await kickOffRefreshTask(oystehr, kickoffInput)).toBe(created);
