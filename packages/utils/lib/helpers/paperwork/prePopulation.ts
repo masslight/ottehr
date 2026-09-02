@@ -164,6 +164,10 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   const patientFirstName = getFirstName(patient) ?? '';
   const patientLastName = getLastName(patient) ?? '';
 
+  const patientPhone =
+    patient?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ||
+    formattedVerifiedPhoneNumber;
+
   // https://github.com/masslight/ottehr/issues/5984 - because the "additional info / tell us more" field gets appended
   // to the selected reason for visit, before it is passed in here, we need to normalize it back to just the selected option
   // or it could break any fields that depend on exact matching of the reason for visit logical field value.
@@ -237,8 +241,8 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           if (linkId === 'common-well-consent' && patientCommonWellConsent !== undefined) {
             answer = makeAnswer(patientCommonWellConsent, 'Boolean');
           }
-          if (linkId === 'patient-number' && formattedVerifiedPhoneNumber) {
-            answer = makeAnswer(formatPhoneNumberDisplay(formattedVerifiedPhoneNumber));
+          if (linkId === 'patient-number' && patientPhone) {
+            answer = makeAnswer(formatPhoneNumberDisplay(patientPhone));
           }
           if (linkId === 'patient-birth-sex' && patientSex) {
             answer = makeAnswer(patientSex);
