@@ -1,6 +1,7 @@
 import Oystehr, { BatchInputGetRequest, SearchParam } from '@oystehr/sdk';
 import { Bundle, FhirResource } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
+import { toRelativeFhirUrl } from 'utils/lib/fhir/uri';
 
 /**
  * Oystehr runs a batch Bundle's same-method entries concurrently, up to 20 at a time. Entries beyond that
@@ -11,32 +12,9 @@ export const MAX_ENTRIES_PER_BATCH = 20;
 /** How many rounds of `next` links a batch search follows before giving up (each round is one more hop). */
 const MAX_NEXT_PAGE_ROUNDS = 3;
 
-/**
- * Builds the relative search URL for one batch entry. Values are written raw rather than percent-encoded:
- * Oystehr's batch URL parser has been observed to reject encoded colons in date prefixes, and every value
- * here is a FHIR reference, token or constant that the code controls, never caller input.
- */
+/** Builds the relative search URL for one batch entry. */
 export const buildSearchUrl = (resourceType: string, params: SearchParam[]): string =>
   `${resourceType}?${params.map((param) => `${param.name}=${param.value}`).join('&')}`;
-
-/**
- * Turns an absolute `next` link into the relative form a batch entry needs. Prefers stripping the known
- * FHIR base URL; otherwise drops any path prefix ahead of the resource type segment
- * (e.g. `https://host/r4/Observation?x` becomes `Observation?x`).
- */
-export const toBatchRelativeUrl = (absoluteUrl: string, fhirApiUrl: string | undefined): string => {
-  const base = fhirApiUrl?.replace(/\/+$/, '');
-  if (base && absoluteUrl.startsWith(base)) {
-    return absoluteUrl.slice(base.length).replace(/^\/+/, '');
-  }
-  try {
-    const parsed = new URL(absoluteUrl);
-    const path = parsed.pathname.replace(/^.*\/(?=[A-Z][A-Za-z]*$)/, '');
-    return `${path}${parsed.search}`;
-  } catch {
-    return absoluteUrl;
-  }
-};
 
 /**
  * The follow-up entry for a searchset that reported a `next` link. Every tracking board search sets `_count`, so the
@@ -51,7 +29,7 @@ export const nextPageUrl = (
 ): string | undefined => {
   const count = Number(/[?&]_count=(\d+)(?=&|$)/.exec(requestUrl)?.[1]);
   if (!Number.isInteger(count) || count <= 0) {
-    return serverNextLink ? toBatchRelativeUrl(serverNextLink, fhirApiUrl) : undefined;
+    return serverNextLink ? toRelativeFhirUrl(serverNextLink, fhirApiUrl) : undefined;
   }
   const offsetMatch = /[?&]_offset=(\d+)(?=&|$)/.exec(requestUrl);
   const nextOffset = (offsetMatch ? Number(offsetMatch[1]) : 0) + count;

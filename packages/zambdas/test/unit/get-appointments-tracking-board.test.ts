@@ -24,7 +24,6 @@ import {
   executeBatchSearches,
   MAX_ENTRIES_PER_BATCH,
   nextPageUrl,
-  toBatchRelativeUrl,
 } from '../../src/ehr/get-appointments/batch-search';
 import {
   buildOrdersForTrackingBoard,
@@ -74,18 +73,6 @@ describe('batch-search', () => {
         { name: '_count', value: 500 },
       ])
     ).toBe('ServiceRequest?encounter=Encounter/a,Encounter/b&_count=500');
-  });
-
-  test('toBatchRelativeUrl strips the FHIR base, or the path prefix ahead of the resource type', () => {
-    expect(
-      toBatchRelativeUrl(
-        'https://fhir-api.zapehr.com/r4/Observation?encounter=x&_page=2',
-        'https://fhir-api.zapehr.com/r4'
-      )
-    ).toBe('Observation?encounter=x&_page=2');
-    expect(toBatchRelativeUrl('https://fhir-api.zapehr.com/r4/Observation?encounter=x&_page=2', undefined)).toBe(
-      'Observation?encounter=x&_page=2'
-    );
   });
 
   test('nextPageUrl advances _offset on the request itself, and only falls back to the server link without _count', () => {

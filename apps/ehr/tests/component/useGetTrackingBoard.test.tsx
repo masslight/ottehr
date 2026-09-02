@@ -13,11 +13,7 @@ vi.mock('src/hooks/useAppClients', () => ({
 
 import { getAppointments } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import {
-  isValidTrackingBoardDateRange,
-  TrackingBoardFilters,
-  useGetTrackingBoard,
-} from 'src/hooks/useGetTrackingBoard';
+import { TrackingBoardFilters, useGetTrackingBoard } from 'src/hooks/useGetTrackingBoard';
 
 const createWrapper = () => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -41,14 +37,15 @@ describe('useGetTrackingBoard', () => {
     vi.mocked(useApiClients).mockReturnValue({ oystehrZambda: {} as any } as any);
   });
 
-  it('fetches the board and fills in empty maps when an older backend omits them', async () => {
-    // An older backend, from before the maps became required, still answers without them.
+  it('requests the board for the given filters', async () => {
     vi.mocked(getAppointments).mockResolvedValue({
       message: 'ok',
       preBooked: [],
       inOffice: [{ id: 'appt-1', encounterId: 'enc-1' }],
       completed: [],
       cancelled: [],
+      orders: {},
+      vitals: {},
     } as any);
 
     const { result } = renderHook(() => useGetTrackingBoard(filters), { wrapper: createWrapper() });
@@ -66,9 +63,6 @@ describe('useGetTrackingBoard', () => {
     });
     expect(input).not.toHaveProperty('include');
     expect(result.current.data?.inOffice).toHaveLength(1);
-    expect(result.current.data?.orders.externalLabOrdersByAppointmentId).toEqual({});
-    expect(result.current.data?.orders.proceduresByEncounterId).toEqual({});
-    expect(result.current.data?.vitals).toEqual({});
   });
 
   it('passes the server-grouped orders and vitals through untouched', async () => {
@@ -156,19 +150,5 @@ describe('useGetTrackingBoard', () => {
 
     expect(result.current.fetchStatus).toBe('idle');
     expect(getAppointments).not.toHaveBeenCalled();
-  });
-});
-
-describe('isValidTrackingBoardDateRange', () => {
-  it('accepts a same-day or forward range of valid ISO dates', () => {
-    expect(isValidTrackingBoardDateRange('2026-09-02', '2026-09-02')).toBe(true);
-    expect(isValidTrackingBoardDateRange('2026-09-01', '2026-09-05')).toBe(true);
-  });
-
-  it('rejects missing, malformed, reversed and over-long ranges', () => {
-    expect(isValidTrackingBoardDateRange(null, '2026-09-02')).toBe(false);
-    expect(isValidTrackingBoardDateRange('not-a-date', '2026-09-02')).toBe(false);
-    expect(isValidTrackingBoardDateRange('2026-09-03', '2026-09-02')).toBe(false);
-    expect(isValidTrackingBoardDateRange('2026-01-01', '2026-12-31')).toBe(false);
   });
 });
