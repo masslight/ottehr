@@ -1060,6 +1060,11 @@ export const PERFORMER_TYPE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/perform
 export const BODY_SITE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/body-site';
 
 export const PAYMENT_METHOD_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-method';
+// stamped on the original PaymentNotice when Stripe reports refunds against the payment,
+// so refund state can be read from FHIR without going back to Stripe
+export const PAYMENT_REFUNDS_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-refunds';
+// stamped on a PaymentNotice when a non-processor payment (cash/check/external reader) is voided
+export const PAYMENT_VOID_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-void';
 
 export const PREFERRED_PHARMACY_EXTENSION_URL = ottehrExtensionUrl('preferred-pharmacy');
 export const PREFERRED_PHARMACY_MANUAL_ENTRY_URL = ottehrExtensionUrl('pharmacy-manual-entry'); // added when the pharmacy was added manually via text fields
@@ -1124,6 +1129,12 @@ export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
 
 export const DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO = 'Summary of visit from audio recording';
 export const DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT = 'Summary of visit from chat';
+
+export const AMBIENT_SCRIBE_RECORDING_PENDING_CODING = {
+  system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/document-type`,
+  code: 'ambient-scribe-recording-pending',
+  display: 'Ambient scribe recording pending transcription',
+};
 
 export const EMPLOYER_ORG_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('organization-type');
 

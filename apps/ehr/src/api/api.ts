@@ -97,6 +97,8 @@ import {
   DeleteLocationParams,
   DeleteLocationResponse,
   GetLocationParams,
+  GetLocationResponse,
+  ListActiveLocationsOutput,
   ToggleLocationActiveParams,
   UpdateLocationParams,
 } from 'utils/lib/types/api/locations';
@@ -124,6 +126,13 @@ import {
   GetProgressNoteConfigOutput,
   UpdateProgressNoteConfigInput,
 } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
+import {
+  GetProviderNotificationsOutput,
+  MarkProviderNotificationsReadInput,
+  MarkProviderNotificationsReadOutput,
+  UpdateProviderNotificationSettingsInput,
+  UpdateProviderNotificationSettingsOutput,
+} from 'utils/lib/types/api/provider-notifications';
 import {
   AllergyQuickPickData,
   CreateAllergyQuickPickInput,
@@ -427,6 +436,10 @@ const LIST_PROVIDER_GROUPS_ZAMBDA_ID = 'list-provider-groups';
 const CREATE_SCHEDULE_ZAMBDA_ID = 'create-schedule';
 const CREATE_LOCATION_ZAMBDA_ID = 'create-location';
 const GET_LOCATION_ZAMBDA_ID = 'get-location';
+const LIST_ACTIVE_LOCATIONS_ZAMBDA_ID = 'list-active-locations';
+const GET_PROVIDER_NOTIFICATIONS_ZAMBDA_ID = 'get-provider-notifications';
+const MARK_PROVIDER_NOTIFICATIONS_READ_ZAMBDA_ID = 'mark-provider-notifications-read';
+const UPDATE_PROVIDER_NOTIFICATION_SETTINGS_ZAMBDA_ID = 'update-provider-notification-settings';
 const UPDATE_LOCATION_ZAMBDA_ID = 'update-location';
 const TOGGLE_LOCATION_ACTIVE_ZAMBDA_ID = 'toggle-location-active';
 const DELETE_LOCATION_ZAMBDA_ID = 'delete-location';
@@ -1250,8 +1263,38 @@ export const createLocation = async (params: CreateLocationParams, oystehr: Oyst
   return chooseJson(response);
 };
 
-export const getLocation = async (params: GetLocationParams, oystehr: Oystehr): Promise<Location> => {
+export const getLocation = async (params: GetLocationParams, oystehr: Oystehr): Promise<GetLocationResponse> => {
   const response = await oystehr.zambda.execute({ id: GET_LOCATION_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const listActiveLocations = async (oystehr: Oystehr): Promise<ListActiveLocationsOutput> => {
+  const response = await oystehr.zambda.execute({ id: LIST_ACTIVE_LOCATIONS_ZAMBDA_ID });
+  return chooseJson(response);
+};
+
+/**
+ * The signed-in practitioner's notification bell. Takes no parameters — the recipient is the caller's
+ * token, which is also what scopes the read.
+ */
+export const getProviderNotifications = async (oystehr: Oystehr): Promise<GetProviderNotificationsOutput> => {
+  const response = await oystehr.zambda.execute({ id: GET_PROVIDER_NOTIFICATIONS_ZAMBDA_ID });
+  return chooseJson(response);
+};
+
+export const markProviderNotificationsRead = async (
+  params: MarkProviderNotificationsReadInput,
+  oystehr: Oystehr
+): Promise<MarkProviderNotificationsReadOutput> => {
+  const response = await oystehr.zambda.execute({ id: MARK_PROVIDER_NOTIFICATIONS_READ_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const updateProviderNotificationSettings = async (
+  params: UpdateProviderNotificationSettingsInput,
+  oystehr: Oystehr
+): Promise<UpdateProviderNotificationSettingsOutput> => {
+  const response = await oystehr.zambda.execute({ id: UPDATE_PROVIDER_NOTIFICATION_SETTINGS_ZAMBDA_ID, ...params });
   return chooseJson(response);
 };
 

@@ -22,8 +22,11 @@ const ToggleLocationActiveSchema = z.object({
  * control, deliberately separate from update-location so it can carry its own
  * permission boundary and activation/deactivation side effects (e.g. cancelling
  * future appointments, re-checking conflicts) without entangling field-edit logic.
- * Deactivation is a soft-delete: the resource is kept (no dangling references), and
- * both booking paths already exclude inactive Locations.
+ * Deactivation is a soft-delete: the resource is kept (no dangling references), and every booking
+ * path excludes inactive Locations. That exclusion is NOT inherited — each surface applies it
+ * itself, via `isLocationBookable` (resources already in hand) or `LOCATION_BOOKABLE_SEARCH_PARAM`
+ * (FHIR queries), both in `utils/lib/fhir/location`. A new booking surface has to reach for one of
+ * them; grep those two symbols to see everywhere the rule is currently enforced.
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   if (!input.body) throw MISSING_REQUEST_BODY;

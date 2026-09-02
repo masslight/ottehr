@@ -91,7 +91,8 @@ const INTERACTIONS_CHECK_STATE_ERROR: InteractionsCheckState = {
 export const EditableMedicationCard: React.FC<{
   medication?: ExtendedMedicationDataForResponse;
   type: MedicationOrderType;
-}> = ({ medication, type: typeFromProps }) => {
+  onNavigateToMar?: () => void;
+}> = ({ medication, type: typeFromProps, onNavigateToMar }) => {
   const [isOrderUpdating, setIsOrderUpdating] = useState<boolean>(false);
   const { id: appointmentId } = useParams();
   const navigate = useNavigate();
@@ -160,6 +161,10 @@ export const EditableMedicationCard: React.FC<{
 
   const handleBack = (): void => {
     if (isCreating && encounterId) clearDraft(encounterId);
+    if (onNavigateToMar) {
+      onNavigateToMar();
+      return;
+    }
     navigate(getInHouseMedicationMARUrl(appointmentId!));
   };
 
@@ -192,7 +197,9 @@ export const EditableMedicationCard: React.FC<{
       enqueueSnackbar('Medication deleted successfully', { variant: 'success' });
       setIsDeleteDialogOpen(false);
       isSavedRef.current = true;
-      if (appointmentId) {
+      if (onNavigateToMar) {
+        onNavigateToMar();
+      } else if (appointmentId) {
         navigate(getInHouseMedicationMARUrl(appointmentId));
       }
     } catch (error) {
@@ -480,7 +487,11 @@ export const EditableMedicationCard: React.FC<{
         typeRef.current === 'dispense' ||
         typeRef.current === 'dispense-not-administered'
       ) {
-        navigate(getInHouseMedicationMARUrl(appointmentId!));
+        if (onNavigateToMar) {
+          onNavigateToMar();
+        } else {
+          navigate(getInHouseMedicationMARUrl(appointmentId!));
+        }
       }
 
       void refetchHistory();
@@ -745,7 +756,13 @@ export const EditableMedicationCard: React.FC<{
         }}
         onDelete={medication?.id && medication?.status !== 'cancelled' ? handleDeleteClick : undefined}
         isReadOnly={isReadOnly}
-        onBack={isCreating ? handleBack : undefined}
+        onBack={
+          isCreating
+            ? handleBack
+            : typeFromProps === 'order-edit' || typeFromProps === 'completed-edit'
+            ? onNavigateToMar
+            : undefined
+        }
         onClearForm={isCreating && hasDraft(encounterId) ? handleClearForm : undefined}
         onQuickPickSelect={
           typeFromProps === 'order-new' || typeFromProps === 'order-edit' ? handleQuickPickSelect : undefined

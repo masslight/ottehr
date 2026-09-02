@@ -37,7 +37,7 @@ import { getCoding } from 'utils/lib/fhir/helpers';
 import { getSMSNumberForIndividual } from 'utils/lib/fhir/patient';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import {
-  getLatestTaskOutput,
+  getInvoiceTaskOutputs,
   mapDisplayToInvoiceTaskStatus,
   mapInvoiceTaskStatusToDisplay,
 } from 'utils/lib/helpers/tasks/invoices-tasks';
@@ -634,12 +634,7 @@ export default function InvoiceablePatients({ source }: InvoiceablePatientsProps
                   : isSending
                   ? 'sending'
                   : mapInvoiceTaskStatusToDisplay(report.task.status);
-                const lastTaskOutput = getLatestTaskOutput(report.task);
-                const statusTooltipMessage = lastTaskOutput
-                  ? lastTaskOutput.type === 'success'
-                    ? 'Invoice id: ' + lastTaskOutput.message
-                    : 'Error: ' + lastTaskOutput.message
-                  : displayStatus;
+                const { invoiceId, error } = getInvoiceTaskOutputs(report.task);
                 const maskedClaimId =
                   report.claimId.length > 12
                     ? `${report.claimId.slice(0, 6)}...${report.claimId.slice(-4)}`
@@ -714,20 +709,55 @@ export default function InvoiceablePatients({ source }: InvoiceablePatientsProps
                       <Typography variant="body1">${(report.amountInvoiceable / 100).toFixed(2)}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Tooltip title={`${statusTooltipMessage} (click to copy)`}>
-                        <span
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            void navigator.clipboard
-                              .writeText(statusTooltipMessage)
-                              .then(() => enqueueSnackbar('Status copied to clipboard', { variant: 'success' }));
-                          }}
-                          style={{ cursor: 'pointer' }}
+                      {invoiceId || (error && displayStatus === 'error') ? (
+                        <GenericToolTip
+                          customWidth={340}
+                          title={
+                            <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              {invoiceId && (
+                                <Box>
+                                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                    Last invoice ID
+                                  </Typography>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
+                                      {invoiceId}
+                                    </Typography>
+                                    <IconButton
+                                      size="small"
+                                      onClick={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        void navigator.clipboard
+                                          .writeText(invoiceId)
+                                          .then(() =>
+                                            enqueueSnackbar('Invoice ID copied to clipboard', { variant: 'success' })
+                                          );
+                                      }}
+                                    >
+                                      <ContentCopyIcon fontSize="small" />
+                                    </IconButton>
+                                  </Box>
+                                </Box>
+                              )}
+                              {error && displayStatus === 'error' && (
+                                <Box>
+                                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#BF360C' }}>
+                                    Error
+                                  </Typography>
+                                  <Typography variant="body2">{error}</Typography>
+                                </Box>
+                              )}
+                            </Box>
+                          }
                         >
-                          <MappedStatusChip status={displayStatus} mapper={INVOICEABLE_TASK_STATUS_COLORS_MAP} />
-                        </span>
-                      </Tooltip>
+                          <span>
+                            <MappedStatusChip status={displayStatus} mapper={INVOICEABLE_TASK_STATUS_COLORS_MAP} />
+                          </span>
+                        </GenericToolTip>
+                      ) : (
+                        <MappedStatusChip status={displayStatus} mapper={INVOICEABLE_TASK_STATUS_COLORS_MAP} />
+                      )}
                     </TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                       <Tooltip title="Refresh invoice">

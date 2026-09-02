@@ -10,10 +10,15 @@ import { ImmunizationNotes } from './ImmunizationNotes';
 import { OrderHistoryTable } from './OrderHistoryTable';
 import { VaccineDetailsCard } from './VaccineDetailsCard';
 
-export const VaccineDetailsCardList: React.FC = () => {
+interface Props {
+  onOrderFinished?: () => void;
+  scrollToOrderId?: string;
+}
+
+export const VaccineDetailsCardList: React.FC<Props> = ({ onOrderFinished, scrollToOrderId }) => {
   const { id: appointmentId } = useParams();
   const [searchParams] = useSearchParams();
-  const scrollTo = searchParams.get('scrollTo');
+  const scrollTo = scrollToOrderId ?? searchParams.get('scrollTo');
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
 
   const {
@@ -35,12 +40,14 @@ export const VaccineDetailsCardList: React.FC = () => {
         const element = document.getElementById(`order-${scrollTo}`);
         element?.scrollIntoView?.({ behavior: 'auto', block: 'start', inline: 'nearest' });
 
-        const url = new URL(window.location.href);
-        url.searchParams.delete('scrollTo');
-        window.history.replaceState({}, '', url.toString());
+        if (!scrollToOrderId) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('scrollTo');
+          window.history.replaceState({}, '', url.toString());
+        }
       });
     }
-  }, [scrollTo, nonCancelledOrders]);
+  }, [scrollTo, nonCancelledOrders, scrollToOrderId]);
 
   if (nonCancelledOrders.length === 0) {
     return <Typography>No orders found.</Typography>;
@@ -65,7 +72,7 @@ export const VaccineDetailsCardList: React.FC = () => {
           id={`order-${order.id}`}
           data-testid={dataTestIds.immunizationPage.vaccineDetailsCard}
         >
-          <VaccineDetailsCard order={order} />
+          <VaccineDetailsCard order={order} onFinished={onOrderFinished} />
         </Box>
       ))}
       <ImmunizationNotes />

@@ -56,7 +56,7 @@ import { PatientInfo, VisitType } from 'utils/lib/types/data/telemed/appointment
 import { getAppointmentDurationFromSlot, getSlotBookedViaGroupId } from 'utils/lib/utils/scheduleUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { generatePatientRelatedRequests } from '../../../shared/appointment/helpers';
-import { getUser, isTestUser } from '../../../shared/auth';
+import { getM2MClientId, getUser, isM2MClient, isTestUser } from '../../../shared/auth';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
@@ -75,7 +75,9 @@ interface CreateAppointmentInput {
   scheduleOwner: ScheduleOwnerFhirResource;
   serviceMode: ServiceMode;
   patient: PatientInfo;
-  user: User;
+  user: User | undefined;
+  isM2M: boolean;
+  m2mClientId?: string;
   questionnaireCanonical: CanonicalUrl;
   secrets: Secrets | null;
   visitType: VisitType;
@@ -99,8 +101,13 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
 
   const token = input.headers.Authorization.replace('Bearer ', '');
 
-  const user = await getUser(token, input.secrets);
-  const validatedParameters = validateCreateAppointmentParams(input, user);
+  const isM2M = isM2MClient(token);
+  const m2mClientId = isM2M ? getM2MClientId(token) : undefined;
+  let user: User | undefined = undefined;
+  if (!isM2M) {
+    user = await getUser(token, input.secrets);
+  }
+  const validatedParameters = validateCreateAppointmentParams(input, user, isM2M);
   const { secrets, language } = validatedParameters;
 
   console.groupEnd();
@@ -156,6 +163,8 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
       patient,
       serviceMode,
       user,
+      isM2M,
+      m2mClientId,
       language,
       secrets,
       visitType,
@@ -220,6 +229,8 @@ export async function createAppointment(
     scheduleOwner,
     patient,
     user,
+    isM2M,
+    m2mClientId,
     secrets,
     visitType,
     serviceMode,
@@ -259,7 +270,9 @@ export async function createAppointment(
 
   const formattedUserNumber = formatPhoneNumberDisplay(user?.name?.replace('+1', ''));
 
-  const createdBy = isEHRUser
+  const createdBy = isM2M
+    ? `M2M Client ${m2mClientId}`
+    : isEHRUser
     ? `Staff ${user?.email}`
     : `${visitType === VisitType.WalkIn ? 'QR - ' : ''}Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
 
@@ -275,7 +288,7 @@ export async function createAppointment(
 
   if (!patient.id && !verifiedPhoneNumber) {
     console.log('Getting verifiedPhoneNumber for new patient', patient.phoneNumber);
-    if (isEHRUser) {
+    if (isM2M || isEHRUser) {
       if (!patient.phoneNumber) {
         throw new Error('No phone number found for patient');
       }
@@ -315,7 +328,7 @@ export async function createAppointment(
     oystehr: oystehr,
     updatePatientRequest,
     createPatientRequest,
-    performPreProcessing: user && !isTestUser(user),
+    performPreProcessing: Boolean(user) && !isTestUser(user!),
     listRequests,
     newPatientDob: (createPatientRequest?.resource as Patient | undefined)?.birthDate,
     createdBy,

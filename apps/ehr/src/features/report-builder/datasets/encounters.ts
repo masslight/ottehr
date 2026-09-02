@@ -7,13 +7,14 @@ import {
   ENCOUNTER_LAYERS,
   EncounterBaseRowSchema,
 } from 'utils/lib/types/adhoc/datasets/encounters';
+import { AdHocLayer } from 'utils/lib/types/adhoc/query/layers';
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { buildTrackingBoardPath } from '../../../pages/reports/trackingBoardLink';
 import { ADHOC_QUERY_STALE_MS, runAdHocReport, toLocalYmd } from '../query/dataset-query';
 import { buildLlmDatasetSchema } from './schema';
-import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
+import { AdHocDataset, AdHocRow, FetchContext } from './types';
 
-export const ADHOC_ENCOUNTERS_OPTIONS: AdHocDatasetOption[] = layerOptions(ENCOUNTER_LAYERS);
+export const ADHOC_ENCOUNTERS_OPTIONS: AdHocLayer[] = layerOptions(ENCOUNTER_LAYERS);
 
 function localizeEncounterRow(row: AdHocEncounterRow): AdHocEncounterRow {
   return {
@@ -61,6 +62,9 @@ export const adhocEncountersDataset: AdHocDataset = {
     'One row per encounter with visit, patient, contact, and location/provider detail; optional ' +
     'clinical codes, KPI timing, and AI-assistance layers.',
   options: ADHOC_ENCOUNTERS_OPTIONS,
+  layers: ENCOUNTER_LAYERS,
+  baseSchema: EncounterBaseRowSchema,
+  internalFields: ENCOUNTER_INTERNAL_FIELDS,
   fetch: fetchAdHocEncounters,
   buildSchema: (rows, options) => {
     const opts = options ?? {};

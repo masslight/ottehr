@@ -34,6 +34,7 @@ import { createDynamicValidationResolver } from 'src/features/visits/shared/comp
 import { PharmacyContainer } from 'src/features/visits/shared/components/patient/PharmacyContainer';
 import { PrimaryCareContainer } from 'src/features/visits/shared/components/patient/PrimaryCareContainer';
 import { ResponsibleInformationContainer } from 'src/features/visits/shared/components/patient/ResponsibleInformationContainer';
+import { SaveBlockedReasonProvider } from 'src/features/visits/shared/components/patient/SaveBlockedReasonContext';
 import { scrollToFirstInvalidField } from 'src/features/visits/shared/components/patient/scrollToFirstInvalidField';
 import { WarningBanner } from 'src/features/visits/shared/components/patient/WarningBanner';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -397,8 +398,9 @@ interface PatientAccountComponentProps {
    */
   photoIdCardSlot?: ReactNode;
   /**
-   * When set, "Save All" is disabled and this text explains why on hover. Used by the visit page to
-   * require the consent attestation before any of the visit's details can be saved.
+   * When set, "Save All" and every per-section Save button are disabled and this text explains why
+   * on hover. Used by the visit page to require the consent attestation before any of the visit's
+   * details can be saved.
    */
   submitBlockedReason?: string;
 }
@@ -610,108 +612,117 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     />
   );
 
+  const isWorkersCompVisit = appointmentContext?.appointmentServiceCategory === 'workers-comp';
+  const workersCompSection = (
+    <EmployerInformationContainer
+      isLoading={isFetching || submitQR.isPending}
+      patientId={patient?.id}
+      encounterId={appointmentContext?.encounterId}
+    />
+  );
+
   return (
     <div>
       {isFetching && <LoadingScreen />}
-      <FormProvider {...methods}>
-        <Box>
-          {renderHeader && <Header handleDiscard={handleBackClickWithConfirmation} id={id} />}
-          <Box sx={{ display: 'flex', flexDirection: 'column', ...containerSX, marginBottom: 2 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {renderBreadCrumbs && <BreadCrumbs patient={patient} />}
-              {title && (
-                <Typography variant="h3" color="primary.main">
-                  {title}
-                </Typography>
-              )}
-              <PatientMergedBanner patient={patient} />
-              <WarningBanner
-                otherPatientsWithSameName={otherPatientsWithSameName}
-                onClose={() => setOtherPatientsWithSameName(false)}
-              />
-              <Box sx={{ display: 'flex', gap: 3 }}>
-                <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {aboutPatientSection}
-                  <ContactContainer
-                    isLoading={isFetching || submitQR.isPending}
-                    patientId={patient?.id}
-                    encounterId={appointmentContext?.encounterId}
-                  />
-                  <PatientDetailsContainer
-                    patient={patient}
-                    isLoading={isFetching || submitQR.isPending}
-                    patientId={patient?.id}
-                    encounterId={appointmentContext?.encounterId}
-                  />
-                  <PrimaryCareContainer
-                    isLoading={isFetching || submitQR.isPending}
-                    patientId={patient?.id}
-                    encounterId={appointmentContext?.encounterId}
-                  />
-                </Box>
-                <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {insuranceSection}
-                  <ResponsibleInformationContainer
-                    isLoading={isFetching || submitQR.isPending}
-                    patientId={patient?.id}
-                    encounterId={appointmentContext?.encounterId}
-                  />
-                  <EmployerInformationContainer
-                    isLoading={isFetching || submitQR.isPending}
-                    patientId={patient?.id}
-                    encounterId={appointmentContext?.encounterId}
-                  />
-                  <OccupationalMedicineEmployerInformationContainer
-                    isLoading={isFetching || submitQR.isPending}
-                    patientId={patient?.id}
-                    encounterId={appointmentContext?.encounterId}
-                    appointmentId={appointmentId}
-                    useUpdateVisitDetailsForEmployer={
-                      Boolean(appointmentId) && appointmentContext?.appointmentServiceCategory === 'pre-op'
-                    }
-                  />
-                  <AttorneyInformationContainer
-                    isLoading={isFetching || submitQR.isPending}
-                    patientId={patient?.id}
-                    encounterId={appointmentContext?.encounterId}
-                  />
-                  <EmergencyContactContainer
-                    isLoading={isFetching || submitQR.isPending}
-                    patientId={patient?.id}
-                    encounterId={appointmentContext?.encounterId}
-                  />
-                  <PharmacyContainer
-                    isLoading={isFetching || submitQR.isPending}
-                    patientId={patient?.id}
-                    encounterId={appointmentContext?.encounterId}
-                  />
+      {/* Gates the per-section Save buttons on the same condition as "Save All" below: both write
+          the same patient-record data, so gating only "Save All" would leave a way around it. */}
+      <SaveBlockedReasonProvider reason={submitBlockedReason}>
+        <FormProvider {...methods}>
+          <Box>
+            {renderHeader && <Header handleDiscard={handleBackClickWithConfirmation} id={id} />}
+            <Box sx={{ display: 'flex', flexDirection: 'column', ...containerSX, marginBottom: 2 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {renderBreadCrumbs && <BreadCrumbs patient={patient} />}
+                {title && (
+                  <Typography variant="h3" color="primary.main">
+                    {title}
+                  </Typography>
+                )}
+                <PatientMergedBanner patient={patient} />
+                <WarningBanner
+                  otherPatientsWithSameName={otherPatientsWithSameName}
+                  onClose={() => setOtherPatientsWithSameName(false)}
+                />
+                <Box sx={{ display: 'flex', gap: 3 }}>
+                  <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {aboutPatientSection}
+                    <ContactContainer
+                      isLoading={isFetching || submitQR.isPending}
+                      patientId={patient?.id}
+                      encounterId={appointmentContext?.encounterId}
+                    />
+                    <PatientDetailsContainer
+                      patient={patient}
+                      isLoading={isFetching || submitQR.isPending}
+                      patientId={patient?.id}
+                      encounterId={appointmentContext?.encounterId}
+                    />
+                    <PrimaryCareContainer
+                      isLoading={isFetching || submitQR.isPending}
+                      patientId={patient?.id}
+                      encounterId={appointmentContext?.encounterId}
+                    />
+                  </Box>
+                  <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {isWorkersCompVisit && workersCompSection}
+                    {insuranceSection}
+                    <ResponsibleInformationContainer
+                      isLoading={isFetching || submitQR.isPending}
+                      patientId={patient?.id}
+                      encounterId={appointmentContext?.encounterId}
+                    />
+                    {!isWorkersCompVisit && workersCompSection}
+                    <OccupationalMedicineEmployerInformationContainer
+                      isLoading={isFetching || submitQR.isPending}
+                      patientId={patient?.id}
+                      encounterId={appointmentContext?.encounterId}
+                      appointmentId={appointmentId}
+                      useUpdateVisitDetailsForEmployer={
+                        Boolean(appointmentId) && appointmentContext?.appointmentServiceCategory === 'pre-op'
+                      }
+                    />
+                    <AttorneyInformationContainer
+                      isLoading={isFetching || submitQR.isPending}
+                      patientId={patient?.id}
+                      encounterId={appointmentContext?.encounterId}
+                    />
+                    <EmergencyContactContainer
+                      isLoading={isFetching || submitQR.isPending}
+                      patientId={patient?.id}
+                      encounterId={appointmentContext?.encounterId}
+                    />
+                    <PharmacyContainer
+                      isLoading={isFetching || submitQR.isPending}
+                      patientId={patient?.id}
+                      encounterId={appointmentContext?.encounterId}
+                    />
+                  </Box>
                 </Box>
               </Box>
             </Box>
+            <ActionBar
+              handleDiscard={handleBackClickWithConfirmation}
+              handleSave={handleSubmit(handleSaveForm, (validationErrors) => {
+                enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
+                scrollToFirstInvalidField(Object.keys(validationErrors), (key) => Boolean(validationErrors[key]));
+              })}
+              loading={submitQR.isPending}
+              hidden={false}
+              submitDisabled={Object.keys(dirtyFields).length === 0}
+              backButtonHidden={renderBackButton === false}
+            />
           </Box>
-          <ActionBar
-            handleDiscard={handleBackClickWithConfirmation}
-            handleSave={handleSubmit(handleSaveForm, (validationErrors) => {
-              enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
-              scrollToFirstInvalidField(Object.keys(validationErrors), (key) => Boolean(validationErrors[key]));
-            })}
-            loading={submitQR.isPending}
-            hidden={false}
-            submitDisabled={Object.keys(dirtyFields).length === 0}
-            submitBlockedReason={submitBlockedReason}
-            backButtonHidden={renderBackButton === false}
+          <CustomDialog
+            open={openConfirmationDialog}
+            handleClose={handleCloseConfirmationDialog}
+            title="Discard Changes?"
+            description="You have unsaved changes. Are you sure you want to discard them and go back?"
+            closeButtonText="Cancel"
+            handleConfirm={handleDiscardChanges}
+            confirmText="Discard Changes"
           />
-        </Box>
-        <CustomDialog
-          open={openConfirmationDialog}
-          handleClose={handleCloseConfirmationDialog}
-          title="Discard Changes?"
-          description="You have unsaved changes. Are you sure you want to discard them and go back?"
-          closeButtonText="Cancel"
-          handleConfirm={handleDiscardChanges}
-          confirmText="Discard Changes"
-        />
-      </FormProvider>
+        </FormProvider>
+      </SaveBlockedReasonProvider>
     </div>
   );
 };

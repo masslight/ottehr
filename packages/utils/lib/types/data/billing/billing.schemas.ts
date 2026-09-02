@@ -222,6 +222,7 @@ const claimServiceLineSchema = z.object({
   modifiers: z.array(z.string()).optional(),
   // 1-based references into the claim's diagnosis list (FHIR item.diagnosisSequence)
   diagnosisPointers: z.array(z.number().int().positive()).optional(),
+  revenueCode: z.string().max(5).optional(),
 });
 
 export const GetServiceFacilityInputSchema = z.object({
@@ -572,6 +573,10 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
         .optional(),
       diagnoses: z.array(claimDiagnosisSchema).optional(),
       serviceLines: z.array(claimServiceLineSchema).optional(),
+      billType: nonEmptyString.min(4).max(4).optional().or(z.literal('')),
+      patientDischargeStatusCode: nonEmptyString.max(2).optional().or(z.literal('')),
+      admissionType: nonEmptyString.max(1).optional().or(z.literal('')),
+      admissionSource: nonEmptyString.max(1).optional().or(z.literal('')),
     }),
   }),
 ]);
@@ -669,6 +674,27 @@ export const RecordBillingManualPaymentInputSchema = z.object({
     .regex(/^[A-Za-z0-9._-]+$/),
 });
 
+export const AddClaimAttachmentInputSchema = z.object({
+  claimId: nonEmptyString,
+  name: nonEmptyString,
+  reportTypeCode: nonEmptyString.optional(),
+});
+
+export const RenameClaimAttachmentInputSchema = z.object({
+  documentReferenceId: nonEmptyString,
+  name: nonEmptyString,
+});
+
+export const DeleteClaimAttachmentInputSchema = z.object({
+  claimId: nonEmptyString,
+  documentReferenceId: nonEmptyString,
+});
+
+export const DownloadClaimAttachmentInputSchema = z.object({
+  claimId: nonEmptyString,
+  documentReferenceId: nonEmptyString,
+});
+
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
 export type GetClaimHistoryInput = z.output<typeof GetClaimHistoryInputSchema>;
 export type AddClaimNoteInput = z.output<typeof AddClaimNoteInputSchema>;
@@ -727,3 +753,7 @@ export type GenderOption = z.input<typeof gender>;
 export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
+export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
+export type RenameClaimAttachmentInput = z.output<typeof RenameClaimAttachmentInputSchema>;
+export type DeleteClaimAttachmentInput = z.output<typeof DeleteClaimAttachmentInputSchema>;
+export type DownloadClaimAttachmentInput = z.output<typeof DownloadClaimAttachmentInputSchema>;
