@@ -84,7 +84,13 @@ export default function ProgressNoteAdminPage(): ReactElement {
   }, [data, reset]);
 
   const onSubmit = (values: ProgressNoteConfig): void => {
-    mutate(values, {
+    // The prompt field is customer-support-only, and react-hook-form submits the value it loaded
+    // even for a field it never rendered. Omitting it keeps this form from carrying a stale prompt
+    // back to the server, where absent means "leave the stored prompt alone".
+    const { signReviewPrompt: _signReviewPrompt, ...withoutPrompt } = values;
+    const payload = isCustomerSupport ? values : withoutPrompt;
+
+    mutate(payload, {
       onSuccess: () => {
         reset(values);
       },

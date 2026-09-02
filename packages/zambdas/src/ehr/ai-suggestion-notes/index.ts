@@ -59,7 +59,14 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
   }
 
   let suggestions;
-  console.log(prompt);
+  // The note-review prompt embeds the whole assembled progress note — HPI, MDM, exam comments,
+  // labs, prescriptions. The zambda log group has different retention and access controls than
+  // FHIR, so only the shape of it goes to the log.
+  if (type === 'note-review') {
+    console.log(`note-review prompt assembled: ${prompt.length} chars`);
+  } else {
+    console.log(prompt);
+  }
 
   const suggestionSchema = {
     type: 'object',
@@ -80,7 +87,13 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
     };
   } else if (type === 'procedure' || type === 'missing-hpi' || type === 'note-review') {
     const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets, suggestionSchema);
-    console.log(aiResponseString);
+    // Same reason: a note-review response can quote the note back. A malformed payload is logged
+    // truncated below, which is enough to see what shape came back.
+    if (type === 'note-review') {
+      console.log(`note-review response: ${aiResponseString.length} chars`);
+    } else {
+      console.log(aiResponseString);
+    }
 
     try {
       suggestions = JSON.parse(aiResponseString);
@@ -94,7 +107,7 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
       if (coerced === null) {
         // These strings render straight into the Review & Sign page. A malformed payload becomes
         // "no warnings" rather than something the UI has to defend against mid-render.
-        console.error('Note review response was not a list of suggestions:', aiResponseString);
+        console.error('Note review response was not a list of suggestions:', aiResponseString.slice(0, 500));
       }
       suggestions = { suggestions: coerced ?? [] };
     }

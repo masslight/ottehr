@@ -19,7 +19,12 @@ import {
   PROGRESS_NOTE_CONFIG_VITALS_UNIT_INPUT_ORDER_EXTENSION_URL,
 } from 'utils/lib/utils/progress-note-config';
 
-async function findProgressNoteConfigBasic(oystehr: Oystehr): Promise<Basic | undefined> {
+/**
+ * Exported so a caller that has to validate against the stored config can hand the very Basic it
+ * read to `saveProgressNoteConfig`: two independent reads leave a window in which another writer's
+ * change passes optimistic locking and is then overwritten from the stale copy.
+ */
+export async function findProgressNoteConfigBasic(oystehr: Oystehr): Promise<Basic | undefined> {
   const results = (
     await oystehr.fhir.search<Basic>({
       resourceType: 'Basic',
@@ -46,7 +51,10 @@ async function findProgressNoteConfigBasic(oystehr: Oystehr): Promise<Basic | un
 }
 
 export async function getProgressNoteConfigPayload(oystehr: Oystehr): Promise<GetProgressNoteConfigOutput> {
-  const basic = await findProgressNoteConfigBasic(oystehr);
+  return progressNoteConfigPayloadFromBasic(await findProgressNoteConfigBasic(oystehr));
+}
+
+export function progressNoteConfigPayloadFromBasic(basic: Basic | undefined): GetProgressNoteConfigOutput {
   const mdmRequired = getExtensionValue(basic, PROGRESS_NOTE_CONFIG_MDM_REQUIRED_EXTENSION_URL, 'valueBoolean');
   const medicalDecisionDefaultText = getExtensionValue(
     basic,
@@ -95,8 +103,16 @@ export async function getProgressNoteConfigPayload(oystehr: Oystehr): Promise<Ge
   };
 }
 
-export async function saveProgressNoteConfig(oystehr: Oystehr, config: ProgressNoteConfig): Promise<void> {
-  const existing = await findProgressNoteConfigBasic(oystehr);
+/**
+ * `ctx`, when given, supplies the Basic this save is versioned against — pass the one the caller
+ * already read so the optimistic lock guards the same revision the caller validated against.
+ */
+export async function saveProgressNoteConfig(
+  oystehr: Oystehr,
+  config: ProgressNoteConfig,
+  ctx?: { existingBasic: Basic | undefined }
+): Promise<void> {
+  const existing = ctx ? ctx.existingBasic : await findProgressNoteConfigBasic(oystehr);
 
   const basic: Basic = {
     resourceType: 'Basic',

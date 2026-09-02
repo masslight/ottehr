@@ -3,13 +3,17 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { UpdateProgressNoteConfigInputValidated } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
-import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { topLevelCatch } from '../../../shared/lambda';
-import { getProgressNoteConfigPayload, saveProgressNoteConfig } from '../../../shared/progress-note-config';
+import {
+  findProgressNoteConfigBasic,
+  progressNoteConfigPayloadFromBasic,
+  saveProgressNoteConfig,
+} from '../../../shared/progress-note-config';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
+import { resolveSignReviewPrompt } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -49,25 +53,6 @@ const complexValidation = async (validatedInput: UpdateProgressNoteConfigInputVa
   return requireUserWithRole(userToken, secrets, [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]);
 };
 
-/**
- * The sign-review prompt is configured by Ottehr customer support on the practice's behalf, so
- * Administrators and Managers may submit this form but may not change that one field.
- *
- * Absent means "unchanged": older clients that omit the field can't wipe the stored prompt, and a
- * non-customer-support user round-tripping the value their form loaded stays a no-op. Only an
- * explicitly different value counts as an edit.
- */
-export const assertSignReviewPromptChangeAllowed = (
-  user: User,
-  incomingPrompt: string | undefined,
-  storedPrompt: string | undefined
-): void => {
-  if (incomingPrompt === undefined || incomingPrompt === storedPrompt) return;
-  if (!user.roles?.some((role) => role.name === RoleType.CustomerSupport)) {
-    throw NOT_AUTHORIZED;
-  }
-};
-
 const performEffect = async (
   validatedInput: UpdateProgressNoteConfigInputValidated,
   oystehr: Oystehr,
@@ -83,17 +68,22 @@ const performEffect = async (
     signReviewPrompt,
   } = validatedInput;
 
-  const storedConfig = await getProgressNoteConfigPayload(oystehr);
+  // One read backs both the sign-review-prompt check and the save's optimistic lock, so a prompt
+  // change landing in between is reported as a conflict rather than silently reverted.
+  const existingBasic = await findProgressNoteConfigBasic(oystehr);
+  const storedConfig = progressNoteConfigPayloadFromBasic(existingBasic);
 
-  assertSignReviewPromptChangeAllowed(user, signReviewPrompt, storedConfig.signReviewPrompt);
-
-  await saveProgressNoteConfig(oystehr, {
-    mdmRequired,
-    medicalDecisionDefaultText,
-    pcpNoTypeDispositionDefaultText,
-    anotherDispositionDefaultText,
-    edDispositionDefaultText,
-    vitalsUnitInputOrder,
-    signReviewPrompt: signReviewPrompt ?? storedConfig.signReviewPrompt,
-  });
+  await saveProgressNoteConfig(
+    oystehr,
+    {
+      mdmRequired,
+      medicalDecisionDefaultText,
+      pcpNoTypeDispositionDefaultText,
+      anotherDispositionDefaultText,
+      edDispositionDefaultText,
+      vitalsUnitInputOrder,
+      signReviewPrompt: resolveSignReviewPrompt(user, signReviewPrompt, storedConfig.signReviewPrompt),
+    },
+    { existingBasic }
+  );
 };

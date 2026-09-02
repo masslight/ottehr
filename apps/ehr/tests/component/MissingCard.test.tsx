@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { BrowserRouter, useNavigate, useParams } from 'react-router-dom';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
@@ -16,6 +16,10 @@ import {
   useChartData,
 } from '../../src/features/visits/shared/stores/appointment/appointment.store';
 import { useExamObservationsInitializationStore } from '../../src/features/visits/shared/stores/appointment/exam-observations.store';
+import {
+  holdPendingObservationFields,
+  resetPendingObservationFields,
+} from '../../src/features/visits/shared/stores/appointment/pending-observation-fields.store';
 import { useRosObservationsInitializationStore } from '../../src/features/visits/shared/stores/appointment/ros-observations.store';
 
 vi.mock('../../src/features/visits/shared/hooks/useChartFields', () => ({
@@ -88,9 +92,11 @@ describe('MissingCard', () => {
       return 0;
     });
 
-    // The note review waits on both observation stores having been hydrated from chart data.
+    // The note review waits on both observation stores having been hydrated from chart data, and
+    // on no observation write being in flight.
     useRosObservationsInitializationStore.setState({ hasInitialData: true });
     useExamObservationsInitializationStore.setState({ hasInitialData: true });
+    resetPendingObservationFields();
 
     mockUseAppointmentData.mockReturnValue({
       appointment: { id: 'appointment-123' },
@@ -112,6 +118,7 @@ describe('MissingCard', () => {
         patientInfoConfirmed: { value: false },
       },
       isFetching: false,
+      isFetched: true,
     } as any);
 
     mockUseAiSuggestionNotes.mockReturnValue({
@@ -125,7 +132,7 @@ describe('MissingCard', () => {
     aiSuggestionNotes.mockResolvedValue({ suggestions: [] });
     mockUseOystehrAPIClient.mockReturnValue({ aiSuggestionNotes } as any);
     mockUseGetAppointmentAccessibility.mockReturnValue({ isAppointmentReadOnly: false } as any);
-    mockUseGetVitals.mockReturnValue({ data: undefined } as any);
+    mockUseGetVitals.mockReturnValue({ data: undefined, isFetched: true } as any);
   });
 
   const renderComponent = (): void => {
@@ -146,6 +153,7 @@ describe('MissingCard', () => {
         patientInfoConfirmed: { value: true },
       },
       isFetching: false,
+      isFetched: true,
     } as any);
   };
 
@@ -180,6 +188,7 @@ describe('MissingCard', () => {
         patientInfoConfirmed: { value: true },
       },
       isFetching: false,
+      isFetched: true,
     } as any);
     mockUseProgressNoteConfig.mockReturnValue({ data: { mdmRequired: true } } as any);
 
@@ -197,6 +206,7 @@ describe('MissingCard', () => {
         patientInfoConfirmed: { value: true },
       },
       isFetching: false,
+      isFetched: true,
     } as any);
     mockUseProgressNoteConfig.mockReturnValue({ data: { mdmRequired: false } } as any);
 
@@ -298,8 +308,107 @@ describe('MissingCard', () => {
       expect(aiSuggestionNotes).toHaveBeenCalledTimes(1);
 
       // Vitals live outside chart data, so they have to participate in the cache key themselves.
-      mockUseGetVitals.mockReturnValue({ data: { 'vital-vision': [{ resourceId: 'obs-1' }] } } as any);
+      mockUseGetVitals.mockReturnValue({
+        data: { 'vital-vision': [{ resourceId: 'obs-1' }] },
+        isFetched: true,
+      } as any);
       aiSuggestionNotes.mockResolvedValue({ suggestions: [] });
+      rerender(
+        <Wrapper>
+          <MissingCard />
+        </Wrapper>
+      );
+
+      await waitFor(() => expect(aiSuggestionNotes).toHaveBeenCalledTimes(2));
+    });
+
+    it('reviews once per page load rather than on each source settling', async () => {
+      mockUseNavigate.mockReturnValue(vi.fn());
+      withCompleteNote();
+      mockUseProgressNoteConfig.mockReturnValue({
+        data: { mdmRequired: true, signReviewPrompt: 'Check ROS and Exam' },
+      } as any);
+      aiSuggestionNotes.mockResolvedValue({ suggestions: ['Please go to ROS and verify 4 systems'] });
+
+      renderComponent();
+
+      expect(await screen.findByText('Please go to ROS and verify 4 systems')).toBeVisible();
+      expect(aiSuggestionNotes).toHaveBeenCalledTimes(1);
+    });
+
+    it('waits for chart fields to settle before reviewing', async () => {
+      mockUseNavigate.mockReturnValue(vi.fn());
+      // First render of the page: the chart query has not resolved, so a review fired now would be
+      // keyed on a hash of undefined chart data — and re-fired under a new key once it lands.
+      mockUseChartFields.mockReturnValue({ data: undefined, isFetching: true, isFetched: false } as any);
+      mockUseProgressNoteConfig.mockReturnValue({
+        data: { mdmRequired: true, signReviewPrompt: 'Check ROS and Exam' },
+      } as any);
+
+      const Wrapper = createWrapper();
+      const { rerender } = render(
+        <Wrapper>
+          <MissingCard />
+        </Wrapper>
+      );
+
+      await waitFor(() => expect(screen.getByTestId(dataTestIds.progressNotePage.hpiLink)).toBeVisible());
+      expect(aiSuggestionNotes).not.toHaveBeenCalled();
+
+      withCompleteNote();
+      rerender(
+        <Wrapper>
+          <MissingCard />
+        </Wrapper>
+      );
+
+      // One review, against the settled note.
+      await waitFor(() => expect(aiSuggestionNotes).toHaveBeenCalledTimes(1));
+    });
+
+    it('does not review while an observation write is in flight', async () => {
+      mockUseNavigate.mockReturnValue(vi.fn());
+      withCompleteNote();
+      mockUseProgressNoteConfig.mockReturnValue({
+        data: { mdmRequired: true, signReviewPrompt: 'Check ROS and Exam' },
+      } as any);
+      // A ROS box was just checked: the store is already updated, but FHIR is not, so a review now
+      // would be answered from the pre-save note and then cached under the post-edit hash forever.
+      const release = holdPendingObservationFields(['ros-constitutional-fever']);
+
+      renderComponent();
+
+      await waitFor(() =>
+        expect(screen.queryByTestId(dataTestIds.progressNotePage.missingCard)).not.toBeInTheDocument()
+      );
+      expect(aiSuggestionNotes).not.toHaveBeenCalled();
+
+      act(() => release());
+
+      await waitFor(() => expect(aiSuggestionNotes).toHaveBeenCalledTimes(1));
+    });
+
+    it('re-reviews when the configured prompt changes', async () => {
+      mockUseNavigate.mockReturnValue(vi.fn());
+      withCompleteNote();
+      mockUseProgressNoteConfig.mockReturnValue({
+        data: { mdmRequired: true, signReviewPrompt: 'Check ROS and Exam' },
+      } as any);
+      aiSuggestionNotes.mockResolvedValue({ suggestions: ['Please go to ROS and verify 4 systems'] });
+
+      const Wrapper = createWrapper();
+      const { rerender } = render(
+        <Wrapper>
+          <MissingCard />
+        </Wrapper>
+      );
+
+      expect(await screen.findByText('Please go to ROS and verify 4 systems')).toBeVisible();
+
+      // Customer support reworded the prompt; the cached review was produced by the old one.
+      mockUseProgressNoteConfig.mockReturnValue({
+        data: { mdmRequired: true, signReviewPrompt: 'Confirm the ROS covers 4 systems' },
+      } as any);
       rerender(
         <Wrapper>
           <MissingCard />
@@ -332,6 +441,22 @@ describe('MissingCard', () => {
       renderComponent();
 
       expect(await screen.findByText('Note review unavailable')).toBeVisible();
+    });
+
+    it('reports an unavailable review on an otherwise complete note', async () => {
+      // The case the status line exists for: nothing else is missing, so the card would return null
+      // and the provider would sign believing the review passed.
+      mockUseNavigate.mockReturnValue(vi.fn());
+      withCompleteNote();
+      mockUseProgressNoteConfig.mockReturnValue({
+        data: { mdmRequired: true, signReviewPrompt: 'Check ROS and Exam' },
+      } as any);
+      aiSuggestionNotes.mockRejectedValue(new Error('vertex unavailable'));
+
+      renderComponent();
+
+      expect(await screen.findByText('Note review unavailable')).toBeVisible();
+      expect(screen.getByTestId(dataTestIds.progressNotePage.missingCard)).toBeVisible();
     });
   });
 });

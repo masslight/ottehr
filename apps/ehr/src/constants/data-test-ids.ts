@@ -326,6 +326,7 @@ export const dataTestIds = {
     sendFaxButton: 'send-fax-button',
     dischargeSummaryButton: 'discharge-summary-button',
     missingCard: 'missing-card',
+    missingCardText: 'missing-card-text',
     patientVerificationLink: 'patient-verification-link',
     primaryDiagnosisLink: 'primary-diagnosis-link',
     secondaryDiagnosisLink: 'secondary-diagnosis-link',
