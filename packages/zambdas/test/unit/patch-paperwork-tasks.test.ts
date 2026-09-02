@@ -143,9 +143,6 @@ describe('patch-paperwork effect', () => {
     expect(oystehr.fhir.create).toHaveBeenCalledTimes(1);
   });
 
-  // The registry gate: a page with no entry in pageHarvestStrategy silently never
-  // harvests. The certification lint makes this a hard failure for harvestable pages;
-  // here we pin the runtime behavior the lint protects against.
   test('creates no task for a page with no registered harvest strategy', async () => {
     const oystehr = makeOystehr();
     await invoke(oystehr, effectInput({ submittedAnswer: { linkId: 'not-a-mapped-page', item: [] } }));
