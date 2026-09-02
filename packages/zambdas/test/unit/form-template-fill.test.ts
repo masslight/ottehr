@@ -2,6 +2,7 @@ import { PDFBool, PDFDocument, PDFName } from 'pdf-lib';
 import { FormFieldBinding } from 'utils/lib/form-tokens/mapping';
 import { describe, expect, it } from 'vitest';
 import { fillFormTemplatePdf, formatTokenValue, ResolvedTokenValue } from '../../src/ehr/shared/form-template-fill';
+import { hasAcroForm, PROVENANCE_FIELD_NAME, readDocumentProvenance } from '../../src/shared/document-provenance';
 
 /**
  * A small AcroForm covering every field kind the filler writes to.
@@ -158,5 +159,83 @@ describe('fillFormTemplatePdf', () => {
     // Not flattened: the provider still has to complete everything the chart cannot supply.
     expect(doc.getForm().getFields().length).toBeGreaterThan(0);
     expect(doc.getForm().acroForm.dict.get(PDFName.of('NeedAppearances'))).toBe(PDFBool.True);
+  });
+});
+
+describe('provenance stamping', () => {
+  const provenance = {
+    v: 1 as const,
+    patientId: 'patient-1',
+    encounterId: 'encounter-1',
+    sourceId: 'template-1',
+    sourceVersion: '3',
+    at: '2026-09-01T10:00:00.000Z',
+  };
+
+  const flatPdf = async (): Promise<Uint8Array> => {
+    const doc = await PDFDocument.create();
+    doc.addPage([600, 800]);
+    return doc.save();
+  };
+
+  it('round-trips through a form document', async () => {
+    const result = await fillFormTemplatePdf({
+      pdfBytes: await buildTestForm(),
+      bindings: [{ fieldName: 'patientName', tokenKey: 'patient.fullName' }],
+      resolve: () => 'Jane Doe',
+      provenance,
+    });
+
+    expect(readDocumentProvenance(await reload(result.pdfBytes))).toEqual(provenance);
+  });
+
+  it('round-trips through a document with no form, without giving it one', async () => {
+    const result = await fillFormTemplatePdf({
+      pdfBytes: await flatPdf(),
+      bindings: [],
+      resolve: () => undefined,
+      provenance,
+    });
+
+    const doc = await reload(result.pdfBytes);
+    // A printable form must not come back as something a viewer offers to fill in.
+    expect(hasAcroForm(doc)).toBe(false);
+    expect(readDocumentProvenance(doc)).toEqual(provenance);
+  });
+
+  it('reports bindings against a document that has no form, rather than creating one', async () => {
+    const result = await fillFormTemplatePdf({
+      pdfBytes: await flatPdf(),
+      bindings: [{ fieldName: 'patientName', tokenKey: 'patient.fullName' }],
+      resolve: () => 'Jane Doe',
+    });
+
+    expect(hasAcroForm(await reload(result.pdfBytes))).toBe(false);
+    expect(result.skipped).toEqual([
+      { fieldName: 'patientName', tokenKey: 'patient.fullName', reason: 'fieldMissing' },
+    ]);
+  });
+
+  it('leaves one stamp when a document is filled twice', async () => {
+    const once = await fillFormTemplatePdf({
+      pdfBytes: await buildTestForm(),
+      bindings: [],
+      resolve: () => undefined,
+      provenance,
+    });
+    const twice = await fillFormTemplatePdf({
+      pdfBytes: once.pdfBytes,
+      bindings: [],
+      resolve: () => undefined,
+      provenance: { ...provenance, at: '2026-09-02T10:00:00.000Z' },
+    });
+
+    const form = (await reload(twice.pdfBytes)).getForm();
+    expect(form.getFields().filter((f) => f.getName() === PROVENANCE_FIELD_NAME)).toHaveLength(1);
+    expect(readDocumentProvenance(await reload(twice.pdfBytes))?.at).toBe('2026-09-02T10:00:00.000Z');
+  });
+
+  it('returns nothing for a document that never carried a stamp', async () => {
+    expect(readDocumentProvenance(await reload(await buildTestForm()))).toBeUndefined();
   });
 });

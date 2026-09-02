@@ -1,11 +1,15 @@
-import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
+import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
+import { DocumentReference } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { QUERY_KEYS as PATIENT_DOCS_QUERY_KEYS } from 'src/hooks/useGetPatientDocs';
+import { FORM_INSTANCE_CATEGORY_SEARCH_PARAM } from 'utils/lib/fhir/constants';
 import {
   FillFormTemplateInput,
   FillFormTemplateOutput,
   ListFormTemplatesOutput,
+  SaveCompletedFormOutput,
 } from 'utils/lib/types/api/form-template.types';
-import { fillFormTemplate, listFormTemplates } from './form-templates.api';
+import { fillFormTemplate, listFormTemplates, returnCompletedForm } from './form-templates.api';
 
 export const FORM_TEMPLATES_QUERY_KEY = 'form-templates';
 
@@ -46,6 +50,79 @@ export const useFillFormTemplate = (): UseMutationResult<FillFormTemplateOutput,
     mutationFn: async (input: FillFormTemplateInput) => {
       if (!oystehrZambda) throw new Error('API client not available');
       return fillFormTemplate(oystehrZambda, input);
+    },
+  });
+};
+
+/**
+ * Files a completed form back onto the chart.
+ *
+ * On success the patient's documents are refetched, because the form has just become one of them and the
+ * documents explorer is very likely the next place the provider looks.
+ */
+export const useReturnCompletedForm = (): UseMutationResult<
+  SaveCompletedFormOutput,
+  Error,
+  { appointmentId: string; templateId: string; file: File }
+> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { appointmentId: string; templateId: string; file: File }) => {
+      if (!oystehrZambda) throw new Error('API client not available');
+      return returnCompletedForm(oystehrZambda, input);
+    },
+    onSuccess: (result) => {
+      // A refused upload created nothing, so there is nothing new for the explorer to show.
+      if (result.status === 'patientMismatch') return;
+      void queryClient.invalidateQueries({ queryKey: [PATIENT_DOCS_QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS] });
+      void queryClient.invalidateQueries({ queryKey: [PATIENT_DOCS_QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS] });
+      void queryClient.invalidateQueries({ queryKey: [COMPLETED_FORMS_QUERY_KEY] });
+    },
+  });
+};
+
+export const COMPLETED_FORMS_QUERY_KEY = 'completed-forms';
+
+/**
+ * Template ids that already have a completed form filed against this visit.
+ *
+ * Drives a "saved to the chart" marker on each form. There is deliberately no counterpart warning for
+ * forms that have not come back: a form generated an hour ago and still being filled in is the ordinary
+ * case, and flagging it would cry wolf on every visit. The marker's absence carries the same information
+ * without asserting that anything is wrong.
+ */
+export const useCompletedForms = (patientId?: string, encounterId?: string): UseQueryResult<Set<string>> => {
+  const { oystehr } = useApiClients();
+
+  return useQuery({
+    queryKey: [COMPLETED_FORMS_QUERY_KEY, { patientId, encounterId }],
+    enabled: !!oystehr && !!patientId && !!encounterId,
+    queryFn: async () => {
+      if (!oystehr) throw new Error('API client not available');
+
+      const docRefs = (
+        await oystehr.fhir.search<DocumentReference>({
+          resourceType: 'DocumentReference',
+          params: [
+            { name: 'subject', value: `Patient/${patientId}` },
+            { name: 'encounter', value: `Encounter/${encounterId}` },
+            { name: 'category', value: FORM_INSTANCE_CATEGORY_SEARCH_PARAM },
+            { name: 'status', value: 'current' },
+          ],
+        })
+      ).unbundle();
+
+      // `docStatus` has no search parameter, so the returned/still-a-draft distinction is drawn here.
+      // Prefilled drafts are `preliminary`; only a form the provider returned is `final`.
+      return new Set(
+        docRefs
+          .filter((docRef) => docRef.docStatus === 'final')
+          .flatMap((docRef) => docRef.relatesTo ?? [])
+          .map((relation) => relation.target?.reference?.replace('DocumentReference/', ''))
+          .filter((id): id is string => !!id)
+      );
     },
   });
 };

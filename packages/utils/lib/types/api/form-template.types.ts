@@ -6,6 +6,8 @@
  * which leaves the single `type` slot free for the document's actual kind.
  */
 
+import { DocumentVerificationStatus } from './document-provenance.types';
+
 /** One form template as the admin page and the chart both see it. */
 export interface FormTemplateItem {
   documentReferenceId: string;
@@ -122,6 +124,34 @@ export interface FillFormTemplateOutput {
   /** Download name, distinct per encounter rather than per template. */
   fileName: string;
   report: FormFillReport;
+}
+
+/** Presign step for returning a completed form. Writes nothing — see `DocumentVerificationResult`. */
+export interface CreateCompletedFormUploadUrlInput {
+  /** The visit the form belongs to. The patient is resolved from it server-side, never sent by the client. */
+  appointmentId: string;
+  fileName: string;
+}
+
+export interface CreateCompletedFormUploadUrlOutput {
+  z3Url: string;
+  presignedUploadUrl: string;
+}
+
+/** Second step: verify the uploaded bytes, and create the chart record only if they check out. */
+export interface SaveCompletedFormInput {
+  appointmentId: string;
+  z3Url: string;
+  /** The template this was completed from, so the finished document can be tied back to it. */
+  templateId: string;
+}
+
+export interface SaveCompletedFormOutput {
+  status: DocumentVerificationStatus;
+  /** The record created for the completed form. Absent when verification rejected the upload. */
+  documentReferenceId?: string;
+  /** Present on a mismatch, so the message can say whose document it actually was. */
+  stampedPatientId?: string;
 }
 
 export interface FormFieldInfo {

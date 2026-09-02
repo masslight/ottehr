@@ -5,7 +5,7 @@ import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference
 import { DateTime } from 'luxon';
 import { useCallback, useMemo, useState } from 'react';
 import { createCustomFolder, deletePatientDocument, renameCustomFolder } from 'src/api/api';
-import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
+import { FOLDERS_CONFIG, HIDE_WHILE_PRELIMINARY_TAG } from 'utils/lib/fhir/constants';
 import {
   CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
   isCustomFolderList,
@@ -65,7 +65,7 @@ export type PatientDocumentInfo = {
   //TODO: remove
   folderName?: string;
   whenAddedDate?: string;
-  //TODO: where to get data for this field?
+  /** Display name of the practitioner who filed the document, from `DocumentReference.author`. */
   whoAdded?: string;
   attachments?: PatientDocumentAttachment[];
   encounterId?: string;
@@ -130,6 +130,22 @@ const DOCUMENT_SEARCH_PAGE_SIZE = 200;
 // Backstop against an unbounded loop if the server keeps advertising a next page. Far above any
 // real patient chart; reaching it is a bug, not a big chart.
 const DOCUMENT_SEARCH_MAX = 20000;
+
+/**
+ * A working copy its producer has asked to keep hidden until it is finished.
+ *
+ * Both halves are required. The tag alone would hide a document that has since been completed; the status
+ * alone would hide anything unfinished, and `preliminary` is not a synonym for "not worth reading" — an
+ * unreviewed lab result carries it, and burying those would hide results a clinician is waiting on.
+ *
+ * Nothing here knows which kinds of document have drafts. A workflow opts in by tagging what it produces,
+ * which is why this filter has not needed to change as more of them have.
+ */
+const isHiddenDraft = (docRef: DocumentReference): boolean =>
+  docRef.docStatus === 'preliminary' &&
+  (docRef.meta?.tag ?? []).some(
+    (tag) => tag.system === HIDE_WHILE_PRELIMINARY_TAG.system && tag.code === HIDE_WHILE_PRELIMINARY_TAG.code
+  );
 
 /**
  * Every page of a DocumentReference search, concatenated.
@@ -692,15 +708,15 @@ const useSearchPatientDocuments = (
       const searchResultsResources: FhirResource[] = data;
       console.log(`useSearchPatientDocuments() search results cnt=[${searchResultsResources.length}]`);
 
-      // Superseded documents are excluded, but nothing narrower than that. A document can be a legitimate
-      // work in progress — a prefilled form waiting to be completed is `preliminary` and still wanted here
-      // — whereas `superseded` says a newer copy of this same document already exists, so listing it only
-      // offers a way to pick the stale one.
       const docRefsResources =
         searchResultsResources
           ?.filter(
             (resource: FhirResource) =>
-              resource.resourceType === 'DocumentReference' && resource.status !== 'superseded'
+              resource.resourceType === 'DocumentReference' &&
+              // `superseded` says a newer copy of this same document exists, so listing it only offers a
+              // way to open the stale one.
+              resource.status !== 'superseded' &&
+              !isHiddenDraft(resource)
           )
           ?.map((docRefResource: FhirResource) => docRefResource as DocumentReference) ?? [];
 
@@ -933,6 +949,9 @@ const createDocumentInfo = (documentReference: DocumentReference): PatientDocume
     typeCodes: documentReference.type?.coding?.flatMap((coding) => (coding.code ? [coding.code] : [])),
     docName: debug__createDisplayedDocumentName(documentReference),
     whenAddedDate: documentReference.date,
+    // The reference carries the practitioner's name alongside the pointer, so a document is attributed
+    // without a second lookup. Blank where the writer recorded no author — which is most of them today.
+    whoAdded: documentReference.author?.find((author) => author.display)?.display,
     attachments: extractDocumentAttachments(documentReference),
     encounterId: documentReference.context?.encounter?.[0]?.reference?.split('/')?.[1],
   };

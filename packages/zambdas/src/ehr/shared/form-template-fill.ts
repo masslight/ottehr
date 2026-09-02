@@ -13,6 +13,7 @@ import {
   PDFTextField,
 } from 'pdf-lib';
 import { FormFieldBinding, FormTransform } from 'utils/lib/form-tokens/mapping';
+import { DocumentProvenance, hasAcroForm, stampDocumentProvenance } from '../../shared/document-provenance';
 
 export type ResolvedTokenValue = string | number | boolean | undefined;
 
@@ -152,14 +153,28 @@ export const fillFormTemplatePdf = async (input: {
   pdfBytes: Uint8Array;
   bindings: FormFieldBinding[];
   resolve: (tokenKey: string) => ResolvedTokenValue;
+  /** Written into the document so the copy can be tied back to its patient after it leaves us. */
+  provenance?: DocumentProvenance;
 }): Promise<FormFillResult> => {
-  const { pdfBytes, bindings, resolve } = input;
+  const { pdfBytes, bindings, resolve, provenance } = input;
 
   const doc = await PDFDocument.load(pdfBytes);
-  const form = doc.getForm();
 
   const filled: FormFillFilledField[] = [];
   const skipped: FormFillSkippedField[] = [];
+
+  // `getForm()` creates an AcroForm where none exists, which would turn a printable document into one a
+  // viewer offers to fill in. A document with no form has nothing to write into, so every binding is
+  // reported missing and the document is left structurally as it arrived.
+  if (!hasAcroForm(doc)) {
+    for (const { fieldName, tokenKey } of bindings) {
+      if (tokenKey) skipped.push({ fieldName, tokenKey, reason: 'fieldMissing' });
+    }
+    if (provenance) stampDocumentProvenance(doc, provenance);
+    return { pdfBytes: await doc.save(), filled, skipped };
+  }
+
+  const form = doc.getForm();
 
   for (const binding of bindings) {
     const { fieldName, tokenKey } = binding;
@@ -230,6 +245,9 @@ export const fillFormTemplatePdf = async (input: {
 
   // Belt and braces with the appearance generation above: tells the viewer to draw the fields itself.
   form.acroForm.dict.set(PDFName.of('NeedAppearances'), PDFBool.True);
+
+  // After the appearance pass, so the stamp's own hidden widget is not handed to the font machinery.
+  if (provenance) stampDocumentProvenance(doc, provenance);
 
   return { pdfBytes: await doc.save(), filled, skipped };
 };

@@ -662,6 +662,23 @@ export const FORM_TEMPLATE_CATEGORY_CODING: Coding = {
 export const FORM_TEMPLATE_CATEGORY_SEARCH_PARAM = `${DOCUMENT_CATEGORY_SYSTEM}|form-template`;
 
 /**
+ * Marks a document that should stay out of the patient's document list while it is still `preliminary`.
+ *
+ * A meta tag rather than a rule about categories, so the documents explorer does not have to know which
+ * kinds of document have drafts worth hiding. A workflow that produces working copies opts in by tagging
+ * them; everything else is unaffected, and the explorer's filter never changes.
+ *
+ * The status is still what does the hiding. `preliminary` alone is not enough to justify it — an unreviewed
+ * lab result carries that status and a clinician is waiting on it — so the tag says only "this particular
+ * document is not worth reading until it is finished".
+ */
+export const HIDE_WHILE_PRELIMINARY_TAG: Coding = {
+  system: ottehrCodeSystemUrl('document-visibility'),
+  code: 'hide-while-preliminary',
+  display: 'Hide while preliminary',
+};
+
+/**
  * A prefilled copy of a template, produced for one encounter.
  *
  * Distinct from the template category so a chart listing cannot pick up templates, and a template listing

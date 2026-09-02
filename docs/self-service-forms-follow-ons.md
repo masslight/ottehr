@@ -1,11 +1,12 @@
 # Self-Service PDF Forms: Follow-On Work
 
-Two enhancements deliberately left out of the initial feature. Neither blocks it; both were identified while
-building it, and are recorded here so the reasoning survives into the tickets rather than being rediscovered.
+Work deliberately left out of the initial feature. None of it blocks shipping; all of it was identified while
+building, and is recorded here so the reasoning survives into the tickets rather than being rediscovered.
 
 **Part I** covers binding a group of form fields to a variable-length collection from the encounter —
 medications, labs, diagnoses — with the concrete instance chosen at fill time. **Part II** covers letting a
-model propose an initial mapping for an admin to review.
+model propose an initial mapping for an admin to review. **Part III** covers extending the provenance guard,
+built for the forms flow, to the general document upload path that currently bypasses it.
 
 ---
 
@@ -155,3 +156,56 @@ wrong suggestion that gets accepted goes to a payer.
 - Does this run in a zambda, and which model?
 - Re-run automatically when a template's PDF is replaced? Replacement currently reconciles bindings by field
   name, which is exactly where a proposal would be most useful and most likely to be wrong.
+
+---
+
+## Part III — Bringing the generic document upload under the provenance guard
+
+Shipped in the forms flow, deliberately not extended to the rest of the application. Recorded here because
+the gap is a disclosure risk rather than a tidiness problem.
+
+### 1. What is guarded today
+
+| Path | Guarded |
+| --- | --- |
+| Forms card → *Return completed* | Yes. `create-completed-form-upload-url` writes nothing; `save-completed-form` reads the stamp, compares it to the patient resolved from the appointment, and creates the `DocumentReference` only if they agree. |
+| Patient Documents explorer → upload | No. `create-upload-document-url` mints the presigned URL **and** creates the `DocumentReference` in the same call, before any bytes exist. Nothing reads the stamp. |
+
+A provider who uploads a completed form through Patient Documents out of habit bypasses the check
+completely — and that provider is the one the control exists for. The card's wording and the "Saved to
+chart" marker nudge toward the guarded path; neither prevents the other one.
+
+### 2. Why the existing endpoint cannot simply be extended
+
+Every upload path in the codebase is presign-then-direct-to-storage: `create-upload-document-url`,
+`upload-patient-condition-photo`, `upload-audio-recording` and `upload-dot-vision-document` all hand back a
+URL, and the browser PUTs to it. **The server never sees an uploaded file.** At the moment the endpoint
+runs there is nothing to inspect, so the check cannot live inside it as written.
+
+### 3. Two ways to close it
+
+**Adopt the inverted pattern.** Split the endpoint the way the forms flow is split: presign writes nothing,
+and a second call verifies and then creates the record. Removes the guard gap and, as a side effect, a
+pre-existing bug — a failed PUT currently leaves a `DocumentReference` on the chart pointing at an object
+that was never written, with no cleanup anywhere. The cost is a contract change for every caller of
+`create-upload-document-url`.
+
+**Add a verification call after the PUT.** Cheaper, and it leaves the contract alone, but it is a
+compensating control: the wrong document exists on the chart until the second call removes it, and a client
+that skips the call is unprotected.
+
+The first is the better shape and the one the forms flow now models.
+
+### 4. What it does not need
+
+No new stamp format, no per-type configuration, and no change to the guard's logic. `DocumentProvenance`
+and its read/write helpers live in `packages/zambdas/src/shared/`, outside the forms feature, and the guard
+keys on the stamp's presence rather than on what kind of document it is. A workflow adopts it by changing
+the shape of its upload, not by registering with anything.
+
+### 5. Open questions
+
+- Does an unstamped upload stay silently accepted forever, or is stamping eventually expected of everything
+  this system generates?
+- Should a refused upload be recorded — an attempt to file another patient's document onto a chart is
+  arguably an auditable event, and today it leaves only a log line.

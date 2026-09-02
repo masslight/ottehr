@@ -7,6 +7,7 @@ import {
   FORM_INSTANCE_CATEGORY_CODING,
   FORM_INSTANCE_CATEGORY_SEARCH_PARAM,
   FORM_TEMPLATE_MAPPING_EXTENSION_URL,
+  HIDE_WHILE_PRELIMINARY_TAG,
 } from 'utils/lib/fhir/constants';
 import { EMPTY_MAPPING, FormTemplateMapping } from 'utils/lib/form-tokens/mapping';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
@@ -109,17 +110,21 @@ const performEffect = async (
   const mapping =
     readExtensionJson<FormTemplateMapping>(template, FORM_TEMPLATE_MAPPING_EXTENSION_URL) ?? EMPTY_MAPPING;
 
-  // An unmapped template is stored exactly as uploaded. Running it through the filler would write nothing
-  // but still rewrite the file, and on a printable form — a third of the ones we have seen have no AcroForm
-  // at all — pdf-lib would create an empty one on the way past, changing a document for no reason.
-  const { pdfBytes, filled, skipped } =
-    mapping.bindings.length > 0
-      ? await fillFormTemplatePdf({
-          pdfBytes: templateBytes,
-          bindings: mapping.bindings,
-          resolve: (tokenKey) => resolveToken(tokenKey, fillContext),
-        })
-      : { pdfBytes: templateBytes, filled: [], skipped: [] };
+  const { pdfBytes, filled, skipped } = await fillFormTemplatePdf({
+    pdfBytes: templateBytes,
+    bindings: mapping.bindings,
+    resolve: (tokenKey) => resolveToken(tokenKey, fillContext),
+    // Stamped even when nothing was filled: an unmapped form still leaves here carrying a patient's name
+    // in its filename and still has to be identifiable when it comes back.
+    provenance: {
+      v: 1,
+      patientId: visitResources.patient.id,
+      encounterId: visitResources.encounter?.id,
+      sourceId: documentReferenceId,
+      sourceVersion: template.meta?.versionId,
+      at: DateTime.now().toUTC().toISO() ?? '',
+    },
+  });
 
   // Field names, token keys and reasons only — never the resolved values, which are PHI.
   console.log(
@@ -140,8 +145,10 @@ const performEffect = async (
   const instance = await oystehr.fhir.create<DocumentReference>({
     resourceType: 'DocumentReference',
     status: 'current',
-    // Incomplete until the provider finishes and returns it.
+    // Incomplete until the provider finishes and returns it, and not worth reading until then — the tag
+    // is what keeps it out of the patient's document list without that list knowing what a form is.
     docStatus: 'preliminary',
+    meta: { tag: [HIDE_WHILE_PRELIMINARY_TAG] },
     // Sorting rides on `category`; `type` carries the clinical meaning and is inherited rather than fixed,
     // because these documents genuinely differ — a workers-comp form, a prior authorisation and a DOT
     // examination are not one type, and the template is where that is declared.

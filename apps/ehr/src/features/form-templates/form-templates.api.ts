@@ -3,6 +3,8 @@ import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
 import {
   AnalyzeFormTemplateInput,
   AnalyzeFormTemplateOutput,
+  CreateCompletedFormUploadUrlInput,
+  CreateCompletedFormUploadUrlOutput,
   CreateFormTemplateUploadUrlInput,
   CreateFormTemplateUploadUrlOutput,
   DeleteFormTemplateInput,
@@ -16,6 +18,8 @@ import {
   ListFormTemplatesOutput,
   ReplaceFormTemplatePdfInput,
   ReplaceFormTemplatePdfOutput,
+  SaveCompletedFormInput,
+  SaveCompletedFormOutput,
   SaveFormTemplateMappingInput,
   SaveFormTemplateMappingOutput,
   UpdateFormTemplateInput,
@@ -24,6 +28,8 @@ import {
 
 const ANALYZE_FORM_TEMPLATE_ZAMBDA_ID = 'analyze-form-template';
 const FILL_FORM_TEMPLATE_ZAMBDA_ID = 'fill-form-template';
+const CREATE_COMPLETED_FORM_UPLOAD_URL_ZAMBDA_ID = 'create-completed-form-upload-url';
+const SAVE_COMPLETED_FORM_ZAMBDA_ID = 'save-completed-form';
 const CREATE_FORM_TEMPLATE_UPLOAD_URL_ZAMBDA_ID = 'create-form-template-upload-url';
 const GET_FORM_TEMPLATE_DETAIL_ZAMBDA_ID = 'get-form-template-detail';
 const REPLACE_FORM_TEMPLATE_PDF_ZAMBDA_ID = 'replace-form-template-pdf';
@@ -57,6 +63,62 @@ export const fillFormTemplate = async (
     console.error(error);
     throw apiErrorToThrow(error);
   }
+};
+
+const createCompletedFormUploadUrl = async (
+  oystehr: Oystehr,
+  parameters: CreateCompletedFormUploadUrlInput
+): Promise<CreateCompletedFormUploadUrlOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: CREATE_COMPLETED_FORM_UPLOAD_URL_ZAMBDA_ID, ...parameters });
+    return chooseJson(response) as CreateCompletedFormUploadUrlOutput;
+  } catch (error: unknown) {
+    console.error(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+const saveCompletedForm = async (
+  oystehr: Oystehr,
+  parameters: SaveCompletedFormInput
+): Promise<SaveCompletedFormOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: SAVE_COMPLETED_FORM_ZAMBDA_ID, ...parameters });
+    return chooseJson(response) as SaveCompletedFormOutput;
+  } catch (error: unknown) {
+    console.error(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+/**
+ * Puts a completed form back on the chart.
+ *
+ * Three steps in a deliberate order: ask where to put it, put it there, then ask for it to be filed. The
+ * chart record is created only by the third call, so abandoning the upload — or uploading a form belonging
+ * to another patient — leaves nothing behind to tidy up.
+ */
+export const returnCompletedForm = async (
+  oystehr: Oystehr,
+  parameters: { appointmentId: string; templateId: string; file: File }
+): Promise<SaveCompletedFormOutput> => {
+  const { appointmentId, templateId, file } = parameters;
+
+  const { z3Url, presignedUploadUrl } = await createCompletedFormUploadUrl(oystehr, {
+    appointmentId,
+    fileName: file.name,
+  });
+
+  const uploadResponse = await fetch(presignedUploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type || 'application/pdf' },
+    body: file,
+  });
+  if (!uploadResponse.ok) {
+    throw new Error(`Failed to upload the form (${uploadResponse.status} ${uploadResponse.statusText})`);
+  }
+
+  return saveCompletedForm(oystehr, { appointmentId, z3Url, templateId });
 };
 
 export const createFormTemplateUploadUrl = async (
