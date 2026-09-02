@@ -158,7 +158,7 @@ export const UnsolicitedResultsMatch: React.FC = () => {
   const renderPageError = (
     errorMessageGeneral: string,
     errorMessageAdditional: string | undefined,
-    alreadyMatched: boolean
+    extraContent?: JSX.Element
   ): JSX.Element => {
     return (
       <PageContainer>
@@ -171,35 +171,39 @@ export const UnsolicitedResultsMatch: React.FC = () => {
           <Paper sx={{ p: 3, mt: 1 }}>
             <Typography color="error">{errorMessageGeneral}</Typography>
             {errorMessageAdditional && <Typography color="error">Error message: {errorMessageAdditional}</Typography>}
-            {alreadyMatched && (
-              <Link
-                sx={{ mt: 1, cursor: 'pointer' }}
-                onClick={() => navigate(`/unsolicited-results/${diagnosticReportId}/review`)}
-              >
-                Click here to view the results
-              </Link>
-            )}
+            {extraContent}
           </Paper>
         </DetailPageContainer>
       </PageContainer>
     );
   };
 
+  const viewResultsLink = (
+    <Link
+      sx={{ mt: 1, cursor: 'pointer' }}
+      onClick={() => navigate(`/unsolicited-results/${diagnosticReportId}/review`)}
+    >
+      Click here to view the results
+    </Link>
+  );
+
   if (resourceSearchError) {
-    const alreadyMatched =
-      (resourceSearchError as OystehrSdkError)?.code === APIErrorCode.UNSOLICITED_RESULTS_ALREADY_MATCHED;
+    const link =
+      (resourceSearchError as OystehrSdkError)?.code === APIErrorCode.UNSOLICITED_RESULTS_ALREADY_MATCHED
+        ? viewResultsLink
+        : undefined;
 
     const errorMessageGeneral = 'There was an error loading the page, please try again.';
     const errorMessageAdditional = resourceSearchError?.message;
 
-    return renderPageError(errorMessageGeneral, errorMessageAdditional, alreadyMatched);
+    return renderPageError(errorMessageGeneral, errorMessageAdditional, link);
   }
 
   if (matchError && (matchError as OystehrSdkError)?.code === APIErrorCode.UNSOLICITED_RESULTS_ALREADY_MATCHED) {
     const errorMessageGeneral = 'There was an error matching this result.';
     const errorMessageAdditional = matchError?.message;
 
-    return renderPageError(errorMessageGeneral, errorMessageAdditional, true);
+    return renderPageError(errorMessageGeneral, errorMessageAdditional, viewResultsLink);
   }
 
   return (
