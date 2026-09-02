@@ -76,45 +76,50 @@ Extend `get-appointments` rather than add a zambda. Its only runtime caller toda
 (`getAppointments` in `apps/ehr/src/api/api.ts`). The shared `ui-components` client's `getAppointments` resolves to
 `telemed-get-appointments`, no zambda calls it, and the remaining references are its own tests, a permissions script
 that lists it, and comments. A second zambda would add an IaC entry, a permissions-script entry and a deploy surface
-without protecting any caller. Instead the request gains opt-in `include` flags and the response gains two optional
-maps; with the flags absent, behavior and payload are unchanged.
+without protecting any caller.
+
+End state: the response always carries the two grouped maps, and the request needs no new parameters.
 
 ```ts
-// packages/utils/lib/types/api/get-appointments.types.ts
+// packages/utils/lib/types/api/get-appointments.types.ts (end state, after Phase 3)
 export interface GetAppointmentsZambdaInput {
-  // ...existing fields
-  /** Opt-in. Absent = today's response, byte for byte. The tracking board passes both. */
-  include?: { orders?: boolean; vitals?: boolean };
+  // unchanged: searchDateFrom, searchDateTo, timezone, locationIds, providerIds,
+  // serviceCategories, visitType, supervisorApprovalEnabled
 }
 
 export interface GetAppointmentsZambdaOutput {
   // ...existing buckets
-  orders?: OrdersForTrackingBoardTable; // when include.orders; keyed by appointmentId / encounterId, what AppointmentTable takes
-  vitals?: GetVitalsForListOfEncountersResponseData; // when include.vitals; abnormal entries only (alertCriticality set)
+  orders: OrdersForTrackingBoardTable; // keyed by appointmentId / encounterId, what AppointmentTable takes
+  vitals: GetVitalsForListOfEncountersResponseData; // abnormal entries only (alertCriticality set)
 }
 ```
+
+Transitional shape, Phases 1 and 2 only: the request carries an opt-in `include?: { orders?: boolean; vitals?: boolean }`
+and the two maps are optional. With the flag absent the response is today's, byte for byte, which keeps the first
+backend PR observably inert while the frontend still consumes the old shape. Phase 3 deletes the flag and makes the
+maps required.
 
 `OrdersForTrackingBoardTable` and the per-type DTOs already exist in `utils/lib/types/data/orders/types.ts`, so the
 table, row, and tooltip components need no prop changes.
 
 ### 2.2 Server-side flow
 
-Phase A: appointments (existing logic, restructured in place)
+Step A: appointments (existing logic, restructured in place)
 
 - Split the body of `get-appointments/index.ts` into a `fetchAppointmentBuckets(oystehr, params)` step that returns
   the four buckets plus the internal maps the next phase needs (`apptRefToEncounterMap`,
-  `practitionerIdToResourceMap`, `locationIdToResourceMap`, the timezone map) and a handler that runs Phases B and C
-  only when `include` asks for them.
+  `practitionerIdToResourceMap`, `locationIdToResourceMap`, the timezone map) and a handler that runs Steps B and C
+  only when `include` asks for them, until Phase 3 makes them unconditional.
 - With `include` absent the handler returns exactly what it returns today, so the existing unit and integration tests
   keep passing unchanged.
 
-Phase B: orders + vitals in one batch Bundle
+Step B: orders + vitals in one batch Bundle
 
 Select the order-eligible encounters from the buckets. `displayOrdersToolTip` only renders orders for the
 completed tab and for in-office rows whose status is not `arrived` / `ready`, so the server should use the same rule
 (today the page requests orders for the waiting room too and then never shows them).
 
-Everything Phase B needs is keyed on those encounter ids, so it goes out as a single `oystehr.fhir.batch` call: one
+Everything Step B needs is keyed on those encounter ids, so it goes out as a single `oystehr.fhir.batch` call: one
 `Bundle` of type `batch` whose entries are independent `GET` searches, answered as one response with a nested
 `searchset` per entry. The repo already does this for chart data (`get-chart-data`), conversations
 (`get-conversation`) and reports, and `getResourcesFromBatchInlineRequests` / `parseBundleIntoResources` in
@@ -125,16 +130,16 @@ Everything Phase B needs is keyed on those encounter ids, so it goes out as a si
 | ServiceRequest, one entry per 50 encounters | `encounter=Encounter/a,b,...`, `status:not=revoked`, `_count=500`, `_revinclude=Task:based-on`, `_revinclude=DiagnosticReport:based-on`, `_revinclude:iterate=Task:based-on` (result-review tasks hang off the DiagnosticReport, not the order), `_revinclude=Provenance:target`, `_revinclude=DocumentReference:related` (radiology external results only), `_include=ServiceRequest:instantiates-canonical` (in-house test names) | the five ServiceRequest searches of external labs, in-house labs, nursing, radiology and procedures, plus external labs' second Task search |
 | MedicationAdministration, per 50 encounters | `context=Encounter/...`, `_tag=in-house-medication-administration-order,immunization`, `_count=500`                                                                                                                                                                                                                                                                                                                                 | in-house medications + immunizations                                                                                                        |
 | MedicationRequest, per 50 encounters        | `encounter=Encounter/...`, `_tag=erx-medication`, `_count=500`                                                                                                                                                                                                                                                                                                                                                                      | eRx (unchanged query)                                                                                                                       |
-| Observation, per 25 encounters              | as `get-vitals-for-list-of-encounters` today (`_tag` vitals, `status:not`, `_include=Observation:performer`, `_sort=-date`, `_count=1000`); drop its preliminary Encounter `_id` search because Phase A already validated the encounters                                                                                                                                                                                            | vitals                                                                                                                                      |
+| Observation, per 25 encounters              | as `get-vitals-for-list-of-encounters` today (`_tag` vitals, `status:not`, `_include=Observation:performer`, `_sort=-date`, `_count=1000`); drop its preliminary Encounter `_id` search because Step A already validated the encounters                                                                                                                                                                                             | vitals                                                                                                                                      |
 
-Phase A's own follow-up lookups (RelatedPerson fallback, DocumentReference cards, Practitioner `_id`, Provenance
+Step A's own follow-up lookups (RelatedPerson fallback, DocumentReference cards, Practitioner `_id`, Provenance
 verifier signatures, parent Encounters, SMS Communications) depend only on the appointment search too, so they join
 the same batch as further entries. Net: the zambda makes two server round trips per tick, the paged appointment
 search and one batch, plus a third only when a batch entry reports a `next` page or the batch has to be split for
 size (see 2.3).
 
 Why not one round trip? A batch's entries are independent: FHIR gives entry 2 no way to use entry 1's results, and
-every Phase B search is keyed on encounter ids that exist only after the appointment search returns. The one way
+every Step B search is keyed on encounter ids that exist only after the appointment search returns. The one way
 around that is chained search (`ServiceRequest?encounter.appointment.date=...&encounter.appointment.actor=...`),
 which would re-express the per-actor and HealthcareService pooling logic of `getAppointmentQueryInput` in five
 places, cannot express the status-derived eligibility rule, and moves the join onto the FHIR server. Two hops is the
@@ -150,9 +155,9 @@ Partition the ServiceRequest results by identity, not by separate queries:
 - anything else (disposition follow-ups etc.) is dropped
 
 Everything the old searches `_include`d for context (Encounter, Appointment, Slot, Schedule, Patient, Coverage,
-Practitioner) is gone: appointmentId, timezone, and practitioner names come from Phase A's maps.
+Practitioner) is gone: appointmentId, timezone, and practitioner names come from Step A's maps.
 
-Phase C: map and group
+Step C: map and group
 
 - Reuse the existing pure mappers rather than re-deriving statuses: `parseLabOrderStatus` / `mapResourcesToLabOrderDTOs`
   (external), `determineOrderStatus` / `parseOrderData` (in-house), `mapResourcesNursingOrderDTOs`, radiology
@@ -182,13 +187,13 @@ Phase C: map and group
   answering 400 while 100 answered 200. The response cap surfaces as "exceeds the maximum allowed size"
   (`isResponseSizeExceededError`); because a batch response aggregates every entry, split the batch in two (orders,
   vitals) or halve the encounter chunks on that error instead of failing the request.
-- Entry count: existing zambdas send 25 to 100 entries per batch; Phase B is typically 5 to 12 entries for a
+- Entry count: existing zambdas send 25 to 100 entries per batch; Step B is typically 5 to 12 entries for a
   single-location day.
 - One batch versus several in parallel: the server may execute a batch's entries sequentially, so one large batch can
   be slower end to end than two or three smaller batches in flight at once (`get-chart-data` already runs three
   batches in parallel). Measure both shapes in the parity test; default to two parallel batches (orders; vitals plus
-  the Phase A follow-ups) if a single batch loses.
-- Phase B runs strictly after Phase A because it needs the encounter ids, so the request costs one extra network hop
+  the Step A follow-ups) if a single batch loses.
+- Step B runs strictly after Step A because it needs the encounter ids, so the request costs one extra network hop
   over `get-appointments` alone. That is still far below the slowest of today's eight parallel requests plus their
   serialization on the client.
 - If a batch entry fails, return the appointments with that order type empty and log to Sentry; the board today
@@ -208,12 +213,12 @@ Phase C: map and group
   revincluded DiagnosticReports. If it does not, run the DiagnosticReport-based Task search as a third hop only when
   reports came back, which for a live board is rare.
 - Nursing's `orderingPhysician` and in-house's `orderingPhysicianFullName` are populated today but never rendered on
-  the board. Fill them from Phase A's practitioner map when the id is present, otherwise empty string. Do not add a
+  the board. Fill them from Step A's practitioner map when the id is present, otherwise empty string. Do not add a
   Practitioner fetch for them.
 - Radiology's caller-practitioner lookup (`getMyPractitionerId`) exists only for edit affordances on the radiology
   page; pass `undefined` on the board.
 - Vitals `authorName` requires the performer Practitioner; keep the `_include=Observation:performer`, or resolve from
-  Phase A's map first and only fetch the misses.
+  Step A's map first and only fetch the misses.
 - `supervisorApprovalEnabled` flows through unchanged.
 
 ## 3. Frontend design
@@ -221,7 +226,7 @@ Phase C: map and group
 ### 3.1 One hook
 
 `apps/ehr/src/hooks/useGetTrackingBoard.ts` (React Query), calling `getAppointments` with
-`include: { orders: true, vitals: true }`:
+`include: { orders: true, vitals: true }` until Phase 3 removes the flag:
 
 - `queryKey: ['tracking-board', { dateFrom, dateTo, locationIds, providerIds, serviceCategories, visitType, timezone }]`
 - `refetchInterval: TRACKING_BOARD_REFRESH_MS` (start at the current 30 000; it is now one request, so shortening
@@ -253,9 +258,9 @@ the `appointmentsVersion` counter, and the 300 ms debounce. `updateAppointments`
 
 ## 4. Work breakdown
 
-PR 1 (backend, additive, no UI change)
+Phase 1 (backend PR, additive, no UI change)
 
-1. Restructure `get-appointments/index.ts` into Phase A plus an `include`-gated tail, and add `include` to
+1. Restructure `get-appointments/index.ts` into Step A plus an `include`-gated tail, and add `include` to
    `validateRequestParameters` (absent by default). Run the existing `get-appointments` unit and integration tests:
    nothing observable changes yet.
 2. Implement the tail first by composition, using the fetchers the legacy zambdas already export
@@ -264,10 +269,10 @@ PR 1 (backend, additive, no UI change)
    ServiceRequest search with `makeProceduresDTOFromFhirResources`, the vitals fetch). Behind the flag this already
    collapses 8 browser requests to 1 and, by construction, returns byte-identical DTOs, which is the parity baseline
    for step 3.
-3. Replace the composed tail with the Phase B batch from 2.2 and the partition/map/group code.
+3. Replace the composed tail with the Step B batch from 2.2 and the partition/map/group code.
 4. Types in `utils`, unit tests, integration test (below). No config entry.
 
-PR 2 (frontend)
+Phase 2 (frontend PR)
 
 1. `useGetTrackingBoard` hook + `Appointments.tsx` rewrite; delete the board-only hooks; wire `updateAppointments`
    to invalidation.
@@ -276,11 +281,13 @@ PR 2 (frontend)
 3. Run the in-person E2E suite locally; the specs assert on rendered rows, not zambda names, so no spec edits are
    expected.
 
-PR 3 (cleanup, after PR 2 has been out for a release)
+Phase 3 (cleanup PR, after Phase 2 has been out for a release)
 
+- Remove the transitional `include` parameter: `get-appointments` always runs Steps B and C, `orders` and `vitals`
+  become required in `GetAppointmentsZambdaOutput`, the flag leaves `validateRequestParameters`, the API function and
+  the hook, and the no-`include` integration case goes with it.
 - Remove the `encounterIds` branches from the seven legacy order zambdas if nothing else calls them, or leave them
-  (they are not on the hot path any more). Decide whether `include` should default to on once the board is the only
-  caller; today's opt-in default exists only to keep the first backend PR observably inert.
+  (they are not on the hot path any more).
 
 ## 5. Verification
 
@@ -299,9 +306,10 @@ Integration test (extend `packages/zambdas/test/integration/get-appointments.tes
 - Seed a graph with `setupIntegrationTest`, create one nursing order and one in-house medication through the
   existing zambdas, call `get-appointments` with `include: { orders: true, vitals: true }`, assert the appointment
   appears in `inOffice` and both orders appear under the right keys.
-- A no-`include` case asserting `orders` and `vitals` are absent, so the legacy response shape stays pinned.
+- A no-`include` case asserting `orders` and `vitals` are absent, so the legacy response shape stays pinned through
+  Phases 1 and 2. Phase 3 deletes it together with the flag.
 - Parity: for the same seeded day, call the eight legacy endpoints and deep-compare their DTOs with the new response.
-  Keep this while PR 1 step 3 is in review; drop it in PR 3.
+  Keep this while Phase 1 step 3 is in review; drop it in Phase 3.
 
 Manual QA checklist
 
@@ -329,10 +337,10 @@ Targets to record before and after (Network tab, one tick)
   `parseLabOrderStatus` and keeping the DR-based Task search removes most of the risk; the parity test covers the rest.
 - Very broad filters (several locations over the 7-day maximum range) can produce hundreds of eligible encounters.
   Chunking handles correctness; if latency or the response cap becomes a problem, cap orders/vitals to the first N
-  encounters per tab and set `include.orders=false` beyond that, surfacing "too broad for order icons" in the UI.
+  encounters per tab and return the remaining rows without them, surfacing "too broad for order icons" in the UI.
 - Batch execution order and limits on Oystehr are not documented (entries per bundle, whether entries run in
-  parallel, the response cap). The composition step in PR 1 is the place to measure them before the lean batch lands.
+  parallel, the response cap). The composition step in Phase 1 is the place to measure them before the lean batch lands.
 - `get-appointments` now bundles the external-lab helpers (large module). Cold start grows somewhat; warm invocations are
   what the 30 s loop hits.
-- Until PR 3 the `encounterIds` code paths live in two places. That is deliberate: the legacy zambdas still serve the
+- Until Phase 3 the `encounterIds` code paths live in two places. That is deliberate: the legacy zambdas still serve the
   chart pages by `encounterId`/`patientId`, and the board no longer depends on them.
