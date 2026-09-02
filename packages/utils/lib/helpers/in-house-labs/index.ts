@@ -256,6 +256,16 @@ export function quantityRangeFormat(quantity: QuantityDataEntryComponent): strin
   return `${quantity.normalRange.low} - ${quantity.normalRange.high}`;
 }
 
+export function categoricalRangeFormat(referenceRangeValues: LabComponentValueSetConfig[] | undefined): string {
+  return (
+    referenceRangeValues
+      ?.map((refRange) => {
+        return refRange.display.charAt(0).toUpperCase() + refRange.display.slice(1);
+      })
+      .join(', ') ?? ''
+  );
+}
+
 export const convertActivityDefinitionToDataEntryTestItem = (
   activityDef: ActivityDefinition,
   observations?: Observation[],
