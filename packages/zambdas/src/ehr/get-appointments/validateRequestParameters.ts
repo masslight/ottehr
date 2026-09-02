@@ -22,6 +22,14 @@ const GetAppointmentsBodySchema = z
     serviceCategories: z.array(z.string()).optional(),
     visitType: z.array(z.enum(visitTypeOptions)),
     supervisorApprovalEnabled: z.boolean().default(false),
+    // Transitional opt-in for the tracking board's order and vitals maps; see GetAppointmentsInclude.
+    include: z
+      .object({
+        orders: z.boolean().optional(),
+        vitals: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
   })
   .superRefine((data, ctx) => {
     if (data.searchDateFrom > data.searchDateTo) {
@@ -65,6 +73,7 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZa
     serviceCategories,
     visitType,
     supervisorApprovalEnabled,
+    include,
   } = safeValidate(GetAppointmentsBodySchema, JSON.parse(input.body));
 
   return {
@@ -76,6 +85,7 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZa
     serviceCategories,
     visitType,
     supervisorApprovalEnabled: supervisorApprovalEnabled ?? false,
+    include,
     secrets: input.secrets,
   };
 }

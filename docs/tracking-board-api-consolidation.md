@@ -1,6 +1,6 @@
 # Tracking board: consolidate the refresh into one `get-appointments` call
 
-Status: proposal / implementation plan
+Status: Phases 1 and 2 implemented on this branch (see "Implementation notes" at the end); Phases 3 and 4 pending
 Scope: `apps/ehr` tracking board (`/visits`), `packages/zambdas`, `packages/utils`, `config/oystehr-core`
 
 ## 1. What happens today
@@ -368,3 +368,27 @@ Targets to record before and after (Network tab, one tick)
   what the 30 s loop hits.
 - Until Phase 3 the `encounterIds` code paths live in two places. That is deliberate: the legacy zambdas still serve the
   chart pages by `encounterId`/`patientId`, and the board no longer depends on them.
+
+## 7. Implementation notes (Phases 1 and 2)
+
+Where the build departs from the plan above, and why:
+
+- Phase 1 went straight to the Step B batch instead of shipping the composition step first. This sandbox has no
+  Oystehr environment to diff the two against, so the parity check lives in the integration suite instead: the
+  `get-appointments` test calls the eight legacy endpoints for the same encounters and compares the fields the board
+  renders (grouping key, id, label, status). Non-rendered fields are allowed to differ.
+- Step B runs concurrently with Step A's own follow-up searches rather than inside the same batch. Both depend only
+  on the appointment search, so the hop count is the same (two) and Step A's code stays untouched.
+- The eligible encounter set is every in-office row plus every discharged row, exactly what the page requested
+  before. Trimming the waiting room (which `displayOrdersToolTip` never renders orders for) is a safe follow-up.
+- No `DocumentReference:related` revinclude: the old hook already filtered external (print-only) radiology orders
+  off the board, and those are the only orders whose status reads result documents. The batch keeps
+  `ServiceRequest:requester`, `MedicationAdministration:subject` and `MedicationAdministration:performer` because
+  the reused mappers throw without them; they are small.
+- The result-review Task search is folded into the ServiceRequest entry with `_revinclude:iterate=Task:based-on`,
+  with a fallback to the legacy Task search when reports come back without any report-based Tasks.
+- The `refreshKey` parameter stays on the four legacy order hooks: the tasks feature passes it too.
+- Deleted: `useGetOrdersForTrackingBoard`, `useGetProcedures`, `useGetErxOrders` (board-only). The procedure pages now
+  invalidate the tracking board key directly.
+- Verified here: zambda and EHR typechecks, lint, the get-appointments unit tests (49) and the tracking board hook
+  and tabs component tests (14). Not run here: the integration suite (needs Oystehr secrets) and E2E.
