@@ -12,10 +12,11 @@ export function mergeReportStatuses(...statuses: (ReportRefreshStatus | undefine
   if (running) return running;
   const errored = present.find((status) => status.state === 'error');
   if (errored) return errored;
-  // oldest completion is the honest "last updated" for the page as a whole
-  return present.reduce((oldest, status) =>
-    (status.lastCompletedAt ?? '') < (oldest.lastCompletedAt ?? '') ? status : oldest
-  );
+  // oldest completion is the honest "last updated" for the page as a whole; instants, not
+  // string comparison — offsets/non-normalized ISO formats would sort wrong
+  const completedMillis = (status: ReportRefreshStatus): number =>
+    status.lastCompletedAt ? DateTime.fromISO(status.lastCompletedAt).toMillis() : Number.NEGATIVE_INFINITY;
+  return present.reduce((oldest, status) => (completedMillis(status) < completedMillis(oldest) ? status : oldest));
 }
 
 const formatSize = (bytes: number): string =>

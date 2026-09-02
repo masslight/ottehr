@@ -76,6 +76,8 @@ export enum APIErrorCode {
 
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
+  REPORT_CACHE_WRITE_FAILED = 5001,
+  REPORT_REFRESH_QUEUE_FAILED = 5002,
 }
 
 export interface APIError {
@@ -394,6 +396,20 @@ export const STRIPE_CUSTOMER_ID_DOES_NOT_EXIST_ERROR: APIError = {
 export const INVALID_INPUT_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.INVALID_INPUT,
+    message,
+  };
+};
+
+export const REPORT_CACHE_WRITE_FAILED_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.REPORT_CACHE_WRITE_FAILED,
+    message,
+  };
+};
+
+export const REPORT_REFRESH_QUEUE_FAILED_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.REPORT_REFRESH_QUEUE_FAILED,
     message,
   };
 };

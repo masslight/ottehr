@@ -205,22 +205,28 @@ prefix, written by
 
 | Object | Path | Contents |
 |---|---|---|
-| payload | `billing-reports/<kind>:<cacheVersion>:<paramsKey>.json.gz` | the raw report payload (rows, totals, resume state) |
-| public payload | `….public.json.gz` | sanitized copy — only when the definition has `sanitizePayload`; download URLs point here |
-| meta sidecar | `….meta.json` | `{ generatedAt, sizeBytes, truncated? }` — status without downloading the payload |
-| detail | `billing-reports/<kind>:<cacheVersion>:<detailParamsKey>:detail.json.gz` | `{ generatedAt, detail }` drilldown dataset |
+| payload | `billing-reports/<cacheKey>/<revision>.json.gz` | the raw report payload (rows, totals, resume state) |
+| public payload | `…/<revision>.public.json.gz` | sanitized copy — only when the definition has `sanitizePayload`; download URLs point here |
+| meta (commit pointer) | `billing-reports/<cacheKey>.meta.json` | `{ generatedAt, sizeBytes, truncated?, objectPath, publicObjectPath? }` |
+| detail | same scheme under `<kind>:<cacheVersion>:<detailParamsKey>:detail` | `{ generatedAt, detail }` drilldown dataset |
+
+(`<cacheKey>` is `<kind>:<cacheVersion>:<paramsKey>` sanitized to the Z3 object-name charset.)
 
 - Parameterized reports get one payload object per params combination (e.g. per date window).
 - There is **no size cap** — moving off FHIR `DocumentReference` attachments (4 MB base64
   limit) is what allows arbitrarily large reports; the old `shrink` data-shedding machinery is
-  gone. A failed cache write never fails the refresh.
-- Meta is written last, so its presence signals a complete save; the HTTP zambda treats a
-  missing meta as "never computed".
+  gone.
+- **Writes are committed, not in-place.** Each save uploads new generation-addressed objects,
+  then a single fixed-path meta PUT atomically switches readers to them (readers always resolve
+  object paths through the meta). A torn write leaves the previous generation live; the
+  superseded generation is deleted best-effort after the commit.
+- **A failed save fails the refresh Task** (`REPORT_CACHE_WRITE_FAILED`): the cache is the
+  delivery mechanism, so completing over a failed write would show idle status over stale data.
 - Definitions that drop data set `truncated` on the payload; it surfaces as `status.truncated`.
 - `cacheVersion` bumps orphan old objects rather than migrating them.
 - Serving is by **presigned download URL minted per request** (`z3.getPresignedUrl`), issued
   only after the zambda's RBAC check — the URL is short-lived and each poll/display gets a
-  fresh one against the same object.
+  fresh one against the committed object.
 
 ## 8. The worker
 

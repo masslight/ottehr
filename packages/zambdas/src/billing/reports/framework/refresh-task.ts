@@ -11,6 +11,7 @@ import {
   REFRESH_REPORT_TASK_CODE,
   RefreshReportKind,
 } from 'utils/lib/types/data/billing/billing.constants';
+import { REPORT_REFRESH_QUEUE_FAILED_ERROR } from 'utils/lib/types/errors';
 
 // a refresh untouched for this long is assumed dead and no longer blocks
 const STALE_REFRESH_MINUTES = 30;
@@ -99,7 +100,18 @@ export async function kickOffRefreshTask(
         ],
       });
     } catch (err) {
-      console.warn(`Failed to cancel stale refresh Task/${stale.id}:`, (err as Error)?.message);
+      // a still-active stale Task would satisfy the conditional create and queue no work
+      const refetched = await oystehr.fhir
+        .get<Task>({ resourceType: 'Task', id: stale.id ?? '' })
+        .catch(() => undefined);
+      if (!refetched || refetched.status === 'requested' || refetched.status === 'in-progress') {
+        const apiError = REPORT_REFRESH_QUEUE_FAILED_ERROR(
+          `Could not cancel stale refresh Task/${stale.id}; refusing to queue a refresh that would not run: ${
+            (err as Error)?.message ?? String(err)
+          }`
+        );
+        throw Object.assign(new Error(apiError.message), apiError);
+      }
     }
   }
 
