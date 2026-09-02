@@ -287,6 +287,31 @@ Phase 3 (cleanup PR, after Phase 2 has been out for a release)
 - Remove the `encounterIds` branches from the seven legacy order zambdas if nothing else calls them, or leave them
   (they are not on the hot path any more).
 
+Phase 4 (optional, low priority: trim FHIR payloads with `_elements`)
+
+Once Phase 3 has settled, the same searches can return less. `get-appointments` already does this for the appointment
+search: `APPOINTMENT_SEARCH_ELEMENTS` in `get-appointments/helpers.ts` lists every `Resource.field` the downstream
+code reads, the server strips the rest, and the list covers included resource types too. Extending that to the Step B
+batch entries shrinks the ServiceRequest, Task, DiagnosticReport, Provenance, MedicationAdministration,
+MedicationRequest, Observation and Practitioner payloads, which is where most of the response size (and the
+response-cap risk) lives after Phase 3.
+
+- Build one elements list per batch entry from what the mappers actually read. Roughly: for orders,
+  `ServiceRequest` id, status, code, category, encounter, meta, extension, authoredOn, note, requester, basedOn,
+  supportingInfo, reasonReference and instantiatesCanonical; `Task` id, status, code, basedOn, authoredOn, owner and
+  location; `DiagnosticReport` id, status, basedOn, code and extension; `Provenance` id, target, activity, recorded
+  and agent; `ActivityDefinition` id, url, name and title. For medications, the `MedicationAdministration` and
+  `MedicationRequest` fields the two DTO mappers read (`contained` keeps the whole contained Medication, since
+  `_elements` does not reach inside it). For vitals, `Observation` id, meta, code, component, valueQuantity,
+  effectiveDateTime, performer, encounter, derivedFrom and interpretation, plus `Practitioner` id and name. Derive the
+  final lists by reading the mappers, not from this sketch; the exact set is the work of the phase.
+- The risk is the one the existing WARNING comment above `APPOINTMENT_SEARCH_ELEMENTS` already describes: a field the
+  mapper reads but the list omits arrives as `undefined` and fails silently. Guard it the way the appointment search is
+  guarded: a unit test per entry that projects fixture resources down to the elements list and asserts the DTOs are
+  unchanged, so a new field read downstream fails the build instead of the board.
+- Record FHIR response bytes per tick before and after. This phase moves bytes, not round trips, so do it only if the
+  measured size or latency says it is worth the maintenance of the lists.
+
 ## 5. Verification
 
 Unit tests (`packages/zambdas`, offline `--project unit`)
@@ -321,13 +346,12 @@ Manual QA checklist
 
 Targets to record before and after (Network tab, one tick)
 
-| Metric                                      | Before                                                                                        | After                                                                                |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Browser requests per tick                   | 8 (+2 on encounter-set change)                                                                | 1                                                                                    |
-| Server round trips per tick                 | about 21-24 FHIR/API calls, 7 of them sequenced behind get-appointments on the client         | 2 (appointment search, then one batch), 3 when a next page or a size split is needed |
-| Order-search payload                        | Coverage, Slot, Schedule, Patient, Practitioner and Observation-result includes on every tick | none of those; Task, DiagnosticReport, Provenance and ActivityDefinition only        |
-| Encounter fetches per tick                  | 7                                                                                             | 1                                                                                    |
-| Data freshness for vitals and immunizations | on focus / encounter change only                                                              | every tick                                                                           |
+| Metric                                      | Before                                                                                | After                                                                                |
+| ------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------- | --- | -------------------------- | --- | --- |
+| Browser requests per tick                   | 8 (+2 on encounter-set change)                                                        | 1                                                                                    |
+| Server round trips per tick                 | about 21-24 FHIR/API calls, 7 of them sequenced behind get-appointments on the client | 2 (appointment search, then one batch), 3 when a next page or a size split is needed |
+| \1                                          | FHIR response bytes per tick                                                          | record during Phase 1                                                                | record again after Phase 4 | \n  | Encounter fetches per tick | 7   | 1   |
+| Data freshness for vitals and immunizations | on focus / encounter change only                                                      | every tick                                                                           |
 
 ## 6. Risks and open questions
 
