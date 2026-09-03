@@ -2,6 +2,7 @@ import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
+import { searchPageWithSizeRetry } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
@@ -297,6 +298,56 @@ const claimLastUpdated = (claim: Claim): number => {
 const unionClaimsNewestFirst = (claims: FhirResourceReturnValue<Claim>[]): FhirResourceReturnValue<Claim>[] =>
   deduplicateUnbundledResources(claims).sort((a, b) => claimLastUpdated(b) - claimLastUpdated(a));
 
+export const CLAIM_SCAN_PAGE_SIZE = 1000;
+
+/**
+ * Resolve the claims one query matches, as ids and the few fields an in-memory filter needs — never
+ * the full resource and never the includes, both of which belong to the page hydration. Pages until
+ * the query is drained or `maxMatches` is reached, shrinking the page when the server refuses the
+ * response size, and reports whether the server had more matches than it collected.
+ */
+export async function scanClaimIds({
+  oystehr,
+  params,
+  maxMatches,
+  withServiceDate,
+}: {
+  oystehr: Oystehr;
+  params: ClaimSearchParam[];
+  maxMatches: number;
+  withServiceDate: boolean;
+}): Promise<{ claims: FhirResourceReturnValue<Claim>[]; incomplete: boolean }> {
+  const searchParams = {
+    resourceType: 'Claim' as const,
+    params: [...params, claimScanElements(withServiceDate)],
+  };
+
+  const claims: FhirResourceReturnValue<Claim>[] = [];
+  let pageSize = CLAIM_SCAN_PAGE_SIZE;
+  let total = 0;
+
+  while (claims.length < maxMatches) {
+    const requested = Math.min(pageSize, maxMatches - claims.length);
+    const page = await searchPageWithSizeRetry<Claim>(oystehr, searchParams, {
+      offset: claims.length,
+      count: requested,
+    });
+    if (page.count < requested) pageSize = page.count;
+
+    total = page.bundle.total ?? 0;
+    const matched = page.bundle
+      .unbundle()
+      .filter((claim): claim is FhirResourceReturnValue<Claim> => claim.resourceType === 'Claim' && !!claim.id);
+    claims.push(...matched);
+    if (matched.length === 0 || claims.length >= total) break;
+  }
+
+  return {
+    claims: deduplicateUnbundledResources(claims),
+    incomplete: total > claims.length,
+  };
+}
+
 export const describeClaimSearchClause = (clause: ClaimSearchParam[]): string =>
   clause
     .map(({ name, value }) => {
@@ -318,18 +369,6 @@ export async function searchClaimsBySearchText({
   withServiceDateElements: boolean;
   patientNameOnly?: boolean;
 }): Promise<{ claims: FhirResourceReturnValue<Claim>[]; incomplete: boolean }> {
-  const pageParams: ClaimSearchParam[] = [
-    claimScanElements(withServiceDateElements),
-    {
-      name: '_count',
-      value: String(CLAIM_SEARCH_TEXT_MATCH_LIMIT),
-    },
-    {
-      name: '_total',
-      value: 'accurate',
-    },
-  ];
-
   const clauses = buildClaimSearchTextQueries({ searchText, patientNameOnly });
 
   const claims: FhirResourceReturnValue<Claim>[] = [];
@@ -338,12 +377,14 @@ export async function searchClaimsBySearchText({
   let lastFailure: unknown;
   for (let start = 0; start < clauses.length; start += CLAIM_SEARCH_TEXT_CONCURRENCY) {
     const chunk = clauses.slice(start, start + CLAIM_SEARCH_TEXT_CONCURRENCY);
-    const bundles = await Promise.all(
+    const scans = await Promise.all(
       chunk.map(async (clause) => {
         try {
-          return await oystehr.fhir.search<Claim>({
-            resourceType: 'Claim',
-            params: [...filterParams, ...clause, ...pageParams],
+          return await scanClaimIds({
+            oystehr,
+            params: [...filterParams, ...clause],
+            maxMatches: CLAIM_SEARCH_TEXT_MATCH_LIMIT,
+            withServiceDate: withServiceDateElements,
           });
         } catch (error) {
           // One clause the server won't accept shouldn't empty the search, but it must be loud.
@@ -355,12 +396,12 @@ export async function searchClaimsBySearchText({
       })
     );
 
-    bundles.forEach((bundle, index) => {
-      if (!bundle) return;
+    scans.forEach((scan, index) => {
+      if (!scan) return;
       const clause = describeClaimSearchClause(chunk[index]);
-      console.debug(`claim search clause matched ${bundle.total ?? 'unknown'}: ${clause}`);
-      if ((bundle.total ?? 0) > CLAIM_SEARCH_TEXT_MATCH_LIMIT) truncatedClauses.push(clause);
-      claims.push(...bundle.unbundle().filter((claim): claim is FhirResourceReturnValue<Claim> => !!claim.id));
+      console.debug(`claim search clause matched ${scan.claims.length}: ${clause}`);
+      if (scan.incomplete) truncatedClauses.push(clause);
+      claims.push(...scan.claims);
     });
   }
 

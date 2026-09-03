@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, Resource } from 'fhir/r4b';
+import { CLAIM_SCAN_MATCH_LIMIT } from 'utils/lib/types/data/billing/billing.constants';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
 import {
   buildClaimSearchTextQueries,
@@ -9,6 +10,7 @@ import {
   describeClaimSearchClause,
   enrichAndMapClaims,
   fetchClaimsPageByIds,
+  scanClaimIds,
   searchClaimsBySearchText,
 } from '../../../src/billing/claim-search';
 import { CLAIM_PCN_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
@@ -184,6 +186,163 @@ const claimSearchCalls = (search: Mock): SearchParam[][] =>
 
 const paramNamed = (params: SearchParam[], name: string): SearchParam | undefined =>
   params.find((param) => param.name === name);
+
+describe('scanClaimIds', () => {
+  const stubScanClient = (
+    matches: Claim[],
+    {
+      total = matches.length,
+      failSizeFor = 0,
+    }: {
+      total?: number;
+      failSizeFor?: number;
+    } = {}
+  ): {
+    oystehr: Oystehr;
+    search: Mock;
+  } => {
+    let sizeFailuresLeft = failSizeFor;
+    const search = vi.fn().mockImplementation(async ({ params }: { params: SearchParam[] }) => {
+      if (sizeFailuresLeft > 0) {
+        sizeFailuresLeft -= 1;
+        throw new Oystehr.OystehrSdkError({
+          code: 4130,
+          // 7Mb > 6Mb limit
+          message: 'An internal response size (7,340,032) exceeds the maximum allowed size (6,291,456).',
+        });
+      }
+      const offset = Number(paramNamed(params, '_offset')?.value ?? 0);
+      const count = Number(paramNamed(params, '_count')?.value ?? matches.length);
+      return bundleOf(matches.slice(offset, offset + count), total);
+    });
+    return {
+      oystehr: {
+        fhir: {
+          search,
+        },
+      } as unknown as Oystehr,
+      search,
+    };
+  };
+
+  const claimsNumbered = (count: number): Claim[] =>
+    Array.from({ length: count }, (_unused, index) => makeClaim(`claim-${index}`, '2026-07-01T00:00:00Z'));
+
+  it('asks only for ids, never the resources the page hydration fetches', async () => {
+    const { oystehr, search } = stubScanClient(claimsNumbered(2));
+
+    await scanClaimIds({
+      oystehr,
+      params: FILTER_PARAMS,
+      maxMatches: CLAIM_SEARCH_TEXT_MATCH_LIMIT,
+      withServiceDate: false,
+    });
+
+    const [params] = claimSearchCalls(search);
+    expect(params).toContainEqual(AR_STAGE_FILTER);
+    expect(paramNamed(params, '_elements')?.value).toBe('id,meta');
+    expect(paramNamed(params, '_include')).toBeUndefined();
+    expect(paramNamed(params, '_total')?.value).toBe('accurate');
+  });
+
+  it('asks for the service date fields when the filter needs them', async () => {
+    const { oystehr, search } = stubScanClient(claimsNumbered(1));
+
+    await scanClaimIds({
+      oystehr,
+      params: [],
+      maxMatches: CLAIM_SEARCH_TEXT_MATCH_LIMIT,
+      withServiceDate: true,
+    });
+
+    expect(paramNamed(claimSearchCalls(search)[0], '_elements')?.value).toBe('id,meta,created,item');
+  });
+
+  it('pages until the query is drained', async () => {
+    const { oystehr, search } = stubScanClient(claimsNumbered(2500));
+
+    const { claims, incomplete } = await scanClaimIds({
+      oystehr,
+      params: [],
+      maxMatches: CLAIM_SCAN_MATCH_LIMIT,
+      withServiceDate: false,
+    });
+
+    expect(claims).toHaveLength(2500);
+    expect(incomplete).toBe(false);
+    expect(claimSearchCalls(search).map((params) => paramNamed(params, '_offset')?.value)).toEqual([
+      '0',
+      '1000',
+      '2000',
+    ]);
+  });
+
+  it('stops at the match limit and reports the result as incomplete', async () => {
+    const { oystehr, search } = stubScanClient(claimsNumbered(2500));
+
+    const { claims, incomplete } = await scanClaimIds({
+      oystehr,
+      params: [],
+      maxMatches: 1500,
+      withServiceDate: false,
+    });
+
+    expect(claims).toHaveLength(1500);
+    expect(incomplete).toBe(true);
+    // Never asks for more than the headroom left to the limit.
+    expect(claimSearchCalls(search).map((params) => paramNamed(params, '_count')?.value)).toEqual(['1000', '500']);
+  });
+
+  it('shrinks the page when the server refuses the response size, and still collects every match', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { oystehr, search } = stubScanClient(claimsNumbered(600), { failSizeFor: 1 });
+
+    const { claims, incomplete } = await scanClaimIds({
+      oystehr,
+      params: [],
+      maxMatches: CLAIM_SCAN_MATCH_LIMIT,
+      withServiceDate: false,
+    });
+
+    expect(claims.map((claim) => claim.id)).toEqual(claimsNumbered(600).map((claim) => claim.id));
+    expect(incomplete).toBe(false);
+    // 1000 refused, then 500 and the remaining 100 — the reduced size carries to the next page.
+    expect(claimSearchCalls(search).map((params) => paramNamed(params, '_count')?.value)).toEqual([
+      '1000',
+      '500',
+      '500',
+    ]);
+  });
+
+  // A claim updated mid-scan moves under the _lastUpdated sort and can be returned on two pages.
+  it('does not return the same claim twice when it lands on two pages', async () => {
+    const { oystehr } = stubScanClient([...claimsNumbered(1000), makeClaim('claim-0', '2026-07-02T00:00:00Z')]);
+
+    const { claims } = await scanClaimIds({
+      oystehr,
+      params: [],
+      maxMatches: CLAIM_SCAN_MATCH_LIMIT,
+      withServiceDate: false,
+    });
+
+    expect(claims.filter((claim) => claim.id === 'claim-0')).toHaveLength(1);
+  });
+
+  it('does not loop forever when the server reports a total it will not return', async () => {
+    const { oystehr, search } = stubScanClient(claimsNumbered(3), { total: 900 });
+
+    const { claims, incomplete } = await scanClaimIds({
+      oystehr,
+      params: [],
+      maxMatches: CLAIM_SCAN_MATCH_LIMIT,
+      withServiceDate: false,
+    });
+
+    expect(claims).toHaveLength(3);
+    expect(incomplete).toBe(true);
+    expect(claimSearchCalls(search)).toHaveLength(2);
+  });
+});
 
 describe('describeClaimSearchClause', () => {
   it('names the parameter without echoing the searched text', () => {
