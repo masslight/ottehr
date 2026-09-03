@@ -307,18 +307,30 @@ describe('CLAIM_LIST_ELEMENTS', () => {
     ],
   } as unknown as Practitioner;
 
-  const lookupsFor = (claimPatient: Patient, claimLocation: Location, claimPractitioner: Practitioner): Lookups => ({
+  const payer = {
+    resourceType: 'Organization',
+    id: 'payer-1',
+    name: 'Acme Health',
+    address: [
+      {
+        city: 'Boston',
+      },
+    ],
+  } as unknown as Organization;
+
+  const lookupsFor = ({
+    claimPatient,
+    claimLocation,
+    claimPractitioner,
+    claimPayer,
+  }: {
+    claimPatient: Patient;
+    claimLocation: Location;
+    claimPractitioner: Practitioner;
+    claimPayer: Organization;
+  }): Lookups => ({
     patients: [claimPatient],
-    payersByRef: new Map([
-      [
-        'Organization/payer-1',
-        {
-          resourceType: 'Organization',
-          id: 'payer-1',
-          name: 'Acme Health',
-        } as unknown as Organization,
-      ],
-    ]),
+    payersByRef: new Map([['Organization/payer-1', claimPayer]]),
     locations: [claimLocation],
     providers: [claimPractitioner],
     coverages: [
@@ -332,18 +344,73 @@ describe('CLAIM_LIST_ELEMENTS', () => {
     patientPaidByClaimId: new Map([['claim-1', 25]]),
   });
 
+  // Every field each fixture carries that the list is meant to strip. The accounting test below
+  // ties this and CLAIM_LIST_ELEMENTS to the fixtures, so adding a field to a fixture forces it
+  // into one list or the other — which stops a newly read field being left out of _elements.
+  const narrowedFixtures = [
+    {
+      resource: fullClaim as Resource,
+      dropped: ['diagnosis', 'supportingInfo'],
+    },
+    {
+      resource: patient as Resource,
+      dropped: ['address'],
+    },
+    {
+      resource: location as Resource,
+      dropped: ['telecom'],
+    },
+    {
+      resource: practitioner as Resource,
+      dropped: ['qualification'],
+    },
+    {
+      resource: payer as Resource,
+      dropped: ['address'],
+    },
+  ];
+
   it('keeps every field the row mapping reads', () => {
-    const fromFull = mapClaimToItem(fullClaim, lookupsFor(patient, location, practitioner));
+    const fromFull = mapClaimToItem(
+      fullClaim,
+      lookupsFor({
+        claimPatient: patient,
+        claimLocation: location,
+        claimPractitioner: practitioner,
+        claimPayer: payer,
+      })
+    );
     const fromNarrowed = mapClaimToItem(
       narrow(fullClaim),
-      lookupsFor(narrow(patient), narrow(location), narrow(practitioner))
+      lookupsFor({
+        claimPatient: narrow(patient),
+        claimLocation: narrow(location),
+        claimPractitioner: narrow(practitioner),
+        claimPayer: narrow(payer),
+      })
     );
     expect(fromNarrowed).toEqual(fromFull);
     // Guard against a list so narrow that everything collapses to defaults and the rows still match.
     expect(fromFull.serviceDate).toBe('2026-07-19');
     expect(fromFull.memberId).toBe('MEM-1');
     expect(fromFull.rulesEngine).toBe('claim-submission');
+    expect(fromFull.payerName).toBe('Acme Health');
   });
+
+  it.each(narrowedFixtures)(
+    'accounts for every $resource.resourceType field in the element list',
+    ({ resource, dropped }) => {
+      const fixtureFields = Object.keys(resource).filter((field) => field !== 'resourceType');
+      const kept = keptFieldsFor(resource.resourceType);
+
+      // An element nothing in the fixture carries is an element the narrowing test never exercises.
+      expect(kept.filter((field) => !fixtureFields.includes(field))).toEqual([]);
+      // A fixture field that is neither kept nor expected to be dropped is a field someone added
+      // without deciding whether the list needs it.
+      expect(fixtureFields.filter((field) => !kept.includes(field) && !dropped.includes(field))).toEqual([]);
+      expect(dropped.filter((field) => !fixtureFields.includes(field))).toEqual([]);
+    }
+  );
 
   // fetchPatientPaidByClaimId reads this outside mapClaimToItem, so the test above cannot catch it:
   // without the identifier every row silently reports a patient paid of zero.
@@ -351,10 +418,10 @@ describe('CLAIM_LIST_ELEMENTS', () => {
     expect(narrow(fullClaim).identifier?.find((id) => id.system === ENCOUNTER_ID_SYSTEM)?.value).toBe('encounter-1');
   });
 
-  it('drops the fields the list never reads', () => {
-    const narrowed = narrow(fullClaim);
-    expect(narrowed.diagnosis).toBeUndefined();
-    expect(narrowed.supportingInfo).toBeUndefined();
+  it.each(narrowedFixtures)('drops the $resource.resourceType fields the list never reads', ({ resource, dropped }) => {
+    const narrowed = narrow(resource) as unknown as Record<string, unknown>;
+    dropped.forEach((field) => expect(narrowed[field]).toBeUndefined());
+    expect(dropped.length).toBeGreaterThan(0);
   });
 
   it('narrows every resource type the list includes, so none is returned whole', () => {
