@@ -35,7 +35,9 @@ export interface StreamZipResult {
 const DEFAULT_MAX_CONCURRENT_DOWNLOADS = 8;
 const DEFAULT_ENTRY_BUFFER_BYTES = 4 * 1024 * 1024;
 
-// S3 refuses a single PUT over 5 GiB and Z3 exposes no multipart upload.
+// S3 refuses a single PUT over 5 GiB and Z3 exposes no multipart upload. If charts ever routinely exceed
+// this, the way out is multi-volume output — one complete archive per invocation, `Task.output`
+// accumulating several urls — since a single streamed object cannot span invocations.
 export const MAX_SINGLE_PUT_BYTES = 5 * 1024 * 1024 * 1024;
 
 /** `@types/yazl` types the final-size callback as taking no arguments; yazl passes the length, or -1. */

@@ -27,6 +27,11 @@ let m2mToken: string;
  * Front door for the medical-record export. Both modes are deliberately cheap: the archive itself is
  * built by `sub-export-medical-record`, because collecting a large chart runs far past the 27 s
  * API Gateway ceiling that applies to every `http_auth` zambda.
+ *
+ * Note there is no role check, and the archive is assembled with the M2M token rather than the caller's,
+ * so the caller's own FHIR access policy does not bound what an export returns. Deliberate — every EHR
+ * staff role can already open these documents one by one — but adding `requireUserWithRole` here is the
+ * only thing that would narrow it, and the button would need the same gate.
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
