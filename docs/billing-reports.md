@@ -37,10 +37,10 @@ All definitions live in `packages/zambdas/src/billing/reports/definitions/`.
   - **detail** — every ERA with check number/date/month, payer reference id, and per-claim
     patient name, PCN, DOS + service month, billed/allowed/paid/patient-resp amounts.
 - **Detail cache**: window-independent (`detailCacheKeyOf: () => ''`) since it spans all ERAs —
-  one `payments:v1:all:detail` document no matter which window triggered the refresh.
+  one `payments:v2:all:detail` object no matter which window triggered the refresh.
 - **Drilldown** (`select`): payer-row mode filters by payer reference id (`'none'` = ERAs with
   no payer reference) + check-date window; waterfall-cell mode filters by check month and trims
-  each ERA to claims whose DOS lands in the service month. Oversized detail sheds oldest checks.
+  each ERA to claims whose DOS lands in the service month.
 - **Page**: payer DataGrid (row click → ERA drawer) + waterfall matrix (cell click → same
   drawer scoped to the cell). Date presets re-key the cache; each preset is its own snapshot.
 
@@ -91,23 +91,19 @@ All definitions live in `packages/zambdas/src/billing/reports/definitions/`.
 
 [cards-on-file.report.ts](../packages/zambdas/src/billing/reports/definitions/cards-on-file.report.ts)
 
-- **Data**: every Stripe customer across all accounts (deduped, capped at 50k with a
-  `truncated` flag), open invoices per customer, and FHIR `Patient`s + last non-cancelled
-  `Appointment` per matched patient.
-- **Params**: none (`cards-on-file:v1:all`).
+- **Data**: every Stripe customer across all accounts (deduped), open invoices per customer,
+  and FHIR `Patient`s + last non-cancelled `Appointment` per matched patient.
+- **Params**: none (`cards-on-file:v2:all`).
 - **Compute** — the framework's most stateful report:
   - Card resolution is tiered: expanded default payment method → legacy default card source →
-    fallback `paymentMethods.list` per customer. Fallback lookups run in batches of 500
-    (open-invoice customers first); the remainder persists as a **`pendingLookups` queue inside
-    the cache document**, drained batch-by-batch by the same compute with progress
-    ("resolving cards 1,500/4,800…").
+    fallback `paymentMethods.list` per customer (open-invoice customers first); the remainder
+    persists as a **`pendingLookups` queue inside the cached payload**, drained in bounded
+    batches by chained continuation runs with progress ("resolving cards 1,500/4,800…").
   - Because compute persists intermediate drain state itself, it sets **`savesOwnCache`** (the
     worker skips the central save), and **`sanitizePayload`** strips the queue before a payload
     leaves the server.
-  - **`shrink`** order for an oversized cache: drop the pending queue first (flagging
-    `truncated`), then halve rows from the tail (alphabetical order keeps the head stable).
 - **Page**: card/no-card toggle, due-invoices-only switch, Stripe/EHR deep links per row, plus
-  banners for truncation and a still-draining lookup queue.
+  a banner for a still-draining lookup queue.
 
 ## pipeline — Claims Pipeline
 
@@ -141,14 +137,15 @@ All definitions live in `packages/zambdas/src/billing/reports/definitions/`.
 
 ## Cache inventory (per environment)
 
-| Kind | Payload documents | Detail documents |
+| Kind | Payload objects | Detail objects |
 |---|---|---|
 | payments | one per date window | one (`:all:detail`) |
 | patient-payments | one per date window | one per date window |
 | invoice | one | — |
 | cards-on-file | one (holds drain state) | — |
-| pipeline | one per date window (+ one history doc) | — |
+| pipeline | one per date window (+ one history DocumentReference) | — |
 | productivity | one per date window | — |
 
-All under the `ottehrIdentifierSystem('billing-report')` identifier system; a `cacheVersion`
-bump abandons old documents in place.
+All cached as gzipped JSON objects in the billing-app Z3 bucket under `billing-reports/`;
+a `cacheVersion` bump abandons old objects in place. The pipeline history is the one
+FHIR-resident piece, a `DocumentReference` under `ottehrIdentifierSystem('billing-report')`.
