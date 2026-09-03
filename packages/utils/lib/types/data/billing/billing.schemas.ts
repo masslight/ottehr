@@ -62,6 +62,7 @@ export const SearchErasInputSchema = z.object({
   eraStatus: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
+  matchingStatus: nonEmptyString.optional(),
   // Claim-level filters (only ERAs with matched claims satisfying these)
   claimStatus: nonEmptyString.optional(),
   dosFrom: nonEmptyString.optional(),
@@ -137,9 +138,11 @@ export const GetBillingProviderInputSchema = z.object({
 
 export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
+  // Limit search to patient names and claim IDs.
+  patientNameOnly: z.boolean().optional(),
   type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
-  status: nonEmptyString.optional(),
   arStage: nonEmptyString.optional(),
+  status: nonEmptyString.optional(),
   tag: nonEmptyString.optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
@@ -151,6 +154,16 @@ export const SearchBillingClaimsInputSchema = z.object({
   patientId: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
+});
+
+export const ExportBillingClaimsInputSchema = SearchBillingClaimsInputSchema.omit({
+  patientNameOnly: true,
+  offset: true,
+  pageSize: true,
+});
+
+export const GetBillingClaimsExportStatusInputSchema = z.object({
+  taskId: nonEmptyString,
 });
 
 export const SearchBillingPatientARClaimsInputSchema = z.object({
@@ -209,6 +222,7 @@ const claimServiceLineSchema = z.object({
   modifiers: z.array(z.string()).optional(),
   // 1-based references into the claim's diagnosis list (FHIR item.diagnosisSequence)
   diagnosisPointers: z.array(z.number().int().positive()).optional(),
+  revenueCode: z.string().max(5).optional(),
 });
 
 export const GetServiceFacilityInputSchema = z.object({
@@ -393,7 +407,7 @@ export const UpdateBillingPatientInputSchema = z.object({
 
 const subscriberRelationshipSchema = z.enum(SUBSCRIBER_RELATIONSHIPS);
 
-const insuranceTypeSchema = z.enum(['primary', 'secondary', 'workersComp']);
+const insuranceTypeSchema = z.enum(['primary', 'secondary', 'tertiary', 'quaternary', 'workersComp']);
 
 export const BillingPolicyHolderSchema = z.object({
   firstName: nonEmptyString,
@@ -409,7 +423,7 @@ export const CreateBillingCoverageInputSchema = z
     patientId: nonEmptyString,
     payerId: nonEmptyString,
     memberId: nonEmptyString,
-    insuranceType: insuranceTypeSchema,
+    insuranceType: insuranceTypeSchema.optional(),
     planType: nonEmptyString.optional(),
     relationship: subscriberRelationshipSchema,
     policyHolder: BillingPolicyHolderSchema.optional(),
@@ -444,6 +458,10 @@ export const UpdateBillingCoverageInputSchema = z
       });
     }
   });
+
+export const GetBillingCoverageInputSchema = z.object({
+  coverageId: nonEmptyString,
+});
 
 export const DeleteBillingCoverageInputSchema = z.object({
   coverageId: nonEmptyString,
@@ -546,7 +564,8 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
       renderingProvider: claimProviderRefSchema.optional(),
       facilityId: nonEmptyString.optional(),
       coverageId: nonEmptyString.optional(),
-      removeCoverage: z.boolean().optional(),
+      coverageType: z.enum(['primary', 'secondary', 'tertiary', 'quaternary']).optional(),
+      removeCoverage: nonEmptyString.optional(),
       payerId: nonEmptyString.optional(),
       planType: z
         .string()
@@ -554,6 +573,12 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
         .optional(),
       diagnoses: z.array(claimDiagnosisSchema).optional(),
       serviceLines: z.array(claimServiceLineSchema).optional(),
+      billType: nonEmptyString.min(4).max(4).optional().or(z.literal('')),
+      patientDischargeStatusCode: nonEmptyString.max(2).optional().or(z.literal('')),
+      admissionType: nonEmptyString.max(1).optional().or(z.literal('')),
+      admissionSource: nonEmptyString.max(1).optional().or(z.literal('')),
+      admissionDate: nonEmptyString.optional().or(z.literal('')),
+      dischargeDate: nonEmptyString.optional().or(z.literal('')),
     }),
   }),
 ]);
@@ -571,6 +596,26 @@ export const UpdateBillingResourceInputSchema = updateBillingResourceUnion.super
       path: ['fields', 'policyHolder'],
       message: 'Policy holder details are required when the relationship to insured is not "Self"',
     });
+  }
+
+  // Institutional claim submission requires a full admission/discharge period: neither can be blank.
+  // Only checked when at least one key is present in the payload (the UI always submits them
+  // together); a payload that omits both entirely is left alone since it isn't touching this pair.
+  if (data.resourceType === 'Claim' && (data.fields.admissionDate != null || data.fields.dischargeDate != null)) {
+    if (!data.fields.admissionDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fields', 'admissionDate'],
+        message: 'Admission date is required',
+      });
+    }
+    if (!data.fields.dischargeDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fields', 'dischargeDate'],
+        message: 'Discharge date is required',
+      });
+    }
   }
 });
 
@@ -651,6 +696,27 @@ export const RecordBillingManualPaymentInputSchema = z.object({
     .regex(/^[A-Za-z0-9._-]+$/),
 });
 
+export const AddClaimAttachmentInputSchema = z.object({
+  claimId: nonEmptyString,
+  name: nonEmptyString,
+  reportTypeCode: nonEmptyString.optional(),
+});
+
+export const RenameClaimAttachmentInputSchema = z.object({
+  documentReferenceId: nonEmptyString,
+  name: nonEmptyString,
+});
+
+export const DeleteClaimAttachmentInputSchema = z.object({
+  claimId: nonEmptyString,
+  documentReferenceId: nonEmptyString,
+});
+
+export const DownloadClaimAttachmentInputSchema = z.object({
+  claimId: nonEmptyString,
+  documentReferenceId: nonEmptyString,
+});
+
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
 export type GetClaimHistoryInput = z.output<typeof GetClaimHistoryInputSchema>;
 export type AddClaimNoteInput = z.output<typeof AddClaimNoteInputSchema>;
@@ -665,6 +731,8 @@ export type GetPatientDetailInput = z.output<typeof GetPatientDetailInputSchema>
 export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputSchema>;
 export type GetBillingBillingProviderInput = z.output<typeof GetBillingProviderInputSchema>;
 export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;
+export type ExportBillingClaimsInput = z.output<typeof ExportBillingClaimsInputSchema>;
+export type GetBillingClaimsExportStatusInput = z.output<typeof GetBillingClaimsExportStatusInputSchema>;
 export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;
 export type GetBillingPatientBalanceInput = z.output<typeof GetBillingPatientBalanceInputSchema>;
 export type SearchBillingProvidersInput = z.output<typeof SearchBillingProvidersInputSchema>;
@@ -679,6 +747,7 @@ export type CreateBillingPatientInput = z.output<typeof CreateBillingPatientInpu
 export type UpdateBillingPatientInput = z.output<typeof UpdateBillingPatientInputSchema>;
 export type CreateBillingCoverageInput = z.output<typeof CreateBillingCoverageInputSchema>;
 export type UpdateBillingCoverageInput = z.output<typeof UpdateBillingCoverageInputSchema>;
+export type GetBillingCoverageInput = z.output<typeof GetBillingCoverageInputSchema>;
 export type DeleteBillingCoverageInput = z.output<typeof DeleteBillingCoverageInputSchema>;
 export type BillingSubscriberRelationship = z.output<typeof subscriberRelationshipSchema>;
 export type BillingInsuranceType = z.output<typeof insuranceTypeSchema>;
@@ -706,3 +775,7 @@ export type GenderOption = z.input<typeof gender>;
 export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
+export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
+export type RenameClaimAttachmentInput = z.output<typeof RenameClaimAttachmentInputSchema>;
+export type DeleteClaimAttachmentInput = z.output<typeof DeleteClaimAttachmentInputSchema>;
+export type DownloadClaimAttachmentInput = z.output<typeof DownloadClaimAttachmentInputSchema>;

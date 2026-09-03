@@ -9,6 +9,7 @@ import {
   Location,
   Patient,
   Practitioner,
+  Reference,
   Resource,
   Task,
 } from 'fhir/r4b';
@@ -52,11 +53,12 @@ import {
   NotificationRowPref,
   ProviderNotificationPreferencesV2,
   UI_TASK_CATEGORY_LABELS,
+  UiTaskCategoryId,
 } from 'utils/lib/types/api/provider-notifications';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { OttehrTaskSystem } from 'utils/lib/types/common';
 import { USER_TIMEZONE_EXTENSION_URL } from 'utils/lib/types/constants';
-import { ERX_TASK } from 'utils/lib/types/data/tasks/types';
+import { ERX_TASK, FAX_TASK, getTaskInputValue } from 'utils/lib/types/data/tasks/types';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -384,7 +386,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         if (!rowMatchesFilters(row, taskLocationId, false)) continue;
 
         const status = communicationStatusForMethod(row.method);
-        const message = `New ${UI_TASK_CATEGORY_LABELS[uiCategory]} task: ${task.description ?? `task ID ${task.id}`}`;
+        const message = buildCategoryNotificationMessage(uiCategory, task);
         const request: BatchInputPostRequest<Communication> = {
           method: 'POST',
           url: '/Communication',
@@ -397,17 +399,14 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                     system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
                     code: AppointmentProviderNotificationTypes.task_category_created,
                   },
-                  {
-                    system: PROVIDER_NOTIFICATION_CATEGORY_SYSTEM,
-                    code: uiCategory,
-                    display: UI_TASK_CATEGORY_LABELS[uiCategory],
-                  },
+                  taskCategoryCoding(uiCategory),
                 ],
               },
             ],
             sent: DateTime.utc().toISO()!,
             status: status,
             basedOn: [{ reference: `Task/${task.id}` }],
+            about: buildTaskNotificationAbout(task),
             recipient: [{ reference: `Practitioner/${practitioner.id}` }],
             payload: [{ contentString: message }],
           },
@@ -465,6 +464,9 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
 
         const status = communicationStatusForMethod(method);
         const title = 'A new task has been assigned to you: ' + (task.description ?? `task ID ${task.id}`);
+        // Same category coding the creation-time engine stamps, so a client can tell what an assignment
+        // notification is about without fetching its Task.
+        const uiCategory = getUiTaskCategoryForCode(task.groupIdentifier?.value);
 
         const request: BatchInputPostRequest<Communication> = {
           method: 'POST',
@@ -478,12 +480,14 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                     system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
                     code: AppointmentProviderNotificationTypes.task_assigned,
                   },
+                  ...(uiCategory ? [taskCategoryCoding(uiCategory)] : []),
                 ],
               },
             ],
             sent: DateTime.utc().toISO()!,
             status: status,
             basedOn: [{ reference: `Task/${task.id}` }],
+            about: buildTaskNotificationAbout(task),
             recipient: [{ reference: `Practitioner/${recipient.id}` }],
             payload: [{ contentString: title }],
           },
@@ -883,7 +887,17 @@ export function buildSMSSendList(buffer: SMSBufferByPractitionerId): { practitio
         const message = communication.payload?.[0].contentString;
         if (!smsEligible || !message) return;
 
-        const dedupeKey = `${handset}|${message}`;
+        // Duplicate Practitioner records for one person always produce notifications about the SAME subject,
+        // so `basedOn` is part of the key: without it, two genuinely different events that happen to phrase
+        // themselves identically collapse into one text (two 3-page faxes from the same number in one run
+        // read the same, and the second SMS would be dropped while both tasks still await work). Telemed
+        // notifications set no `basedOn`, so they de-dup on (handset, message) exactly as before. Sorted, so
+        // that two notifications naming the same references in a different order still key the same.
+        const subject = (communication.basedOn ?? [])
+          .map((ref) => ref.reference ?? '')
+          .sort()
+          .join(',');
+        const dedupeKey = `${handset}|${subject}|${message}`;
         if (alreadyQueued.has(dedupeKey)) {
           console.log(`Skipping duplicate SMS for ${practitionerRef}: same message already queued for this number`);
           return;
@@ -915,6 +929,42 @@ export function rowMatchesFilters(
   if (!notificationRowMatchesLocation(row, locationId)) return false;
   if (row.assignedTo === 'me' && !isAssignedToRecipient) return false;
   return true;
+}
+
+/**
+ * Message for a "new task in a category you subscribe to" notification.
+ *
+ * An inbound fax's description is already the whole announcement ("Inbound fax from +1555… (3 pages)" —
+ * the sender and page count are what staff triage by), written once by the fax subscription. Prefixing it
+ * would read redundantly ("New Inbound Fax task: Inbound fax from …") and re-deriving it from the Task
+ * inputs would give staff a second wording to keep in sync with the Tasks queue.
+ */
+export function buildCategoryNotificationMessage(uiCategory: UiTaskCategoryId, task: Task): string {
+  if (uiCategory === 'inboundFax' && task.description) return task.description;
+  return `New ${UI_TASK_CATEGORY_LABELS[uiCategory]} task: ${task.description ?? `task ID ${task.id}`}`;
+}
+
+/**
+ * What a task notification is *about*, when the task points at a resource the recipient needs to open.
+ *
+ * Inbound faxes are the case that needs it: their notification has no encounter, so the bell has no
+ * appointment to navigate to, and the fax itself lives on the Task's input. Stamping the reference here
+ * means the client can resolve a destination straight from the notification — the alternative was
+ * fetching every notification's Task on every poll of a 10-second bell.
+ */
+export function buildTaskNotificationAbout(task: Task): Reference[] | undefined {
+  if (task.groupIdentifier?.value !== FAX_TASK.category) return undefined;
+  const faxCommunicationId = getTaskInputValue(task, FAX_TASK.input.communicationId);
+  return faxCommunicationId ? [{ reference: `Communication/${faxCommunicationId}` }] : undefined;
+}
+
+/** The `PROVIDER_NOTIFICATION_CATEGORY_SYSTEM` coding for a task notification, so clients can tell categories apart. */
+export function taskCategoryCoding(uiCategory: UiTaskCategoryId): Coding {
+  return {
+    system: PROVIDER_NOTIFICATION_CATEGORY_SYSTEM,
+    code: uiCategory,
+    display: UI_TASK_CATEGORY_LABELS[uiCategory],
+  };
 }
 
 /** Key for the per-run "category engine already notified this person about this task" set. */

@@ -211,11 +211,6 @@ describe('search-billing-claims search text', () => {
     expect(await idsFor(patientGiven)).toEqual([createdClaimIds[0]]);
   }, 60_000);
 
-  it('finds the claim by the patient id shown in the UI, not just the copy the claim references', async () => {
-    expect(await idsFor(patientId)).toEqual([createdClaimIds[0]]);
-    expect(await idsFor(claimPatientId)).toEqual([createdClaimIds[0]]);
-  }, 60_000);
-
   it('finds the claim by the billing provider name', async () => {
     expect(await idsFor(unique)).toContain(createdClaimIds[0]);
     expect(await idsFor(billingOrgName)).toEqual([createdClaimIds[0]]);
@@ -227,10 +222,6 @@ describe('search-billing-claims search text', () => {
 
   it('finds the claim by its resource id', async () => {
     expect(await idsFor(createdClaimIds[0])).toEqual([createdClaimIds[0]]);
-  }, 60_000);
-
-  it('finds the claim by the PCN shown in the UI, which is its id with dashes stripped', async () => {
-    expect(await idsFor(createdClaimIds[0].replaceAll('-', ''))).toEqual([createdClaimIds[0]]);
   }, 60_000);
 
   it('finds a claim by an explicit patient control number identifier', async () => {

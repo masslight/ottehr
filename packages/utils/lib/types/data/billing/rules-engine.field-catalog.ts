@@ -5,10 +5,17 @@ import { VALUE_SETS } from '../../../ottehr-config/value-sets';
 import { isoDateRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { AllStates, stateCodeToFullName } from '../../common';
 import { PERSON_GENDER_OPTIONS } from './billing.constants';
+import { BILLING_INSURANCE_TYPE_OPTIONS } from './billing.types';
 import { CLAIM_STATUS_FIELDS } from './claim-status';
 import {
   AddServiceLineInput,
+  DATE_SOURCE_KIND,
+  DateSourceKind,
+  DateValue,
+  DIAGNOSIS_POINTER_MODES,
+  effectiveDiagnosisMode,
   operatorIsMultiValue,
+  operatorIsRegex,
   operatorNeedsValue,
   operatorTakesFragment,
   RuleAction,
@@ -36,6 +43,11 @@ export type RuleFieldGroup =
   | 'insurance'
   | 'policyHolder'
   | 'secondaryInsurance'
+  | 'secondaryPolicyHolder'
+  | 'tertiaryInsurance'
+  | 'tertiaryPolicyHolder'
+  | 'quaternaryInsurance'
+  | 'quaternaryPolicyHolder'
   | 'renderingProvider'
   | 'billingProvider'
   | 'serviceFacility'
@@ -49,6 +61,11 @@ export const RULE_FIELD_GROUPS: RuleFieldGroup[] = [
   'insurance',
   'policyHolder',
   'secondaryInsurance',
+  'secondaryPolicyHolder',
+  'tertiaryInsurance',
+  'tertiaryPolicyHolder',
+  'quaternaryInsurance',
+  'quaternaryPolicyHolder',
   'renderingProvider',
   'billingProvider',
   'serviceFacility',
@@ -60,8 +77,13 @@ export const RULE_FIELD_GROUP_LABELS: Record<RuleFieldGroup, string> = {
   status: 'Claim status',
   patient: 'Patient',
   insurance: 'Primary insurance',
-  policyHolder: 'Policy holder',
+  policyHolder: 'Primary insurance policy holder',
   secondaryInsurance: 'Secondary insurance',
+  secondaryPolicyHolder: 'Secondary insurance policy holder',
+  tertiaryInsurance: 'Tertiary insurance',
+  tertiaryPolicyHolder: 'Tertiary insurance policy holder',
+  quaternaryInsurance: 'Quaternary insurance',
+  quaternaryPolicyHolder: 'Quaternary insurance policy holder',
   renderingProvider: 'Rendering provider',
   billingProvider: 'Billing provider',
   serviceFacility: 'Service facility',
@@ -163,13 +185,18 @@ const SCALAR_OPS: RuleOperator[] = [
   'notContains',
   'startsWith',
   'notStartsWith',
+  'matches',
+  'notMatches',
   'exists',
   'notExists',
 ];
-const ENUM_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'exists', 'notExists'];
+const ENUM_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'matches', 'notMatches', 'exists', 'notExists'];
+// Provider/facility reference values ("Practitioner/<id>") are opaque ids — pattern matching them
+// is meaningless, so ref-typed fields skip the regex operators.
+const REF_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'exists', 'notExists'];
 const DATE_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
 const NUMBER_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
-const LIST_OPS: RuleOperator[] = ['contains', 'notContains', 'exists', 'notExists'];
+const LIST_OPS: RuleOperator[] = ['contains', 'notContains', 'matches', 'notMatches', 'exists', 'notExists'];
 // Counts always exist (an empty claim counts 0), so exists/notExists would be noise.
 const COUNT_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte'];
 
@@ -183,6 +210,14 @@ const PLAN_TYPE_OPTIONS: RuleFieldOption[] = VALUE_SETS.insuranceTypeOptions.map
 const RELATIONSHIP_OPTIONS: RuleFieldOption[] = SUBSCRIBER_RELATIONSHIPS.map((relationship) => ({
   value: relationship,
   label: relationship,
+}));
+
+// The patient-coverage slots (primary / secondary / workers comp on the patient's billing
+// accounts) the "Coverage (from patient)" field can name — the same options the coverage screens
+// use.
+const PATIENT_COVERAGE_SLOT_OPTIONS: RuleFieldOption[] = BILLING_INSURANCE_TYPE_OPTIONS.map((option) => ({
+  value: option.value,
+  label: option.label,
 }));
 
 // The same US state list the billing address forms use (AllStates labels are the bare codes; show
@@ -200,6 +235,13 @@ const POS_OPTIONS: RuleFieldOption[] = CMS_PLACE_OF_SERVICE_CODES.map((pos) => (
 }));
 const POS_OPTIONS_DOC_NOTE = 'any CMS place-of-service code';
 
+// Menu options for the addServiceLine action's diagnosis-selection mode (DIAGNOSIS_POINTER_MODES).
+const DIAGNOSIS_POINTER_MODE_OPTIONS: RuleFieldOption[] = [
+  { value: 'primary', label: "Claim's primary diagnosis" },
+  { value: 'all', label: "All of the claim's diagnoses" },
+  { value: 'specific', label: 'Specific diagnoses (pointers)' },
+];
+
 // One catalog entry per claim status indicator (AR stage, insurance/patient/non-insurance statuses),
 // generated from the same CLAIM_STATUS_FIELDS definition the claim screens use.
 const STATUS_FIELDS: RuleFieldDef[] = CLAIM_STATUS_FIELDS.map((field) => ({
@@ -215,7 +257,11 @@ const STATUS_FIELDS: RuleFieldDef[] = CLAIM_STATUS_FIELDS.map((field) => ({
 
 // A person-shaped resource (patient or policy holder) contributes the same name / birth date /
 // gender / address fields; the ids differ only by prefix.
-const personFields = (prefix: 'patient' | 'policyHolder', noun: string, settable: boolean): RuleFieldDef[] => {
+const personFields = (
+  prefix: 'patient' | 'policyHolder' | 'secondaryPolicyHolder' | 'tertiaryPolicyHolder' | 'quaternaryPolicyHolder',
+  noun: string,
+  settable: boolean
+): RuleFieldDef[] => {
   const group: RuleFieldGroup = prefix;
   return [
     {
@@ -315,6 +361,74 @@ const personFields = (prefix: 'patient' | 'policyHolder', noun: string, settable
   ];
 };
 
+// Coverage resources differ only by prefix.
+const coverageFields = (
+  prefix: 'insurance' | 'secondaryInsurance' | 'tertiaryInsurance' | 'quaternaryInsurance',
+  countingWord: string,
+  settable: boolean
+): RuleFieldDef[] => {
+  const group: RuleFieldGroup = prefix;
+  return [
+    {
+      id: `${prefix}.coverageFromPatient`,
+      label: 'Coverage (from patient)',
+      group,
+      valueType: 'select',
+      operators: ENUM_OPS,
+      settable,
+      description:
+        `Which of the patient's coverages the claim uses as its ${countingWord} coverage, looked up on the claim ` +
+        "patient's reference record via the patient's billing accounts. Conditions compare against the coverage " +
+        `the claim's current ${countingWord} coverage was copied from; setting it creates a fresh working copy of the ` +
+        'chosen coverage (and its policy holder) and re-points the claim — later rules read and edit the new ' +
+        'copy. If the patient has no active coverage of the chosen type, the rule fails and the claim is held.',
+      requiredOnSet: true,
+      options: PATIENT_COVERAGE_SLOT_OPTIONS,
+    },
+    {
+      id: `${prefix}.payerId`,
+      label: 'Payer ID',
+      group,
+      valueType: 'payer',
+      operators: SCALAR_OPS,
+      settable,
+      description: `The ${countingWord} payer's ID. Setting it re-points the ${countingWord} coverage's payer.`,
+      requiredOnSet: true,
+    },
+    {
+      id: `${prefix}.memberId`,
+      label: 'Member ID',
+      group,
+      valueType: 'string',
+      operators: SCALAR_OPS,
+      settable,
+      description: `The ${countingWord} coverage's member/subscriber ID.`,
+    },
+    {
+      id: `${prefix}.planType`,
+      label: 'Plan type',
+      group,
+      valueType: 'select',
+      operators: ENUM_OPS,
+      settable,
+      description: `The ${countingWord} coverage's plan type (X12 insurance type code).`,
+      requiredOnSet: true,
+      options: PLAN_TYPE_OPTIONS,
+    },
+    {
+      id: `${prefix}.relationship`,
+      label: 'Relationship to subscriber',
+      group,
+      valueType: 'select',
+      operators: ENUM_OPS,
+      // Explicitly false, since this requires also mutating another resource
+      settable: false,
+      description: `The patient's relationship to the ${countingWord} policy holder. Read-only: changing it restructures the policy-holder record, which rules cannot do — edit the claim's insurance instead.`,
+      options: RELATIONSHIP_OPTIONS,
+    },
+  ];
+};
+
 // A provider-shaped resource (rendering or billing provider) is a Practitioner or an Organization
 // working copy; "last name" doubles as the organization name for organization providers.
 const providerFields = (prefix: 'renderingProvider' | 'billingProvider', noun: string): RuleFieldDef[] => {
@@ -326,7 +440,7 @@ const providerFields = (prefix: 'renderingProvider' | 'billingProvider', noun: s
       label: 'Provider (from list)',
       group,
       valueType: 'provider',
-      operators: ENUM_OPS,
+      operators: REF_OPS,
       settable: true,
       description:
         `Which ${noun} the claim uses, as a reference resource from the ${
@@ -508,6 +622,42 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     settable: false,
     description: 'The number of service lines on the claim (0 when there are none).',
   },
+  {
+    id: 'billType',
+    label: 'Bill Type',
+    group: 'claim',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description: 'Bill Type code on the claim',
+  },
+  {
+    id: 'patientDischargeStatusCode',
+    label: 'Patient Discharge Status Code',
+    group: 'claim',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description: 'Patient Discharge Status Code on the claim',
+  },
+  {
+    id: 'admissionType',
+    label: 'Admission Type',
+    group: 'claim',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description: 'Admission Type code on the claim',
+  },
+  {
+    id: 'admissionSource',
+    label: 'Point of Origin / Admission Source',
+    group: 'claim',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description: 'Point of Origin / Admission Source code on the claim',
+  },
 
   // --- Claim status indicators ---
   ...STATUS_FIELDS,
@@ -516,61 +666,28 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
   ...personFields('patient', 'patient', true),
 
   // --- Primary insurance ---
-  {
-    id: 'insurance.memberId',
-    label: 'Member ID',
-    group: 'insurance',
-    valueType: 'string',
-    operators: SCALAR_OPS,
-    settable: true,
-    description: "The primary coverage's member/subscriber ID.",
-  },
-  {
-    id: 'insurance.planType',
-    label: 'Plan type',
-    group: 'insurance',
-    valueType: 'select',
-    operators: ENUM_OPS,
-    settable: true,
-    description: "The primary coverage's plan type (X12 insurance type code).",
-    requiredOnSet: true,
-    options: PLAN_TYPE_OPTIONS,
-  },
-  {
-    id: 'insurance.relationship',
-    label: 'Relationship to subscriber',
-    group: 'insurance',
-    valueType: 'select',
-    operators: ENUM_OPS,
-    settable: false,
-    description:
-      "The patient's relationship to the primary policy holder. Read-only: changing it restructures the policy-holder record, which rules cannot do — edit the claim's insurance instead.",
-    options: RELATIONSHIP_OPTIONS,
-  },
+  ...coverageFields('insurance', 'primary', true),
 
-  // --- Policy holder (primary coverage subscriber; present when the relationship is not Self) ---
+  // --- Primary insurance policy holder (primary coverage subscriber; present when the relationship is not Self) ---
   ...personFields('policyHolder', 'primary policy holder', true),
 
   // --- Secondary insurance ---
-  {
-    id: 'secondaryInsurance.payerId',
-    label: 'Secondary payer ID',
-    group: 'secondaryInsurance',
-    valueType: 'payer',
-    operators: SCALAR_OPS,
-    settable: true,
-    description: "The secondary payer's ID. Setting it re-points the secondary coverage's payer.",
-    requiredOnSet: true,
-  },
-  {
-    id: 'secondaryInsurance.memberId',
-    label: 'Secondary member ID',
-    group: 'secondaryInsurance',
-    valueType: 'string',
-    operators: SCALAR_OPS,
-    settable: true,
-    description: "The secondary coverage's member/subscriber ID.",
-  },
+  ...coverageFields('secondaryInsurance', 'secondary', true),
+
+  // --- Secondary insurance policy holder (primary coverage subscriber; present when the relationship is not Self) ---
+  ...personFields('secondaryPolicyHolder', 'secondary policy holder', true),
+
+  // --- Tertiary insurance ---
+  ...coverageFields('tertiaryInsurance', 'tertiary', true),
+
+  // --- Tertiary insurance policy holder (primary coverage subscriber; present when the relationship is not Self) ---
+  ...personFields('tertiaryPolicyHolder', 'tertiary policy holder', true),
+
+  // --- Quaternary insurance ---
+  ...coverageFields('quaternaryInsurance', 'quaternary', true),
+
+  // --- Quaternary insurance policy holder (primary coverage subscriber; present when the relationship is not Self) ---
+  ...personFields('quaternaryPolicyHolder', 'quaternary policy holder', true),
 
   // --- Rendering provider ---
   ...providerFields('renderingProvider', 'rendering provider'),
@@ -594,7 +711,7 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     label: 'Facility (from list)',
     group: 'serviceFacility',
     valueType: 'facility',
-    operators: ENUM_OPS,
+    operators: REF_OPS,
     settable: true,
     description:
       "Which service facility the claim uses, as a reference resource from the Service Facilities page. Conditions compare against the resource the claim's current facility was copied from; " +
@@ -789,7 +906,17 @@ export const SERVICE_LINE_PROPERTY_CATALOG: ServiceLinePropertyDef[] = [
     valueType: 'date',
     operators: DATE_OPS,
     settable: true,
-    description: "The line's date of service (YYYY-MM-DD).",
+    description:
+      "The line's date of service (YYYY-MM-DD). When updating, the new value can be a literal date or " +
+      'derived from the claim (see Service date sources) — matching still compares against a literal date only.',
+  },
+  {
+    id: 'revenueCode',
+    label: 'Rev Code',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description: 'Revenue code of the procedure.',
   },
 ];
 
@@ -844,22 +971,68 @@ export const ADD_SERVICE_LINE_FIELDS: AddServiceLineFieldDef[] = [
     whenBlank: "inherited from the claim's first service line; the action fails if the claim has no lines",
   },
   {
+    id: 'diagnosisMode',
+    label: 'Diagnoses',
+    valueType: 'select',
+    required: false,
+    whenBlank: "uses the claim's primary diagnosis",
+    options: DIAGNOSIS_POINTER_MODE_OPTIONS,
+  },
+  {
     id: 'diagnosisPointers',
     label: 'Diagnosis pointers (comma-separated)',
     valueType: 'string',
-    required: false,
-    whenBlank: 'points at the first diagnosis (1)',
+    // Only shown (and only meaningful) when Diagnoses is 'Specific diagnoses' — see the diagnosisMode
+    // field above and effectiveDiagnosisMode() — so whenever it's on screen, leaving it blank isn't a
+    // valid "use the default" choice.
+    required: true,
+  },
+  { id: 'revenueCode', label: 'Revenue code', valueType: 'string', required: false },
+];
+
+// The date-source options exposed by the addServiceLine/updateServiceLines serviceDate inputs and the
+// generated docs. "exact" is not part of DateSourceKind (it's the plain-string form, no tag) — it is
+// the UI/docs default.
+export const EXACT_DATE_SOURCE = 'exact' as const;
+export type DateSourceSelectValue = DateSourceKind | typeof EXACT_DATE_SOURCE;
+
+export const DATE_SOURCE_CATALOG: { value: DateSourceSelectValue; label: string; description: string }[] = [
+  { value: 'exact', label: 'Exact date', description: 'A literal date entered on the rule.' },
+  {
+    value: 'firstServiceLineDate',
+    label: "First service line's date",
+    description:
+      "The claim's first service line's date of service — the same value a blank serviceDate has always " +
+      'inherited on "Add a service line".',
   },
 ];
+
+// A date-typed rule value's problem when it may be a derived source instead of a literal date. A
+// literal is accepted as-is here (format is checked by each caller, since blank handling differs
+// between addServiceLine and updateServiceLines); a source object must name a known kind.
+export function derivedDateValueProblem(value: DateValue): string | undefined {
+  if (typeof value !== 'object') return undefined;
+  const known: string[] = Object.values(DATE_SOURCE_KIND);
+  return known.includes(value.source) ? undefined : 'Unknown date source';
+}
 
 // One add-line field's format problem, or undefined when the value is acceptable. Shared by the rule
 // builder (per-field validation messages) and save-time validation; claim-dependent checks (e.g. a
 // pointer beyond the claim's diagnosis count) happen at apply time in the engine.
+//
+// `line` carries the sibling diagnosisMode so diagnosisPointers can be validated as required exactly
+// when the mode makes it meaningful ('specific') — the rest of the fields don't need it.
 export function addServiceLineFieldProblem(
   fieldId: AddServiceLineFieldDef['id'],
-  value: string | undefined
+  value: string | DateValue | undefined,
+  line?: Pick<AddServiceLineInput, 'diagnosisMode'>
 ): string | undefined {
-  const trimmed = value?.trim() ?? '';
+  if (fieldId === 'serviceDate') {
+    if (value == null || value === '') return undefined; // inherited from the claim's first service line
+    if (typeof value === 'object') return derivedDateValueProblem(value);
+    return isoDateRegex.test(value.trim()) ? undefined : 'Service date must be an ISO date (YYYY-MM-DD)';
+  }
+  const trimmed = (value as string | undefined)?.trim() ?? '';
   switch (fieldId) {
     case 'cptCode':
       return trimmed ? undefined : 'CPT code is required';
@@ -873,8 +1046,15 @@ export function addServiceLineFieldProblem(
       const units = Number(trimmed);
       return Number.isFinite(units) && units > 0 ? undefined : 'Units must be a positive number';
     }
-    case 'diagnosisPointers': {
+    case 'diagnosisMode':
       if (!trimmed) return undefined;
+      return (DIAGNOSIS_POINTER_MODES as readonly string[]).includes(trimmed) ? undefined : 'Unknown diagnosis mode';
+    case 'diagnosisPointers': {
+      if (!trimmed) {
+        return effectiveDiagnosisMode({ diagnosisMode: line?.diagnosisMode, diagnosisPointers: trimmed }) === 'specific'
+          ? "Diagnosis pointers are required when Diagnoses is 'Specific diagnoses'"
+          : undefined;
+      }
       const pointers = trimmed.split(',').map((part) => Number(part.trim()));
       return pointers.every((pointer) => Number.isInteger(pointer) && pointer >= 1)
         ? undefined
@@ -883,9 +1063,6 @@ export function addServiceLineFieldProblem(
     case 'placeOfService':
       if (!trimmed) return undefined;
       return CMS_PLACE_OF_SERVICE_CODE_SET.has(trimmed) ? undefined : 'Unknown place of service code';
-    case 'serviceDate':
-      if (!trimmed) return undefined;
-      return isoDateRegex.test(trimmed) ? undefined : 'Service date must be an ISO date (YYYY-MM-DD)';
     default:
       return undefined;
   }
@@ -902,6 +1079,23 @@ const DATE_VALUE_PROBLEM = 'Must be an ISO date (YYYY-MM-DD)';
 const NUMBER_VALUE_PROBLEM = 'Must be a number';
 const VALUE_REQUIRED_PROBLEM = 'Value is required';
 const SINGLE_VALUE_PROBLEM = 'This operator compares a single value, not a list';
+
+// Regex-operator values are patterns, not literals: instead of the strict format/options checks they
+// must compile (and stay small — a hard length cap bounds pathological patterns). The evaluator
+// still compiles defensively at run time, but this is the gate that keeps bad patterns out.
+export const MAX_REGEX_PATTERN_LENGTH = 500;
+
+export function regexPatternProblem(pattern: string): string | undefined {
+  if (pattern.length > MAX_REGEX_PATTERN_LENGTH) {
+    return `Pattern must be at most ${MAX_REGEX_PATTERN_LENGTH} characters`;
+  }
+  try {
+    new RegExp(pattern);
+    return undefined;
+  } catch {
+    return 'Must be a valid regular expression';
+  }
+}
 
 // FHIR resource ids are 1-64 chars of letters, digits, '-' and '.'.
 const PROVIDER_REF_REGEX = /^(Practitioner|Organization)\/[A-Za-z0-9.-]{1,64}$/;
@@ -930,7 +1124,8 @@ const strictValueProblem = (
 
 // One condition value's problem, or undefined. Operator-aware: exists/notExists take no value;
 // every other operator requires a non-empty value (in/notIn: a non-empty list of non-empty values);
-// fragment operators skip the strict checks; exact-match operators validate each value in full.
+// regex operators require a compilable pattern; fragment operators skip the strict checks;
+// exact-match operators validate each value in full.
 export function ruleConditionValueProblem(
   def: Pick<RuleFieldDef, 'valueType' | 'options' | 'format'>,
   operator: RuleOperator,
@@ -942,6 +1137,8 @@ export function ruleConditionValueProblem(
   if (Array.isArray(value) && !operatorIsMultiValue(operator)) return SINGLE_VALUE_PROBLEM;
   const values = (Array.isArray(value) ? value : [value ?? '']).map((v) => v.trim());
   if (values.length === 0 || values.some((v) => v === '')) return VALUE_REQUIRED_PROBLEM;
+  // Validate the raw (untrimmed) scalar: whitespace can be a meaningful part of a pattern.
+  if (operatorIsRegex(operator)) return regexPatternProblem(typeof value === 'string' ? value : '');
   if (operatorTakesFragment(operator)) return undefined;
   for (const v of values) {
     const problem = strictValueProblem(def, v);
@@ -971,6 +1168,7 @@ export function serviceLineMatchValueProblem(
   if (Array.isArray(value) && !operatorIsMultiValue(operator)) return SINGLE_VALUE_PROBLEM;
   const values = (Array.isArray(value) ? value : [value ?? '']).map((v) => v.trim());
   if (values.length === 0 || values.some((v) => v === '')) return VALUE_REQUIRED_PROBLEM;
+  if (operatorIsRegex(operator)) return regexPatternProblem(typeof value === 'string' ? value : '');
   if (operatorTakesFragment(operator)) return undefined;
   // List-valued line properties (modifiers) compare a single entry; no strict format applies.
   if (def.valueType === 'list') return undefined;
@@ -983,12 +1181,17 @@ export function serviceLineMatchValueProblem(
 
 // An updateServiceLines set value's problem — mirrors the line writers exactly: units require a
 // positive number, charges a non-negative number, cptCode/serviceDate a value; placeOfService and
-// modifiers-with-"set" allow empty (clears).
+// modifiers-with-"set" allow empty (clears). A derived date-source object is only valid when the
+// target property is date-typed — there is no blank-fallback on update, unlike addServiceLine.
 export function serviceLineSetValueProblem(
   def: Pick<ServiceLinePropertyDef, 'id' | 'valueType' | 'options' | 'format'>,
   operation: ServiceLineSetOperation | undefined,
-  value: string | null | undefined
+  value: DateValue | null | undefined
 ): string | undefined {
+  if (typeof value === 'object' && value != null) {
+    if (def.valueType !== 'date') return 'This property does not accept a derived date value';
+    return derivedDateValueProblem(value);
+  }
   const trimmed = value?.trim() ?? '';
   if (def.valueType === 'list') {
     // modifiers: add/remove need the one modifier; "set" replaces the list (empty clears).
@@ -1043,6 +1246,43 @@ export function ruleUsesChargeMasterPrices(rule: { conditional: RuleConditional 
     if (action.type === 'applyChargeMasterPrices') uses = true;
   });
   return uses;
+}
+
+// Walk every condition in a rule's conditional tree (branch conditions, nested groups, and
+// conditionals reached through outcomes) in tree order — the condition-side counterpart of
+// forEachRuleAction.
+function forEachRuleCondition(rule: { conditional: RuleConditional }, visit: (condition: RuleCondition) => void): void {
+  const visitCondition = (condition: RuleCondition): void => {
+    visit(condition);
+    if (condition.type === 'group') condition.conditions.forEach(visitCondition);
+  };
+  const visitOutcome = (outcome: RuleOutcome): void => {
+    if (outcome.type === 'conditional') visitConditional(outcome.conditional);
+  };
+  const visitConditional = (conditional: RuleConditional): void => {
+    for (const branch of conditional.branches) {
+      visitCondition(branch.condition);
+      visitOutcome(branch.outcome);
+    }
+    if (conditional.otherwise) visitOutcome(conditional.otherwise);
+  };
+  visitConditional(rule.conditional);
+}
+
+export const PATIENT_COVERAGE_FIELD_ID = 'insurance.coverageFromPatient';
+
+// Whether the rule references the "Coverage (from patient)" field in any condition or setField
+// action. The field's reader and writer both need the reference patient's coverage context, which
+// the engine prefetches only for rule sets that use the field (like the charge-master prefetch).
+export function ruleReferencesPatientCoverage(rule: { conditional: RuleConditional }): boolean {
+  let references = false;
+  forEachRuleCondition(rule, (condition) => {
+    if (condition.type === 'field' && condition.field === PATIENT_COVERAGE_FIELD_ID) references = true;
+  });
+  forEachRuleAction(rule, (action) => {
+    if (action.type === 'setField' && action.field === PATIENT_COVERAGE_FIELD_ID) references = true;
+  });
+  return references;
 }
 
 // The provider/facility reference values a rule's setField actions assign (deduped, in tree
@@ -1139,7 +1379,7 @@ export function validateRuleFieldReferences(rule: { name: string; conditional: R
     }
     if (action.type === 'addServiceLine') {
       for (const field of ADD_SERVICE_LINE_FIELDS) {
-        const problem = addServiceLineFieldProblem(field.id, action.line[field.id]);
+        const problem = addServiceLineFieldProblem(field.id, action.line[field.id], action.line);
         if (problem) problems.push(`rule "${rule.name}" adds a service line: ${problem}`);
       }
       return;

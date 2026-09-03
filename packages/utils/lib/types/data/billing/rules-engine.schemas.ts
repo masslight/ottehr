@@ -30,6 +30,8 @@ export const RULE_OPERATORS = [
   'notContains',
   'startsWith',
   'notStartsWith',
+  'matches',
+  'notMatches',
   'exists',
   'notExists',
 ] as const;
@@ -43,9 +45,13 @@ export const MULTI_VALUE_OPERATORS: readonly RuleOperator[] = ['in', 'notIn'];
 // requires a non-empty value for these — a partial NPI or ZIP is a legitimate fragment — whereas
 // exact-match operators validate the full value against the field's format/options.
 export const FRAGMENT_OPERATORS: readonly RuleOperator[] = ['contains', 'notContains', 'startsWith', 'notStartsWith'];
+// Operators whose value is a regular expression pattern, not a literal — validation checks that the
+// pattern compiles instead of checking it against the field's format/options.
+export const REGEX_OPERATORS: readonly RuleOperator[] = ['matches', 'notMatches'];
 export const operatorNeedsValue = (op: RuleOperator): boolean => !NO_VALUE_OPERATORS.includes(op);
 export const operatorIsMultiValue = (op: RuleOperator): boolean => MULTI_VALUE_OPERATORS.includes(op);
 export const operatorTakesFragment = (op: RuleOperator): boolean => FRAGMENT_OPERATORS.includes(op);
+export const operatorIsRegex = (op: RuleOperator): boolean => REGEX_OPERATORS.includes(op);
 
 // Operator semantics shared by the rule-builder UI (labels) and the generated documentation
 // (labels + descriptions). `dateLabel` overrides the label when the field being compared is a date.
@@ -94,6 +100,19 @@ export const RULE_OPERATOR_METADATA: Record<RuleOperator, RuleOperatorMetadata> 
     description: 'A text property begins with the value (e.g. member ID starts with XKD).',
   },
   notStartsWith: { label: 'does not start with', description: 'The negation of "starts with".' },
+  matches: {
+    label: 'matches pattern',
+    description:
+      'A text property matches the regular expression; a list property matches when any entry does. Standard ' +
+      '(unanchored) semantics: the pattern can match anywhere in the value — anchor with ^ and $ to match the ' +
+      'whole value, e.g. ^9938[1-7]$ matches exactly CPT codes 99381 through 99387.',
+  },
+  notMatches: {
+    label: 'does not match pattern',
+    description:
+      'The negation of "matches pattern": a text property does not match the regular expression; a list property ' +
+      'matches when no entry does.',
+  },
   exists: { label: 'is present', description: 'The property has a (non-empty) value on the claim.' },
   notExists: { label: 'is empty', description: 'The property is missing or empty on the claim.' },
 };
@@ -170,6 +189,27 @@ export const ServiceLineMatchSchema: z.ZodType<ServiceLineMatch> = z.discriminat
 export const SERVICE_LINE_SET_OPERATIONS = ['set', 'add', 'remove'] as const;
 export type ServiceLineSetOperation = (typeof SERVICE_LINE_SET_OPERATIONS)[number];
 
+// Which claim diagnoses the addServiceLine action points the new line at: the claim's primary
+// (first) diagnosis, every diagnosis on the claim, or an explicit set of pointers (diagnosisPointers).
+export const DIAGNOSIS_POINTER_MODES = ['primary', 'all', 'specific'] as const;
+export type DiagnosisPointerMode = (typeof DIAGNOSIS_POINTER_MODES)[number];
+
+// A serviceDate value can be derived from the claim instead of typed literally. The plain-string form
+// (including blank/omitted) is what every rule saved before this option existed already stores, so it
+// must keep parsing unchanged; new rules can additionally pick one of these derived sources.
+export const DATE_SOURCE_KIND = {
+  firstServiceLineDate: 'firstServiceLineDate',
+} as const;
+export type DateSourceKind = (typeof DATE_SOURCE_KIND)[keyof typeof DATE_SOURCE_KIND];
+
+export const DerivedDateSourceSchema = z.object({ source: z.literal(DATE_SOURCE_KIND.firstServiceLineDate) });
+export type DerivedDateSource = z.output<typeof DerivedDateSourceSchema>;
+
+// A literal ISO date string (default; blank/omitted keeps addServiceLine's legacy implicit
+// fallback-to-first-line-date behavior) or a derived source.
+export const DateValueSchema = z.union([z.string(), DerivedDateSourceSchema]);
+export type DateValue = z.output<typeof DateValueSchema>;
+
 // The fields of a new service line added by the addServiceLine action. All values are strings (the
 // rule value model) and are validated at save time (format) and apply time (claim-dependent checks);
 // blank optional fields fall back to the same defaults the claim editor uses — see
@@ -181,11 +221,24 @@ export const AddServiceLineInputSchema = z.object({
   units: z.string().optional(),
   charges: z.string().min(1),
   placeOfService: z.string().optional(),
-  serviceDate: z.string().optional(),
-  // Comma-separated 1-based pointers into the claim's diagnosis list.
+  serviceDate: DateValueSchema.optional(),
+  // Blank/omitted behaves like 'primary' unless diagnosisPointers is set, in which case it behaves
+  // like 'specific' — see effectiveDiagnosisMode(), which keeps rules saved before this field
+  // existed pointing at the same diagnoses instead of silently switching to 'primary'.
+  diagnosisMode: z.enum(DIAGNOSIS_POINTER_MODES).optional(),
+  // Comma-separated 1-based pointers into the claim's diagnosis list; only read when diagnosisMode
+  // is 'specific'.
   diagnosisPointers: z.string().optional(),
+  revenueCode: z.string().optional(),
 });
 export type AddServiceLineInput = z.output<typeof AddServiceLineInputSchema>;
+
+// The addServiceLine action's diagnosis-selection mode, defaulting blank/omitted input the same way
+// the engine and the rule builder both need to: 'specific' when legacy diagnosisPointers is set
+// (rules saved before diagnosisMode existed), 'primary' otherwise.
+export const effectiveDiagnosisMode = (
+  line: Pick<AddServiceLineInput, 'diagnosisMode' | 'diagnosisPointers'>
+): DiagnosisPointerMode => line.diagnosisMode ?? (line.diagnosisPointers?.trim() ? 'specific' : 'primary');
 
 // --- Action ---
 export type RuleAction =
@@ -195,7 +248,7 @@ export type RuleAction =
   | {
       type: 'updateServiceLines';
       match: ServiceLineMatch;
-      set: { property: string; value: string; operation?: ServiceLineSetOperation };
+      set: { property: string; value: DateValue; operation?: ServiceLineSetOperation };
     }
   | { type: 'removeServiceLines'; match: ServiceLineMatch }
   // Re-prices the matching lines from the best applicable charge master (resolved by the engine at
@@ -221,8 +274,10 @@ export const RuleActionSchema = z.discriminatedUnion('type', [
     set: z.object({
       property: z.string().min(1),
       // Empty is meaningful only for list-valued properties ("clear the modifiers"); scalar-property
-      // writers reject it at apply time and the engine holds the claim.
-      value: z.string(),
+      // writers reject it at apply time and the engine holds the claim. A derived-source object is
+      // only meaningful for the serviceDate property — save-time validation (field-catalog) rejects
+      // it for any other property, since the schema alone can't see the sibling `property` value.
+      value: DateValueSchema,
       operation: z.enum(SERVICE_LINE_SET_OPERATIONS).optional(),
     }),
   }),
@@ -332,6 +387,7 @@ export const MAX_RUN_RULES_ENGINE_CLAIMS = 20;
 // asynchronously.
 export const RunBillingRulesEngineInputSchema = z.object({
   claimIds: z.array(z.string().min(1)).min(1).max(MAX_RUN_RULES_ENGINE_CLAIMS),
+  skipRules: z.boolean().default(false),
 });
 export type RunBillingRulesEngineInput = z.output<typeof RunBillingRulesEngineInputSchema>;
 

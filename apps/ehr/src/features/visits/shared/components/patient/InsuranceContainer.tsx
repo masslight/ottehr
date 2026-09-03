@@ -690,18 +690,39 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           requiredFormFields={requiredFields}
           hiddenFormFields={hiddenFields}
         />
+        {cardFields?.memberFirstName && (
+          <InsuranceCardAiSuggestionRow
+            fieldKey={FormFields.firstName.key}
+            suggestedDisplay={cardFields.memberFirstName}
+            suggestedFormValue={cardFields.memberFirstName}
+          />
+        )}
         <PatientRecordFormField
           item={FormFields.middleName}
           isLoading={false}
           requiredFormFields={requiredFields}
           hiddenFormFields={hiddenFields}
         />
+        {cardFields?.memberMiddleName && (
+          <InsuranceCardAiSuggestionRow
+            fieldKey={FormFields.middleName.key}
+            suggestedDisplay={cardFields.memberMiddleName}
+            suggestedFormValue={cardFields.memberMiddleName}
+          />
+        )}
         <PatientRecordFormField
           item={FormFields.lastName}
           isLoading={false}
           requiredFormFields={requiredFields}
           hiddenFormFields={hiddenFields}
         />
+        {cardFields?.memberLastName && (
+          <InsuranceCardAiSuggestionRow
+            fieldKey={FormFields.lastName.key}
+            suggestedDisplay={cardFields.memberLastName}
+            suggestedFormValue={cardFields.memberLastName}
+          />
+        )}
         <PatientRecordFormField
           item={FormFields.birthDate}
           isLoading={false}

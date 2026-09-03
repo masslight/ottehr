@@ -18,6 +18,9 @@ import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import {
   ADD_SERVICE_LINE_FIELDS,
   addServiceLineFieldProblem,
+  DATE_SOURCE_CATALOG,
+  DateSourceSelectValue,
+  EXACT_DATE_SOURCE,
   getRuleFieldDef,
   getServiceLinePropertyDef,
   RULE_FIELD_CATALOG,
@@ -35,7 +38,10 @@ import {
   setFieldValueProblem,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
+  DateValue,
+  effectiveDiagnosisMode,
   operatorIsMultiValue,
+  operatorIsRegex,
   operatorNeedsValue,
   RULE_ACTION_TYPE,
   RULE_CONDITION_TYPE,
@@ -55,6 +61,7 @@ import {
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { otherColors } from '../../themes/ottehr/colors';
+import { DateInput } from '../DateInput';
 import { FacilitySelect } from '../FacilitySelect';
 import { PayerSelect } from '../PayerSelect';
 import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
@@ -160,6 +167,40 @@ interface ValueInputValidationProps {
 const formatHint = (def: Pick<RuleFieldDef, 'format'> | undefined): string | undefined =>
   def?.format && RULE_VALUE_FORMATS[def.format].validate ? RULE_VALUE_FORMATS[def.format].hint : undefined;
 
+const REGEX_HINT = 'Regular expression; anchor with ^ and $ to match the whole value, e.g. ^9938[1-7]$';
+
+// Pattern input for the regex operators: always a free-text field, regardless of the property's
+// usual picker (payer search, tag dropdown, CPT autocomplete, option select) — a pattern is not one
+// of the enumerated values.
+function RegexPatternInput({
+  value,
+  onChange,
+  label,
+  required,
+  error,
+  helperText,
+  inputRef,
+}: {
+  value: string | string[] | null | undefined;
+  onChange: (value: string | string[]) => void;
+  label?: string;
+} & ValueInputValidationProps): ReactElement {
+  return (
+    <TextField
+      size="small"
+      label={label ?? 'Pattern'}
+      value={valueToText(value)}
+      onChange={(e) => onChange(e.target.value)}
+      required={required}
+      error={error}
+      helperText={helperText}
+      inputRef={inputRef}
+      inputProps={{ style: { fontFamily: 'monospace' } }}
+      sx={{ minWidth: 240 }}
+    />
+  );
+}
+
 // Typed value input dispatched on a valueType: dropdowns for options, date/number pickers, and a
 // text field (comma-separated when multiple) otherwise. Shared by the claim-field inputs and the
 // service-line match/set inputs.
@@ -213,7 +254,20 @@ function TypedValueInput({
       </FormControl>
     );
   }
-  if ((valueType === 'date' || valueType === 'number') && !multiple) {
+  if (valueType === 'date' && !multiple) {
+    const definedLabel = label ?? 'Value';
+    return (
+      <DateInput
+        label={required ? `${definedLabel} *` : definedLabel}
+        size="small"
+        value={valueToText(value)}
+        onChange={(value) => onChange(value)}
+        error={error}
+        helperText={helperText}
+      />
+    );
+  }
+  if (valueType === 'number' && !multiple) {
     return (
       <TextField
         size="small"
@@ -251,6 +305,7 @@ function TypedValueInput({
 function FieldValueInput({
   fieldId,
   multiple,
+  isRegex,
   value,
   onChange,
   label,
@@ -262,12 +317,27 @@ function FieldValueInput({
 }: {
   fieldId: string;
   multiple: boolean;
+  // The regex operators take a pattern: a plain text input replaces the field's usual picker.
+  isRegex?: boolean;
   value: string | string[] | null | undefined;
   onChange: (value: string | string[]) => void;
   label?: string;
   allowEmptyOption?: boolean;
 } & ValueInputValidationProps): ReactElement {
   const def = getRuleFieldDef(fieldId);
+  if (isRegex) {
+    return (
+      <RegexPatternInput
+        value={value}
+        onChange={onChange}
+        label={label}
+        required={required}
+        error={error}
+        helperText={helperText}
+        inputRef={inputRef}
+      />
+    );
+  }
   if (def?.valueType === 'payer') {
     return (
       <PayerSelect
@@ -360,6 +430,7 @@ function FieldValueInput({
 function ServiceLineValueInput({
   def,
   multiple,
+  isRegex,
   value,
   onChange,
   label,
@@ -371,11 +442,26 @@ function ServiceLineValueInput({
 }: {
   def: ServiceLinePropertyDef | undefined;
   multiple: boolean;
+  // The regex operators take a pattern: a plain text input replaces the property's usual picker.
+  isRegex?: boolean;
   value: string | string[] | null | undefined;
   onChange: (value: string | string[]) => void;
   label?: string;
   allowEmptyOption?: boolean;
 } & ValueInputValidationProps): ReactElement {
+  if (isRegex) {
+    return (
+      <RegexPatternInput
+        value={value}
+        onChange={onChange}
+        label={label}
+        required={required}
+        error={error}
+        helperText={helperText}
+        inputRef={inputRef}
+      />
+    );
+  }
   if (def?.format === 'cpt' && !multiple) {
     return (
       <ProcedureCodeAutocomplete
@@ -404,6 +490,63 @@ function ServiceLineValueInput({
       inputRef={inputRef}
       allowEmptyOption={allowEmptyOption}
     />
+  );
+}
+
+// Date-or-derived-source input for the serviceDate fields addServiceLine/updateServiceLines expose.
+// Deliberately separate from TypedValueInput/ServiceLineValueInput, which ServiceLineMatchEditor also
+// uses for its (literal-only) date comparisons — this selector must not leak into line matching.
+// "Exact date" (the default) keeps the plain-string form every rule saved before this option existed
+// already uses; picking one of the other two sources swaps the field's value to a tagged object.
+function DateOrSourceInput({
+  value,
+  onChange,
+  label,
+  required,
+  error,
+  helperText,
+  inputRef,
+}: {
+  value: DateValue | null | undefined;
+  onChange: (value: DateValue) => void;
+  label?: string;
+} & ValueInputValidationProps): ReactElement {
+  const source: DateSourceSelectValue = value && typeof value === 'object' ? value.source : EXACT_DATE_SOURCE;
+  const definedLabel = label ?? 'Date';
+  return (
+    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <FormControl size="small" sx={{ minWidth: 220 }}>
+        <InputLabel>{label ? `${label} source` : 'Date source'}</InputLabel>
+        <Select
+          label={label ? `${label} source` : 'Date source'}
+          value={source}
+          inputRef={source !== EXACT_DATE_SOURCE ? inputRef : undefined}
+          onChange={(e) => {
+            const next = e.target.value as DateSourceSelectValue;
+            onChange(next === EXACT_DATE_SOURCE ? '' : { source: next });
+          }}
+        >
+          {DATE_SOURCE_CATALOG.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </Select>
+        {source !== EXACT_DATE_SOURCE && helperText != null && (
+          <FormHelperText error={error}>{helperText}</FormHelperText>
+        )}
+      </FormControl>
+      {source === EXACT_DATE_SOURCE && (
+        <DateInput
+          label={required ? `${definedLabel} *` : definedLabel}
+          size="small"
+          value={typeof value === 'string' ? value : ''}
+          onChange={(value) => onChange(value)}
+          error={error}
+          helperText={helperText}
+        />
+      )}
+    </Box>
   );
 }
 
@@ -474,9 +617,12 @@ function FieldConditionEditor({ name }: { name: string }): ReactElement | null {
           onChange={(e) => {
             const operator = e.target.value as RuleOperator;
             // The value survives same-shape switches (equals -> does not equal) but resets when the
-            // arity changes: a leftover list under a single-value operator would otherwise be
-            // silently compared as its first entry.
-            const sameShape = operatorIsMultiValue(operator) === operatorIsMultiValue(value.operator);
+            // arity changes (a leftover list under a single-value operator would otherwise be
+            // silently compared as its first entry) or when regex-ness changes (a literal is not a
+            // pattern, and vice versa).
+            const sameShape =
+              operatorIsMultiValue(operator) === operatorIsMultiValue(value.operator) &&
+              operatorIsRegex(operator) === operatorIsRegex(value.operator);
             replace(sameShape ? { ...value, operator } : { ...value, operator, value: '' });
             clearErrors(name);
           }}
@@ -502,11 +648,12 @@ function FieldConditionEditor({ name }: { name: string }): ReactElement | null {
             <FieldValueInput
               fieldId={value.field}
               multiple={operatorIsMultiValue(value.operator)}
+              isRegex={operatorIsRegex(value.operator)}
               value={fieldValue}
               onChange={onChange}
               required
               error={!!error}
-              helperText={error?.message ?? formatHint(def)}
+              helperText={error?.message ?? (operatorIsRegex(value.operator) ? REGEX_HINT : formatHint(def))}
               inputRef={ref}
             />
           )}
@@ -620,8 +767,10 @@ function ServiceLineMatchEditor({ name }: { name: string }): ReactElement | null
               value={value.operator}
               onChange={(e) => {
                 const operator = e.target.value as RuleOperator;
-                // Same arity-change reset as the condition editor's operator picker.
-                const sameShape = operatorIsMultiValue(operator) === operatorIsMultiValue(value.operator);
+                // Same arity/regex-change reset as the condition editor's operator picker.
+                const sameShape =
+                  operatorIsMultiValue(operator) === operatorIsMultiValue(value.operator) &&
+                  operatorIsRegex(operator) === operatorIsRegex(value.operator);
                 replace(sameShape ? { ...value, operator } : { ...value, operator, value: '' });
                 clearErrors(name);
               }}
@@ -646,11 +795,12 @@ function ServiceLineMatchEditor({ name }: { name: string }): ReactElement | null
                 <ServiceLineValueInput
                   def={def}
                   multiple={operatorIsMultiValue(value.operator)}
+                  isRegex={operatorIsRegex(value.operator)}
                   value={fieldValue}
                   onChange={onChange}
                   required
                   error={!!error}
-                  helperText={error?.message ?? formatHint(def)}
+                  helperText={error?.message ?? (operatorIsRegex(value.operator) ? REGEX_HINT : formatHint(def))}
                   inputRef={ref}
                 />
               )}
@@ -668,17 +818,42 @@ function ServiceLineMatchEditor({ name }: { name: string }): ReactElement | null
 // input; blank optional fields fall back to the claim editor's defaults, shown as helper text.
 function AddServiceLineEditor({ name }: { name: string }): ReactElement {
   const { control } = useFormContext();
+  // diagnosisPointers only means anything when diagnosisMode is 'specific' — hide it otherwise
+  // rather than showing an input that has no effect. A rule saved before diagnosisMode existed has
+  // pointers but no mode, so fall back the same way the engine does (effectiveDiagnosisMode) instead
+  // of showing an unselected dropdown for a line that's actually pointing at specific diagnoses.
+  const diagnosisMode = useWatch({ control, name: `${name}.line.diagnosisMode` });
+  const diagnosisPointers = useWatch({ control, name: `${name}.line.diagnosisPointers` });
+  const effectiveMode = effectiveDiagnosisMode({ diagnosisMode, diagnosisPointers });
   return (
     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-      {ADD_SERVICE_LINE_FIELDS.map((lineField) => (
+      {ADD_SERVICE_LINE_FIELDS.filter(
+        (lineField) => lineField.id !== 'diagnosisPointers' || effectiveMode === 'specific'
+      ).map((lineField) => (
         <Controller
           key={lineField.id}
           name={`${name}.line.${lineField.id}`}
           control={control}
-          rules={{ validate: (value: string | undefined) => addServiceLineFieldProblem(lineField.id, value) ?? true }}
+          rules={{
+            validate: (value: string | DateValue | undefined) =>
+              addServiceLineFieldProblem(lineField.id, value, { diagnosisMode }) ?? true,
+          }}
           render={({ field: { ref, value: fieldValue, onChange, onBlur }, fieldState: { error } }) => {
             const label = lineField.required ? lineField.label : `${lineField.label} (optional)`;
             const helperText = error?.message ?? (lineField.whenBlank ? `Blank: ${lineField.whenBlank}` : undefined);
+            if (lineField.id === 'serviceDate') {
+              return (
+                <DateOrSourceInput
+                  value={fieldValue}
+                  onChange={onChange}
+                  label={label}
+                  required={lineField.required}
+                  error={!!error}
+                  helperText={helperText}
+                  inputRef={ref}
+                />
+              );
+            }
             if (lineField.format === 'cpt') {
               return (
                 <ProcedureCodeAutocomplete
@@ -746,7 +921,7 @@ function AddServiceLineEditor({ name }: { name: string }): ReactElement {
 // properties: replace / add / remove), and the value.
 function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
   const { control, clearErrors } = useFormContext();
-  const { value, replace } = useNode<{ property: string; value: string; operation?: ServiceLineSetOperation }>(name);
+  const { value, replace } = useNode<{ property: string; value: DateValue; operation?: ServiceLineSetOperation }>(name);
   if (!value) return null;
   const def = getServiceLinePropertyDef(value.property);
   const isList = def?.valueType === 'list';
@@ -805,24 +980,36 @@ function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
         name={`${name}.value`}
         control={control}
         rules={{
-          validate: (v: string | null | undefined) =>
+          validate: (v: DateValue | null | undefined) =>
             def ? serviceLineSetValueProblem(def, value.operation, v) ?? true : true,
         }}
-        render={({ field: { ref, value: fieldValue, onChange }, fieldState: { error } }) => (
-          <ServiceLineValueInput
-            def={def}
-            multiple={false}
-            value={fieldValue}
-            onChange={(v) => onChange(typeof v === 'string' ? v : v[0] ?? '')}
-            label={valueLabel}
-            required={valueRequired}
-            error={!!error}
-            helperText={error?.message ?? formatHint(def)}
-            inputRef={ref}
-            // The only clearable scalar line property; an explicit empty entry means "clear it".
-            allowEmptyOption={def?.id === 'placeOfService'}
-          />
-        )}
+        render={({ field: { ref, value: fieldValue, onChange }, fieldState: { error } }) =>
+          def?.valueType === 'date' ? (
+            <DateOrSourceInput
+              value={fieldValue}
+              onChange={onChange}
+              label={valueLabel}
+              required={valueRequired}
+              error={!!error}
+              helperText={error?.message ?? formatHint(def)}
+              inputRef={ref}
+            />
+          ) : (
+            <ServiceLineValueInput
+              def={def}
+              multiple={false}
+              value={fieldValue as string | string[] | null | undefined}
+              onChange={(v) => onChange(typeof v === 'string' ? v : v[0] ?? '')}
+              label={valueLabel}
+              required={valueRequired}
+              error={!!error}
+              helperText={error?.message ?? formatHint(def)}
+              inputRef={ref}
+              // The only clearable scalar line property; an explicit empty entry means "clear it".
+              allowEmptyOption={def?.id === 'placeOfService'}
+            />
+          )
+        }
       />
     </Box>
   );
@@ -847,7 +1034,10 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
             if (next === RULE_ACTION_TYPE.setField) replace(newAction());
             else if (next === RULE_ACTION_TYPE.applyTag) replace({ type: RULE_ACTION_TYPE.applyTag, tag: '' });
             else if (next === RULE_ACTION_TYPE.addServiceLine)
-              replace({ type: RULE_ACTION_TYPE.addServiceLine, line: { cptCode: '', charges: '' } });
+              replace({
+                type: RULE_ACTION_TYPE.addServiceLine,
+                line: { cptCode: '', charges: '', diagnosisMode: 'primary' },
+              });
             else if (next === RULE_ACTION_TYPE.updateServiceLines)
               replace({
                 type: RULE_ACTION_TYPE.updateServiceLines,
@@ -933,8 +1123,8 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           <ServiceLineMatchEditor name={`${name}.match`} />
           <FormHelperText>
             Prices each matched line from the best charge master for the claim's billing type (the insurance or self-pay
-            default, most recent effective date on or before the date of service). A matched line the charge master
-            cannot price fails the rule and holds the claim.
+            default, most recent effective date on or before the date of service). Lines the charge master cannot price
+            keep their existing charges — this action never fails or holds the claim.
           </FormHelperText>
         </Box>
       )}

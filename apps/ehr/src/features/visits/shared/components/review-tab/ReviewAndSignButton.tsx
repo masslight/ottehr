@@ -21,10 +21,15 @@ import {
   useVitalsDraftStore,
 } from 'src/state/draft-data.store';
 import { getProviderType, isPhysicianProviderType } from 'utils/lib/helpers/helpers';
+import {
+  NO_SIGN_PERMISSION_MESSAGE,
+  VISIT_NOTE_SIGNING_ROLES,
+} from 'utils/lib/types/api/sign-appointment/sign-appointment.types';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { getInPersonVisitStatus, getSupervisorApprovalStatus } from 'utils/lib/utils/visitUtils';
 import { ConfirmationDialog } from '../../../../../components/ConfirmationDialog';
 import { RoundedButton } from '../../../../../components/RoundedButton';
+import { useAssignedProvider } from '../../hooks/useAssignedProvider';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
@@ -69,9 +74,14 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   });
 
   const apiClient = useOystehrAPIClient();
-  const evolveUser = useEvolveUser();
-  const practitioner = evolveUser?.profileResource;
-  const hasNPI = evolveUser?.hasNPI ?? false;
+  const { isAssignedProviderEligible } = useAssignedProvider();
+  const user = useEvolveUser();
+  const practitioner = user?.profileResource;
+  // Signing is limited to provider-level roles; a Clinician charts the visit but may not sign it.
+  // The sign zambda refuses the same call, so this only spares the round trip and explains why.
+  // Undefined while the user is still loading — treated as permitted so the button isn't briefly
+  // greyed out with a permission message for a provider.
+  const canSignNote = user ? user.hasRole(VISIT_NOTE_SIGNING_ROLES) : true;
 
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const [openTooltip, setOpenTooltip] = useState(false);
@@ -122,9 +132,18 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       return messages;
     }
 
-    // Signing / co-signing a note is NPI-gated — block users without an NPI (e.g. the Clinician role).
-    if (!hasNPI) {
-      messages.push('You need an NPI on file to sign');
+    // Reported alone: nothing else the user could fix would make the button usable, so listing the
+    // visit's other gaps alongside it would only obscure the reason.
+    if (!canSignNote) {
+      return [NO_SIGN_PERMISSION_MESSAGE];
+    }
+
+    // The assigned provider is the note's rendering provider, and the sign zambda rejects a visit
+    // whose provider no longer holds the Provider role. Checked here too so the button reports it
+    // rather than failing the request — the enclosing InPersonLayout normally hides this whole page
+    // in that state, so this only matters if that gate is ever relaxed.
+    if (!isAssignedProviderEligible) {
+      messages.push('A provider must be assigned to this visit');
     }
 
     if (isFollowup) {
@@ -199,7 +218,8 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     return messages;
   }, [
     completed,
-    hasNPI,
+    canSignNote,
+    isAssignedProviderEligible,
     inPersonStatus,
     primaryDiagnosis,
     medicalDecision,

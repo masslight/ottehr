@@ -162,6 +162,7 @@ const mockTemplateDetail = {
         note: 'fasting required',
         psc: true,
         missing: false,
+        cptCodes: [{ code: '85025', display: 'CBC With Differential', modifiers: [] }],
       },
       {
         planId: 'ext-plan-2',
@@ -173,6 +174,7 @@ const mockTemplateDetail = {
         note: null,
         psc: false,
         missing: true,
+        cptCodes: [],
       },
     ],
     procedures: [
@@ -772,6 +774,31 @@ describe('ApplyTemplate', () => {
     expect(within(labCard).getByText(/unavailable in this environment/)).toBeInTheDocument();
     expect(within(labCard).getByText('PSC Hold')).toBeInTheDocument();
     expect(within(labCard).getByText(/fasting required/)).toBeInTheDocument();
+
+    // CPT chips are hidden when the payment method is not Client Bill.
+    expect(within(labCard).queryByText(/CPT 85025/)).toBeNull();
+  });
+
+  it('should show CPT chips for external lab plans only when payment method is Client Bill', async () => {
+    const user = userEvent.setup();
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    const labCard = await screen.findByTestId('template-section-externalLabs');
+    await user.click(within(labCard).getByTestId('template-section-externalLabs-header'));
+
+    // Default payment is Insurance — CPT chips not shown.
+    await within(labCard).findByTestId('template-section-externalLabs-controls');
+    expect(within(labCard).queryByText(/CPT 85025/)).toBeNull();
+
+    // Switch to Client Bill — CPT chip for ext-plan-1 appears.
+    const paymentSelect = within(labCard).getByTestId('template-external-labs-payment-method');
+    await user.click(within(paymentSelect).getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: 'Client Bill' }));
+
+    expect(within(labCard).getByText(/CPT 85025 — CBC With Differential/)).toBeInTheDocument();
   });
 
   it('should require a payment method before Apply when none can be auto-selected', async () => {

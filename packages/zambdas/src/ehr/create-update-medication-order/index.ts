@@ -5,14 +5,18 @@ import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import {
   CodeableConcept,
+  Encounter,
   FhirResource,
   Medication,
   MedicationAdministration,
   MedicationRequest,
   MedicationStatement,
   Patient,
+  ServiceRequest,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
 import {
   getMedicationFromMA,
   getMedicationName,
@@ -22,6 +26,8 @@ import {
   searchMedicationLocation,
   searchRouteByCode,
 } from 'utils/lib/fhir/medication-administration';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { createCancellationTagOperations } from 'utils/lib/helpers/cancellation-meta.helper';
 import { replaceOperation } from 'utils/lib/helpers/operations';
@@ -37,10 +43,12 @@ import {
   OrderPackage,
   UpdateMedicationOrderInput,
 } from 'utils/lib/types/api/medication-administration.types';
+import { VITALS_RECHECK_NURSING_ORDER_NOTE } from 'utils/lib/types/data/orders/constants';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { checkOrCreateM2MClientToken, requirePractitionerNPI } from '../../shared/auth';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { makeProcedureResource } from '../../shared/chart-data';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
+import { makeNursingOrderTransactionRequests } from '../../shared/nursing-orders';
 import { getMyPractitionerId } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -53,6 +61,7 @@ import {
   createMedicationCopy,
   getEncounterIdFromMA,
   getMedicationById,
+  shouldCreateVitalsRecheckNursingOrder,
   updateMedicationAdministrationData,
   validateProviderAccess,
 } from './helpers';
@@ -87,6 +96,9 @@ async function performEffect(
   const { orderId, newStatus, orderData } = params;
   if (orderId && orderData) {
     const orderResources = await getOrderResources(oystehr, orderId);
+    // Captured before updateOrder writes the new status, so the vitals re-check can tell a real
+    // transition into "administered" from a re-save of an already-administered order.
+    const previousStatus = mapFhirToOrderStatus(orderResources.medicationAdministration);
     await updateOrder(oystehr, orderResources, newStatus, orderData, params.interactions, practitionerIdCalledZambda);
 
     const encounterIdFromMA = orderData.encounterId ?? getEncounterIdFromMA(orderResources.medicationAdministration);
@@ -97,6 +109,15 @@ async function performEffect(
         newStatus,
         orderResources.medicationAdministration,
         orderData.cptCodes
+      );
+      await createVitalsRecheckNursingOrderIfNeeded(
+        oystehr,
+        encounterIdFromMA,
+        previousStatus,
+        newStatus,
+        orderResources,
+        orderData,
+        practitionerIdCalledZambda
       );
     } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
 
@@ -123,10 +144,6 @@ async function performEffect(
       id: orderId,
     };
   } else if (orderData) {
-    // Ordering (creating) an in-house medication order is an NPI-gated action — block callers without
-    // an NPI (e.g. Clinician role). Administering / changing the status of an existing order (handled by
-    // the branches above) stays allowed, since that is a routine nurse/MA task.
-    await requirePractitionerNPI(oystehr, practitionerIdCalledZambda);
     const medicationAdministrationId = await createOrder(
       oystehr,
       orderData,
@@ -448,6 +465,92 @@ async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<Ord
     medicationRequest,
     patient,
   };
+}
+
+/**
+ * Administering an IV-route in-house medication order has to prompt the clinician to re-take vitals, so
+ * this raises a nursing order saying so onto the encounter (it then surfaces on the tracking board and
+ * the Nursing Orders tab). Best-effort by design: a failure here is logged and swallowed rather than
+ * failing the administration that already succeeded, mirroring manageAdditionalCptCodesForOrder.
+ */
+async function createVitalsRecheckNursingOrderIfNeeded(
+  oystehr: Oystehr,
+  encounterId: string,
+  previousStatus: MedicationOrderStatusesType | undefined,
+  newStatus: MedicationOrderStatusesType,
+  orderResources: OrderPackage,
+  orderData: MedicationData,
+  administeredByPractitionerId: string
+): Promise<void> {
+  try {
+    const { medicationAdministration, patient } = orderResources;
+    if (!shouldCreateVitalsRecheckNursingOrder({ previousStatus, newStatus, orderData, medicationAdministration })) {
+      console.log('Vitals re-check nursing order not required for this update');
+      return;
+    }
+
+    const medicationAdministrationReference = `MedicationAdministration/${assertDefined(
+      medicationAdministration.id,
+      'MedicationAdministration.id'
+    )}`;
+
+    const [existingNursingOrders, encounters] = await Promise.all([
+      oystehr.fhir.search<ServiceRequest>({
+        resourceType: 'ServiceRequest',
+        params: [
+          { name: 'encounter', value: `Encounter/${encounterId}` },
+          { name: '_tag', value: `${PRIVATE_EXTENSION_BASE_URL}/order-type-tag|nursing order` },
+        ],
+      }),
+      oystehr.fhir.search<Encounter>({
+        resourceType: 'Encounter',
+        params: [{ name: '_id', value: encounterId }],
+      }),
+    ]);
+
+    const alreadyRaised = existingNursingOrders
+      .unbundle()
+      .some(
+        (serviceRequest) =>
+          serviceRequest.supportingInfo?.some((info) => info.reference === medicationAdministrationReference)
+      );
+    if (alreadyRaised) {
+      console.log(`Vitals re-check nursing order already exists for ${medicationAdministrationReference}, skipping`);
+      return;
+    }
+
+    const encounter = encounters.unbundle().find((res) => res.id === encounterId);
+    if (!encounter) {
+      console.log(`No Encounter ${encounterId} found, skipping vitals re-check nursing order`);
+      return;
+    }
+
+    // ServiceRequest.requester is not surfaced in the nursing orders UI (the ordering physician is read
+    // from the create-order Provenance agent), so falling back to the administering practitioner keeps a
+    // clinically important prompt rather than dropping it when the encounter has no attender yet.
+    const attendingPractitionerId = getAttendingPractitionerId(encounter) ?? administeredByPractitionerId;
+
+    const transactionResponse = await oystehr.fhir.transaction({
+      requests: makeNursingOrderTransactionRequests({
+        encounterId,
+        patientId: assertDefined(patient.id, 'Patient.id'),
+        patientName: getFullestAvailableName(patient) ?? '',
+        attendingPractitionerId,
+        createdByPractitionerId: administeredByPractitionerId,
+        notes: VITALS_RECHECK_NURSING_ORDER_NOTE,
+        locationId: getEncounterLocationId(encounter),
+        supportingInfoReferences: [medicationAdministrationReference],
+      }),
+    });
+
+    if (!transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2')) {
+      throw new Error('Error creating vitals re-check nursing order in transaction');
+    }
+    console.log(`Created vitals re-check nursing order for ${medicationAdministrationReference}`);
+  } catch (e) {
+    console.log('Error in createVitalsRecheckNursingOrderIfNeeded: ', e, JSON.stringify(e));
+    captureException(e);
+  }
 }
 
 async function manageAdditionalCptCodesForOrder(

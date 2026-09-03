@@ -267,3 +267,362 @@ describe('useGetPatientDocs — document search short-circuit on synthetic folde
     expect(docRefCalls).toHaveLength(0);
   });
 });
+
+describe('useGetPatientDocs — visit filter', () => {
+  const ENCOUNTER_ID = 'encounter-1';
+
+  // Documents that belong to the visit, out of the three the folder holds patient-wide.
+  const VISIT_DOC_IDS = ['doc-list-1-0', 'doc-list-1-2'];
+
+  const docRef = (id: string): any => ({
+    resourceType: 'DocumentReference',
+    id,
+    status: 'current',
+    date: '2026-07-28T12:00:00.000Z',
+    content: [{ attachment: { title: `${id}.pdf`, url: `https://z3/${id}.pdf` } }],
+    context: { encounter: [{ reference: `Encounter/${ENCOUNTER_ID}` }] },
+  });
+
+  // Distinguishes the three searches the hook makes: the folder Lists, the visit's document ids
+  // (identified by `_elements`), and the main document search.
+  const setupVisitSearch = (perPatientLists: List[]): void => {
+    mockFhirSearch.mockImplementation(async (req: any) => {
+      const params: { name: string; value: string }[] = req?.params ?? [];
+
+      if (req?.resourceType === 'List') {
+        const isCatalogSearch = params.some(
+          (p) => p.name === 'identifier' && p.value === CUSTOM_FOLDERS_CATALOG_IDENTIFIER
+        );
+        return stubBundle(isCatalogSearch ? [] : perPatientLists);
+      }
+
+      if (params.some((p) => p.name === '_elements')) {
+        return stubBundle(VISIT_DOC_IDS.map((id) => ({ resourceType: 'DocumentReference', id })) as any);
+      }
+
+      return stubBundle(VISIT_DOC_IDS.map(docRef) as any);
+    });
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('narrows the document search to the visit', async () => {
+    setupVisitSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)]);
+
+    renderHook(() => useGetPatientDocs(PATIENT_ID, { visit: { encounterId: ENCOUNTER_ID } }), { wrapper });
+
+    await waitFor(() => {
+      const mainSearch = mockFhirSearch.mock.calls.find(
+        ([req]: any[]) =>
+          req?.resourceType === 'DocumentReference' && !req.params.some((p: any) => p.name === '_elements')
+      );
+      expect(mainSearch).toBeDefined();
+      expect(mainSearch![0].params).toEqual(
+        expect.arrayContaining([{ name: 'encounter', value: `Encounter/${ENCOUNTER_ID}` }])
+      );
+    });
+  });
+
+  it('reports the visit each returned document belongs to', async () => {
+    setupVisitSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)]);
+
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID, { visit: { encounterId: ENCOUNTER_ID } }), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.documents?.length).toBe(VISIT_DOC_IDS.length));
+    expect(result.current.documents?.every((doc) => doc.encounterId === ENCOUNTER_ID)).toBe(true);
+  });
+
+  it('counts only the visit’s documents in the folder sidebar', async () => {
+    // The folder holds three documents patient-wide, two of which belong to this visit.
+    setupVisitSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)]);
+
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID, { visit: { encounterId: ENCOUNTER_ID } }), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      const folder = result.current.documentsFolders.find((f) => f.internalName === PROTECTED_FOLDER.title);
+      expect(folder?.documentsCount).toBe(VISIT_DOC_IDS.length);
+    });
+  });
+
+  it('pages through every visit document id so counters do not undercount', async () => {
+    // The visit's documents span two pages: ids 0-1 on the first, id 4 on the second. A
+    // single-page fetch would count 2 of 3 and undercount the folder.
+    const FIRST_PAGE = ['doc-list-1-0', 'doc-list-1-1'];
+    const SECOND_PAGE = ['doc-list-1-4'];
+    const lists = [protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 5)];
+
+    mockFhirSearch.mockImplementation(async (req: any) => {
+      const params: { name: string; value: string }[] = req?.params ?? [];
+
+      if (req?.resourceType === 'List') {
+        const isCatalogSearch = params.some(
+          (p) => p.name === 'identifier' && p.value === CUSTOM_FOLDERS_CATALOG_IDENTIFIER
+        );
+        return stubBundle(isCatalogSearch ? [] : lists);
+      }
+
+      if (params.some((p) => p.name === '_elements')) {
+        const offset = Number(params.find((p) => p.name === '_offset')?.value ?? '0');
+        const page = offset === 0 ? FIRST_PAGE : SECOND_PAGE;
+        return {
+          // Only the first page advertises a successor, so the loop makes exactly two requests.
+          link: offset === 0 ? [{ relation: 'next', url: 'next-page' }] : [],
+          unbundle: () => page.map((id) => ({ resourceType: 'DocumentReference', id })),
+        };
+      }
+
+      return stubBundle([...FIRST_PAGE, ...SECOND_PAGE].map(docRef) as any);
+    });
+
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID, { visit: { encounterId: ENCOUNTER_ID } }), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      const folder = result.current.documentsFolders.find((f) => f.internalName === PROTECTED_FOLDER.title);
+      expect(folder?.documentsCount).toBe(FIRST_PAGE.length + SECOND_PAGE.length);
+    });
+
+    // Two id pages requested, with a monotonically advancing offset.
+    const idsQueries = mockFhirSearch.mock.calls.filter(([req]: any[]) =>
+      (req?.params ?? []).some((p: any) => p.name === '_elements')
+    );
+    expect(idsQueries).toHaveLength(2);
+    expect(idsQueries[0][0].params.find((p: any) => p.name === '_offset').value).toBe('0');
+    expect(Number(idsQueries[1][0].params.find((p: any) => p.name === '_offset').value)).toBeGreaterThan(0);
+  });
+
+  it('pages through every document in the table results', async () => {
+    // Two pages of documents for the same search; a single-page fetch would hide the second page's
+    // documents from the table with nothing on screen to say so.
+    const FIRST_PAGE = ['doc-a', 'doc-b'];
+    const SECOND_PAGE = ['doc-c'];
+    const lists = [protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)];
+
+    mockFhirSearch.mockImplementation(async (req: any) => {
+      const params: { name: string; value: string }[] = req?.params ?? [];
+
+      if (req?.resourceType === 'List') {
+        const isCatalogSearch = params.some(
+          (p) => p.name === 'identifier' && p.value === CUSTOM_FOLDERS_CATALOG_IDENTIFIER
+        );
+        return stubBundle(isCatalogSearch ? [] : lists);
+      }
+
+      const offset = Number(params.find((p) => p.name === '_offset')?.value ?? '0');
+      const page = offset === 0 ? FIRST_PAGE : SECOND_PAGE;
+      return {
+        link: offset === 0 ? [{ relation: 'next', url: 'next-page' }] : [],
+        unbundle: () => page.map(docRef),
+      };
+    });
+
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID), { wrapper });
+
+    await waitFor(() => expect(result.current.documents?.length).toBe(FIRST_PAGE.length + SECOND_PAGE.length));
+    expect(result.current.documents?.map((doc) => doc.id).sort()).toEqual([...FIRST_PAGE, ...SECOND_PAGE].sort());
+  });
+
+  it('advances by the page actually returned when the server caps the requested count', async () => {
+    // A server free to cap `_count` returns fewer resources than asked for. Advancing the offset by
+    // the requested size would leave a gap the size of the shortfall and silently skip documents.
+    const ALL = ['doc-a', 'doc-b', 'doc-c', 'doc-d', 'doc-e'];
+    const SERVER_CAP = 1;
+    const lists = [protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)];
+
+    mockFhirSearch.mockImplementation(async (req: any) => {
+      const params: { name: string; value: string }[] = req?.params ?? [];
+
+      if (req?.resourceType === 'List') {
+        const isCatalogSearch = params.some(
+          (p) => p.name === 'identifier' && p.value === CUSTOM_FOLDERS_CATALOG_IDENTIFIER
+        );
+        return stubBundle(isCatalogSearch ? [] : lists);
+      }
+
+      const offset = Number(params.find((p) => p.name === '_offset')?.value ?? '0');
+      const page = ALL.slice(offset, offset + SERVER_CAP);
+      return {
+        link: offset + page.length < ALL.length ? [{ relation: 'next', url: 'next-page' }] : [],
+        unbundle: () => page.map(docRef),
+      };
+    });
+
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID), { wrapper });
+
+    // Every document is collected despite each page returning one at a time.
+    await waitFor(() => expect(result.current.documents?.length).toBe(ALL.length));
+    expect(result.current.documents?.map((doc) => doc.id).sort()).toEqual([...ALL].sort());
+
+    const offsets = mockFhirSearch.mock.calls
+      .filter(([req]: any[]) => req?.resourceType !== 'List')
+      .map(([req]: any[]) => Number(req.params.find((p: any) => p.name === '_offset').value));
+    expect(offsets).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it('stops paging on an empty page even if a next link is advertised', async () => {
+    // A server that always advertises a successor would otherwise spin to the ceiling.
+    const lists = [protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)];
+
+    mockFhirSearch.mockImplementation(async (req: any) => {
+      const params: { name: string; value: string }[] = req?.params ?? [];
+
+      if (req?.resourceType === 'List') {
+        const isCatalogSearch = params.some(
+          (p) => p.name === 'identifier' && p.value === CUSTOM_FOLDERS_CATALOG_IDENTIFIER
+        );
+        return stubBundle(isCatalogSearch ? [] : lists);
+      }
+
+      const offset = Number(params.find((p) => p.name === '_offset')?.value ?? '0');
+      return {
+        link: [{ relation: 'next', url: 'next-page' }],
+        unbundle: () => (offset === 0 ? [docRef('doc-a')] : []),
+      };
+    });
+
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID), { wrapper });
+
+    await waitFor(() => expect(result.current.documents?.length).toBe(1));
+
+    const docQueries = mockFhirSearch.mock.calls.filter(([req]: any[]) => req?.resourceType !== 'List');
+    // The first page plus the empty one that ends it — not a run up to the ceiling.
+    expect(docQueries).toHaveLength(2);
+  });
+
+  it('leaves folder counters patient-wide when no visit filter is applied', async () => {
+    setupVisitSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)]);
+
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID), { wrapper });
+
+    await waitFor(() => {
+      const folder = result.current.documentsFolders.find((f) => f.internalName === PROTECTED_FOLDER.title);
+      expect(folder?.documentsCount).toBe(3);
+    });
+    // No visit means no need to resolve which documents belong to one.
+    const idsQueries = mockFhirSearch.mock.calls.filter(([req]: any[]) =>
+      (req?.params ?? []).some((p: any) => p.name === '_elements')
+    );
+    expect(idsQueries).toHaveLength(0);
+  });
+});
+
+describe('useGetPatientDocs — intake documents linked by appointment', () => {
+  const ENCOUNTER_ID = 'encounter-1';
+  const APPOINTMENT_ID = 'appointment-1';
+
+  // Intake paperwork (photo IDs, insurance cards, condition photos, consents) records the visit as
+  // an Appointment in context.related and never sets context.encounter.
+  const intakeDocRef = (id: string): any => ({
+    resourceType: 'DocumentReference',
+    id,
+    status: 'current',
+    date: '2026-07-28T12:00:00.000Z',
+    content: [{ attachment: { title: `${id}.pdf`, url: `https://z3/${id}.pdf` } }],
+    context: { related: [{ reference: `Appointment/${APPOINTMENT_ID}` }] },
+  });
+
+  // A document whose `related` holds something that is not a visit at all — update-visit-files
+  // writes a Patient there, radiology a ServiceRequest.
+  const nonVisitRelatedDocRef = (id: string): any => ({
+    resourceType: 'DocumentReference',
+    id,
+    status: 'current',
+    date: '2026-07-28T12:00:00.000Z',
+    content: [{ attachment: { title: `${id}.pdf`, url: `https://z3/${id}.pdf` } }],
+    context: { related: [{ reference: `Patient/${PATIENT_ID}` }, { reference: 'ServiceRequest/sr-1' }] },
+  });
+
+  const setupIntakeSearch = (docsByLinkage: { encounter: any[]; related: any[] }): void => {
+    mockFhirSearch.mockImplementation(async (req: any) => {
+      const params: { name: string; value: string }[] = req?.params ?? [];
+
+      if (req?.resourceType === 'List') {
+        const isCatalogSearch = params.some(
+          (p) => p.name === 'identifier' && p.value === CUSTOM_FOLDERS_CATALOG_IDENTIFIER
+        );
+        return stubBundle(isCatalogSearch ? [] : []);
+      }
+
+      // Serve whichever linkage this request queried.
+      if (params.some((p) => p.name === 'encounter')) return stubBundle(docsByLinkage.encounter);
+      if (params.some((p) => p.name === 'related')) return stubBundle(docsByLinkage.related);
+      return stubBundle([...docsByLinkage.encounter, ...docsByLinkage.related]);
+    });
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('queries both the encounter and the related-appointment linkage', async () => {
+    setupIntakeSearch({ encounter: [], related: [intakeDocRef('intake-a')] });
+
+    renderHook(
+      () => useGetPatientDocs(PATIENT_ID, { visit: { encounterId: ENCOUNTER_ID, appointmentId: APPOINTMENT_ID } }),
+      {
+        wrapper,
+      }
+    );
+
+    await waitFor(() => {
+      const docQueries = mockFhirSearch.mock.calls.filter(([req]: any[]) => req?.resourceType === 'DocumentReference');
+      expect(docQueries.some(([r]: any[]) => r.params.some((p: any) => p.name === 'encounter'))).toBe(true);
+      expect(
+        docQueries.some(([r]: any[]) =>
+          r.params.some((p: any) => p.name === 'related' && p.value === `Appointment/${APPOINTMENT_ID}`)
+        )
+      ).toBe(true);
+    });
+  });
+
+  it('surfaces intake documents that only carry an appointment, and reports that appointment', async () => {
+    setupIntakeSearch({ encounter: [], related: [intakeDocRef('intake-a'), intakeDocRef('intake-b')] });
+
+    const { result } = renderHook(
+      () => useGetPatientDocs(PATIENT_ID, { visit: { encounterId: ENCOUNTER_ID, appointmentId: APPOINTMENT_ID } }),
+      { wrapper }
+    );
+
+    await waitFor(() => expect(result.current.documents?.length).toBe(2));
+    expect(result.current.documents?.every((doc) => doc.appointmentId === APPOINTMENT_ID)).toBe(true);
+    // These carry no encounter at all; that is the whole point.
+    expect(result.current.documents?.every((doc) => doc.encounterId === undefined)).toBe(true);
+  });
+
+  it('unions the two linkages without double-counting a document linked both ways', async () => {
+    const both = {
+      ...intakeDocRef('linked-both'),
+      context: {
+        encounter: [{ reference: `Encounter/${ENCOUNTER_ID}` }],
+        related: [{ reference: `Appointment/${APPOINTMENT_ID}` }],
+      },
+    };
+    // The same resource comes back from both searches, as the server would return it.
+    setupIntakeSearch({ encounter: [both], related: [both] });
+
+    const { result } = renderHook(
+      () => useGetPatientDocs(PATIENT_ID, { visit: { encounterId: ENCOUNTER_ID, appointmentId: APPOINTMENT_ID } }),
+      { wrapper }
+    );
+
+    await waitFor(() => expect(result.current.documents?.length).toBe(1));
+    expect(result.current.documents?.[0].id).toBe('linked-both');
+  });
+
+  it('ignores related references that are not appointments', async () => {
+    setupIntakeSearch({ encounter: [], related: [nonVisitRelatedDocRef('doc-with-patient-related')] });
+
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID), { wrapper });
+
+    await waitFor(() => expect(result.current.documents?.length).toBe(1));
+    // A Patient or ServiceRequest in `related` must not be mistaken for the visit.
+    expect(result.current.documents?.[0].appointmentId).toBeUndefined();
+  });
+});

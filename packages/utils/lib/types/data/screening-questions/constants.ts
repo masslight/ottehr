@@ -16,6 +16,23 @@ export const patientVaccinationLabels: Record<PatientVaccinationKeys, string> = 
   [PatientVaccinationKeys.no]: 'No vaccinations',
 };
 
+export const PATIENT_PREGNANCY_STATUS = 'patient-pregnancy-status';
+
+export enum PatientPregnancyKeys {
+  Yes = 'yes',
+  No = 'no',
+  NotSure = 'not-sure',
+  NotApplicable = 'not-applicable',
+}
+
+export const PATIENT_BREASTFEEDING_STATUS = 'patient-breastfeeding-status';
+
+export enum PatientBreastfeedingKeys {
+  Yes = 'yes',
+  No = 'no',
+  NotApplicable = 'not-applicable',
+}
+
 export enum RecentVisitKeys {
   Yes = 'yes',
   No = 'no',

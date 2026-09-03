@@ -12,9 +12,10 @@ import { getEditOrderUrl } from '../../../routing/helpers';
 
 interface MedicationActionsProps {
   medication: ExtendedMedicationDataForResponse;
+  onEditOrder?: (medicationId: string) => void;
 }
 
-export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication }) => {
+export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication, onEditOrder }) => {
   const theme = useTheme();
   const { canEditMedication, deleteMedication } = useMedicationManagement();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -77,6 +78,10 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
   );
 
   const navigateToEditOrder = (): void => {
+    if (onEditOrder) {
+      onEditOrder(medication.id);
+      return;
+    }
     if (!appointmentId) {
       enqueueSnackbar('navigation error', { variant: 'error' });
       return;

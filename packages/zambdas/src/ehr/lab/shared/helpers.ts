@@ -11,6 +11,7 @@ import {
   Patient,
   QuestionnaireResponse,
   Reference,
+  Schedule,
   ServiceRequest,
   Specimen,
   Task,
@@ -19,6 +20,7 @@ import { isEqual } from 'lodash';
 import { DateTime } from 'luxon';
 import { COVERAGE_MEMBER_IDENTIFIER_BASE } from 'utils/lib/fhir/constants';
 import { getLabListStatus, getLabListType } from 'utils/lib/helpers/labs/helpers';
+import { TIMEZONES } from 'utils/lib/types/constants';
 import { LabSetDTO } from 'utils/lib/types/data/labs/lab-set.schema';
 import {
   DR_UNSOLICITED_PATIENT_REF,
@@ -30,6 +32,7 @@ import {
   LabListSearchFieldKey,
 } from 'utils/lib/types/data/labs/labs.constants';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 
 type SoftDeleteLabResourceTypes =
   | 'ServiceRequest'
@@ -283,3 +286,35 @@ export const isOtherInsurance = (resource: Coverage | Organization): boolean => 
     return resource.name?.toLowerCase() === OTHER || resource.id === '00000' || false;
   }
 };
+
+export const LABS_DATE_STRING_FORMAT = 'MM/dd/yyyy hh:mm a ZZZZ';
+
+/**
+ * Pulls the timezone off of the Schedule when able, and otherwise defaults to the first
+ * timezone in TIMEZONES from utils
+ * @param schedule
+ * @returns
+ */
+export const getTimezoneForLabs = (schedule: Schedule | undefined): string => {
+  let timezone = TIMEZONES[0]; // this is the same default behavior in getTimezones
+
+  if (schedule) {
+    console.log('Found timezone on schedule for labs');
+    timezone = getTimezone(schedule);
+  }
+  console.log('timezone for labs is', timezone);
+  return timezone;
+};
+
+/**
+ * Formats a an ISO-string timestamp for labs when the string timestamp is available.
+ * Returns empty string if no timestamp is provided
+ */
+export const formatStringTimestampForLabs = (timestamp: string | undefined, timezone: string): string => {
+  return timestamp ? formatDateTimeForLabs(DateTime.fromISO(timestamp), timezone) : '';
+};
+
+/** Formats a DateTime object for labs */
+export function formatDateTimeForLabs(datetime: DateTime, timezone: string): string {
+  return datetime.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
+}

@@ -4,6 +4,8 @@ import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billin
 import { getRuleFieldDef, getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   BillingRule,
+  DiagnosisPointerMode,
+  effectiveDiagnosisMode,
   RULE_ACTION_TYPE,
   RULE_CONDITION_TYPE,
   RULE_OUTCOME_TYPE,
@@ -24,6 +26,7 @@ import {
   readField,
   readServiceLineProperty,
   recomputeClaimTotal,
+  resolveDateValue,
   RulesEngineClaimModel,
   writeField,
   writeServiceLineProperty,
@@ -88,6 +91,21 @@ export const evaluateOperator = (
     if (expectedScalar == null) return false;
     return typeof actual === 'string' && actual.startsWith(expectedScalar);
   };
+  // Standard (unanchored) regex semantics: the pattern can match anywhere in the value; authors
+  // anchor with ^/$ for a whole-value match. A list actual matches when any entry does. Save-time
+  // validation keeps uncompilable patterns out; if one slips through it evaluates as no-match
+  // rather than throwing mid-run.
+  const matchesPattern = (): boolean => {
+    if (expectedScalar == null) return false;
+    let pattern: RegExp;
+    try {
+      pattern = new RegExp(expectedScalar);
+    } catch {
+      return false;
+    }
+    if (Array.isArray(actual)) return actual.some((entry) => pattern.test(entry));
+    return typeof actual === 'string' && pattern.test(actual);
+  };
   // Ordering for gt/gte/lt/lte: numeric when both sides parse as numbers (amounts), otherwise
   // lexicographic — which is chronological for ISO dates (YYYY-MM-DD). Returns undefined (condition
   // false either way) when either side is missing/empty.
@@ -137,6 +155,10 @@ export const evaluateOperator = (
       return startsWith();
     case 'notStartsWith':
       return !startsWith();
+    case 'matches':
+      return matchesPattern();
+    case 'notMatches':
+      return !matchesPattern();
     default:
       return false;
   }
@@ -197,15 +219,26 @@ export const serviceLineMatches = (line: ClaimServiceLine, match: ServiceLineMat
   });
 };
 
-// Resolve the diagnosis pointers for a new line: explicit pointers are validated strictly against
-// the claim's diagnosis list (a rule must never silently re-point a line), while a blank input falls
-// back to the claim editor's default — the first diagnosis, or none when the claim has none.
+// Resolve the diagnosis pointers for a new line, per the action's diagnosisMode:
+// - primary: the claim's first diagnosis.
+// - all: every diagnosis on the claim.
+// - specific: explicit pointers, required (a blank list is a mistake, not "use the default") and
+//   validated strictly against the claim's diagnosis list (a rule must never silently re-point a
+//   line).
+// primary/all resolve to no pointers when the claim has no diagnoses.
 const resolveDiagnosisPointers = (
+  mode: DiagnosisPointerMode,
   raw: string | undefined,
   diagnosisCount: number
 ): { pointers?: number[]; error?: string } => {
+  if (mode === 'all') {
+    return { pointers: diagnosisCount > 0 ? Array.from({ length: diagnosisCount }, (_, i) => i + 1) : undefined };
+  }
+  if (mode === 'primary') {
+    return { pointers: diagnosisCount > 0 ? [1] : undefined };
+  }
   const trimmed = raw?.trim() ?? '';
-  if (!trimmed) return { pointers: diagnosisCount > 0 ? [1] : undefined };
+  if (!trimmed) return { error: 'diagnosis pointers are required when Diagnoses is set to Specific diagnoses' };
   const pointers = trimmed.split(',').map((part) => Number(part.trim()));
   if (pointers.length === 0 || pointers.some((pointer) => !Number.isInteger(pointer) || pointer < 1)) {
     return { error: `invalid diagnosis pointers "${raw}"` };
@@ -229,13 +262,15 @@ const applyAddServiceLine = (
   const input = action.line;
   const existing = claim.item ?? [];
 
-  const serviceDate =
-    input.serviceDate?.trim() || existing[0]?.servicedPeriod?.start || existing[0]?.servicedDate || '';
-  if (!serviceDate) {
-    return 'could not add service line — specify a service date (the claim has no existing lines to inherit one from)';
-  }
+  const dateResolution = resolveDateValue(input.serviceDate, model);
+  if ('error' in dateResolution) return `could not add service line — ${dateResolution.error}`;
+  const serviceDate = dateResolution.value;
 
-  const resolved = resolveDiagnosisPointers(input.diagnosisPointers, claim.diagnosis?.length ?? 0);
+  const resolved = resolveDiagnosisPointers(
+    effectiveDiagnosisMode(input),
+    input.diagnosisPointers,
+    claim.diagnosis?.length ?? 0
+  );
   if (resolved.error) return `could not add service line — ${resolved.error}`;
 
   const line: ClaimServiceLine = {
@@ -260,6 +295,10 @@ const applyAddServiceLine = (
   // Mirror the claim editor: tie the line to the rendering provider (careTeam sequence 1) when set.
   if ((claim.careTeam ?? []).some((member) => member.sequence === 1)) line.careTeamSequence = [1];
 
+  if (input.revenueCode?.trim() && !set('revenueCode', input.revenueCode?.trim())) {
+    return `could not add service line — invalid revenue code "${input.revenueCode}"`;
+  }
+
   claim.item = [...existing, line];
   recomputeClaimTotal(claim);
   return undefined;
@@ -272,11 +311,38 @@ const applyServiceLineUpdate = (
   action: Extract<RuleAction, { type: 'updateServiceLines' }>,
   model: RulesEngineClaimModel
 ): string | undefined => {
+  const def = getServiceLinePropertyDef(action.set.property);
+  let literalValue: string;
+  if (def?.valueType === 'date') {
+    if (typeof action.set.value === 'string') {
+      const trimmed = action.set.value.trim();
+      if (!trimmed) {
+        return `could not update service line property "${action.set.property}" — value is required`;
+      }
+      literalValue = trimmed;
+    } else {
+      // Resolve once, before mutating any line: a derived source reads claim-level state (billable
+      // period) or the first line's original date, which must not reflect a mutation this same action
+      // is about to make (e.g. when the first line is itself among the lines being updated).
+      const resolution = resolveDateValue(action.set.value, model);
+      if ('error' in resolution) {
+        return `could not update service line property "${action.set.property}" — ${resolution.error}`;
+      }
+      literalValue = resolution.value;
+    }
+  } else if (typeof action.set.value === 'string') {
+    literalValue = action.set.value;
+  } else {
+    // Save-time validation rejects a derived-source value on a non-date property; fail safe rather
+    // than crash if one reaches here anyway (e.g. a rule created directly through the API).
+    return `could not update service line property "${action.set.property}" — this property does not accept a derived date value`;
+  }
+
   const matching = (model.claim.item ?? []).filter((line) => serviceLineMatches(line, action.match));
   const operation = action.set.operation ?? 'set';
   let changed = false;
   for (const line of matching) {
-    if (!writeServiceLineProperty(line, action.set.property, action.set.value, operation)) {
+    if (!writeServiceLineProperty(line, action.set.property, literalValue, operation)) {
       // Keep the billed total consistent with any lines already updated before failing the rule.
       if (changed && action.set.property === 'charges') recomputeClaimTotal(model.claim);
       return (
@@ -293,56 +359,38 @@ const applyServiceLineUpdate = (
 // Re-price every line matching the predicate from the best applicable charge master. The charge
 // master is selected at apply time so it reflects whatever earlier rules did to the claim: the
 // billing type comes from whether the claim carries a real coverage, the date of service from the
-// claim's (first line's) service date. Every price is resolved before any line is written, so a
-// claim held by this action is either fully re-priced or untouched — never half-priced. Zero
-// matching lines is a no-op, but a matched line the charge master cannot price fails the rule.
+// claim's (first line's) service date. Best-effort by design — this action never fails the rule or
+// holds the claim. A line the charge master has no valid price for (no CPT code, or no entry for
+// the code/modifier combination) keeps its existing charges, and when no charge master can be
+// selected at all (no date of service, or none active/designated/effective) no lines change. Rules
+// later in the run are the place to hold claims whose lines still lack a price.
 const applyChargeMasterPricing = (
   action: Extract<RuleAction, { type: 'applyChargeMasterPrices' }>,
   model: RulesEngineClaimModel
-): string | undefined => {
+): undefined => {
   const { claim } = model;
   const matching = (claim.item ?? []).filter((line) => serviceLineMatches(line, action.match));
   if (!matching.length) return undefined;
 
   const dateOfService = asScalar(readField(model, 'serviceDate'));
-  if (!dateOfService) {
-    return 'could not apply charge master prices — the claim has no date of service to select a charge master by';
-  }
+  if (!dateOfService) return undefined;
   const kind: ChargeItemDefinitionDefault = claimHasRealCoverage(claim.insurance) ? 'insurance' : 'self-pay';
   const chargeMaster = selectBestChargeMaster(model.chargeMasters ?? [], kind, dateOfService);
-  if (!chargeMaster) {
-    return (
-      `could not apply charge master prices — no active charge master is designated as the ` +
-      `${kind} default and effective on or before ${dateOfService}`
-    );
-  }
-  const chargeMasterName = chargeMaster.title ?? `ChargeItemDefinition/${chargeMaster.id}`;
+  if (!chargeMaster) return undefined;
 
-  // Phase 1: resolve (and validate) every matched line's price before mutating anything.
-  const prices: { line: ClaimServiceLine; price: number }[] = [];
+  let changed = false;
   for (const line of matching) {
     const cptCode = asScalar(readServiceLineProperty(line, 'cptCode'));
-    if (!cptCode) {
-      return `could not apply charge master prices — service line ${line.sequence} has no CPT code`;
-    }
+    if (!cptCode) continue;
     const modifiers = readServiceLineProperty(line, 'modifiers');
     const modifierList = Array.isArray(modifiers) ? modifiers : [];
     const price = getChargeMasterPrice(chargeMaster, cptCode, modifierList);
-    if (price == null || !Number.isFinite(price) || price < 0) {
-      const modifierNote = modifierList.length ? ` with modifier(s) ${modifierList.join(', ')}` : '';
-      return (
-        `could not apply charge master prices — charge master "${chargeMasterName}" has no valid price ` +
-        `for CPT ${cptCode}${modifierNote} (service line ${line.sequence})`
-      );
-    }
-    prices.push({ line, price });
-  }
-
-  // Phase 2: apply. The charges writer cannot fail for a validated non-negative finite price.
-  for (const { line, price } of prices) {
+    if (price == null || !Number.isFinite(price) || price < 0) continue;
+    // The charges writer cannot fail for a validated non-negative finite price.
     writeServiceLineProperty(line, 'charges', String(price), 'set');
+    changed = true;
   }
-  recomputeClaimTotal(claim);
+  if (changed) recomputeClaimTotal(claim);
   return undefined;
 };
 

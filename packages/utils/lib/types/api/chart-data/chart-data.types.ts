@@ -35,6 +35,7 @@ import { GetChartDataResponse } from './get-chart-data.types';
 export interface AIChatDetails {
   documents: DocumentReference[];
   providers: Practitioner[];
+  hasPendingRecording?: boolean;
 }
 
 // todo: need to refactor and simplify types; there are different sets of fields for useChartData and useChartFields, but this types contains all possible values and not very useful
@@ -539,7 +540,6 @@ export const followUpInOptions = [
 ];
 
 export interface BillingSuggestionInput {
-  patientId?: string;
   newPatient: boolean | undefined;
   patientAge?: string;
   patientSex?: string;
@@ -554,6 +554,8 @@ export interface BillingSuggestionInput {
   diagnoses: DiagnosisDTO[] | undefined;
   billing: CPTCodeDTO[] | undefined;
   prescribedMedications?: PrescribedMedicationDTO[];
+  // the patient's confirmed medication list from the chart, not raw eRx history
+  currentMedications?: MedicationDTO[];
 }
 
 export interface BillingSuggestionOutput {

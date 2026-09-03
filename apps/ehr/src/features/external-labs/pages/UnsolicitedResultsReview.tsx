@@ -77,6 +77,7 @@ export const UnsolicitedResultsReview: React.FC = () => {
               labOrder={data.unsolicitedLabDTO}
               markTaskAsReviewed={markAsReviewed}
               loading={loadingResources || markingAsReviewed}
+              onBack={() => navigate(-1)}
             />
           </DetailPageContainer>
         </Box>

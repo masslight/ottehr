@@ -1,6 +1,7 @@
 import { Autocomplete, Box, Button, MenuItem, Select, TextField } from '@mui/material';
 import { ReactElement } from 'react';
-import { CMS_PLACE_OF_SERVICE_CODES } from 'utils/lib/helpers/rcm/constants';
+import { CMS_PLACE_OF_SERVICE_CODES, CODE_SYSTEM_CLAIM_TYPE_CODES } from 'utils/lib/helpers/rcm/constants';
+import { DateInput } from '../DateInput';
 import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
 
 export interface ServiceLineRow {
@@ -11,6 +12,7 @@ export interface ServiceLineRow {
   serviceDate: string;
   placeOfService: string;
   diagnosisPointers: number[];
+  revenueCode: string;
 }
 
 /** A diagnosis as referenced by a service line's `diagnosisPointers` (1-based sequence + its code). */
@@ -27,6 +29,7 @@ export const emptyServiceLineRow = (overrides?: Partial<ServiceLineRow>): Servic
   serviceDate: '',
   placeOfService: '',
   diagnosisPointers: [],
+  revenueCode: '',
   ...overrides,
 });
 
@@ -37,6 +40,7 @@ interface ServiceLinesEditorProps {
   diagnoses: DiagnosisPointerOption[];
   /** Seed date for a newly added line when there's no prior line to copy from. */
   defaultServiceDate?: string;
+  claimType: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
 }
 
 /**
@@ -48,6 +52,7 @@ export function ServiceLinesEditor({
   onChange,
   diagnoses,
   defaultServiceDate,
+  claimType,
 }: ServiceLinesEditorProps): ReactElement {
   const setRow = <K extends keyof ServiceLineRow>(index: number, field: K, fieldValue: ServiceLineRow[K]): void =>
     onChange(value.map((row, i) => (i === index ? { ...row, [field]: fieldValue } : row)));
@@ -93,14 +98,11 @@ export function ServiceLinesEditor({
             onChange={(e) => setRow(i, 'charges', e.target.value)}
             sx={{ width: 150 }}
           />
-          <TextField
-            size="small"
+          <DateInput
             label="Date"
-            type="date"
+            size="small"
             value={row.serviceDate}
-            onChange={(e) => setRow(i, 'serviceDate', e.target.value)}
-            sx={{ width: 160 }}
-            InputLabelProps={{ shrink: true }}
+            onChange={(value) => setRow(i, 'serviceDate', value)}
           />
           <Autocomplete
             size="small"
@@ -117,6 +119,16 @@ export function ServiceLinesEditor({
             renderInput={(p) => <TextField {...p} label="Place of Service" />}
             sx={{ width: 170 }}
           />
+          {claimType === 'institutional' && (
+            <TextField
+              size="small"
+              label="Rev Code"
+              value={row.revenueCode}
+              onChange={(e) => setRow(i, 'revenueCode', e.target.value.replace(/[^0-9]/g, ''))}
+              sx={{ width: 150 }}
+              inputProps={{ inputMode: 'numeric', pattern: '[0-9]*', maxLength: 5 }}
+            />
+          )}
           <Select
             multiple
             size="small"

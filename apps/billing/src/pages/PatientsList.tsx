@@ -3,11 +3,13 @@ import { Alert, Box, Button, InputAdornment, TextField, Typography } from '@mui/
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { isValidUUID } from 'utils';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { SearchBillingPatientsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { searchBillingPatients } from '../api/api';
 import { AddPatientDialog } from '../components/AddPatientDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { DateInput } from '../components/DateInput';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 
@@ -68,7 +70,12 @@ export default function PatientsList(): ReactElement {
         if (filters.name) params.name = filters.name;
         if (filters.dob) params.dob = filters.dob;
         if (filters.identifier) params.identifier = filters.identifier;
-        if (filters.uuid) params.uuid = filters.uuid;
+        if (filters.uuid) {
+          if (!isValidUUID(filters.uuid)) {
+            throw new Error('Validation error: Patient MRN must be a valid UUID');
+          }
+          params.uuid = filters.uuid;
+        }
         const data = await searchBillingPatients(oystehrZambda, params);
         setPatients((data.patients ?? []).filter((p): p is typeof p & { id: string } => Boolean(p.id)));
         setTotal(data.total ?? 0);
@@ -160,17 +167,15 @@ export default function PatientsList(): ReactElement {
       />
 
       <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField
-          size="small"
-          type="date"
+        <DateInput
           label="Date of Birth"
           value={searchDob}
-          onChange={(e) => {
-            setSearchDob(e.target.value);
-            applyFilters({ dob: e.target.value });
+          onChange={(value) => {
+            setSearchDob(value);
+            applyFilters({
+              dob: value,
+            });
           }}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 160 }}
         />
 
         <TextField
@@ -178,7 +183,7 @@ export default function PatientsList(): ReactElement {
           label="Patient MRN"
           placeholder="Patient MRN..."
           value={searchUuid}
-          onChange={(e) => handleUuidChange(e.target.value)}
+          onChange={(e) => handleUuidChange(e.target.value.trim())}
           sx={{ minWidth: 300 }}
         />
 

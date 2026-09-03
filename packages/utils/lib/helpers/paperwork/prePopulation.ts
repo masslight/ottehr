@@ -164,6 +164,10 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   const patientFirstName = getFirstName(patient) ?? '';
   const patientLastName = getLastName(patient) ?? '';
 
+  const patientPhone =
+    patient?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ||
+    formattedVerifiedPhoneNumber;
+
   // https://github.com/masslight/ottehr/issues/5984 - because the "additional info / tell us more" field gets appended
   // to the selected reason for visit, before it is passed in here, we need to normalize it back to just the selected option
   // or it could break any fields that depend on exact matching of the reason for visit logical field value.
@@ -237,8 +241,8 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           if (linkId === 'common-well-consent' && patientCommonWellConsent !== undefined) {
             answer = makeAnswer(patientCommonWellConsent, 'Boolean');
           }
-          if (linkId === 'patient-number' && formattedVerifiedPhoneNumber) {
-            answer = makeAnswer(formatPhoneNumberDisplay(formattedVerifiedPhoneNumber));
+          if (linkId === 'patient-number' && patientPhone) {
+            answer = makeAnswer(formatPhoneNumberDisplay(patientPhone));
           }
           if (linkId === 'patient-birth-sex' && patientSex) {
             answer = makeAnswer(patientSex);
@@ -348,7 +352,9 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
         });
       }
 
-      return [];
+      // No page-specific pre-fill logic (e.g. a custom form inside a paperwork flow): keep the page's
+      // child structure so the response mirrors the questionnaire, just without pre-filled answers.
+      return buildEmptyResponseItemSkeleton(itemItems);
     })();
     return {
       linkId: item.linkId,
@@ -360,6 +366,18 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
 
   return item;
 };
+
+// Builds an empty QuestionnaireResponse skeleton (linkIds only, no answers) mirroring the given
+// questionnaire items — recursing into nested groups and skipping display items. Used for a page with
+// no specific pre-fill logic (e.g. a practice-managed form bundled into a paperwork flow) so the
+// pre-populated response still mirrors the questionnaire's page -> item structure rather than an empty page.
+const buildEmptyResponseItemSkeleton = (items: QuestionnaireItem[]): QuestionnaireResponseItem[] =>
+  items
+    .filter((item) => item.type !== 'display')
+    .map((item) => {
+      const childItems = item.item ? buildEmptyResponseItemSkeleton(item.item) : [];
+      return childItems.length > 0 ? { linkId: item.linkId, item: childItems } : { linkId: item.linkId };
+    });
 
 const getPatientDOB = (patient?: Patient, newPatientDob?: string): string | undefined => {
   const dobStringToUse = patient?.birthDate ?? newPatientDob;
@@ -505,7 +523,9 @@ export const makePrepopulatedItemsFromPatientRecord = (
           attorneyRelatedPerson,
         });
       }
-      return [];
+      // No page-specific pre-fill logic (e.g. a custom form inside a paperwork flow): keep the page's
+      // child structure so the response mirrors the questionnaire, just without pre-filled answers.
+      return buildEmptyResponseItemSkeleton(itemItems);
     })();
     return {
       linkId: item.linkId,

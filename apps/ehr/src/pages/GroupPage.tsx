@@ -15,6 +15,7 @@ import {
   Paper,
   Select,
   Skeleton,
+  Switch,
   TextField,
   Tooltip,
   Typography,
@@ -24,7 +25,7 @@ import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule }
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { listServiceCategories, updateGroup } from 'src/api/api';
+import { listServiceCategories, toggleGroupActive, updateGroup } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { formatLocationLabel } from 'src/components/schedule/locationLabel';
 import { isValidSlug, SLUG_VALIDATION_MESSAGE } from 'utils/lib/fhir/constants';
@@ -85,6 +86,10 @@ function GroupPageContent(): ReactElement {
   const [name, setName] = useState<string>('');
   const [slug, setSlug] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
+  // HealthcareService.active — deactivating drops the group from booking without
+  // losing its config. Toggled immediately (separate from the Save below).
+  const [active, setActive] = useState<boolean>(true);
+  const [statusPatchLoading, setStatusPatchLoading] = useState<boolean>(false);
 
   // Load the clinic-wide service-category catalog to translate role
   // healthcareService refs → category code / name / duration for display.
@@ -449,6 +454,7 @@ function GroupPageContent(): ReactElement {
 
     setAssignmentMode(getGroupAssignmentMode(groupTemp) ?? 'anonymous');
     setAllLocations(getGroupAllLocations(groupTemp) ?? false);
+    setActive(groupTemp.active !== false);
   }, [oystehr, groupID]);
 
   useEffect(() => {
@@ -524,6 +530,24 @@ function GroupPageContent(): ReactElement {
   // with a validation error.
   const slugError = !!slug && !isValidSlug(slug);
 
+  // Active is toggled immediately through its own zambda (not the Save button,
+  // and not a direct FHIR write) — same split as Locations / PractitionerRoles.
+  const setGroupActive = async (next: boolean): Promise<void> => {
+    if (!oystehrZambda) return;
+    const prev = active;
+    setActive(next);
+    setStatusPatchLoading(true);
+    try {
+      await toggleGroupActive({ groupId: groupID, active: next }, oystehrZambda);
+      enqueueSnackbar(next ? 'Group activated.' : 'Group deactivated.', { variant: 'success' });
+    } catch {
+      setActive(prev);
+      enqueueSnackbar('Oops. Something went wrong. Status update was not saved.', { variant: 'error' });
+    } finally {
+      setStatusPatchLoading(false);
+    }
+  };
+
   if (!group) {
     return (
       <div style={{ width: '100%', height: '250px' }}>
@@ -537,24 +561,33 @@ function GroupPageContent(): ReactElement {
       <CustomBreadcrumbs
         chain={[
           { link: '/admin', state: { defaultTab: 'group' }, children: 'Admin' },
-          { link: '/admin/schedules', state: { defaultTab: 'group' }, children: 'Schedules' },
+          { link: '/admin/provider-groups', children: 'Provider groups' },
           { link: '#', children: group.name || <Skeleton width={150} /> },
         ]}
       />
 
       <Typography variant="h3" color="primary.dark" marginTop={1} marginBottom={1}>
-        Manage the schedule for {group?.name}
+        {group?.name || <Skeleton width={200} />}
       </Typography>
-      <Typography variant="body1">
-        Group schedule. Patients booking through this group's link see slots from every active provider at the selected
-        locations, restricted to the services in the allow-list below.
+      <Typography variant="body1" sx={{ maxWidth: 820 }}>
+        This provider group pools availability across multiple providers into a single bookable option. Patients booking
+        through its link are matched to any available provider in the pool — limited to the locations and services
+        configured below.
       </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
+        <Switch checked={active} onClick={() => void setGroupActive(!active)} disabled={statusPatchLoading} />
+        {statusPatchLoading ? (
+          <CircularProgress size={20} color="inherit" />
+        ) : (
+          <Typography>{active ? 'Active' : 'Inactive'}</Typography>
+        )}
+      </Box>
       <Paper sx={{ marginTop: 2, padding: 3 }}>
         <form onSubmit={onSubmit}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 0 }}>
             <Box>
               <Typography variant="h4" color="primary.dark" marginBottom={2}>
-                Slug
+                Details
               </Typography>
               <TextField
                 label="Name"
@@ -586,7 +619,7 @@ function GroupPageContent(): ReactElement {
             </Box>
             <Box>
               <Typography variant="h4" color="primary.dark" marginBottom={2}>
-                Share booking links
+                Booking
               </Typography>
               <FormControl size="small" sx={{ width: 320 }}>
                 <InputLabel>Assignment Mode</InputLabel>
@@ -645,7 +678,7 @@ function GroupPageContent(): ReactElement {
             </Box>
             <Box>
               <Typography variant="h4" color="primary.dark" marginBottom={2}>
-                Services this group supports
+                Services
               </Typography>
               <Typography variant="body1" sx={{ display: 'block', mb: 1, color: 'text.primary' }}>
                 The patient is allowed to book only the checked services through this group's link. Each row shows which

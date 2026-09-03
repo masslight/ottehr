@@ -46,7 +46,7 @@ import {
   RadiologyPerformingOrganization,
   RadiologySafetyFlag,
 } from 'utils/lib/types/api/radiology';
-import { assertPractitionerHasNPI, checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { makeCptModifierExtension } from '../../../shared/candid';
 import { makeCPTCodeDTO } from '../../../shared/chart-data';
 import { createClinicalOystehrClient, fillMeta } from '../../../shared/helpers';
@@ -127,42 +127,45 @@ const performEffect = async (
     id: practitionerRelativeReference.split('/')[1],
   });
 
-  // Ordering imaging is an NPI-gated action — block callers without an NPI (e.g. Clinician role).
-  assertPractitionerHasNPI(ourPractitioner);
-
   // Create the order in FHIR
   const ourServiceRequest = await writeOurServiceRequest(body, practitionerRelativeReference, oystehr);
   if (!ourServiceRequest.id) {
     throw new Error('Error creating service request, id is missing');
   }
 
+  // External (print-only) orders are documented locally and printed/faxed — never transmitted to
+  // AdvaPACS — and the outside facility performs and bills for the study. We therefore write no
+  // billing Procedure, which keeps the CPT off the chart's Assessment / Payment Considerations.
+  if (body.external) {
+    return {
+      serviceRequestId: ourServiceRequest.id,
+      cptCodesSaved: undefined,
+    };
+  }
+
   const { cptCodeDTO, procedure } = await writeOurProcedure(ourServiceRequest, body, secrets, oystehr);
-  const cptCodesSaved = cptCodeDTO ? [cptCodeDTO] : undefined;
 
-  // External (print-only) orders are documented locally and printed/faxed — never transmitted to AdvaPACS.
-  if (!body.external) {
-    // Grab advapacs location id from schedule owner extension if any
-    const advaPACSLocationId = await getAdvaPACSLocationForAppointmentOrEncounter(
-      { encounterId: body.encounter.id },
-      oystehr
-    );
+  // Grab advapacs location id from schedule owner extension if any
+  const advaPACSLocationId = await getAdvaPACSLocationForAppointmentOrEncounter(
+    { encounterId: body.encounter.id },
+    oystehr
+  );
 
-    // Send the order to AdvaPACS
-    try {
-      await writeAdvaPacsTransaction(ourServiceRequest, ourPractitioner, advaPACSLocationId, secrets, oystehr);
-    } catch (error) {
-      captureException(error);
-      console.error('Error sending order to AdvaPACS: ', error);
-      await rollbackOurServiceRequest(ourServiceRequest, oystehr);
-      await rollbackOurProcedure(procedure, oystehr);
-      // The order no longer exists — surface the failure instead of returning its id as a success.
-      throw error;
-    }
+  // Send the order to AdvaPACS
+  try {
+    await writeAdvaPacsTransaction(ourServiceRequest, ourPractitioner, advaPACSLocationId, secrets, oystehr);
+  } catch (error) {
+    captureException(error);
+    console.error('Error sending order to AdvaPACS: ', error);
+    await rollbackOurServiceRequest(ourServiceRequest, oystehr);
+    await rollbackOurProcedure(procedure, oystehr);
+    // The order no longer exists — surface the failure instead of returning its id as a success.
+    throw error;
   }
 
   return {
     serviceRequestId: ourServiceRequest.id,
-    cptCodesSaved,
+    cptCodesSaved: cptCodeDTO ? [cptCodeDTO] : undefined,
   };
 };
 
@@ -239,8 +242,9 @@ export const buildRadiologyOrderContent = (input: RadiologyOrderContentInput): R
     : cpt;
 
   const contentExtensions: Extension[] = [makeOrderDetailExtension('modality', 'DX')];
-  if (clinicalHistory) {
-    contentExtensions.push(makeOrderDetailExtension('clinical-history', clinicalHistory));
+  const trimmedClinicalHistory = clinicalHistory?.trim();
+  if (trimmedClinicalHistory) {
+    contentExtensions.push(makeOrderDetailExtension('clinical-history', trimmedClinicalHistory));
   }
   contentExtensions.push(
     makeOrderDetailExtension('requested-procedure-description', studyName ?? srCodeCoding.display)

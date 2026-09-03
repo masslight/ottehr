@@ -22,6 +22,7 @@ import { UpdateChargeItemDefinitionInputSchema } from 'utils/lib/types/data/bill
 import {
   BillingChargeItemDefinition,
   BillingChargeItemDefinitionProcedureCode,
+  BillingCodeOption,
   ChargeItemDefinitionType,
 } from 'utils/lib/types/data/billing/billing.types';
 import z from 'zod';
@@ -34,6 +35,7 @@ import {
 import { useApiClients } from '../hooks/useAppClients';
 import { BulkImportProcedureCodes } from './BulkImportProcedureCodes';
 import { EditableSection } from './claim/EditableSection';
+import { DateInput } from './DateInput';
 import { Field } from './Field';
 import { Row } from './Row';
 
@@ -54,6 +56,8 @@ export function ChargeItemDefinitionDetailSection({
   const [cidDefault, setCidDefault] = useState<CIDDefaultInputValue>(cid.default ?? '');
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [procCodeSearch, setProcCodeSearch] = useState('');
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const filteredCodes = useMemo(
     () => cid.procedureCodes.filter((pc) => pc.code.includes(procCodeSearch)),
@@ -118,20 +122,25 @@ export function ChargeItemDefinitionDetailSection({
   );
 
   const removeProcedureCode = useCallback(
-    async (rowIdx: number) => {
-      if (!oystehrZambda) throw new Error('Client not ready');
+    async (code: BillingChargeItemDefinitionProcedureCode): Promise<void> => {
+      if (!oystehrZambda) return;
+      // the row comes from the filtered list, so match by identity rather than by rendered index
       const payload: z.input<typeof UpdateChargeItemDefinitionInputSchema> = {
         type: type,
         chargeItemDefinitionId: cid.id!,
-        procedureCodes: [...cid.procedureCodes.slice(0, rowIdx), ...cid.procedureCodes.slice(rowIdx + 1)],
+        procedureCodes: cid.procedureCodes.filter((pc) => pc !== code),
       };
 
+      setRemoving(true);
+      setRemoveError(null);
       try {
         await updateChargeItemDefinition(oystehrZambda, payload);
+        await onSaved();
       } catch (err) {
-        throw getApiError({ error: err, defaultError: 'Failed ot add procedure code' });
+        setRemoveError(getApiError({ error: err, defaultError: 'Failed to delete procedure code' }));
+      } finally {
+        setRemoving(false);
       }
-      await onSaved();
     },
     [cid.id, cid.procedureCodes, onSaved, oystehrZambda, type]
   );
@@ -151,12 +160,12 @@ export function ChargeItemDefinitionDetailSection({
               <TextField size="small" fullWidth value={description} onChange={(e) => setDescription(e.target.value)} />
             </Field>
             <Field label="Effective Date">
-              <TextField
+              <DateInput
+                label="Effective Date"
                 size="small"
                 fullWidth
-                type="date"
                 value={effectiveDate}
-                onChange={(e) => setEffectiveDate(e.target.value)}
+                onChange={(value) => setEffectiveDate(value)}
               />
             </Field>
             <Field label="Is Default For">
@@ -200,6 +209,11 @@ export function ChargeItemDefinitionDetailSection({
           Manage the procedure codes (CPT/HCPCS) and their associated amounts for this{' '}
           {ChargeItemDefinitionLabels[type].singularText}.
         </Typography>
+        {removeError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {removeError}
+          </Alert>
+        )}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <TextField
             size="small"
@@ -270,7 +284,12 @@ export function ChargeItemDefinitionDetailSection({
                     <Box sx={{ width: '20%', px: 2, fontSize: '0.875rem' }}>${row.amount.toFixed(2)}</Box>
                     <Box sx={{ width: '15%', px: 2, display: 'flex', gap: 0.5 }}>
                       <Tooltip title="Delete">
-                        <IconButton size="small" color="error" onClick={() => removeProcedureCode(rowIdx)}>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          disabled={removing}
+                          onClick={() => void removeProcedureCode(row)}
+                        >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
@@ -302,6 +321,8 @@ export function ChargeItemDefinitionDetailSection({
   );
 }
 
+const EMPTY_DESCRIPTION = { text: '', fromOption: false };
+
 function AddProcedureCodeDialog({
   open,
   handleSave,
@@ -313,23 +334,35 @@ function AddProcedureCodeDialog({
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
 
-  const [code, setCode] = useState<{ code: string; display: string } | undefined>(undefined);
+  const [code, setCode] = useState('');
+  const [description, setDescription] = useState(EMPTY_DESCRIPTION);
   const [modifier, setModifier] = useState<string | undefined>(undefined);
   const [amount, setAmount] = useState<number | undefined>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [procCodes, setProcCodes] = useState<{ code: string; display: string }[]>([]);
+  const [procCodes, setProcCodes] = useState<BillingCodeOption[]>([]);
 
   useEffect(() => {
     if (!open) return;
-    setCode(undefined);
+    setCode('');
+    setDescription(EMPTY_DESCRIPTION);
     setModifier(undefined);
     setAmount(undefined);
     setSaving(false);
     setError(null);
   }, [open]);
 
-  const canSave = !!code && amount !== undefined && !isNaN(amount);
+  const pickCode = (option: BillingCodeOption): void => {
+    setCode(option.code);
+    setDescription({ text: option.display, fromOption: true });
+  };
+
+  const typeCode = (value: string): void => {
+    setCode(value);
+    setDescription((prev) => (prev.fromOption ? EMPTY_DESCRIPTION : prev));
+  };
+
+  const canSave = !!code.trim() && amount !== undefined && !isNaN(amount);
 
   const searchProcCodes = useCallback(
     async (term?: string): Promise<void> => {
@@ -355,7 +388,7 @@ function AddProcedureCodeDialog({
 
   const handleSubmit = useCallback(async (): Promise<void> => {
     if (!canSave) return;
-    if (!code) {
+    if (!code.trim()) {
       throw 'Code is required';
     }
     if (!amount) {
@@ -365,8 +398,8 @@ function AddProcedureCodeDialog({
     setError(null);
     try {
       await handleSave({
-        code: code.code,
-        description: code.display,
+        code: code.trim(),
+        description: description.text.trim() || undefined,
         modifier: modifier || undefined,
         amount,
       });
@@ -376,7 +409,7 @@ function AddProcedureCodeDialog({
     } finally {
       setSaving(false);
     }
-  }, [amount, canSave, code, handleSave, modifier, onClose]);
+  }, [amount, canSave, code, description, handleSave, modifier, onClose]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth={false} PaperProps={{ sx: { width: 980, maxWidth: '95vw' } }}>
@@ -390,16 +423,21 @@ function AddProcedureCodeDialog({
         <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <Field label="Code">
-              <Autocomplete
+              <Autocomplete<BillingCodeOption, false, false, true>
+                freeSolo
                 options={procCodes}
-                value={code}
-                onChange={(_, v) => setCode(v || undefined)}
+                inputValue={code}
+                value={null}
                 onInputChange={(_, val, reason) => {
+                  if (reason === 'reset') return; // option selection is handled in onChange
+                  typeCode(val);
                   if (reason === 'input') void searchProcCodes(val || undefined);
                 }}
-                // onOpen={() => searchPr()}
+                onChange={(_, v) => {
+                  if (v && typeof v !== 'string') pickCode(v);
+                }}
                 filterOptions={(x) => x}
-                getOptionLabel={(o) => (o ? `${o.code} ${o.display}` : '')}
+                getOptionLabel={(o) => (typeof o === 'string' ? o : `${o.code} ${o.display}`)}
                 renderOption={(props, o) => (
                   <Box component="li" {...props} key={o.code}>
                     <Box>
@@ -421,7 +459,14 @@ function AddProcedureCodeDialog({
                     // helperText={fieldError?.message}
                   />
                 )}
-                isOptionEqualToValue={(o, v) => o.code === v.code}
+              />
+            </Field>
+            <Field label="Description">
+              <TextField
+                size="small"
+                fullWidth
+                value={description.text}
+                onChange={(e) => setDescription({ text: e.target.value, fromOption: false })}
               />
             </Field>
             <Field label="Modifier">

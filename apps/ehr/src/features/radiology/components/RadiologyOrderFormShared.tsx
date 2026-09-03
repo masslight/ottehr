@@ -17,7 +17,6 @@ import {
 } from '@mui/material';
 import { ClearIcon } from '@mui/x-date-pickers';
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetCPTHCPCSSearch } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useChartData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -276,16 +275,12 @@ export const RadiologyOrderCoreFields: React.FC<{
  * Cancel/submit row plus the error list, shared by both forms.
  */
 export const RadiologyOrderFormActions: React.FC<{
-  appointmentId: string;
   submitting: boolean;
   submitLabel: string;
   errors: string[] | undefined;
-  onCancel?: () => void;
-  cancelUrl?: string;
+  onCancel: () => void;
   clearFormButton?: React.ReactNode;
-  disabled?: boolean;
-}> = ({ appointmentId, submitting, submitLabel, errors, onCancel, cancelUrl, clearFormButton, disabled }) => {
-  const navigate = useNavigate();
+}> = ({ submitting, submitLabel, errors, onCancel, clearFormButton }) => {
   const theme = useTheme();
   return (
     <>
@@ -294,10 +289,7 @@ export const RadiologyOrderFormActions: React.FC<{
           <Button
             variant="outlined"
             sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-            onClick={() => {
-              onCancel?.();
-              navigate(cancelUrl ?? `/in-person/${appointmentId}/radiology`);
-            }}
+            onClick={onCancel}
           >
             Cancel
           </Button>
@@ -308,7 +300,6 @@ export const RadiologyOrderFormActions: React.FC<{
         <LoadingButton
           data-testid={dataTestIds.radiologyPage.submitOrderButton}
           loading={submitting}
-          disabled={disabled}
           type="submit"
           variant="contained"
           sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}

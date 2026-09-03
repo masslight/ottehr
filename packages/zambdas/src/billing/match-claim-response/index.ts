@@ -6,7 +6,7 @@ import {
   MatchClaimResponseToClaimInput,
   MatchClaimResponseToClaimInputSchema,
 } from 'utils/lib/types/data/billing/billing.schemas';
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
@@ -35,6 +35,9 @@ async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimRes
     resourceType: 'Claim',
     id: params.claimId,
   });
+  if (!claim.insurer) {
+    throw INVALID_INPUT_ERROR('Claim has no insurer');
+  }
   const claimResponse = await oystehr.fhir.get<ClaimResponse>({
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,

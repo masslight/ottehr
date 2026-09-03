@@ -1,8 +1,5 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { Claim, Coverage, FhirResource, ProvenanceAgent } from 'fhir/r4b';
-import { CANDID_PLAN_TYPE_SYSTEM } from 'utils/lib/fhir/insurance';
-import { getPayerUrl } from 'utils/lib/helpers/helpers';
-import { EXTENSION_CLAIM_INSURANCE_TYPE } from 'utils/lib/helpers/rcm/constants';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/update-billing-claim/index';
 import { validateRequestParameters } from '../../../src/billing/update-billing-claim/validateRequestParameters';
@@ -104,16 +101,74 @@ describe('update-billing-claim validateRequestParameters', () => {
       })
     ).toThrow(/plan type/i);
   });
+
+  it('accepts an admission date and discharge date set together', () => {
+    const result = validateRequestParameters({
+      headers: null,
+      body: body({
+        admissionDate: '2026-01-01',
+        dischargeDate: '2026-01-31',
+      }),
+      secrets: {},
+    });
+    expect(result).toMatchObject({
+      fields: {
+        admissionDate: '2026-01-01',
+        dischargeDate: '2026-01-31',
+      },
+    });
+  });
+
+  it('rejects both admission date and discharge date submitted blank', () => {
+    expect(() =>
+      validateRequestParameters({
+        headers: null,
+        body: body({
+          admissionDate: '',
+          dischargeDate: '',
+        }),
+        secrets: {},
+      })
+    ).toThrow(/date is required/i);
+  });
+
+  it('rejects an admission date without a discharge date', () => {
+    expect(() =>
+      validateRequestParameters({
+        headers: null,
+        body: body({
+          admissionDate: '2026-01-01',
+          dischargeDate: '',
+        }),
+        secrets: {},
+      })
+    ).toThrow(/discharge date is required/i);
+  });
+
+  it('rejects a discharge date without an admission date', () => {
+    expect(() =>
+      validateRequestParameters({
+        headers: null,
+        body: body({
+          admissionDate: '',
+          dischargeDate: '2026-01-31',
+        }),
+        secrets: {},
+      })
+    ).toThrow(/admission date is required/i);
+  });
 });
 
 describe('update-billing-claim performEffect', () => {
-  const makeOystehr = (): {
+  const makeOystehr = (
+    claimOverride: Claim = claim
+  ): {
     oystehr: Oystehr;
     search: ReturnType<typeof vi.fn>;
     transaction: ReturnType<typeof vi.fn>;
   } => {
     const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
-      if (resourceType === 'Claim') return Promise.resolve({ unbundle: () => [structuredClone(claim)] });
+      if (resourceType === 'Claim') return Promise.resolve({ unbundle: () => [structuredClone(claimOverride)] });
       if (resourceType === 'Coverage') return Promise.resolve({ unbundle: () => [structuredClone(coverage)] });
       return Promise.resolve({ unbundle: () => [] });
     });
@@ -125,46 +180,6 @@ describe('update-billing-claim performEffect', () => {
       transaction,
     };
   };
-
-  it('mirrors the plan type onto the focal coverage extension and type', async () => {
-    const { oystehr, transaction } = makeOystehr();
-
-    await performEffect(
-      oystehr,
-      {
-        resourceType: 'Claim',
-        resourceId: CLAIM_ID,
-        claimId: CLAIM_ID,
-        fields: {
-          planType: '12',
-        },
-        secrets: {},
-      },
-      agent
-    );
-
-    const writtenCoverage = writtenResources(transaction).find((r) => r.resourceType === 'Coverage');
-    expect(writtenCoverage).toEqual(
-      expect.objectContaining({
-        resourceType: 'Coverage',
-        id: 'cov-1',
-        extension: expect.arrayContaining([
-          {
-            url: EXTENSION_CLAIM_INSURANCE_TYPE,
-            valueString: '12',
-          },
-        ]),
-        type: expect.objectContaining({
-          coding: expect.arrayContaining([
-            {
-              system: CANDID_PLAN_TYPE_SYSTEM,
-              code: '12',
-            },
-          ]),
-        }),
-      })
-    );
-  });
 
   it('applies payer and plan type to the focal coverage in a single fetch and write', async () => {
     const { oystehr, search, transaction } = makeOystehr();
@@ -184,34 +199,10 @@ describe('update-billing-claim performEffect', () => {
       agent
     );
 
-    // Focal coverage is read once and written once, carrying both the payer and the plan type.
-    expect(search).toHaveBeenCalledTimes(2);
+    // Focal coverage is not mutated by update claim
+    expect(search).toHaveBeenCalledTimes(1);
     const coverageWrites = writtenResources(transaction).filter((r) => r.resourceType === 'Coverage');
-    expect(coverageWrites).toHaveLength(1);
-    expect(coverageWrites[0]).toEqual(
-      expect.objectContaining({
-        id: 'cov-1',
-        payor: [
-          expect.objectContaining({
-            reference: getPayerUrl('PAYER1'),
-          }),
-        ],
-        extension: expect.arrayContaining([
-          {
-            url: EXTENSION_CLAIM_INSURANCE_TYPE,
-            valueString: '12',
-          },
-        ]),
-        type: expect.objectContaining({
-          coding: expect.arrayContaining([
-            {
-              system: CANDID_PLAN_TYPE_SYSTEM,
-              code: '12',
-            },
-          ]),
-        }),
-      })
-    );
+    expect(coverageWrites).toHaveLength(0);
   });
 
   it('does not touch any coverage when no insurance type is provided', async () => {
@@ -233,5 +224,72 @@ describe('update-billing-claim performEffect', () => {
     const written = writtenResources(transaction);
     expect(written.some((r) => r.resourceType === 'Claim')).toBe(true);
     expect(written.some((r) => r.resourceType === 'Coverage')).toBe(false);
+  });
+
+  it('writes the admission/discharge period to Claim.billablePeriod', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await performEffect(
+      oystehr,
+      {
+        resourceType: 'Claim',
+        resourceId: CLAIM_ID,
+        claimId: CLAIM_ID,
+        fields: {
+          admissionDate: '2026-01-01',
+          dischargeDate: '2026-01-31',
+        },
+        secrets: {},
+      },
+      agent
+    );
+
+    const claimWrite = writtenResources(transaction).find((r) => r.resourceType === 'Claim') as Claim;
+    expect(claimWrite.billablePeriod).toEqual({ start: '2026-01-01', end: '2026-01-31' });
+  });
+
+  it('does not clear an existing Claim.billablePeriod when both dates are submitted blank', async () => {
+    const claimWithPeriod: Claim = { ...claim, billablePeriod: { start: '2026-01-01', end: '2026-01-31' } };
+    const { oystehr, transaction } = makeOystehr(claimWithPeriod);
+
+    await performEffect(
+      oystehr,
+      {
+        resourceType: 'Claim',
+        resourceId: CLAIM_ID,
+        claimId: CLAIM_ID,
+        fields: {
+          admissionDate: '',
+          dischargeDate: '',
+        },
+        secrets: {},
+      },
+      agent
+    );
+
+    const claimWrite = writtenResources(transaction).find((r) => r.resourceType === 'Claim') as Claim;
+    expect(claimWrite.billablePeriod).toEqual({ start: '2026-01-01', end: '2026-01-31' });
+  });
+
+  it('stays unset when both dates are submitted blank on a claim with no billablePeriod', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await performEffect(
+      oystehr,
+      {
+        resourceType: 'Claim',
+        resourceId: CLAIM_ID,
+        claimId: CLAIM_ID,
+        fields: {
+          admissionDate: '',
+          dischargeDate: '',
+        },
+        secrets: {},
+      },
+      agent
+    );
+
+    const claimWrite = writtenResources(transaction).find((r) => r.resourceType === 'Claim') as Claim;
+    expect(claimWrite.billablePeriod).toBeUndefined();
   });
 });

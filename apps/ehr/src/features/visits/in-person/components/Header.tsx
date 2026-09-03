@@ -18,7 +18,6 @@ import {
   Stack,
   Switch,
   TextField,
-  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -32,10 +31,12 @@ import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchB
 import { useSendFax } from 'src/features/fax/hooks/useSendFax';
 import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
 import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
-import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
+import { useGetPatientAccount } from 'src/hooks/useGetPatient';
 import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
+import { useFindApplicableFeeScheduleQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { formatLabelValue } from 'src/shared/utils/formatLabelValue';
-import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { isAppointmentOccupationalMedicine, isAppointmentPreOp } from 'utils/lib/fhir/appointments';
+import { CASE_RATE_CODE, RCM_TAG_SYSTEM, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
   getAnnotationFollowupStatusLabel,
   getEncounterLocationId,
@@ -46,6 +47,7 @@ import { getCoding, getInsuranceNameFromCoverage } from 'utils/lib/fhir/helpers'
 import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { extractPayerIdFromUrl } from 'utils/lib/helpers/helpers';
 import { formatWeightKg } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
@@ -76,7 +78,6 @@ const HeaderWrapper = styled(Box)(({ theme }) => ({
   padding: '8px 16px 8px 0',
   borderBottom: `1px solid ${theme.palette.divider}`,
   boxShadow: '0px 2px 4px -1px #00000033',
-  overflowX: 'hidden',
 }));
 
 const PatientName = styled(Typography)(({ theme }) => ({
@@ -205,7 +206,7 @@ export const Header = (): JSX.Element => {
 
   const apiClient = useOystehrAPIClient();
 
-  const { data: insuranceData } = useGetPatientCoverages({
+  const { data: insuranceData } = useGetPatientAccount({
     apiClient,
     patientId: patient?.id ?? null,
   });
@@ -216,8 +217,14 @@ export const Header = (): JSX.Element => {
   const { chartData } = useChartData();
 
   const effectiveEncounterId = selectedEncounterId ?? encounter?.id;
-  const { data: encounterVitals } = useGetVitals(effectiveEncounterId);
-  const { data: historicalVitals } = useGetHistoricalVitals(effectiveEncounterId);
+
+  // Annotation follow-ups record no vitals of their own and reference the parent visit's
+  // Appointment, so a historical lookup keyed on the follow-up encounter searches strictly
+  // before that appointment's start — skipping the parent visit's own vitals and surfacing
+  // the previous visit's values instead. Read header vitals from the origin encounter.
+  const vitalsEncounterId = isFollowup ? followUpOriginEncounter?.id : effectiveEncounterId;
+  const { data: encounterVitals } = useGetVitals(vitalsEncounterId);
+  const { data: historicalVitals } = useGetHistoricalVitals(vitalsEncounterId);
 
   const start = encounter?.period?.start ?? appointmentValues?.start;
 
@@ -273,12 +280,51 @@ export const Header = (): JSX.Element => {
 
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
-  const paymentVariant = formatLabelValue(
-    encounterValues?.payment === PaymentVariant.selfPay
-      ? 'Self-pay'
-      : (insuranceData?.coverages.primary && getInsuranceNameFromCoverage(insuranceData?.coverages.primary)) ??
-          (insuranceData?.coverages.secondary && getInsuranceNameFromCoverage(insuranceData?.coverages.secondary))
+  const encounterPaymentVariant = encounterValues?.payment;
+  const isOccMed = appointment ? isAppointmentOccupationalMedicine(appointment) : false;
+  const isPreOp = appointment ? isAppointmentPreOp(appointment) : false;
+
+  const primaryInsurancePayerRef = insuranceData?.coverages.primary?.payor.find((p) => !!p.reference)?.reference;
+  const insuranceOrgId =
+    extractPayerIdFromUrl(primaryInsurancePayerRef) ?? primaryInsurancePayerRef?.replace('Organization/', '');
+  const dateOfService = appointment?.start?.split('T')[0];
+
+  const employerOrgId =
+    encounterPaymentVariant === PaymentVariant.employer || isPreOp
+      ? insuranceData?.occupationalMedicineEmployerOrganization?.id ?? insuranceData?.employerOrganization?.id
+      : undefined;
+
+  const isPayerVariant =
+    encounterPaymentVariant === PaymentVariant.insurance || encounterPaymentVariant === PaymentVariant.employer;
+  const canQueryFeeSchedule = isPayerVariant && (!!insuranceOrgId || !!employerOrgId) && !!dateOfService;
+
+  const { data: feeScheduleResult, isFetched: feeScheduleFetched } = useFindApplicableFeeScheduleQuery(
+    canQueryFeeSchedule ? insuranceOrgId : undefined,
+    canQueryFeeSchedule ? dateOfService : undefined,
+    location?.id,
+    canQueryFeeSchedule ? employerOrgId : undefined
   );
+  const payerFeeSchedule = feeScheduleResult?.feeSchedule ?? undefined;
+  const isCaseRate =
+    payerFeeSchedule?.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === CASE_RATE_CODE) ?? false;
+
+  const insuranceName =
+    (insuranceData?.coverages.primary && getInsuranceNameFromCoverage(insuranceData?.coverages.primary)) ??
+    (insuranceData?.coverages.secondary && getInsuranceNameFromCoverage(insuranceData?.coverages.secondary));
+
+  const employerName =
+    insuranceData?.occupationalMedicineEmployerOrganization?.name ?? insuranceData?.employerOrganization?.name;
+
+  const paymentDisplayValue = (() => {
+    if (encounterPaymentVariant === PaymentVariant.selfPay) return 'Self-Pay';
+    if (isOccMed && encounterPaymentVariant === PaymentVariant.employer) {
+      return `${employerName ?? 'Employer'} (Occ-med)`;
+    }
+    if (isPreOp) return `${employerName ?? insuranceName ?? 'Insurance'} (Pre-op)`;
+    if (!canQueryFeeSchedule || !feeScheduleFetched) return insuranceName ?? '';
+    if (!payerFeeSchedule) return `${insuranceName} (No Fee Schedule)`;
+    return `${insuranceName} (${isCaseRate ? 'Case Rate' : 'Fee for Service'})`;
+  })();
   const patientName = formatLabelValue(mappedData?.patientName, 'Name');
   const pronouns = formatLabelValue(mappedData?.pronouns, 'Pronouns');
   const gender = formatLabelValue(mappedData?.gender, 'Gender');
@@ -330,7 +376,7 @@ export const Header = (): JSX.Element => {
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
-  const sendFaxDialog = useSendFax(appointmentID);
+  const sendFaxDialog = useSendFax(appointmentID ? { type: 'visit', appointmentId: appointmentID } : undefined);
   const {
     isEncounterUpdatePending: isUpdatingPractitionerForIntake,
     handleUpdatePractitioner: handleUpdatePractitionerForIntake,
@@ -399,20 +445,8 @@ export const Header = (): JSX.Element => {
         <Grid container spacing={2} sx={{ padding: '0 18px 0 4px' }}>
           <Grid item xs={12}>
             <Grid container alignItems="center" justifyContent="space-between" wrap="nowrap">
-              <Grid item sx={{ flex: '1 1 0', minWidth: 0 }}>
-                <Grid
-                  container
-                  alignItems="center"
-                  spacing={2}
-                  wrap="nowrap"
-                  sx={{
-                    overflowX: 'auto',
-                    overflowY: 'hidden',
-                    scrollbarWidth: 'thin',
-                    '&::-webkit-scrollbar': { height: '4px', width: 0 },
-                    '&::-webkit-scrollbar-thumb': { borderRadius: '2px', backgroundColor: 'rgba(0,0,0,0.2)' },
-                  }}
-                >
+              <Grid item>
+                <Grid container alignItems="center" spacing={2}>
                   <Grid item>
                     {isFollowup ? (
                       getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter?.status))
@@ -447,20 +481,6 @@ export const Header = (): JSX.Element => {
                       <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitBookingType}</PatientMetadata>
                     </Grid>
                   )}
-                  <Grid item>
-                    <Tooltip title={paymentVariant}>
-                      <PatientMetadata
-                        sx={{
-                          maxWidth: 250,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        Payment: {paymentVariant}
-                      </PatientMetadata>
-                    </Tooltip>
-                  </Grid>
                   <Grid item>
                     {isFollowup ? (
                       <Stack direction="row" spacing={1} alignItems="center">
@@ -648,6 +668,17 @@ export const Header = (): JSX.Element => {
                         </>
                       ) : null}
                       <PatientMetadata>{language}</PatientMetadata> |<PatientMetadata>{reasonForVisit}</PatientMetadata>
+                      <PatientMetadata
+                        sx={{
+                          marginLeft: 6,
+                          maxWidth: 400,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Payment: {paymentDisplayValue}
+                      </PatientMetadata>
                     </PatientInfoWrapper>
                   </Grid>
                   <PatientMetadata

@@ -33,15 +33,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function complexValidation(params: CreateBillingCoverageParams, oystehr: Oystehr): Promise<void> {
-  // Only one coverage may hold each insurance type per patient.
-  const occupying = await findCoverageOfType(oystehr, params.patientId, params.insuranceType);
-  if (occupying) {
-    throw {
-      code: APIErrorCode.ALREADY_EXISTS,
-      message: `This patient already has a ${coverageInsuranceTypeLabel(
-        params.insuranceType
-      )} coverage. Remove or change it before adding another.`,
-    };
+  if (params.insuranceType) {
+    // Only one coverage may hold each insurance type per patient.
+    const occupying = await findCoverageOfType(oystehr, params.patientId, params.insuranceType);
+    if (occupying) {
+      throw {
+        code: APIErrorCode.ALREADY_EXISTS,
+        message: `This patient already has a ${coverageInsuranceTypeLabel(
+          params.insuranceType
+        )} coverage. Remove or change it before adding another.`,
+      };
+    }
   }
 }
 
@@ -74,13 +76,14 @@ async function performEffect(oystehr: Oystehr, params: CreateBillingCoveragePara
     memberId: params.memberId,
     // Coverage status is not part of the billing product model; every coverage is active.
     status: 'active',
-    insuranceType: params.insuranceType,
     planType: params.planType,
     relationship: params.relationship,
     subscriberReference,
   });
   requests.push({ method: 'POST', url: '/Coverage', resource: coverage, fullUrl: coverageUrn });
-  requests.push(...reconcileAccountsForCoverage(accounts, params.patientId, coverageUrn, params.insuranceType));
+  if (params.insuranceType) {
+    requests.push(...reconcileAccountsForCoverage(accounts, params.patientId, coverageUrn, params.insuranceType));
+  }
 
   const result = await oystehr.fhir.transaction<BillingFhirResource>({ requests });
   const createdId = result.entry?.map((e) => e.resource).find((r): r is Coverage => r?.resourceType === 'Coverage')?.id;

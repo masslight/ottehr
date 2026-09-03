@@ -6,8 +6,11 @@ import {
   collectSetResourceRefs,
   getRuleFieldDef,
   getServiceLinePropertyDef,
+  MAX_REGEX_PATTERN_LENGTH,
+  PATIENT_COVERAGE_FIELD_ID,
   ruleConditionValueProblem,
   RuleFieldDef,
+  ruleReferencesPatientCoverage,
   ruleUsesChargeMasterPrices,
   serviceLineMatchValueProblem,
   serviceLineSetValueProblem,
@@ -86,6 +89,30 @@ describe('service line action schemas', () => {
     ).toBe(false);
     expect(RuleActionSchema.safeParse({ type: 'removeServiceLines' }).success).toBe(false);
   });
+
+  it('parses updateServiceLines set values as a literal date or a derived date source', () => {
+    const literal = {
+      type: 'updateServiceLines',
+      match: { type: 'all' },
+      set: { property: 'serviceDate', value: '2026-02-02' },
+    };
+    expect(RuleActionSchema.parse(literal)).toEqual(literal);
+
+    const firstLine = {
+      type: 'updateServiceLines',
+      match: { type: 'all' },
+      set: { property: 'serviceDate', value: { source: 'firstServiceLineDate' } },
+    };
+    expect(RuleActionSchema.parse(firstLine)).toEqual(firstLine);
+
+    expect(
+      RuleActionSchema.safeParse({
+        type: 'updateServiceLines',
+        match: { type: 'all' },
+        set: { property: 'serviceDate', value: { source: 'bogus' } },
+      }).success
+    ).toBe(false);
+  });
 });
 
 describe('addServiceLine action schema', () => {
@@ -115,6 +142,21 @@ describe('addServiceLine action schema', () => {
 
     expect(RuleActionSchema.safeParse({ type: 'addServiceLine', line: { charges: '30' } }).success).toBe(false);
     expect(RuleActionSchema.safeParse({ type: 'addServiceLine', line: { cptCode: '99050' } }).success).toBe(false);
+  });
+
+  it('parses a derived date source for serviceDate, rejecting an unknown source', () => {
+    const firstLine = {
+      type: 'addServiceLine',
+      line: { cptCode: '99050', charges: '30', serviceDate: { source: 'firstServiceLineDate' } },
+    };
+    expect(RuleActionSchema.parse(firstLine)).toEqual(firstLine);
+
+    expect(
+      RuleActionSchema.safeParse({
+        type: 'addServiceLine',
+        line: { cptCode: '99050', charges: '30', serviceDate: { source: 'bogus' } },
+      }).success
+    ).toBe(false);
   });
 });
 
@@ -221,6 +263,31 @@ describe('rule value validation', () => {
     expect(serviceLineMatchValueProblem(pos, 'in', ['11', '12'])).toBeUndefined();
   });
 
+  it('validates regex-operator values as patterns, not literals', () => {
+    // A pattern is legitimately not one of a select field's options and not a full-format value.
+    const pos = field('serviceFacility.posCode');
+    expect(ruleConditionValueProblem(pos, 'matches', '^2[0-3]$')).toBeUndefined();
+    expect(ruleConditionValueProblem(pos, 'eq', '^2[0-3]$')).toContain('one of the listed options');
+    const npi = field('renderingProvider.npi');
+    expect(ruleConditionValueProblem(npi, 'matches', '^123')).toBeUndefined();
+
+    const cptCodes = field('cptCodes');
+    expect(ruleConditionValueProblem(cptCodes, 'matches', '^9938[1-7]$')).toBeUndefined();
+    expect(ruleConditionValueProblem(cptCodes, 'notMatches', '^9938[1-7]$')).toBeUndefined();
+    // Uncompilable, empty, list, and oversized patterns are rejected.
+    expect(ruleConditionValueProblem(cptCodes, 'matches', '9938[1-7')).toBe('Must be a valid regular expression');
+    expect(ruleConditionValueProblem(cptCodes, 'matches', '')).toBe('Value is required');
+    expect(ruleConditionValueProblem(cptCodes, 'matches', ['^9938', '^9939'])).toContain('single value');
+    expect(ruleConditionValueProblem(cptCodes, 'matches', 'a'.repeat(MAX_REGEX_PATTERN_LENGTH + 1))).toContain(
+      `${MAX_REGEX_PATTERN_LENGTH} characters`
+    );
+
+    const lineCpt = getServiceLinePropertyDef('cptCode');
+    if (!lineCpt) throw new Error('missing cptCode def');
+    expect(serviceLineMatchValueProblem(lineCpt, 'matches', '^9938[1-7]$')).toBeUndefined();
+    expect(serviceLineMatchValueProblem(lineCpt, 'matches', '9938[1-7')).toBe('Must be a valid regular expression');
+  });
+
   it('validates service line match and set values', () => {
     const pos = getServiceLinePropertyDef('placeOfService');
     const units = getServiceLinePropertyDef('units');
@@ -245,6 +312,13 @@ describe('rule value validation', () => {
     expect(serviceLineSetValueProblem(lineDate, undefined, '02/02/2026')).toContain('ISO');
     expect(serviceLineSetValueProblem(modifiers, 'add', '')).toBe('Value is required');
     expect(serviceLineSetValueProblem(modifiers, undefined, '')).toBeUndefined(); // "set" clears
+
+    // A derived date source is only accepted on date-typed properties.
+    expect(serviceLineSetValueProblem(lineDate, undefined, { source: 'firstServiceLineDate' })).toBeUndefined();
+    expect(serviceLineSetValueProblem(lineDate, undefined, { source: 'bogus' } as never)).toBe('Unknown date source');
+    expect(serviceLineSetValueProblem(units, undefined, { source: 'firstServiceLineDate' } as never)).toBe(
+      'This property does not accept a derived date value'
+    );
   });
 
   it('validates add-line place of service and service date formats', () => {
@@ -253,6 +327,21 @@ describe('rule value validation', () => {
     expect(addServiceLineFieldProblem('placeOfService', '')).toBeUndefined();
     expect(addServiceLineFieldProblem('serviceDate', '2026-02-02')).toBeUndefined();
     expect(addServiceLineFieldProblem('serviceDate', '02/02/2026')).toContain('ISO date');
+    expect(addServiceLineFieldProblem('serviceDate', undefined)).toBeUndefined(); // inherits first line's date
+    expect(addServiceLineFieldProblem('serviceDate', '')).toBeUndefined();
+    expect(addServiceLineFieldProblem('serviceDate', { source: 'firstServiceLineDate' })).toBeUndefined();
+    expect(addServiceLineFieldProblem('serviceDate', { source: 'bogus' } as never)).toBe('Unknown date source');
+  });
+
+  it('requires diagnosis pointers only when diagnosisMode is "specific"', () => {
+    // No mode and no pointers: defaults to the primary diagnosis, so blank is fine.
+    expect(addServiceLineFieldProblem('diagnosisPointers', undefined)).toBeUndefined();
+    expect(addServiceLineFieldProblem('diagnosisPointers', undefined, { diagnosisMode: 'primary' })).toBeUndefined();
+    expect(addServiceLineFieldProblem('diagnosisPointers', undefined, { diagnosisMode: 'all' })).toBeUndefined();
+    // Explicit 'specific' with no pointers is a mistake, not "use the default".
+    expect(addServiceLineFieldProblem('diagnosisPointers', '', { diagnosisMode: 'specific' })).toContain('required');
+    expect(addServiceLineFieldProblem('diagnosisPointers', '  ', { diagnosisMode: 'specific' })).toContain('required');
+    expect(addServiceLineFieldProblem('diagnosisPointers', '1,2', { diagnosisMode: 'specific' })).toBeUndefined();
   });
 
   it('collects applyTag names across nested conditionals', () => {
@@ -390,6 +479,64 @@ describe('rule value validation', () => {
       })
     ).toBe(false);
   });
+
+  it('detects the "Coverage (from patient)" field in nested conditions and setField actions', () => {
+    // A condition inside a nested group references the field.
+    expect(
+      ruleReferencesPatientCoverage({
+        conditional: {
+          branches: [
+            {
+              condition: {
+                type: 'group',
+                logic: 'and',
+                conditions: [
+                  { type: 'field', field: 'payerId', operator: 'eq', value: '123456' },
+                  { type: 'field', field: PATIENT_COVERAGE_FIELD_ID, operator: 'notExists' },
+                ],
+              },
+              outcome: { type: 'noop' },
+            },
+          ],
+        },
+      })
+    ).toBe(true);
+    // A setField action inside a nested conditional's otherwise references the field.
+    expect(
+      ruleReferencesPatientCoverage({
+        conditional: {
+          branches: [
+            {
+              condition: { type: 'all' },
+              outcome: {
+                type: 'conditional',
+                conditional: {
+                  branches: [{ condition: { type: 'all' }, outcome: { type: 'noop' } }],
+                  otherwise: {
+                    type: 'actions',
+                    actions: [{ type: 'setField', field: PATIENT_COVERAGE_FIELD_ID, value: 'workersComp' }],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      })
+    ).toBe(true);
+    // Other fields don't trigger the prefetch.
+    expect(
+      ruleReferencesPatientCoverage({
+        conditional: {
+          branches: [
+            {
+              condition: { type: 'field', field: 'insurance.memberId', operator: 'exists' },
+              outcome: { type: 'actions', actions: [{ type: 'setField', field: 'insurance.memberId', value: 'X' }] },
+            },
+          ],
+        },
+      })
+    ).toBe(false);
+  });
 });
 
 describe('validateRuleFieldReferences', () => {
@@ -438,6 +585,51 @@ describe('validateRuleFieldReferences', () => {
     expect(problems[0]).toContain('unsupported operator "contains"');
     expect(problems[1]).toContain('sets "serviceFacility.ref" to an invalid value');
     expect(problems[1]).toContain('facility reference');
+  });
+
+  it('accepts a compilable regex condition and rejects an uncompilable one, in conditions and line matches', () => {
+    const problems = validateRuleFieldReferences(
+      ruleWith({
+        branches: [
+          {
+            condition: {
+              type: 'group',
+              logic: 'and',
+              conditions: [
+                { type: 'field', field: 'cptCodes', operator: 'matches', value: '^9938[1-7]$' },
+                { type: 'field', field: 'diagnosisCodes', operator: 'notMatches', value: '9938[1-7' },
+              ],
+            },
+            outcome: {
+              type: 'actions',
+              actions: [
+                {
+                  type: 'removeServiceLines',
+                  match: { type: 'field', property: 'cptCode', operator: 'matches', value: '(' },
+                },
+              ],
+            },
+          },
+        ],
+      })
+    );
+    expect(problems).toHaveLength(2);
+    expect(problems[0]).toContain('condition on "diagnosisCodes" with an invalid value');
+    expect(problems[0]).toContain('valid regular expression');
+    expect(problems[1]).toContain('matches service lines on "cptCode" with an invalid value');
+    // Regex operators are not offered on opaque reference fields.
+    const refProblems = validateRuleFieldReferences(
+      ruleWith({
+        branches: [
+          {
+            condition: { type: 'field', field: 'serviceFacility.ref', operator: 'matches', value: 'Location/.*' },
+            outcome: { type: 'noop' },
+          },
+        ],
+      })
+    );
+    expect(refProblems).toHaveLength(1);
+    expect(refProblems[0]).toContain('unsupported operator "matches"');
   });
 
   it('reports unknown condition fields and unknown or read-only setField targets, including nested ones', () => {
@@ -502,6 +694,31 @@ describe('validateRuleFieldReferences', () => {
     expect(problems[1]).toContain('updates unknown service line property "alsoNotOne"');
     expect(problems[2]).toContain('matches service lines on "modifiers" with unsupported operator "gt"');
     expect(problems[3]).toContain('uses operation "add" on non-list service line property "units"');
+  });
+
+  it('rejects a derived date-source value on a non-date service line property', () => {
+    const problems = validateRuleFieldReferences(
+      ruleWith({
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: {
+              type: 'actions',
+              actions: [
+                {
+                  type: 'updateServiceLines',
+                  match: { type: 'all' },
+                  set: { property: 'cptCode', value: { source: 'firstServiceLineDate' } as never },
+                },
+              ],
+            },
+          },
+        ],
+      })
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('updates service line property "cptCode" with an invalid value');
+    expect(problems[0]).toContain('does not accept a derived date value');
   });
 
   it('validates the applyChargeMasterPrices line match like the other service-line actions', () => {

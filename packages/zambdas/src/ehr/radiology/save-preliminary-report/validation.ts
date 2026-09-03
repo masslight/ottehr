@@ -47,6 +47,7 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     AUTH0_AUDIENCE,
     FHIR_API,
     PROJECT_API,
+    ENVIRONMENT,
   } = secrets;
   if (
     !ADVAPACS_CLIENT_ID ||
@@ -69,5 +70,7 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     AUTH0_AUDIENCE,
     FHIR_API,
     PROJECT_API,
+    // Required by userMe(); see `resolveCallerPractitionerRef` in shared/practitioners.ts.
+    ENVIRONMENT,
   };
 };

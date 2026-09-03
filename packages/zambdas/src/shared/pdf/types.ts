@@ -260,12 +260,12 @@ export interface ExternalLabResultsData extends LabResultsData {
   alternatePlacerId: string | undefined;
   accessionNumber: string;
   orderSubmitDate: string;
-  collectionDate: string;
-  specimenReceivedDateTime: string;
-  resultsReceivedDate: string;
+  collectionDateInTz: string;
+  specimenReceivedDateTimeInTz: string;
+  resultsReceivedDateInTz: string;
   reviewed?: boolean; // todo why is this possibly undefined ??
   reviewingProvider: Practitioner | undefined;
-  reviewDate: string | undefined;
+  reviewDateInTz: string | undefined;
   resultInterpretations: string[];
   attachments: ExternalLabResultAttachments;
   externalLabResults: ExternalLabResult[];
@@ -282,7 +282,7 @@ export interface InHouseLabResultsData
     'accountNumber' | 'patientVisitNote' | 'clinicalInfo' | 'fastingStatus' | 'resultSpecimenInfo'
   > {
   inHouseLabResults: InHouseLabResultConfig[];
-  timezone: string | undefined;
+  timezone: string;
   serviceRequestID: string;
   orderCreateDate: string;
 }
@@ -1036,6 +1036,8 @@ export interface SignatureData extends PdfData {
   signedBy?: string;
   /** "Approved by {provider} on {date} {time}" — present only when supervisor-approved. */
   approvedBy?: string;
+  /** Placeholder shown instead of the signed line when the note isn't signed yet (e.g. a faxed draft). */
+  pendingSignature?: string;
 }
 
 export interface ProgressNoteInput {
@@ -1048,6 +1050,7 @@ export interface ProgressNoteInput {
   serviceCategories?: ServiceCategoryCatalogEntry[];
   erxPharmacies?: Record<string, ErxGetPharmacyResponse>;
   signatures?: ProgressNoteSignatures;
+  signed?: boolean;
 }
 
 export interface ProgressNoteData extends PdfData {
@@ -1117,6 +1120,23 @@ export interface DischargeSummaryData extends PdfData {
 /**
  * Data for the generated first page of an outbound fax packet.
  */
+/**
+ * Who and what the cover sheet is about. The visit fields are absent for packets that do not belong
+ * to a single visit (a whole medical record, or one document from the patient's Docs table).
+ */
+export interface FaxCoverSheetSubject {
+  /** "Black, Oliver" */
+  patientName: string;
+  /** MRN or patient uuid — printed as PID. */
+  patientId: string;
+  /** Appointment id — printed as VID. */
+  visitId?: string;
+  /** Already formatted MM/DD/YYYY. */
+  dateOfService?: string;
+  /** e.g. "Urgent Care Visit" / "Medical Record". Omitted when the patient's name stands alone. */
+  visitTypeLabel?: string;
+}
+
 export interface FaxCoverSheetData extends PdfData {
   recipient: { name?: string; organization?: string; faxNumber: string; phoneNumber?: string };
   sender: {
@@ -1127,18 +1147,7 @@ export interface FaxCoverSheetData extends PdfData {
     phoneNumber?: string;
     faxNumber?: string;
   };
-  subject: {
-    /** "Black, Oliver" */
-    patientName: string;
-    /** MRN or patient uuid — printed as PID. */
-    patientId: string;
-    /** Appointment id — printed as VID. */
-    visitId: string;
-    /** Already formatted MM/DD/YYYY. */
-    dateOfService: string;
-    /** e.g. "Urgent Care Visit" / "Follow-Up Visit". */
-    visitTypeLabel: string;
-  };
+  subject: FaxCoverSheetSubject;
   /** Total pages of the merged packet, cover sheet included. */
   totalPages: number;
   /** Already formatted "MM/DD/YYYY  hh:mm A". */

@@ -142,7 +142,7 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
               const audioSource = getSource(item, oystehr, aiChat.providers);
               return <RecordedAudio duration={audioDuration} status="ready" source={audioSource} />;
             })}
-          {uploading && (
+          {(uploading || aiChat?.hasPendingRecording) && (
             <RecordedAudio
               duration={getFormatDuration(uploadedDuration)}
               status="loading"

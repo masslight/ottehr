@@ -28,8 +28,13 @@ import { makeBusinessIdentifierForCandidPayment } from '../../../shared/candid';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
+import { practitionerRefForUser } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
-import { getStripeClient, makeBusinessIdentifierForStripePayment } from '../../../shared/stripeIntegration';
+import {
+  getStripeClient,
+  makeBusinessIdentifierForStripePayment,
+  stripeEncounterMetadata,
+} from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse } from '../../../shared/validation';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
@@ -53,9 +58,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
   const user = await getUser(authorization.replace('Bearer ', ''), secrets);
 
-  const userProfile = user.profile;
-
-  if (!userProfile) {
+  if (!user.profile) {
     throw NOT_AUTHORIZED;
   }
 
@@ -86,11 +89,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
 
+  const submitterRef = await practitionerRefForUser(user, oystehrClient);
+
   const effectInput: ComplexValidationOutput = await complexValidation(
     {
       ...validatedParameters,
       ...requiredSecrets,
-      userProfile,
+      submitterRef,
     },
     oystehrClient
   );
@@ -123,7 +128,7 @@ const performEffect = async (
   oystehrClient: Oystehr,
   requiredSecrets: RequiredSecrets
 ): Promise<{ notice: PaymentNotice; paymentIntent?: Stripe.PaymentIntent }> => {
-  const { encounterId, patientId, paymentDetails, organizationId, userProfile, stripeAccount } = input;
+  const { encounterId, patientId, paymentDetails, organizationId, submitterRef, stripeAccount } = input;
   const { paymentMethod, amountInCents, description, idempotencyKey } = paymentDetails;
   const dateTimeIso = DateTime.now().toISO() || '';
   let paymentIntent: Stripe.Response<Stripe.PaymentIntent> | undefined;
@@ -145,7 +150,7 @@ const performEffect = async (
   const paymentNoticeInput: PaymentNoticeInput = {
     encounterId,
     paymentDetails,
-    submitterRef: { reference: userProfile },
+    submitterRef,
     dateTimeIso,
     recipientId: organizationId,
     idempotencyKey,
@@ -162,11 +167,10 @@ const performEffect = async (
       payment_method: paymentMethodId,
       description: description || `Payment for encounter ${encounterId}`,
       confirm: true,
-      metadata: {
-        oystehr_encounter_id: encounterId,
-        // added later. if it's undefined, add conditional check to get patient id from fhir
-        oystehr_patient_id: patientId,
-      },
+      metadata: stripeEncounterMetadata({
+        encounterId,
+        patientId,
+      }),
       automatic_payment_methods: {
         enabled: true,
         allow_redirects: 'never',
@@ -366,7 +370,7 @@ const validateEnvironmentParameters = (input: ZambdaInput, isCardPayment: boolea
   return { organizationId, stripeKey, secrets };
 };
 
-type ComplexValidationInput = PostPatientPaymentInput & RequiredSecrets & { userProfile: string };
+type ComplexValidationInput = PostPatientPaymentInput & RequiredSecrets & { submitterRef: Reference };
 interface ComplexValidationOutput extends ComplexValidationInput {
   cardInput?: {
     stripeCustomerId: string;

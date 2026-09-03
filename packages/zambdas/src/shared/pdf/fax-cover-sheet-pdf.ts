@@ -104,6 +104,11 @@ const buildSenderLines = (data: FaxCoverSheetData): string[] => {
 
 const formatPageCount = (totalPages: number): string => `${totalPages} ${totalPages === 1 ? 'page' : 'pages'}`;
 
+export const getFaxCoverSheetTitle = (data: FaxCoverSheetData): string =>
+  data.subject.visitTypeLabel
+    ? `${data.subject.visitTypeLabel} of ${data.subject.patientName}`
+    : data.subject.patientName;
+
 /**
  * Renders the two side-by-side To/From blocks and leaves the cursor below the taller of the two.
  * Bounds are restored before returning.
@@ -155,10 +160,11 @@ export async function createFaxCoverSheetPdfBytes(data: FaxCoverSheetData): Prom
   }
 
   const { subject } = data;
-  pdfClient.drawText(`${subject.visitTypeLabel} of ${subject.patientName}`, styles.textStyles.title);
+  pdfClient.drawText(getFaxCoverSheetTitle(data), styles.textStyles.title);
   pdfClient.drawText(`PID: ${subject.patientId}`, styles.textStyles.regular);
-  pdfClient.drawText(`VID: ${subject.visitId}`, styles.textStyles.regular);
-  pdfClient.drawText(`DOS: ${subject.dateOfService}`, styles.textStyles.regular);
+  // A packet that is not about one visit has no visit to identify or date.
+  if (subject.visitId) pdfClient.drawText(`VID: ${subject.visitId}`, styles.textStyles.regular);
+  if (subject.dateOfService) pdfClient.drawText(`DOS: ${subject.dateOfService}`, styles.textStyles.regular);
 
   pdfClient.drawSeparatedLine(styles.lineStyles.separator);
 

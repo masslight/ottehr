@@ -13,9 +13,8 @@ import {
 } from '../constants/provider';
 import { useApiClients } from '../hooks/useAppClients';
 import { formatTaxId } from '../utils/format';
-import { AddressFields } from './AddressFields';
 import { EditableSection, TitleWithSourceLink } from './claim/EditableSection';
-import { ProviderFields } from './ProviderFields';
+import { ProviderAddressFields, ProviderFields } from './ProviderFields';
 import { Row } from './Row';
 
 export function ProviderDetailSection({
@@ -49,6 +48,7 @@ export function ProviderDetailSection({
 }
 
 export function ProviderDetailForm({
+  title,
   provider,
   role,
   onSave,
@@ -56,6 +56,7 @@ export function ProviderDetailForm({
   selector,
   showSourceLink,
 }: {
+  title?: string;
   provider: BillingProviderOption | null;
   role: ProviderRole;
   onSave: (payload: CreateBillingProviderInput | UpdateBillingProviderInput) => Promise<string | null>;
@@ -80,7 +81,7 @@ export function ProviderDetailForm({
     <EditableSection
       title={
         <TitleWithSourceLink
-          title={'Provider Details'}
+          title={title ?? 'Provider Details'}
           sourceId={showSourceLink ? provider?.workingCopyReferenceResourceId : undefined}
           sourceRouteBase={role === 'rendering' ? '/rendering-providers/' : '/billing-providers/'}
         />
@@ -129,7 +130,7 @@ export function ProviderDetailForm({
           )}
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
             <ProviderFields />
-            <AddressFields />
+            <ProviderAddressFields />
           </Box>
         </Box>
       }

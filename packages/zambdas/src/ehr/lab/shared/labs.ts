@@ -141,6 +141,10 @@ const makeSearchParamsBasedOnDiagnosticReport = (diagnosticReportID: string): Se
       value: 'DiagnosticReport:result', // observations
     },
     {
+      name: '_include',
+      value: 'DiagnosticReport:encounter', // we expect reflex tests to have encounters
+    },
+    {
       name: '_include:iterate',
       value: 'Encounter:appointment',
     },
@@ -181,12 +185,17 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
       params: searchParams,
     })
   )?.unbundle();
+  console.log(
+    'these are the returned resources searching for DR based resources',
+    resourceSearch.map((res) => `${res.resourceType}/${res.id}`).sort()
+  );
 
   const patients: Patient[] = [];
   const organizations: Organization[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const observations: Observation[] = [];
   const schedules: Schedule[] = [];
+  const serviceRequests: ServiceRequest[] = [];
 
   resourceSearch.forEach((resource) => {
     if (resource.resourceType === 'Patient') patients.push(resource);
@@ -215,7 +224,6 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
   const diagnosticReport = diagnosticReports[0];
   const schedule = schedules.length ? schedules[0] : undefined;
 
-  const serviceRequests: ServiceRequest[] = [];
   if (type === 'unsolicited') {
     serviceRequests.push(
       ...resourceSearch.filter(

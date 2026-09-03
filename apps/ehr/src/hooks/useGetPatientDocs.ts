@@ -1,9 +1,9 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { SearchParam } from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { createCustomFolder, deletePatientDocument, renameCustomFolder } from 'src/api/api';
 import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
 import {
@@ -14,6 +14,7 @@ import {
 } from 'utils/lib/fhir/list';
 import { useSuccessQuery } from 'utils/lib/frontend';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import {
@@ -51,12 +52,15 @@ export type PatientDocumentAttachment = {
   fileNameFromUrl?: string;
   z3Url?: string;
   presignedUrl?: string;
+  /** The stored MIME type. Carried so the UI decides what is faxable on the same input the server uses. */
+  contentType?: string;
 };
 
 // http://localhost:4002/patient/104e4c8c-1866-4c96-a436-88080c691614/docs
 // "date": "2024-09-02T10:22:53.870Z",
 export type PatientDocumentInfo = {
   id: string;
+  typeCodes?: string[];
   //TODO: probably be DocumentReference's [parent DomainResource.text] value to have ability to use _text search modifier
   docName: string;
   //TODO: remove
@@ -66,12 +70,34 @@ export type PatientDocumentInfo = {
   whoAdded?: string;
   attachments?: PatientDocumentAttachment[];
   encounterId?: string;
+  // Appointment the document was filed against, when it is linked that way instead of by encounter.
+  appointmentId?: string;
+};
+
+/**
+ * How a document points at the visit it belongs to.
+ *
+ * Two fields because the write paths disagree. EHR uploads and the intake paperwork PDF set
+ * `context.encounter`, while other intake documents — consent forms, condition photos, school/work
+ * notes — record the visit as an Appointment in `context.related` and set no encounter. A document
+ * belongs to a visit if either matches, so both are carried rather than picking one as canonical.
+ *
+ * Note that some intake documents match neither on purpose: harvest files photo ID and insurance
+ * cards under `related: Patient/<id>`, treating them as patient-level records that outlive any one
+ * visit, so they stay visit-less.
+ */
+export type DocumentVisitRef = {
+  encounterId?: string;
+  appointmentId?: string;
 };
 
 export type PatientDocumentsFilters = {
   documentName?: string;
   documentsFolder?: PatientDocumentsFolder;
   dateAdded?: DateTime;
+  // Restrict results to documents filed against this visit. Also narrows the folder counters,
+  // so the sidebar reflects what the visit actually contains.
+  visit?: DocumentVisitRef;
 };
 
 export type UploadDocumentActionResult = {
@@ -117,9 +143,194 @@ export type UseGetPatientDocsReturn = {
 export const QUERY_KEYS = {
   GET_PATIENT_DOCS_FOLDERS: 'get-patient-docs-folders',
   GET_SEARCH_PATIENT_DOCUMENTS: 'get-search-patient-documents',
+  GET_VISIT_DOCUMENT_IDS: 'get-visit-document-ids',
 };
 
-export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsFilters): UseGetPatientDocsReturn => {
+const DOCUMENT_SEARCH_PAGE_SIZE = 200;
+// Backstop against an unbounded loop if the server keeps advertising a next page. Far above any
+// real patient chart; reaching it is a bug, not a big chart.
+const DOCUMENT_SEARCH_MAX = 20000;
+
+/**
+ * Every page of a DocumentReference search, concatenated.
+ *
+ * A single `fhir.search` returns one server-sized page. Both callers here need the complete set —
+ * one drives the folder counters, the other the documents table — so a truncated page shows wrong
+ * counts or hides documents outright, with nothing on screen to indicate it happened.
+ */
+const searchAllDocumentReferencePages = async <T extends FhirResource>(
+  oystehr: Oystehr,
+  params: SearchParam[],
+  context: { site: string; tags: Record<string, string> }
+): Promise<T[]> => {
+  const resources: T[] = [];
+  let offset = 0;
+  let hasMorePages = true;
+
+  while (hasMorePages) {
+    const bundle = await oystehr.fhir.search<T>({
+      resourceType: 'DocumentReference',
+      params: [
+        ...params,
+        { name: '_count', value: `${DOCUMENT_SEARCH_PAGE_SIZE}` },
+        { name: '_offset', value: `${offset}` },
+      ],
+    });
+
+    const page = bundle.unbundle() as T[];
+    resources.push(...page);
+
+    // Advance by what the server actually returned, not by what was requested: a server free to
+    // cap `_count` below the requested size would otherwise leave a gap the size of the shortfall,
+    // silently skipping documents.
+    offset += page.length;
+
+    // An empty page means there is nothing left to read even if a next link is advertised, and the
+    // offset can no longer advance, so stop there too.
+    const serverReportsMorePages = bundle.link?.some((link) => link.relation === 'next') ?? false;
+    hasMorePages = serverReportsMorePages && page.length > 0;
+
+    if (hasMorePages && resources.length >= DOCUMENT_SEARCH_MAX) {
+      safelyCaptureMessage('DocumentReference paging hit its ceiling; results are truncated', {
+        level: 'error',
+        tags: { ...context.tags, site: context.site, ceiling: `${DOCUMENT_SEARCH_MAX}` },
+      });
+      hasMorePages = false;
+    }
+  }
+
+  return resources;
+};
+
+export const hasVisitRef = (visit: DocumentVisitRef | undefined): boolean =>
+  !!visit && (!!visit.encounterId || !!visit.appointmentId);
+
+/**
+ * One search-param set per way a document can reference a visit. FHIR cannot OR two different
+ * search params in a single request, so each linkage is queried separately and the results unioned.
+ */
+const visitSearchParamSets = (visit: DocumentVisitRef): SearchParam[][] => {
+  const sets: SearchParam[][] = [];
+  if (visit.encounterId) sets.push([{ name: 'encounter', value: `Encounter/${visit.encounterId}` }]);
+  if (visit.appointmentId) sets.push([{ name: 'related', value: `Appointment/${visit.appointmentId}` }]);
+  return sets;
+};
+
+/**
+ * Documents matching `baseParams`, restricted to `visit` when one is given. A document linked both
+ * ways would come back from both searches, so results are de-duplicated by id.
+ */
+const searchDocumentReferencesForVisit = async <T extends FhirResource>(
+  oystehr: Oystehr,
+  baseParams: SearchParam[],
+  visit: DocumentVisitRef | undefined,
+  context: { site: string; tags: Record<string, string> }
+): Promise<T[]> => {
+  const paramSets = visit ? visitSearchParamSets(visit) : [];
+
+  if (paramSets.length === 0) {
+    return searchAllDocumentReferencePages<T>(oystehr, baseParams, context);
+  }
+
+  const perLinkage = await Promise.all(
+    paramSets.map((visitParams) =>
+      searchAllDocumentReferencePages<T>(oystehr, [...baseParams, ...visitParams], context)
+    )
+  );
+
+  const byId = new Map<string, T>();
+  for (const resource of perLinkage.flat()) {
+    if (resource.id && !byId.has(resource.id)) byId.set(resource.id, resource);
+  }
+  return [...byId.values()];
+};
+
+/**
+ * Ids of every document filed against one visit, regardless of folder.
+ *
+ * The folder counters come from `List.entry` lengths, which are patient-wide. When a visit filter
+ * is active the sidebar has to show per-visit counts instead, and the main document search can't
+ * supply them (it is itself narrowed to the selected folder). So fetch the visit's document ids
+ * once and intersect them with each folder's entries.
+ *
+ * Pages exhaustively — these ids drive the counters, so a truncated result silently undercounts and
+ * can show 0 for a folder that holds documents. Only ids are requested (`_elements`), which keeps
+ * each page cheap.
+ */
+const useVisitDocumentIds = (patientId: string, visit: DocumentVisitRef | undefined): Set<string> | undefined => {
+  const { oystehr } = useApiClients();
+  const isVisitScoped = hasVisitRef(visit);
+
+  const { data } = useQuery({
+    queryKey: [
+      QUERY_KEYS.GET_VISIT_DOCUMENT_IDS,
+      { patientId, encounterId: visit?.encounterId, appointmentId: visit?.appointmentId },
+    ],
+    enabled: !!oystehr && !!patientId && isVisitScoped,
+    queryFn: async (): Promise<string[]> => {
+      if (!oystehr) throw new Error('useVisitDocumentIds() oystehr not defined');
+
+      const docRefs = await searchDocumentReferencesForVisit<DocumentReference>(
+        oystehr,
+        [
+          { name: 'subject', value: `Patient/${patientId}` },
+          // Only ids are needed to intersect with folder entries, which keeps each page cheap.
+          { name: '_elements', value: 'id' },
+        ],
+        visit,
+        {
+          site: 'useVisitDocumentIds',
+          tags: {
+            patientId,
+            encounterId: visit?.encounterId ?? '',
+            appointmentId: visit?.appointmentId ?? '',
+          },
+        }
+      );
+
+      return docRefs.map((docRef) => docRef.id).filter((id): id is string => !!id);
+    },
+  });
+
+  return useMemo(() => (isVisitScoped && data ? new Set(data) : undefined), [isVisitScoped, data]);
+};
+
+/**
+ * Rewrites folder counters to only count documents belonging to the given visit. Folders are kept
+ * even at zero so a user can still open one and upload into it (matching the patient-level view).
+ */
+const applyVisitCountsToFolders = (
+  folders: PatientDocumentsFolder[],
+  visitDocumentIds: Set<string> | undefined
+): PatientDocumentsFolder[] => {
+  if (!visitDocumentIds) return folders;
+
+  return folders.map((folder) => {
+    const documentsRefs = (folder.documentsRefs ?? []).filter((docRef) => {
+      const id = removePrefix('DocumentReference/', docRef.reference?.reference ?? '');
+      return !!id && visitDocumentIds.has(id);
+    });
+    return { ...folder, documentsCount: documentsRefs.length, documentsRefs };
+  });
+};
+
+export type UseGetPatientDocsOptions = {
+  /**
+   * Visit that documents uploaded through this hook are filed against. Deliberately separate from
+   * `filters.visit`: filtering by a visit is a browsing action and must not silently retarget
+   * uploads. Only visit-scoped surfaces (Progress Note, Visit Details) set this.
+   *
+   * An encounter id, because uploads write `context.encounter` — the `related`-to-Appointment
+   * linkage is only read, never written here.
+   */
+  uploadEncounterId?: string;
+};
+
+export const useGetPatientDocs = (
+  patientId: string,
+  filters?: PatientDocumentsFilters,
+  options?: UseGetPatientDocsOptions
+): UseGetPatientDocsReturn => {
   const [documents, setDocuments] = useState<PatientDocumentInfo[]>();
   const [documentsFolders, setDocumentsFolders] = useState<PatientDocumentsFolder[]>([]);
   const [currentFilters, setCurrentFilters] = useState<PatientDocumentsFilters | undefined>(filters);
@@ -140,7 +351,13 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
     }
   );
 
-  const documentActions = usePatientDocsActions({ patientId });
+  const visitDocumentIds = useVisitDocumentIds(patientId, currentFilters?.visit);
+  const visibleFolders = useMemo(
+    () => applyVisitCountsToFolders(documentsFolders, visitDocumentIds),
+    [documentsFolders, visitDocumentIds]
+  );
+
+  const documentActions = usePatientDocsActions({ patientId, encounterId: options?.uploadEncounterId });
   const folderActions = useFolderActions({ patientId });
 
   const searchDocuments = useCallback((filters: PatientDocumentsFilters): void => {
@@ -322,7 +539,7 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
     documents: documents,
     // documentsByFolders: documentsByFolders,
     isLoadingFolders: isLoadingFolders,
-    documentsFolders: documentsFolders,
+    documentsFolders: visibleFolders,
     searchDocuments: searchDocuments,
     downloadDocument: downloadDocument,
     renameDocument,
@@ -502,6 +719,8 @@ const useSearchPatientDocuments = (
         docSearchTerm: filters?.documentName,
         docCreationDate: docCreationDate,
         docFolderId: filters?.documentsFolder?.id,
+        encounterId: filters?.visit?.encounterId,
+        appointmentId: filters?.visit?.appointmentId,
       },
     ],
 
@@ -527,12 +746,15 @@ const useSearchPatientDocuments = (
         searchParams.push({ name: 'date', value: `eq${docCreationDate}` });
       }
 
-      return (
-        await oystehr.fhir.search<FhirResource>({
-          resourceType: 'DocumentReference',
-          params: searchParams,
-        })
-      ).unbundle();
+      return await searchDocumentReferencesForVisit<FhirResource>(oystehr, searchParams, filters?.visit, {
+        site: 'useSearchPatientDocuments',
+        tags: {
+          patientId,
+          folderId: docsFolder?.id ?? '',
+          encounterId: filters?.visit?.encounterId ?? '',
+          appointmentId: filters?.visit?.appointmentId ?? '',
+        },
+      });
     },
   });
 
@@ -551,17 +773,7 @@ const useSearchPatientDocuments = (
           ?.filter((resource: FhirResource) => resource.resourceType === 'DocumentReference')
           ?.map((docRefResource: FhirResource) => docRefResource as DocumentReference) ?? [];
 
-      const documents = docRefsResources.map((docRef) => {
-        const docName = debug__createDisplayedDocumentName(docRef);
-        const attachments = extractDocumentAttachments(docRef);
-
-        return {
-          id: docRef.id!,
-          docName: docName,
-          whenAddedDate: docRef.date,
-          attachments: attachments,
-        } as PatientDocumentInfo;
-      });
+      const documents = docRefsResources.map((docRef) => createDocumentInfo(docRef));
 
       //TODO: remove when _text search will be available
       const resultDocuments = debug__mimicTextNarrativeDocumentsFilter(documents, filters);
@@ -591,6 +803,7 @@ const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentA
         title,
         fileNameFromUrl: getFileNameFromUrl(docRefAttachment.url),
         z3Url: docRefAttachment.url,
+        contentType: docRefAttachment.contentType,
       } as PatientDocumentAttachment;
     });
 };
@@ -615,7 +828,14 @@ const debug__mimicTextNarrativeDocumentsFilter = (
   });
 };
 
-const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatientDocsActionsReturn => {
+const usePatientDocsActions = ({
+  patientId,
+  encounterId,
+}: {
+  patientId: string;
+  // When present, documents uploaded through these actions are filed against this visit.
+  encounterId?: string;
+}): UsePatientDocsActionsReturn => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   const [isUploading, setIsUploading] = useState(false);
@@ -635,6 +855,7 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
         const createUploadDocumentRes = await oystehrZambda.zambda.execute({
           id: CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID,
           patientId: patientId,
+          ...(encounterId ? { encounterId } : {}),
           ...restParams,
         });
         console.log('signing request end RESULT =>');
@@ -669,6 +890,9 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
           queryClient.refetchQueries({
             queryKey: [QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }],
           }),
+          queryClient.refetchQueries({
+            queryKey: [QUERY_KEYS.GET_VISIT_DOCUMENT_IDS, { patientId }],
+          }),
         ]);
 
         return {
@@ -684,7 +908,7 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
         setIsUploading(false);
       }
     },
-    [oystehrZambda, patientId, queryClient]
+    [oystehrZambda, patientId, encounterId, queryClient]
   );
 
   const deleteDocumentAction = useCallback(
@@ -703,6 +927,9 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
         }),
         queryClient.refetchQueries({
           queryKey: [QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }],
+        }),
+        queryClient.refetchQueries({
+          queryKey: [QUERY_KEYS.GET_VISIT_DOCUMENT_IDS, { patientId }],
         }),
       ]);
     },
@@ -769,13 +996,30 @@ export interface UploadPatientDocumentResponse {
   presignedUrl: string;
 }
 
+/**
+ * The Appointment a document is filed against, when it is linked through `context.related`.
+ *
+ * `related` is a general-purpose slot: writers put a Patient there (update-visit-files), a
+ * ServiceRequest (radiology), or sibling DocumentReferences (attached files). Only Appointment
+ * references identify a visit, so everything else is ignored.
+ */
+const extractRelatedAppointmentId = (documentReference: DocumentReference): string | undefined => {
+  for (const related of documentReference.context?.related ?? []) {
+    const appointmentId = removePrefix('Appointment/', related.reference ?? '');
+    if (appointmentId) return appointmentId;
+  }
+  return undefined;
+};
+
 const createDocumentInfo = (documentReference: DocumentReference): PatientDocumentInfo => {
   return {
     id: documentReference.id!,
+    typeCodes: documentReference.type?.coding?.flatMap((coding) => (coding.code ? [coding.code] : [])),
     docName: debug__createDisplayedDocumentName(documentReference),
     whenAddedDate: documentReference.date,
     attachments: extractDocumentAttachments(documentReference),
-    encounterId: documentReference.context?.encounter?.[0]?.reference?.split('/')?.[1],
+    encounterId: removePrefix('Encounter/', documentReference.context?.encounter?.[0]?.reference ?? ''),
+    appointmentId: extractRelatedAppointmentId(documentReference),
   };
 };
 

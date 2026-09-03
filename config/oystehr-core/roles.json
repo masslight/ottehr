@@ -321,7 +321,8 @@
             "Zambda:Function:import-era",
             "Zambda:Function:record-billing-manual-payment",
             "Zambda:Function:search-billing-patient-ar-claims",
-            "Zambda:Function:get-billing-patient-balance"
+            "Zambda:Function:get-billing-patient-balance",
+            "Zambda:Function:export-billing-claims"
           ]
         }
       ]
@@ -1161,7 +1162,7 @@
     },
     "CLINICIAN": {
       "name": "Clinician",
-      "description": "Clinical staff without an NPI (e.g. nurses, medical assistants). Provider access except NPI-gated actions (e-prescribing and submitting claims are excluded here; sign, external labs & imaging, and in-house medication orders are enforced in the zambdas via requirePractitionerNPI).",
+      "description": "Clinical staff without an NPI (e.g. nurses, medical assistants). Provider access except NPI-gated actions (e-prescribing and submitting claims are excluded here; sign/co-sign and external labs & imaging orders are enforced in the zambdas via requirePractitionerNPI). In-house medication orders, in-house labs and nursing orders are deliberately NOT gated.",
       "accessPolicy": [
         {
           "resource": [
@@ -1299,6 +1300,15 @@
           "effect": "Allow",
           "resource": [
             "eRx:Configuration"
+          ]
+        },
+        {
+          "action": [
+            "eRx:GetMedicationHistory"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "eRx:Patient"
           ]
         },
         {

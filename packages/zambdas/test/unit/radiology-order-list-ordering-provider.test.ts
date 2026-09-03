@@ -1,7 +1,7 @@
 import { Encounter, Practitioner, ServiceRequest } from 'fhir/r4b';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { describe, expect, test } from 'vitest';
-import { resolveOrderingProvider } from '../../src/ehr/radiology/order-list';
+import { resolveOrderingProvider } from '../../src/shared/radiology';
 
 const ATTENDER: Practitioner = {
   resourceType: 'Practitioner',

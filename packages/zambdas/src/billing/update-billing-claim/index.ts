@@ -12,8 +12,7 @@ import {
   ProvenanceAgent,
   RelatedPerson,
 } from 'fhir/r4b';
-import { setCoveragePlanType } from 'utils/lib/fhir/billing';
-import { setNpi } from 'utils/lib/fhir/helpers';
+import { codeableConcept, setNpi } from 'utils/lib/fhir/helpers';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import {
   CODE_SYSTEM_CLAIM_TYPE,
@@ -26,21 +25,25 @@ import {
 import { BillingPolicyHolderInput, BillingSubscriberRelationship } from 'utils/lib/types/data/billing/billing.schemas';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { removeExtension, updateExtension } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../provenance';
 import {
-  claimResourceChangeRequests,
-  commitClaimResourceChange,
-  diffResources,
-  resolveClaimActor,
-} from '../provenance';
-import {
+  attachCoverageToClaim,
   buildAddress,
+  buildClaimCoverageCopies,
   buildDiagnosisSequence,
   buildSubscriberRelatedPerson,
   claimHasRealCoverage,
+  CODE_SYSTEM_NUBC_REVENUE,
   createBillingClient,
   ensureClaimInsurance,
+  EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+  EXTENSION_CLAIM_FREQUENCY_CODE,
+  EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+  EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fetchById,
   getClaimTypeCoding,
   payerDisplay,
@@ -251,39 +254,50 @@ async function attachClaimResources(
 
   if (fields.coverageId) {
     const original = await fetchById<Coverage>(oystehr, 'Coverage', fields.coverageId);
-    const copy = prepareWorkingCopy<Coverage>(original, fields.coverageId);
-    if (claim.patient?.reference) {
-      copy.beneficiary = { reference: claim.patient.reference };
-      copy.subscriber = { reference: claim.patient.reference };
-      // Mirror the encounter path: copy the subscriber RelatedPerson so the policy holder is preserved.
-      const subscriberRef = original.subscriber?.reference;
-      if (subscriberRef?.startsWith('RelatedPerson/')) {
-        const subscriber = await fetchById<RelatedPerson>(
-          oystehr,
-          'RelatedPerson',
-          subscriberRef.replace('RelatedPerson/', '')
-        );
-        const subscriberCopy = prepareWorkingCopy<RelatedPerson>(subscriber, subscriber.id!);
-        subscriberCopy.patient = { reference: claim.patient.reference };
-        const createdSubscriber = await oystehr.fhir.create(subscriberCopy);
-        copy.subscriber = { reference: `RelatedPerson/${createdSubscriber.id}` };
-      }
+    // Mirror the encounter path: copy the subscriber RelatedPerson so the policy holder is preserved.
+    const subscriberRef = original.subscriber?.reference;
+    const subscriber = subscriberRef?.startsWith('RelatedPerson/')
+      ? await fetchById<RelatedPerson>(oystehr, 'RelatedPerson', subscriberRef.replace('RelatedPerson/', ''))
+      : undefined;
+    const { coverage: copy, subscriber: subscriberCopy } = buildClaimCoverageCopies({
+      coverage: original,
+      subscriber,
+      patientReference: claim.patient?.reference,
+    });
+    if (subscriberCopy) {
+      const createdSubscriber = await oystehr.fhir.create(subscriberCopy);
+      copy.subscriber = { reference: `RelatedPerson/${createdSubscriber.id}` };
     }
     const created = await oystehr.fhir.create(copy);
     const payerRef = created.payor?.[0]?.reference;
     const display = payerRef ? payerDisplay((await resolvePayersByRef(oystehr, [payerRef])).get(payerRef)) : undefined;
-    // ensureClaimInsurance drops any no-coverage stub now that a real focal coverage is attached.
-    claim.insurance = ensureClaimInsurance([
-      { sequence: 1, focal: true, coverage: { reference: `Coverage/${created.id}`, display } },
-      ...(claim.insurance ?? []).filter((i) => i.sequence !== 1),
-    ]);
-    if (payerRef) claim.insurer = { reference: payerRef, display };
+    attachCoverageToClaim({
+      claim,
+      coverageReference: `Coverage/${created.id}`,
+      type: fields.coverageType ?? 'primary',
+      display,
+      payerReference: payerRef,
+    });
   }
 
   if (fields.removeCoverage) {
-    // Make the claim self-pay; ensureClaimInsurance restores the no-coverage stub below.
-    claim.insurance = [];
-    delete claim.insurer;
+    let newInsurance = claim.insurance.filter(
+      (ins) => ins.coverage.reference?.replace('Coverage/', '') !== fields.removeCoverage
+    );
+    if (!newInsurance.length) {
+      // Make the claim self-pay; ensureClaimInsurance restores the no-coverage stub below.
+      claim.insurance = [];
+      delete claim.insurer;
+    } else {
+      newInsurance = newInsurance.map((ins, ind) => {
+        ins.sequence = ind + 1;
+        return ins;
+      });
+      if (!newInsurance.some((ins) => ins.focal)) {
+        newInsurance[0].focal = true;
+      }
+      claim.insurance = newInsurance;
+    }
   }
 
   if (fields.diagnoses) {
@@ -319,6 +333,7 @@ async function attachClaimResources(
         : undefined,
       net: { value: line.charges, currency: 'USD' },
       quantity: { value: line.units, unit: 'UN' },
+      revenue: line.revenueCode ? codeableConcept(line.revenueCode, CODE_SYSTEM_NUBC_REVENUE) : undefined,
     }));
     claim.total = { value: fields.serviceLines.reduce((sum, l) => sum + l.charges, 0), currency: 'USD' };
   } else if (fields.diagnoses) {
@@ -347,20 +362,58 @@ async function attachClaimResources(
     const display = fields.payerId ? payerDisplay(await oystehr.rcm.getPayer({ id: fields.payerId })) : undefined;
     // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
     if (payerUrl && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl, display };
-    const focalInsurance = claim.insurance.find((i) => i.focal);
-    const focalCoverageRef = focalInsurance?.coverage?.reference;
-    if (focalCoverageRef?.startsWith('Coverage/')) {
-      let coverage = await fetchById<Coverage>(oystehr, 'Coverage', focalCoverageRef.replace('Coverage/', ''));
-      const coverageBefore = structuredClone(coverage);
-      if (payerUrl) {
-        coverage.payor = [{ reference: payerUrl, display }];
-        if (focalInsurance?.coverage) focalInsurance.coverage.display = display;
-      }
-      if (fields.planType) coverage = setCoveragePlanType(coverage, fields.planType);
-      extraRequests.push(
-        ...claimResourceChangeRequests({ resource: coverage, before: coverageBefore, agent, claimReference })
-      );
+  }
+
+  if (fields.billType != null) {
+    if (fields.billType) {
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+        valueString: fields.billType.substring(1, 3),
+      });
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_FREQUENCY_CODE,
+        valueString: fields.billType.substring(3, 4),
+      });
+    } else {
+      removeExtension(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE);
     }
+  }
+
+  if (fields.admissionType != null) {
+    if (fields.admissionType) {
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+        valueString: fields.admissionType,
+      });
+    } else {
+      removeExtension(claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE);
+    }
+  }
+
+  if (fields.admissionSource != null) {
+    if (fields.admissionSource) {
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+        valueString: fields.admissionSource,
+      });
+    } else {
+      removeExtension(claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE);
+    }
+  }
+
+  if (fields.patientDischargeStatusCode != null) {
+    if (fields.patientDischargeStatusCode) {
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+        valueString: fields.patientDischargeStatusCode,
+      });
+    } else {
+      removeExtension(claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS);
+    }
+  }
+
+  if (fields.admissionDate && fields.dischargeDate) {
+    claim.billablePeriod = { start: fields.admissionDate, end: fields.dischargeDate };
   }
 
   return commitClaimResourceChange(oystehr, {

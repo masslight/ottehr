@@ -1,7 +1,12 @@
-import { Box, Divider, Typography } from '@mui/material';
+import { Box, Divider, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { RadiologyViewImageBtn } from 'src/features/radiology/components/RadiologyViewImageBtn';
+import { safeRadiologyReportHtml } from 'src/features/radiology/reportHtml';
+import {
+  SectionHeading,
+  useNoteSectionTitleInCardHeader,
+} from 'src/features/visits/shared/components/NoteSectionHeading';
 import { RadiologyDTO } from 'utils/lib/types/api/radiology';
 
 interface RadiologyOrdersContainerProps {
@@ -9,7 +14,9 @@ interface RadiologyOrdersContainerProps {
 }
 
 export const RadiologyOrdersContainer: FC<RadiologyOrdersContainerProps> = (props) => {
+  const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { radiologyOrders } = props;
+  const theme = useTheme();
   const { ordersWithReads, pendingPerformedOrders } = radiologyOrders.reduce(
     (acc: { ordersWithReads: RadiologyDTO[]; pendingPerformedOrders: RadiologyDTO[] }, order) => {
       // External orders never produce reads; they're resulted once their upload sets externalResultReviewed.
@@ -31,34 +38,28 @@ export const RadiologyOrdersContainer: FC<RadiologyOrdersContainerProps> = (prop
     let reportType = 'Preliminary Read';
     let report: string | undefined;
 
-    const decode = (value: string): string => {
-      try {
-        return atob(value);
-      } catch {
-        return value;
-      }
-    };
-
     if (finalReport) {
       reportType = 'Final Read';
-      report = decode(finalReport);
+      report = safeRadiologyReportHtml(finalReport);
     } else if (preliminaryReport) {
-      report = decode(preliminaryReport);
+      report = safeRadiologyReportHtml(preliminaryReport);
     }
 
     return (
       <Box>
         <span style={{ fontWeight: 'bold' }}>{reportType}: </span>
-        <div style={{ display: 'inline', margin: 0 }} dangerouslySetInnerHTML={{ __html: `${report}` }} />
+        {/* Displayed as the radiologist sent it, sanitized in `safeRadiologyReportHtml`. */}
+        <span style={{ display: 'inline' }} dangerouslySetInnerHTML={{ __html: report ?? '' }} />
       </Box>
     );
   };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
-      <Typography variant="h5" color="primary.dark">
-        Radiology
-      </Typography>
+      {!titleInCardHeader && <SectionHeading>Radiology</SectionHeading>}
+      {radiologyOrders.length === 0 && (
+        <Typography color={theme.palette.text.secondary}>No radiology orders</Typography>
+      )}
       {ordersWithReads.map((order, idx) => (
         <Box key={`radiology-order-${order.serviceRequestId}`}>
           <Box display="flex" flexDirection="column" gap={0.5}>

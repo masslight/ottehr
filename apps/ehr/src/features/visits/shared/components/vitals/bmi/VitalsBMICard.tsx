@@ -36,7 +36,7 @@ const VitalsBMICard: React.FC<VitalsBMICardProps> = ({
   const currentIds = new Set(current.map((obs) => obs.resourceId));
 
   return (
-    <Box sx={{ mt: 3 }} data-testid={dataTestIds.vitalsPage.bmiCard}>
+    <Box data-testid={dataTestIds.vitalsPage.bmiCard}>
       <AccordionCard label={label} collapsed={isCollapsed} onSwitch={handleSectionCollapse}>
         <DoubleColumnContainer
           divider

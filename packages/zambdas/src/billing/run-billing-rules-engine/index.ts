@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Task } from 'fhir/r4b';
+import { Claim, ProvenanceAgent, Task } from 'fhir/r4b';
 import { InternalError } from 'utils/lib/helpers/oystehrApi';
 import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { RunBillingRulesEngineResponse } from 'utils/lib/types/data/billing/rules-engine.schemas';
@@ -8,6 +8,7 @@ import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/t
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { resolveClaimActor } from '../provenance';
 import { buildRulesEngineKickoffTask } from '../rules-engine/serialization';
 import { createBillingClient, determineRulesEngineForClaim } from '../shared';
 import { RunBillingRulesEngineParams, validateRequestParameters } from './validateRequestParameters';
@@ -26,13 +27,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
   const kickoffs = await complexValidation(oystehr, params);
-  const response = await performEffect(oystehr, kickoffs);
+  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
+  const response = await performEffect(oystehr, kickoffs, agent);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
 export interface RulesEngineKickoff {
   claimId: string;
   engine: RulesEngineType;
+  skipRules: boolean;
 }
 
 // Confirm every claim exists (one search ORing the ids) and that an engine applies to each, so the
@@ -59,7 +62,7 @@ export async function complexValidation(
   const noEngine: string[] = [];
   for (const claimId of params.claimIds) {
     const engine = determineRulesEngineForClaim(claimsById.get(claimId)!);
-    if (engine) kickoffs.push({ claimId, engine });
+    if (engine) kickoffs.push({ claimId, engine, skipRules: params.skipRules });
     else noEngine.push(claimId);
   }
   if (noEngine.length > 0) {
@@ -75,12 +78,13 @@ export async function complexValidation(
 // claim or for none of them, so a partial failure can't leave the caller guessing which claims ran.
 export async function performEffect(
   oystehr: Oystehr,
-  kickoffs: RulesEngineKickoff[]
+  kickoffs: RulesEngineKickoff[],
+  agent: ProvenanceAgent
 ): Promise<RunBillingRulesEngineResponse> {
-  const requests: BatchInputPostRequest<Task>[] = kickoffs.map(({ engine, claimId }) => ({
+  const requests: BatchInputPostRequest<Task>[] = kickoffs.map(({ engine, claimId, skipRules }) => ({
     method: 'POST',
     url: '/Task',
-    resource: buildRulesEngineKickoffTask(engine, claimId),
+    resource: buildRulesEngineKickoffTask(engine, claimId, skipRules, agent.who),
   }));
   const result = await oystehr.fhir.transaction<Task>({ requests });
   const taskIds = (result.entry ?? [])

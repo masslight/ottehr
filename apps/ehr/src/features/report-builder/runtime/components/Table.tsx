@@ -1,4 +1,4 @@
-import { Box, Paper } from '@mui/material';
+import { Box, Button, Paper, Typography } from '@mui/material';
 import {
   DataGridPro,
   GridColDef,
@@ -7,10 +7,14 @@ import {
   GridToolbarContainer,
   GridToolbarDensitySelector,
   GridToolbarFilterButton,
+  GridValueGetterParams,
+  useGridApiRef,
 } from '@mui/x-data-grid-pro';
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import type { AdHocLinkRoute } from 'utils/lib/types/adhoc/sandbox/events';
-import { formatValue, ValueFormat } from './format';
+import { MAX_EXPORT_CSV_LENGTH } from 'utils/lib/types/adhoc/sandbox/limits';
+import { sendFrameEvent } from '../messaging';
+import { cellText, formatValue, ValueFormat } from './format';
 import { Link } from './Link';
 
 export interface TableColumn {
@@ -19,8 +23,23 @@ export interface TableColumn {
   /** Header label; defaults to the field name. */
   label?: string;
   /** Value format: integer | number | percent | currency. */
-  format?: ValueFormat;
+  format?: ValueFormat | CellValue;
+  /** Computes the cell from the whole row, for a column that is not a plain row field. */
+  value?: CellValue;
 }
+
+type CellValue = (row: Record<string, unknown>) => unknown;
+
+// `value` is the documented accessor, but generated code also passes one as `format`. Honour either:
+// without this the column reads a row field that does not exist and every cell is silently blank.
+const accessorOf = (cfg?: TableColumn): CellValue | undefined => {
+  if (typeof cfg?.value === 'function') return cfg.value;
+  if (typeof cfg?.format === 'function') return cfg.format;
+  return undefined;
+};
+
+const namedFormatOf = (cfg?: TableColumn): ValueFormat | undefined =>
+  typeof cfg?.format === 'string' ? cfg.format : undefined;
 
 export interface TableLink {
   /** The displayed column whose cells become links. */
@@ -58,6 +77,8 @@ interface GridRow extends Record<string, unknown> {
 // values (rows are already typed; no string re-parsing). A `links` entry turns a column's cells
 // into whitelisted navigation events via <Link>.
 export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }: TableProps): React.ReactElement {
+  const apiRef = useGridApiRef();
+  const [exportTooLarge, setExportTooLarge] = useState(false);
   const linkByField = useMemo(() => {
     const m = new Map<string, TableLink>();
     (links ?? []).forEach((l) => m.set(l.field, l));
@@ -67,13 +88,30 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
   const { gridColumns, gridRows } = useMemo(() => {
     const fields = columns?.map((c) => c.field) ?? Object.keys(rows[0] ?? {});
     const configByField = new Map((columns ?? []).map((c) => [c.field, c]));
+
+    // An accessor written by the model can throw on some rows (an empty nested array, say). One bad
+    // row must not take the whole report down.
+    const cellValue = (field: string, row: Record<string, unknown>): unknown => {
+      const accessor = accessorOf(configByField.get(field));
+      if (!accessor) return row[field];
+      try {
+        return accessor(row);
+      } catch {
+        return undefined;
+      }
+    };
+
     const isNumeric = (field: string): boolean =>
-      rows.some((r) => typeof r[field] === 'number') &&
-      rows.every((r) => r[field] == null || typeof r[field] === 'number');
+      rows.some((r) => typeof cellValue(field, r) === 'number') &&
+      rows.every((r) => {
+        const value = cellValue(field, r);
+        return value == null || typeof value === 'number';
+      });
 
     const gridColumns: GridColDef[] = fields.map((field) => {
       const cfg = configByField.get(field);
-      const numeric = isNumeric(field) && !cfg?.format;
+      const namedFormat = namedFormatOf(cfg);
+      const numeric = isNumeric(field) && !namedFormat;
       const link = linkByField.get(field);
       return {
         field,
@@ -83,15 +121,10 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
         sortable: true,
         type: numeric ? 'number' : 'string',
         ...(numeric ? { headerAlign: 'right' as const, align: 'right' as const } : {}),
+        ...(numeric ? {} : { valueGetter: (params: GridValueGetterParams) => cellText(cellValue(field, params.row)) }),
         renderCell: (params: GridRenderCellParams) => {
-          const raw = params.row[field];
-          const display = cfg?.format
-            ? formatValue(raw, cfg.format)
-            : Array.isArray(raw)
-            ? raw.join(', ')
-            : raw == null
-            ? ''
-            : String(raw);
+          const raw = cellValue(field, params.row);
+          const display = namedFormat ? formatValue(raw, namedFormat) : cellText(raw);
           if (link) {
             // id from idField's value when given (e.g. link patientName by patientId), else this
             // cell's own value. The SPA owns the URL — never the generated code.
@@ -113,9 +146,23 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
     return { gridColumns, gridRows };
   }, [columns, rows, linkByField]);
 
-  // No CSV export button: downloads need the `allow-downloads` sandbox flag, but the frame's sandbox
-  // is strictly `allow-scripts` (security contract). Export could return later as a whitelisted
-  // SPA-side event.
+  const handleExport = useCallback((): void => {
+    const csv = apiRef.current.getDataAsCsv();
+    if (!csv) return;
+    // Refuse oversized exports here (before the postMessage) — that's what the shared limit is for.
+    if (csv.length > MAX_EXPORT_CSV_LENGTH) {
+      setExportTooLarge(true);
+      return;
+    }
+    setExportTooLarge(false);
+    const base =
+      (title ?? 'report')
+        .replace(/[^\w.-]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 100) || 'report';
+    sendFrameEvent({ event: 'exportData', filename: `${base}.csv`, csv });
+  }, [apiRef, title]);
+
   const Toolbar = useMemo(
     () =>
       function ToolbarInner(): React.ReactElement {
@@ -124,18 +171,27 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
             <GridToolbarColumnsButton />
             <GridToolbarFilterButton />
             <GridToolbarDensitySelector />
+            <Button size="small" onClick={handleExport}>
+              Export CSV
+            </Button>
           </GridToolbarContainer>
         );
       },
-    []
+    [handleExport]
   );
 
   return (
     <Box sx={{ mb: 1 }}>
+      {exportTooLarge && (
+        <Typography variant="body2" color="error" sx={{ mb: 0.5 }}>
+          This report is too large to export.
+        </Typography>
+      )}
       <Paper variant="outlined" sx={{ width: '100%' }}>
         {/* Known limitation: the filter/columns panels render in a portal inside the frame and can
             be clipped by the frame's height near the bottom of a short report. */}
         <DataGridPro
+          apiRef={apiRef}
           aria-label={title}
           autoHeight
           density="compact"

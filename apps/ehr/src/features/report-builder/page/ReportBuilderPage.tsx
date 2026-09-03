@@ -2,6 +2,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import SaveIcon from '@mui/icons-material/Save';
 import {
+  Alert,
   Box,
   Button,
   CircularProgress,
@@ -31,11 +32,32 @@ import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
 import PageContainer from '../../../layout/PageContainer';
 import { AD_HOC_DATASETS } from '../datasets/registry';
 import { ReportFrame } from '../sandbox/ReportFrame';
+import { AllDatasetsInfo, DatasetLayersInfo } from './DatasetLayersInfo';
 import { useReportBuilder } from './useReportBuilder';
 
 export default function ReportBuilderPage(): React.ReactElement {
   const navigate = useNavigate();
   const rb = useReportBuilder();
+
+  if (!rb.canView) {
+    return (
+      <PageContainer>
+        <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+            <IconButton onClick={() => navigate('/reports')} sx={{ mr: 2 }}>
+              <ArrowBackIcon />
+            </IconButton>
+            <Typography variant="h4" component="h1" color="primary.dark" fontWeight={600}>
+              Ad-Hoc Report
+            </Typography>
+          </Box>
+          <Typography color="text.secondary">
+            You don’t have access to ad-hoc reports. Contact an administrator if you need access.
+          </Typography>
+        </Box>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer>
@@ -128,55 +150,88 @@ export default function ReportBuilderPage(): React.ReactElement {
           </Box>
 
           {rb.error && (
-            <Box sx={{ mb: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
-              <Typography color="error">{rb.error}</Typography>
-            </Box>
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {rb.error}
+            </Alert>
           )}
 
-          {rb.partialWarning && (
-            <Box sx={{ mb: 2, p: 2, bgcolor: 'warning.light', borderRadius: 1 }}>
-              <Typography variant="body2">{rb.partialWarning}</Typography>
-            </Box>
+          {rb.canCreate && (
+            <>
+              <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                Describe the report you want
+              </Typography>
+              <TextField
+                multiline
+                minRows={2}
+                fullWidth
+                placeholder="e.g. Bar chart of visits per provider; or average time from check-in to exam room by location"
+                value={rb.request}
+                onChange={(e) => rb.setRequest(e.target.value)}
+                sx={{ mb: 1 }}
+              />
+              {/* No separate refinement: editing the request above and regenerating IS the refinement. */}
+              <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
+                <Button
+                  variant="contained"
+                  onClick={rb.handleGenerate}
+                  disabled={rb.generating || rb.loading || !rb.request.trim() || !rb.oystehrZambda}
+                >
+                  {rb.generating || rb.loading ? (
+                    <CircularProgress size={20} />
+                  ) : rb.generatedCode ? (
+                    'Regenerate report'
+                  ) : (
+                    'Generate report'
+                  )}
+                </Button>
+                {rb.generatedCode && (
+                  <Button variant="outlined" onClick={rb.handleReset} disabled={rb.generating || rb.loading}>
+                    Reset
+                  </Button>
+                )}
+              </Box>
+            </>
           )}
-
-          <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            Describe the report you want
-          </Typography>
-          <TextField
-            multiline
-            minRows={2}
-            fullWidth
-            placeholder="e.g. Bar chart of visits per provider; or average time from check-in to exam room by location"
-            value={rb.request}
-            onChange={(e) => rb.setRequest(e.target.value)}
-            sx={{ mb: 1 }}
-          />
-          {/* No separate refinement: editing the request above and regenerating IS the refinement. */}
-          <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
-            <Button
-              variant="contained"
-              onClick={rb.handleGenerate}
-              disabled={rb.generating || rb.loading || !rb.request.trim() || !rb.oystehrZambda}
-            >
-              {rb.generating || rb.loading ? (
-                <CircularProgress size={20} />
-              ) : rb.generatedCode ? (
-                'Regenerate report'
-              ) : (
-                'Generate report'
-              )}
-            </Button>
-            {rb.generatedCode && (
-              <Button variant="outlined" onClick={rb.handleReset} disabled={rb.generating || rb.loading}>
-                Reset
-              </Button>
-            )}
-          </Box>
 
           {rb.generateError && (
-            <Box sx={{ mb: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
-              <Typography color="error">{rb.generateError}</Typography>
-            </Box>
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {rb.generateError}
+            </Alert>
+          )}
+
+          {rb.unavailableRequest && (
+            <Paper variant="outlined" sx={{ mb: 3, p: 2, borderColor: 'error.main' }}>
+              <Typography color="error" variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+                This report can&apos;t be built from the available data
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Not found in any dataset: <strong>{rb.unavailableRequest.concepts.join(', ')}</strong>
+              </Typography>
+              {rb.unavailableRequest.hint && (
+                <Typography variant="body2" sx={{ mb: 2, fontStyle: 'italic' }}>
+                  {rb.unavailableRequest.hint}
+                </Typography>
+              )}
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                What you can do
+              </Typography>
+              <Box component="ul" sx={{ mt: 0, mb: 2, pl: 3 }}>
+                <Typography component="li" variant="body2">
+                  Remove {rb.unavailableRequest.concepts.length > 1 ? 'those parts' : 'that part'} from your request and
+                  generate the rest.
+                </Typography>
+                <Typography component="li" variant="body2">
+                  If you meant a different field, use its exact name from the list below.
+                </Typography>
+                <Typography component="li" variant="body2">
+                  Another dataset may hold what you need — check the list below.
+                </Typography>
+              </Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                What the datasets do contain
+              </Typography>
+              <AllDatasetsInfo />
+            </Paper>
           )}
 
           {rb.schema && rb.rows && (
@@ -219,6 +274,7 @@ export default function ReportBuilderPage(): React.ReactElement {
                       ))}
                     </TableBody>
                   </Table>
+                  <DatasetLayersInfo datasetId={rb.datasetId} datasetOptions={rb.datasetOptions} />
                 </Paper>
               </Collapse>
 
@@ -231,9 +287,11 @@ export default function ReportBuilderPage(): React.ReactElement {
                     <Button size="small" onClick={() => rb.setShowCode(!rb.showCode)}>
                       {rb.showCode ? 'Hide generated code' : 'View generated code'}
                     </Button>
-                    <Button size="small" variant="outlined" startIcon={<SaveIcon />} onClick={rb.openSaveDialog}>
-                      {rb.loadedSavedId ? 'Save' : 'Save report'}
-                    </Button>
+                    {rb.canCreate && (
+                      <Button size="small" variant="outlined" startIcon={<SaveIcon />} onClick={rb.openSaveDialog}>
+                        {rb.loadedSavedId ? 'Save' : 'Save report'}
+                      </Button>
+                    )}
                   </Box>
 
                   <Collapse in={rb.showCode}>
@@ -257,12 +315,45 @@ export default function ReportBuilderPage(): React.ReactElement {
                   </Collapse>
 
                   {rb.renderError && (
-                    <Box sx={{ mb: 2, p: 2, bgcolor: 'warning.light', borderRadius: 1 }}>
-                      <Typography variant="body2">
-                        The generated report failed to run: {rb.renderError}. Adjust your request and regenerate.
-                      </Typography>
-                    </Box>
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                      The report failed to run: {rb.renderError}.{' '}
+                      {rb.canCreate ? 'Adjust your request and regenerate.' : 'Ask an administrator to rebuild it.'}
+                    </Alert>
                   )}
+
+                  <Box
+                    sx={{
+                      mb: 1,
+                      p: 1.5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1.25,
+                      bgcolor: '#fde5e7',
+                      border: '1px solid #ff6c6c',
+                      borderRadius: 1,
+                    }}
+                  >
+                    <Box
+                      component="span"
+                      sx={{
+                        px: 0.75,
+                        py: 0.25,
+                        borderRadius: 0.75,
+                        bgcolor: '#ff6c6c',
+                        color: 'common.white',
+                        fontWeight: 900,
+                        fontSize: '0.9rem',
+                        letterSpacing: '0.05em',
+                        flexShrink: 0,
+                      }}
+                    >
+                      AI
+                    </Box>
+                    <Typography variant="body2" sx={{ color: 'common.black', fontSize: '0.9rem', fontWeight: 500 }}>
+                      This is a beta feature. The report is generated by AI and can be incomplete or wrong. Check the
+                      results against the source data before acting on them.
+                    </Typography>
+                  </Box>
 
                   {/* The model's code runs here, sandboxed, over the fetched rows. */}
                   <ReportFrame

@@ -189,6 +189,7 @@ export const CLAIM_STATUS_FIELDS: ClaimStatusFieldDef[] = [
   },
 ];
 
+// Full field definitions by key
 export const CLAIM_STATUS_FIELDS_BY_KEY: Record<ClaimStatusFieldKey, ClaimStatusFieldDef> = CLAIM_STATUS_FIELDS.reduce(
   (acc, field) => {
     acc[field.key] = field;
@@ -196,6 +197,30 @@ export const CLAIM_STATUS_FIELDS_BY_KEY: Record<ClaimStatusFieldKey, ClaimStatus
   },
   {} as Record<ClaimStatusFieldKey, ClaimStatusFieldDef>
 );
+
+// All status options across ar stages
+export const ALL_CLAIM_STATUS_OPTIONS: ClaimStatusOption[] = CLAIM_STATUS_FIELDS.flatMap((field) => field.options);
+export const ALL_CLAIM_STATUS_OPTIONS_2: ClaimStatusOption[] = CLAIM_STATUS_FIELDS.reduce((acc, field) => {
+  if (!field.group) return acc;
+  acc.push(...field.options.filter((o) => !acc.some((ao) => ao.code === o.code)));
+  return acc;
+}, [] as ClaimStatusOption[]);
+
+// Status options grouped by group key
+export const ALL_CLAIM_STATUS_OPTIONS_BY_GROUP: Record<ClaimStatusGroupKey, ClaimStatusOption[]> =
+  CLAIM_STATUS_FIELDS.reduce(
+    (acc, field) => {
+      if (!field.group) {
+        return acc;
+      }
+      if (!acc[field.group]) {
+        acc[field.group] = [];
+      }
+      acc[field.group].push(...field.options);
+      return acc;
+    },
+    {} as Record<ClaimStatusGroupKey, ClaimStatusOption[]>
+  );
 
 // Flat map of every status field's resolved code for a claim.
 export type ClaimStatusValues = Record<ClaimStatusFieldKey, string>;
@@ -224,10 +249,22 @@ export function emptyClaimStatusValues(): ClaimStatusValues {
   }, {} as ClaimStatusValues);
 }
 
+export function hasReachedPatientAr(claim: Pick<Claim, 'meta'> | undefined): boolean {
+  return getClaimStatusValues(claim).arStage === AR_STAGE.patient;
+}
+
 // Human-readable label for a field value code (empty/unknown -> '').
 export function formatClaimStatusValue(field: ClaimStatusFieldDef, code: string | undefined): string {
   if (!code) return '';
   return field.options.find((o) => o.code === code)?.label ?? code;
+}
+
+export function formatAntCaseString(value?: string): string {
+  if (!value) return '';
+  return value
+    .split('-')
+    .map((substr) => substr.charAt(0).toUpperCase() + substr.slice(1))
+    .join(' ');
 }
 
 // Whether `code` is a valid selection for the field. Empty/null (clear back to default) is allowed.

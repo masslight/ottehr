@@ -1,7 +1,6 @@
 import { test } from '@playwright/test';
 import { Organization, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { createReference } from 'utils/lib/fhir/helpers';
 import { hasAttorneyInformationPage, hasEmployerInformationPage } from 'utils/lib/helpers/create-demo-visits';
 import {
   getAttorneyInformationStepAnswers,
@@ -10,13 +9,13 @@ import {
   getEmergencyContactStepAnswers,
   getEmployerInformationStepAnswers,
   getPatientDetailsStepAnswers,
+  getPayerId,
   getPaymentOptionInsuranceAnswers,
   getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
   isoToDateObject,
 } from 'utils/lib/helpers/helpers';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
-import { ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils/lib/types/constants';
 import {
   PATIENT_INSURANCE_MEMBER_ID,
   PATIENT_INSURANCE_MEMBER_ID_2,
@@ -722,39 +721,41 @@ async function buildResourceHandler(): Promise<[ResourceHandler, string, string]
     return answers;
   });
   const oystehr = await ResourceHandler.getOystehr();
-  const insuranceCarriersOptions = (
-    await oystehr.fhir.search<Organization>({
-      resourceType: 'Organization',
-      params: [
-        {
-          name: 'active',
-          value: 'true',
-        },
-        {
-          name: 'type',
-          value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
-        },
-      ],
-    })
-  ).unbundle();
-  const ic1 = insuranceCarriersOptions.at(0);
-  const ic2 = insuranceCarriersOptions.at(1);
-  insuranceCarrier1 = {
+  // Carriers come from the Oystehr payer list — the same backing source as the intake paperwork
+  // options (get-patient-insurance-payers) and the EHR patient-record carrier field
+  // (get-all-insurance-payers with prependIdentifier). Payer-type FHIR Organizations are the
+  // legacy source and are no longer seeded on new environments, so sourcing carriers from them
+  // here made every test in this file fail on envs that only have the payer list.
+  const payersPage = await oystehr.rcm.listPayers({ limit: 50 });
+  const payersById = new Map<string, Organization>();
+  for (const payer of payersPage.data) {
+    const payerId = getPayerId(payer);
+    const payerName = payer.alias?.[0] ?? payer.name;
+    if (typeof payerId === 'string' && typeof payerName === 'string' && !payersById.has(payerId)) {
+      payersById.set(payerId, payer);
+    }
+  }
+  const [payer1, payer2] = [...payersById.values()];
+  if (!payer1 || !payer2) {
+    throw new Error(
+      `Expected the Oystehr payer list (oystehr.rcm.listPayers) to contain at least 2 usable payers ` +
+        `but found ${payersById.size} of ${payersPage.data.length} listed. The insurance paperwork and ` +
+        `patient-record carrier options are built from this list, so these tests cannot run without it.`
+    );
+  }
+  const toCarrierAnswer = (payer: Organization): QuestionnaireItemAnswerOption => ({
     valueReference: {
-      reference: ic1 && createReference(ic1).reference,
-      display: ic1?.name,
+      reference: oystehr.rcm.constructPayerUrl({ id: getPayerId(payer)! }),
+      display: `${payer.alias?.[0] ?? payer.name}`,
     },
-  };
-  insuranceCarrier2 = {
-    valueReference: {
-      reference: ic2 && createReference(ic2).reference,
-      display: ic2?.name,
-    },
-  };
-  // these are old Organization references so they show up as historical
-  const insuranceCarrier1ForResult = `${ic1?.name} (historical)`;
-  const insuranceCarrier2ForResult = `${ic2?.name} (historical)`;
-  console.log('carrier: ', JSON.stringify(insuranceCarrier1ForResult));
+  });
+  insuranceCarrier1 = toCarrierAnswer(payer1);
+  insuranceCarrier2 = toCarrierAnswer(payer2);
+  // The EHR patient-record field labels its options "<payerId> - <name>" (prependIdentifier), and
+  // because these payers are in the current list the value renders without a "(historical)" suffix.
+  const insuranceCarrier1ForResult = `${getPayerId(payer1)} - ${payer1.alias?.[0] ?? payer1.name}`;
+  const insuranceCarrier2ForResult = `${getPayerId(payer2)} - ${payer2.alias?.[0] ?? payer2.name}`;
+  console.log('carriers: ', JSON.stringify([insuranceCarrier1ForResult, insuranceCarrier2ForResult]));
 
   return [resourceHandler, insuranceCarrier1ForResult ?? '', insuranceCarrier2ForResult ?? ''];
 }

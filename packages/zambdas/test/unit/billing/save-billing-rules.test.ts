@@ -2,7 +2,13 @@ import Oystehr from '@oystehr/sdk';
 import { Basic, Bundle, List, Organization, Resource } from 'fhir/r4b';
 import { DEFAULT_RULES_ENGINE, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { BillingRuleInput } from 'utils/lib/types/data/billing/rules-engine.schemas';
-import { AUTO_ACCIDENT_TAG_NAME, HOLD_TAG_NAME, SYSTEM_MANAGED_TAGS } from 'utils/lib/types/data/billing/system-tags';
+import {
+  AUTO_ACCIDENT_TAG_NAME,
+  HOLD_TAG_NAME,
+  SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
+  SECONDARY_SUBMISSION_TAG_NAME,
+  SYSTEM_MANAGED_TAGS,
+} from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from '../../../src/billing/rules-engine/constants';
 import { complexValidation, performEffect } from '../../../src/billing/save-billing-rules';
@@ -77,7 +83,11 @@ describe('save-billing-rules performEffect', () => {
     await performEffect(oystehr, params([rule('First rule')]), undefined, 'test');
 
     const seededTags = create.mock.calls.map(([r]) => r).filter((r): r is Basic => r.resourceType === 'Basic');
-    expect(seededTags.map((tag) => tag.code?.text)).toEqual([AUTO_ACCIDENT_TAG_NAME]);
+    expect(seededTags.map((tag) => tag.code?.text)).toEqual([
+      AUTO_ACCIDENT_TAG_NAME,
+      SECONDARY_SUBMISSION_TAG_NAME,
+      SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
+    ]);
   });
 
   it('does not re-seed system-managed tags that already exist', async () => {

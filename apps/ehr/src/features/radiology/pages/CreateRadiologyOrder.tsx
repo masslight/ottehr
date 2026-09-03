@@ -20,6 +20,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
@@ -52,13 +53,16 @@ import { useRadiologyConsentExists } from '../components/useRadiologyConsentExis
 
 interface CreateRadiologyOrdersProps {
   appointmentID?: string;
+  onFinished?: () => void;
 }
 
-export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => {
+export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = ({ onFinished }) => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
+  const isInlineFlow = useIsInlineFlow();
   const { id: appointmentIdFromUrl } = useParams();
+  const exit = onFinished ?? ((): void => navigate(getRadiologyUrl(appointmentIdFromUrl || '')));
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const { encounter } = useAppointmentData();
@@ -149,8 +153,6 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const [confirmOverwriteOpen, setConfirmOverwriteOpen] = useState(false);
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
-  // Ordering imaging is NPI-gated — block users without an NPI on file (e.g. the Clinician role).
-  const hasNPI = currentUser?.hasNPI ?? false;
 
   // Quick pick handlers
   const onQuickPickSelect = (quickPick: RadiologyQuickPickData): void => {
@@ -276,7 +278,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
         }
 
         clearDraft(encounter.id);
-        navigate(getRadiologyUrl(appointmentIdFromUrl || ''));
+        exit();
       } catch (e) {
         const error = e as any;
         console.log('error', JSON.stringify(error));
@@ -297,114 +299,115 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
 
   const consentExists = useRadiologyConsentExists();
 
-  return (
-    <DetailPageContainer>
-      <WithRadiologyBreadcrumbs sectionName="Order Radiology">
-        <Stack spacing={1}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-              Order Radiology
-            </Typography>
-          </Box>
-          {encounter.id && hasDraft(encounter.id) && (
-            <UnsavedDraftWarning
-              message={
-                draft.hasNavigatedAway
-                  ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
-                  : 'You have a radiology order in progress. Your draft will be saved.'
-              }
-            />
-          )}
+  const formContent = (
+    <>
+      <Stack spacing={1}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
+            Order Radiology
+          </Typography>
+        </Box>
+        {encounter.id && hasDraft(encounter.id) && (
+          <UnsavedDraftWarning
+            message={
+              draft.hasNavigatedAway
+                ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
+                : 'You have a radiology order in progress. Your draft will be saved.'
+            }
+          />
+        )}
 
-          <form onSubmit={handleSubmit}>
-            <Paper sx={{ p: 3 }}>
-              <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
-                <Grid item xs={12}>
-                  <QuickPicksButton
-                    quickPicks={mergedQuickPicks}
-                    loading={mergedQuickPicksLoading}
-                    getLabel={(qp) => {
-                      const parts = [qp.name] as string[];
-                      if (qp.cptCode) parts.push(qp.cptCode);
-                      return parts.join(' — ');
-                    }}
-                    onSelect={onQuickPickSelect}
-                    disabled={submitting}
-                    showAddOption
-                    isAdmin={isAdmin}
-                    onAddOrUpdate={() => void openQuickPickDialog()}
-                    searchable
-                  />
-                </Grid>
-                <RadiologyOrderCoreFields form={draftForm} />
-                <Grid item xs={12}>
-                  <Box style={{ display: 'flex', alignItems: 'center' }}>
-                    <Checkbox
-                      checked={consentObtained}
-                      onChange={() => {
-                        setConsentObtained(!consentObtained);
-                        if (encounter.id) setDraft(encounter.id, { consentObtained: !consentObtained });
-                      }}
-                    />
-                    <Typography>
-                      I have obtained the{' '}
-                      {consentExists ? (
-                        <Link
-                          target="_blank"
-                          to={`/consent_radiology.pdf`}
-                          style={{ color: theme.palette.primary.main }}
-                          rel="noopener noreferrer"
-                        >
-                          consent for X-ray
-                        </Link>
-                      ) : (
-                        'consent for X-ray'
-                      )}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    sx={{ fontSize: '14px' }}
-                    control={
-                      <Switch
-                        checked={stat}
-                        onChange={() => {
-                          setStat(!stat);
-                          if (encounter.id) setDraft(encounter.id, { stat: !stat });
-                        }}
-                      />
-                    }
-                    label={<Typography variant="body2">STAT</Typography>}
-                  />
-                </Grid>
-                <RadiologyOrderFormActions
-                  appointmentId={appointmentIdFromUrl || ''}
-                  submitting={submitting}
-                  submitLabel="Order"
-                  disabled={!hasNPI}
-                  errors={hasNPI ? error : [...(error ?? []), 'You need an NPI on file to order imaging']}
-                  onCancel={() => {
-                    if (encounter.id) clearDraft(encounter.id);
+        <form onSubmit={handleSubmit}>
+          <Paper sx={{ p: 3 }}>
+            <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
+              <Grid item xs={12}>
+                <QuickPicksButton
+                  quickPicks={mergedQuickPicks}
+                  loading={mergedQuickPicksLoading}
+                  getLabel={(qp) => {
+                    const parts = [qp.name] as string[];
+                    if (qp.cptCode) parts.push(qp.cptCode);
+                    return parts.join(' — ');
                   }}
-                  clearFormButton={
-                    hasDraft(encounter.id ?? '') ? (
-                      <Button
-                        variant="outlined"
-                        sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-                        onClick={handleClearForm}
-                      >
-                        Clear Form
-                      </Button>
-                    ) : undefined
-                  }
+                  onSelect={onQuickPickSelect}
+                  disabled={submitting}
+                  showAddOption
+                  isAdmin={isAdmin}
+                  onAddOrUpdate={() => void openQuickPickDialog()}
+                  searchable
                 />
               </Grid>
-            </Paper>
-          </form>
-        </Stack>
-      </WithRadiologyBreadcrumbs>
+              <RadiologyOrderCoreFields form={draftForm} />
+              <Grid item xs={12}>
+                <Box style={{ display: 'flex', alignItems: 'center' }}>
+                  <Checkbox
+                    checked={consentObtained}
+                    onChange={() => {
+                      setConsentObtained(!consentObtained);
+                      if (encounter.id) setDraft(encounter.id, { consentObtained: !consentObtained });
+                    }}
+                  />
+                  <Typography>
+                    I have obtained the{' '}
+                    {consentExists ? (
+                      <Link
+                        target="_blank"
+                        to={`/consent_radiology.pdf`}
+                        style={{ color: theme.palette.primary.main }}
+                        rel="noopener noreferrer"
+                      >
+                        consent for X-ray
+                      </Link>
+                    ) : (
+                      'consent for X-ray'
+                    )}
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  sx={{ fontSize: '14px' }}
+                  control={
+                    <Switch
+                      checked={stat}
+                      onChange={() => {
+                        setStat(!stat);
+                        if (encounter.id) setDraft(encounter.id, { stat: !stat });
+                      }}
+                    />
+                  }
+                  label={<Typography variant="body2">STAT</Typography>}
+                />
+              </Grid>
+              <RadiologyOrderFormActions
+                submitting={submitting}
+                submitLabel="Order"
+                errors={error}
+                onCancel={() => {
+                  if (encounter.id) clearDraft(encounter.id);
+                  exit();
+                }}
+                clearFormButton={
+                  hasDraft(encounter.id ?? '') ? (
+                    <Button
+                      variant="outlined"
+                      sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
+                      onClick={handleClearForm}
+                    >
+                      Clear Form
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </Grid>
+          </Paper>
+        </form>
+      </Stack>
+    </>
+  );
 
+  const dialogs = (
+    <>
       {/* Save as Quick Pick dialog */}
       <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle
@@ -495,6 +498,21 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
           </Button>
         </DialogActions>
       </Dialog>
+    </>
+  );
+
+  if (isInlineFlow)
+    return (
+      <>
+        {formContent}
+        {dialogs}
+      </>
+    );
+
+  return (
+    <DetailPageContainer>
+      <WithRadiologyBreadcrumbs sectionName="Order Radiology">{formContent}</WithRadiologyBreadcrumbs>
+      {dialogs}
     </DetailPageContainer>
   );
 };

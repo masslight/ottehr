@@ -1,16 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ServiceRequest } from 'fhir/r4b';
+import { Extension, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
+  SERVICE_REQUEST_SENT_FOR_FINAL_READ_BY_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
-import { getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch';
 import { Secrets } from 'utils/lib/secrets';
 import { SendForFinalReadZambdaOutput } from 'utils/lib/types/api/radiology';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { resolveCallerPractitionerRef } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';
@@ -78,19 +79,35 @@ async function performEffect(
     throw new Error('Service request has already been sent for final read');
   }
 
-  const sendToTeleradiologyExtensionOperation = getPatchOperationToUpdateExtension(serviceRequest, {
-    url: SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
-    valueDateTime: DateTime.now().toISO(),
-  });
+  // Who sent it, recorded alongside when — the "pending final" history row's own performer.
+  const sentBy = await resolveCallerPractitionerRef(validatedInput.callerAccessToken, secrets, oystehr);
 
-  if (!sendToTeleradiologyExtensionOperation) {
-    throw new Error('Failed to create patch operation for sending to teleradiology extension');
-  }
+  // Built explicitly rather than through getPatchOperationToUpdateExtension: that helper mutates the
+  // resource's extension array in place, so two calls against one resource alias each other's output.
+  const unrelatedExtensions = (existingExtensions ?? []).filter(
+    (ext) =>
+      ext.url !== SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL &&
+      ext.url !== SERVICE_REQUEST_SENT_FOR_FINAL_READ_BY_EXTENSION_URL
+  );
+  const updatedExtensions: Extension[] = [
+    ...unrelatedExtensions,
+    {
+      url: SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
+      valueDateTime: DateTime.now().toISO()!,
+    },
+    { url: SERVICE_REQUEST_SENT_FOR_FINAL_READ_BY_EXTENSION_URL, valueReference: sentBy },
+  ];
 
   await oystehr.fhir.patch({
     resourceType: 'ServiceRequest',
     id: serviceRequest.id!,
-    operations: [sendToTeleradiologyExtensionOperation!],
+    operations: [
+      {
+        op: serviceRequest.extension ? 'replace' : 'add',
+        path: '/extension',
+        value: updatedExtensions,
+      },
+    ],
   });
   console.debug('Service request patched successfully to send for final read');
 

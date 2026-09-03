@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { Secrets } from 'utils/lib/secrets';
+import { INVALID_INPUT_ERROR, MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
 
 vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
@@ -27,14 +28,21 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   createBillingClient: vi.fn(),
 }));
 
+vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  createClinicalOystehrClient: vi.fn(),
+}));
+
 import { index, performEffect } from '../../../src/billing/billing-stripe-webhook';
 import { validateRequestParameters } from '../../../src/billing/billing-stripe-webhook/validateRequestParameters';
 import { createBillingClient } from '../../../src/billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../src/shared/auth';
+import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
 import { ZambdaInput } from '../../../src/shared/types/common';
 
 const WEBHOOK_SECRET = 'whsec_test_secret';
+const PLATFORM_WEBHOOK_SECRET = 'whsec_platform_test_secret';
 const CLAIM_ENC_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 const stripe = new Stripe('sk_test_123');
 
@@ -43,6 +51,7 @@ const secrets: Secrets = {
   STRIPE_SECRET_KEY: 'sk_test_123',
   STRIPE_PUBLIC_KEY: 'pk_test_123',
   STRIPE_WEBHOOK_SECRET: WEBHOOK_SECRET,
+  STRIPE_PLATFORM_WEBHOOK_SECRET: PLATFORM_WEBHOOK_SECRET,
   ORGANIZATION_ID: 'org-1',
   FHIR_API: 'https://fhir.example.com/r4',
   PROJECT_API: 'https://project.example.com/v1',
@@ -62,6 +71,27 @@ const makeCharge = (over: Record<string, unknown> = {}): Stripe.Charge =>
     ...over,
   }) as unknown as Stripe.Charge;
 
+const makeInvoice = (over: Record<string, unknown> = {}): Stripe.Invoice =>
+  ({
+    id: 'in_1',
+    charge: null,
+    amount_paid: 9000,
+    currency: 'usd',
+    created: 1751900000,
+    status: 'paid',
+    paid: true,
+    paid_out_of_band: false,
+    status_transitions: {
+      paid_at: 1751900500,
+    },
+    metadata: {
+      oystehr_encounter_id: 'enc-1',
+    },
+    ...over,
+  }) as unknown as Stripe.Invoice;
+
+const stripeError = (over: Record<string, unknown>): Error => Object.assign(new Error('stripe'), over);
+
 const makeEvent = (type: string, object: unknown, account?: string): Stripe.Event =>
   ({ id: 'evt_1', type, account, data: { object } }) as unknown as Stripe.Event;
 
@@ -73,16 +103,20 @@ const claim = {
 
 const makeOystehr = (
   claimResults: Claim[][],
-  orgResults: Organization[][] = []
-): { oystehr: Oystehr; create: Mock; update: Mock } => {
+  orgResults: Organization[][] = [],
+  noticeResults: PaymentNotice[][] = []
+): { oystehr: Oystehr; create: Mock; update: Mock; patch: Mock } => {
   const claimQueue = [...claimResults];
   const orgQueue = [...orgResults];
+  const noticeQueue = [...noticeResults];
   const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
     const results =
       resourceType === 'Claim'
         ? claimQueue.shift() ?? []
         : resourceType === 'Organization'
         ? orgQueue.shift() ?? []
+        : resourceType === 'PaymentNotice'
+        ? noticeQueue.shift() ?? []
         : [];
     return Promise.resolve({ unbundle: () => results });
   });
@@ -90,13 +124,14 @@ const makeOystehr = (
     .fn()
     .mockImplementation((resource: PaymentNotice) => Promise.resolve({ ...resource, id: 'pn-new' }));
   const update = vi.fn().mockResolvedValue({});
+  const patch = vi.fn().mockResolvedValue({});
   const batch = vi.fn().mockResolvedValue({ entry: [] });
-  return { oystehr: { fhir: { search, create, update, batch } } as unknown as Oystehr, create, update };
+  return { oystehr: { fhir: { search, create, update, patch, batch } } as unknown as Oystehr, create, update, patch };
 };
 
-const signedInput = (event: Stripe.Event): ZambdaInput => {
+const signedInput = (event: Stripe.Event, webhookSecret = WEBHOOK_SECRET): ZambdaInput => {
   const payload = JSON.stringify(event);
-  const signature = stripe.webhooks.generateTestHeaderString({ payload, secret: WEBHOOK_SECRET });
+  const signature = stripe.webhooks.generateTestHeaderString({ payload, secret: webhookSecret });
   return { body: payload, headers: { 'Stripe-Signature': signature }, secrets };
 };
 
@@ -111,10 +146,65 @@ describe('billing-stripe-webhook', () => {
     expect(params.event.type).toBe('charge.succeeded');
   });
 
+  it('verifies a platform destination signature with its separate secret', () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const params = validateRequestParameters(
+      signedInput(makeEvent('charge.succeeded', makeCharge()), PLATFORM_WEBHOOK_SECRET)
+    );
+    expect(params.event.type).toBe('charge.succeeded');
+  });
+
+  it('keeps working when the optional platform destination secret is not configured', () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const input = signedInput(makeEvent('charge.succeeded', makeCharge()));
+    const { STRIPE_PLATFORM_WEBHOOK_SECRET: _, ...secretsWithoutPlatformWebhook } = input.secrets!;
+
+    const params = validateRequestParameters({ ...input, secrets: secretsWithoutPlatformWebhook });
+
+    expect(params.event.type).toBe('charge.succeeded');
+  });
+
+  it('works when only the platform destination secret is configured', () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const input = signedInput(makeEvent('charge.succeeded', makeCharge()), PLATFORM_WEBHOOK_SECRET);
+    const { STRIPE_WEBHOOK_SECRET: _, ...secretsWithoutConnectedWebhook } = input.secrets!;
+
+    const params = validateRequestParameters({ ...input, secrets: secretsWithoutConnectedWebhook });
+
+    expect(params.event.type).toBe('charge.succeeded');
+  });
+
+  it('rejects requests when no webhook signing secret is configured', () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const input = signedInput(makeEvent('charge.succeeded', makeCharge()));
+    const secretsWithoutWebhooks = { ...input.secrets };
+    delete secretsWithoutWebhooks.STRIPE_WEBHOOK_SECRET;
+    delete secretsWithoutWebhooks.STRIPE_PLATFORM_WEBHOOK_SECRET;
+
+    expect(() => validateRequestParameters({ ...input, secrets: secretsWithoutWebhooks })).toThrow(
+      expect.objectContaining(
+        MISCONFIGURED_ENVIRONMENT_ERROR(
+          'Neither "STRIPE_WEBHOOK_SECRET" nor "STRIPE_PLATFORM_WEBHOOK_SECRET" was set. Please ensure at least one is configured in project secrets.'
+        )
+      )
+    );
+  });
+
   it('rejects a body that does not match the signature', () => {
     (getStripeClient as Mock).mockReturnValue(stripe);
     const input = signedInput(makeEvent('charge.succeeded', makeCharge()));
-    expect(() => validateRequestParameters({ ...input, body: '{"tampered":true}' })).toThrow();
+    expect(() => validateRequestParameters({ ...input, body: '{"tampered":true}' })).toThrow(
+      expect.objectContaining(INVALID_INPUT_ERROR('Invalid Stripe webhook signature'))
+    );
+  });
+
+  it('rejects a missing signature as invalid input', () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const input = signedInput(makeEvent('charge.succeeded', makeCharge()));
+
+    expect(() => validateRequestParameters({ ...input, headers: {} })).toThrow(
+      expect.objectContaining(INVALID_INPUT_ERROR('Missing Stripe-Signature header'))
+    );
   });
 
   it('acks without processing when BILLING_INTEGRATION does not include ottehr', async () => {
@@ -236,7 +326,7 @@ describe('billing-stripe-webhook', () => {
 
     await performEffect(oystehr, { event: makeEvent('refund.created', refund, 'acct_1'), secrets });
 
-    expect(retrieve).toHaveBeenCalledWith('ch_1', undefined, { stripeAccount: 'acct_1' });
+    expect(retrieve).toHaveBeenCalledWith('ch_1', { expand: ['invoice'] }, { stripeAccount: 'acct_1' });
     expect(create.mock.calls[0][0].identifier).toContainEqual({ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' });
     const notice = create.mock.calls[1][0];
     expect(notice.identifier).toEqual([{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 're_1' }]);
@@ -257,5 +347,313 @@ describe('billing-stripe-webhook', () => {
     const notice = create.mock.calls[1][0];
     expect(notice.status).toBe('cancelled');
     expect(notice.contained[0].outcome).toBe('error');
+  });
+
+  it('stamps refund state on the source payment notices in both projects', async () => {
+    const retrieve = vi.fn().mockResolvedValue(makeCharge());
+    const refundsList = vi.fn().mockResolvedValue({
+      data: [{ id: 're_1', amount: 400, currency: 'usd', created: 1751990000, status: 'succeeded' }],
+    });
+    (getStripeClient as Mock).mockReturnValue({
+      charges: { retrieve },
+      refunds: { list: refundsList },
+    } as unknown as Stripe);
+    const billingNotice = {
+      resourceType: 'PaymentNotice',
+      id: 'pn-billing',
+      status: 'active',
+      identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' }],
+    } as PaymentNotice;
+    const clinicalNotice = {
+      resourceType: 'PaymentNotice',
+      id: 'pn-clinical',
+      status: 'active',
+      identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' }],
+    } as PaymentNotice;
+    const { oystehr, patch } = makeOystehr([[claim], [claim]], [], [[billingNotice]]);
+    const clinical = makeOystehr([], [], [[clinicalNotice]]);
+    (createClinicalOystehrClient as Mock).mockReturnValue(clinical.oystehr);
+    const refund = {
+      id: 're_1',
+      charge: 'ch_1',
+      amount: 400,
+      currency: 'usd',
+      created: 1751990000,
+      status: 'succeeded',
+    };
+
+    await performEffect(oystehr, { event: makeEvent('refund.created', refund), secrets });
+
+    expect(refundsList).toHaveBeenCalledWith({ charge: 'ch_1', limit: 100 }, { stripeAccount: undefined });
+    expect(patch).toHaveBeenCalledTimes(1);
+    expect(patch.mock.calls[0][0].id).toBe('pn-billing');
+    expect(clinical.patch).toHaveBeenCalledTimes(1);
+    const clinicalPatch = clinical.patch.mock.calls.find((c) => c[0].id === 'pn-clinical');
+    const extension = clinicalPatch?.[0].operations[0].value.find((ext: { url: string }) =>
+      ext.url.endsWith('/payment-refunds')
+    );
+    expect(extension.extension[0].extension).toContainEqual({ url: 'refundId', valueString: 're_1' });
+    expect(extension.extension[0].extension).toContainEqual({ url: 'amountInCents', valueInteger: 400 });
+  });
+});
+
+describe('billing-stripe-webhook invoice-originated charges', () => {
+  it('resolves the encounter from the invoice when the charge carries no metadata', async () => {
+    const retrieve = vi.fn().mockResolvedValue(makeInvoice());
+    (getStripeClient as Mock).mockReturnValue({
+      invoices: {
+        retrieve,
+      },
+    } as unknown as Stripe);
+    const { oystehr, create } = makeOystehr([[claim]]);
+    const charge = makeCharge({
+      metadata: {},
+      invoice: 'in_1',
+    });
+
+    await performEffect(oystehr, {
+      event: makeEvent('charge.succeeded', charge, 'acct_1'),
+      secrets,
+    });
+
+    expect(retrieve).toHaveBeenCalledWith('in_1', undefined, { stripeAccount: 'acct_1' });
+    const notice = create.mock.calls[0][0];
+    expect(notice.request.identifier).toEqual({
+      system: CLAIM_ENC_SYSTEM,
+      value: 'enc-1',
+    });
+    expect(notice.request.reference).toBe('Claim/claim-1');
+    expect(notice.identifier).toContainEqual({
+      system: STRIPE_PAYMENT_ID_SYSTEM,
+      value: 'ch_1',
+    });
+    expect(notice.contained[0].disposition).toContain('for invoice in_1');
+  });
+
+  it('prefers the charge metadata and skips the invoice lookup entirely', async () => {
+    const retrieve = vi.fn();
+    (getStripeClient as Mock).mockReturnValue({
+      invoices: {
+        retrieve,
+      },
+    } as unknown as Stripe);
+    const { oystehr, create } = makeOystehr([[claim]]);
+    const charge = makeCharge({ invoice: 'in_1' });
+
+    await performEffect(oystehr, { event: makeEvent('charge.succeeded', charge), secrets });
+
+    expect(retrieve).not.toHaveBeenCalled();
+    expect(create.mock.calls[0][0].request.identifier.value).toBe('enc-1');
+  });
+
+  it('reads an already expanded invoice without re-fetching it', async () => {
+    const retrieve = vi.fn();
+    (getStripeClient as Mock).mockReturnValue({
+      invoices: {
+        retrieve,
+      },
+    } as unknown as Stripe);
+    const { oystehr, create } = makeOystehr([[claim]]);
+    const charge = makeCharge({
+      metadata: {},
+      invoice: makeInvoice(),
+    });
+
+    await performEffect(oystehr, {
+      event: makeEvent('charge.succeeded', charge),
+      secrets,
+    });
+
+    expect(retrieve).not.toHaveBeenCalled();
+    expect(create.mock.calls[0][0].request.identifier.value).toBe('enc-1');
+  });
+
+  it('skips the upsert when the invoice carries no encounter metadata either', async () => {
+    const retrieve = vi.fn().mockResolvedValue(makeInvoice({ metadata: {} }));
+    (getStripeClient as Mock).mockReturnValue({
+      invoices: {
+        retrieve,
+      },
+    } as unknown as Stripe);
+    const { oystehr, create } = makeOystehr([[claim]]);
+    const charge = makeCharge({
+      metadata: {},
+      invoice: 'in_1',
+    });
+
+    await performEffect(oystehr, { event: makeEvent('charge.succeeded', charge), secrets });
+
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('skips the upsert when the invoice no longer exists', async () => {
+    const retrieve = vi.fn().mockRejectedValue(stripeError({ code: 'resource_missing' }));
+    (getStripeClient as Mock).mockReturnValue({
+      invoices: {
+        retrieve,
+      },
+    } as unknown as Stripe);
+    const { oystehr, create } = makeOystehr([[claim]]);
+    const charge = makeCharge({
+      metadata: {},
+      invoice: 'in_1',
+    });
+
+    await performEffect(oystehr, { event: makeEvent('charge.succeeded', charge), secrets });
+
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('rethrows a transient stripe failure so stripe redelivers the event', async () => {
+    const retrieve = vi.fn().mockRejectedValue(stripeError({ type: 'StripeAPIError', statusCode: 503 }));
+    (getStripeClient as Mock).mockReturnValue({
+      invoices: {
+        retrieve,
+      },
+    } as unknown as Stripe);
+    const { oystehr, create } = makeOystehr([[claim]]);
+    const charge = makeCharge({
+      metadata: {},
+      invoice: 'in_1',
+    });
+
+    await expect(performEffect(oystehr, { event: makeEvent('charge.succeeded', charge), secrets })).rejects.toThrow(
+      'stripe'
+    );
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('skips a charge with neither metadata nor an invoice without calling stripe', async () => {
+    const retrieve = vi.fn();
+    (getStripeClient as Mock).mockReturnValue({
+      invoices: {
+        retrieve,
+      },
+    } as unknown as Stripe);
+    const { oystehr, create } = makeOystehr([[claim]]);
+    const charge = makeCharge({
+      metadata: {},
+      invoice: null,
+    });
+
+    await performEffect(oystehr, { event: makeEvent('charge.succeeded', charge), secrets });
+
+    expect(retrieve).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('resolves a refund through the invoice expanded on its charge', async () => {
+    const chargeRetrieve = vi.fn().mockResolvedValue(
+      makeCharge({
+        metadata: {},
+        invoice: makeInvoice(),
+      })
+    );
+    const invoiceRetrieve = vi.fn();
+    (getStripeClient as Mock).mockReturnValue({
+      charges: {
+        retrieve: chargeRetrieve,
+      },
+      invoices: {
+        retrieve: invoiceRetrieve,
+      },
+    } as unknown as Stripe);
+    const { oystehr, create } = makeOystehr([[claim], [claim]]);
+    const refund = {
+      id: 're_1',
+      charge: 'ch_1',
+      amount: 400,
+      currency: 'usd',
+      created: 1751990000,
+      status: 'succeeded',
+    };
+
+    await performEffect(oystehr, { event: makeEvent('refund.created', refund), secrets });
+
+    expect(invoiceRetrieve).not.toHaveBeenCalled();
+    expect(create.mock.calls[0][0].request.identifier.value).toBe('enc-1');
+    expect(create.mock.calls[1][0].request.identifier.value).toBe('enc-1');
+  });
+});
+
+// An invoice can settle with no charge: marked paid out of band, or covered by customer credit.
+describe('billing-stripe-webhook chargeless invoices', () => {
+  it('records a notice for an invoice marked paid out of band', async () => {
+    const { oystehr, create } = makeOystehr([[claim]]);
+    const invoice = makeInvoice({ paid_out_of_band: true });
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.paid', invoice),
+      secrets,
+    });
+
+    const [resource, options] = create.mock.calls[0];
+    expect(options.ifNoneExist).toContainEqual({
+      name: 'identifier',
+      value: `${STRIPE_PAYMENT_ID_SYSTEM}|in_1`,
+    });
+    expect(resource.identifier).toEqual([
+      {
+        system: STRIPE_PAYMENT_ID_SYSTEM,
+        value: 'in_1',
+      },
+    ]);
+    expect(resource.amount).toEqual({
+      value: 90,
+      currency: 'USD',
+    });
+    expect(resource.status).toBe('active');
+    expect(resource.request.reference).toBe('Claim/claim-1');
+    expect(resource.extension[0].valueString).toBe('other');
+    expect(resource.contained[0].disposition).toContain('marked paid out of band');
+    // paid_at, not the invoice creation time
+    expect(resource.created).toBe(new Date(1751900500 * 1000).toISOString());
+  });
+
+  it('records a credit balance settlement when the invoice was not paid out of band', async () => {
+    const { oystehr, create } = makeOystehr([[claim]]);
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.paid', makeInvoice()),
+      secrets,
+    });
+
+    expect(create.mock.calls[0][0].contained[0].disposition).toContain('paid from credit balance');
+  });
+
+  it('ignores an invoice that a charge settled, since the charge event records it', async () => {
+    const { oystehr, create } = makeOystehr([[claim]]);
+    const invoice = makeInvoice({ charge: 'ch_1' });
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.paid', invoice),
+      secrets,
+    });
+
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('ignores an invoice with no encounter metadata', async () => {
+    const { oystehr, create } = makeOystehr([[claim]]);
+    const invoice = makeInvoice({ metadata: {} });
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.paid', invoice),
+      secrets,
+    });
+
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('ignores an invoice that settled for nothing', async () => {
+    const { oystehr, create } = makeOystehr([[claim]]);
+    const invoice = makeInvoice({ amount_paid: 0 });
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.paid', invoice),
+      secrets,
+    });
+
+    expect(create).not.toHaveBeenCalled();
   });
 });
