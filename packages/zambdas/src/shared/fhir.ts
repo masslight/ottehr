@@ -21,10 +21,10 @@ import {
 } from 'fhir/r4b';
 import { uuid } from 'short-uuid';
 import { BookableScheduleData, ScheduleStrategy, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { withResponseSizeRetry } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getGroupAllLocations, walkGroupMemberPractitionerRoleSchedules } from 'utils/lib/fhir/healthcareService';
 import { scheduleStrategyForHealthcareService, unbundleBatchPostOutput } from 'utils/lib/fhir/helpers';
 import { LOCATION_BOOKABLE_SEARCH_PARAM } from 'utils/lib/fhir/location';
-import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { checkResourceHasSlug } from 'utils/lib/helpers/helpers';
 import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
 import {
@@ -585,6 +585,8 @@ export async function searchInvitedParticipantResourcesByEncounterId(
   return relatedPersons.filter((r) => r.relationship?.[0].coding?.[0].code === 'WIT');
 }
 
+const MAX_PAGINATION_OFFSET = 100000;
+
 export async function fetchAllPages(
   fetchPage: (offset: number, count: number) => Promise<Bundle>,
   initialPageSize: number
@@ -593,30 +595,18 @@ export async function fetchAllPages(
   let pageSize = initialPageSize;
   let hasMorePages = true;
   do {
-    let bundle;
-    let pageFetched = false;
-    while (!pageFetched && pageSize > 0) {
-      try {
-        bundle = await fetchPage(offset, pageSize);
-        pageFetched = true;
-      } catch (error: unknown) {
-        console.log(`Error fetching page: ${error}`, JSON.stringify(error));
-        if (isResponseSizeExceededError(error)) {
-          pageSize = Math.floor(pageSize / 2);
-        } else {
-          throw error;
-        }
-      }
-    }
-    if (pageSize === 0) {
-      throw new Error('Failed to fetch resources');
-    }
-    hasMorePages = bundle?.link?.find((link) => link.relation === 'next') != null;
+    const page = await withResponseSizeRetry({
+      attempt: (count) => fetchPage(offset, count),
+      initialPageSize: pageSize,
+      label: `page at offset ${offset}`,
+    });
+    pageSize = page.pageSize;
+
+    hasMorePages = page.result.link?.find((link) => link.relation === 'next') != null;
     offset += pageSize;
 
-    // Safety check
-    if (offset > 100000) {
-      console.warn('Reached maximum pagination limit (100000 items). Stopping search.');
+    if (offset > MAX_PAGINATION_OFFSET) {
+      console.warn(`Reached maximum pagination limit (${MAX_PAGINATION_OFFSET} items). Stopping search.`);
       break;
     }
   } while (hasMorePages);
