@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils/lib/types/constants';
 
 export const MOCK_E2E_AD_TAG = {
@@ -954,3 +955,26 @@ export const MOCK_INHOUSE_LAB_DATA = {
     },
   },
 };
+
+// Matches every mock in-house-lab ActivityDefinition canonical URL, anchored on the full
+// `.../<Name>-Mock` path so it never touches display strings, real (non-mock) AD URLs, or the
+// `urn:uuid:` fullUrls. `<Name>` may contain hyphens/digits (e.g. RapidCOVID-19Antigen-Mock).
+const MOCK_AD_CANONICAL_URL_REGEX =
+  /(https:\/\/ottehr\.com\/FHIR\/InHouseLab\/ActivityDefinition\/[A-Za-z0-9-]+-Mock)/g;
+
+/**
+ * Returns a deep-cloned copy of MOCK_INHOUSE_LAB_DATA in which every mock ActivityDefinition
+ * canonical URL is suffixed with a per-run token. All cross-references are rewritten together in
+ * one pass — AD.url, the reflex parent's `valueCanonical`, the reflex child's `relatedArtifact`
+ * depends-on `resource`, and each lab-set List item's `identifier.value` — so the fixture stays
+ * internally consistent.
+ *
+ * This isolates concurrent E2E runs that share an Oystehr backend: with unique canonical URLs,
+ * one run's leftover-sweep (or teardown) can no longer delete another run's in-use AD, and two
+ * overlapping runs can never create duplicate `url|version` ActivityDefinitions. The token feeds a
+ * FHIR canonical URL, so it must stay free of `|`, `/`, and whitespace — `randomUUID()` (hex +
+ * hyphens) satisfies that. The stable MOCK_E2E_AD_TAG is intentionally preserved so the
+ * age-guarded leftover sweep can still find true orphans from crashed prior runs.
+ */
+export const buildRunScopedInhouseLabData = (runToken: string = randomUUID()): typeof MOCK_INHOUSE_LAB_DATA =>
+  JSON.parse(JSON.stringify(MOCK_INHOUSE_LAB_DATA).replace(MOCK_AD_CANONICAL_URL_REGEX, `$1-${runToken}`));

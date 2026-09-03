@@ -22,7 +22,7 @@ import {
 import { ExternalLabDetailPage } from 'tests/e2e/page/lab/external/ExternalLabDetailPage';
 import { ExternalLabsPage } from 'tests/e2e/page/lab/external/ExternalLabsPage';
 import { MOCK_LAB_RESULTS } from 'tests/e2e/page/lab/external/mock-data';
-import { MOCK_E2E_AD_TAG, MOCK_INHOUSE_LAB_DATA } from 'tests/e2e/page/lab/in-house/mock-data';
+import { buildRunScopedInhouseLabData, MOCK_E2E_AD_TAG } from 'tests/e2e/page/lab/in-house/mock-data';
 import { LabelPrintingConfigAdminPage } from 'tests/e2e/page/LabelPrintingConfigAdminPage';
 import { expectNursingOrderCreatePage } from 'tests/e2e/page/NursingOrderCreatePage';
 import { expectNursingOrderDetailsPage } from 'tests/e2e/page/NursingOrderDetailsPage';
@@ -264,17 +264,30 @@ test.describe('In-house labs page', async () => {
     try {
       const oystehr = await resourceHandler.apiClient;
 
+      // Only sweep resources older than an hour so we never delete the in-use mocks of a concurrent
+      // run (or a Playwright retry) that shares this Oystehr backend: every run's mocks carry the
+      // same stable MOCK_E2E_AD_TAG, so without this age guard the sweep would delete another run's
+      // fresh ActivityDefinitions and break its orders (get-in-house-orders can no longer resolve
+      // the AD its ServiceRequests reference). Mirrors packages/utils/lib/utils/e2eCleanup.ts.
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
       const leftOverActivityDefinitions = (
         await oystehr.fhir.search<ActivityDefinition>({
           resourceType: 'ActivityDefinition',
-          params: [{ name: '_tag', value: `${MOCK_E2E_AD_TAG.system}|${MOCK_E2E_AD_TAG.code}` }],
+          params: [
+            { name: '_tag', value: `${MOCK_E2E_AD_TAG.system}|${MOCK_E2E_AD_TAG.code}` },
+            { name: '_lastUpdated', value: `lt${oneHourAgo}` },
+          ],
         })
       ).unbundle();
 
       const leftOverLists = (
         await oystehr.fhir.search<List>({
           resourceType: 'List',
-          params: [{ name: '_tag', value: `${MOCK_E2E_AD_TAG.system}|${MOCK_E2E_AD_TAG.code}` }],
+          params: [
+            { name: '_tag', value: `${MOCK_E2E_AD_TAG.system}|${MOCK_E2E_AD_TAG.code}` },
+            { name: '_lastUpdated', value: `lt${oneHourAgo}` },
+          ],
         })
       ).unbundle();
 
@@ -286,7 +299,7 @@ test.describe('In-house labs page', async () => {
         console.warn(
           `Found ${
             leftoverRefs.length
-          } leftover in-house labs mock resource(s) from a prior run; deleting: ${leftoverRefs.join(', ')}`
+          } leftover in-house labs mock resource(s) (>1h old) from a prior run; deleting: ${leftoverRefs.join(', ')}`
         );
         await oystehr.fhir.batch({
           requests: leftoverRefs.map((ref) => ({ method: 'DELETE', url: ref })),
@@ -300,10 +313,14 @@ test.describe('In-house labs page', async () => {
   test.beforeAll('Handling ActivityDefinition and List resources for in-house labs tests', async () => {
     await cleanupLeftoverInHouseLabsMocks();
 
+    // Run-scoped copy: every mock AD canonical URL is suffixed with a per-run token so concurrent
+    // runs sharing an Oystehr backend never share or duplicate canonical url|version identifiers.
+    const mockData = buildRunScopedInhouseLabData();
+
     const adRequests: BatchInputPostRequest<ActivityDefinition>[] = [];
 
     // standard + repeatable tests
-    MOCK_INHOUSE_LAB_DATA.activityDefinitions.forEach((ad) => {
+    mockData.activityDefinitions.forEach((ad) => {
       const fhirActivityDefinition = ad as ActivityDefinition;
       const testItem = convertActivityDefinitionToDataEntryTestItem(fhirActivityDefinition);
 
@@ -334,7 +351,7 @@ test.describe('In-house labs page', async () => {
     });
 
     // reflex test
-    const { parentTest, childTest } = MOCK_INHOUSE_LAB_DATA.reflexTest;
+    const { parentTest, childTest } = mockData.reflexTest;
 
     const parentTestItem = convertActivityDefinitionToDataEntryTestItem(
       parentTest.activityDefinition as ActivityDefinition
@@ -372,7 +389,7 @@ test.describe('In-house labs page', async () => {
     });
 
     // lab set
-    const listRequests = MOCK_INHOUSE_LAB_DATA.lists.map((list) => {
+    const listRequests = mockData.lists.map((list) => {
       return {
         method: 'POST' as const,
         url: 'List',
