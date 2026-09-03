@@ -27,6 +27,7 @@ import {
   readServiceLineProperty,
   recomputeClaimTotal,
   resolveDateValue,
+  resolveFacilityPlaceOfService,
   RulesEngineClaimModel,
   writeField,
   writeServiceLineProperty,
@@ -330,12 +331,22 @@ const applyServiceLineUpdate = (
       }
       literalValue = resolution.value;
     }
+  } else if (def?.id === 'placeOfService' && typeof action.set.value === 'object') {
+    if (action.set.value.source !== 'facilityPlaceOfService') {
+      return `could not update service line property "${action.set.property}" — unknown place of service source`;
+    }
+    // Resolve once, before mutating any line, mirroring resolveDateValue above.
+    const resolution = resolveFacilityPlaceOfService(model);
+    if ('error' in resolution) {
+      return `could not update service line property "${action.set.property}" — ${resolution.error}`;
+    }
+    literalValue = resolution.value;
   } else if (typeof action.set.value === 'string') {
     literalValue = action.set.value;
   } else {
-    // Save-time validation rejects a derived-source value on a non-date property; fail safe rather
+    // Save-time validation rejects a derived-source value on any other property; fail safe rather
     // than crash if one reaches here anyway (e.g. a rule created directly through the API).
-    return `could not update service line property "${action.set.property}" — this property does not accept a derived date value`;
+    return `could not update service line property "${action.set.property}" — this property does not accept a derived value`;
   }
 
   const matching = (model.claim.item ?? []).filter((line) => serviceLineMatches(line, action.match));

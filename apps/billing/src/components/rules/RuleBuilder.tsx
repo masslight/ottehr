@@ -21,8 +21,11 @@ import {
   DATE_SOURCE_CATALOG,
   DateSourceSelectValue,
   EXACT_DATE_SOURCE,
+  EXACT_POS_SOURCE,
   getRuleFieldDef,
   getServiceLinePropertyDef,
+  POS_SOURCE_CATALOG,
+  PosSourceSelectValue,
   RULE_FIELD_CATALOG,
   RULE_FIELD_GROUP_LABELS,
   RULE_VALUE_FORMATS,
@@ -58,6 +61,7 @@ import {
   SERVICE_LINE_MATCH_TYPE,
   ServiceLineMatch,
   ServiceLineSetOperation,
+  ServiceLineSetValue,
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { otherColors } from '../../themes/ottehr/colors';
@@ -550,6 +554,68 @@ function DateOrSourceInput({
   );
 }
 
+// Place-of-service-or-derived-source input for updateServiceLines' placeOfService property — parallel
+// to DateOrSourceInput above, but for the one non-date property that accepts a derived value. "Exact
+// code" (the default) falls through to the property's usual code dropdown via ServiceLineValueInput.
+function PosOrSourceInput({
+  def,
+  value,
+  onChange,
+  label,
+  required,
+  error,
+  helperText,
+  inputRef,
+}: {
+  def: ServiceLinePropertyDef | undefined;
+  value: ServiceLineSetValue | null | undefined;
+  onChange: (value: ServiceLineSetValue) => void;
+  label?: string;
+} & ValueInputValidationProps): ReactElement {
+  const source: PosSourceSelectValue =
+    value && typeof value === 'object' && value.source === 'facilityPlaceOfService' ? value.source : EXACT_POS_SOURCE;
+  return (
+    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <FormControl size="small" sx={{ minWidth: 220 }}>
+        <InputLabel>{label ? `${label} source` : 'Place of service source'}</InputLabel>
+        <Select
+          label={label ? `${label} source` : 'Place of service source'}
+          value={source}
+          inputRef={source !== EXACT_POS_SOURCE ? inputRef : undefined}
+          onChange={(e) => {
+            const next = e.target.value as PosSourceSelectValue;
+            onChange(next === EXACT_POS_SOURCE ? '' : { source: next });
+          }}
+        >
+          {POS_SOURCE_CATALOG.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </Select>
+        {source !== EXACT_POS_SOURCE && helperText != null && (
+          <FormHelperText error={error}>{helperText}</FormHelperText>
+        )}
+      </FormControl>
+      {source === EXACT_POS_SOURCE && (
+        <ServiceLineValueInput
+          def={def}
+          multiple={false}
+          value={typeof value === 'string' ? value : ''}
+          onChange={(v) => onChange(typeof v === 'string' ? v : v[0] ?? '')}
+          label={label}
+          required={required}
+          error={error}
+          helperText={helperText}
+          inputRef={inputRef}
+          // The only clearable scalar line property; an explicit empty entry means "clear it".
+          allowEmptyOption
+        />
+      )}
+    </Box>
+  );
+}
+
 // --- Condition ---
 
 function ConditionEditor({ name }: { name: string }): ReactElement | null {
@@ -921,7 +987,11 @@ function AddServiceLineEditor({ name }: { name: string }): ReactElement {
 // properties: replace / add / remove), and the value.
 function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
   const { control, clearErrors } = useFormContext();
-  const { value, replace } = useNode<{ property: string; value: DateValue; operation?: ServiceLineSetOperation }>(name);
+  const { value, replace } = useNode<{
+    property: string;
+    value: ServiceLineSetValue;
+    operation?: ServiceLineSetOperation;
+  }>(name);
   if (!value) return null;
   const def = getServiceLinePropertyDef(value.property);
   const isList = def?.valueType === 'list';
@@ -986,6 +1056,17 @@ function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
         render={({ field: { ref, value: fieldValue, onChange }, fieldState: { error } }) =>
           def?.valueType === 'date' ? (
             <DateOrSourceInput
+              value={fieldValue}
+              onChange={onChange}
+              label={valueLabel}
+              required={valueRequired}
+              error={!!error}
+              helperText={error?.message ?? formatHint(def)}
+              inputRef={ref}
+            />
+          ) : def?.id === 'placeOfService' ? (
+            <PosOrSourceInput
+              def={def}
               value={fieldValue}
               onChange={onChange}
               label={valueLabel}
