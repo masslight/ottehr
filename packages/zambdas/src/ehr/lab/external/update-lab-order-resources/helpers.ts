@@ -23,7 +23,7 @@ import {
   SR_REVOKED_REASON_EXT,
 } from 'utils/lib/types/data/labs/labs.constants';
 import { DynamicAOEInput, SpecimenCollectionDateConfig } from 'utils/lib/types/data/labs/labs.types';
-import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
+import { EXTERNAL_LAB_ERROR, EXTERNAL_LAB_UNSOLICITED_RESULTS_ALREADY_MATCHED } from 'utils/lib/types/errors';
 import { createOwnerReference } from '../../../../shared/tasks';
 import { populateQuestionnaireResponseItems } from '../../shared/labs';
 
@@ -264,6 +264,10 @@ export const handleMatchUnsolicitedRequest = async ({
 
   if (!diagnosticReports.length) throw new Error(`Unable to find DiagnosticReport/${diagnosticReportId}`);
   const diagnosticReportResource = diagnosticReports[0];
+
+  if (task.status === 'completed') {
+    throw EXTERNAL_LAB_UNSOLICITED_RESULTS_ALREADY_MATCHED('These results have already been matched.');
+  }
 
   console.log('formatting fhir patch requests to handle matching unsolicited results');
   const taskOperations: Operation[] = [{ op: 'replace', path: '/status', value: 'completed' }];

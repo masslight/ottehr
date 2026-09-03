@@ -18,7 +18,6 @@ import {
   Stack,
   Switch,
   TextField,
-  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -32,11 +31,13 @@ import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchB
 import { useSendFax } from 'src/features/fax/hooks/useSendFax';
 import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
 import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
-import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
+import { useGetPatientAccount } from 'src/hooks/useGetPatient';
 import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
+import { useFindApplicableFeeScheduleQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { formatLabelValue } from 'src/shared/utils/formatLabelValue';
 import { formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
-import { ROOM_EXTENSION_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { isAppointmentOccupationalMedicine, isAppointmentPreOp } from 'utils/lib/fhir/appointments';
+import { CASE_RATE_CODE, RCM_TAG_SYSTEM, ROOM_EXTENSION_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
   getAnnotationFollowupStatusLabel,
   getEncounterLocationId,
@@ -47,6 +48,7 @@ import { getCoding, getInsuranceNameFromCoverage } from 'utils/lib/fhir/helpers'
 import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { extractPayerIdFromUrl } from 'utils/lib/helpers/helpers';
 import { formatWeightKg } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
@@ -205,7 +207,7 @@ export const Header = (): JSX.Element => {
 
   const apiClient = useOystehrAPIClient();
 
-  const { data: insuranceData } = useGetPatientCoverages({
+  const { data: insuranceData } = useGetPatientAccount({
     apiClient,
     patientId: patient?.id ?? null,
   });
@@ -279,12 +281,51 @@ export const Header = (): JSX.Element => {
 
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
-  const paymentVariant = formatLabelValue(
-    encounterValues?.payment === PaymentVariant.selfPay
-      ? 'Self-pay'
-      : (insuranceData?.coverages.primary && getInsuranceNameFromCoverage(insuranceData?.coverages.primary)) ??
-          (insuranceData?.coverages.secondary && getInsuranceNameFromCoverage(insuranceData?.coverages.secondary))
+  const encounterPaymentVariant = encounterValues?.payment;
+  const isOccMed = appointment ? isAppointmentOccupationalMedicine(appointment) : false;
+  const isPreOp = appointment ? isAppointmentPreOp(appointment) : false;
+
+  const primaryInsurancePayerRef = insuranceData?.coverages.primary?.payor.find((p) => !!p.reference)?.reference;
+  const insuranceOrgId =
+    extractPayerIdFromUrl(primaryInsurancePayerRef) ?? primaryInsurancePayerRef?.replace('Organization/', '');
+  const dateOfService = appointment?.start?.split('T')[0];
+
+  const employerOrgId =
+    encounterPaymentVariant === PaymentVariant.employer || isPreOp
+      ? insuranceData?.occupationalMedicineEmployerOrganization?.id ?? insuranceData?.employerOrganization?.id
+      : undefined;
+
+  const isPayerVariant =
+    encounterPaymentVariant === PaymentVariant.insurance || encounterPaymentVariant === PaymentVariant.employer;
+  const canQueryFeeSchedule = isPayerVariant && (!!insuranceOrgId || !!employerOrgId) && !!dateOfService;
+
+  const { data: feeScheduleResult, isFetched: feeScheduleFetched } = useFindApplicableFeeScheduleQuery(
+    canQueryFeeSchedule ? insuranceOrgId : undefined,
+    canQueryFeeSchedule ? dateOfService : undefined,
+    location?.id,
+    canQueryFeeSchedule ? employerOrgId : undefined
   );
+  const payerFeeSchedule = feeScheduleResult?.feeSchedule ?? undefined;
+  const isCaseRate =
+    payerFeeSchedule?.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === CASE_RATE_CODE) ?? false;
+
+  const insuranceName =
+    (insuranceData?.coverages.primary && getInsuranceNameFromCoverage(insuranceData?.coverages.primary)) ??
+    (insuranceData?.coverages.secondary && getInsuranceNameFromCoverage(insuranceData?.coverages.secondary));
+
+  const employerName =
+    insuranceData?.occupationalMedicineEmployerOrganization?.name ?? insuranceData?.employerOrganization?.name;
+
+  const paymentDisplayValue = (() => {
+    if (encounterPaymentVariant === PaymentVariant.selfPay) return 'Self-Pay';
+    if (isOccMed && encounterPaymentVariant === PaymentVariant.employer) {
+      return `${employerName ?? 'Employer'} (Occ-med)`;
+    }
+    if (isPreOp) return `${employerName ?? insuranceName ?? 'Insurance'} (Pre-op)`;
+    if (!canQueryFeeSchedule || !feeScheduleFetched) return insuranceName ?? '';
+    if (!payerFeeSchedule) return `${insuranceName} (No Fee Schedule)`;
+    return `${insuranceName} (${isCaseRate ? 'Case Rate' : 'Fee for Service'})`;
+  })();
   const patientName = formatLabelValue(mappedData?.patientName, 'Name');
   const patientFirstLastName = [patient?.firstName, patient?.lastName].filter(Boolean).join(' ') || undefined;
   const room = appointment?.extension?.find((ext) => ext.url === ROOM_EXTENSION_URL)?.valueString;
@@ -451,20 +492,6 @@ export const Header = (): JSX.Element => {
                       <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitBookingType}</PatientMetadata>
                     </Grid>
                   )}
-                  <Grid item>
-                    <Tooltip title={paymentVariant}>
-                      <PatientMetadata
-                        sx={{
-                          maxWidth: 250,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        Payment: {paymentVariant}
-                      </PatientMetadata>
-                    </Tooltip>
-                  </Grid>
                   <Grid item>
                     {isFollowup ? (
                       <Stack direction="row" spacing={1} alignItems="center">
@@ -652,6 +679,17 @@ export const Header = (): JSX.Element => {
                         </>
                       ) : null}
                       <PatientMetadata>{language}</PatientMetadata> |<PatientMetadata>{reasonForVisit}</PatientMetadata>
+                      <PatientMetadata
+                        sx={{
+                          marginLeft: 6,
+                          maxWidth: 400,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Payment: {paymentDisplayValue}
+                      </PatientMetadata>
                     </PatientInfoWrapper>
                   </Grid>
                   <PatientMetadata

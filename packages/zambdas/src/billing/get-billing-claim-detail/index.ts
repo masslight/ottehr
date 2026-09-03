@@ -298,6 +298,8 @@ export async function performEffect(
     patientDischargeStatusCode: getExtension(claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS)?.valueString ?? '',
     admissionType: getExtension(claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE)?.valueString ?? '',
     admissionSource: getExtension(claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',
+    admissionDate: claim.billablePeriod?.start ?? '',
+    dischargeDate: claim.billablePeriod?.end ?? '',
     attachments,
   };
 }

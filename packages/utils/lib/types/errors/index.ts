@@ -66,6 +66,7 @@ export enum APIErrorCode {
   INSURANCE_CARD_IMAGE_GENERAL = 4408,
   PAPERWORK_FLOW_GENERAL = 4409,
   UNSOLICITED_RESULTS_ALREADY_MATCHED = 4410,
+  FILE_STORAGE_REQUEST_REJECTED = 4411,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -453,6 +454,14 @@ export const IN_HOUSE_LAB_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.IN_HOUSE_LAB_GENERAL,
     message,
+  };
+};
+
+export const FILE_STORAGE_REQUEST_REJECTED_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.FILE_STORAGE_REQUEST_REJECTED,
+    message,
+    statusCode: 400,
   };
 };
 

@@ -13,6 +13,7 @@ import {
   ChargeItemDefinition,
   ChargeItemDefinitionPropertyGroup,
   Claim,
+  ClaimItem,
   ClaimResponse,
   ClaimResponseItem,
   ClaimSupportingInfo,
@@ -28,6 +29,7 @@ import {
   Patient,
   PaymentNotice,
   PaymentReconciliation,
+  Period,
   Person,
   Practitioner,
   Provenance,
@@ -36,6 +38,7 @@ import {
   Resource,
   Task,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { setCoveragePlanType } from 'utils/lib/fhir/billing';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
@@ -562,6 +565,24 @@ export async function searchTagBasics(oystehr: Oystehr): Promise<Basic[]> {
 export async function fetchDefinedTagNames(oystehr: Oystehr): Promise<Set<string>> {
   const basics = await searchTagBasics(oystehr);
   return new Set(basics.map((tag) => tag.code?.text).filter((name): name is string => !!name));
+}
+
+// A claim's billable period spans its service lines: the earliest service start and the latest
+// service end across all items. Used at claim creation so UB-04 admission/discharge dates default
+// to the actual span of care rather than being left blank.
+export function deriveClaimBillablePeriod(items: ClaimItem[] | undefined): Period | undefined {
+  const millis = (date: string): number => DateTime.fromISO(date).toMillis();
+  const start = (items ?? [])
+    .map((item) => item.servicedPeriod?.start ?? item.servicedDate)
+    .filter((date): date is string => !!date)
+    .sort((a, b) => millis(a) - millis(b))
+    .at(0);
+  const end = (items ?? [])
+    .map((item) => item.servicedPeriod?.end ?? item.servicedDate)
+    .filter((date): date is string => !!date)
+    .sort((a, b) => millis(a) - millis(b))
+    .at(-1);
+  return start ? { start, end } : undefined;
 }
 
 // Re-point careTeam sequence 1 (the rendering provider) at `provider`, preserving other members,

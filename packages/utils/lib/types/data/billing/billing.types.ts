@@ -503,6 +503,8 @@ export interface ClaimDetailResponse {
   patientDischargeStatusCode: string;
   admissionType: string;
   admissionSource: string;
+  admissionDate: string;
+  dischargeDate: string;
   attachments: ClaimAttachment[];
 }
 
