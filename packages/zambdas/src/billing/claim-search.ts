@@ -323,11 +323,12 @@ export async function scanClaimIds({
   };
 
   const claims: FhirResourceReturnValue<Claim>[] = [];
+  const scanned = new Set<string>();
   let pageSize = CLAIM_SCAN_PAGE_SIZE;
   let serverTotal: number | undefined;
 
-  while (claims.length < maxMatches) {
-    const requested = Math.min(pageSize, maxMatches - claims.length);
+  while (scanned.size < maxMatches) {
+    const requested = Math.min(pageSize, maxMatches - scanned.size);
     const page = await searchPageWithSizeRetry<Claim>(oystehr, searchParams, {
       offset: claims.length,
       count: requested,
@@ -338,19 +339,21 @@ export async function scanClaimIds({
     const matched = page.bundle
       .unbundle()
       .filter((claim): claim is FhirResourceReturnValue<Claim> => claim.resourceType === 'Claim' && !!claim.id);
+    const newlyScanned = matched.filter((claim) => !scanned.has(claim.id));
     claims.push(...matched);
+    matched.forEach((claim) => scanned.add(claim.id));
 
-    if (matched.length === 0) break;
+    if (matched.length === 0 || newlyScanned.length === 0) break;
     if (serverTotal === undefined) {
       if (matched.length < requested) break;
-    } else if (claims.length >= serverTotal) {
+    } else if (scanned.size >= serverTotal) {
       break;
     }
   }
 
   return {
     claims: deduplicateUnbundledResources(claims),
-    incomplete: serverTotal === undefined ? claims.length >= maxMatches : serverTotal > claims.length,
+    incomplete: serverTotal === undefined ? scanned.size >= maxMatches : serverTotal > scanned.size,
   };
 }
 

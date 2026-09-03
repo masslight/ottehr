@@ -351,6 +351,69 @@ describe('scanClaimIds', () => {
     expect(claimSearchCalls(search)).toHaveLength(2);
   });
 
+  it('counts distinct claims against the match limit, not repeated rows', async () => {
+    const repeated = makeClaim('claim-a', '2026-07-01T00:00:00Z');
+    const { oystehr } = stubScanClient([
+      repeated,
+      repeated,
+      makeClaim('claim-b', '2026-07-01T00:00:00Z'),
+      makeClaim('claim-c', '2026-07-01T00:00:00Z'),
+    ]);
+
+    const { claims } = await scanClaimIds({
+      oystehr,
+      params: [],
+      maxMatches: 3,
+      withServiceDate: false,
+    });
+
+    expect(claims.map((claim) => claim.id)).toEqual(['claim-a', 'claim-b', 'claim-c']);
+  });
+
+  // A claim edited mid-scan moves to the head of the sort, so a later page repeats a row already
+  // read and the moved claim never comes back at all.
+  it('reports incomplete when a repeated row left a claim unread', async () => {
+    const repeated = makeClaim('claim-a', '2026-07-01T00:00:00Z');
+    const { oystehr } = stubScanClient([repeated, repeated], { total: 2 });
+
+    const { claims, incomplete } = await scanClaimIds({
+      oystehr,
+      params: [],
+      maxMatches: CLAIM_SCAN_MATCH_LIMIT,
+      withServiceDate: false,
+    });
+
+    expect(claims.map((claim) => claim.id)).toEqual(['claim-a']);
+    expect(incomplete).toBe(true);
+  });
+
+  // Only the distinct count bounds the loop, so a server that answers every offset with rows
+  // already seen would otherwise page until the lambda runs out of memory.
+  it('stops when a page repeats only claims already scanned', async () => {
+    const repeated = makeClaim('claim-a', '2026-07-01T00:00:00Z');
+    let served = 0;
+    const search = vi.fn().mockImplementation(async () => {
+      served += 1;
+      if (served > 3) throw new Error('kept paging on rows it had already scanned');
+      return bundleOf([repeated], 900);
+    });
+
+    const { claims, incomplete } = await scanClaimIds({
+      oystehr: {
+        fhir: {
+          search,
+        },
+      } as unknown as Oystehr,
+      params: [],
+      maxMatches: CLAIM_SCAN_MATCH_LIMIT,
+      withServiceDate: false,
+    });
+
+    expect(claims.map((claim) => claim.id)).toEqual(['claim-a']);
+    expect(incomplete).toBe(true);
+    expect(search).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps paging when the bundle carries no total', async () => {
     const { oystehr, search } = stubScanClient(claimsNumbered(2500), { omitTotal: true });
 
