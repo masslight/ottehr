@@ -19,6 +19,62 @@ export function getAppointmentRoom(appointment: Appointment): string | undefined
   return appointment.extension?.find((ext) => ext.url === ROOM_EXTENSION_URL)?.valueString;
 }
 
+export async function updateAppointmentRoom(
+  appointment: Appointment,
+  room: string | undefined,
+  oystehr: Oystehr
+): Promise<Appointment> {
+  if (!appointment.id) {
+    throw new Error('Appointment resource missing id');
+  }
+
+  const existingExtension = appointment.extension ?? [];
+
+  if (!room) {
+    const updatedExtension = existingExtension.filter((ext) => ext.url !== ROOM_EXTENSION_URL);
+    if (updatedExtension.length === 0) {
+      return oystehr.fhir.patch<Appointment>({
+        resourceType: 'Appointment',
+        id: appointment.id,
+        operations: [{ op: 'remove', path: '/extension' }],
+      });
+    }
+    return oystehr.fhir.patch<Appointment>({
+      resourceType: 'Appointment',
+      id: appointment.id,
+      operations: [{ op: 'replace', path: '/extension', value: updatedExtension }],
+    });
+  }
+
+  const roomExtensionIndex = existingExtension.findIndex((ext) => ext.url === ROOM_EXTENSION_URL);
+
+  if (roomExtensionIndex !== -1) {
+    const updatedExtension = [...existingExtension];
+    updatedExtension[roomExtensionIndex] = { url: ROOM_EXTENSION_URL, valueString: room };
+    return oystehr.fhir.patch<Appointment>({
+      resourceType: 'Appointment',
+      id: appointment.id,
+      operations: [{ op: 'replace', path: '/extension', value: updatedExtension }],
+    });
+  }
+
+  if (existingExtension.length === 0) {
+    return oystehr.fhir.patch<Appointment>({
+      resourceType: 'Appointment',
+      id: appointment.id,
+      operations: [{ op: 'add', path: '/extension', value: [{ url: ROOM_EXTENSION_URL, valueString: room }] }],
+    });
+  }
+
+  const updatedExtension = [...existingExtension];
+  updatedExtension.push({ url: ROOM_EXTENSION_URL, valueString: room });
+  return oystehr.fhir.patch<Appointment>({
+    resourceType: 'Appointment',
+    id: appointment.id,
+    operations: [{ op: 'replace', path: '/extension', value: updatedExtension }],
+  });
+}
+
 export async function cancelAppointmentResource(
   appointment: Appointment,
   cancellationReasonCoding: NonNullable<CodeableConcept['coding']>,
