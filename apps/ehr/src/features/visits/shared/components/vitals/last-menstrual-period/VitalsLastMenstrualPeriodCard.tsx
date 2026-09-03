@@ -70,7 +70,7 @@ const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps
     (latestDate ? `${formatDateForDisplay(latestDate)}${isUnsure ? ' (unsure)' : ''}` : isUnsure ? 'Unsure' : '');
 
   return (
-    <Box sx={{ mt: 3 }}>
+    <Box>
       <AccordionCard
         label={title}
         collapsed={isCollapsed}
