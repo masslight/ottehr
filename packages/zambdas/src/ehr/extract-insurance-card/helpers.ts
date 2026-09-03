@@ -6,7 +6,8 @@ import {
   InsuranceCardExtraction,
   InsuranceCardExtractionFields,
 } from 'utils/lib/types/data/documents';
-import { invokeChatbotVertexAI } from '../../shared/ai';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { invokeChatbotVertexAI, VertexAIRequestError } from '../../shared/ai';
 import {
   assertBooleanClassifier,
   buildExtractionExtension as buildGenericExtractionExtension,
@@ -148,11 +149,28 @@ export async function extractInsuranceCardFieldsFromImage(
     return { isInsuranceCard: false, fields: null, readable: null, unsupportedContentType: true };
   }
 
-  const rawModelResponse = await invokeChatbotVertexAI(
-    [{ text: EXTRACTION_PROMPT }, { inlineData: { mimeType, data: bytes.toString('base64') } }],
-    secrets,
-    insuranceCardResponseSchema
-  );
+  let rawModelResponse: string;
+  try {
+    rawModelResponse = await invokeChatbotVertexAI(
+      [{ text: EXTRACTION_PROMPT }, { inlineData: { mimeType, data: bytes.toString('base64') } }],
+      secrets,
+      insuranceCardResponseSchema
+    );
+  } catch (error) {
+    // A 4xx from Vertex AI means the uploaded image itself was rejected (e.g. unreadable or
+    // unsupported content). Surface that as a 400 bad-request rather than crashing with a 500.
+    if (
+      error instanceof VertexAIRequestError &&
+      error.status !== undefined &&
+      error.status >= 400 &&
+      error.status < 500
+    ) {
+      throw INVALID_INPUT_ERROR(
+        'The uploaded insurance card image could not be processed. Please upload a clearer image of the insurance card.'
+      );
+    }
+    throw error;
+  }
   const parsed = parseModelResponse(rawModelResponse);
   return { ...parsed, unsupportedContentType: false };
 }
