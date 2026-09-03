@@ -230,7 +230,7 @@ describe('resolveFacilityPlaceOfService', () => {
   it('errors when the facility has no place-of-service code configured', () => {
     const m = makeModel();
     expect(resolveFacilityPlaceOfService(m)).toEqual({
-      error: "the claim's facility has no place-of-service code configured",
+      error: "Claim's facility has no place-of-service code configured",
     });
   });
 
@@ -238,7 +238,7 @@ describe('resolveFacilityPlaceOfService', () => {
     const m = makeModel();
     m.serviceFacility = undefined;
     expect(resolveFacilityPlaceOfService(m)).toEqual({
-      error: "the claim's facility has no place-of-service code configured",
+      error: 'The claim has no service facility set',
     });
   });
 });
@@ -699,7 +699,7 @@ describe('service line actions', () => {
       },
       m
     );
-    expect(error).toContain("the claim's facility has no place-of-service code configured");
+    expect(error).toContain("Claim's facility has no place-of-service code configured");
     // The line's original place of service is untouched.
     expect(readServiceLineProperty(m.claim.item![0], 'placeOfService')).toBe('20');
   });

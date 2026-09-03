@@ -309,7 +309,7 @@ export const resolveDateValue = (
 export const resolveFacilityPlaceOfService = (model: RulesEngineClaimModel): DateValueResolution => {
   if (!model.serviceFacility) {
     return {
-      error: 'The claim has no facility',
+      error: 'The claim has no service facility set',
     };
   }
   const code = getPlaceOfServiceCode(model.serviceFacility);
