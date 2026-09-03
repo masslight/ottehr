@@ -6,8 +6,6 @@ import { lambdaResponse } from '../../src/shared/lambda';
 import { wrapHandler } from '../../src/shared/sentry';
 import { ZambdaInput } from '../../src/shared/types/common';
 
-// Stands in for the SDK the real handler wrapper is built on: captureException is the only call whose
-// arguments matter here, the rest exist so `wrapHandler` runs its actual code instead of a stub.
 const captureException = vi.fn();
 vi.mock('@sentry/aws-serverless', () => ({
   captureException: (...args: unknown[]) => captureException(...args),
@@ -19,7 +17,6 @@ vi.mock('@sentry/aws-serverless', () => ({
   wrapHandler: (handler: unknown) => handler, // the real one only adds tracing
 }));
 
-// Keyed off SecretsKeys so the test breaks if the code starts reading a different secret.
 const secrets: Secrets = {
   [SecretsKeys.GOOGLE_CLOUD_PROJECT_ID]: 'test-project',
   [SecretsKeys.GOOGLE_CLOUD_API_KEY]: 'test-key',
@@ -81,7 +78,6 @@ const unhandledDuring = async (scenario: () => Promise<void>): Promise<unknown[]
   return seen;
 };
 
-// One entry per attempt, for the retry paths; the last entry repeats if the ladder runs longer.
 const respondInSequence = (...responses: [number, unknown][]): void => {
   let attempt = 0;
   vi.stubGlobal(
@@ -147,8 +143,6 @@ const invokeThroughHandler = async (): Promise<APIGatewayProxyResult> => {
 
 describe('invokeChatbotVertexAI error handling', () => {
   test('a 400 surfaces the status and Vertex message instead of a TypeError', async () => {
-    // The body Vertex returned for the unparseable upload. It used to fall through to `candidates[0]`, so
-    // every failure looked like "TypeError: Cannot read properties of undefined" with an empty stack.
     respondWith(400, {
       error: { code: 400, message: 'Request contains an invalid argument.', status: 'INVALID_ARGUMENT' },
     });
@@ -168,16 +162,12 @@ describe('invokeChatbotVertexAI error handling', () => {
   });
 
   test('a non-retryable failure surfaces at once, not after the backoff sleeps', async () => {
-    // Not retrying is only half of it. Promise.any cannot reject until every attempt has, so a rejected
-    // terminal attempt left the caller waiting for attempts 1 and 2 to wake from their 3s and 6s sleeps and
-    // find the ladder abandoned — 6s of lambda time spent on a 400 that was known immediately.
     respondWith(400, { error: { code: 400, status: 'INVALID_ARGUMENT' } });
 
     expect(await settleDelay()).toBe(0);
   });
 
   test('a 200 with no candidate text reports the reason, not the body', async () => {
-    // e.g. a safety block or a MAX_TOKENS finishReason: valid JSON, no text to return.
     // Partial transcript in a sibling part here: the error reaches logs and Sentry, so it must carry none.
     respondWith(200, {
       candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ inlineData: 'patient reports chest pain' }] } }],
@@ -208,7 +198,6 @@ describe('invokeChatbotVertexAI error handling', () => {
   });
 
   test('a 200 that is not JSON is reported as such', async () => {
-    // A proxy's HTML error page or a truncated response: JSON.parse would throw a bare SyntaxError.
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({ ok: true, status: 200, statusText: 'OK', text: async () => '<html>502 Bad Gateway</html>' }))
@@ -262,7 +251,6 @@ describe('invokeChatbotVertexAI error handling', () => {
 
     expect(response.statusCode).toBe(500);
     expect(captureException).toHaveBeenCalledOnce();
-    // And it carries the diagnosis, not a bare AggregateError, so the Sentry issue is actionable.
     const reported = captureException.mock.calls[0][0] as Error;
     expect(reported.message).toMatch(/Vertex AI request failed after 3 attempts/);
     expect(reported.message).toMatch(/503.*currently unavailable/s);
@@ -462,15 +450,13 @@ describe('invokeChatbotVertexAI promise lifecycle', () => {
   const TEXT_200 = { candidates: [{ content: { parts: [{ text: 'the transcript' }] } }] };
   const EMPTY_200 = { usageMetadata: { totalTokenCount: 1798, thoughtsTokenCount: 273 } };
 
-  // Kick the call off without touching the clock, for the scenarios that observe mid-flight state.
   const start = (): Promise<string> =>
     invokeChatbotVertexAI([{ text: 'hello' }], secrets).then(
       (value) => `resolved: ${value}`,
       (error: Error) => `rejected: ${error.message}`
     );
 
-  // The same, with the clock driven far enough to finish the ladder. Awaiting the call before advancing the
-  // clock would deadlock, so the outcome is captured as a value.
+  // Awaiting the call before advancing the clock would deadlock, so the outcome is captured as a value.
   const settle = async (): Promise<string> => {
     const outcome = start();
     await vi.advanceTimersByTimeAsync(30_000);
@@ -555,7 +541,6 @@ describe('invokeChatbotVertexAI promise lifecycle', () => {
       outcome = await settle();
     });
 
-    // The success stands: a late terminal rejection cannot turn a delivered result into a failure.
     expect(outcome).toBe('resolved: the transcript');
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     expect(seen).toEqual([]);

@@ -214,29 +214,21 @@ export async function invokeChatbotVertexAI(
         throw new Error(`Vertex AI returned a non-JSON body: ${body.slice(0, 1000)}`);
       }
 
-      // Unchecked, an error body fell through to `candidates[0]` and every Vertex failure surfaced as
-      // `TypeError: Cannot read properties of undefined` with an empty stack.
       const candidate = parsed?.candidates?.[0];
       const text = candidate?.content?.parts?.[0]?.text;
-      // Whitespace is not output: it satisfies every downstream caller's type but dies in the JSON parse or
-      // lands a blank transcript on the chart, and it would do so with the attempt already counted a success.
+      // Whitespace-only output satisfies every downstream caller's type but dies in the JSON parse or lands a
+      // blank transcript on the chart.
       if (typeof text !== 'string' || text.trim().length === 0) {
-        // No candidate text means the model refused, was cut off (safety block, MAX_TOKENS finishReason), or
-        // spent the whole turn on thinking tokens and emitted none. Everything outside `candidates` is
-        // metadata — quota, model build, response id, prompt feedback — so it is reported whole: it names the
-        // cause where a hand-picked field or two left `{}`. `candidates` is dropped wholesale rather than
-        // inspected shape by shape, because one that was cut off can still hold a partial transcript and a
-        // sibling can hold a whole one, and neither belongs in a log or a Sentry issue.
-        // Capped like every other body interpolated here: dropping `candidates` bounds what this can say
-        // about a Gemini response, but not about a gateway envelope that carries the request back, which on
-        // the transcription path is the base64 audio — and this reason is logged and shipped to Sentry.
+        // Everything outside `candidates` is metadata — quota, model build, response id, prompt feedback — and
+        // reporting it whole is what names the cause; hand-picking a field or two left `{}`. `candidates` is
+        // dropped wholesale because any of them can hold partial or whole transcript, which must not reach a
+        // log or Sentry. The cap bounds a gateway envelope that echoes the request back — on the transcription
+        // path, the base64 audio.
         const { candidates: _candidates, ...metadata } = parsed ?? {};
         const reason = JSON.stringify({ finishReason: candidate?.finishReason, ...metadata }).slice(0, 1000);
         throw new Error(`Vertex AI returned no text: ${reason}`);
       }
 
-      // Only an attempt that produced usable text may win. This used to be set on `response.ok` alone, so a
-      // 200 carrying no candidates resolved the ladder and the remaining attempts were skipped as superseded.
       resolved = true;
       return text;
     } catch (error) {
@@ -250,8 +242,6 @@ export async function invokeChatbotVertexAI(
   });
 
   try {
-    // Every attempt now resolves only with validated text, so Promise.any picks the first usable result
-    // rather than the first HTTP 200.
     return await Promise.race([Promise.any(requests), terminalFailure]);
   } catch (error) {
     // Only Promise.any rejects with an AggregateError; anything else came from the terminal signal. Such a
