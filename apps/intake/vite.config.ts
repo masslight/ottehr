@@ -49,6 +49,15 @@ export default (env: any): Record<string, any> => {
   return mergeConfig(
     config({ mode }),
     defineConfig({
+      // Vite 8 switched to Rolldown, which aligns CJS interop to esbuild's semantics: a default
+      // import of a CJS module now yields the module namespace object rather than its
+      // `exports.default`. This app default-imports CJS modules that ship no `exports` map
+      // (`@mui/icons-material/<Icon>` chief among them), so every such icon would render as an
+      // object and throw React error #130. Restore the pre-Vite-8 behavior until those imports
+      // are migrated.
+      legacy: {
+        inconsistentCjsInterop: true,
+      },
       build: {
         // Only emit sourcemaps when they'll actually be uploaded to Sentry.
         // Generating them for every env (e2e*, local) bloats rollup's
