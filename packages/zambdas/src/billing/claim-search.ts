@@ -324,7 +324,7 @@ export async function scanClaimIds({
 
   const claims: FhirResourceReturnValue<Claim>[] = [];
   let pageSize = CLAIM_SCAN_PAGE_SIZE;
-  let total = 0;
+  let serverTotal: number | undefined;
 
   while (claims.length < maxMatches) {
     const requested = Math.min(pageSize, maxMatches - claims.length);
@@ -334,17 +334,23 @@ export async function scanClaimIds({
     });
     if (page.count < requested) pageSize = page.count;
 
-    total = page.bundle.total ?? 0;
+    serverTotal = page.bundle.total ?? serverTotal;
     const matched = page.bundle
       .unbundle()
       .filter((claim): claim is FhirResourceReturnValue<Claim> => claim.resourceType === 'Claim' && !!claim.id);
     claims.push(...matched);
-    if (matched.length === 0 || claims.length >= total) break;
+
+    if (matched.length === 0) break;
+    if (serverTotal === undefined) {
+      if (matched.length < requested) break;
+    } else if (claims.length >= serverTotal) {
+      break;
+    }
   }
 
   return {
     claims: deduplicateUnbundledResources(claims),
-    incomplete: total > claims.length,
+    incomplete: serverTotal === undefined ? claims.length >= maxMatches : serverTotal > claims.length,
   };
 }
 

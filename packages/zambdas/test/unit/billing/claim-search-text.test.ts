@@ -141,6 +141,11 @@ const bundleOf = (claims: Claim[], total = claims.length): unknown => ({
   entry: claims.map((resource) => ({ resource })),
 });
 
+const bundleWithoutTotal = (claims: Claim[]): unknown => ({
+  unbundle: () => claims,
+  entry: claims.map((resource) => ({ resource })),
+});
+
 // The claim searches and the Person lookup share one fhir.search stub, dispatched on resourceType.
 // personLinks holds one entry per billing Person the link search finds, with that Person's patient ids.
 const stubClient = ({
@@ -193,9 +198,11 @@ describe('scanClaimIds', () => {
     {
       total = matches.length,
       failSizeFor = 0,
+      omitTotal = false,
     }: {
       total?: number;
       failSizeFor?: number;
+      omitTotal?: boolean;
     } = {}
   ): {
     oystehr: Oystehr;
@@ -213,7 +220,8 @@ describe('scanClaimIds', () => {
       }
       const offset = Number(paramNamed(params, '_offset')?.value ?? 0);
       const count = Number(paramNamed(params, '_count')?.value ?? matches.length);
-      return bundleOf(matches.slice(offset, offset + count), total);
+      const page = matches.slice(offset, offset + count);
+      return omitTotal ? bundleWithoutTotal(page) : bundleOf(page, total);
     });
     return {
       oystehr: {
@@ -341,6 +349,54 @@ describe('scanClaimIds', () => {
     expect(claims).toHaveLength(3);
     expect(incomplete).toBe(true);
     expect(claimSearchCalls(search)).toHaveLength(2);
+  });
+
+  it('keeps paging when the bundle carries no total', async () => {
+    const { oystehr, search } = stubScanClient(claimsNumbered(2500), { omitTotal: true });
+
+    const { claims, incomplete } = await scanClaimIds({
+      oystehr,
+      params: [],
+      maxMatches: CLAIM_SCAN_MATCH_LIMIT,
+      withServiceDate: false,
+    });
+
+    expect(claims).toHaveLength(2500);
+    expect(incomplete).toBe(false);
+    expect(claimSearchCalls(search).map((params) => paramNamed(params, '_offset')?.value)).toEqual([
+      '0',
+      '1000',
+      '2000',
+    ]);
+  });
+
+  it('ends a total-less scan on the first page the server cannot fill', async () => {
+    const { oystehr, search } = stubScanClient(claimsNumbered(1000), { omitTotal: true });
+
+    const { claims, incomplete } = await scanClaimIds({
+      oystehr,
+      params: [],
+      maxMatches: CLAIM_SCAN_MATCH_LIMIT,
+      withServiceDate: false,
+    });
+
+    expect(claims).toHaveLength(1000);
+    expect(incomplete).toBe(false);
+    expect(claimSearchCalls(search)).toHaveLength(2);
+  });
+
+  it('reports the match cap as incomplete when the bundle carries no total', async () => {
+    const { oystehr } = stubScanClient(claimsNumbered(3000), { omitTotal: true });
+
+    const { claims, incomplete } = await scanClaimIds({
+      oystehr,
+      params: [],
+      maxMatches: 1500,
+      withServiceDate: false,
+    });
+
+    expect(claims).toHaveLength(1500);
+    expect(incomplete).toBe(true);
   });
 });
 
