@@ -47,6 +47,49 @@ describe('isResponseSizeExceededError', () => {
     ).toBe(true);
   });
 
+  it('recognizes the code from a second copy of the SDK, which instanceof would miss', () => {
+    expect(
+      isResponseSizeExceededError({
+        code: 4130,
+        message: 'Please refine your search.',
+      })
+    ).toBe(true);
+  });
+
+  it('falls back to the message only when no code came with the error', () => {
+    expect(
+      isResponseSizeExceededError({
+        code: undefined,
+        message: MAX_SIZE_MESSAGE,
+      })
+    ).toBe(true);
+    expect(
+      isResponseSizeExceededError({
+        code: null,
+        message: MAX_SIZE_MESSAGE,
+      })
+    ).toBe(true);
+  });
+
+  // performEffectHandlingResponseSize turns a true here into "lower the rows per page", so a limit
+  // failure the page size cannot fix must not borrow the size error's wording.
+  it('does not let a matching message override a code that is not the size limit', () => {
+    expect(
+      isResponseSizeExceededError(
+        new Oystehr.OystehrSdkError({
+          code: 4100,
+          message: MAX_SIZE_MESSAGE,
+        })
+      )
+    ).toBe(false);
+    expect(
+      isResponseSizeExceededError({
+        code: 4100,
+        message: MAX_SIZE_MESSAGE,
+      })
+    ).toBe(false);
+  });
+
   it('does not claim an unrelated failure', () => {
     expect(isResponseSizeExceededError(new Error('unsupported search parameter'))).toBe(false);
     expect(
