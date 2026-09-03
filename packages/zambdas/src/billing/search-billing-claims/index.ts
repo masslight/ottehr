@@ -1,8 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Resource } from 'fhir/r4b';
+import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { CLAIM_SCAN_MATCH_LIMIT } from 'utils/lib/types/data/billing/billing.constants';
 import { SearchBillingClaimsResponse } from 'utils/lib/types/data/billing/billing.types';
+import { CLAIM_SEARCH_TOO_BROAD_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -26,9 +28,28 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, params);
+  const response = await performEffectHandlingResponseSize(oystehr, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
+
+// A page the server refuses to serialize has already been retried at a smaller size by the time it
+// gets here. The remaining lever is the caller's: the unfiltered branch's page size is the caller's
+// pageSize, and shrinking that here would break the offset arithmetic the list paginates on — so
+// say what the biller can change rather than surfacing a raw SDK error.
+async function performEffectHandlingResponseSize(
+  oystehr: Oystehr,
+  params: SearchBillingClaimsParams
+): Promise<SearchBillingClaimsResponse> {
+  try {
+    return await performEffect(oystehr, params);
+  } catch (error) {
+    if (isResponseSizeExceededError(error)) {
+      console.error('Claim search exceeded the FHIR response size limit:', error);
+      throw CLAIM_SEARCH_TOO_BROAD_ERROR;
+    }
+    throw error;
+  }
+}
 
 async function performEffect(
   oystehr: Oystehr,

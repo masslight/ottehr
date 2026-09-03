@@ -1,7 +1,9 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Resource } from 'fhir/r4b';
 import { SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { SearchBillingClaimsResponse } from 'utils/lib/types/data/billing/billing.types';
+import { APIErrorCode, CLAIM_SEARCH_TOO_BROAD_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../../src/shared/types/common';
 
@@ -57,6 +59,12 @@ const bundleOf = (resources: Resource[], total = resources.length): any => ({
   })),
   unbundle: () => resources,
 });
+
+const responseTooLarge = (): Error =>
+  new Oystehr.OystehrSdkError({
+    code: 4130,
+    message: 'An internal response size (7,340,032) exceeds the maximum allowed size (6,291,456).',
+  });
 
 const servicedClaim = (id: string, servicedDate: string): Claim =>
   ({
@@ -206,6 +214,23 @@ describe('search-billing-claims service date branch', () => {
     expect(response.incomplete).toBe(true);
   });
 
+  it('surfaces a scan the server will not serve as an actionable error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    mockOystehrClient.fhir.search.mockRejectedValue(responseTooLarge());
+
+    await expect(
+      handler(
+        makeInput({
+          serviceDateFrom: '2026-01-01',
+          serviceDateTo: '2026-01-31',
+        })
+      )
+    ).rejects.toMatchObject({
+      code: APIErrorCode.CLAIM_SEARCH_TOO_BROAD,
+    });
+  });
+
   it('leaves a search with no service date on the server-paginated path', async () => {
     stubSearches([servicedClaim('claim-1', '2026-01-10')]);
 
@@ -218,5 +243,47 @@ describe('search-billing-claims service date branch', () => {
     expect(paramNamed(params, '_include')).toBeDefined();
     expect(paramNamed(params, '_offset')?.value).toBe('0');
     expect(paramNamed(params, '_count')?.value).toBe('25');
+  });
+});
+
+describe('search-billing-claims response size limit', () => {
+  let handler!: ZambdaHandler;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    ({ index: handler } = (await import('../../../src/billing/search-billing-claims/index')) as {
+      index: ZambdaHandler;
+    });
+  });
+
+  it('asks the biller to narrow the search rather than surfacing the raw SDK error', async () => {
+    mockOystehrClient.fhir.search.mockRejectedValue(responseTooLarge());
+
+    await expect(
+      handler(
+        makeInput({
+          pageSize: 100,
+        })
+      )
+    ).rejects.toMatchObject({
+      code: APIErrorCode.CLAIM_SEARCH_TOO_BROAD,
+      message: CLAIM_SEARCH_TOO_BROAD_ERROR.message,
+    });
+    // Rows per page is the dial that always shrinks the response, so the message has to name it.
+    expect(CLAIM_SEARCH_TOO_BROAD_ERROR.message).toContain('rows per page');
+  });
+
+  it('leaves an unrelated failure alone, so it is not misreported as too much data', async () => {
+    mockOystehrClient.fhir.search.mockRejectedValue(new Error('401 unauthorized'));
+
+    await expect(
+      handler(
+        makeInput({
+          pageSize: 100,
+        })
+      )
+    ).rejects.toThrow('401 unauthorized');
   });
 });
