@@ -248,13 +248,6 @@ export default function CardsOnFileReport(): ReactElement {
         </Alert>
       )}
 
-      {report?.truncated && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          Showing the first {report.totals.customers.toLocaleString()} Stripe customers — the full customer list is
-          larger.
-        </Alert>
-      )}
-
       {(report?.pendingCardLookups ?? 0) > 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Resolving card status — {(report?.pendingCardLookups ?? 0).toLocaleString()} customers remaining

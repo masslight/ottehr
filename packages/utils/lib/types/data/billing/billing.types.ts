@@ -757,8 +757,6 @@ export interface GetBillingCardsOnFileReportResponse {
   totals: { customers: number; withCard: number; withoutCard: number; withOpenInvoices: number };
   // customers whose fallback card lookup hasn't run yet; the refresh worker drains these
   pendingCardLookups: number;
-  // true when the Stripe customer list was cut off at the safety cap
-  truncated: boolean;
   generatedAt: string;
   fromCache: boolean;
   status?: ReportRefreshStatus;

@@ -94,14 +94,6 @@ describe('listCustomersChunk', () => {
     expect(building.accountIndex).toBe(0);
     expect(building.cursor).toBe('cus_9999');
   });
-
-  it('stops at the total-customer cap', async () => {
-    const building = buildState({ customersSeen: 200000 });
-    const { stripe, list } = stripeWithPages({ platform: [] });
-
-    expect(await listCustomersChunk(stripe, building)).toHaveLength(0);
-    expect(list).not.toHaveBeenCalled();
-  });
 });
 
 describe('finalizeBuild', () => {
@@ -109,7 +101,6 @@ describe('finalizeBuild', () => {
     rows: [row('cus_old')],
     totals: { customers: 1, withCard: 0, withoutCard: 1, withOpenInvoices: 0 },
     pendingCardLookups: 0,
-    truncated: false,
     generatedAt: '2026-08-01T00:00:00Z',
   };
 

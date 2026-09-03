@@ -16,8 +16,6 @@ import { listStripeAccounts } from '../shared';
 const CUSTOMER_PAGE_SIZE = 100;
 // customers listed per worker run; the build checkpoints and continues in a chained task
 const CUSTOMERS_PER_RUN = 10000;
-// hard guard against runaway accounts; the response flags truncation when hit
-const MAX_TOTAL_CUSTOMERS = 200000;
 const PATIENT_BATCH_SIZE = 100;
 const APPOINTMENT_BATCH_SIZE = 50;
 // queued card lookups per drain run; directory hits are free, so warm drains fly through
@@ -67,7 +65,6 @@ export const cardsOnFileReport: ReportDefinition<Record<string, never>, CardsOnF
     rows: [],
     totals: { customers: 0, withCard: 0, withoutCard: 0, withOpenInvoices: 0 },
     pendingCardLookups: 0,
-    truncated: false,
     generatedAt: '',
   }),
   usesPrevious: true,
@@ -194,13 +191,11 @@ async function buildChunk(
     })
   );
 
-  const capHit = building.customersSeen >= MAX_TOTAL_CUSTOMERS;
-  const listingDone = building.accountIndex >= building.accounts.length || capHit;
+  const listingDone = building.accountIndex >= building.accounts.length;
   if (!listingDone) {
     return { ...served, building };
   }
-  const finalized = finalizeBuild(served, building);
-  return capHit ? { ...finalized, truncated: true } : finalized;
+  return finalizeBuild(served, building);
 }
 
 // swap the completed build into the served payload; cross-account duplicates keep the first row
@@ -220,7 +215,6 @@ export function finalizeBuild(served: CardsOnFilePayload, building: CardsBuildSt
     rows,
     totals: { customers: rows.length, withCard, withoutCard: rows.length - withCard, withOpenInvoices },
     pendingCardLookups: pendingLookups.length,
-    truncated: false,
     generatedAt: DateTime.now().toUTC().toISO() ?? '',
     ...(pendingLookups.length > 0 ? { pendingLookups } : {}),
   };
@@ -301,11 +295,7 @@ export async function listCustomersChunk(
   onCount?: (count: number) => Promise<void>
 ): Promise<CustomerWithAccount[]> {
   const customers: CustomerWithAccount[] = [];
-  while (
-    building.accountIndex < building.accounts.length &&
-    customers.length < CUSTOMERS_PER_RUN &&
-    building.customersSeen + customers.length < MAX_TOTAL_CUSTOMERS
-  ) {
+  while (building.accountIndex < building.accounts.length && customers.length < CUSTOMERS_PER_RUN) {
     const stripeAccount = building.accounts[building.accountIndex] ?? undefined;
     // account failures propagate: a partial result must not be cached as the complete report
     const page = await stripe.customers.list(

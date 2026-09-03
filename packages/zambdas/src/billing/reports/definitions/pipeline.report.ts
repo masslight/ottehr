@@ -163,7 +163,8 @@ async function loadHistory(oystehr: Oystehr): Promise<PipelineSnapshot[]> {
   }
 }
 
-// gzipped JSON in a DocumentReference attachment, same pattern as the other report caches
+// Small bounded snapshot history (≤ HISTORY_MAX_DAYS days) kept as gzipped JSON in a
+// DocumentReference attachment; the report payloads themselves live in Z3.
 async function saveHistory(oystehr: Oystehr, history: PipelineSnapshot[]): Promise<void> {
   try {
     const data = gzipSync(new Uint8Array(Buffer.from(JSON.stringify(history), 'utf8'))).toString('base64');
