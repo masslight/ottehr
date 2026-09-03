@@ -385,6 +385,7 @@ const AskThePatient = (): React.ReactElement => {
                         label={field.noteField!.label}
                         placeholder={field.noteField!.placeholder}
                         variant="outlined"
+                        multiline
                         sx={{ width: '300px' }}
                         disabled={isFieldDisabled}
                         onChange={(e) => {
