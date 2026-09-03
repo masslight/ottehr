@@ -67,6 +67,7 @@ export enum APIErrorCode {
   INSURANCE_CARD_IMAGE_GENERAL = 4408,
   PAPERWORK_FLOW_GENERAL = 4409,
   UNSOLICITED_RESULTS_ALREADY_MATCHED = 4410,
+  FILE_STORAGE_REQUEST_REJECTED = 4411,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -77,6 +78,8 @@ export enum APIErrorCode {
 
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
+  REPORT_CACHE_WRITE_FAILED = 5001,
+  REPORT_REFRESH_QUEUE_FAILED = 5002,
 }
 
 export interface APIError {
@@ -405,6 +408,20 @@ export const INVALID_INPUT_ERROR = (message: string): APIError => {
   };
 };
 
+export const REPORT_CACHE_WRITE_FAILED_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.REPORT_CACHE_WRITE_FAILED,
+    message,
+  };
+};
+
+export const REPORT_REFRESH_QUEUE_FAILED_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.REPORT_REFRESH_QUEUE_FAILED,
+    message,
+  };
+};
+
 export const ERA_IMPORT_FAILED_ERROR = (message: string, statusCode?: number): APIError => {
   return {
     code: APIErrorCode.ERA_IMPORT_FAILED,
@@ -460,6 +477,14 @@ export const IN_HOUSE_LAB_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.IN_HOUSE_LAB_GENERAL,
     message,
+  };
+};
+
+export const FILE_STORAGE_REQUEST_REJECTED_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.FILE_STORAGE_REQUEST_REJECTED,
+    message,
+    statusCode: 400,
   };
 };
 

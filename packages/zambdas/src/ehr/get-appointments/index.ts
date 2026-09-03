@@ -40,8 +40,8 @@ import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
 import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
 import { CONSENT_FORMS_CONFIG } from 'utils/lib/ottehr-config/consent-forms';
-import { Secrets } from 'utils/lib/secrets';
-import { GetAppointmentsZambdaInput } from 'utils/lib/types/api/get-appointments.types';
+import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { GetAppointmentsZambdaInput, GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
 import { SMSModel, SMSRecipient } from 'utils/lib/types/api/messaging.types';
 import {
   AppointmentRelatedResources,
@@ -66,6 +66,13 @@ import {
   parseEncounterParticipants,
   timezoneMap,
 } from './helpers';
+import {
+  buildTrackingBoardExtras,
+  emptyTrackingBoardExtras,
+  fetchTrackingBoardResources,
+  selectTrackingBoardEncounterIds,
+  TrackingBoardResources,
+} from './tracking-board';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetAppointmentsZambdaInputValidated extends GetAppointmentsZambdaInput {
@@ -114,6 +121,32 @@ const isUserRelatedPerson = (rp: RelatedPerson): boolean =>
 // size only bounds how large a single response can get; it is not a URL-length limit, since the SDK
 // issues searches as POST bodies.
 const PROVENANCE_SEARCH_CHUNK_SIZE = 100;
+
+/** Visit type and service category are appointment-level filters, so they need nothing beyond the Appointment itself. */
+const filterAppointmentsForBoard = (
+  appointments: Appointment[],
+  visitType: string[],
+  serviceCategories: string[] | undefined
+): Appointment[] => {
+  let filtered = appointments;
+
+  if (visitType?.length > 0) {
+    filtered = filtered.filter((appointment) => {
+      return visitType.includes(
+        (isInPersonAppointment(appointment) ? 'in-person-' : 'virtual-') + appointmentTypeForAppointment(appointment)
+      );
+    });
+  }
+
+  if (serviceCategories != null && serviceCategories.length > 0) {
+    filtered = filtered.filter((appointment) => {
+      const appointmentServiceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+      return appointmentServiceCategory && serviceCategories.includes(appointmentServiceCategory);
+    });
+  }
+
+  return filtered;
+};
 
 let m2mToken: string;
 
@@ -245,12 +278,13 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   let cancelled: InPersonAppointmentInformation[] = [];
 
   if (appointmentResources?.length == 0) {
-    const response = {
+    const response: GetAppointmentsZambdaOutput = {
       message: 'Successfully retrieved all appointments',
       preBooked,
       inOffice,
       completed,
       cancelled,
+      ...emptyTrackingBoardExtras(),
     };
 
     return {
@@ -364,6 +398,28 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   });
 
   console.timeEnd('parse_search_results');
+
+  // The queues only need the appointment and its encounter, so they are built here, ahead of the related-resource
+  // searches, and reused when the response is assembled below.
+  const appointments = filterAppointmentsForBoard(allAppointments, visitType, serviceCategories);
+  const appointmentQueues = appointments.length > 0 ? sortAppointments(appointments, apptRefToEncounterMap) : undefined;
+
+  // Tracking board Step B: order icons and vitals badges are keyed on the encounters in these queues, so their
+  // batch goes out now and overlaps the related-resource searches instead of waiting behind them.
+  const trackingBoardEncounterIds = appointmentQueues
+    ? selectTrackingBoardEncounterIds(appointmentQueues, apptRefToEncounterMap)
+    : [];
+  const trackingBoardResourcesPromise: Promise<TrackingBoardResources> = fetchTrackingBoardResources({
+    oystehr,
+    encounterIds: trackingBoardEncounterIds,
+    // Optional: it only shortens `next` links, and a missing secret must not fail the page (see the catch below).
+    fhirApiUrl: getOptionalSecret(SecretsKeys.FHIR_API, secrets),
+  }).catch((error) => {
+    // The board can render without its icons; log and fall back to empty maps rather than fail the page.
+    console.error('tracking board orders/vitals fetch failed', error);
+    captureException(error);
+    return { resources: [], failedUrls: ['*'] };
+  });
 
   console.time('related_resources');
 
@@ -568,25 +624,8 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   await timezonesResolved;
 
   console.time('structure_appointment_data');
-  let appointments: Appointment[] = allAppointments;
 
-  if (visitType?.length > 0) {
-    appointments = appointments?.filter((appointment) => {
-      return visitType?.includes(
-        (isInPersonAppointment(appointment) ? 'in-person-' : 'virtual-') + appointmentTypeForAppointment(appointment)
-      );
-    });
-  }
-
-  if (serviceCategories != null && serviceCategories?.length > 0) {
-    appointments = appointments?.filter((appointment) => {
-      const appointmentServiceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-      return appointmentServiceCategory && serviceCategories?.includes(appointmentServiceCategory);
-    });
-  }
-
-  if (appointments.length > 0) {
-    const appointmentQueues = sortAppointments(appointments, apptRefToEncounterMap);
+  if (appointmentQueues) {
     const baseMapInput: Omit<AppointmentInformationInputs, 'appointment'> = {
       encounterRefToQRMap,
       patientRefToQRMap,
@@ -634,12 +673,30 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     cancelled = buildAppointments(appointmentQueues.canceled);
   }
 
-  const response = {
+  // Step C: the batch has had the whole related-resource round trip to land; mapping is local work.
+  let trackingBoardExtras = emptyTrackingBoardExtras();
+  try {
+    trackingBoardExtras = buildTrackingBoardExtras({
+      fetched: await trackingBoardResourcesPromise,
+      encounterIds: trackingBoardEncounterIds,
+      encounters: Object.values(apptRefToEncounterMap),
+      appointments,
+      practitioners: Object.values(practitionerIdToResourceMap),
+      environment: getSecret(SecretsKeys.ENVIRONMENT, secrets),
+    });
+  } catch (error) {
+    console.error('tracking board orders/vitals mapping failed', error);
+    captureException(error);
+    trackingBoardExtras = { ...emptyTrackingBoardExtras(), ordersAndVitalsIncomplete: true };
+  }
+
+  const response: GetAppointmentsZambdaOutput = {
     message: 'Successfully retrieved all appointments',
     preBooked,
     inOffice,
     completed,
     cancelled,
+    ...trackingBoardExtras,
   };
   console.timeEnd('structure_appointment_data');
 
