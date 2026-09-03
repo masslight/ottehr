@@ -50,9 +50,9 @@ import {
 } from 'utils/lib/helpers/operations';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
+import { VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { getVitalObservationFhirInterpretations } from 'utils/lib/helpers/vitals/utils';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
-import { VitalsSchema } from 'utils/lib/ottehr-config/vitals';
 import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
 import {
   DispositionMetaFieldsNames,

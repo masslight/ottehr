@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { describe, expect, it } from 'vitest';
+import { DefaultVitalsConfig } from '../helpers/vitals/config-schema';
 import { getVitalObservationAlertLevel } from '../helpers/vitals/utils';
-import { DefaultVitalsConfig } from '../ottehr-config/vitals';
 import { VitalFieldNames } from '../types/api/chart-data/chart-data.constants';
 import { VitalsObservationDTO } from '../types/api/chart-data/chart-data.types';
 import {

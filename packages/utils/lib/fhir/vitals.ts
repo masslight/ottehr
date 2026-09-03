@@ -1,6 +1,6 @@
 import { CodeableConcept, Observation, ObservationComponent, Practitioner, Reference } from 'fhir/r4b';
+import { VitalsSchema } from '../helpers/vitals/config-schema';
 import { getVitalObservationFhirComponentInterpretations } from '../helpers/vitals/utils';
-import { VitalsSchema } from '../ottehr-config/vitals';
 import {
   VitalBloodPressureObservationMethod,
   VitalFieldNames,

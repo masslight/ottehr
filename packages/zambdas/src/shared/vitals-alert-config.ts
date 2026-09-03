@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic, Observation } from 'fhir/r4b';
 import { getExtensionValue } from 'utils/lib/fhir/helpers';
+import { VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { getVitalDTOCriticalityFromObservation, getVitalObservationAlertLevel } from 'utils/lib/helpers/vitals/utils';
-import { VitalsSchema } from 'utils/lib/ottehr-config/vitals';
 import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
