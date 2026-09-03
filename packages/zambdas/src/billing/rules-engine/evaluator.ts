@@ -331,7 +331,7 @@ const applyServiceLineUpdate = (
       }
       literalValue = resolution.value;
     }
-  } else if (def?.id === 'placeOfService' && typeof action.set.value === 'object') {
+  } else if (def?.id === 'placeOfService' && action.set.value != null && typeof action.set.value === 'object') {
     if (action.set.value.source !== 'facilityPlaceOfService') {
       return `could not update service line property "${action.set.property}" — unknown place of service source`;
     }
