@@ -445,7 +445,6 @@ interface EffectInput {
   encounter: EncounterWithId;
   mode: { historical: true; searchBefore: string } | { historical: false };
   patientId: string;
-  /** Supplies the birth date and sex the alert thresholds are evaluated against. */
   patient: Patient;
 }
 

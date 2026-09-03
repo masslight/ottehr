@@ -24,9 +24,8 @@ interface VitalAlertThresholdTableProps {
 }
 
 /**
- * One vital's threshold grid: a row per age range, a column per alert level. A blank cell means no
- * alert at that level. AccordionCard unmounts its children while collapsed; react-hook-form retains
- * their values, so validation and the saved payload cover collapsed vitals too.
+ * AccordionCard unmounts its children while collapsed; react-hook-form retains their values, so
+ * validation and the saved payload cover collapsed vitals too.
  */
 export const VitalAlertThresholdTable = ({
   control,

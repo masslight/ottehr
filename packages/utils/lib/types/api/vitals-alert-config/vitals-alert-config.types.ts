@@ -2,12 +2,6 @@ import { z } from 'zod';
 import { VitalsAge, VitalsAgeSchema } from '../../../config-helpers/vitals';
 import { Secrets } from '../../../secrets';
 
-/**
- * The admin-facing shape of the vitals alert thresholds: one shared list of age ranges plus a value
- * per (vital, age range, level). `vitalsAlertConfigToVitalsDef` adapts it to the per-vital shape the
- * evaluation engine consumes.
- */
-
 /** Vitals whose alert levels an admin can configure. Excludes BMI/LMP/vision, which never alert. */
 export const VITAL_ALERT_TYPES = [
   'vital-weight',
@@ -35,7 +29,6 @@ export const VITAL_ALERT_UNITS: Record<VitalAlertType, string> = {
   'vital-oxygen-sat': '%',
 };
 
-/** Labels for the admin UI. */
 export const VITAL_ALERT_LABELS: Record<VitalAlertType, string> = {
   'vital-weight': 'Weight',
   'vital-height': 'Height',

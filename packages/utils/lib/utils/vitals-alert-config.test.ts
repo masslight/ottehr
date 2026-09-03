@@ -24,7 +24,6 @@ const dobForAgeInMonths = (months: number): string =>
     .minus({ months, days: 5 }) // mid-month so we never land exactly on a band boundary
     .toISODate()!;
 
-/** Builds the DTO shape each vital's evaluation expects. */
 const makeObservation = (field: VitalFieldNames, value: number): VitalsObservationDTO => {
   if (field === VitalFieldNames.VitalBloodPressure) {
     return { field, systolicPressure: value, diastolicPressure: 70 } as VitalsObservationDTO;

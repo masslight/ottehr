@@ -63,7 +63,6 @@ export const getVitalsWithThresholdErrors = (errors: FieldErrors<VitalsAlertConf
   return withErrors;
 };
 
-/** Labelled by vital and age range, since a collapsed accordion renders no inline helper text. */
 const collectThresholdErrors = (errors: FieldErrors<VitalsAlertConfig>, ageRanges: VitalAlertAgeRange[]): string[] => {
   const thresholds = errors.thresholds as
     | Record<string, Record<string, Record<string, MessageNode | undefined> | undefined> | undefined>
@@ -89,7 +88,6 @@ const collectThresholdErrors = (errors: FieldErrors<VitalsAlertConfig>, ageRange
   return messages;
 };
 
-/** Every validation message for the section, deduplicated. */
 export const collectVitalsAlertConfigErrors = (
   errors: FieldErrors<VitalsAlertConfig>,
   ageRanges: VitalAlertAgeRange[]

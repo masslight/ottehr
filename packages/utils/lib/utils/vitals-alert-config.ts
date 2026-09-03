@@ -196,7 +196,6 @@ const alertThresholdsForVital = (config: VitalsAlertConfig, vital: VitalAlertTyp
  */
 export const vitalsAlertConfigToVitalsDef = (config: VitalsAlertConfig): VitalsSchema => {
   const built: Record<string, unknown> = {
-    // Not admin-configurable.
     'vital-weight': {
       unit: VitalsDef()['vital-weight'].unit,
       alertThresholds: alertThresholdsForVital(config, 'vital-weight'),
@@ -232,7 +231,6 @@ export const getVitalsAlertConfigEngineError = (config: VitalsAlertConfig): stri
   }
 };
 
-/** Parses a stored config, falling back to the defaults when absent or invalid. */
 export const parseVitalsAlertConfigOrDefault = (raw: string | undefined): VitalsAlertConfig => {
   if (!raw) return DEFAULT_VITALS_ALERT_CONFIG;
   try {
@@ -264,7 +262,6 @@ const AGE_UNIT_ABBREVIATIONS: Record<VitalsAge['unit'], string> = {
   days: 'd',
 };
 
-/** Formats a range as "0-3 mo", "2-3 yr" or "18 yr and older". */
 export const formatVitalAlertAgeRange = (range: VitalAlertAgeRange): string => {
   const minUnit = AGE_UNIT_ABBREVIATIONS[range.minAge.unit];
   if (!range.maxAge) {

@@ -14,7 +14,6 @@ export interface VitalsAlertConfigForm {
   control: Control<VitalsAlertConfig>;
   errors: FieldErrors<VitalsAlertConfig>;
   ageRanges: VitalAlertAgeRange[];
-  /** react-hook-form field-array keys, parallel to `ageRanges`. */
   rowKeys: string[];
   isDirty: boolean;
   isPending: boolean;
@@ -69,7 +68,6 @@ export const useVitalsAlertConfigForm = (): VitalsAlertConfigForm => {
     const id = makeVitalAlertAgeRangeId();
     const existing = getValues('ageRanges');
     const previous = existing[existing.length - 1];
-    // Existing ranges are never modified.
     append({
       id,
       minAge: previous?.maxAge ?? { unit: previous?.minAge?.unit ?? 'years', value: undefined as unknown as number },
@@ -94,7 +92,6 @@ export const useVitalsAlertConfigForm = (): VitalsAlertConfigForm => {
     remove(index);
     if (!removed) return;
 
-    // Keyed by range id, so other ranges are unaffected by position.
     VITAL_ALERT_TYPES.forEach((vital) => {
       const perRange = { ...(getValues(`thresholds.${vital}`) ?? {}) };
       delete perRange[removed.id];

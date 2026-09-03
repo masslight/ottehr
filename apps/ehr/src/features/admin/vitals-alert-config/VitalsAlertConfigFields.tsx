@@ -11,7 +11,6 @@ interface VitalsAlertConfigFieldsProps {
   form: VitalsAlertConfigForm;
 }
 
-/** The "Vital 2 Level Alerts" fields; the surrounding progress note form owns the Save buttons. */
 export const VitalsAlertConfigFields = ({ form }: VitalsAlertConfigFieldsProps): ReactElement => {
   // Gathered into one alert: cross-field rules and collapsed accordions have no inline home.
   const errorMessages = collectVitalsAlertConfigErrors(form.errors, form.ageRanges);

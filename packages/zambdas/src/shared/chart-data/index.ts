@@ -401,7 +401,6 @@ export function makeObservationResource(
   metaSystem: string,
   patientDOB?: string,
   patientSex?: string,
-  /** Omit to use the static default thresholds. */
   vitalsAlertConfig?: VitalsSchema
 ): Observation {
   const base: Observation = {

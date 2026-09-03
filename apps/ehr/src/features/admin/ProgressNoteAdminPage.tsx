@@ -76,7 +76,6 @@ export default function ProgressNoteAdminPage(): ReactElement {
     resolver: zodResolver(UpdateProgressNoteConfigInputSchema),
   });
 
-  // Its own resource and endpoint, saved by the shared buttons below.
   const vitalsAlerts = useVitalsAlertConfigForm();
 
   useEffect(() => {

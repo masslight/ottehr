@@ -243,7 +243,6 @@ export const getHeartbeatObservationMethodCodable = (
 export const getBloodPressureObservationComponents = (
   bloodPressureDTO: VitalsBloodPressureObservationDTO,
   patientDOB?: string,
-  /** Omit to use the static default thresholds. */
   vitalsAlertConfig?: VitalsSchema
 ): ObservationComponent[] => {
   const result: ObservationComponent[] = [];
@@ -945,7 +944,6 @@ export function fillVitalObservationAttributes(
   baseResource: Observation,
   vitalDTO: VitalsObservationDTO,
   patientDOB?: string,
-  /** Omit to use the static default thresholds. */
   vitalsAlertConfig?: VitalsSchema
 ): Observation {
   if (isTemperatureVitalObservation(vitalDTO)) {

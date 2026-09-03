@@ -52,11 +52,9 @@ const renderSection = async (): Promise<void> => {
   await waitFor(() => expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.addAgeRangeButton)).toBeInTheDocument());
 };
 
-/** The page's single shared Save button. */
 const getSaveButton = (): HTMLButtonElement =>
   screen.getByTestId(dataTestIds.progressNoteAdmin.saveButton) as HTMLButtonElement;
 
-/** Removal is confirmed through a dialog that spells out which range absorbs the deleted span. */
 const removeAgeRange = async (index: number): Promise<void> => {
   fireEvent.click(screen.getByTestId(dataTestIds.vitalsAlertConfig.removeAgeRangeButton(index)));
   await waitFor(() =>
@@ -80,7 +78,6 @@ const heartRateAdultInput = (): HTMLInputElement =>
     .getByTestId(dataTestIds.vitalsAlertConfig.thresholdInput('vital-heartbeat', '18+y', 'abnormalHigh'))
     .querySelector('input') as HTMLInputElement;
 
-/** Expands heart rate and returns its adult abnormal-high input. */
 const openHeartRateAdultInput = async (): Promise<HTMLInputElement> => {
   await expandVital('vital-heartbeat');
   return heartRateAdultInput();
@@ -168,7 +165,6 @@ describe('ProgressNoteAdminPage - vital alert levels', () => {
     fireEvent.change(await openHeartRateAdultInput(), { target: { value: '40' } });
     fireEvent.click(getSaveButton());
 
-    // Appears in the summary alert and as the field's helper text.
     await waitFor(() => expect(screen.getAllByText(/must be greater than or equal to/i).length).toBeGreaterThan(0));
     expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.errorSummary)).toHaveTextContent(
       /must be greater than or equal to/i
@@ -230,7 +226,6 @@ describe('ProgressNoteAdminPage - vital alert levels', () => {
     expect(lastRowInputs[0].value).toBe(String(lastBefore.minAge.value));
     expect(lastRowInputs[1].value).toBe('');
 
-    // The new row has no start age yet.
     fireEvent.click(getSaveButton());
     await waitFor(() =>
       expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.errorSummary)).toHaveTextContent(
@@ -239,7 +234,6 @@ describe('ProgressNoteAdminPage - vital alert levels', () => {
     );
     expect(adminUpdateVitalsAlertConfig).not.toHaveBeenCalled();
 
-    // With a start age set, the remaining problem is two open-ended ranges.
     const newRow = screen.getByTestId(dataTestIds.vitalsAlertConfig.ageRangeRow(rangeCountBefore));
     fireEvent.change(within(newRow).getAllByRole('spinbutton')[0], { target: { value: '21' } });
     fireEvent.click(getSaveButton());

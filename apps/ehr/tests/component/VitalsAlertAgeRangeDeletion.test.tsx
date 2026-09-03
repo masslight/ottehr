@@ -73,7 +73,6 @@ const buildTaggedConfig = (): VitalsAlertConfig => ({
   ) as VitalsAlertConfig['thresholds'],
 });
 
-/** The exact thresholds we expect a surviving range to still hold. */
 const expectedCell = (vital: VitalAlertType, rangeIndex: number): Record<string, number> => {
   const vitalIndex = VITAL_ALERT_TYPES.indexOf(vital);
   return {
@@ -90,7 +89,6 @@ const renderPage = async (config: VitalsAlertConfig): Promise<void> => {
   await waitFor(() => expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.addAgeRangeButton)).toBeInTheDocument());
 };
 
-/** Removal is confirmed through a dialog that spells out which range absorbs the deleted span. */
 const removeAgeRange = async (index: number): Promise<void> => {
   fireEvent.click(screen.getByTestId(dataTestIds.vitalsAlertConfig.removeAgeRangeButton(index)));
   await waitFor(() =>
@@ -155,7 +153,6 @@ describe('deleting a shared age range', () => {
       const perRange = config.thresholds[vital];
       expect(Object.keys(perRange).sort()).toEqual([RANGE_IDS[0], RANGE_IDS[2], RANGE_IDS[3]].sort());
       expect(perRange[RANGE_IDS[1]]).toBeUndefined();
-      // Nothing shifted, inherited or reset.
       expect(perRange[RANGE_IDS[0]]).toEqual(expectedCell(vital, 0));
       expect(perRange[RANGE_IDS[2]]).toEqual(expectedCell(vital, 2));
       expect(perRange[RANGE_IDS[3]]).toEqual(expectedCell(vital, 3));

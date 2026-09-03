@@ -76,7 +76,6 @@ const createWrapper =
 
 const getMdmSwitch = (): HTMLInputElement =>
   screen.getByRole('checkbox', { name: 'MDM required for sign and close' }) as HTMLInputElement;
-// Targeted by test id because the page has a single shared Save / Discard pair.
 const getSaveButton = (): HTMLButtonElement =>
   screen.getByTestId(dataTestIds.progressNoteAdmin.saveButton) as HTMLButtonElement;
 const getDiscardButton = (): HTMLButtonElement =>
@@ -448,7 +447,6 @@ describe('ProgressNoteAdminPage', () => {
       fireEvent.change(await getVitalThresholdInput(), { target: { value: '40' } });
       fireEvent.click(getSaveButton());
 
-      // Reported in the section's summary alert and as the field's helper text.
       await waitFor(() =>
         expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.errorSummary)).toHaveTextContent(
           /must be greater than or equal to/i

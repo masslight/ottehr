@@ -127,7 +127,6 @@ describe('getVitalsEngineConfig', () => {
     const { oystehr } = makeOystehr({ search: [basic] });
     const engineConfig = await getVitalsEngineConfig(oystehr);
 
-    // 90 bpm is abnormal only under the narrowed custom config.
     expect(
       getVitalObservationAlertLevel({
         patientDOB: DateTime.now().minus({ years: 30 }).toISODate()!,
@@ -161,7 +160,6 @@ describe('getVitalsEngineConfig resilience', () => {
         configOverride: config,
       });
 
-    // 90 bpm is normal under the defaults, abnormal under the stored config.
     expect(evaluate(await getVitalsEngineConfig(oystehr))).toBeUndefined();
     expect(evaluate(await getVitalsEngineConfig(oystehr))).toBe(VitalAlertCriticality.Abnormal);
   });
@@ -334,7 +332,6 @@ describe('age range deletion, end to end through validation and storage', () => 
   test('the post-deletion config with a gap passes validation and stores every surviving cell verbatim', async () => {
     const config = configAfterDeletingSecondRange();
 
-    // Both checks the update zambda runs.
     expect(VitalsAlertConfigSchema.safeParse(config).success).toBe(true);
     expect(getVitalsAlertConfigEngineError(config)).toBeUndefined();
 

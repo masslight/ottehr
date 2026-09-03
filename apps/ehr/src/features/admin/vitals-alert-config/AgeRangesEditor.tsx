@@ -16,7 +16,6 @@ import { parseNumberInput } from './helpers';
 
 const AGE_UNITS = VitalsAgeUnitSchema.options;
 
-/** Confirmation body for a removal; age ranges are shared, so one removal affects every vital. */
 const AgeRangeRemovalDescription = ({
   ageRanges,
   index,
@@ -47,17 +46,12 @@ const AgeRangeRemovalDescription = ({
 interface AgeRangesEditorProps {
   control: Control<VitalsAlertConfig>;
   ageRanges: VitalAlertAgeRange[];
-  /** react-hook-form field-array keys, parallel to `ageRanges`. */
   rowKeys: string[];
   onAdd: () => void;
   onRemove: (index: number) => void;
   onMaxAgeValueEntered: (index: number) => void;
 }
 
-/**
- * Editor for the shared age ranges. Validation messages surface in the section's summary alert
- * rather than here.
- */
 export const AgeRangesEditor = ({
   control,
   ageRanges,

@@ -359,7 +359,6 @@ interface EncounterWithIdAndPatientId extends Encounter {
 
 interface EffectInput {
   encounters: EncounterWithIdAndPatientId[];
-  /** Keyed by patient id; supplies the birth date and sex thresholds are evaluated against. */
   patientsById: Record<string, Patient>;
 }
 
