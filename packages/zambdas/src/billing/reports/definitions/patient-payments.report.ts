@@ -57,7 +57,7 @@ export const patientPaymentsReport: ReportDefinition<
     const context = await loadNoticeContext(ctx.oystehr, ctx.untaggedClient, params, ctx.secrets, onProgress);
     const payload = rollupOf(context);
     await onProgress(`resolving payment statuses for ${context.notices.length.toLocaleString('en-US')} payments…`);
-    const detail = await detailOf(ctx.oystehr, context, ctx.secrets);
+    const detail = await detailOf(ctx.oystehr, ctx.untaggedClient, context, ctx.secrets);
     return { payload, detail };
   },
   drilldown: {
@@ -87,9 +87,6 @@ const noticeInWindow = (notice: PaymentNotice, from?: string, to?: string): bool
 
 const noticeMethod = (notice: PaymentNotice): string =>
   notice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString ?? 'unknown';
-
-// reporting category: invoice-settling payments group under 'invoice' regardless of how they were paid
-const noticeCategory = (notice: PaymentNotice): string => (invoiceIdOf(notice) ? 'invoice' : noticeMethod(notice));
 
 const noticeClaimId = (notice: PaymentNotice): string | undefined => {
   const id = notice.request?.reference?.replace('Claim/', '');
@@ -131,6 +128,8 @@ interface NoticeContext {
   generatedAt: string;
   // in-memory rows synthesized from Stripe charges that have no PaymentNotice
   synthetic: WeakSet<PaymentNotice>;
+  // reporting category with refunds resolved to their original charge's category
+  categoryOf: (notice: PaymentNotice) => string;
   locationIdOf: (notice: PaymentNotice) => string;
   locationNameOf: (locationId: string) => string;
   encounterOf: (notice: PaymentNotice) => Encounter | undefined;
@@ -155,19 +154,23 @@ async function loadNoticeContext(
     extraParams: { name: string; value: string }[]
   ): Promise<PaymentNotice[]> => {
     const fetched: PaymentNotice[] = [];
-    await fetchAllPages(async (offset, count) => {
-      const bundle = await client.fhir.search<PaymentNotice>({
-        resourceType: 'PaymentNotice',
-        params: [
-          ...windowParams,
-          ...extraParams,
-          { name: '_count', value: String(count) },
-          { name: '_offset', value: String(offset) },
-        ],
-      });
-      fetched.push(...bundle.unbundle());
-      return bundle;
-    }, NOTICE_PAGE_SIZE);
+    await fetchAllPages(
+      async (offset, count) => {
+        const bundle = await client.fhir.search<PaymentNotice>({
+          resourceType: 'PaymentNotice',
+          params: [
+            ...windowParams,
+            ...extraParams,
+            { name: '_count', value: String(count) },
+            { name: '_offset', value: String(offset) },
+          ],
+        });
+        fetched.push(...bundle.unbundle());
+        return bundle;
+      },
+      NOTICE_PAGE_SIZE,
+      { failOnLimit: true }
+    );
     return fetched;
   };
 
@@ -200,33 +203,33 @@ async function loadNoticeContext(
     ),
   ];
 
-  let notices = allNotices.filter(
+  const notices = allNotices.filter(
     (notice) => notice.status === 'active' && noticeInWindow(notice, params.dateFrom, params.dateTo)
   );
 
-  // where Stripe has data it wins: fully refunded charges drop out, unrecorded charges join
-  // as synthetic rows; cash/check/external notices carry no Stripe ids and pass through
+  // where Stripe has data it enriches: unrecorded charges join as synthetic rows;
+  // recorded notices are preserved so gross collected/refunded stay accurate;
+  // cash/check/external notices carry no Stripe ids and pass through.
+  // Refunds inherit the original charge's category via chargeId → invoice correlation.
   const synthetic = new WeakSet<PaymentNotice>();
+  const invoiceChargeIds = new Set<string>();
+  for (const notice of notices) {
+    if (invoiceIdOf(notice)) {
+      stripeIdsOf(notice)
+        .filter((id) => id.startsWith('ch_') || id.startsWith('pi_'))
+        .forEach((id) => invoiceChargeIds.add(id));
+    }
+  }
   await onProgress?.('listing Stripe charges…');
   try {
     const charges = await listWindowCharges(oystehr, untaggedClient, params, secrets);
-    const chargeByAnyId = new Map<string, Stripe.Charge>();
     for (const charge of charges) {
-      for (const id of chargeStripeIds(charge)) chargeByAnyId.set(id, charge);
+      if (charge.invoice) {
+        chargeStripeIds(charge)
+          .filter((id) => id.startsWith('ch_') || id.startsWith('pi_'))
+          .forEach((id) => invoiceChargeIds.add(id));
+      }
     }
-    const chargeOf = (notice: PaymentNotice): Stripe.Charge | undefined => {
-      const refundedChargeId = refundedChargeIdOf(notice);
-      return (
-        stripeIdsOf(notice)
-          .map((id) => chargeByAnyId.get(id))
-          .find(Boolean) ?? (refundedChargeId ? chargeByAnyId.get(refundedChargeId) : undefined)
-      );
-    };
-    notices = notices.filter((notice) => {
-      const charge = chargeOf(notice);
-      return !charge || !isFullyRefunded(charge);
-    });
-
     const knownStripeIds = new Set(notices.flatMap(stripeIdsOf));
     for (const syntheticNotice of syntheticNoticesFor(charges, knownStripeIds)) {
       synthetic.add(syntheticNotice);
@@ -237,6 +240,13 @@ async function loadNoticeContext(
     console.warn('Failed to list Stripe charges for unmatched payments:', (err as Error)?.message);
   }
 
+  const categoryOf = (notice: PaymentNotice): string => {
+    if (invoiceIdOf(notice)) return 'invoice';
+    const refundedChargeId = refundedChargeIdOf(notice);
+    if (refundedChargeId && invoiceChargeIds.has(refundedChargeId)) return 'invoice';
+    return noticeMethod(notice);
+  };
+
   const generatedAt = DateTime.now().toUTC().toISO();
 
   // location resolution matches the EHR daily payments report: notice → encounter → appointment →
@@ -245,7 +255,7 @@ async function loadNoticeContext(
     untaggedClient,
     'Encounter',
     notices.map(noticeEncounterId).filter(Boolean) as string[],
-    'id,appointment,period'
+    'id,appointment,period,subject'
   );
   const appointmentsById = await fetchResourcesById<Appointment>(
     untaggedClient,
@@ -282,7 +292,7 @@ async function loadNoticeContext(
   const locationNameOf = (locationId: string): string =>
     (locationId ? locationsById.get(locationId)?.name : undefined) ?? UNKNOWN_LOCATION;
 
-  return { notices, generatedAt, synthetic, locationIdOf, locationNameOf, encounterOf, appointmentOf };
+  return { notices, generatedAt, synthetic, categoryOf, locationIdOf, locationNameOf, encounterOf, appointmentOf };
 }
 
 // platform account plus connected accounts stamped on billing provider organizations; the
@@ -294,9 +304,6 @@ const chargeStripeIds = (charge: Stripe.Charge): string[] =>
     typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id,
     typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id,
   ].filter((id): id is string => !!id);
-
-const isFullyRefunded = (charge: Stripe.Charge): boolean =>
-  (charge.amount ?? 0) > 0 && (charge.amount_refunded ?? 0) >= (charge.amount ?? 0);
 
 // succeeded charges across all accounts in the window
 async function listWindowCharges(
@@ -337,7 +344,6 @@ async function listWindowCharges(
 function syntheticNoticesFor(charges: Stripe.Charge[], knownStripeIds: Set<string>): PaymentNotice[] {
   const syntheticNotices: PaymentNotice[] = [];
   for (const charge of charges) {
-    if (isFullyRefunded(charge)) continue;
     const chargeIds = chargeStripeIds(charge);
     if (chargeIds.some((id) => knownStripeIds.has(id))) continue;
 
@@ -387,11 +393,11 @@ function syntheticNoticesFor(charges: Stripe.Charge[], knownStripeIds: Set<strin
 
 // rollup: location × payment category
 function rollupOf(context: NoticeContext): PatientPaymentsPayload {
-  const { notices, generatedAt, locationIdOf, locationNameOf } = context;
+  const { notices, generatedAt, categoryOf, locationIdOf, locationNameOf } = context;
   const rowsByKey = new Map<string, PatientPaymentsReportRow>();
   for (const notice of notices) {
     const locationId = locationIdOf(notice);
-    const paymentMethod = noticeCategory(notice);
+    const paymentMethod = categoryOf(notice);
     const key = `${locationId}|${paymentMethod}`;
     let row = rowsByKey.get(key);
     if (!row) {
@@ -431,10 +437,11 @@ function rollupOf(context: NoticeContext): PatientPaymentsPayload {
 // drilldown dataset: every payment with snapshot Stripe status and location id
 async function detailOf(
   oystehr: Oystehr,
+  untaggedClient: Oystehr,
   context: NoticeContext,
   secrets: ZambdaInput['secrets']
 ): Promise<PatientPaymentsReportDetail> {
-  const { notices, synthetic, locationIdOf, locationNameOf, encounterOf, appointmentOf } = context;
+  const { notices, synthetic, categoryOf, locationIdOf, locationNameOf, encounterOf, appointmentOf } = context;
   if (notices.length === 0) {
     return { payments: [] };
   }
@@ -446,12 +453,22 @@ async function detailOf(
     'id,patient'
   );
 
+  // pre-claim payments resolve the patient through Encounter.subject
+  const encounterPatientId = (notice: PaymentNotice): string | undefined => {
+    const id = encounterOf(notice)?.subject?.reference?.replace('Patient/', '');
+    return id && isValidUUID(id) ? id : undefined;
+  };
+
+  // Patients are clinical (untagged) resources
   const patientsById = await fetchResourcesById<Patient>(
-    oystehr,
+    untaggedClient,
     'Patient',
-    [...claimsById.values()]
-      .map((claim) => claim.patient?.reference?.replace('Patient/', ''))
-      .filter((id): id is string => !!id && isValidUUID(id)),
+    [
+      ...[...claimsById.values()]
+        .map((claim) => claim.patient?.reference?.replace('Patient/', ''))
+        .filter((id): id is string => !!id && isValidUUID(id)),
+      ...notices.map(encounterPatientId).filter((id): id is string => !!id),
+    ],
     'id,name'
   );
 
@@ -470,7 +487,7 @@ async function detailOf(
   const payments: PatientPaymentsDetailItem[] = notices
     .map((notice, index) => {
       const claim = noticeClaimId(notice) ? claimsById.get(noticeClaimId(notice) ?? '') : undefined;
-      const patientId = claim?.patient?.reference?.replace('Patient/', '');
+      const patientId = claim?.patient?.reference?.replace('Patient/', '') ?? encounterPatientId(notice);
       const encounter = encounterOf(notice);
       const appointment = appointmentOf(notice);
       return {
@@ -480,7 +497,7 @@ async function detailOf(
           (synthetic.has(notice) ? notice.payment?.display ?? '' : ''),
         locationId: locationIdOf(notice),
         locationName: locationNameOf(locationIdOf(notice)),
-        paymentMethod: noticeCategory(notice),
+        paymentMethod: categoryOf(notice),
         amount: roundNumberToDecimalPlaces(notice.amount?.value ?? 0, 2),
         stripeStatus: stripeStatuses[index],
         description: dispositionOf(notice),

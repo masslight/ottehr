@@ -150,17 +150,21 @@ export function claimResponseServiceDay(
 
 export async function fetchAllEras(eraReadClient: Oystehr): Promise<PaymentReconciliation[]> {
   const eras: PaymentReconciliation[] = [];
-  await fetchAllPages(async (offset, count) => {
-    const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
-      resourceType: 'PaymentReconciliation',
-      params: [
-        { name: '_count', value: String(count) },
-        { name: '_offset', value: String(offset) },
-      ],
-    });
-    eras.push(...bundle.unbundle());
-    return bundle;
-  }, ERA_PAGE_SIZE);
+  await fetchAllPages(
+    async (offset, count) => {
+      const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
+        resourceType: 'PaymentReconciliation',
+        params: [
+          { name: '_count', value: String(count) },
+          { name: '_offset', value: String(offset) },
+        ],
+      });
+      eras.push(...bundle.unbundle());
+      return bundle;
+    },
+    ERA_PAGE_SIZE,
+    { failOnLimit: true }
+  );
   return eras;
 }
 

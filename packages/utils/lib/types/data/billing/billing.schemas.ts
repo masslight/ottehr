@@ -685,8 +685,19 @@ export const UnmatchClaimResponseInputSchema = z.object({
 });
 
 // report date-window fields: ISO date (YYYY-MM-DD), with from <= to when both are set
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected an ISO date (YYYY-MM-DD)');
-const isoMonth = z.string().regex(/^\d{4}-\d{2}$/, 'Expected an ISO month (YYYY-MM)');
+const isCalendarDate = (value: string): boolean => {
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day ?? 1));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === (day ?? 1);
+};
+const isoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected an ISO date (YYYY-MM-DD)')
+  .refine(isCalendarDate, 'Not a valid calendar date');
+const isoMonth = z
+  .string()
+  .regex(/^\d{4}-\d{2}$/, 'Expected an ISO month (YYYY-MM)')
+  .refine(isCalendarDate, 'Not a valid calendar month');
 const dateWindowIsOrdered = (data: { dateFrom?: string; dateTo?: string }): boolean =>
   !data.dateFrom || !data.dateTo || data.dateFrom <= data.dateTo;
 const DATE_WINDOW_MESSAGE = { message: 'dateFrom must not be after dateTo', path: ['dateFrom'] };

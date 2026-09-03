@@ -586,7 +586,10 @@ export async function searchInvitedParticipantResourcesByEncounterId(
 
 export async function fetchAllPages(
   fetchPage: (offset: number, count: number) => Promise<Bundle>,
-  initialPageSize: number
+  initialPageSize: number,
+  // failOnLimit: callers whose result must be complete (e.g. cached reports) fail loudly
+  // instead of silently serving a truncated dataset
+  options?: { failOnLimit?: boolean }
 ): Promise<void> {
   let offset = 0;
   let pageSize = initialPageSize;
@@ -615,6 +618,9 @@ export async function fetchAllPages(
 
     // Safety check
     if (offset > 100000) {
+      if (options?.failOnLimit) {
+        throw new Error('Result set exceeds the 100000-item pagination limit; refusing to return truncated data');
+      }
       console.warn('Reached maximum pagination limit (100000 items). Stopping search.');
       break;
     }

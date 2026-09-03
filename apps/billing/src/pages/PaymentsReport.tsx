@@ -385,11 +385,23 @@ function DrilldownDialog({
                 <Fragment key={era.id}>
                   <tr style={{ cursor: 'pointer' }} onClick={() => toggle(era.id)}>
                     <td style={drilldownCellSx}>
-                      {expandedIds.includes(era.id) ? (
-                        <ArrowUpIcon sx={{ fontSize: 18, color: 'action.active' }} />
-                      ) : (
-                        <ArrowDownIcon sx={{ fontSize: 18, color: 'action.active' }} />
-                      )}
+                      <IconButton
+                        size="small"
+                        aria-label={`${expandedIds.includes(era.id) ? 'Collapse' : 'Expand'} claims for check ${
+                          era.checkNumber || era.id
+                        }`}
+                        aria-expanded={expandedIds.includes(era.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggle(era.id);
+                        }}
+                      >
+                        {expandedIds.includes(era.id) ? (
+                          <ArrowUpIcon sx={{ fontSize: 18, color: 'action.active' }} />
+                        ) : (
+                          <ArrowDownIcon sx={{ fontSize: 18, color: 'action.active' }} />
+                        )}
+                      </IconButton>
                     </td>
                     <td style={{ ...drilldownCellSx, textAlign: 'left', fontWeight: 500 }}>{era.checkNumber || '—'}</td>
                     <td style={{ ...drilldownCellSx, textAlign: 'left' }}>{dayLabel(era.checkDate)}</td>
@@ -848,6 +860,8 @@ export default function PaymentsReport(): ReactElement {
             refreshInsurance();
             refreshPatient();
           }}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
         />
       </Stack>
 

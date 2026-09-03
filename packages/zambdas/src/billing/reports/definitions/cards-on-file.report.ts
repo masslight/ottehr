@@ -18,8 +18,9 @@ const CUSTOMER_PAGE_SIZE = 100;
 const CUSTOMERS_PER_RUN = 10000;
 const PATIENT_BATCH_SIZE = 100;
 const APPOINTMENT_BATCH_SIZE = 50;
-// queued card lookups per drain run; directory hits are free, so warm drains fly through
-const PM_LOOKUPS_PER_RUN = 2000;
+// queued card lookups per drain run, sized so a worst-case all-miss run (~16 req/s throttle)
+// stays inside the worker timeout while the 100-run chain bound covers large accounts
+const PM_LOOKUPS_PER_RUN = 6000;
 // an interrupted build older than this restarts instead of resuming
 const BUILD_STALE_HOURS = 24;
 

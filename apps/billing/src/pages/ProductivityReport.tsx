@@ -204,7 +204,7 @@ export default function ProductivityReport(): ReactElement {
             Claim actions by user, from the claim change history — {WINDOW_LABELS[window].toLowerCase()}.
           </Typography>
         </Box>
-        <ReportStatusBar status={status} loading={loading} onRefresh={refresh} />
+        <ReportStatusBar status={status} loading={loading} onRefresh={refresh} dateFrom={windowDateFrom(window)} />
       </Stack>
 
       {error && (

@@ -22,19 +22,36 @@ export function mergeReportStatuses(...statuses: (ReportRefreshStatus | undefine
 const formatSize = (bytes: number): string =>
   bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
+const dayLabel = (iso: string): string => DateTime.fromISO(iso).toLocaleString(DateTime.DATE_MED);
+
+// "Jan 5 – Mar 31, 2026" / "Since Jan 5, 2026" / "Through Mar 31, 2026"; '' when unwindowed
+export const dateRangeLabel = (dateFrom?: string, dateTo?: string): string => {
+  if (dateFrom && dateTo) return `${dayLabel(dateFrom)} – ${dayLabel(dateTo)}`;
+  if (dateFrom) return `Since ${dayLabel(dateFrom)}`;
+  if (dateTo) return `Through ${dayLabel(dateTo)}`;
+  return '';
+};
+
 // Report-header status line + refresh button: idle / running-with-live-progress / error+Retry.
 export function ReportStatusBar({
   status,
   loading,
   onRefresh,
+  dateFrom,
+  dateTo,
 }: {
   status: ReportRefreshStatus | undefined;
   loading: boolean;
   onRefresh: () => void;
+  // the report's date window, when the kind is parameterized by one
+  dateFrom?: string;
+  dateTo?: string;
 }): ReactElement {
   const running = status?.state === 'running';
   const lastCompleted = status?.lastCompletedAt ? DateTime.fromISO(status.lastCompletedAt) : undefined;
   const size = status?.cacheSizeBytes ? ` · ${formatSize(status.cacheSizeBytes)}` : '';
+  const range = dateRangeLabel(dateFrom, dateTo);
+  const rangePrefix = range ? `${range} · ` : '';
 
   return (
     <Stack direction="row" alignItems="center" gap={1.5}>
@@ -57,9 +74,13 @@ export function ReportStatusBar({
       ) : lastCompleted ? (
         <Tooltip title={lastCompleted.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}>
           <Typography variant="caption" color="text.disabled" noWrap>
-            {`Updated ${lastCompleted.toRelative() ?? ''}${size}`}
+            {`${rangePrefix}Updated ${lastCompleted.toRelative() ?? ''}${size}`}
           </Typography>
         </Tooltip>
+      ) : range ? (
+        <Typography variant="caption" color="text.disabled" noWrap>
+          {range}
+        </Typography>
       ) : null}
       <Button
         variant="outlined"
