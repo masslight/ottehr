@@ -138,13 +138,24 @@ export interface ImportFormTemplateFromUrlInput {
   description?: string;
   /** Public https address of the PDF. Fetched once, server-side. */
   sourceUrl: string;
+  /**
+   * Set to replace an existing template's PDF rather than create a new one.
+   *
+   * In that mode the fetched file is stored at a candidate location and **nothing else changes** — the
+   * template is repointed by `replace-form-template-pdf` once the replacement has been analysed, so a
+   * fetch that succeeds but produces an unusable PDF leaves the working template working.
+   */
+  documentReferenceId?: string;
 }
 
 export interface ImportFormTemplateFromUrlOutput {
-  documentReferenceId: string;
-  identifier: string;
+  /** Where the fetched bytes were stored. The candidate location when replacing. */
+  z3Url: string;
   /** Where the bytes actually came from, after any redirects. */
   resolvedFrom: string;
+  /** Absent when replacing: no record is created in that mode. */
+  documentReferenceId?: string;
+  identifier?: string;
 }
 
 /** Presign step for returning a completed form. Writes nothing — see `DocumentVerificationResult`. */
@@ -262,6 +273,14 @@ export interface ReplaceFormTemplatePdfInput {
   documentReferenceId: string;
   /** Candidate object already uploaded via a URL minted with `documentReferenceId` set. */
   z3Url: string;
+  /**
+   * Where the replacement was fetched from, when it came from a link.
+   *
+   * Recorded here rather than at fetch time so provenance changes at the same moment the PDF it describes
+   * is adopted. Omitted for a file upload, which also clears any address recorded previously — that
+   * address no longer describes the stored bytes.
+   */
+  sourceUrl?: string;
 }
 
 export interface ReplaceFormTemplatePdfOutput {

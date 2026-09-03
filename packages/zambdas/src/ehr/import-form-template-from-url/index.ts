@@ -26,7 +26,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
-import { FORM_TEMPLATE_DOC_STATUS } from '../shared/form-template-helpers';
+import { FORM_TEMPLATE_DOC_STATUS, getFormTemplateOrThrow } from '../shared/form-template-helpers';
 
 const ZAMBDA_NAME = 'import-form-template-from-url';
 
@@ -54,6 +54,7 @@ const inputSchema: z.ZodType<ImportFormTemplateFromUrlInput> = z.object({
   title: z.string().min(1, 'title is required'),
   description: z.string().optional(),
   sourceUrl: z.string().min(1, 'sourceUrl is required'),
+  documentReferenceId: z.string().optional(),
 });
 
 export function validateRequestParameters(
@@ -88,7 +89,7 @@ const performEffect = async (
   oystehr: Oystehr,
   token: string
 ): Promise<ImportFormTemplateFromUrlOutput> => {
-  const { title, description, sourceUrl, secrets } = validatedInput;
+  const { title, description, sourceUrl, documentReferenceId, secrets } = validatedInput;
 
   const { bytes, finalUrl } = await fetchRemotePdf(sourceUrl);
   console.log(`${ZAMBDA_NAME}: fetched ${bytes.length} bytes from ${finalUrl}`);
@@ -96,6 +97,14 @@ const performEffect = async (
   const objectName = `${randomUUID()}-${sanitizeFileNameForZ3(fileNameFromUrl(finalUrl))}`;
   const z3Url = makeZ3FileUrl({ secrets, bucketName: BUCKET_NAMES.FORM_TEMPLATES, fileName: objectName });
   await uploadObjectToZ3(bytes, await createPresignedUrl(token, z3Url, 'upload'));
+
+  // Replacing: the bytes are parked and nothing else touched. `replace-form-template-pdf` decides whether
+  // they are fit to adopt, so a fetch that succeeds but yields an unusable PDF costs a stored object and
+  // nothing more.
+  if (documentReferenceId) {
+    await getFormTemplateOrThrow(oystehr, documentReferenceId);
+    return { z3Url, resolvedFrom: finalUrl };
+  }
 
   const identifierValue = randomUUID();
   const created = await oystehr.fhir.create<DocumentReference>({
@@ -115,7 +124,7 @@ const performEffect = async (
     throw new Error('Failed to create DocumentReference for the imported form template');
   }
 
-  return { documentReferenceId: created.id, identifier: identifierValue, resolvedFrom: finalUrl };
+  return { z3Url, resolvedFrom: finalUrl, documentReferenceId: created.id, identifier: identifierValue };
 };
 
 /** The published file's own name, which is a better default title for the stored object than a UUID alone. */

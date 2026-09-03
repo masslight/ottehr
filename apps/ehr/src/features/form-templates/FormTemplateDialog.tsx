@@ -21,6 +21,7 @@ import { FormTemplateItem } from 'utils/lib/types/api/form-template.types';
 import {
   createFormTemplateFromUrl,
   createFormTemplateWithPdf,
+  replaceFormTemplateFromUrl,
   replaceFormTemplateWithPdf,
   updateFormTemplate,
 } from './form-templates.api';
@@ -42,9 +43,6 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose, item }) => 
   const [title, setTitle] = useState(item?.title ?? '');
   const [description, setDescription] = useState(item?.description ?? '');
   const [file, setFile] = useState<File | null>(null);
-  // Only offered when creating. Replacing an existing template's PDF stays file-only: that path hands back
-  // a candidate location and swaps the template once the replacement analyses cleanly, which the import
-  // does not do.
   const [source, setSource] = useState<'file' | 'link'>('file');
   const [sourceUrl, setSourceUrl] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -61,14 +59,21 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose, item }) => 
           description: description.trim(),
         });
 
-        // Replacing the file is optional on an edit, and runs second so a rejected PDF cannot also lose
-        // the metadata change the user just made.
-        if (file) {
-          const replaced = await replaceFormTemplateWithPdf(oystehrZambda, {
-            documentReferenceId: item.documentReferenceId,
-            title: title.trim(),
-            file,
-          });
+        // Replacing the PDF is optional on an edit, and runs second so a rejected replacement cannot also
+        // lose the metadata change the user just made.
+        if (usingLink ? sourceUrl.trim() : file) {
+          const replaced = usingLink
+            ? await replaceFormTemplateFromUrl(oystehrZambda, {
+                documentReferenceId: item.documentReferenceId,
+                title: title.trim(),
+                sourceUrl: sourceUrl.trim(),
+              })
+            : await replaceFormTemplateWithPdf(oystehrZambda, {
+                documentReferenceId: item.documentReferenceId,
+                title: title.trim(),
+                // Guarded by the branch above; an edit with neither a file nor a link never reaches here.
+                file: file!,
+              });
           // A draft authored against the previous field inventory would otherwise be restored on the
           // next visit and quietly reinstate bindings the replacement just reconciled away.
           clearMappingDraft(item.documentReferenceId);
@@ -129,14 +134,18 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose, item }) => 
 
   const isBusy = saveMutation.isPending;
   const titleError = submitAttempted && !title.trim() ? 'This field is required' : undefined;
-  const usingLink = !isEdit && source === 'link';
+  const usingLink = source === 'link';
+  // On an edit, whether the user has actually supplied a replacement — either kind counts.
+  const replacementChosen = usingLink ? !!sourceUrl.trim() : !!file;
   const fileError = submitAttempted && !isEdit && !usingLink && !file ? 'A PDF file is required' : undefined;
-  const urlError = submitAttempted && usingLink && !sourceUrl.trim() ? 'A link to the PDF is required' : undefined;
+  const urlError =
+    submitAttempted && !isEdit && usingLink && !sourceUrl.trim() ? 'A link to the PDF is required' : undefined;
 
   const handleSubmit = (): void => {
     setSubmitAttempted(true);
     if (!title.trim()) return;
-    if (usingLink ? !sourceUrl.trim() : !isEdit && !file) return;
+    // Creating needs a PDF from one source or the other; editing may change only the metadata.
+    if (!isEdit && (usingLink ? !sourceUrl.trim() : !file)) return;
     saveMutation.mutate();
   };
 
@@ -165,22 +174,19 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose, item }) => 
             fullWidth
           />
 
-          {!isEdit && (
-            <ToggleButtonGroup
-              value={source}
-              exclusive
-              size="small"
-              disabled={isBusy}
-              onChange={(_, next) => next && setSource(next as 'file' | 'link')}
-            >
-              <ToggleButton value="file">Upload a PDF</ToggleButton>
-              <ToggleButton value="link">Import from a link</ToggleButton>
-            </ToggleButtonGroup>
-          )}
+          <ToggleButtonGroup
+            value={source}
+            exclusive
+            size="small"
+            disabled={isBusy}
+            onChange={(_, next) => next && setSource(next as 'file' | 'link')}
+          >
+            <ToggleButton value="file">Upload a PDF</ToggleButton>
+            <ToggleButton value="link">{isEdit ? 'Replace from a link' : 'Import from a link'}</ToggleButton>
+          </ToggleButtonGroup>
 
           {usingLink ? (
             <TextField
-              label="Link to the PDF"
               placeholder="https://example.gov/forms/dwc073.pdf"
               value={sourceUrl}
               onChange={(e) => setSourceUrl(e.target.value)}
@@ -190,6 +196,7 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose, item }) => 
                 urlError ??
                 'The PDF is downloaded and stored here, so the template keeps working if the publisher moves or revises it.'
               }
+              label={isEdit ? 'Link to the replacement PDF' : 'Link to the PDF'}
               fullWidth
             />
           ) : (
@@ -210,11 +217,13 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose, item }) => 
               )}
             </>
           )}
-          <Typography variant="body2" color={isEdit && file ? 'warning.main' : 'text.secondary'}>
+          <Typography variant="body2" color={isEdit && replacementChosen ? 'warning.main' : 'text.secondary'}>
             {!isEdit
               ? 'New templates are saved as drafts. Publish a template to make it available in the patient chart.'
-              : file
+              : replacementChosen
               ? 'Replacing the PDF re-reads its fields. Any mapping pointing at a field the new PDF does not contain will be removed, and the template returned to draft.'
+              : usingLink
+              ? 'Optional. Paste a link only if the form itself has changed.'
               : 'Optional. Upload a new PDF only if the form itself has changed.'}
           </Typography>
 

@@ -287,6 +287,9 @@ export const createFormTemplateFromUrl = async (
   parameters: ImportFormTemplateFromUrlInput
 ): Promise<{ created: ImportFormTemplateFromUrlOutput; analysis: AnalyzeFormTemplateOutput }> => {
   const created = await importFormTemplateFromUrl(oystehr, parameters);
+  if (!created.documentReferenceId) {
+    throw new Error('The import did not create a form template');
+  }
   const analysis = await analyzeFormTemplate(oystehr, { documentReferenceId: created.documentReferenceId });
 
   const rejection = REJECTION_MESSAGES[analysis.status as FormTemplateAnalysisStatus];
@@ -295,6 +298,35 @@ export const createFormTemplateFromUrl = async (
   }
 
   return { created, analysis };
+};
+
+/**
+ * Swaps an existing template's PDF for one fetched from a link.
+ *
+ * The same two-phase swap the file path uses: the fetched bytes are parked at a candidate location and the
+ * template is repointed only once they have been analysed, so a link that resolves to an unusable PDF
+ * leaves the existing template untouched.
+ */
+export const replaceFormTemplateFromUrl = async (
+  oystehr: Oystehr,
+  parameters: { documentReferenceId: string; title: string; sourceUrl: string }
+): Promise<ReplaceFormTemplatePdfOutput> => {
+  const { documentReferenceId, title, sourceUrl } = parameters;
+
+  const candidate = await importFormTemplateFromUrl(oystehr, { documentReferenceId, title, sourceUrl });
+
+  const result = await replaceFormTemplatePdf(oystehr, {
+    documentReferenceId,
+    z3Url: candidate.z3Url,
+    sourceUrl: candidate.resolvedFrom,
+  });
+
+  const rejection = REJECTION_MESSAGES[result.status as FormTemplateAnalysisStatus];
+  if (rejection) {
+    throw new Error(`${rejection} The existing PDF has been kept.`);
+  }
+
+  return result;
 };
 
 /**

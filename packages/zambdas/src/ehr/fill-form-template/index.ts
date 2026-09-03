@@ -25,7 +25,12 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
-import { loadFormFillInsurance, LOG_TAG } from '../shared/form-fill-context';
+import {
+  loadFormFillAccounts,
+  loadFormFillInsurance,
+  loadFormFillWorkersComp,
+  LOG_TAG,
+} from '../shared/form-fill-context';
 import { fillFormTemplatePdf } from '../shared/form-template-fill';
 import { getFormTemplateOrThrow, readExtensionJson } from '../shared/form-template-helpers';
 import { resolveToken } from '../shared/form-token-resolvers';
@@ -99,13 +104,20 @@ const performEffect = async (
   ]);
 
   // Coverage is resolved separately from the note input, which carries only one, because forms routinely
-  // ask for primary and secondary in their own boxes. The package's own coverage is handed along as the
-  // fallback for visits whose appointment extension names no coverage references.
-  const insurance = await loadFormFillInsurance(oystehr, visitResources.appointment, {
-    account: visitResources.account,
-    packageCoverage: visitResources.coverage,
-  });
-  const fillContext = { ...context, insurance };
+  // ask for primary and secondary in their own boxes.
+  //
+  // The accounts are searched rather than taken from the appointment bundle, which keeps whichever one
+  // came back first — an arbitrary choice for any patient holding both a billing account and a workers'
+  // compensation one, which is exactly the patient these forms are for.
+  const accounts = await loadFormFillAccounts(oystehr, visitResources.patient.id);
+  const [insurance, workersComp] = await Promise.all([
+    loadFormFillInsurance(oystehr, visitResources.appointment, {
+      account: accounts.billing,
+      packageCoverage: visitResources.coverage,
+    }),
+    loadFormFillWorkersComp(oystehr, accounts.workersComp),
+  ]);
+  const fillContext = { ...context, insurance, workersComp };
 
   const mapping =
     readExtensionJson<FormTemplateMapping>(template, FORM_TEMPLATE_MAPPING_EXTENSION_URL) ?? EMPTY_MAPPING;

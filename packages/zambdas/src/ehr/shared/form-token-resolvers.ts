@@ -1,5 +1,9 @@
 import { Address, ContactPoint, Coverage, HumanName, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { getMemberIdFromCoverage } from 'utils/lib/fhir/helpers';
+
+/** Where a Social Security number is recorded on a Patient — see `makeSSNIdentifier`. */
+const SSN_SYSTEM = 'http://hl7.org/fhir/sid/us-ssn';
 import {
   isBloodPressureVitalObservation,
   isBMIVitalObservation,
@@ -38,8 +42,16 @@ interface HasName {
 // each growing its own near-copy.
 const givenName = (person: HasName | undefined, index = 0): string | undefined => person?.name?.[0]?.given?.[index];
 const familyName = (person: HasName | undefined): string | undefined => person?.name?.[0]?.family;
-const joinedName = (person: HasName | undefined): string | undefined =>
-  [givenName(person), familyName(person)].filter(Boolean).join(' ') || undefined;
+const joinedName = (person: HasName | undefined): string | undefined => formatName(person?.name?.[0]);
+
+/**
+ * First and family name as one string.
+ *
+ * Separate from `joinedName` because not every name in FHIR hangs off a `name[]`: an organisation's
+ * contact carries a single `HumanName`, so the formatting is shared and only the access differs.
+ */
+const formatName = (name: HumanName | undefined): string | undefined =>
+  [name?.given?.[0], name?.family].filter(Boolean).join(' ') || undefined;
 
 interface HasAddress {
   address?: Address[];
@@ -48,8 +60,29 @@ interface HasAddress {
 const homeAddress = (person: HasAddress | undefined): Address | undefined =>
   person?.address?.find((a) => a.use === 'home') ?? person?.address?.[0];
 
-const contact = (telecom: ContactPoint[] | undefined, system: 'phone' | 'email'): string | undefined =>
+const contact = (telecom: ContactPoint[] | undefined, system: 'phone' | 'email' | 'fax'): string | undefined =>
   telecom?.find((t) => t.system === system)?.value;
+
+const employerAddress = (ctx: FormFillContext): Address | undefined => homeAddress(ctx.workersComp?.employer);
+
+/**
+ * The whole address on one line, for forms that give it a single box.
+ *
+ * Every present part, comma-separated. Absent parts are dropped rather than leaving the gaps a template
+ * string would produce — an address with no second line should not read `123 Main St, , Springfield`.
+ */
+const oneLineAddress = (address: Address | undefined): string | undefined => {
+  const parts = [...(address?.line ?? []), address?.city, address?.state, address?.postalCode];
+  const joined = parts
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(', ');
+  return joined || undefined;
+};
+
+/** The patient's Social Security number, as recorded. Stored dashed, e.g. `123-45-6789`. */
+const socialSecurityNumber = (patient: Patient | undefined): string | undefined =>
+  patient?.identifier?.find((identifier) => identifier.system === SSN_SYSTEM)?.value;
 
 /** The practitioner attending the visit, preferring the encounter's own participant list. */
 const attendingPractitioner = (ctx: FormFillContext): Practitioner | undefined => {
@@ -203,6 +236,14 @@ export const TOKEN_RESOLVERS: Record<string, FormTokenResolver> = {
   'patient.state': (ctx) => homeAddress(ctx.patient)?.state,
   'patient.postalCode': (ctx) => homeAddress(ctx.patient)?.postalCode,
   'patient.phone': (ctx) => contact(ctx.patient?.telecom, 'phone'),
+  'patient.addressFull': (ctx) => oneLineAddress(homeAddress(ctx.patient)),
+  'patient.ssn': (ctx) => socialSecurityNumber(ctx.patient),
+  'patient.ssnLast4': (ctx) => {
+    // Taken from the digits rather than the last four characters, so a value stored without dashes — or
+    // with any other punctuation — still yields the right four.
+    const digits = socialSecurityNumber(ctx.patient)?.replace(/\D/g, '');
+    return digits && digits.length >= 4 ? digits.slice(-4) : undefined;
+  },
   'patient.email': (ctx) => contact(ctx.patient?.telecom, 'email'),
   'patient.recordNumber': (ctx) => ctx.patient?.id,
 
@@ -280,6 +321,34 @@ export const TOKEN_RESOLVERS: Record<string, FormTokenResolver> = {
   'vitals.bmi': (ctx) => latestVital(ctx, isBMIVitalObservation)?.value,
   // Stored as a date string that is empty rather than absent when nothing was recorded.
   'vitals.lastMenstrualPeriod': (ctx) => latestVital(ctx, isLastMenstrualPeriodVitalObservation)?.value || undefined,
+
+  // ── Workers comp ──────────────────────────────────────────────────────────
+  // The employer is the guarantor on the workers' compensation account, and the carrier the payer of the
+  // coverage attached to it — a different relationship from the patient's own insurance, hence a separate
+  // group rather than more `insurance.*` tokens.
+  'workersComp.employerName': (ctx) => ctx.workersComp?.employer?.name,
+  'workersComp.employerAddressLine1': (ctx) => employerAddress(ctx)?.line?.[0],
+  'workersComp.employerAddressLine2': (ctx) => employerAddress(ctx)?.line?.[1],
+  'workersComp.employerCity': (ctx) => employerAddress(ctx)?.city,
+  'workersComp.employerState': (ctx) => employerAddress(ctx)?.state,
+  'workersComp.employerPostalCode': (ctx) => employerAddress(ctx)?.postalCode,
+  'workersComp.employerAddressFull': (ctx) => oneLineAddress(employerAddress(ctx)),
+  'workersComp.employerPhone': (ctx) => contact(ctx.workersComp?.employer?.telecom, 'phone'),
+  'workersComp.employerFax': (ctx) => contact(ctx.workersComp?.employer?.telecom, 'fax'),
+  'workersComp.employerEmail': (ctx) => contact(ctx.workersComp?.employer?.telecom, 'email'),
+  // The named person at the employer, recorded as an organisation contact rather than a separate resource.
+  'workersComp.employerContactName': (ctx) => formatName(ctx.workersComp?.employer?.contact?.[0]?.name),
+  'workersComp.employerContactTitle': (ctx) => ctx.workersComp?.employer?.contact?.[0]?.purpose?.text,
+  'workersComp.carrierName': (ctx) => ctx.workersComp?.carrierName,
+  'workersComp.carrierMemberId': (ctx) => memberId(ctx.workersComp?.coverage),
+
+  // ── Form ──────────────────────────────────────────────────────────────────
+  // Resolved in the visit's own timezone, not the server's. A form completed at 9pm local would otherwise
+  // be dated tomorrow for anything east of the clinic — a wrong date that looks entirely plausible.
+  'form.currentDate': (ctx) =>
+    DateTime.now()
+      .setZone(ctx.appointmentPackage?.timezone || 'utc')
+      .toISODate() ?? undefined,
 
   // ── Clinical ──────────────────────────────────────────────────────────────
   // Only allergies the provider still has marked as current. An allergy they explicitly retired should

@@ -27,9 +27,110 @@ export interface FormFillInsurance {
  * a single coverage, while forms routinely ask for primary and secondary separately, so those are
  * resolved alongside it rather than inferred from the one.
  */
+/**
+ * Workers' compensation, which is filed against its own account rather than the patient's billing one.
+ *
+ * A separate account because it is a different payer relationship: the employer is the guarantor and the
+ * carrier covers the injury, neither of which belongs alongside the patient's own insurance.
+ */
+export interface FormFillWorkersComp {
+  /** The employer, named as the account's guarantor. */
+  employer?: Organization;
+  coverage?: Coverage;
+  carrierName?: string;
+}
+
 export interface FormFillContext extends ProgressNoteInput {
   insurance?: FormFillInsurance;
+  workersComp?: FormFillWorkersComp;
 }
+
+/**
+ * The patient's accounts, separated by what they are for.
+ *
+ * Both are fetched in one search because reading either from the appointment bundle is unsafe: that
+ * bundle keeps whichever `Account` the search happened to return first, so a patient with both a billing
+ * account and a workers' compensation one gets an arbitrary choice between them — and a workers'
+ * compensation patient is precisely the patient who has both.
+ */
+export const loadFormFillAccounts = async (
+  oystehr: Oystehr,
+  patientId: string | undefined
+): Promise<{ billing?: Account; workersComp?: Account }> => {
+  if (!patientId) return {};
+
+  const accounts = (
+    await oystehr.fhir.search<Account>({
+      resourceType: 'Account',
+      params: [
+        { name: 'subject', value: `Patient/${patientId}` },
+        { name: 'status', value: 'active' },
+      ],
+    })
+  ).unbundle();
+
+  const hasType = (account: Account, code: string): boolean =>
+    (account.type?.coding ?? []).some((coding) => coding.code === code);
+
+  return {
+    billing: accounts.find((account) => hasType(account, 'PBILLACCT')),
+    workersComp: accounts.find((account) => hasType(account, 'WCOMPACCT')),
+  };
+};
+
+/**
+ * Resolves the employer and carrier behind a workers' compensation account.
+ *
+ * The employer is reached through the account's guarantor, which may be a contained resource or a
+ * reference to a standalone one depending on when the account was written — both shapes exist.
+ */
+export const loadFormFillWorkersComp = async (
+  oystehr: Oystehr,
+  account: Account | undefined
+): Promise<FormFillWorkersComp | undefined> => {
+  if (!account) return undefined;
+
+  const [employer, coverage] = await Promise.all([
+    resolveEmployer(oystehr, account),
+    resolveWorkersCompCoverage(oystehr, account),
+  ]);
+
+  const carrierName = coverage ? (await resolvePayerNames(oystehr, [coverage], []))[0] : undefined;
+  return { employer, coverage, carrierName };
+};
+
+const resolveEmployer = async (oystehr: Oystehr, account: Account): Promise<Organization | undefined> => {
+  const reference = account.guarantor?.map((guarantor) => guarantor.party?.reference).find(Boolean);
+  if (!reference) return undefined;
+
+  if (reference.startsWith('#')) {
+    const contained = account.contained?.find((resource) => resource.id === reference.slice(1));
+    return contained?.resourceType === 'Organization' ? contained : undefined;
+  }
+
+  const id = removePrefix('Organization/', reference);
+  if (!id) return undefined;
+
+  try {
+    return await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id });
+  } catch (error) {
+    console.warn(`${LOG_TAG} Could not read the employer organisation ${reference}: ${error}`);
+    return undefined;
+  }
+};
+
+const resolveWorkersCompCoverage = async (oystehr: Oystehr, account: Account): Promise<Coverage | undefined> => {
+  const reference = account.coverage?.map((entry) => entry.coverage?.reference).find(Boolean);
+  const id = reference ? removePrefix('Coverage/', reference) : undefined;
+  if (!id) return undefined;
+
+  try {
+    return await oystehr.fhir.get<Coverage>({ resourceType: 'Coverage', id });
+  } catch (error) {
+    console.warn(`${LOG_TAG} Could not read the workers' compensation coverage ${reference}: ${error}`);
+    return undefined;
+  }
+};
 
 /**
  * Resolves the visit's primary and secondary coverage, with payer names.

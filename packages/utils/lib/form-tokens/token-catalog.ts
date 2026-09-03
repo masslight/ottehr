@@ -39,6 +39,21 @@ export const TOKEN_CATALOG: readonly FormTokenDescriptor[] = Object.freeze([
   { key: 'patient.state', label: 'State', group: 'Patient', type: 'string' },
   { key: 'patient.postalCode', label: 'ZIP code', group: 'Patient', type: 'string' },
   { key: 'patient.phone', label: 'Phone number', group: 'Patient', type: 'string' },
+  {
+    key: 'patient.addressFull',
+    label: 'Full address',
+    group: 'Patient',
+    type: 'string',
+    description: 'Street, city, state and ZIP on one line, for forms with a single address box.',
+  },
+  { key: 'patient.ssn', label: 'Social Security number', group: 'Patient', type: 'string' },
+  {
+    key: 'patient.ssnLast4',
+    label: 'Social Security number (last 4)',
+    group: 'Patient',
+    type: 'string',
+    description: 'The last four digits only, which is all many forms ask for.',
+  },
   { key: 'patient.email', label: 'Email address', group: 'Patient', type: 'string' },
   {
     key: 'patient.recordNumber',
@@ -265,6 +280,51 @@ export const TOKEN_CATALOG: readonly FormTokenDescriptor[] = Object.freeze([
   { key: 'vitals.oxygenSaturation', label: 'Oxygen saturation (%)', group: 'Vitals', type: 'number' },
   { key: 'vitals.bmi', label: 'BMI', group: 'Vitals', type: 'number' },
   { key: 'vitals.lastMenstrualPeriod', label: 'Last menstrual period', group: 'Vitals', type: 'date' },
+
+  // ── Workers comp ──────────────────────────────────────────────────────────
+  // Filed against its own account, so the employer and carrier here are unrelated to the patient's own
+  // insurance above. The set is shaped by what the forms ask for: DWC073's fields 9 to 12 are the
+  // employer's name, the employer's fax or email, the insurance carrier, and the carrier's fax or email.
+  { key: 'workersComp.employerName', label: 'Employer name', group: 'Workers comp', type: 'string' },
+  { key: 'workersComp.employerAddressLine1', label: 'Employer street address', group: 'Workers comp', type: 'string' },
+  {
+    key: 'workersComp.employerAddressLine2',
+    label: 'Employer street address line 2',
+    group: 'Workers comp',
+    type: 'string',
+  },
+  { key: 'workersComp.employerCity', label: 'Employer city', group: 'Workers comp', type: 'string' },
+  { key: 'workersComp.employerState', label: 'Employer state', group: 'Workers comp', type: 'string' },
+  { key: 'workersComp.employerPostalCode', label: 'Employer ZIP code', group: 'Workers comp', type: 'string' },
+  {
+    key: 'workersComp.employerAddressFull',
+    label: 'Employer full address',
+    group: 'Workers comp',
+    type: 'string',
+    description: 'Street, city, state and ZIP on one line.',
+  },
+  { key: 'workersComp.employerPhone', label: 'Employer phone number', group: 'Workers comp', type: 'string' },
+  { key: 'workersComp.employerFax', label: 'Employer fax number', group: 'Workers comp', type: 'string' },
+  { key: 'workersComp.employerEmail', label: 'Employer email address', group: 'Workers comp', type: 'string' },
+  {
+    key: 'workersComp.employerContactName',
+    label: 'Employer contact name',
+    group: 'Workers comp',
+    type: 'string',
+    description: 'The named person at the employer, where one was recorded.',
+  },
+  { key: 'workersComp.employerContactTitle', label: 'Employer contact title', group: 'Workers comp', type: 'string' },
+  { key: 'workersComp.carrierName', label: 'Insurance carrier', group: 'Workers comp', type: 'string' },
+  { key: 'workersComp.carrierMemberId', label: 'Carrier claim or member ID', group: 'Workers comp', type: 'string' },
+
+  // ── Form ──────────────────────────────────────────────────────────────────
+  {
+    key: 'form.currentDate',
+    label: 'Today’s date',
+    group: 'Form',
+    type: 'date',
+    description: 'The date the form is filled in — not the date of the visit, which is under Visit.',
+  },
 
   // ── Clinical ──────────────────────────────────────────────────────────────
   // Forms often ask for drug allergies specifically. There is no token for that, because the chart does
