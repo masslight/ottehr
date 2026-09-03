@@ -452,7 +452,6 @@ describe('ProgressNoteAdminPage', () => {
           /must be greater than or equal to/i
         )
       );
-      // The valid half must not be written on its own.
       expect(adminUpdateProgressNoteConfig).not.toHaveBeenCalled();
       expect(adminUpdateVitalsAlertConfig).not.toHaveBeenCalled();
     });

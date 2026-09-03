@@ -122,14 +122,12 @@ describe('VitalsAlertConfigSchema', () => {
 
   it('accepts a gap between age ranges', () => {
     const config = cloneDefault();
-    // 3mo-4mo is left unconfigured.
     config.ageRanges[1].minAge = { unit: 'months', value: 4 };
     expect(VitalsAlertConfigSchema.safeParse(config).success).toBe(true);
   });
 
   it('rejects an overlap between age ranges', () => {
     const config = cloneDefault();
-    // A 4-month-old would match both ranges.
     config.ageRanges[0].maxAge = { unit: 'months', value: 5 };
     const result = VitalsAlertConfigSchema.safeParse(config);
     expect(result.success).toBe(false);

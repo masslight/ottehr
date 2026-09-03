@@ -190,10 +190,6 @@ const alertThresholdsForVital = (config: VitalsAlertConfig, vital: VitalAlertTyp
   });
 };
 
-/**
- * Adapts the admin config to the engine's shape, parsing it through `VitalsDef` so the engine's own
- * validation applies.
- */
 export const vitalsAlertConfigToVitalsDef = (config: VitalsAlertConfig): VitalsSchema => {
   const built: Record<string, unknown> = {
     'vital-weight': {

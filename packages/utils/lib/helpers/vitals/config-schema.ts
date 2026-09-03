@@ -7,8 +7,6 @@ import {
 } from '../../types/api/chart-data/chart-data.constants';
 
 /**
- * Schema and accessors for the vitals alert config.
- *
  * Kept out of `ottehr-config/vitals`, which is replaced per customer at build time: only the data
  * there varies, so holding the schema here means a change to it reaches every customer immediately
  * instead of waiting for each profile's copy to be regenerated.

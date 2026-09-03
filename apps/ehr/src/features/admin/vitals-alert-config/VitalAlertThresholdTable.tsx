@@ -19,7 +19,6 @@ interface VitalAlertThresholdTableProps {
   control: Control<VitalsAlertConfig>;
   vital: VitalAlertType;
   ageRanges: VitalAlertAgeRange[];
-  /** Opens the accordion when true. */
   hasErrors: boolean;
 }
 

@@ -287,7 +287,6 @@ describe('ProgressNoteAdminPage - vital alert levels', () => {
   it('allows a save that leaves a gap between age ranges', async () => {
     await renderSection();
 
-    // Leaves 3-4mo unconfigured.
     const secondRow = screen.getByTestId(dataTestIds.vitalsAlertConfig.ageRangeRow(1));
     const secondRowInputs = within(secondRow).getAllByRole('spinbutton') as HTMLInputElement[];
     fireEvent.change(secondRowInputs[0], { target: { value: '4' } });
@@ -302,7 +301,6 @@ describe('ProgressNoteAdminPage - vital alert levels', () => {
   it('blocks a save where two age ranges overlap', async () => {
     await renderSection();
 
-    // A 4-month-old would match both ranges.
     const firstRow = screen.getByTestId(dataTestIds.vitalsAlertConfig.ageRangeRow(0));
     const firstRowInputs = within(firstRow).getAllByRole('spinbutton') as HTMLInputElement[];
     fireEvent.change(firstRowInputs[1], { target: { value: '5' } });

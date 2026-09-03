@@ -21,7 +21,7 @@ export interface VitalsAlertConfigForm {
   isSubmitting: boolean;
   /** Populates `errors` as a side effect. */
   validate: () => Promise<boolean>;
-  /** Persists the current values. Only call after {@link validate} has passed. */
+  /** Only call after {@link validate} has passed. */
   submit: () => void;
   discard: () => void;
   onAddAgeRange: () => void;
@@ -88,7 +88,7 @@ export const useVitalsAlertConfigForm = (): VitalsAlertConfigForm => {
   const onRemoveAgeRange = (index: number): void => {
     const removed = getValues('ageRanges')[index];
 
-    // No other range is altered; the removed span becomes unconfigured.
+    // Deliberately does not widen a neighbouring range to cover the removed span.
     remove(index);
     if (!removed) return;
 

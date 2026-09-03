@@ -34,7 +34,6 @@ describe('admin-update-vitals-alert-config - validateRequestParameters', () => {
 
   test('should accept a gap between age ranges', () => {
     const config = cloneDefault();
-    // 3-4mo is left unconfigured, which is a valid state rather than an error.
     config.ageRanges[1].minAge = { unit: 'months', value: 4 };
     expect(() => validateRequestParameters(createMockZambdaInput({ config }))).not.toThrow();
   });
