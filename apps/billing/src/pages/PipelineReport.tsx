@@ -40,6 +40,7 @@ import { ReportStatusBar } from '../components/ReportStatusBar';
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingReport } from '../hooks/useBillingReport';
 import { otherColors } from '../themes/ottehr/colors';
+import { reportPalette } from '../themes/ottehr/reportPalette';
 
 const DRILLDOWN_PAGE_SIZE = 100;
 
@@ -104,7 +105,7 @@ const drilldownCellSx = {
   textAlign: 'right' as const,
   whiteSpace: 'nowrap' as const,
 };
-const drilldownHeadSx = { ...drilldownCellSx, fontWeight: 600, fontSize: 13, backgroundColor: '#FAFAFA' };
+const drilldownHeadSx = { ...drilldownCellSx, fontWeight: 600, fontSize: 13, backgroundColor: reportPalette.mutedBg };
 
 const AR_STAGE_FIELD = CLAIM_STATUS_FIELDS.find((field) => field.key === 'arStage');
 const arStageLabel = (code: string): string =>
@@ -118,8 +119,8 @@ interface CellValue {
 const EMPTY_CELL: CellValue = { claimCount: 0, totalBilled: 0 };
 
 // one color per status progression step (created/not-invoiced → … → finalized); 'No status' grey
-const NO_STATUS_COLOR = '#9AA1AC';
-const STATUS_COLORS = ['#FB8C00', '#2169F5', '#7B61D9', '#2E7D32'];
+const NO_STATUS_COLOR = reportPalette.pipeline.noStatus;
+const STATUS_COLORS = reportPalette.pipeline.statusSeries;
 
 const signedNumber = (diff: number): string =>
   `${diff > 0 ? '+' : diff < 0 ? '−' : '±'}${Math.abs(diff).toLocaleString('en-US')}`;

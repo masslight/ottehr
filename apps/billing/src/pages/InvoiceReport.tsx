@@ -29,14 +29,18 @@ import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ReportStatusBar } from '../components/ReportStatusBar';
 import { useBillingReport } from '../hooks/useBillingReport';
 import { otherColors } from '../themes/ottehr/colors';
+import { reportPalette } from '../themes/ottehr/reportPalette';
 
 type CategoryFilter = InvoiceReportCategory | 'all';
 
 const CATEGORY_META: Record<InvoiceReportCategory, { label: string; color: string }> = {
-  upcoming: { label: 'Coming Due', color: '#2E7D32' },
-  'past-due-no-card': { label: 'Past Due: No Card on File', color: '#ED6C02' },
-  'past-due-not-attempted': { label: 'Past Due: Charge Not Attempted', color: '#7B61D9' },
-  'past-due-failed': { label: 'Past Due: Charge Failed', color: '#D32F2F' },
+  upcoming: { label: 'Coming Due', color: reportPalette.invoiceCategory.upcoming },
+  'past-due-no-card': { label: 'Past Due: No Card on File', color: reportPalette.invoiceCategory['past-due-no-card'] },
+  'past-due-not-attempted': {
+    label: 'Past Due: Charge Not Attempted',
+    color: reportPalette.invoiceCategory['past-due-not-attempted'],
+  },
+  'past-due-failed': { label: 'Past Due: Charge Failed', color: reportPalette.invoiceCategory['past-due-failed'] },
 };
 const CATEGORY_ORDER: InvoiceReportCategory[] = [
   'upcoming',
@@ -54,12 +58,12 @@ interface AgingBucket {
 }
 
 const AGING_BUCKETS: AgingBucket[] = [
-  { key: '0-30', label: '0–30 days', minDays: 0, maxDays: 30, color: '#1E88E5' },
-  { key: '30-60', label: '30–60 days', minDays: 30, maxDays: 60, color: '#00897B' },
-  { key: '60-90', label: '60–90 days', minDays: 60, maxDays: 90, color: '#7CB342' },
-  { key: '90-120', label: '90–120 days', minDays: 90, maxDays: 120, color: '#FDD835' },
-  { key: '120-150', label: '120–150 days', minDays: 120, maxDays: 150, color: '#FB8C00' },
-  { key: '150+', label: '150+ days', minDays: 150, maxDays: Infinity, color: '#E53935' },
+  { key: '0-30', label: '0–30 days', minDays: 0, maxDays: 30, color: reportPalette.agingBuckets[0] },
+  { key: '30-60', label: '30–60 days', minDays: 30, maxDays: 60, color: reportPalette.agingBuckets[1] },
+  { key: '60-90', label: '60–90 days', minDays: 60, maxDays: 90, color: reportPalette.agingBuckets[2] },
+  { key: '90-120', label: '90–120 days', minDays: 90, maxDays: 120, color: reportPalette.agingBuckets[3] },
+  { key: '120-150', label: '120–150 days', minDays: 120, maxDays: 150, color: reportPalette.agingBuckets[4] },
+  { key: '150+', label: '150+ days', minDays: 150, maxDays: Infinity, color: reportPalette.agingBuckets[5] },
 ];
 
 type AgingFilter = string | 'all';
@@ -489,7 +493,7 @@ export default function InvoiceReport(): ReactElement {
               data={agingTrendData}
               options={{
                 isStacked: true,
-                colors: ['#9E9E9E', ...AGING_BUCKETS.map((bucket) => bucket.color)],
+                colors: [reportPalette.agingNotYetDue, ...AGING_BUCKETS.map((bucket) => bucket.color)],
                 backgroundColor: 'transparent',
                 legend: { position: 'right', textStyle: { fontSize: 12 } },
                 chartArea: { width: '78%', height: '75%' },

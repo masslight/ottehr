@@ -56,7 +56,8 @@ import { DateRangeInput } from '../components/DateInput';
 import { mergeReportStatuses, ReportStatusBar } from '../components/ReportStatusBar';
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingReport } from '../hooks/useBillingReport';
-import { otherColors } from '../themes/ottehr/colors';
+import { otherColors, palette } from '../themes/ottehr/colors';
+import { reportPalette } from '../themes/ottehr/reportPalette';
 
 type DateRangePreset =
   | 'previous-month'
@@ -141,8 +142,8 @@ const payerColumns: GridColDef[] = [
   currencyCol('checkTotal', 'Check Total', 130),
 ];
 
-const PAYMENTS_OVERVIEW_COLORS = ['#3f79c1', '#7fb069'];
-const ALLOWED_OVERVIEW_COLORS = ['#8464a9', '#e2a54b'];
+const PAYMENTS_OVERVIEW_COLORS = reportPalette.paymentsOverview;
+const ALLOWED_OVERVIEW_COLORS = reportPalette.allowedOverview;
 const KNOWN_METHODS = ['card', 'cash', 'check', 'invoice'];
 
 function OverviewBox({
@@ -236,12 +237,12 @@ function StatCard({
       sx={{
         flex: 1,
         minWidth: 160,
-        bgcolor: active ? '#eef4fb' : 'background.paper',
-        border: `1px solid ${active ? '#3f79c1' : otherColors.lightDivider}`,
+        bgcolor: active ? reportPalette.activeCardBg : 'background.paper',
+        border: `1px solid ${active ? reportPalette.activeCardBorder : otherColors.lightDivider}`,
         borderRadius: 2,
         px: 2.5,
         py: 2,
-        ...(onClick ? { cursor: 'pointer', '&:hover': { borderColor: '#3f79c1' } } : {}),
+        ...(onClick ? { cursor: 'pointer', '&:hover': { borderColor: reportPalette.activeCardBorder } } : {}),
       }}
     >
       <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.4 }}>
@@ -291,7 +292,7 @@ const drilldownCellSx = {
   textAlign: 'right' as const,
   whiteSpace: 'nowrap' as const,
 };
-const drilldownHeadSx = { ...drilldownCellSx, fontWeight: 600, fontSize: 13, backgroundColor: '#FAFAFA' };
+const drilldownHeadSx = { ...drilldownCellSx, fontWeight: 600, fontSize: 13, backgroundColor: reportPalette.mutedBg };
 
 function DrilldownDialog({
   criteria,
@@ -416,7 +417,7 @@ function DrilldownDialog({
                           sx={{
                             maxHeight: 260,
                             overflowY: 'auto',
-                            backgroundColor: '#FAFAFA',
+                            backgroundColor: reportPalette.mutedBg,
                             borderBottom: `1px solid ${otherColors.lightDivider}`,
                             px: 3,
                             py: 1.5,
@@ -668,7 +669,7 @@ function WaterfallMatrix({
     fontWeight: 600,
     fontSize: 13,
     color: 'inherit',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: reportPalette.mutedBg,
   };
 
   return (
@@ -731,7 +732,7 @@ function WaterfallMatrix({
                             padding: 0,
                             font: 'inherit',
                             cursor: 'pointer',
-                            color: '#2169F5',
+                            color: palette.primary.main,
                           }}
                         >
                           {formatCurrency(paid)}
@@ -740,7 +741,7 @@ function WaterfallMatrix({
                     </td>
                   );
                 })}
-                <td style={{ ...cellSx, fontWeight: 600, backgroundColor: '#FAFAFA' }}>
+                <td style={{ ...cellSx, fontWeight: 600, backgroundColor: reportPalette.mutedBg }}>
                   {formatCurrency(rowTotal(serviceMonth))}
                 </td>
               </tr>
@@ -752,7 +753,7 @@ function WaterfallMatrix({
                   {formatCurrency(columnTotal(checkMonth))}
                 </td>
               ))}
-              <td style={{ ...cellSx, fontWeight: 600, borderBottom: 'none', backgroundColor: '#FAFAFA' }}>
+              <td style={{ ...cellSx, fontWeight: 600, borderBottom: 'none', backgroundColor: reportPalette.mutedBg }}>
                 {formatCurrency(grandTotal)}
               </td>
             </tr>
