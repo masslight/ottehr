@@ -1,5 +1,6 @@
-import { Box, Button, Paper, Typography } from '@mui/material';
-import { FC } from 'react';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import { Box, Button, Menu, MenuItem, Paper, Typography } from '@mui/material';
+import { FC, useState } from 'react';
 import { formatDateForLabs } from 'utils/lib/utils/dateUtils';
 
 interface PrelimCardViewProps {
@@ -19,6 +20,10 @@ export const PrelimCardView: FC<PrelimCardViewProps> = ({
   onPrelimView,
   timezone,
 }) => {
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const menuOpen = Boolean(anchorEl);
+  const hasLabGeneratedResults = !!labGeneratedResultUrls?.length;
+
   const getDateEvent = (): { event: 'received' | 'reviewed'; date: string } => {
     return receivedDate
       ? { event: 'received', date: formatDateForLabs(receivedDate, timezone) }
@@ -62,7 +67,40 @@ export const PrelimCardView: FC<PrelimCardViewProps> = ({
         </Typography>
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      {hasLabGeneratedResults ? (
+        <>
+          <Button
+            onClick={(clickEvent) => setAnchorEl(clickEvent.currentTarget)}
+            variant="text"
+            color="primary"
+            endIcon={<ArrowDropDownIcon />}
+            aria-haspopup="true"
+            aria-expanded={menuOpen ? 'true' : undefined}
+            sx={{ fontWeight: 700, textTransform: 'none' }}
+          >
+            View
+          </Button>
+          <Menu anchorEl={anchorEl} open={menuOpen} onClose={() => setAnchorEl(null)}>
+            <MenuItem
+              disabled={!resultPdfUrl}
+              onClick={() => {
+                setAnchorEl(null);
+                openPdf();
+              }}
+            >
+              View Results
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setAnchorEl(null);
+                openLabGeneratedResults();
+              }}
+            >
+              View Lab Generated Results
+            </MenuItem>
+          </Menu>
+        </>
+      ) : (
         <Button
           disabled={!resultPdfUrl}
           onClick={openPdf}
@@ -72,17 +110,7 @@ export const PrelimCardView: FC<PrelimCardViewProps> = ({
         >
           View
         </Button>
-        {labGeneratedResultUrls && labGeneratedResultUrls.length > 0 && (
-          <Button
-            onClick={openLabGeneratedResults}
-            variant="text"
-            color="primary"
-            sx={{ fontWeight: 700, textTransform: 'none' }}
-          >
-            View Lab Generated Results
-          </Button>
-        )}
-      </Box>
+      )}
     </Paper>
   );
 };
