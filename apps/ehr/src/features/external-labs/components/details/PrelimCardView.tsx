@@ -4,6 +4,7 @@ import { formatDateForLabs } from 'utils/lib/utils/dateUtils';
 
 interface PrelimCardViewProps {
   resultPdfUrl: string | null;
+  labGeneratedResultUrls?: string[];
   receivedDate: string | null;
   reviewedDate: string | null;
   onPrelimView: () => void;
@@ -12,6 +13,7 @@ interface PrelimCardViewProps {
 
 export const PrelimCardView: FC<PrelimCardViewProps> = ({
   resultPdfUrl,
+  labGeneratedResultUrls,
   receivedDate,
   reviewedDate,
   onPrelimView,
@@ -29,6 +31,13 @@ export const PrelimCardView: FC<PrelimCardViewProps> = ({
       // the final results resources are marked as reviewed by clicking on "mark as reviewed" and we show it in the UI
       onPrelimView();
       window.open(resultPdfUrl, '_blank');
+    }
+  };
+
+  const openLabGeneratedResults = (): void => {
+    if (labGeneratedResultUrls?.length) {
+      onPrelimView();
+      labGeneratedResultUrls.forEach((url) => window.open(url, '_blank'));
     }
   };
 
@@ -53,15 +62,27 @@ export const PrelimCardView: FC<PrelimCardViewProps> = ({
         </Typography>
       </Box>
 
-      <Button
-        disabled={!resultPdfUrl}
-        onClick={openPdf}
-        variant="text"
-        color="primary"
-        sx={{ fontWeight: 700, textTransform: 'none' }}
-      >
-        View
-      </Button>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Button
+          disabled={!resultPdfUrl}
+          onClick={openPdf}
+          variant="text"
+          color="primary"
+          sx={{ fontWeight: 700, textTransform: 'none' }}
+        >
+          View
+        </Button>
+        {labGeneratedResultUrls && labGeneratedResultUrls.length > 0 && (
+          <Button
+            onClick={openLabGeneratedResults}
+            variant="text"
+            color="primary"
+            sx={{ fontWeight: 700, textTransform: 'none' }}
+          >
+            View Lab Generated Results
+          </Button>
+        )}
+      </Box>
     </Paper>
   );
 };
