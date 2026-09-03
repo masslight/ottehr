@@ -156,7 +156,6 @@ describe('tracking board search plan', () => {
     expect(serviceRequestUrl).toContain('_revinclude:iterate=Task:based-on');
     expect(serviceRequestUrl).toContain('_include=ServiceRequest:instantiates-canonical');
     expect(serviceRequestUrl).toContain('status:not=revoked');
-    // Context the legacy searches included and the board never rendered.
     expect(serviceRequestUrl).not.toContain('Encounter:appointment');
     expect(serviceRequestUrl).not.toContain('Coverage');
     expect(serviceRequestUrl).not.toContain('Slot');
@@ -429,7 +428,7 @@ describe('fetchTrackingBoardResources', () => {
     await fetchWith([externalLabOrder, report('dr-ext', 'sr-ext'), reviewTask('t-1', 'dr-ext')]);
     expect(search).not.toHaveBeenCalled();
 
-    // An external lab report without one: the legacy Task search runs, for that report only.
+    // An external lab report without one: the fallback Task search runs, for that report only.
     await fetchWith([externalLabOrder, report('dr-ext', 'sr-ext'), inHouseOrder, report('dr-ih', 'sr-ih')]);
     expect(search).toHaveBeenCalledTimes(1);
     expect(search).toHaveBeenCalledWith(

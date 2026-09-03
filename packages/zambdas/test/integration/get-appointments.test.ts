@@ -80,8 +80,8 @@ describe('get-appointments integration — happy path', () => {
     expect(output.vitals).toEqual(expect.any(Object));
   });
 
-  // Parity with the per-order-type zambdas the board used to call, on the fields the board renders. Non-rendered
-  // fields (ordering physician, visit date, timezone, billing type) are allowed to differ by design.
+  // Parity with the per-order-type zambdas on the fields the board renders. Non-rendered fields (ordering physician,
+  // visit date, timezone, billing type) are allowed to differ by design.
   it('groups the same orders the legacy per-type endpoints return for the same encounters', async () => {
     const params = {
       ...boardParams(),

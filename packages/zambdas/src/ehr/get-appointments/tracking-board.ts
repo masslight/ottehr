@@ -402,8 +402,6 @@ export const buildOrdersForTrackingBoard = ({
   const allPractitioners = dedupeById([...practitioners, ...pools.practitioners]);
   const partitions = partitionServiceRequests(pools.serviceRequests);
 
-  // The legacy zambdas only saw Provenances targeting their own order type; some mappers pick "the" create-order
-  // Provenance out of whatever they are handed, so scope the pool the same way.
   const provenancesFor = (serviceRequests: ServiceRequest[]): Provenance[] => {
     const refs = new Set(serviceRequests.map((serviceRequest) => `ServiceRequest/${serviceRequest.id}`));
     return pools.provenances.filter(
@@ -471,8 +469,8 @@ export const buildOrdersForTrackingBoard = ({
   );
   table.nursingOrdersByAppointmentId = groupBy(nursingOrders, (order) => order.appointmentId);
 
-  // External (print-only) radiology orders were filtered out of the board by the old hook; keep that, which also
-  // means their result DocumentReferences never need fetching here.
+  // External (print-only) radiology orders are not shown on the board, so their result DocumentReferences are never
+  // needed here.
   const radiologyOrders = partitions.radiology
     .filter((serviceRequest) => !isExternalRadiologyOrder(serviceRequest))
     .flatMap((serviceRequest) => {
