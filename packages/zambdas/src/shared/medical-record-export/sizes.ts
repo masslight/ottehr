@@ -23,7 +23,6 @@ export interface ResolveSizesResult {
 
 export interface ResolveSizesInput {
   attachments: NamedAttachment[];
-  /** Turns a Z3 url into a presigned download url. */
   presign: (url: string) => Promise<string>;
   concurrency: number;
 }

@@ -36,8 +36,6 @@ describe('opening a document for the archive', () => {
   });
 
   it('retries a transient failure instead of discarding the whole archive', async () => {
-    // The point of the retry: without it, one blip on document 900 of 1092 threw away every byte
-    // transferred so far and the user started again from nothing.
     const fetchMock = vi
       .fn()
       .mockRejectedValueOnce(new Error('socket hang up'))
@@ -97,9 +95,6 @@ describe('opening a document for the archive', () => {
   });
 
   it('only ever retries before bytes flow, so a partial entry cannot be duplicated', async () => {
-    // The safety boundary for the whole approach: `open` resolves before anything is piped into the
-    // archive, so a retry here is invisible to the writer. A stream that dies mid-body is a different
-    // failure and must fail the export — this asserts the function has no part in that case.
     const body = new Response('first half');
     vi.stubGlobal(
       'fetch',

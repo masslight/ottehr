@@ -11,7 +11,6 @@ import { useApiClients } from './useAppClients';
 export type UseDownloadMedicalRecordReturn = {
   /** Queues the export (or re-attaches to one already running for this patient). */
   downloadMedicalRecord: () => Promise<void>;
-  /** True while an export for this patient is in flight. */
   isDownloading: boolean;
 };
 

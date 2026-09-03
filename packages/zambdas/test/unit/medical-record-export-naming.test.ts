@@ -21,7 +21,6 @@ describe('medical record archive entry names', () => {
     });
 
     it('does not trim the title, so a leading space cannot turn a file into a dotfile', () => {
-      // Trimming " .png" would yield ".png", which extractors treat as a hidden file with no name.
       expect(deriveFileName('https://z3/x/abc', ' .png', 'image/png')).toBe(' .png');
     });
 

@@ -19,10 +19,6 @@ const ensureM2MToken = async (secrets: Secrets | null): Promise<string> => {
   return cachedM2MToken;
 };
 
-/**
- * Builds a patient's medical-record archive in the background. The EHR creates a Task, the Subscription
- * on `status=requested` hands it here, and progress is published onto the Task for the front end to poll.
- */
 export const index = wrapTaskHandler(
   ZAMBDA_NAME,
   async (input, oystehr) => {
@@ -50,8 +46,6 @@ export const index = wrapTaskHandler(
         },
       });
     } catch (error) {
-      // Only an authored message goes where the UI can read it; everything else stays a server detail on
-      // `Task.statusReason`, as in outbound-fax.
       if (isUserFacingExportError(error)) {
         await writer
           .recordUserFacingFailure(error.message)
@@ -60,8 +54,6 @@ export const index = wrapTaskHandler(
       throw error;
     }
 
-    // Before wrapTaskHandler marks the task completed; patchTaskStatus only touches /status and
-    // /statusReason, so this survives.
     await writer.recordResult({
       fileUrl: result.fileUrl,
       fileName: result.fileName,

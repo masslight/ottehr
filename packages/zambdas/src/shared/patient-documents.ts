@@ -10,12 +10,6 @@ export interface PatientRecordAttachment {
   contentType?: string;
   /** Creation date of the owning document. */
   date?: string;
-  /**
-   * Byte length, when the DocumentReference records one. Only a cross-check: the streamed
-   * medical-record export needs every entry's *exact* length, since it becomes the archive's
-   * Content-Length, so it always measures the stored object and logs a disagreement rather than
-   * trusting this and sending a body that cannot satisfy its own header.
-   */
   size?: number;
 }
 

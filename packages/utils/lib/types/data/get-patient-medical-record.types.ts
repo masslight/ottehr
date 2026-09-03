@@ -1,15 +1,10 @@
 import { z } from 'zod';
 import { EXPORT_TASK_SYSTEM } from '../api/invoicing.types';
 
-// A medical-record export is a background job: the `http_auth` zambda creates a Task and returns its
-// id, a Subscription hands the Task to `sub-export-medical-record`, and the front end polls the same
-// zambda for progress. The Subscription matches on system|code, so these two must stay in sync with
-// the criteria in config/oystehr-core/zambdas.json.
+// The Subscription in config/oystehr-core/zambdas.json matches on system|code; these must stay in sync.
 export const MEDICAL_RECORD_EXPORT_TASK_SYSTEM = EXPORT_TASK_SYSTEM;
 export const MEDICAL_RECORD_EXPORT_TASK_CODE = 'export-medical-record';
 
-// Codes on the Task.output entries the worker writes. The url is the (un-presigned) Z3 url of the
-// finished archive; progress is a JSON blob refreshed as the archive is written.
 export const MEDICAL_RECORD_EXPORT_OUTPUT_URL_CODE = 'export-medical-record-output-url';
 export const MEDICAL_RECORD_EXPORT_FILE_NAME_CODE = 'export-medical-record-file-name';
 export const MEDICAL_RECORD_EXPORT_PROGRESS_CODE = 'export-medical-record-progress';
@@ -41,7 +36,6 @@ export const GetMedicalRecordExportStatusInputSchema = z.object({
 });
 export type GetMedicalRecordExportStatusInput = z.infer<typeof GetMedicalRecordExportStatusInputSchema>;
 
-/** Either kick off (or re-attach to) an export for a patient, or poll one by Task id. */
 export type GetPatientMedicalRecordInput = StartMedicalRecordExportInput | GetMedicalRecordExportStatusInput;
 
 export const MEDICAL_RECORD_EXPORT_STATUSES = ['requested', 'in-progress', 'completed', 'failed'] as const;
@@ -67,13 +61,10 @@ export const MedicalRecordExportProgressSchema = z.object({
   skipped: z.number().int().nonnegative().optional(),
 });
 
-/** What the front end polls for. */
 export interface GetPatientMedicalRecordOutput {
   taskId: string;
   status: MedicalRecordExportStatus;
-  /** Documents written into the archive so far. */
   processed?: number;
-  /** Documents the export will archive in total. */
   total?: number;
   /**
    * Documents left out of the archive because their bytes could not be read. Not an error — but the

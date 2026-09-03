@@ -105,7 +105,6 @@ describe('medical record export watcher', () => {
       render(<ExportProgressMessage taskId={TASK_ID} />);
 
       expect(screen.getByText(/Preparing medical record — Preparing…/)).toBeInTheDocument();
-      // Indeterminate: inventing a percentage before the size pass finishes would be a lie.
       expect(screen.getByRole('progressbar')).not.toHaveAttribute('aria-valuenow');
     });
 
@@ -123,8 +122,6 @@ describe('medical record export watcher', () => {
     });
 
     it('renders through notistack as a standard variant, not as a bespoke card', async () => {
-      // Guards the consistency fix: the progress snackbar must come out of notistack's own
-      // MaterialDesignContent, so it matches every other snackbar in the app.
       mockGetStatus.mockResolvedValue({ taskId: TASK_ID, status: 'in-progress', processed: 3, total: 12 });
       watchExport({ patientId: PATIENT_ID, taskId: TASK_ID });
 
@@ -179,7 +176,6 @@ describe('medical record export watcher', () => {
 
       await waitFor(() => expect(screen.getByText(/your download is starting/i)).toBeInTheDocument());
       expect(clickSpy).toHaveBeenCalledTimes(1);
-      // Resolved jobs stop being watched, so nothing polls or re-announces them.
       await waitFor(() => expect(useMedicalRecordExportStore.getState().exports[PATIENT_ID]).toBeUndefined());
       expect(window.sessionStorage.getItem(MEDICAL_RECORD_EXPORT_STORE_NAME) ?? '').not.toContain(TASK_ID);
     });
@@ -267,7 +263,6 @@ describe('medical record export watcher', () => {
       await waitFor(() =>
         expect(screen.getByText(/the medical record export you started is ready/i)).toBeInTheDocument()
       );
-      // The whole point: no download starts on its own an unknown amount of time later.
       expect(clickSpy).not.toHaveBeenCalled();
 
       await userEvent.click(screen.getByRole('button', { name: 'Download' }));

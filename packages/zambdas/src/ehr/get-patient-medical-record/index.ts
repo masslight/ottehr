@@ -27,12 +27,6 @@ let m2mToken: string;
  * Front door for the medical-record export. Both modes are deliberately cheap: the archive itself is
  * built by `sub-export-medical-record`, because collecting a large chart runs far past the 27 s
  * API Gateway ceiling that applies to every `http_auth` zambda.
- *
- * - `{ patientId }` starts an export and returns its Task id — or, if one is already queued or
- *   running for that patient, re-attaches to it.
- * - `{ taskId, patientId }` reports that export's progress, and its presigned download url once
- *   finished. The patient is part of the request, not just the Task, so a poll can only ever read back
- *   an export of the chart the caller named.
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);

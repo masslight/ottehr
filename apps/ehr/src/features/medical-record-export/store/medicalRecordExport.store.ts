@@ -76,7 +76,6 @@ export const watchExport = (input: { patientId: string; taskId: string; resumed?
   }));
 };
 
-/** Folds a poll response into the watched job, so the progress UI reads it from one place. */
 export const recordExportStatus = (patientId: string, status: GetPatientMedicalRecordOutput): void => {
   useMedicalRecordExportStore.setState((state) => {
     const existing = state.exports[patientId];

@@ -1,14 +1,12 @@
 import { Readable } from 'node:stream';
 import { ReadableStream } from 'node:stream/web';
 
-/** Attempts made to open one document's stream before the archive is abandoned. */
 export const DOWNLOAD_ATTEMPTS = 3;
 const RETRY_BASE_DELAY_MS = 250;
 
 export interface OpenAttachmentInput {
   /** Z3 url; signed per attempt, since a signature can expire mid-export. */
   url: string;
-  /** Archive entry name, so an error says which document failed. */
   name: string;
   presign: (url: string) => Promise<string>;
   attempts?: number;
@@ -39,7 +37,6 @@ export const openAttachmentStream = async ({
       if (!response.ok || !response.body) {
         throw new Error(`Download failed [${response.status}] for archive entry "${name}"`);
       }
-      // Straight from the socket into the archive; never all resident at once.
       return Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
     } catch (error) {
       lastError = error;

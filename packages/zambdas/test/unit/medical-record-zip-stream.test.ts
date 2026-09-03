@@ -23,11 +23,9 @@ interface Upload {
   body?: Buffer;
 }
 
-/** Stands in for the presigned PUT target. */
 interface UploadTarget {
   url: string;
   uploads: Upload[];
-  /** Set to have the next PUT answered with this status instead of 200. */
   respondWith: number;
   /** When false the body is counted but not retained, so multi-GB cases stay cheap. */
   keepBody: boolean;
@@ -218,7 +216,6 @@ describe('medical record streamed archive', () => {
       },
     });
 
-    // Monotonic, one tick per entry, finishing at the total.
     expect(progress).toEqual(Array.from({ length: entries.length }, (_, i) => i + 1));
 
     const extracted = await readArchive(target.uploads[0].body!);
@@ -257,7 +254,6 @@ describe('medical record streamed archive', () => {
       },
     });
 
-    // Every tick resolved before the upload was considered done.
     expect(seen).toEqual([1, 2, 3, 4, 5]);
   });
 
@@ -278,7 +274,6 @@ describe('medical record streamed archive', () => {
     expect(target.uploads[0].bytes).toBe(predicted);
     expect(result.bytesUploaded).toBe(predicted);
 
-    // And it is still a readable archive, not merely one of the right length.
     const extracted = await readArchive(target.uploads[0].body!);
     expect(extracted.size).toBe(entries.length);
     expect(extracted.get('récord 1099.pdf')).toEqual(Buffer.from('body 1099'));
@@ -352,7 +347,6 @@ describe('medical record streamed archive', () => {
     const stalled: ZipEntry = {
       name: 'stalled.bin',
       size: 4096,
-      // Never pushes, never ends.
       open: () => Promise.resolve(new Readable({ read: () => undefined })),
     };
 

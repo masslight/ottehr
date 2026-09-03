@@ -35,7 +35,6 @@ export interface RunExportInput {
 }
 
 export interface RunExportResult {
-  /** Un-presigned Z3 url of the archive; absent when the chart had nothing to archive. */
   fileUrl?: string;
   fileName: string;
   documentCount: number;
@@ -124,7 +123,6 @@ export const runMedicalRecordExport = async ({
   // One timestamp for prediction and write, so the two cannot describe different archives.
   const mtime = new Date();
 
-  // Fail before creating the Z3 object rather than after opening a doomed upload.
   const predicted = predictZipSize(zipEntries, mtime);
   if (predicted > MAX_SINGLE_PUT_BYTES) {
     throw new MedicalRecordExportUserError(
@@ -161,9 +159,6 @@ export const runMedicalRecordExport = async ({
     onProgress: onProgress ? (processed) => onProgress(processed, zipEntries.length) : undefined,
   });
 
-  // Persist the archive as a DocumentReference so it can be retrieved later from the patient
-  // Docs UI. It is tagged with MEDICAL_RECORD_EXPORT_CODE and therefore excluded from the
-  // collection query above, so it is never bundled into a subsequent export.
   await createFilesDocumentReferences({
     files: [{ url: zipZ3Url, title: archiveFileName }],
     type: {

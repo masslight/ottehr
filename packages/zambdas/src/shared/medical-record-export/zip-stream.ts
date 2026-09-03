@@ -7,7 +7,6 @@ export interface ZipEntry {
   name: string;
   /** Exact byte length; the archive's Content-Length is derived from these. */
   size: number;
-  /** Called only once the writer is ready for this entry's bytes. */
   open: () => Promise<Readable>;
 }
 
@@ -208,7 +207,6 @@ export const streamZipToPresignedUrl = async ({
     zip.addReadStream(sinks[i], entry.name, { size: entry.size, compress: false, mtime });
   });
 
-  // One shared abort path, so a failure does not leave open sockets and a half-written request behind.
   const openSources = new Set<Readable>();
   let failed = false;
   let abortUpload: (error: Error) => void = () => undefined;

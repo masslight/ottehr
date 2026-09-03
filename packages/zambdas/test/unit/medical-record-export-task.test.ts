@@ -140,7 +140,6 @@ describe('medical record export Task encoding', () => {
     });
 
     it('completes without a download url when the chart had no documents', async () => {
-      // Not an error: a patient with nothing to archive completes with total 0 and no file.
       const response = await buildExportStatusResponse(
         task({
           status: 'completed',
@@ -202,9 +201,6 @@ describe('medical record export Task encoding', () => {
     });
 
     it('never leaks statusReason, which holds whatever the thrown error said', async () => {
-      // Matches outbound-fax: the raw cause stays on the Task and in the logs, and the front end says
-      // something generic instead. Reporting `Download failed [503] for "Discharge Summary.pdf"` to a
-      // user tells them nothing they can act on and exposes internals.
       const response = await buildExportStatusResponse(
         task({ status: 'failed', statusReason: { text: 'Download failed [503] for archive entry "note.pdf"' } }),
         presign
@@ -385,7 +381,6 @@ describe('medical record export Task encoding', () => {
       let clock = 100_000;
       const writer = createExportTaskWriter(oystehr, task(), () => clock);
 
-      // First write goes through immediately, then everything inside the window is coalesced.
       await writer.reportProgress({ processed: 1, total: 1000 });
       expect(patch).toHaveBeenCalledTimes(1);
 

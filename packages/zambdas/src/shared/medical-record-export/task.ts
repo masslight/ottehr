@@ -15,7 +15,6 @@ import {
   MedicalRecordExportStatus,
 } from 'utils/lib/types/data/get-patient-medical-record.types';
 
-/** Statuses that mean an export is queued or running, so a new request re-attaches instead of duplicating. */
 export const ACTIVE_EXPORT_TASK_STATUSES: Task['status'][] = ['requested', 'received', 'accepted', 'in-progress'];
 
 /**
@@ -41,7 +40,6 @@ export const readExportedFileUrl = (task: Task): string | undefined =>
 export const readExportedFileName = (task: Task): string | undefined =>
   findOutput(task, MEDICAL_RECORD_EXPORT_FILE_NAME_CODE)?.valueString;
 
-/** The instant the worker running this Task gives up by, if it published one. */
 export const readExportDeadline = (task: Task): DateTime | undefined => {
   const raw = findOutput(task, MEDICAL_RECORD_EXPORT_DEADLINE_CODE)?.valueString;
   if (!raw) return undefined;
@@ -49,7 +47,6 @@ export const readExportDeadline = (task: Task): DateTime | undefined => {
   return parsed.isValid ? parsed : undefined;
 };
 
-/** The message the worker authored for the user; absent for a plain internal failure, by design. */
 export const readUserFacingFailure = (task: Task): string | undefined =>
   findOutput(task, MEDICAL_RECORD_EXPORT_FAILURE_CODE)?.valueString || undefined;
 
@@ -73,7 +70,6 @@ export const patientIdFromTask = (task: Task): string => {
   return id;
 };
 
-/** FHIR statuses that mean the job is over and did not produce an archive. */
 const FAILED_TASK_STATUSES: Task['status'][] = ['failed', 'cancelled', 'rejected', 'entered-in-error'];
 
 export const toExportStatus = (taskStatus: Task['status']): MedicalRecordExportStatus => {
@@ -82,7 +78,6 @@ export const toExportStatus = (taskStatus: Task['status']): MedicalRecordExportS
   return taskStatus === 'in-progress' ? 'in-progress' : 'requested';
 };
 
-/** True for the export Task this feature creates, and only for it. */
 export const isMedicalRecordExportTask = (task: Task): boolean =>
   task.code?.coding?.some(
     (coding) => coding.system === MEDICAL_RECORD_EXPORT_TASK_SYSTEM && coding.code === MEDICAL_RECORD_EXPORT_TASK_CODE
@@ -117,10 +112,6 @@ export const isAbandonedExportTask = (task: Task, now: DateTime = DateTime.now()
   return idleFor !== undefined && idleFor > STUCK_IN_PROGRESS_THRESHOLD_MS;
 };
 
-/**
- * Retires a Task nothing is working on, so it stops matching the active search and any attached poller
- * sees a terminal state. Best-effort: failing to tidy up must not block a new export.
- */
 export const cancelAbandonedExportTask = async (oystehr: Oystehr, task: Task): Promise<void> => {
   try {
     await oystehr.fhir.patch<Task>({
@@ -140,10 +131,6 @@ export const cancelAbandonedExportTask = async (oystehr: Oystehr, task: Task): P
   }
 };
 
-/**
- * Renders a Task as the status the front end polls for. `presign` runs only for a completed export with a
- * file, so polling a running job costs one FHIR read.
- */
 export const buildExportStatusResponse = async (
   task: Task,
   presign: (url: string) => Promise<string>
@@ -157,7 +144,6 @@ export const buildExportStatusResponse = async (
     status,
     processed: progress?.processed,
     total: progress?.total,
-    // So a caller never presents an incomplete archive as a clean success.
     skipped: progress?.skipped,
     fileName,
   };
@@ -194,9 +180,7 @@ export const createExportTask = async (oystehr: Oystehr, patientId: string): Pro
   });
 
 export interface ExportTaskSearchResult {
-  /** The export a new request should re-attach to, if one is genuinely still in flight. */
   active?: Task;
-  /** Tasks in an active status that nothing is working on any more; the caller retires these. */
   abandoned: Task[];
 }
 
@@ -219,7 +203,6 @@ export const findActiveExportTask = async (oystehr: Oystehr, patientId: string):
 
   const tasks = bundle.unbundle().filter((resource): resource is Task => resource.resourceType === 'Task');
   const now = DateTime.now();
-  // Abandoned jobs are reported separately so a new export can take their place.
   return {
     active: tasks.find((task) => !isAbandonedExportTask(task, now)),
     abandoned: tasks.filter((task) => isAbandonedExportTask(task, now)),
@@ -232,9 +215,7 @@ export const PROGRESS_PATCH_INTERVAL_MS = 2_000;
 export interface ExportTaskWriter {
   /** The instant this worker gives up by, so a Task left `in-progress` by a kill can be spotted as dead. */
   recordDeadline: (deadline: DateTime) => Promise<void>;
-  /** Records progress, writing through no more often than the throttle allows. */
   reportProgress: (progress: MedicalRecordExportProgress) => Promise<void>;
-  /** The only channel by which a failure message reaches the UI; anything else is reported generically. */
   recordUserFacingFailure: (message: string) => Promise<void>;
   /** Writes the finished archive's location, along with final progress. Always writes through. */
   recordResult: (result: {
@@ -308,7 +289,6 @@ export const createExportTaskWriter = (
     reportProgress: async (progress) => {
       lastProgress = progress;
       if (lastWriteAt !== undefined && now() - lastWriteAt < PROGRESS_PATCH_INTERVAL_MS) return;
-      // A failed progress write must not fail the export; the next one will carry the same number.
       await write().catch((error) => console.warn(`Could not publish export progress: ${String(error)}`));
     },
     recordResult: async ({ fileUrl, fileName, progress }) => {

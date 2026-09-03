@@ -23,7 +23,6 @@ import {
   WatchedExport,
 } from '../store/medicalRecordExport.store';
 
-/** Consecutive poll failures tolerated before the job is declared lost. */
 const POLL_RETRIES = 3;
 
 const startDownload = (downloadUrl: string, fileName: string | undefined): void => {

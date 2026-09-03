@@ -3,7 +3,6 @@ import { GetPatientMedicalRecordOutput } from 'utils/lib/types/data/get-patient-
 /** The worker cannot outlive the zambda's 900 s ceiling, so past this the job is not coming back. */
 export const EXPORT_STATUS_POLL_BUDGET_MS = 16 * 60_000;
 
-/** Polled quickly at first so a small chart feels instant, then at a steady rate for the long tail. */
 const FAST_POLL_WINDOW_MS = 10_000;
 const FAST_POLL_INTERVAL_MS = 2_000;
 const STEADY_POLL_INTERVAL_MS = 10_000;
@@ -11,7 +10,6 @@ const STEADY_POLL_INTERVAL_MS = 10_000;
 /** Grace added on top of the budget so the timeout never beats the final in-flight poll. */
 const EXPORT_STATUS_POLL_TIMEOUT_GRACE_MS = 5_000;
 
-/** Hard ceiling for the whole poll. Derived from the budget so the two cannot drift apart. */
 export const EXPORT_STATUS_POLL_TIMEOUT_MS = EXPORT_STATUS_POLL_BUDGET_MS + EXPORT_STATUS_POLL_TIMEOUT_GRACE_MS;
 
 /**
