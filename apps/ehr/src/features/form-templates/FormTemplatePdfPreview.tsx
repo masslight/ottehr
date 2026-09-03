@@ -97,10 +97,12 @@ export const FormTemplatePdfPreview: FC<Props> = ({
         setPdfDocument(doc);
         setPageCount(doc.numPages);
       } catch (err) {
+        // A cancelled request is not a failure: another load has already replaced it and will report for
+        // itself. Reporting here would blame the new document for the old one's error.
         if (cancelled || (err instanceof Error && err.name === 'AbortError')) return;
         setError(
           err instanceof Error && err.message.startsWith('403')
-            ? 'The link to this PDF has expired.'
+            ? 'This link to the PDF is no longer valid.'
             : 'The PDF could not be loaded.'
         );
       }
@@ -116,7 +118,14 @@ export const FormTemplatePdfPreview: FC<Props> = ({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!pdfDocument || !canvas || containerWidth === 0) return;
+
+    // Nothing to draw. Clearing the flag matters: it starts true, and the document is set to null whenever
+    // the source changes, so a load that does not produce one — a replaced PDF whose old link died, a
+    // request cancelled before it could report — would otherwise leave the spinner running for good.
+    if (!pdfDocument || !canvas || containerWidth === 0) {
+      setIsRendering(false);
+      return;
+    }
 
     let renderTask: pdfjs.RenderTask | undefined;
     let cancelled = false;
