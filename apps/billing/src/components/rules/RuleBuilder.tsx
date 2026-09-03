@@ -1050,7 +1050,7 @@ function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
         name={`${name}.value`}
         control={control}
         rules={{
-          validate: (v: DateValue | null | undefined) =>
+          validate: (v: ServiceLineSetValue | null | undefined) =>
             def ? serviceLineSetValueProblem(def, value.operation, v) ?? true : true,
         }}
         render={({ field: { ref, value: fieldValue, onChange }, fieldState: { error } }) =>
