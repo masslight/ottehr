@@ -266,9 +266,7 @@ test.describe('In-house labs page', async () => {
 
       // Only sweep resources older than an hour so we never delete the in-use mocks of a concurrent
       // run (or a Playwright retry) that shares this Oystehr backend: every run's mocks carry the
-      // same stable MOCK_E2E_AD_TAG, so without this age guard the sweep would delete another run's
-      // fresh ActivityDefinitions and break its orders (get-in-house-orders can no longer resolve
-      // the AD its ServiceRequests reference). Mirrors packages/utils/lib/utils/e2eCleanup.ts.
+      // same stable MOCK_E2E_AD_TAG. Mirrors packages/utils/lib/utils/e2eCleanup.ts.
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
       const leftOverActivityDefinitions = (

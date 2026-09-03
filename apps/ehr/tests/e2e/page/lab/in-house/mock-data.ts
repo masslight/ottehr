@@ -968,13 +968,6 @@ const MOCK_AD_CANONICAL_URL_REGEX =
  * one pass — AD.url, the reflex parent's `valueCanonical`, the reflex child's `relatedArtifact`
  * depends-on `resource`, and each lab-set List item's `identifier.value` — so the fixture stays
  * internally consistent.
- *
- * This isolates concurrent E2E runs that share an Oystehr backend: with unique canonical URLs,
- * one run's leftover-sweep (or teardown) can no longer delete another run's in-use AD, and two
- * overlapping runs can never create duplicate `url|version` ActivityDefinitions. The token feeds a
- * FHIR canonical URL, so it must stay free of `|`, `/`, and whitespace — `randomUUID()` (hex +
- * hyphens) satisfies that. The stable MOCK_E2E_AD_TAG is intentionally preserved so the
- * age-guarded leftover sweep can still find true orphans from crashed prior runs.
  */
 export const buildRunScopedInhouseLabData = (runToken: string = randomUUID()): typeof MOCK_INHOUSE_LAB_DATA =>
   JSON.parse(JSON.stringify(MOCK_INHOUSE_LAB_DATA).replace(MOCK_AD_CANONICAL_URL_REGEX, `$1-${runToken}`));
