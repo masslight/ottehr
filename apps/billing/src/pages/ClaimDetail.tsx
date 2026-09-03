@@ -1265,6 +1265,8 @@ function InstitutionalClaimAdditionalFieldsSection({
         patientDischargeStatusCode: data.patientDischargeStatusCode,
         admissionType: data.admissionType,
         admissionSource: data.admissionSource,
+        admissionDate: data.admissionDate,
+        dischargeDate: data.dischargeDate,
       });
       if (error) return error;
       return null;
@@ -1279,6 +1281,8 @@ function InstitutionalClaimAdditionalFieldsSection({
       patientDischargeStatusCode: claim.patientDischargeStatusCode,
       admissionType: claim.admissionType,
       admissionSource: claim.admissionSource,
+      admissionDate: claim.admissionDate,
+      dischargeDate: claim.dischargeDate,
     };
   }, [claim]);
 
@@ -1293,6 +1297,8 @@ function InstitutionalClaimAdditionalFieldsSection({
       <Row label="Patient Discharge Status Code" value={claim.patientDischargeStatusCode} />
       <Row label="Admission Type" value={claim.admissionType} />
       <Row label="Point of Origin / Admission Source" value={claim.admissionSource} />
+      <Row label="Admission Date" value={claim.admissionDate ? formatDate(claim.admissionDate) : ''} />
+      <Row label="Discharge Date" value={claim.dischargeDate ? formatDate(claim.dischargeDate) : ''} />
     </EditableSection>
   );
 }
