@@ -42,9 +42,10 @@ export const ProcedureCptCodesField: FC<ProcedureCptCodesFieldProps> = ({
       disableClearable
       value={null as unknown as undefined}
       isOptionEqualToValue={(option, value) => value.code === option.code}
+      getOptionDisabled={(option) => codes.some((selected) => selected.code === option.code)}
       loading={isSearching}
       onChange={(_e: unknown, data: CPTCodeDTO | null) => {
-        if (data != null) {
+        if (data != null && !codes.some((selected) => selected.code === data.code)) {
           onAdd(data);
         }
       }}

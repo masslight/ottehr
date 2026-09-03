@@ -489,6 +489,29 @@ describe('ProceduresNew — deterministic coding assist', () => {
     expect(select).toHaveTextContent('Subcutaneous — layered closure');
   });
 
+  it('re-evaluates coding and persists the draft after Repair depth is cleared', async () => {
+    const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Laceration Repair',
+      bodySite: 'Hand',
+      lengthCm: 3.2,
+      repairDepth: 'subcutaneous-layered',
+    });
+    renderComponent();
+    expect(await screen.findByTestId('best-match-cpt-code', undefined, { timeout: 3000 })).toHaveTextContent('12042');
+
+    await user.click(screen.getByRole('button', { name: 'Clear Repair depth' }));
+
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId('best-match-cpt-code')).not.toBeInTheDocument();
+        expect(screen.getByText(/Repair depth is not documented/i)).toBeVisible();
+      },
+      { timeout: 3000 }
+    );
+    expect(useProcedureStore.getState().getDraft(ENCOUNTER_ID).repairDepth).toBeUndefined();
+  });
+
   it('round-trips the Repair depth value through the save payload', async () => {
     const user = userEvent.setup();
     useProcedureStore.getState().setDraft(ENCOUNTER_ID, {

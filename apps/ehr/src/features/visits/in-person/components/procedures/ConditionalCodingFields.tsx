@@ -1,4 +1,15 @@
-import { FormControl, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
+import ClearIcon from '@mui/icons-material/Clear';
+import {
+  FormControl,
+  IconButton,
+  InputAdornment,
+  InputLabel,
+  MenuItem,
+  OutlinedInput,
+  Select,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { Stack } from '@mui/system';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
@@ -83,7 +94,7 @@ interface ConditionalCodingFieldsProps {
   infusionStartTime?: string;
   infusionStopTime?: string;
   onLengthChange: (value: number | undefined) => void;
-  onRepairDepthChange: (value: string) => void;
+  onRepairDepthChange: (value: string | undefined) => void;
   onInfusionStartChange: (value: string | undefined) => void;
   onInfusionStopChange: (value: string | undefined) => void;
 }
@@ -116,8 +127,33 @@ export const ConditionalCodingFields: FC<ConditionalCodingFieldsProps> = ({
             labelId="Repair depth"
             variant="outlined"
             value={repairDepth ?? ''}
-            onChange={(e) => onRepairDepthChange(e.target.value)}
+            onChange={(e) => onRepairDepthChange(e.target.value || undefined)}
             data-testid={dataTestIds.documentProcedurePage.repairDepthSelect}
+            input={
+              <OutlinedInput
+                label="Repair depth"
+                endAdornment={
+                  repairDepth && !isReadOnly ? (
+                    <InputAdornment position="end" sx={{ mr: '16px' }}>
+                      <IconButton
+                        aria-label="Clear Repair depth"
+                        size="small"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onRepairDepthChange(undefined);
+                        }}
+                      >
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : null
+                }
+              />
+            }
           >
             {REPAIR_DEPTH_OPTIONS.map((option) => (
               <MenuItem key={option.value} value={option.value}>

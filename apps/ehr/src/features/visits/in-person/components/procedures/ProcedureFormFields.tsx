@@ -1,10 +1,14 @@
+import ClearIcon from '@mui/icons-material/Clear';
 import {
   Autocomplete,
   FormControl,
   FormControlLabel,
   FormLabel,
+  IconButton,
+  InputAdornment,
   InputLabel,
   MenuItem,
+  OutlinedInput,
   Radio,
   RadioGroup,
   Select,
@@ -17,7 +21,7 @@ interface ProcedureDropdownProps {
   label: string;
   options: string[] | undefined;
   value: string | undefined;
-  onChange: (value: string) => void;
+  onChange: (value: string | undefined) => void;
   disabled: boolean;
   dataTestId: string;
 }
@@ -39,8 +43,33 @@ export const ProcedureDropdown: FC<ProcedureDropdownProps> = ({
         labelId={label}
         variant="outlined"
         value={value ?? ''}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value || undefined)}
         data-testid={dataTestId}
+        input={
+          <OutlinedInput
+            label={label}
+            endAdornment={
+              value && !disabled ? (
+                <InputAdornment position="end" sx={{ mr: '16px' }}>
+                  <IconButton
+                    aria-label={`Clear ${label}`}
+                    size="small"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onChange(undefined);
+                    }}
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ) : null
+            }
+          />
+        }
       >
         {availableOptions.map((option) => (
           <MenuItem key={option} value={option}>
