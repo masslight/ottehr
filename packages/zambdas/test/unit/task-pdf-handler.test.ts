@@ -8,14 +8,8 @@ import { handleReviewTaskAndPdf, renderQrPdf } from '../../src/patient/paperwork
 import { sendErrors } from '../../src/shared/errors';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../src/shared/z3Utils';
 
-/**
- * First tests for the submit-paperwork finalization side effects: rendering the completed
- * standalone form to PDF, uploading it, filing the DocumentReference, and creating the
- * staff follow-up Task. The design contract under test is that this whole path is
- * NON-FATAL — the patient's submission already succeeded, so any failure here is swallowed
- * and reported rather than surfaced. PDF rendering runs for real (pdf-lib, offline);
- * storage and FHIR writers are mocked at their seams.
- */
+// This path is NON-FATAL by design — the patient's submission already succeeded, so any
+// failure here is swallowed and reported rather than surfaced.
 
 vi.mock('utils/lib/fhir/helpers', async (importOriginal) => {
   const original = await importOriginal<typeof import('utils/lib/fhir/helpers')>();

@@ -8,14 +8,6 @@ import { getUser, userHasAccessToPatient } from '../../src/shared/auth';
 import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { ZambdaInput } from '../../src/shared/types/common';
 
-/**
- * First tests of any kind for get-standalone-paperwork — the endpoint that serves
- * practice-managed (standalone) forms to patients. Covers input validation, the
- * patient-access authorization gate, the managed-questionnaire tag gate, the resource
- * graph requirements, and the response shape. The FHIR client and auth helpers are
- * mocked; questionnaire item mapping and response assembly run for real.
- */
-
 vi.mock('@sentry/aws-serverless', async (importOriginal) => {
   const original = await importOriginal<typeof import('@sentry/aws-serverless')>();
   return { ...original, wrapHandler: (handler: unknown) => handler, captureException: vi.fn() };
