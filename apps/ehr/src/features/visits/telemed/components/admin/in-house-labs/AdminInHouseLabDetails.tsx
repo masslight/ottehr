@@ -1,6 +1,6 @@
 import { LoadingButton } from '@mui/lab';
 import { Box, CircularProgress, FormHelperText, FormLabel, Grid, Paper, Typography, useTheme } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -12,6 +12,8 @@ import { AdminInHouseLabItemDefinition, InHouseLabAdminItemStatus } from 'utils/
 import { APIError } from 'utils/lib/types/errors';
 import { useAdminGetInHouseLabConfig, useAdminUpdateInHouseLab } from '../admin.queries';
 import AdminInHouseLabform from './AdminInHouseLabForm';
+
+type OystehrSdkError = Oystehr.OystehrSdkError;
 
 const disableEditsMessage =
   'You are viewing an old version of this test. Please return to the list and select the current version to make edits';
