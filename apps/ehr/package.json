@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22.13.0 <23",
+    "node": ">=22.13.0",
     "npm": ">=10.0.0"
   },
   "browserslist": {
@@ -107,6 +107,6 @@
     "csvtojson": "^2.0.10",
     "esbuild": "0.25.12",
     "json-2-csv": "^5.5.1",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }
