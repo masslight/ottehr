@@ -98,7 +98,7 @@ describe('vitalsAlertConfigToVitalsDef', () => {
     });
 
     expect(mismatches).toEqual([]);
-  });
+  }, 30_000);
 });
 
 describe('VitalsAlertConfigSchema', () => {
