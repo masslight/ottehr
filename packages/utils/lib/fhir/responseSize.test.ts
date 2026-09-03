@@ -71,6 +71,24 @@ describe('isResponseSizeExceededError', () => {
     ).toBe(true);
   });
 
+  it('falls back to the message when an SDK error carries no usable code', () => {
+    const missingCode = new Oystehr.OystehrSdkError({
+      code: 4130,
+      message: MAX_SIZE_MESSAGE,
+    });
+    delete (missingCode as unknown as { code?: number }).code;
+    expect(isResponseSizeExceededError(missingCode)).toBe(true);
+  });
+
+  it('does not read a blank code as the number zero', () => {
+    expect(
+      isResponseSizeExceededError({
+        code: '',
+        message: MAX_SIZE_MESSAGE,
+      })
+    ).toBe(true);
+  });
+
   // performEffectHandlingResponseSize turns a true here into "lower the rows per page", so a limit
   // failure the page size cannot fix must not borrow the size error's wording.
   it('does not let a matching message override a code that is not the size limit', () => {
