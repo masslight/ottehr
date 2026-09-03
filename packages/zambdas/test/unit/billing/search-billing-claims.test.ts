@@ -286,4 +286,35 @@ describe('search-billing-claims response size limit', () => {
       )
     ).rejects.toThrow('401 unauthorized');
   });
+
+  // Nothing about the payer directory shrinks with rows per page, so telling the biller to lower it
+  // would send them round a loop that cannot end.
+  it('does not blame the page size for a size failure resolving the payer filter', async () => {
+    const error = responseTooLarge();
+    mockOystehrClient.rcm.listPayers.mockRejectedValue(error);
+
+    await expect(
+      handler(
+        makeInput({
+          pageSize: 100,
+          payerName: 'Aetna',
+        })
+      )
+    ).rejects.toBe(error);
+    expect(mockOystehrClient.fhir.search).not.toHaveBeenCalled();
+  });
+
+  it('does not blame the page size for a size failure resolving the patient filter', async () => {
+    const error = responseTooLarge();
+    mockOystehrClient.fhir.search.mockRejectedValue(error);
+
+    await expect(
+      handler(
+        makeInput({
+          pageSize: 100,
+          patientId: '8a1c4e2f-5b6d-4c3a-9e8f-1d2c3b4a5e6f',
+        })
+      )
+    ).rejects.toBe(error);
+  });
 });

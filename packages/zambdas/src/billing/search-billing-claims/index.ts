@@ -17,7 +17,7 @@ import {
   scanClaimIds,
   searchClaimsBySearchText,
 } from '../claim-search';
-import { createBillingClient } from '../shared';
+import { ClaimSearchParam, createBillingClient } from '../shared';
 import { SearchBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -28,20 +28,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const response = await performEffectHandlingResponseSize(oystehr, params);
+  const response = await performEffect(oystehr, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-// A page the server refuses to serialize has already been retried at a smaller size by the time it
-// gets here. The remaining lever is the caller's: the unfiltered branch's page size is the caller's
-// pageSize, and shrinking that here would break the offset arithmetic the list paginates on — so
-// say what the biller can change rather than surfacing a raw SDK error.
-async function performEffectHandlingResponseSize(
+async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingClaimsParams
 ): Promise<SearchBillingClaimsResponse> {
+  const filterParams = await buildClaimFilterParams({
+    oystehr,
+    params,
+  });
+
   try {
-    return await performEffect(oystehr, params);
+    return await searchClaims({
+      oystehr,
+      params,
+      filterParams,
+    });
   } catch (error) {
     if (isResponseSizeExceededError(error)) {
       console.error('Claim search exceeded the FHIR response size limit:', error);
@@ -51,17 +56,17 @@ async function performEffectHandlingResponseSize(
   }
 }
 
-async function performEffect(
-  oystehr: Oystehr,
-  params: SearchBillingClaimsParams
-): Promise<SearchBillingClaimsResponse> {
+async function searchClaims({
+  oystehr,
+  params,
+  filterParams,
+}: {
+  oystehr: Oystehr;
+  params: SearchBillingClaimsParams;
+  filterParams: ClaimSearchParam[];
+}): Promise<SearchBillingClaimsResponse> {
   const pageSize = params.pageSize ?? 25;
   const offset = params.offset ?? 0;
-
-  const filterParams = await buildClaimFilterParams({
-    oystehr,
-    params,
-  });
 
   const filteringByServiceDate = Boolean(params.serviceDateFrom || params.serviceDateTo);
 
