@@ -59,6 +59,10 @@ async function searchRefreshTasksByCacheKey(
 const instantOf = (iso: string | undefined): number => (iso ? DateTime.fromISO(iso).toMillis() : 0);
 const staleBeforeMillis = (): number => DateTime.now().minus({ minutes: STALE_REFRESH_MINUTES }).toMillis();
 
+// HTTP 412 from a version-locked write: the resource changed since we read it
+const isVersionConflict = (err: unknown): boolean =>
+  err instanceof Oystehr.OystehrSdkError && String(err.code) === '412';
+
 // the running (or queued) refresh for one cache key, if any; stale tasks don't count
 export async function findActiveRefreshTask(oystehr: Oystehr, cacheKey: string): Promise<Task | undefined> {
   const tasks = await searchRefreshTasksByCacheKey(oystehr, cacheKey, 'requested,in-progress', 10);
@@ -88,30 +92,32 @@ export async function kickOffRefreshTask(
   const fresh = activeStatusTasks.find((task) => instantOf(task.meta?.lastUpdated) > staleBefore);
   if (fresh) return fresh;
 
-  // stale leftovers would satisfy the conditional create forever; cancel them first
+  // Stale leftovers would satisfy the conditional create forever; cancel them first.
+  // Version-locked so a Task that just finished (or was picked up) is never overwritten
+  // to cancelled: a 412 means it changed since our search, so it is not the abandoned
+  // zombie we thought — if it is still active the conditional create below returns it.
   for (const stale of activeStatusTasks) {
     try {
-      await oystehr.fhir.patch({
-        resourceType: 'Task',
-        id: stale.id ?? '',
-        operations: [
-          { op: 'replace', path: '/status', value: 'cancelled' },
-          { op: 'add', path: '/statusReason', value: { text: 'stale refresh superseded' } },
-        ],
-      });
+      await oystehr.fhir.patch(
+        {
+          resourceType: 'Task',
+          id: stale.id ?? '',
+          operations: [
+            { op: 'replace', path: '/status', value: 'cancelled' },
+            { op: 'add', path: '/statusReason', value: { text: 'stale refresh superseded' } },
+          ],
+        },
+        { optimisticLockingVersionId: stale.meta?.versionId }
+      );
     } catch (err) {
-      // a still-active stale Task would satisfy the conditional create and queue no work
-      const refetched = await oystehr.fhir
-        .get<Task>({ resourceType: 'Task', id: stale.id ?? '' })
-        .catch(() => undefined);
-      if (!refetched || refetched.status === 'requested' || refetched.status === 'in-progress') {
-        const apiError = REPORT_REFRESH_QUEUE_FAILED_ERROR(
-          `Could not cancel stale refresh Task/${stale.id}; refusing to queue a refresh that would not run: ${
-            (err as Error)?.message ?? String(err)
-          }`
-        );
-        throw Object.assign(new Error(apiError.message), apiError);
-      }
+      if (isVersionConflict(err)) continue;
+      // an uncancelled stale Task would satisfy the conditional create and queue no work
+      const apiError = REPORT_REFRESH_QUEUE_FAILED_ERROR(
+        `Could not cancel stale refresh Task/${stale.id}; refusing to queue a refresh that would not run: ${
+          (err as Error)?.message ?? String(err)
+        }`
+      );
+      throw Object.assign(new Error(apiError.message), apiError);
     }
   }
 
@@ -181,14 +187,21 @@ function buildRefreshTask(input: { kind: RefreshReportKind; params: unknown; cac
   };
 }
 
-// worker-side phase reporting; failures are swallowed because progress is cosmetic
+// Worker-side phase reporting; failures are swallowed because progress is cosmetic.
+// Version-locked behind a status read so a Task cancelled mid-run is never patched
+// (which would bump its lastUpdated and make it look like a live refresh again).
 export async function updateRefreshTaskProgress(oystehr: Oystehr, taskId: string, progress: string): Promise<void> {
   try {
-    await oystehr.fhir.patch({
-      resourceType: 'Task',
-      id: taskId,
-      operations: [{ op: 'add', path: '/businessStatus', value: { text: progress } }],
-    });
+    const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId });
+    if (task.status !== 'in-progress') return;
+    await oystehr.fhir.patch(
+      {
+        resourceType: 'Task',
+        id: taskId,
+        operations: [{ op: 'add', path: '/businessStatus', value: { text: progress } }],
+      },
+      { optimisticLockingVersionId: task.meta?.versionId }
+    );
   } catch (err) {
     console.warn(`Failed to update refresh progress on Task/${taskId}:`, (err as Error)?.message);
   }

@@ -41,7 +41,6 @@ export interface ReportDetailEnvelope<Detail> extends ReportPayload {
 export interface ReportCacheMeta {
   generatedAt: string;
   sizeBytes: number;
-  truncated?: boolean;
   objectPath?: string;
   publicObjectPath?: string;
 }
@@ -197,7 +196,6 @@ export async function saveReportCache<Payload extends ReportPayload>(
     const meta: ReportCacheMeta = {
       generatedAt: payload.generatedAt,
       sizeBytes: servedBytes.length,
-      ...(payload.truncated ? { truncated: true } : {}),
       objectPath,
       ...(publicObjectPath ? { publicObjectPath } : {}),
     };

@@ -9,11 +9,14 @@ import {
   MAX_REFRESH_CHAIN,
   REFRESH_TASK_IDENTIFIER_SYSTEM,
   refreshTaskChain,
+  updateRefreshTaskProgress,
 } from '../../../src/billing/reports/framework/refresh-task';
 
 const CACHE_KEY = 'payments:v1:all';
 const freshISO = DateTime.now().minus({ minutes: 1 }).toUTC().toISO() ?? '';
 const staleISO = DateTime.now().minus({ minutes: 60 }).toUTC().toISO() ?? '';
+
+const versionConflictError = (): Error => new Oystehr.OystehrSdkError({ message: 'Precondition Failed', code: 412 });
 
 const refreshTask = (id: string, lastUpdated: string): Task => ({
   resourceType: 'Task',
@@ -21,7 +24,7 @@ const refreshTask = (id: string, lastUpdated: string): Task => ({
   status: 'requested',
   intent: 'order',
   identifier: [{ system: REFRESH_TASK_IDENTIFIER_SYSTEM, value: CACHE_KEY }],
-  meta: { lastUpdated },
+  meta: { lastUpdated, versionId: `${id}-v1` },
 });
 
 interface FhirMocks {
@@ -103,7 +106,7 @@ describe('kickOffRefreshTask', () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it('cancels stale tasks, then creates a new one', async () => {
+  it('cancels stale tasks with a version lock, then creates a new one', async () => {
     const created = refreshTask('created', freshISO);
     const patch = vi.fn().mockResolvedValue(undefined);
     const create = vi.fn().mockResolvedValue(created);
@@ -122,32 +125,31 @@ describe('kickOffRefreshTask', () => {
         resourceType: 'Task',
         id: 'stale-1',
         operations: expect.arrayContaining([{ op: 'replace', path: '/status', value: 'cancelled' }]),
-      })
+      }),
+      { optimisticLockingVersionId: 'stale-1-v1' }
     );
     expect(create).toHaveBeenCalledTimes(1);
   });
 
-  it('throws when a stale task cannot be cancelled and is still active', async () => {
+  it('throws when a stale task cannot be cancelled', async () => {
     const stale = refreshTask('stale', staleISO);
     const create = vi.fn();
     const oystehr = clientWith({
       search: vi.fn().mockResolvedValue(searchResult([stale])),
       create,
       patch: vi.fn().mockRejectedValue(new Error('gone')),
-      get: vi.fn().mockResolvedValue(stale),
     });
 
     await expect(kickOffRefreshTask(oystehr, kickoffInput)).rejects.toThrow(/could not cancel stale refresh/i);
     expect(create).not.toHaveBeenCalled();
   });
 
-  it('still creates when the failed cancel turns out to be already resolved', async () => {
+  it('proceeds past a version-conflicted cancel — the task changed concurrently', async () => {
     const created = refreshTask('created', freshISO);
     const oystehr = clientWith({
       search: vi.fn().mockResolvedValue(searchResult([refreshTask('stale', staleISO)])),
       create: vi.fn().mockResolvedValue(created),
-      patch: vi.fn().mockRejectedValue(new Error('conflict')),
-      get: vi.fn().mockResolvedValue({ ...refreshTask('stale', staleISO), status: 'cancelled' }),
+      patch: vi.fn().mockRejectedValue(versionConflictError()),
     });
 
     expect(await kickOffRefreshTask(oystehr, kickoffInput)).toBe(created);
@@ -184,5 +186,44 @@ describe('kickOffRefreshTask', () => {
     const oystehr = clientWith({ search, create: vi.fn().mockRejectedValue(new Error('boom')) });
 
     await expect(kickOffRefreshTask(oystehr, kickoffInput)).rejects.toThrow('boom');
+  });
+});
+
+describe('updateRefreshTaskProgress', () => {
+  const inProgressTask: Task = { ...refreshTask('t1', freshISO), status: 'in-progress' };
+
+  it('patches businessStatus with a version lock while the task is in progress', async () => {
+    const patch = vi.fn().mockResolvedValue(undefined);
+    const oystehr = clientWith({ get: vi.fn().mockResolvedValue(inProgressTask), patch });
+
+    await updateRefreshTaskProgress(oystehr, 't1', 'phase 2…');
+    expect(patch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceType: 'Task',
+        id: 't1',
+        operations: [{ op: 'add', path: '/businessStatus', value: { text: 'phase 2…' } }],
+      }),
+      { optimisticLockingVersionId: 't1-v1' }
+    );
+  });
+
+  it('skips the patch when the task is no longer in progress (e.g. cancelled)', async () => {
+    const patch = vi.fn();
+    const oystehr = clientWith({
+      get: vi.fn().mockResolvedValue({ ...inProgressTask, status: 'cancelled' }),
+      patch,
+    });
+
+    await updateRefreshTaskProgress(oystehr, 't1', 'phase 2…');
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('swallows a version conflict — progress is cosmetic', async () => {
+    const oystehr = clientWith({
+      get: vi.fn().mockResolvedValue(inProgressTask),
+      patch: vi.fn().mockRejectedValue(versionConflictError()),
+    });
+
+    await expect(updateRefreshTaskProgress(oystehr, 't1', 'phase 2…')).resolves.toBeUndefined();
   });
 });

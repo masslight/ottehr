@@ -18,8 +18,6 @@ export type ReportComputeContext<Payload> = ReportContext & { previous?: Payload
 
 export interface ReportPayload {
   generatedAt: string;
-  // set by definitions whose compute dropped data
-  truncated?: boolean;
 }
 
 // One cached report kind: the HTTP zambda and the worker are generic over this contract.

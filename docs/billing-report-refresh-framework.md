@@ -157,7 +157,6 @@ interface ReportRefreshStatus {
   progress?: string;         // live worker phase text while running
   error?: string;            // most recent failure's statusReason
   cacheSizeBytes?: number;   // stored (gzip) size of the served cache object
-  truncated?: boolean;       // the definition's compute dropped data
 }
 // fetch response  = { downloadUrl, generatedAt, fromCache, status }   (payload lives in Z3)
 // drilldown/empty = { ...payloadOrSlice, generatedAt, fromCache, status }
@@ -183,8 +182,8 @@ Created by `kickOffRefreshTask` in
 (`fhir.create(task, { ifNoneExist: identifier + status=requested,in-progress })`), so
 concurrent kickoffs — React StrictMode double-mounts, two users, parallel tabs — atomically
 resolve to one Task server-side. Stale tasks (untouched > 30 min, assumed hard-killed worker)
-are patched to `cancelled` before a replacement is created, so they can never wedge the
-condition.
+are patched to `cancelled` first — version-locked, so a Task that finished or was touched
+concurrently is never overwritten — so they can never wedge the condition.
 
 ```mermaid
 stateDiagram-v2
@@ -207,22 +206,19 @@ prefix, written by
 |---|---|---|
 | payload | `billing-reports/<cacheKey>/<revision>.json.gz` | the raw report payload (rows, totals, resume state) |
 | public payload | `…/<revision>.public.json.gz` | sanitized copy — only when the definition has `sanitizePayload`; download URLs point here |
-| meta (commit pointer) | `billing-reports/<cacheKey>.meta.json` | `{ generatedAt, sizeBytes, truncated?, objectPath, publicObjectPath? }` |
+| meta (commit pointer) | `billing-reports/<cacheKey>.meta.json` | `{ generatedAt, sizeBytes, objectPath, publicObjectPath? }` |
 | detail | same scheme under `<kind>:<cacheVersion>:<detailParamsKey>:detail` | `{ generatedAt, detail }` drilldown dataset |
 
 (`<cacheKey>` is `<kind>:<cacheVersion>:<paramsKey>` sanitized to the Z3 object-name charset.)
 
 - Parameterized reports get one payload object per params combination (e.g. per date window).
-- There is **no size cap** — moving off FHIR `DocumentReference` attachments (4 MB base64
-  limit) is what allows arbitrarily large reports; the old `shrink` data-shedding machinery is
-  gone.
+- There is no size cap; reports can be arbitrarily large.
 - **Writes are committed, not in-place.** Each save uploads new generation-addressed objects,
   then a single fixed-path meta PUT atomically switches readers to them (readers always resolve
   object paths through the meta). A torn write leaves the previous generation live; the
   superseded generation is deleted best-effort after the commit.
 - **A failed save fails the refresh Task** (`REPORT_CACHE_WRITE_FAILED`): the cache is the
   delivery mechanism, so completing over a failed write would show idle status over stale data.
-- Definitions that drop data set `truncated` on the payload; it surfaces as `status.truncated`.
 - `cacheVersion` bumps orphan old objects rather than migrating them.
 - Serving is by **presigned download URL minted per request** (`z3.getPresignedUrl`), issued
   only after the zambda's RBAC check — the URL is short-lived and each poll/display gets a
@@ -279,8 +275,7 @@ streaming counts (e.g. every 250–1,000 items). Totals are only shown when know
   poll serves an unchanged `generatedAt`.
 - [ReportStatusBar](../apps/billing/src/components/ReportStatusBar.tsx): one widget for every
   report header — de-emphasized "Updated 12 minutes ago · 1.2 MB" when idle (absolute time in
-  tooltip), phase text over a slim indeterminate bar when running, warning + Retry on error,
-  plus an amber "Truncated" chip whenever the served payload was cut down.
+  tooltip), phase text over a slim indeterminate bar when running, warning + Retry on error.
   `mergeReportStatuses` collapses several statuses (running > error > oldest idle) for pages
   hosting more than one kind.
 - [api.ts](../apps/billing/src/api/api.ts) keeps compile-time payload types via thin per-kind

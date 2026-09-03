@@ -38,16 +38,6 @@ export function ReportStatusBar({
 
   return (
     <Stack direction="row" alignItems="center" gap={1.5}>
-      {status?.truncated && (
-        <Tooltip title="The report was too large to store in full; some rows were dropped. Narrow the filters or date range for complete data.">
-          <Stack direction="row" alignItems="center" gap={0.5}>
-            <WarningIcon color="warning" sx={{ fontSize: 16 }} />
-            <Typography variant="caption" color="warning.main" noWrap>
-              Truncated
-            </Typography>
-          </Stack>
-        </Tooltip>
-      )}
       {running ? (
         <Box sx={{ minWidth: 200, maxWidth: 360 }}>
           <Typography variant="caption" color="text.secondary" noWrap component="div">
