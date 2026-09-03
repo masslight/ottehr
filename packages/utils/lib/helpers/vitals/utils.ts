@@ -1,7 +1,7 @@
 // cSpell:ignore alertable
 import { CodeableConcept, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { AlertRule, AlertThreshold, VitalsDef } from '../../ottehr-config/vitals';
+import { AlertRule, AlertThreshold, VitalsDef, VitalsSchema } from '../../ottehr-config/vitals';
 import {
   FHIRObservationInterpretation,
   FHIRObservationInterpretationCodesMap,
@@ -10,6 +10,8 @@ import {
 } from '../../types/api/chart-data/chart-data.constants';
 import { VitalsObservationDTO } from '../../types/api/chart-data/chart-data.types';
 import { GetVitalsResponseData } from '../../types/api/chart-data/get-vitals.types';
+import { VITAL_ALERT_TYPES } from '../../types/api/vitals-alert-config/vitals-alert-config.types';
+import { DEFAULT_VITALS_ALERT_CONFIG, vitalsAlertConfigToVitalsDef } from '../../utils/vitals-alert-config';
 
 export const convertVitalsListToMap = (list: VitalsObservationDTO[]): GetVitalsResponseData => {
   const vitalsMap: Partial<GetVitalsResponseData> = {};
@@ -78,6 +80,41 @@ interface CheckForAbnormalValueInput {
   /** Instant the age band is resolved against. Defaults to now. */
   asOfDate?: string;
 }
+
+/**
+ * `VitalsDef` re-parses its argument on every call and the helpers below call it per observation.
+ * Memoized here rather than in `ottehr-config/vitals`, because that module is replaced per customer
+ * at build time and so cannot carry the cache. Callers must not mutate a config after parsing it.
+ */
+const parsedConfigCache = new WeakMap<object, VitalsSchema>();
+
+/**
+ * Thresholds come from `ottehr-config/vitals` only in core; a customer build replaces that module
+ * with one that carries no thresholds, so falling through to it there would silently disable every
+ * alert. Callers are expected to pass the resolved config; this logs and uses the shipped defaults
+ * rather than evaluating against nothing.
+ */
+const fallbackConfig = (): VitalsSchema => {
+  const fromStaticConfig = VitalsDef();
+  if (VITAL_ALERT_TYPES.some((vital) => (fromStaticConfig[vital]?.alertThresholds ?? []).length > 0)) {
+    return fromStaticConfig;
+  }
+  console.error('Vitals alert evaluation received no config; falling back to the default thresholds');
+  return vitalsAlertConfigToVitalsDef(DEFAULT_VITALS_ALERT_CONFIG);
+};
+
+const resolveVitalsConfig = (configOverride?: any): VitalsSchema => {
+  if (!configOverride || typeof configOverride !== 'object') {
+    return fallbackConfig();
+  }
+  const cached = parsedConfigCache.get(configOverride);
+  if (cached) {
+    return cached;
+  }
+  const parsed = VitalsDef(configOverride);
+  parsedConfigCache.set(configOverride, parsed);
+  return parsed;
+};
 
 const resolveAsOf = (asOfDate: string | undefined): DateTime => {
   if (!asOfDate) return DateTime.now();
@@ -229,11 +266,12 @@ const findRulesForVitalsKeyAndDOB = (
   }
 
   const dateOfBirth = DateTime.fromISO(dob);
-  const alertThresholds: AlertThreshold[] = VitalsDef(configOverride)[key]?.alertThresholds ?? [];
+  const config = resolveVitalsConfig(configOverride);
+  const alertThresholds: AlertThreshold[] = config[key]?.alertThresholds ?? [];
   const alertComponents: { [componentName: string]: AlertRule[] } = {};
   if (key === 'vital-blood-pressure' || key === 'vital-vision') {
     // For blood pressure, we need to check components
-    const components = VitalsDef(configOverride)[key]?.components;
+    const components = config[key]?.components;
     if (components) {
       Object.entries(components).forEach(([name, component]) => {
         alertComponents[name] = getRulesForPatientDOB(component.alertThresholds ?? [], dateOfBirth, asOf);

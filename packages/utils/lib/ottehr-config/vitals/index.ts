@@ -912,21 +912,9 @@ export const DefaultVitalsConfig = Object.freeze(VitalsMap.parse(VitalsConfigDat
 
 export type VitalsSchema = z.infer<typeof VitalsMap>;
 
-/** Memoized by object identity; callers must not mutate a config after parsing it. */
-const parsedConfigCache = new WeakMap<object, VitalsSchema>();
-
 export const VitalsDef = (config?: any): VitalsSchema => {
   if (config) {
-    if (typeof config !== 'object') {
-      return Object.freeze(VitalsMap.parse(config));
-    }
-    const cached = parsedConfigCache.get(config);
-    if (cached) {
-      return cached;
-    }
-    const parsed = Object.freeze(VitalsMap.parse(config));
-    parsedConfigCache.set(config, parsed);
-    return parsed;
+    return Object.freeze(VitalsMap.parse(config));
   }
   return DefaultVitalsConfig;
 };
