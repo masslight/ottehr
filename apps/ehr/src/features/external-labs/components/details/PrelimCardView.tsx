@@ -1,6 +1,6 @@
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { Box, Button, Menu, MenuItem, Paper, Typography } from '@mui/material';
-import { FC, useState } from 'react';
+import { FC, useId, useState } from 'react';
 import { formatDateForLabs } from 'utils/lib/utils/dateUtils';
 
 interface PrelimCardViewProps {
@@ -23,6 +23,8 @@ export const PrelimCardView: FC<PrelimCardViewProps> = ({
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const menuOpen = Boolean(anchorEl);
   const hasLabGeneratedResults = !!labGeneratedResultUrls?.length;
+  const menuButtonId = useId();
+  const menuId = useId();
 
   const getDateEvent = (): { event: 'received' | 'reviewed'; date: string } => {
     return receivedDate
@@ -70,17 +72,25 @@ export const PrelimCardView: FC<PrelimCardViewProps> = ({
       {hasLabGeneratedResults ? (
         <>
           <Button
+            id={menuButtonId}
             onClick={(clickEvent) => setAnchorEl(clickEvent.currentTarget)}
             variant="text"
             color="primary"
             endIcon={<ArrowDropDownIcon />}
             aria-haspopup="true"
+            aria-controls={menuOpen ? menuId : undefined}
             aria-expanded={menuOpen ? 'true' : undefined}
             sx={{ fontWeight: 700, textTransform: 'none' }}
           >
             View
           </Button>
-          <Menu anchorEl={anchorEl} open={menuOpen} onClose={() => setAnchorEl(null)}>
+          <Menu
+            id={menuId}
+            anchorEl={anchorEl}
+            open={menuOpen}
+            onClose={() => setAnchorEl(null)}
+            MenuListProps={{ 'aria-labelledby': menuButtonId }}
+          >
             <MenuItem
               disabled={!resultPdfUrl}
               onClick={() => {
