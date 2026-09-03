@@ -2,7 +2,7 @@ import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
-import { searchPageWithSizeRetry } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getAllFhirSearchPages, searchPageWithSizeRetry } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
@@ -80,6 +80,8 @@ export const CLAIM_LIST_ELEMENTS = [
   'Organization.id',
   'Organization.name',
 ].join(',');
+
+export const COVERAGE_LIST_ELEMENTS = 'id,subscriberId';
 
 // The include + _elements pair every claim list read uses. Paired in one constant so a new list
 // query cannot pick up the includes and forget to narrow the fields they drag in.
@@ -498,20 +500,23 @@ export async function enrichAndMapClaims({
 
   let coverages: Coverage[] = [];
   if (uniqueCoverageIds.length > 0) {
-    const covResult = await oystehr.fhir.search<Coverage>({
-      resourceType: 'Coverage',
-      params: [
-        {
-          name: '_id',
-          value: uniqueCoverageIds.join(','),
-        },
-        {
-          name: '_count',
-          value: String(uniqueCoverageIds.length),
-        },
-      ],
-    });
-    coverages = covResult.unbundle();
+    coverages = await getAllFhirSearchPages<Coverage>(
+      {
+        resourceType: 'Coverage',
+        params: [
+          {
+            name: '_id',
+            value: uniqueCoverageIds.join(','),
+          },
+          {
+            name: '_elements',
+            value: COVERAGE_LIST_ELEMENTS,
+          },
+        ],
+      },
+      oystehr,
+      uniqueCoverageIds.length
+    );
   }
 
   const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId] = await Promise.all([

@@ -860,6 +860,68 @@ describe('enrichAndMapClaims', () => {
     expect(paramNamed(coverageParams, '_id')?.value).toBe('coverage-1');
     expect(paramNamed(coverageParams, '_count')?.value).toBe('1');
   });
+
+  it('asks only for the coverage fields the row renders', async () => {
+    const { oystehr, search } = stubEnrichClient();
+
+    await enrichAndMapClaims({
+      oystehr,
+      claims: [claimWithCoverage('claim-1', 'coverage-1')],
+      includedResources: [],
+    });
+
+    expect(paramNamed(coverageSearchParams(search), '_elements')?.value).toBe('id,subscriberId');
+  });
+
+  // Shrinking the page on an _id list read only returns the head of that list, so the request has
+  // to page or the member ids past the reduced count go silently missing.
+  it('collects every coverage when the server refuses the first page size', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const coverages = Array.from({ length: 4 }, (_unused, index) => ({
+      resourceType: 'Coverage' as const,
+      id: `coverage-${index}`,
+      subscriberId: `member-${index}`,
+    }));
+    const search = vi.fn().mockImplementation(async ({ resourceType, params }) => {
+      if (resourceType !== 'Coverage') {
+        return {
+          entry: [],
+          unbundle: () => [],
+        };
+      }
+      const count = Number(paramNamed(params, '_count')?.value);
+      if (count > 2) {
+        throw new Oystehr.OystehrSdkError({
+          code: 4130,
+          message: 'An internal response size (7,340,032) exceeds the maximum allowed size (6,291,456).',
+        });
+      }
+      const offset = Number(paramNamed(params, '_offset')?.value ?? 0);
+      const page = coverages.slice(offset, offset + count);
+      return {
+        total: coverages.length,
+        entry: page.map((resource) => ({
+          resource,
+          search: {
+            mode: 'match',
+          },
+        })),
+        unbundle: () => page,
+      };
+    });
+
+    const items = await enrichAndMapClaims({
+      oystehr: {
+        fhir: {
+          search,
+        },
+      } as unknown as Oystehr,
+      claims: coverages.map((coverage, index) => claimWithCoverage(`claim-${index}`, coverage.id)),
+      includedResources: [],
+    });
+
+    expect(items.map((item) => item.memberId)).toEqual(['member-0', 'member-1', 'member-2', 'member-3']);
+  });
 });
 
 describe('fetchClaimsPageByIds', () => {
