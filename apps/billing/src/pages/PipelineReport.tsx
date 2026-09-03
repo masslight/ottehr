@@ -331,7 +331,15 @@ function StageDrilldownDrawer({
                     onClick={() => window.open(`/claims/${claim.id}`, '_blank', 'noopener')}
                   >
                     <td style={{ ...drilldownCellSx, textAlign: 'left', fontWeight: 500 }}>
-                      {claim.patientName || '—'}
+                      <a
+                        href={`/claims/${claim.id}`}
+                        target="_blank"
+                        rel="noopener"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ color: 'inherit', textDecoration: 'none' }}
+                      >
+                        {claim.patientName || '—'}
+                      </a>
                     </td>
                     <td style={{ ...drilldownCellSx, textAlign: 'left' }}>{dayLabel(claim.serviceDate)}</td>
                     <td style={{ ...drilldownCellSx, fontWeight: 600 }}>{formatCurrency(claim.billed)}</td>

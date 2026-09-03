@@ -39,7 +39,7 @@ const emptyTotals = (): InvoiceReportPayload['totals'] => ({
 
 export const invoiceReport: ReportDefinition<Record<string, never>, InvoiceReportPayload> = {
   kind: 'invoice',
-  cacheVersion: 'v1',
+  cacheVersion: 'v2',
   paramsSchema: EmptyReportParamsSchema,
   cacheKeyOf: () => '',
   emptyPayload: () => ({ rows: [], totals: emptyTotals(), agingTrend: [], generatedAt: '' }),
@@ -154,6 +154,9 @@ async function computeInvoiceReport(
     const patient = isValidUUID(patientId) ? patientsById.get(patientId) : undefined;
     const encounterId = encounterIdFromStripeMetadata(invoice.metadata) ?? '';
     const visit = isValidUUID(encounterId) ? visitByEncounterId.get(encounterId) : undefined;
+    // same anchor as the aging trend: due date, else finalization once a charge was attempted
+    const agingAnchor =
+      invoice.due_date ?? (attempted ? invoice.status_transitions?.finalized_at ?? invoice.created : undefined);
     return {
       stripeInvoiceId: invoice.id,
       invoiceNumber: invoice.number ?? '',
@@ -163,9 +166,11 @@ async function computeInvoiceReport(
       customerName: customerNameOf(invoice),
       patientId: patient?.id ?? '',
       patientName: fhirName(patient),
-      amountDue: (invoice.amount_due ?? 0) / 100,
+      // outstanding balance, not the finalized total — partial payments must not overstate
+      amountDue: (invoice.amount_remaining ?? invoice.amount_due ?? 0) / 100,
       createdDate: DateTime.fromSeconds(invoice.created).toUTC().toISO() ?? '',
       dueDate: invoice.due_date ? DateTime.fromSeconds(invoice.due_date).toUTC().toISO() ?? '' : '',
+      agingAnchorDate: agingAnchor ? DateTime.fromSeconds(agingAnchor).toUTC().toISO() ?? '' : '',
       visitDate: visit?.visitDate ?? '',
       appointmentId: visit?.appointmentId ?? '',
       category,
@@ -221,6 +226,7 @@ export function computeTrendPoint(invoices: InvoiceWithAccount[], snapshot: Date
       )
     );
     if (Number.isFinite(closedAt) && closedAt <= t) continue;
+    // historical amount_remaining at T is unrecoverable; trend points use the finalized amount
     const amount = (invoice.amount_due ?? 0) / 100;
     let key = NOT_YET_DUE;
     // automatic-collection invoices (no due_date) with a failed charge age from finalization

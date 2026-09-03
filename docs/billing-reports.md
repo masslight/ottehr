@@ -99,9 +99,9 @@ All definitions live in `packages/zambdas/src/billing/reports/definitions/`.
     fallback `paymentMethods.list` per customer (open-invoice customers first); the remainder
     persists as a **`pendingLookups` queue inside the cached payload**, drained in bounded
     batches by chained continuation runs with progress ("resolving cards 1,500/4,800…").
-  - Because compute persists intermediate drain state itself, it sets **`savesOwnCache`** (the
-    worker skips the central save), and **`sanitizePayload`** strips the queue before a payload
-    leaves the server.
+  - Because compute returns intermediate drain state in its payload, the worker's central save
+    checkpoints the build between chained runs, and **`sanitizePayload`** strips that internal
+    state before a payload leaves the server.
 - **Page**: card/no-card toggle, due-invoices-only switch, Stripe/EHR deep links per row, plus
   a banner for a still-draining lookup queue.
 

@@ -143,15 +143,16 @@ async function buildChunk(
 
   const openInvoicesByCustomerId = new Map(Object.entries(building.openInvoices));
   const { cardByCustomerId, needLookup } = resolveExpandedCards(customers);
-  // open-invoice customers drain first
-  building.pendingLookups.push(
-    ...needLookup
-      .filter((entry) => openInvoicesByCustomerId.has(entry.customer.id))
-      .map(({ customer, stripeAccount }) => ({ customerId: customer.id, stripeAccount })),
-    ...needLookup
-      .filter((entry) => !openInvoicesByCustomerId.has(entry.customer.id))
-      .map(({ customer, stripeAccount }) => ({ customerId: customer.id, stripeAccount }))
-  );
+  // open-invoice customers drain first — re-partition the whole accumulated queue so the
+  // priority holds across listing chunks, not just within this one
+  const hasOpenInvoices = (lookup: PendingLookup): boolean => openInvoicesByCustomerId.has(lookup.customerId);
+  const newLookups = needLookup.map(({ customer, stripeAccount }) => ({ customerId: customer.id, stripeAccount }));
+  building.pendingLookups = [
+    ...building.pendingLookups.filter(hasOpenInvoices),
+    ...newLookups.filter(hasOpenInvoices),
+    ...building.pendingLookups.filter((lookup) => !hasOpenInvoices(lookup)),
+    ...newLookups.filter((lookup) => !hasOpenInvoices(lookup)),
+  ];
 
   const patientIds = [
     ...new Set(
@@ -277,7 +278,8 @@ async function fetchOpenInvoices(
       if (!customerId) continue;
       const summary = byCustomerId.get(customerId) ?? { count: 0, amountDue: 0, pastDue: false };
       summary.count += 1;
-      summary.amountDue += (invoice.amount_due ?? 0) / 100;
+      // outstanding balance, not the finalized total — partial payments must not overstate
+      summary.amountDue += (invoice.amount_remaining ?? invoice.amount_due ?? 0) / 100;
       // no due_date = automatic collection; an open invoice with attempts means the charge failed
       if (invoice.due_date ? invoice.due_date < nowSeconds : (invoice.attempt_count ?? 0) > 0) {
         summary.pastDue = true;

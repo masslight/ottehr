@@ -776,10 +776,13 @@ export interface InvoiceReportRow {
   customerName: string;
   patientId: string;
   patientName: string;
+  // outstanding balance (Stripe amount_remaining)
   amountDue: number;
   createdDate: string;
   // '' when the invoice has no due date
   dueDate: string;
+  // start of aging ('' = not yet aging): due date, else finalization once a charge was attempted
+  agingAnchorDate: string;
   // visit the invoice was issued for, resolved from invoice metadata
   visitDate: string;
   appointmentId: string;

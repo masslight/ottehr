@@ -64,9 +64,11 @@ const AGING_BUCKETS: AgingBucket[] = [
 
 type AgingFilter = string | 'all';
 
-// automatic-collection invoices have no dueDate; age from creation like the backend's aging anchor
+// the backend-computed anchor keeps grid buckets consistent with the aging trend
 const daysPastDue = (row: InvoiceReportRow): number => {
-  const anchor = DateTime.fromISO(row.dueDate || row.createdDate);
+  const anchorISO = row.agingAnchorDate || row.dueDate;
+  if (!anchorISO) return 0;
+  const anchor = DateTime.fromISO(anchorISO);
   if (!anchor.isValid) return 0;
   return Math.max(0, Math.floor(DateTime.now().diff(anchor, 'days').days));
 };

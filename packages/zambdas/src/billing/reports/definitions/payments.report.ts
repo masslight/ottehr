@@ -99,7 +99,9 @@ export const paymentsReport: ReportDefinition<
             ? { ...era, claims: era.claims.filter((claim) => claim.serviceMonth === params.serviceMonth) }
             : era
         )
-        .filter((era) => era.claims.length > 0)
+        // claimless ERAs stay visible (they count in the payer row's eraCount/checkTotal);
+        // only a waterfall trim may hide an emptied list
+        .filter((era) => !params.serviceMonth || era.claims.length > 0)
         .sort((a, b) => b.checkDate.localeCompare(a.checkDate));
       return { eras };
     },
