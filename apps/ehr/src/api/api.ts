@@ -117,6 +117,7 @@ import {
   PatientNoteDTO,
   SavePatientNoteInput,
   SavePatientNoteOutput,
+  SavePatientNoteRequest,
 } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import {
   PracticeKpisReportZambdaInput,
@@ -3717,5 +3718,5 @@ export const deletePatientNote = async (oystehr: Oystehr, parameters: DeletePati
   }
 };
 
-// Re-export PatientNoteDTO for convenience in callers that import from this module
-export type { PatientNoteDTO };
+// Re-export for convenience in callers that import from this module
+export type { PatientNoteDTO, SavePatientNoteRequest };

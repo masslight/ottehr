@@ -1,8 +1,6 @@
 import { Box, CircularProgress, TextField } from '@mui/material';
 import React, { useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
-import useEvolveUser from '../../../hooks/useEvolveUser';
 import { useSavePatientNote } from '../hooks/useSavePatientNote';
 
 interface AddPatientNoteProps {
@@ -11,18 +9,11 @@ interface AddPatientNoteProps {
 
 export const AddPatientNote: React.FC<AddPatientNoteProps> = ({ patientId }) => {
   const [text, setText] = useState('');
-  const user = useEvolveUser();
   const { mutateAsync: save, isPending } = useSavePatientNote(patientId);
 
   const handleSave = async (): Promise<void> => {
-    if (!text.trim() || !user) return;
-    const note: PatientNoteDTO = {
-      patientId,
-      text: text.trim(),
-      authorId: user.profile?.split('/')?.[1] ?? 'unknown',
-      authorName: user.userName,
-    };
-    await save(note);
+    if (!text.trim()) return;
+    await save({ patientId, text: text.trim() });
     setText('');
   };
 
@@ -41,7 +32,7 @@ export const AddPatientNote: React.FC<AddPatientNoteProps> = ({ patientId }) => 
           onKeyDown={(e: React.KeyboardEvent) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
-              if (!text.trim() || !user) return;
+              if (!text.trim()) return;
               void handleSave();
             }
           }}
@@ -54,7 +45,7 @@ export const AddPatientNote: React.FC<AddPatientNoteProps> = ({ patientId }) => 
       <RoundedButton
         variant="contained"
         color="primary"
-        disabled={!text.trim() || isPending || !user}
+        disabled={!text.trim() || isPending}
         onClick={handleSave}
         sx={{ height: '56px', minWidth: '80px', px: 2 }}
         startIcon={isPending ? <CircularProgress size={20} color="inherit" /> : null}

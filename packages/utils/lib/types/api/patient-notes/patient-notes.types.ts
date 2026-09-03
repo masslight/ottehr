@@ -8,6 +8,12 @@ export interface PatientNoteDTO {
   edited?: boolean;
 }
 
+export interface SavePatientNoteRequest {
+  resourceId?: string;
+  patientId: string;
+  text: string;
+}
+
 export interface GetPatientNotesInput {
   patientId: string;
 }
@@ -17,7 +23,7 @@ export interface GetPatientNotesOutput {
 }
 
 export interface SavePatientNoteInput {
-  note: PatientNoteDTO;
+  note: SavePatientNoteRequest;
 }
 
 export interface SavePatientNoteOutput {

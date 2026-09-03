@@ -1,21 +1,17 @@
-import { PatientNoteDTO, SavePatientNoteInput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { SavePatientNoteInput, SavePatientNoteRequest } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../../shared/validation';
 
-const PatientNoteDTOSchema: z.ZodType<PatientNoteDTO> = z.object({
+const SavePatientNoteRequestSchema: z.ZodType<SavePatientNoteRequest> = z.object({
   resourceId: z.string().uuid().optional(),
   patientId: z.string().uuid(),
   text: z.string().min(1),
-  authorId: z.string(),
-  authorName: z.string(),
-  lastUpdated: z.string().optional(),
-  edited: z.boolean().optional(),
 });
 
 const SavePatientNoteSchema = z.object({
-  note: PatientNoteDTOSchema,
+  note: SavePatientNoteRequestSchema,
 });
 
 export function validateRequestParameters(

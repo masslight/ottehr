@@ -26,7 +26,7 @@ export const EditPatientNoteModal: React.FC<EditPatientNoteModalProps> = ({ note
 
   const handleSave = async (): Promise<void> => {
     if (!text.trim()) return;
-    await save({ ...note, text: text.trim() });
+    await save({ resourceId: note.resourceId, patientId: note.patientId, text: text.trim() });
     onClose();
   };
 

@@ -84,8 +84,6 @@ function makeInput(body: Record<string, unknown> | null, authToken?: string): Za
 const baseNotePayload = {
   patientId: VALID_PATIENT_ID,
   text: 'Test note content',
-  authorId: 'client-supplied-id-should-be-ignored',
-  authorName: 'Client Supplied Name — should be ignored',
 };
 
 const fakePractitioner: Practitioner = {
@@ -318,6 +316,28 @@ describe('save-patient-note handler', () => {
     expect(mockFhirClient.fhir.create).not.toHaveBeenCalled();
   });
 
+  it('throws when the existing resource lacks the patient-note tag on update', async () => {
+    const untagged = fakeNote({ meta: { tag: [{ system: 'other-system', code: 'other-code' }] } });
+    mockFhirClient.fhir.get.mockResolvedValueOnce(fakePractitioner).mockResolvedValueOnce(untagged);
+
+    await expect(
+      saveHandler(makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID } }, 'user-token'))
+    ).rejects.toThrow(/not a patient note/i);
+
+    expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
+  });
+
+  it('throws when the note subject does not match the requested patientId on update', async () => {
+    const differentPatient = fakeNote({ subject: { reference: 'Patient/different-patient-id' } });
+    mockFhirClient.fhir.get.mockResolvedValueOnce(fakePractitioner).mockResolvedValueOnce(differentPatient);
+
+    await expect(
+      saveHandler(makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID } }, 'user-token'))
+    ).rejects.toThrow(/does not belong/i);
+
+    expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
+  });
+
   it('throws when caller is not the original author on update', async () => {
     const ownedByOther = fakeNote({ sender: { reference: `Practitioner/${OTHER_ID}` } });
     mockFhirClient.fhir.get.mockResolvedValueOnce(fakePractitioner).mockResolvedValueOnce(ownedByOther);
@@ -329,21 +349,21 @@ describe('save-patient-note handler', () => {
     expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
   });
 
-  it('uses the name from the FHIR Practitioner resource, not the client-supplied authorName', async () => {
+  it('sets sender.display from the FHIR Practitioner resource name', async () => {
     mockFhirClient.fhir.get.mockResolvedValue(fakePractitioner);
     mockFhirClient.fhir.create.mockResolvedValue(fakeNote());
 
-    await saveHandler(makeInput({ note: { ...baseNotePayload, authorName: 'Spoofed Name' } }, 'user-token'));
+    await saveHandler(makeInput({ note: baseNotePayload }, 'user-token'));
 
     const created = mockFhirClient.fhir.create.mock.calls[0][0] as Communication;
     expect(created.sender?.display).toBe('Jane Smith');
   });
 
-  it('stores the caller identity from the token, not the client-supplied authorId', async () => {
+  it('sets sender.reference from the token identity, not the request body', async () => {
     mockFhirClient.fhir.get.mockResolvedValue(fakePractitioner);
     mockFhirClient.fhir.create.mockResolvedValue(fakeNote());
 
-    await saveHandler(makeInput({ note: { ...baseNotePayload, authorId: 'malicious-id' } }, 'user-token'));
+    await saveHandler(makeInput({ note: baseNotePayload }, 'user-token'));
 
     expect(getMyPractitionerId).toHaveBeenCalledWith('user-token', null);
     const created = mockFhirClient.fhir.create.mock.calls[0][0] as Communication;
