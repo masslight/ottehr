@@ -70,10 +70,7 @@ export const emptyTrackingBoardExtras = (): TrackingBoardExtras => ({
   vitals: {},
 });
 
-/**
- * Encounters whose rows can carry order icons or vitals badges: every in-office row and every discharged row.
- * This is the same set the page requested per order type before the consolidation.
- */
+/** Encounters whose rows can carry order icons or vitals badges: every in-office row and every discharged row. */
 export const selectTrackingBoardEncounterIds = (
   queues: SortedAppointmentQueues,
   apptRefToEncounterMap: Record<string, Encounter>
@@ -113,11 +110,11 @@ export interface TrackingBoardChunkSizes {
 }
 
 /**
- * One GET search per encounter chunk per resource family. Compared with the per-type zambdas, the ServiceRequest
- * entry drops every context include (Encounter, Appointment, Slot, Schedule, Patient, Coverage, result
- * Observations): appointment ids, timezones and attending providers come from Step A. It keeps what the status
- * mappers read: Tasks and DiagnosticReports (and, via `:iterate`, the review Tasks that hang off the reports),
- * Provenances, in-house ActivityDefinitions and requesting Practitioners.
+ * One GET search per encounter chunk per resource family. The ServiceRequest entry carries no context includes
+ * (Encounter, Appointment, Slot, Schedule, Patient, Coverage, result Observations): appointment ids, timezones and
+ * attending providers come from Step A. It includes what the status mappers read: Tasks and DiagnosticReports (and,
+ * via `:iterate`, the review Tasks that hang off the reports), Provenances, in-house ActivityDefinitions and
+ * requesting Practitioners.
  */
 export const buildTrackingBoardSearchUrls = (
   encounterIds: string[],
