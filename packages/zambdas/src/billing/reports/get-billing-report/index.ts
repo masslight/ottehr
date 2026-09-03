@@ -84,7 +84,6 @@ export async function performEffect(
     return { ...definition.emptyPayload(), fromCache: false, status };
   }
   status.cacheSizeBytes = meta.sizeBytes;
-  if (meta.truncated) status.truncated = true;
   // minted fresh per request; the frontend downloads the payload directly from Z3
   const downloadUrl = await getReportDownloadUrl(oystehr, secrets, definition, cacheKey, meta);
   return { downloadUrl, generatedAt: meta.generatedAt, fromCache: true, status };

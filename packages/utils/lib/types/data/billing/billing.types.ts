@@ -606,8 +606,6 @@ export interface ReportRefreshStatus {
   error?: string;
   // stored (gzip) size of the served cache object
   cacheSizeBytes?: number;
-  // the definition's compute dropped data
-  truncated?: boolean;
 }
 
 export type GetBillingCoverageResponse = BillingCoverageOption;
