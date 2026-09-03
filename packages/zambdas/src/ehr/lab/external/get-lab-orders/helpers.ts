@@ -1184,6 +1184,15 @@ export const fetchFinalAndPrelimAndCorrectedTasks = async (
     })
   ).unbundle();
 
+  return filterFinalAndPrelimAndCorrectedTasks(tasksResponse);
+};
+
+/**
+ * The pure half of fetchFinalAndPrelimAndCorrectedTasks: given the Tasks based on a set of DiagnosticReports,
+ * keeps the ones the order list needs. Shared with the tracking board, which gets these Tasks back in the same
+ * batch as the ServiceRequests instead of a second search.
+ */
+export const filterFinalAndPrelimAndCorrectedTasks = (tasksResponse: Task[]): Task[] => {
   const getDrIdFromTask = (task: Task): string | undefined => {
     return task.basedOn
       ?.find((ref): ref is Reference => ref.reference?.startsWith('DiagnosticReport/') ?? false)
