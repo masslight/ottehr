@@ -579,6 +579,8 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
       patientDischargeStatusCode: nonEmptyString.max(2).optional().or(z.literal('')),
       admissionType: nonEmptyString.max(1).optional().or(z.literal('')),
       admissionSource: nonEmptyString.max(1).optional().or(z.literal('')),
+      admissionDate: nonEmptyString.optional().or(z.literal('')),
+      dischargeDate: nonEmptyString.optional().or(z.literal('')),
     }),
   }),
 ]);
@@ -596,6 +598,26 @@ export const UpdateBillingResourceInputSchema = updateBillingResourceUnion.super
       path: ['fields', 'policyHolder'],
       message: 'Policy holder details are required when the relationship to insured is not "Self"',
     });
+  }
+
+  // Institutional claim submission requires a full admission/discharge period: neither can be blank.
+  // Only checked when at least one key is present in the payload (the UI always submits them
+  // together); a payload that omits both entirely is left alone since it isn't touching this pair.
+  if (data.resourceType === 'Claim' && (data.fields.admissionDate != null || data.fields.dischargeDate != null)) {
+    if (!data.fields.admissionDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fields', 'admissionDate'],
+        message: 'Admission date is required',
+      });
+    }
+    if (!data.fields.dischargeDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fields', 'dischargeDate'],
+        message: 'Discharge date is required',
+      });
+    }
   }
 });
 

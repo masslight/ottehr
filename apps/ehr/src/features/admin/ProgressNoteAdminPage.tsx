@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { ReactElement, useEffect } from 'react';
 import { Control, Controller, useForm } from 'react-hook-form';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useProgressNoteConfig, useUpdateProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
 import { mapDispositionTypeToLabel } from 'utils/lib/fhir/disposition';
 import {
@@ -26,6 +27,7 @@ import {
   VITALS_UNIT_INPUT_ORDER_LABELS,
   VITALS_UNIT_INPUT_ORDERS,
 } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils/lib/utils/progress-note-config';
 
 type ProgressNoteTextFieldName = Exclude<keyof ProgressNoteConfig, 'mdmRequired' | 'vitalsUnitInputOrder'>;
@@ -58,6 +60,7 @@ const ConfigTextAreaField = ({ control, name, label, minRows = 2 }: ConfigTextAr
 export default function ProgressNoteAdminPage(): ReactElement {
   const { data, isPending, isError } = useProgressNoteConfig();
   const { mutate, isPending: isSubmitting } = useUpdateProgressNoteConfig();
+  const isCustomerSupport = useEvolveUser()?.hasRole([RoleType.CustomerSupport]) ?? false;
 
   const {
     control,
@@ -81,7 +84,13 @@ export default function ProgressNoteAdminPage(): ReactElement {
   }, [data, reset]);
 
   const onSubmit = (values: ProgressNoteConfig): void => {
-    mutate(values, {
+    // The prompt field is customer-support-only, and react-hook-form submits the value it loaded
+    // even for a field it never rendered. Omitting it keeps this form from carrying a stale prompt
+    // back to the server, where absent means "leave the stored prompt alone".
+    const { signReviewPrompt: _signReviewPrompt, ...withoutPrompt } = values;
+    const payload = isCustomerSupport ? values : withoutPrompt;
+
+    mutate(payload, {
       onSuccess: () => {
         reset(values);
       },
@@ -192,6 +201,31 @@ export default function ProgressNoteAdminPage(): ReactElement {
                 )}
               />
             </Box>
+
+            {/* Field is hidden for non-CustomerSupport users, but its value still round-trips unchanged:
+                react-hook-form submits values carried in defaultValues/reset even when the field is never rendered. */}
+            {isCustomerSupport && (
+              <>
+                <Divider />
+                <Box>
+                  <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+                    Note review at signing
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Requirements checked against the note when a provider opens Review &amp; Sign. Anything not met is
+                    shown to the provider as an informational warning — it never blocks signing. Write it as
+                    instructions to a reviewer, e.g. &quot;Confirm at least 4 ROS systems are documented with at least
+                    one item each&quot;. Leave blank to turn the review off.
+                  </Typography>
+                  <ConfigTextAreaField
+                    control={control}
+                    name="signReviewPrompt"
+                    label="Note review requirements"
+                    minRows={4}
+                  />
+                </Box>
+              </>
+            )}
 
             <Divider />
 

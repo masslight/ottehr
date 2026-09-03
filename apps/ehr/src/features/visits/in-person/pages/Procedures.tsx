@@ -12,6 +12,7 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
+import { TRACKING_BOARD_QUERY_KEY } from 'src/hooks/useGetTrackingBoard';
 import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
@@ -62,7 +63,7 @@ export default function Procedures(): ReactElement {
               await refetchChartData();
 
               void queryClient.invalidateQueries({
-                queryKey: ['procedures-for-tracking-board'],
+                queryKey: [TRACKING_BOARD_QUERY_KEY],
                 refetchType: 'active',
               });
 

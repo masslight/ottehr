@@ -29,7 +29,7 @@ vi.mock('../../src/features/visits/telemed/hooks/useGetErxConfig', () => ({
 }));
 
 let vitalsReturn: { hasVitals: boolean; isVitalsLoading: boolean; isVitalsFetched: boolean };
-// Keep the real getErxPatientSyncErrorMessage; only stub the hook so we can drive vitals state.
+// getErxPatientSyncErrorMessage lives in utils/erxErrors and stays real; only stub the vitals hook.
 vi.mock('../../src/features/visits/shared/hooks/useErxPatientVitals', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/features/visits/shared/hooks/useErxPatientVitals')>();
   return {
