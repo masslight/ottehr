@@ -66,10 +66,7 @@ export async function complexValidation(
     else noEngine.push(claimId);
   }
   if (noEngine.length > 0) {
-    throw INVALID_INPUT_ERROR(
-      `No rules engine applies to claim(s): ${noEngine.join(', ')}. ` +
-        'Set an AR Stage first — Patient AR claims must also be self-pay (no coverage).'
-    );
+    throw INVALID_INPUT_ERROR(`No rules engine applies to claim(s): ${noEngine.join(', ')}. Set an AR Stage first.`);
   }
   return kickoffs;
 }
