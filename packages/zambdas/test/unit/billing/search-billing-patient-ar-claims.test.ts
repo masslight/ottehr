@@ -30,7 +30,7 @@ const statuses = (overrides: Partial<ClaimStatusValues>): ClaimStatusValues => (
 const activeStatuses = (overrides: Partial<ClaimStatusValues> = {}): ClaimStatusValues =>
   statuses({
     arStage: AR_STAGE.patient,
-    insuranceArStatus: 'finalized',
+    patientArStatus: 'ready-to-invoice',
     ...overrides,
   });
 
@@ -65,49 +65,49 @@ const claim = (overrides: Partial<Claim> = {}): Claim => ({
   ...overrides,
 });
 
-const INSURANCE_FINALIZED_LABEL = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.insuranceArStatus, 'finalized');
+const READY_TO_INVOICE_LABEL = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.patientArStatus, 'ready-to-invoice');
 const PATIENT_AR_STAGE_LABEL = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, AR_STAGE.patient);
 
 describe('status model coherence', () => {
   it('uses codes that exist in the status model', () => {
-    expect(isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.insuranceArStatus, 'finalized')).toBe(true);
+    expect(isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.patientArStatus, 'ready-to-invoice')).toBe(true);
     expect(isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.patientArStatus, 'finalized')).toBe(true);
     expect(isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, AR_STAGE.patient)).toBe(true);
-    expect(INSURANCE_FINALIZED_LABEL).not.toBe('');
+    expect(READY_TO_INVOICE_LABEL).not.toBe('');
     expect(PATIENT_AR_STAGE_LABEL).not.toBe('');
   });
 });
 
 describe('isInActivePatientArStage', () => {
-  it('accepts patient-ar with insurance finalized', () => {
+  it('accepts patient-ar once the patient AR status is ready to invoice', () => {
     expect(isInActivePatientArStage(activeStatuses())).toBe(true);
   });
 
-  it('accepts self-pay claims once pre-invoice rules mark them ready to invoice', () => {
-    expect(
-      isInActivePatientArStage(
-        activeStatuses({
-          insuranceArStatus: '',
-          patientArStatus: 'ready-to-invoice',
-        })
-      )
-    ).toBe(true);
+  it('accepts patient AR in progress (invoiced but not finalized)', () => {
+    expect(isInActivePatientArStage(activeStatuses({ patientArStatus: 'invoiced' }))).toBe(true);
   });
 
-  it('rejects self-pay claims whose pre-invoice rules have not passed', () => {
-    for (const patientArStatus of ['', 'not-invoiced', 'invoiced']) {
+  it('rejects patient AR statuses short of ready to invoice', () => {
+    for (const patientArStatus of ['', 'not-invoiced']) {
+      expect(isInActivePatientArStage(activeStatuses({ patientArStatus }))).toBe(false);
+    }
+  });
+
+  it('ignores the insurance AR status entirely', () => {
+    for (const insuranceArStatus of ['', 'created', 'submitted', 'adjudicated', 'finalized']) {
+      expect(isInActivePatientArStage(activeStatuses({ insuranceArStatus }))).toBe(true);
       expect(
         isInActivePatientArStage(
           activeStatuses({
-            insuranceArStatus: '',
-            patientArStatus,
+            insuranceArStatus,
+            patientArStatus: 'not-invoiced',
           })
         )
       ).toBe(false);
     }
   });
 
-  it('accepts finalized regardless of paid or adjudication outcome', () => {
+  it('accepts ready to invoice regardless of paid or adjudication outcome', () => {
     const denied = activeStatuses({
       insurancePaidStatus: 'unpaid',
       adjudicationStatus: 'denied',
@@ -120,17 +120,13 @@ describe('isInActivePatientArStage', () => {
     expect(isInActivePatientArStage(partiallyPaid)).toBe(true);
   });
 
-  it('accepts patient AR in progress (invoiced but not finalized)', () => {
-    expect(isInActivePatientArStage(activeStatuses({ patientArStatus: 'invoiced' }))).toBe(true);
-  });
-
   it('rejects claims outside the patient-ar stage', () => {
-    expect(isInActivePatientArStage(statuses({ insuranceArStatus: 'finalized' }))).toBe(false);
+    expect(isInActivePatientArStage(statuses({ patientArStatus: 'ready-to-invoice' }))).toBe(false);
     expect(
       isInActivePatientArStage(
         statuses({
           arStage: AR_STAGE.insurancePayer,
-          insuranceArStatus: 'finalized',
+          patientArStatus: 'ready-to-invoice',
         })
       )
     ).toBe(false);
@@ -138,12 +134,6 @@ describe('isInActivePatientArStage', () => {
 
   it('rejects closed-out patient AR', () => {
     expect(isInActivePatientArStage(activeStatuses({ patientArStatus: 'finalized' }))).toBe(false);
-  });
-
-  it('rejects in-flight insurance AR states', () => {
-    for (const inFlight of ['created', 'submitted', 'adjudicated']) {
-      expect(isInActivePatientArStage(activeStatuses({ insuranceArStatus: inFlight }))).toBe(false);
-    }
   });
 });
 

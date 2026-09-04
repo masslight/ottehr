@@ -253,6 +253,14 @@ export function hasReachedPatientAr(claim: Pick<Claim, 'meta'> | undefined): boo
   return getClaimStatusValues(claim).arStage === AR_STAGE.patient;
 }
 
+export function hasReachedClaimStatus(fieldKey: ClaimStatusFieldKey, code: string, target: string): boolean {
+  const { options } = CLAIM_STATUS_FIELDS_BY_KEY[fieldKey];
+  const currentIndex = options.findIndex((option) => option.code === code);
+  const targetIndex = options.findIndex((option) => option.code === target);
+  if (currentIndex < 0 || targetIndex < 0) return false;
+  return currentIndex >= targetIndex;
+}
+
 // Human-readable label for a field value code (empty/unknown -> '').
 export function formatClaimStatusValue(field: ClaimStatusFieldDef, code: string | undefined): string {
   if (!code) return '';
