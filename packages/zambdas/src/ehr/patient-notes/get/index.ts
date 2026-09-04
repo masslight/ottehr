@@ -25,6 +25,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       params: [
         { name: 'subject', value: `Patient/${patientId}` },
         { name: '_tag', value: PATIENT_NOTE_TAG },
+        { name: 'status', value: 'completed' },
         { name: '_sort', value: '-_lastUpdated' },
         { name: '_count', value: '1000' },
       ],

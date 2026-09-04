@@ -3,7 +3,7 @@ import { Communication, Practitioner } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { SavePatientNoteOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
-import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { FHIR_RESOURCE_ERROR_CUSTOM, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, fillMeta } from '../../../shared/helpers';
 import { getMyPractitionerId } from '../../../shared/practitioners';
@@ -43,12 +43,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (existing) {
       const hasPatientNoteTag = existing.meta?.tag?.some((tag) => `${tag.system}|${tag.code}` === PATIENT_NOTE_TAG);
       if (!hasPatientNoteTag) {
-        throw new Error('Resource is not a patient note');
+        throw FHIR_RESOURCE_ERROR_CUSTOM('Resource is not a patient note');
       }
 
       const notePatientId = existing.subject?.reference?.split('/')[1];
       if (notePatientId !== note.patientId) {
-        throw new Error('Note does not belong to the specified patient');
+        throw FHIR_RESOURCE_ERROR_CUSTOM('Note does not belong to the specified patient');
       }
 
       const senderId = existing.sender?.reference?.split('/')[1];

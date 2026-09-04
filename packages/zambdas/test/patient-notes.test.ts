@@ -237,6 +237,7 @@ describe('get-patient-notes handler', () => {
       expect.arrayContaining([
         { name: 'subject', value: `Patient/${VALID_PATIENT_ID}` },
         { name: '_tag', value: PATIENT_NOTE_TAG },
+        { name: 'status', value: 'completed' },
         { name: '_sort', value: '-_lastUpdated' },
       ])
     );
@@ -395,18 +396,21 @@ describe('delete-patient-note handler', () => {
     vi.mocked(getMyPractitionerId).mockResolvedValue(CALLER_ID);
   });
 
-  it('returns 200 and deletes when tag is present and caller is the author', async () => {
+  it('returns 200 and soft-deletes (entered-in-error) when tag is present and caller is the author', async () => {
     mockFhirClient.fhir.get.mockResolvedValue(fakeNote());
-    mockFhirClient.fhir.delete.mockResolvedValue(undefined);
+    mockFhirClient.fhir.update.mockResolvedValue(undefined);
 
     const result = await deleteHandler(makeInput({ resourceId: VALID_NOTE_ID }, 'user-token'));
 
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body).deleted).toBe(true);
-    expect(mockFhirClient.fhir.delete).toHaveBeenCalledWith({ resourceType: 'Communication', id: VALID_NOTE_ID });
+    expect(mockFhirClient.fhir.update).toHaveBeenCalledWith(
+      expect.objectContaining({ resourceType: 'Communication', id: VALID_NOTE_ID, status: 'entered-in-error' })
+    );
+    expect(mockFhirClient.fhir.delete).not.toHaveBeenCalled();
   });
 
-  it('throws and does not delete when the resource lacks the patient-note tag', async () => {
+  it('throws and does not soft-delete when the resource lacks the patient-note tag', async () => {
     const untagged = fakeNote({ meta: { tag: [{ system: 'other-system', code: 'other-code' }] } });
     mockFhirClient.fhir.get.mockResolvedValue(untagged);
 
@@ -414,10 +418,10 @@ describe('delete-patient-note handler', () => {
       /not a patient note/i
     );
 
-    expect(mockFhirClient.fhir.delete).not.toHaveBeenCalled();
+    expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
   });
 
-  it('throws and does not delete when the caller is not the author', async () => {
+  it('throws and does not soft-delete when the caller is not the author', async () => {
     const ownedByOther = fakeNote({ sender: { reference: `Practitioner/${OTHER_ID}` } });
     mockFhirClient.fhir.get.mockResolvedValue(ownedByOther);
 
@@ -425,10 +429,10 @@ describe('delete-patient-note handler', () => {
       /not authorized/i
     );
 
-    expect(mockFhirClient.fhir.delete).not.toHaveBeenCalled();
+    expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
   });
 
-  it('throws and does not delete when the resource has no meta at all', async () => {
+  it('throws and does not soft-delete when the resource has no meta at all', async () => {
     const noMeta = fakeNote({ meta: undefined });
     mockFhirClient.fhir.get.mockResolvedValue(noMeta);
 
@@ -436,6 +440,6 @@ describe('delete-patient-note handler', () => {
       /not a patient note/i
     );
 
-    expect(mockFhirClient.fhir.delete).not.toHaveBeenCalled();
+    expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
   });
 });

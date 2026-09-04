@@ -28,6 +28,7 @@ export enum APIErrorCode {
   ALREADY_EXISTS = 4023,
   CONCURRENT_UPDATE = 4024,
   RESOURCE_HAS_DEPENDENTS = 4025,
+  FHIR_RESOURCE_ERROR_CUSTOM = 4026,
   // 41xx
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
@@ -336,6 +337,12 @@ export const FHIR_RESOURCE_IS_GONE = (): APIError => ({
   code: APIErrorCode.FHIR_RESOURCE_IS_GONE,
   statusCode: 410,
   message: `The requested resource is gone`,
+});
+
+export const FHIR_RESOURCE_ERROR_CUSTOM = (message: string): APIError => ({
+  code: APIErrorCode.FHIR_RESOURCE_ERROR_CUSTOM,
+  statusCode: 410,
+  message: message,
 });
 
 export const CLAIM_NOT_READY_FOR_X12_EXPORT: APIError = {

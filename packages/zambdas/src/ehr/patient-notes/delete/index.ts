@@ -30,7 +30,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw new Error('You are not authorized to delete this note');
   }
 
-  await oystehr.fhir.delete({ resourceType: 'Communication', id: resourceId });
+  await oystehr.fhir.update<Communication>({ ...resource, id: resourceId, status: 'entered-in-error' });
 
   return {
     body: JSON.stringify({ deleted: true }),
