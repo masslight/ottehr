@@ -301,11 +301,12 @@ describe('ClaimDetail — run rules engine button', () => {
     expect(await screen.findByRole('button', { name: 'Prepare for invoice' })).toBeEnabled();
   });
 
-  it('hides the run button for a Patient AR claim with insurance coverage', async () => {
+  it('shows Prepare for invoice for a Patient AR claim with insurance coverage', async () => {
     getBillingClaimDetailMock.mockResolvedValue({ ...makeClaim(AR_STAGE.patient), coverageFhirId: 'coverage-1' });
     renderDetail();
-    await screen.findAllByText('Jane Doe');
-    expect(screen.queryByRole('button', { name: 'Prepare for invoice' })).not.toBeInTheDocument();
+
+    const prepareButton = await screen.findByRole('button', { name: 'Prepare for invoice' });
+    expect(prepareButton).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Submit claim' })).not.toBeInTheDocument();
   });
 
