@@ -42,16 +42,16 @@ import { REPEAT_TEST_CPT_CODE_MODIFIER } from 'utils/lib/types/data/in-house/in-
 import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
 import { ExternalLabsStatus, LabPaymentMethod } from 'utils/lib/types/data/labs/labs.types';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
-import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
-import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json' assert { type: 'json' };
-import procedureComplications from '../../../../../../config/oystehr/procedure-complications.json' assert { type: 'json' };
-import procedureMedicationsUsed from '../../../../../../config/oystehr/procedure-medications-used.json' assert { type: 'json' };
-import procedurePatientResponses from '../../../../../../config/oystehr/procedure-patient-responses.json' assert { type: 'json' };
-import procedurePostInstructions from '../../../../../../config/oystehr/procedure-post-instructions.json' assert { type: 'json' };
-import procedureSupplies from '../../../../../../config/oystehr/procedure-supplies.json' assert { type: 'json' };
-import procedureTechniques from '../../../../../../config/oystehr/procedure-techniques.json' assert { type: 'json' };
-import procedureTimeSpent from '../../../../../../config/oystehr/procedure-time-spent.json' assert { type: 'json' };
-import procedureType from '../../../../../../config/oystehr/procedure-type.json' assert { type: 'json' };
+import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json';
+import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json';
+import procedureComplications from '../../../../../../config/oystehr/procedure-complications.json';
+import procedureMedicationsUsed from '../../../../../../config/oystehr/procedure-medications-used.json';
+import procedurePatientResponses from '../../../../../../config/oystehr/procedure-patient-responses.json';
+import procedurePostInstructions from '../../../../../../config/oystehr/procedure-post-instructions.json';
+import procedureSupplies from '../../../../../../config/oystehr/procedure-supplies.json';
+import procedureTechniques from '../../../../../../config/oystehr/procedure-techniques.json';
+import procedureTimeSpent from '../../../../../../config/oystehr/procedure-time-spent.json';
+import procedureType from '../../../../../../config/oystehr/procedure-type.json';
 interface ProcedureInfo {
   consentChecked: boolean;
   procedureType: string;
