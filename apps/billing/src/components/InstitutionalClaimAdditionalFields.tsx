@@ -2,7 +2,7 @@ import { Stack, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
-import { DateInput } from './DateInput';
+import { DateTimeInput } from './DateInput';
 
 export interface InstitutionalClaimAdditionalFieldsData {
   billType: string;
@@ -92,7 +92,7 @@ export function InstitutionalClaimAdditionalFields(): ReactElement {
         control={control}
         rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
         render={({ field, fieldState: { error: fieldError } }) => (
-          <DateInput
+          <DateTimeInput
             label="Admission Date"
             size="small"
             fullWidth
@@ -108,7 +108,7 @@ export function InstitutionalClaimAdditionalFields(): ReactElement {
         control={control}
         rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
         render={({ field, fieldState: { error: fieldError } }) => (
-          <DateInput
+          <DateTimeInput
             label="Discharge Date"
             size="small"
             fullWidth
