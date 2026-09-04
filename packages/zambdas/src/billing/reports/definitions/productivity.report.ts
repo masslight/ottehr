@@ -59,10 +59,13 @@ async function computeProductivityReport(
     // only claim-history entries; the billing store may hold other provenance kinds
     const activity = provenance.activity?.coding?.find((c) => c.system === CLAIM_ACTIVITY_SYSTEM);
     if (!activity?.code) continue;
-    const agent = provenance.agent?.[0];
+    const agent =
+      provenance.agent?.find(
+        (candidate) => candidate.type?.coding?.some((c) => c.code === CLAIM_PROVENANCE_AGENT_TYPE.human.code)
+      ) ?? provenance.agent?.[0];
     const actorRef = agent?.who?.reference;
     if (!actorRef) continue;
-    const isHuman = agent.type?.coding?.some((c) => c.code === CLAIM_PROVENANCE_AGENT_TYPE.human.code) ?? false;
+    const isHuman = agent?.type?.coding?.some((c) => c.code === CLAIM_PROVENANCE_AGENT_TYPE.human.code) ?? false;
 
     const acc = byActor.get(actorRef) ?? {
       actorRef,

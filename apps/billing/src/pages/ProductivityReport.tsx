@@ -39,7 +39,7 @@ const WINDOW_LABELS: Record<WindowPreset, string> = {
 
 const windowDateFrom = (preset: WindowPreset): string | undefined => {
   if (preset === 'all') return undefined;
-  const days = { '7d': 7, '30d': 30, '90d': 90 }[preset];
+  const days = { '7d': 6, '30d': 29, '90d': 89 }[preset];
   return DateTime.now().minus({ days }).toISODate() ?? undefined;
 };
 
@@ -51,6 +51,7 @@ const ACTIVITY_COLUMNS: { code: string; label: string }[] = [
   { code: CLAIM_PROVENANCE_ACTIVITY.tagChange.code ?? '', label: 'Tag Changes' },
   { code: CLAIM_PROVENANCE_ACTIVITY.submit.code ?? '', label: 'Submits' },
   { code: CLAIM_PROVENANCE_ACTIVITY.note.code ?? '', label: 'Notes' },
+  { code: CLAIM_PROVENANCE_ACTIVITY.delete.code ?? '', label: 'Deleted' },
 ];
 
 const columns: GridColDef[] = [

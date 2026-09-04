@@ -73,7 +73,7 @@ All definitions live in `packages/zambdas/src/billing/reports/definitions/`.
 - **Data**: Stripe invoices across the platform account and every connected account stamped on
   billing-provider `Organization`s; FHIR `Patient`s/`Encounter`s (untagged) resolve names and
   visits from invoice metadata.
-- **Params**: none (`invoice:v1:all`).
+- **Params**: none (`invoice:v2:all`).
 - **Compute**: two parallel Stripe listings — open invoices (customer/charge expanded) and
   *all* invoices (lean, for the aging trend) — streaming a combined progress line
   ("listing invoices… N open, M scanned for aging"). Then:

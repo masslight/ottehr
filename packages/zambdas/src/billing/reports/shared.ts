@@ -67,8 +67,15 @@ export async function listStripeAccounts(
     try {
       await stripe.accounts.retrieve(account);
       connectedAccounts.push(account);
-    } catch {
-      unreachable.push(account);
+    } catch (err) {
+      // only confirmed-permanent failures are skipped (unknown id, revoked/deactivated account);
+      // a transient failure must fail the refresh rather than cache a snapshot missing this account
+      const code = (err as Stripe.errors.StripeError)?.code;
+      if (code === 'resource_missing' || code === 'account_invalid') {
+        unreachable.push(account);
+      } else {
+        throw new Error(`Could not validate Stripe account ${account}: ${(err as Error)?.message ?? String(err)}`);
+      }
     }
   }
   console.log(

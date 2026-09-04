@@ -87,9 +87,9 @@ const presetRange = (preset: DateRangePreset): { from: string; to: string } => {
     case 'year-to-date':
       return { from: now.startOf('year').toISODate() ?? '', to: now.toISODate() ?? '' };
     case 'trailing-30-days':
-      return { from: now.minus({ days: 30 }).toISODate() ?? '', to: now.toISODate() ?? '' };
+      return { from: now.minus({ days: 29 }).toISODate() ?? '', to: now.toISODate() ?? '' };
     case 'trailing-12-months':
-      return { from: now.minus({ months: 12 }).toISODate() ?? '', to: now.toISODate() ?? '' };
+      return { from: now.minus({ months: 12 }).plus({ days: 1 }).toISODate() ?? '', to: now.toISODate() ?? '' };
     case 'custom':
       return { from: '', to: '' };
   }
