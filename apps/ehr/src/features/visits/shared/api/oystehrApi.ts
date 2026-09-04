@@ -68,7 +68,6 @@ import {
   MakeMedicationHistoryPdfZambdaInput,
   MakeMedicationHistoryPdfZambdaOutput,
 } from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
-import { ProcedureDetail, ProcedureSuggestion } from 'utils/lib/types/api/procedures.types';
 import {
   SignAppointmentInput,
   SignAppointmentResponse,
@@ -120,7 +119,6 @@ enum ZambdaNames {
   'delete patient instruction' = 'delete patient instruction',
   'ai suggestion notes' = 'ai suggestion notes',
   'recommend billing suggestions' = 'recommend billing suggestions',
-  'recommend billing codes' = 'recommend billing codes',
   'create update medication order' = 'create update medication order',
   'get medication orders' = 'get medication orders',
   'create update patient followup' = 'create update patient followup',
@@ -161,7 +159,6 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'delete patient instruction': false,
   'ai suggestion notes': false,
   'recommend billing suggestions': false,
-  'recommend billing codes': false,
   'create update medication order': false,
   'get medication orders': false,
   'create update patient followup': false,
@@ -211,7 +208,6 @@ export const getOystehrTelemedAPI = (
   deletePatientInstruction: typeof deletePatientInstruction;
   aiSuggestionNotes: typeof aiSuggestionNotes;
   recommendBillingSuggestions: typeof recommendBillingSuggestions;
-  recommendBillingCodes: typeof recommendBillingCodes;
   createUpdateMedicationOrder: typeof createUpdateMedicationOrder;
   getMedicationOrders: typeof getMedicationOrders;
   savePatientFollowup: typeof savePatientFollowup;
@@ -253,7 +249,6 @@ export const getOystehrTelemedAPI = (
     deletePatientInstructionZambdaID,
     aiSuggestionNotesZambdaID,
     recommendBillingSuggestionsZambdaID,
-    recommendBillingCodesZambdaID,
     createUpdateMedicationOrderZambdaID,
     getMedicationOrdersZambdaID,
     savePatientFollowupZambdaID,
@@ -294,7 +289,6 @@ export const getOystehrTelemedAPI = (
     'delete patient instruction': deletePatientInstructionZambdaID,
     'ai suggestion notes': aiSuggestionNotesZambdaID,
     'recommend billing suggestions': recommendBillingSuggestionsZambdaID,
-    'recommend billing codes': recommendBillingCodesZambdaID,
     'create update medication order': createUpdateMedicationOrderZambdaID,
     'get medication orders': getMedicationOrdersZambdaID,
     'create update patient followup': savePatientFollowupZambdaID,
@@ -400,10 +394,6 @@ export const getOystehrTelemedAPI = (
 
   const recommendBillingSuggestions = async (parameters: BillingSuggestionInput): Promise<BillingSuggestionOutput> => {
     return await makeZapRequest('recommend billing suggestions', parameters);
-  };
-
-  const recommendBillingCodes = async (parameters: ProcedureDetail): Promise<ProcedureSuggestion[]> => {
-    return await makeZapRequest('recommend billing codes', parameters);
   };
 
   const createUpdateMedicationOrder = async (
@@ -554,7 +544,6 @@ export const getOystehrTelemedAPI = (
     deletePatientInstruction,
     aiSuggestionNotes,
     recommendBillingSuggestions,
-    recommendBillingCodes,
     getMedicationOrders,
     createUpdateMedicationOrder,
     savePatientFollowup,

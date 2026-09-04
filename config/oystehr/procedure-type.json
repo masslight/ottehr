@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "value-set-procedure-type": {
+    "value-set-procedure-type-1_0_1": {
       "resource": {
         "resourceType": "ValueSet",
         "url": "https://fhir.ottehr.com/ValueSet/procedure-type",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "name": "Procedures - Procedure type",
         "status": "active",
         "expansion": {
@@ -98,6 +98,25 @@
               "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
               "code": "iv-fluid-administration",
               "display": "IV Fluid Administration"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "iv-push-medication-administration",
+              "display": "IV Push Medication Administration",
+              "extension": [
+                {
+                  "url": "https://fhir.ottehr.com/Extension/procedure-type-cpt",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "system": "http://www.ama-assn.org/go/cpt",
+                        "code": "96374",
+                        "display": "Therapeutic, prophylactic, or diagnostic injection; intravenous push, single or initial substance/drug"
+                      }
+                    ]
+                  }
+                }
+              ]
             },
             {
               "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",

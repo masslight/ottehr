@@ -23,18 +23,32 @@ const PROCEDURE_TYPE_CODINGS = Object.entries(procedureType.fhirResources).find(
 )?.[1].resource.expansion.contains;
 const FIRST_PROCEDURE_TYPE = PROCEDURE_TYPE_CODINGS![0].display;
 
-const BODY_SITES = procedureBodySites.fhirResources['value-set-procedure-body-sites'].resource.expansion.contains;
+const BODY_SITES = Object.entries(procedureBodySites.fhirResources).find(([key]) =>
+  key.startsWith('value-set-procedure-body-sites')
+)![1].resource.expansion.contains;
+
 const BODY_SIDES = procedureBodySides.fhirResources['value-set-procedure-body-sides'].resource.expansion.contains;
-const TECHNIQUES = procedureTechniques.fhirResources['value-set-procedure-techniques'].resource.expansion.contains;
-const SUPPLIES = procedureSupplies.fhirResources['value-set-procedure-supplies'].resource.expansion.contains;
+
+const TECHNIQUES = Object.entries(procedureTechniques.fhirResources).find(([key]) =>
+  key.startsWith('value-set-procedure-techniques')
+)![1].resource.expansion.contains;
+
+const SUPPLIES = Object.entries(procedureSupplies.fhirResources).find(([key]) =>
+  key.startsWith('value-set-procedure-supplies')
+)![1].resource.expansion.contains;
+
 const MEDICATIONS_USED =
   procedureMedicationsUsed.fhirResources['value-set-procedure-medications-used'].resource.expansion.contains;
+
 const COMPLICATIONS =
   procedureComplications.fhirResources['value-set-procedure-complications'].resource.expansion.contains;
+
 const PATIENT_RESPONSES =
   procedurePatientResponses.fhirResources['value-set-procedure-patient-responses'].resource.expansion.contains;
+
 const POST_INSTRUCTIONS =
   procedurePostInstructions.fhirResources['value-set-procedure-post-instructions'].resource.expansion.contains;
+
 const TIME_SPENT = procedureTimeSpent.fhirResources['value-set-procedure-time-spent'].resource.expansion.contains;
 
 async function fillProcedureForm(documentProcedurePage: DocumentProcedurePage): Promise<void> {
