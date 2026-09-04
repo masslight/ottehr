@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { HEMOSTASIS_PATTERN, lateralityDocumented, normalizeAnatomicSite, techniqueOrTextFlag } from './extract';
+import {
+  HEMOSTASIS_PATTERN,
+  lateralityDocumented,
+  MAX_ANALYZED_TEXT_LENGTH,
+  normalizeAnatomicSite,
+  normalizeNoteText,
+  techniqueOrTextFlag,
+} from './extract';
 import { extractLacerationFacts } from './families/laceration';
 import { ProcedureFactsInput } from './model.types';
 import { citedText, evidenceSource } from './test-support';
@@ -553,17 +560,10 @@ describe('extractLacerationFacts: extraction reports facts, the family applies t
 });
 
 describe('extractLacerationFacts: large input stays bounded', () => {
-  it('an 80 KB note extracts in well under a frame budget', () => {
-    const unit = 'Laceration of the left forearm, 3.2 cm, irrigated with saline and closed with 4-0 nylon sutures. ';
-    let text = '';
-    while (text.length < 80 * 1024) text += unit;
-    const started = performance.now();
-    const facts = extractLacerationFacts(input({ procedureDetails: text }));
-    const elapsed = performance.now() - started;
-    expect(facts.wounds.length).toBeGreaterThan(0);
-    // Was ~1500 ms at this size (quadratic in the note length); the budget is deliberately
-    // loose so the guard fails on a regression in complexity, not on CI noise.
-    expect(elapsed).toBeLessThan(100);
+  it('ignores text beyond the analysis limit', () => {
+    const text = 'x'.repeat(MAX_ANALYZED_TEXT_LENGTH) + ' Wound length: 3.2 cm.';
+    expect(normalizeNoteText(text)).toHaveLength(MAX_ANALYZED_TEXT_LENGTH);
+    expect(extractLacerationFacts(input({ procedureDetails: text })).wounds).toEqual([]);
   });
 });
 

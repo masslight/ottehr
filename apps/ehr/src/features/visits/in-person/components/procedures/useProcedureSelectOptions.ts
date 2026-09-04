@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { keepPreviousData, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { ValueSet } from 'fhir/r4b';
 import { QUERY_STALE_TIME } from 'src/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   BODY_SIDES_VALUE_SET_URL,
   BODY_SITES_VALUE_SET_URL,
@@ -13,8 +14,7 @@ import {
   SUPPLIES_VALUE_SET_URL,
   TECHNIQUES_VALUE_SET_URL,
   TIME_SPENT_VALUE_SET_URL,
-} from 'utils';
-import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+} from 'utils/lib/types/api/procedures.constants';
 
 export interface ProcedureType {
   name: string;

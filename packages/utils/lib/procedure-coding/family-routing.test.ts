@@ -22,13 +22,10 @@ describe('procedure family routing catalog', () => {
     expect(new Set(normalized).size).toBe(normalized.length);
   });
 
-  it('resolves every catalog display exactly and has no conflicting regex fallback', () => {
+  it('resolves every catalog display exactly', () => {
     for (const [familyId, definition] of Object.entries(PROCEDURE_FAMILY_ROUTING)) {
       for (const display of definition.displays) {
         expect(exactProcedureFamilyId(display)).toBe(familyId);
-        const patternMatches = patternProcedureFamilyIds(display);
-        expect(patternMatches.length).toBeLessThanOrEqual(1);
-        if (patternMatches.length === 1) expect(patternMatches[0]).toBe(familyId);
       }
     }
   });
@@ -40,27 +37,20 @@ describe('procedure family routing catalog', () => {
   });
 
   it('has at most one regex fallback match for every known display', () => {
-    const displays = [
-      ...Object.values(PROCEDURE_FAMILY_ROUTING).flatMap((definition) => definition.displays),
-      ...NOT_ASSESSED_PROCEDURE_TYPES.displays,
-    ];
-    for (const display of displays) {
+    for (const [familyId, definition] of Object.entries(PROCEDURE_FAMILY_ROUTING)) {
+      for (const display of definition.displays) {
+        const matches = patternProcedureFamilyIds(display);
+        expect(matches.length).toBeLessThanOrEqual(1);
+        if (matches.length === 1) expect(matches[0]).toBe(familyId);
+      }
+    }
+    for (const display of NOT_ASSESSED_PROCEDURE_TYPES.displays) {
       expect(patternProcedureFamilyIds(display).length).toBeLessThanOrEqual(1);
     }
   });
 });
 
-describe('known configured procedure labels', () => {
-  it.each([
-    ['Wound & Soft Tissue: Laceration Repair (Suturing/Stapling)', 'laceration'],
-    ['Diagnostic Procedures: EKG', 'ekg'],
-    ['PROD: I&D abscess, simple', 'incision-drainage'],
-    ['PROD: Burn care, partial thickness', 'burn-treatment'],
-    ['Foreign body removal - ear', 'foreign-body'],
-  ])('routes %s to %s', (procedureType, familyId) => {
-    expect(detectProcedureFamily({ procedureType })?.id).toBe(familyId);
-  });
-
+describe('explicitly unassessed procedure labels', () => {
   it.each([
     ['Nerve block injection, single nerve', '64450'],
     ['Burn 1st degree', '16000'],

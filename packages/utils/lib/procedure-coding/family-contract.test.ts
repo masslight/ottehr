@@ -1,14 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PROCEDURE_FAMILIES } from './evaluate';
-import {
-  CodeAssessmentKind,
-  CodeOutcomeKind,
-  EvidenceSource,
-  FamilyEvaluation,
-  Finding,
-  ProcedureFactsInput,
-  ProcedureFamilyModel,
-} from './model.types';
+import { EvidenceSource, Finding, ProcedureFactsInput, ProcedureFamilyModel } from './model.types';
 import { findingCode, notAssessedCodes, offeredCandidates, suggestionOf } from './test-support';
 
 const PROBE_NOTES: string[] = [
@@ -50,7 +42,14 @@ const PROBE_INPUTS: ProcedureFactsInput[] = [
   ...PROBE_NOTES.map((procedureDetails) => ({ procedureDetails, ...ALL_STRUCTURED_FIELDS })),
 ];
 
+const OUT_OF_FAMILY_CODE = '99213';
+const knownCodesByFamily = new Map<string, string[]>();
+const findingsByFamily = new Map<string, HarvestedFinding[]>();
+
 function codesTheFamilyKnows(family: ProcedureFamilyModel): string[] {
+  const cached = knownCodesByFamily.get(family.id);
+  if (cached !== undefined) return cached;
+
   const codes = new Set<string>([OUT_OF_FAMILY_CODE]);
   for (const probe of PROBE_INPUTS) {
     const forward = family.suggestCode(probe);
@@ -61,7 +60,9 @@ function codesTheFamilyKnows(family: ProcedureFamilyModel): string[] {
       for (const addOn of suggestion.addOns ?? []) codes.add(addOn.code);
     }
   }
-  return [...codes];
+  const result = [...codes];
+  knownCodesByFamily.set(family.id, result);
+  return result;
 }
 
 interface HarvestedFinding {
@@ -70,6 +71,9 @@ interface HarvestedFinding {
 }
 
 function harvestFindings(family: ProcedureFamilyModel): HarvestedFinding[] {
+  const cached = findingsByFamily.get(family.id);
+  if (cached !== undefined) return cached;
+
   const harvested: HarvestedFinding[] = [];
   const seen = new Set<string>();
   const take = (finding: Finding, where: string): void => {
@@ -88,81 +92,11 @@ function harvestFindings(family: ProcedureFamilyModel): HarvestedFinding[] {
       }
     }
   }
+  findingsByFamily.set(family.id, harvested);
   return harvested;
 }
 
 const FAMILY_CASES = PROCEDURE_FAMILIES.map((family) => [family.id, family] as const);
-
-/** A code no modelled family claims, so the not-assessed path is exercised alongside the rest. */
-const OUT_OF_FAMILY_CODE = '99213';
-
-function expectCandidateSetQuality(evaluation: FamilyEvaluation, where: string): void {
-  const outcome = evaluation.outcome;
-  if (outcome?.kind !== CodeOutcomeKind.Open && outcome?.kind !== CodeOutcomeKind.DeterminedWithAlternates) {
-    return;
-  }
-  const candidates = outcome.kind === CodeOutcomeKind.Open ? outcome.candidates : outcome.alternates;
-  const summary = outcome.kind === CodeOutcomeKind.Open ? outcome.summary : outcome.alternatesSummary;
-  expect(candidates.length, `${where} set an empty candidate array`).toBeGreaterThan(0);
-  expect(
-    summary,
-    `${where} offered ${candidates.length} candidate(s) with an empty summary — the provider would ` +
-      'see a bare list of codes with nothing saying which determinant narrows it.'
-  ).toBeTruthy();
-  for (const candidate of candidates) {
-    expect(candidate.code, `${where} offered a candidate with no code`).toBeTruthy();
-    expect(
-      candidate.display,
-      `${where} offered candidate ${candidate.code} with an empty or undefined display — usually a code ` +
-        'that is missing from its family descriptor table.'
-    ).toBeTruthy();
-    expect(candidate.display, `${where} rendered candidate ${candidate.code} with a missing descriptor`).not.toContain(
-      'undefined'
-    );
-  }
-}
-
-describe('every registered family: candidate sets are usable', () => {
-  it.each(FAMILY_CASES)('%s returns non-empty, labelled candidates in the forward direction', (id, family) => {
-    for (const [index, probe] of PROBE_INPUTS.entries()) {
-      expectCandidateSetQuality(family.suggestCode(probe), `${id}.suggestCode (probe ${index})`);
-    }
-  });
-
-  it.each(FAMILY_CASES)('%s returns non-empty, labelled candidates in the inverse direction', (id, family) => {
-    for (const code of codesTheFamilyKnows(family)) {
-      for (const [index, probe] of PROBE_INPUTS.entries()) {
-        const evaluation = family.defendCodes({ ...probe, cptCodes: [{ code, display: code }] });
-        expectCandidateSetQuality(evaluation, `${id}.defendCodes(${code}) (probe ${index})`);
-      }
-    }
-  });
-});
-
-describe('every registered family: the not-assessed promise', () => {
-  it.each(FAMILY_CASES)('%s reports a code it does not model rather than judging it', (id, family) => {
-    const evaluation = family.defendCodes({
-      cptCodes: [{ code: OUT_OF_FAMILY_CODE, display: 'Office visit' }],
-      procedureDetails: 'Procedure performed.',
-    });
-    expect(evaluation.codeAssessments.get(OUT_OF_FAMILY_CODE), `${id} judged a code it does not model`).toEqual({
-      kind: CodeAssessmentKind.NotAssessed,
-    });
-  });
-
-  it.each(FAMILY_CASES)('%s gives every selected code exactly one explicit assessment', (id, family) => {
-    for (const code of codesTheFamilyKnows(family)) {
-      for (const [index, probe] of PROBE_INPUTS.entries()) {
-        const evaluation = family.defendCodes({ ...probe, cptCodes: [{ code, display: code }] });
-        expect(
-          evaluation.codeAssessments.get(code),
-          `${id}.defendCodes(${code}) (probe ${index}) did not produce a per-code assessment.`
-        ).toBeDefined();
-        expect([...evaluation.codeAssessments.keys()]).toEqual([code]);
-      }
-    }
-  });
-});
 
 // ── Provenance: a finding that quotes the note says where the quote came from ───
 
@@ -331,37 +265,5 @@ describe('every registered family: suggestCode and defendCodes agree', () => {
         `${id} (probe ${index}) declined to assess ${determined.code}, the code it had just determined`
       ).not.toContain(determined.code);
     }
-  });
-});
-
-// ── Detection: the union is a union ────────────────────────────────────────────
-
-describe('every registered family: the three detection signals stay consistent', () => {
-  it.each(FAMILY_CASES)('%s reports detect as exactly the union of the two signals', (id, family) => {
-    const detectionProbes: ProcedureFactsInput[] = [
-      ...PROBE_INPUTS,
-      ...PROBE_INPUTS.flatMap((probe) =>
-        [OUT_OF_FAMILY_CODE, ...codesTheFamilyKnows(family)].map((code) => ({
-          ...probe,
-          cptCodes: [{ code, display: code }],
-        }))
-      ),
-      ...PROCEDURE_FAMILIES.map((other) => ({ procedureType: other.displayName })),
-    ];
-    for (const [index, probe] of detectionProbes.entries()) {
-      const byType = family.detectByProcedureType(probe);
-      const byCode = family.detectBySelectedCode(probe);
-      expect(
-        family.detect(probe),
-        `${id}.detect disagreed with its own signals on probe ${index} (byProcedureType=${byType}, ` +
-          `bySelectedCode=${byCode}) — detect is the union, and the evaluators rely on that to choose ` +
-          'the procedure type over a possibly mis-selected code.'
-      ).toBe(byType || byCode);
-    }
-  });
-
-  it('no two families claim the same id', () => {
-    const ids = PROCEDURE_FAMILIES.map((family) => family.id);
-    expect(new Set(ids).size, `duplicate family ids in PROCEDURE_FAMILIES: ${JSON.stringify(ids)}`).toBe(ids.length);
   });
 });

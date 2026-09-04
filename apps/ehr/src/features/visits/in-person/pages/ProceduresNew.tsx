@@ -69,7 +69,6 @@ import {
   getPredefinedValueOrOther,
   OTHER,
   parseWithOther,
-  splitOtherForQuickPick,
 } from './procedureOtherFields';
 import {
   initialProcedurePageState,
@@ -77,7 +76,7 @@ import {
   procedureFactsFromPageState,
   procedurePageStateToDraft,
 } from './procedurePageState';
-import { applyProcedureQuickPick } from './procedureQuickPick';
+import { applyProcedureQuickPick, buildProcedureQuickPick, mergeProcedureCptCodes } from './procedureQuickPick';
 
 const PERFORMED_BY = ['Healthcare staff', 'Provider', 'Both'];
 const SPECIMEN_SENT = ['Yes', 'No'];
@@ -134,18 +133,15 @@ export default function ProceduresNew({
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicks, setExistingQuickPicks] = useState<ProcedureQuickPickData[]>([]);
   const [quickPickSaving, setQuickPickSaving] = useState(false);
-  // The quick-picks fetch is triggered by mounting this page (useMergedProcedureQuickPicks
-  // calls the zambda from a useEffect on mount), so picks start loading as soon as the
-  // user navigates to /procedures/new — not when they open the Quick Picks menu. We
-  // surface the loading flag below so the menu shows a "Loading…" item while in-flight,
-  // instead of appearing empty on a fast first click.
   const { quickPicks: mergedQuickPicks, loading: mergedQuickPicksLoading } = useMergedProcedureQuickPicks();
+
   const sortedMergedQuickPicks = useMemo(
     () => [...mergedQuickPicks].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
     [mergedQuickPicks]
   );
 
   const persistDraftAfterStateChangeRef = useRef(false);
+
   const updateState = useCallback((stateMutator: (draft: LocalProcedurePageState) => void): void => {
     persistDraftAfterStateChangeRef.current = true;
     setState((prev) => {
@@ -157,7 +153,9 @@ export default function ProceduresNew({
 
   useEffect(() => {
     if (!persistDraftAfterStateChangeRef.current) return;
+
     persistDraftAfterStateChangeRef.current = false;
+
     if (!procedureId && encounter.id) {
       setDraft(encounter.id, procedurePageStateToDraft(state));
     }
@@ -190,11 +188,14 @@ export default function ProceduresNew({
     () => procedureFactsFromPageState(state, formValues.procedureType),
     [formValues.procedureType, state]
   );
+
   const codingAssist = useProcedureCoding(procedureFacts);
+
   const codingEvaluations =
     codingAssist.evaluationState.kind === ProcedureCodingEvaluationStateKind.Ready
       ? codingAssist.evaluationState.current
       : codingAssist.evaluationState.previous;
+
   const codingAssistIsEvaluating = codingAssist.evaluationState.kind === ProcedureCodingEvaluationStateKind.Evaluating;
 
   const [initialValuesSet, setInitialValuesSet] = useState<boolean>(false);
@@ -205,13 +206,17 @@ export default function ProceduresNew({
     if (procedure == null || initialValuesSet || selectOptions == null) {
       return;
     }
+
     const procedureDateTime =
       procedure.procedureDateTime != null ? DateTime.fromISO(procedure.procedureDateTime) : undefined;
+
     const parsedSupplies = parseSuppliesUsed(procedure.suppliesUsed, selectOptions?.supplies);
+
     const parsedPostInstructions = parsePostInstructions(
       procedure.postInstructions,
       selectOptions?.postProcedureInstructions
     );
+
     setState({
       cptCodes: procedure.cptCodes,
       diagnoses: procedure.diagnoses,
@@ -240,17 +245,20 @@ export default function ProceduresNew({
       documentedBy: procedure.documentedBy,
       consentObtained: procedure.consentObtained,
     });
+
     setInitialValuesSet(true);
   }, [procedure, setState, initialValuesSet, selectOptions]);
 
   const onCancel = (): void => {
     if (!procedureId && encounter.id) clearDraft(encounter.id);
+
     if (onFinished) onFinished();
     else navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
   };
 
   const onSave = async (): Promise<void> => {
     setSaveInProgress(true);
+
     try {
       const cptCodesToSave =
         state.cptCodes?.filter((cptCode) => {
@@ -384,6 +392,7 @@ export default function ProceduresNew({
 
   const openQuickPickDialog = async (): Promise<void> => {
     if (!oystehrZambda) return;
+
     try {
       const response = await getProcedureQuickPicks(oystehrZambda);
       setExistingQuickPicks([...response.quickPicks].sort(sortQuickPicks));
@@ -391,64 +400,40 @@ export default function ProceduresNew({
       console.error('Failed to load existing quick picks:', error);
       setExistingQuickPicks(sortedMergedQuickPicks);
     }
-    // Suggest name: procedure name | site location | side of body | complications | cpt codes
+
     const parts: string[] = [];
+
     if (formValues.procedureType) parts.push(formValues.procedureType);
+
     if (state.bodySite) parts.push(state.bodySite);
+
     if (state.bodySide) parts.push(state.bodySide);
+
     if (state.complications) parts.push(state.complications);
+
     if (state.cptCodes?.length) parts.push(state.cptCodes.map((c) => c.code).join(', '));
+
     setQuickPickName(parts.join(' | '));
     setQuickPickDialogOpen(true);
   };
 
   const buildQuickPickFromCurrentState = (): Omit<ProcedureQuickPickData, 'id'> => {
-    const supplies = splitOtherForQuickPick(state.suppliesUsed, state.otherSuppliesUsed);
-    const postInstructions = splitOtherForQuickPick(state.postInstructions, state.otherPostInstructions);
-    return {
-      name: quickPickName.trim(),
-      procedureType:
-        selectOptions?.procedureTypes?.find((pt) => pt.name === formValues.procedureType)?.code ??
-        formValues.procedureType,
-      cptCodes: state.cptCodes?.map((c) => ({
-        code: c.code,
-        display: c.display,
-        billableUnits: c.billableUnits,
-      })),
-      // diagnoses, consentObtained, and performerType excluded — encounter-specific
-      medicationUsed: state.medicationUsed,
-      bodySite: state.bodySite,
-      otherBodySite: state.bodySite === OTHER ? state.otherBodySite?.trim() : undefined,
-      bodySide: state.bodySide,
-      technique: state.technique,
-      suppliesUsed: supplies.values,
-      otherSuppliesUsed: supplies.other,
-      procedureDetails: state.procedureDetails,
-      lengthCm: state.lengthCm,
-      repairDepth: state.repairDepth,
-      infusionStartTime: state.infusionStartTime,
-      infusionStopTime: state.infusionStopTime,
-      specimenSent: state.specimenSent,
-      complications: state.complications,
-      otherComplications: state.complications === OTHER ? state.otherComplications?.trim() : undefined,
-      patientResponse: state.patientResponse,
-      postInstructions: postInstructions.values,
-      otherPostInstructions: postInstructions.other,
-      timeSpent: state.timeSpent,
-      documentedBy: state.documentedBy,
-    };
+    return buildProcedureQuickPick(state, quickPickName, formValues.procedureType, selectOptions?.procedureTypes);
   };
 
   const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
     if (!quickPickName.trim()) {
       enqueueSnackbar('Quick pick name is required', { variant: 'error' });
+
       return;
     }
+
     if (!oystehrZambda) {
       throw new Error('oystehrZambda was null');
     }
 
     setQuickPickSaving(true);
+
     try {
       const quickPickData = buildQuickPickFromCurrentState();
 
@@ -473,6 +458,7 @@ export default function ProceduresNew({
   const { isFetching: isSearching, data } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
   const cptSearchOptions = (data as { codes?: CPTCodeDTO[] })?.codes || [];
   const { debounce } = useDebounce(800);
+
   const debouncedHandleInputChange = (data: string): void => {
     debounce(() => {
       setDebouncedSearchTerm(data);
@@ -481,22 +467,11 @@ export default function ProceduresNew({
 
   const addRecommendedCptCodes = (entries: CPTCodeDTO[]): void =>
     updateState((state) => {
-      const cptCodes = [...(state.cptCodes ?? [])];
-
-      entries.forEach((entry) => {
-        const existingIndex = cptCodes.findIndex((cptCode) => cptCode.code === entry.code);
-        if (existingIndex === -1) {
-          cptCodes.push(entry);
-        } else if (entry.billableUnits != null) {
-          cptCodes[existingIndex] = { ...cptCodes[existingIndex], billableUnits: entry.billableUnits };
-        }
-      });
-
-      state.cptCodes = cptCodes;
+      state.cptCodes = mergeProcedureCptCodes(state.cptCodes, entries);
     });
 
-  // Keep the not-assessed line quiet unless the forward evaluation has something to say.
   const forwardEvaluation = codingEvaluations?.suggestion;
+
   const suggestionVisible =
     forwardEvaluation?.outcome?.kind === CodeOutcomeKind.Determined ||
     forwardEvaluation?.outcome?.kind === CodeOutcomeKind.DeterminedWithAlternates ||
@@ -506,6 +481,7 @@ export default function ProceduresNew({
     if (procedureId && !initialFormStateSet) {
       return;
     }
+
     const callback = methods.subscribe({
       name: 'procedureType',
       formState: {
@@ -539,9 +515,6 @@ export default function ProceduresNew({
             });
           }
 
-          // The structured inputs unmount when the new family does not use them; without this their
-          // values would survive on the entry and reach the note, the billing PDF and any quick pick
-          // saved from it (a wound size on an EKG).
           clearUnusedStructuredFields(
             state,
             procedureInputFieldVisibility(
@@ -552,6 +525,7 @@ export default function ProceduresNew({
         });
       },
     });
+
     return () => callback();
   }, [methods, selectOptions, procedureId, initialFormStateSet, encounter.id, setDraft, updateState]);
 
@@ -559,9 +533,11 @@ export default function ProceduresNew({
     if (procedure == null) {
       return;
     }
+
     methods.reset({
       procedureType: procedure.procedureType,
     });
+
     setInitialFormStateSet(true);
   }, [methods, procedure]);
 
@@ -570,9 +546,11 @@ export default function ProceduresNew({
       ? selectOptions?.procedureTypes.find((procedureType) => procedureType.code === quickPick.procedureType)?.name ??
         quickPick.procedureType
       : undefined;
+
     if (procedureTypeName) {
       methods.reset({ ...formValues, procedureType: procedureTypeName });
     }
+
     updateState((state) => {
       applyProcedureQuickPick(state, quickPick, procedureTypeName ?? formValues.procedureType);
     });
@@ -598,9 +576,11 @@ export default function ProceduresNew({
   const handlePendingQuickPick = useCallback((payload: ProcedureQuickPickData) => {
     onQuickPickSelectRef.current(payload);
   }, []);
+
   usePendingQuickPick('procedures', handlePendingQuickPick, selectOptions != null);
 
   const [consentPdfExists, setConsentPdfExists] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     fetch('/consent_procedure.pdf', { method: 'HEAD' })
@@ -681,8 +661,6 @@ export default function ProceduresNew({
               freeSolo
               dataTestId={dataTestIds.documentProcedurePage.procedureType}
               required
-              // regex is from fhir spec for code (which is where this value is mapped)
-              // https://hl7.org/fhir/R4B/datatypes.html#code
               validate={(value) =>
                 !value || FHIR_CODE_REGEX.test(value) || 'No leading, trailing, or consecutive spaces allowed'
               }
@@ -691,6 +669,7 @@ export default function ProceduresNew({
             <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
               Dx
             </Typography>
+
             <ProcedureDiagnosesField
               diagnoses={state.diagnoses ?? []}
               onAdd={(value: IcdSearchResponse['codes'][number]) =>
@@ -705,9 +684,11 @@ export default function ProceduresNew({
               }
               disabled={isReadOnly}
             />
+
             <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
               Procedure Details
             </Typography>
+
             <Stack direction="row" spacing={2}>
               <LocalizationProvider dateAdapter={AdapterLuxon}>
                 <DatePicker
@@ -723,6 +704,7 @@ export default function ProceduresNew({
                   disabled={isReadOnly}
                 />
               </LocalizationProvider>
+
               <LocalizationProvider dateAdapter={AdapterLuxon}>
                 <TimePicker
                   label="Time of the procedure"
@@ -738,6 +720,7 @@ export default function ProceduresNew({
                 />
               </LocalizationProvider>
             </Stack>
+
             <ProcedureRadioGroup
               label="Performed by"
               options={PERFORMED_BY}
@@ -746,7 +729,9 @@ export default function ProceduresNew({
               disabled={isReadOnly}
               dataTestId={dataTestIds.documentProcedurePage.performedBy}
             />
+
             <InfoAlert text="Please include body part including laterality, type and quantity anesthesia used, specific materials (type and quantity) used, technique, findings, complications, specimen sent, and after-procedure status." />
+
             <ProcedureDropdown
               label="Anaesthesia / medication used"
               options={selectOptions?.medicationsUsed}
@@ -755,6 +740,7 @@ export default function ProceduresNew({
               disabled={isReadOnly}
               dataTestId={dataTestIds.documentProcedurePage.anaesthesia}
             />
+
             <ProcedureDropdown
               label="Site/location"
               options={selectOptions?.bodySites}
@@ -768,6 +754,7 @@ export default function ProceduresNew({
               disabled={isReadOnly}
               dataTestId={dataTestIds.documentProcedurePage.site}
             />
+
             <ProcedureOtherTextInput
               parentLabel="Site/location"
               visible={state.bodySite === OTHER}
@@ -775,6 +762,7 @@ export default function ProceduresNew({
               onChange={(value) => updateState((state) => (state.otherBodySite = value))}
               disabled={isReadOnly}
             />
+
             <ProcedureDropdown
               label="Side of body"
               options={selectOptions?.bodySides}
@@ -783,6 +771,7 @@ export default function ProceduresNew({
               disabled={isReadOnly}
               dataTestId={dataTestIds.documentProcedurePage.sideOfBody}
             />
+
             <ConditionalCodingFields
               visibility={codingAssist.fieldVisibility}
               isReadOnly={isReadOnly}
@@ -795,6 +784,7 @@ export default function ProceduresNew({
               onInfusionStartChange={(value) => updateState((state) => (state.infusionStartTime = value))}
               onInfusionStopChange={(value) => updateState((state) => (state.infusionStopTime = value))}
             />
+
             <ProcedureMultiSelect
               label="Technique"
               options={selectOptions?.techniques}
@@ -803,6 +793,7 @@ export default function ProceduresNew({
               disabled={isReadOnly}
               dataTestId={dataTestIds.documentProcedurePage.technique}
             />
+
             <ProcedureMultiSelect
               label="Instruments / supplies used"
               options={selectOptions?.supplies}
@@ -811,6 +802,7 @@ export default function ProceduresNew({
               disabled={isReadOnly}
               dataTestId={dataTestIds.documentProcedurePage.instruments}
             />
+
             <ProcedureOtherTextInput
               parentLabel="Instruments / supplies used"
               visible={state.suppliesUsed?.includes(OTHER) ?? false}
@@ -818,6 +810,7 @@ export default function ProceduresNew({
               onChange={(value) => updateState((state) => (state.otherSuppliesUsed = value))}
               disabled={isReadOnly}
             />
+
             <TextField
               label="Procedure details"
               multiline
@@ -827,6 +820,7 @@ export default function ProceduresNew({
               disabled={isReadOnly}
               data-testid={dataTestIds.documentProcedurePage.procedureDetails}
             />
+
             <ProcedureRadioGroup
               label="Specimen sent"
               options={SPECIMEN_SENT}
@@ -835,6 +829,7 @@ export default function ProceduresNew({
               disabled={isReadOnly}
               dataTestId={dataTestIds.documentProcedurePage.specimenSent}
             />
+
             <ProcedureDropdown
               label="Complications"
               options={selectOptions?.complications}
@@ -848,6 +843,7 @@ export default function ProceduresNew({
               disabled={isReadOnly}
               dataTestId={dataTestIds.documentProcedurePage.complications}
             />
+
             <ProcedureOtherTextInput
               parentLabel="Complications"
               visible={state.complications === OTHER}
@@ -855,6 +851,7 @@ export default function ProceduresNew({
               onChange={(value) => updateState((state) => (state.otherComplications = value))}
               disabled={isReadOnly}
             />
+
             <ProcedureDropdown
               label="Patient response"
               options={selectOptions?.patientResponses}
@@ -863,6 +860,7 @@ export default function ProceduresNew({
               disabled={isReadOnly}
               dataTestId={dataTestIds.documentProcedurePage.patientResponse}
             />
+
             <ProcedureMultiSelect
               label="Post-procedure Instructions"
               options={selectOptions?.postProcedureInstructions}
@@ -871,6 +869,7 @@ export default function ProceduresNew({
               disabled={isReadOnly}
               dataTestId={dataTestIds.documentProcedurePage.postProcedureInstructions}
             />
+
             <ProcedureOtherTextInput
               parentLabel="Post-procedure Instructions"
               visible={state.postInstructions?.includes(OTHER) ?? false}
@@ -878,6 +877,7 @@ export default function ProceduresNew({
               onChange={(value) => updateState((state) => (state.otherPostInstructions = value))}
               disabled={isReadOnly}
             />
+
             <ProcedureDropdown
               label="Time spent"
               options={selectOptions?.timeSpent}
@@ -886,6 +886,7 @@ export default function ProceduresNew({
               disabled={isReadOnly}
               dataTestId={dataTestIds.documentProcedurePage.timeSpent}
             />
+
             <ProcedureRadioGroup
               label="Documented by"
               options={DOCUMENTED_BY}
@@ -894,9 +895,11 @@ export default function ProceduresNew({
               disabled={isReadOnly}
               dataTestId={dataTestIds.documentProcedurePage.documentedBy}
             />
+
             <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
               <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>CPT Code</Typography>
             </TooltipWrapper>
+
             <CodingAssistPanel
               evaluation={forwardEvaluation}
               isEvaluating={codingAssistIsEvaluating}
@@ -906,7 +909,9 @@ export default function ProceduresNew({
               selectedCodes={state.cptCodes ?? []}
               onAddCodes={addRecommendedCptCodes}
             />
+
             <DocumentationCheck evaluation={codingEvaluations?.defense} suggestionVisible={suggestionVisible} />
+
             <ProcedureCptCodesField
               codes={state.cptCodes ?? []}
               searchOptions={cptSearchOptions}
@@ -921,7 +926,9 @@ export default function ProceduresNew({
               }
               disabled={isReadOnly}
             />
+
             <Divider orientation="horizontal" />
+
             <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
               <Stack direction="row" spacing={2}>
                 <RoundedButton color="primary" onClick={onCancel}>
@@ -943,6 +950,7 @@ export default function ProceduresNew({
                 Save
               </RoundedButton>
             </Box>
+
             {Object.entries(errors).length > 0 && (
               <FormHelperText sx={{ textAlign: 'right' }} error={true}>
                 Please fix all errors
@@ -951,6 +959,7 @@ export default function ProceduresNew({
           </Stack>
         </AccordionCard>
       </Stack>
+
       <Backdrop sx={(theme) => ({ color: '#fff', zIndex: theme.zIndex.drawer + 1 })} open={saveInProgress}>
         <CircularProgress color="inherit" />
       </Backdrop>

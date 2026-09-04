@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { defendCodes, detectProcedureFamily, suggestCode } from 'utils/lib/procedure-coding/evaluate';
 import {
-  CPT_RULES_VINTAGE,
-  defendCodes,
-  detectProcedureFamily,
   EvaluationFamilyMatchKind,
   EvaluationResult,
   ProcedureFactsInput,
-  suggestCode,
-} from 'utils';
+} from 'utils/lib/procedure-coding/model.types';
+import { CPT_RULES_VINTAGE } from 'utils/lib/procedure-coding/provenance';
 import { ProcedureFieldVisibility, procedureFieldVisibility } from '../components/procedures/procedureFieldVisibility';
 
 const EVALUATION_DEBOUNCE_MS = 500;

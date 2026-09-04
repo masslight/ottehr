@@ -4,4 +4,4 @@ export {
   procedureInputFieldVisibility,
   type ProcedureFieldVisibility,
   type StructuredCodingFields,
-} from 'utils';
+} from 'utils/lib/procedure-coding/fields';

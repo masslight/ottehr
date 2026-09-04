@@ -32,9 +32,11 @@ vi.mock('../../src/hooks/usePendingQuickPick', () => ({
 const TEST_QUICK_PICK = {
   id: 'qp-1',
   name: 'Test Quick Pick',
-  procedureType: 'incision-and-drainage',
+  procedureType: 'laceration-repair',
   procedureDetails: 'Quick pick procedure details',
-  cptCodes: [{ code: '10060', display: 'Incision and drainage of abscess' }],
+  cptCodes: [{ code: '12042', display: 'Intermediate repair' }],
+  lengthCm: 3.2,
+  repairDepth: 'subcutaneous-layered',
 };
 
 vi.mock('../../src/hooks/useMergedQuickPicks', () => ({
@@ -254,6 +256,8 @@ describe('ProceduresNew — draft store', () => {
       expect(useProcedureStore.getState().getDraft(ENCOUNTER_ID).procedureDetails).toBe(
         TEST_QUICK_PICK.procedureDetails
       );
+      expect(useProcedureStore.getState().getDraft(ENCOUNTER_ID).lengthCm).toBe(TEST_QUICK_PICK.lengthCm);
+      expect(useProcedureStore.getState().getDraft(ENCOUNTER_ID).repairDepth).toBe(TEST_QUICK_PICK.repairDepth);
     });
   });
 });

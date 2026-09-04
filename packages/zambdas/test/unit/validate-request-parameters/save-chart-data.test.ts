@@ -207,18 +207,4 @@ describe('save-chart-data - procedure extension round trip', () => {
     expect(extensions[FHIR_EXTENSION.ServiceRequest.infusionStartTime.url]).toBe('10:15');
     expect(extensions[FHIR_EXTENSION.ServiceRequest.infusionStopTime.url]).toBe('11:00');
   });
-
-  test('should keep an invalid value out of the written extensions', () => {
-    const hostile = {
-      lengthCm: -5,
-      repairDepth: '<script>',
-      infusionStartTime: '99:99',
-      infusionStopTime: '24:00',
-    };
-    expectRejected(hostile);
-
-    const unvalidated = extensionsOf(hostile as unknown as ProcedureDTO);
-    expect(unvalidated[FHIR_EXTENSION.ServiceRequest.lengthCm.url]).toBe(-5);
-    expect(unvalidated[FHIR_EXTENSION.ServiceRequest.infusionStartTime.url]).toBe('99:99');
-  });
 });

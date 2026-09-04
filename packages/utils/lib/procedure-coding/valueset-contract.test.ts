@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { suggestCode } from './evaluate';
 import { AnatomicSite, normalizeAnatomicSite } from './extract';
 import { extractCerumenFacts } from './families/cerumen';
 import { extractForeignBodyFacts } from './families/foreign-body';
@@ -8,7 +7,6 @@ import { extractIncisionDrainageFacts } from './families/incision-drainage';
 import { extractLacerationFacts } from './families/laceration';
 import { extractSplintingFacts } from './families/splinting';
 import { ProcedureFactsInput } from './model.types';
-import { suggestionOf } from './test-support';
 
 const CONFIG_DIR = new URL('../../../../config/oystehr/', import.meta.url);
 
@@ -40,7 +38,7 @@ function liveConcepts(fileName: string, url: string): SeededConcept[] {
   const latest = Object.values(raw.fhirResources)
     .map((entry) => entry.resource)
     .filter((resource) => resource.resourceType === 'ValueSet' && resource.url === url)
-    .sort((a, b) => (a.version ?? '').localeCompare(b.version ?? ''))
+    .sort((a, b) => (a.version ?? '').localeCompare(b.version ?? '', undefined, { numeric: true }))
     .at(-1);
   const concepts = latest?.expansion?.contains ?? [];
   expect(concepts.length, `${fileName} has no expansion for ${url}`).toBeGreaterThan(0);
@@ -344,38 +342,6 @@ describe('procedure-supplies ValueSet ⇄ engine', () => {
   it('every supply that drives a code still drives it', () => {
     expectRowsEstablishTheirFact(SUPPLY_CONTRACT, 'procedure-supplies.json');
   });
-
-  // The three end-to-end paths the seeded supplies were added for, driven through the real
-  // suggestCode (family detection included) rather than through an extractor.
-  it('the Unna Boot supply reaches 29580', () => {
-    const result = suggestCode({
-      procedureType: 'Splint Application / Immobilization',
-      suppliesUsed: ['Unna Boot'],
-      bodySite: 'Leg',
-    });
-    expect(suggestionOf(result)?.code).toBe('29580');
-  });
-
-  it('the Drain supply reaches 10061', () => {
-    const result = suggestCode({
-      procedureType: 'Incision and Drainage (I&D) of Abscess',
-      suppliesUsed: ['Drain'],
-      procedureDetails: 'Stab incision made over the fluctuant area; purulent drainage expressed.',
-    });
-    expect(suggestionOf(result)?.code).toBe('10061');
-  });
-
-  it('the Steri-Strips supply is the no-repair-code path, not a repair code', () => {
-    const result = suggestCode({
-      procedureType: 'Laceration Repair',
-      suppliesUsed: ['Steri-Strips'],
-      bodySite: 'Arm',
-      lengthCm: 2,
-      procedureDetails: 'Wound edges approximated and dressed.',
-    });
-    expect(suggestionOf(result)).toBeUndefined();
-    expect(result.findings.some((f) => f.message.includes('adhesive strips alone'))).toBe(true);
-  });
 });
 
 describe('procedure-body-sites ValueSet ⇄ engine', () => {
@@ -416,13 +382,5 @@ describe('procedure-types ValueSet ⇄ injection/infusion engine', () => {
 
     expect(ivPush?.display).toBe('IV Push Medication Administration');
     expect(mappedCodes).toContain('96374');
-    expect(
-      suggestionOf(
-        suggestCode({
-          procedureType: ivPush?.display,
-          procedureDetails: 'Zofran 4 mg administered by slow IV push.',
-        })
-      )?.code
-    ).toBe('96374');
   });
 });

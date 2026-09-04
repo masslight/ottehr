@@ -6,7 +6,7 @@ import {
   SectionHeading,
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
-import { formatInfusionTimeRange, repairDepthDisplayLabel } from 'utils';
+import { formatInfusionTimeRange, repairDepthDisplayLabel } from 'utils/lib/procedure-coding/format';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 
 export const ProceduresContainer: FC = () => {

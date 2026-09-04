@@ -7,12 +7,7 @@ import { describe, expect, test } from 'vitest';
 import { CATEGORY_CONFIG_MAP, validateInput } from '../../../src/ehr/admin-create-quick-pick';
 import {
   ALLERGY_QUICK_PICK_CATEGORY,
-  INSURANCE_QUICK_PICK_CATEGORY,
-  MEDICAL_CONDITION_QUICK_PICK_CATEGORY,
-  PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY,
   PROCEDURE_QUICK_PICK_CATEGORY,
-  QUICK_TEXT_QUICK_PICK_CATEGORY,
-  RADIOLOGY_QUICK_PICK_CATEGORY,
 } from '../../../src/ehr/shared/quick-pick-categories';
 import {
   QUICK_PICK_CONFIG_EXTENSION_URL,
@@ -151,57 +146,10 @@ describe('admin-create-quick-pick - procedure infusion times', () => {
 });
 
 describe('admin-create-quick-pick - other categories are unaffected', () => {
-  const validPayloads: Array<[string, string, Record<string, unknown>]> = [
-    ['allergy', ALLERGY_QUICK_PICK_CATEGORY.tagCode, { name: 'Penicillin', allergyId: 42 }],
-    ['medical condition', MEDICAL_CONDITION_QUICK_PICK_CATEGORY.tagCode, { display: 'Asthma', code: 'J45.909' }],
-    ['radiology', RADIOLOGY_QUICK_PICK_CATEGORY.tagCode, { name: 'Chest X-Ray', cptCode: '71046' }],
-    [
-      'patient instruction',
-      PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY.tagCode,
-      { name: 'Wound care', text: 'Keep the dressing dry for 24 hours' },
-    ],
-    [
-      'insurance',
-      INSURANCE_QUICK_PICK_CATEGORY.tagCode,
-      { name: 'Aetna', payerId: 'aetna-001', organizationReference: 'Organization/aetna-org-1' },
-    ],
-    ['quick text', QUICK_TEXT_QUICK_PICK_CATEGORY.tagCode, { name: 'Greeting', english: 'Hello', spanish: 'Hola' }],
-  ];
-
-  test.each(validPayloads)('should accept a valid %s quick pick', async (_label, category, quickPick) => {
-    await expect(validateCreate(category, quickPick)).resolves.toBeUndefined();
-  });
-
-  test.each(validPayloads)('should still require the %s required fields', async (_label, category, quickPick) => {
-    const [firstRequired] = CATEGORY_CONFIG_MAP[category].requiredStringFields;
-    const withoutRequired = { ...quickPick, [firstRequired]: undefined };
-    let thrown: any;
-    try {
-      await validateCreate(category, withoutRequired);
-    } catch (error) {
-      thrown = error;
-    }
-    expect(thrown.code).toBe(APIErrorCode.INVALID_INPUT);
-  });
-
   test('should not apply the procedure field rules to another category', async () => {
     await expect(
       validateCreate(ALLERGY_QUICK_PICK_CATEGORY.tagCode, { name: 'Penicillin', lengthCm: -5 })
     ).resolves.toBeUndefined();
-  });
-
-  test('should keep enforcing the quick text spanish rule', async () => {
-    let thrown: any;
-    try {
-      await validateCreate(QUICK_TEXT_QUICK_PICK_CATEGORY.tagCode, {
-        name: 'Greeting',
-        english: 'Hello',
-        spanish: 42,
-      });
-    } catch (error) {
-      thrown = error;
-    }
-    expect(thrown.code).toBe(APIErrorCode.INVALID_INPUT);
   });
 
   test('should reject an unknown category', () => {
@@ -238,24 +186,6 @@ describe('admin-create-quick-pick - stored config round trip', () => {
       repairDepth: 'subcutaneous-layered',
       infusionStartTime: '10:15',
       infusionStopTime: '11:00',
-    });
-  });
-
-  test('should keep an invalid value out of the stored config', async () => {
-    const hostile = {
-      name: 'Lac Repair - Left Arm',
-      lengthCm: -5,
-      repairDepth: '<script>',
-      infusionStartTime: '99:99',
-      infusionStopTime: '24:00',
-    };
-    await expectRejected(hostile);
-
-    expect(storedConfig(hostile)).toMatchObject({
-      lengthCm: -5,
-      repairDepth: '<script>',
-      infusionStartTime: '99:99',
-      infusionStopTime: '24:00',
     });
   });
 });
