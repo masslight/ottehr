@@ -338,7 +338,6 @@ export const Header = (): JSX.Element => {
   })();
   const patientName = formatLabelValue(mappedData?.patientName, 'Name');
   const patientFirstLastName = [patient?.firstName, patient?.lastName].filter(Boolean).join(' ') || undefined;
-  const room = appointment?.extension?.find((ext) => ext.url === ROOM_EXTENSION_URL)?.valueString;
 
   useEffect(() => {
     const tabTitle = formatPatientTabTitle(patientFirstLastName, room);
