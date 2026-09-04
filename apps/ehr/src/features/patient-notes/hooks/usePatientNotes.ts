@@ -1,17 +1,25 @@
-import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { useInfiniteQuery, UseInfiniteQueryResult } from '@tanstack/react-query';
+import { GetPatientNotesOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { getPatientNotes } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 
-export const usePatientNotes = (patientId: string | undefined): UseQueryResult<PatientNoteDTO[], Error> => {
+const PAGE_SIZE = 20;
+
+export const usePatientNotes = (
+  patientId: string | undefined
+): UseInfiniteQueryResult<{ pages: GetPatientNotesOutput[] }, Error> => {
   const { oystehrZambda } = useApiClients();
 
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['patient-notes', { patientId }],
-    queryFn: async (): Promise<PatientNoteDTO[]> => {
+    queryFn: async ({ pageParam }) => {
       if (!oystehrZambda || !patientId) throw new Error('Missing client or patientId');
-      const result = await getPatientNotes(oystehrZambda, { patientId });
-      return result.notes;
+      return getPatientNotes(oystehrZambda, { patientId, offset: pageParam, pageSize: PAGE_SIZE });
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage.hasMore) return undefined;
+      return allPages.reduce((sum, page) => sum + page.notes.length, 0);
     },
     enabled: Boolean(patientId) && Boolean(oystehrZambda),
   });

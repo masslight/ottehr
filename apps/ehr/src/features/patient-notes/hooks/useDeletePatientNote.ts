@@ -13,6 +13,7 @@ export const useDeletePatientNote = (patientId: string | undefined): UseMutation
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['patient-notes', { patientId }] });
+      void queryClient.invalidateQueries({ queryKey: ['patient-notes-count', { patientId }] });
     },
   });
 };

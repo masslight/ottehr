@@ -114,6 +114,8 @@ import {
 import {
   CreatePatientNoteInput,
   DeletePatientNoteInput,
+  GetPatientNotesCountOutput,
+  GetPatientNotesInput,
   GetPatientNotesOutput,
   PatientNoteDTO,
   SavePatientNoteOutput,
@@ -3685,10 +3687,23 @@ export const deleteInboundFax = async (oystehr: Oystehr, parameters: DeleteInbou
 
 export const getPatientNotes = async (
   oystehr: Oystehr,
-  parameters: { patientId: string }
+  parameters: GetPatientNotesInput
 ): Promise<GetPatientNotesOutput> => {
   try {
     const response = await oystehr.zambda.execute({ id: 'get-patient-notes', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getPatientNotesCount = async (
+  oystehr: Oystehr,
+  parameters: { patientId: string }
+): Promise<GetPatientNotesCountOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'get-patient-notes-count', ...parameters });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);

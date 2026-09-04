@@ -2,6 +2,7 @@ import type { APIGatewayProxyResult } from 'aws-lambda';
 import type { Communication, Practitioner } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { validateRequestParameters as validateCount } from '../src/ehr/patient-notes/count/validateRequestParameters';
 import { validateRequestParameters as validateCreate } from '../src/ehr/patient-notes/create/validateRequestParameters';
 import { validateRequestParameters as validateDelete } from '../src/ehr/patient-notes/delete/validateRequestParameters';
 import { validateRequestParameters as validateGet } from '../src/ehr/patient-notes/get/validateRequestParameters';
@@ -52,6 +53,10 @@ const mockFhirClient = {
 // ---------------------------------------------------------------------------
 
 const { index: getHandler } = (await import('../src/ehr/patient-notes/get/index')) as unknown as {
+  index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
+};
+
+const { index: countHandler } = (await import('../src/ehr/patient-notes/count/index')) as unknown as {
   index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 };
 
@@ -119,9 +124,17 @@ function fakeNote(overrides: Partial<Communication> = {}): Communication {
 // ---------------------------------------------------------------------------
 
 describe('get-patient-notes validateRequestParameters', () => {
-  it('parses a valid patientId', () => {
+  it('parses a valid patientId with defaults for offset and pageSize', () => {
     const result = validateGet(makeInput({ patientId: VALID_PATIENT_ID }));
     expect(result.patientId).toBe(VALID_PATIENT_ID);
+    expect(result.offset).toBe(0);
+    expect(result.pageSize).toBe(20);
+  });
+
+  it('parses explicit offset and pageSize', () => {
+    const result = validateGet(makeInput({ patientId: VALID_PATIENT_ID, offset: 40, pageSize: 10 }));
+    expect(result.offset).toBe(40);
+    expect(result.pageSize).toBe(10);
   });
 
   it('throws when body is missing', () => {
@@ -134,6 +147,29 @@ describe('get-patient-notes validateRequestParameters', () => {
 
   it('throws when patientId is absent', () => {
     expect(() => validateGet(makeInput({}))).toThrow();
+  });
+
+  it('throws when pageSize exceeds 100', () => {
+    expect(() => validateGet(makeInput({ patientId: VALID_PATIENT_ID, pageSize: 101 }))).toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// count/validateRequestParameters
+// ---------------------------------------------------------------------------
+
+describe('get-patient-notes-count validateRequestParameters', () => {
+  it('parses a valid patientId', () => {
+    const result = validateCount(makeInput({ patientId: VALID_PATIENT_ID }));
+    expect(result.patientId).toBe(VALID_PATIENT_ID);
+  });
+
+  it('throws when body is missing', () => {
+    expect(() => validateCount(makeInput(null))).toThrow();
+  });
+
+  it('throws when patientId is not a UUID', () => {
+    expect(() => validateCount(makeInput({ patientId: 'not-a-uuid' }))).toThrow(/uuid/i);
   });
 });
 
@@ -273,21 +309,42 @@ describe('get-patient-notes handler', () => {
     vi.clearAllMocks();
   });
 
-  it('returns 200 with correctly mapped notes', async () => {
+  it('returns 200 with correctly mapped notes and hasMore=false when fewer than pageSize returned', async () => {
     mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => [fakeNote()] });
 
     const result = await getHandler(makeInput({ patientId: VALID_PATIENT_ID }));
 
     expect(result.statusCode).toBe(200);
-    const { notes } = JSON.parse(result.body);
-    expect(notes).toHaveLength(1);
-    expect(notes[0]).toMatchObject({
+    const body = JSON.parse(result.body);
+    expect(body.notes).toHaveLength(1);
+    expect(body.notes[0]).toMatchObject({
       resourceId: VALID_NOTE_ID,
       patientId: VALID_PATIENT_ID,
       text: 'Test note content',
       authorId: CALLER_ID,
       authorName: 'Jane Smith',
     });
+    expect(body.hasMore).toBe(false);
+  });
+
+  it('returns hasMore=true when the server returns pageSize+1 items', async () => {
+    const twentyOneNotes = Array.from({ length: 21 }, () => fakeNote());
+    mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => twentyOneNotes });
+
+    const result = await getHandler(makeInput({ patientId: VALID_PATIENT_ID }));
+    const body = JSON.parse(result.body);
+
+    expect(body.hasMore).toBe(true);
+    expect(body.notes).toHaveLength(20);
+  });
+
+  it('returns hasMore=false when exactly pageSize items are returned (edge case the old heuristic got wrong)', async () => {
+    const twentyNotes = Array.from({ length: 20 }, () => fakeNote());
+    mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => twentyNotes });
+
+    const result = await getHandler(makeInput({ patientId: VALID_PATIENT_ID }));
+
+    expect(JSON.parse(result.body).hasMore).toBe(false);
   });
 
   it('returns 200 with empty array when no notes exist', async () => {
@@ -299,10 +356,10 @@ describe('get-patient-notes handler', () => {
     expect(JSON.parse(result.body).notes).toHaveLength(0);
   });
 
-  it('searches with the correct subject, tag, status, and sort params', async () => {
+  it('passes _count as pageSize+1, _offset, and other required params to FHIR search', async () => {
     mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => [] });
 
-    await getHandler(makeInput({ patientId: VALID_PATIENT_ID }));
+    await getHandler(makeInput({ patientId: VALID_PATIENT_ID, offset: 20, pageSize: 10 }));
 
     const [call] = mockFhirClient.fhir.search.mock.calls;
     expect(call[0].resourceType).toBe('Communication');
@@ -312,6 +369,8 @@ describe('get-patient-notes handler', () => {
         { name: '_tag', value: PATIENT_NOTE_TAG },
         { name: 'status', value: 'completed' },
         { name: '_sort', value: '-_lastUpdated' },
+        { name: '_count', value: '11' },
+        { name: '_offset', value: '20' },
       ])
     );
   });
@@ -344,6 +403,48 @@ describe('get-patient-notes handler', () => {
     const result = await getHandler(makeInput({ patientId: VALID_PATIENT_ID }));
     const { notes } = JSON.parse(result.body);
     expect(notes[0].edited).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// get-patient-notes-count handler
+// ---------------------------------------------------------------------------
+
+describe('get-patient-notes-count handler', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns 200 with the bundle total', async () => {
+    mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => [], total: 7 });
+
+    const result = await countHandler(makeInput({ patientId: VALID_PATIENT_ID }));
+
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body).count).toBe(7);
+  });
+
+  it('returns 0 when bundle total is undefined', async () => {
+    mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => [] });
+
+    const result = await countHandler(makeInput({ patientId: VALID_PATIENT_ID }));
+
+    expect(JSON.parse(result.body).count).toBe(0);
+  });
+
+  it('passes _summary=count to FHIR search', async () => {
+    mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => [], total: 0 });
+
+    await countHandler(makeInput({ patientId: VALID_PATIENT_ID }));
+
+    const [call] = mockFhirClient.fhir.search.mock.calls;
+    expect(call[0].params).toEqual(
+      expect.arrayContaining([
+        { name: '_summary', value: 'count' },
+        { name: 'subject', value: `Patient/${VALID_PATIENT_ID}` },
+        { name: 'status', value: 'completed' },
+      ])
+    );
   });
 });
 

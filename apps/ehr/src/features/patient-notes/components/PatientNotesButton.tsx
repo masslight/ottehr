@@ -1,7 +1,7 @@
 import { Button, Typography } from '@mui/material';
 import React, { useState } from 'react';
 import { GenericToolTip } from '../../../components/GenericToolTip';
-import { usePatientNotes } from '../hooks/usePatientNotes';
+import { usePatientNotesCount } from '../hooks/usePatientNotesCount';
 import { PatientNotesDialog } from './PatientNotesDialog';
 
 interface PatientNotesButtonProps {
@@ -19,8 +19,7 @@ const icon = (
 
 export const PatientNotesButton: React.FC<PatientNotesButtonProps> = ({ patientId }) => {
   const [open, setOpen] = useState(false);
-  const { data: notes } = usePatientNotes(patientId);
-  const count = notes?.length ?? 0;
+  const { data: count } = usePatientNotesCount(patientId);
 
   if (!patientId) return null;
 
@@ -56,7 +55,7 @@ export const PatientNotesButton: React.FC<PatientNotesButtonProps> = ({ patientI
           }}
         >
           {icon}
-          <Typography color="primary.dark">({count})</Typography>
+          <Typography color="primary.dark">({count ?? 0})</Typography>
         </Button>
       </GenericToolTip>
 

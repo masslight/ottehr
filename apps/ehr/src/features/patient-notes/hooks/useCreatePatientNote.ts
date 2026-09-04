@@ -18,6 +18,7 @@ export const useCreatePatientNote = (
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['patient-notes', { patientId }] });
+      void queryClient.invalidateQueries({ queryKey: ['patient-notes-count', { patientId }] });
     },
   });
 };

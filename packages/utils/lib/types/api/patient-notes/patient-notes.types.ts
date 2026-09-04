@@ -29,10 +29,21 @@ export interface UpdatePatientNoteInput {
 
 export interface GetPatientNotesInput {
   patientId: string;
+  offset?: number;
+  pageSize?: number;
 }
 
 export interface GetPatientNotesOutput {
   notes: PatientNoteDTO[];
+  hasMore: boolean;
+}
+
+export interface GetPatientNotesCountInput {
+  patientId: string;
+}
+
+export interface GetPatientNotesCountOutput {
+  count: number;
 }
 
 export interface SavePatientNoteOutput {
