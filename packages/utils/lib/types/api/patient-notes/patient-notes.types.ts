@@ -8,10 +8,23 @@ export interface PatientNoteDTO {
   edited?: boolean;
 }
 
-export interface SavePatientNoteRequest {
-  resourceId?: string;
+export interface CreatePatientNoteRequest {
   patientId: string;
   text: string;
+}
+
+export interface CreatePatientNoteInput {
+  note: CreatePatientNoteRequest;
+}
+
+export interface UpdatePatientNoteRequest {
+  resourceId: string;
+  patientId: string;
+  text: string;
+}
+
+export interface UpdatePatientNoteInput {
+  note: UpdatePatientNoteRequest;
 }
 
 export interface GetPatientNotesInput {
@@ -20,10 +33,6 @@ export interface GetPatientNotesInput {
 
 export interface GetPatientNotesOutput {
   notes: PatientNoteDTO[];
-}
-
-export interface SavePatientNoteInput {
-  note: SavePatientNoteRequest;
 }
 
 export interface SavePatientNoteOutput {

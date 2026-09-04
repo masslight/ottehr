@@ -11,8 +11,8 @@ import {
 import React, { useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { TextFieldStyled } from 'src/features/visits/shared/components/generic-notes-list/components/ui/TextFieldStyled';
-import { PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
-import { useSavePatientNote } from '../hooks/useSavePatientNote';
+import { PatientNoteDTO, UpdatePatientNoteRequest } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { useUpdatePatientNote } from '../hooks/useUpdatePatientNote';
 
 interface EditPatientNoteModalProps {
   note: PatientNoteDTO;
@@ -22,11 +22,16 @@ interface EditPatientNoteModalProps {
 export const EditPatientNoteModal: React.FC<EditPatientNoteModalProps> = ({ note, onClose }) => {
   const theme = useTheme();
   const [text, setText] = useState(note.text);
-  const { mutateAsync: save, isPending } = useSavePatientNote(note.patientId);
+  const { mutateAsync: save, isPending } = useUpdatePatientNote(note.patientId);
 
   const handleSave = async (): Promise<void> => {
-    if (!text.trim()) return;
-    await save({ resourceId: note.resourceId, patientId: note.patientId, text: text.trim() });
+    if (!text.trim() || !note.resourceId) return;
+    const payload: UpdatePatientNoteRequest = {
+      resourceId: note.resourceId,
+      patientId: note.patientId,
+      text: text.trim(),
+    };
+    await save(payload);
     onClose();
   };
 

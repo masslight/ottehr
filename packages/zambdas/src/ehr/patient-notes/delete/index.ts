@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { FHIR_RESOURCE_VALIDATION_ERROR, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { getMyPractitionerId } from '../../../shared/practitioners';
@@ -20,15 +21,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const resource = await oystehr.fhir.get<Communication>({ resourceType: 'Communication', id: resourceId });
 
   const hasPatientNoteTag = resource.meta?.tag?.some((tag) => `${tag.system}|${tag.code}` === PATIENT_NOTE_TAG);
-  if (!hasPatientNoteTag) {
-    throw new Error('Resource is not a patient note');
-  }
+  if (!hasPatientNoteTag) throw FHIR_RESOURCE_VALIDATION_ERROR('Resource is not a patient note');
 
   const callerId = await getMyPractitionerId(userToken, secrets);
   const senderId = resource.sender?.reference?.split('/')[1];
-  if (callerId !== senderId) {
-    throw new Error('You are not authorized to delete this note');
-  }
+  if (callerId !== senderId) throw NOT_AUTHORIZED;
 
   await oystehr.fhir.update<Communication>({ ...resource, id: resourceId, status: 'entered-in-error' });
 

@@ -112,12 +112,12 @@ import {
   UpdatePatientLoginPhoneNumbersInput,
 } from 'utils/lib/types/api/patient-login-phone-numbers.types';
 import {
+  CreatePatientNoteInput,
   DeletePatientNoteInput,
   GetPatientNotesOutput,
   PatientNoteDTO,
-  SavePatientNoteInput,
   SavePatientNoteOutput,
-  SavePatientNoteRequest,
+  UpdatePatientNoteInput,
 } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import {
   PracticeKpisReportZambdaInput,
@@ -3696,12 +3696,25 @@ export const getPatientNotes = async (
   }
 };
 
-export const savePatientNote = async (
+export const createPatientNote = async (
   oystehr: Oystehr,
-  parameters: SavePatientNoteInput
+  parameters: CreatePatientNoteInput
 ): Promise<SavePatientNoteOutput> => {
   try {
-    const response = await oystehr.zambda.execute({ id: 'save-patient-note', ...parameters });
+    const response = await oystehr.zambda.execute({ id: 'create-patient-note', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const updatePatientNote = async (
+  oystehr: Oystehr,
+  parameters: UpdatePatientNoteInput
+): Promise<SavePatientNoteOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'update-patient-note', ...parameters });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -3719,4 +3732,4 @@ export const deletePatientNote = async (oystehr: Oystehr, parameters: DeletePati
 };
 
 // Re-export for convenience in callers that import from this module
-export type { PatientNoteDTO, SavePatientNoteRequest };
+export type { PatientNoteDTO };

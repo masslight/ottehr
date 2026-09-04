@@ -1,18 +1,19 @@
 import { useMutation, UseMutationResult, useQueryClient } from '@tanstack/react-query';
-import { PatientNoteDTO, SavePatientNoteRequest } from 'utils/lib/types/api/patient-notes/patient-notes.types';
-import { savePatientNote } from '../../../api/api';
+import { CreatePatientNoteRequest } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { PatientNoteDTO } from '../../../api/api';
+import { createPatientNote } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 
-export const useSavePatientNote = (
+export const useCreatePatientNote = (
   patientId: string | undefined
-): UseMutationResult<PatientNoteDTO, Error, SavePatientNoteRequest> => {
+): UseMutationResult<PatientNoteDTO, Error, CreatePatientNoteRequest> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (note: SavePatientNoteRequest): Promise<PatientNoteDTO> => {
+    mutationFn: async (note: CreatePatientNoteRequest): Promise<PatientNoteDTO> => {
       if (!oystehrZambda) throw new Error('API client not available');
-      const result = await savePatientNote(oystehrZambda, { note });
+      const result = await createPatientNote(oystehrZambda, { note });
       return result.note;
     },
     onSuccess: () => {

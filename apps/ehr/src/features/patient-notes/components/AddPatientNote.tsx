@@ -1,7 +1,7 @@
 import { Box, CircularProgress, TextField } from '@mui/material';
 import React, { useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { useSavePatientNote } from '../hooks/useSavePatientNote';
+import { useCreatePatientNote } from '../hooks/useCreatePatientNote';
 
 interface AddPatientNoteProps {
   patientId: string;
@@ -9,7 +9,7 @@ interface AddPatientNoteProps {
 
 export const AddPatientNote: React.FC<AddPatientNoteProps> = ({ patientId }) => {
   const [text, setText] = useState('');
-  const { mutateAsync: save, isPending } = useSavePatientNote(patientId);
+  const { mutateAsync: save, isPending } = useCreatePatientNote(patientId);
 
   const handleSave = async (): Promise<void> => {
     if (!text.trim()) return;
