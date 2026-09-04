@@ -1,6 +1,14 @@
-import { Claim, ClaimResponse } from 'fhir/r4b';
+import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import { describe, expect, it } from 'vitest';
-import { claimMatchesServiceDateRange, getClaimServiceDate, mapClaimToItem } from '../../../src/billing/claim-search';
+import {
+  CLAIM_LIST_ELEMENTS,
+  claimMatchesServiceDateRange,
+  getClaimServiceDate,
+  mapClaimToItem,
+} from '../../../src/billing/claim-search';
 
 type Lookups = Parameters<typeof mapClaimToItem>[1];
 
@@ -140,6 +148,286 @@ describe('mapClaimToItem: rendering provider', () => {
   it('leaves the column blank when the claim has no care team', () => {
     const item = mapClaimToItem(makeClaim('claim-1', 100), makeLookups(new Map()));
     expect(item.renderingProvider).toBe('');
+  });
+});
+
+describe('CLAIM_LIST_ELEMENTS', () => {
+  const keptFieldsFor = (resourceType: string): string[] =>
+    CLAIM_LIST_ELEMENTS.split(',')
+      .filter((element) => element.startsWith(`${resourceType}.`))
+      .map((element) => element.slice(resourceType.length + 1));
+
+  const narrow = <T extends Resource>(resource: T): T => {
+    const kept = keptFieldsFor(resource.resourceType);
+    return Object.fromEntries(
+      Object.entries(resource).filter(([field]) => field === 'resourceType' || kept.includes(field))
+    ) as T;
+  };
+
+  const ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
+
+  const fullClaim = {
+    resourceType: 'Claim',
+    id: 'claim-1',
+    status: 'active',
+    created: '2026-07-21',
+    type: {
+      coding: [
+        {
+          system: 'http://terminology.hl7.org/CodeSystem/claim-type',
+          code: 'professional',
+        },
+      ],
+    },
+    identifier: [
+      {
+        system: ENCOUNTER_ID_SYSTEM,
+        value: 'encounter-1',
+      },
+    ],
+    total: {
+      value: 250,
+      currency: 'USD',
+    },
+    patient: {
+      reference: 'Patient/patient-1',
+    },
+    insurer: {
+      reference: 'Organization/payer-1',
+    },
+    facility: {
+      reference: 'Location/location-1',
+    },
+    provider: {
+      reference: 'Organization/billing-1',
+    },
+    careTeam: [
+      {
+        sequence: 1,
+        provider: {
+          reference: 'Practitioner/practitioner-1',
+        },
+      },
+    ],
+    insurance: [
+      {
+        sequence: 1,
+        focal: true,
+        coverage: {
+          reference: 'Coverage/coverage-1',
+        },
+      },
+    ],
+    item: [
+      {
+        sequence: 1,
+        servicedPeriod: {
+          start: '2026-07-19',
+        },
+      },
+    ],
+    meta: {
+      tag: [
+        {
+          system: CLAIM_STATUS_TAG_SYSTEMS.arStage,
+          code: AR_STAGE.insurancePayer,
+        },
+        {
+          system: CLAIM_TAG_SYSTEM,
+          code: 'needs-review',
+        },
+      ],
+    },
+    diagnosis: [
+      {
+        sequence: 1,
+        diagnosisCodeableConcept: {
+          coding: [
+            {
+              code: 'J06.9',
+            },
+          ],
+        },
+      },
+    ],
+    supportingInfo: [
+      {
+        sequence: 1,
+        category: {
+          text: 'attachment',
+        },
+      },
+    ],
+  } as unknown as Claim;
+
+  const patient = {
+    resourceType: 'Patient',
+    id: 'patient-1',
+    name: [
+      {
+        family: 'Smith',
+        given: ['John'],
+      },
+    ],
+    birthDate: '1990-01-01',
+    address: [
+      {
+        city: 'Boston',
+      },
+    ],
+  } as unknown as Patient;
+
+  const location = {
+    resourceType: 'Location',
+    id: 'location-1',
+    name: 'Riverside Clinic',
+    telecom: [
+      {
+        system: 'phone',
+        value: '5551234567',
+      },
+    ],
+  } as unknown as Location;
+
+  const practitioner = {
+    resourceType: 'Practitioner',
+    id: 'practitioner-1',
+    name: [
+      {
+        family: 'Black',
+        given: ['Oliver'],
+      },
+    ],
+    qualification: [
+      {
+        code: {
+          text: 'MD',
+        },
+      },
+    ],
+  } as unknown as Practitioner;
+
+  const payer = {
+    resourceType: 'Organization',
+    id: 'payer-1',
+    name: 'Acme Health',
+    address: [
+      {
+        city: 'Boston',
+      },
+    ],
+  } as unknown as Organization;
+
+  const lookupsFor = ({
+    claimPatient,
+    claimLocation,
+    claimPractitioner,
+    claimPayer,
+  }: {
+    claimPatient: Patient;
+    claimLocation: Location;
+    claimPractitioner: Practitioner;
+    claimPayer: Organization;
+  }): Lookups => ({
+    patients: [claimPatient],
+    payersByRef: new Map([['Organization/payer-1', claimPayer]]),
+    locations: [claimLocation],
+    providers: [claimPractitioner],
+    coverages: [
+      {
+        resourceType: 'Coverage',
+        id: 'coverage-1',
+        subscriberId: 'MEM-1',
+      } as unknown as Coverage,
+    ],
+    claimResponsesByClaimId: new Map(),
+    patientPaidByClaimId: new Map([['claim-1', 25]]),
+  });
+
+  // Every field each fixture carries that the list is meant to strip. The accounting test below
+  // ties this and CLAIM_LIST_ELEMENTS to the fixtures, so adding a field to a fixture forces it
+  // into one list or the other — which stops a newly read field being left out of _elements.
+  const narrowedFixtures = [
+    {
+      resource: fullClaim as Resource,
+      dropped: ['diagnosis', 'supportingInfo'],
+    },
+    {
+      resource: patient as Resource,
+      dropped: ['address'],
+    },
+    {
+      resource: location as Resource,
+      dropped: ['telecom'],
+    },
+    {
+      resource: practitioner as Resource,
+      dropped: ['qualification'],
+    },
+    {
+      resource: payer as Resource,
+      dropped: ['address'],
+    },
+  ];
+
+  it('keeps every field the row mapping reads', () => {
+    const fromFull = mapClaimToItem(
+      fullClaim,
+      lookupsFor({
+        claimPatient: patient,
+        claimLocation: location,
+        claimPractitioner: practitioner,
+        claimPayer: payer,
+      })
+    );
+    const fromNarrowed = mapClaimToItem(
+      narrow(fullClaim),
+      lookupsFor({
+        claimPatient: narrow(patient),
+        claimLocation: narrow(location),
+        claimPractitioner: narrow(practitioner),
+        claimPayer: narrow(payer),
+      })
+    );
+    expect(fromNarrowed).toEqual(fromFull);
+    // Guard against a list so narrow that everything collapses to defaults and the rows still match.
+    expect(fromFull.serviceDate).toBe('2026-07-19');
+    expect(fromFull.memberId).toBe('MEM-1');
+    expect(fromFull.rulesEngine).toBe('claim-submission');
+    expect(fromFull.payerName).toBe('Acme Health');
+  });
+
+  it.each(narrowedFixtures)(
+    'accounts for every $resource.resourceType field in the element list',
+    ({ resource, dropped }) => {
+      const fixtureFields = Object.keys(resource).filter((field) => field !== 'resourceType');
+      const kept = keptFieldsFor(resource.resourceType);
+
+      // An element nothing in the fixture carries is an element the narrowing test never exercises.
+      expect(kept.filter((field) => !fixtureFields.includes(field))).toEqual([]);
+      // A fixture field that is neither kept nor expected to be dropped is a field someone added
+      // without deciding whether the list needs it.
+      expect(fixtureFields.filter((field) => !kept.includes(field) && !dropped.includes(field))).toEqual([]);
+      expect(dropped.filter((field) => !fixtureFields.includes(field))).toEqual([]);
+    }
+  );
+
+  // fetchPatientPaidByClaimId reads this outside mapClaimToItem, so the test above cannot catch it:
+  // without the identifier every row silently reports a patient paid of zero.
+  it('keeps the encounter identifier the patient payment lookup joins on', () => {
+    expect(narrow(fullClaim).identifier?.find((id) => id.system === ENCOUNTER_ID_SYSTEM)?.value).toBe('encounter-1');
+  });
+
+  it.each(narrowedFixtures)('drops the $resource.resourceType fields the list never reads', ({ resource, dropped }) => {
+    const narrowed = narrow(resource) as unknown as Record<string, unknown>;
+    dropped.forEach((field) => expect(narrowed[field]).toBeUndefined());
+    expect(dropped.length).toBeGreaterThan(0);
+  });
+
+  it('narrows every resource type the list includes, so none is returned whole', () => {
+    ['Claim', 'Patient', 'Location', 'Practitioner', 'Organization'].forEach((resourceType) =>
+      expect(keptFieldsFor(resourceType).length).toBeGreaterThan(0)
+    );
   });
 });
 

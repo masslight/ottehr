@@ -36,6 +36,7 @@ import {
   isPatientDemographicsComplete,
 } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
 import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
 import { CONSENT_FORMS_CONFIG } from 'utils/lib/ottehr-config/consent-forms';
@@ -60,7 +61,6 @@ import {
   getAppointmentQueryInput,
   getTimezone,
   getTimezoneResourceIdFromAppointment,
-  isResponseSizeExceededError,
   mergeResources,
   parseAttenderProviderType,
   parseEncounterParticipants,

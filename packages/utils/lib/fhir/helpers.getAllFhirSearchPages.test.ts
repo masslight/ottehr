@@ -1,6 +1,7 @@
+import Oystehr from '@oystehr/sdk';
 import { Bundle, FhirResource, Patient } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getAllFhirSearchPages } from './getAllFhirSearchPages';
+import { getAllFhirSearchPages, withResponseSizeRetry } from './getAllFhirSearchPages';
 
 // Mock Oystehr SDK
 const mockOystehr = {
@@ -440,5 +441,327 @@ describe('getAllFhirSearchPages', () => {
     expect(patient1Occurrences).toHaveLength(1);
     expect(patient2Occurrences).toHaveLength(1);
     expect(sharedPatientOccurrences).toHaveLength(1);
+  });
+});
+
+const patientsNumbered = (from: number, count: number): Patient[] =>
+  Array.from({ length: count }, (_unused, index) => ({
+    resourceType: 'Patient' as const,
+    id: `${from + index}`,
+  }));
+
+const pageOf = (patients: Patient[], total: number): Bundle<Patient> => {
+  const bundle: Bundle<Patient> = {
+    resourceType: 'Bundle',
+    type: 'searchset',
+    total,
+    entry: patients.map((patient) => ({
+      resource: patient,
+      search: {
+        mode: 'match',
+      },
+    })),
+  };
+  (bundle as any).unbundle = () => patients;
+  return bundle;
+};
+
+const responseTooLarge = (): Error =>
+  new Oystehr.OystehrSdkError({
+    code: 4130,
+    // assume 7Mb instead of 6
+    message: 'An internal response size (7,340,032) exceeds the maximum allowed size (6,291,456).',
+  });
+
+const countOfCall = (nth: number): string | undefined =>
+  mockOystehr.fhir.search.mock.calls[nth - 1][0].params.find((param: any) => param.name === '_count')?.value;
+
+const offsetOfCall = (nth: number): string | undefined =>
+  mockOystehr.fhir.search.mock.calls[nth - 1][0].params.find((param: any) => param.name === '_offset')?.value;
+
+describe('getAllFhirSearchPages response size handling', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  });
+
+  it('halves the page and retries the same offset when the server refuses the response size', async () => {
+    const patients = patientsNumbered(1, 2);
+    mockOystehr.fhir.search.mockRejectedValueOnce(responseTooLarge()).mockResolvedValueOnce(pageOf(patients, 2));
+
+    const result = await getAllFhirSearchPages<Patient>(
+      {
+        resourceType: 'Patient',
+        params: [],
+      },
+      mockOystehr as any,
+      4
+    );
+
+    expect(result).toEqual(patients);
+    expect(mockOystehr.fhir.search).toHaveBeenCalledTimes(2);
+    expect([countOfCall(1), offsetOfCall(1)]).toEqual(['4', '0']);
+    expect([countOfCall(2), offsetOfCall(2)]).toEqual(['2', '0']);
+  });
+
+  // Rediscovering the limit on every page would double the request count for a long drain.
+  it('keeps the reduced page size for the pages that follow', async () => {
+    mockOystehr.fhir.search
+      .mockRejectedValueOnce(responseTooLarge())
+      .mockResolvedValueOnce(pageOf(patientsNumbered(1, 2), 4))
+      .mockResolvedValueOnce(pageOf(patientsNumbered(3, 2), 4));
+
+    const result = await getAllFhirSearchPages<Patient>(
+      {
+        resourceType: 'Patient',
+        params: [],
+      },
+      mockOystehr as any,
+      4
+    );
+
+    expect(result.map((patient) => patient.id)).toEqual(['1', '2', '3', '4']);
+    expect(mockOystehr.fhir.search).toHaveBeenCalledTimes(3);
+    expect([countOfCall(3), offsetOfCall(3)]).toEqual(['2', '2']);
+  });
+
+  it('halves all the way down to a page of one before rethrowing the server error', async () => {
+    const error = responseTooLarge();
+    mockOystehr.fhir.search.mockRejectedValue(error);
+
+    await expect(
+      getAllFhirSearchPages<Patient>(
+        {
+          resourceType: 'Patient',
+          params: [],
+        },
+        mockOystehr as any,
+        1000
+      )
+    ).rejects.toThrow(error);
+
+    expect(mockOystehr.fhir.search.mock.calls.map((_call, index) => countOfCall(index + 1))).toEqual([
+      '1000',
+      '500',
+      '250',
+      '125',
+      '62',
+      '31',
+      '15',
+      '7',
+      '3',
+      '1',
+    ]);
+  });
+
+  it('stops halving rather than asking for a page of zero', async () => {
+    mockOystehr.fhir.search.mockRejectedValue(responseTooLarge());
+
+    await expect(
+      getAllFhirSearchPages<Patient>(
+        {
+          resourceType: 'Patient',
+          params: [],
+        },
+        mockOystehr as any,
+        1
+      )
+    ).rejects.toThrow('exceeds the maximum allowed size');
+
+    expect(mockOystehr.fhir.search).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry a failure that shrinking the page cannot fix', async () => {
+    mockOystehr.fhir.search.mockRejectedValue(new Error('unsupported search parameter'));
+
+    await expect(
+      getAllFhirSearchPages<Patient>(
+        {
+          resourceType: 'Patient',
+          params: [],
+        },
+        mockOystehr as any,
+        1000
+      )
+    ).rejects.toThrow('unsupported search parameter');
+
+    expect(mockOystehr.fhir.search).toHaveBeenCalledTimes(1);
+  });
+});
+
+const pageWithoutTotal = (patients: Patient[]): Bundle<Patient> => {
+  const bundle: Bundle<Patient> = {
+    resourceType: 'Bundle',
+    type: 'searchset',
+    entry: patients.map((patient) => ({
+      resource: patient,
+      search: {
+        mode: 'match',
+      },
+    })),
+  };
+  (bundle as any).unbundle = () => patients;
+  return bundle;
+};
+
+const includeOnlyPage = (patients: Patient[], total: number): Bundle<Patient> => {
+  const bundle: Bundle<Patient> = {
+    resourceType: 'Bundle',
+    type: 'searchset',
+    total,
+    entry: patients.map((patient) => ({
+      resource: patient,
+      search: {
+        mode: 'include',
+      },
+    })),
+  };
+  (bundle as any).unbundle = () => patients;
+  return bundle;
+};
+
+const answerAtMost = (calls: number, page: () => Bundle<Patient>): void => {
+  for (let served = 0; served < calls; served += 1) mockOystehr.fhir.search.mockResolvedValueOnce(page());
+  mockOystehr.fhir.search.mockRejectedValueOnce(new Error(`kept paging past ${calls} request(s) without advancing`));
+};
+
+describe('getAllFhirSearchPages paging guards', () => {
+  beforeEach(() => {
+    mockOystehr.fhir.search.mockReset();
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  });
+
+  it('stops when a page advances nothing, however many the server claims remain', async () => {
+    const included = patientsNumbered(1, 2);
+    answerAtMost(2, () => includeOnlyPage(included, 500));
+
+    const result = await getAllFhirSearchPages<Patient>(
+      {
+        resourceType: 'Patient',
+        params: [],
+      },
+      mockOystehr as any,
+      1
+    );
+
+    expect(result).toEqual(included);
+    expect(mockOystehr.fhir.search).toHaveBeenCalledTimes(1);
+  });
+
+  it('pages past the first page when the bundle carries no total', async () => {
+    mockOystehr.fhir.search
+      .mockResolvedValueOnce(pageWithoutTotal(patientsNumbered(1, 2)))
+      .mockResolvedValueOnce(pageWithoutTotal(patientsNumbered(3, 1)));
+
+    const result = await getAllFhirSearchPages<Patient>(
+      {
+        resourceType: 'Patient',
+        params: [],
+      },
+      mockOystehr as any,
+      2
+    );
+
+    expect(result.map((patient) => patient.id)).toEqual(['1', '2', '3']);
+    expect(mockOystehr.fhir.search).toHaveBeenCalledTimes(2);
+    expect([offsetOfCall(1), offsetOfCall(2)]).toEqual(['0', '2']);
+  });
+
+  it('ends a total-less drain on the first empty page when every page came back full', async () => {
+    mockOystehr.fhir.search
+      .mockResolvedValueOnce(pageWithoutTotal(patientsNumbered(1, 2)))
+      .mockResolvedValueOnce(pageWithoutTotal(patientsNumbered(3, 2)))
+      .mockResolvedValueOnce(pageWithoutTotal([]));
+
+    const result = await getAllFhirSearchPages<Patient>(
+      {
+        resourceType: 'Patient',
+        params: [],
+      },
+      mockOystehr as any,
+      2
+    );
+
+    expect(result.map((patient) => patient.id)).toEqual(['1', '2', '3', '4']);
+    expect(mockOystehr.fhir.search).toHaveBeenCalledTimes(3);
+  });
+
+  it('remembers a total seen on an earlier page when a later one omits it', async () => {
+    mockOystehr.fhir.search
+      .mockResolvedValueOnce(pageOf(patientsNumbered(1, 2), 3))
+      .mockResolvedValueOnce(pageWithoutTotal(patientsNumbered(3, 2)));
+
+    const result = await getAllFhirSearchPages<Patient>(
+      {
+        resourceType: 'Patient',
+        params: [],
+      },
+      mockOystehr as any,
+      2
+    );
+
+    expect(result.map((patient) => patient.id)).toEqual(['1', '2', '3', '4']);
+    expect(mockOystehr.fhir.search).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('withResponseSizeRetry', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  });
+
+  it('reports the reduced size the attempt finally succeeded at', async () => {
+    const attempt = vi.fn(async (pageSize: number) => {
+      if (pageSize > 250) throw responseTooLarge();
+      return `ok at ${pageSize}`;
+    });
+
+    const outcome = await withResponseSizeRetry({
+      attempt,
+      initialPageSize: 1000,
+      label: 'Patient search at offset 0',
+    });
+
+    expect(outcome).toEqual({
+      result: 'ok at 250',
+      pageSize: 250,
+    });
+    expect(attempt.mock.calls.map(([pageSize]) => pageSize)).toEqual([1000, 500, 250]);
+  });
+
+  it('rethrows a failure shrinking the page cannot fix, without retrying', async () => {
+    const attempt = vi.fn(async () => {
+      throw new Error('unsupported search parameter');
+    });
+
+    await expect(
+      withResponseSizeRetry({
+        attempt,
+        initialPageSize: 1000,
+        label: 'Patient search at offset 0',
+      })
+    ).rejects.toThrow('unsupported search parameter');
+
+    expect(attempt).toHaveBeenCalledTimes(1);
+  });
+
+  it('halves all the way down to a page of one before rethrowing the server error', async () => {
+    const error = responseTooLarge();
+    const attempted: number[] = [];
+    const attempt = vi.fn(async (pageSize: number) => {
+      attempted.push(pageSize);
+      throw error;
+    });
+
+    await expect(
+      withResponseSizeRetry({
+        attempt,
+        initialPageSize: 1000,
+        label: 'Patient search at offset 0',
+      })
+    ).rejects.toThrow(error);
+
+    expect(attempted).toEqual([1000, 500, 250, 125, 62, 31, 15, 7, 3, 1]);
   });
 });

@@ -1,20 +1,23 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
-import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { Claim, Resource } from 'fhir/r4b';
+import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
+import { CLAIM_SCAN_MATCH_LIMIT } from 'utils/lib/types/data/billing/billing.constants';
 import { SearchBillingClaimsResponse } from 'utils/lib/types/data/billing/billing.types';
+import { CLAIM_SEARCH_TOO_BROAD_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import {
   buildClaimFilterParams,
-  CLAIM_LIST_INCLUDE_PARAMS,
+  CLAIM_LIST_PARAMS,
   claimMatchesServiceDateRange,
   enrichAndMapClaims,
   fetchClaimsPageByIds,
+  scanClaimIds,
   searchClaimsBySearchText,
 } from '../claim-search';
-import { createBillingClient } from '../shared';
+import { ClaimSearchParam, createBillingClient } from '../shared';
 import { SearchBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -33,13 +36,37 @@ async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingClaimsParams
 ): Promise<SearchBillingClaimsResponse> {
-  const pageSize = params.pageSize ?? 25;
-  const offset = params.offset ?? 0;
-
   const filterParams = await buildClaimFilterParams({
     oystehr,
     params,
   });
+
+  try {
+    return await searchClaims({
+      oystehr,
+      params,
+      filterParams,
+    });
+  } catch (error) {
+    if (isResponseSizeExceededError(error)) {
+      console.error('Claim search exceeded the FHIR response size limit:', error);
+      throw CLAIM_SEARCH_TOO_BROAD_ERROR;
+    }
+    throw error;
+  }
+}
+
+async function searchClaims({
+  oystehr,
+  params,
+  filterParams,
+}: {
+  oystehr: Oystehr;
+  params: SearchBillingClaimsParams;
+  filterParams: ClaimSearchParam[];
+}): Promise<SearchBillingClaimsResponse> {
+  const pageSize = params.pageSize ?? 25;
+  const offset = params.offset ?? 0;
 
   const filteringByServiceDate = Boolean(params.serviceDateFrom || params.serviceDateTo);
 
@@ -48,17 +75,26 @@ async function performEffect(
   let total: number;
   let incomplete = false;
 
-  if (params.searchText) {
-    // FHIR ANDs separate search parameters and only ORs within one, so searching several fields at
-    // once means several searches, and their union can only be paginated here rather than by the
-    // server. _filter would express it as one paginated search, but Oystehr discards _filter.
-    const matched = await searchClaimsBySearchText({
-      oystehr,
-      searchText: params.searchText,
-      filterParams,
-      withServiceDateElements: filteringByServiceDate,
-      patientNameOnly: params.patientNameOnly,
-    });
+  // Neither a search text nor a service date can be paginated by the server: FHIR ANDs separate
+  // search parameters and only ORs within one, so searching several fields at once means several
+  // searches whose union only exists here (_filter would express it as one paginated search, but
+  // Oystehr discards _filter), and Claim has no service-date search parameter at all. Both
+  // therefore scan for matching ids, page in memory, and hydrate only the page they settle on.
+  if (params.searchText || filteringByServiceDate) {
+    const matched = params.searchText
+      ? await searchClaimsBySearchText({
+          oystehr,
+          searchText: params.searchText,
+          filterParams,
+          withServiceDateElements: filteringByServiceDate,
+          patientNameOnly: params.patientNameOnly,
+        })
+      : await scanClaimIds({
+          oystehr,
+          params: filterParams,
+          maxMatches: CLAIM_SCAN_MATCH_LIMIT,
+          withServiceDate: true,
+        });
     incomplete = matched.incomplete;
     const matching = filteringByServiceDate
       ? matched.claims.filter((c) => claimMatchesServiceDateRange(c, params.serviceDateFrom, params.serviceDateTo))
@@ -70,24 +106,11 @@ async function performEffect(
     });
     pageClaims = page.claims;
     includedResources = page.includedResources;
-  } else if (filteringByServiceDate) {
-    includedResources = await getAllFhirSearchPages<Claim | Patient | Location | Practitioner | Organization>(
-      {
-        resourceType: 'Claim',
-        params: [...CLAIM_LIST_INCLUDE_PARAMS, ...filterParams],
-      },
-      oystehr
-    );
-    const matching = includedResources
-      .filter((r): r is Claim => r.resourceType === 'Claim')
-      .filter((c) => claimMatchesServiceDateRange(c, params.serviceDateFrom, params.serviceDateTo));
-    total = matching.length;
-    pageClaims = matching.slice(offset, offset + pageSize);
   } else {
     const bundle = await oystehr.fhir.search<Claim>({
       resourceType: 'Claim',
       params: [
-        ...CLAIM_LIST_INCLUDE_PARAMS,
+        ...CLAIM_LIST_PARAMS,
         ...filterParams,
         { name: '_count', value: String(pageSize) },
         { name: '_offset', value: String(offset) },
