@@ -1,9 +1,9 @@
 import { Stack } from '@mui/material';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
-import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
+import { getLocationLabel, LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { PatientSelectInput } from 'src/components/input/PatientSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
@@ -28,17 +28,39 @@ import {
 interface Props {
   open: boolean;
   handleClose: () => void;
+  /** Appointment to prefill; falls back to the `:id` url param when omitted. */
+  appointmentId?: string;
+  /** Patient to prefill when no appointment supplies one (appointment prefill wins). */
+  initialPatient?: { id: string; name: string };
 }
 
-export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
+export const CreateTaskDialog: React.FC<Props> = ({
+  open,
+  handleClose,
+  appointmentId: appointmentIdProp,
+  initialPatient,
+}) => {
   const methods = useForm();
   const formValue = methods.watch();
 
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Context prefills apply at most once per dialog open, so a field the user
+  // deliberately cleared isn't re-filled when a dep changes identity mid-open.
+  const prefillApplied = useRef({ patient: false, location: false });
+
+  // StrictMode double-invokes mount effects but refs survive the simulated remount;
+  // reset on cleanup so each mount's prefill pass starts fresh.
+  useEffect(() => {
+    return () => {
+      prefillApplied.current = { patient: false, location: false };
+    };
+  }, []);
+
   useEffect(() => {
     if (!open) {
       methods.reset();
+      prefillApplied.current = { patient: false, location: false };
     }
     setRefreshKey(Date.now());
   }, [open, methods]);
@@ -126,7 +148,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
   }, [formValue.appointment, formValue.category, methods]);
 
   const urlParams = useParams();
-  const appointmentId = urlParams['id'];
+  const appointmentId = appointmentIdProp ?? urlParams['id'];
   const appointment = useAppointmentData(appointmentId);
   useEffect(() => {
     if (appointment.patient && open) {
@@ -139,12 +161,26 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
   }, [appointmentId, appointment, methods, open]);
 
   useEffect(() => {
+    if (
+      open &&
+      initialPatient &&
+      !prefillApplied.current.patient &&
+      !appointment.patient &&
+      !methods.getValues('patient')
+    ) {
+      methods.setValue('patient', initialPatient);
+      prefillApplied.current.patient = true;
+    }
+  }, [open, initialPatient, appointment.patient, methods]);
+
+  // useParams() returns an unstable {} outside a matched Route, so the effect deps must be the primitive params, not the object.
+  const orderFullUrl = urlParams['*'];
+  const serviceRequestId = urlParams['serviceRequestID'];
+  const procedureId = urlParams['procedureId'];
+  useEffect(() => {
     if (!open) {
       return;
     }
-    const orderFullUrl = urlParams['*'];
-    const serviceRequestId = urlParams['serviceRequestID'];
-    const procedureId = urlParams['procedureId'];
     if (orderFullUrl?.startsWith('in-house-lab-orders') && serviceRequestId) {
       methods.setValue('category', MANUAL_TASK.category.inHouseLab);
       methods.setValue('order', serviceRequestId);
@@ -168,7 +204,15 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
     methods.setValue('taskDetails', null);
     methods.setValue('assignee', null);
     methods.setValue('location', null);
-  }, [urlParams, methods, open]);
+  }, [orderFullUrl, serviceRequestId, procedureId, methods, open]);
+
+  // Visit context implies the location; declared after the URL-context effect above so its 'location' clear on open runs first.
+  useEffect(() => {
+    if (open && appointment.location?.id && !prefillApplied.current.location && !methods.getValues('location')) {
+      methods.setValue('location', { id: appointment.location.id, name: getLocationLabel(appointment.location) });
+      prefillApplied.current.location = true;
+    }
+  }, [open, appointment.location, methods]);
 
   return (
     <InPersonModal
