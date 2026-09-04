@@ -383,6 +383,14 @@ export interface ClaimRemit {
   adjustments: ClaimRemitAdjustment[];
 }
 
+export interface ClaimAttachment {
+  sequence: number;
+  id: string;
+  fileName: string;
+  reportTypeCode?: string;
+  dateAdded: string;
+}
+
 export interface ClaimDetailResponse {
   id: string;
   // Clinical Encounter this claim was generated from (from the claim's claim-encounter-id identifier).
@@ -468,6 +476,7 @@ export interface ClaimDetailResponse {
     serviceDate: string;
     placeOfService: string;
     diagnosisPointers: number[];
+    revenueCode: string;
   }[];
   billed: number;
   allowed: number;
@@ -489,7 +498,14 @@ export interface ClaimDetailResponse {
     cptCodes: string[];
   }[];
   tags: string[];
-  pcn: string;
+  pcn?: string;
+  billType: string;
+  patientDischargeStatusCode: string;
+  admissionType: string;
+  admissionSource: string;
+  admissionDate: string;
+  dischargeDate: string;
+  attachments: ClaimAttachment[];
 }
 
 interface Paginated {
@@ -581,6 +597,19 @@ export interface SearchBillingTagsResponse {
   tags: BillingTag[];
 }
 
+// Refresh state of a cached billing report.
+export interface ReportRefreshStatus {
+  state: 'idle' | 'running' | 'error';
+  // when the served cache was generated
+  lastCompletedAt?: string;
+  // worker phase text while running
+  progress?: string;
+  // most recent failure's reason
+  error?: string;
+  // stored (gzip) size of the served cache object
+  cacheSizeBytes?: number;
+}
+
 export type GetBillingCoverageResponse = BillingCoverageOption;
 
 export interface GetPatientCoveragesResponse {
@@ -658,4 +687,12 @@ export interface RecordBillingManualPaymentResponse {
   paymentNoticeId: string;
   // present when the notice is linked to an existing billing Claim
   claimId?: string;
+}
+
+export interface AddClaimAttachmentResponse {
+  uploadUrl: string;
+}
+
+export interface DownloadClaimAttachmentResponse {
+  downloadUrl: string;
 }

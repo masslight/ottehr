@@ -627,10 +627,15 @@ export async function makeOrderFormsAndDocRefs(
     { docRefPromises: [], presignedOrderFormURLPromises: [] }
   );
 
-  const [_docRefs, presignedOrderFormURLs] = await Promise.all([
+  const [docRefs, presignedOrderFormURLs] = await Promise.all([
     Promise.all(docRefPromises),
     Promise.all(presignedOrderFormURLPromises),
   ]);
+
+  console.log(
+    'These are the docRefs made for the order forms:',
+    docRefs.map((dr) => `DocumentReference/${dr.id}`)
+  );
 
   return presignedOrderFormURLs;
 }

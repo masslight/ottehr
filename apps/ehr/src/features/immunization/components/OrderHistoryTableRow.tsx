@@ -24,15 +24,27 @@ interface Props {
   order: ImmunizationOrder;
   showActions: boolean;
   showGiven?: boolean;
+  onEditOrder?: (orderId: string) => void;
+  onShowDetails?: (orderId: string) => void;
 }
 
-export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions, showGiven = true }) => {
+export const OrderHistoryTableRow: React.FC<Props> = ({
+  order,
+  showActions,
+  showGiven = true,
+  onEditOrder,
+  onShowDetails,
+}) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
   const [isDeleteDialogOpened, setIsDeleteDialogOpened] = useState(false);
 
   const navigateToEditOrder = (): void => {
+    if (onEditOrder) {
+      onEditOrder(order.id);
+      return;
+    }
     if (!appointmentId) {
       enqueueSnackbar('navigation error', { variant: 'error' });
       return;
@@ -57,6 +69,10 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions, show
   const isPending = order.status === 'pending';
 
   const navigateToDetails = (): void => {
+    if (onShowDetails) {
+      onShowDetails(order.id);
+      return;
+    }
     if (!appointmentId) return;
     requestAnimationFrame(() => {
       navigate(`${getImmunizationVaccineDetailsUrl(appointmentId)}?scrollTo=${order.id}`);

@@ -17,6 +17,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BILLING_RESOURCE_TAG, PRIVATE_EXTENSION_BASE_URL, PUBLIC_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { undefinedIfEmptyArray } from 'utils/lib/fhir/helpers';
 import { pickFirstValueFromAnswerItem } from 'utils/lib/helpers/paperwork/paperwork';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { TELEMED_VIDEO_ROOM_CODE, TIMEZONES } from 'utils/lib/types/constants';
@@ -298,4 +299,8 @@ export function resolveTimezone(schedule?: Schedule, location?: Location, fallba
 
 export function updateExtension(resource: DomainResource, extension: Extension): void {
   resource.extension = [...(resource.extension ?? []).filter((ext) => ext.url !== extension.url), extension];
+}
+
+export function removeExtension(resource: DomainResource, url: string): void {
+  resource.extension = undefinedIfEmptyArray((resource.extension ?? []).filter((ext) => ext.url !== url));
 }

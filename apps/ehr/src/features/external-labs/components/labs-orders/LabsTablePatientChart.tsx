@@ -1,6 +1,11 @@
 import { Box, Button, Pagination, Typography } from '@mui/material';
 import { ReactElement } from 'react';
-import { GetLabOrdersParameters, LabsTableColumn } from 'utils/lib/types/data/labs/labs.types';
+import {
+  GetLabOrdersParameters,
+  LabOrderListPageDTO,
+  LabsTableColumn,
+  ReflexLabDTO,
+} from 'utils/lib/types/data/labs/labs.types';
 import { LabOrderLoading } from './LabOrderLoading';
 import { LabsTableContainer } from './LabsTableContainer';
 import { usePatientLabOrders } from './usePatientLabOrders';
@@ -11,6 +16,8 @@ type LabsTablePatientChartProps<SearchBy extends GetLabOrdersParameters> = {
   allowDelete: boolean;
   allowSubmit: boolean;
   onCreateOrder?: () => void;
+  onRowClick: (labOrderData: LabOrderListPageDTO) => void;
+  onDrDrivenRowClick: (result: ReflexLabDTO) => void;
 };
 
 export const LabsTablePatientChart = <SearchBy extends GetLabOrdersParameters>({
@@ -19,6 +26,8 @@ export const LabsTablePatientChart = <SearchBy extends GetLabOrdersParameters>({
   allowDelete,
   allowSubmit,
   onCreateOrder,
+  onRowClick,
+  onDrDrivenRowClick,
 }: LabsTablePatientChartProps<SearchBy>): ReactElement => {
   const {
     groupedLabOrdersForChartTable, // includes reflex
@@ -96,6 +105,8 @@ export const LabsTablePatientChart = <SearchBy extends GetLabOrdersParameters>({
                   fetchLabOrders={fetchLabOrders}
                   showDeleteLabOrderDialog={showDeleteLabOrderDialog}
                   handleRejectedAbn={handleRejectedAbn}
+                  onRowClick={onRowClick}
+                  onDrDrivenRowClick={onDrDrivenRowClick}
                 />
               )
             )}
@@ -112,6 +123,8 @@ export const LabsTablePatientChart = <SearchBy extends GetLabOrdersParameters>({
                 allowSubmit={false}
                 fetchLabOrders={fetchLabOrders}
                 showDeleteLabOrderDialog={showDeleteLabOrderDialog}
+                onRowClick={onRowClick}
+                onDrDrivenRowClick={onDrDrivenRowClick}
               />
             )}
             {showPagination && totalPages > 1 && (

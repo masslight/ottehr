@@ -101,16 +101,74 @@ describe('update-billing-claim validateRequestParameters', () => {
       })
     ).toThrow(/plan type/i);
   });
+
+  it('accepts an admission date and discharge date set together', () => {
+    const result = validateRequestParameters({
+      headers: null,
+      body: body({
+        admissionDate: '2026-01-01',
+        dischargeDate: '2026-01-31',
+      }),
+      secrets: {},
+    });
+    expect(result).toMatchObject({
+      fields: {
+        admissionDate: '2026-01-01',
+        dischargeDate: '2026-01-31',
+      },
+    });
+  });
+
+  it('rejects both admission date and discharge date submitted blank', () => {
+    expect(() =>
+      validateRequestParameters({
+        headers: null,
+        body: body({
+          admissionDate: '',
+          dischargeDate: '',
+        }),
+        secrets: {},
+      })
+    ).toThrow(/date is required/i);
+  });
+
+  it('rejects an admission date without a discharge date', () => {
+    expect(() =>
+      validateRequestParameters({
+        headers: null,
+        body: body({
+          admissionDate: '2026-01-01',
+          dischargeDate: '',
+        }),
+        secrets: {},
+      })
+    ).toThrow(/discharge date is required/i);
+  });
+
+  it('rejects a discharge date without an admission date', () => {
+    expect(() =>
+      validateRequestParameters({
+        headers: null,
+        body: body({
+          admissionDate: '',
+          dischargeDate: '2026-01-31',
+        }),
+        secrets: {},
+      })
+    ).toThrow(/admission date is required/i);
+  });
 });
 
 describe('update-billing-claim performEffect', () => {
-  const makeOystehr = (): {
+  const makeOystehr = (
+    claimOverride: Claim = claim
+  ): {
     oystehr: Oystehr;
     search: ReturnType<typeof vi.fn>;
     transaction: ReturnType<typeof vi.fn>;
   } => {
     const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
-      if (resourceType === 'Claim') return Promise.resolve({ unbundle: () => [structuredClone(claim)] });
+      if (resourceType === 'Claim') return Promise.resolve({ unbundle: () => [structuredClone(claimOverride)] });
       if (resourceType === 'Coverage') return Promise.resolve({ unbundle: () => [structuredClone(coverage)] });
       return Promise.resolve({ unbundle: () => [] });
     });
@@ -166,5 +224,72 @@ describe('update-billing-claim performEffect', () => {
     const written = writtenResources(transaction);
     expect(written.some((r) => r.resourceType === 'Claim')).toBe(true);
     expect(written.some((r) => r.resourceType === 'Coverage')).toBe(false);
+  });
+
+  it('writes the admission/discharge period to Claim.billablePeriod', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await performEffect(
+      oystehr,
+      {
+        resourceType: 'Claim',
+        resourceId: CLAIM_ID,
+        claimId: CLAIM_ID,
+        fields: {
+          admissionDate: '2026-01-01',
+          dischargeDate: '2026-01-31',
+        },
+        secrets: {},
+      },
+      agent
+    );
+
+    const claimWrite = writtenResources(transaction).find((r) => r.resourceType === 'Claim') as Claim;
+    expect(claimWrite.billablePeriod).toEqual({ start: '2026-01-01', end: '2026-01-31' });
+  });
+
+  it('does not clear an existing Claim.billablePeriod when both dates are submitted blank', async () => {
+    const claimWithPeriod: Claim = { ...claim, billablePeriod: { start: '2026-01-01', end: '2026-01-31' } };
+    const { oystehr, transaction } = makeOystehr(claimWithPeriod);
+
+    await performEffect(
+      oystehr,
+      {
+        resourceType: 'Claim',
+        resourceId: CLAIM_ID,
+        claimId: CLAIM_ID,
+        fields: {
+          admissionDate: '',
+          dischargeDate: '',
+        },
+        secrets: {},
+      },
+      agent
+    );
+
+    const claimWrite = writtenResources(transaction).find((r) => r.resourceType === 'Claim') as Claim;
+    expect(claimWrite.billablePeriod).toEqual({ start: '2026-01-01', end: '2026-01-31' });
+  });
+
+  it('stays unset when both dates are submitted blank on a claim with no billablePeriod', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await performEffect(
+      oystehr,
+      {
+        resourceType: 'Claim',
+        resourceId: CLAIM_ID,
+        claimId: CLAIM_ID,
+        fields: {
+          admissionDate: '',
+          dischargeDate: '',
+        },
+        secrets: {},
+      },
+      agent
+    );
+
+    const claimWrite = writtenResources(transaction).find((r) => r.resourceType === 'Claim') as Claim;
+    expect(claimWrite.billablePeriod).toBeUndefined();
   });
 });
