@@ -50,6 +50,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { TRACKING_BOARD_QUERY_KEY } from 'src/hooks/useGetTrackingBoard';
 import { sortQuickPicks, useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
@@ -520,7 +521,7 @@ export default function ProceduresNew({
       }
 
       void queryClient.invalidateQueries({
-        queryKey: ['procedures-for-tracking-board'],
+        queryKey: [TRACKING_BOARD_QUERY_KEY],
         refetchType: 'active',
       });
 
