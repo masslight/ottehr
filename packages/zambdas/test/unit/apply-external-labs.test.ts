@@ -1,6 +1,7 @@
 import { Encounter, List, Location, Procedure, ServiceRequest } from 'fhir/r4b';
 import { chartDataTagSystem, CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { locationIsEnabledForLabs } from 'utils/lib/helpers/labs/helpers';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import {
   FHIR_IDC10_VALUESET_SYSTEM,
   LAB_ACCOUNT_NUMBER_SYSTEM,
@@ -29,6 +30,8 @@ import { TemplateEncounterResource } from '../../src/ehr/shared/template-helpers
 vi.mock('../../src/ehr/lab/shared/orderable-items', () => ({
   getOrderableItems: vi.fn(),
 }));
+
+const hasPerEncounterCptCodes = (VALUE_SETS.externalLabCptCodesToAddPerEncounter ?? []).length > 0;
 
 const EXTERNAL_LAB_PLAN_TAG = chartDataTagSystem('external-lab-template-plan');
 const LAB_GUID = 'lab-guid-1';
@@ -609,13 +612,41 @@ describe('collectExternalLabCptProcedures', () => {
     expect(result.warnings).toHaveLength(0);
   });
 
-  test('returns no test-specific CPT procedures when payment method is not client bill, but still adds the per-encounter code', async () => {
-    for (const paymentMethod of [
-      LabPaymentMethod.Insurance,
-      LabPaymentMethod.SelfPay,
-      LabPaymentMethod.WorkersComp,
-      undefined,
-    ]) {
+  test.skipIf(!hasPerEncounterCptCodes)(
+    'returns no test-specific CPT procedures when payment method is not client bill, but still adds the per-encounter code',
+    async () => {
+      for (const paymentMethod of [
+        LabPaymentMethod.Insurance,
+        LabPaymentMethod.SelfPay,
+        LabPaymentMethod.WorkersComp,
+        undefined,
+      ]) {
+        vi.mocked(getOrderableItems).mockResolvedValueOnce([
+          makeOrderableItem('7788', LAB_GUID, 'Quest Diagnostics', [{ cptCode: '36415', serviceUnitsCount: 1 }]),
+        ]);
+        const result = await collectExternalLabCptProcedures(
+          makeTemplateListWithPlan(makePlan('plan-1')),
+          makeEncounterWithSubject(),
+          [],
+          'append',
+          'mock-token',
+          paymentMethod
+        );
+        const codes = codesOnProcedures(result.procedures);
+        // Test-specific CPT codes only apply to client bill orders.
+        expect(codes).not.toContain('36415');
+        expect(result.cptCodesToSkip).not.toContain('36415');
+        // The per-encounter code is added regardless of payment method for non-PSC orders.
+        expect(codes).toContain(PER_ENCOUNTER_CPT_CODE);
+        // parsedPlans and itemsByLabGuid are still populated — callers (applyExternalLabPlans) still need them
+        expect(result.parsedPlans).toHaveLength(1);
+      }
+    }
+  );
+
+  test.skipIf(!hasPerEncounterCptCodes)(
+    'returns test-specific CPT procedures plus the per-encounter code when payment method is client bill',
+    async () => {
       vi.mocked(getOrderableItems).mockResolvedValueOnce([
         makeOrderableItem('7788', LAB_GUID, 'Quest Diagnostics', [{ cptCode: '36415', serviceUnitsCount: 1 }]),
       ]);
@@ -625,54 +656,35 @@ describe('collectExternalLabCptProcedures', () => {
         [],
         'append',
         'mock-token',
-        paymentMethod
+        LabPaymentMethod.ClientBill
       );
       const codes = codesOnProcedures(result.procedures);
-      // Test-specific CPT codes only apply to client bill orders.
-      expect(codes).not.toContain('36415');
-      expect(result.cptCodesToSkip).not.toContain('36415');
-      // The per-encounter code is added regardless of payment method for non-PSC orders.
+      expect(codes).toContain('36415');
       expect(codes).toContain(PER_ENCOUNTER_CPT_CODE);
-      // parsedPlans and itemsByLabGuid are still populated — callers (applyExternalLabPlans) still need them
-      expect(result.parsedPlans).toHaveLength(1);
+      expect(result.cptCodesToSkip).toContain('36415');
     }
-  });
-
-  test('returns test-specific CPT procedures plus the per-encounter code when payment method is client bill', async () => {
-    vi.mocked(getOrderableItems).mockResolvedValueOnce([
-      makeOrderableItem('7788', LAB_GUID, 'Quest Diagnostics', [{ cptCode: '36415', serviceUnitsCount: 1 }]),
-    ]);
-    const result = await collectExternalLabCptProcedures(
-      makeTemplateListWithPlan(makePlan('plan-1')),
-      makeEncounterWithSubject(),
-      [],
-      'append',
-      'mock-token',
-      LabPaymentMethod.ClientBill
-    );
-    const codes = codesOnProcedures(result.procedures);
-    expect(codes).toContain('36415');
-    expect(codes).toContain(PER_ENCOUNTER_CPT_CODE);
-    expect(result.cptCodesToSkip).toContain('36415');
-  });
+  );
 
   describe('per-encounter CPT code (e.g. 99001)', () => {
-    test('adds the per-encounter code once when a matched plan is non-PSC', async () => {
-      vi.mocked(getOrderableItems).mockResolvedValueOnce([makeOrderableItem('7788')]);
-      const result = await collectExternalLabCptProcedures(
-        makeTemplateListWithPlan(makePlan('plan-1')), // default plan has no PSC orderDetail → psc: false
-        makeEncounterWithSubject(),
-        [],
-        'append',
-        'mock-token',
-        LabPaymentMethod.Insurance
-      );
-      const perEncounterProcedures = result.procedures.filter(
-        (p) => p.code?.coding?.some((c) => c.code === PER_ENCOUNTER_CPT_CODE)
-      );
-      expect(perEncounterProcedures).toHaveLength(1);
-      expect(result.cptCodesToSkip).toContain(PER_ENCOUNTER_CPT_CODE);
-    });
+    test.skipIf(!hasPerEncounterCptCodes)(
+      'adds the per-encounter code once when a matched plan is non-PSC',
+      async () => {
+        vi.mocked(getOrderableItems).mockResolvedValueOnce([makeOrderableItem('7788')]);
+        const result = await collectExternalLabCptProcedures(
+          makeTemplateListWithPlan(makePlan('plan-1')), // default plan has no PSC orderDetail → psc: false
+          makeEncounterWithSubject(),
+          [],
+          'append',
+          'mock-token',
+          LabPaymentMethod.Insurance
+        );
+        const perEncounterProcedures = result.procedures.filter(
+          (p) => p.code?.coding?.some((c) => c.code === PER_ENCOUNTER_CPT_CODE)
+        );
+        expect(perEncounterProcedures).toHaveLength(1);
+        expect(result.cptCodesToSkip).toContain(PER_ENCOUNTER_CPT_CODE);
+      }
+    );
 
     test('does not add the per-encounter code when the only matched plan is a PSC order', async () => {
       vi.mocked(getOrderableItems).mockResolvedValueOnce([makeOrderableItem('7788')]);
@@ -715,31 +727,34 @@ describe('collectExternalLabCptProcedures', () => {
       expect(perEncounterProcedures).toHaveLength(0);
     });
 
-    test('adds the per-encounter code only once across multiple non-PSC matched plans', async () => {
-      vi.mocked(getOrderableItems).mockResolvedValueOnce([makeOrderableItem('7788'), makeOrderableItem('9999')]);
-      const planA = makePlan('plan-a');
-      const planB = makePlan('plan-b', {
-        code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: '9999', display: 'Other Test' }] },
-      });
-      const templateList: List = {
-        resourceType: 'List',
-        status: 'current',
-        mode: 'working',
-        contained: [planA, planB],
-      };
-      const result = await collectExternalLabCptProcedures(
-        templateList,
-        makeEncounterWithSubject(),
-        [],
-        'append',
-        'mock-token',
-        LabPaymentMethod.Insurance
-      );
-      const perEncounterProcedures = result.procedures.filter(
-        (p) => p.code?.coding?.some((c) => c.code === PER_ENCOUNTER_CPT_CODE)
-      );
-      expect(perEncounterProcedures).toHaveLength(1);
-    });
+    test.skipIf(!hasPerEncounterCptCodes)(
+      'adds the per-encounter code only once across multiple non-PSC matched plans',
+      async () => {
+        vi.mocked(getOrderableItems).mockResolvedValueOnce([makeOrderableItem('7788'), makeOrderableItem('9999')]);
+        const planA = makePlan('plan-a');
+        const planB = makePlan('plan-b', {
+          code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: '9999', display: 'Other Test' }] },
+        });
+        const templateList: List = {
+          resourceType: 'List',
+          status: 'current',
+          mode: 'working',
+          contained: [planA, planB],
+        };
+        const result = await collectExternalLabCptProcedures(
+          templateList,
+          makeEncounterWithSubject(),
+          [],
+          'append',
+          'mock-token',
+          LabPaymentMethod.Insurance
+        );
+        const perEncounterProcedures = result.procedures.filter(
+          (p) => p.code?.coding?.some((c) => c.code === PER_ENCOUNTER_CPT_CODE)
+        );
+        expect(perEncounterProcedures).toHaveLength(1);
+      }
+    );
 
     test('does not add the per-encounter code for a plan that never matches a live orderable item', async () => {
       vi.mocked(getOrderableItems).mockResolvedValueOnce([
