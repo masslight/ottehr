@@ -5,6 +5,7 @@ import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import BookmarkBorderOutlinedIcon from '@mui/icons-material/BookmarkBorderOutlined';
 import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import FolderCopyOutlinedIcon from '@mui/icons-material/FolderCopyOutlined';
@@ -29,6 +30,7 @@ import { InsuranceIcon } from 'src/features/admin/icons/InsuranceIcon';
 import { ProgressNoteIcon } from 'src/features/admin/icons/ProgressNoteIcon';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
 import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
+import { FormTemplatesAdminPage } from 'src/features/form-templates/FormTemplatesAdminPage';
 import LocationsListPage from 'src/features/locations/LocationsListPage';
 import ChargeItemList from 'src/features/visits/telemed/components/admin/ChargeItemList';
 import EMCodesAdminPage from 'src/features/visits/telemed/components/admin/EMCodesAdminPage';
@@ -131,6 +133,16 @@ export const adminNavGroups: AdminNavGroup[] = [
         icon: <HistoryEduOutlinedIcon />,
         render: () => <GlobalTemplatesAdminPage />,
       },
+      ...(FEATURE_FLAGS.FORMS_ENABLED
+        ? [
+            {
+              label: 'Form Templates',
+              path: '/admin/form-templates',
+              icon: <DescriptionOutlinedIcon />,
+              render: () => <FormTemplatesAdminPage />,
+            },
+          ]
+        : []),
       {
         label: 'Quick Picks',
         path: '/admin/quick-picks',

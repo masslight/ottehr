@@ -43,6 +43,7 @@ import { AdminLayout } from './features/admin/AdminSidebar';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
+import { FormTemplateDetailPage } from './features/form-templates/FormTemplateDetailPage';
 import { InboundFaxMatch } from './features/inbound-fax/pages/InboundFaxMatch';
 import LocationConfigPage from './features/locations/LocationConfigPage';
 import { Tasks } from './features/tasks/pages/Tasks';
@@ -262,6 +263,7 @@ function App(): ReactElement {
                   <Route path={`${OUTREACH_URL}/:outreachSubTab/:outreachDetailTab`} element={<AdminPage />} />
                   <Route path="/admin/:adminTab" element={<AdminPage />} />
                   <Route path="/admin/:adminTab/:subTab" element={<AdminPage />} />
+                  <Route path="/admin/form-templates/:templateId" element={<FormTemplateDetailPage />} />
                   <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
                   <Route path="/admin/quick-picks/radiology/:quickPickId" element={<RadiologyQuickPickDetailPage />} />
                   <Route

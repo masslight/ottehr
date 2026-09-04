@@ -2527,6 +2527,90 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/paperwork-flow/delete/index",
       "zip": ".dist/zips/paperwork-flow-delete.zip"
+    },
+    "CREATE-FORM-TEMPLATE-UPLOAD-URL": {
+      "name": "create-form-template-upload-url",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/create-form-template-upload-url/index",
+      "zip": ".dist/zips/create-form-template-upload-url.zip"
+    },
+    "CREATE-COMPLETED-FORM-UPLOAD-URL": {
+      "name": "create-completed-form-upload-url",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/create-completed-form-upload-url/index",
+      "zip": ".dist/zips/create-completed-form-upload-url.zip"
+    },
+    "SAVE-COMPLETED-FORM": {
+      "name": "save-completed-form",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/save-completed-form/index",
+      "zip": ".dist/zips/save-completed-form.zip"
+    },
+    "IMPORT-FORM-TEMPLATE-FROM-URL": {
+      "name": "import-form-template-from-url",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/import-form-template-from-url/index",
+      "zip": ".dist/zips/import-form-template-from-url.zip"
+    },
+    "FILL-FORM-TEMPLATE": {
+      "name": "fill-form-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/fill-form-template/index",
+      "zip": ".dist/zips/fill-form-template.zip"
+    },
+    "LIST-FORM-TEMPLATES": {
+      "name": "list-form-templates",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/list-form-templates/index",
+      "zip": ".dist/zips/list-form-templates.zip"
+    },
+    "UPDATE-FORM-TEMPLATE": {
+      "name": "update-form-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/update-form-template/index",
+      "zip": ".dist/zips/update-form-template.zip"
+    },
+    "DELETE-FORM-TEMPLATE": {
+      "name": "delete-form-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-form-template/index",
+      "zip": ".dist/zips/delete-form-template.zip"
+    },
+    "ANALYZE-FORM-TEMPLATE": {
+      "name": "analyze-form-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/analyze-form-template/index",
+      "zip": ".dist/zips/analyze-form-template.zip"
+    },
+    "GET-FORM-TEMPLATE-DETAIL": {
+      "name": "get-form-template-detail",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-form-template-detail/index",
+      "zip": ".dist/zips/get-form-template-detail.zip"
+    },
+    "SAVE-FORM-TEMPLATE-MAPPING": {
+      "name": "save-form-template-mapping",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/save-form-template-mapping/index",
+      "zip": ".dist/zips/save-form-template-mapping.zip"
+    },
+    "REPLACE-FORM-TEMPLATE-PDF": {
+      "name": "replace-form-template-pdf",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/replace-form-template-pdf/index",
+      "zip": ".dist/zips/replace-form-template-pdf.zip"
     }
   },
   "fhirResources": {

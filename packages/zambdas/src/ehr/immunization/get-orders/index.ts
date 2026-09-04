@@ -106,7 +106,7 @@ export function validateRequestParameters(
   };
 }
 
-function mapMedicationAdministrationToImmunizationOrder(
+export function mapMedicationAdministrationToImmunizationOrder(
   medicationAdministration: MedicationAdministration
 ): ImmunizationOrder {
   const status = mapFhirToOrderStatus(medicationAdministration) ?? '';

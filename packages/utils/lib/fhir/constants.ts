@@ -636,6 +636,109 @@ export const GroupAllLocationsCoding = {
   },
 };
 
+// ── Form templates ──────────────────────────────────────────────────────────
+
+/**
+ * Broad classification for admin-authored fillable PDF form templates.
+ *
+ * Set membership lives on `DocumentReference.category` (0..*) rather than `type` (0..1) so the single
+ * `type` slot stays free for the document's actual kind. Patient education spent its `type` on a set
+ * marker and can no longer use it for anything else.
+ */
+export const DOCUMENT_CATEGORY_SYSTEM = ottehrCodeSystemUrl('document-category');
+
+/**
+ * Typed as `Coding` deliberately: this object is written straight into a FHIR resource, and the server
+ * rejects any property that is not part of the datatype. Keeping the search-parameter string separate
+ * (below) means a convenience field cannot accidentally ride along into a resource.
+ */
+export const FORM_TEMPLATE_CATEGORY_CODING: Coding = {
+  system: DOCUMENT_CATEGORY_SYSTEM,
+  code: 'form-template',
+  display: 'Form Template',
+};
+
+/** `system|code` form, for `category=` searches. Never written to a resource. */
+export const FORM_TEMPLATE_CATEGORY_SEARCH_PARAM = `${DOCUMENT_CATEGORY_SYSTEM}|form-template`;
+
+/**
+ * Marks a document that should stay out of the patient's document list while it is still `preliminary`.
+ *
+ * A meta tag rather than a rule about categories, so the documents explorer does not have to know which
+ * kinds of document have drafts worth hiding. A workflow that produces working copies opts in by tagging
+ * them; everything else is unaffected, and the explorer's filter never changes.
+ *
+ * The status is still what does the hiding. `preliminary` alone is not enough to justify it — an unreviewed
+ * lab result carries that status and a clinician is waiting on it — so the tag says only "this particular
+ * document is not worth reading until it is finished".
+ */
+export const HIDE_WHILE_PRELIMINARY_TAG: Coding = {
+  system: ottehrCodeSystemUrl('document-visibility'),
+  code: 'hide-while-preliminary',
+  display: 'Hide while preliminary',
+};
+
+/**
+ * A prefilled copy of a template, produced for one encounter.
+ *
+ * Distinct from the template category so a chart listing cannot pick up templates, and a template listing
+ * cannot pick up instances — they live in different buckets and mean different things.
+ */
+export const FORM_INSTANCE_CATEGORY_CODING: Coding = {
+  system: DOCUMENT_CATEGORY_SYSTEM,
+  code: 'form-instance',
+  display: 'Filled Form',
+};
+
+/** `system|code` form, for `category=` searches. Never written to a resource. */
+export const FORM_INSTANCE_CATEGORY_SEARCH_PARAM = `${DOCUMENT_CATEGORY_SYSTEM}|form-instance`;
+
+/**
+ * Whether a template's PDF has fillable fields, recorded as a second `category` coding.
+ *
+ * This lives in `category` rather than alongside the field inventory in an extension because listings
+ * need it and extensions do not survive an `_elements` projection — FHIR selects whole elements, so
+ * asking for the fillability flag would drag every template's full field inventory back with it. Being
+ * 0..*, `category` accommodates this without displacing the set-membership coding, and it stays
+ * searchable if a listing ever wants to filter on it.
+ */
+export const FORM_TEMPLATE_FILLABILITY_SYSTEM = ottehrCodeSystemUrl('form-template-fillability');
+export const FormTemplateFillability = {
+  fillable: 'fillable',
+  printable: 'printable',
+} as const;
+
+/** Stable per-template business key, so a template survives having its PDF replaced. */
+export const FORM_TEMPLATE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('form-template');
+
+/**
+ * Field inventory extracted from the template PDF, stored as JSON.
+ *
+ * A cache, not a source of truth — it is always re-derivable from the file. It lives in an extension so
+ * list queries can leave it behind via `_elements`; a 200-field form is not something a listing should
+ * carry.
+ */
+export const FORM_TEMPLATE_FIELD_INVENTORY_EXTENSION_URL = ottehrExtensionUrl('form-template-field-inventory');
+
+/** Classification from the last analysis of the template PDF, so the UI can explain what a template supports. */
+export const FORM_TEMPLATE_ANALYSIS_EXTENSION_URL = ottehrExtensionUrl('form-template-analysis');
+
+/**
+ * Admin-authored bindings from chart context to the template's PDF fields, stored as JSON.
+ *
+ * Unlike the inventory this is not re-derivable — it is the authored artifact the whole feature exists
+ * to produce, so it is never rewritten except by an explicit save.
+ */
+export const FORM_TEMPLATE_MAPPING_EXTENSION_URL = ottehrExtensionUrl('form-template-mapping');
+
+/**
+ * Where an imported template's PDF was fetched from.
+ *
+ * Provenance only — the stored copy is the template. Kept so an admin can see where a form came from, and
+ * so a future check for a newer published version has somewhere to look.
+ */
+export const FORM_TEMPLATE_SOURCE_URL_EXTENSION_URL = ottehrExtensionUrl('form-template-source-url');
+
 export const BUCKET_NAMES = {
   VISIT_NOTES: 'visit-notes',
   CONSENT_FORMS: 'consent-forms',
@@ -652,6 +755,10 @@ export const BUCKET_NAMES = {
   STATEMENTS: 'statements',
   PATIENT_EDUCATION: 'patient-education',
   PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
+  /** Admin-authored fillable PDF form templates. Org-level: no patient path segment. */
+  FORM_TEMPLATES: 'form-templates',
+  /** Prefilled copies of those templates, one per encounter. Patient-scoped, unlike the templates. */
+  FORM_INSTANCES: 'form-instances',
   RADIOLOGY_REPORTS: 'radiology-reports',
   REPORTS: 'invoiceable-patients-reports',
   BILLING_CLAIM_EXPORTS: 'billing-claim-exports',

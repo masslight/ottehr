@@ -73,6 +73,14 @@
       "name": "#{var/PROJECT_ID}-patient-education-admin",
       "retainInEnvironments": ["production", "staging", "demo"]
     },
+    "FORM_TEMPLATES": {
+      "name": "#{var/PROJECT_ID}-form-templates",
+      "retainInEnvironments": ["production", "staging", "demo"]
+    },
+    "FORM_INSTANCES": {
+      "name": "#{var/PROJECT_ID}-form-instances",
+      "retainInEnvironments": ["production", "staging", "demo"]
+    },
     "RADIOLOGY_REPORTS": {
       "name": "#{var/PROJECT_ID}-radiology-reports",
       "retainInEnvironments": ["production", "staging", "demo"]

@@ -1297,8 +1297,8 @@ function InstitutionalClaimAdditionalFieldsSection({
       <Row label="Patient Discharge Status Code" value={claim.patientDischargeStatusCode} />
       <Row label="Admission Type" value={claim.admissionType} />
       <Row label="Point of Origin / Admission Source" value={claim.admissionSource} />
-      <Row label="Admission Date" value={claim.admissionDate ? formatDate(claim.admissionDate) : ''} />
-      <Row label="Discharge Date" value={claim.dischargeDate ? formatDate(claim.dischargeDate) : ''} />
+      <Row label="Admission Date" value={claim.admissionDate ? formatDateTime(claim.admissionDate) : ''} />
+      <Row label="Discharge Date" value={claim.dischargeDate ? formatDateTime(claim.dischargeDate) : ''} />
     </EditableSection>
   );
 }
