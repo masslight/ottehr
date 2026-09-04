@@ -64,12 +64,8 @@ import {
   rosField,
   RosFindingState,
 } from 'utils';
-import {
-  EXAM_LEAVES,
-  ExamLeaf,
-  FIELD_TO_SECTION_LABEL,
-  ROS_LEAVES,
-} from '../../apps/ehr/src/features/easy-charting/exam-ros-catalog';
+import { FIELD_TO_SECTION_LABEL } from 'utils/lib/helpers/easy-chart-chart-state';
+import { EXAM_LEAVES, ExamLeaf, ROS_LEAVES } from '../../apps/ehr/src/features/easy-charting/exam-ros-catalog';
 import {
   buildExamRemoveItems,
   carrySwapPrimary,
