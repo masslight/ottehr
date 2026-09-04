@@ -411,25 +411,25 @@ export const buildOrdersForTrackingBoard = ({
     // result-review Tasks based on the reports.
     const reportTasks = filterFinalAndPrelimAndCorrectedTasks(pools.tasks.filter(hasDiagnosticReportBasedOn));
     const labTasks = dedupeById([...pools.tasks.filter(isTaskPST), ...reportTasks]);
-    const externalLabOrders = mapResourcesToLabOrderDTOs(
+    const externalLabOrders = mapResourcesToLabOrderDTOs({
       searchBy,
-      partitions.externalLab,
-      labTasks,
-      pools.diagnosticReports,
-      allPractitioners,
+      serviceRequests: partitions.externalLab,
+      tasks: labTasks,
+      results: pools.diagnosticReports,
+      practitioners: allPractitioners,
       encounters,
-      [],
+      locations: [],
       appointments,
-      provenancesFor(partitions.externalLab),
-      [],
-      [],
-      undefined,
-      [],
-      {},
-      undefined,
-      [],
-      environment
-    );
+      provenances: provenancesFor(partitions.externalLab),
+      organizations: [],
+      questionnaires: [],
+      labDocuments: undefined,
+      specimens: [],
+      appointmentScheduleMap: {},
+      communications: undefined,
+      coverages: [],
+      environment,
+    });
     table.externalLabOrdersByAppointmentId = groupBy(externalLabOrders, (order) => order.appointmentId);
   }
 

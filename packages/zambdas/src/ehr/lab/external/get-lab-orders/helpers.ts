@@ -105,32 +105,56 @@ type Cache = {
   parsedTasks?: ReturnType<typeof parseTasks>;
 };
 
-export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
-  searchBy: SearchBy,
-  serviceRequests: ServiceRequest[],
-  tasks: Task[],
-  results: DiagnosticReport[],
-  practitioners: Practitioner[],
-  encounters: Encounter[],
-  locations: Location[],
-  appointments: Appointment[],
-  provenances: Provenance[],
-  organizations: Organization[],
-  questionnaires: QuestionnaireData[],
-  labDocuments: ExternalLabDocuments | undefined,
-  specimens: Specimen[],
-  appointmentScheduleMap: Record<string, Schedule>,
-  communications: ExternalLabCommunications | undefined,
-  coverages: Coverage[],
-  ENVIRONMENT: string
-): LabOrderDTO<SearchBy>[] => {
+type LabOrderResources = {
+  tasks: Task[];
+  results: DiagnosticReport[];
+  practitioners: Practitioner[];
+  encounters: Encounter[];
+  locations: Location[];
+  appointments: Appointment[];
+  provenances: Provenance[];
+  organizations: Organization[];
+  questionnaires: QuestionnaireData[];
+  labDocuments: ExternalLabDocuments | undefined;
+  specimens: Specimen[];
+  appointmentScheduleMap: Record<string, Schedule>;
+  communications: ExternalLabCommunications | undefined;
+  coverages: Coverage[];
+};
+
+export type MapResourcesToLabOrderDTOsInput<SearchBy extends LabOrdersSearchBy> = LabOrderResources & {
+  searchBy: SearchBy;
+  serviceRequests: ServiceRequest[];
+  environment: string;
+};
+
+type ParseOrderDataInput<SearchBy extends LabOrdersSearchBy> = LabOrderResources & {
+  searchBy: SearchBy;
+  serviceRequest: ServiceRequest;
+  cache?: Cache;
+};
+
+export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>({
+  searchBy,
+  serviceRequests,
+  environment,
+  ...resources
+}: MapResourcesToLabOrderDTOsInput<SearchBy>): LabOrderDTO<SearchBy>[] => {
   console.log('mapResourcesToLabOrderDTOs');
+  const { tasks, results } = resources;
   const result: LabOrderDTO<SearchBy>[] = [];
 
   for (const serviceRequest of serviceRequests) {
     try {
       const parsedResults = parseResults(serviceRequest, results);
-      const parsedTasks = parseTasks({ tasks, serviceRequest, results, cache: { parsedResults } });
+      const parsedTasks = parseTasks({
+        tasks,
+        serviceRequest,
+        results,
+        cache: {
+          parsedResults,
+        },
+      });
 
       // parseResults and parseTasks are called multiple times in inner functions, so we can cache the results to optimize performance
       const cache: Cache = {
@@ -140,28 +164,15 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
 
       result.push(
         parseOrderData({
+          ...resources,
           searchBy,
-          tasks,
           serviceRequest,
-          results,
-          appointments,
-          encounters,
-          locations,
-          practitioners,
-          provenances,
-          organizations,
-          questionnaires,
-          labDocuments,
-          specimens,
-          appointmentScheduleMap,
-          communications,
-          coverages,
           cache,
         })
       );
     } catch (error) {
       console.error(`Error parsing service request ${serviceRequest.id}:`, error);
-      void sendErrors(error, ENVIRONMENT);
+      void sendErrors(error, environment);
     }
   }
   return result;
@@ -211,25 +222,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   communications,
   coverages,
   cache,
-}: {
-  searchBy: SearchBy;
-  serviceRequest: ServiceRequest;
-  tasks: Task[];
-  results: DiagnosticReport[];
-  appointments: Appointment[];
-  encounters: Encounter[];
-  locations: Location[];
-  practitioners: Practitioner[];
-  provenances: Provenance[];
-  organizations: Organization[];
-  questionnaires: QuestionnaireData[];
-  labDocuments: ExternalLabDocuments | undefined;
-  specimens: Specimen[];
-  appointmentScheduleMap: Record<string, Schedule>;
-  communications: ExternalLabCommunications | undefined;
-  coverages: Coverage[];
-  cache?: Cache;
-}): LabOrderDTO<SearchBy> => {
+}: ParseOrderDataInput<SearchBy>): LabOrderDTO<SearchBy> => {
   console.log('parsing external lab order data');
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
