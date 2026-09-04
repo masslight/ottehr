@@ -35,6 +35,7 @@ import { useGetPatientAccount } from 'src/hooks/useGetPatient';
 import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
 import { useFindApplicableFeeScheduleQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { formatLabelValue } from 'src/shared/utils/formatLabelValue';
+import { formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
 import {
   getAppointmentRoom,
   isAppointmentOccupationalMedicine,
@@ -336,6 +337,15 @@ export const Header = (): JSX.Element => {
     return `${insuranceName} (${isCaseRate ? 'Case Rate' : 'Fee for Service'})`;
   })();
   const patientName = formatLabelValue(mappedData?.patientName, 'Name');
+  const patientFirstLastName = [patient?.firstName, patient?.lastName].filter(Boolean).join(' ') || undefined;
+
+  useEffect(() => {
+    const tabTitle = formatPatientTabTitle(patientFirstLastName, room);
+    if (tabTitle) {
+      document.title = tabTitle;
+    }
+  }, [patientFirstLastName, room]);
+
   const pronouns = formatLabelValue(mappedData?.pronouns, 'Pronouns');
   const gender = formatLabelValue(mappedData?.gender, 'Gender');
   const language = formatLabelValue(mappedData?.preferredLanguage, 'Lang');
