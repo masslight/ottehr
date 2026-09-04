@@ -89,10 +89,18 @@ import {
   configAllExternalLabDocuments,
   diagnosticReportIsReflex,
   diagnosticReportSpecificResultType,
+  filterResourcesBasedOnDiagnosticReports,
+  filterResourcesBasedOnServiceRequest,
   formatResourcesIntoDiagnosticReportLabDTO,
   groupResourcesByDr,
+  isTaskCancelledResult,
+  isTaskCorrected,
+  isTaskFinal,
+  isTaskPrelim,
+  isTaskPST,
   parseAccessionNumberFromDr,
   parseAppointmentIdForServiceRequest,
+  parseTaskPST,
   parseTimezoneForAppointmentSchedule,
   ResourcesByDr,
   srHasRejectedAbnExt,
@@ -2201,115 +2209,11 @@ export const parseResultDetails = (
   return details;
 };
 
-export const parseTaskPST = (tasks: Task[], serviceRequestId: string): Task | null => {
-  const relatedTasks = filterResourcesBasedOnServiceRequest(tasks, serviceRequestId);
-
-  for (const task of relatedTasks) {
-    if (isTaskPST(task)) {
-      return task;
-    }
-  }
-
-  return null;
-};
-
-export const isTaskPST = (task: Task): boolean => {
-  return (
-    task.code?.coding?.some(
-      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.preSubmission
-    ) || false
-  );
-};
-
-export const isTaskFinal = (task: Task): boolean => {
-  return (
-    task.code?.coding?.some(
-      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.reviewFinalResult
-    ) || false
-  );
-};
-
-export const isTaskPrelim = (task: Task): boolean => {
-  return (
-    task.code?.coding?.some(
-      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.reviewPreliminaryResult
-    ) || false
-  );
-};
-
-export const isTaskCorrected = (task: Task): boolean => {
-  return (
-    task.code?.coding?.some(
-      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.reviewCorrectedResult
-    ) || false
-  );
-};
-
-const isTaskCancelledResult = (task: Task): boolean => {
-  return (
-    task.code?.coding?.some(
-      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.reviewCancelledResult
-    ) || false
-  );
-};
-
 export const mapResourcesFromBundleEntry = <T = Resource>(bundleEntry: BundleEntry<T>[] | undefined): T[] => {
   return (bundleEntry || ([] as BundleEntry<T>[]))
     .filter((entry) => entry.response?.status?.startsWith('2')) // todo: should we filter out failed responses like this?
     .map((entry) => entry.resource)
     .filter(Boolean) as T[];
-};
-
-export const filterResourcesBasedOnTargetResource = <T extends Resource & { basedOn?: Reference[] }>({
-  resources,
-  targetResourceId,
-  targetResourceType,
-}: {
-  resources: T[];
-  targetResourceId: string;
-  targetResourceType: string;
-}): T[] => {
-  return resources.filter(
-    (resource) => resource.basedOn?.some((basedOn) => basedOn.reference === `${targetResourceType}/${targetResourceId}`)
-  );
-};
-
-export const filterResourcesBasedOnServiceRequest = <T extends Resource & { basedOn?: Reference[] }>(
-  resources: T[],
-  serviceRequestId: string
-): T[] => {
-  return filterResourcesBasedOnTargetResource({
-    resources,
-    targetResourceId: serviceRequestId,
-    targetResourceType: 'ServiceRequest',
-  });
-};
-
-export const filterResourcesBasedOnDiagnosticReports = <T extends Resource & { basedOn?: Reference[] }>(
-  resources: T[],
-  results: DiagnosticReport[]
-): T[] => {
-  const resultsIds: string[] = results
-    .map((result) => result.id)
-    .filter((id): id is string => typeof id === 'string' && id.length > 0);
-
-  if (!resultsIds.length) {
-    return [];
-  }
-
-  const result: T[] = [];
-
-  for (const resultId of resultsIds) {
-    const relatedResources = filterResourcesBasedOnTargetResource<T>({
-      resources,
-      targetResourceId: resultId,
-      targetResourceType: 'DiagnosticReport',
-    });
-
-    result.push(...relatedResources);
-  }
-
-  return result;
 };
 
 export const filterFinalTasks = (tasks: Task[], results: DiagnosticReport[]): Task[] => {
