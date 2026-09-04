@@ -8,6 +8,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { TextFieldStyled } from 'src/features/visits/shared/components/generic-notes-list/components/ui/TextFieldStyled';
@@ -31,8 +32,12 @@ export const EditPatientNoteModal: React.FC<EditPatientNoteModalProps> = ({ note
       patientId: note.patientId,
       text: text.trim(),
     };
-    await save(payload);
-    onClose();
+    try {
+      await save(payload);
+      onClose();
+    } catch {
+      enqueueSnackbar('Failed to save note. Please try again.', { variant: 'error' });
+    }
   };
 
   return (

@@ -392,7 +392,6 @@ export enum NOTE_TYPE {
   SURGICAL_HISTORY = 'surgical-history',
   HOSPITALIZATION = 'hospitalization',
   ADDENDUM = 'addendum',
-  PATIENT = 'patient',
   UNKNOWN = 'unknown',
 }
 

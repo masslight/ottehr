@@ -1,4 +1,5 @@
 import { Box, CircularProgress, TextField } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useCreatePatientNote } from '../hooks/useCreatePatientNote';
@@ -13,8 +14,12 @@ export const AddPatientNote: React.FC<AddPatientNoteProps> = ({ patientId }) => 
 
   const handleSave = async (): Promise<void> => {
     if (!text.trim()) return;
-    await save({ patientId, text: text.trim() });
-    setText('');
+    try {
+      await save({ patientId, text: text.trim() });
+      setText('');
+    } catch {
+      enqueueSnackbar('Failed to add note. Please try again.', { variant: 'error' });
+    }
   };
 
   return (
