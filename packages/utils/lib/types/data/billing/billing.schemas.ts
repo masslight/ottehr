@@ -218,7 +218,7 @@ const claimServiceLineSchema = z.object({
   units: z.number().positive(),
   charges: z.number(),
   serviceDate: nonEmptyString,
-  placeOfService: z.string().optional(),
+  placeOfService: nonEmptyString,
   modifiers: z.array(z.string()).optional(),
   // 1-based references into the claim's diagnosis list (FHIR item.diagnosisSequence)
   diagnosisPointers: z.array(z.number().int().positive()).optional(),

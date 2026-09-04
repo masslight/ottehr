@@ -1394,6 +1394,7 @@ function ServiceLinesSection({
     for (const row of rows) {
       if (!row.cptCode.trim()) return 'Each service line needs a CPT code';
       if (!row.serviceDate) return 'Each service line needs a date of service';
+      if (!row.placeOfService.trim()) return 'Each service line needs a place of service';
       if (!(Number(row.units) > 0)) return 'Units must be a positive number';
       if (row.charges.trim() === '' || !Number.isFinite(Number(row.charges))) return 'Charges must be a number';
     }
@@ -1408,7 +1409,7 @@ function ServiceLinesSection({
           units: Number(row.units),
           charges: Number(row.charges),
           serviceDate: row.serviceDate,
-          ...(row.placeOfService.trim() ? { placeOfService: row.placeOfService.trim() } : {}),
+          placeOfService: row.placeOfService.trim(),
           ...(modifiers.length ? { modifiers } : {}),
           ...(row.diagnosisPointers.length ? { diagnosisPointers: row.diagnosisPointers } : {}),
           revenueCode: row.revenueCode,
