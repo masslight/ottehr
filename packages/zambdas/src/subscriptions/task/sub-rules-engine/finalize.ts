@@ -54,9 +54,9 @@ interface ReadyToInvoiceOptions {
   statusField: ClaimStatusFieldKey;
 }
 
-// The pre-invoice engines' success effect. The claim may have changed stage between the kickoff and
-// this run, so the eligibility that queued the engine is re-checked here — mirroring submitClaim,
-// which only submits claims still in Insurance Payer AR.
+// The pre-invoice engines' success effect. The claim may have changed stage
+// between the kickoff and this run, so the eligibility that queued the engine is re-checked here —
+// mirroring submitClaim, which only submits claims still in Insurance Payer AR.
 async function markReadyToInvoice(input: FinalizeRunInput, opts: ReadyToInvoiceOptions): Promise<FinalizeRunResult> {
   const { oystehr, model, agent } = input;
   const claimId = model.claim.id;

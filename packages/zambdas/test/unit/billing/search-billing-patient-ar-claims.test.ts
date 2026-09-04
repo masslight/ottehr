@@ -83,10 +83,6 @@ describe('isInActivePatientArStage', () => {
     expect(isInActivePatientArStage(activeStatuses())).toBe(true);
   });
 
-  it('accepts patient AR in progress (invoiced but not finalized)', () => {
-    expect(isInActivePatientArStage(activeStatuses({ patientArStatus: 'invoiced' }))).toBe(true);
-  });
-
   it('rejects patient AR statuses short of ready to invoice', () => {
     for (const patientArStatus of ['', 'not-invoiced']) {
       expect(isInActivePatientArStage(activeStatuses({ patientArStatus }))).toBe(false);
@@ -118,6 +114,10 @@ describe('isInActivePatientArStage', () => {
     });
     expect(isInActivePatientArStage(denied)).toBe(true);
     expect(isInActivePatientArStage(partiallyPaid)).toBe(true);
+  });
+
+  it('accepts patient AR in progress (invoiced but not finalized)', () => {
+    expect(isInActivePatientArStage(activeStatuses({ patientArStatus: 'invoiced' }))).toBe(true);
   });
 
   it('rejects claims outside the patient-ar stage', () => {

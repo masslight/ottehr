@@ -295,17 +295,14 @@ describe('ClaimDetail — run rules engine button', () => {
   });
 
   it('shows Prepare for invoice for a self-pay claim in Patient AR', async () => {
-    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.patient));
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.patient)); // coverageFhirId '' -> self-pay
     renderDetail();
 
     expect(await screen.findByRole('button', { name: 'Prepare for invoice' })).toBeEnabled();
   });
 
   it('shows Prepare for invoice for a Patient AR claim with insurance coverage', async () => {
-    getBillingClaimDetailMock.mockResolvedValue({
-      ...makeClaim(AR_STAGE.patient),
-      coverageFhirId: 'coverage-1',
-    });
+    getBillingClaimDetailMock.mockResolvedValue({ ...makeClaim(AR_STAGE.patient), coverageFhirId: 'coverage-1' });
     renderDetail();
 
     const prepareButton = await screen.findByRole('button', { name: 'Prepare for invoice' });

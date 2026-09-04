@@ -17,8 +17,8 @@ export const RULES_ENGINE_TYPES = [
   // Created in Non-insurance Payer AR / "Prepare for invoice"; moves the Non-insurance AR Status to
   // Ready to invoice when every rule passes.
   'non-insurance-payer-pre-invoice',
-  // Created in Patient AR / "Prepare for invoice"; moves the Patient AR Status to Ready to invoice
-  // when every rule passes.
+  // Created in Patient AR / "Prepare for invoice"; moves the Patient AR
+  // Status to Ready to invoice when every rule passes.
   'patient-ar-pre-invoice',
 ] as const;
 

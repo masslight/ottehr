@@ -535,15 +535,7 @@ describe('pre-invoice engines performEffect', () => {
   it('moves the Patient AR Status to ready-to-invoice for a claim carrying insurance coverage', async () => {
     const { oystehr, search, transaction } = makeOystehrMock();
     const model = makeModel(AR_STAGE.patient);
-    model.claim.insurance = [
-      {
-        sequence: 1,
-        focal: true,
-        coverage: {
-          reference: 'Coverage/coverage-1',
-        },
-      },
-    ];
+    model.claim.insurance = [{ sequence: 1, focal: true, coverage: { reference: 'Coverage/coverage-1' } }];
     search.mockResolvedValue({ unbundle: () => [model.claim] });
 
     const result = await performEffect(
