@@ -26,15 +26,11 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createConsentResources, createDocumentResources } from '../src/ehr/shared/harvest';
 import { createPdfBytes } from '../src/shared/pdf';
 
-/**
- * First real coverage for createConsentResources and createDocumentResources — the two
- * largest harvest blocks, previously exercised only as vi.mock stubs in the strategy
- * dispatch tests. The FHIR writers (createFilesDocumentReferences / createConsentResource),
- * PDF generation, and upload are mocked at their module seams; everything these functions
- * actually own — signer extraction, supersede/inactivate patches, per-form PDF fan-out,
- * type-code grouping, attachment dedup against existing DocumentReferences, creation-time
- * sorting, and category-specific reference wiring — runs for real.
- */
+// Tests createConsentResources and createDocumentResources. The FHIR writers
+// (createFilesDocumentReferences / createConsentResource), PDF generation, and upload are
+// mocked at their module seams; everything else — signer extraction, supersede/inactivate
+// patches, per-form PDF fan-out, type-code grouping, attachment dedup, creation-time
+// sorting, and reference wiring — runs for real.
 
 vi.mock('utils/lib/fhir/helpers', async (importOriginal) => {
   const original = await importOriginal<typeof import('utils/lib/fhir/helpers')>();
