@@ -306,7 +306,7 @@ export const resolveDateValue = (
 // claim's service facility (model.serviceFacility, prefetched from Claim.facility). Unlike
 // resolveDateValue there is no blank-fallback — a claim without a service facility, or a facility
 // without a place-of-service code set, is a rule failure rather than a silent no-op.
-export const resolveFacilityPlaceOfService = (model: RulesEngineClaimModel): DateValueResolution => {
+export const resolveFacilityPlaceOfService = (model: RulesEngineClaimModel): { value: string } | { error: string } => {
   if (!model.serviceFacility) {
     return {
       error: 'The claim has no service facility set',
