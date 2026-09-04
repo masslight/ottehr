@@ -133,6 +133,16 @@ export const adminNavGroups: AdminNavGroup[] = [
         icon: <HistoryEduOutlinedIcon />,
         render: () => <GlobalTemplatesAdminPage />,
       },
+      ...(FEATURE_FLAGS.FORMS_ENABLED
+        ? [
+            {
+              label: 'Form Templates',
+              path: '/admin/form-templates',
+              icon: <DescriptionOutlinedIcon />,
+              render: () => <FormTemplatesAdminPage />,
+            },
+          ]
+        : []),
       {
         label: 'Quick Picks',
         path: '/admin/quick-picks',
@@ -223,16 +233,6 @@ export const adminNavGroups: AdminNavGroup[] = [
         icon: <FolderCopyOutlinedIcon />,
         render: () => <AdminCustomFoldersPage />,
       },
-      ...(FEATURE_FLAGS.FORMS_ENABLED
-        ? [
-            {
-              label: 'Form Templates',
-              path: '/admin/form-templates',
-              icon: <DescriptionOutlinedIcon />,
-              render: () => <FormTemplatesAdminPage />,
-            },
-          ]
-        : []),
     ],
   },
   {
