@@ -122,8 +122,11 @@ describe('useBillingReport', () => {
       .mockResolvedValueOnce(wire({ state: 'running', progress: 'finishing' }))
       .mockResolvedValue(wire({ state: 'idle' }));
     const { result } = renderReport(fetchReport);
+    // the gzip stream needs a variable number of real macrotask turns to settle
     await act(async () => {
-      await new Promise((resolve) => setImmediate(resolve));
+      for (let i = 0; i < 200 && !result.current.report?.rows?.length; i++) {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
     });
     expect(result.current.report?.rows).toEqual([1, 2, 3]);
     expect(download).toHaveBeenCalledTimes(1);
