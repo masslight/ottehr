@@ -45,6 +45,30 @@ export function getStripeClient(secrets: Secrets | null): Stripe {
   });
 }
 
+// Spaces out request starts so bulk crawls stay well under Stripe's rate limits
+// (100 req/s live mode, 25 req/s test mode). Shared across all throttled clients in a warm container.
+const STRIPE_MIN_REQUEST_SPACING_MS = 60; // ~16 req/s
+let stripeNextRequestAt = 0;
+const throttledStripeFetch: typeof fetch = async (input, init) => {
+  const now = Date.now();
+  const startAt = Math.max(now, stripeNextRequestAt);
+  stripeNextRequestAt = startAt + STRIPE_MIN_REQUEST_SPACING_MS;
+  if (startAt > now) await new Promise<void>((resolve) => setTimeout(resolve, startAt - now));
+  return fetch(input, init);
+};
+
+// For high-request-volume flows (report crawls): throttles request rate and retries transient
+// failures (including 429s) at the SDK level.
+export function getRateLimitedStripeClient(secrets: Secrets | null): Stripe {
+  const env = validateStripeEnvironment(secrets);
+  return new Stripe(env.secretKey, {
+    // @ts-expect-error default api version older than sdk
+    apiVersion: env.apiVersion,
+    maxNetworkRetries: 2,
+    httpClient: Stripe.createFetchHttpClient(throttledStripeFetch),
+  });
+}
+
 export const STRIPE_PAYMENT_ID_SYSTEM = 'https://fhir.oystehr.com/PaymentIdSystem/stripe';
 export const makeBusinessIdentifierForStripePayment = (stripePaymentId: string): Identifier => {
   return {

@@ -1,6 +1,7 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import {
   Apartment as ApartmentIcon,
+  Assessment as AssessmentIcon,
   Business as BusinessIcon,
   Description as DescriptionIcon,
   Label as LabelIcon,
@@ -34,6 +35,7 @@ const navItems = [
   },
   { label: 'ERAs', path: '/eras', icon: <ReceiptIcon sx={{ fontSize: 18 }} /> },
   { label: 'Tags', path: '/tags', icon: <LabelIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Reports', path: '/reports', icon: <AssessmentIcon sx={{ fontSize: 18 }} /> },
 ];
 
 // The rules engines get their own menu section, separated from the rest by a divider.
