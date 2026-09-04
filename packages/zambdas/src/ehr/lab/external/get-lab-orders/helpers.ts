@@ -147,14 +147,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>({
   for (const serviceRequest of serviceRequests) {
     try {
       const parsedResults = parseResults(serviceRequest, results);
-      const parsedTasks = parseTasks({
-        tasks,
-        serviceRequest,
-        results,
-        cache: {
-          parsedResults,
-        },
-      });
+      const parsedTasks = parseTasks({ tasks, serviceRequest, results, cache: { parsedResults } });
 
       // parseResults and parseTasks are called multiple times in inner functions, so we can cache the results to optimize performance
       const cache: Cache = {
