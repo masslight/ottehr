@@ -56,7 +56,7 @@ const fieldNameSchema = z.nativeEnum(VitalFieldNames);
 export const parseVitalsObservationsToDTOs = (
   observations: Observation[],
   practitioners: Practitioner[],
-  alertContext?: VitalAlertContext
+  alertContext: VitalAlertContext | undefined
 ): VitalsObservationDTO[] => {
   const observationPerformerMap = new Map<string, Practitioner>();
   observations.forEach((obs) => {
