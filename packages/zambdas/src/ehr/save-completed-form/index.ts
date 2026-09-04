@@ -11,7 +11,7 @@ import { SaveCompletedFormInput, SaveCompletedFormOutput } from 'utils/lib/types
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { readDocumentProvenance } from '../../shared/document-provenance';
+import { DocumentProvenance, readDocumentProvenance } from '../../shared/document-provenance';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
@@ -43,7 +43,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const inputSchema: z.ZodType<SaveCompletedFormInput> = z.object({
   appointmentId: z.string().min(1, 'appointmentId is required'),
   z3Url: z.string().min(1, 'z3Url is required'),
-  templateId: z.string().min(1, 'templateId is required'),
+  templateId: z.string().optional(),
+  discard: z.boolean().optional(),
 });
 
 export function validateRequestParameters(
@@ -80,7 +81,7 @@ const performEffect = async (
   oystehr: Oystehr,
   token: string
 ): Promise<SaveCompletedFormOutput> => {
-  const { appointmentId, z3Url, templateId, userToken, secrets } = validatedInput;
+  const { appointmentId, z3Url, templateId, discard, userToken, secrets } = validatedInput;
 
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
   const patientId = visitResources?.patient?.id;
@@ -88,7 +89,13 @@ const performEffect = async (
     throw new Error(`No patient found for appointment ${appointmentId}`);
   }
 
-  const status = await verifyAgainstChart(z3Url, patientId, token);
+  // Asked for outright, before anything is read: the caller has already decided this does not belong.
+  if (discard) {
+    await discardUpload(z3Url, token);
+    return { status: 'discarded' };
+  }
+
+  const { status, provenance } = await verifyAgainstChart(z3Url, patientId, token);
 
   if (status.status === 'patientMismatch') {
     console.error(
@@ -96,15 +103,22 @@ const performEffect = async (
         `onto Patient/${patientId}. No document reference created.`
     );
     // The bytes are the only thing that was written, and they describe someone else.
-    try {
-      await deleteZ3Object(z3Url, token);
-    } catch (error) {
-      console.warn(`${ZAMBDA_NAME}: could not discard the refused upload at ${z3Url}: ${error}`);
-    }
+    await discardUpload(z3Url, token);
     return status;
   }
 
-  const template = await getFormTemplateOrThrow(oystehr, templateId);
+  // The document's own account of where it came from beats anything the caller supplied: prefill stamped
+  // it at the moment it was produced, while the caller is at best repeating what someone selected.
+  const template = await resolveTemplate(oystehr, provenance?.sourceId, templateId);
+
+  // Nothing says what this is. The bytes stay where they are and nothing is written, so the caller can ask
+  // and come back — filing it unattributed on the caller's behalf would quietly lose the connection to the
+  // form it belongs to, which is the whole point of returning it here rather than to Patient Documents.
+  if (!template) {
+    console.log(`${ZAMBDA_NAME}: upload at ${z3Url} carries no source and none was named; awaiting one.`);
+    return { status: 'needsSource' };
+  }
+
   const author = await resolveAuthor(userToken, secrets, oystehr);
 
   // The attachment title is what the documents list shows, and what renaming a document edits. Storing the
@@ -118,21 +132,28 @@ const performEffect = async (
     // The provider has finished with it, unlike the prefilled draft this came from.
     docStatus: 'final',
     category: [{ coding: [FORM_INSTANCE_CATEGORY_CODING] }],
-    type: template.type,
-    description: template.description,
+    type: template?.type,
+    description: template?.description,
     subject: { reference: `Patient/${patientId}` },
     context: visitResources?.encounter?.id
       ? { encounter: [{ reference: `Encounter/${visitResources.encounter.id}` }] }
       : undefined,
     date: DateTime.now().toUTC().toISO() ?? undefined,
     author,
-    relatesTo: [{ code: 'transforms', target: { reference: `DocumentReference/${templateId}` } }],
+    // Only when the form it came from is known. An unattributed document is still worth filing; it simply
+    // has nothing to point at, and no template shows it as returned.
+    relatesTo: template?.id
+      ? [{ code: 'transforms' as const, target: { reference: `DocumentReference/${template.id}` } }]
+      : undefined,
     content: [{ attachment: { url: z3Url, contentType: 'application/pdf', title: displayName } }],
   });
 
-  console.log(`${ZAMBDA_NAME}: filed DocumentReference/${created.id} for Patient/${patientId} (${status.status}).`);
+  console.log(
+    `${ZAMBDA_NAME}: filed DocumentReference/${created.id} for Patient/${patientId} (${status.status}), ` +
+      `under ${template?.id ? `DocumentReference/${template.id}` : 'no template'}.`
+  );
 
-  return { status: status.status, documentReferenceId: created.id };
+  return { status: status.status, documentReferenceId: created.id, filedUnderTemplateId: template?.id };
 };
 
 /**
@@ -145,7 +166,10 @@ const verifyAgainstChart = async (
   z3Url: string,
   chartPatientId: string,
   token: string
-): Promise<{ status: DocumentVerificationStatus; stampedPatientId?: string }> => {
+): Promise<{
+  status: { status: DocumentVerificationStatus; stampedPatientId?: string };
+  provenance?: DocumentProvenance;
+}> => {
   let provenance;
   try {
     const response = await fetch(await getPresignedURL(z3Url, token));
@@ -156,13 +180,39 @@ const verifyAgainstChart = async (
     provenance = readDocumentProvenance(doc);
   } catch (error) {
     console.warn(`${ZAMBDA_NAME}: could not read a stamp from ${z3Url}, treating as unstamped: ${error}`);
-    return { status: 'unstamped' };
+    return { status: { status: 'unstamped' } };
   }
 
-  if (!provenance) return { status: 'unstamped' };
-  if (provenance.patientId === chartPatientId) return { status: 'verified' };
+  if (!provenance) return { status: { status: 'unstamped' } };
+  if (provenance.patientId === chartPatientId) return { status: { status: 'verified' }, provenance };
 
-  return { status: 'patientMismatch', stampedPatientId: provenance.patientId };
+  return { status: { status: 'patientMismatch', stampedPatientId: provenance.patientId }, provenance };
+};
+
+/**
+ * The template a completed form should be filed against.
+ *
+ * The stamp is consulted first and the caller's suggestion only after, because the stamp was written when
+ * the document was produced while the suggestion is a guess made afterwards. A stamp naming a template
+ * that has since been deleted falls through to the suggestion rather than failing the upload.
+ *
+ * Returning nothing is a normal outcome: a scan of a printed form carries no stamp, and if the caller
+ * could not say what it was either then the document is filed unattributed rather than refused.
+ */
+const resolveTemplate = async (
+  oystehr: Oystehr,
+  stampedSourceId: string | undefined,
+  suggestedTemplateId: string | undefined
+): Promise<DocumentReference | undefined> => {
+  for (const candidate of [stampedSourceId, suggestedTemplateId]) {
+    if (!candidate) continue;
+    try {
+      return await getFormTemplateOrThrow(oystehr, candidate);
+    } catch (error) {
+      console.warn(`${ZAMBDA_NAME}: could not read form template ${candidate}: ${error}`);
+    }
+  }
+  return undefined;
 };
 
 /**
@@ -195,10 +245,26 @@ const resolveAuthor = async (
  * Rendered in the visit's own timezone rather than the server's. An evening appointment formatted in UTC
  * lands on the following day, which is the kind of error nobody checks because the label looks fine.
  */
-const buildDisplayName = (template: DocumentReference, visitStart?: string, timezone?: string): string => {
-  const name = template.content?.[0]?.attachment?.title ?? template.description ?? 'Completed form';
+const buildDisplayName = (template: DocumentReference | undefined, visitStart?: string, timezone?: string): string => {
+  // "Completed form" where the template is unknown: honest, and still distinguished by the visit date and
+  // the "who added" column beside it.
+  const name = template?.content?.[0]?.attachment?.title ?? template?.description ?? 'Completed form';
   if (!visitStart) return name;
 
   const visitDate = DateTime.fromISO(visitStart, { zone: timezone || 'utc' });
   return visitDate.isValid ? `${name} (${visitDate.toFormat('MM/dd/yyyy')})` : name;
+};
+
+/**
+ * Removes an upload that will not be filed.
+ *
+ * Best-effort. An object nothing references is untidy rather than harmful, and failing the request over it
+ * would turn a tidy-up into the caller's problem.
+ */
+const discardUpload = async (z3Url: string, token: string): Promise<void> => {
+  try {
+    await deleteZ3Object(z3Url, token);
+  } catch (error) {
+    console.warn(`${ZAMBDA_NAME}: could not remove the discarded upload at ${z3Url}: ${error}`);
+  }
 };

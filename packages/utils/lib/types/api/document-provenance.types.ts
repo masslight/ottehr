@@ -39,7 +39,16 @@ export type DocumentVerificationStatus =
   /** Stamped, and the stamp agrees with the chart. */
   | 'verified'
   /** Stamped for a different patient. No record is written and the uploaded bytes are discarded. */
-  | 'patientMismatch';
+  | 'patientMismatch'
+  /**
+   * Nothing identifies what the document is, and the caller did not say.
+   *
+   * Not a failure: the bytes are kept where they were uploaded, waiting for the caller to name a source or
+   * to accept filing it unattributed. Nothing is written until one or the other happens.
+   */
+  | 'needsSource'
+  /** The caller looked at it and said it does not belong here. The upload is thrown away. */
+  | 'discarded';
 
 /**
  * The shape a workflow should follow to adopt this guard.

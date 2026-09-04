@@ -174,8 +174,24 @@ export interface CreateCompletedFormUploadUrlOutput {
 export interface SaveCompletedFormInput {
   appointmentId: string;
   z3Url: string;
-  /** The template this was completed from, so the finished document can be tied back to it. */
-  templateId: string;
+  /**
+   * Which template this belongs to, where the caller knows.
+   *
+   * Optional because the document usually says so itself: a form produced by prefill carries the template
+   * it came from in its provenance stamp, which is more reliable than anything the caller can offer and
+   * takes precedence. This is the fallback for a document with no stamp — a scan of a printed form, most
+   * often — where nothing but the caller knows what it is.
+   */
+  templateId?: string;
+  /**
+   * Throw the upload away instead of filing it.
+   *
+   * The answer to "none of these" when an upload comes back as `needsSource`. A document that is not a
+   * returned form does not belong on the chart *through this route* — it would arrive named after nothing
+   * and linked to nothing — and Patient Documents is where a general upload goes. Deleting the stored
+   * bytes keeps a rejected upload from lingering unreferenced.
+   */
+  discard?: boolean;
 }
 
 export interface SaveCompletedFormOutput {
@@ -184,6 +200,13 @@ export interface SaveCompletedFormOutput {
   documentReferenceId?: string;
   /** Present on a mismatch, so the message can say whose document it actually was. */
   stampedPatientId?: string;
+  /**
+   * The template the document was filed against, if it could be established at all.
+   *
+   * Absent when an unstamped upload arrived with no template named — the document is still filed, just
+   * not tied to a form.
+   */
+  filedUnderTemplateId?: string;
 }
 
 export interface FormFieldInfo {

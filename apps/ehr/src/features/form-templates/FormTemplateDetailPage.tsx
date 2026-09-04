@@ -289,7 +289,10 @@ export const FormTemplateDetailPage = (): ReactElement => {
 
         <FormTemplateDetailsCard item={data.item} />
 
-        <Card variant="outlined">
+        {/* `overflow: visible` is load-bearing. MUI's Card clips by default, and any clipping ancestor
+            silently disables `position: sticky` for everything inside it — which is why the preview
+            column would not follow the field list however it was styled. */}
+        <Card variant="outlined" sx={{ overflow: 'visible' }}>
           <CardContent>
             <Stack spacing={2}>
               <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2} flexWrap="wrap">
@@ -340,6 +343,12 @@ export const FormTemplateDetailPage = (): ReactElement => {
                         maxWidth: { xs: '100%', lg: '46%' },
                         position: { lg: 'sticky' },
                         top: { lg: 16 },
+                        // Sticky alone was not enough: a rendered page is taller than the window, and a
+                        // sticky element taller than the viewport still scrolls out of sight. Capping the
+                        // height gives the preview somewhere to scroll internally instead.
+                        maxHeight: { lg: 'calc(100vh - 32px)' },
+                        display: 'flex',
+                        flexDirection: 'column',
                         border: 1,
                         borderColor: 'divider',
                         borderRadius: 1,

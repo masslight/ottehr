@@ -58,23 +58,31 @@ export const ReturnFormDropZone: FC<ReturnFormDropZoneProps> = ({ onFile, disabl
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 0.5,
+        gap: 1,
         px: 2,
-        py: 2.5,
+        py: 4,
         width: '100%',
         borderRadius: 1,
-        border: '1px dashed',
+        border: '2px dashed',
         borderColor: isOver ? theme.palette.primary.main : theme.palette.divider,
-        backgroundColor: isOver ? theme.palette.action.hover : 'transparent',
+        // Tinted even at rest, so the target reads as somewhere to put something rather than as an empty
+        // outline the eye skips over; stronger while something is being dragged onto it.
+        backgroundColor: isOver ? theme.palette.action.selected : theme.palette.action.hover,
         color: interactive ? theme.palette.primary.main : theme.palette.text.disabled,
         cursor: interactive ? 'pointer' : 'default',
+        textAlign: 'center',
         transition: 'border-color 120ms, background-color 120ms',
       }}
     >
-      {busy ? <CircularProgress size={20} /> : <FileUploadOutlinedIcon />}
-      <Typography variant="body2" fontWeight={500}>
-        {busy ? 'Uploading…' : 'Drop the completed form here, or click to browse'}
+      {busy ? <CircularProgress size={28} /> : <FileUploadOutlinedIcon fontSize="large" />}
+      <Typography variant="body2" fontWeight={600}>
+        {busy ? 'Uploading…' : 'Drop the completed form here'}
       </Typography>
+      {!busy && (
+        <Typography variant="caption" color="text.secondary">
+          or click to browse
+        </Typography>
+      )}
       <input ref={inputRef} type="file" accept="application/pdf" hidden onChange={handleChange} />
     </Box>
   );

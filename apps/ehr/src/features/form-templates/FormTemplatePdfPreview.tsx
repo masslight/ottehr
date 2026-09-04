@@ -53,6 +53,7 @@ export const FormTemplatePdfPreview: FC<Props> = ({
   const theme = useTheme();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const [pdfDocument, setPdfDocument] = useState<pdfjs.PDFDocumentProxy | null>(null);
   const [pageCount, setPageCount] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -188,6 +189,25 @@ export const FormTemplatePdfPreview: FC<Props> = ({
     };
   }, [pdfDocument, pageNumber, containerWidth, fields]);
 
+  /**
+   * Scrolls the selected field's rectangle into view.
+   *
+   * The reason the highlight exists at all is forms whose fields are named `text_47`, where the only way
+   * to know what a row refers to is to see it on the page — so a highlight drawn somewhere out of sight
+   * is no better than no highlight.
+   *
+   * Scrolled by hand rather than with `scrollIntoView`, which also scrolls every scrollable ancestor and
+   * would drag the field list out from under the pointer that just clicked it.
+   */
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    const highlight = highlights.find((candidate) => candidate.name === selectedFieldName);
+    if (!scroller || !highlight) return;
+
+    const centred = highlight.top + highlight.height / 2 - scroller.clientHeight / 2;
+    scroller.scrollTo({ top: Math.max(0, centred), behavior: 'smooth' });
+  }, [selectedFieldName, highlights]);
+
   if (error) {
     return (
       <Stack spacing={1} alignItems="flex-start" sx={{ p: 2 }}>
@@ -204,7 +224,7 @@ export const FormTemplatePdfPreview: FC<Props> = ({
   }
 
   return (
-    <Stack spacing={1} sx={{ minWidth: 0 }}>
+    <Stack spacing={1} sx={{ minWidth: 0, flex: 1, minHeight: 0 }}>
       {pageCount > 1 && (
         <Stack direction="row" alignItems="center" justifyContent="center" gap={1}>
           <IconButton size="small" disabled={pageNumber <= 1} onClick={() => onPageChange(pageNumber - 1)}>
@@ -219,38 +239,43 @@ export const FormTemplatePdfPreview: FC<Props> = ({
         </Stack>
       )}
 
-      <Box ref={containerRef} sx={{ position: 'relative', width: '100%' }}>
-        {isRendering && <CircularProgress size={20} sx={{ position: 'absolute', top: 8, left: 8, zIndex: 2 }} />}
-        <canvas ref={canvasRef} style={{ display: 'block', maxWidth: '100%' }} />
+      {/* The page is usually taller than the window, which is what stops the sticky column from helping:
+          a sticky element taller than the viewport still scrolls away. Bounding it here and scrolling
+          inside means the preview stays put however far down the field list you are. */}
+      <Box ref={scrollRef} sx={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+        <Box ref={containerRef} sx={{ position: 'relative', width: '100%' }}>
+          {isRendering && <CircularProgress size={20} sx={{ position: 'absolute', top: 8, left: 8, zIndex: 2 }} />}
+          <canvas ref={canvasRef} style={{ display: 'block', maxWidth: '100%' }} />
 
-        {highlights.map((highlight) => {
-          const isSelected = highlight.name === selectedFieldName;
-          const isMapped = mappedFieldNames.has(highlight.name);
-          return (
-            <Box
-              key={highlight.name}
-              sx={{
-                position: 'absolute',
-                left: highlight.left,
-                top: highlight.top,
-                width: highlight.width,
-                height: highlight.height,
-                pointerEvents: 'none',
-                borderRadius: '2px',
-                transition: 'background-color 120ms, box-shadow 120ms',
-                ...(isSelected
-                  ? {
-                      backgroundColor: 'rgba(255, 167, 38, 0.45)',
-                      boxShadow: `0 0 0 2px ${theme.palette.warning.main}`,
-                      zIndex: 1,
-                    }
-                  : isMapped
-                  ? { backgroundColor: 'rgba(25, 118, 210, 0.18)' }
-                  : { backgroundColor: 'rgba(120, 144, 156, 0.12)' }),
-              }}
-            />
-          );
-        })}
+          {highlights.map((highlight) => {
+            const isSelected = highlight.name === selectedFieldName;
+            const isMapped = mappedFieldNames.has(highlight.name);
+            return (
+              <Box
+                key={highlight.name}
+                sx={{
+                  position: 'absolute',
+                  left: highlight.left,
+                  top: highlight.top,
+                  width: highlight.width,
+                  height: highlight.height,
+                  pointerEvents: 'none',
+                  borderRadius: '2px',
+                  transition: 'background-color 120ms, box-shadow 120ms',
+                  ...(isSelected
+                    ? {
+                        backgroundColor: 'rgba(255, 167, 38, 0.45)',
+                        boxShadow: `0 0 0 2px ${theme.palette.warning.main}`,
+                        zIndex: 1,
+                      }
+                    : isMapped
+                    ? { backgroundColor: 'rgba(25, 118, 210, 0.18)' }
+                    : { backgroundColor: 'rgba(120, 144, 156, 0.12)' }),
+                }}
+              />
+            );
+          })}
+        </Box>
       </Box>
     </Stack>
   );

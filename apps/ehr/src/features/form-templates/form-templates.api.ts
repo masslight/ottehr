@@ -103,9 +103,9 @@ const saveCompletedForm = async (
  */
 export const returnCompletedForm = async (
   oystehr: Oystehr,
-  parameters: { appointmentId: string; templateId: string; file: File }
-): Promise<SaveCompletedFormOutput> => {
-  const { appointmentId, templateId, file } = parameters;
+  parameters: { appointmentId: string; file: File }
+): Promise<{ result: SaveCompletedFormOutput; z3Url: string }> => {
+  const { appointmentId, file } = parameters;
 
   const { z3Url, presignedUploadUrl } = await createCompletedFormUploadUrl(oystehr, {
     appointmentId,
@@ -121,8 +121,16 @@ export const returnCompletedForm = async (
     throw new Error(`Failed to upload the form (${uploadResponse.status} ${uploadResponse.statusText})`);
   }
 
-  return saveCompletedForm(oystehr, { appointmentId, z3Url, templateId });
+  // The stored location comes back too: an upload that could not be identified is answered with
+  // `needsSource`, and finishing it means calling again for the same bytes rather than uploading twice.
+  return { result: await saveCompletedForm(oystehr, { appointmentId, z3Url }), z3Url };
 };
+
+/** Completes an upload that came back `needsSource`, once the caller knows what it is. */
+export const fileReturnedForm = async (
+  oystehr: Oystehr,
+  parameters: { appointmentId: string; z3Url: string; templateId?: string; discard?: boolean }
+): Promise<SaveCompletedFormOutput> => saveCompletedForm(oystehr, parameters);
 
 export const createFormTemplateUploadUrl = async (
   oystehr: Oystehr,

@@ -9,7 +9,7 @@ import {
   ListFormTemplatesOutput,
   SaveCompletedFormOutput,
 } from 'utils/lib/types/api/form-template.types';
-import { fillFormTemplate, listFormTemplates, returnCompletedForm } from './form-templates.api';
+import { fileReturnedForm, fillFormTemplate, listFormTemplates, returnCompletedForm } from './form-templates.api';
 
 export const FORM_TEMPLATES_QUERY_KEY = 'form-templates';
 
@@ -60,22 +60,35 @@ export const useFillFormTemplate = (): UseMutationResult<FillFormTemplateOutput,
  * On success the patient's documents are refetched, because the form has just become one of them and the
  * documents explorer is very likely the next place the provider looks.
  */
-export const useReturnCompletedForm = (): UseMutationResult<
-  SaveCompletedFormOutput,
-  Error,
-  { appointmentId: string; templateId: string; file: File }
-> => {
+type ReturnInput =
+  | { appointmentId: string; file: File }
+  | { appointmentId: string; z3Url: string; templateId?: string; discard?: boolean };
+
+/**
+ * Files a completed form back onto the chart.
+ *
+ * Takes either a file to upload, or the location of one already uploaded — the second form completes an
+ * upload that came back needing to be told what it is.
+ */
+/** The stored location rides along on the first leg, so a `needsSource` reply can be answered. */
+type ReturnResult = SaveCompletedFormOutput & { z3Url?: string };
+
+export const useReturnCompletedForm = (): UseMutationResult<ReturnResult, Error, ReturnInput> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: { appointmentId: string; templateId: string; file: File }) => {
+    mutationFn: async (input: ReturnInput) => {
       if (!oystehrZambda) throw new Error('API client not available');
-      return returnCompletedForm(oystehrZambda, input);
+      if ('file' in input) {
+        const { result, z3Url } = await returnCompletedForm(oystehrZambda, input);
+        return { ...result, z3Url };
+      }
+      return fileReturnedForm(oystehrZambda, input);
     },
     onSuccess: (result) => {
-      // A refused upload created nothing, so there is nothing new for the explorer to show.
-      if (result.status === 'patientMismatch') return;
+      // Nothing was written for a refusal, a discard, or an upload still waiting to be identified.
+      if (result.status !== 'verified' && result.status !== 'unstamped') return;
       void queryClient.invalidateQueries({ queryKey: [PATIENT_DOCS_QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS] });
       void queryClient.invalidateQueries({ queryKey: [PATIENT_DOCS_QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS] });
       void queryClient.invalidateQueries({ queryKey: [COMPLETED_FORMS_QUERY_KEY] });
