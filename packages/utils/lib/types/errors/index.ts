@@ -32,6 +32,7 @@ export enum APIErrorCode {
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
   FHIR_RESOURCE_IS_GONE = 4102,
+  FHIR_RESOURCE_VALIDATION_ERROR = 4103,
   PRECONDITION_FAILED = 4120,
   // 42xx
   MISSING_REQUEST_BODY = 4200,
@@ -336,6 +337,12 @@ export const FHIR_RESOURCE_IS_GONE = (): APIError => ({
   code: APIErrorCode.FHIR_RESOURCE_IS_GONE,
   statusCode: 410,
   message: `The requested resource is gone`,
+});
+
+export const FHIR_RESOURCE_VALIDATION_ERROR = (message: string): APIError => ({
+  code: APIErrorCode.FHIR_RESOURCE_VALIDATION_ERROR,
+  statusCode: 422,
+  message,
 });
 
 export const CLAIM_NOT_READY_FOR_X12_EXPORT: APIError = {

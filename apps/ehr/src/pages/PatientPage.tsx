@@ -32,6 +32,7 @@ import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDia
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
 import { FaxVisitOption, SendFaxDialog, useSendFax } from 'src/features/fax';
+import { PatientNotesButton } from 'src/features/patient-notes/components/PatientNotesButton';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { PatientAvatar } from 'src/features/visits/shared/components/patient/info/Avatar';
 import Contacts from 'src/features/visits/shared/components/patient/info/Contacts';
@@ -272,7 +273,10 @@ export default function PatientPage(): JSX.Element {
 
             <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
               <IdentifiersRow patient={patient} loading={loading} />
-              <FullNameDisplay patient={patient} loading={loading} />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <FullNameDisplay patient={patient} loading={loading} />
+                <PatientNotesButton patientId={patient?.id} />
+              </Box>
               <Summary patient={patient} loading={loading} />
               <Contacts patient={patient} loading={loading} />
             </Box>

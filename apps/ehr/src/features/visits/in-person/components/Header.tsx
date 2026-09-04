@@ -57,6 +57,7 @@ import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointm
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useApiClients } from '../../../../hooks/useAppClients';
+import { PatientNotesButton } from '../../../patient-notes/components/PatientNotesButton';
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
 import { useGetHistoricalVitals, useGetVitals } from '../../shared/components/vitals/hooks/useGetVitals';
 import { useChartFields } from '../../shared/hooks/useChartFields';
@@ -657,6 +658,7 @@ export const Header = (): JSX.Element => {
                       >
                         {patientName}
                       </PatientName>
+                      <PatientNotesButton patientId={userId} />
                       <PrintVisitLabelButton encounterId={effectiveEncounterId} />
                       <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata> |
                     </PatientInfoWrapper>
