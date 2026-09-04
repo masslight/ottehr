@@ -59,7 +59,33 @@ const sortItems = (items: CommandPaletteItem[], query = ''): CommandPaletteItem[
     return 1; // category or keyword match (still visible, just lower priority)
   };
 
+  // With a query, rank categories by their best (lowest) match priority so a
+  // category holding a label match outranks one that only matched via category
+  // name or keywords — otherwise a weighted group like Recent Notes could
+  // hijack Enter from the item the user actually typed. Categories stay
+  // contiguous either way, so keyboard order matches the rendered groups.
+  const bestCategoryPriority = new Map<string, number>();
+  if (normalizedQuery) {
+    for (const item of items) {
+      const priority = matchPriority(item);
+      const best = bestCategoryPriority.get(item.category);
+      if (best === undefined || priority < best) bestCategoryPriority.set(item.category, priority);
+    }
+  }
+
+  const weightOf = (item: CommandPaletteItem): number => item.sortWeight ?? 0;
+
   return [...items].sort((left, right) => {
+    if (normalizedQuery) {
+      const categoryPriorityComparison =
+        (bestCategoryPriority.get(left.category) ?? 0) - (bestCategoryPriority.get(right.category) ?? 0);
+      if (categoryPriorityComparison !== 0) return categoryPriorityComparison;
+    } else {
+      // Empty query: heavier items float their whole run above the weightless
+      // (alphabetical) categories and keep their author-declared order.
+      const weightComparison = weightOf(right) - weightOf(left);
+      if (weightComparison !== 0) return weightComparison;
+    }
     const categoryComparison = left.category.localeCompare(right.category);
     if (categoryComparison !== 0) return categoryComparison;
     const priorityComparison = matchPriority(left) - matchPriority(right);
@@ -70,6 +96,8 @@ const sortItems = (items: CommandPaletteItem[], query = ''): CommandPaletteItem[
     if (primaryComparison !== 0) return primaryComparison;
     // Same parent label: parent first, then children in author-declared order.
     if (lk.isChild !== rk.isChild) return lk.isChild ? 1 : -1;
+    const weightTiebreak = weightOf(right) - weightOf(left);
+    if (weightTiebreak !== 0) return weightTiebreak;
     return lk.secondary - rk.secondary;
   });
 };

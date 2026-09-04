@@ -11,6 +11,11 @@ export interface CommandPaletteItem {
    *  to communicate hierarchy (e.g. "Tracking Board" parent with sub-tab
    *  children). Children remain independently selectable. */
   parentId?: string;
+  /** When set, heavier items float above lighter ones (default 0) while the
+   *  query is empty — lets a source pin a category (e.g. Recent Notes) above
+   *  the alphabetical ones and carry its own internal ordering. Once the user
+   *  types, match relevance dominates and sortWeight only breaks ties. */
+  sortWeight?: number;
 }
 
 interface CommandPaletteSource {
