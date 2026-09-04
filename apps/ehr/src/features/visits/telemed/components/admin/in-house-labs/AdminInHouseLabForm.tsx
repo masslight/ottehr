@@ -13,7 +13,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { PropsWithChildren, ReactElement, ReactNode } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { AdminInHouseLabItemDefinitionSchema } from 'utils/lib/types/data/in-house/in-house.schema';
@@ -21,6 +21,8 @@ import { AdminInHouseLabItemDefinition } from 'utils/lib/types/data/in-house/in-
 import { APIError } from 'utils/lib/types/errors';
 import CPTCodeList from './components/CPTCodeList';
 import TestComponentList from './components/TestComponentList';
+
+type OystehrSdkError = Oystehr.OystehrSdkError;
 
 export interface AdminInHouseLabFormProps {
   defaultValues: AdminInHouseLabItemDefinition;

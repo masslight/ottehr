@@ -17,7 +17,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
@@ -37,6 +37,8 @@ import { LAB_ORDER_UPDATE_RESOURCES_EVENTS, UnsolicitedResultsRequestType } from
 import { formatDateForLabs } from 'utils/lib/utils/dateUtils';
 import { UnsolicitedPatientMatchSearchCard } from '../components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
 import { UnsolicitedVisitMatchCard } from '../components/unsolicited-results/UnsolicitedVisitMatchCard';
+
+type OystehrSdkError = Oystehr.OystehrSdkError;
 
 export const UnsolicitedResultsMatch: React.FC = () => {
   const { diagnosticReportId } = useParams();

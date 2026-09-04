@@ -5,10 +5,10 @@ import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-confi
 import { VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import { expect, test } from 'vitest';
-import BookingQuestionnaire from './data/booking-questionnaire.json' assert { type: 'json' };
-import IntakePaperworkQuestionnaire from './data/intake-paperwork-questionnaire.json' assert { type: 'json' };
-import PatientRecordQuestionnaire from './data/patient-record-questionnaire.json' assert { type: 'json' };
-import VirtualIntakePaperworkQuestionnaire from './data/virtual-intake-paperwork-questionnaire.json' assert { type: 'json' };
+import BookingQuestionnaire from './data/booking-questionnaire.json';
+import IntakePaperworkQuestionnaire from './data/intake-paperwork-questionnaire.json';
+import PatientRecordQuestionnaire from './data/patient-record-questionnaire.json';
+import VirtualIntakePaperworkQuestionnaire from './data/virtual-intake-paperwork-questionnaire.json';
 
 describe('testing Questionnaire generation from config objects', () => {
   test

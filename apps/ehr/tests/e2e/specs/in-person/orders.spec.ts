@@ -22,7 +22,7 @@ import {
 import { ExternalLabDetailPage } from 'tests/e2e/page/lab/external/ExternalLabDetailPage';
 import { ExternalLabsPage } from 'tests/e2e/page/lab/external/ExternalLabsPage';
 import { MOCK_LAB_RESULTS } from 'tests/e2e/page/lab/external/mock-data';
-import { MOCK_E2E_AD_TAG, MOCK_INHOUSE_LAB_DATA } from 'tests/e2e/page/lab/in-house/mock-data';
+import { buildRunScopedInhouseLabData, MOCK_E2E_AD_TAG } from 'tests/e2e/page/lab/in-house/mock-data';
 import { LabelPrintingConfigAdminPage } from 'tests/e2e/page/LabelPrintingConfigAdminPage';
 import { expectNursingOrderCreatePage } from 'tests/e2e/page/NursingOrderCreatePage';
 import { expectNursingOrderDetailsPage } from 'tests/e2e/page/NursingOrderDetailsPage';
@@ -42,16 +42,16 @@ import { REPEAT_TEST_CPT_CODE_MODIFIER } from 'utils/lib/types/data/in-house/in-
 import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
 import { ExternalLabsStatus, LabPaymentMethod } from 'utils/lib/types/data/labs/labs.types';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
-import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
-import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json' assert { type: 'json' };
-import procedureComplications from '../../../../../../config/oystehr/procedure-complications.json' assert { type: 'json' };
-import procedureMedicationsUsed from '../../../../../../config/oystehr/procedure-medications-used.json' assert { type: 'json' };
-import procedurePatientResponses from '../../../../../../config/oystehr/procedure-patient-responses.json' assert { type: 'json' };
-import procedurePostInstructions from '../../../../../../config/oystehr/procedure-post-instructions.json' assert { type: 'json' };
-import procedureSupplies from '../../../../../../config/oystehr/procedure-supplies.json' assert { type: 'json' };
-import procedureTechniques from '../../../../../../config/oystehr/procedure-techniques.json' assert { type: 'json' };
-import procedureTimeSpent from '../../../../../../config/oystehr/procedure-time-spent.json' assert { type: 'json' };
-import procedureType from '../../../../../../config/oystehr/procedure-type.json' assert { type: 'json' };
+import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json';
+import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json';
+import procedureComplications from '../../../../../../config/oystehr/procedure-complications.json';
+import procedureMedicationsUsed from '../../../../../../config/oystehr/procedure-medications-used.json';
+import procedurePatientResponses from '../../../../../../config/oystehr/procedure-patient-responses.json';
+import procedurePostInstructions from '../../../../../../config/oystehr/procedure-post-instructions.json';
+import procedureSupplies from '../../../../../../config/oystehr/procedure-supplies.json';
+import procedureTechniques from '../../../../../../config/oystehr/procedure-techniques.json';
+import procedureTimeSpent from '../../../../../../config/oystehr/procedure-time-spent.json';
+import procedureType from '../../../../../../config/oystehr/procedure-type.json';
 interface ProcedureInfo {
   consentChecked: boolean;
   procedureType: string;
@@ -264,17 +264,28 @@ test.describe('In-house labs page', async () => {
     try {
       const oystehr = await resourceHandler.apiClient;
 
+      // Only sweep resources older than an hour so we never delete the in-use mocks of a concurrent
+      // run (or a Playwright retry) that shares this Oystehr backend: every run's mocks carry the
+      // same stable MOCK_E2E_AD_TAG. Mirrors packages/utils/lib/utils/e2eCleanup.ts.
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
       const leftOverActivityDefinitions = (
         await oystehr.fhir.search<ActivityDefinition>({
           resourceType: 'ActivityDefinition',
-          params: [{ name: '_tag', value: `${MOCK_E2E_AD_TAG.system}|${MOCK_E2E_AD_TAG.code}` }],
+          params: [
+            { name: '_tag', value: `${MOCK_E2E_AD_TAG.system}|${MOCK_E2E_AD_TAG.code}` },
+            { name: '_lastUpdated', value: `lt${oneHourAgo}` },
+          ],
         })
       ).unbundle();
 
       const leftOverLists = (
         await oystehr.fhir.search<List>({
           resourceType: 'List',
-          params: [{ name: '_tag', value: `${MOCK_E2E_AD_TAG.system}|${MOCK_E2E_AD_TAG.code}` }],
+          params: [
+            { name: '_tag', value: `${MOCK_E2E_AD_TAG.system}|${MOCK_E2E_AD_TAG.code}` },
+            { name: '_lastUpdated', value: `lt${oneHourAgo}` },
+          ],
         })
       ).unbundle();
 
@@ -286,7 +297,7 @@ test.describe('In-house labs page', async () => {
         console.warn(
           `Found ${
             leftoverRefs.length
-          } leftover in-house labs mock resource(s) from a prior run; deleting: ${leftoverRefs.join(', ')}`
+          } leftover in-house labs mock resource(s) (>1h old) from a prior run; deleting: ${leftoverRefs.join(', ')}`
         );
         await oystehr.fhir.batch({
           requests: leftoverRefs.map((ref) => ({ method: 'DELETE', url: ref })),
@@ -300,10 +311,14 @@ test.describe('In-house labs page', async () => {
   test.beforeAll('Handling ActivityDefinition and List resources for in-house labs tests', async () => {
     await cleanupLeftoverInHouseLabsMocks();
 
+    // Run-scoped copy: every mock AD canonical URL is suffixed with a per-run token so concurrent
+    // runs sharing an Oystehr backend never share or duplicate canonical url|version identifiers.
+    const mockData = buildRunScopedInhouseLabData();
+
     const adRequests: BatchInputPostRequest<ActivityDefinition>[] = [];
 
     // standard + repeatable tests
-    MOCK_INHOUSE_LAB_DATA.activityDefinitions.forEach((ad) => {
+    mockData.activityDefinitions.forEach((ad) => {
       const fhirActivityDefinition = ad as ActivityDefinition;
       const testItem = convertActivityDefinitionToDataEntryTestItem(fhirActivityDefinition);
 
@@ -334,7 +349,7 @@ test.describe('In-house labs page', async () => {
     });
 
     // reflex test
-    const { parentTest, childTest } = MOCK_INHOUSE_LAB_DATA.reflexTest;
+    const { parentTest, childTest } = mockData.reflexTest;
 
     const parentTestItem = convertActivityDefinitionToDataEntryTestItem(
       parentTest.activityDefinition as ActivityDefinition
@@ -372,7 +387,7 @@ test.describe('In-house labs page', async () => {
     });
 
     // lab set
-    const listRequests = MOCK_INHOUSE_LAB_DATA.lists.map((list) => {
+    const listRequests = mockData.lists.map((list) => {
       return {
         method: 'POST' as const,
         url: 'List',
