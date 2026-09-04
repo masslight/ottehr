@@ -28,6 +28,7 @@ import { getUser } from '../../../../shared/auth';
 import { getAuth0Token } from '../../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { lambdaResponse } from '../../../../shared/lambda';
+import { practitionerRefForUser } from '../../../../shared/practitioners';
 import { wrapHandler } from '../../../../shared/sentry';
 import {
   getStripeClient,
@@ -98,7 +99,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       encounterId: validatedParameters.encounterId,
       amountInCents,
       stripePaymentIntentId: paymentIntent.id,
-      submitterRef: { reference: user.profile },
+      submitterRef: await practitionerRefForUser(user, oystehrClient),
     },
     oystehrClient,
     input

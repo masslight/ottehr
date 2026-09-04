@@ -503,6 +503,8 @@ export interface ClaimDetailResponse {
   patientDischargeStatusCode: string;
   admissionType: string;
   admissionSource: string;
+  admissionDate: string;
+  dischargeDate: string;
   attachments: ClaimAttachment[];
 }
 
@@ -593,6 +595,19 @@ export interface SearchCodeResponse {
 
 export interface SearchBillingTagsResponse {
   tags: BillingTag[];
+}
+
+// Refresh state of a cached billing report.
+export interface ReportRefreshStatus {
+  state: 'idle' | 'running' | 'error';
+  // when the served cache was generated
+  lastCompletedAt?: string;
+  // worker phase text while running
+  progress?: string;
+  // most recent failure's reason
+  error?: string;
+  // stored (gzip) size of the served cache object
+  cacheSizeBytes?: number;
 }
 
 export type GetBillingCoverageResponse = BillingCoverageOption;

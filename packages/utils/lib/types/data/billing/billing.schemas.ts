@@ -5,7 +5,7 @@ import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { STATE_CODES } from '../../common';
-import { BILLING_MANUAL_PAYMENT_METHODS } from './billing.constants';
+import { BILLING_MANUAL_PAYMENT_METHODS, REFRESH_REPORT_KINDS } from './billing.constants';
 import { CLAIM_NOTE_MAX_LENGTH } from './claim-history';
 import {
   CLAIM_STATUS_FIELD_KEYS,
@@ -577,6 +577,8 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
       patientDischargeStatusCode: nonEmptyString.max(2).optional().or(z.literal('')),
       admissionType: nonEmptyString.max(1).optional().or(z.literal('')),
       admissionSource: nonEmptyString.max(1).optional().or(z.literal('')),
+      admissionDate: nonEmptyString.optional().or(z.literal('')),
+      dischargeDate: nonEmptyString.optional().or(z.literal('')),
     }),
   }),
 ]);
@@ -594,6 +596,26 @@ export const UpdateBillingResourceInputSchema = updateBillingResourceUnion.super
       path: ['fields', 'policyHolder'],
       message: 'Policy holder details are required when the relationship to insured is not "Self"',
     });
+  }
+
+  // Institutional claim submission requires a full admission/discharge period: neither can be blank.
+  // Only checked when at least one key is present in the payload (the UI always submits them
+  // together); a payload that omits both entirely is left alone since it isn't touching this pair.
+  if (data.resourceType === 'Claim' && (data.fields.admissionDate != null || data.fields.dischargeDate != null)) {
+    if (!data.fields.admissionDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fields', 'admissionDate'],
+        message: 'Admission date is required',
+      });
+    }
+    if (!data.fields.dischargeDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fields', 'dischargeDate'],
+        message: 'Discharge date is required',
+      });
+    }
   }
 });
 
@@ -659,6 +681,35 @@ export const MatchClaimResponseToClaimInputSchema = z.object({
 export const UnmatchClaimResponseInputSchema = z.object({
   claimResponseId: nonEmptyString,
 });
+
+// report date-window fields: ISO date (YYYY-MM-DD), with from <= to when both are set
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected an ISO date (YYYY-MM-DD)');
+const dateWindowIsOrdered = (data: { dateFrom?: string; dateTo?: string }): boolean =>
+  !data.dateFrom || !data.dateTo || data.dateFrom <= data.dateTo;
+const DATE_WINDOW_MESSAGE = { message: 'dateFrom must not be after dateTo', path: ['dateFrom'] };
+
+export const GetBillingReportInputSchema = z.object({
+  kind: z.enum(REFRESH_REPORT_KINDS),
+  // validated against the definition's paramsSchema server-side
+  params: z.record(z.unknown()).optional(),
+  // queue an async recompute (idempotent per kind+params)
+  refresh: z.boolean().optional(),
+  // filtered slice of the report's cached detail dataset
+  drilldown: z.record(z.unknown()).optional(),
+});
+
+// date window shared by the parameterized report kinds
+export const ReportDateWindowParamsSchema = z
+  .object({
+    dateFrom: isoDate.optional(),
+    dateTo: isoDate.optional(),
+  })
+  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
+
+export const EmptyReportParamsSchema = z.object({});
+
+export type GetBillingReportInput = z.output<typeof GetBillingReportInputSchema>;
+export type ReportDateWindowParams = z.output<typeof ReportDateWindowParamsSchema>;
 
 export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),

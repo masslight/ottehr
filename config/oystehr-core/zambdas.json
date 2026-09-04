@@ -1516,6 +1516,20 @@
       "src": "src/ehr/patient-payments/terminal/finalize-payment/index",
       "zip": ".dist/zips/patient-payments-terminal-finalize-payment.zip"
     },
+    "PATIENT-PAYMENTS-REFUND": {
+      "name": "patient-payments-refund",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/patient-payments/refund/index",
+      "zip": ".dist/zips/patient-payments-refund.zip"
+    },
+    "PATIENT-PAYMENTS-VOID": {
+      "name": "patient-payments-void",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/patient-payments/void/index",
+      "zip": ".dist/zips/patient-payments-void.zip"
+    },
     "FAILING-ENDPOINT": {
       "name": "failing-endpoint",
       "type": "http_open",

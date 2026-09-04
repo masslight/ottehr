@@ -213,7 +213,7 @@ export const getRadiologyOrders = async (
   };
 };
 
-const parseResultsToOrder = (
+export const parseResultsToOrder = (
   serviceRequest: ServiceRequest,
   tasks: Task[],
   diagnosticReports: DiagnosticReport[],

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
+import { hashInput } from 'src/helpers/hash';
 import { ERX_MEDICATION_META_TAG_CODE } from 'utils/lib/fhir/constants';
 import { getRosFindingStateFromKey, rosField } from 'utils/lib/ottehr-config/review-of-systems';
 import { InPersonRosConfig, RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
@@ -154,12 +155,6 @@ export function buildBillingSuggestionInput(params: {
     // the provider-reconciled medication list, i.e. what the chart shows under Current medications
     currentMedications: chartData?.medications,
   };
-}
-
-// ── Stable hash of the input for use as a React Query cache key ─────────────
-
-function hashInput(input: BillingSuggestionInput): string {
-  return JSON.stringify(input);
 }
 
 // ── Main hook ───────────────────────────────────────────────────────────────

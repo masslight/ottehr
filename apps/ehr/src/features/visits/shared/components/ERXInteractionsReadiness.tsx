@@ -2,9 +2,10 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect } from 'react';
 import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetErxConfig';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
-import { getErxPatientSyncErrorMessage, useErxPatientVitals } from '../hooks/useErxPatientVitals';
+import { useErxPatientVitals } from '../hooks/useErxPatientVitals';
 import { useSyncERXPatient } from '../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
+import { getErxPatientSyncErrorMessage } from '../utils/erxErrors';
 import { ERXStatus } from './ERX';
 
 /**

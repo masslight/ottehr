@@ -43,6 +43,7 @@ export type InHouseLabsTableColumn =
   | 'orderAdded'
   | 'provider'
   | 'dx'
+  | 'results'
   | 'resultsReceived'
   | 'status'
   | 'actions';
@@ -169,6 +170,8 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
         return '8%';
       case 'actions':
         return '5%';
+      case 'results':
+        return '20%';
       default:
         return '10%';
     }
@@ -190,6 +193,8 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
         return 'Results received';
       case 'status':
         return 'Status';
+      case 'results':
+        return 'Results';
       default:
         return '';
     }

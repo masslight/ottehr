@@ -24,6 +24,8 @@ vi.mock('../../src/hooks/useGetPatient', () => ({
   }),
 }));
 vi.mock('../../src/hooks/useGetPatientDocs', () => ({
+  hasVisitRef: (visit?: { encounterId?: string; appointmentId?: string }) =>
+    !!visit && (!!visit.encounterId || !!visit.appointmentId),
   useGetPatientDocs: () => ({
     documents: [],
     isLoadingDocuments: false,
@@ -40,7 +42,12 @@ vi.mock('../../src/hooks/useGetPatientDocs', () => ({
   }),
 }));
 vi.mock('../../src/hooks/usePatientVisitOptions', () => ({
-  usePatientVisitOptions: () => ({ visitOptions: [], isLoading: false, visitsByEncounterId: new Map() }),
+  usePatientVisitOptions: () => ({
+    visitOptions: [],
+    isLoading: false,
+    visitsByEncounterId: new Map(),
+    visitsByAppointmentId: new Map(),
+  }),
 }));
 vi.mock('../../src/state/patient.store', () => ({ usePatientStore: { setState: vi.fn() } }));
 vi.mock('src/features/visits/shared/components/patient/Header', () => ({ Header: () => <div /> }));
