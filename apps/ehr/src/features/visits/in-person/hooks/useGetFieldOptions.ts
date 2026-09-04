@@ -28,6 +28,7 @@ const getRoutesArray = (routes: MedicationApplianceRoutes): Option[] => {
     '6064005', // Topical route
     '10547007', // Otic route
     '54485002', // Ophthalmic route
+    '999000051000001100', // Inhalation route
   ];
 
   const allRoutes = Object.entries(routes).map(([_, value]) => ({

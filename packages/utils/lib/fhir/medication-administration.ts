@@ -41,7 +41,7 @@ import { getCoding } from './helpers';
 // Local const so that DEPRECATED system doesn't get imported from utils
 const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // formerly used by Ottehr clinical in-house meds
 
-export type MedicationUnitOptions = 'mg' | 'ml' | 'g' | 'cc' | 'unit' | 'application';
+export type MedicationUnitOptions = 'mg' | 'ml' | 'g' | 'cc' | 'unit' | 'application' | 'puff(s)';
 export const UNIT_OPTIONS: { value: MedicationUnitOptions; label: string }[] = [
   { value: 'mg', label: 'mg' },
   { value: 'ml', label: 'mL' },
@@ -49,6 +49,7 @@ export const UNIT_OPTIONS: { value: MedicationUnitOptions; label: string }[] = [
   { value: 'cc', label: 'cc' },
   { value: 'unit', label: 'unit' },
   { value: 'application', label: 'application' },
+  { value: 'puff(s)', label: 'puff(s)' },
 ];
 
 export function mapFhirToOrderStatus(
