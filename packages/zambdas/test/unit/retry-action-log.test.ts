@@ -32,6 +32,14 @@ vi.mock('../../src/shared/pdf/visit-details-pdf/get-video-resources', () => ({
   }),
 }));
 
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => {
+  const actual = await importOriginal<any>();
+  return {
+    ...actual,
+    FEATURE_FLAGS_CONFIG: { ...actual.FEATURE_FLAGS_CONFIG, skipSendingVisitNoteToPatientPortalEnabled: false },
+  };
+});
+
 import { hasRetryChild, isRetryable, performEffect, resolveDocumentReference } from '../../src/ehr/retry-action-log';
 import { createOutboundDeliveryAttemptIdempotently } from '../../src/shared/outbound-delivery';
 import { createMockSecrets } from './validate-request-parameters/helpers';
