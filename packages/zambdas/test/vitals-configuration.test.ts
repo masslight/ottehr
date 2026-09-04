@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { DefaultVitalsConfig, VitalsDef, VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { getVitalObservationAlertLevel } from 'utils/lib/helpers/vitals/utils';
-import { DefaultVitalsConfig, VitalsDef, VitalsSchema } from 'utils/lib/ottehr-config/vitals';
 import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
   VitalsBloodPressureObservationDTO,

@@ -8,16 +8,20 @@ import {
   MedicationAdministration,
   MedicationRequest,
   Observation,
+  Patient,
   Practitioner,
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
 import { ERX_MEDICATION_META_TAG_CODE, PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
-import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
+import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { VitalsAlertConfig } from 'utils/lib/types/api/vitals-alert-config/vitals-alert-config.types';
 import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
 import { OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
+import { DEFAULT_VITALS_ALERT_CONFIG, vitalsAlertConfigToVitalsDef } from 'utils/lib/utils/vitals-alert-config';
 import { describe, expect, test, vi } from 'vitest';
 import {
   buildSearchUrl,
@@ -35,6 +39,8 @@ import {
   partitionServiceRequests,
   poolTrackingBoardResources,
   selectTrackingBoardEncounterIds,
+  selectVitalsPatientsByEncounterId,
+  VitalsPatientsByEncounterId,
 } from '../../src/ehr/get-appointments/tracking-board';
 import { SortedAppointmentQueues } from '../../src/shared/queueingUtils';
 
@@ -329,18 +335,152 @@ describe('buildVitalsForTrackingBoard', () => {
     ...(abnormal ? { interpretation: [{ coding: [{ code: 'HH' }] }] } : {}),
   });
 
+  const ADULT_DOB = '1990-01-01';
+  const heartRate = (id: string, encounterId: string, value: number, interpretation?: string): Observation => ({
+    resourceType: 'Observation',
+    id,
+    status: 'final',
+    code: { text: 'Heart rate' },
+    encounter: { reference: `Encounter/${encounterId}` },
+    performer: [{ reference: 'Practitioner/pr-1' }],
+    effectiveDateTime: '2026-09-02T10:00:00Z',
+    valueQuantity: { value },
+    meta: {
+      tag: [
+        {
+          system: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}`,
+          code: VitalFieldNames.VitalHeartbeat,
+        },
+      ],
+    },
+    ...(interpretation ? { interpretation: [{ coding: [{ code: interpretation }] }] } : {}),
+  });
+
+  const adults = (...ids: string[]): VitalsPatientsByEncounterId =>
+    Object.fromEntries(ids.map((id) => [id, { birthDate: ADULT_DOB, gender: 'female' }]));
+
+  /** The defaults with adult heart rate narrowed, so 90 bpm becomes abnormal and 130 critical. */
+  const narrowedConfig = (): VitalsSchema => {
+    const config: VitalsAlertConfig = JSON.parse(JSON.stringify(DEFAULT_VITALS_ALERT_CONFIG));
+    config.thresholds['vital-heartbeat']['18+y'] = {
+      criticalLow: 40,
+      abnormalLow: 57,
+      abnormalHigh: 85,
+      criticalHigh: 115,
+    };
+    return vitalsAlertConfigToVitalsDef(config);
+  };
+
+  const defaultConfig = (): VitalsSchema => vitalsAlertConfigToVitalsDef(DEFAULT_VITALS_ALERT_CONFIG);
+
   test('keeps only encounters with an abnormal reading, which is all the badge renders', () => {
     const vitals = buildVitalsForTrackingBoard({
       observations: [vital('o-1', 'enc-1', true), vital('o-2', 'enc-1', false), vital('o-3', 'enc-2', false)],
       practitioners: [performer],
+      patientsByEncounterId: {},
+      vitalsAlertConfig: undefined,
     });
 
     expect(Object.keys(vitals)).toEqual(['enc-1']);
     const temperatures = vitals['enc-1'][VitalFieldNames.VitalTemperature];
     expect(temperatures).toHaveLength(1);
     expect(temperatures[0].resourceId).toBe('o-1');
-    expect(temperatures[0].alertCriticality).toBeDefined();
+    expect(temperatures[0].alertCriticality).toBe(VitalAlertCriticality.Critical);
     expect(temperatures[0].authorName).toContain('Ann');
+  });
+
+  test('the configured thresholds decide which encounters get a badge', () => {
+    const observations = [heartRate('o-1', 'enc-1', 90)];
+
+    expect(
+      Object.keys(
+        buildVitalsForTrackingBoard({
+          observations,
+          practitioners: [performer],
+          patientsByEncounterId: adults('enc-1'),
+          vitalsAlertConfig: defaultConfig(),
+        })
+      )
+    ).toEqual([]);
+
+    expect(
+      Object.keys(
+        buildVitalsForTrackingBoard({
+          observations,
+          practitioners: [performer],
+          patientsByEncounterId: adults('enc-1'),
+          vitalsAlertConfig: narrowedConfig(),
+        })
+      )
+    ).toEqual(['enc-1']);
+  });
+
+  test('grades abnormal and critical separately, which is what the two badges render', () => {
+    const vitals = buildVitalsForTrackingBoard({
+      observations: [heartRate('o-1', 'enc-1', 90), heartRate('o-2', 'enc-2', 130)],
+      practitioners: [performer],
+      patientsByEncounterId: adults('enc-1', 'enc-2'),
+      vitalsAlertConfig: narrowedConfig(),
+    });
+
+    expect(vitals['enc-1'][VitalFieldNames.VitalHeartbeat][0].alertCriticality).toBe(VitalAlertCriticality.Abnormal);
+    expect(vitals['enc-2'][VitalFieldNames.VitalHeartbeat][0].alertCriticality).toBe(VitalAlertCriticality.Critical);
+  });
+
+  test('the stored interpretation does not override the configured thresholds', () => {
+    const vitals = buildVitalsForTrackingBoard({
+      observations: [heartRate('o-1', 'enc-1', 70, 'HH')],
+      practitioners: [performer],
+      patientsByEncounterId: adults('enc-1'),
+      vitalsAlertConfig: narrowedConfig(),
+    });
+
+    expect(Object.keys(vitals)).toEqual([]);
+  });
+
+  test('falls back to the stored interpretation when the encounter has no patient', () => {
+    const vitals = buildVitalsForTrackingBoard({
+      observations: [heartRate('o-1', 'enc-1', 70, 'HX')],
+      practitioners: [performer],
+      patientsByEncounterId: {},
+      vitalsAlertConfig: narrowedConfig(),
+    });
+
+    expect(vitals['enc-1'][VitalFieldNames.VitalHeartbeat][0].alertCriticality).toBe(VitalAlertCriticality.Abnormal);
+  });
+});
+
+describe('selectVitalsPatientsByEncounterId', () => {
+  const patient: Patient = { resourceType: 'Patient', id: 'p-1', birthDate: '1990-01-01', gender: 'female' };
+  const withPatient = (id: string, patientId: string): Appointment => ({
+    ...appointment(id),
+    participant: [{ actor: { reference: `Patient/${patientId}` }, status: 'accepted' }],
+  });
+
+  test('joins through the appointment, since the encounter carries no subject', () => {
+    const enc = encounter('enc-1', 'appt-1');
+    expect(enc.subject).toBeUndefined();
+
+    expect(
+      selectVitalsPatientsByEncounterId({
+        appointments: [withPatient('appt-1', 'p-1')],
+        apptRefToEncounterMap: { 'Appointment/appt-1': enc },
+        patientIdMap: { 'p-1': patient },
+      })
+    ).toEqual({ 'enc-1': { birthDate: '1990-01-01', gender: 'female' } });
+  });
+
+  test('skips an appointment with no patient participant and one whose patient was not returned', () => {
+    expect(
+      selectVitalsPatientsByEncounterId({
+        appointments: [appointment('appt-1'), withPatient('appt-2', 'p-missing')],
+        apptRefToEncounterMap: {
+          'Appointment/appt-1': encounter('enc-1', 'appt-1'),
+          'Appointment/appt-2': encounter('enc-2', 'appt-2'),
+        },
+        patientIdMap: { 'p-1': patient },
+      })
+    ).toEqual({});
   });
 });
 

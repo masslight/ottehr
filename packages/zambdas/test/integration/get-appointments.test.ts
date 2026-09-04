@@ -78,6 +78,7 @@ describe('get-appointments integration — happy path', () => {
       ].sort()
     );
     expect(output.vitals).toEqual(expect.any(Object));
+    expect(output.ordersAndVitalsIncomplete).toBeFalsy();
   });
 
   // Parity with the per-order-type zambdas on the fields the board renders. Non-rendered fields (ordering physician,

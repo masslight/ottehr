@@ -487,6 +487,21 @@ export const dataTestIds = {
     pencilIconButton: 'EditOutlinedIcon',
     abnormalVitalIcon: 'WarningAmberOutlinedIcon',
   },
+  progressNoteAdmin: {
+    saveButton: 'progress-note-admin-save-button',
+    discardButton: 'progress-note-admin-discard-button',
+  },
+  vitalsAlertConfig: {
+    section: 'vitals-alert-config-section',
+    errorSummary: 'vitals-alert-config-error-summary',
+    addAgeRangeButton: 'vitals-alert-config-add-age-range-button',
+    ageRangeRow: (index: number) => `vitals-alert-config-age-range-row-${index}`,
+    removeAgeRangeButton: (index: number) => `vitals-alert-config-remove-age-range-button-${index}`,
+    removeAgeRangeDescription: 'vitals-alert-config-remove-age-range-description',
+    vitalAccordion: (vital: string) => `vitals-alert-config-accordion-${vital}`,
+    thresholdInput: (vital: string, rangeId: string, level: string) =>
+      `vitals-alert-config-threshold-${vital}-${rangeId}-${level}`,
+  },
   visitDetailsPage: {
     cancelVisitButton: 'cancel-visit-button',
     cancelationReasonDropdown: 'cancelation-reason-dropdown',

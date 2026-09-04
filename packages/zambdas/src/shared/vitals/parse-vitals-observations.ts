@@ -26,6 +26,7 @@ import {
   VitalsVisionObservationDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import * as z from 'zod';
+import { resolveVitalAlertCriticality, VitalAlertContext } from '../vitals-alert-config';
 
 /**
  * Search parameters for the vitals Observations of a set of encounters, shared by
@@ -48,10 +49,14 @@ const fieldNameSchema = z.nativeEnum(VitalFieldNames);
 /**
  * Converts vitals Observations into their DTOs. Only observations whose performer Practitioner is present
  * are returned, since every DTO names its author.
+ *
+ * With an `alertContext`, criticality is evaluated against the admin-configured thresholds; without one
+ * it falls back to the `interpretation` stored on the observation at save time.
  */
 export const parseVitalsObservationsToDTOs = (
   observations: Observation[],
-  practitioners: Practitioner[]
+  practitioners: Practitioner[],
+  alertContext: VitalAlertContext | undefined
 ): VitalsObservationDTO[] => {
   const observationPerformerMap = new Map<string, Practitioner>();
   observations.forEach((obs) => {
@@ -93,7 +98,9 @@ export const parseVitalsObservationsToDTOs = (
       }
 
       if (vitalObservation) {
-        vitalObservation.alertCriticality = getVitalDTOCriticalityFromObservation(observation);
+        vitalObservation.alertCriticality = alertContext
+          ? resolveVitalAlertCriticality(observation, vitalObservation, alertContext)
+          : getVitalDTOCriticalityFromObservation(observation);
         return vitalObservation;
       }
       return [];

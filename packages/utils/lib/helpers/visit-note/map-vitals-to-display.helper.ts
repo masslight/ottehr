@@ -1,5 +1,4 @@
 import { DateTime } from 'luxon';
-import { vitalsConfig } from '../../ottehr-config/vitals';
 import { VitalFieldNames } from '../../types/api/chart-data/chart-data.constants';
 import {
   VitalsBloodPressureObservationDTO,
@@ -15,6 +14,7 @@ import {
   VitalsWeightObservationDTO,
 } from '../../types/api/chart-data/chart-data.types';
 import { formatDateTimeToZone } from '../../utils/date';
+import { vitalsConfig } from '../vitals/config-schema';
 import { formatBMIWithUnit } from '../vitals/vitals-bmi.helper';
 import { formatHeightObservationValue } from '../vitals/vitals-height.helper';
 import { celsiusToFahrenheit } from '../vitals/vitals-temperature.helper';
