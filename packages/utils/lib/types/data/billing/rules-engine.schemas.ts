@@ -205,10 +205,29 @@ export type DateSourceKind = (typeof DATE_SOURCE_KIND)[keyof typeof DATE_SOURCE_
 export const DerivedDateSourceSchema = z.object({ source: z.literal(DATE_SOURCE_KIND.firstServiceLineDate) });
 export type DerivedDateSource = z.output<typeof DerivedDateSourceSchema>;
 
+// Likewise, an updateServiceLines placeOfService value can be derived from the claim's service
+// facility instead of typed literally — copying whatever CMS place-of-service code is configured on
+// the facility (serviceFacility.posCode) rather than a code picked by hand.
+export const POS_SOURCE_KIND = {
+  facilityPlaceOfService: 'facilityPlaceOfService',
+} as const;
+export type PosSourceKind = (typeof POS_SOURCE_KIND)[keyof typeof POS_SOURCE_KIND];
+
+export const DerivedPosSourceSchema = z.object({ source: z.literal(POS_SOURCE_KIND.facilityPlaceOfService) });
+export type DerivedPosSource = z.output<typeof DerivedPosSourceSchema>;
+
 // A literal ISO date string (default; blank/omitted keeps addServiceLine's legacy implicit
 // fallback-to-first-line-date behavior) or a derived source.
 export const DateValueSchema = z.union([z.string(), DerivedDateSourceSchema]);
 export type DateValue = z.output<typeof DateValueSchema>;
+
+// The updateServiceLines action's set value: a literal string (the default; used as-is for every
+// property) or, for the two properties that support it, a derived source — firstServiceLineDate for
+// serviceDate, facilityPlaceOfService for placeOfService. Distinct from DateValueSchema (which is
+// strictly date-shaped) because this value is shared across every settable service line property, not
+// just serviceDate.
+export const ServiceLineSetValueSchema = z.union([z.string(), DerivedDateSourceSchema, DerivedPosSourceSchema]);
+export type ServiceLineSetValue = z.output<typeof ServiceLineSetValueSchema>;
 
 // The fields of a new service line added by the addServiceLine action. All values are strings (the
 // rule value model) and are validated at save time (format) and apply time (claim-dependent checks);
@@ -248,7 +267,7 @@ export type RuleAction =
   | {
       type: 'updateServiceLines';
       match: ServiceLineMatch;
-      set: { property: string; value: DateValue; operation?: ServiceLineSetOperation };
+      set: { property: string; value: ServiceLineSetValue; operation?: ServiceLineSetOperation };
     }
   | { type: 'removeServiceLines'; match: ServiceLineMatch }
   // Re-prices the matching lines from the best applicable charge master (resolved by the engine at
@@ -275,9 +294,10 @@ export const RuleActionSchema = z.discriminatedUnion('type', [
       property: z.string().min(1),
       // Empty is meaningful only for list-valued properties ("clear the modifiers"); scalar-property
       // writers reject it at apply time and the engine holds the claim. A derived-source object is
-      // only meaningful for the serviceDate property — save-time validation (field-catalog) rejects
-      // it for any other property, since the schema alone can't see the sibling `property` value.
-      value: DateValueSchema,
+      // only meaningful for the serviceDate property (firstServiceLineDate) and the placeOfService
+      // property (facilityPlaceOfService) — save-time validation (field-catalog) rejects a derived
+      // source on any other property, since the schema alone can't see the sibling `property` value.
+      value: ServiceLineSetValueSchema,
       operation: z.enum(SERVICE_LINE_SET_OPERATIONS).optional(),
     }),
   }),

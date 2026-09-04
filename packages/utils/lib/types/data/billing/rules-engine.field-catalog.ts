@@ -18,6 +18,8 @@ import {
   operatorIsRegex,
   operatorNeedsValue,
   operatorTakesFragment,
+  POS_SOURCE_KIND,
+  PosSourceKind,
   RuleAction,
   RuleCondition,
   RuleConditional,
@@ -26,6 +28,7 @@ import {
   RuleOutcome,
   ServiceLineMatch,
   ServiceLineSetOperation,
+  ServiceLineSetValue,
 } from './rules-engine.schemas';
 
 // Catalog of the logical claim fields rules can condition on and (where settable) set. This is the
@@ -1009,11 +1012,36 @@ export const DATE_SOURCE_CATALOG: { value: DateSourceSelectValue; label: string;
 
 // A date-typed rule value's problem when it may be a derived source instead of a literal date. A
 // literal is accepted as-is here (format is checked by each caller, since blank handling differs
-// between addServiceLine and updateServiceLines); a source object must name a known kind.
-export function derivedDateValueProblem(value: DateValue): string | undefined {
+// between addServiceLine and updateServiceLines); a source object must name a known kind. Takes
+// either DateValue (addServiceLine's serviceDate) or ServiceLineSetValue (updateServiceLines' set
+// value, when the target property is serviceDate) — both carry the same DerivedDateSource shape.
+export function derivedDateValueProblem(value: DateValue | ServiceLineSetValue): string | undefined {
   if (typeof value !== 'object') return undefined;
   const known: string[] = Object.values(DATE_SOURCE_KIND);
   return known.includes(value.source) ? undefined : 'Unknown date source';
+}
+
+// The place-of-service source options exposed by "Update service lines" when its target property is
+// placeOfService — parallel to DATE_SOURCE_CATALOG above, but for the one non-date property that
+// accepts a derived value. "exact" (the default) is the literal-code form every existing rule uses.
+export const EXACT_POS_SOURCE = 'exact' as const;
+export type PosSourceSelectValue = PosSourceKind | typeof EXACT_POS_SOURCE;
+
+export const POS_SOURCE_CATALOG: { value: PosSourceSelectValue; label: string; description: string }[] = [
+  { value: 'exact', label: 'Exact code', description: 'A literal CMS place-of-service code entered on the rule.' },
+  {
+    value: 'facilityPlaceOfService',
+    label: "Claim's facility place of service",
+    description: "The CMS place-of-service code configured on the claim's service facility.",
+  },
+];
+
+// A placeOfService rule value's problem when it may be a derived source instead of a literal code —
+// mirrors derivedDateValueProblem above for the one non-date property that accepts a derived value.
+export function derivedPosValueProblem(value: ServiceLineSetValue): string | undefined {
+  if (typeof value !== 'object') return undefined;
+  const known: string[] = Object.values(POS_SOURCE_KIND);
+  return known.includes(value.source) ? undefined : 'Unknown place of service source';
 }
 
 // One add-line field's format problem, or undefined when the value is acceptable. Shared by the rule
@@ -1181,16 +1209,18 @@ export function serviceLineMatchValueProblem(
 
 // An updateServiceLines set value's problem — mirrors the line writers exactly: units require a
 // positive number, charges a non-negative number, cptCode/serviceDate a value; placeOfService and
-// modifiers-with-"set" allow empty (clears). A derived date-source object is only valid when the
-// target property is date-typed — there is no blank-fallback on update, unlike addServiceLine.
+// modifiers-with-"set" allow empty (clears). A derived-source object is only valid when the target
+// property is date-typed (firstServiceLineDate) or is placeOfService (facilityPlaceOfService) — there
+// is no blank-fallback on update, unlike addServiceLine.
 export function serviceLineSetValueProblem(
   def: Pick<ServiceLinePropertyDef, 'id' | 'valueType' | 'options' | 'format'>,
   operation: ServiceLineSetOperation | undefined,
-  value: DateValue | null | undefined
+  value: ServiceLineSetValue | null | undefined
 ): string | undefined {
   if (typeof value === 'object' && value != null) {
-    if (def.valueType !== 'date') return 'This property does not accept a derived date value';
-    return derivedDateValueProblem(value);
+    if (def.valueType === 'date') return derivedDateValueProblem(value);
+    if (def.id === 'placeOfService') return derivedPosValueProblem(value);
+    return 'This property does not accept a derived value';
   }
   const trimmed = value?.trim() ?? '';
   if (def.valueType === 'list') {
