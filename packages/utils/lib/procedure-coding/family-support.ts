@@ -45,6 +45,41 @@ export function codeCandidateFromInfo<const TTable extends Record<string, { disp
   return (code) => ({ code, display: `${code} — ${table[code].display}` });
 }
 
+export type CodeDefinition = { code: string; display: string };
+export type CatalogDefinition<TDefinitions extends Record<string, CodeDefinition>> = TDefinitions[keyof TDefinitions];
+export type CatalogCode<TDefinitions extends Record<string, CodeDefinition>> = CatalogDefinition<TDefinitions>['code'];
+
+export interface CodeCatalog<TDefinitions extends Record<string, CodeDefinition>> {
+  definitions: TDefinitions;
+  codes: CatalogCode<TDefinitions>[];
+  has: (code: string) => code is CatalogCode<TDefinitions>;
+  resolve: (code: string) => CatalogDefinition<TDefinitions> | undefined;
+  candidate: (code: CatalogCode<TDefinitions>) => CodeCandidate;
+}
+
+export function createCodeCatalog<const TDefinitions extends Record<string, { code: string; display: string }>>(
+  definitions: TDefinitions
+): CodeCatalog<TDefinitions> {
+  type TDefinition = TDefinitions[keyof TDefinitions];
+  type TCode = TDefinition['code'];
+
+  const byCode = new Map<TCode, TDefinition>();
+
+  Object.values(definitions).forEach((definition) => {
+    byCode.set(definition.code as TCode, definition as TDefinition);
+  });
+
+  const has = (code: string): code is TCode => byCode.has(code as TCode);
+
+  return {
+    definitions,
+    codes: [...byCode.keys()],
+    has,
+    resolve: (code: string): TDefinition | undefined => byCode.get(code as TCode),
+    candidate: (code: TCode): CodeCandidate => ({ code, display: `${code} — ${byCode.get(code)?.display ?? ''}` }),
+  };
+}
+
 export function joinWithOr(items: string[]): string {
   return joinWith(items, 'or');
 }
@@ -56,6 +91,7 @@ export function joinWithAnd(items: string[]): string {
 function joinWith(items: string[], conjunction: string): string {
   if (items.length <= 1) return items[0] ?? '';
   if (items.length === 2) return `${items[0]} ${conjunction} ${items[1]}`;
+
   return `${items.slice(0, -1).join(', ')}, ${conjunction} ${items[items.length - 1]}`;
 }
 
@@ -72,15 +108,19 @@ export function defendSelectedCodes<TInfo>(
   for (const selected of input.cptCodes ?? []) {
     const code = selected.code;
     const info = resolve(code);
+
     if (info === undefined) {
       setCodeAssessment(evaluation, code, CodeAssessmentKind.NotAssessed);
       continue;
     }
+
     const codeFindings: Finding[] = [];
     let answeredAtEntryLevel = false;
+
     check(info, code, codeFindings, () => {
       answeredAtEntryLevel = true;
     });
+
     setCodeAssessment(
       evaluation,
       code,
@@ -88,7 +128,9 @@ export function defendSelectedCodes<TInfo>(
         ? CodeAssessmentKind.Unsupported
         : CodeAssessmentKind.Supported
     );
+
     if (answeredAtEntryLevel) continue;
+
     evaluation.findings.push(...codeFindings);
   }
 }

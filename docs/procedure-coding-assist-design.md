@@ -37,7 +37,7 @@ models share one source module.
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
 | Laceration repair                  | 12xxx simple, intermediate, and complex repair tables, including applicable add-ons; G0168 may be shown as a payer-dependent alternative for adhesive-only closure | Cases that cannot be placed in a modeled site, class, or length band                                  |
 | Incision and drainage              | 10060, 10061                                                                                                                                                       | Site-specific or different services such as 10080/10081, 10140, 26010/26011, 46050/46060, 69000/69005 |
-| Splinting and strapping            | The application and strapping table in `families/splinting.ts`, including thumb spica 29125/29126                                                                  | Supplies and DME billing are not inferred                                                             |
+| Splinting and strapping            | The application and strapping table in `families/splinting.rules.ts`, including thumb spica 29125/29126                                                            | Supplies and DME billing are not inferred                                                             |
 | Foreign-body removal               | 10120/10121, 30300, 65220/65222, 69200                                                                                                                             | 30310, 65205, 65210, 67938, 69205 and other unmodeled sites/settings                                  |
 | Impacted cerumen removal           | 69209 for irrigation/lavage; 69210 for instrumentation                                                                                                             | Non-impacted cerumen and services outside these two methods                                           |
 | Injection, hydration, and infusion | 96372, 96374, 96360/96361, 96365/96366                                                                                                                             | Administration types and timing rules not represented by this family                                  |
@@ -94,7 +94,12 @@ common result contract.
 | `evaluate.ts`                 | Family registry, routing order, forward/inverse entry points, metadata     |
 | `extract.ts`                  | Shared text normalization and extraction primitives                        |
 | `family-support.ts`           | Common finding and defense composition helpers                             |
-| `families/*.ts`               | Family-specific fact extraction, decision tables, code metadata, and rules |
+| `families/{family}.extract.ts` | Family-specific extraction of typed facts                                 |
+| `families/{family}.rules.ts`   | CPT metadata and decision tables                                          |
+| `families/{family}.shared.ts`  | Logic used by both suggestion and documentation defense                   |
+| `families/{family}.suggest.ts` | Forward code-suggestion logic                                             |
+| `families/{family}.defend.ts`  | Inverse selected-code documentation checks                                |
+| `families/{family}.ts`         | Thin `ProcedureFamilyModel` composition and compatibility exports         |
 | `fields.ts`                   | Conditional structured-field visibility and cleanup                        |
 | `procedurePageState.ts`       | EHR page state to `ProcedureFactsInput` projection                         |
 | `useProcedureCoding.ts`       | Debounced evaluation and temporal UI state                                 |
