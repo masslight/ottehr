@@ -31,7 +31,7 @@ export const PatientNotesDialog: React.FC<PatientNotesDialogProps> = ({ patientI
           </Typography>
         </Box>
       </DialogTitle>
-      <DialogContent sx={{ mt: -3 }}>
+      <DialogContent>
         <PaperStyled>
           <AddPatientNote patientId={patientId} />
           <PatientNotesList patientId={patientId} />
