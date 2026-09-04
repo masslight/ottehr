@@ -10,6 +10,7 @@ export interface PatientRecordAttachment {
   contentType?: string;
   /** Creation date of the owning document. */
   date?: string;
+  size?: number;
 }
 
 /**
@@ -53,5 +54,6 @@ export const collectPatientRecordAttachments = (documentReferences: DocumentRefe
           title: attachment.title,
           contentType: attachment.contentType,
           date: docRef.date,
+          size: attachment.size,
         }))
     );

@@ -135,12 +135,6 @@ export const NOT_AUTHORIZED: APIError = {
   statusCode: 401,
 };
 
-export const MEDICAL_RECORD_TOO_LARGE_ERROR = (maxMb: number): APIError => ({
-  code: APIErrorCode.PAYLOAD_TOO_LARGE,
-  message: `This medical record is too large to export as a single download (over ${maxMb} MB).`,
-  statusCode: 413,
-});
-
 /**
  * Returned by a guarded hard-delete when the target still has dependents and the
  * caller didn't pass `force`. The message enumerates what's attached so the UI can

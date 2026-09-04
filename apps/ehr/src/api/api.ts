@@ -289,8 +289,9 @@ import {
   VisitDocuments,
 } from 'utils/lib/types/data/documents';
 import {
-  GetPatientMedicalRecordInput,
+  GetMedicalRecordExportStatusInput,
   GetPatientMedicalRecordOutput,
+  StartMedicalRecordExportInput,
 } from 'utils/lib/types/data/get-patient-medical-record.types';
 import { GetScheduleRequestParams, GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
 import {
@@ -2076,13 +2077,39 @@ export const deletePatientDocument = async (
   }
 };
 
-export const getPatientMedicalRecordZip = async (
+const GET_PATIENT_MEDICAL_RECORD_ZAMBDA_ID = 'get-patient-medical-record';
+
+/**
+ * Queues a medical-record export and returns its Task. If one is already running for this patient the
+ * server re-attaches to it rather than building a second archive, so calling this twice is harmless.
+ */
+export const startMedicalRecordExport = async (
   oystehr: Oystehr,
-  parameters: GetPatientMedicalRecordInput
+  parameters: StartMedicalRecordExportInput
 ): Promise<GetPatientMedicalRecordOutput> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: 'get-patient-medical-record',
+      id: GET_PATIENT_MEDICAL_RECORD_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+/**
+ * Progress of a queued export, and its presigned download url once finished. The patient travels with
+ * the poll: the server only reports on a Task that belongs to the chart named here.
+ */
+export const getMedicalRecordExportStatus = async (
+  oystehr: Oystehr,
+  parameters: GetMedicalRecordExportStatusInput
+): Promise<GetPatientMedicalRecordOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: GET_PATIENT_MEDICAL_RECORD_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
