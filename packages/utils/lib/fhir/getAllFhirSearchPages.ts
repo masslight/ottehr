@@ -3,8 +3,6 @@ import { Resource } from 'fhir/r4b';
 import { deduplicateUnbundledResources } from './deduplicateUnbundledResources';
 import { isResponseSizeExceededError } from './responseSize';
 
-export const MAX_RESPONSE_SIZE_RETRIES = 3;
-
 export async function withResponseSizeRetry<T>({
   attempt,
   initialPageSize,
@@ -15,7 +13,7 @@ export async function withResponseSizeRetry<T>({
   label: string;
 }): Promise<{ result: T; pageSize: number }> {
   let pageSize = initialPageSize;
-  for (let retries = 0; ; retries += 1) {
+  for (;;) {
     try {
       return {
         result: await attempt(pageSize),
@@ -23,7 +21,7 @@ export async function withResponseSizeRetry<T>({
       };
     } catch (error) {
       const nextPageSize = Math.floor(pageSize / 2);
-      if (retries >= MAX_RESPONSE_SIZE_RETRIES || nextPageSize < 1 || !isResponseSizeExceededError(error)) throw error;
+      if (nextPageSize < 1 || !isResponseSizeExceededError(error)) throw error;
       console.warn(`${label}: page of ${pageSize} exceeded the response size limit; retrying with ${nextPageSize}`);
       pageSize = nextPageSize;
     }

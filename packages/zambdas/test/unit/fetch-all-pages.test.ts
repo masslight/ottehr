@@ -75,7 +75,7 @@ describe('fetchAllPages', () => {
     };
 
     await expect(fetchAllPages(fetchPage, 1000)).rejects.toThrow(error);
-    expect(counts).toEqual([1000, 500, 250, 125]);
+    expect(counts).toEqual([1000, 500, 250, 125, 62, 31, 15, 7, 3, 1]);
   });
 
   it('does not retry a failure shrinking the page cannot fix', async () => {

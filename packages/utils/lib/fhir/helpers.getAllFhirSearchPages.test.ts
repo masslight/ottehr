@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Bundle, FhirResource, Patient } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getAllFhirSearchPages, MAX_RESPONSE_SIZE_RETRIES, withResponseSizeRetry } from './getAllFhirSearchPages';
+import { getAllFhirSearchPages, withResponseSizeRetry } from './getAllFhirSearchPages';
 
 // Mock Oystehr SDK
 const mockOystehr = {
@@ -525,7 +525,7 @@ describe('getAllFhirSearchPages response size handling', () => {
     expect([countOfCall(3), offsetOfCall(3)]).toEqual(['2', '2']);
   });
 
-  it('gives up after MAX_RESPONSE_SIZE_RETRIES halving attempts and rethrows the server error', async () => {
+  it('halves all the way down to a page of one before rethrowing the server error', async () => {
     const error = responseTooLarge();
     mockOystehr.fhir.search.mockRejectedValue(error);
 
@@ -540,9 +540,18 @@ describe('getAllFhirSearchPages response size handling', () => {
       )
     ).rejects.toThrow(error);
 
-    expect(MAX_RESPONSE_SIZE_RETRIES).toBe(3);
-    expect(mockOystehr.fhir.search).toHaveBeenCalledTimes(MAX_RESPONSE_SIZE_RETRIES + 1);
-    expect([countOfCall(1), countOfCall(2), countOfCall(3), countOfCall(4)]).toEqual(['1000', '500', '250', '125']);
+    expect(mockOystehr.fhir.search.mock.calls.map((_call, index) => countOfCall(index + 1))).toEqual([
+      '1000',
+      '500',
+      '250',
+      '125',
+      '62',
+      '31',
+      '15',
+      '7',
+      '3',
+      '1',
+    ]);
   });
 
   it('stops halving rather than asking for a page of zero', async () => {
@@ -737,7 +746,7 @@ describe('withResponseSizeRetry', () => {
     expect(attempt).toHaveBeenCalledTimes(1);
   });
 
-  it('gives up after MAX_RESPONSE_SIZE_RETRIES halving attempts and rethrows the server error', async () => {
+  it('halves all the way down to a page of one before rethrowing the server error', async () => {
     const error = responseTooLarge();
     const attempted: number[] = [];
     const attempt = vi.fn(async (pageSize: number) => {
@@ -753,6 +762,6 @@ describe('withResponseSizeRetry', () => {
       })
     ).rejects.toThrow(error);
 
-    expect(attempted).toEqual([1000, 500, 250, 125]);
+    expect(attempted).toEqual([1000, 500, 250, 125, 62, 31, 15, 7, 3, 1]);
   });
 });
