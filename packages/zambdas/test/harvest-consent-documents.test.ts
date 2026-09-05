@@ -32,6 +32,52 @@ import { createPdfBytes } from '../src/shared/pdf';
 // patches, per-form PDF fan-out, type-code grouping, attachment dedup, creation-time
 // sorting, and reference wiring — runs for real.
 
+// Pin consent-form config to the stable 2-form core shape so tests are not
+// affected by per-instance overlays that add/remove forms or drop the IL variant.
+vi.mock('utils/lib/ottehr-config/consent-forms', () => {
+  const HIPAA = {
+    id: 'hipaa-acknowledgement',
+    formTitle: 'HIPAA Acknowledgement',
+    resourceTitle: 'HIPAA forms',
+    assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+    publicUrl: '/hipaa_notice_template.pdf',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+      text: 'HIPAA Acknowledgement forms',
+    },
+    createsConsentResource: false,
+  };
+  const CTT = {
+    id: 'consent-to-treat',
+    formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
+    resourceTitle: 'Consent forms',
+    assetPath: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf',
+    publicUrl: '/consent_to_treat_template.pdf',
+    type: {
+      coding: [
+        { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+        {
+          system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+          code: 'patient-registration',
+          display: 'Patient Registration Consent',
+        },
+      ],
+      text: 'Consent forms',
+    },
+    createsConsentResource: true,
+  };
+  const CTT_IL = {
+    ...CTT,
+    assetPath: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf',
+  };
+  return {
+    getConsentFormsForLocation: (locationState?: string) => (locationState === 'IL' ? [HIPAA, CTT_IL] : [HIPAA, CTT]),
+    resolveConsentFormsPaths: (forms: unknown[]) => forms,
+    CONSENT_FORMS_CONFIG: { forms: [HIPAA, CTT] },
+    CONSENT_FORMS_DATA: { forms: [HIPAA, CTT] },
+  };
+});
+
 vi.mock('utils/lib/fhir/helpers', async (importOriginal) => {
   const original = await importOriginal<typeof import('utils/lib/fhir/helpers')>();
   return { ...original, createFilesDocumentReferences: vi.fn(), createConsentResource: vi.fn() };

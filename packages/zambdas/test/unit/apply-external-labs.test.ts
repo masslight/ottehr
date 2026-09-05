@@ -30,6 +30,21 @@ vi.mock('../../src/ehr/lab/shared/orderable-items', () => ({
   getOrderableItems: vi.fn(),
 }));
 
+// Pin the per-encounter CPT code to the stable core value so tests are not
+// affected by per-instance overlays that change externalLabCptCodesToAddPerEncounter.
+vi.mock('utils/lib/ottehr-config/value-sets', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/value-sets')>();
+  return {
+    ...original,
+    VALUE_SETS: {
+      ...(original.VALUE_SETS as Record<string, unknown>),
+      externalLabCptCodesToAddPerEncounter: [
+        { label: 'Handling and/or conveyance of specimen for transfer to a laboratory', value: '99001' },
+      ],
+    },
+  };
+});
+
 const EXTERNAL_LAB_PLAN_TAG = chartDataTagSystem('external-lab-template-plan');
 const LAB_GUID = 'lab-guid-1';
 
