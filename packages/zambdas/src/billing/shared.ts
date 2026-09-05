@@ -1188,7 +1188,7 @@ export function getClaimService(claim: Claim): string | undefined {
 // aligned. The one intentional difference: the subscriber RelatedPerson is persisted standalone here
 // (so it can be searched), whereas harvest contains it on the Coverage.
 
-function buildPayorReference(payerOrg: Organization): string {
+export function buildPayorReference(payerOrg: Organization): string {
   const payerId = getPayerId(payerOrg);
   if (isValidUUID(payerOrg.id ?? '')) return `Organization/${payerOrg.id}`;
   if (!payerId) throw new Error('payerId unexpectedly missing from payer organization');

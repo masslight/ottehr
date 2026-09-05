@@ -390,6 +390,41 @@
       "src": "src/billing/record-billing-manual-payment/index",
       "zip": ".dist/zips/record-billing-manual-payment.zip"
     },
+    "CREATE-BILLING-NON-INSURANCE-ORG": {
+      "name": "create-billing-non-insurance-org",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-billing-non-insurance-org/index",
+      "zip": ".dist/zips/create-billing-non-insurance-org.zip"
+    },
+    "UPDATE-BILLING-NON-INSURANCE-ORG": {
+      "name": "update-billing-non-insurance-org",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/update-billing-non-insurance-org/index",
+      "zip": ".dist/zips/update-billing-non-insurance-org.zip"
+    },
+    "SEARCH-BILLING-NON-INSURANCE-ORGS": {
+      "name": "search-billing-non-insurance-orgs",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-non-insurance-orgs/index",
+      "zip": ".dist/zips/search-billing-non-insurance-orgs.zip"
+    },
+    "DELETE-BILLING-NON-INSURANCE-ORG": {
+      "name": "delete-billing-non-insurance-org",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-billing-non-insurance-org/index",
+      "zip": ".dist/zips/delete-billing-non-insurance-org.zip"
+    },
+    "LIST-NON-INSURANCE-ORGANIZATIONS": {
+      "name": "list-non-insurance-organizations",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/list-non-insurance-organizations/index",
+      "zip": ".dist/zips/list-non-insurance-organizations.zip"
+    },
     "SUB-RULES-ENGINE": {
       "name": "sub-rules-engine",
       "type": "subscription",
