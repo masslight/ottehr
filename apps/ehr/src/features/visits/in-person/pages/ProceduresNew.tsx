@@ -90,7 +90,7 @@ import {
 } from '../../shared/stores/appointment/appointment.store';
 import { InfoAlert } from '../components/InfoAlert';
 import { FactsRecord, StructuredFactsFields } from '../components/StructuredFactsFields';
-import { useProcedureCoding } from '../hooks/useProcedureCoding';
+import { useCptDescriptors, useProcedureCoding } from '../hooks/useProcedureCoding';
 import { ROUTER_PATH } from '../routing/routesInPerson';
 import {
   combineMultipleValuesForSave,
@@ -362,6 +362,8 @@ export default function ProceduresNew({
     selectedCptCodes: state.cptCodes?.map((cptCode) => cptCode.code) ?? [],
   });
   const codingFamily = codingAssist.family;
+  // Official descriptors via the Oystehr terminology service; bare code until resolved.
+  const suggestedCodeDescriptors = useCptDescriptors(codingAssist.suggestion?.codes.map((line) => line.code) ?? []);
 
   // Keep structuredFacts stamped with the active family: seed on procedure-type
   // switch (laceration seeds a wound row from the legacy body site/side via the
@@ -717,7 +719,7 @@ export default function ProceduresNew({
     }
     suggestedEntries.push({
       code: line.code,
-      display: line.code,
+      display: suggestedCodeDescriptors[line.code] ?? line.code,
       ...(line.modifiers.length > 0 && {
         modifier: line.modifiers.map((modifier) => ({ code: modifier, display: modifier })),
       }),
@@ -743,33 +745,38 @@ export default function ProceduresNew({
             <Typography variant="caption" sx={{ fontWeight: 700, color: 'success.dark' }}>
               Best match — from your documentation
             </Typography>
-            {suggestedEntries.map((entry, index) => (
-              <Box
-                key={`${index}-${cptDtoLineKey(entry)}`}
-                sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}
-              >
+            <ActionsList
+              data={suggestedEntries}
+              getKey={(entry, index) => `${index}-${cptDtoLineKey(entry)}`}
+              renderItem={(entry) => (
                 <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(entry.code)}>
-                  {formatCptCodeForDisplay(entry, ' – ')}
+                  <strong>{formatCptCodeForDisplay({ ...entry, display: entry.code })}</strong>
+                  {suggestedCodeDescriptors[entry.code] != null && <> &ndash; {suggestedCodeDescriptors[entry.code]}</>}
                 </Typography>
-                {!isReadOnly &&
-                  (existingCptLineKeys.has(cptDtoLineKey(entry)) ? (
-                    <IconButton size="small" disabled aria-label={`CPT code ${entry.code} already added`}>
-                      <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
-                    </IconButton>
-                  ) : (
-                    <Tooltip title="Add CPT code">
-                      <IconButton
-                        size="small"
-                        aria-label={`Add CPT code ${entry.code}`}
-                        onClick={() => addSuggestedCptCodes([entry])}
-                        data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(entry.code)}
-                      >
-                        <AddCircleOutline sx={{ fontSize: '17px' }} />
-                      </IconButton>
-                    </Tooltip>
-                  ))}
-              </Box>
-            ))}
+              )}
+              renderActions={
+                isReadOnly
+                  ? undefined
+                  : (entry) =>
+                      existingCptLineKeys.has(cptDtoLineKey(entry)) ? (
+                        <IconButton size="small" disabled aria-label={`CPT code ${entry.code} already added`}>
+                          <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
+                        </IconButton>
+                      ) : (
+                        <Tooltip title="Add CPT code">
+                          <IconButton
+                            size="small"
+                            aria-label={`Add CPT code ${entry.code}`}
+                            onClick={() => addSuggestedCptCodes([entry])}
+                            data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(entry.code)}
+                          >
+                            <AddCircleOutline sx={{ fontSize: '17px' }} />
+                          </IconButton>
+                        </Tooltip>
+                      )
+              }
+              divider
+            />
             {!isReadOnly && suggestedEntries.length > 1 && !allSuggestedAdded && (
               <Typography
                 variant="caption"

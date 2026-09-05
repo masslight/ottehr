@@ -158,7 +158,7 @@
             { "when": { "device_type": "strapping", "body_region": "finger" },
               "output": { "codes": [], "flags": ["out_of_family:use_29280_hand_or_finger_strapping"], "specRef": "A1.2" } },
             { "when": {},
-              "output": { "codes": [], "flags": ["unmapped_requires_review"], "note": "Device-type/region combination has no verified mapping (e.g., splint of thorax). Siblings out of scope: 29220 low back, 29280 hand/finger, 29550 toes strapping.", "specRef": "A1.2" } }
+              "output": { "codes": [], "flags": ["unmapped_requires_review"], "note": "Device-type/region combination has no verified mapping (e.g., splint of thorax). Siblings out of scope: 29280 hand/finger, 29550 toes strapping (29220 low back and 29590 Denis-Browne were deleted from CPT in 2010/2013).", "specRef": "A1.2" } }
           ]
         },
         {

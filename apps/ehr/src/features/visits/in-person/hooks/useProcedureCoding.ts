@@ -1,4 +1,6 @@
+import { useQueries } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
+import { useApiClients } from 'src/hooks/useAppClients';
 import { codingDispatch, detectProcedureCodingFamily, ProcedureFamilyFactsMap } from 'utils/lib/procedure-coding';
 import { FamilyManifest, PROCEDURE_FAMILY_MANIFESTS } from 'utils/lib/procedure-coding/manifests';
 import {
@@ -38,6 +40,33 @@ export interface UseProcedureCodingResult {
 interface ProcedureEvaluations {
   suggestion: SuggestResult;
   defense: DefendResult;
+}
+
+/**
+ * Resolves official descriptors for CPT/HCPCS codes through the Oystehr
+ * terminology service (the same service the manual code search uses), so no
+ * licensed descriptor text ships in this open-source package. Returns whatever
+ * has resolved so far; callers fall back to the bare code.
+ */
+export function useCptDescriptors(codes: string[]): Record<string, string> {
+  const { oystehr } = useApiClients();
+  const uniqueCodes = [...new Set(codes)].sort();
+  const results = useQueries({
+    queries: uniqueCodes.map((code) => ({
+      queryKey: ['cpt-descriptor', code],
+      enabled: oystehr != null,
+      staleTime: Infinity,
+      queryFn: async (): Promise<{ code: string; display: string | undefined }> => {
+        const search = code.match(/^[A-Z]/)
+          ? await oystehr?.terminology.searchHcpcs({ query: code, searchType: 'all', limit: 10 })
+          : await oystehr?.terminology.searchCpt({ query: code, searchType: 'all', limit: 10 });
+        return { code, display: search?.codes.find((entry) => entry.code === code)?.display };
+      },
+    })),
+  });
+  return Object.fromEntries(
+    results.flatMap((result) => (result.data?.display != null ? [[result.data.code, result.data.display]] : []))
+  );
 }
 
 /**
