@@ -532,6 +532,7 @@ export const dataTestIds = {
     cptCode: 'cpt-code',
     recommendedCptCode: (code: string) => `recommended-cpt-code-${code}`,
     cptCodeQuickAddButton: (code: string) => `cpt-code-quick-add-${code}`,
+    cptCodeQuickAddAllButton: 'cpt-code-quick-add-all',
     bestMatchCptCode: 'best-match-cpt-code',
     structuredFactField: (name: string) => `structured-fact-${name}`,
     lacerationWoundSites: 'laceration-wound-sites',

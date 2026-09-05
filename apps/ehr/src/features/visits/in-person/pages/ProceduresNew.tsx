@@ -56,7 +56,7 @@ import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { useMarkDraftNavigatedAway, useProcedureStore } from 'src/state/draft-data.store';
 import { PROCEDURES_CONFIG } from 'utils/lib/ottehr-config/procedures';
 import { formatCptCodeForDisplay, sidedSiteFromLegacyBodySite } from 'utils/lib/procedure-coding/codec';
-import { StructuredProcedureFacts, SuggestedClaimLine } from 'utils/lib/procedure-coding/model.types';
+import { StructuredProcedureFacts } from 'utils/lib/procedure-coding/model.types';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
 import {
@@ -653,13 +653,6 @@ export default function ProceduresNew({
       state.cptCodes = cptCodes;
     });
 
-  const claimLineDescription = (line: SuggestedClaimLine): string => {
-    const parts: string[] = [];
-    if (line.units > 1) parts.push(`× ${line.units}`);
-    if (line.modifiers.length > 0) parts.push(`modifiers ${line.modifiers.join(', ')}`);
-    return parts.join(' — ');
-  };
-
   const humanizeCodingFlag = (flag: string): string => {
     const [kind, ...rest] = flag.split(':');
     const detail = rest.join(':').replace(/_/g, ' ');
@@ -740,28 +733,26 @@ export default function ProceduresNew({
             <Typography variant="caption" sx={{ fontWeight: 700, color: 'success.dark' }}>
               Best match — from your documentation
             </Typography>
-            {suggestion.codes.map((line, index) => (
+            {suggestedEntries.map((entry, index) => (
               <Box
-                key={`${index}-${line.code}`}
+                key={`${index}-${cptDtoLineKey(entry)}`}
                 sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}
               >
-                <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(line.code)}>
-                  <strong>{line.code}</strong>
-                  {claimLineDescription(line) !== '' && <> &ndash; {claimLineDescription(line)}</>}
+                <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(entry.code)}>
+                  {formatCptCodeForDisplay(entry, ' – ')}
                 </Typography>
                 {!isReadOnly &&
-                  index === 0 &&
-                  (allSuggestedAdded ? (
-                    <IconButton size="small" disabled aria-label="Suggested CPT codes already added">
+                  (existingCptLineKeys.has(cptDtoLineKey(entry)) ? (
+                    <IconButton size="small" disabled aria-label={`CPT code ${entry.code} already added`}>
                       <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
                     </IconButton>
                   ) : (
-                    <Tooltip title="Add suggested CPT codes">
+                    <Tooltip title="Add CPT code">
                       <IconButton
                         size="small"
-                        aria-label="Add suggested CPT codes"
-                        onClick={() => addSuggestedCptCodes(suggestedEntries)}
-                        data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(line.code)}
+                        aria-label={`Add CPT code ${entry.code}`}
+                        onClick={() => addSuggestedCptCodes([entry])}
+                        data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(entry.code)}
                       >
                         <AddCircleOutline sx={{ fontSize: '17px' }} />
                       </IconButton>
@@ -769,6 +760,16 @@ export default function ProceduresNew({
                   ))}
               </Box>
             ))}
+            {!isReadOnly && suggestedEntries.length > 1 && !allSuggestedAdded && (
+              <Typography
+                variant="caption"
+                sx={{ color: 'primary.main', cursor: 'pointer', fontWeight: 600 }}
+                onClick={() => addSuggestedCptCodes(suggestedEntries)}
+                data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddAllButton}
+              >
+                ＋ Add all suggested codes
+              </Typography>
+            )}
           </Box>
         )}
         {suggestion.codes.length === 0 && suggestionFlags.length === 0 && (
