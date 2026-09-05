@@ -30,8 +30,6 @@ export const NioContactSchema = z.object({
 });
 export type NioContact = z.output<typeof NioContactSchema>;
 
-// How a bill/invoice is submitted manually for a coverage. Everything is optional — the
-// preferred mechanism is a hint and does not require its detail fields to be filled in.
 export const NioSubmissionSchema = z.object({
   preferredMechanism: z.enum(NIO_SUBMISSION_MECHANISMS).optional(),
   email: z.string().trim().email('Invalid submission email').optional(),
@@ -55,7 +53,6 @@ const occupationalMedicineCoverageSchema = z.object({
   submission: NioSubmissionSchema.optional(),
 });
 
-// 'other' also absorbs categories without their own code yet (e.g. Medical Clearance) via its name.
 const otherCoverageSchema = z.object({
   category: z.literal('other'),
   name: optionalTrimmedString,
