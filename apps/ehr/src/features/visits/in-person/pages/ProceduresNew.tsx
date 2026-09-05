@@ -691,6 +691,16 @@ export default function ProceduresNew({
     }
   };
 
+  // These families capture the site in a dedicated structured field (wound
+  // picker, FB site, splint region, per-ear/per-side methods), so the generic
+  // Site/location + Side dropdowns would be redundant and are hidden.
+  const familyHasDedicatedSiteField =
+    codingAssist.family != null &&
+    ['laceration', 'foreign-body', 'splinting', 'cerumen', 'nasal-packing'].includes(codingAssist.family);
+
+  const sortedAlphabetically = (options: string[] | undefined): string[] | undefined =>
+    options && [...options].sort((a, b) => (a === OTHER ? 1 : b === OTHER ? -1 : a.localeCompare(b)));
+
   const suggestion = codingAssist.suggestion;
   const suggestionFlags = suggestion?.flags ?? [];
   // Engine lines persist the bare code as display (the FHIR mapping requires a
@@ -1301,28 +1311,32 @@ export default function ProceduresNew({
               (value, state) => (state.medicationUsed = value),
               dataTestIds.documentProcedurePage.anaesthesia
             )}
-            {dropdown(
-              'Site/location',
-              selectOptions?.bodySites,
-              state.bodySite,
-              (value, state) => {
-                state.bodySite = value;
-                state.otherBodySite = undefined;
-              },
-              dataTestIds.documentProcedurePage.site
-            )}
-            {otherTextInput(
-              'Site/location',
-              state.bodySite,
-              state.otherBodySite,
-              (value, state) => (state.otherBodySite = value)
-            )}
-            {dropdown(
-              'Side of body',
-              selectOptions?.bodySides,
-              state.bodySide,
-              (value, state) => (state.bodySide = value),
-              dataTestIds.documentProcedurePage.sideOfBody
+            {!familyHasDedicatedSiteField && (
+              <>
+                {dropdown(
+                  'Site/location',
+                  sortedAlphabetically(selectOptions?.bodySites),
+                  state.bodySite,
+                  (value, state) => {
+                    state.bodySite = value;
+                    state.otherBodySite = undefined;
+                  },
+                  dataTestIds.documentProcedurePage.site
+                )}
+                {otherTextInput(
+                  'Site/location',
+                  state.bodySite,
+                  state.otherBodySite,
+                  (value, state) => (state.otherBodySite = value)
+                )}
+                {dropdown(
+                  'Side of body',
+                  selectOptions?.bodySides,
+                  state.bodySide,
+                  (value, state) => (state.bodySide = value),
+                  dataTestIds.documentProcedurePage.sideOfBody
+                )}
+              </>
             )}
             {codingAssist.manifest != null && state.structuredFacts != null && (
               <StructuredFactsFields

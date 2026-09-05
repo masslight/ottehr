@@ -88,11 +88,13 @@ export function LacerationWoundsField({
   // Paired sites are offered only sided; midline sites bare; 'other' allowed
   // (yields review-not-authoritative coding).
   const siteOptions: FieldOption[] = [
-    ...manifest.pairedSites.flatMap((site) => [
-      { value: `${site.value}-left`, label: `${site.label} — Left` },
-      { value: `${site.value}-right`, label: `${site.label} — Right` },
-    ]),
-    ...manifest.unsidedSites,
+    ...[
+      ...manifest.pairedSites.flatMap((site) => [
+        { value: `${site.value}-left`, label: `${site.label} — Left` },
+        { value: `${site.value}-right`, label: `${site.label} — Right` },
+      ]),
+      ...manifest.unsidedSites,
+    ].sort((a, b) => a.label.localeCompare(b.label)),
     manifest.otherOption,
   ];
 

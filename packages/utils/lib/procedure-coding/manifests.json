@@ -79,11 +79,11 @@
           },
           {
             "value": "genitalia",
-            "label": "Genitalia"
+            "label": "Genital"
           },
           {
             "value": "trunk",
-            "label": "Trunk"
+            "label": "Torso"
           }
         ],
         "otherOption": {
