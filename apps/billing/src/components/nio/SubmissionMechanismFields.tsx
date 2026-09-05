@@ -16,7 +16,7 @@ import { NioAddressFields } from './NioAddressFields';
 
 // Manual bill/invoice submission block shared by workers-comp (direct billing), occupational
 // medicine, and other coverage: a preferred-mechanism radio plus one accordion of details per
-// mechanism. Everything is optional — the radio is a preference, not a requirement.
+// mechanism.
 export function SubmissionMechanismFields({
   prefix,
   hideMailAddress,
