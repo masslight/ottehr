@@ -5,8 +5,6 @@ import { Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { emptyNioContactForm } from '../../constants/nonInsuranceOrg';
 
-// Contacts are embedded in the NIO (Organization.contact) and saved with it — this panel only
-// edits form state.
 export function ContactsPanel(): ReactElement {
   const { control } = useFormContext();
   const { fields, append, remove } = useFieldArray({ control, name: 'contacts' });
