@@ -492,6 +492,25 @@ describe('list-non-insurance-organizations', () => {
     expect(orgParams).toContainEqual({ name: '_id', value: NIO_ID });
     expect(orgParams.some((p: { name: string }) => p.name === 'active')).toBe(false);
   });
+
+  it('follows next links so more than one page of NIOs comes back complete', async () => {
+    const secondNioId = '33333333-3333-4333-8333-333333333333';
+    const { oystehr, search } = makeOystehr();
+    let orgPage = 0;
+    search.mockImplementation(({ resourceType }) => {
+      if (resourceType !== 'Organization') return Promise.resolve({ unbundle: () => [] });
+      orgPage += 1;
+      return orgPage === 1
+        ? Promise.resolve({ unbundle: () => [nioOrg], link: [{ relation: 'next', url: 'next-page' }] })
+        : Promise.resolve({ unbundle: () => [{ ...nioOrg, id: secondNioId, name: 'UPS' }] });
+    });
+
+    const result = await listNios(oystehr, { secrets: null });
+
+    expect(result.organizations.map((org) => org.id)).toEqual([NIO_ID, secondNioId]);
+    const secondPageParams = search.mock.calls[1][0].params;
+    expect(secondPageParams).toContainEqual({ name: '_offset', value: '1000' });
+  });
 });
 
 describe('resolveWcPayerReference', () => {

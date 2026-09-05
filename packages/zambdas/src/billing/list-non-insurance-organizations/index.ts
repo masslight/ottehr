@@ -9,6 +9,7 @@ import {
   NIO_ORGANIZATION_KIND_SYSTEM,
 } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { getNioCoverageCategory, mapClinicalNioOption, referencedId } from '../non-insurance-org.helpers';
@@ -17,6 +18,10 @@ import { ListNonInsuranceOrganizationsParams, validateRequestParameters } from '
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'list-non-insurance-organizations';
+
+const PAGE_SIZE = 1000;
+// primary-organization takes a comma-joined id list; chunking keeps the query string bounded.
+const AFFILIATION_ORG_CHUNK = 100;
 
 // The clinical app's one door to billing-owned NIO data. Clinical code never reads billing FHIR:
 // EHR frontends execute this zambda with user tokens, and clinical zambdas invoke it over the
@@ -49,7 +54,6 @@ export async function performEffect(
   const searchParams: { name: string; value: string }[] = [
     { name: 'type', value: `${NIO_ORGANIZATION_KIND_SYSTEM}|${NIO_KIND_CODE}` },
     { name: '_sort', value: 'name' },
-    { name: '_count', value: '1000' },
   ];
   if (params.nioId) {
     // Lookups by id resolve deleted NIOs too (active=false in the response), so stored references
@@ -65,31 +69,42 @@ export async function performEffect(
     searchParams.push({ name: 'name', value: params.search });
   }
 
-  const orgs = (
-    await oystehr.fhir.search<Organization>({ resourceType: 'Organization', params: searchParams })
-  ).unbundle();
+  const orgs: Organization[] = [];
+  await fetchAllPages(async (offset, count) => {
+    const bundle = await oystehr.fhir.search<Organization>({
+      resourceType: 'Organization',
+      params: [...searchParams, { name: '_offset', value: String(offset) }, { name: '_count', value: String(count) }],
+    });
+    orgs.push(...bundle.unbundle());
+    return bundle;
+  }, PAGE_SIZE);
 
   // Coverage categories live on OrganizationAffiliation.code, so this never touches coverage orgs.
   const categoriesByNioId = new Map<string, Set<NioCoverageCategory>>();
-  if (orgs.length > 0) {
-    const affiliations = (
-      await oystehr.fhir.search<OrganizationAffiliation>({
+  const affiliations: OrganizationAffiliation[] = [];
+  for (let i = 0; i < orgs.length; i += AFFILIATION_ORG_CHUNK) {
+    const chunk = orgs.slice(i, i + AFFILIATION_ORG_CHUNK);
+    await fetchAllPages(async (offset, count) => {
+      const bundle = await oystehr.fhir.search<OrganizationAffiliation>({
         resourceType: 'OrganizationAffiliation',
         params: [
-          { name: 'primary-organization', value: orgs.map((org) => `Organization/${org.id}`).join(',') },
+          { name: 'primary-organization', value: chunk.map((org) => `Organization/${org.id}`).join(',') },
           { name: 'active', value: 'true' },
-          { name: '_count', value: '1000' },
+          { name: '_offset', value: String(offset) },
+          { name: '_count', value: String(count) },
         ],
-      })
-    ).unbundle();
-    for (const affiliation of affiliations) {
-      const nioId = referencedId(affiliation.organization);
-      const category = getNioCoverageCategory(affiliation.code);
-      if (!nioId || !category) continue;
-      const set = categoriesByNioId.get(nioId) ?? new Set<NioCoverageCategory>();
-      set.add(category);
-      categoriesByNioId.set(nioId, set);
-    }
+      });
+      affiliations.push(...bundle.unbundle());
+      return bundle;
+    }, PAGE_SIZE);
+  }
+  for (const affiliation of affiliations) {
+    const nioId = referencedId(affiliation.organization);
+    const category = getNioCoverageCategory(affiliation.code);
+    if (!nioId || !category) continue;
+    const set = categoriesByNioId.get(nioId) ?? new Set<NioCoverageCategory>();
+    set.add(category);
+    categoriesByNioId.set(nioId, set);
   }
 
   const organizations = orgs.map((org) => {
