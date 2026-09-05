@@ -10,7 +10,12 @@ import {
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { mapNonInsuranceOrganization, referencedId, resolvePayerOptionsByRef } from '../non-insurance-org.helpers';
+import {
+  isNonInsuranceOrganization,
+  mapNonInsuranceOrganization,
+  referencedId,
+  resolvePayerOptionsByRef,
+} from '../non-insurance-org.helpers';
 import { createBillingClient } from '../shared';
 import { SearchNonInsuranceOrgsParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -53,6 +58,10 @@ export async function performEffect(
     { name: '_count', value: String(pageSize) },
     { name: '_offset', value: String(offset) },
     { name: '_total', value: 'accurate' },
+    // One round trip: affiliations ride along via _revinclude and their coverage orgs via
+    // _include:iterate. _revinclude can't filter, so inactive pairs are dropped in code below.
+    { name: '_revinclude', value: 'OrganizationAffiliation:primary-organization' },
+    { name: '_include:iterate', value: 'OrganizationAffiliation:participating-organization' },
   ];
   if (params.nioId) {
     searchParams.push({ name: '_id', value: params.nioId });
@@ -66,34 +75,27 @@ export async function performEffect(
     searchParams.push({ name: 'name', value: params.name });
   }
 
-  const orgBundle = await oystehr.fhir.search<Organization>({
+  const orgBundle = await oystehr.fhir.search<Organization | OrganizationAffiliation>({
     resourceType: 'Organization',
     params: searchParams,
   });
-  const orgs = orgBundle.unbundle();
 
-  // One affiliation search covers the whole page; categories live on affiliation.code and the
-  // coverage orgs ride along via _include.
+  const orgs: Organization[] = [];
   const affiliationsByNioId = new Map<string, OrganizationAffiliation[]>();
   const coverageOrgsById = new Map<string, Organization>();
-  if (orgs.length > 0) {
-    const affiliationBundle = await oystehr.fhir.search<Organization | OrganizationAffiliation>({
-      resourceType: 'OrganizationAffiliation',
-      params: [
-        { name: 'primary-organization', value: orgs.map((org) => `Organization/${org.id}`).join(',') },
-        { name: 'active', value: 'true' },
-        { name: '_include', value: 'OrganizationAffiliation:participating-organization' },
-        { name: '_count', value: '1000' },
-      ],
-    });
-    for (const resource of affiliationBundle.unbundle()) {
-      if (resource.resourceType === 'Organization') {
-        if (resource.id) coverageOrgsById.set(resource.id, resource);
-        continue;
-      }
+  for (const resource of orgBundle.unbundle()) {
+    if (resource.resourceType === 'OrganizationAffiliation') {
+      if (resource.active === false) continue;
       const nioId = referencedId(resource.organization);
       if (!nioId) continue;
       affiliationsByNioId.set(nioId, [...(affiliationsByNioId.get(nioId) ?? []), resource]);
+      continue;
+    }
+    // NIO rows and included coverage orgs are both Organizations; the kind coding tells them apart.
+    if (isNonInsuranceOrganization(resource)) {
+      orgs.push(resource);
+    } else if (resource.id) {
+      coverageOrgsById.set(resource.id, resource);
     }
   }
 

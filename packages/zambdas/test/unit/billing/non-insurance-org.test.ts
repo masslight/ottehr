@@ -391,14 +391,11 @@ describe('delete-billing-non-insurance-org', () => {
 });
 
 describe('search-billing-non-insurance-orgs', () => {
-  it('maps a page of orgs with covers resolved from one affiliation search', async () => {
+  it('maps a page of orgs with covers riding along in the one search', async () => {
     const { oystehr, search, getPayerByUrl } = makeOystehr();
-    search.mockImplementation(({ resourceType }) => {
-      if (resourceType === 'Organization') {
-        return Promise.resolve({ unbundle: () => [nioOrg], total: 1 });
-      }
-      return Promise.resolve({ unbundle: () => [wcAffiliation, wcCoverageOrg] });
-    });
+    // NIO rows, their affiliations, and coverage orgs all come back from one Organization search
+    // (_revinclude + _include:iterate); the kind coding separates rows from included coverage orgs.
+    search.mockResolvedValue({ unbundle: () => [nioOrg, wcAffiliation, wcCoverageOrg], total: 1 });
     getPayerByUrl.mockResolvedValue({
       resourceType: 'Organization',
       id: PAYER_RCM_ID,
@@ -416,26 +413,37 @@ describe('search-billing-non-insurance-orgs', () => {
     expect(wc.billingMode).toBe('insurance');
     expect(wc.payer).toEqual({ id: PAYER_RCM_ID, name: 'Acme Insurance', payerId: 'PAYER123' });
 
+    expect(search).toHaveBeenCalledTimes(1);
     const orgParams = search.mock.calls[0][0].params;
     expect(orgParams).toContainEqual({
       name: 'type',
       value: `${NIO_ORGANIZATION_KIND_SYSTEM}|non-insurance-organization`,
     });
     expect(orgParams).toContainEqual({ name: 'active', value: 'true' });
-    // R4 names the OrganizationAffiliation.organization search parameter primary-organization.
-    expect(search.mock.calls[1][0].params).toContainEqual({
-      name: 'primary-organization',
-      value: `Organization/${NIO_ID}`,
+    // The element is OrganizationAffiliation.organization; its R4 search parameter is
+    // primary-organization, and the coverage orgs hop along off the rev-included affiliations.
+    expect(orgParams).toContainEqual({ name: '_revinclude', value: 'OrganizationAffiliation:primary-organization' });
+    expect(orgParams).toContainEqual({
+      name: '_include:iterate',
+      value: 'OrganizationAffiliation:participating-organization',
     });
+  });
+
+  it('drops rev-included inactive affiliations so retired covers stay hidden', async () => {
+    const { oystehr, search } = makeOystehr();
+    search.mockResolvedValue({
+      unbundle: () => [nioOrg, { ...wcAffiliation, active: false }, wcCoverageOrg],
+      total: 1,
+    });
+
+    const result = await searchNios(oystehr, { secrets: null });
+
+    expect(result.organizations[0].covers).toEqual([]);
   });
 
   it('falls back to the stored payer display when RCM resolution fails', async () => {
     const { oystehr, search, getPayerByUrl } = makeOystehr();
-    search.mockImplementation(({ resourceType }) =>
-      resourceType === 'Organization'
-        ? Promise.resolve({ unbundle: () => [nioOrg], total: 1 })
-        : Promise.resolve({ unbundle: () => [wcAffiliation, wcCoverageOrg] })
-    );
+    search.mockResolvedValue({ unbundle: () => [nioOrg, wcAffiliation, wcCoverageOrg], total: 1 });
     getPayerByUrl.mockRejectedValue(new Error('rcm down'));
 
     const result = await searchNios(oystehr, { secrets: null });
@@ -447,11 +455,8 @@ describe('search-billing-non-insurance-orgs', () => {
 describe('list-non-insurance-organizations', () => {
   it('returns minimal clinical options carrying the NIO reference token', async () => {
     const { oystehr, search } = makeOystehr();
-    search.mockImplementation(({ resourceType }) =>
-      resourceType === 'Organization'
-        ? Promise.resolve({ unbundle: () => [nioOrg] })
-        : Promise.resolve({ unbundle: () => [wcAffiliation] })
-    );
+    // Affiliations ride along in the one Organization search via _revinclude.
+    search.mockResolvedValue({ unbundle: () => [nioOrg, wcAffiliation] });
 
     const result = await listNios(oystehr, { employerOnly: true, secrets: null });
 
@@ -467,23 +472,18 @@ describe('list-non-insurance-organizations', () => {
       },
     ]);
 
+    expect(search).toHaveBeenCalledTimes(1);
     const orgParams = search.mock.calls[0][0].params;
     expect(orgParams).toContainEqual({ name: 'type', value: `${NIO_ORGANIZATION_KIND_SYSTEM}|employer` });
-    // The affiliation pass filters by primary-organization and never asks for the coverage orgs.
-    expect(search.mock.calls[1][0].params).toContainEqual({
-      name: 'primary-organization',
-      value: `Organization/${NIO_ID}`,
-    });
-    expect(search.mock.calls[1][0].params.some((p: { name: string }) => p.name === '_include')).toBe(false);
+    // Affiliations arrive via _revinclude (its R4 name is primary-organization); the directory
+    // never asks for the coverage orgs themselves.
+    expect(orgParams).toContainEqual({ name: '_revinclude', value: 'OrganizationAffiliation:primary-organization' });
+    expect(orgParams.some((p: { name: string }) => p.name.startsWith('_include'))).toBe(false);
   });
 
   it('resolves a deleted NIO by id with active=false', async () => {
     const { oystehr, search } = makeOystehr();
-    search.mockImplementation(({ resourceType }) =>
-      resourceType === 'Organization'
-        ? Promise.resolve({ unbundle: () => [{ ...nioOrg, active: false }] })
-        : Promise.resolve({ unbundle: () => [] })
-    );
+    search.mockResolvedValue({ unbundle: () => [{ ...nioOrg, active: false }] });
 
     const result = await listNios(oystehr, { nioId: NIO_ID, secrets: null });
 
@@ -497,8 +497,7 @@ describe('list-non-insurance-organizations', () => {
     const secondNioId = '33333333-3333-4333-8333-333333333333';
     const { oystehr, search } = makeOystehr();
     let orgPage = 0;
-    search.mockImplementation(({ resourceType }) => {
-      if (resourceType !== 'Organization') return Promise.resolve({ unbundle: () => [] });
+    search.mockImplementation(() => {
       orgPage += 1;
       return orgPage === 1
         ? Promise.resolve({ unbundle: () => [nioOrg], link: [{ relation: 'next', url: 'next-page' }] })
