@@ -1,4 +1,4 @@
-import { AddCircleOutline, CheckCircle } from '@mui/icons-material';
+import { AddCircleOutline, CheckCircle, InfoOutlined } from '@mui/icons-material';
 import {
   Autocomplete,
   Backdrop,
@@ -71,7 +71,7 @@ import {
   TECHNIQUES_VALUE_SET_URL,
   TIME_SPENT_VALUE_SET_URL,
 } from 'utils/lib/types/api/procedures.constants';
-import { ProcedurePageState } from 'utils/lib/types/api/procedures.types';
+import { ProcedurePageState, ProcedureSuggestion } from 'utils/lib/types/api/procedures.types';
 import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { FHIR_CODE_REGEX } from 'utils/lib/types/constants';
@@ -81,7 +81,7 @@ import { DiagnosesField } from '../../shared/components/assessment-tab/Diagnoses
 import { PageTitle } from '../../shared/components/PageTitle';
 import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
-import { useGetCPTHCPCSSearch } from '../../shared/stores/appointment/appointment.queries';
+import { useGetCPTHCPCSSearch, useRecommendBillingCodes } from '../../shared/stores/appointment/appointment.queries';
 import {
   useAppointmentData,
   useChartData,
@@ -250,6 +250,9 @@ export default function ProceduresNew({
   const chartProcedures = chartData?.procedures || [];
   const { mutateAsync: saveChartData } = useSaveChartData();
   const { mutateAsync: deleteChartData } = useDeleteChartData();
+  const { mutateAsync: recommendBillingCodes } = useRecommendBillingCodes();
+  const [recommendedBillingCodes, setRecommendedBillingCodes] = useState<ProcedureSuggestion[] | null>(null);
+  const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
 
   const methods = useForm({
     defaultValues: draft.procedureType ? { procedureType: draft.procedureType } : undefined,
@@ -364,6 +367,44 @@ export default function ProceduresNew({
   const codingFamily = codingAssist.family;
   // Official descriptors via the Oystehr terminology service; bare code until resolved.
   const suggestedCodeDescriptors = useCptDescriptors(codingAssist.suggestion?.codes.map((line) => line.code) ?? []);
+
+  // Procedure types the deterministic engine doesn't cover fall back to
+  // develop's AI billing-code suggestions (same fetch, same list UI).
+  useEffect(() => {
+    if (codingFamily != null || !formValues.procedureType) {
+      setRecommendedBillingCodes(null);
+      return;
+    }
+    const fetchRecommendedBillingCodes = async (): Promise<void> => {
+      setLoadingSuggestions(true);
+      const codes = await recommendBillingCodes({
+        procedureType: formValues.procedureType,
+        diagnoses: state.diagnoses,
+        medicationUsed: state.medicationUsed,
+        bodySite: state.bodySite,
+        bodySide: state.bodySide,
+        technique: state.technique,
+        suppliesUsed: combineMultipleValuesForSave(state.suppliesUsed, state.otherSuppliesUsed),
+        procedureDetails: state.procedureDetails,
+        timeSpent: state.timeSpent,
+      });
+      setLoadingSuggestions(false);
+      setRecommendedBillingCodes(codes);
+    };
+    fetchRecommendedBillingCodes().catch((error) => console.log(error));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    codingFamily,
+    formValues.procedureType,
+    state.diagnoses,
+    state.medicationUsed,
+    state.bodySite,
+    state.bodySide,
+    state.technique,
+    state.suppliesUsed,
+    state.timeSpent,
+    recommendBillingCodes,
+  ]);
 
   // Keep structuredFacts stamped with the active family: seed on procedure-type
   // switch (laceration seeds a wound row from the legacy body site/side via the
@@ -729,14 +770,71 @@ export default function ProceduresNew({
   const allSuggestedAdded =
     suggestedEntries.length > 0 && suggestedEntries.every((entry) => existingCptLineKeys.has(cptDtoLineKey(entry)));
 
-  // The deterministic engine is the sole code-suggestion source (the legacy AI
-  // list is retired). Uncovered procedure types render no suggestion content.
+  // Develop's AI-suggestion pieces, used verbatim for engine-uncovered types.
+  const existingCptCodeSet = new Set(state.cptCodes?.map((cptCode) => cptCode.code));
+
+  const addRecommendedCptCode = (value: ProcedureSuggestion): void =>
+    updateState((state) => {
+      if (!state.cptCodes?.some((cptCode) => cptCode.code === value.code)) {
+        state.cptCodes = [...(state.cptCodes ?? []), { code: value.code, display: value.description }];
+      }
+    });
+
+  const renderRecommendedCptActions = (value: ProcedureSuggestion): ReactElement => (
+    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+      <Tooltip title={value.useWhen}>
+        <IconButton size="small" aria-label={`When to use CPT code ${value.code}`}>
+          <InfoOutlined sx={{ fontSize: '17px' }} />
+        </IconButton>
+      </Tooltip>
+      {existingCptCodeSet.has(value.code) ? (
+        <IconButton size="small" disabled aria-label={`CPT code ${value.code} already added`}>
+          <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
+        </IconButton>
+      ) : (
+        <Tooltip title="Add CPT code">
+          <IconButton
+            size="small"
+            aria-label={`Add CPT code ${value.code}`}
+            onClick={() => addRecommendedCptCode(value)}
+            data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(value.code)}
+          >
+            <AddCircleOutline sx={{ fontSize: '17px' }} />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
+  );
+
+  // Engine families render deterministic suggestions; uncovered types fall back
+  // to develop's AI suggestion list.
   const recommendedCptCodesContent = (): ReactNode => {
     if (!formValues.procedureType) {
       return <Typography color="secondary.light">Select a procedure type to see recommended CPT codes</Typography>;
     }
     if (codingAssist.family == null || suggestion == null) {
-      return null;
+      if (loadingSuggestions || codingAssist.family != null) {
+        return null;
+      }
+      if (!recommendedBillingCodes) {
+        return null;
+      }
+      if (recommendedBillingCodes.length === 0) {
+        return <Typography color="secondary.light">No suggestions</Typography>;
+      }
+      return (
+        <ActionsList
+          data={recommendedBillingCodes}
+          getKey={(value) => value.code}
+          renderItem={(value) => (
+            <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(value.code)}>
+              <strong>{value.code}</strong> &ndash; {value.description}
+            </Typography>
+          )}
+          renderActions={isReadOnly ? undefined : renderRecommendedCptActions}
+          divider
+        />
+      );
     }
     return (
       <>
@@ -1448,7 +1546,7 @@ export default function ProceduresNew({
             <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
               <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>CPT Code</Typography>
             </TooltipWrapper>
-            <AiSectionContainer>{recommendedCptCodesContent()}</AiSectionContainer>
+            <AiSectionContainer isLoading={loadingSuggestions}>{recommendedCptCodesContent()}</AiSectionContainer>
             {amberBoxVisible && (
               <Container
                 style={{
