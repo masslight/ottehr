@@ -762,7 +762,7 @@
           },
           {
             "value": "extensive",
-            "label": "Extensive cautery and/or packing"
+            "label": "Extensive — initial control failed / repeated cautery / layered or deeper packing"
           }
         ]
       },
@@ -785,7 +785,7 @@
           },
           {
             "value": "extensive",
-            "label": "Extensive cautery and/or packing"
+            "label": "Extensive — initial control failed / repeated cautery / layered or deeper packing"
           }
         ]
       },

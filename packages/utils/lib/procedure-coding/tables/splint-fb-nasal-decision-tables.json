@@ -621,7 +621,7 @@
           "name": "left_anterior_extent",
           "type": "enum",
           "allowedValues": ["none", "temporary_pledget_only", "limited", "extensive"],
-          "description": "Anterior control work on the LEFT side. temporary_pledget_only = anesthetic/decongestant material placed briefly to find the site, removed, no cautery, no packing left (E/M only). limited = limited cautery and/or packing, single site readily controlled (30901). extensive = extensive cautery and/or packing: multiple sites, repeated cautery, layered/multiple/deeper packing, anterior tampon/balloon, prolonged effort (30903). Spec A15/A16."
+          "description": "Anterior control work on the LEFT side. temporary_pledget_only = anesthetic/decongestant material placed briefly to find the site, removed, no cautery, no packing left (E/M only). limited = limited cautery and/or packing, single site readily controlled (30901). extensive = extensive cautery and/or packing judged by the COURSE OF TREATMENT, not the device: initial control failed, multiple bleeding sites, repeated cautery, layered/multiple/deeper packing, prolonged effort (30903). A commercial tampon/balloon (Merocel, Rapid Rhino) does not by itself make control extensive — easy first-attempt control is limited (30901) whatever was inserted. Spec A15/A16 (policy adopted 2026-09-06)."
         },
         {
           "name": "right_anterior_extent",
