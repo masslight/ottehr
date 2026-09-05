@@ -69,8 +69,6 @@ export function NonInsuranceOrgDialog({ open, onClose, onCreated }: NonInsurance
           </Alert>
         )}
         <FormProvider {...methods}>
-          {/* Top margin keeps the first field's floated label from being clipped by the
-              DialogContent scroll edge (same treatment as AddServiceFacilityDialog). */}
           <Box sx={{ mt: 1 }}>
             <NonInsuranceOrgFormFields />
           </Box>
