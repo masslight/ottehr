@@ -12,6 +12,7 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
+import { formatCptCodeForDisplay } from 'utils/lib/procedure-coding/codec';
 import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
@@ -137,7 +138,7 @@ export function ProceduresBody({ onNewProcedure, onProcedureClick, pageTitle }: 
                             key={cptCode.code}
                             data-testid={dataTestIds.proceduresPage.cptCode}
                           >
-                            {cptCode.code}-{cptCode.display}
+                            {formatCptCodeForDisplay(cptCode, '-')}
                           </Typography>
                         );
                       })}
@@ -184,7 +185,7 @@ export function ProceduresBody({ onNewProcedure, onProcedureClick, pageTitle }: 
                           e.stopPropagation();
                           if (!procedure.resourceId) return;
                           const procedureName =
-                            procedure.cptCodes?.map((c: CPTCodeDTO) => `${c.code}-${c.display}`).join(', ') ||
+                            procedure.cptCodes?.map((c: CPTCodeDTO) => formatCptCodeForDisplay(c, '-')).join(', ') ||
                             procedure.procedureType ||
                             '';
                           showDeleteProcedureDialog({

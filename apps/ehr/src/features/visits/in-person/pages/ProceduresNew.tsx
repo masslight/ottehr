@@ -1,4 +1,4 @@
-import { AddCircleOutline, CheckCircle, InfoOutlined } from '@mui/icons-material';
+import { AddCircleOutline, CheckCircle } from '@mui/icons-material';
 import {
   Autocomplete,
   Backdrop,
@@ -55,7 +55,8 @@ import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { useMarkDraftNavigatedAway, useProcedureStore } from 'src/state/draft-data.store';
 import { PROCEDURES_CONFIG } from 'utils/lib/ottehr-config/procedures';
-import { AISuggestionNotes } from 'utils/lib/types/api/ai-suggestions-notes';
+import { formatCptCodeForDisplay, sidedSiteFromLegacyBodySite } from 'utils/lib/procedure-coding/codec';
+import { StructuredProcedureFacts, SuggestedClaimLine } from 'utils/lib/procedure-coding/model.types';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
 import {
@@ -70,7 +71,7 @@ import {
   TECHNIQUES_VALUE_SET_URL,
   TIME_SPENT_VALUE_SET_URL,
 } from 'utils/lib/types/api/procedures.constants';
-import { ProcedurePageState, ProcedureSuggestion } from 'utils/lib/types/api/procedures.types';
+import { ProcedurePageState } from 'utils/lib/types/api/procedures.types';
 import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { FHIR_CODE_REGEX } from 'utils/lib/types/constants';
@@ -80,11 +81,7 @@ import { DiagnosesField } from '../../shared/components/assessment-tab/Diagnoses
 import { PageTitle } from '../../shared/components/PageTitle';
 import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
-import {
-  useAiSuggestionNotes,
-  useGetCPTHCPCSSearch,
-  useRecommendBillingCodes,
-} from '../../shared/stores/appointment/appointment.queries';
+import { useGetCPTHCPCSSearch } from '../../shared/stores/appointment/appointment.queries';
 import {
   useAppointmentData,
   useChartData,
@@ -92,6 +89,8 @@ import {
   useSaveChartData,
 } from '../../shared/stores/appointment/appointment.store';
 import { InfoAlert } from '../components/InfoAlert';
+import { FactsRecord, StructuredFactsFields } from '../components/StructuredFactsFields';
+import { useProcedureCoding } from '../hooks/useProcedureCoding';
 import { ROUTER_PATH } from '../routing/routesInPerson';
 import {
   combineMultipleValuesForSave,
@@ -120,6 +119,7 @@ const QUICK_PICK_APPLY_KEYS: (keyof ProcedureQuickPickData)[] = [
   'suppliesUsed',
   'otherSuppliesUsed',
   'procedureDetails',
+  'structuredFacts',
   'specimenSent',
   'complications',
   'otherComplications',
@@ -202,6 +202,7 @@ function pageStateToDraft(pageState: LocalPageState): ProcedurePageState {
     suppliesUsed: pageState.suppliesUsed,
     otherSuppliesUsed: pageState.otherSuppliesUsed,
     procedureDetails: pageState.procedureDetails,
+    structuredFacts: pageState.structuredFacts,
     specimenSent: pageState.specimenSent,
     complications: pageState.complications,
     otherComplications: pageState.otherComplications,
@@ -233,11 +234,7 @@ export default function ProceduresNew({
   const { data: selectOptions, isLoading: isSelectOptionsLoading } = useSelectOptions(oystehr);
   const { chartData, setPartialChartData } = useChartData();
   const appointmentAccessibility = useGetAppointmentAccessibility();
-  const { mutateAsync: recommendBillingCodes } = useRecommendBillingCodes();
-  const { mutateAsync: aiSuggestionNotes } = useAiSuggestionNotes();
   const queryClient = useQueryClient();
-  const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
-  const [loadingSuggestionNote, setLoadingSuggestionNote] = useState<boolean>(false);
 
   const { encounter } = useAppointmentData();
   const { setDraft, getDraft, clearDraft, hasDraft } = useProcedureStore();
@@ -277,6 +274,7 @@ export default function ProceduresNew({
     suppliesUsed: draft.suppliesUsed,
     otherSuppliesUsed: draft.otherSuppliesUsed,
     procedureDetails: draft.procedureDetails,
+    structuredFacts: draft.structuredFacts,
     specimenSent: draft.specimenSent,
     complications: draft.complications,
     otherComplications: draft.otherComplications,
@@ -287,8 +285,6 @@ export default function ProceduresNew({
     documentedBy: draft.documentedBy,
   });
   const [saveInProgress, setSaveInProgress] = useState<boolean>(false);
-  const [recommendedBillingCodes, setRecommendedBillingCodes] = useState<ProcedureSuggestion[] | null>(null);
-  const [suggestionNote, setSuggestionNote] = useState<AISuggestionNotes | null>(null);
   const [confirmOverwriteOpen, setConfirmOverwriteOpen] = useState(false);
   const [overwriteTarget, setOverwriteTarget] = useState<ProcedureQuickPickData | null>(null);
   const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
@@ -342,51 +338,55 @@ export default function ProceduresNew({
     return { postInstructions: values, otherPostInstructions: other };
   };
 
-  useEffect(() => {
-    const fetchRecommendedBillingCodes = async (): Promise<void> => {
-      if (!formValues.procedureType) {
-        return;
-      }
-      setLoadingSuggestions(true);
-      const codes = await recommendBillingCodes({
-        procedureType: formValues.procedureType,
-        diagnoses: state.diagnoses,
-        medicationUsed: state.medicationUsed,
-        bodySite: state.bodySite,
-        bodySide: state.bodySide,
-        technique: state.technique,
-        suppliesUsed: combineMultipleValuesForSave(state.suppliesUsed, state.otherSuppliesUsed),
-        procedureDetails: state.procedureDetails,
-        timeSpent: state.timeSpent,
-      });
-      setLoadingSuggestions(false);
-      setRecommendedBillingCodes(codes);
-      if (formValues.procedureType.toLowerCase().includes('laceration')) {
-        setLoadingSuggestionNote(true);
-        const suggestions = await aiSuggestionNotes({
-          type: 'procedure',
-          details: { procedureDetails: state.procedureDetails || '' },
-        });
-        setLoadingSuggestionNote(false);
-        setSuggestionNote(suggestions);
-      }
-    };
+  // Deterministic coding assist (client-side, synchronous) — the sole
+  // code-suggestion source on this page; the legacy AI suggestion list is retired.
+  const selectedProcedureTypeCode =
+    selectOptions?.procedureTypes.find((procedureType) => procedureType.name === formValues.procedureType)?.code ??
+    formValues.procedureType;
+  const codingAssist = useProcedureCoding({
+    procedureTypeCode: selectedProcedureTypeCode,
+    structuredFacts: state.structuredFacts,
+    doc: {
+      procedureDetails: state.procedureDetails,
+      technique: state.technique,
+      suppliesUsed: state.suppliesUsed,
+      medicationUsed: state.medicationUsed,
+      bodySite: state.bodySite,
+      bodySide: state.bodySide,
+      patientResponse: state.patientResponse,
+      postInstructions: state.postInstructions,
+      timeSpent: state.timeSpent,
+      performerType: state.performerType,
+      documentedBy: state.documentedBy,
+    },
+    selectedCptCodes: state.cptCodes?.map((cptCode) => cptCode.code) ?? [],
+  });
+  const codingFamily = codingAssist.family;
 
-    fetchRecommendedBillingCodes().catch((error) => console.log(error));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    formValues.procedureType,
-    state.diagnoses,
-    state.medicationUsed,
-    state.bodySite,
-    state.bodySide,
-    state.technique,
-    state.suppliesUsed,
-    // state.procedureDetails,
-    state.timeSpent,
-    aiSuggestionNotes,
-    recommendBillingCodes,
-  ]);
+  // Keep structuredFacts stamped with the active family: seed on procedure-type
+  // switch (laceration seeds a wound row from the legacy body site/side via the
+  // shared shim), clear when the selected type is uncovered.
+  useEffect(() => {
+    if (codingFamily == null) {
+      if (state.structuredFacts != null) {
+        updateState((state) => (state.structuredFacts = undefined));
+      }
+      return;
+    }
+    if (state.structuredFacts?.family === codingFamily) {
+      return;
+    }
+    updateState((state) => {
+      const seeded = { family: codingFamily } as StructuredProcedureFacts;
+      if (seeded.family === 'laceration') {
+        const seedSite = sidedSiteFromLegacyBodySite(state.bodySite, state.bodySide);
+        if (seedSite != null) {
+          seeded.wounds = { [seedSite]: [{}] };
+        }
+      }
+      state.structuredFacts = seeded;
+    });
+  }, [codingFamily, state.structuredFacts, updateState]);
 
   const [initialValuesSet, setInitialValuesSet] = useState<boolean>(false);
   const [initialFormStateSet, setInitialFormStateSet] = useState<boolean>(false);
@@ -417,6 +417,7 @@ export default function ProceduresNew({
       suppliesUsed: parsedSupplies.suppliesUsed,
       otherSuppliesUsed: parsedSupplies.otherSuppliesUsed,
       procedureDetails: procedure.procedureDetails,
+      structuredFacts: procedure.structuredFacts,
       specimenSent: procedure.specimenSent,
       complications: getPredefinedValueOrOther(procedure.complications, selectOptions?.complications),
       otherComplications: getPredefinedValueIfOther(procedure.complications, selectOptions?.complications),
@@ -482,6 +483,7 @@ export default function ProceduresNew({
             technique: state.technique,
             suppliesUsed: combineMultipleValuesForSave(state.suppliesUsed, state.otherSuppliesUsed),
             procedureDetails: state.procedureDetails,
+            structuredFacts: state.structuredFacts,
             specimenSent: state.specimenSent,
             complications:
               state.complications !== OTHER ? state.complications : state.otherComplications?.trim() || OTHER,
@@ -573,6 +575,7 @@ export default function ProceduresNew({
       suppliesUsed: supplies.values,
       otherSuppliesUsed: supplies.other,
       procedureDetails: state.procedureDetails,
+      structuredFacts: state.structuredFacts,
       specimenSent: state.specimenSent,
       complications: state.complications,
       otherComplications: state.complications === OTHER ? state.otherComplications?.trim() : undefined,
@@ -624,73 +627,199 @@ export default function ProceduresNew({
     });
   };
 
-  const existingCptCodeSet = useMemo(() => new Set(state.cptCodes?.map((cptCode) => cptCode.code)), [state.cptCodes]);
+  // Suggestions can legitimately repeat a code with different modifiers
+  // (94640 + 94640-76), so line identity is code + modifiers, not code alone.
+  const cptLineKey = (code: string, modifierCodes: string[]): string => [code, ...modifierCodes].join('-');
+  const cptDtoLineKey = (cptCode: CPTCodeDTO): string =>
+    cptLineKey(
+      cptCode.code,
+      (cptCode.modifier ?? []).map((modifier) => modifier.code)
+    );
 
-  const addRecommendedCptCode = (suggestion: ProcedureSuggestion): void =>
-    updateState((state) => {
-      if (!state.cptCodes?.some((cptCode) => cptCode.code === suggestion.code)) {
-        state.cptCodes = [...(state.cptCodes ?? []), { code: suggestion.code, display: suggestion.description }];
-      }
-    });
-
-  const renderRecommendedCptActions = (value: ProcedureSuggestion): ReactElement => (
-    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-      <Tooltip title={value.useWhen}>
-        <IconButton size="small" aria-label={`When to use CPT code ${value.code}`}>
-          <InfoOutlined sx={{ fontSize: '17px' }} />
-        </IconButton>
-      </Tooltip>
-      {existingCptCodeSet.has(value.code) ? (
-        <IconButton size="small" disabled aria-label={`CPT code ${value.code} already added`}>
-          <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
-        </IconButton>
-      ) : (
-        <Tooltip title="Add CPT code">
-          <IconButton
-            size="small"
-            aria-label={`Add CPT code ${value.code}`}
-            onClick={() => addRecommendedCptCode(value)}
-            data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(value.code)}
-          >
-            <AddCircleOutline sx={{ fontSize: '17px' }} />
-          </IconButton>
-        </Tooltip>
-      )}
-    </Box>
+  const existingCptLineKeys = useMemo(
+    () => new Set(state.cptCodes?.map(cptDtoLineKey)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.cptCodes]
   );
 
-  const recommendedCptCodesContent = (): ReactNode => {
-    if (loadingSuggestions) {
-      return null;
-    }
+  const addSuggestedCptCodes = (entries: CPTCodeDTO[]): void =>
+    updateState((state) => {
+      const cptCodes = [...(state.cptCodes ?? [])];
+      entries.forEach((entry) => {
+        if (!cptCodes.some((cptCode) => cptDtoLineKey(cptCode) === cptDtoLineKey(entry))) {
+          cptCodes.push(entry);
+        }
+      });
+      state.cptCodes = cptCodes;
+    });
 
+  const claimLineDescription = (line: SuggestedClaimLine): string => {
+    const parts: string[] = [];
+    if (line.units > 1) parts.push(`× ${line.units}`);
+    if (line.modifiers.length > 0) parts.push(`modifiers ${line.modifiers.join(', ')}`);
+    return parts.join(' — ');
+  };
+
+  const humanizeCodingFlag = (flag: string): string => {
+    const [kind, ...rest] = flag.split(':');
+    const detail = rest.join(':').replace(/_/g, ' ');
+    switch (kind) {
+      case 'blocked':
+        return `Blocked — ${detail}`;
+      case 'advisory':
+        return `Advisory — ${detail}`;
+      case 'em_only':
+        return `E/M only — ${detail}`;
+      case 'out_of_family':
+        return `Outside this code family — ${detail}`;
+      case 'requires_bespoke':
+        return `Needs manual review — ${detail}`;
+      case 'verify':
+        return `Verify — ${detail}`;
+      case 'missing':
+        return `Missing documentation — ${detail}`;
+      case 'engine_error':
+        return `Coding engine error — ${detail}`;
+      case 'units_capped':
+        return `Units capped — ${rest[0]} is limited to ${rest[1]} unit(s) per day`;
+      case 'no_row_matched':
+      case 'no_band_matched':
+        return `No coding rule matched the documented facts (${detail}) — needs manual review`;
+      case 'second_initial':
+        return `Second initial service — ${detail}`;
+      case 'complex_floor':
+        return `Below the complex-repair length floor (${detail}) — reported at the layered-closure level`;
+      case 'medicare_adhesive_only':
+        return `Medicare adhesive-only closure — billed as ${rest[0]}`;
+      case 'review':
+        return `Needs review — ${detail}`;
+      default:
+        return flag.replace(/_/g, ' ');
+    }
+  };
+
+  const suggestion = codingAssist.suggestion;
+  const suggestionFlags = suggestion?.flags ?? [];
+  // Engine lines persist the bare code as display (the FHIR mapping requires a
+  // non-empty display); modifiers and units ride the DTO's structured fields.
+  // Identical lines (same code + modifiers, e.g. a repeat 93000-76) aggregate
+  // into units; lines differing only in modifiers stay separate.
+  const suggestedEntries: CPTCodeDTO[] = [];
+  (suggestion?.codes ?? []).forEach((line) => {
+    const key = cptLineKey(line.code, line.modifiers);
+    const existing = suggestedEntries.find((entry) => cptDtoLineKey(entry) === key);
+    if (existing) {
+      existing.billableUnits = (existing.billableUnits ?? 1) + line.units;
+      return;
+    }
+    suggestedEntries.push({
+      code: line.code,
+      display: line.code,
+      ...(line.modifiers.length > 0 && {
+        modifier: line.modifiers.map((modifier) => ({ code: modifier, display: modifier })),
+      }),
+      ...(line.units > 1 && { billableUnits: line.units }),
+    });
+  });
+  const allSuggestedAdded =
+    suggestedEntries.length > 0 && suggestedEntries.every((entry) => existingCptLineKeys.has(cptDtoLineKey(entry)));
+
+  // The deterministic engine is the sole code-suggestion source (the legacy AI
+  // list is retired). Uncovered procedure types render no suggestion content.
+  const recommendedCptCodesContent = (): ReactNode => {
     if (!formValues.procedureType) {
       return <Typography color="secondary.light">Select a procedure type to see recommended CPT codes</Typography>;
     }
-
-    // Suggestions not fetched yet.
-    if (!recommendedBillingCodes) {
+    if (codingAssist.family == null || suggestion == null) {
       return null;
     }
-
-    if (recommendedBillingCodes.length === 0) {
-      return <Typography color="secondary.light">No suggestions</Typography>;
-    }
-
     return (
-      <ActionsList
-        data={recommendedBillingCodes}
-        getKey={(value) => value.code}
-        renderItem={(value) => (
-          <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(value.code)}>
-            <strong>{value.code}</strong> &ndash; {value.description}
+      <>
+        {suggestion.codes.length > 0 && (
+          <Box data-testid={dataTestIds.documentProcedurePage.bestMatchCptCode}>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: 'success.dark' }}>
+              Best match — from your documentation
+            </Typography>
+            {suggestion.codes.map((line, index) => (
+              <Box
+                key={`${index}-${line.code}`}
+                sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}
+              >
+                <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(line.code)}>
+                  <strong>{line.code}</strong>
+                  {claimLineDescription(line) !== '' && <> &ndash; {claimLineDescription(line)}</>}
+                </Typography>
+                {!isReadOnly &&
+                  index === 0 &&
+                  (allSuggestedAdded ? (
+                    <IconButton size="small" disabled aria-label="Suggested CPT codes already added">
+                      <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
+                    </IconButton>
+                  ) : (
+                    <Tooltip title="Add suggested CPT codes">
+                      <IconButton
+                        size="small"
+                        aria-label="Add suggested CPT codes"
+                        onClick={() => addSuggestedCptCodes(suggestedEntries)}
+                        data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(line.code)}
+                      >
+                        <AddCircleOutline sx={{ fontSize: '17px' }} />
+                      </IconButton>
+                    </Tooltip>
+                  ))}
+              </Box>
+            ))}
+          </Box>
+        )}
+        {suggestion.codes.length === 0 && suggestionFlags.length === 0 && (
+          <Typography color="secondary.light">No suggestions</Typography>
+        )}
+        {suggestionFlags.map((flag) => (
+          <Typography key={flag} variant="body2">
+            {humanizeCodingFlag(flag)}
+          </Typography>
+        ))}
+        {suggestion.review === true && (
+          <Typography variant="body2" color="text.secondary">
+            Needs manual coding review — the suggestion is not authoritative for this documentation.
           </Typography>
         )}
-        renderActions={isReadOnly ? undefined : renderRecommendedCptActions}
-        divider
-      />
+        {suggestion.requiredDocumentation.length > 0 && (
+          <Box data-testid={dataTestIds.documentProcedurePage.requiredDocumentationList}>
+            <Typography variant="caption" sx={{ fontWeight: 700 }}>
+              Required documentation
+            </Typography>
+            {suggestion.requiredDocumentation.map((item) => (
+              <Typography key={item} variant="caption" component="div" color="text.secondary">
+                • {item}
+              </Typography>
+            ))}
+          </Box>
+        )}
+      </>
     );
   };
+
+  // ── Documentation defense — driven by codingDispatch.defend. ──
+  const defense = codingAssist.defense;
+  const notSupportedFindings = defense?.codes.filter((finding) => finding.status === 'not-supported') ?? [];
+  const supportedCodes = defense?.codes.filter((f) => f.status === 'supported').map((f) => f.code) ?? [];
+  const notAssessedCodes = defense?.codes.filter((f) => f.status === 'not-assessed').map((f) => f.code) ?? [];
+  const payerNotes = [...new Set([...(suggestion?.payerNotes ?? []), ...(defense?.payerNotes ?? [])])];
+  const amberBoxVisible = notSupportedFindings.length > 0;
+  const positiveStateVisible = !amberBoxVisible && supportedCodes.length > 0;
+  const notAssessedLineVisible = notAssessedCodes.length > 0 && (amberBoxVisible || positiveStateVisible);
+
+  const payerNotesContent = (): ReactNode =>
+    payerNotes.length > 0 ? (
+      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+        {payerNotes.map((note) => (
+          <Typography key={note} variant="caption" color="text.secondary">
+            {note}
+          </Typography>
+        ))}
+      </Box>
+    ) : null;
 
   const cptWidget = (): ReactElement => {
     return (
@@ -736,16 +865,16 @@ export default function ProceduresNew({
           getKey={(value, index) => value.resourceId || index}
           renderItem={(value) => (
             <Typography data-testid={dataTestIds.documentProcedurePage.cptCode}>
-              {value.code} {value.display}
+              {formatCptCodeForDisplay(value)}
             </Typography>
           )}
           renderActions={(value) =>
             !isReadOnly ? (
               <DeleteIconButton
                 onClick={() =>
-                  updateState(
-                    (state) => (state.cptCodes = state.cptCodes?.filter((cptCode) => cptCode.code != value.code))
-                  )
+                  // Delete this line only — the same code can appear again with
+                  // different modifiers (94640 + 94640-76).
+                  updateState((state) => (state.cptCodes = state.cptCodes?.filter((cptCode) => cptCode !== value)))
                 }
               />
             ) : undefined
@@ -1194,6 +1323,16 @@ export default function ProceduresNew({
               (value, state) => (state.bodySide = value),
               dataTestIds.documentProcedurePage.sideOfBody
             )}
+            {codingAssist.manifest != null && state.structuredFacts != null && (
+              <StructuredFactsFields
+                manifest={codingAssist.manifest}
+                facts={state.structuredFacts as unknown as FactsRecord}
+                onChange={(next) =>
+                  updateState((state) => (state.structuredFacts = next as unknown as StructuredProcedureFacts))
+                }
+                isReadOnly={isReadOnly}
+              />
+            )}
             {multiSelect(
               'Technique',
               selectOptions?.techniques,
@@ -1287,8 +1426,8 @@ export default function ProceduresNew({
             <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
               <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>CPT Code</Typography>
             </TooltipWrapper>
-            <AiSectionContainer isLoading={loadingSuggestions}>{recommendedCptCodesContent()}</AiSectionContainer>
-            {suggestionNote && suggestionNote.suggestions?.[0] !== 'Procedure details are included' && (
+            <AiSectionContainer>{recommendedCptCodesContent()}</AiSectionContainer>
+            {amberBoxVisible && (
               <Container
                 style={{
                   background: '#FFF3E0',
@@ -1298,12 +1437,45 @@ export default function ProceduresNew({
               >
                 <Container style={{ display: 'flex', alignItems: 'center', padding: 0 }}>
                   <Typography variant="body1" style={{ fontWeight: 700 }}>
-                    Procedure Details AI Suggestions
+                    Documentation Checks
                   </Typography>
-                  {loadingSuggestionNote && <CircularProgress size={17} style={{ marginLeft: '7px' }} />}
                 </Container>
-                <Typography variant="body1">{suggestionNote?.suggestions?.join(', ')}</Typography>
+                <Box
+                  sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, paddingTop: '4px' }}
+                  data-testid={dataTestIds.documentProcedurePage.codingDefenseFindings}
+                >
+                  {notSupportedFindings.map((finding) => (
+                    <Box key={finding.code}>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        {finding.code}
+                      </Typography>
+                      {finding.reasons.map((reason) => (
+                        <Typography key={reason} variant="body2">
+                          {reason}
+                        </Typography>
+                      ))}
+                    </Box>
+                  ))}
+                </Box>
+                {payerNotesContent()}
               </Container>
+            )}
+            {positiveStateVisible && (
+              <Box data-testid={dataTestIds.documentProcedurePage.codingDefenseSupported}>
+                <Typography variant="body2" sx={{ color: 'success.main' }}>
+                  Documentation supports {supportedCodes.join(', ')}
+                </Typography>
+                {payerNotesContent()}
+              </Box>
+            )}
+            {notAssessedLineVisible && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                data-testid={dataTestIds.documentProcedurePage.codingDefenseNotAssessed}
+              >
+                {notAssessedCodes.join(', ')} &mdash; not assessed by documentation checks
+              </Typography>
             )}
             {cptWidget()}
             <Divider orientation="horizontal" />

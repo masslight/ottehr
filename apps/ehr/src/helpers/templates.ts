@@ -1,3 +1,4 @@
+import { formatStructuredFactsForDisplay } from 'utils/lib/procedure-coding/codec';
 import { TemplateCptCodeInfo, TemplateProcedurePlan } from 'utils/lib/types/data/admin-template.types';
 
 export const formatCptCodeAndModifiersForDisplay = (info: TemplateCptCodeInfo): string => {
@@ -21,6 +22,7 @@ export const getProcedureDisplayFields = (plan: TemplateProcedurePlan): Procedur
     { label: 'Performer type', value: plan.performerType ?? '' },
     { label: 'Body site', value: plan.bodySite ?? '' },
     { label: 'Body side', value: plan.bodySide ?? '' },
+    ...formatStructuredFactsForDisplay(plan.structuredFacts),
     { label: 'Technique', value: plan.technique.join(', ') },
     { label: 'Medication used', value: plan.medicationUsed ?? '' },
     { label: 'Supplies used', value: plan.suppliesUsed ?? '' },

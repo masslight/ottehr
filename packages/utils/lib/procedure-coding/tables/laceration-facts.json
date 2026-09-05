@@ -1,0 +1,194 @@
+{
+  "meta": {
+    "title": "Laceration repair (12001-13153, G0168) — facts declaration + coding data for the bespoke core",
+    "generated": "2026-09-05",
+    "derivedFrom": "laceration-cleanroom-spec.md (rule numbers cited per entry as specRef)",
+    "consumer": "laceration-core.ts (bespoke family core). The class cascade, class-dependent site grouping, cross-wound summing, and complex add-on arithmetic exceed the weak table vocabulary, so this file is NOT interpreted by evaluator.ts — but it declares the family's facts in the same style as the reference decision tables, and every code number, band edge, group membership, unit cap, checklist, and payer note lives here as data, not in code.",
+    "vocabulary": {
+      "tableKinds": ["siteGroups", "bandSeries", "complexSeries", "unitCaps", "docChecklist", "payerNotes"],
+      "semantics": {
+        "siteGroups": "Per repair class, the CPT site groupings (spec A3). Group membership is class-dependent: the same base site can change groups when the class changes (hand: S-A simple, I-2 intermediate, C-3 complex).",
+        "bandSeries": "Simple/intermediate code ladders (spec A4). 'steps' are ordered; each step's maxCm is the inclusive upper bound of its band (null = unbounded). The core picks the first step whose maxCm >= summed group length.",
+        "complexSeries": "Complex base/second/add-on structure per group (spec A4/A6). floorCm is the 1.1 cm complex minimum; add-on units = ceil((L - 7.5) / 5), 'each additional 5 cm or less'.",
+        "unitCaps": "Per-code MUE maximum billable units per date of service (spec B4). defaultMaxUnitsPerDay covers every family code not listed in caps (all base repair codes are MUE 1, MAI 2).",
+        "docChecklist": "Required documentation for the listed codes; items are human-verified, not computed. codes: [\"*\"] applies to every emitted code.",
+        "payerNotes": "Free-text constraints surfaced to the human coder. Unlike the reference tables these carry a 'trigger' the core matches; never evaluated as logic beyond that."
+      },
+      "sidedSiteKeys": "Wound-map keys. Paired sites appear only as '<site>-left' / '<site>-right' (the form offers no side-less option for paired sites); midline sites are bare keys. Legacy convention for imported/pre-sided data ONLY (not offered by the form): '<pairedSite>-unsided' is accepted with full group membership plus a laterality item added to requiredDocumentation. 'other' (or any unrecognized key) yields review-not-authoritative output: no codes, review flag + reason."
+    }
+  },
+  "families": [
+    {
+      "family": "laceration-repair",
+      "codes": [
+        "12001", "12002", "12004", "12005", "12006", "12007",
+        "12011", "12013", "12014", "12015", "12016", "12017", "12018",
+        "12031", "12032", "12034", "12035", "12036", "12037",
+        "12041", "12042", "12044", "12045", "12046", "12047",
+        "12051", "12052", "12053", "12054", "12055", "12056", "12057",
+        "13100", "13101", "13102", "13120", "13121", "13122",
+        "13131", "13132", "13133", "13151", "13152", "13153",
+        "G0168"
+      ],
+      "facts": [
+        {
+          "name": "wounds",
+          "type": "map",
+          "keyDomain": "sidedSite (see meta.vocabulary.sidedSiteKeys and siteVocabulary)",
+          "valueType": "list<wound>",
+          "woundSchema": {
+            "lengthCm": { "type": "number", "optional": true, "description": "Measured repair length in cm, measured at time of repair. Code-determining: absent (and the wound is not strips-only) -> the core refuses to emit codes. Spec B1.2/A4." },
+            "depth": { "type": "enum", "optional": true, "allowedValues": ["tissue-adhesive-only", "adhesive-strips-only", "single-layer", "layered"], "description": "Documented closure depth/material class. strips-only -> no repair code, E/M only (A1.2). adhesive-only -> simple, Medicare G0168 handling (A1.4-A1.7). single-layer -> simple unless the contamination route applies (A2). layered -> intermediate, or complex with a qualifying element (A2). Code-determining: absent -> refuse." },
+            "complexElements": { "type": "enum[]", "optional": true, "allowedValues": ["extensive-undermining", "retention-sutures", "stent-placement", "debridement", "exposed-structure", "free-margin"], "description": "CPT complex-repair qualifying elements documented for THIS wound (A2 complex list: extensive undermining >= max defect width along an entire edge; retention sutures; stent placement; debridement of wound edges; exposed bone/cartilage/tendon/named neurovascular structure; free margin of helical rim/vermilion border/nostril rim). Only upgrades a layered closure (complex requires intermediate components, A2)." },
+            "contaminated": { "type": "boolean", "optional": true, "description": "Heavy contamination AND extensive cleaning/removal of particulate matter BOTH documented — the A2 single-layer -> intermediate route. Set only when both halves are documented (contamination alone does not qualify)." }
+          },
+          "description": "Every wound repaired this encounter, keyed by sided site. Lengths are summed across wounds and sides within one class + site group and reported as one cumulative code (A5.1); different groups/classes are never summed (A5.2)."
+        },
+        { "name": "closure_material", "type": "string", "tier": "defense", "description": "Closure material/method as documented (e.g. '4-0 Ethilon', 'staples', 'Dermabond tissue adhesive'). Never code-determining, but required documentation for every repair code (B1.3): a code whose closure material is undocumented is not defensible (adhesive-only wounds satisfy it via depth)." },
+        { "name": "suture_count", "type": "integer", "tier": "defense", "description": "Documented suture/staple count. Completeness item only (not in B1; never blocks)." },
+        { "name": "tetanus_status", "type": "string", "tier": "defense", "description": "Documented tetanus status (e.g. 'up to date'). Completeness item only." },
+        { "name": "irrigation", "type": "boolean", "tier": "defense", "description": "Wound irrigation documented. Completeness item only (bundled service, A7)." },
+        { "name": "payer_type", "type": "enum", "allowedValues": ["medicare", "other"], "description": "Drives the adhesive-only rule: Medicare + tissue adhesive as sole closure -> HCPCS G0168 instead of a CPT repair code (A1.4); other/undetermined -> CPT code + payer note (A1.7)." },
+        { "name": "adjacent_tissue_transfer", "type": "boolean", "description": "Scope gate (judgment call: not in the base wounds shape, but the spec demands it and nothing else can express it): closure by deliberately developed flap/Z-plasty/W-plasty/tissue rearrangement -> 14xxx ATT territory; repair codes 12001-13160 are not reportable for the same injury (A1.8). true -> no codes, review; selected repair codes -> not-assessed." }
+      ],
+      "siteVocabulary": {
+        "paired": ["arm", "leg", "hand", "foot", "ear", "eyelid", "cheek", "axilla"],
+        "unsided": ["scalp", "face", "forehead", "chin", "mouth", "nose", "lip", "mucous-membrane", "neck", "genitalia", "trunk"],
+        "note": "Normalization guidance (spec A3 note, inference I): trunk includes chest/back/abdomen/flank/buttock; arm includes shoulder/elbow/forearm/wrist; leg includes thigh/knee/shin/calf/ankle; hand includes fingers/palm; foot includes toes/heel/sole; 'face' is the generic face region (forehead/cheek/chin are offered separately and matter for complex grouping); mouth = intraoral mucous membranes."
+      },
+      "tables": [
+        {
+          "id": "laceration.siteGroups",
+          "kind": "siteGroups",
+          "note": "Spec A3. Class-dependent membership — the most error-prone rule of the family. face parts NOT in C-4 (forehead/cheek/chin/mouth, and generic face) go to C-3; eyelid/nose/ear/lip go to C-4. Mucous membranes are grouped with face for simple/intermediate and with C-3 for complex (A3 normalization note).",
+          "groups": {
+            "simple": {
+              "S-A": ["scalp", "neck", "axilla", "genitalia", "trunk", "arm", "leg", "hand", "foot"],
+              "S-B": ["face", "forehead", "cheek", "chin", "mouth", "ear", "eyelid", "nose", "lip", "mucous-membrane"]
+            },
+            "intermediate": {
+              "I-1": ["scalp", "axilla", "trunk", "arm", "leg"],
+              "I-2": ["neck", "hand", "foot", "genitalia"],
+              "I-3": ["face", "forehead", "cheek", "chin", "mouth", "ear", "eyelid", "nose", "lip", "mucous-membrane"]
+            },
+            "complex": {
+              "C-1": ["trunk"],
+              "C-2": ["scalp", "arm", "leg"],
+              "C-3": ["face", "forehead", "cheek", "chin", "mouth", "mucous-membrane", "neck", "axilla", "genitalia", "hand", "foot"],
+              "C-4": ["eyelid", "nose", "ear", "lip"]
+            }
+          },
+          "specRef": "A3"
+        },
+        {
+          "id": "laceration.bandSeries",
+          "kind": "bandSeries",
+          "note": "Spec A4. Trunk pattern has NO 5.0 split; face pattern (S-B AND I-3) has the extra 2.6-5.0 / 5.1-7.5 split. I-3 including 12053 is a KNOWN divergence from the legacy engine, which modeled the intermediate face series on the trunk pattern (no 12053). Code-number gaps (no 12003/12012/12033/12043/12050) are real.",
+          "series": [
+            { "group": "S-A", "class": "simple", "steps": [
+              { "code": "12001", "maxCm": 2.5 }, { "code": "12002", "maxCm": 7.5 }, { "code": "12004", "maxCm": 12.5 },
+              { "code": "12005", "maxCm": 20.0 }, { "code": "12006", "maxCm": 30.0 }, { "code": "12007", "maxCm": null } ] },
+            { "group": "S-B", "class": "simple", "steps": [
+              { "code": "12011", "maxCm": 2.5 }, { "code": "12013", "maxCm": 5.0 }, { "code": "12014", "maxCm": 7.5 },
+              { "code": "12015", "maxCm": 12.5 }, { "code": "12016", "maxCm": 20.0 }, { "code": "12017", "maxCm": 30.0 }, { "code": "12018", "maxCm": null } ] },
+            { "group": "I-1", "class": "intermediate", "steps": [
+              { "code": "12031", "maxCm": 2.5 }, { "code": "12032", "maxCm": 7.5 }, { "code": "12034", "maxCm": 12.5 },
+              { "code": "12035", "maxCm": 20.0 }, { "code": "12036", "maxCm": 30.0 }, { "code": "12037", "maxCm": null } ] },
+            { "group": "I-2", "class": "intermediate", "steps": [
+              { "code": "12041", "maxCm": 2.5 }, { "code": "12042", "maxCm": 7.5 }, { "code": "12044", "maxCm": 12.5 },
+              { "code": "12045", "maxCm": 20.0 }, { "code": "12046", "maxCm": 30.0 }, { "code": "12047", "maxCm": null } ] },
+            { "group": "I-3", "class": "intermediate", "steps": [
+              { "code": "12051", "maxCm": 2.5 }, { "code": "12052", "maxCm": 5.0 }, { "code": "12053", "maxCm": 7.5 },
+              { "code": "12054", "maxCm": 12.5 }, { "code": "12055", "maxCm": 20.0 }, { "code": "12056", "maxCm": 30.0 }, { "code": "12057", "maxCm": null } ] }
+          ],
+          "specRef": "A4"
+        },
+        {
+          "id": "laceration.complexSeries",
+          "kind": "complexSeries",
+          "floorCm": 1.1,
+          "note": "Spec A4/A6. base covers 1.1-2.5, second 2.6-7.5, addOn each additional 5 cm OR LESS beyond 7.5 (units = ceil((L-7.5)/5)); the add-on pairs ONLY with its group's second code (NCCI mod-0 edits vs the base, B3.3). Below floorCm the group is not reportable as complex — fall back to what the layered closure alone establishes (intermediate).",
+          "groups": {
+            "C-1": { "base": "13100", "second": "13101", "addOn": "13102" },
+            "C-2": { "base": "13120", "second": "13121", "addOn": "13122" },
+            "C-3": { "base": "13131", "second": "13132", "addOn": "13133" },
+            "C-4": { "base": "13151", "second": "13152", "addOn": "13153" }
+          },
+          "specRef": "A4/A6"
+        },
+        {
+          "id": "laceration.unitCaps",
+          "kind": "unitCaps",
+          "defaultMaxUnitsPerDay": 1,
+          "defaultNote": "Every simple/intermediate code and every complex base/second code is MUE 1 per day (MAI 2, Anatomic Consideration) — summing, never multiple units. CMS MUE practitioner table eff. 2026-10-01.",
+          "caps": [
+            { "code": "13102", "maxUnitsPerDay": 9, "mai": 3 },
+            { "code": "13122", "maxUnitsPerDay": 9, "mai": 3 },
+            { "code": "13133", "maxUnitsPerDay": 7, "mai": 3 },
+            { "code": "13153", "maxUnitsPerDay": 2, "mai": 3 },
+            { "code": "G0168", "maxUnitsPerDay": 2, "mai": 3 }
+          ],
+          "specRef": "B4"
+        },
+        {
+          "id": "laceration.doc.common",
+          "kind": "docChecklist",
+          "codes": ["*"],
+          "required": [
+            "Anatomic site of each wound, specific enough to resolve the class-specific site group (B1.1/A3)",
+            "Measured length in cm of each wound, measured at time of repair — not estimated (B1.2)",
+            "Closure material/method: sutures/staples/tissue adhesive (strips alone -> no code) (B1.3)",
+            "Depth / tissue layers closed — which layers, how many; this defends the classification (B1.4)",
+            "Per-wound detail when multiple wounds, so lengths can be summed per class + group (B1.5)",
+            "Defense tier (never code-determining): suture count, tetanus status, irrigation"
+          ],
+          "specRef": "B1"
+        },
+        {
+          "id": "laceration.doc.simple",
+          "kind": "docChecklist",
+          "codes": ["12001", "12002", "12004", "12005", "12006", "12007", "12011", "12013", "12014", "12015", "12016", "12017", "12018"],
+          "required": ["Single-layer closure; superficial depth (epidermis/dermis/subcutaneous, no significant deeper involvement) (B2)"],
+          "specRef": "B2"
+        },
+        {
+          "id": "laceration.doc.intermediate",
+          "kind": "docChecklist",
+          "codes": ["12031", "12032", "12034", "12035", "12036", "12037", "12041", "12042", "12044", "12045", "12046", "12047", "12051", "12052", "12053", "12054", "12055", "12056", "12057"],
+          "required": ["EITHER layered closure naming the deeper layer(s) closed (subcutaneous / superficial non-muscle fascia) plus skin closure; OR limited undermining with extent vs wound width; OR single-layer closure of a heavily contaminated wound with the extensive cleaning described (B2)"],
+          "specRef": "B2"
+        },
+        {
+          "id": "laceration.doc.complex",
+          "kind": "docChecklist",
+          "codes": ["13100", "13101", "13120", "13121", "13131", "13132", "13151", "13152"],
+          "required": ["Intermediate-level documentation PLUS at least one qualifying element described concretely: which structure was exposed; wound EDGES debrided; undermining distance >= max wound width along an entire edge; which free margin (helical rim/vermilion border/nostril rim); retention sutures placed. Total complex length >= 1.1 cm (B2/A2)"],
+          "specRef": "B2"
+        },
+        {
+          "id": "laceration.doc.addon",
+          "kind": "docChecklist",
+          "codes": ["13102", "13122", "13133", "13153"],
+          "required": ["Everything for the base code, plus total group length > 7.5 cm; billed units consistent with ceil((L-7.5)/5); claim carries the group's LARGE base code (13101/13121/13132/13152) (B2/A6)"],
+          "specRef": "B2"
+        },
+        {
+          "id": "laceration.doc.g0168",
+          "kind": "docChecklist",
+          "codes": ["G0168"],
+          "required": ["Medicare beneficiary; tissue adhesive was the SOLE closure material, unambiguous in the chart; no sutures or staples (B2/A1.4)"],
+          "specRef": "B2"
+        },
+        {
+          "id": "laceration.payerNotes",
+          "kind": "payerNotes",
+          "notes": [
+            { "trigger": "adhesive-only-cpt", "note": "Payer note: when tissue adhesive is the only closure, Medicare is billed with HCPCS code G0168 instead of a CPT repair code; handling by commercial insurers varies.", "specRef": "A1.4/A1.7" },
+            { "trigger": "medicare-adhesive-only", "note": "Medicare adhesive-only closure bills HCPCS G0168 (NCCI Ch3 L.5); G0168 carries payment status N in many settings (often packaged) and is not recognized under OPPS — facilities report the CPT repair code.", "specRef": "A1.4/A1.6/B5" },
+            { "trigger": "multi-group-day", "note": "Multiple classifications/site groups repaired the same day: list the most complicated repair first; append modifier 59 to the less complicated line(s) (some payers expect 51 within the same anatomic group, 59 across groups).", "specRef": "A5.3" }
+          ]
+        }
+      ]
+    }
+  ]
+}

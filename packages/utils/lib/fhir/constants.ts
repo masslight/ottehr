@@ -211,6 +211,9 @@ export const FHIR_EXTENSION = {
     procedureDetails: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/procedure-details`,
     },
+    structuredFacts: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/procedure-structured-facts`,
+    },
     specimenSent: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/specimen-sent`,
     },

@@ -16,6 +16,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import z from 'zod';
+import { StructuredProcedureFacts } from '../../../procedure-coding/model.types';
 import { ObservationDTO } from '../../data/screening-questions/types';
 import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 import { RadiologyDTO } from '../radiology';
@@ -591,6 +592,8 @@ export interface ProcedureDTO extends SaveableDTO {
   technique?: string[];
   suppliesUsed?: string;
   procedureDetails?: string;
+  /** Family-stamped structured coding facts (declarative procedure-coding engine input). */
+  structuredFacts?: StructuredProcedureFacts;
   specimenSent?: boolean;
   complications?: string;
   patientResponse?: string;
