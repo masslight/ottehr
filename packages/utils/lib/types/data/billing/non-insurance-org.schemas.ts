@@ -13,7 +13,6 @@ export type NioSubmissionMechanism = (typeof NIO_SUBMISSION_MECHANISMS)[number];
 export const NIO_WC_BILLING_MODES = ['insurance', 'direct'] as const;
 export type NioWcBillingMode = (typeof NIO_WC_BILLING_MODES)[number];
 
-// Addresses are deliberately loose: partial addresses are allowed, with no completeness rule.
 export const NioAddressSchema = z.object({
   line1: optionalTrimmedString,
   line2: optionalTrimmedString,
