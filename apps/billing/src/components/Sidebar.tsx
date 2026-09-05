@@ -15,7 +15,6 @@ import {
 import { Box, Divider, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
 import { FC, ReactElement } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { RULES_ENGINE_TYPES, RULES_ENGINES } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
 import { otherColors } from '../themes/ottehr/colors';
@@ -29,15 +28,11 @@ const navItems = [
   { label: 'Billing Providers', path: '/billing-providers', icon: <BusinessIcon sx={{ fontSize: 18 }} /> },
   { label: 'Rendering Providers', path: '/rendering-providers', icon: <MedicalServicesIcon sx={{ fontSize: 18 }} /> },
   { label: 'Service Facilities', path: '/service-facilities', icon: <ApartmentIcon sx={{ fontSize: 18 }} /> },
-  ...(FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled
-    ? [
-        {
-          label: 'Non-Insurance Orgs',
-          path: '/non-insurance-organizations',
-          icon: <BusinessCenterIcon sx={{ fontSize: 18 }} />,
-        },
-      ]
-    : []),
+  {
+    label: 'Non-Insurance Orgs',
+    path: '/non-insurance-organizations',
+    icon: <BusinessCenterIcon sx={{ fontSize: 18 }} />,
+  },
   {
     label: ChargeItemDefinitionLabels['charge-master'].listTitle,
     path: `/${ChargeItemDefinitionLabels['charge-master'].pathComponent}`,
