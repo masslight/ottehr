@@ -97,7 +97,6 @@ export type UpdateNonInsuranceOrgInput = z.output<typeof UpdateNonInsuranceOrgIn
 export const SearchNonInsuranceOrgsInputSchema = z.object({
   nioId: nonEmptyString.optional(),
   name: nonEmptyString.optional(),
-  // The only supported filter is employers-only; omit for all NIOs.
   employer: z.literal(true).optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
