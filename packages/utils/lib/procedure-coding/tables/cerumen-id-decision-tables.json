@@ -381,6 +381,7 @@
             "Site/location of each lesion (anatomic specificity)",
             "Lesion type (abscess/cyst/furuncle vs hematoma/seroma/fluid vs bulla)",
             "Size and characteristics; single vs multiple; depth (superficial vs deep subcutaneous)",
+            "Pre-operative size, location and appearance of the lesion; approximate quantity (e.g., 1 cc, 5 mL) and quality (e.g., serous, sero-sanguinous, frank pus, malodorous) of the material drained (NGS A56766 documentation requirement). Spec B6.",
             "Technique: incision(s) (number, size) or needle puncture; drainage achieved; irrigation/curettage/probing described",
             "Anesthesia used (bundled but documented)",
             "Culture obtained yes/no (specimen collection is bundled)",
@@ -395,6 +396,15 @@
           "code": "10061",
           "required": [
             "The complicating element stated concretely: packing placed (what/how much), drain placed, 'multiple incisions required to achieve full drainage', loculations probed/broken, tissue excision/closure — or >=2 distinct lesions drained"
+          ],
+          "specRef": "B6"
+        },
+        {
+          "id": "id.doc.10140",
+          "kind": "docChecklist",
+          "code": "10140",
+          "required": [
+            "Medical necessity for draining the hematoma/seroma/fluid collection stated (e.g., severe pain, infection, failure to resolve with conservative measures) — most do not require drainage and drainage can increase infection risk (NGS A56766). Spec B6."
           ],
           "specRef": "B6"
         },
@@ -433,6 +443,7 @@
             "Local anesthesia, skin prep, irrigation, cultures, drain/packing insertion AND removal, and dressings are integral to the procedure (NCCI Ch1 integral-services list) — never separately coded. Spec A8.4.",
             "Bilateral surgery indicator is 0 for all five codes — modifier 50 does not apply; distinct lesions use units (within MUE) or 59/XS lines. Spec B9.",
             "MAI-2 caps (10060/10061) are absolute per-day policy edits; MAI-3 caps (10140/10160/10180) deny above the cap but are appealable with records. Spec B8.",
+            "NGS A56766 utilization guidance: repeat I&D of the same anatomic location needs a documented reason for recurrence and prevention measures; >2 drainages of the same location per year is presumed not medically necessary (hidradenitis L73.2 excepted). Spec B6.",
             "'Complicated' has no CPT/CMS definition — payer adjudication of edge cases varies; document the complicating feature explicitly. Spec open question 1."
           ]
         }
