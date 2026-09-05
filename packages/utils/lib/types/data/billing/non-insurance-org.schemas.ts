@@ -89,8 +89,6 @@ export const CreateNonInsuranceOrgInputSchema = z.object({
 });
 export type CreateNonInsuranceOrgInput = z.output<typeof CreateNonInsuranceOrgInputSchema>;
 
-// Full-replace semantics: the edit form submits the whole entity. Omitted optional fields clear,
-// and the covers set is reconciled server-side (an unchecked category deactivates its pair).
 export const UpdateNonInsuranceOrgInputSchema = CreateNonInsuranceOrgInputSchema.extend({
   nioId: nonEmptyString,
 });
