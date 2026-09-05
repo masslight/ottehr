@@ -20,8 +20,7 @@ const ZAMBDA_NAME = 'list-non-insurance-organizations';
 
 // The clinical app's one door to billing-owned NIO data. Clinical code never reads billing FHIR:
 // EHR frontends execute this zambda with user tokens, and clinical zambdas invoke it over the
-// wire. The response is the deliberately minimal ClinicalNioOption — no payer refs, no submission
-// details, no contacts — whose `reference` field is the NIO token clinical code stores verbatim.
+// wire.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   const params = validateRequestParameters(input);
