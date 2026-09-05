@@ -1730,13 +1730,16 @@ export function getNioReferenceUrl(nioId: string): string {
   return `${BILLING_NIO_REFERENCE_BASE}/${nioId}`;
 }
 
-export function isNioReferenceUrl(maybeUrl?: string): boolean {
-  return !!maybeUrl && maybeUrl.startsWith(`${BILLING_NIO_REFERENCE_BASE}/`);
+export function extractNioIdFromReferenceUrl(maybeUrl?: string): string | undefined {
+  if (!maybeUrl || !maybeUrl.startsWith(`${BILLING_NIO_REFERENCE_BASE}/`)) return undefined;
+  const nioId = maybeUrl.slice(BILLING_NIO_REFERENCE_BASE.length + 1);
+  // A token carries exactly one non-empty id segment; anything else is not an NIO reference.
+  if (nioId === '' || nioId.includes('/')) return undefined;
+  return nioId;
 }
 
-export function extractNioIdFromReferenceUrl(maybeUrl?: string): string | undefined {
-  if (!maybeUrl || !isNioReferenceUrl(maybeUrl)) return undefined;
-  return maybeUrl.slice(BILLING_NIO_REFERENCE_BASE.length + 1);
+export function isNioReferenceUrl(maybeUrl?: string): boolean {
+  return extractNioIdFromReferenceUrl(maybeUrl) !== undefined;
 }
 
 export const getNameFromScheduleResource = (scheduleResource: ScheduleOwnerFhirResource): string | undefined => {

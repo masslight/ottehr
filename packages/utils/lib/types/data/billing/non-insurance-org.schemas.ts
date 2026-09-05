@@ -77,6 +77,22 @@ const coversSchema = z.array(NioCoverageSchema).superRefine((covers, ctx) => {
       });
     }
     seen.add(coverage.category);
+    if (coverage.category === 'workers-comp') {
+      if (coverage.billingMode === 'direct' && coverage.payerId !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'payerId is only allowed when workers-comp bills through insurance',
+          path: [index, 'payerId'],
+        });
+      }
+      if (coverage.billingMode === 'insurance' && coverage.submission !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'submission details are only allowed when workers-comp bills direct',
+          path: [index, 'submission'],
+        });
+      }
+    }
   });
 });
 

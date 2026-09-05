@@ -91,6 +91,42 @@ describe('non-insurance-org input schemas', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects a workers-comp payer when billing direct', () => {
+    const result = CreateNonInsuranceOrgInputSchema.safeParse({
+      name: 'FedEx',
+      employer: false,
+      covers: [{ category: 'workers-comp', billingMode: 'direct', payerId: 'payer-org-id' }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects workers-comp submission details when billing through insurance', () => {
+    const result = CreateNonInsuranceOrgInputSchema.safeParse({
+      name: 'FedEx',
+      employer: false,
+      covers: [
+        { category: 'workers-comp', billingMode: 'insurance', payerId: 'payer-org-id', submission: { fax: '555' } },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts the consistent workers-comp combinations', () => {
+    const base = { name: 'FedEx', employer: false };
+    expect(
+      CreateNonInsuranceOrgInputSchema.safeParse({
+        ...base,
+        covers: [{ category: 'workers-comp', billingMode: 'insurance', payerId: 'payer-org-id' }],
+      }).success
+    ).toBe(true);
+    expect(
+      CreateNonInsuranceOrgInputSchema.safeParse({
+        ...base,
+        covers: [{ category: 'workers-comp', billingMode: 'direct', submission: { fax: '555' } }],
+      }).success
+    ).toBe(true);
+  });
+
   it('requires a name on each contact but nothing else', () => {
     const base = { name: 'FedEx', employer: false };
     expect(CreateNonInsuranceOrgInputSchema.safeParse({ ...base, contacts: [{ name: 'Jane' }] }).success).toBe(true);
@@ -141,6 +177,8 @@ describe('NIO reference tokens', () => {
     ['a plain FHIR reference', `Organization/${NIO_ID}`],
     ['a payer URL', 'https://rcm-api.zapehr.com/v1/payer/abc123'],
     ['the bare base with no id', BILLING_NIO_REFERENCE_BASE],
+    ['a trailing slash with an empty id', `${BILLING_NIO_REFERENCE_BASE}/`],
+    ['extra path segments after the id', `${BILLING_NIO_REFERENCE_BASE}/${NIO_ID}/extra`],
     ['undefined', undefined],
   ])('does not treat %s as an NIO reference', (_label, value) => {
     expect(isNioReferenceUrl(value)).toBe(false);
