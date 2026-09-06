@@ -180,8 +180,6 @@ export function suggestInjection(doc: TableDoc, facts: InjectionInfusionFacts): 
   const cands = missingRoute ? [] : ivCandidates(admins);
 
   const derived: Facts = {
-    setting: facts.setting,
-    substance_class: facts.substance_class,
     payer_type: facts.payer_type,
     em_separately_identifiable: facts.em_separately_identifiable,
   };

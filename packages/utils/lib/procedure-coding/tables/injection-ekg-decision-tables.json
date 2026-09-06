@@ -25,18 +25,6 @@
       "codes": ["96365", "96366", "96372", "96374"],
       "facts": [
         {
-          "name": "setting",
-          "type": "enum",
-          "allowedValues": ["office_nonfacility", "facility"],
-          "description": "Where the service was furnished for the practitioner claim. Practitioners shall not report 96360-96379 for services in a facility setting (hospital outpatient department / ED). Spec A7.3."
-        },
-        {
-          "name": "substance_class",
-          "type": "enum",
-          "allowedValues": ["therapeutic_drug", "hydration_fluid_only", "chemotherapy_or_complex_biologic", "vaccine", "allergen_extract"],
-          "description": "What was administered. therapeutic_drug = any therapeutic/prophylactic/diagnostic drug or substance other than the listed exclusions. hydration_fluid_only = pre-packaged fluid/electrolytes with no drug (96360/96361 family). Spec A2."
-        },
-        {
           "name": "route_profile",
           "type": "enum",
           "allowedValues": ["im_sc_only", "single_iv_push", "single_iv_infusion", "multiple_or_mixed"],
@@ -100,28 +88,9 @@
         {
           "id": "inj.gate",
           "kind": "rowLookup",
-          "inputs": ["setting", "substance_class", "route_profile"],
+          "inputs": ["route_profile"],
+          "note": "2026-09-07 round-2 policy (obvious facts assumed): the setting and substance_class gate facts were removed — the office (non-facility) setting is assumed, and the administered substance is assumed to be a therapeutic/prophylactic/diagnostic drug. The out-of-family substance exclusions (vaccine, chemotherapy/complex biologic, allergen extract, drug-free hydration) survive as payer notes and in the 96372 doc checklist, not as gate rows.",
           "rows": [
-            {
-              "when": { "setting": "facility" },
-              "output": { "codes": [], "flags": ["blocked:practitioner_drug_admin_not_reportable_in_facility"], "note": "Practitioners shall not report 96360-96379 in a hospital outpatient/ED setting; the facility reports them under OPPS.", "specRef": "A7.3" }
-            },
-            {
-              "when": { "substance_class": "hydration_fluid_only" },
-              "output": { "codes": [], "flags": ["out_of_family:use_96360_96361"], "note": "Hydration family; 96360 requires a 31-minute minimum, and hydration concurrent with any drug administration is never separately reportable.", "specRef": "A2.4/A3.6" }
-            },
-            {
-              "when": { "substance_class": "chemotherapy_or_complex_biologic" },
-              "output": { "codes": [], "flags": ["out_of_family:use_96401_96549"], "specRef": "A2.6" }
-            },
-            {
-              "when": { "substance_class": "vaccine" },
-              "output": { "codes": [], "flags": ["out_of_family:use_90460_90474_or_G0008_G0010"], "note": "Never 96372 for vaccine/toxoid administration.", "specRef": "A2.7" }
-            },
-            {
-              "when": { "substance_class": "allergen_extract" },
-              "output": { "codes": [], "flags": ["out_of_family:use_95115_95117"], "specRef": "A2.8" }
-            },
             {
               "when": { "route_profile": "multiple_or_mixed" },
               "output": { "codes": [], "flags": ["requires_bespoke:multi_administration_hierarchy"], "note": "One initial per encounter chosen by primary reason irrespective of order; others take subsequent codes; second initial only for separate IV sites/encounter with 59/XS. See requiresBespokeCode #1.", "specRef": "A4" }
@@ -252,6 +221,7 @@
             "Physician claims pick the initial by the KEY/PRIMARY REASON for the encounter irrespective of temporal order; the structural infusion>push>injection hierarchy is the facility (OPPS) rule. Spec A4.2 / open question 2.",
             "A push subsequent to an initial infusion is 96375 (new drug) — never a second 96374; a same-drug repeat push (96376) has practitioner MUE 0 and is not billable on professional claims. Spec A4.3/A4.6.",
             "Incidental hydration (carrier fluid, keep-open lines) is never separately reportable; hydration codes need a 31-minute minimum and are for drug-free fluids only. Spec A2.4/A2.5/A3.6.",
+            "These codes assume a therapeutic/prophylactic/diagnostic drug: vaccine/toxoid administration is never 96372 (use 90460-90474 or G0008-G0010); chemotherapy and complex biologics use 96401-96549; allergen extracts use 95115-95117; drug-free pre-packaged fluid is the hydration family 96360/96361. Spec A2.4/A2.6-A2.8.",
             "Therapeutic injections/infusions require direct supervision (supervising physician/QHP in the office suite, or compliant real-time audio/video presence): Medicare pays neither the drug administration nor 99211 when staff-administered unsupervised (IOM 100-04 Ch.12 §30.5.C). Spec A5.2.",
             "Medicare 2026+: direct supervision may be met via real-time audio/video presence (audio-only excluded) for these XXX-global codes; commercial/Medicaid adoption varies. Spec A5.3 / open question 5.",
             "Facility-based E/M (99281-99285, G0463, 99291) is not reportable by a practitioner with drug administration unless the administration occurred at a separate non-facility encounter (then E/M-25). Spec A7.3.",
@@ -269,12 +239,7 @@
           "name": "component",
           "type": "enum",
           "allowedValues": ["tracing_and_interpretation", "tracing_only", "interpretation_only"],
-          "description": "What this practice furnished: tracing on its own equipment plus the clinician's interpretation; tracing only (interpretation absent or billed elsewhere); or interpretation of a tracing furnished by another entity. Spec A8.2."
-        },
-        {
-          "name": "interpretation_report_complete",
-          "type": "boolean",
-          "description": "A complete, separately identifiable, signed written interpretation & report is documented (rhythm, rate, axis, intervals, ST/T findings, comparison when available) — not a mere notation like 'ECG normal'. Spec A9.1/A9.2."
+          "description": "What this practice furnished: tracing on its own equipment plus the clinician's interpretation; tracing only (interpretation absent or billed elsewhere); or interpretation of a tracing furnished by another entity. Choosing tracing_and_interpretation or interpretation_only IS the assertion that the complete written interpretation & report was furnished (2026-09-07 round-2 policy); the report's required elements stay in ecg.doc.interpretation. Spec A8.2/A9."
         },
         {
           "name": "num_ecgs_same_day",
@@ -301,27 +266,20 @@
         {
           "id": "ecg.gate",
           "kind": "rowLookup",
-          "inputs": ["component", "interpretation_report_complete"],
+          "inputs": ["component"],
+          "note": "2026-09-07 round-2 policy (obvious facts assumed): the interpretation_report_complete checkbox was removed — choosing an interpretation-bearing component asserts the complete written I&R was furnished, so the component alone selects the line table. The insufficient-interpretation downgrade path (93005 fallback / em_only review) is gone; the complete-report ELEMENTS remain human-verified via ecg.doc.interpretation.",
           "rows": [
             {
-              "when": { "component": "tracing_and_interpretation", "interpretation_report_complete": true },
+              "when": { "component": "tracing_and_interpretation" },
               "output": { "codes": [], "flags": ["proceed:ecg.lines93000"], "specRef": "A8.2" }
-            },
-            {
-              "when": { "component": "tracing_and_interpretation", "interpretation_report_complete": false },
-              "output": { "codes": [], "flags": ["proceed:ecg.lines93005", "advisory:interpretation_downgraded_to_review"], "note": "Without a complete written I&R the interpretation is a 'review' included in the E/M; the tracing itself remains billable as 93005. Payer-conservative alternative: E/M only. Spec open question 6.", "specRef": "A9.3" }
             },
             {
               "when": { "component": "tracing_only" },
               "output": { "codes": [], "flags": ["proceed:ecg.lines93005"], "specRef": "A8.2" }
             },
             {
-              "when": { "component": "interpretation_only", "interpretation_report_complete": true },
+              "when": { "component": "interpretation_only" },
               "output": { "codes": [], "flags": ["proceed:ecg.lines93010"], "note": "Interpretation must be contemporaneous with treatment (may be an oral report written later) and the one that contributed to diagnosis and treatment.", "specRef": "A8.2/A9.4" }
-            },
-            {
-              "when": { "component": "interpretation_only", "interpretation_report_complete": false },
-              "output": { "codes": [], "flags": ["em_only:review_included_in_em"], "note": "'EKG-normal' notations do not meet the separately payable interpretation standard.", "specRef": "A9.1/A9.3" }
             }
           ]
         },

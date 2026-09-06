@@ -154,11 +154,6 @@
     "label": "Suture/staple count"
    },
    {
-    "name": "tetanus_status",
-    "kind": "text",
-    "label": "Tetanus status"
-   },
-   {
     "name": "irrigation",
     "kind": "checkbox",
     "label": "Wound irrigation performed"
@@ -462,7 +457,8 @@
       "splint"
      ]
     },
-    "valueWhenHidden": "na"
+    "valueWhenHidden": "na",
+    "defaultValue": "static"
    },
    {
     "name": "care_context",
@@ -485,7 +481,8 @@
       "value": "dressing_after_procedure",
       "label": "Dressing after a procedure"
      }
-    ]
+    ],
+    "defaultValue": "initial_stabilization_referral"
    },
    {
     "name": "same_area_musculoskeletal_procedure",
@@ -813,21 +810,6 @@
     ]
    },
    {
-    "name": "visit_type",
-    "kind": "select",
-    "label": "Visit type for this burn",
-    "options": [
-     {
-      "value": "initial",
-      "label": "Initial"
-     },
-     {
-      "value": "subsequent",
-      "label": "Subsequent"
-     }
-    ]
-   },
-   {
     "name": "tbsa_tenths_treated",
     "kind": "number",
     "label": "TBSA treated (%)",
@@ -856,18 +838,6 @@
       "label": "Interpretation of an outside tracing"
      }
     ]
-   },
-   {
-    "name": "interpretation_report_complete",
-    "kind": "checkbox",
-    "label": "Complete, signed written interpretation & report documented",
-    "visibleWhen": {
-     "fact": "component",
-     "anyOf": [
-      "tracing_and_interpretation",
-      "interpretation_only"
-     ]
-    }
    },
    {
     "name": "num_ecgs_same_day",
@@ -932,7 +902,8 @@
       "value": "other",
       "label": "Other"
      }
-    ]
+    ],
+    "defaultValue": "retention_or_drainage"
    }
   ]
  },
@@ -981,48 +952,6 @@
  "injection-infusion": {
   "family": "injection-infusion",
   "fields": [
-   {
-    "name": "setting",
-    "kind": "select",
-    "label": "Setting",
-    "options": [
-     {
-      "value": "office_nonfacility",
-      "label": "Office (non-facility)"
-     },
-     {
-      "value": "facility",
-      "label": "Facility (hospital outpatient / ED)"
-     }
-    ]
-   },
-   {
-    "name": "substance_class",
-    "kind": "select",
-    "label": "Substance administered",
-    "options": [
-     {
-      "value": "therapeutic_drug",
-      "label": "Therapeutic / prophylactic / diagnostic drug"
-     },
-     {
-      "value": "hydration_fluid_only",
-      "label": "Hydration fluid only (no drug)"
-     },
-     {
-      "value": "chemotherapy_or_complex_biologic",
-      "label": "Chemotherapy or complex biologic"
-     },
-     {
-      "value": "vaccine",
-      "label": "Vaccine / toxoid"
-     },
-     {
-      "value": "allergen_extract",
-      "label": "Allergen extract"
-     }
-    ]
-   },
    {
     "name": "administrations",
     "kind": "repeatable-group",
@@ -1166,13 +1095,7 @@
  },
  "iv-catheter-placement": {
   "family": "iv-catheter-placement",
-  "fields": [
-   {
-    "name": "venous_access_sole_service",
-    "kind": "checkbox",
-    "label": "Venous access was the only service this encounter (no infusion/injection followed)"
-   }
-  ]
+  "fields": []
  },
  "nebulizer": {
   "family": "nebulizer",
@@ -1198,7 +1121,8 @@
       "value": "none",
       "label": "No treatment given"
      }
-    ]
+    ],
+    "defaultValue": "acute_airway_obstruction"
    },
    {
     "name": "neb_continuous_over_one_hour",

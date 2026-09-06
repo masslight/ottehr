@@ -32,8 +32,11 @@ export interface SimpleFieldManifest {
   options?: FieldOption[];
   /** number fields: stored value = displayed value × scale (e.g. TBSA % stored in tenths). */
   scale?: number;
-  /** number fields: value the fact takes when left blank (normalization applies it; e.g. counts default to 1). */
-  defaultValue?: number;
+  /**
+   * Value the fact takes when left blank (normalization applies it; e.g. counts default
+   * to 1, selects with one ordinary answer arrive pre-answered — 2026-09-07 round-2 policy).
+   */
+  defaultValue?: number | string;
   visibleWhen?: FieldVisibility;
   /**
    * Fact value the field carries while visibleWhen hides it (e.g. splint_mobility 'na'
@@ -96,7 +99,7 @@ const normalizeRecord = (fields: SimpleFieldManifest[], record: Record<string, u
       else delete next[field.name];
     } else if (field.kind === 'checkbox' && next[field.name] === undefined) {
       next[field.name] = false;
-    } else if (field.kind === 'number' && field.defaultValue !== undefined && next[field.name] === undefined) {
+    } else if (field.defaultValue !== undefined && next[field.name] === undefined) {
       next[field.name] = field.defaultValue;
     }
   }
@@ -107,10 +110,11 @@ const normalizeRecord = (fields: SimpleFieldManifest[], record: Record<string, u
  * Normalizes a facts record for evaluation: untouched checkboxes become explicit
  * `false` facts (the form's unchecked state IS a determination) and fields hidden
  * by visibleWhen are reset to their not-applicable value, so compliance-gate rows
- * keyed on `false` match and hidden stale values can't steer the tables. Number
- * fields declaring a defaultValue take it when blank (counts default to 1); other
- * facts a legacy import left undetermined (enums) stay undetermined — the
- * evaluator refuses on those (missing:<fact>) rather than guessing.
+ * keyed on `false` match and hidden stale values can't steer the tables. Fields
+ * declaring a defaultValue take it when blank (counts default to 1; selects with
+ * one ordinary answer arrive pre-answered); other facts a legacy import left
+ * undetermined stay undetermined — the evaluator refuses on those
+ * (missing:<fact>) rather than guessing.
  */
 export function normalizeFactsForFamily(
   family: ProcedureCodingFamilyId,

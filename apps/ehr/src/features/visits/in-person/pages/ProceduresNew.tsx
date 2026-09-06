@@ -1,10 +1,11 @@
-import { AddCircleOutline, CheckCircle, InfoOutlined } from '@mui/icons-material';
+import { AddCircleOutline, CheckCircle, ExpandLess, ExpandMore, InfoOutlined } from '@mui/icons-material';
 import {
   Autocomplete,
   Backdrop,
   Button,
   Checkbox,
   CircularProgress,
+  Collapse,
   Container,
   Dialog,
   DialogActions,
@@ -417,6 +418,21 @@ export default function ProceduresNew({
       return;
     }
     if (state.structuredFacts?.family === codingFamily) {
+      // The first administration's Drug mirrors the form's "Anaesthesia / medication used"
+      // value for the common single-drug case (2026-09-07 round-2 policy) — prefilled only
+      // while blank, so the provider can edit it and multi-drug rows keep their own values.
+      const facts = state.structuredFacts;
+      const medication = state.medicationUsed?.trim();
+      if (facts.family === 'injection-infusion' && medication && !facts.administrations?.[0]?.drug) {
+        updateState((state) => {
+          if (state.structuredFacts?.family !== 'injection-infusion') return;
+          const items = state.structuredFacts.administrations?.length
+            ? [...state.structuredFacts.administrations]
+            : [{}];
+          items[0] = { ...items[0], drug: medication };
+          state.structuredFacts.administrations = items;
+        });
+      }
       return;
     }
     updateState((state) => {
@@ -429,7 +445,7 @@ export default function ProceduresNew({
       }
       state.structuredFacts = seeded;
     });
-  }, [codingFamily, state.structuredFacts, updateState]);
+  }, [codingFamily, state.structuredFacts, state.medicationUsed, updateState]);
 
   const [initialValuesSet, setInitialValuesSet] = useState<boolean>(false);
   const [initialFormStateSet, setInitialFormStateSet] = useState<boolean>(false);
@@ -696,6 +712,19 @@ export default function ProceduresNew({
       state.cptCodes = cptCodes;
     });
 
+  // Manifest field labels keyed by fact name, so missing:<fact> flags read as the
+  // form label the provider actually sees (fall back to the de-underscored name).
+  const factLabels = useMemo(() => {
+    const labels: Record<string, string> = {};
+    for (const field of codingAssist.manifest?.fields ?? []) {
+      labels[field.name] = field.label;
+      if (field.kind === 'repeatable-group') {
+        for (const itemField of field.itemFields) labels[itemField.name] = itemField.label;
+      }
+    }
+    return labels;
+  }, [codingAssist.manifest]);
+
   const humanizeCodingFlag = (flag: string): string => {
     const [kind, ...rest] = flag.split(':');
     const detail = rest.join(':').replace(/_/g, ' ');
@@ -713,7 +742,7 @@ export default function ProceduresNew({
       case 'verify':
         return `Verify — ${detail}`;
       case 'missing':
-        return `Missing documentation — ${detail}`;
+        return `Missing documentation — ${factLabels[rest.join(':')] ?? detail}`;
       case 'engine_error':
         return `Coding engine error — ${detail}`;
       case 'units_capped':
@@ -897,7 +926,9 @@ export default function ProceduresNew({
         ))}
         {suggestion.review === true && (
           <Typography variant="body2" color="text.secondary">
-            Needs manual coding review — the suggestion is not authoritative for this documentation.
+            {suggestionFlags.some((flag) => flag.startsWith('missing:'))
+              ? 'Additional documentation needed to suggest a code.'
+              : "This case needs a coder's judgment — the system can't determine the code."}
           </Typography>
         )}
         {suggestion.requiredDocumentation.length > 0 && (
@@ -917,23 +948,52 @@ export default function ProceduresNew({
   };
 
   // ── Documentation defense — driven by codingDispatch.defend. ──
+  const [billingNotesOpen, setBillingNotesOpen] = useState<boolean>(false);
   const defense = codingAssist.defense;
   const notSupportedFindings = defense?.codes.filter((finding) => finding.status === 'not-supported') ?? [];
   const supportedCodes = defense?.codes.filter((f) => f.status === 'supported').map((f) => f.code) ?? [];
   const notAssessedCodes = defense?.codes.filter((f) => f.status === 'not-assessed').map((f) => f.code) ?? [];
   const payerNotes = [...new Set([...(suggestion?.payerNotes ?? []), ...(defense?.payerNotes ?? [])])];
-  const amberBoxVisible = notSupportedFindings.length > 0;
+  // Defense reasons embed the suggestion's raw flags; a missing fact already listed in the
+  // suggestion area shows ONCE (dropped here), and surviving missing:* reasons humanize the
+  // same way the suggestion flags do.
+  const suggestionFlagSet = new Set(suggestionFlags);
+  const displayedFindings = notSupportedFindings
+    .map((finding) => ({
+      ...finding,
+      reasons: finding.reasons
+        .filter((reason) => !(reason.startsWith('missing:') && suggestionFlagSet.has(reason)))
+        .map((reason) => (reason.startsWith('missing:') ? humanizeCodingFlag(reason) : reason)),
+    }))
+    .filter((finding) => finding.reasons.length > 0);
+  const amberBoxVisible = displayedFindings.length > 0;
   const positiveStateVisible = !amberBoxVisible && supportedCodes.length > 0;
   const notAssessedLineVisible = notAssessedCodes.length > 0 && (amberBoxVisible || positiveStateVisible);
 
+  // Payer/billing notes are biller material: collapsed behind a default-closed disclosure,
+  // with trailing spec citations stripped from DISPLAY only (the stored strings keep them).
+  const stripSpecCitation = (note: string): string => note.replace(/\s*Spec [A-Za-z0-9./ §&-]+\.?$/, '');
   const payerNotesContent = (): ReactNode =>
     payerNotes.length > 0 ? (
-      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-        {payerNotes.map((note) => (
-          <Typography key={note} variant="caption" color="text.secondary">
-            {note}
+      <Box>
+        <Box
+          onClick={() => setBillingNotesOpen((open) => !open)}
+          sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', width: 'fit-content' }}
+        >
+          {billingNotesOpen ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            Billing notes
           </Typography>
-        ))}
+        </Box>
+        <Collapse in={billingNotesOpen}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {payerNotes.map((note) => (
+              <Typography key={note} variant="body2" color="text.secondary">
+                {stripSpecCitation(note)}
+              </Typography>
+            ))}
+          </Box>
+        </Collapse>
       </Box>
     ) : null;
 
@@ -1564,7 +1624,7 @@ export default function ProceduresNew({
                   sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, paddingTop: '4px' }}
                   data-testid={dataTestIds.documentProcedurePage.codingDefenseFindings}
                 >
-                  {notSupportedFindings.map((finding) => (
+                  {displayedFindings.map((finding) => (
                     <Box key={finding.code}>
                       <Typography variant="body2" sx={{ fontWeight: 700 }}>
                         {finding.code}

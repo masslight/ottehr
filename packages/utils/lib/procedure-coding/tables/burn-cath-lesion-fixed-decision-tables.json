@@ -32,12 +32,6 @@
           "description": "Deepest documented degree of the burn(s) receiving local treatment. partial_thickness = second-degree (blistering). Spec A3."
         },
         {
-          "name": "visit_type",
-          "type": "enum",
-          "allowedValues": ["initial", "subsequent"],
-          "description": "Initial vs subsequent encounter for this burn. Only matters for first-degree (16000 is initial-only); 16020-16030 cover both. Spec A3.2/A3.3/A4."
-        },
-        {
           "name": "tbsa_tenths_treated",
           "type": "integer",
           "description": "Total body surface area of the partial-thickness burn(s) treated this session, summed across sites, in TENTHS of a percent (4.5% TBSA = 45; 10% = 100). Tenths resolution makes the 5%/10% descriptor boundaries exact (10.5% = 105 bands as 'greater than 10%'). Spec A2, bespoke-code note 1."
@@ -52,14 +46,13 @@
         {
           "id": "burns.gate",
           "kind": "rowLookup",
-          "inputs": ["burn_depth", "visit_type"],
+          "inputs": ["burn_depth"],
+          "note": "2026-09-07 round-2 policy (obvious facts assumed): the visit_type (initial/subsequent) question was removed from the form — 16020-16030 are 'initial or subsequent' by descriptor, and the fact only served the 16000 initial-only boundary. First-degree local treatment now assumes the charted visit is the initial one; the A3.3 subsequent-visit em_only route was dropped with the fact.",
           "rows": [
             { "when": { "burn_depth": "full_thickness" },
               "output": { "codes": [], "flags": ["out_of_family:full_thickness_use_debridement_or_grafting_codes"], "note": "16020-16030 describe partial-thickness burns; full-thickness care belongs to 11042+/15002+ families and usually referral.", "specRef": "A3.4 / open question 2" } },
-            { "when": { "burn_depth": "first_degree", "visit_type": "initial" },
-              "output": { "codes": [{ "code": "16000", "units": 1, "modifiers": [] }], "note": "First-degree, initial visit, local treatment only.", "specRef": "A3.2" } },
-            { "when": { "burn_depth": "first_degree", "visit_type": "subsequent" },
-              "output": { "codes": [], "flags": ["em_only:first_degree_subsequent_visit"], "note": "16000 is initial-only and 16020-16030 require partial thickness; no burn code fits.", "specRef": "A3.3" } },
+            { "when": { "burn_depth": "first_degree" },
+              "output": { "codes": [{ "code": "16000", "units": 1, "modifiers": [] }], "note": "First-degree local treatment; 16000 is initial-visit-only and the initial visit is assumed (a subsequent first-degree dressing check is E/M territory, A3.3).", "specRef": "A3.2" } },
             { "when": { "burn_depth": "partial_thickness" },
               "output": { "flags": ["proceed:burns.tbsaBand"], "note": "Band on summed TBSA of partial-thickness burns treated (initial or subsequent visit alike).", "specRef": "A2/A3.1" } }
           ]
@@ -749,11 +742,6 @@
       ],
       "facts": [
         {
-          "name": "venous_access_sole_service",
-          "type": "boolean",
-          "description": "Introduction of needle/catheter into a vein was the ONLY service of the encounter — no infusion, injection, or other procedure followed. NCCI Ch1: 36000 may be reported alone only then. Spec A19.2."
-        },
-        {
           "name": "venous_payer_type",
           "type": "enum",
           "allowedValues": [
@@ -768,26 +756,12 @@
           "id": "venous.gate",
           "kind": "rowLookup",
           "inputs": [
-            "venous_access_sole_service",
             "venous_payer_type"
           ],
+          "note": "2026-09-07 round-2 policy (obvious facts assumed): the venous_access_sole_service checkbox was removed — charting IV placement as its own procedure IS the assertion it stood alone (an IV that fed an infusion/injection is charted as that service instead), so the gate emits 36000 unconditionally. The NCCI Ch1 sole-service bundling rule survives in the 36000 doc checklist and as the status-B payer note.",
           "rows": [
             {
               "when": {
-                "venous_access_sole_service": false
-              },
-              "output": {
-                "codes": [],
-                "flags": [
-                  "blocked:36000_bundled_into_other_service"
-                ],
-                "note": "IV access is integral to infusions/injections (96360-96379 include it), surgery, anesthesia, contrast and nuclear procedures — 36000 is Column 2 of 6,575 active PTP edits. Code the infusion/injection service instead.",
-                "specRef": "A19.2/A19.4"
-              }
-            },
-            {
-              "when": {
-                "venous_access_sole_service": true,
                 "venous_payer_type": "medicare"
               },
               "output": {
@@ -807,7 +781,6 @@
             },
             {
               "when": {
-                "venous_access_sole_service": true,
                 "venous_payer_type": "other"
               },
               "output": {

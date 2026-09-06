@@ -55,7 +55,6 @@ export interface LacerationFacts {
   wounds?: Record<string, LacerationWound[]>;
   closure_material?: string;
   suture_count?: number;
-  tetanus_status?: string;
   irrigation?: boolean;
   payer_type?: ProcedurePayerType;
   /** Closure by deliberately developed flap/Z-plasty/tissue rearrangement (14xxx territory). */
@@ -166,7 +165,6 @@ export interface NasalPackingFacts {
 
 export interface BurnTreatmentFacts {
   burn_depth?: 'first_degree' | 'partial_thickness' | 'full_thickness';
-  visit_type?: 'initial' | 'subsequent';
   /** TBSA treated in TENTHS of a percent (4.5% = 45) so the 5%/10% boundaries are exact. */
   tbsa_tenths_treated?: number;
   em_separately_identifiable?: boolean;
@@ -176,7 +174,6 @@ export interface BurnTreatmentFacts {
 
 export interface EkgFacts {
   component?: 'tracing_and_interpretation' | 'tracing_only' | 'interpretation_only';
-  interpretation_report_complete?: boolean;
   num_ecgs_same_day?: number;
   em_separately_identifiable?: boolean;
 }
@@ -221,13 +218,6 @@ export interface InjectionAdministration {
 }
 
 export interface InjectionInfusionFacts {
-  setting?: 'office_nonfacility' | 'facility';
-  substance_class?:
-    | 'therapeutic_drug'
-    | 'hydration_fluid_only'
-    | 'chemotherapy_or_complex_biologic'
-    | 'vaccine'
-    | 'allergen_extract';
   /** Derived from `administrations` by the family core before table evaluation — never a form field. */
   route_profile?: 'im_sc_only' | 'single_iv_push' | 'single_iv_infusion' | 'multiple_or_mixed';
   /** Derived from `administrations` by the family core — never a form field. */
@@ -258,7 +248,6 @@ export interface NursemaidElbowFacts {
 // ── iv-catheter-placement ───────────────────────────────────────────────────
 
 export interface IvCatheterPlacementFacts {
-  venous_access_sole_service?: boolean;
   venous_payer_type?: ProcedurePayerType;
 }
 
