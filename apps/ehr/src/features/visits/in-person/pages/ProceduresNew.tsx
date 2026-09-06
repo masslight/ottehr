@@ -129,6 +129,40 @@ const OUT_OF_FAMILY_DETAILS: Record<string, string> = {
   use_site_specific_destruction_codes: 'anogenital lesion destruction is billed with site-specific codes',
 };
 
+// Friendly explanations for blocked flags, rendered as complete standalone
+// sentences (no "Blocked —" prefix). Unmapped flags fall back to
+// "Not billable — <detail>".
+const ZERO_COUNT_MESSAGE = 'Count is zero — no code to suggest.';
+const BLOCKED_DETAILS: Record<string, string> = {
+  application_included_in_restorative_fracture_care:
+    "Splint codes aren't used for definitive fracture care — the fracture-treatment code assumes a splint was applied " +
+    '(search the fracture-treatment code in the CPT search, e.g., 25600 for distal radius or 23500 for clavicle).',
+  prefabricated_application_not_billable:
+    "No application code — fitting a prefabricated device is included in the device's charge.",
+  bleeding_control_bundled_into_causative_procedure:
+    "Bleeding control during the causing procedure is included in that procedure's code — no separate code.",
+  integral_to_other_procedure:
+    "A catheter placed for another procedure is included in that procedure's code — no separate code.",
+  bundled_into_same_site_procedure:
+    "Drainage at the same site as another procedure is included in that procedure's code — no separate code.",
+  bundled_into_same_area_musculoskeletal_procedure:
+    "Included in the same-area orthopedic procedure's code — no separate code.",
+  dressing_after_procedure_not_reportable:
+    "A dressing after a procedure is included in that procedure's code — no separate code.",
+  no_infusion_time_documented: 'Missing documentation — infusion start/stop times.',
+  no_tbsa_documented: 'Missing documentation — TBSA treated (%).',
+  report_94060_not_94640:
+    "A bronchodilator given for a spirometry study is billed with the study's code (94060) — no nebulizer code.",
+  no_digit_treated: ZERO_COUNT_MESSAGE,
+  no_ecg_performed: ZERO_COUNT_MESSAGE,
+  no_fb_removed: ZERO_COUNT_MESSAGE,
+  no_finger_treated: ZERO_COUNT_MESSAGE,
+  no_injection_administered: ZERO_COUNT_MESSAGE,
+  no_lesion_destroyed: ZERO_COUNT_MESSAGE,
+  no_lesion_treated: ZERO_COUNT_MESSAGE,
+  no_treatment_episode: ZERO_COUNT_MESSAGE,
+};
+
 // Owner-approved standalone wording: cleaning/dressing a third-degree burn is
 // E/M-bundled, so the generic "Not coded as this procedure" prefix would mislead.
 const FULL_THICKNESS_BURN_MESSAGE =
@@ -762,7 +796,7 @@ export default function ProceduresNew({
     const detail = rest.join(':').replace(/_/g, ' ');
     switch (kind) {
       case 'blocked':
-        return `Blocked — ${detail}`;
+        return BLOCKED_DETAILS[rest.join(':')] ?? `Not billable — ${detail}`;
       case 'advisory':
         return `Advisory — ${detail}`;
       case 'em_only':
