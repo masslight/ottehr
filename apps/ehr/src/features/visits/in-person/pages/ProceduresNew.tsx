@@ -1060,8 +1060,12 @@ export default function ProceduresNew({
   // ── Documentation defense — driven by codingDispatch.defend. ──
   const defense = codingAssist.defense;
   const notSupportedFindings = defense?.codes.filter((finding) => finding.status === 'not-supported') ?? [];
-  const supportedCodes = defense?.codes.filter((f) => f.status === 'supported').map((f) => f.code) ?? [];
-  const notAssessedCodes = defense?.codes.filter((f) => f.status === 'not-assessed').map((f) => f.code) ?? [];
+  // Two lines of the same code (differing modifiers, e.g. 30901 + 30901-LT) defend
+  // per-line; the display names each code once.
+  const supportedCodes = [...new Set(defense?.codes.filter((f) => f.status === 'supported').map((f) => f.code) ?? [])];
+  const notAssessedCodes = [
+    ...new Set(defense?.codes.filter((f) => f.status === 'not-assessed').map((f) => f.code) ?? []),
+  ];
   // Defense reasons embed the suggestion's raw flags; a missing fact already listed in the
   // suggestion area shows ONCE (dropped here), and surviving missing:* reasons humanize the
   // same way the suggestion flags do.

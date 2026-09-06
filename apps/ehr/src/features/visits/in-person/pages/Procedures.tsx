@@ -131,11 +131,14 @@ export function ProceduresBody({ onNewProcedure, onProcedureClick, pageTitle }: 
                 >
                   <TableCell>
                     <Stack>
-                      {procedure.cptCodes?.map((cptCode) => {
+                      {procedure.cptCodes?.map((cptCode, index) => {
                         return (
                           <Typography
                             sx={{ fontSize: '14px' }}
-                            key={cptCode.code}
+                            // The same code can appear on several lines with different
+                            // modifiers (e.g. 30901 + 30901-LT), so the bare code is
+                            // not a unique key.
+                            key={cptCode.resourceId ?? index}
                             data-testid={dataTestIds.proceduresPage.cptCode}
                           >
                             {formatCptCodeForDisplay(cptCode, '-')}
