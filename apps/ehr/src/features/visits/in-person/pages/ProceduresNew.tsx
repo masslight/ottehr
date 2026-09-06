@@ -869,8 +869,8 @@ export default function ProceduresNew({
       <>
         {suggestion.codes.length > 0 && (
           <Box data-testid={dataTestIds.documentProcedurePage.bestMatchCptCode}>
-            <Typography variant="caption" sx={{ fontWeight: 700, color: 'success.dark' }}>
-              Best match — from your documentation
+            <Typography variant="body2" sx={{ fontWeight: 700, color: 'success.dark' }}>
+              Best match
             </Typography>
             <ActionsList
               data={suggestedEntries}
@@ -906,7 +906,7 @@ export default function ProceduresNew({
             />
             {!isReadOnly && suggestedEntries.length > 1 && !allSuggestedAdded && (
               <Typography
-                variant="caption"
+                variant="body2"
                 sx={{ color: 'primary.main', cursor: 'pointer', fontWeight: 600 }}
                 onClick={() => addSuggestedCptCodes(suggestedEntries)}
                 data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddAllButton}
@@ -933,11 +933,11 @@ export default function ProceduresNew({
         )}
         {suggestion.requiredDocumentation.length > 0 && (
           <Box data-testid={dataTestIds.documentProcedurePage.requiredDocumentationList}>
-            <Typography variant="caption" sx={{ fontWeight: 700 }}>
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
               Required documentation
             </Typography>
             {suggestion.requiredDocumentation.map((item) => (
-              <Typography key={item} variant="caption" component="div" color="text.secondary">
+              <Typography key={item} variant="body2" component="div" color="text.secondary">
                 • {item}
               </Typography>
             ))}

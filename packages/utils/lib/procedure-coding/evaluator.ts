@@ -106,15 +106,15 @@ export function suggest(doc: TableDoc, familyName: string, facts: Facts): Evalua
 
   let current = tables.find(emitsCodes);
   while (current) {
-    // Fail closed: a rowLookup's declared inputs are the facts its rows discriminate
-    // on. An undetermined input must refuse rather than fall through keyed rows onto
-    // a wildcard (e.g. an unset compliance gate silently passing).
-    if (current.kind !== 'threshold') {
-      const undetermined = (current.inputs ?? []).filter((input) => facts[input] === undefined);
-      if (undetermined.length > 0) {
-        result.flags.push(...undetermined.map((input) => `missing:${input}`));
-        break;
-      }
+    // Fail closed: a table's declared inputs are the facts it discriminates on. An
+    // undetermined input must refuse as missing documentation rather than fall through
+    // keyed rows onto a wildcard (or a threshold onto no_band_matched, which reads as
+    // an engine gap instead of a fillable field).
+    const declaredInputs = current.kind === 'threshold' ? (current.input ? [current.input] : []) : current.inputs ?? [];
+    const undetermined = declaredInputs.filter((input) => facts[input] === undefined);
+    if (undetermined.length > 0) {
+      result.flags.push(...undetermined.map((input) => `missing:${input}`));
+      break;
     }
     const output = current.kind === 'threshold' ? lookupBand(current, facts) : lookupRow(current, facts);
     if (output === undefined) {
