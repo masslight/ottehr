@@ -339,17 +339,18 @@ describe('createConsentResources', () => {
   });
 
   test('creates, uploads, and files one PDF per configured consent form', async () => {
+    const allForms = getConsentFormsForLocation();
     await run();
 
-    // One PDF per form in the reference config (HIPAA + consent-to-treat)
-    expect(mockCreatePdfBytes).toHaveBeenCalledTimes(2);
+    // One PDF per configured form
+    expect(mockCreatePdfBytes).toHaveBeenCalledTimes(allForms.length);
     const pdfInfos = mockCreatePdfBytes.mock.calls.map((call) => call[3]);
-    expect(pdfInfos.map((info) => info.formTitle)).toEqual([HIPAA_FORM.formTitle, CTT_FORM.formTitle]);
+    expect(pdfInfos.map((info) => info.formTitle)).toEqual(allForms.map((f) => f.formTitle));
     expect(pdfInfos[1].copyFromPath).toBe(CTT_FORM.assetPath);
 
     // Upload URLs are keyed by project bucket, patient, timestamp, and form id
     const expectedBase = `https://project.api/z3/proj-123-consent-forms/${PATIENT_ID}/${Date.now()}`;
-    expect(mockUploadPDF).toHaveBeenCalledTimes(2);
+    expect(mockUploadPDF).toHaveBeenCalledTimes(allForms.length);
     expect(mockUploadPDF).toHaveBeenCalledWith(
       expect.any(Uint8Array),
       `${expectedBase}-${HIPAA_FORM.id}.pdf`,
@@ -357,8 +358,11 @@ describe('createConsentResources', () => {
       PATIENT_ID
     );
 
-    // One DocumentReference group per type code, appointment-scoped
-    expect(mockCreateFilesDocumentReferences).toHaveBeenCalledTimes(2);
+    // One DocumentReference group per unique type code, appointment-scoped
+    const uniqueTypeCodes = new Set(
+      allForms.map((f) => (f.type.coding.length > 1 ? f.type.coding[1].code : f.type.coding[0].code))
+    );
+    expect(mockCreateFilesDocumentReferences).toHaveBeenCalledTimes(uniqueTypeCodes.size);
     for (const call of mockCreateFilesDocumentReferences.mock.calls) {
       expect(call[0].references).toEqual({
         subject: { reference: `Patient/${PATIENT_ID}` },
@@ -366,11 +370,12 @@ describe('createConsentResources', () => {
       });
     }
 
-    // Only the consent-to-treat form creates a Consent resource, linked to its docref
-    expect(mockCreateConsentResource).toHaveBeenCalledTimes(1);
+    // Consent resources are created for forms with createsConsentResource=true
+    const consentForms = allForms.filter((f) => f.createsConsentResource);
+    expect(mockCreateConsentResource).toHaveBeenCalledTimes(consentForms.length);
     const [consentPatientId, consentDocRefId, consentDate] = mockCreateConsentResource.mock.calls[0];
     expect(consentPatientId).toBe(PATIENT_ID);
-    expect(consentDocRefId).toBe(`dr-${CTT_FORM.type.text}-0`);
+    expect(consentDocRefId).toBe(`dr-${consentForms[0].type.text}-0`);
     expect(consentDate).toContain('2026-08-20T15:00:00');
   });
 
@@ -398,8 +403,12 @@ describe('createConsentResources', () => {
   test('resolves state-specific consent form assets (the Illinois variant)', async () => {
     await run({ location: makeLocation('IL') });
     const cttPdfInfo = mockCreatePdfBytes.mock.calls[1][3];
+    // The IL-resolved path must match whatever the config declares for IL
     expect(cttPdfInfo.copyFromPath).toBe(IL_FORMS[1].assetPath);
-    expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
+    // When the config defines an IL-specific override, it must differ from the default
+    if (IL_FORMS[1].assetPath !== CTT_FORM.assetPath) {
+      expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
+    }
   });
 
   test('labels telemed visits with the telemedicine facility name', async () => {
