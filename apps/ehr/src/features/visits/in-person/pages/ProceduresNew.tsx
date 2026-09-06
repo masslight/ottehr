@@ -1292,6 +1292,7 @@ export default function ProceduresNew({
         disableCloseOnSelect
         options={(options ?? []).map((opt) => ({ value: opt, label: opt }))}
         value={(values ?? []).map((v) => ({ value: v, label: v }))}
+        isOptionEqualToValue={(option, value) => option.value === value.value}
         onChange={(_e, newValues) =>
           updateState((state) =>
             stateMutator(
