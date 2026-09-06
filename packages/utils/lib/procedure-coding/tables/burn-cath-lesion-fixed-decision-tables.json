@@ -26,11 +26,6 @@
       "codes": ["16000", "16020", "16025", "16030"],
       "facts": [
         {
-          "name": "treatment_performed",
-          "type": "boolean",
-          "description": "Dressings and/or debridement (or, for first-degree, local treatment) were actually performed at this encounter. False = burn evaluated/counseled only. Spec A3.5."
-        },
-        {
           "name": "burn_depth",
           "type": "enum",
           "allowedValues": ["first_degree", "partial_thickness", "full_thickness"],
@@ -57,10 +52,8 @@
         {
           "id": "burns.gate",
           "kind": "rowLookup",
-          "inputs": ["treatment_performed", "burn_depth", "visit_type"],
+          "inputs": ["burn_depth", "visit_type"],
           "rows": [
-            { "when": { "treatment_performed": false },
-              "output": { "codes": [], "flags": ["em_only:no_local_treatment_performed"], "note": "Burn evaluated but no dressing/debridement/local treatment: E/M only.", "specRef": "A3.5" } },
             { "when": { "burn_depth": "full_thickness" },
               "output": { "codes": [], "flags": ["out_of_family:full_thickness_use_debridement_or_grafting_codes"], "note": "16020-16030 describe partial-thickness burns; full-thickness care belongs to 11042+/15002+ families and usually referral.", "specRef": "A3.4 / open question 2" } },
             { "when": { "burn_depth": "first_degree", "visit_type": "initial" },
@@ -297,11 +290,6 @@
       "codes": ["17110", "17111"],
       "facts": [
         {
-          "name": "destruction_performed",
-          "type": "boolean",
-          "description": "Clinician-performed destruction (cryo/electro/laser/chemical/curettement) was actually carried out this encounter. False = evaluation/prescription only. Spec A14."
-        },
-        {
           "name": "lesion_category",
           "type": "enum",
           "allowedValues": ["benign_other", "skin_tag", "premalignant", "cutaneous_vascular_proliferative", "anogenital", "malignant"],
@@ -322,10 +310,8 @@
         {
           "id": "destr.gate",
           "kind": "rowLookup",
-          "inputs": ["destruction_performed", "lesion_category"],
+          "inputs": ["lesion_category"],
           "rows": [
-            { "when": { "destruction_performed": false },
-              "output": { "codes": [], "flags": ["em_only:no_destruction_performed"], "specRef": "A14" } },
             { "when": { "lesion_category": "skin_tag" },
               "output": { "codes": [], "flags": ["out_of_family:use_11200_11201"], "note": "Skin tags are excluded by the 17110 descriptor.", "specRef": "A12.2" } },
             { "when": { "lesion_category": "premalignant" },
@@ -407,11 +393,6 @@
       ],
       "facts": [
         {
-          "name": "subungual_hematoma_evacuated",
-          "type": "boolean",
-          "description": "Subungual hematoma drained through the nail plate (trephination by any method: cautery, heated needle, drill, laser) with the nail left in place. False = observed only. Spec A17.2."
-        },
-        {
           "name": "nail_plate_avulsed",
           "type": "boolean",
           "description": "Nail plate was removed/avulsed to treat the injury (routes to 11730; drainage via avulsion is part of the avulsion). Spec A17.3."
@@ -437,23 +418,10 @@
           "id": "subungual.gate",
           "kind": "rowLookup",
           "inputs": [
-            "subungual_hematoma_evacuated",
             "nail_plate_avulsed",
             "nail_bed_repair_performed"
           ],
           "rows": [
-            {
-              "when": {
-                "subungual_hematoma_evacuated": false
-              },
-              "output": {
-                "codes": [],
-                "flags": [
-                  "em_only:hematoma_not_drained"
-                ],
-                "specRef": "A17.3"
-              }
-            },
             {
               "when": {
                 "nail_bed_repair_performed": true
@@ -648,11 +616,6 @@
           "description": "Documented elbow condition in the child. true_dislocation_or_fracture routes out (24600/24605 or fracture codes); other = no subluxation confirmed. Spec A18.2/A18.3."
         },
         {
-          "name": "elbow_manipulation_performed",
-          "type": "boolean",
-          "description": "Reduction manipulation (supination-flexion or hyperpronation) actually performed. False (spontaneous reduction/observation) = E/M only. Spec A18.2."
-        },
-        {
           "name": "em_separately_identifiable",
           "type": "boolean",
           "description": "A significant, separately identifiable E/M was performed and documented alongside whichever single procedure is being coded (shared attestation fact for this family). Spec A17.4/A18.4/A20.5."
@@ -663,8 +626,7 @@
           "id": "nursemaid.gate",
           "kind": "rowLookup",
           "inputs": [
-            "elbow_condition",
-            "elbow_manipulation_performed"
+            "elbow_condition"
           ],
           "rows": [
             {
@@ -694,22 +656,7 @@
             },
             {
               "when": {
-                "elbow_condition": "radial_head_subluxation",
-                "elbow_manipulation_performed": false
-              },
-              "output": {
-                "codes": [],
-                "flags": [
-                  "em_only:no_manipulation_performed"
-                ],
-                "note": "Spontaneous reduction or observation only: the descriptor requires manipulation.",
-                "specRef": "A18.2"
-              }
-            },
-            {
-              "when": {
-                "elbow_condition": "radial_head_subluxation",
-                "elbow_manipulation_performed": true
+                "elbow_condition": "radial_head_subluxation"
               },
               "output": {
                 "codes": [

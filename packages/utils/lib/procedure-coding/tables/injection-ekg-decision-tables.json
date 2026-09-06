@@ -53,15 +53,10 @@
           "description": "Total documented infusion minutes (stop minus start, summed across segments of the same drug) for the single IV infusion. Must come from recorded start/stop times; 0 or missing = not documented. Spec A3."
         },
         {
-          "name": "direct_supervision_met",
-          "type": "boolean",
-          "description": "The administration was personally performed by the billing physician/QHP, OR performed by clinical staff with the supervising practitioner present in the office suite (or via compliant real-time audio/video presence, Medicare 2026+). Spec A5.2/A5.3."
-        },
-        {
           "name": "payer_type",
           "type": "enum",
           "allowedValues": ["medicare", "other"],
-          "description": "Medicare Part B vs all other payers. Drives the no-supervision fallback (Medicare: nothing billable; CPT default: 99211). Spec A5.2."
+          "description": "Medicare Part B vs all other payers. Supplied by dispatch callers; no gate rows key on it since the supervision attestation moved to payer notes (2026-09-07 policy). Spec A5.2."
         },
         {
           "name": "em_separately_identifiable",
@@ -105,7 +100,7 @@
         {
           "id": "inj.gate",
           "kind": "rowLookup",
-          "inputs": ["setting", "substance_class", "direct_supervision_met", "payer_type", "route_profile"],
+          "inputs": ["setting", "substance_class", "route_profile"],
           "rows": [
             {
               "when": { "setting": "facility" },
@@ -126,14 +121,6 @@
             {
               "when": { "substance_class": "allergen_extract" },
               "output": { "codes": [], "flags": ["out_of_family:use_95115_95117"], "specRef": "A2.8" }
-            },
-            {
-              "when": { "direct_supervision_met": false, "payer_type": "medicare" },
-              "output": { "codes": [], "flags": ["blocked:not_covered_without_direct_supervision"], "note": "Medicare: staff-administered without direct supervision fails incident-to; the administration is not covered and 99211 is not billable either.", "specRef": "A5.2" }
-            },
-            {
-              "when": { "direct_supervision_met": false, "payer_type": "other" },
-              "output": { "codes": [], "flags": ["em_only:report_99211_per_cpt_instruction"], "note": "CPT instruction: do not report the administration without direct supervision; report 99211 instead (non-Medicare payers).", "specRef": "A5.2" }
             },
             {
               "when": { "route_profile": "multiple_or_mixed" },
@@ -265,6 +252,7 @@
             "Physician claims pick the initial by the KEY/PRIMARY REASON for the encounter irrespective of temporal order; the structural infusion>push>injection hierarchy is the facility (OPPS) rule. Spec A4.2 / open question 2.",
             "A push subsequent to an initial infusion is 96375 (new drug) — never a second 96374; a same-drug repeat push (96376) has practitioner MUE 0 and is not billable on professional claims. Spec A4.3/A4.6.",
             "Incidental hydration (carrier fluid, keep-open lines) is never separately reportable; hydration codes need a 31-minute minimum and are for drug-free fluids only. Spec A2.4/A2.5/A3.6.",
+            "Therapeutic injections/infusions require direct supervision (supervising physician/QHP in the office suite, or compliant real-time audio/video presence): Medicare pays neither the drug administration nor 99211 when staff-administered unsupervised (IOM 100-04 Ch.12 §30.5.C). Spec A5.2.",
             "Medicare 2026+: direct supervision may be met via real-time audio/video presence (audio-only excluded) for these XXX-global codes; commercial/Medicaid adoption varies. Spec A5.3 / open question 5.",
             "Facility-based E/M (99281-99285, G0463, 99291) is not reportable by a practitioner with drug administration unless the administration occurred at a separate non-facility encounter (then E/M-25). Spec A7.3.",
             "Drug administration related to an operative procedure's anesthesia or post-op pain management is not separately reportable by the proceduralist. Spec A6.5.",
@@ -277,11 +265,6 @@
       "family": "electrocardiogram-12-lead",
       "codes": ["93000", "93005", "93010"],
       "facts": [
-        {
-          "name": "leads_at_least_12",
-          "type": "boolean",
-          "description": "The ECG was a routine ECG with at least 12 leads. Fewer leads (rhythm strip) = 93040-93042 family, out of scope. Spec A8.3."
-        },
         {
           "name": "component",
           "type": "enum",
@@ -318,12 +301,8 @@
         {
           "id": "ecg.gate",
           "kind": "rowLookup",
-          "inputs": ["leads_at_least_12", "component", "interpretation_report_complete"],
+          "inputs": ["component", "interpretation_report_complete"],
           "rows": [
-            {
-              "when": { "leads_at_least_12": false },
-              "output": { "codes": [], "flags": ["out_of_family:rhythm_ecg_93040_93042"], "note": "1-3 lead rhythm ECGs are 93040-93042; those codes are also bundled into same-day 12-lead ECGs (PTP mod 1) and shall not be used for monitoring.", "specRef": "A8.3" }
-            },
             {
               "when": { "component": "tracing_and_interpretation", "interpretation_report_complete": true },
               "output": { "codes": [], "flags": ["proceed:ecg.lines93000"], "specRef": "A8.2" }

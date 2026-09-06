@@ -245,11 +245,6 @@
       "label": "Irrigation and instrumentation"
      }
     ]
-   },
-   {
-    "name": "instrumentation_by_qhp",
-    "kind": "checkbox",
-    "label": "Instrument removal personally performed by physician/QHP"
    }
   ]
  },
@@ -301,7 +296,8 @@
    {
     "name": "lesion_count",
     "kind": "number",
-    "label": "Distinct lesions treated"
+    "label": "Distinct lesions treated",
+    "defaultValue": 1
    },
    {
     "name": "packing_placed",
@@ -534,6 +530,7 @@
     "name": "finger_count",
     "kind": "number",
     "label": "Distinct fingers splinted",
+    "defaultValue": 1,
     "visibleWhen": {
      "fact": "body_region",
      "anyOf": [
@@ -576,11 +573,6 @@
       "label": "Conjunctiva"
      }
     ]
-   },
-   {
-    "name": "removal_accomplished",
-    "kind": "checkbox",
-    "label": "Foreign body removed by the provider"
    },
    {
     "name": "incision_made",
@@ -630,6 +622,7 @@
     "name": "distinct_fb_count",
     "kind": "number",
     "label": "Distinct foreign bodies removed (separate incisions)",
+    "defaultValue": 1,
     "visibleWhen": {
      "fact": "fb_site",
      "anyOf": [
@@ -801,11 +794,6 @@
   "family": "burn-treatment",
   "fields": [
    {
-    "name": "treatment_performed",
-    "kind": "checkbox",
-    "label": "Dressings and/or debridement performed this encounter"
-   },
-   {
     "name": "burn_depth",
     "kind": "select",
     "label": "Deepest burn degree treated",
@@ -851,11 +839,6 @@
   "family": "ekg",
   "fields": [
    {
-    "name": "leads_at_least_12",
-    "kind": "checkbox",
-    "label": "Routine ECG with at least 12 leads"
-   },
-   {
     "name": "component",
     "kind": "select",
     "label": "Component furnished",
@@ -889,7 +872,8 @@
    {
     "name": "num_ecgs_same_day",
     "kind": "number",
-    "label": "Medically necessary ECGs this date"
+    "label": "Medically necessary ECGs this date",
+    "defaultValue": 1
    }
   ]
  },
@@ -956,11 +940,6 @@
   "family": "lesion-destruction",
   "fields": [
    {
-    "name": "destruction_performed",
-    "kind": "checkbox",
-    "label": "Destruction performed by the clinician this encounter"
-   },
-   {
     "name": "lesion_category",
     "kind": "select",
     "label": "Lesion category",
@@ -994,7 +973,8 @@
    {
     "name": "lesion_count",
     "kind": "number",
-    "label": "Lesions destroyed"
+    "label": "Lesions destroyed",
+    "defaultValue": 1
    }
   ]
  },
@@ -1136,22 +1116,12 @@
       }
      }
     ]
-   },
-   {
-    "name": "direct_supervision_met",
-    "kind": "checkbox",
-    "label": "Direct supervision met (personally performed, or supervising clinician present)"
    }
   ]
  },
  "nail-trephination": {
   "family": "nail-trephination",
   "fields": [
-   {
-    "name": "subungual_hematoma_evacuated",
-    "kind": "checkbox",
-    "label": "Subungual hematoma evacuated through the nail plate"
-   },
    {
     "name": "nail_plate_avulsed",
     "kind": "checkbox",
@@ -1165,7 +1135,8 @@
    {
     "name": "digits_treated",
     "kind": "number",
-    "label": "Distinct digits treated"
+    "label": "Distinct digits treated",
+    "defaultValue": 1
    }
   ]
  },
@@ -1190,11 +1161,6 @@
       "label": "Other / not confirmed"
      }
     ]
-   },
-   {
-    "name": "elbow_manipulation_performed",
-    "kind": "checkbox",
-    "label": "Reduction manipulation performed"
    }
   ]
  },
@@ -1242,7 +1208,8 @@
    {
     "name": "neb_episodes_of_care",
     "kind": "number",
-    "label": "Separate episodes of care with treatment this date"
+    "label": "Separate episodes of care with treatment this date",
+    "defaultValue": 1
    }
   ]
  }

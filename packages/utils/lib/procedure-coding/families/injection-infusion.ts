@@ -182,7 +182,6 @@ export function suggestInjection(doc: TableDoc, facts: InjectionInfusionFacts): 
   const derived: Facts = {
     setting: facts.setting,
     substance_class: facts.substance_class,
-    direct_supervision_met: facts.direct_supervision_met,
     payer_type: facts.payer_type,
     em_separately_identifiable: facts.em_separately_identifiable,
   };

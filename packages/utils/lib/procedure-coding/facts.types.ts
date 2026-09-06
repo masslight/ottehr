@@ -70,7 +70,6 @@ export interface CerumenFacts {
   impaction_basis?: 'visual' | 'qualitative' | 'inflammatory' | 'quantitative' | 'none';
   left_ear_method?: CerumenRemovalMethod;
   right_ear_method?: CerumenRemovalMethod;
-  instrumentation_by_qhp?: boolean;
   payer_type?: ProcedurePayerType;
   em_separately_identifiable?: boolean;
 }
@@ -136,7 +135,6 @@ export interface ForeignBodyFacts {
     | 'external_auditory_canal'
     | 'cornea'
     | 'conjunctiva';
-  removal_accomplished?: boolean;
   incision_made?: boolean;
   wound_infection?: boolean;
   scarring_or_delayed_presentation?: boolean;
@@ -167,7 +165,6 @@ export interface NasalPackingFacts {
 // ── burn-treatment ──────────────────────────────────────────────────────────
 
 export interface BurnTreatmentFacts {
-  treatment_performed?: boolean;
   burn_depth?: 'first_degree' | 'partial_thickness' | 'full_thickness';
   visit_type?: 'initial' | 'subsequent';
   /** TBSA treated in TENTHS of a percent (4.5% = 45) so the 5%/10% boundaries are exact. */
@@ -178,7 +175,6 @@ export interface BurnTreatmentFacts {
 // ── ekg ─────────────────────────────────────────────────────────────────────
 
 export interface EkgFacts {
-  leads_at_least_12?: boolean;
   component?: 'tracing_and_interpretation' | 'tracing_only' | 'interpretation_only';
   interpretation_report_complete?: boolean;
   num_ecgs_same_day?: number;
@@ -199,7 +195,6 @@ export interface UrinaryCatheterizationFacts {
 // ── lesion-destruction ──────────────────────────────────────────────────────
 
 export interface LesionDestructionFacts {
-  destruction_performed?: boolean;
   lesion_category?:
     | 'benign_other'
     | 'skin_tag'
@@ -239,7 +234,6 @@ export interface InjectionInfusionFacts {
   num_im_sc_injections?: number;
   /** Derived from `administrations` by the family core — never a form field. */
   infusion_total_minutes?: number;
-  direct_supervision_met?: boolean;
   payer_type?: ProcedurePayerType;
   em_separately_identifiable?: boolean;
   administrations?: InjectionAdministration[];
@@ -248,7 +242,6 @@ export interface InjectionInfusionFacts {
 // ── nail-trephination ───────────────────────────────────────────────────────
 
 export interface NailTrephinationFacts {
-  subungual_hematoma_evacuated?: boolean;
   nail_plate_avulsed?: boolean;
   nail_bed_repair_performed?: boolean;
   digits_treated?: number;
@@ -259,7 +252,6 @@ export interface NailTrephinationFacts {
 
 export interface NursemaidElbowFacts {
   elbow_condition?: 'radial_head_subluxation' | 'true_dislocation_or_fracture' | 'other';
-  elbow_manipulation_performed?: boolean;
   em_separately_identifiable?: boolean;
 }
 

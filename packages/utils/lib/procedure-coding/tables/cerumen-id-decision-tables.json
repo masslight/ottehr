@@ -43,11 +43,6 @@
           "description": "Removal method actually used on the RIGHT ear. Spec A2."
         },
         {
-          "name": "instrumentation_by_qhp",
-          "type": "boolean",
-          "description": "Any instrument-based removal was personally performed by the physician/QHP (not delegated to staff). Required for 69210. Spec A2.5."
-        },
-        {
           "name": "payer_type",
           "type": "enum",
           "allowedValues": ["medicare", "other"],
@@ -63,7 +58,7 @@
         {
           "id": "cerumen.gate",
           "kind": "rowLookup",
-          "inputs": ["impaction_basis", "left_ear_method", "right_ear_method", "instrumentation_by_qhp"],
+          "inputs": ["impaction_basis", "left_ear_method", "right_ear_method"],
           "rows": [
             {
               "when": { "impaction_basis": "none" },
@@ -72,22 +67,6 @@
             {
               "when": { "left_ear_method": "none", "right_ear_method": "none" },
               "output": { "codes": [], "flags": ["em_only:no_removal_performed"], "specRef": "A1" }
-            },
-            {
-              "when": { "left_ear_method": "instrumentation", "instrumentation_by_qhp": false },
-              "output": { "codes": [], "flags": ["blocked:69210_performer_requirement_unmet"], "note": "Instrument removal not personally performed by physician/QHP cannot be billed as 69210; if irrigation alone removed the impaction re-enter with method=irrigation, else E/M only.", "specRef": "A2.5" }
-            },
-            {
-              "when": { "right_ear_method": "instrumentation", "instrumentation_by_qhp": false },
-              "output": { "codes": [], "flags": ["blocked:69210_performer_requirement_unmet"], "specRef": "A2.5" }
-            },
-            {
-              "when": { "left_ear_method": "both", "instrumentation_by_qhp": false },
-              "output": { "codes": [], "flags": ["blocked:69210_performer_requirement_unmet"], "specRef": "A2.5" }
-            },
-            {
-              "when": { "right_ear_method": "both", "instrumentation_by_qhp": false },
-              "output": { "codes": [], "flags": ["blocked:69210_performer_requirement_unmet"], "specRef": "A2.5" }
             },
             {
               "when": {},
@@ -210,6 +189,7 @@
             "Medicare bilateral 69209: one line, modifier 50, one unit; paid at 150% (bilat surgery indicator 1). Spec A3.2.",
             "Commercial payers vary on bilateral format: single line -50 vs two lines LT/RT — check the payer contract. Spec A3.1.",
             "No NCCI PTP edit exists between 69209 and 69210 (or between either code and E/M): the same-ear prohibition and E/M bundling must be enforced by this engine, not by claim edits. Spec B3.",
+            "69210 must be personally performed by the physician/QHP — staff-performed instrument removal is not billable as 69210 (CGS A56454); staff-performed irrigation still supports 69209 incident-to. Spec A2.5.",
             "Audiologists may not bill 69209/69210 under Medicare; cerumen removal is included in their diagnostic testing. Spec A2.6.",
             "G0268 (Medicare): physician removal of impacted cerumen on the same date as employed audiologist's audiologic function testing; one unit covers one or both ears. Spec A6.",
             "Both codes have global period 000 (minor procedure): decision-to-perform E/M is bundled; modifier 25 requires a significant, separately identifiable E/M. Spec A4.1.",

@@ -32,6 +32,8 @@ export interface SimpleFieldManifest {
   options?: FieldOption[];
   /** number fields: stored value = displayed value × scale (e.g. TBSA % stored in tenths). */
   scale?: number;
+  /** number fields: value the fact takes when left blank (normalization applies it; e.g. counts default to 1). */
+  defaultValue?: number;
   visibleWhen?: FieldVisibility;
   /**
    * Fact value the field carries while visibleWhen hides it (e.g. splint_mobility 'na'
@@ -94,6 +96,8 @@ const normalizeRecord = (fields: SimpleFieldManifest[], record: Record<string, u
       else delete next[field.name];
     } else if (field.kind === 'checkbox' && next[field.name] === undefined) {
       next[field.name] = false;
+    } else if (field.kind === 'number' && field.defaultValue !== undefined && next[field.name] === undefined) {
+      next[field.name] = field.defaultValue;
     }
   }
   return next;
@@ -103,8 +107,9 @@ const normalizeRecord = (fields: SimpleFieldManifest[], record: Record<string, u
  * Normalizes a facts record for evaluation: untouched checkboxes become explicit
  * `false` facts (the form's unchecked state IS a determination) and fields hidden
  * by visibleWhen are reset to their not-applicable value, so compliance-gate rows
- * keyed on `false` match and hidden stale values can't steer the tables. Facts a
- * legacy import left undetermined (enums, counts) stay undetermined — the
+ * keyed on `false` match and hidden stale values can't steer the tables. Number
+ * fields declaring a defaultValue take it when blank (counts default to 1); other
+ * facts a legacy import left undetermined (enums) stay undetermined — the
  * evaluator refuses on those (missing:<fact>) rather than guessing.
  */
 export function normalizeFactsForFamily(

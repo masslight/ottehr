@@ -278,11 +278,6 @@
           "description": "Where the foreign body lies. Site-specific codes take precedence over the subcutaneous pair; deeper than subcutaneous (fascia/muscle) exits to musculoskeletal site codes. Spec A8.1/A8.2."
         },
         {
-          "name": "removal_accomplished",
-          "type": "boolean",
-          "description": "The foreign body was actually removed by the provider (not expelled by nose-blowing, not a failed attempt). Spec A10.2 / open question 8."
-        },
-        {
           "name": "incision_made",
           "type": "boolean",
           "description": "An incision was made to remove the subcutaneous FB. Mandatory for 10120/10121; grasp-and-pull removal without incision is E/M only. Spec A9.1."
@@ -340,10 +335,8 @@
         {
           "id": "fbr.gate",
           "kind": "rowLookup",
-          "inputs": ["fb_site", "removal_accomplished", "general_anesthesia"],
+          "inputs": ["fb_site", "general_anesthesia"],
           "rows": [
-            { "when": { "removal_accomplished": false },
-              "output": { "codes": [], "flags": ["em_only:no_removal_accomplished"], "note": "No completed removal (expelled by blowing, not retrieved, referred out): E/M only. Reduced-services billing of a substantial failed attempt (mod 52/53) is payer-dependent — open question 8.", "specRef": "A10.2/A13.3" } },
             { "when": { "fb_site": "deeper_than_subcutaneous" },
               "output": { "codes": [], "flags": ["out_of_family:use_musculoskeletal_site_fbr_codes"], "note": "FB in fascia/muscle or deeper: code by site from the musculoskeletal system (e.g., 20520/20525, 23333, 27087, 28190-28193).", "specRef": "A8.2" } },
             { "when": { "fb_site": "subcutaneous" },
