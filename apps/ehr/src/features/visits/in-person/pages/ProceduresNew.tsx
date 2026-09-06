@@ -107,6 +107,34 @@ const PERFORMED_BY = ['Healthcare staff', 'Provider', 'Both'];
 const SPECIMEN_SENT = ['Yes', 'No'];
 const DOCUMENTED_BY = ['Provider', 'Healthcare staff'];
 
+// Friendly explanations for out_of_family flag details (the documented care is
+// billed with codes from a different family). Rendered as
+// "Not coded as this procedure — <detail>."
+const OUT_OF_FAMILY_DETAILS: Record<string, string> = {
+  adjacent_tissue_transfer_14xxx: 'flap or Z-plasty closure is billed with the adjacent-tissue-transfer codes',
+  use_10080_or_10081: 'pilonidal cyst drainage is billed with the pilonidal cyst codes',
+  use_11200_11201: 'skin tag removal is billed with the skin tag codes',
+  use_11730_nail_avulsion: 'nail plate removal is billed as a nail avulsion',
+  use_11760_nail_bed_repair: 'nail bed repair is billed as its own procedure',
+  use_17000_17003_17004: 'premalignant lesion destruction is billed with the per-lesion 17000-series codes',
+  use_17106_17108: 'vascular lesion destruction is billed with its own codes',
+  use_17260_17286: 'malignant lesion destruction is billed with the malignant destruction codes',
+  use_24600_24605_or_fracture_codes: 'true dislocation or fracture care is billed with the dislocation/fracture codes',
+  use_29280_hand_or_finger_strapping: 'finger strapping is billed with the hand/finger strapping code',
+  use_31238_endoscopic_control: 'endoscopic control of a nosebleed is billed with the endoscopy code',
+  use_94644_94645_continuous: 'continuous treatment over one hour is billed with the continuous inhalation codes',
+  use_96360_96361: 'saline-only hydration is billed with the hydration codes',
+  'use_cast_codes_29000-29086_or_29305-29450': 'cast application is billed with cast codes',
+  use_musculoskeletal_site_fbr_codes: 'deep foreign-body removal is billed with site-specific musculoskeletal codes',
+  use_site_specific_destruction_codes: 'anogenital lesion destruction is billed with site-specific codes',
+};
+
+// Owner-approved standalone wording: cleaning/dressing a third-degree burn is
+// E/M-bundled, so the generic "Not coded as this procedure" prefix would mislead.
+const FULL_THICKNESS_BURN_MESSAGE =
+  "Third-degree burn: cleaning and dressing isn't separately coded — it's billed within the E&M. " +
+  'If dead tissue was surgically removed, add the debridement code.';
+
 // Keys from ProcedureQuickPickData that should be applied to page state when a quick pick is selected.
 // Encounter-specific fields (diagnoses, performerType, consentObtained) and metadata (id, name, procedureType)
 // are intentionally excluded.
@@ -738,9 +766,14 @@ export default function ProceduresNew({
       case 'advisory':
         return `Advisory — ${detail}`;
       case 'em_only':
-        return `E/M only — ${detail}`;
-      case 'out_of_family':
-        return `Outside this code family — ${detail}`;
+        return detail
+          ? `Not separately coded — billed within the E&M code. (${detail})`
+          : 'Not separately coded — billed within the E&M code.';
+      case 'out_of_family': {
+        const key = rest.join(':');
+        if (key === 'full_thickness_use_debridement_or_grafting_codes') return FULL_THICKNESS_BURN_MESSAGE;
+        return `Not coded as this procedure — ${OUT_OF_FAMILY_DETAILS[key] ?? detail}.`;
+      }
       case 'requires_bespoke':
         return `Needs manual review — ${detail}`;
       case 'verify':

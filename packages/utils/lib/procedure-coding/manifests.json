@@ -161,7 +161,7 @@
    {
     "name": "adjacent_tissue_transfer",
     "kind": "checkbox",
-    "label": "Closure required flap / Z-plasty / tissue rearrangement"
+    "label": "Flap or Z-plasty required"
    }
   ]
  },
@@ -175,23 +175,23 @@
     "options": [
      {
       "value": "visual",
-      "label": "Impairs exam of canal/TM/middle ear"
+      "label": "Blocks view of eardrum"
      },
      {
       "value": "qualitative",
-      "label": "Hard/dry/irritative causing symptoms"
+      "label": "Hard, dry, symptomatic"
      },
      {
       "value": "inflammatory",
-      "label": "Foul odor / infection / dermatitis"
+      "label": "Odor, infection, or dermatitis"
      },
      {
       "value": "quantitative",
-      "label": "Obstructive, needs magnification + instrumentation"
+      "label": "Needs magnification to remove"
      },
      {
       "value": "none",
-      "label": "Cerumen not impacted"
+      "label": "Not impacted"
      }
     ]
    },
@@ -291,7 +291,7 @@
    {
     "name": "lesion_count",
     "kind": "number",
-    "label": "Distinct lesions treated",
+    "label": "Lesions treated",
     "defaultValue": 1
    },
    {
@@ -319,7 +319,7 @@
    {
     "name": "multiple_incisions",
     "kind": "checkbox",
-    "label": "Multiple incisions required for full drainage",
+    "label": "Multiple incisions",
     "visibleWhen": {
      "fact": "approach",
      "anyOf": [
@@ -330,7 +330,7 @@
    {
     "name": "loculations_probed",
     "kind": "checkbox",
-    "label": "Loculations probed / broken up",
+    "label": "Loculations broken up",
     "visibleWhen": {
      "fact": "approach",
      "anyOf": [
@@ -341,7 +341,7 @@
    {
     "name": "tissue_excision_or_closure",
     "kind": "checkbox",
-    "label": "Tissue excision, primary closure, or Z-plasty required",
+    "label": "Tissue excision or closure",
     "visibleWhen": {
      "fact": "approach",
      "anyOf": [
@@ -352,7 +352,7 @@
    {
     "name": "same_site_other_procedure",
     "kind": "checkbox",
-    "label": "Another procedure performed at the same site this encounter"
+    "label": "Other procedure at this site today"
    }
   ]
  },
@@ -467,15 +467,15 @@
     "options": [
      {
       "value": "initial_stabilization_referral",
-      "label": "Initial stabilization, referred for definitive care"
+      "label": "Initial stabilization"
      },
      {
       "value": "replacement_during_or_after_followup",
-      "label": "Replacement during/after follow-up period"
+      "label": "Replacement"
      },
      {
       "value": "definitive_care_by_this_provider",
-      "label": "Definitive fracture/injury care by this provider"
+      "label": "Definitive fracture care"
      },
      {
       "value": "dressing_after_procedure",
@@ -487,7 +487,7 @@
    {
     "name": "same_area_musculoskeletal_procedure",
     "kind": "checkbox",
-    "label": "Musculoskeletal procedure also performed for this area"
+    "label": "Same-area orthopedic procedure today"
    },
    {
     "name": "laterality",
@@ -515,7 +515,7 @@
    {
     "name": "finger_count",
     "kind": "number",
-    "label": "Distinct fingers splinted",
+    "label": "Fingers splinted",
     "defaultValue": 1,
     "visibleWhen": {
      "fact": "body_region",
@@ -563,7 +563,7 @@
    {
     "name": "incision_made",
     "kind": "checkbox",
-    "label": "Incision made to remove the foreign body",
+    "label": "Incision required",
     "visibleWhen": {
      "fact": "fb_site",
      "anyOf": [
@@ -574,7 +574,7 @@
    {
     "name": "wound_infection",
     "kind": "checkbox",
-    "label": "Wound infection present at the site",
+    "label": "Site infected",
     "visibleWhen": {
      "fact": "fb_site",
      "anyOf": [
@@ -585,7 +585,7 @@
    {
     "name": "scarring_or_delayed_presentation",
     "kind": "checkbox",
-    "label": "Scarring in the area or delayed presentation",
+    "label": "Embedded/old (scarred in)",
     "visibleWhen": {
      "fact": "fb_site",
      "anyOf": [
@@ -596,7 +596,7 @@
    {
     "name": "extensive_exploration_or_debridement",
     "kind": "checkbox",
-    "label": "Extensive exploration/dissection or debridement required",
+    "label": "Extensive exploration required",
     "visibleWhen": {
      "fact": "fb_site",
      "anyOf": [
@@ -607,7 +607,7 @@
    {
     "name": "distinct_fb_count",
     "kind": "number",
-    "label": "Distinct foreign bodies removed (separate incisions)",
+    "label": "Foreign bodies removed",
     "defaultValue": 1,
     "visibleWhen": {
      "fact": "fb_site",
@@ -631,7 +631,7 @@
    {
     "name": "slit_lamp_used",
     "kind": "checkbox",
-    "label": "Removal performed at the slit lamp",
+    "label": "Slit lamp used",
     "visibleWhen": {
      "fact": "fb_site",
      "anyOf": [
@@ -695,12 +695,12 @@
    {
     "name": "procedure_induced_bleeding",
     "kind": "checkbox",
-    "label": "Bleeding due to a nasal/sinus procedure this encounter"
+    "label": "Caused by a nasal procedure today"
    },
    {
     "name": "endoscope_required_for_control",
     "kind": "checkbox",
-    "label": "Endoscope required to control the bleeding"
+    "label": "Endoscope required"
    },
    {
     "name": "left_anterior_extent",
@@ -751,7 +751,7 @@
    {
     "name": "posterior_control",
     "kind": "checkbox",
-    "label": "Posterior bleeding source treated (pack and/or cautery)"
+    "label": "Posterior bleeding treated"
    },
    {
     "name": "posterior_sequence",
@@ -760,11 +760,11 @@
     "options": [
      {
       "value": "initial",
-      "label": "Initial control of this bleed"
+      "label": "First treatment"
      },
      {
       "value": "subsequent",
-      "label": "Subsequent (repeat after prior initial control)"
+      "label": "Repeat treatment"
      }
     ],
     "visibleWhen": {
@@ -782,7 +782,7 @@
    {
     "name": "burn_depth",
     "kind": "select",
-    "label": "Deepest burn degree treated",
+    "label": "Burn degree",
     "options": [
      {
       "value": "first_degree",
@@ -831,7 +831,7 @@
    {
     "name": "num_ecgs_same_day",
     "kind": "number",
-    "label": "Medically necessary ECGs this date",
+    "label": "ECGs today",
     "defaultValue": 1
    }
   ]
@@ -842,7 +842,7 @@
    {
     "name": "part_of_other_procedure",
     "kind": "checkbox",
-    "label": "Performed as part of / for access to another procedure"
+    "label": "Part of another procedure"
    },
    {
     "name": "catheter_type",
@@ -1024,7 +1024,7 @@
      {
       "name": "separateEncounterReturn",
       "kind": "checkbox",
-      "label": "Given at a separate encounter (patient left and returned)",
+      "label": "Separate visit (left and returned)",
       "visibleWhen": {
        "fact": "route",
        "anyOf": [
@@ -1053,7 +1053,7 @@
    {
     "name": "digits_treated",
     "kind": "number",
-    "label": "Distinct digits treated",
+    "label": "Digits treated",
     "defaultValue": 1
    }
   ]
@@ -1116,12 +1116,12 @@
    {
     "name": "neb_continuous_over_one_hour",
     "kind": "checkbox",
-    "label": "Continuous / back-to-back treatment exceeding one hour"
+    "label": "Continuous treatment over 1 hour"
    },
    {
     "name": "neb_episodes_of_care",
     "kind": "number",
-    "label": "Separate episodes of care with treatment this date",
+    "label": "Treatment episodes today",
     "defaultValue": 1
    }
   ]
