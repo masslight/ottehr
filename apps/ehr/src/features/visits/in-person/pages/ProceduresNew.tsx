@@ -489,12 +489,25 @@ export default function ProceduresNew({
     recommendBillingCodes,
   ]);
 
+  const [initialValuesSet, setInitialValuesSet] = useState<boolean>(false);
+  const [initialFormStateSet, setInitialFormStateSet] = useState<boolean>(false);
+
   // Keep structuredFacts stamped with the active family: seed on procedure-type
   // switch (laceration seeds a wound row from the legacy body site/side via the
   // shared shim), clear when the selected type is uncovered.
   useEffect(() => {
+    // Edit mode: wait for the saved procedure's values to land in state before
+    // stamping. The mount commits interleave the RHF procedureType reset with
+    // the chart-data populate, so stamping in between saw a valid family with
+    // no facts and re-seeded an empty record — silently discarding the loaded
+    // facts (they were then lost on re-save).
+    if (procedureId != null && !initialValuesSet) {
+      return;
+    }
     if (codingFamily == null) {
-      if (state.structuredFacts != null) {
+      // Clear only when a type is actually selected (an uncovered type), not
+      // during the transient empty-type commit while a form is loading.
+      if (state.structuredFacts != null && formValues.procedureType) {
         updateState((state) => (state.structuredFacts = undefined));
       }
       return;
@@ -527,10 +540,16 @@ export default function ProceduresNew({
       }
       state.structuredFacts = seeded;
     });
-  }, [codingFamily, state.structuredFacts, state.medicationUsed, updateState]);
+  }, [
+    codingFamily,
+    state.structuredFacts,
+    state.medicationUsed,
+    formValues.procedureType,
+    procedureId,
+    initialValuesSet,
+    updateState,
+  ]);
 
-  const [initialValuesSet, setInitialValuesSet] = useState<boolean>(false);
-  const [initialFormStateSet, setInitialFormStateSet] = useState<boolean>(false);
   const procedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
 
   useEffect(() => {
