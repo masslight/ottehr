@@ -59,9 +59,9 @@ Once your request is received, the Oystehr team will promptly create your accoun
 
 Check out the [Oystehr Technical Documentation](https://docs.oystehr.com/oystehr/getting-started/) to learn more about the Oystehr platform.
 
-#### Install Node.js 22.x
+#### Install Node.js 22.13 or newer
 
-If you do not already have it, [install Node.js](https://nodejs.org/en/download) v22.x.
+If you do not already have it, install [Node.js](https://nodejs.org/en/download) v22.13 or newer on the Node 22 line.
 
 Ottehr also supports `nvm`, `asdf`, and tools that use `.node-version`.
 

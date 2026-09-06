@@ -4,6 +4,7 @@ import React, { ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Row } from 'src/components/layout/Row';
 import { Section } from 'src/components/layout/Section';
+import { formatStructuredFactsForDisplay } from 'utils/lib/procedure-coding/codec';
 import { useProcedureQuickPicksQuery } from './admin.queries';
 
 function ValueDisplay({ value }: { value: string | undefined | null }): ReactElement {
@@ -103,6 +104,11 @@ export default function ProcedureQuickPickDetailPage(): ReactElement {
           <Row label="Body Side">
             <ValueDisplay value={quickPick.bodySide} />
           </Row>
+          {formatStructuredFactsForDisplay(quickPick.structuredFacts).map((field) => (
+            <Row key={field.label} label={field.label}>
+              <ValueDisplay value={field.value} />
+            </Row>
+          ))}
           <Row label="Medication Used">
             <ValueDisplay value={quickPick.medicationUsed} />
           </Row>

@@ -383,7 +383,7 @@ describe('AddVisit', () => {
         const dialogMessage = await screen.findByText('To continue, please select an available appointment.');
         expect(dialogMessage).toBeVisible();
       },
-      { timeout: 10000 }
+      10000
     );
 
     it.skipIf(!postTelemedOption)(
@@ -459,7 +459,7 @@ describe('AddVisit', () => {
         const dialogMessage = await screen.findByText('To continue, please select an available appointment.');
         expect(dialogMessage).toBeVisible();
       },
-      { timeout: 10000 }
+      10000
     );
   });
 

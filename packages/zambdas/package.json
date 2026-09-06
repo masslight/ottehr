@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.41.16",
+  "version": "1.42.4",
   "private": true,
   "sideEffects": false,
   "scripts": {
@@ -55,7 +55,7 @@
     "probe-outreach-retries": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/probe-outreach-retries.ts",
     "test": "ENV=${ENV:-local} vitest run",
     "test:unit:ci": "ENV=${ENV:-local} vitest run --project unit --maxWorkers=6 --coverage --coverage.reportsDirectory=./coverage/unit --passWithNoTests --reporter=dot --reporter=github-actions",
-    "test:integration:ci": "ENV=${ENV:-local} vitest run --project integration --minWorkers=12 --maxWorkers=12 --no-isolate --coverage --passWithNoTests --reporter=dot --reporter=github-actions",
+    "test:integration:ci": "ENV=${ENV:-local} vitest run --project integration --maxWorkers=12 --no-isolate --coverage --passWithNoTests --reporter=dot --reporter=github-actions",
     "test:watch": "ENV=${ENV:-local} vitest watch",
     "test:coverage": "c8 npm run test",
     "test:integration:coverage": "ENV=${ENV:-local} c8 --src=src --include='src/**' --exclude='src/**/*.test.ts' --exclude='src/local-server/**' --exclude='src/scripts/**' --all --reporter=text-summary --reporter=lcov --reporter=html --reports-dir=coverage/integration vitest run test/integration/",

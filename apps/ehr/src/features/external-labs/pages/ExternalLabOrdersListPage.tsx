@@ -12,8 +12,9 @@ import ListViewContainer from '../../common/ListViewContainer';
 import { ButtonRounded } from '../../visits/in-person/components/RoundedButton';
 import { PageTitle } from '../../visits/shared/components/PageTitle';
 import { LabsTablePatientChart } from '../components/labs-orders/LabsTablePatientChart';
+import { useLabOrderRowNavigation } from '../components/labs-orders/useLabOrderRowNavigation';
 
-const externalLabsColumns: LabsTableColumn[] = [
+export const externalLabsColumns: LabsTableColumn[] = [
   'testType',
   'dx',
   'ordered',
@@ -24,6 +25,7 @@ const externalLabsColumns: LabsTableColumn[] = [
 ];
 
 export const ExternalLabOrdersListPage: React.FC = () => {
+  const { openOrder, openDrDrivenResult } = useLabOrderRowNavigation();
   const navigate = useNavigate();
   const { encounter } = useAppointmentData();
   const encounterId = encounter?.id;
@@ -82,6 +84,8 @@ export const ExternalLabOrdersListPage: React.FC = () => {
           allowDelete={!isReadOnly}
           allowSubmit={!isReadOnly}
           onCreateOrder={!isReadOnly ? handleCreateOrder : undefined}
+          onRowClick={openOrder}
+          onDrDrivenRowClick={openDrDrivenResult}
         />
       </Box>
     </ListViewContainer>

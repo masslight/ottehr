@@ -131,6 +131,13 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   otherClaims: [],
   tags: [],
   pcn: '',
+  billType: '',
+  patientDischargeStatusCode: '',
+  admissionType: '',
+  admissionSource: '',
+  admissionDate: '',
+  dischargeDate: '',
+  attachments: [],
 });
 
 function renderDetail(): void {
@@ -464,7 +471,7 @@ describe('ClaimDetail — header copy buttons', () => {
 
     const copyPcn = screen.getByRole('button', { name: 'Copy PCN' });
     await user.click(copyPcn);
-    expect(writeText).toHaveBeenCalledWith('claim1');
+    expect(writeText).toHaveBeenCalledWith('CLAIM1');
   });
 
   it('offers no copy button for an empty pcn', async () => {

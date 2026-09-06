@@ -211,6 +211,9 @@ export const FHIR_EXTENSION = {
     procedureDetails: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/procedure-details`,
     },
+    structuredFacts: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/procedure-structured-facts`,
+    },
     specimenSent: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/specimen-sent`,
     },
@@ -1060,6 +1063,11 @@ export const PERFORMER_TYPE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/perform
 export const BODY_SITE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/body-site';
 
 export const PAYMENT_METHOD_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-method';
+// stamped on the original PaymentNotice when Stripe reports refunds against the payment,
+// so refund state can be read from FHIR without going back to Stripe
+export const PAYMENT_REFUNDS_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-refunds';
+// stamped on a PaymentNotice when a non-processor payment (cash/check/external reader) is voided
+export const PAYMENT_VOID_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-void';
 
 export const PREFERRED_PHARMACY_EXTENSION_URL = ottehrExtensionUrl('preferred-pharmacy');
 export const PREFERRED_PHARMACY_MANUAL_ENTRY_URL = ottehrExtensionUrl('pharmacy-manual-entry'); // added when the pharmacy was added manually via text fields
