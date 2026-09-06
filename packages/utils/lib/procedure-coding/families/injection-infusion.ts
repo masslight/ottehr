@@ -112,7 +112,13 @@ function resolveMultiAdmin(
     res.flags.push(...sub.flags);
     if (sub.flags.some((f) => f.startsWith('blocked:'))) res.review = true;
     const out = sub.codes.map((l) => ({ ...l, modifiers: [...l.modifiers] }));
-    if (secondInitial && out.length > 0) out[0].modifiers.push('59'); // A4.1: second initial takes 59/XS
+    if (secondInitial && out.length > 0) {
+      out[0].modifiers.push('59'); // A4.1: second initial takes 59/XS
+      if (lines.some((l) => l.code === out[0].code)) {
+        // Second same-code initial takes the daily total over its MUE of 1 (B6); denial expected, appealable.
+        res.flags.push(`advisory:second_initial_exceeds_mue_${out[0].code}`);
+      }
+    }
     lines.push(...out);
     if (c.kind === 'push' && c.pushCount > 1) {
       res.flags.push('advisory:repeat_push_same_drug_96376_practitioner_not_billable'); // A4.6, MUE 0
