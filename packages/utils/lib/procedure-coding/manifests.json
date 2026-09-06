@@ -617,18 +617,6 @@
     }
    },
    {
-    "name": "general_anesthesia",
-    "kind": "checkbox",
-    "label": "General anesthesia required",
-    "visibleWhen": {
-     "fact": "fb_site",
-     "anyOf": [
-      "intranasal",
-      "external_auditory_canal"
-     ]
-    }
-   },
-   {
     "name": "slit_lamp_used",
     "kind": "checkbox",
     "label": "Slit lamp used",
@@ -692,16 +680,6 @@
  "nasal-packing": {
   "family": "nasal-packing",
   "fields": [
-   {
-    "name": "procedure_induced_bleeding",
-    "kind": "checkbox",
-    "label": "Caused by a nasal procedure today"
-   },
-   {
-    "name": "endoscope_required_for_control",
-    "kind": "checkbox",
-    "label": "Endoscope required"
-   },
    {
     "name": "left_anterior_extent",
     "kind": "select",

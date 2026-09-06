@@ -4,13 +4,12 @@
     "generated": "2026-09-05",
     "derivedFrom": "cerumen-id-cleanroom-spec.md (rule numbers cited per row as specRef)",
     "vocabulary": {
-      "tableKinds": ["rowLookup", "threshold", "unitCaps", "docChecklist", "payerNotes"],
+      "tableKinds": ["rowLookup", "threshold", "unitCaps", "docChecklist"],
       "semantics": {
         "rowLookup": "Rows are evaluated top-down; 'when' is a conjunction of exact-equality tests on declared facts; a fact omitted from 'when' is a wildcard; the FIRST matching row wins; 'output' is opaque data returned to the caller. No expressions, no computation.",
         "threshold": "One integer fact banded into contiguous ranges by 'bands' (min/max inclusive, null = unbounded); the matching band's 'output' is returned.",
         "unitCaps": "Per-code maximum billable units per date of service; caps are absolute inputs to claim assembly, never computed.",
         "docChecklist": "All listed items are required documentation for the code; items are human-verified, not computed.",
-        "payerNotes": "Free-text constraints surfaced to the human coder; never evaluated.",
         "chaining": "A matched row/band output whose flags contain 'proceed:<tableId>' transfers evaluation to that table (rowLookup or threshold alike); bare 'proceed' means the next code-emitting rowLookup in document order. An output with no proceed flag settles evaluation: its codes (possibly empty) are the emission."
       },
       "outputConventions": {
@@ -47,11 +46,6 @@
           "type": "enum",
           "allowedValues": ["medicare", "other"],
           "description": "Medicare Part B vs all other payers; drives bilateral reporting. Spec A3."
-        },
-        {
-          "name": "em_separately_identifiable",
-          "type": "boolean",
-          "description": "Separately identifiable E/M performed and documented. Spec A4."
         }
       ],
       "tables": [
@@ -93,7 +87,7 @@
             { "when": { "left_ear_method": "none", "right_ear_method": "both" },
               "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": ["RT"] }], "specRef": "A2.3/A3.4" } },
             { "when": { "left_ear_method": "irrigation", "right_ear_method": "irrigation" },
-              "output": { "codes": [{ "code": "69209", "units": 1, "modifiers": ["50"] }], "note": "Bilateral irrigation: one line, modifier 50, 1 unit (commercial payers may prefer LT/RT — see payerNotes).", "specRef": "A3.1/A3.2" } },
+              "output": { "codes": [{ "code": "69209", "units": 1, "modifiers": ["50"] }], "note": "Bilateral irrigation: one line, modifier 50, 1 unit (commercial payers may prefer LT/RT — see the spec).", "specRef": "A3.1/A3.2" } },
             { "when": { "left_ear_method": "instrumentation", "right_ear_method": "instrumentation", "payer_type": "medicare" },
               "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": [] }], "note": "Medicare bilateral 69210: one line, one unit, NO modifier 50.", "specRef": "A3.3" } },
             { "when": { "left_ear_method": "both", "right_ear_method": "instrumentation", "payer_type": "medicare" },
@@ -103,7 +97,7 @@
             { "when": { "left_ear_method": "both", "right_ear_method": "both", "payer_type": "medicare" },
               "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": [] }], "specRef": "A3.3" } },
             { "when": { "left_ear_method": "instrumentation", "right_ear_method": "instrumentation", "payer_type": "other" },
-              "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": ["50"] }], "note": "CPT default; some payers want LT/RT lines — see payerNotes.", "specRef": "A3.1" } },
+              "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": ["50"] }], "note": "CPT default; some payers want LT/RT lines — see the spec.", "specRef": "A3.1" } },
             { "when": { "left_ear_method": "both", "right_ear_method": "instrumentation", "payer_type": "other" },
               "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": ["50"] }], "specRef": "A3.1" } },
             { "when": { "left_ear_method": "instrumentation", "right_ear_method": "both", "payer_type": "other" },
@@ -118,27 +112,6 @@
               "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": ["LT"] }, { "code": "69209", "units": 1, "modifiers": ["RT"] }], "specRef": "A2.4" } },
             { "when": { "left_ear_method": "both", "right_ear_method": "irrigation" },
               "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": ["LT"] }, { "code": "69209", "units": 1, "modifiers": ["RT"] }], "specRef": "A2.4" } }
-          ]
-        },
-        {
-          "id": "cerumen.diagnosis",
-          "kind": "rowLookup",
-          "inputs": ["left_ear_method", "right_ear_method"],
-          "note": "Laterality-specific ICD-10 only (H61.20 unspecified is not covered). Spec A5.",
-          "rows": [
-            { "when": { "left_ear_method": "none", "right_ear_method": "none" }, "output": { "requiredDx": [] } },
-            { "when": { "left_ear_method": "none" }, "output": { "requiredDx": ["H61.21"] } },
-            { "when": { "right_ear_method": "none" }, "output": { "requiredDx": ["H61.22"] } },
-            { "when": {}, "output": { "requiredDx": ["H61.23"] } }
-          ]
-        },
-        {
-          "id": "cerumen.sameDayEm",
-          "kind": "rowLookup",
-          "inputs": ["em_separately_identifiable"],
-          "rows": [
-            { "when": { "em_separately_identifiable": true }, "output": { "emAllowed": true, "emModifiers": ["25"], "note": "Modifier 25; Medicare applies the AAO-HNS four-part test.", "specRef": "A4.1/A4.3" } },
-            { "when": { "em_separately_identifiable": false }, "output": { "emAllowed": false, "note": "Sole-reason cerumen visit: procedure code only, no E/M.", "specRef": "A4.2" } }
           ]
         },
         {
@@ -180,21 +153,6 @@
             "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
           ],
           "specRef": "B2"
-        },
-        {
-          "id": "cerumen.payerNotes",
-          "kind": "payerNotes",
-          "notes": [
-            "Medicare bilateral 69210: bill one line, one unit, no modifier 50 — claims with -50 are denied. Spec A3.3.",
-            "Medicare bilateral 69209: one line, modifier 50, one unit; paid at 150%. Spec A3.2.",
-            "Commercial payers vary on bilateral format (single line -50 vs LT/RT lines) — check the payer contract. Spec A3.1.",
-            "No automatic claim edit blocks same-ear 69209+69210 or same-day E/M — this engine enforces both. Spec B3.",
-            "69210 must be personally performed by the physician/QHP; staff-performed irrigation still supports 69209. Spec A2.5.",
-            "Audiologists may not bill 69209/69210 under Medicare. Spec A2.6.",
-            "G0268 (Medicare): physician cerumen removal same day as audiologist testing; one unit covers both ears. Spec A6.",
-            "Same-day E/M is billable only when separately identifiable, with modifier 25. Spec A4.1.",
-            "Always code ear laterality — H61.20 (unspecified ear) is not on the covered-diagnosis list. Spec A5.1."
-          ]
         }
       ]
     },
@@ -248,11 +206,6 @@
           "name": "same_site_other_procedure",
           "type": "boolean",
           "description": "Another same-site procedure this encounter, or I&D done for access. Spec A7.6/A7.7."
-        },
-        {
-          "name": "em_separately_identifiable",
-          "type": "boolean",
-          "description": "Separately identifiable E/M performed and documented. Spec A9.2."
         }
       ],
       "tables": [
@@ -334,15 +287,6 @@
           ]
         },
         {
-          "id": "id.sameDayEm",
-          "kind": "rowLookup",
-          "inputs": ["em_separately_identifiable"],
-          "rows": [
-            { "when": { "em_separately_identifiable": true }, "output": { "emAllowed": true, "emModifiers": ["25"], "note": "Modifier 25 required; PTP edits bundle established-patient E/M into every family code.", "specRef": "A9.2/B7.3" } },
-            { "when": { "em_separately_identifiable": false }, "output": { "emAllowed": false, "note": "Decision-to-perform E/M is included in the minor procedure.", "specRef": "A9.2" } }
-          ]
-        },
-        {
           "id": "id.unitCaps",
           "kind": "unitCaps",
           "caps": [
@@ -409,23 +353,6 @@
             "Not the same encounter as the surgery that caused the infection"
           ],
           "specRef": "B6/A7.5"
-        },
-        {
-          "id": "id.payerNotes",
-          "kind": "payerNotes",
-          "notes": [
-            "All five codes carry a 10-day global period: routine wound checks and packing care are included. Spec A9.",
-            "Bill 10060 with 10061 only for documented distinct lesions, with modifier 59/XS. Spec B7.1.",
-            "10160 with 10061/10140 requires distinct lesions plus 59/XS; never aspiration and I&D for the same lesion. Spec B7.2.",
-            "Same-day established-patient E/M requires modifier 25 and separately identifiable documentation. Spec B7.3.",
-            "Do not bill wound debridement (97597/97598, 11042) with same-site I&D. Spec B7.4.",
-            "Ultrasound guidance is not payable with 10140; with the other codes it is payer-dependent. Spec B7.5.",
-            "Anesthesia, prep, irrigation, cultures, packing/drain care, and dressings are included — never code separately. Spec A8.4.",
-            "Modifier 50 does not apply to these codes; distinct lesions use units or 59/XS lines. Spec B9.",
-            "Units above the daily cap deny; 10140/10160/10180 denials are appealable with records. Spec B8.",
-            "Repeat I&D of the same site needs a documented reason; more than 2 per year is presumed not necessary. Spec B6.",
-            "'Complicated' has no official definition — document the complicating feature explicitly. Spec open question 1."
-          ]
         }
       ]
     }

@@ -3,8 +3,8 @@
 // hierarchy (physician primary-reason rule), 96366 unit arithmetic from start/stop
 // timestamps, and second-initial separate-site gating exceed the weak table vocabulary
 // (../tables/injection-ekg-decision-tables.json requiresBespokeCode #1/#2), so this
-// family gets a code core — but every gate, band edge, unit cap, checklist, and payer
-// note stays data in the tables: the core derives the scalar table facts
+// family gets a code core — but every gate, band edge, unit cap, and checklist
+// stays data in the tables: the core derives the scalar table facts
 // (route_profile, num_im_sc_injections, infusion_total_minutes) from the declared
 // administrations list, delegates single-path encounters to the generic evaluator
 // wholesale, and re-enters the SAME threshold tables for each drug event it resolves
@@ -181,7 +181,6 @@ export function suggestInjection(doc: TableDoc, facts: InjectionInfusionFacts): 
 
   const derived: Facts = {
     payer_type: facts.payer_type,
-    em_separately_identifiable: facts.em_separately_identifiable,
   };
   let missingStopFlag = false;
   if (admins.length > 0 && !missingRoute) {
@@ -223,8 +222,8 @@ export function suggestInjection(doc: TableDoc, facts: InjectionInfusionFacts): 
   if (bespokeFlag !== undefined) {
     res.flags = res.flags.filter((f) => f !== bespokeFlag);
     resolveMultiAdmin(doc, res, cands, imScCount, derived);
-    // Attach doc checklists for the codes the bespoke path emitted (payer notes and
-    // aux tables were already attached by the top-level table walk).
+    // Attach doc checklists for the codes the bespoke path emitted (aux tables were
+    // already attached by the top-level table walk).
     const emitted = res.codes.map((l) => l.code);
     res.requiredDocumentation.push(...checklistDocs(getFamily(doc, FAMILY).tables, emitted));
   }

@@ -70,7 +70,6 @@ export interface CerumenFacts {
   left_ear_method?: CerumenRemovalMethod;
   right_ear_method?: CerumenRemovalMethod;
   payer_type?: ProcedurePayerType;
-  em_separately_identifiable?: boolean;
 }
 
 // ── incision-drainage ───────────────────────────────────────────────────────
@@ -90,7 +89,6 @@ export interface IncisionDrainageFacts {
   loculations_probed?: boolean;
   tissue_excision_or_closure?: boolean;
   same_site_other_procedure?: boolean;
-  em_separately_identifiable?: boolean;
 }
 
 // ── splinting ───────────────────────────────────────────────────────────────
@@ -120,7 +118,6 @@ export interface SplintingFacts {
   laterality?: 'left' | 'right' | 'bilateral' | 'midline_na';
   finger_count?: number;
   payer_type?: ProcedurePayerType;
-  em_separately_identifiable?: boolean;
 }
 
 // ── foreign-body ────────────────────────────────────────────────────────────
@@ -138,11 +135,9 @@ export interface ForeignBodyFacts {
   scarring_or_delayed_presentation?: boolean;
   extensive_exploration_or_debridement?: boolean;
   distinct_fb_count?: number;
-  general_anesthesia?: boolean;
   slit_lamp_used?: boolean;
   conjunctival_depth?: 'superficial' | 'embedded_or_scleral_nonperforating';
   laterality?: 'left' | 'right' | 'bilateral' | 'na';
-  em_separately_identifiable?: boolean;
 }
 
 // ── nasal-packing ───────────────────────────────────────────────────────────
@@ -150,14 +145,11 @@ export interface ForeignBodyFacts {
 export type NasalAnteriorExtent = 'none' | 'temporary_pledget_only' | 'limited' | 'extensive';
 
 export interface NasalPackingFacts {
-  procedure_induced_bleeding?: boolean;
-  endoscope_required_for_control?: boolean;
   posterior_control?: boolean;
   posterior_sequence?: 'initial' | 'subsequent' | 'na';
   left_anterior_extent?: NasalAnteriorExtent;
   right_anterior_extent?: NasalAnteriorExtent;
   payer_type?: ProcedurePayerType;
-  em_separately_identifiable?: boolean;
 }
 
 // ── burn-treatment ──────────────────────────────────────────────────────────
@@ -166,7 +158,6 @@ export interface BurnTreatmentFacts {
   burn_depth?: 'first_degree' | 'partial_thickness' | 'full_thickness';
   /** TBSA treated in TENTHS of a percent (4.5% = 45) so the 5%/10% boundaries are exact. */
   tbsa_tenths_treated?: number;
-  em_separately_identifiable?: boolean;
 }
 
 // ── ekg ─────────────────────────────────────────────────────────────────────
@@ -174,7 +165,6 @@ export interface BurnTreatmentFacts {
 export interface EkgFacts {
   component?: 'tracing_and_interpretation' | 'tracing_only' | 'interpretation_only';
   num_ecgs_same_day?: number;
-  em_separately_identifiable?: boolean;
 }
 
 // ── urinary-catheterization ─────────────────────────────────────────────────
@@ -184,7 +174,6 @@ export interface UrinaryCatheterizationFacts {
   indwelling_insertion_complicated?: boolean;
   purpose?: 'specimen_collection_only' | 'residual_urine_measurement' | 'retention_or_drainage' | 'other';
   payer_type?: ProcedurePayerType;
-  em_separately_identifiable?: boolean;
 }
 
 // ── lesion-destruction ──────────────────────────────────────────────────────
@@ -198,7 +187,6 @@ export interface LesionDestructionFacts {
     | 'anogenital'
     | 'malignant';
   lesion_count?: number;
-  em_separately_identifiable?: boolean;
 }
 
 // ── injection-infusion ──────────────────────────────────────────────────────
@@ -223,7 +211,6 @@ export interface InjectionInfusionFacts {
   /** Derived from `administrations` by the family core — never a form field. */
   infusion_total_minutes?: number;
   payer_type?: ProcedurePayerType;
-  em_separately_identifiable?: boolean;
   administrations?: InjectionAdministration[];
 }
 
@@ -233,14 +220,12 @@ export interface NailTrephinationFacts {
   nail_plate_avulsed?: boolean;
   nail_bed_repair_performed?: boolean;
   digits_treated?: number;
-  em_separately_identifiable?: boolean;
 }
 
 // ── nursemaid-elbow ─────────────────────────────────────────────────────────
 
 export interface NursemaidElbowFacts {
   elbow_condition?: 'radial_head_subluxation' | 'true_dislocation_or_fracture' | 'other';
-  em_separately_identifiable?: boolean;
 }
 
 // ── iv-catheter-placement ───────────────────────────────────────────────────
@@ -259,5 +244,4 @@ export interface NebulizerFacts {
     | 'none';
   neb_continuous_over_one_hour?: boolean;
   neb_episodes_of_care?: number;
-  em_separately_identifiable?: boolean;
 }

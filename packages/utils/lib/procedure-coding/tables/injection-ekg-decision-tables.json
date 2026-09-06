@@ -4,13 +4,12 @@
     "generated": "2026-09-05",
     "derivedFrom": "injection-ekg-cleanroom-spec.md (rule numbers cited per row as specRef)",
     "vocabulary": {
-      "tableKinds": ["rowLookup", "threshold", "unitCaps", "docChecklist", "payerNotes"],
+      "tableKinds": ["rowLookup", "threshold", "unitCaps", "docChecklist"],
       "semantics": {
         "rowLookup": "Rows are evaluated top-down; 'when' is a conjunction of exact-equality tests on declared facts; a fact omitted from 'when' is a wildcard; the FIRST matching row wins; 'output' is opaque data returned to the caller. No expressions, no computation.",
         "threshold": "One integer fact banded into contiguous ranges by 'bands' (min/max inclusive, null = unbounded); the matching band's 'output' is returned.",
         "unitCaps": "Per-code maximum billable units per date of service; caps are absolute inputs to claim assembly, never computed.",
         "docChecklist": "All listed items are required documentation for the code; items are human-verified, not computed.",
-        "payerNotes": "Free-text constraints surfaced to the human coder; never evaluated.",
         "chaining": "A matched row/band output whose flags contain 'proceed:<tableId>' transfers evaluation to that table (rowLookup or threshold alike); bare 'proceed' means the next code-emitting rowLookup in document order. An output with no proceed flag settles evaluation: its codes (possibly empty) are the emission."
       },
       "outputConventions": {
@@ -47,11 +46,6 @@
           "description": "Medicare Part B vs all other payers; dispatch-supplied, no gate rows key on it. Spec A5.2."
         },
         {
-          "name": "em_separately_identifiable",
-          "type": "boolean",
-          "description": "Separately identifiable E/M performed and documented. Spec A7.2."
-        },
-        {
           "name": "administrations",
           "type": "list",
           "itemFields": [
@@ -80,7 +74,7 @@
           "specRef": "A5.1 / bespoke #3"
         },
         {
-          "rule": "'Significant, separately identifiable E/M' is clinical judgment; encoded only as the em_separately_identifiable attestation fact.",
+          "rule": "'Significant, separately identifiable E/M' is clinical judgment; not encoded as a runtime fact (2026-09-08: E/M guidance removed with the payer-notes channel — the rule lives in the spec, A7.2).",
           "specRef": "A7.2 / bespoke #4"
         }
       ],
@@ -113,7 +107,7 @@
           "id": "inj.imScCountBand",
           "kind": "threshold",
           "input": "num_im_sc_injections",
-          "note": "One 96372 unit per injection; cap 4 duplicated from inj.unitCaps. Repeat-line modifier convention is payer-specific — see payerNotes.",
+          "note": "One 96372 unit per injection; cap 4 duplicated from inj.unitCaps. Repeat-line modifier convention is payer-specific — see spec open question 4.",
           "bands": [
             { "min": null, "max": 0, "output": { "band": "none", "flags": ["blocked:no_injection_administered"] } },
             { "min": 1, "max": 1, "output": { "codes": [{ "code": "96372", "units": 1, "modifiers": [] }], "specRef": "A2.1" } },
@@ -141,15 +135,6 @@
             { "min": 451, "max": 510, "output": { "codes": [{ "code": "96365", "units": 1, "modifiers": [] }, { "code": "96366", "units": 7, "modifiers": [] }], "specRef": "A3.4" } },
             { "min": 511, "max": 570, "output": { "codes": [{ "code": "96365", "units": 1, "modifiers": [] }, { "code": "96366", "units": 8, "modifiers": [] }], "specRef": "A3.4/B6" } },
             { "min": 571, "max": null, "output": { "codes": [{ "code": "96365", "units": 1, "modifiers": [] }, { "code": "96366", "units": 8, "modifiers": [] }], "flags": ["advisory:hours_exceed_mue_96366"], "note": "MUE caps 96366 at 8 units; the excess denies but is appealable.", "specRef": "A3.5/B6" } }
-          ]
-        },
-        {
-          "id": "inj.sameDayEm",
-          "kind": "rowLookup",
-          "inputs": ["em_separately_identifiable"],
-          "rows": [
-            { "when": { "em_separately_identifiable": true }, "output": { "emAllowed": true, "emModifiers": ["25"], "note": "Modifier 25 on the office E/M; a different diagnosis is not required. 99211 is never reportable here.", "specRef": "A7.1/A7.2" } },
-            { "when": { "em_separately_identifiable": false }, "output": { "emAllowed": false, "note": "The administration codes include 99211-level work.", "specRef": "A7.1" } }
           ]
         },
         {
@@ -207,26 +192,6 @@
             "Substance is not a vaccine, allergen extract, or chemotherapy/complex biologic"
           ],
           "specRef": "B4"
-        },
-        {
-          "id": "inj.payerNotes",
-          "kind": "payerNotes",
-          "notes": [
-            "Never bill 99211 or port flush 96523 with these codes — no modifier bypasses the edit. Spec B5.",
-            "Billing family codes together (96365/96372/96374) needs a genuinely separate service and modifier 59/XS. Spec B5.",
-            "IV start and venipuncture (36000/36410) are included — never code separately. Spec A6/B5.",
-            "Office E/M with 96365/96372/96374 requires modifier 25 on the E/M line. Spec A7.2/B5.",
-            "Only ONE initial service per encounter; a second initial needs separate IV sites or a separate encounter, with 59/XS. Spec A4.1.",
-            "Pick the initial by the key/primary reason for the encounter, not by time order. Spec A4.2 / open question 2.",
-            "A push after an initial infusion is 96375 (new drug), never a second 96374; same-drug repeat pushes are not billable. Spec A4.3/A4.6.",
-            "Incidental hydration (carrier fluid, keep-open lines) is never separately reportable. Spec A2.4/A2.5/A3.6.",
-            "These codes assume a therapeutic/prophylactic/diagnostic drug — vaccines, chemo/biologics, allergen extracts, and plain fluids have their own families. Spec A2.4/A2.6-A2.8.",
-            "Therapeutic injections/infusions require direct supervision — Medicare pays nothing when staff administer unsupervised. Spec A5.2.",
-            "Medicare 2026+: direct supervision may be met by real-time audio/video (not audio-only); other payers vary. Spec A5.3 / open question 5.",
-            "Facility E/M (99281-99285, G0463, 99291) is not billable with drug administration absent a separate non-facility encounter. Spec A7.3.",
-            "Drug administration tied to a procedure's anesthesia or post-op pain control is not separately reportable. Spec A6.5.",
-            "How to bill multiple same-day 96372 units (one line vs 59/XS/76 lines) is payer-specific. Spec open question 4."
-          ]
         }
       ]
     },
@@ -244,11 +209,6 @@
           "name": "num_ecgs_same_day",
           "type": "integer",
           "description": "Medically necessary ECGs of this component this date by this clinician. Spec A11."
-        },
-        {
-          "name": "em_separately_identifiable",
-          "type": "boolean",
-          "description": "E/M beyond the ECG rendered and documented; drives guidance, not blocking. Spec A12.1."
         }
       ],
       "requiresBespokeCode": [
@@ -324,15 +284,6 @@
           ]
         },
         {
-          "id": "ecg.sameDayEm",
-          "kind": "rowLookup",
-          "inputs": ["em_separately_identifiable"],
-          "rows": [
-            { "when": { "em_separately_identifiable": true }, "output": { "emAllowed": true, "emModifiers": [], "note": "NCCI does not force modifier 25 on office/ED E/M with ECGs (some payers request it); 99211 is not billable with the ECG.", "specRef": "A12.1/A12.2" } },
-            { "when": { "em_separately_identifiable": false }, "output": { "emAllowed": false, "note": "ECG-only visit: report just the ECG code(s).", "specRef": "A12.1" } }
-          ]
-        },
-        {
           "id": "ecg.unitCaps",
           "kind": "unitCaps",
           "caps": [
@@ -369,22 +320,6 @@
             "Note signed and dated"
           ],
           "specRef": "B8/A11"
-        },
-        {
-          "id": "ecg.payerNotes",
-          "kind": "payerNotes",
-          "notes": [
-            "93000 is global-only — never use modifiers 26/TC; the components have their own codes (93005, 93010). Spec A8.1.",
-            "Never bill 93000 plus 93005 or 93010 for the same ECG. Spec B10.1.",
-            "Medicare pays one interpretation per ECG; a second takes modifier 77 and documented unusual circumstances. Spec A10.",
-            "Office and ED E/M are billable alongside ECGs without modifier 25 (some payers request it anyway); 99211 is not. Spec A12.1.",
-            "An ECG 'review' without a complete written report is part of the E/M — do not bill 93000/93010 for it. Spec A9.",
-            "Same-day rhythm strips (93040-93042) are bundled into the 12-lead ECG. Spec A8.3/A11.3.",
-            "No separate 12-lead billing with stress tests (93015-93018, 93024, 93025) or Holter/wearable monitors (93224-93272). Spec A12.3.",
-            "ECG and injection/infusion codes may be reported at the same visit without modifiers. Spec A12.4.",
-            "93000/93005 take the diagnostic cardiovascular multiple-procedure payment reduction. Spec B11.",
-            "ECGs above the daily cap (93000/93005: 3, 93010: 5) deny but are appealable with records. Spec B9."
-          ]
         }
       ]
     }

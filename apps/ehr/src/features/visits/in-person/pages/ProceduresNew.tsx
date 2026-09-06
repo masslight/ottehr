@@ -1,11 +1,10 @@
-import { AddCircleOutline, CheckCircle, ExpandLess, ExpandMore, InfoOutlined } from '@mui/icons-material';
+import { AddCircleOutline, CheckCircle, InfoOutlined } from '@mui/icons-material';
 import {
   Autocomplete,
   Backdrop,
   Button,
   Checkbox,
   CircularProgress,
-  Collapse,
   Container,
   Dialog,
   DialogActions,
@@ -121,7 +120,6 @@ const OUT_OF_FAMILY_DETAILS: Record<string, string> = {
   use_17260_17286: 'malignant lesion destruction is billed with the malignant destruction codes',
   use_24600_24605_or_fracture_codes: 'true dislocation or fracture care is billed with the dislocation/fracture codes',
   use_29280_hand_or_finger_strapping: 'finger strapping is billed with the hand/finger strapping code',
-  use_31238_endoscopic_control: 'endoscopic control of a nosebleed is billed with the endoscopy code',
   use_94644_94645_continuous: 'continuous treatment over one hour is billed with the continuous inhalation codes',
   use_96360_96361: 'saline-only hydration is billed with the hydration codes',
   'use_cast_codes_29000-29086_or_29305-29450': 'cast application is billed with cast codes',
@@ -139,8 +137,6 @@ const BLOCKED_DETAILS: Record<string, string> = {
     '(search the fracture-treatment code in the CPT search, e.g., 25600 for distal radius or 23500 for clavicle).',
   prefabricated_application_not_billable:
     "No application code — fitting a prefabricated device is included in the device's charge.",
-  bleeding_control_bundled_into_causative_procedure:
-    "Bleeding control during the causing procedure is included in that procedure's code — no separate code.",
   bundled_into_same_site_procedure:
     "Drainage at the same site as another procedure is included in that procedure's code — no separate code.",
   bundled_into_same_area_musculoskeletal_procedure:
@@ -924,12 +920,15 @@ export default function ProceduresNew({
         <ActionsList
           data={recommendedBillingCodes}
           getKey={(value) => value.code}
+          // Add/added controls render inline, right after the code text (not right-edge).
           renderItem={(value) => (
-            <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(value.code)}>
-              <strong>{value.code}</strong> &ndash; {value.description}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(value.code)}>
+                <strong>{value.code}</strong> &ndash; {value.description}
+              </Typography>
+              {!isReadOnly && renderRecommendedCptActions(value)}
+            </Box>
           )}
-          renderActions={isReadOnly ? undefined : renderRecommendedCptActions}
           divider
         />
       );
@@ -944,33 +943,34 @@ export default function ProceduresNew({
             <ActionsList
               data={suggestedEntries}
               getKey={(entry, index) => `${index}-${cptDtoLineKey(entry)}`}
+              // Add/added controls render inline, right after "CODE – descriptor" (not right-edge).
               renderItem={(entry) => (
-                <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(entry.code)}>
-                  <strong>{formatCptCodeForDisplay({ ...entry, display: entry.code })}</strong>
-                  {suggestedCodeDescriptors[entry.code] != null && <> &ndash; {suggestedCodeDescriptors[entry.code]}</>}
-                </Typography>
-              )}
-              renderActions={
-                isReadOnly
-                  ? undefined
-                  : (entry) =>
-                      existingCptLineKeys.has(cptDtoLineKey(entry)) ? (
-                        <IconButton size="small" disabled aria-label={`CPT code ${entry.code} already added`}>
-                          <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(entry.code)}>
+                    <strong>{formatCptCodeForDisplay({ ...entry, display: entry.code })}</strong>
+                    {suggestedCodeDescriptors[entry.code] != null && (
+                      <> &ndash; {suggestedCodeDescriptors[entry.code]}</>
+                    )}
+                  </Typography>
+                  {!isReadOnly &&
+                    (existingCptLineKeys.has(cptDtoLineKey(entry)) ? (
+                      <IconButton size="small" disabled aria-label={`CPT code ${entry.code} already added`}>
+                        <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
+                      </IconButton>
+                    ) : (
+                      <Tooltip title="Add CPT code">
+                        <IconButton
+                          size="small"
+                          aria-label={`Add CPT code ${entry.code}`}
+                          onClick={() => addSuggestedCptCodes([entry])}
+                          data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(entry.code)}
+                        >
+                          <AddCircleOutline sx={{ fontSize: '17px' }} />
                         </IconButton>
-                      ) : (
-                        <Tooltip title="Add CPT code">
-                          <IconButton
-                            size="small"
-                            aria-label={`Add CPT code ${entry.code}`}
-                            onClick={() => addSuggestedCptCodes([entry])}
-                            data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(entry.code)}
-                          >
-                            <AddCircleOutline sx={{ fontSize: '17px' }} />
-                          </IconButton>
-                        </Tooltip>
-                      )
-              }
+                      </Tooltip>
+                    ))}
+                </Box>
+              )}
               divider
             />
             {!isReadOnly && suggestedEntries.length > 1 && !allSuggestedAdded && (
@@ -1003,10 +1003,7 @@ export default function ProceduresNew({
         {suggestion.requiredDocumentation.length > 0 && (
           <Box data-testid={dataTestIds.documentProcedurePage.requiredDocumentationList}>
             <Typography variant="body2" sx={{ fontWeight: 700 }}>
-              Required documentation
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Include these in the procedure fields or the procedure details note.
+              Include in procedure details text, if not already there:
             </Typography>
             {suggestion.requiredDocumentation.map((item) => (
               <Typography key={item} variant="body2" component="div" color="text.secondary">
@@ -1020,12 +1017,10 @@ export default function ProceduresNew({
   };
 
   // ── Documentation defense — driven by codingDispatch.defend. ──
-  const [billingNotesOpen, setBillingNotesOpen] = useState<boolean>(false);
   const defense = codingAssist.defense;
   const notSupportedFindings = defense?.codes.filter((finding) => finding.status === 'not-supported') ?? [];
   const supportedCodes = defense?.codes.filter((f) => f.status === 'supported').map((f) => f.code) ?? [];
   const notAssessedCodes = defense?.codes.filter((f) => f.status === 'not-assessed').map((f) => f.code) ?? [];
-  const payerNotes = [...new Set([...(suggestion?.payerNotes ?? []), ...(defense?.payerNotes ?? [])])];
   // Defense reasons embed the suggestion's raw flags; a missing fact already listed in the
   // suggestion area shows ONCE (dropped here), and surviving missing:* reasons humanize the
   // same way the suggestion flags do.
@@ -1041,33 +1036,6 @@ export default function ProceduresNew({
   const amberBoxVisible = displayedFindings.length > 0;
   const positiveStateVisible = !amberBoxVisible && supportedCodes.length > 0;
   const notAssessedLineVisible = notAssessedCodes.length > 0 && (amberBoxVisible || positiveStateVisible);
-
-  // Payer/billing notes are biller material: collapsed behind a default-closed disclosure,
-  // with trailing spec citations stripped from DISPLAY only (the stored strings keep them).
-  const stripSpecCitation = (note: string): string => note.replace(/\s*Spec [A-Za-z0-9./ §&-]+\.?$/, '');
-  const payerNotesContent = (): ReactNode =>
-    payerNotes.length > 0 ? (
-      <Box>
-        <Box
-          onClick={() => setBillingNotesOpen((open) => !open)}
-          sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', width: 'fit-content' }}
-        >
-          {billingNotesOpen ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            Billing notes
-          </Typography>
-        </Box>
-        <Collapse in={billingNotesOpen}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {payerNotes.map((note) => (
-              <Typography key={note} variant="body2" color="text.secondary">
-                {stripSpecCitation(note)}
-              </Typography>
-            ))}
-          </Box>
-        </Collapse>
-      </Box>
-    ) : null;
 
   const cptWidget = (): ReactElement => {
     return (
@@ -1709,7 +1677,6 @@ export default function ProceduresNew({
                     </Box>
                   ))}
                 </Box>
-                {payerNotesContent()}
               </Container>
             )}
             {positiveStateVisible && (
@@ -1717,7 +1684,6 @@ export default function ProceduresNew({
                 <Typography variant="body2" sx={{ color: 'success.main' }}>
                   Documentation supports {supportedCodes.join(', ')}
                 </Typography>
-                {payerNotesContent()}
               </Box>
             )}
             {notAssessedLineVisible && (

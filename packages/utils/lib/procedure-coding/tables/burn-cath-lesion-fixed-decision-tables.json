@@ -5,13 +5,12 @@
     "derivedFrom": "burn-cath-lesion-fixed-cleanroom-spec.md (rule numbers cited per row as specRef)",
     "revised": "2026-09-05 — fixed-code-singles split into four single-code families (nail-trephination, nursemaid-elbow, iv-catheter-placement, nebulizer): a single family with four code-emitting gate tables is unevaluable under meta.semantics.chaining's single-entry convention (evaluation starts at the FIRST code-emitting rowLookup, so subungual.gate's wildcard row would swallow every case). Rows/bands/caps/checklists carried over verbatim; the shared singles.sameDayEm/unitCaps/doc/payerNotes tables were distributed per family (36000 gets no sameDayEm table — it has no E/M PTP edits and the sole-service gate already blocks combined encounters). See scripts/procedure-coding-schema-spike/summary-small-families.md.",
     "vocabulary": {
-      "tableKinds": ["rowLookup", "threshold", "unitCaps", "docChecklist", "payerNotes"],
+      "tableKinds": ["rowLookup", "threshold", "unitCaps", "docChecklist"],
       "semantics": {
         "rowLookup": "Rows are evaluated top-down; 'when' is a conjunction of exact-equality tests on declared facts; a fact omitted from 'when' is a wildcard; the FIRST matching row wins; 'output' is opaque data returned to the caller. No expressions, no computation.",
         "threshold": "One integer fact banded into contiguous ranges by 'bands' (min/max inclusive, null = unbounded); the matching band's 'output' is returned.",
         "unitCaps": "Per-code maximum billable units per date of service; caps are absolute inputs to claim assembly, never computed.",
         "docChecklist": "All listed items are required documentation for the code; items are human-verified, not computed.",
-        "payerNotes": "Free-text constraints surfaced to the human coder; never evaluated.",
         "chaining": "A matched row/band output whose flags contain 'proceed:<tableId>' transfers evaluation to that table (rowLookup or threshold alike); bare 'proceed' means the next code-emitting rowLookup in document order. An output with no proceed flag settles evaluation: its codes (possibly empty) are the emission."
       },
       "outputConventions": {
@@ -35,11 +34,6 @@
           "name": "tbsa_tenths_treated",
           "type": "integer",
           "description": "TBSA of the partial-thickness burn(s) treated, summed across sites, in TENTHS of a percent (4.5% = 45) — makes the 5%/10% boundaries exact. Spec A2, bespoke-code note 1."
-        },
-        {
-          "name": "em_separately_identifiable",
-          "type": "boolean",
-          "description": "Separately identifiable E/M performed and documented. Spec A6."
         }
       ],
       "tables": [
@@ -67,17 +61,6 @@
             { "min": 1, "max": 49, "output": { "codes": [{ "code": "16020", "units": 1, "modifiers": [] }], "specRef": "A2.2" } },
             { "min": 50, "max": 100, "output": { "codes": [{ "code": "16025", "units": 1, "modifiers": [] }], "specRef": "A2.2" } },
             { "min": 101, "max": null, "output": { "codes": [{ "code": "16030", "units": 1, "modifiers": [] }], "specRef": "A2.2" } }
-          ]
-        },
-        {
-          "id": "burns.sameDayEm",
-          "kind": "rowLookup",
-          "inputs": ["em_separately_identifiable"],
-          "rows": [
-            { "when": { "em_separately_identifiable": true },
-              "output": { "emAllowed": true, "emModifiers": ["25"], "note": "Modifier 25 required on the office E/M.", "specRef": "A6" } },
-            { "when": { "em_separately_identifiable": false },
-              "output": { "emAllowed": false, "note": "Decision-to-perform E/M is included in the minor procedure.", "specRef": "A6.1" } }
           ]
         },
         {
@@ -116,18 +99,6 @@
             "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
           ],
           "specRef": "B1"
-        },
-        {
-          "id": "burns.payerNotes",
-          "kind": "payerNotes",
-          "notes": [
-            "One burn code per session — multiple sites sum TBSA into one code, never two burn codes. Spec A2.1/B2.1.",
-            "Same-day 16000 + 16020-16030 needs a distinct-site modifier; conservative posture is the partial-thickness code alone. Spec A3.7/B2.2 / open question 3.",
-            "Global 000: each dressing-change visit is separately billable; payers may impose visit limits. Spec A4.",
-            "The engine bands on TBSA only; exemplar-only documentation ('whole face', 'whole extremity') needs human review. Spec A2.3 / open question 1.",
-            "Cleansing, topicals, dressings, debridement, anesthesia, and supplies are integral — never code separately. Spec A5.",
-            "Not separately reportable with same-site debridement, biopsy, or grafting/wound-prep codes. Spec B2.5."
-          ]
         }
       ]
     },
@@ -157,11 +128,6 @@
           "type": "enum",
           "allowedValues": ["medicare", "other"],
           "description": "Medicare vs all other payers. Drives 51701 vs P9612 for specimen-only straight cath. Spec A9."
-        },
-        {
-          "name": "em_separately_identifiable",
-          "type": "boolean",
-          "description": "Separately identifiable E/M performed and documented. Spec A11."
         }
       ],
       "tables": [
@@ -180,17 +146,6 @@
               "output": { "codes": [{ "code": "51702", "units": 1, "modifiers": [] }], "specRef": "A8.2" } },
             { "when": { "catheter_type": "temporary_indwelling", "indwelling_insertion_complicated": true },
               "output": { "codes": [{ "code": "51703", "units": 1, "modifiers": [] }], "note": "Complicating factor must be concretely documented.", "specRef": "A8.3" } }
-          ]
-        },
-        {
-          "id": "cath.sameDayEm",
-          "kind": "rowLookup",
-          "inputs": ["em_separately_identifiable"],
-          "rows": [
-            { "when": { "em_separately_identifiable": true },
-              "output": { "emAllowed": true, "emModifiers": ["25"], "note": "Modifier 25 required; the visit addressing the underlying condition typically qualifies when documented.", "specRef": "A11" } },
-            { "when": { "em_separately_identifiable": false },
-              "output": { "emAllowed": false, "note": "Decision-to-catheterize E/M is included in the minor procedure.", "specRef": "A11.1" } }
           ]
         },
         {
@@ -249,20 +204,6 @@
             "Catheter type/size, sterile technique"
           ],
           "specRef": "B5/A9.1"
-        },
-        {
-          "id": "cath.payerNotes",
-          "kind": "payerNotes",
-          "notes": [
-            "Exactly one insertion code per day; a failed straight cath converted to Foley codes 51702 only. Spec B6.1/B6.2.",
-            "Two same-day catheterizations of the same kind = 2 units of one code; never mix insertion codes. Spec B7.",
-            "Never report 51701-51703 with any same-day procedure carrying a surgical global period. Spec A10.",
-            "A catheter placed as part of another procedure is included in that procedure's code — not separately billable. Spec A10.",
-            "Removing an indwelling catheter without replacement has no procedure code — it is part of the E/M. Spec A8.5.",
-            "There is no complicated tier for straight catheterization: a difficult in-and-out cath is still 51701. Spec A8.4 / open question 4.",
-            "The Medicare specimen-only rule (P9612) rests on claim edits and specialty guidance, not manual text. Spec open question 5.",
-            "All three CPT codes are global 000; modifier 50 does not apply. Spec B8."
-          ]
         }
       ]
     },
@@ -280,11 +221,6 @@
           "name": "lesion_count",
           "type": "integer",
           "description": "Exact number of lesions destroyed this session; drives the 14/15 boundary. Spec A13."
-        },
-        {
-          "name": "em_separately_identifiable",
-          "type": "boolean",
-          "description": "Separately identifiable E/M performed and documented. Spec A16."
         }
       ],
       "tables": [
@@ -319,17 +255,6 @@
           ]
         },
         {
-          "id": "destr.sameDayEm",
-          "kind": "rowLookup",
-          "inputs": ["em_separately_identifiable"],
-          "rows": [
-            { "when": { "em_separately_identifiable": true },
-              "output": { "emAllowed": true, "emModifiers": ["25"], "note": "Modifier 25 required on the office E/M.", "specRef": "A16" } },
-            { "when": { "em_separately_identifiable": false },
-              "output": { "emAllowed": false, "note": "Decision-to-perform E/M is included in the minor procedure.", "specRef": "A16.1" } }
-          ]
-        },
-        {
           "id": "destr.unitCaps",
           "kind": "unitCaps",
           "caps": [
@@ -351,19 +276,6 @@
             "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
           ],
           "specRef": "B9"
-        },
-        {
-          "id": "destr.payerNotes",
-          "kind": "payerNotes",
-          "notes": [
-            "17110 and 17111 are never billed together; at 15+ lesions 17111 replaces 17110. Spec A13.2.",
-            "Units are always 1 for both codes. Spec B10.",
-            "10-day global: decision E/M is bundled (modifier 25 when separately identifiable); wound checks within 10 days are included. Spec A16.",
-            "Only one removal code per lesion: same-lesion biopsy is included; report only the completed destruction method. Spec A14/A15.",
-            "Mixing destruction families same day is allowed only for genuinely distinct lesions, with 59/XS. Spec B11.2.",
-            "Warts and molluscum belong to 17110/17111, not the 17000 premalignant series. Spec A12.1.",
-            "Benign-lesion destruction is medical-necessity sensitive — document symptoms/indication. Spec open question 8."
-          ]
         }
       ]
     },
@@ -387,11 +299,6 @@
           "name": "digits_treated",
           "type": "integer",
           "description": "Distinct digits with subungual hematoma evacuation; digit modifiers appended by the human coder. Spec A17.5."
-        },
-        {
-          "name": "em_separately_identifiable",
-          "type": "boolean",
-          "description": "Separately identifiable E/M performed and documented (shared attestation fact for this family). Spec A17.4/A18.4/A20.5."
         }
       ],
       "tables": [
@@ -512,38 +419,6 @@
           ]
         },
         {
-          "id": "subungual.sameDayEm",
-          "kind": "rowLookup",
-          "inputs": [
-            "em_separately_identifiable"
-          ],
-          "note": "Modifier 25 on a separately identifiable E/M. Spec A17.4.",
-          "rows": [
-            {
-              "when": {
-                "em_separately_identifiable": true
-              },
-              "output": {
-                "emAllowed": true,
-                "emModifiers": [
-                  "25"
-                ],
-                "specRef": "A17.4/A18.4/A20.5"
-              }
-            },
-            {
-              "when": {
-                "em_separately_identifiable": false
-              },
-              "output": {
-                "emAllowed": false,
-                "note": "Decision-to-perform E/M is included in the minor procedure.",
-                "specRef": "A17.4/A18.4"
-              }
-            }
-          ]
-        },
-        {
           "id": "subungual.unitCaps",
           "kind": "unitCaps",
           "caps": [
@@ -570,13 +445,6 @@
             "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
           ],
           "specRef": "B13"
-        },
-        {
-          "id": "subungual.payerNotes",
-          "kind": "payerNotes",
-          "notes": [
-            "11740 is bundled into nail avulsion/repair/excision and same-digit laceration or I&D codes — one service per digit absent a distinct-site modifier. Spec A17.3/A17.4."
-          ]
         }
       ]
     },
@@ -595,11 +463,6 @@
             "other"
           ],
           "description": "Documented elbow condition; true_dislocation_or_fracture routes out; other = no subluxation confirmed. Spec A18.2/A18.3."
-        },
-        {
-          "name": "em_separately_identifiable",
-          "type": "boolean",
-          "description": "Separately identifiable E/M performed and documented (shared attestation fact for this family). Spec A17.4/A18.4/A20.5."
         }
       ],
       "tables": [
@@ -654,38 +517,6 @@
           ]
         },
         {
-          "id": "nursemaid.sameDayEm",
-          "kind": "rowLookup",
-          "inputs": [
-            "em_separately_identifiable"
-          ],
-          "note": "Modifier 25 on a separately identifiable E/M (some legacy payers took 57). Spec A18.4.",
-          "rows": [
-            {
-              "when": {
-                "em_separately_identifiable": true
-              },
-              "output": {
-                "emAllowed": true,
-                "emModifiers": [
-                  "25"
-                ],
-                "specRef": "A17.4/A18.4/A20.5"
-              }
-            },
-            {
-              "when": {
-                "em_separately_identifiable": false
-              },
-              "output": {
-                "emAllowed": false,
-                "note": "Decision-to-perform E/M is included in the minor procedure.",
-                "specRef": "A17.4/A18.4"
-              }
-            }
-          ]
-        },
-        {
           "id": "nursemaid.unitCaps",
           "kind": "unitCaps",
           "caps": [
@@ -712,14 +543,6 @@
             "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
           ],
           "specRef": "B14"
-        },
-        {
-          "id": "nursemaid.payerNotes",
-          "kind": "payerNotes",
-          "notes": [
-            "24640: MUE 1, MAI 2 — same-day re-reduction is not separately payable; bilateral reduction reports modifier 50. Spec A18.5 / open question 7.",
-            "Most payers take modifier 25 on the E/M; some legacy guidance used 57 — contract dependent. Spec A18.4."
-          ]
         }
       ]
     },
@@ -809,13 +632,6 @@
             "Disposition (e.g., transferred with IV in place)"
           ],
           "specRef": "B15"
-        },
-        {
-          "id": "venous.payerNotes",
-          "kind": "payerNotes",
-          "notes": [
-            "36000 is status B for Medicare — never paid separately, even reported alone; commercial payability is contract-dependent. Spec A19.3."
-          ]
         }
       ]
     },
@@ -845,11 +661,6 @@
           "name": "neb_episodes_of_care",
           "type": "integer",
           "description": "Separate episodes of care (arrival to departure) with inhalation treatment this date; back-to-back treatments within one episode count once. Spec A20.2."
-        },
-        {
-          "name": "em_separately_identifiable",
-          "type": "boolean",
-          "description": "Separately identifiable E/M performed and documented (shared attestation fact for this family). Spec A17.4/A18.4/A20.5."
         }
       ],
       "tables": [
@@ -1066,38 +877,6 @@
           ]
         },
         {
-          "id": "neb.sameDayEm",
-          "kind": "rowLookup",
-          "inputs": [
-            "em_separately_identifiable"
-          ],
-          "note": "Modifier 25 always required on the same-day E/M — office and ED levels alike. Spec A20.5.",
-          "rows": [
-            {
-              "when": {
-                "em_separately_identifiable": true
-              },
-              "output": {
-                "emAllowed": true,
-                "emModifiers": [
-                  "25"
-                ],
-                "specRef": "A17.4/A18.4/A20.5"
-              }
-            },
-            {
-              "when": {
-                "em_separately_identifiable": false
-              },
-              "output": {
-                "emAllowed": false,
-                "note": "Decision-to-perform E/M is included in the minor procedure.",
-                "specRef": "A17.4/A18.4"
-              }
-            }
-          ]
-        },
-        {
           "id": "neb.unitCaps",
           "kind": "unitCaps",
           "caps": [
@@ -1124,17 +903,6 @@
             "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
           ],
           "specRef": "B16"
-        },
-        {
-          "id": "neb.payerNotes",
-          "kind": "payerNotes",
-          "notes": [
-            "94640 bills once per episode of care regardless of back-to-back treatments; separate same-date episodes add modifier-76 lines (some payers prefer units). Spec A20.2 / open question 10.",
-            "When 94640 treats acute obstruction, same-day spirometry is not separately reportable; never report 94640 for a 94060 study's bronchodilator. Spec A20.3.",
-            "Device demonstration (94664) is included at the same encounter; bill it only for a separate same-date encounter. Spec A20.4.",
-            "The inhaled medication (e.g., J7613 albuterol) is separately reportable with 94640. Spec A20.3.3.",
-            "The same-day E/M — office or ED, any level — always needs modifier 25 with 94640. Spec A20.5."
-          ]
         }
       ]
     }

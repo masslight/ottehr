@@ -3,7 +3,7 @@
 // cross-wound/cross-side summing, and complex base/add-on arithmetic exceed the
 // weak table vocabulary, so this family stays code — but it consumes the facts +
 // tables declared in ../tables/laceration-facts.json (every code number, band
-// edge, group membership, unit cap, checklist, and payer note is data there) and
+// edge, group membership, unit cap, and checklist is data there) and
 // returns the evaluator's exact result shapes so dispatch is uniform.
 //
 // Sided-site keys (see laceration-facts.json meta.vocabulary.sidedSiteKeys):
@@ -53,7 +53,6 @@ interface Table {
   caps?: { code: string; maxUnitsPerDay: number }[];
   codes?: string[];
   required?: string[];
-  notes?: { trigger: string; note: string }[];
 }
 
 export interface LacerationDoc {
@@ -76,7 +75,6 @@ interface Tables {
   capDefault: number;
   caps: Record<string, number>;
   checklists: { codes: string[]; required: string[] }[];
-  payerNotes: Record<string, string>;
   siIndex: Record<string, { cls: 'simple' | 'intermediate'; group: string }>;
   cxIndex: Record<string, { group: string; role: 'base' | 'second' | 'addOn' }>;
 }
@@ -106,7 +104,6 @@ function parseDoc(doc: LacerationDoc): Tables {
     checklists: fam.tables
       .filter((x) => x.kind === 'docChecklist')
       .map((x) => ({ codes: x.codes ?? [], required: x.required ?? [] })),
-    payerNotes: Object.fromEntries((table('payerNotes').notes ?? []).map((n) => [n.trigger, n.note])),
     siIndex: {},
     cxIndex: {},
   };
@@ -146,7 +143,6 @@ interface Evaluation {
   buckets: Bucket[];
   lines: { line: SuggestedClaimLine; bucket: Bucket }[];
   flags: string[];
-  noteTriggers: string[];
   missing: string[];
   latAsks: string[];
   review: boolean;
@@ -191,10 +187,9 @@ function emitBucket(t: Tables, ev: Evaluation, facts: LacerationFacts, b: Bucket
   if (b.allAdhesive) {
     if (facts.payer_type === 'medicare') {
       ev.flags.push(`medicare_adhesive_only:G0168:${b.group}`); // A1.4
-      ev.noteTriggers.push('medicare-adhesive-only');
       return [{ code: 'G0168', units: 1, modifiers: [] }];
     }
-    ev.noteTriggers.push('adhesive-only-cpt'); // A1.7 + open question 3
+    // A1.7 + open question 3: non-Medicare adhesive-only bills the standard CPT repair code.
   }
   const series = t.series.find((s) => s.group === b.group);
   const step = series?.steps.find((st) => st.maxCm === null || b.totalCm <= st.maxCm + EPS);
@@ -207,7 +202,6 @@ function evaluate(t: Tables, facts: LacerationFacts): Evaluation {
     buckets: [],
     lines: [],
     flags: [],
-    noteTriggers: [],
     missing: [],
     latAsks: [],
     review: false,
@@ -293,7 +287,6 @@ function evaluate(t: Tables, facts: LacerationFacts): Evaluation {
   for (const b of ev.buckets) {
     for (const line of emitBucket(t, ev, facts, b)) ev.lines.push({ line, bucket: b });
   }
-  if (ev.buckets.length > 1) ev.noteTriggers.push('multi-group-day'); // A5.3
   return ev;
 }
 
@@ -303,7 +296,6 @@ function assemble(t: Tables, ev: Evaluation): EvaluatorSuggestResult {
   const res: EvaluatorSuggestResult = {
     codes: [],
     requiredDocumentation: [],
-    payerNotes: [],
     flags: [...ev.flags],
     aux: {},
   };
@@ -344,10 +336,6 @@ function assemble(t: Tables, ev: Evaluation): EvaluatorSuggestResult {
     if (cl.codes.includes('*') ? emitted.length > 0 : cl.codes.some((c) => emitted.includes(c))) {
       res.requiredDocumentation.push(...cl.required);
     }
-  }
-  for (const trigger of new Set(ev.noteTriggers)) {
-    const note = t.payerNotes[trigger];
-    if (note) res.payerNotes.push(note);
   }
   return res;
 }

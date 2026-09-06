@@ -71,8 +71,7 @@ const normalize = (family: ProcedureCodingFamilyId, facts: AnyFamilyFacts): AnyF
   normalizeFactsForFamily(family, facts as Record<string, unknown>) as AnyFamilyFacts;
 
 /** Routes the evaluator's auxiliary table outputs onto the result: laterality
- * modifiers attach to the emitted lines; same-day-E/M and diagnosis guidance
- * surface as payer notes (the existing advisory channel). */
+ * modifiers attach to the emitted lines. */
 function applyAux(result: SuggestResult, aux: Record<string, unknown>): void {
   if (result.codes.length === 0) return;
   const appendModifiers = aux.appendModifiers;
@@ -82,20 +81,6 @@ function applyAux(result: SuggestResult, aux: Record<string, unknown>): void {
         if (typeof modifier === 'string' && !line.modifiers.includes(modifier)) line.modifiers.push(modifier);
       }
     }
-  }
-  const requiredDx = aux.requiredDx;
-  if (Array.isArray(requiredDx) && requiredDx.length > 0) {
-    result.payerNotes.push(`Diagnosis coding: link ${requiredDx.join(', ')} to support the claim.`);
-  }
-  if (aux.emAllowed === true) {
-    const emModifiers = Array.isArray(aux.emModifiers)
-      ? aux.emModifiers.filter((m): m is string => typeof m === 'string')
-      : [];
-    result.payerNotes.push(
-      emModifiers.length > 0
-        ? `Same-day E/M is separately reportable — append modifier ${emModifiers.join(', ')} to the E/M line.`
-        : 'Same-day E/M is separately reportable.'
-    );
   }
 }
 
@@ -126,7 +111,7 @@ export const codingDispatch: CodingDispatch = {
             selected,
             normalized as unknown as Facts
           );
-    // Payer notes and blocking flags surface through suggest (the UI unions the two).
-    return { codes, payerNotes: [], flags: [] };
+    // Blocking flags surface through suggest.
+    return { codes, flags: [] };
   },
 };

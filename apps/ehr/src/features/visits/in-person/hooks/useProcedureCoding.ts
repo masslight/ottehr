@@ -110,8 +110,8 @@ export function useProcedureCoding(input: UseProcedureCodingInput): UseProcedure
         console.error('procedure coding dispatch failed', error);
         const flags = [`engine_error:${error instanceof Error ? error.message : String(error)}`];
         setEvaluations({
-          suggestion: { codes: [], requiredDocumentation: [], payerNotes: [], flags, review: true },
-          defense: { codes: [], payerNotes: [], flags },
+          suggestion: { codes: [], requiredDocumentation: [], flags, review: true },
+          defense: { codes: [], flags },
         });
       }
     }, EVALUATION_DEBOUNCE_MS);

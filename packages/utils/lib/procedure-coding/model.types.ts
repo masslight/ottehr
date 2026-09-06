@@ -82,8 +82,6 @@ export interface SuggestResult {
   codes: SuggestedClaimLine[];
   /** Human-verified documentation checklist for the emitted codes. */
   requiredDocumentation: string[];
-  /** Free-text payer constraints to surface to the coder; never evaluated. */
-  payerNotes: string[];
   /** True when the output is not authoritative and needs human review (e.g. 'other' site). */
   review?: boolean;
   /** Blocking/advisory strings the caller must surface ('blocked:*', 'advisory:*', 'em_only:*', 'out_of_family:*', 'missing:*'). */
@@ -102,7 +100,6 @@ export interface DefendCodeFinding {
 export interface DefendResult {
   /** One finding per selected code, same order as the input selection. */
   codes: DefendCodeFinding[];
-  payerNotes: string[];
   flags: string[];
 }
 

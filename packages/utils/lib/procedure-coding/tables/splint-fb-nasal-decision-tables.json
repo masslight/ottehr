@@ -4,13 +4,12 @@
     "generated": "2026-09-05",
     "derivedFrom": "splint-fb-nasal-cleanroom-spec.md (rule numbers cited per row as specRef)",
     "vocabulary": {
-      "tableKinds": ["rowLookup", "threshold", "unitCaps", "docChecklist", "payerNotes"],
+      "tableKinds": ["rowLookup", "threshold", "unitCaps", "docChecklist"],
       "semantics": {
         "rowLookup": "Rows are evaluated top-down; 'when' is a conjunction of exact-equality tests on declared facts; a fact omitted from 'when' is a wildcard; the FIRST matching row wins; 'output' is opaque data returned to the caller. No expressions, no computation.",
         "threshold": "One integer fact banded into contiguous ranges by 'bands' (min/max inclusive, null = unbounded); the matching band's 'output' is returned.",
         "unitCaps": "Per-code maximum billable units per date of service; caps are absolute inputs to claim assembly, never computed.",
         "docChecklist": "All listed items are required documentation for the code; items are human-verified, not computed.",
-        "payerNotes": "Free-text constraints surfaced to the human coder; never evaluated.",
         "chaining": "A matched row/band output whose flags contain 'proceed:<tableId>' transfers evaluation to that table (rowLookup or threshold alike); bare 'proceed' means the next code-emitting rowLookup in document order. An output with no proceed flag settles evaluation: its codes (possibly empty) are the emission."
       },
       "outputConventions": {
@@ -69,11 +68,6 @@
           "type": "enum",
           "allowedValues": ["medicare", "other"],
           "description": "Medicare Part B vs all other payers; drives bilateral claim format. Spec A6.2."
-        },
-        {
-          "name": "em_separately_identifiable",
-          "type": "boolean",
-          "description": "Separately identifiable E/M performed and documented. Spec A5."
         }
       ],
       "tables": [
@@ -193,15 +187,6 @@
           ]
         },
         {
-          "id": "splint.sameDayEm",
-          "kind": "rowLookup",
-          "inputs": ["em_separately_identifiable"],
-          "rows": [
-            { "when": { "em_separately_identifiable": true }, "output": { "emAllowed": true, "emModifiers": ["25"], "note": "Modifier 25 required on office AND ED E/M; the injury workup typically qualifies.", "specRef": "A5.1-A5.3" } },
-            { "when": { "em_separately_identifiable": false }, "output": { "emAllowed": false, "note": "Decision-to-apply E/M is included in the minor procedure.", "specRef": "A5.1" } }
-          ]
-        },
-        {
           "id": "splint.unitCaps",
           "kind": "unitCaps",
           "caps": [
@@ -236,31 +221,13 @@
             "For 29580: compression indication (e.g., venous stasis ulcer) documented"
           ],
           "specRef": "B1"
-        },
-        {
-          "id": "splint.payerNotes",
-          "kind": "payerNotes",
-          "notes": [
-            "A provider performing or assuming restorative fracture care bills the fracture code, never 29xxx. Spec A3.",
-            "Stabilize-and-refer pattern: E/M-25 (if separately identifiable) + application code + Q4001-Q4051 supplies. Spec A3.3.",
-            "Prefabricated/off-the-shelf splint or orthosis: application is never separately billable; the L code includes fitting. Spec A2.2.",
-            "Removal by the same entity is included; 29700-29750 only when a different entity applied the device. Spec A3.8.",
-            "One device code per limb/region; different-limb combinations need 59/XS plus laterality modifiers. Spec B2.1.",
-            "Same-site wound-care debridement (97597/97598/97602) or orthotic management (97760/97763) is not separately payable. Spec A7.3.",
-            "Lower-leg splint/strap/Unna boot with peripheral nerve-block injections (64450-64455) denies. Spec A7.4.",
-            "Bilateral: modifier 50, one line, one unit (Medicare); 2-unit or 2-line claims deny. Commercial payers may want LT/RT lines. Spec A6 / open question 5.",
-            "ED E/M 99281-99285 with any family code requires modifier 25 — this family has active ED-E/M edits. Spec A5.3.",
-            "Unna boot (29580): paste bandage supplies are included; ulcer debridement is payable only as a distinct service. Spec A7.2/A7.3.",
-            "Elastic-bandage-only wraps and buddy-taping have no verified mapping — conservative default is E/M only. Spec open questions 6/7.",
-            "S9088/99051 urgent-care add-ons are commercial-payer conventions, outside Medicare rules. Spec open question 12."
-          ]
         }
       ]
     },
     {
       "family": "foreign-body-removal",
       "codes": ["10120", "10121", "30300", "65222", "69200"],
-      "adjacentCodes": ["30310", "65205", "65210", "65220", "69205"],
+      "adjacentCodes": ["65205", "65210", "65220"],
       "facts": [
         {
           "name": "fb_site",
@@ -295,11 +262,6 @@
           "note": "Whether multiple FBs escalate to 10121 is unsettled; the tables use units and surface an advisory."
         },
         {
-          "name": "general_anesthesia",
-          "type": "boolean",
-          "description": "General anesthesia required (ear: 69205; nose: 30310); moderate sedation does not count. Spec A10.3/A11.2."
-        },
-        {
           "name": "slit_lamp_used",
           "type": "boolean",
           "description": "Slit lamp used for the corneal removal (code-defining for 65222 vs 65220). Spec A12.1."
@@ -315,25 +277,18 @@
           "type": "enum",
           "allowedValues": ["left", "right", "bilateral", "na"],
           "description": "Side for ear/eye codes; 'na' for subcutaneous/nasal. Spec A11.4/A12.4."
-        },
-        {
-          "name": "em_separately_identifiable",
-          "type": "boolean",
-          "description": "Separately identifiable E/M; for eye codes an exam solely confirming the need for removal does NOT qualify. Spec A13."
         }
       ],
       "tables": [
         {
           "id": "fbr.gate",
           "kind": "rowLookup",
-          "inputs": ["fb_site", "general_anesthesia"],
+          "inputs": ["fb_site"],
           "rows": [
             { "when": { "fb_site": "deeper_than_subcutaneous" },
               "output": { "codes": [], "flags": ["out_of_family:use_musculoskeletal_site_fbr_codes"], "note": "Code by site from the musculoskeletal system (e.g., 20520/20525, 28190-28193).", "specRef": "A8.2" } },
             { "when": { "fb_site": "subcutaneous" },
               "output": { "flags": ["proceed:fbr.subqIncisionGate"], "specRef": "A9" } },
-            { "when": { "fb_site": "intranasal", "general_anesthesia": true },
-              "output": { "codes": [{ "code": "30310", "units": 1, "modifiers": [] }], "flags": ["advisory:adjacent_code_verify_setting"], "note": "General-anesthesia removal (typically OR); 10-day global.", "specRef": "A10.3" } },
             { "when": { "fb_site": "intranasal" },
               "output": { "codes": [{ "code": "30300", "units": 1, "modifiers": [] }], "note": "Instrumented office removal; no laterality modifiers; 10-day global.", "specRef": "A10.1/A10.4" } },
             { "when": { "fb_site": "external_auditory_canal" },
@@ -395,25 +350,17 @@
         {
           "id": "fbr.ear",
           "kind": "rowLookup",
-          "inputs": ["general_anesthesia", "laterality"],
-          "note": "Never add cerumen codes 69209/69210 same ear/session; 69205 requires GENERAL anesthesia (moderate sedation does not qualify).",
+          "inputs": ["laterality"],
+          "note": "Never add cerumen codes 69209/69210 same ear/session.",
           "rows": [
-            { "when": { "general_anesthesia": false, "laterality": "left" },
+            { "when": { "laterality": "left" },
               "output": { "codes": [{ "code": "69200", "units": 1, "modifiers": ["LT"] }], "specRef": "A11.1" } },
-            { "when": { "general_anesthesia": false, "laterality": "right" },
+            { "when": { "laterality": "right" },
               "output": { "codes": [{ "code": "69200", "units": 1, "modifiers": ["RT"] }], "specRef": "A11.1" } },
-            { "when": { "general_anesthesia": false, "laterality": "bilateral" },
+            { "when": { "laterality": "bilateral" },
               "output": { "codes": [{ "code": "69200", "units": 1, "modifiers": ["50"] }], "note": "One line, one unit, modifier 50; the cap is absolute — never 2 units.", "specRef": "A11.4" } },
-            { "when": { "general_anesthesia": false },
-              "output": { "codes": [{ "code": "69200", "units": 1, "modifiers": [] }], "specRef": "A11.1" } },
-            { "when": { "general_anesthesia": true, "laterality": "left" },
-              "output": { "codes": [{ "code": "69205", "units": 1, "modifiers": ["LT"] }], "flags": ["advisory:adjacent_code_verify_setting"], "specRef": "A11.2" } },
-            { "when": { "general_anesthesia": true, "laterality": "right" },
-              "output": { "codes": [{ "code": "69205", "units": 1, "modifiers": ["RT"] }], "flags": ["advisory:adjacent_code_verify_setting"], "specRef": "A11.2" } },
-            { "when": { "general_anesthesia": true, "laterality": "bilateral" },
-              "output": { "codes": [{ "code": "69205", "units": 1, "modifiers": ["50"] }], "flags": ["advisory:adjacent_code_verify_setting"], "specRef": "A11.2/A11.4" } },
-            { "when": { "general_anesthesia": true },
-              "output": { "codes": [{ "code": "69205", "units": 1, "modifiers": [] }], "flags": ["advisory:adjacent_code_verify_setting"], "specRef": "A11.2" } }
+            { "when": {},
+              "output": { "codes": [{ "code": "69200", "units": 1, "modifiers": [] }], "specRef": "A11.1" } }
           ]
         },
         {
@@ -461,34 +408,23 @@
           ]
         },
         {
-          "id": "fbr.sameDayEm",
-          "kind": "rowLookup",
-          "inputs": ["em_separately_identifiable"],
-          "rows": [
-            { "when": { "em_separately_identifiable": true }, "output": { "emAllowed": true, "emModifiers": ["25"], "note": "Modifier 25 required on office E/M; for eye codes an exam solely confirming the removal does not qualify.", "specRef": "A13.1/A13.2/A12.5" } },
-            { "when": { "em_separately_identifiable": false }, "output": { "emAllowed": false, "note": "Decision-to-perform E/M is included in the minor procedure.", "specRef": "A13.1" } }
-          ]
-        },
-        {
           "id": "fbr.unitCaps",
           "kind": "unitCaps",
           "caps": [
             { "code": "10120", "maxUnitsPerDay": 3, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)", "specRef": "B7" },
             { "code": "10121", "maxUnitsPerDay": 2, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)", "specRef": "B7" },
             { "code": "30300", "maxUnitsPerDay": 1, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: CMS Policy)", "specRef": "B7" },
-            { "code": "30310", "maxUnitsPerDay": 1, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: CMS Policy)", "specRef": "B7" },
             { "code": "65205", "maxUnitsPerDay": 1, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: CMS Policy)", "specRef": "B7" },
             { "code": "65210", "maxUnitsPerDay": 1, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: CMS Policy)", "specRef": "B7" },
             { "code": "65220", "maxUnitsPerDay": 1, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: CMS Policy)", "specRef": "B7" },
             { "code": "65222", "maxUnitsPerDay": 1, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: CMS Policy)", "specRef": "B7" },
-            { "code": "69200", "maxUnitsPerDay": 1, "mai": 2, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: CMS Policy)", "specRef": "B7" },
-            { "code": "69205", "maxUnitsPerDay": 1, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: CMS Policy)", "specRef": "B7" }
+            { "code": "69200", "maxUnitsPerDay": 1, "mai": 2, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: CMS Policy)", "specRef": "B7" }
           ]
         },
         {
           "id": "fbr.doc.common",
           "kind": "docChecklist",
-          "code": "10120|10121|30300|65220|65222|69200|69205",
+          "code": "10120|10121|30300|65220|65222|69200",
           "required": [
             "Foreign body type and anatomic location (site + laterality where applicable)",
             "Visualization method (direct, otoscope, slit lamp)",
@@ -556,22 +492,6 @@
             "If E/M billed: exam purpose beyond confirming the need for the removal"
           ],
           "specRef": "B5/A12"
-        },
-        {
-          "id": "fbr.payerNotes",
-          "kind": "payerNotes",
-          "notes": [
-            "Incision is mandatory for 10120/10121; removal without one is E/M only. Spec A9.1.",
-            "Multiple FBs bill 10120 units here, but some payers expect 10121 for multiple FBs — verify payer policy. Spec open question 2.",
-            "FBs deeper than subcutaneous use musculoskeletal site codes, which take precedence. Spec A8.2.",
-            "30300/30310/69205 carry 10-day globals: related visits within 10 days are bundled. Spec B8.",
-            "69200/69205 bundle cerumen removal 69209/69210; 69205 requires general anesthesia — moderate sedation never qualifies. Spec A11.2/A11.3.",
-            "One corneal code per eye per session; corneal repair/scraping codes conflict on the same eye. Spec A12.3.",
-            "65205/65210 carry no automatic claim edits — constraints are policy-only.",
-            "Same-day established office E/M requires modifier 25; no ED-E/M edits exist for this family. Spec A13.2.",
-            "Eye/ear codes: RT/LT; true bilateral = modifier 50, one line, one unit. Spec A11.4/A12.4.",
-            "Multiple corneal FBs in one eye = one unit; consider modifier 22 with documentation. Spec A12.4 / open question 10."
-          ]
         }
       ]
     },
@@ -580,16 +500,6 @@
       "codes": ["30901", "30903", "30905"],
       "adjacentCodes": ["30906"],
       "facts": [
-        {
-          "name": "procedure_induced_bleeding",
-          "type": "boolean",
-          "description": "Bleeding due to a nasal/sinus procedure at this encounter (control bundled; return-to-OR bleeds use modifier 78). Spec A19.1."
-        },
-        {
-          "name": "endoscope_required_for_control",
-          "type": "boolean",
-          "description": "Endoscope required for control (not mere visualization) — routes to 31238, out of family. Spec A19.2."
-        },
         {
           "name": "posterior_control",
           "type": "boolean",
@@ -618,23 +528,14 @@
           "type": "enum",
           "allowedValues": ["medicare", "other"],
           "description": "Medicare Part B vs all other payers; drives bilateral claim format for the anterior codes. Spec A18."
-        },
-        {
-          "name": "em_separately_identifiable",
-          "type": "boolean",
-          "description": "Separately identifiable workup beyond the control procedure. Spec A19.3."
         }
       ],
       "tables": [
         {
           "id": "epistaxis.gate",
           "kind": "rowLookup",
-          "inputs": ["procedure_induced_bleeding", "endoscope_required_for_control", "posterior_control", "left_anterior_extent", "right_anterior_extent"],
+          "inputs": ["posterior_control", "left_anterior_extent", "right_anterior_extent"],
           "rows": [
-            { "when": { "procedure_induced_bleeding": true },
-              "output": { "codes": [], "flags": ["blocked:bleeding_control_bundled_into_causative_procedure"], "note": "Not separately reportable; a return-to-OR postoperative bleed uses modifier 78 (human coder decision).", "specRef": "A19.1" } },
-            { "when": { "endoscope_required_for_control": true },
-              "output": { "codes": [], "flags": ["out_of_family:use_31238_endoscopic_control"], "specRef": "A19.2" } },
             { "when": { "posterior_control": true },
               "output": { "flags": ["proceed:epistaxis.posterior"], "specRef": "A17" } },
             { "when": { "left_anterior_extent": "none", "right_anterior_extent": "none" },
@@ -688,7 +589,7 @@
             { "when": { "left_anterior_extent": "limited", "right_anterior_extent": "limited", "payer_type": "medicare" },
               "output": { "codes": [{ "code": "30901", "units": 1, "modifiers": ["50"] }], "note": "Bilateral: one line, modifier 50, one unit.", "specRef": "A18.1" } },
             { "when": { "left_anterior_extent": "limited", "right_anterior_extent": "limited", "payer_type": "other" },
-              "output": { "codes": [{ "code": "30901", "units": 1, "modifiers": ["50"] }], "note": "CPT default; some commercial payers want LT/RT lines or 2 units — see payerNotes.", "specRef": "A18.1" } },
+              "output": { "codes": [{ "code": "30901", "units": 1, "modifiers": ["50"] }], "note": "CPT default; some commercial payers want LT/RT lines or 2 units — see the spec.", "specRef": "A18.1" } },
             { "when": { "left_anterior_extent": "extensive", "right_anterior_extent": "extensive", "payer_type": "medicare" },
               "output": { "codes": [{ "code": "30903", "units": 1, "modifiers": ["50"] }], "specRef": "A18.1" } },
             { "when": { "left_anterior_extent": "extensive", "right_anterior_extent": "extensive", "payer_type": "other" },
@@ -713,15 +614,6 @@
               "output": { "codes": [{ "code": "30903", "units": 1, "modifiers": ["RT"] }], "specRef": "A16.2/A18" } },
             { "when": { "left_anterior_extent": "temporary_pledget_only", "right_anterior_extent": "extensive" },
               "output": { "codes": [{ "code": "30903", "units": 1, "modifiers": ["RT"] }], "specRef": "A15.1/A16.2" } }
-          ]
-        },
-        {
-          "id": "epistaxis.sameDayEm",
-          "kind": "rowLookup",
-          "inputs": ["em_separately_identifiable"],
-          "rows": [
-            { "when": { "em_separately_identifiable": true }, "output": { "emAllowed": true, "emModifiers": ["25"], "note": "Modifier 25 required on office E/M; no ED-E/M edits exist (policy still applies).", "specRef": "A19.3" } },
-            { "when": { "em_separately_identifiable": false }, "output": { "emAllowed": false, "note": "Decision-to-perform E/M is included in the minor procedure.", "specRef": "A19.3" } }
           ]
         },
         {
@@ -776,21 +668,6 @@
             "Recurrent bleeding and the repeat pack/cautery performed"
           ],
           "specRef": "B9/A17.3"
-        },
-        {
-          "id": "epistaxis.payerNotes",
-          "kind": "payerNotes",
-          "notes": [
-            "One same-side code per encounter; hierarchy 30905 > 30903 > 30901; anterior + posterior same side = 30905 only. Spec A17.",
-            "Initial and subsequent posterior codes are never billed together in one session. Spec A17.3.",
-            "'Extensive' has no official definition; device POSITION (anterior vs posterior), not brand, decides the code. Spec open question 1.",
-            "Bilateral anterior (Medicare): modifier 50, one line, one unit; 2-unit claims deny. Commercial payers vary — check the contract. Spec A18.1.",
-            "30905/30906: never modifier 50, never 2 units — the fee already covers the posterior field. Spec A18.2.",
-            "A temporary pledget to locate the site, removed with no packing left, is E/M only. Spec A15.1.",
-            "Packing removal at a later visit is part of that visit's E/M — no procedure code. Spec A17.4.",
-            "Bleeding control during nasal/sinus procedures is bundled; endoscope-dependent control is 31238; return-to-OR bleeds use modifier 78. Spec A19.",
-            "Same-day established office E/M requires modifier 25; no ED-E/M edits exist. Spec A19.3."
-          ]
         }
       ]
     }

@@ -5,14 +5,13 @@
     "derivedFrom": "laceration-cleanroom-spec.md (rule numbers cited per entry as specRef)",
     "consumer": "laceration-core.ts (bespoke family core). The class cascade, class-dependent site grouping, cross-wound summing, and complex add-on arithmetic exceed the weak table vocabulary, so this file is NOT interpreted by evaluator.ts — but it declares the family's facts in the same style as the reference decision tables, and every code number, band edge, group membership, unit cap, checklist, and payer note lives here as data, not in code.",
     "vocabulary": {
-      "tableKinds": ["siteGroups", "bandSeries", "complexSeries", "unitCaps", "docChecklist", "payerNotes"],
+      "tableKinds": ["siteGroups", "bandSeries", "complexSeries", "unitCaps", "docChecklist"],
       "semantics": {
         "siteGroups": "Per repair class, the CPT site groupings (spec A3). Group membership is class-dependent: the same base site can change groups when the class changes (hand: S-A simple, I-2 intermediate, C-3 complex).",
         "bandSeries": "Simple/intermediate code ladders (spec A4). 'steps' are ordered; each step's maxCm is the inclusive upper bound of its band (null = unbounded). The core picks the first step whose maxCm >= summed group length.",
         "complexSeries": "Complex base/second/add-on structure per group (spec A4/A6). floorCm is the 1.1 cm complex minimum; add-on units = ceil((L - 7.5) / 5), 'each additional 5 cm or less'.",
         "unitCaps": "Per-code MUE maximum billable units per date of service (spec B4). defaultMaxUnitsPerDay covers every family code not listed in caps (all base repair codes are MUE 1, MAI 2).",
-        "docChecklist": "Required documentation for the listed codes; items are human-verified, not computed. codes: [\"*\"] applies to every emitted code.",
-        "payerNotes": "Free-text constraints surfaced to the human coder. Unlike the reference tables these carry a 'trigger' the core matches; never evaluated as logic beyond that."
+        "docChecklist": "Required documentation for the listed codes; items are human-verified, not computed. codes: [\"*\"] applies to every emitted code."
       },
       "sidedSiteKeys": "Wound-map keys. Paired sites appear only as '<site>-left' / '<site>-right' (the form offers no side-less option for paired sites); midline sites are bare keys. Legacy convention for imported/pre-sided data ONLY (not offered by the form): '<pairedSite>-unsided' is accepted with full group membership plus a laterality item added to requiredDocumentation. 'other' (or any unrecognized key) yields review-not-authoritative output: no codes, review flag + reason."
     }
@@ -177,15 +176,6 @@
           "codes": ["G0168"],
           "required": ["Medicare beneficiary; tissue adhesive was the SOLE closure material — no sutures or staples"],
           "specRef": "B2"
-        },
-        {
-          "id": "laceration.payerNotes",
-          "kind": "payerNotes",
-          "notes": [
-            { "trigger": "adhesive-only-cpt", "note": "When tissue adhesive is the only closure, Medicare is billed with G0168 instead of a CPT repair code; commercial handling varies.", "specRef": "A1.4/A1.7" },
-            { "trigger": "medicare-adhesive-only", "note": "Medicare adhesive-only closure bills G0168; facilities report the CPT repair code instead.", "specRef": "A1.4/A1.6/B5" },
-            { "trigger": "multi-group-day", "note": "List the most complicated repair first and append modifier 59 to the less complicated line(s); some payers expect 51 within the same group.", "specRef": "A5.3" }
-          ]
         }
       ]
     }

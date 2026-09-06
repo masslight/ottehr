@@ -1,7 +1,7 @@
 // Generic interpreter for the reviewed procedure-coding decision tables
 // (./tables/*-decision-tables.json). Implements ONLY the weak vocabulary:
 // rowLookup (top-down first match, omitted fact = wildcard), threshold banding,
-// unit caps, doc checklists, payer notes. No family-specific branches, no expressions.
+// unit caps, doc checklists. No family-specific branches, no expressions.
 //
 // Chaining convention (generic, mirrored in the JSON's meta.semantics.chaining):
 // a matched row/band output whose flags contain "proceed:<tableId>" transfers the walk
@@ -40,7 +40,7 @@ interface UnitCap {
 
 interface Table {
   id: string;
-  kind: 'rowLookup' | 'threshold' | 'unitCaps' | 'docChecklist' | 'payerNotes';
+  kind: 'rowLookup' | 'threshold' | 'unitCaps' | 'docChecklist';
   input?: string;
   inputs?: string[];
   rows?: Row[];
@@ -48,7 +48,6 @@ interface Table {
   caps?: UnitCap[];
   code?: string;
   required?: string[];
-  notes?: string[];
 }
 
 export interface Family {
@@ -102,7 +101,7 @@ export function checklistDocs(tables: Table[], emitted: string[]): string[] {
 export function suggest(doc: TableDoc, familyName: string, facts: Facts): EvaluatorSuggestResult {
   const family = getFamily(doc, familyName);
   const tables = family.tables;
-  const result: EvaluatorSuggestResult = { codes: [], requiredDocumentation: [], payerNotes: [], flags: [], aux: {} };
+  const result: EvaluatorSuggestResult = { codes: [], requiredDocumentation: [], flags: [], aux: {} };
 
   let current = tables.find(emitsCodes);
   while (current) {
@@ -152,7 +151,6 @@ export function suggest(doc: TableDoc, familyName: string, facts: Facts): Evalua
 
   const emitted = result.codes.map((line) => line.code);
   result.requiredDocumentation.push(...checklistDocs(tables, emitted));
-  result.payerNotes.push(...tables.filter((t) => t.kind === 'payerNotes').flatMap((t) => t.notes ?? []));
 
   // Auxiliary rowLookup tables (no code outputs) contribute advisory data — only when
   // all their declared input facts are determined, so wildcard rows can't fire on unknowns.
@@ -193,7 +191,8 @@ export function defend(
       return { code, status: 'not-assessed' as const, reasons: [`${code} is outside the ${familyName} tables`] };
     }
     if (!emitted.includes(code)) {
-      const alternative = emitted.length > 0 ? [`tables yield ${emitted.join(' + ')} for these facts`] : [];
+      const alternative =
+        emitted.length > 0 ? [`The documentation supports ${emitted.join(' + ')}, not this code.`] : [];
       return { code, status: 'not-supported' as const, reasons: [...suggestion.flags, ...alternative] };
     }
     const cap = familyCaps(family).find((c) => c.code === code);
