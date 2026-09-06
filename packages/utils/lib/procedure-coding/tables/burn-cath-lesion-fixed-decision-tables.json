@@ -99,7 +99,6 @@
             "Depth documented as first-degree (epidermis only)",
             "Initial encounter for this burn",
             "Local treatment performed (cleansing, topical agent, dressing); no more than local treatment required",
-            "Who performed the treatment",
             "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
           ],
           "specRef": "B1"
@@ -113,7 +112,6 @@
             "Depth documented as partial-thickness (second-degree) per site",
             "TBSA percentage per site and summed total, with method (rule of nines / Lund-Browder / burn diagram)",
             "Treatment performed: cleansing, topical agent, dressing type, debridement (what was debrided)",
-            "Who performed the treatment",
             "Initial vs subsequent encounter noted",
             "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
           ],
@@ -137,11 +135,6 @@
       "family": "urinary-catheterization",
       "codes": ["51701", "51702", "51703", "P9612"],
       "facts": [
-        {
-          "name": "part_of_other_procedure",
-          "type": "boolean",
-          "description": "Catheterization at/just before another procedure, for surgical access, or with any same-day global procedure. Spec A10."
-        },
         {
           "name": "catheter_type",
           "type": "enum",
@@ -175,10 +168,8 @@
         {
           "id": "cath.gate",
           "kind": "rowLookup",
-          "inputs": ["part_of_other_procedure", "catheter_type", "purpose", "payer_type", "indwelling_insertion_complicated"],
+          "inputs": ["catheter_type", "purpose", "payer_type", "indwelling_insertion_complicated"],
           "rows": [
-            { "when": { "part_of_other_procedure": true },
-              "output": { "codes": [], "flags": ["blocked:integral_to_other_procedure"], "note": "Not separately reportable alongside another procedure or for surgical access.", "specRef": "A10" } },
             { "when": { "catheter_type": "straight_nonindwelling", "purpose": "specimen_collection_only", "payer_type": "medicare" },
               "output": { "codes": [{ "code": "P9612", "units": 1, "modifiers": [] }], "note": "Medicare: specimen-only straight cath is P9612, never 51701.", "specRef": "A9.1" } },
             { "when": { "catheter_type": "straight_nonindwelling", "purpose": "specimen_collection_only", "payer_type": "other" },
@@ -221,9 +212,7 @@
             "Catheter type and size",
             "Catheter removed at end of encounter",
             "Sterile technique/prep",
-            "Result: volume drained / PVR value / specimen obtained",
-            "Patient tolerance and complications",
-            "Who performed"
+            "Result: volume drained / PVR value / specimen obtained"
           ],
           "specRef": "B5"
         },
@@ -236,9 +225,7 @@
             "Catheter type and size (e.g., Foley, French size, balloon volume)",
             "Catheter left indwelling; secured to drainage bag; removal plan",
             "Sterile technique/prep",
-            "Volume drained / urine character",
-            "Patient tolerance and complications",
-            "Who performed"
+            "Volume drained / urine character"
           ],
           "specRef": "B5"
         },
@@ -259,7 +246,7 @@
           "required": [
             "Straight catheterization performed solely to obtain a urine specimen",
             "Specimen sent for urinalysis / culture / sensitivity",
-            "Catheter type/size, sterile technique, tolerance"
+            "Catheter type/size, sterile technique"
           ],
           "specRef": "B5/A9.1"
         },
@@ -270,6 +257,7 @@
             "Exactly one insertion code per day; a failed straight cath converted to Foley codes 51702 only. Spec B6.1/B6.2.",
             "Two same-day catheterizations of the same kind = 2 units of one code; never mix insertion codes. Spec B7.",
             "Never report 51701-51703 with any same-day procedure carrying a surgical global period. Spec A10.",
+            "A catheter placed as part of another procedure is included in that procedure's code — not separately billable. Spec A10.",
             "Removing an indwelling catheter without replacement has no procedure code — it is part of the E/M. Spec A8.5.",
             "There is no complicated tier for straight catheterization: a difficult in-and-out cath is still 51701. Spec A8.4 / open question 4.",
             "The Medicare specimen-only rule (P9612) rests on claim edits and specialty guidance, not manual text. Spec open question 5.",

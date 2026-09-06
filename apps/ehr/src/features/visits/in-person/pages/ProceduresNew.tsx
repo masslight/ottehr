@@ -141,8 +141,6 @@ const BLOCKED_DETAILS: Record<string, string> = {
     "No application code — fitting a prefabricated device is included in the device's charge.",
   bleeding_control_bundled_into_causative_procedure:
     "Bleeding control during the causing procedure is included in that procedure's code — no separate code.",
-  integral_to_other_procedure:
-    "A catheter placed for another procedure is included in that procedure's code — no separate code.",
   bundled_into_same_site_procedure:
     "Drainage at the same site as another procedure is included in that procedure's code — no separate code.",
   bundled_into_same_area_musculoskeletal_procedure:
@@ -1006,6 +1004,9 @@ export default function ProceduresNew({
           <Box data-testid={dataTestIds.documentProcedurePage.requiredDocumentationList}>
             <Typography variant="body2" sx={{ fontWeight: 700 }}>
               Required documentation
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Include these in the procedure fields or the procedure details note.
             </Typography>
             {suggestion.requiredDocumentation.map((item) => (
               <Typography key={item} variant="body2" component="div" color="text.secondary">

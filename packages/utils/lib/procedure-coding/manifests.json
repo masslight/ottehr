@@ -840,11 +840,6 @@
   "family": "urinary-catheterization",
   "fields": [
    {
-    "name": "part_of_other_procedure",
-    "kind": "checkbox",
-    "label": "Part of another procedure"
-   },
-   {
     "name": "catheter_type",
     "kind": "select",
     "label": "Catheter type",

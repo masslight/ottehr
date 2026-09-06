@@ -180,7 +180,6 @@ export interface EkgFacts {
 // ── urinary-catheterization ─────────────────────────────────────────────────
 
 export interface UrinaryCatheterizationFacts {
-  part_of_other_procedure?: boolean;
   catheter_type?: 'straight_nonindwelling' | 'temporary_indwelling';
   indwelling_insertion_complicated?: boolean;
   purpose?: 'specimen_collection_only' | 'residual_urine_measurement' | 'retention_or_drainage' | 'other';
