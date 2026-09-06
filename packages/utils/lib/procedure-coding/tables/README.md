@@ -1,7 +1,8 @@
 # Decision tables — synced copies, do not edit here
 
-The reviewed source of truth for the four `*-decision-tables.json` files is
-`~/development/documents/`, and for `laceration-facts.json` it is the external
-validation harness (`scripts/procedure-coding-schema-spike/` on the otr-3230
-worktree). These copies must stay byte-identical to their sources — change the
-canonical file first (with review), then re-copy it here.
+These JSON files are byte-identical copies of the reviewed rules files in the
+procedure-coding requirements package (the "procedureCoding" document set,
+maintained outside this repo, which also contains the per-family rules
+specifications and the external validation suite). To change a rule: edit the
+reviewed rules file first (with review), run the validation suite green, then
+re-copy the file here unchanged.
