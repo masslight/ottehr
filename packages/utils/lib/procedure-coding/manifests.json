@@ -804,7 +804,8 @@
       "value": "interpretation_only",
       "label": "Interpretation of an outside tracing"
      }
-    ]
+    ],
+    "defaultValue": "tracing_and_interpretation"
    },
    {
     "name": "num_ecgs_same_day",
