@@ -294,9 +294,25 @@ export default function ProceduresNew({
   const queryClient = useQueryClient();
 
   const { encounter } = useAppointmentData();
-  const { setDraft, getDraft, clearDraft, hasDraft } = useProcedureStore();
+  // Subscribe narrowly: the render only needs two booleans from the draft store, and
+  // the actions are stable references. A whole-store subscription re-rendered this page
+  // on every setDraft, turning draft writes into an external-store re-render loop that
+  // React's update-depth guard cannot see (hard renderer freeze, OTR-3230).
+  const setDraft = useProcedureStore((store) => store.setDraft);
+  const clearDraft = useProcedureStore((store) => store.clearDraft);
+  const hasDraft = useProcedureStore((store) => store.hasDraft);
   useMarkDraftNavigatedAway({ encounterId: encounter.id ?? '', setDraft, hasDraft });
-  const draft = !procedureId && encounter.id ? getDraft(encounter.id) : {};
+  const draftExists = useProcedureStore((store) =>
+    !procedureId && encounter.id ? store.hasDraft(encounter.id) : false
+  );
+  const draftNavigatedAway = useProcedureStore((store) =>
+    encounter.id ? store.draftsByEncounterId[encounter.id]?.hasNavigatedAway === true : false
+  );
+  // Mount-time snapshot for seeding only — useState/useForm defaults below were only
+  // ever read on the first render, so this matches the previous behavior exactly.
+  const [draft] = useState(() =>
+    !procedureId && encounter.id ? useProcedureStore.getState().getDraft(encounter.id) : {}
+  );
 
   const isReadOnly = useMemo(() => {
     return appointmentAccessibility.isAppointmentReadOnly;
@@ -362,23 +378,29 @@ export default function ProceduresNew({
     [mergedQuickPicks]
   );
 
-  const updateState = useCallback(
-    (stateMutator: (draft: LocalPageState) => void): void => {
-      setState((prev) => {
-        const next = { ...prev };
-        stateMutator(next);
-        if (!procedureId && encounter.id) {
-          // The updater runs during React's render phase; writing the zustand draft
-          // store there re-renders subscribers mid-render (update-depth crashes), so
-          // defer the draft write until after this update commits.
-          const encounterId = encounter.id;
-          queueMicrotask(() => setDraft(encounterId, pageStateToDraft(next)));
-        }
-        return next;
-      });
-    },
-    [setDraft, encounter.id, procedureId]
-  );
+  const draftWritePendingRef = useRef(false);
+  const updateState = useCallback((stateMutator: (draft: LocalPageState) => void): void => {
+    draftWritePendingRef.current = true;
+    setState((prev) => {
+      const next = { ...prev };
+      stateMutator(next);
+      return next;
+    });
+  }, []);
+
+  // Persist the draft from a commit-phase effect, never from the setState updater:
+  // React replays updaters during the render phase, so a store write there (even one
+  // deferred with queueMicrotask) re-queued itself faster than the microtask queue
+  // could drain — an unbounded write→re-render loop and a frozen renderer (OTR-3230).
+  // The ref restricts writes to updateState-driven changes, matching the previous
+  // behavior (mount, edit-mode loads, and Clear Form never wrote the draft).
+  useEffect(() => {
+    if (!draftWritePendingRef.current) return;
+    draftWritePendingRef.current = false;
+    if (!procedureId && encounter.id) {
+      setDraft(encounter.id, pageStateToDraft(state));
+    }
+  }, [state, procedureId, encounter.id, setDraft]);
 
   const handleClearForm = (): void => {
     if (encounter.id) clearDraft(encounter.id);
@@ -1403,10 +1425,10 @@ export default function ProceduresNew({
             dataTestId={dataTestIds.documentProcedurePage.title}
           />
         )}
-        {!procedureId && hasDraft(encounter.id ?? '') && (
+        {draftExists && (
           <UnsavedDraftWarning
             message={
-              draft.hasNavigatedAway
+              draftNavigatedAway
                 ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
                 : 'You have a procedure in progress. Your draft will be saved.'
             }
