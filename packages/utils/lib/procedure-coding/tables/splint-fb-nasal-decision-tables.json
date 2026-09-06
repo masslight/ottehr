@@ -54,11 +54,6 @@
           "description": "A 20100-28899 or 29800-29999 procedure was also performed for the same area this encounter. Spec A3.6."
         },
         {
-          "name": "fabricated_from_raw_materials",
-          "type": "boolean",
-          "description": "Splint created from raw materials, not a pre-packaged device; set true for strapping. Spec A2."
-        },
-        {
           "name": "laterality",
           "type": "enum",
           "allowedValues": ["left", "right", "bilateral", "midline_na"],
@@ -85,7 +80,7 @@
         {
           "id": "splint.gate",
           "kind": "rowLookup",
-          "inputs": ["device_type", "care_context", "same_area_musculoskeletal_procedure", "fabricated_from_raw_materials"],
+          "inputs": ["device_type", "care_context", "same_area_musculoskeletal_procedure"],
           "rows": [
             {
               "when": { "device_type": "prefabricated_orthotic" },
@@ -106,10 +101,6 @@
             {
               "when": { "same_area_musculoskeletal_procedure": true },
               "output": { "codes": [], "flags": ["blocked:bundled_into_same_area_musculoskeletal_procedure"], "specRef": "A3.6" }
-            },
-            {
-              "when": { "device_type": "splint", "fabricated_from_raw_materials": false },
-              "output": { "codes": [], "flags": ["blocked:prefabricated_application_not_billable"], "specRef": "A2" }
             },
             {
               "when": {},

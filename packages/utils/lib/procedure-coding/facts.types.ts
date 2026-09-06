@@ -117,7 +117,6 @@ export interface SplintingFacts {
     | 'definitive_care_by_this_provider'
     | 'dressing_after_procedure';
   same_area_musculoskeletal_procedure?: boolean;
-  fabricated_from_raw_materials?: boolean;
   laterality?: 'left' | 'right' | 'bilateral' | 'midline_na';
   finger_count?: number;
   payer_type?: ProcedurePayerType;

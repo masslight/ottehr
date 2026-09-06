@@ -490,17 +490,6 @@
     "label": "Musculoskeletal procedure also performed for this area"
    },
    {
-    "name": "fabricated_from_raw_materials",
-    "kind": "checkbox",
-    "label": "Fabricated from raw materials (plaster / fiberglass / padding)",
-    "visibleWhen": {
-     "fact": "device_type",
-     "anyOf": [
-      "splint"
-     ]
-    }
-   },
-   {
     "name": "laterality",
     "kind": "select",
     "label": "Laterality",

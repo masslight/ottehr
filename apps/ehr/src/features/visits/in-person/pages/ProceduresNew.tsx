@@ -312,7 +312,11 @@ export default function ProceduresNew({
         const next = { ...prev };
         stateMutator(next);
         if (!procedureId && encounter.id) {
-          setDraft(encounter.id, pageStateToDraft(next));
+          // The updater runs during React's render phase; writing the zustand draft
+          // store there re-renders subscribers mid-render (update-depth crashes), so
+          // defer the draft write until after this update commits.
+          const encounterId = encounter.id;
+          queueMicrotask(() => setDraft(encounterId, pageStateToDraft(next)));
         }
         return next;
       });
