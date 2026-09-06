@@ -34,12 +34,12 @@
         {
           "name": "tbsa_tenths_treated",
           "type": "integer",
-          "description": "Total body surface area of the partial-thickness burn(s) treated this session, summed across sites, in TENTHS of a percent (4.5% TBSA = 45; 10% = 100). Tenths resolution makes the 5%/10% descriptor boundaries exact (10.5% = 105 bands as 'greater than 10%'). Spec A2, bespoke-code note 1."
+          "description": "TBSA of the partial-thickness burn(s) treated, summed across sites, in TENTHS of a percent (4.5% = 45) — makes the 5%/10% boundaries exact. Spec A2, bespoke-code note 1."
         },
         {
           "name": "em_separately_identifiable",
           "type": "boolean",
-          "description": "A significant, separately identifiable E/M beyond the decision to perform burn care was performed and documented (clinician attestation). Spec A6."
+          "description": "Separately identifiable E/M performed and documented. Spec A6."
         }
       ],
       "tables": [
@@ -47,23 +47,23 @@
           "id": "burns.gate",
           "kind": "rowLookup",
           "inputs": ["burn_depth"],
-          "note": "2026-09-07 round-2 policy (obvious facts assumed): the visit_type (initial/subsequent) question was removed from the form — 16020-16030 are 'initial or subsequent' by descriptor, and the fact only served the 16000 initial-only boundary. First-degree local treatment now assumes the charted visit is the initial one; the A3.3 subsequent-visit em_only route was dropped with the fact.",
+          "note": "Round-2 policy (obvious facts assumed): the visit_type fact was removed — the initial visit is assumed for first-degree, and 16020-16030 are 'initial or subsequent' by descriptor.",
           "rows": [
             { "when": { "burn_depth": "full_thickness" },
-              "output": { "codes": [], "flags": ["out_of_family:full_thickness_use_debridement_or_grafting_codes"], "note": "16020-16030 describe partial-thickness burns; full-thickness care belongs to 11042+/15002+ families and usually referral.", "specRef": "A3.4 / open question 2" } },
+              "output": { "codes": [], "flags": ["out_of_family:full_thickness_use_debridement_or_grafting_codes"], "note": "Full-thickness care belongs to the debridement/grafting families and usually referral.", "specRef": "A3.4 / open question 2" } },
             { "when": { "burn_depth": "first_degree" },
-              "output": { "codes": [{ "code": "16000", "units": 1, "modifiers": [] }], "note": "First-degree local treatment; 16000 is initial-visit-only and the initial visit is assumed (a subsequent first-degree dressing check is E/M territory, A3.3).", "specRef": "A3.2" } },
+              "output": { "codes": [{ "code": "16000", "units": 1, "modifiers": [] }], "note": "16000 is initial-visit-only; the initial visit is assumed.", "specRef": "A3.2" } },
             { "when": { "burn_depth": "partial_thickness" },
-              "output": { "flags": ["proceed:burns.tbsaBand"], "note": "Band on summed TBSA of partial-thickness burns treated (initial or subsequent visit alike).", "specRef": "A2/A3.1" } }
+              "output": { "flags": ["proceed:burns.tbsaBand"], "specRef": "A2/A3.1" } }
           ]
         },
         {
           "id": "burns.tbsaBand",
           "kind": "threshold",
           "input": "tbsa_tenths_treated",
-          "note": "Value is TBSA x 10. Boundaries per descriptors: <5% -> 16020; 5% to 10% inclusive -> 16025; >10% -> 16030. Exactly 5% (50) and exactly 10% (100) both band to 16025. One code, one unit per session regardless of number of sites (TBSA summed upstream).",
+          "note": "Value is TBSA x 10; exactly 5% (50) and 10% (100) both band to 16025; one code per session (TBSA summed upstream).",
           "bands": [
-            { "min": null, "max": 0, "output": { "band": "none", "flags": ["blocked:no_tbsa_documented"], "note": "Partial-thickness treatment without a documented TBSA cannot band; fix documentation.", "specRef": "B1" } },
+            { "min": null, "max": 0, "output": { "band": "none", "flags": ["blocked:no_tbsa_documented"], "note": "Partial-thickness treatment needs a documented TBSA.", "specRef": "B1" } },
             { "min": 1, "max": 49, "output": { "codes": [{ "code": "16020", "units": 1, "modifiers": [] }], "specRef": "A2.2" } },
             { "min": 50, "max": 100, "output": { "codes": [{ "code": "16025", "units": 1, "modifiers": [] }], "specRef": "A2.2" } },
             { "min": 101, "max": null, "output": { "codes": [{ "code": "16030", "units": 1, "modifiers": [] }], "specRef": "A2.2" } }
@@ -75,9 +75,9 @@
           "inputs": ["em_separately_identifiable"],
           "rows": [
             { "when": { "em_separately_identifiable": true },
-              "output": { "emAllowed": true, "emModifiers": ["25"], "note": "Active PTP edits bundle 99211-99215 into all four codes (mod 1) — modifier 25 required; 99202-99205/99281-99285 have no edit but the minor-procedure policy applies.", "specRef": "A6" } },
+              "output": { "emAllowed": true, "emModifiers": ["25"], "note": "Modifier 25 required on the office E/M.", "specRef": "A6" } },
             { "when": { "em_separately_identifiable": false },
-              "output": { "emAllowed": false, "note": "Decision-to-perform E/M is included in the minor procedure (global 000).", "specRef": "A6.1" } }
+              "output": { "emAllowed": false, "note": "Decision-to-perform E/M is included in the minor procedure.", "specRef": "A6.1" } }
           ]
         },
         {
@@ -98,7 +98,7 @@
             "Anatomic site(s) with laterality",
             "Depth documented as first-degree (epidermis only)",
             "Initial encounter for this burn",
-            "Local treatment performed (cleansing, topical agent, dressing) — no more than local treatment required",
+            "Local treatment performed (cleansing, topical agent, dressing); no more than local treatment required",
             "Who performed the treatment",
             "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
           ],
@@ -123,12 +123,12 @@
           "id": "burns.payerNotes",
           "kind": "payerNotes",
           "notes": [
-            "One burn-family code per session: PTP 16025x16020, 16030x16020, 16030x16025 are all modifier-indicator 0 (never together). Multiple sites -> sum TBSA into one code. Spec A2.1/B2.1.",
-            "Same-day 16000 + 16020-16030 (distinct first-degree and partial-thickness burns) is PTP modifier-indicator 1 — payable only with a distinct-site NCCI modifier; conservative posture is the partial-thickness code alone. Spec A3.7/B2.2 / open question 3.",
-            "All four codes are global 000: each dressing-change visit is separately billable (16020-16030 are 'initial or subsequent'); CPT sets no visit limit but payers may. Spec A4.",
-            "Site exemplars in 16025/16030 ('whole face or whole extremity', 'more than 1 extremity') are illustrative — the engine bands on TBSA only; exemplar-only documentation needs human review. Spec A2.3 / open question 1.",
-            "Cleansing, topical medications, dressings, debridement, local/topical anesthesia, and supplies are integral — never separately coded. Spec A5.",
-            "Burn local treatment is Column 2 (mod 1) of same-site debridement 11010-11012, biopsy, and grafting/wound-prep 15002-15278 codes — not separately reportable with those at the same site. Spec B2.5."
+            "One burn code per session — multiple sites sum TBSA into one code, never two burn codes. Spec A2.1/B2.1.",
+            "Same-day 16000 + 16020-16030 needs a distinct-site modifier; conservative posture is the partial-thickness code alone. Spec A3.7/B2.2 / open question 3.",
+            "Global 000: each dressing-change visit is separately billable; payers may impose visit limits. Spec A4.",
+            "The engine bands on TBSA only; exemplar-only documentation ('whole face', 'whole extremity') needs human review. Spec A2.3 / open question 1.",
+            "Cleansing, topicals, dressings, debridement, anesthesia, and supplies are integral — never code separately. Spec A5.",
+            "Not separately reportable with same-site debridement, biopsy, or grafting/wound-prep codes. Spec B2.5."
           ]
         }
       ]
@@ -140,24 +140,24 @@
         {
           "name": "part_of_other_procedure",
           "type": "boolean",
-          "description": "The catheterization was performed at the time of / just before another procedure, for surgical access, or with any same-day procedure carrying a 000/010/090 global. NCCI Ch7 makes it not separately reportable. Spec A10."
+          "description": "Catheterization at/just before another procedure, for surgical access, or with any same-day global procedure. Spec A10."
         },
         {
           "name": "catheter_type",
           "type": "enum",
           "allowedValues": ["straight_nonindwelling", "temporary_indwelling"],
-          "description": "straight_nonindwelling = in-and-out catheter removed at end of encounter; temporary_indwelling = catheter (e.g., Foley) left in place. Spec A8.1/A8.2."
+          "description": "In-and-out catheter removed at end of encounter vs catheter (e.g., Foley) left in place. Spec A8.1/A8.2."
         },
         {
           "name": "indwelling_insertion_complicated",
           "type": "boolean",
-          "description": "Indwelling insertion required complicated technique: altered anatomy, catheter guide/guide wire, coude/Council-tip for difficult urethra, or difficult removal of retained/fractured catheter plus replacement. Only meaningful for temporary_indwelling (no complicated tier exists for straight cath). Spec A8.3/A8.4."
+          "description": "Complicated insertion technique (altered anatomy, guide wire, difficult removal plus replacement); only meaningful for temporary_indwelling. Spec A8.3/A8.4."
         },
         {
           "name": "purpose",
           "type": "enum",
           "allowedValues": ["specimen_collection_only", "residual_urine_measurement", "retention_or_drainage", "other"],
-          "description": "Primary purpose of the catheterization. specimen_collection_only = sole purpose was obtaining urine for UA/culture. Spec A9."
+          "description": "Primary purpose; specimen_collection_only = sole purpose was urine for UA/culture. Spec A9."
         },
         {
           "name": "payer_type",
@@ -168,7 +168,7 @@
         {
           "name": "em_separately_identifiable",
           "type": "boolean",
-          "description": "A significant, separately identifiable E/M beyond the decision to catheterize was performed and documented. Spec A11."
+          "description": "Separately identifiable E/M performed and documented. Spec A11."
         }
       ],
       "tables": [
@@ -178,17 +178,17 @@
           "inputs": ["part_of_other_procedure", "catheter_type", "purpose", "payer_type", "indwelling_insertion_complicated"],
           "rows": [
             { "when": { "part_of_other_procedure": true },
-              "output": { "codes": [], "flags": ["blocked:integral_to_other_procedure"], "note": "Catheter placed at/just before another procedure, for access, or alongside a same-day global procedure is not separately reportable (NCCI Ch7; 51701/51702 are Column 2 of ~5,800 edits).", "specRef": "A10" } },
+              "output": { "codes": [], "flags": ["blocked:integral_to_other_procedure"], "note": "Not separately reportable alongside another procedure or for surgical access.", "specRef": "A10" } },
             { "when": { "catheter_type": "straight_nonindwelling", "purpose": "specimen_collection_only", "payer_type": "medicare" },
-              "output": { "codes": [{ "code": "P9612", "units": 1, "modifiers": [] }], "note": "Medicare: straight cath solely to obtain a specimen is HCPCS P9612, never 51701 (PTP 51701xP9612 mod 0).", "specRef": "A9.1" } },
+              "output": { "codes": [{ "code": "P9612", "units": 1, "modifiers": [] }], "note": "Medicare: specimen-only straight cath is P9612, never 51701.", "specRef": "A9.1" } },
             { "when": { "catheter_type": "straight_nonindwelling", "purpose": "specimen_collection_only", "payer_type": "other" },
-              "output": { "codes": [{ "code": "51701", "units": 1, "modifiers": [] }], "note": "Commercial payers generally accept 51701 for sterile-specimen catheterization (contract-dependent).", "specRef": "A9.3" } },
+              "output": { "codes": [{ "code": "51701", "units": 1, "modifiers": [] }], "note": "Commercial payers generally accept 51701 for sterile-specimen catheterization.", "specRef": "A9.3" } },
             { "when": { "catheter_type": "straight_nonindwelling" },
-              "output": { "codes": [{ "code": "51701", "units": 1, "modifiers": [] }], "note": "Non-indwelling straight cath for PVR, relief drainage, etc. — any payer.", "specRef": "A8.1/A9.2" } },
+              "output": { "codes": [{ "code": "51701", "units": 1, "modifiers": [] }], "note": "Straight cath for PVR, relief drainage, etc. — any payer.", "specRef": "A8.1/A9.2" } },
             { "when": { "catheter_type": "temporary_indwelling", "indwelling_insertion_complicated": false },
               "output": { "codes": [{ "code": "51702", "units": 1, "modifiers": [] }], "specRef": "A8.2" } },
             { "when": { "catheter_type": "temporary_indwelling", "indwelling_insertion_complicated": true },
-              "output": { "codes": [{ "code": "51703", "units": 1, "modifiers": [] }], "note": "Complicating factor must be concretely documented (altered anatomy, guide wire/catheter guide, difficult removal + replacement).", "specRef": "A8.3" } }
+              "output": { "codes": [{ "code": "51703", "units": 1, "modifiers": [] }], "note": "Complicating factor must be concretely documented.", "specRef": "A8.3" } }
           ]
         },
         {
@@ -197,9 +197,9 @@
           "inputs": ["em_separately_identifiable"],
           "rows": [
             { "when": { "em_separately_identifiable": true },
-              "output": { "emAllowed": true, "emModifiers": ["25"], "note": "PTP edits bundle 99211-99215 into 51701-51703 (mod 1) — modifier 25 required; the typical urgent-care visit addressing the underlying condition qualifies when documented.", "specRef": "A11" } },
+              "output": { "emAllowed": true, "emModifiers": ["25"], "note": "Modifier 25 required; the visit addressing the underlying condition typically qualifies when documented.", "specRef": "A11" } },
             { "when": { "em_separately_identifiable": false },
-              "output": { "emAllowed": false, "note": "Decision-to-catheterize E/M is included in the minor procedure (global 000).", "specRef": "A11.1" } }
+              "output": { "emAllowed": false, "note": "Decision-to-catheterize E/M is included in the minor procedure.", "specRef": "A11.1" } }
           ]
         },
         {
@@ -217,13 +217,13 @@
           "kind": "docChecklist",
           "code": "51701",
           "required": [
-            "Indication (PVR measurement, relief drainage, specimen — if Medicare + specimen-only, code P9612 instead)",
-            "Catheter type and size (straight/red rubber; French size)",
+            "Indication (PVR measurement, relief drainage, specimen)",
+            "Catheter type and size",
             "Catheter removed at end of encounter",
             "Sterile technique/prep",
             "Result: volume drained / PVR value / specimen obtained",
             "Patient tolerance and complications",
-            "Who performed (nurse-performed billable per incident-to/payer rules)"
+            "Who performed"
           ],
           "specRef": "B5"
         },
@@ -248,7 +248,7 @@
           "code": "51703",
           "required": [
             "All 51702 elements",
-            "The complicating factor stated concretely: altered anatomy encountered, catheter guide/guide wire used, coude/Council technique required for a difficult urethra, or difficult removal of retained/fractured catheter plus replacement"
+            "The complicating factor stated concretely: altered anatomy, guide wire/catheter guide, coude/Council technique, or difficult removal plus replacement"
           ],
           "specRef": "B5/A8.3"
         },
@@ -267,13 +267,13 @@
           "id": "cath.payerNotes",
           "kind": "payerNotes",
           "notes": [
-            "Within-family PTP edits are all modifier-indicator 0: 51702x51701, 51703x51701, 51703x51702, and every insertion code x P9612 — exactly one insertion code per day; a failed straight cath converted to Foley codes 51702 only. Spec B6.1/B6.2.",
-            "Two same-day catheterizations of the same kind are reported as 2 units of the same code (MUE 2, MAI 3 — appealable clinical cap); the mod-0 edits forbid mixing codes. Spec B7.",
-            "NCCI Ch7: 51701-51703 shall not be reported with any procedure carrying a 000/010/090-day global; catheter insertion is part of the global surgical package and of surgical access. Spec A10.",
-            "Removal of an indwelling catheter without replacement has no procedure code — it is part of the E/M. Spec A8.5.",
-            "There is no complicated tier for straight catheterization: a difficult in-and-out cath is still 51701 (51703 hangs off the indwelling stem). Spec A8.4 / open question 4.",
-            "The Medicare specimen-only rule (P9612) rests on PTP mod-0 edits + specialty guidance; no CMS narrative manual passage was located — see spec open question 5.",
-            "All three CPT codes are global 000, bilateral indicator 0, multiple-procedure indicator 2. Spec B8."
+            "Exactly one insertion code per day; a failed straight cath converted to Foley codes 51702 only. Spec B6.1/B6.2.",
+            "Two same-day catheterizations of the same kind = 2 units of one code; never mix insertion codes. Spec B7.",
+            "Never report 51701-51703 with any same-day procedure carrying a surgical global period. Spec A10.",
+            "Removing an indwelling catheter without replacement has no procedure code — it is part of the E/M. Spec A8.5.",
+            "There is no complicated tier for straight catheterization: a difficult in-and-out cath is still 51701. Spec A8.4 / open question 4.",
+            "The Medicare specimen-only rule (P9612) rests on claim edits and specialty guidance, not manual text. Spec open question 5.",
+            "All three CPT codes are global 000; modifier 50 does not apply. Spec B8."
           ]
         }
       ]
@@ -286,17 +286,17 @@
           "name": "lesion_category",
           "type": "enum",
           "allowedValues": ["benign_other", "skin_tag", "premalignant", "cutaneous_vascular_proliferative", "anogenital", "malignant"],
-          "description": "benign_other = benign lesions other than skin tags / vascular proliferative lesions: viral warts (common, plantar, flat), molluscum contagiosum, seborrheic keratoses, milia, other benign neoplasms. Other values route out of this family. Spec A12."
+          "description": "benign_other = warts, molluscum, seborrheic keratoses and other benign lesions; the other values route out of this family. Spec A12."
         },
         {
           "name": "lesion_count",
           "type": "integer",
-          "description": "Exact number of lesions destroyed at this session. Drives the 14/15 boundary. Spec A13."
+          "description": "Exact number of lesions destroyed this session; drives the 14/15 boundary. Spec A13."
         },
         {
           "name": "em_separately_identifiable",
           "type": "boolean",
-          "description": "A significant, separately identifiable E/M beyond the decision to destroy the lesions was performed and documented. Spec A16."
+          "description": "Separately identifiable E/M performed and documented. Spec A16."
         }
       ],
       "tables": [
@@ -312,7 +312,7 @@
             { "when": { "lesion_category": "cutaneous_vascular_proliferative" },
               "output": { "codes": [], "flags": ["out_of_family:use_17106_17108"], "specRef": "A12.2" } },
             { "when": { "lesion_category": "anogenital" },
-              "output": { "codes": [], "flags": ["out_of_family:use_site_specific_destruction_codes"], "note": "Anogenital condyloma use site-specific codes (e.g., 46900-46924, 54050-54065).", "specRef": "A12.2" } },
+              "output": { "codes": [], "flags": ["out_of_family:use_site_specific_destruction_codes"], "note": "Anogenital condyloma use site-specific destruction codes.", "specRef": "A12.2" } },
             { "when": { "lesion_category": "malignant" },
               "output": { "codes": [], "flags": ["out_of_family:use_17260_17286"], "specRef": "A12.2" } },
             { "when": { "lesion_category": "benign_other" },
@@ -323,7 +323,7 @@
           "id": "destr.countBand",
           "kind": "threshold",
           "input": "lesion_count",
-          "note": "Flat session codes: units always 1; the two codes are mutually exclusive (PTP 17111x17110 mod 0). Exactly 14 -> 17110; exactly 15 -> 17111.",
+          "note": "Flat session codes: units always 1; the two codes are mutually exclusive; exactly 14 -> 17110, 15 -> 17111.",
           "bands": [
             { "min": null, "max": 0, "output": { "band": "none", "flags": ["blocked:no_lesion_destroyed"] } },
             { "min": 1, "max": 14, "output": { "codes": [{ "code": "17110", "units": 1, "modifiers": [] }], "specRef": "A13.1/A13.3" } },
@@ -336,9 +336,9 @@
           "inputs": ["em_separately_identifiable"],
           "rows": [
             { "when": { "em_separately_identifiable": true },
-              "output": { "emAllowed": true, "emModifiers": ["25"], "note": "PTP edits bundle 99211-99215 into 17110/17111 (mod 1) — modifier 25 required.", "specRef": "A16" } },
+              "output": { "emAllowed": true, "emModifiers": ["25"], "note": "Modifier 25 required on the office E/M.", "specRef": "A16" } },
             { "when": { "em_separately_identifiable": false },
-              "output": { "emAllowed": false, "note": "Decision-to-perform E/M is included in the minor procedure (10-day global).", "specRef": "A16.1" } }
+              "output": { "emAllowed": false, "note": "Decision-to-perform E/M is included in the minor procedure.", "specRef": "A16.1" } }
           ]
         },
         {
@@ -354,12 +354,12 @@
           "kind": "docChecklist",
           "code": "17110|17111",
           "required": [
-            "Lesion type/identity (wart, molluscum, seborrheic keratosis, ...) supporting benign / not skin tag / not vascular proliferative",
-            "Exact count of lesions destroyed (drives the 14/15 boundary)",
+            "Lesion type/identity (wart, molluscum, seborrheic keratosis, ...) supporting benign classification",
+            "Exact count of lesions destroyed",
             "Anatomic site(s) of the lesions",
-            "Destruction method (cryotherapy/electrosurgery/laser/chemosurgery/curettement) and clinician performance",
-            "Medical necessity (symptomatic, spreading, functional impairment — payer benign-lesion policies apply)",
-            "Post-procedure instructions; anesthesia if used (bundled)",
+            "Destruction method and clinician performance",
+            "Medical necessity (symptomatic, spreading, functional impairment)",
+            "Post-procedure instructions; anesthesia if used",
             "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
           ],
           "specRef": "B9"
@@ -368,13 +368,13 @@
           "id": "destr.payerNotes",
           "kind": "payerNotes",
           "notes": [
-            "17110 and 17111 are mutually exclusive: PTP 17111x17110 is modifier-indicator 0. At 15+ lesions 17111 replaces 17110. Spec A13.2.",
-            "Units are always 1 for both codes (MUE 1, MAI 2 — absolute per-day policy caps). Spec B10.",
-            "Both codes carry a 10-day global period: decision E/M is bundled (mod 25 for separately identifiable); wound checks within 10 days are included (99024). Spec A16.",
-            "Only one removal code per lesion (NCCI Ch3 E): biopsy of the same lesion is included; a destruction begun with one method and completed with another reports only the completed method. Spec A14/A15.",
-            "Mixing families same day (17110 + 17000-series, or + 11200) is PTP modifier-indicator 1: allowed only for genuinely distinct lesions with 59/XS. Spec B11.2.",
-            "Warts and molluscum belong to 17110/17111 (not the 17000 premalignant series) since the 2007 revision. Spec A12.1.",
-            "Benign-lesion destruction is medical-necessity sensitive (cosmetic exclusions) under many payer policies — document symptoms/indication. Spec open question 8."
+            "17110 and 17111 are never billed together; at 15+ lesions 17111 replaces 17110. Spec A13.2.",
+            "Units are always 1 for both codes. Spec B10.",
+            "10-day global: decision E/M is bundled (modifier 25 when separately identifiable); wound checks within 10 days are included. Spec A16.",
+            "Only one removal code per lesion: same-lesion biopsy is included; report only the completed destruction method. Spec A14/A15.",
+            "Mixing destruction families same day is allowed only for genuinely distinct lesions, with 59/XS. Spec B11.2.",
+            "Warts and molluscum belong to 17110/17111, not the 17000 premalignant series. Spec A12.1.",
+            "Benign-lesion destruction is medical-necessity sensitive — document symptoms/indication. Spec open question 8."
           ]
         }
       ]
@@ -388,22 +388,22 @@
         {
           "name": "nail_plate_avulsed",
           "type": "boolean",
-          "description": "Nail plate was removed/avulsed to treat the injury (routes to 11730; drainage via avulsion is part of the avulsion). Spec A17.3."
+          "description": "Nail plate removed/avulsed to treat the injury (routes to 11730). Spec A17.3."
         },
         {
           "name": "nail_bed_repair_performed",
           "type": "boolean",
-          "description": "Nail bed laceration was repaired (routes to 11760; 11740 is bundled into nail bed repair). Spec A17.3."
+          "description": "Nail bed laceration repaired (routes to 11760). Spec A17.3."
         },
         {
           "name": "digits_treated",
           "type": "integer",
-          "description": "Number of distinct digits with subungual hematoma evacuation this session. Units up to MUE 2; each line needs its digit modifier (FA/F1-F9/TA/T1-T9), appended by the human coder. Spec A17.5."
+          "description": "Distinct digits with subungual hematoma evacuation; digit modifiers appended by the human coder. Spec A17.5."
         },
         {
           "name": "em_separately_identifiable",
           "type": "boolean",
-          "description": "A significant, separately identifiable E/M was performed and documented alongside whichever single procedure is being coded (shared attestation fact for this family). Spec A17.4/A18.4/A20.5."
+          "description": "Separately identifiable E/M performed and documented (shared attestation fact for this family). Spec A17.4/A18.4/A20.5."
         }
       ],
       "tables": [
@@ -424,7 +424,7 @@
                 "flags": [
                   "out_of_family:use_11760_nail_bed_repair"
                 ],
-                "note": "11740 is Column 2 (mod 1) of 11760/11762 — the repair code subsumes the evacuation on that digit.",
+                "note": "The repair code subsumes the evacuation on that digit.",
                 "specRef": "A17.3"
               }
             },
@@ -437,7 +437,7 @@
                 "flags": [
                   "out_of_family:use_11730_nail_avulsion"
                 ],
-                "note": "Drainage achieved by removing the nail plate is part of the avulsion (11740 is Column 2 of 11730, mod 1).",
+                "note": "Drainage via nail-plate removal is part of the avulsion.",
                 "specRef": "A17.3"
               }
             },
@@ -456,7 +456,7 @@
           "id": "subungual.digitBand",
           "kind": "threshold",
           "input": "digits_treated",
-          "note": "11740 units = distinct digits trephined, capped at the MUE (2). Digit modifiers (FA/F1-F9/TA/T1-T9) are digit-specific and appended by the human coder — the table cannot know which digits (surfaced as an advisory flag).",
+          "note": "Units = distinct digits trephined; cap 2 duplicated from unitCaps; digit modifiers appended by the coder (advisory flag).",
           "bands": [
             {
               "min": null,
@@ -517,7 +517,7 @@
                   "advisory:append_digit_modifiers_per_digit",
                   "advisory:digits_exceed_mue_11740"
                 ],
-                "note": "MUE (MAI 3) caps billable units at 2; the excess denies but is appealable with records.",
+                "note": "MUE caps billable units at 2; the excess denies but is appealable.",
                 "specRef": "A17.5"
               }
             }
@@ -529,7 +529,7 @@
           "inputs": [
             "em_separately_identifiable"
           ],
-          "note": "PTP bundles 99211-99215 into 11740 (mod 1) — modifier 25 on a separately identifiable E/M. Spec A17.4.",
+          "note": "Modifier 25 on a separately identifiable E/M. Spec A17.4.",
           "rows": [
             {
               "when": {
@@ -549,7 +549,7 @@
               },
               "output": {
                 "emAllowed": false,
-                "note": "For 11740/24640 the decision-to-perform E/M is included (minor procedure).",
+                "note": "Decision-to-perform E/M is included in the minor procedure.",
                 "specRef": "A17.4/A18.4"
               }
             }
@@ -574,9 +574,9 @@
           "code": "11740",
           "required": [
             "Digit(s) treated, each with its digit modifier (FA/F1-F9/TA/T1-T9)",
-            "Mechanism of trauma and clinical findings (subungual hematoma; distal phalanx exam)",
-            "X-ray/fracture status if assessed (imaging separately reportable)",
-            "Trephination method (cautery/heated needle/drill/laser)",
+            "Mechanism of trauma and clinical findings",
+            "X-ray/fracture status if assessed",
+            "Trephination method",
             "Drainage achieved; nail plate left intact",
             "Aftercare instructions",
             "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
@@ -587,7 +587,7 @@
           "id": "subungual.payerNotes",
           "kind": "payerNotes",
           "notes": [
-            "11740: global 000; Column 2 (mod 1) of nail avulsion 11730, nail bed repair 11760/11762, nail excisions 11750/11765, same-site laceration repairs 12001-12042 and I&D 10060/10061 — one service per digit absent a distinct-site modifier. Spec A17.3/A17.4."
+            "11740 is bundled into nail avulsion/repair/excision and same-digit laceration or I&D codes — one service per digit absent a distinct-site modifier. Spec A17.3/A17.4."
           ]
         }
       ]
@@ -606,12 +606,12 @@
             "true_dislocation_or_fracture",
             "other"
           ],
-          "description": "Documented elbow condition in the child. true_dislocation_or_fracture routes out (24600/24605 or fracture codes); other = no subluxation confirmed. Spec A18.2/A18.3."
+          "description": "Documented elbow condition; true_dislocation_or_fracture routes out; other = no subluxation confirmed. Spec A18.2/A18.3."
         },
         {
           "name": "em_separately_identifiable",
           "type": "boolean",
-          "description": "A significant, separately identifiable E/M was performed and documented alongside whichever single procedure is being coded (shared attestation fact for this family). Spec A17.4/A18.4/A20.5."
+          "description": "Separately identifiable E/M performed and documented (shared attestation fact for this family). Spec A17.4/A18.4/A20.5."
         }
       ],
       "tables": [
@@ -631,7 +631,7 @@
                 "flags": [
                   "out_of_family:use_24600_24605_or_fracture_codes"
                 ],
-                "note": "True elbow dislocation -> 24600/24605; radial head/neck fracture -> 24650+/24665-24666. 24640 is Column 2 (mod 1) of all four.",
+                "note": "True dislocation -> 24600/24605; radial head/neck fracture -> 24650+.",
                 "specRef": "A18.3"
               }
             },
@@ -659,7 +659,7 @@
                     "modifiers": []
                   }
                 ],
-                "note": "Sling/splint applied as part of treatment is included (NCCI Ch4).",
+                "note": "Sling/splint applied as part of treatment is included.",
                 "specRef": "A18.2/A18.6"
               }
             }
@@ -671,7 +671,7 @@
           "inputs": [
             "em_separately_identifiable"
           ],
-          "note": "PTP bundles 99211-99215 into 24640 (mod 1) — modifier 25 on a separately identifiable E/M (some legacy payers took 57; see payer notes). Spec A18.4.",
+          "note": "Modifier 25 on a separately identifiable E/M (some legacy payers took 57). Spec A18.4.",
           "rows": [
             {
               "when": {
@@ -691,7 +691,7 @@
               },
               "output": {
                 "emAllowed": false,
-                "note": "For 11740/24640 the decision-to-perform E/M is included (minor procedure).",
+                "note": "Decision-to-perform E/M is included in the minor procedure.",
                 "specRef": "A17.4/A18.4"
               }
             }
@@ -729,8 +729,8 @@
           "id": "nursemaid.payerNotes",
           "kind": "payerNotes",
           "notes": [
-            "24640: global 010, MUE 1 with MAI 2 (CMS Policy) — same-day re-reduction is not separately payable; recurrence on a later day within the 10-day global is a payer-level 76/78 question (spec open question 7). Bilateral indicator 1: bilateral reduction reports modifier 50. Spec A18.5.",
-            "24640 vs E/M: most payers take modifier 25 on the E/M; some legacy payer/AAP guidance used modifier 57 — payer contract dependent. Spec A18.4."
+            "24640: MUE 1, MAI 2 — same-day re-reduction is not separately payable; bilateral reduction reports modifier 50. Spec A18.5 / open question 7.",
+            "Most payers take modifier 25 on the E/M; some legacy guidance used 57 — contract dependent. Spec A18.4."
           ]
         }
       ]
@@ -748,7 +748,7 @@
             "medicare",
             "other"
           ],
-          "description": "Payer for the standalone 36000 claim. Medicare status B = never separately paid even when reportable. Spec A19.3."
+          "description": "Payer for the standalone 36000 claim; Medicare status B = never separately paid. Spec A19.3."
         }
       ],
       "tables": [
@@ -758,7 +758,7 @@
           "inputs": [
             "venous_payer_type"
           ],
-          "note": "2026-09-07 round-2 policy (obvious facts assumed): the venous_access_sole_service checkbox was removed — charting IV placement as its own procedure IS the assertion it stood alone (an IV that fed an infusion/injection is charted as that service instead), so the gate emits 36000 unconditionally. The NCCI Ch1 sole-service bundling rule survives in the 36000 doc checklist and as the status-B payer note.",
+          "note": "Round-2 policy: the sole-service checkbox was removed — charting IV placement as its own procedure asserts it stood alone; the bundling rule survives in the checklist and the status-B payer note.",
           "rows": [
             {
               "when": {
@@ -775,7 +775,7 @@
                 "flags": [
                   "advisory:medicare_status_B_no_separate_payment"
                 ],
-                "note": "Reportable alone per NCCI Ch1, but MPFS status B: Medicare never pays 36000 separately.",
+                "note": "Reportable alone, but Medicare never pays 36000 separately (status B).",
                 "specRef": "A19.2.1/A19.3"
               }
             },
@@ -791,7 +791,7 @@
                     "modifiers": []
                   }
                 ],
-                "note": "Payable per commercial contract when venous access was the sole service (e.g., IV placed, patient transferred before infusion).",
+                "note": "Payable per commercial contract when venous access was the sole service.",
                 "specRef": "A19.2.1/A19.4"
               }
             }
@@ -826,7 +826,7 @@
           "id": "venous.payerNotes",
           "kind": "payerNotes",
           "notes": [
-            "36000: MPFS status B — bundled; Medicare never pays it separately in any scenario, even reported alone. Commercial payability is contract-dependent. Spec A19.3."
+            "36000 is status B for Medicare — never paid separately, even reported alone; commercial payability is contract-dependent. Spec A19.3."
           ]
         }
       ]
@@ -846,22 +846,22 @@
             "bronchodilator_for_spirometry_study",
             "none"
           ],
-          "description": "Why the inhalation treatment was given. bronchodilator_for_spirometry_study = the aerosol was the bronchodilator of a 94060 responsiveness study (misuse of 94640); none = no treatment given. Spec A20.1/A20.3."
+          "description": "Why the treatment was given; bronchodilator_for_spirometry_study = misuse of 94640; none = no treatment given. Spec A20.1/A20.3."
         },
         {
           "name": "neb_continuous_over_one_hour",
           "type": "boolean",
-          "description": "Inhalation drugs administered as a continuous treatment or back-to-back series exceeding one hour (routes to 94644/94645 instead of 94640). Spec A20.2.4."
+          "description": "Continuous or back-to-back treatment exceeding one hour (routes to 94644/94645). Spec A20.2.4."
         },
         {
           "name": "neb_episodes_of_care",
           "type": "integer",
-          "description": "Number of separate episodes of care with inhalation treatment on this date (episode = arrival to departure; back-to-back treatments within one episode still count as ONE). Spec A20.2."
+          "description": "Separate episodes of care (arrival to departure) with inhalation treatment this date; back-to-back treatments within one episode count once. Spec A20.2."
         },
         {
           "name": "em_separately_identifiable",
           "type": "boolean",
-          "description": "A significant, separately identifiable E/M was performed and documented alongside whichever single procedure is being coded (shared attestation fact for this family). Spec A17.4/A18.4/A20.5."
+          "description": "Separately identifiable E/M performed and documented (shared attestation fact for this family). Spec A17.4/A18.4/A20.5."
         }
       ],
       "tables": [
@@ -894,7 +894,7 @@
                 "flags": [
                   "blocked:report_94060_not_94640"
                 ],
-                "note": "94060 includes the bronchodilator administration; reporting 94640 for it is a misuse (NCCI Ch11 7; PTP 94060x94640 mod 1).",
+                "note": "94060 includes the bronchodilator administration; reporting 94640 for it is a misuse.",
                 "specRef": "A20.3.1"
               }
             },
@@ -907,7 +907,7 @@
                 "flags": [
                   "out_of_family:use_94644_94645_continuous"
                 ],
-                "note": "Continuous or back-to-back treatments exceeding one hour report 94644 (+94645), not 94640 (PTP 94644x94640 mod 0).",
+                "note": "Over one hour reports 94644 (+94645), never 94640.",
                 "specRef": "A20.2.4"
               }
             },
@@ -917,7 +917,6 @@
                 "flags": [
                   "proceed:neb.episodeBand"
                 ],
-                "note": "acute_airway_obstruction and sputum_induction both band on episodes of care.",
                 "specRef": "A20.1/A20.2"
               }
             }
@@ -927,7 +926,7 @@
           "id": "neb.episodeBand",
           "kind": "threshold",
           "input": "neb_episodes_of_care",
-          "note": "One unit per episode of care regardless of back-to-back treatments within it; the 2nd+ same-date episode carries modifier 76 (NCCI Ch11 8). Lines are enumerated because MUE caps episodes at 4 (no computation in the vocabulary).",
+          "note": "One unit per episode of care; the 2nd+ same-date episode carries modifier 76; lines enumerated because the MUE caps episodes at 4.",
           "bands": [
             {
               "min": null,
@@ -1072,7 +1071,7 @@
                 "flags": [
                   "advisory:episodes_exceed_mue_94640"
                 ],
-                "note": "MUE (MAI 3) caps at 4/date; the excess denies but is appealable with records.",
+                "note": "MUE caps at 4 per date; the excess denies but is appealable.",
                 "specRef": "A20.6"
               }
             }
@@ -1084,7 +1083,7 @@
           "inputs": [
             "em_separately_identifiable"
           ],
-          "note": "94640 carries PTP edits (Column 1) against ALL office and ED E/M levels, 99202-99215 and 99281-99285 (mod 1) — modifier 25 always required on the same-day E/M. Spec A20.5.",
+          "note": "Modifier 25 always required on the same-day E/M — office and ED levels alike. Spec A20.5.",
           "rows": [
             {
               "when": {
@@ -1104,7 +1103,7 @@
               },
               "output": {
                 "emAllowed": false,
-                "note": "For 11740/24640 the decision-to-perform E/M is included (minor procedure).",
+                "note": "Decision-to-perform E/M is included in the minor procedure.",
                 "specRef": "A17.4/A18.4"
               }
             }
@@ -1129,10 +1128,10 @@
           "code": "94640",
           "required": [
             "Indication: acute airway obstruction (wheezing/bronchospasm) or sputum induction",
-            "Drug, dose, and device (nebulizer/MDI/IPPB) — inhaled medication separately reportable",
+            "Drug, dose, and device (nebulizer/MDI/IPPB)",
             "Who administered; clinician supervision",
             "Pre- and post-treatment assessment (breath sounds, respiratory rate, SpO2, response)",
-            "Time of each treatment; number of back-to-back treatments (still 1 unit within an episode)",
+            "Time of each treatment; number of back-to-back treatments",
             "For repeat billing (modifier 76): the separate episodes — departure and return times",
             "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
           ],
@@ -1142,11 +1141,11 @@
           "id": "neb.payerNotes",
           "kind": "payerNotes",
           "notes": [
-            "94640: only once per episode of care (arrival to departure) no matter how many back-to-back treatments; separate same-date episodes use modifier 76 on additional lines. Some payers prefer 2 units on one line with 76 — payer note (spec open question 10). Spec A20.2.",
-            "94640 vs spirometry: 94010/94060/94070 x 94640 are mod-1 edits; when 94640 treats acute obstruction, pre/post spirometry is not separately reportable, and 94640 is never reported for the bronchodilator of a 94060 study. Spec A20.3.",
-            "94640 vs 94664 (device demonstration): included when same device/same encounter (mod 1); separately reportable only at a separate encounter on the same date. Spec A20.4.",
-            "Inhaled medication (e.g., J7613 albuterol) is separately reportable with 94640 per NCCI Ch11. Spec A20.3.3.",
-            "94640 carries PTP edits against ALL office and ED E/M levels (99202-99215, 99281-99285, mod 1) — the same-day E/M always needs modifier 25. Spec A20.5."
+            "94640 bills once per episode of care regardless of back-to-back treatments; separate same-date episodes add modifier-76 lines (some payers prefer units). Spec A20.2 / open question 10.",
+            "When 94640 treats acute obstruction, same-day spirometry is not separately reportable; never report 94640 for a 94060 study's bronchodilator. Spec A20.3.",
+            "Device demonstration (94664) is included at the same encounter; bill it only for a separate same-date encounter. Spec A20.4.",
+            "The inhaled medication (e.g., J7613 albuterol) is separately reportable with 94640. Spec A20.3.3.",
+            "The same-day E/M — office or ED, any level — always needs modifier 25 with 94640. Spec A20.5."
           ]
         }
       ]
