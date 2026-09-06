@@ -255,7 +255,11 @@ export function defendInjection(
     if (lines.length === 0) {
       const alternative =
         suggestion.codes.length > 0
-          ? [`facts yield ${suggestion.codes.map((l) => l.code + (l.units > 1 ? `x${l.units}` : '')).join(' + ')}`]
+          ? [
+              `The documentation supports ${suggestion.codes
+                .map((l) => l.code + (l.units > 1 ? `x${l.units}` : ''))
+                .join(' + ')}, not this code.`,
+            ]
           : [];
       return { code, status: 'not-supported' as const, reasons: [...suggestion.flags, ...alternative] };
     }

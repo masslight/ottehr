@@ -452,7 +452,11 @@ export function defend(
       }
     }
     if (sug.codes.length > 0) {
-      reasons.push(`facts yield ${sug.codes.map((l) => l.code + (l.units > 1 ? `x${l.units}` : '')).join(' + ')}`);
+      reasons.push(
+        `The documentation supports ${sug.codes
+          .map((l) => l.code + (l.units > 1 ? `x${l.units}` : ''))
+          .join(' + ')}, not this code.`
+      );
     }
     if (reasons.length === 0) reasons.push('the documented facts do not support this code');
     return { code, status: 'not-supported' as const, reasons };
