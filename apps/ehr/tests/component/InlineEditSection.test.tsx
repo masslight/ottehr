@@ -1,0 +1,143 @@
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// ============================================================================
+// MOCKS
+// ============================================================================
+
+const mocks = vi.hoisted(() => ({
+  isAppointmentReadOnly: false,
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
+  useGetAppointmentAccessibility: () => ({
+    isAppointmentReadOnly: mocks.isAppointmentReadOnly,
+  }),
+}));
+
+import { InlineEditSection } from 'src/features/visits/in-person/components/progress-note/InlineEditSection';
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+const EditContent = (): JSX.Element => {
+  editContentMountCount += 1;
+  return <div data-testid="edit-content">edit form</div>;
+};
+let editContentMountCount = 0;
+
+const renderSection = (props?: { disabled?: boolean }): ReturnType<typeof render> =>
+  render(
+    <InlineEditSection
+      sectionName="allergies"
+      title="Allergies"
+      editLabel="Edit allergies"
+      editContent={<EditContent />}
+      disabled={props?.disabled}
+    >
+      <div data-testid="summary-content">No known allergies</div>
+    </InlineEditSection>
+  );
+
+// ============================================================================
+// TESTS
+// ============================================================================
+
+describe('InlineEditSection', () => {
+  beforeEach(() => {
+    mocks.isAppointmentReadOnly = false;
+    editContentMountCount = 0;
+  });
+
+  it('renders the summary with an edit affordance and lazy-mounts the editor', () => {
+    renderSection();
+
+    expect(screen.getByTestId('summary-content')).toBeVisible();
+    expect(screen.getByTestId('inline-edit-button-allergies')).toBeVisible();
+    expect(screen.queryByTestId('edit-content')).toBeNull();
+    expect(editContentMountCount).toBe(0);
+  });
+
+  it('opens the editor when the summary is clicked and closes it via Done', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.click(screen.getByTestId('summary-content'));
+    expect(screen.getByTestId('edit-content')).toBeVisible();
+    // the editor shows the same information in more detail, so the read-only summary
+    // is replaced while editing; the edit label stands in as the section heading
+    expect(screen.queryByTestId('summary-content')).toBeNull();
+    expect(screen.getByText('Allergies')).toBeVisible();
+    expect(screen.queryByTestId('inline-edit-button-allergies')).toBeNull();
+
+    await user.click(screen.getByTestId('inline-edit-done-button-allergies'));
+    expect(screen.queryByTestId('edit-content')).toBeNull();
+    expect(screen.getByTestId('summary-content')).toBeVisible();
+    expect(screen.getByTestId('inline-edit-button-allergies')).toBeVisible();
+  });
+
+  it('opens the editor from the heading', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.click(screen.getByTestId('inline-edit-header-allergies'));
+    expect(screen.getByTestId('edit-content')).toBeVisible();
+    expect(screen.queryByTestId('summary-content')).toBeNull();
+  });
+
+  it('also closes when the heading itself is clicked', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.click(screen.getByTestId('summary-content'));
+    expect(screen.getByTestId('edit-content')).toBeVisible();
+
+    await user.click(screen.getByTestId('inline-edit-header-allergies'));
+    expect(screen.queryByTestId('edit-content')).toBeNull();
+    expect(screen.getByTestId('summary-content')).toBeVisible();
+  });
+
+  it('closes from the heading with the keyboard', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.click(screen.getByTestId('summary-content'));
+    screen.getByTestId('inline-edit-header-allergies').focus();
+    await user.keyboard('{Enter}');
+
+    expect(screen.queryByTestId('edit-content')).toBeNull();
+    expect(screen.getByTestId('summary-content')).toBeVisible();
+  });
+
+  it('scrolls the section back into view when a long editor collapses', async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    renderSection();
+
+    await user.click(screen.getByTestId('summary-content'));
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    // jsdom reports the section at top 0, which counts as hidden behind the sticky navbar
+    await user.click(screen.getByTestId('inline-edit-done-button-allergies'));
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+  });
+
+  it('renders plain children on read-only appointments', () => {
+    mocks.isAppointmentReadOnly = true;
+    renderSection();
+
+    expect(screen.getByTestId('summary-content')).toBeVisible();
+    expect(screen.queryByTestId('inline-edit-section-allergies')).toBeNull();
+    expect(screen.queryByTestId('inline-edit-button-allergies')).toBeNull();
+  });
+
+  it('renders plain children when disabled', () => {
+    renderSection({ disabled: true });
+
+    expect(screen.getByTestId('summary-content')).toBeVisible();
+    expect(screen.queryByTestId('inline-edit-section-allergies')).toBeNull();
+  });
+});

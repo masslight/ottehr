@@ -275,7 +275,7 @@ touches.
 | Units | `units` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | yes | The line's unit count. Setting it requires a positive number. |
 | Charges | `charges` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | yes | The line's charge amount in dollars. Setting it requires a non-negative number; the claim's billed total is recomputed. |
 | Place of service code | `placeOfService` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The line's CMS place-of-service code. Setting an empty value clears it. Allowed values: any CMS place-of-service code. |
-| Service date | `serviceDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The line's date of service (YYYY-MM-DD). |
+| Service date | `serviceDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The line's date of service (YYYY-MM-DD). When updating, the new value can be a literal date or derived from the claim (see Service date sources) — matching still compares against a literal date only. |
 | Rev Code | `revenueCode` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Revenue code of the procedure. |
 
 ## Actions
@@ -286,8 +286,8 @@ A matched branch's outcome is a list of actions, applied in order:
 | --- | --- |
 | Set a property (`setField`) | Sets one of the settable claim properties above to a new value. Setting an empty value clears the property. The change is written to the claim's working-copy resources and recorded in the claim history, attributed to the specific rule that made it (linked from the history view). If the property cannot be set (unknown or read-only property, invalid value, or the target resource is missing from the claim), the rule fails and the claim is held. |
 | Apply a tag (`applyTag`) | Adds a tag to the claim (no-op if the claim already carries it). Applying the **Hold** tag holds the claim: the run stops and the on-success effect does not happen. |
-| Add a service line (`addServiceLine`) | Appends a new service line built from the fields below and recomputes the claim's billed total. Blank optional fields use the claim editor's defaults, and the new line is tied to the claim's rendering provider when one is set. An invalid field value fails the rule and holds the claim. |
-| Update service lines (`updateServiceLines`) | Applies one change (an updatable service line property + value; for modifiers, a set/add/remove operation) to every line matching the action's line predicate. Zero matching lines is a no-op, not a failure — pair the action with a condition when a match must exist. An invalid value or an operation that doesn't apply to the property fails the rule and holds the claim. Changing charges recomputes the claim's billed total. |
+| Add a service line (`addServiceLine`) | Appends a new service line built from the fields below and recomputes the claim's billed total. Blank optional fields use the claim editor's defaults, and the new line is tied to the claim's rendering provider when one is set. The service date can be a literal date or one of the derived sources below. An invalid field value fails the rule and holds the claim. |
+| Update service lines (`updateServiceLines`) | Applies one change (an updatable service line property + value; for modifiers, a set/add/remove operation) to every line matching the action's line predicate. When updating the service date, the value can be a literal date or one of the derived sources below. Zero matching lines is a no-op, not a failure — pair the action with a condition when a match must exist. An invalid value or an operation that doesn't apply to the property fails the rule and holds the claim. Changing charges recomputes the claim's billed total. |
 | Remove service lines (`removeServiceLines`) | Removes every line matching the action's line predicate (all lines when the predicate is "all service lines"). Surviving lines are re-sequenced and the claim's billed total is recomputed. Zero matching lines is a no-op. |
 | Apply charge master prices (`applyChargeMasterPrices`) | Re-prices every line matching the action's line predicate from the best applicable charge master: the active charge master designated as the default for the claim's billing type (insurance when the claim carries a real coverage, self-pay otherwise) whose effective date is the most recent on or before the claim's date of service. Each matched line's charges are set from the entry for its CPT code — an entry with a matching modifier for lines with modifiers, a modifier-less entry otherwise. A matched line the charge master has no entry for (or that has no CPT code) keeps its existing charges. The claim's billed total is recomputed when any line was re-priced. Zero matching lines is a no-op. This action never fails the rule or holds the claim — when no charge master applies (or the claim has no date of service to select one by), no lines are changed. Add a separate rule to hold claims whose lines are missing a price. |
 | Do nothing (`noop`) | Explicitly does nothing. Useful as an else branch that intentionally takes no action. |
@@ -302,7 +302,22 @@ A matched branch's outcome is a list of actions, applied in order:
 | Modifiers (comma-separated) (`modifiers`) | text | no | no modifiers |
 | Place of service code (`placeOfService`) | text | no | none |
 | Service date (`serviceDate`) | date | no | inherited from the claim's first service line; the action fails if the claim has no lines |
-| Diagnosis pointers (comma-separated) (`diagnosisPointers`) | text | no | points at the first diagnosis (1) |
+| Diagnoses (`diagnosisMode`) | one of the listed values | no | uses the claim's primary diagnosis |
+| Diagnosis pointers (comma-separated) (`diagnosisPointers`) | text | yes | — |
 | Revenue code (`revenueCode`) | text | no | — |
+
+### Service date sources
+
+The service date on "Add a service line", and on "Update service lines" when updating the
+`serviceDate` property, can come from one of:
+
+| Source | Description |
+| --- | --- |
+| Exact date | A literal date entered on the rule. |
+| First service line's date | The claim's first service line's date of service — the same value a blank serviceDate has always inherited on "Add a service line". |
+
+"Exact date" is the default. On "Add a service line", leaving it blank is equivalent to "First
+service line's date" (kept for rules saved before this option existed). Service line **matching**
+always compares against a literal date.
 
 Actions after a failed action or after the **Hold** tag do not run.

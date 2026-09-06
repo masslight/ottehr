@@ -13,9 +13,17 @@ interface Props {
   showActions: boolean;
   administeredOnly?: boolean;
   immunizationInput?: GetImmunizationOrdersRequest;
+  onEditOrder?: (orderId: string) => void;
+  onShowDetails?: (orderId: string) => void;
 }
 
-export const OrderHistoryTable: React.FC<Props> = ({ showActions, administeredOnly, immunizationInput }) => {
+export const OrderHistoryTable: React.FC<Props> = ({
+  showActions,
+  administeredOnly,
+  immunizationInput,
+  onEditOrder,
+  onShowDetails,
+}) => {
   const [isPendingCollapsed, setIsPendingCollapsed] = useState(false);
   const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(false);
   const { id: appointmentId } = useParams();
@@ -53,7 +61,13 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions, administeredOn
           ) : (
             <TableBody>
               {orders.map((order) => (
-                <OrderHistoryTableRow key={order.id} order={order} showActions={showActions} />
+                <OrderHistoryTableRow
+                  key={order.id}
+                  order={order}
+                  showActions={showActions}
+                  onEditOrder={onEditOrder}
+                  onShowDetails={onShowDetails}
+                />
               ))}
               {orders.length === 0 && (
                 <TableRow>
@@ -107,7 +121,14 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions, administeredOn
                   </TableHead>
                   <TableBody>
                     {pendingOrders.map((order) => (
-                      <OrderHistoryTableRow key={order.id} order={order} showActions={showActions} showGiven={false} />
+                      <OrderHistoryTableRow
+                        key={order.id}
+                        order={order}
+                        showActions={showActions}
+                        showGiven={false}
+                        onEditOrder={onEditOrder}
+                        onShowDetails={onShowDetails}
+                      />
                     ))}
                   </TableBody>
                 </Table>
@@ -134,7 +155,13 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions, administeredOn
                   </TableHead>
                   <TableBody>
                     {completedOrders.map((order) => (
-                      <OrderHistoryTableRow key={order.id} order={order} showActions={showActions} />
+                      <OrderHistoryTableRow
+                        key={order.id}
+                        order={order}
+                        showActions={showActions}
+                        onEditOrder={onEditOrder}
+                        onShowDetails={onShowDetails}
+                      />
                     ))}
                   </TableBody>
                 </Table>

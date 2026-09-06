@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Observation, Patient, Practitioner } from 'fhir/r4b';
+import { chunkThings } from 'utils/lib/fhir/chat';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getFullName } from 'utils/lib/fhir/patient';
 import {
@@ -62,39 +63,69 @@ const performEffect = async (
   oystehr: Oystehr
 ): Promise<GetVitalsForListOfEncountersResponseData> => {
   const { encounters } = input;
-  // Fetch current vitals for the encounter
-  const encountersVitalsMap: GetVitalsForListOfEncountersResponseData = {};
-  await Promise.all(
-    encounters.map(async (encounter) => {
-      console.log(`Fetching vitals for encounter id: ${encounter.id}`);
-      const vitalsList = await fetchVitalsForEncounter(encounter.id, oystehr);
-      const vitalsMap = convertVitalsListToMap(vitalsList);
-      encountersVitalsMap[encounter.id] = vitalsMap;
-    })
+
+  const { observationsByEncounter, practitioners } = await fetchVitalsForEncounters(
+    encounters.map((encounter) => encounter.id),
+    oystehr
   );
+
+  // Every requested encounter appears in the response, with or without vitals — same as when this
+  // built the map one encounter at a time.
+  const encountersVitalsMap: GetVitalsForListOfEncountersResponseData = {};
+  encounters.forEach((encounter) => {
+    const observations = observationsByEncounter.get(`Encounter/${encounter.id}`) ?? [];
+    encountersVitalsMap[encounter.id] = convertVitalsListToMap(parseResourcesToDTOs(observations, practitioners));
+  });
+
   return encountersVitalsMap;
 };
 
-const fetchVitalsForEncounter = async (encounterId: string, oystehr: Oystehr): Promise<VitalsObservationDTO[]> => {
-  const currentVitalsAndPerformers = (
-    await oystehr.fhir.search<Observation | Practitioner>({
-      resourceType: 'Observation',
-      params: [
-        { name: 'encounter._id', value: encounterId },
-        { name: 'status:not', value: 'entered-in-error,cancelled,unknown,cannot-be-obtained' },
-        { name: '_tag', value: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}|` },
-        { name: '_include', value: 'Observation:performer' },
-        { name: '_sort', value: '-date' }, // Sort by date descending
-      ],
-    })
-  ).unbundle();
+const VITALS_ENCOUNTER_CHUNK_SIZE = 25;
 
-  const observations = currentVitalsAndPerformers.filter((res) => res.resourceType === 'Observation') as Observation[];
-  const practitioners = currentVitalsAndPerformers.filter(
-    (res) => res.resourceType === 'Practitioner'
-  ) as Practitioner[];
+const fetchVitalsForEncounters = async (
+  encounterIds: string[],
+  oystehr: Oystehr
+): Promise<{ observationsByEncounter: Map<string, Observation[]>; practitioners: Practitioner[] }> => {
+  const bundles = await Promise.all(
+    chunkThings(encounterIds, VITALS_ENCOUNTER_CHUNK_SIZE).map((encounterIdChunk) =>
+      // Paged, so a chunk whose encounters carry an unusual number of vitals cannot be silently
+      // truncated the way an unbounded single-page search could be.
+      oystehr.fhir.searchAndGetAllPages<Observation | Practitioner>({
+        resourceType: 'Observation',
+        params: [
+          { name: 'encounter', value: encounterIdChunk.map((id) => `Encounter/${id}`).join(',') },
+          { name: 'status:not', value: 'entered-in-error,cancelled,unknown,cannot-be-obtained' },
+          { name: '_tag', value: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}|` },
+          { name: '_include', value: 'Observation:performer' },
+          { name: '_sort', value: '-date' }, // Sort by date descending
+          { name: '_count', value: '1000' },
+        ],
+      })
+    )
+  );
 
-  return parseResourcesToDTOs(observations, practitioners);
+  const resources = bundles.flatMap((bundle) => (bundle.entry ?? []).flatMap((entry) => entry.resource ?? []));
+
+  // Grouping preserves the server's `-date` ordering within each encounter, which is what the
+  // per-encounter searches produced.
+  const observationsByEncounter = new Map<string, Observation[]>();
+  const practitioners: Practitioner[] = [];
+  resources.forEach((resource) => {
+    if (resource.resourceType === 'Observation') {
+      const encounterRef = resource.encounter?.reference;
+      if (!encounterRef) return;
+      const existing = observationsByEncounter.get(encounterRef);
+      if (existing) {
+        existing.push(resource);
+      } else {
+        observationsByEncounter.set(encounterRef, [resource]);
+      }
+    } else if (resource.resourceType === 'Practitioner') {
+      practitioners.push(resource);
+    }
+  });
+
+  return { observationsByEncounter, practitioners };
 };
 
 const fieldNameSchema = z.nativeEnum(VitalFieldNames);

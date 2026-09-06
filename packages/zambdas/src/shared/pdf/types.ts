@@ -602,6 +602,8 @@ export interface Procedures extends PdfData {
     technique?: string[];
     suppliesUsed?: string;
     procedureDetails?: string;
+    /** Pre-formatted "Label: value" lines rendered from the structured coding facts. */
+    structuredFactLines?: string[];
     specimenSent?: string;
     complications?: string;
     patientResponse?: string;

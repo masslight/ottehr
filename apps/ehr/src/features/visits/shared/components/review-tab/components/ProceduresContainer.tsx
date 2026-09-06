@@ -1,10 +1,16 @@
 import { Box, Stack, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import { FC, ReactElement } from 'react';
+import { FC, Fragment, ReactElement } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import {
+  SectionHeading,
+  useNoteSectionTitleInCardHeader,
+} from 'src/features/visits/shared/components/NoteSectionHeading';
+import { formatCptCodeForDisplay, formatStructuredFactsForDisplay } from 'utils/lib/procedure-coding/codec';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 
 export const ProceduresContainer: FC = () => {
+  const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { chartData } = useChartData();
   const theme = useTheme();
   const procedures = chartData?.procedures;
@@ -25,9 +31,7 @@ export const ProceduresContainer: FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
-      <Typography variant="h5" color="primary.dark">
-        Procedures
-      </Typography>
+      {!titleInCardHeader && <SectionHeading>Procedures</SectionHeading>}
       {procedures?.length ? (
         procedures.map((procedure) => (
           <Stack key={procedure.resourceId} data-testid={dataTestIds.progressNotePage.procedureItem}>
@@ -35,7 +39,7 @@ export const ProceduresContainer: FC = () => {
             {renderProperty(
               'CPT',
               procedure.cptCodes != null && procedure.cptCodes.length > 0
-                ? procedure.cptCodes.map((cptCode) => cptCode.code + ' ' + cptCode.display).join('; ')
+                ? procedure.cptCodes.map((cptCode) => formatCptCodeForDisplay(cptCode)).join('; ')
                 : undefined
             )}
             {renderProperty(
@@ -54,6 +58,9 @@ export const ProceduresContainer: FC = () => {
             {renderProperty('Anaesthesia / medication used', procedure.medicationUsed)}
             {renderProperty('Site/location', procedure.bodySite)}
             {renderProperty('Side of body', procedure.bodySide)}
+            {formatStructuredFactsForDisplay(procedure.structuredFacts).map((field) => (
+              <Fragment key={field.label}>{renderProperty(field.label, field.value)}</Fragment>
+            ))}
             {renderProperty('Technique', procedure.technique ? procedure.technique.join(', ') : undefined)}
             {renderProperty('Instruments / supplies used', procedure.suppliesUsed)}
             {renderProperty('Procedure details', procedure.procedureDetails)}

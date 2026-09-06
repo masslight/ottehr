@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon';
+import { formatCptCodeForDisplay, formatStructuredFactsForDisplay } from 'utils/lib/procedure-coding/codec';
 import { drawBlockHeader } from '../../helpers/render/blockHeader';
 import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
@@ -12,7 +13,7 @@ export const composeProcedures: DataComposer<ProgressNoteVisitDataInput, Procedu
   const { timezone } = appointmentPackage;
   const procedures = chartData?.procedures?.map((procedure) => ({
     procedureType: procedure.procedureType,
-    cptCodes: procedure?.cptCodes?.map((cptCode) => cptCode.code + ' ' + cptCode.display),
+    cptCodes: procedure?.cptCodes?.map((cptCode) => formatCptCodeForDisplay(cptCode)),
     diagnoses: procedure?.diagnoses?.map((diagnosis) => diagnosis.code + ' ' + diagnosis.display),
     procedureDateTime:
       procedure.procedureDateTime != null
@@ -25,6 +26,9 @@ export const composeProcedures: DataComposer<ProgressNoteVisitDataInput, Procedu
     technique: procedure.technique,
     suppliesUsed: procedure.suppliesUsed,
     procedureDetails: procedure.procedureDetails,
+    structuredFactLines: formatStructuredFactsForDisplay(procedure.structuredFacts).map(
+      (field) => `${field.label}: ${field.value}`
+    ),
     specimenSent: procedure.specimenSent != null ? (procedure.specimenSent ? 'Yes' : 'No') : undefined,
     complications: procedure.complications,
     patientResponse: procedure.patientResponse,
@@ -98,6 +102,7 @@ export const createProceduresSection = <TData extends { procedures?: Procedures 
           styles,
           procedure.procedureDetails != null ? 'Procedure details: ' + procedure.procedureDetails : undefined
         );
+        procedure.structuredFactLines?.forEach((line) => drawRegularText(client, styles, line));
         drawRegularText(
           client,
           styles,

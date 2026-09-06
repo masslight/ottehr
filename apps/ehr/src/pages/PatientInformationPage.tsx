@@ -612,6 +612,15 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     />
   );
 
+  const isWorkersCompVisit = appointmentContext?.appointmentServiceCategory === 'workers-comp';
+  const workersCompSection = (
+    <EmployerInformationContainer
+      isLoading={isFetching || submitQR.isPending}
+      patientId={patient?.id}
+      encounterId={appointmentContext?.encounterId}
+    />
+  );
+
   return (
     <div>
       {isFetching && <LoadingScreen />}
@@ -655,17 +664,14 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                     />
                   </Box>
                   <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {isWorkersCompVisit && workersCompSection}
                     {insuranceSection}
                     <ResponsibleInformationContainer
                       isLoading={isFetching || submitQR.isPending}
                       patientId={patient?.id}
                       encounterId={appointmentContext?.encounterId}
                     />
-                    <EmployerInformationContainer
-                      isLoading={isFetching || submitQR.isPending}
-                      patientId={patient?.id}
-                      encounterId={appointmentContext?.encounterId}
-                    />
+                    {!isWorkersCompVisit && workersCompSection}
                     <OccupationalMedicineEmployerInformationContainer
                       isLoading={isFetching || submitQR.isPending}
                       patientId={patient?.id}

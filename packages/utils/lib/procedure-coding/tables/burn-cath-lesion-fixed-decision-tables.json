@@ -1,0 +1,910 @@
+{
+  "meta": {
+    "title": "Burn local treatment, urinary catheterization, benign-lesion destruction & fixed-code singles — clean-room decision tables",
+    "generated": "2026-09-05",
+    "derivedFrom": "burn-cath-lesion-fixed-cleanroom-spec.md (rule numbers cited per row as specRef)",
+    "revised": "2026-09-05 — fixed-code-singles split into four single-code families (nail-trephination, nursemaid-elbow, iv-catheter-placement, nebulizer): a single family with four code-emitting gate tables is unevaluable under meta.semantics.chaining's single-entry convention (evaluation starts at the FIRST code-emitting rowLookup, so subungual.gate's wildcard row would swallow every case). Rows/bands/caps/checklists carried over verbatim; the shared singles.sameDayEm/unitCaps/doc/payerNotes tables were distributed per family (36000 gets no sameDayEm table — it has no E/M PTP edits and the sole-service gate already blocks combined encounters). See scripts/procedure-coding-schema-spike/summary-small-families.md.",
+    "vocabulary": {
+      "tableKinds": ["rowLookup", "threshold", "unitCaps", "docChecklist"],
+      "semantics": {
+        "rowLookup": "Rows are evaluated top-down; 'when' is a conjunction of exact-equality tests on declared facts; a fact omitted from 'when' is a wildcard; the FIRST matching row wins; 'output' is opaque data returned to the caller. No expressions, no computation.",
+        "threshold": "One integer fact banded into contiguous ranges by 'bands' (min/max inclusive, null = unbounded); the matching band's 'output' is returned.",
+        "unitCaps": "Per-code maximum billable units per date of service; caps are absolute inputs to claim assembly, never computed.",
+        "docChecklist": "All listed items are required documentation for the code; items are human-verified, not computed.",
+        "chaining": "A matched row/band output whose flags contain 'proceed:<tableId>' transfers evaluation to that table (rowLookup or threshold alike); bare 'proceed' means the next code-emitting rowLookup in document order. An output with no proceed flag settles evaluation: its codes (possibly empty) are the emission."
+      },
+      "outputConventions": {
+        "codes": "array of {code, units, modifiers[]} claim lines; empty array = no procedure code (E/M pathway per notes)",
+        "flags": "blocking or advisory strings the caller must surface; 'blocked:*' means do not emit procedure codes"
+      }
+    }
+  },
+  "families": [
+    {
+      "family": "burn-local-treatment",
+      "codes": ["16000", "16020", "16025", "16030"],
+      "facts": [
+        {
+          "name": "burn_depth",
+          "type": "enum",
+          "allowedValues": ["first_degree", "partial_thickness", "full_thickness"],
+          "description": "Deepest documented degree of the burn(s) receiving local treatment. partial_thickness = second-degree (blistering). Spec A3."
+        },
+        {
+          "name": "tbsa_tenths_treated",
+          "type": "integer",
+          "description": "TBSA of the partial-thickness burn(s) treated, summed across sites, in TENTHS of a percent (4.5% = 45) — makes the 5%/10% boundaries exact. Spec A2, bespoke-code note 1."
+        }
+      ],
+      "tables": [
+        {
+          "id": "burns.gate",
+          "kind": "rowLookup",
+          "inputs": ["burn_depth"],
+          "note": "Round-2 policy (obvious facts assumed): the visit_type fact was removed — the initial visit is assumed for first-degree, and 16020-16030 are 'initial or subsequent' by descriptor.",
+          "rows": [
+            { "when": { "burn_depth": "full_thickness" },
+              "output": { "codes": [], "flags": ["out_of_family:full_thickness_use_debridement_or_grafting_codes"], "note": "Full-thickness care belongs to the debridement/grafting families and usually referral.", "specRef": "A3.4 / open question 2" } },
+            { "when": { "burn_depth": "first_degree" },
+              "output": { "codes": [{ "code": "16000", "units": 1, "modifiers": [] }], "note": "16000 is initial-visit-only; the initial visit is assumed.", "specRef": "A3.2" } },
+            { "when": { "burn_depth": "partial_thickness" },
+              "output": { "flags": ["proceed:burns.tbsaBand"], "specRef": "A2/A3.1" } }
+          ]
+        },
+        {
+          "id": "burns.tbsaBand",
+          "kind": "threshold",
+          "input": "tbsa_tenths_treated",
+          "note": "Value is TBSA x 10; exactly 5% (50) and 10% (100) both band to 16025; one code per session (TBSA summed upstream).",
+          "bands": [
+            { "min": null, "max": 0, "output": { "band": "none", "flags": ["blocked:no_tbsa_documented"], "note": "Partial-thickness treatment needs a documented TBSA.", "specRef": "B1" } },
+            { "min": 1, "max": 49, "output": { "codes": [{ "code": "16020", "units": 1, "modifiers": [] }], "specRef": "A2.2" } },
+            { "min": 50, "max": 100, "output": { "codes": [{ "code": "16025", "units": 1, "modifiers": [] }], "specRef": "A2.2" } },
+            { "min": 101, "max": null, "output": { "codes": [{ "code": "16030", "units": 1, "modifiers": [] }], "specRef": "A2.2" } }
+          ]
+        },
+        {
+          "id": "burns.unitCaps",
+          "kind": "unitCaps",
+          "caps": [
+            { "code": "16000", "maxUnitsPerDay": 1, "mai": 2, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Code Descriptor / CPT Instruction)", "specRef": "B3" },
+            { "code": "16020", "maxUnitsPerDay": 1, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Code Descriptor / CPT Instruction)", "specRef": "B3" },
+            { "code": "16025", "maxUnitsPerDay": 1, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Code Descriptor / CPT Instruction)", "specRef": "B3" },
+            { "code": "16030", "maxUnitsPerDay": 1, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Code Descriptor / CPT Instruction)", "specRef": "B3" }
+          ]
+        },
+        {
+          "id": "burns.doc.16000",
+          "kind": "docChecklist",
+          "code": "16000",
+          "required": [
+            "Anatomic site(s) with laterality",
+            "Depth documented as first-degree (epidermis only)",
+            "Initial encounter for this burn",
+            "Local treatment performed (cleansing, topical agent, dressing); no more than local treatment required",
+            "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
+          ],
+          "specRef": "B1"
+        },
+        {
+          "id": "burns.doc.partialThickness",
+          "kind": "docChecklist",
+          "code": "16020|16025|16030",
+          "required": [
+            "Anatomic site(s) of each burn with laterality",
+            "Depth documented as partial-thickness (second-degree) per site",
+            "TBSA percentage per site and summed total, with method (rule of nines / Lund-Browder / burn diagram)",
+            "Treatment performed: cleansing, topical agent, dressing type, debridement (what was debrided)",
+            "Initial vs subsequent encounter noted",
+            "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
+          ],
+          "specRef": "B1"
+        }
+      ]
+    },
+    {
+      "family": "urinary-catheterization",
+      "codes": ["51701", "51702", "51703", "P9612"],
+      "facts": [
+        {
+          "name": "catheter_type",
+          "type": "enum",
+          "allowedValues": ["straight_nonindwelling", "temporary_indwelling"],
+          "description": "In-and-out catheter removed at end of encounter vs catheter (e.g., Foley) left in place. Spec A8.1/A8.2."
+        },
+        {
+          "name": "indwelling_insertion_complicated",
+          "type": "boolean",
+          "description": "Complicated insertion technique (altered anatomy, guide wire, difficult removal plus replacement); only meaningful for temporary_indwelling. Spec A8.3/A8.4."
+        },
+        {
+          "name": "purpose",
+          "type": "enum",
+          "allowedValues": ["specimen_collection_only", "residual_urine_measurement", "retention_or_drainage", "other"],
+          "description": "Primary purpose; specimen_collection_only = sole purpose was urine for UA/culture. Spec A9."
+        },
+        {
+          "name": "payer_type",
+          "type": "enum",
+          "allowedValues": ["medicare", "other"],
+          "description": "Medicare vs all other payers. Drives 51701 vs P9612 for specimen-only straight cath. Spec A9."
+        }
+      ],
+      "tables": [
+        {
+          "id": "cath.gate",
+          "kind": "rowLookup",
+          "inputs": ["catheter_type", "purpose", "payer_type", "indwelling_insertion_complicated"],
+          "rows": [
+            { "when": { "catheter_type": "straight_nonindwelling", "purpose": "specimen_collection_only", "payer_type": "medicare" },
+              "output": { "codes": [{ "code": "P9612", "units": 1, "modifiers": [] }], "note": "Medicare: specimen-only straight cath is P9612, never 51701.", "specRef": "A9.1" } },
+            { "when": { "catheter_type": "straight_nonindwelling", "purpose": "specimen_collection_only", "payer_type": "other" },
+              "output": { "codes": [{ "code": "51701", "units": 1, "modifiers": [] }], "note": "Commercial payers generally accept 51701 for sterile-specimen catheterization.", "specRef": "A9.3" } },
+            { "when": { "catheter_type": "straight_nonindwelling" },
+              "output": { "codes": [{ "code": "51701", "units": 1, "modifiers": [] }], "note": "Straight cath for PVR, relief drainage, etc. — any payer.", "specRef": "A8.1/A9.2" } },
+            { "when": { "catheter_type": "temporary_indwelling", "indwelling_insertion_complicated": false },
+              "output": { "codes": [{ "code": "51702", "units": 1, "modifiers": [] }], "specRef": "A8.2" } },
+            { "when": { "catheter_type": "temporary_indwelling", "indwelling_insertion_complicated": true },
+              "output": { "codes": [{ "code": "51703", "units": 1, "modifiers": [] }], "note": "Complicating factor must be concretely documented.", "specRef": "A8.3" } }
+          ]
+        },
+        {
+          "id": "cath.unitCaps",
+          "kind": "unitCaps",
+          "caps": [
+            { "code": "51701", "maxUnitsPerDay": 2, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)", "specRef": "B7" },
+            { "code": "51702", "maxUnitsPerDay": 2, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)", "specRef": "B7" },
+            { "code": "51703", "maxUnitsPerDay": 2, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)", "specRef": "B7" },
+            { "code": "P9612", "maxUnitsPerDay": 1, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)", "specRef": "B7" }
+          ]
+        },
+        {
+          "id": "cath.doc.51701",
+          "kind": "docChecklist",
+          "code": "51701",
+          "required": [
+            "Indication (PVR measurement, relief drainage, specimen)",
+            "Catheter type and size",
+            "Catheter removed at end of encounter",
+            "Sterile technique/prep",
+            "Result: volume drained / PVR value / specimen obtained"
+          ],
+          "specRef": "B5"
+        },
+        {
+          "id": "cath.doc.51702",
+          "kind": "docChecklist",
+          "code": "51702",
+          "required": [
+            "Indication (retention, output monitoring, etc.)",
+            "Catheter type and size (e.g., Foley, French size, balloon volume)",
+            "Catheter left indwelling; secured to drainage bag; removal plan",
+            "Sterile technique/prep",
+            "Volume drained / urine character"
+          ],
+          "specRef": "B5"
+        },
+        {
+          "id": "cath.doc.51703",
+          "kind": "docChecklist",
+          "code": "51703",
+          "required": [
+            "All 51702 elements",
+            "The complicating factor stated concretely: altered anatomy, guide wire/catheter guide, coude/Council technique, or difficult removal plus replacement"
+          ],
+          "specRef": "B5/A8.3"
+        },
+        {
+          "id": "cath.doc.P9612",
+          "kind": "docChecklist",
+          "code": "P9612",
+          "required": [
+            "Straight catheterization performed solely to obtain a urine specimen",
+            "Specimen sent for urinalysis / culture / sensitivity",
+            "Catheter type/size, sterile technique"
+          ],
+          "specRef": "B5/A9.1"
+        }
+      ]
+    },
+    {
+      "family": "benign-lesion-destruction",
+      "codes": ["17110", "17111"],
+      "facts": [
+        {
+          "name": "lesion_category",
+          "type": "enum",
+          "allowedValues": ["benign_other", "skin_tag", "premalignant", "cutaneous_vascular_proliferative", "anogenital", "malignant"],
+          "description": "benign_other = warts, molluscum, seborrheic keratoses and other benign lesions; the other values route out of this family. Spec A12."
+        },
+        {
+          "name": "lesion_count",
+          "type": "integer",
+          "description": "Exact number of lesions destroyed this session; drives the 14/15 boundary. Spec A13."
+        }
+      ],
+      "tables": [
+        {
+          "id": "destr.gate",
+          "kind": "rowLookup",
+          "inputs": ["lesion_category"],
+          "rows": [
+            { "when": { "lesion_category": "skin_tag" },
+              "output": { "codes": [], "flags": ["out_of_family:use_11200_11201"], "note": "Skin tags are excluded by the 17110 descriptor.", "specRef": "A12.2" } },
+            { "when": { "lesion_category": "premalignant" },
+              "output": { "codes": [], "flags": ["out_of_family:use_17000_17003_17004"], "note": "Premalignant (e.g., actinic keratoses) use the per-lesion 17000-series.", "specRef": "A12.2" } },
+            { "when": { "lesion_category": "cutaneous_vascular_proliferative" },
+              "output": { "codes": [], "flags": ["out_of_family:use_17106_17108"], "specRef": "A12.2" } },
+            { "when": { "lesion_category": "anogenital" },
+              "output": { "codes": [], "flags": ["out_of_family:use_site_specific_destruction_codes"], "note": "Anogenital condyloma use site-specific destruction codes.", "specRef": "A12.2" } },
+            { "when": { "lesion_category": "malignant" },
+              "output": { "codes": [], "flags": ["out_of_family:use_17260_17286"], "specRef": "A12.2" } },
+            { "when": { "lesion_category": "benign_other" },
+              "output": { "flags": ["proceed:destr.countBand"], "note": "Method of destruction never changes the code (method-agnostic).", "specRef": "A12.1/A14" } }
+          ]
+        },
+        {
+          "id": "destr.countBand",
+          "kind": "threshold",
+          "input": "lesion_count",
+          "note": "Flat session codes: units always 1; the two codes are mutually exclusive; exactly 14 -> 17110, 15 -> 17111.",
+          "bands": [
+            { "min": null, "max": 0, "output": { "band": "none", "flags": ["blocked:no_lesion_destroyed"] } },
+            { "min": 1, "max": 14, "output": { "codes": [{ "code": "17110", "units": 1, "modifiers": [] }], "specRef": "A13.1/A13.3" } },
+            { "min": 15, "max": null, "output": { "codes": [{ "code": "17111", "units": 1, "modifiers": [] }], "note": "17111 replaces 17110 at 15+; never report both.", "specRef": "A13.1/A13.2" } }
+          ]
+        },
+        {
+          "id": "destr.unitCaps",
+          "kind": "unitCaps",
+          "caps": [
+            { "code": "17110", "maxUnitsPerDay": 1, "mai": 2, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Code Descriptor / CPT Instruction)", "specRef": "B10" },
+            { "code": "17111", "maxUnitsPerDay": 1, "mai": 2, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Code Descriptor / CPT Instruction)", "specRef": "B10" }
+          ]
+        },
+        {
+          "id": "destr.doc.common",
+          "kind": "docChecklist",
+          "code": "17110|17111",
+          "required": [
+            "Lesion type/identity (wart, molluscum, seborrheic keratosis, ...) supporting benign classification",
+            "Exact count of lesions destroyed",
+            "Anatomic site(s) of the lesions",
+            "Destruction method and clinician performance",
+            "Medical necessity (symptomatic, spreading, functional impairment)",
+            "Post-procedure instructions; anesthesia if used",
+            "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
+          ],
+          "specRef": "B9"
+        }
+      ]
+    },
+    {
+      "family": "nail-trephination",
+      "codes": [
+        "11740"
+      ],
+      "facts": [
+        {
+          "name": "nail_plate_avulsed",
+          "type": "boolean",
+          "description": "Nail plate removed/avulsed to treat the injury (routes to 11730). Spec A17.3."
+        },
+        {
+          "name": "nail_bed_repair_performed",
+          "type": "boolean",
+          "description": "Nail bed laceration repaired (routes to 11760). Spec A17.3."
+        },
+        {
+          "name": "digits_treated",
+          "type": "integer",
+          "description": "Distinct digits with subungual hematoma evacuation; digit modifiers appended by the human coder. Spec A17.5."
+        }
+      ],
+      "tables": [
+        {
+          "id": "subungual.gate",
+          "kind": "rowLookup",
+          "inputs": [
+            "nail_plate_avulsed",
+            "nail_bed_repair_performed"
+          ],
+          "rows": [
+            {
+              "when": {
+                "nail_bed_repair_performed": true
+              },
+              "output": {
+                "codes": [],
+                "flags": [
+                  "out_of_family:use_11760_nail_bed_repair"
+                ],
+                "note": "The repair code subsumes the evacuation on that digit.",
+                "specRef": "A17.3"
+              }
+            },
+            {
+              "when": {
+                "nail_plate_avulsed": true
+              },
+              "output": {
+                "codes": [],
+                "flags": [
+                  "out_of_family:use_11730_nail_avulsion"
+                ],
+                "note": "Drainage via nail-plate removal is part of the avulsion.",
+                "specRef": "A17.3"
+              }
+            },
+            {
+              "when": {},
+              "output": {
+                "flags": [
+                  "proceed:subungual.digitBand"
+                ],
+                "specRef": "A17.2"
+              }
+            }
+          ]
+        },
+        {
+          "id": "subungual.digitBand",
+          "kind": "threshold",
+          "input": "digits_treated",
+          "note": "Units = distinct digits trephined; cap 2 duplicated from unitCaps; digit modifiers appended by the coder (advisory flag).",
+          "bands": [
+            {
+              "min": null,
+              "max": 0,
+              "output": {
+                "band": "none",
+                "flags": [
+                  "blocked:no_digit_treated"
+                ]
+              }
+            },
+            {
+              "min": 1,
+              "max": 1,
+              "output": {
+                "codes": [
+                  {
+                    "code": "11740",
+                    "units": 1,
+                    "modifiers": []
+                  }
+                ],
+                "flags": [
+                  "advisory:append_digit_modifier"
+                ],
+                "specRef": "A17.5"
+              }
+            },
+            {
+              "min": 2,
+              "max": 2,
+              "output": {
+                "codes": [
+                  {
+                    "code": "11740",
+                    "units": 2,
+                    "modifiers": []
+                  }
+                ],
+                "flags": [
+                  "advisory:append_digit_modifiers_per_digit"
+                ],
+                "specRef": "A17.5"
+              }
+            },
+            {
+              "min": 3,
+              "max": null,
+              "output": {
+                "codes": [
+                  {
+                    "code": "11740",
+                    "units": 2,
+                    "modifiers": []
+                  }
+                ],
+                "flags": [
+                  "advisory:append_digit_modifiers_per_digit",
+                  "advisory:digits_exceed_mue_11740"
+                ],
+                "note": "MUE caps billable units at 2; the excess denies but is appealable.",
+                "specRef": "A17.5"
+              }
+            }
+          ]
+        },
+        {
+          "id": "subungual.unitCaps",
+          "kind": "unitCaps",
+          "caps": [
+            {
+              "code": "11740",
+              "maxUnitsPerDay": 2,
+              "mai": 3,
+              "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)",
+              "specRef": "A17.5"
+            }
+          ]
+        },
+        {
+          "id": "singles.doc.11740",
+          "kind": "docChecklist",
+          "code": "11740",
+          "required": [
+            "Digit(s) treated, each with its digit modifier (FA/F1-F9/TA/T1-T9)",
+            "Mechanism of trauma and clinical findings",
+            "X-ray/fracture status if assessed",
+            "Trephination method",
+            "Drainage achieved; nail plate left intact",
+            "Aftercare instructions",
+            "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
+          ],
+          "specRef": "B13"
+        }
+      ]
+    },
+    {
+      "family": "nursemaid-elbow",
+      "codes": [
+        "24640"
+      ],
+      "facts": [
+        {
+          "name": "elbow_condition",
+          "type": "enum",
+          "allowedValues": [
+            "radial_head_subluxation",
+            "true_dislocation_or_fracture",
+            "other"
+          ],
+          "description": "Documented elbow condition; true_dislocation_or_fracture routes out; other = no subluxation confirmed. Spec A18.2/A18.3."
+        }
+      ],
+      "tables": [
+        {
+          "id": "nursemaid.gate",
+          "kind": "rowLookup",
+          "inputs": [
+            "elbow_condition"
+          ],
+          "rows": [
+            {
+              "when": {
+                "elbow_condition": "true_dislocation_or_fracture"
+              },
+              "output": {
+                "codes": [],
+                "flags": [
+                  "out_of_family:use_24600_24605_or_fracture_codes"
+                ],
+                "note": "True dislocation -> 24600/24605; radial head/neck fracture -> 24650+.",
+                "specRef": "A18.3"
+              }
+            },
+            {
+              "when": {
+                "elbow_condition": "other"
+              },
+              "output": {
+                "codes": [],
+                "flags": [
+                  "em_only:no_radial_head_subluxation"
+                ],
+                "specRef": "A18.2"
+              }
+            },
+            {
+              "when": {
+                "elbow_condition": "radial_head_subluxation"
+              },
+              "output": {
+                "codes": [
+                  {
+                    "code": "24640",
+                    "units": 1,
+                    "modifiers": []
+                  }
+                ],
+                "note": "Sling/splint applied as part of treatment is included.",
+                "specRef": "A18.2/A18.6"
+              }
+            }
+          ]
+        },
+        {
+          "id": "nursemaid.unitCaps",
+          "kind": "unitCaps",
+          "caps": [
+            {
+              "code": "24640",
+              "maxUnitsPerDay": 1,
+              "mai": 2,
+              "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: CMS Policy)",
+              "specRef": "A18.5"
+            }
+          ]
+        },
+        {
+          "id": "singles.doc.24640",
+          "kind": "docChecklist",
+          "code": "24640",
+          "required": [
+            "Child patient; mechanism (longitudinal traction — pulled/lifted/swung by the arm)",
+            "Presentation: arm held limp/pronated, refusal to use; no findings suggesting fracture/dislocation",
+            "Diagnosis: radial head subluxation with laterality (ICD-10 S53.03- family)",
+            "Manipulation technique (supination-flexion or hyperpronation); click if felt",
+            "Post-reduction recovery of arm use",
+            "X-ray if obtained (separately reportable)",
+            "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
+          ],
+          "specRef": "B14"
+        }
+      ]
+    },
+    {
+      "family": "iv-catheter-placement",
+      "codes": [
+        "36000"
+      ],
+      "facts": [
+        {
+          "name": "venous_payer_type",
+          "type": "enum",
+          "allowedValues": [
+            "medicare",
+            "other"
+          ],
+          "description": "Payer for the standalone 36000 claim; Medicare status B = never separately paid. Spec A19.3."
+        }
+      ],
+      "tables": [
+        {
+          "id": "venous.gate",
+          "kind": "rowLookup",
+          "inputs": [
+            "venous_payer_type"
+          ],
+          "note": "Round-2 policy: the sole-service checkbox was removed — charting IV placement as its own procedure asserts it stood alone; the bundling rule survives in the checklist and the status-B payer note.",
+          "rows": [
+            {
+              "when": {
+                "venous_payer_type": "medicare"
+              },
+              "output": {
+                "codes": [
+                  {
+                    "code": "36000",
+                    "units": 1,
+                    "modifiers": []
+                  }
+                ],
+                "flags": [
+                  "advisory:medicare_status_B_no_separate_payment"
+                ],
+                "note": "Reportable alone, but Medicare never pays 36000 separately (status B).",
+                "specRef": "A19.2.1/A19.3"
+              }
+            },
+            {
+              "when": {
+                "venous_payer_type": "other"
+              },
+              "output": {
+                "codes": [
+                  {
+                    "code": "36000",
+                    "units": 1,
+                    "modifiers": []
+                  }
+                ],
+                "note": "Payable per commercial contract when venous access was the sole service.",
+                "specRef": "A19.2.1/A19.4"
+              }
+            }
+          ]
+        },
+        {
+          "id": "venous.unitCaps",
+          "kind": "unitCaps",
+          "caps": [
+            {
+              "code": "36000",
+              "maxUnitsPerDay": 4,
+              "mai": 3,
+              "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)",
+              "specRef": "A19.5"
+            }
+          ]
+        },
+        {
+          "id": "singles.doc.36000",
+          "kind": "docChecklist",
+          "code": "36000",
+          "required": [
+            "Site and vein; needle/catheter gauge",
+            "Indication for venous access",
+            "That NO infusion, injection, or other procedure followed at this encounter (sole-service condition)",
+            "Disposition (e.g., transferred with IV in place)"
+          ],
+          "specRef": "B15"
+        }
+      ]
+    },
+    {
+      "family": "nebulizer",
+      "codes": [
+        "94640"
+      ],
+      "facts": [
+        {
+          "name": "neb_treatment_context",
+          "type": "enum",
+          "allowedValues": [
+            "acute_airway_obstruction",
+            "sputum_induction",
+            "bronchodilator_for_spirometry_study",
+            "none"
+          ],
+          "description": "Why the treatment was given; bronchodilator_for_spirometry_study = misuse of 94640; none = no treatment given. Spec A20.1/A20.3."
+        },
+        {
+          "name": "neb_continuous_over_one_hour",
+          "type": "boolean",
+          "description": "Continuous or back-to-back treatment exceeding one hour (routes to 94644/94645). Spec A20.2.4."
+        },
+        {
+          "name": "neb_episodes_of_care",
+          "type": "integer",
+          "description": "Separate episodes of care (arrival to departure) with inhalation treatment this date; back-to-back treatments within one episode count once. Spec A20.2."
+        }
+      ],
+      "tables": [
+        {
+          "id": "neb.gate",
+          "kind": "rowLookup",
+          "inputs": [
+            "neb_treatment_context",
+            "neb_continuous_over_one_hour"
+          ],
+          "rows": [
+            {
+              "when": {
+                "neb_treatment_context": "none"
+              },
+              "output": {
+                "codes": [],
+                "flags": [
+                  "em_only:no_inhalation_treatment"
+                ],
+                "specRef": "A20.1"
+              }
+            },
+            {
+              "when": {
+                "neb_treatment_context": "bronchodilator_for_spirometry_study"
+              },
+              "output": {
+                "codes": [],
+                "flags": [
+                  "blocked:report_94060_not_94640"
+                ],
+                "note": "94060 includes the bronchodilator administration; reporting 94640 for it is a misuse.",
+                "specRef": "A20.3.1"
+              }
+            },
+            {
+              "when": {
+                "neb_continuous_over_one_hour": true
+              },
+              "output": {
+                "codes": [],
+                "flags": [
+                  "out_of_family:use_94644_94645_continuous"
+                ],
+                "note": "Over one hour reports 94644 (+94645), never 94640.",
+                "specRef": "A20.2.4"
+              }
+            },
+            {
+              "when": {},
+              "output": {
+                "flags": [
+                  "proceed:neb.episodeBand"
+                ],
+                "specRef": "A20.1/A20.2"
+              }
+            }
+          ]
+        },
+        {
+          "id": "neb.episodeBand",
+          "kind": "threshold",
+          "input": "neb_episodes_of_care",
+          "note": "One unit per episode of care; the 2nd+ same-date episode carries modifier 76; lines enumerated because the MUE caps episodes at 4.",
+          "bands": [
+            {
+              "min": null,
+              "max": 0,
+              "output": {
+                "band": "none",
+                "flags": [
+                  "blocked:no_treatment_episode"
+                ]
+              }
+            },
+            {
+              "min": 1,
+              "max": 1,
+              "output": {
+                "codes": [
+                  {
+                    "code": "94640",
+                    "units": 1,
+                    "modifiers": []
+                  }
+                ],
+                "specRef": "A20.2.1"
+              }
+            },
+            {
+              "min": 2,
+              "max": 2,
+              "output": {
+                "codes": [
+                  {
+                    "code": "94640",
+                    "units": 1,
+                    "modifiers": []
+                  },
+                  {
+                    "code": "94640",
+                    "units": 1,
+                    "modifiers": [
+                      "76"
+                    ]
+                  }
+                ],
+                "specRef": "A20.2.3"
+              }
+            },
+            {
+              "min": 3,
+              "max": 3,
+              "output": {
+                "codes": [
+                  {
+                    "code": "94640",
+                    "units": 1,
+                    "modifiers": []
+                  },
+                  {
+                    "code": "94640",
+                    "units": 1,
+                    "modifiers": [
+                      "76"
+                    ]
+                  },
+                  {
+                    "code": "94640",
+                    "units": 1,
+                    "modifiers": [
+                      "76"
+                    ]
+                  }
+                ],
+                "specRef": "A20.2.3/A20.6"
+              }
+            },
+            {
+              "min": 4,
+              "max": 4,
+              "output": {
+                "codes": [
+                  {
+                    "code": "94640",
+                    "units": 1,
+                    "modifiers": []
+                  },
+                  {
+                    "code": "94640",
+                    "units": 1,
+                    "modifiers": [
+                      "76"
+                    ]
+                  },
+                  {
+                    "code": "94640",
+                    "units": 1,
+                    "modifiers": [
+                      "76"
+                    ]
+                  },
+                  {
+                    "code": "94640",
+                    "units": 1,
+                    "modifiers": [
+                      "76"
+                    ]
+                  }
+                ],
+                "specRef": "A20.2.3/A20.6"
+              }
+            },
+            {
+              "min": 5,
+              "max": null,
+              "output": {
+                "codes": [
+                  {
+                    "code": "94640",
+                    "units": 1,
+                    "modifiers": []
+                  },
+                  {
+                    "code": "94640",
+                    "units": 1,
+                    "modifiers": [
+                      "76"
+                    ]
+                  },
+                  {
+                    "code": "94640",
+                    "units": 1,
+                    "modifiers": [
+                      "76"
+                    ]
+                  },
+                  {
+                    "code": "94640",
+                    "units": 1,
+                    "modifiers": [
+                      "76"
+                    ]
+                  }
+                ],
+                "flags": [
+                  "advisory:episodes_exceed_mue_94640"
+                ],
+                "note": "MUE caps at 4 per date; the excess denies but is appealable.",
+                "specRef": "A20.6"
+              }
+            }
+          ]
+        },
+        {
+          "id": "neb.unitCaps",
+          "kind": "unitCaps",
+          "caps": [
+            {
+              "code": "94640",
+              "maxUnitsPerDay": 4,
+              "mai": 3,
+              "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)",
+              "specRef": "A20.6"
+            }
+          ]
+        },
+        {
+          "id": "singles.doc.94640",
+          "kind": "docChecklist",
+          "code": "94640",
+          "required": [
+            "Indication: acute airway obstruction (wheezing/bronchospasm) or sputum induction",
+            "Drug, dose, and device (nebulizer/MDI/IPPB)",
+            "Who administered; clinician supervision",
+            "Pre- and post-treatment assessment (breath sounds, respiratory rate, SpO2, response)",
+            "Time of each treatment; number of back-to-back treatments",
+            "For repeat billing (modifier 76): the separate episodes — departure and return times",
+            "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
+          ],
+          "specRef": "B16"
+        }
+      ]
+    }
+  ]
+}

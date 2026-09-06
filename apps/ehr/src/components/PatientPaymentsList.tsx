@@ -4,6 +4,7 @@ import {
   Alert,
   Box,
   Button,
+  ButtonBase,
   capitalize,
   Checkbox,
   Chip,
@@ -38,6 +39,7 @@ import { useChartData } from 'src/features/visits/shared/stores/appointment/appo
 import { structureQuestionnaireResponse } from 'src/helpers/qr-structure';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useEncounterReceipt, useGetEncounter } from 'src/hooks/useEncounter';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useGetPatientAccount } from 'src/hooks/useGetPatient';
 import { useGetChargeMasterEntryQuery } from 'src/rcm/state/charge-masters/charge-master.queries';
 import { useFindApplicableFeeScheduleQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
@@ -66,6 +68,7 @@ import {
   PostPatientPaymentInput,
 } from 'utils/lib/types/api/patient-payment-types';
 import { SendReceiptByEmailZambdaInput } from 'utils/lib/types/api/send-receipt-by-email.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { PATIENT_HAS_MEDICAID_URL } from 'utils/lib/types/constants';
 import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import { findQuestionnaireItemByLinkId } from 'utils/lib/types/data/paperwork/findQuestionnaireItemByLinkId';
@@ -75,7 +78,9 @@ import {
 } from 'utils/lib/types/data/telemed/eligibility.types';
 import { APIError, APIErrorCode, isApiError } from 'utils/lib/types/errors';
 import { sendReceiptByEmail } from '../api/api';
+import PaymentDetailsDialog, { getRefundState, RefundChip } from './dialogs/PaymentDetailsDialog';
 import PaymentDialog from './dialogs/PaymentDialog';
+import RemoveCardOnFileDialog from './dialogs/RemoveCardOnFileDialog';
 import SendReceiptByEmailDialog, { SendReceiptFormData } from './dialogs/SendReceiptByEmailDialog';
 import { GenericToolTip } from './GenericToolTip';
 import { RefreshableStatusChip } from './RefreshableStatusWidget';
@@ -127,21 +132,34 @@ interface LineItem {
   modifier?: string;
   description: string;
   amount: number;
+  units: number;
   feeUnknown?: boolean;
 }
 
-function buildLineItems(
+export function buildLineItems(
   feeSchedule: ChargeItemDefinition | null | undefined,
-  cptCodes: { code: string; display: string; modifier?: { code: string; display: string }[] }[] | undefined,
+  cptCodes:
+    | { code: string; display: string; modifier?: { code: string; display: string }[]; billableUnits?: number }[]
+    | undefined,
   emCode: { code: string; display: string; modifier?: { code: string; display: string }[] } | undefined
 ): LineItem[] {
   if (!feeSchedule?.propertyGroup || (!cptCodes?.length && !emCode)) return [];
 
-  const allCodes = [...(cptCodes ?? []), ...(emCode ? [emCode] : [])];
+  const allCodes: {
+    code: string;
+    display: string;
+    modifier?: { code: string; display: string }[];
+    billableUnits?: number;
+  }[] = [...(cptCodes ?? []), ...(emCode ? [emCode] : [])];
   const items: LineItem[] = [];
 
   for (const cpt of allCodes) {
     const cptModifier = cpt.modifier?.[0]?.code;
+    const { billableUnits } = cpt;
+    const units =
+      billableUnits != null && Number.isFinite(billableUnits) && billableUnits > 0
+        ? Math.max(1, Math.ceil(billableUnits))
+        : 1;
     let noModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
     let anyModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
     let exactMatched = false;
@@ -158,7 +176,8 @@ function buildLineItems(
           code: cpt.code,
           modifier: cptModifier,
           description: cpt.display || fsCoding.display || '',
-          amount: pc.amount?.value ?? 0,
+          amount: (pc.amount?.value ?? 0) * units,
+          units,
         });
         exactMatched = true;
         noModifierFallbackPg = undefined;
@@ -180,7 +199,8 @@ function buildLineItems(
         code: cpt.code,
         modifier: cptModifier,
         description: cpt.display || fsCoding?.display || '',
-        amount: pc.amount?.value ?? 0,
+        amount: (pc.amount?.value ?? 0) * units,
+        units,
       });
     } else if (!exactMatched) {
       // Code not found in fee schedule — include with unknown fee
@@ -189,6 +209,7 @@ function buildLineItems(
         modifier: cptModifier,
         description: cpt.display || '',
         amount: 0,
+        units,
         feeUnknown: true,
       });
     }
@@ -234,6 +255,53 @@ const deriveCardOnFileStatus = (output: unknown): boolean => {
   return Array.isArray(response.cards) && response.cards.length > 0;
 };
 
+// payment rows shared by the "Services provided" tables; refunded/voided amounts are netted out
+function ServicePaymentRows({ payments }: { payments: PatientPaymentDTO[] }): ReactElement {
+  return (
+    <>
+      {payments.map((payment) => {
+        const refundedCents = payment.refundedAmountInCents ?? 0;
+        const netCents = payment.voided ? 0 : payment.amountInCents - refundedCents;
+        const struckOut = payment.voided || (refundedCents > 0 && netCents <= 0);
+        return (
+          <TableRow key={idForPaymentDTO(payment)}>
+            <TableCell sx={{ width: '30%' }}>
+              <Typography variant="body2" fontWeight={600}>
+                Payment
+              </Typography>
+            </TableCell>
+            <TableCell>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                {payment.cardBrand && <CreditCardBrandIcon brand={payment.cardBrand} />}
+                <Typography variant="body2" color="text.secondary">
+                  {payment.cardLast4
+                    ? `${capitalize(payment.cardBrand ?? 'Card')} •••• ${payment.cardLast4}`
+                    : capitalize(payment.paymentMethod)}
+                  {' · '}
+                  {DateTime.fromISO(payment.dateISO).toLocaleString(DateTime.DATE_SHORT)}
+                  {payment.voided
+                    ? ' · voided'
+                    : refundedCents > 0 &&
+                      (netCents <= 0 ? ' · refunded' : ` · ${formatUsd(refundedCents / 100)} refunded`)}
+                </Typography>
+              </Box>
+            </TableCell>
+            <TableCell sx={{ textAlign: 'right', width: '20%' }}>
+              <Typography
+                variant="body2"
+                color={struckOut ? 'text.disabled' : 'success.main'}
+                sx={struckOut ? { textDecoration: 'line-through' } : undefined}
+              >
+                -{formatUsd((struckOut ? payment.amountInCents : netCents) / 100)}
+              </Typography>
+            </TableCell>
+          </TableRow>
+        );
+      })}
+    </>
+  );
+}
+
 export default function PatientPaymentList({
   loading,
   patient,
@@ -251,8 +319,12 @@ export default function PatientPaymentList({
   const apiClient = useOystehrAPIClient();
   const theme = useTheme();
   const queryClient = useQueryClient();
+  const currentUser = useEvolveUser();
+  const canManagePayments = currentUser?.hasRole([RoleType.BillingAdmin]) ?? false;
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
+  const [detailsPaymentId, setDetailsPaymentId] = useState<string | null>(null);
+  const [removeCardDialogOpen, setRemoveCardDialogOpen] = useState(false);
   const {
     data: hasCreditCardOnFileFromList = false,
     isSuccess: cardOnFileKnown,
@@ -497,8 +569,18 @@ export default function PatientPaymentList({
 
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
 
+  // resolved from the id so a refetch (e.g. after refund/void) refreshes the open dialog
+  const detailsPayment = detailsPaymentId
+    ? payments.find((p) => idForPaymentDTO(p) === detailsPaymentId) ?? null
+    : null;
+
+  // refunded and voided amounts don't count toward what the patient has paid
   const totalPaid = useMemo(
-    () => (paymentData?.payments ?? []).reduce((sum, p) => sum + p.amountInCents, 0) / 100,
+    () =>
+      (paymentData?.payments ?? []).reduce(
+        (sum, p) => sum + (p.voided ? 0 : p.amountInCents - (p.refundedAmountInCents ?? 0)),
+        0
+      ) / 100,
     [paymentData?.payments]
   );
   const remainingBalance = lineItemsTotal - totalPaid;
@@ -512,6 +594,7 @@ export default function PatientPaymentList({
     : 'checking card on file';
   const cardOnFileChipLabel = hasCreditCardOnFileFromList === true ? 'ON FILE' : 'NO CARD';
   const cardOnFileTooltipText = hasCreditCardOnFileFromList === true ? 'Credit card on file' : 'No card on file';
+  const cardOnFileClickable = cardOnFileKnown && hasCreditCardOnFileFromList === true;
 
   const handlePaymentDialogClose = useCallback(() => {
     setPaymentDialogOpen(false);
@@ -519,6 +602,26 @@ export default function PatientPaymentList({
       void refetchCardOnFile();
     }
   }, [oystehrZambda, patient?.id, appointment?.id, refetchCardOnFile]);
+
+  const removeCardOnFile = useMutation({
+    mutationFn: async () => {
+      if (!oystehrZambda || !patient?.id || !appointment?.id)
+        throw new Error('Missing oystehr client, patient id, or appointment id');
+      await oystehrZambda.zambda.execute({
+        id: 'payment-methods-unset-default',
+        beneficiaryPatientId: patient.id,
+        appointmentId: appointment.id,
+      });
+    },
+    onSuccess: async () => {
+      setRemoveCardDialogOpen(false);
+      enqueueSnackbar('Card on file removed', { variant: 'success' });
+      await refetchCardOnFile();
+    },
+    onError: () => {
+      enqueueSnackbar('Something went wrong! Unable to remove card on file.', { variant: 'error' });
+    },
+  });
 
   const stripeCustomerDeletedError =
     paymentListError && isApiError(paymentListError)
@@ -982,7 +1085,8 @@ export default function PatientPaymentList({
             </GenericToolTip>
           )}
         </Box>
-        {(patientCreditCents ?? 0) > 0 && (
+        {/* Outstanding credit banner intentionally hidden (OTR-3309) */}
+        {false && (patientCreditCents ?? 0) > 0 && (
           <Alert
             severity="success"
             variant="outlined"
@@ -1019,6 +1123,7 @@ export default function PatientPaymentList({
                             <Typography variant="body2" fontWeight={600}>
                               {item.code}
                               {item.modifier ? ` (${item.modifier})` : ''}
+                              {item.units > 1 ? ` × ${item.units}` : ''}
                             </Typography>
                           </TableCell>
                           <TableCell>
@@ -1033,32 +1138,7 @@ export default function PatientPaymentList({
                           </TableCell>
                         </TableRow>
                       ))}
-                      {payments.map((payment) => (
-                        <TableRow key={idForPaymentDTO(payment)}>
-                          <TableCell sx={{ width: '30%' }}>
-                            <Typography variant="body2" fontWeight={600}>
-                              Payment
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              {payment.cardBrand && <CreditCardBrandIcon brand={payment.cardBrand} />}
-                              <Typography variant="body2" color="text.secondary">
-                                {payment.cardLast4
-                                  ? `${capitalize(payment.cardBrand ?? 'Card')} •••• ${payment.cardLast4}`
-                                  : capitalize(payment.paymentMethod)}
-                                {' · '}
-                                {DateTime.fromISO(payment.dateISO).toLocaleString(DateTime.DATE_SHORT)}
-                              </Typography>
-                            </Box>
-                          </TableCell>
-                          <TableCell sx={{ textAlign: 'right', width: '20%' }}>
-                            <Typography variant="body2" color="success.main">
-                              -{formatUsd(payment.amountInCents / 100)}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      <ServicePaymentRows payments={payments} />
                       <TableRow>
                         <TableCell colSpan={2} sx={{ pt: '8px !important' }}>
                           <Typography variant="body2" fontWeight={700}>
@@ -1235,6 +1315,7 @@ export default function PatientPaymentList({
                                     <Typography variant="body2" fontWeight={600}>
                                       {item.code}
                                       {item.modifier ? ` (${item.modifier})` : ''}
+                                      {item.units > 1 ? ` × ${item.units}` : ''}
                                     </Typography>
                                   </TableCell>
                                   <TableCell>
@@ -1249,32 +1330,7 @@ export default function PatientPaymentList({
                                   </TableCell>
                                 </TableRow>
                               ))}
-                              {payments.map((payment) => (
-                                <TableRow key={idForPaymentDTO(payment)}>
-                                  <TableCell sx={{ width: '30%' }}>
-                                    <Typography variant="body2" fontWeight={600}>
-                                      Payment
-                                    </Typography>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                      {payment.cardBrand && <CreditCardBrandIcon brand={payment.cardBrand} />}
-                                      <Typography variant="body2" color="text.secondary">
-                                        {payment.cardLast4
-                                          ? `${capitalize(payment.cardBrand ?? 'Card')} •••• ${payment.cardLast4}`
-                                          : capitalize(payment.paymentMethod)}
-                                        {' · '}
-                                        {DateTime.fromISO(payment.dateISO).toLocaleString(DateTime.DATE_SHORT)}
-                                      </Typography>
-                                    </Box>
-                                  </TableCell>
-                                  <TableCell sx={{ textAlign: 'right', width: '20%' }}>
-                                    <Typography variant="body2" color="success.main">
-                                      -{formatUsd(payment.amountInCents / 100)}
-                                    </Typography>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
+                              <ServicePaymentRows payments={payments} />
                               <TableRow>
                                 <TableCell colSpan={2} sx={{ pt: '8px !important' }}>
                                   <Typography variant="body2" fontWeight={700}>
@@ -1353,6 +1409,7 @@ export default function PatientPaymentList({
                             <Typography variant="body2" fontWeight={600}>
                               {item.code}
                               {item.modifier ? ` (${item.modifier})` : ''}
+                              {item.units > 1 ? ` × ${item.units}` : ''}
                             </Typography>
                           </TableCell>
                           <TableCell>
@@ -1367,32 +1424,7 @@ export default function PatientPaymentList({
                           </TableCell>
                         </TableRow>
                       ))}
-                      {payments.map((payment) => (
-                        <TableRow key={idForPaymentDTO(payment)}>
-                          <TableCell sx={{ width: '30%' }}>
-                            <Typography variant="body2" fontWeight={600}>
-                              Payment
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              {payment.cardBrand && <CreditCardBrandIcon brand={payment.cardBrand} />}
-                              <Typography variant="body2" color="text.secondary">
-                                {payment.cardLast4
-                                  ? `${capitalize(payment.cardBrand ?? 'Card')} •••• ${payment.cardLast4}`
-                                  : capitalize(payment.paymentMethod)}
-                                {' · '}
-                                {DateTime.fromISO(payment.dateISO).toLocaleString(DateTime.DATE_SHORT)}
-                              </Typography>
-                            </Box>
-                          </TableCell>
-                          <TableCell sx={{ textAlign: 'right', width: '20%' }}>
-                            <Typography variant="body2" color="success.main">
-                              -{formatUsd(payment.amountInCents / 100)}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      <ServicePaymentRows payments={payments} />
                       <TableRow>
                         <TableCell colSpan={2} sx={{ pt: '8px !important' }}>
                           <Typography variant="body2" fontWeight={700}>
@@ -1547,7 +1579,20 @@ export default function PatientPaymentList({
                 )
               }
             >
-              <Box sx={{ ml: 'auto', display: 'inline-flex', alignItems: 'center' }} aria-label={cardOnFileStatusLabel}>
+              <Box
+                component={cardOnFileClickable ? ButtonBase : 'div'}
+                sx={{
+                  ml: 'auto',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  ...(cardOnFileClickable && {
+                    borderRadius: 1,
+                    '&:hover': { opacity: 0.75 },
+                  }),
+                }}
+                aria-label={cardOnFileStatusLabel}
+                onClick={cardOnFileClickable ? () => setRemoveCardDialogOpen(true) : undefined}
+              >
                 <svg width="38" height="38" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect
                     x="10"
@@ -1594,9 +1639,24 @@ export default function PatientPaymentList({
               {payments.map((payment) => {
                 const paymentDateString = DateTime.fromISO(payment.dateISO).toLocaleString(DateTime.DATE_SHORT);
                 const formattedPaymentAmount = formatUsd(payment.amountInCents / 100) ?? '$0.00';
+                const refundState = getRefundState(payment);
+                const netCents = payment.amountInCents - (payment.refundedAmountInCents ?? 0);
                 return (
                   <Fragment key={idForPaymentDTO(payment)}>
-                    <TableRow sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                    <TableRow
+                      hover
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`View details for ${paymentDateString} payment of ${formattedPaymentAmount}`}
+                      onClick={() => setDetailsPaymentId(idForPaymentDTO(payment))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setDetailsPaymentId(idForPaymentDTO(payment));
+                        }
+                      }}
+                      sx={{ cursor: 'pointer', '&:last-child td': { borderBottom: 0 } }}
+                    >
                       <>
                         <TableCell
                           sx={{
@@ -1605,8 +1665,9 @@ export default function PatientPaymentList({
                             paddingLeft: 0,
                           }}
                         >
-                          <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 1 }}>
                             {getLabelForPayment(payment)}
+                            <RefundChip state={refundState} />
                           </Box>
                         </TableCell>
 
@@ -1630,11 +1691,30 @@ export default function PatientPaymentList({
                             paddingRight: 0,
                           }}
                         >
-                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'flex-end',
+                              alignItems: 'baseline',
+                              gap: 0.75,
+                            }}
+                          >
                             {loading ? (
                               <Skeleton aria-busy="true" width={200} />
-                            ) : (
+                            ) : refundState === 'none' ? (
                               <Typography variant="body1">{formattedPaymentAmount}</Typography>
+                            ) : (
+                              <>
+                                <Typography
+                                  variant="body1"
+                                  sx={{ textDecoration: 'line-through', color: 'text.disabled' }}
+                                >
+                                  {formattedPaymentAmount}
+                                </Typography>
+                                {refundState === 'partial' && (
+                                  <Typography variant="body1">{formatUsd(netCents / 100)}</Typography>
+                                )}
+                              </>
                             )}
                           </Box>
                         </TableCell>
@@ -1688,6 +1768,16 @@ export default function PatientPaymentList({
           }}
         />
       )}
+      {detailsPayment && (
+        <PaymentDetailsDialog
+          open
+          payment={detailsPayment}
+          encounterId={encounterId}
+          canManagePayments={canManagePayments}
+          onPaymentChanged={refetchPaymentList}
+          handleClose={() => setDetailsPaymentId(null)}
+        />
+      )}
       <SendReceiptByEmailDialog
         title="Send receipt"
         modalOpen={sendReceiptByEmailDialogOpen}
@@ -1698,6 +1788,12 @@ export default function PatientPaymentList({
           recipientName: responsibleParty?.fullName,
           recipientEmail: responsibleParty?.email,
         }}
+      />
+      <RemoveCardOnFileDialog
+        open={removeCardDialogOpen}
+        onClose={() => setRemoveCardDialogOpen(false)}
+        onRemove={() => removeCardOnFile.mutate()}
+        loading={removeCardOnFile.isPending}
       />
       <Snackbar
         // anchorOrigin={{ vertical: snackbarOpen.vertical, horizontal: snackbarOpen.horizontal }}

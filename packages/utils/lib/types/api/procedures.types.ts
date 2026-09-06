@@ -1,3 +1,4 @@
+import { StructuredProcedureFacts } from '../../procedure-coding/model.types';
 import { CPTCodeDTO, DiagnosisDTO, ProcedureDTO } from './chart-data/chart-data.types';
 
 export interface ProcedureDetail extends ProcedureDTO {
@@ -27,6 +28,7 @@ export interface ProcedurePageState {
   suppliesUsed?: string[];
   otherSuppliesUsed?: string;
   procedureDetails?: string;
+  structuredFacts?: StructuredProcedureFacts;
   specimenSent?: boolean;
   complications?: string;
   otherComplications?: string;

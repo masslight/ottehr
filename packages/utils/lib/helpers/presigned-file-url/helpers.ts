@@ -1,7 +1,11 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { Z3GetPresignedUrlParams } from '@oystehr/sdk';
 import { DiagnosticReport, DocumentReference } from 'fhir/r4b';
 
-export async function getPresignedURL(url: string, oystehrToken: string): Promise<string> {
+export async function getPresignedURL(
+  url: string,
+  oystehrToken: string,
+  action: Z3GetPresignedUrlParams['action'] = 'download'
+): Promise<string> {
   console.log('getting presigned url');
 
   const presignedURLResponse = await fetch(url, {
@@ -9,7 +13,7 @@ export async function getPresignedURL(url: string, oystehrToken: string): Promis
     headers: {
       Authorization: `Bearer ${oystehrToken}`,
     },
-    body: JSON.stringify({ action: 'download' }),
+    body: JSON.stringify({ action: action }),
   });
 
   if (!presignedURLResponse.ok) {

@@ -3,7 +3,6 @@ import browserslistToEsbuild from 'browserslist-to-esbuild';
 import { existsSync } from 'fs';
 import * as path from 'path';
 import { defineConfig, loadEnv, UserConfig } from 'vite';
-import viteTsconfigPaths from 'vite-tsconfig-paths';
 
 export default ({ mode }: { mode: string }): UserConfig => {
   const envDir = './env';
@@ -19,8 +18,9 @@ export default ({ mode }: { mode: string }): UserConfig => {
 
   return defineConfig({
     envDir,
-    plugins: [react(), viteTsconfigPaths()],
+    plugins: [react()],
     resolve: {
+      tsconfigPaths: true,
       preserveSymlinks: true,
       // Resolve the workspace packages to their real source directories. `preserveSymlinks`
       // otherwise resolves them inside node_modules, where vite treats them as prebundlable deps:

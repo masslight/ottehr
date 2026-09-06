@@ -49,6 +49,7 @@ import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { useMergedServiceCategories } from '../hooks/useMergedServiceCategories';
 import { useServiceCategoryAbbreviationResolver } from '../hooks/useServiceCategoryAbbreviation';
+import { filterVisitsByServiceCategory } from './patientEncountersFilters';
 import { RoundedButton } from './RoundedButton';
 
 type PatientEncountersGridProps = {
@@ -202,7 +203,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     }
 
     if (serviceCategory !== 'all') {
-      filtered = filtered.filter((item) => item.serviceCategory === serviceCategory);
+      filtered = filterVisitsByServiceCategory(filtered, serviceCategory);
     }
 
     // Apply sorting

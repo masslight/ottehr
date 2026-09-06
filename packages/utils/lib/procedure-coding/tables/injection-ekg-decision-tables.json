@@ -1,0 +1,327 @@
+{
+  "meta": {
+    "title": "Therapeutic injection/infusion & electrocardiogram — clean-room decision tables",
+    "generated": "2026-09-05",
+    "derivedFrom": "injection-ekg-cleanroom-spec.md (rule numbers cited per row as specRef)",
+    "vocabulary": {
+      "tableKinds": ["rowLookup", "threshold", "unitCaps", "docChecklist"],
+      "semantics": {
+        "rowLookup": "Rows are evaluated top-down; 'when' is a conjunction of exact-equality tests on declared facts; a fact omitted from 'when' is a wildcard; the FIRST matching row wins; 'output' is opaque data returned to the caller. No expressions, no computation.",
+        "threshold": "One integer fact banded into contiguous ranges by 'bands' (min/max inclusive, null = unbounded); the matching band's 'output' is returned.",
+        "unitCaps": "Per-code maximum billable units per date of service; caps are absolute inputs to claim assembly, never computed.",
+        "docChecklist": "All listed items are required documentation for the code; items are human-verified, not computed.",
+        "chaining": "A matched row/band output whose flags contain 'proceed:<tableId>' transfers evaluation to that table (rowLookup or threshold alike); bare 'proceed' means the next code-emitting rowLookup in document order. An output with no proceed flag settles evaluation: its codes (possibly empty) are the emission."
+      },
+      "outputConventions": {
+        "codes": "array of {code, units, modifiers[]} claim lines; empty array = no procedure code (E/M pathway per notes)",
+        "flags": "blocking or advisory strings the caller must surface; 'blocked:*' means do not emit procedure codes; 'requires_bespoke:*' means the case exceeds this vocabulary and must be routed to the bespoke core described in the family's requiresBespokeCode list"
+      }
+    }
+  },
+  "families": [
+    {
+      "family": "therapeutic-injection-infusion",
+      "codes": ["96365", "96366", "96372", "96374"],
+      "facts": [
+        {
+          "name": "route_profile",
+          "type": "enum",
+          "allowedValues": ["im_sc_only", "single_iv_push", "single_iv_infusion", "multiple_or_mixed"],
+          "description": "Shape of the encounter's parenteral administrations; multiple_or_mixed = anything needing hierarchy resolution. Spec A2/A4."
+        },
+        {
+          "name": "num_im_sc_injections",
+          "type": "integer",
+          "description": "Distinct SC/IM injections administered this date. Spec A5.1."
+        },
+        {
+          "name": "infusion_total_minutes",
+          "type": "integer",
+          "description": "Documented infusion minutes summed across same-drug segments; 0/missing = not documented. Spec A3."
+        },
+        {
+          "name": "payer_type",
+          "type": "enum",
+          "allowedValues": ["medicare", "other"],
+          "description": "Medicare Part B vs all other payers; dispatch-supplied, no gate rows key on it. Spec A5.2."
+        },
+        {
+          "name": "administrations",
+          "type": "list",
+          "itemFields": [
+            { "name": "route", "type": "enum", "allowedValues": ["iv-infusion", "iv-push", "im", "sc"], "optional": true, "description": "Parenteral route; missing = undocumented, so the bespoke core blocks. Spec A2." },
+            { "name": "drug", "type": "string", "optional": true, "description": "Substance administered; drives checklists and segment/push classification, not code selection. Spec B1/A4.6." },
+            { "name": "startTime", "type": "string", "optional": true, "description": "Infusion segment start, HH:MM 24-hour. Spec A3.1." },
+            { "name": "stopTime", "type": "string", "optional": true, "description": "Infusion segment stop, HH:MM 24-hour; a missing stop blocks time-based coding. Spec A3.1 / bespoke #2." },
+            { "name": "ivSiteId", "type": "string", "optional": true, "description": "IV access site id; distinct sites per protocol justify a second initial with 59/XS. Spec A4.1 / bespoke #1(e)." },
+            { "name": "primaryReason", "type": "boolean", "optional": true, "description": "This administration is the encounter's key/primary reason. Spec A4.2." },
+            { "name": "separateEncounterReturn", "type": "boolean", "optional": true, "description": "Occurred at a documented separate same-day encounter. Spec A4.1." }
+          ],
+          "description": "Per-administration events for the bespoke core; the scalar facts above are derived from this list (same-drug segment minutes sum) before table evaluation. Spec bespoke #1/#2 / open question 3."
+        }
+      ],
+      "requiresBespokeCode": [
+        {
+          "rule": "Multi-administration initial-service hierarchy resolution (route_profile=multiple_or_mixed): choose one initial by the physician primary-reason rule, code the rest as subsequent services (96366/96367/96375 or practitioner-unbillable 96376), allow a second initial only for separate-IV-site protocol or separate encounter with 59/XS, and append 59/XS to 96372 lines emitted alongside IV codes. Full prose algorithm in spec 'Rules that require bespoke code' #1.",
+          "specRef": "A4 / bespoke #1"
+        },
+        {
+          "rule": "96366 unit computation from timestamps: T = summed whole minutes across segments; block on missing stop time; T<=15 reroutes to 96374; units_96366 = min(floor((T-31)/60), 8) for T>=91. The infusionMinutesBand table below encodes the same arithmetic as pre-expanded bands and assumes T was computed by this bespoke step.",
+          "specRef": "A3 / bespoke #2"
+        },
+        {
+          "rule": "Repeat-line assembly: modifier 76 vs 77 selection by performer, per-service times in the claim narrative, and holding repeats without documented clinical change.",
+          "specRef": "A5.1 / bespoke #3"
+        },
+        {
+          "rule": "'Significant, separately identifiable E/M' is clinical judgment; not encoded as a runtime fact (2026-09-08: E/M guidance removed with the payer-notes channel — the rule lives in the spec, A7.2).",
+          "specRef": "A7.2 / bespoke #4"
+        }
+      ],
+      "tables": [
+        {
+          "id": "inj.gate",
+          "kind": "rowLookup",
+          "inputs": ["route_profile"],
+          "note": "Round-2 policy (obvious facts assumed): setting and substance_class gate facts removed — office setting and a therapeutic drug are assumed; the out-of-family substance exclusions live in payer notes and the 96372 checklist.",
+          "rows": [
+            {
+              "when": { "route_profile": "multiple_or_mixed" },
+              "output": { "codes": [], "flags": ["requires_bespoke:multi_administration_hierarchy"], "note": "One initial per encounter chosen by primary reason; see requiresBespokeCode #1.", "specRef": "A4" }
+            },
+            {
+              "when": { "route_profile": "im_sc_only" },
+              "output": { "codes": [], "flags": ["proceed:inj.imScCountBand"], "specRef": "A2.1/A5.1" }
+            },
+            {
+              "when": { "route_profile": "single_iv_push" },
+              "output": { "codes": [{ "code": "96374", "units": 1, "modifiers": [] }], "note": "Push = continuous clinician presence, or infusion of 15 minutes or less; initial/only IV service.", "specRef": "A2.2" }
+            },
+            {
+              "when": { "route_profile": "single_iv_infusion" },
+              "output": { "codes": [], "flags": ["proceed:inj.infusionMinutesBand"], "specRef": "A2.3/A3" }
+            }
+          ]
+        },
+        {
+          "id": "inj.imScCountBand",
+          "kind": "threshold",
+          "input": "num_im_sc_injections",
+          "note": "One 96372 unit per injection; cap 4 duplicated from inj.unitCaps. Repeat-line modifier convention is payer-specific — see spec open question 4.",
+          "bands": [
+            { "min": null, "max": 0, "output": { "band": "none", "flags": ["blocked:no_injection_administered"] } },
+            { "min": 1, "max": 1, "output": { "codes": [{ "code": "96372", "units": 1, "modifiers": [] }], "specRef": "A2.1" } },
+            { "min": 2, "max": 2, "output": { "codes": [{ "code": "96372", "units": 2, "modifiers": [] }], "specRef": "A5.1" } },
+            { "min": 3, "max": 3, "output": { "codes": [{ "code": "96372", "units": 3, "modifiers": [] }], "specRef": "A5.1" } },
+            { "min": 4, "max": 4, "output": { "codes": [{ "code": "96372", "units": 4, "modifiers": [] }], "specRef": "A5.1/B6" } },
+            { "min": 5, "max": null, "output": { "codes": [{ "code": "96372", "units": 4, "modifiers": [] }], "flags": ["advisory:injections_exceed_mue_96372"], "note": "MUE caps billable units at 4; the excess denies but is appealable.", "specRef": "B6" } }
+          ]
+        },
+        {
+          "id": "inj.infusionMinutesBand",
+          "kind": "threshold",
+          "input": "infusion_total_minutes",
+          "note": "Bands pre-expand bespoke rule #2: <=15 min = push; 96365 covers 16-90; 96366 unit n is earned at T >= 60n+31, capped at 8. Start AND stop times required (0/missing = blocked).",
+          "bands": [
+            { "min": null, "max": 0, "output": { "band": "none", "flags": ["blocked:no_infusion_time_documented"], "note": "Start/stop times required for any time-based code.", "specRef": "A3.1/B2" } },
+            { "min": 1, "max": 15, "output": { "codes": [{ "code": "96374", "units": 1, "modifiers": [] }], "note": "An infusion of 15 minutes or less is a push, not 96365.", "specRef": "A3.2" } },
+            { "min": 16, "max": 90, "output": { "codes": [{ "code": "96365", "units": 1, "modifiers": [] }], "note": "Initial hour plus a <=30-minute tail.", "specRef": "A3.3" } },
+            { "min": 91, "max": 150, "output": { "codes": [{ "code": "96365", "units": 1, "modifiers": [] }, { "code": "96366", "units": 1, "modifiers": [] }], "specRef": "A3.3/A3.4" } },
+            { "min": 151, "max": 210, "output": { "codes": [{ "code": "96365", "units": 1, "modifiers": [] }, { "code": "96366", "units": 2, "modifiers": [] }], "specRef": "A3.4" } },
+            { "min": 211, "max": 270, "output": { "codes": [{ "code": "96365", "units": 1, "modifiers": [] }, { "code": "96366", "units": 3, "modifiers": [] }], "specRef": "A3.4" } },
+            { "min": 271, "max": 330, "output": { "codes": [{ "code": "96365", "units": 1, "modifiers": [] }, { "code": "96366", "units": 4, "modifiers": [] }], "specRef": "A3.4" } },
+            { "min": 331, "max": 390, "output": { "codes": [{ "code": "96365", "units": 1, "modifiers": [] }, { "code": "96366", "units": 5, "modifiers": [] }], "specRef": "A3.4" } },
+            { "min": 391, "max": 450, "output": { "codes": [{ "code": "96365", "units": 1, "modifiers": [] }, { "code": "96366", "units": 6, "modifiers": [] }], "specRef": "A3.4" } },
+            { "min": 451, "max": 510, "output": { "codes": [{ "code": "96365", "units": 1, "modifiers": [] }, { "code": "96366", "units": 7, "modifiers": [] }], "specRef": "A3.4" } },
+            { "min": 511, "max": 570, "output": { "codes": [{ "code": "96365", "units": 1, "modifiers": [] }, { "code": "96366", "units": 8, "modifiers": [] }], "specRef": "A3.4/B6" } },
+            { "min": 571, "max": null, "output": { "codes": [{ "code": "96365", "units": 1, "modifiers": [] }, { "code": "96366", "units": 8, "modifiers": [] }], "flags": ["advisory:hours_exceed_mue_96366"], "note": "MUE caps 96366 at 8 units; the excess denies but is appealable.", "specRef": "A3.5/B6" } }
+          ]
+        },
+        {
+          "id": "inj.unitCaps",
+          "kind": "unitCaps",
+          "caps": [
+            { "code": "96365", "maxUnitsPerDay": 1, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)", "specRef": "B6" },
+            { "code": "96366", "maxUnitsPerDay": 8, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)", "specRef": "B6" },
+            { "code": "96372", "maxUnitsPerDay": 4, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)", "specRef": "B6" },
+            { "code": "96374", "maxUnitsPerDay": 1, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Code Descriptor / CPT Instruction)", "specRef": "B6" }
+          ]
+        },
+        {
+          "id": "inj.doc.common",
+          "kind": "docChecklist",
+          "code": "96365|96366|96372|96374",
+          "required": [
+            "Order for the specific drug, dose, and route; treatment plan affirmed",
+            "Drug name and dose administered",
+            "Route (SC/IM vs IV push vs IV infusion)",
+            "Anatomic site of administration",
+            "Who administered; supervising practitioner identified for staff administration",
+            "Note signed and dated"
+          ],
+          "specRef": "B1"
+        },
+        {
+          "id": "inj.doc.96365",
+          "kind": "docChecklist",
+          "code": "96365|96366",
+          "required": [
+            "Infusion START and STOP times",
+            "Medical necessity of the infusion and of each additional hour billed; not a keep-open infusion",
+            "IV access site; if two initial services billed, the separate sites or separate encounter documented"
+          ],
+          "specRef": "B2"
+        },
+        {
+          "id": "inj.doc.96374",
+          "kind": "docChecklist",
+          "code": "96374",
+          "required": [
+            "Continuous clinician presence, or infusion interval of 15 minutes or less with times recorded",
+            "The push was the initial/only IV service of the encounter"
+          ],
+          "specRef": "B3"
+        },
+        {
+          "id": "inj.doc.96372",
+          "kind": "docChecklist",
+          "code": "96372",
+          "required": [
+            "Direct supervision satisfied: physician/QHP in the office suite, compliant audio/video presence, or personal administration",
+            "Each injection separately documented (drug, dose, site) when billing more than 1 unit",
+            "Substance is not a vaccine, allergen extract, or chemotherapy/complex biologic"
+          ],
+          "specRef": "B4"
+        }
+      ]
+    },
+    {
+      "family": "electrocardiogram-12-lead",
+      "codes": ["93000", "93005", "93010"],
+      "facts": [
+        {
+          "name": "component",
+          "type": "enum",
+          "allowedValues": ["tracing_and_interpretation", "tracing_only", "interpretation_only"],
+          "description": "Which component this practice furnished; picking an interpretation-bearing value asserts the complete written report was furnished. Spec A8.2/A9."
+        },
+        {
+          "name": "num_ecgs_same_day",
+          "type": "integer",
+          "description": "Medically necessary ECGs of this component this date by this clinician. Spec A11."
+        }
+      ],
+      "requiresBespokeCode": [
+        {
+          "rule": "Modifier 76 vs 77 on repeat lines: the count bands below assume all same-day repeats were by the same clinician (modifier 76). A repeat interpreted/performed by a DIFFERENT clinician takes modifier 77 instead, and a second interpretation of the SAME tracing is payable only as the mod-77 unusual-circumstances exception with documentation. Also: per-ECG times belong in the claim narrative.",
+          "specRef": "A10/A11 / bespoke #3"
+        },
+        {
+          "rule": "'Significant, separately identifiable E/M' judgment — attestation fact only, as in the injection family.",
+          "specRef": "A12 / bespoke #4"
+        }
+      ],
+      "tables": [
+        {
+          "id": "ecg.gate",
+          "kind": "rowLookup",
+          "inputs": ["component"],
+          "note": "Round-2 policy: the interpretation_report_complete checkbox was removed — the component selection asserts it; the report ELEMENTS stay human-verified via ecg.doc.interpretation.",
+          "rows": [
+            {
+              "when": { "component": "tracing_and_interpretation" },
+              "output": { "codes": [], "flags": ["proceed:ecg.lines93000"], "specRef": "A8.2" }
+            },
+            {
+              "when": { "component": "tracing_only" },
+              "output": { "codes": [], "flags": ["proceed:ecg.lines93005"], "specRef": "A8.2" }
+            },
+            {
+              "when": { "component": "interpretation_only" },
+              "output": { "codes": [], "flags": ["proceed:ecg.lines93010"], "note": "Interpretation must be contemporaneous with treatment and the one that drove diagnosis and treatment.", "specRef": "A8.2/A9.4" }
+            }
+          ]
+        },
+        {
+          "id": "ecg.lines93000",
+          "kind": "threshold",
+          "input": "num_ecgs_same_day",
+          "note": "93000 is global (never split with 26/TC); same-clinician repeats add mod-76 lines; different-clinician repeats need 77 (bespoke #3).",
+          "bands": [
+            { "min": null, "max": 0, "output": { "band": "none", "flags": ["blocked:no_ecg_performed"] } },
+            { "min": 1, "max": 1, "output": { "codes": [{ "code": "93000", "units": 1, "modifiers": [] }], "specRef": "A8.2" } },
+            { "min": 2, "max": 2, "output": { "codes": [{ "code": "93000", "units": 1, "modifiers": [] }, { "code": "93000", "units": 1, "modifiers": ["76"] }], "note": "Document the clinical change and time of each repeat.", "specRef": "A11.1" } },
+            { "min": 3, "max": 3, "output": { "codes": [{ "code": "93000", "units": 1, "modifiers": [] }, { "code": "93000", "units": 1, "modifiers": ["76"] }, { "code": "93000", "units": 1, "modifiers": ["76"] }], "specRef": "A11.1/B9" } },
+            { "min": 4, "max": null, "output": { "codes": [{ "code": "93000", "units": 1, "modifiers": [] }, { "code": "93000", "units": 1, "modifiers": ["76"] }, { "code": "93000", "units": 1, "modifiers": ["76"] }], "flags": ["advisory:ecgs_exceed_mue_93000"], "note": "MUE caps services at 3; the excess denies but is appealable.", "specRef": "B9" } }
+          ]
+        },
+        {
+          "id": "ecg.lines93005",
+          "kind": "threshold",
+          "input": "num_ecgs_same_day",
+          "note": "93005 = technical component only.",
+          "bands": [
+            { "min": null, "max": 0, "output": { "band": "none", "flags": ["blocked:no_ecg_performed"] } },
+            { "min": 1, "max": 1, "output": { "codes": [{ "code": "93005", "units": 1, "modifiers": [] }], "specRef": "A8.2" } },
+            { "min": 2, "max": 2, "output": { "codes": [{ "code": "93005", "units": 1, "modifiers": [] }, { "code": "93005", "units": 1, "modifiers": ["76"] }], "specRef": "A11.1" } },
+            { "min": 3, "max": 3, "output": { "codes": [{ "code": "93005", "units": 1, "modifiers": [] }, { "code": "93005", "units": 1, "modifiers": ["76"] }, { "code": "93005", "units": 1, "modifiers": ["76"] }], "specRef": "A11.1/B9" } },
+            { "min": 4, "max": null, "output": { "codes": [{ "code": "93005", "units": 1, "modifiers": [] }, { "code": "93005", "units": 1, "modifiers": ["76"] }, { "code": "93005", "units": 1, "modifiers": ["76"] }], "flags": ["advisory:ecgs_exceed_mue_93005"], "specRef": "B9" } }
+          ]
+        },
+        {
+          "id": "ecg.lines93010",
+          "kind": "threshold",
+          "input": "num_ecgs_same_day",
+          "note": "93010 = professional component only; one payable interpretation per ECG (a second is the mod-77 exception, bespoke #3).",
+          "bands": [
+            { "min": null, "max": 0, "output": { "band": "none", "flags": ["blocked:no_ecg_performed"] } },
+            { "min": 1, "max": 1, "output": { "codes": [{ "code": "93010", "units": 1, "modifiers": [] }], "specRef": "A8.2" } },
+            { "min": 2, "max": 2, "output": { "codes": [{ "code": "93010", "units": 1, "modifiers": [] }, { "code": "93010", "units": 1, "modifiers": ["76"] }], "specRef": "A11.1" } },
+            { "min": 3, "max": 3, "output": { "codes": [{ "code": "93010", "units": 1, "modifiers": [] }, { "code": "93010", "units": 1, "modifiers": ["76"] }, { "code": "93010", "units": 1, "modifiers": ["76"] }], "specRef": "A11.1" } },
+            { "min": 4, "max": 4, "output": { "codes": [{ "code": "93010", "units": 1, "modifiers": [] }, { "code": "93010", "units": 1, "modifiers": ["76"] }, { "code": "93010", "units": 1, "modifiers": ["76"] }, { "code": "93010", "units": 1, "modifiers": ["76"] }], "specRef": "A11.1" } },
+            { "min": 5, "max": 5, "output": { "codes": [{ "code": "93010", "units": 1, "modifiers": [] }, { "code": "93010", "units": 1, "modifiers": ["76"] }, { "code": "93010", "units": 1, "modifiers": ["76"] }, { "code": "93010", "units": 1, "modifiers": ["76"] }, { "code": "93010", "units": 1, "modifiers": ["76"] }], "specRef": "A11.1/B9" } },
+            { "min": 6, "max": null, "output": { "codes": [{ "code": "93010", "units": 1, "modifiers": [] }, { "code": "93010", "units": 1, "modifiers": ["76"] }, { "code": "93010", "units": 1, "modifiers": ["76"] }, { "code": "93010", "units": 1, "modifiers": ["76"] }, { "code": "93010", "units": 1, "modifiers": ["76"] }], "flags": ["advisory:ecgs_exceed_mue_93010"], "specRef": "B9" } }
+          ]
+        },
+        {
+          "id": "ecg.unitCaps",
+          "kind": "unitCaps",
+          "caps": [
+            { "code": "93000", "maxUnitsPerDay": 3, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)", "specRef": "B9" },
+            { "code": "93005", "maxUnitsPerDay": 3, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)", "specRef": "B9" },
+            { "code": "93010", "maxUnitsPerDay": 5, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)", "specRef": "B9" }
+          ]
+        },
+        {
+          "id": "ecg.doc.interpretation",
+          "kind": "docChecklist",
+          "code": "93000|93010",
+          "required": [
+            "Complete written interpretation & report, separately identifiable in the record",
+            "Rhythm and rate",
+            "Axis",
+            "Intervals (PR, QRS, QT/QTc)",
+            "ST-segment / T-wave findings",
+            "Comparison with prior ECG when available",
+            "Relevant clinical issues addressed ('ECG normal' alone is insufficient)",
+            "Clinician signature; report retrievable",
+            "Interpretation contemporaneous with treatment (oral report acceptable if written later)"
+          ],
+          "specRef": "A9/B8"
+        },
+        {
+          "id": "ecg.doc.common",
+          "kind": "docChecklist",
+          "code": "93000|93005|93010",
+          "required": [
+            "Order/indication: the sign, symptom, or condition prompting the ECG",
+            "Date and time performed; at least 12 leads; patient identity on the tracing",
+            "For same-day repeats: the clinical change and the time of each ECG",
+            "Note signed and dated"
+          ],
+          "specRef": "B8/A11"
+        }
+      ]
+    }
+  ]
+}

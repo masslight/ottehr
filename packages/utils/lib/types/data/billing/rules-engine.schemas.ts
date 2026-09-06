@@ -189,6 +189,27 @@ export const ServiceLineMatchSchema: z.ZodType<ServiceLineMatch> = z.discriminat
 export const SERVICE_LINE_SET_OPERATIONS = ['set', 'add', 'remove'] as const;
 export type ServiceLineSetOperation = (typeof SERVICE_LINE_SET_OPERATIONS)[number];
 
+// Which claim diagnoses the addServiceLine action points the new line at: the claim's primary
+// (first) diagnosis, every diagnosis on the claim, or an explicit set of pointers (diagnosisPointers).
+export const DIAGNOSIS_POINTER_MODES = ['primary', 'all', 'specific'] as const;
+export type DiagnosisPointerMode = (typeof DIAGNOSIS_POINTER_MODES)[number];
+
+// A serviceDate value can be derived from the claim instead of typed literally. The plain-string form
+// (including blank/omitted) is what every rule saved before this option existed already stores, so it
+// must keep parsing unchanged; new rules can additionally pick one of these derived sources.
+export const DATE_SOURCE_KIND = {
+  firstServiceLineDate: 'firstServiceLineDate',
+} as const;
+export type DateSourceKind = (typeof DATE_SOURCE_KIND)[keyof typeof DATE_SOURCE_KIND];
+
+export const DerivedDateSourceSchema = z.object({ source: z.literal(DATE_SOURCE_KIND.firstServiceLineDate) });
+export type DerivedDateSource = z.output<typeof DerivedDateSourceSchema>;
+
+// A literal ISO date string (default; blank/omitted keeps addServiceLine's legacy implicit
+// fallback-to-first-line-date behavior) or a derived source.
+export const DateValueSchema = z.union([z.string(), DerivedDateSourceSchema]);
+export type DateValue = z.output<typeof DateValueSchema>;
+
 // The fields of a new service line added by the addServiceLine action. All values are strings (the
 // rule value model) and are validated at save time (format) and apply time (claim-dependent checks);
 // blank optional fields fall back to the same defaults the claim editor uses — see
@@ -200,12 +221,24 @@ export const AddServiceLineInputSchema = z.object({
   units: z.string().optional(),
   charges: z.string().min(1),
   placeOfService: z.string().optional(),
-  serviceDate: z.string().optional(),
-  // Comma-separated 1-based pointers into the claim's diagnosis list.
+  serviceDate: DateValueSchema.optional(),
+  // Blank/omitted behaves like 'primary' unless diagnosisPointers is set, in which case it behaves
+  // like 'specific' — see effectiveDiagnosisMode(), which keeps rules saved before this field
+  // existed pointing at the same diagnoses instead of silently switching to 'primary'.
+  diagnosisMode: z.enum(DIAGNOSIS_POINTER_MODES).optional(),
+  // Comma-separated 1-based pointers into the claim's diagnosis list; only read when diagnosisMode
+  // is 'specific'.
   diagnosisPointers: z.string().optional(),
   revenueCode: z.string().optional(),
 });
 export type AddServiceLineInput = z.output<typeof AddServiceLineInputSchema>;
+
+// The addServiceLine action's diagnosis-selection mode, defaulting blank/omitted input the same way
+// the engine and the rule builder both need to: 'specific' when legacy diagnosisPointers is set
+// (rules saved before diagnosisMode existed), 'primary' otherwise.
+export const effectiveDiagnosisMode = (
+  line: Pick<AddServiceLineInput, 'diagnosisMode' | 'diagnosisPointers'>
+): DiagnosisPointerMode => line.diagnosisMode ?? (line.diagnosisPointers?.trim() ? 'specific' : 'primary');
 
 // --- Action ---
 export type RuleAction =
@@ -215,7 +248,7 @@ export type RuleAction =
   | {
       type: 'updateServiceLines';
       match: ServiceLineMatch;
-      set: { property: string; value: string; operation?: ServiceLineSetOperation };
+      set: { property: string; value: DateValue; operation?: ServiceLineSetOperation };
     }
   | { type: 'removeServiceLines'; match: ServiceLineMatch }
   // Re-prices the matching lines from the best applicable charge master (resolved by the engine at
@@ -241,8 +274,10 @@ export const RuleActionSchema = z.discriminatedUnion('type', [
     set: z.object({
       property: z.string().min(1),
       // Empty is meaningful only for list-valued properties ("clear the modifiers"); scalar-property
-      // writers reject it at apply time and the engine holds the claim.
-      value: z.string(),
+      // writers reject it at apply time and the engine holds the claim. A derived-source object is
+      // only meaningful for the serviceDate property — save-time validation (field-catalog) rejects
+      // it for any other property, since the schema alone can't see the sibling `property` value.
+      value: DateValueSchema,
       operation: z.enum(SERVICE_LINE_SET_OPERATIONS).optional(),
     }),
   }),

@@ -1,0 +1,360 @@
+{
+  "meta": {
+    "title": "Cerumen removal & cutaneous I&D — clean-room decision tables",
+    "generated": "2026-09-05",
+    "derivedFrom": "cerumen-id-cleanroom-spec.md (rule numbers cited per row as specRef)",
+    "vocabulary": {
+      "tableKinds": ["rowLookup", "threshold", "unitCaps", "docChecklist"],
+      "semantics": {
+        "rowLookup": "Rows are evaluated top-down; 'when' is a conjunction of exact-equality tests on declared facts; a fact omitted from 'when' is a wildcard; the FIRST matching row wins; 'output' is opaque data returned to the caller. No expressions, no computation.",
+        "threshold": "One integer fact banded into contiguous ranges by 'bands' (min/max inclusive, null = unbounded); the matching band's 'output' is returned.",
+        "unitCaps": "Per-code maximum billable units per date of service; caps are absolute inputs to claim assembly, never computed.",
+        "docChecklist": "All listed items are required documentation for the code; items are human-verified, not computed.",
+        "chaining": "A matched row/band output whose flags contain 'proceed:<tableId>' transfers evaluation to that table (rowLookup or threshold alike); bare 'proceed' means the next code-emitting rowLookup in document order. An output with no proceed flag settles evaluation: its codes (possibly empty) are the emission."
+      },
+      "outputConventions": {
+        "codes": "array of {code, units, modifiers[]} claim lines; empty array = no procedure code (E/M pathway per notes)",
+        "flags": "blocking or advisory strings the caller must surface; 'blocked:*' means do not emit procedure codes"
+      }
+    }
+  },
+  "families": [
+    {
+      "family": "cerumen-removal",
+      "codes": ["69209", "69210"],
+      "facts": [
+        {
+          "name": "impaction_basis",
+          "type": "enum",
+          "allowedValues": ["visual", "qualitative", "inflammatory", "quantitative", "none"],
+          "description": "Which documented impaction consideration applies; 'none' = cerumen not impacted. Spec A1.1."
+        },
+        {
+          "name": "left_ear_method",
+          "type": "enum",
+          "allowedValues": ["none", "irrigation", "instrumentation", "both"],
+          "description": "Removal method used on the LEFT ear ('both' = irrigation and instrumentation). Spec A2."
+        },
+        {
+          "name": "right_ear_method",
+          "type": "enum",
+          "allowedValues": ["none", "irrigation", "instrumentation", "both"],
+          "description": "Removal method used on the RIGHT ear. Spec A2."
+        },
+        {
+          "name": "payer_type",
+          "type": "enum",
+          "allowedValues": ["medicare", "other"],
+          "description": "Medicare Part B vs all other payers; drives bilateral reporting. Spec A3."
+        }
+      ],
+      "tables": [
+        {
+          "id": "cerumen.gate",
+          "kind": "rowLookup",
+          "inputs": ["impaction_basis", "left_ear_method", "right_ear_method"],
+          "rows": [
+            {
+              "when": { "impaction_basis": "none" },
+              "output": { "codes": [], "flags": ["em_only:not_impacted"], "note": "Non-impacted removal is part of the E/M; no procedure code.", "specRef": "A1.2" }
+            },
+            {
+              "when": { "left_ear_method": "none", "right_ear_method": "none" },
+              "output": { "codes": [], "flags": ["em_only:no_removal_performed"], "specRef": "A1" }
+            },
+            {
+              "when": {},
+              "output": { "codes": [], "flags": ["proceed"], "specRef": "A1-A2" }
+            }
+          ]
+        },
+        {
+          "id": "cerumen.claimLines",
+          "kind": "rowLookup",
+          "inputs": ["left_ear_method", "right_ear_method", "payer_type"],
+          "note": "After cerumen.gate 'proceed'; 'both' codes as instrumentation per ear, and each ear yields one code so same-ear 69209+69210 cannot occur (no claim edit catches it downstream). Spec A2.3/B3.1.",
+          "rows": [
+            { "when": { "left_ear_method": "irrigation", "right_ear_method": "none" },
+              "output": { "codes": [{ "code": "69209", "units": 1, "modifiers": ["LT"] }], "specRef": "A2.1/A3.4" } },
+            { "when": { "left_ear_method": "none", "right_ear_method": "irrigation" },
+              "output": { "codes": [{ "code": "69209", "units": 1, "modifiers": ["RT"] }], "specRef": "A2.1/A3.4" } },
+            { "when": { "left_ear_method": "instrumentation", "right_ear_method": "none" },
+              "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": ["LT"] }], "specRef": "A2.2/A3.4" } },
+            { "when": { "left_ear_method": "both", "right_ear_method": "none" },
+              "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": ["LT"] }], "specRef": "A2.3/A3.4" } },
+            { "when": { "left_ear_method": "none", "right_ear_method": "instrumentation" },
+              "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": ["RT"] }], "specRef": "A2.2/A3.4" } },
+            { "when": { "left_ear_method": "none", "right_ear_method": "both" },
+              "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": ["RT"] }], "specRef": "A2.3/A3.4" } },
+            { "when": { "left_ear_method": "irrigation", "right_ear_method": "irrigation" },
+              "output": { "codes": [{ "code": "69209", "units": 1, "modifiers": ["50"] }], "note": "Bilateral irrigation: one line, modifier 50, 1 unit (commercial payers may prefer LT/RT — see the spec).", "specRef": "A3.1/A3.2" } },
+            { "when": { "left_ear_method": "instrumentation", "right_ear_method": "instrumentation", "payer_type": "medicare" },
+              "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": [] }], "note": "Medicare bilateral 69210: one line, one unit, NO modifier 50.", "specRef": "A3.3" } },
+            { "when": { "left_ear_method": "both", "right_ear_method": "instrumentation", "payer_type": "medicare" },
+              "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": [] }], "specRef": "A3.3" } },
+            { "when": { "left_ear_method": "instrumentation", "right_ear_method": "both", "payer_type": "medicare" },
+              "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": [] }], "specRef": "A3.3" } },
+            { "when": { "left_ear_method": "both", "right_ear_method": "both", "payer_type": "medicare" },
+              "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": [] }], "specRef": "A3.3" } },
+            { "when": { "left_ear_method": "instrumentation", "right_ear_method": "instrumentation", "payer_type": "other" },
+              "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": ["50"] }], "note": "CPT default; some payers want LT/RT lines — see the spec.", "specRef": "A3.1" } },
+            { "when": { "left_ear_method": "both", "right_ear_method": "instrumentation", "payer_type": "other" },
+              "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": ["50"] }], "specRef": "A3.1" } },
+            { "when": { "left_ear_method": "instrumentation", "right_ear_method": "both", "payer_type": "other" },
+              "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": ["50"] }], "specRef": "A3.1" } },
+            { "when": { "left_ear_method": "both", "right_ear_method": "both", "payer_type": "other" },
+              "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": ["50"] }], "specRef": "A3.1" } },
+            { "when": { "left_ear_method": "irrigation", "right_ear_method": "instrumentation" },
+              "output": { "codes": [{ "code": "69209", "units": 1, "modifiers": ["LT"] }, { "code": "69210", "units": 1, "modifiers": ["RT"] }], "note": "Different methods per ear: both codes with laterality modifiers; some payers want 59/XS on the second line.", "specRef": "A2.4" } },
+            { "when": { "left_ear_method": "irrigation", "right_ear_method": "both" },
+              "output": { "codes": [{ "code": "69209", "units": 1, "modifiers": ["LT"] }, { "code": "69210", "units": 1, "modifiers": ["RT"] }], "specRef": "A2.4" } },
+            { "when": { "left_ear_method": "instrumentation", "right_ear_method": "irrigation" },
+              "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": ["LT"] }, { "code": "69209", "units": 1, "modifiers": ["RT"] }], "specRef": "A2.4" } },
+            { "when": { "left_ear_method": "both", "right_ear_method": "irrigation" },
+              "output": { "codes": [{ "code": "69210", "units": 1, "modifiers": ["LT"] }, { "code": "69209", "units": 1, "modifiers": ["RT"] }], "specRef": "A2.4" } }
+          ]
+        },
+        {
+          "id": "cerumen.unitCaps",
+          "kind": "unitCaps",
+          "caps": [
+            { "code": "69209", "maxUnitsPerDay": 1, "mai": 2, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: CMS Policy)", "specRef": "B4" },
+            { "code": "69210", "maxUnitsPerDay": 1, "mai": 2, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Anatomic Consideration)", "specRef": "B4" }
+          ]
+        },
+        {
+          "id": "cerumen.doc.69209",
+          "kind": "docChecklist",
+          "code": "69209",
+          "required": [
+            "Ear(s) treated (left/right/both)",
+            "Impaction finding documented (visual/qualitative/inflammatory/quantitative)",
+            "Method documented: irrigation/lavage, solution, cerumenolytic agent if used",
+            "Performer and supervision documented",
+            "Post-procedure otoscopic check confirming removal / canal status",
+            "ICD-10 H61.21/H61.22/H61.23 matching treated ear(s)",
+            "Note signed and dated"
+          ],
+          "specRef": "B1"
+        },
+        {
+          "id": "cerumen.doc.69210",
+          "kind": "docChecklist",
+          "code": "69210",
+          "required": [
+            "Ear(s) treated (left/right/both)",
+            "Impaction finding documented",
+            "Instruments named and visualization/magnification used (otoscope/microscope)",
+            "Removal personally performed by physician/QHP and attributed in the note",
+            "Time/effort indicating clinician skill was required",
+            "Post-removal exam of canal and tympanic membrane, status noted",
+            "ICD-10 H61.21/H61.22/H61.23 matching treated ear(s)",
+            "Note signed and dated",
+            "If E/M also billed: separately identifiable E/M documentation supporting modifier 25"
+          ],
+          "specRef": "B2"
+        }
+      ]
+    },
+    {
+      "family": "cutaneous-incision-and-drainage",
+      "codes": ["10060", "10061", "10140", "10160", "10180"],
+      "facts": [
+        {
+          "name": "lesion_type",
+          "type": "enum",
+          "allowedValues": ["abscess_cyst_purulent", "hematoma_seroma_fluid", "bulla", "pilonidal_cyst", "postop_wound_infection"],
+          "description": "Lesion category; abscess_cyst_purulent = the 10060 descriptor list. Spec A7."
+        },
+        {
+          "name": "approach",
+          "type": "enum",
+          "allowedValues": ["incision", "puncture_aspiration"],
+          "description": "puncture_aspiration = needle only, no incision made. Spec A7.3."
+        },
+        {
+          "name": "lesion_count",
+          "type": "integer",
+          "description": "Distinct lesions treated at this session. Spec A8.2."
+        },
+        {
+          "name": "packing_placed",
+          "type": "boolean",
+          "description": "Packing placed (complicating feature). Spec A8.1."
+        },
+        {
+          "name": "drain_placed",
+          "type": "boolean",
+          "description": "Drain placed (complicating feature). Spec A8.1."
+        },
+        {
+          "name": "multiple_incisions",
+          "type": "boolean",
+          "description": "More than one incision needed for full drainage (complicating feature). Spec A8.1."
+        },
+        {
+          "name": "loculations_probed",
+          "type": "boolean",
+          "description": "Loculations probed/broken up (complicating feature). Spec A8.1."
+        },
+        {
+          "name": "tissue_excision_or_closure",
+          "type": "boolean",
+          "description": "Tissue excision, closure, or Z-plasty required (complicating feature). Spec A8.1."
+        },
+        {
+          "name": "same_site_other_procedure",
+          "type": "boolean",
+          "description": "Another same-site procedure this encounter, or I&D done for access. Spec A7.6/A7.7."
+        }
+      ],
+      "tables": [
+        {
+          "id": "id.gate",
+          "kind": "rowLookup",
+          "inputs": ["same_site_other_procedure", "lesion_type", "approach"],
+          "rows": [
+            { "when": { "same_site_other_procedure": true },
+              "output": { "codes": [], "flags": ["blocked:bundled_into_same_site_procedure"], "note": "Same-site/access I&D is not separately reportable.", "specRef": "A7.6/A7.7" } },
+            { "when": { "lesion_type": "pilonidal_cyst" },
+              "output": { "codes": [], "flags": ["out_of_family:use_10080_or_10081"], "specRef": "A7.4" } },
+            { "when": { "lesion_type": "postop_wound_infection", "approach": "incision" },
+              "output": { "codes": [{ "code": "10180", "units": 1, "modifiers": [] }], "flags": ["verify:not_same_encounter_as_causative_surgery"], "specRef": "A7.5" } },
+            { "when": { "lesion_type": "postop_wound_infection", "approach": "puncture_aspiration" },
+              "output": { "codes": [], "flags": ["unmapped_requires_review"], "note": "Aspiration of a post-op wound infection has no clean fit in this family.", "specRef": "A7.5" } },
+            { "when": { "approach": "puncture_aspiration", "lesion_type": "abscess_cyst_purulent" },
+              "output": { "flags": ["proceed:id.aspirationLesionCountBand"], "note": "One unit per distinct lesion aspirated; never also an I&D code for the same lesion.", "specRef": "A7.3/A7.8" } },
+            { "when": { "approach": "puncture_aspiration", "lesion_type": "hematoma_seroma_fluid" },
+              "output": { "flags": ["proceed:id.aspirationLesionCountBand"], "note": "Hematoma aspiration codes 10160.", "specRef": "A7.3" } },
+            { "when": { "approach": "puncture_aspiration", "lesion_type": "bulla" },
+              "output": { "flags": ["proceed:id.aspirationLesionCountBand"], "specRef": "A7.3" } },
+            { "when": { "approach": "incision", "lesion_type": "hematoma_seroma_fluid" },
+              "output": { "flags": ["proceed:id.fluidLesionCountBand"], "note": "No 'complicated' tier exists for 10140.", "specRef": "A7.2 / open question 2" } },
+            { "when": { "approach": "incision", "lesion_type": "bulla" },
+              "output": { "codes": [], "flags": ["unmapped_requires_review"], "note": "Incision of a bulla has no verified mapping.", "specRef": "A7 / needs-licensed-CPT item 3" } },
+            { "when": { "approach": "incision", "lesion_type": "abscess_cyst_purulent" },
+              "output": { "codes": [], "flags": ["proceed:id.abscessLesionCountBand"], "specRef": "A8" } }
+          ]
+        },
+        {
+          "id": "id.abscessLesionCountBand",
+          "kind": "threshold",
+          "input": "lesion_count",
+          "note": "From id.gate's incised-abscess row.",
+          "bands": [
+            { "min": null, "max": 0, "output": { "band": "none", "flags": ["blocked:no_lesion_treated"] } },
+            { "min": 1, "max": 1, "output": { "band": "single", "flags": ["proceed:id.abscessComplexity"] } },
+            { "min": 2, "max": null, "output": { "band": "multiple", "codes": [{ "code": "10061", "units": 1, "modifiers": [] }], "note": "Multiple abscesses at one session -> 10061, never 10060 x units.", "specRef": "A8.2" } }
+          ]
+        },
+        {
+          "id": "id.abscessComplexity",
+          "kind": "rowLookup",
+          "inputs": ["packing_placed", "drain_placed", "multiple_incisions", "loculations_probed", "tissue_excision_or_closure"],
+          "note": "Single-lesion band only; any one complicating feature -> complicated (features are consensus — no official definition). Spec open question 1.",
+          "rows": [
+            { "when": { "packing_placed": true }, "output": { "codes": [{ "code": "10061", "units": 1, "modifiers": [] }], "specRef": "A8.1" } },
+            { "when": { "drain_placed": true }, "output": { "codes": [{ "code": "10061", "units": 1, "modifiers": [] }], "specRef": "A8.1" } },
+            { "when": { "multiple_incisions": true }, "output": { "codes": [{ "code": "10061", "units": 1, "modifiers": [] }], "specRef": "A8.1" } },
+            { "when": { "loculations_probed": true }, "output": { "codes": [{ "code": "10061", "units": 1, "modifiers": [] }], "specRef": "A8.1" } },
+            { "when": { "tissue_excision_or_closure": true }, "output": { "codes": [{ "code": "10061", "units": 1, "modifiers": [] }], "specRef": "A8.1" } },
+            { "when": {}, "output": { "codes": [{ "code": "10060", "units": 1, "modifiers": [] }], "specRef": "A8.3" } }
+          ]
+        },
+        {
+          "id": "id.aspirationLesionCountBand",
+          "kind": "threshold",
+          "input": "lesion_count",
+          "note": "10160 units = distinct lesions aspirated; cap 3 duplicated from id.unitCaps (the vocabulary cannot compute min).",
+          "bands": [
+            { "min": null, "max": 0, "output": { "band": "none", "flags": ["blocked:no_lesion_treated"] } },
+            { "min": 1, "max": 1, "output": { "codes": [{ "code": "10160", "units": 1, "modifiers": [] }], "specRef": "A7.3" } },
+            { "min": 2, "max": 2, "output": { "codes": [{ "code": "10160", "units": 2, "modifiers": [] }], "specRef": "decision procedure step 3 / B8" } },
+            { "min": 3, "max": 3, "output": { "codes": [{ "code": "10160", "units": 3, "modifiers": [] }], "specRef": "decision procedure step 3 / B8" } },
+            { "min": 4, "max": null, "output": { "codes": [{ "code": "10160", "units": 3, "modifiers": [] }], "flags": ["advisory:lesions_exceed_mue_10160"], "note": "MUE caps billable units at 3; the excess denies but is appealable.", "specRef": "B8" } }
+          ]
+        },
+        {
+          "id": "id.fluidLesionCountBand",
+          "kind": "threshold",
+          "input": "lesion_count",
+          "note": "10140 units = distinct collections evacuated; cap 2 duplicated from id.unitCaps (no computation in the vocabulary).",
+          "bands": [
+            { "min": null, "max": 0, "output": { "band": "none", "flags": ["blocked:no_lesion_treated"] } },
+            { "min": 1, "max": 1, "output": { "codes": [{ "code": "10140", "units": 1, "modifiers": [] }], "specRef": "A7.2" } },
+            { "min": 2, "max": 2, "output": { "codes": [{ "code": "10140", "units": 2, "modifiers": [] }], "specRef": "B8 (up to 2 distinct collections/day, each documented)" } },
+            { "min": 3, "max": null, "output": { "codes": [{ "code": "10140", "units": 2, "modifiers": [] }], "flags": ["advisory:collections_exceed_mue_10140"], "note": "MUE caps billable units at 2; the excess denies but is appealable.", "specRef": "B8" } }
+          ]
+        },
+        {
+          "id": "id.unitCaps",
+          "kind": "unitCaps",
+          "caps": [
+            { "code": "10060", "maxUnitsPerDay": 1, "mai": 2, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Code Descriptor / CPT Instruction)", "specRef": "B8" },
+            { "code": "10061", "maxUnitsPerDay": 1, "mai": 2, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Code Descriptor / CPT Instruction)", "specRef": "B8" },
+            { "code": "10140", "maxUnitsPerDay": 2, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)", "specRef": "B8" },
+            { "code": "10160", "maxUnitsPerDay": 3, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)", "specRef": "B8" },
+            { "code": "10180", "maxUnitsPerDay": 2, "mai": 3, "source": "CMS MUE practitioner table eff. 2026-10-01 (rationale: Clinical: Data)", "specRef": "B8" }
+          ]
+        },
+        {
+          "id": "id.doc.common",
+          "kind": "docChecklist",
+          "code": "10060|10061|10140|10160",
+          "required": [
+            "Site/location of each lesion",
+            "Lesion type (abscess/cyst/furuncle vs hematoma/seroma/fluid vs bulla)",
+            "Size, characteristics, single vs multiple, depth",
+            "Lesion size, location, appearance before drainage; amount and character of drained material",
+            "Technique: incision(s) or needle puncture; drainage achieved; irrigation/curettage/probing",
+            "Anesthesia used",
+            "Culture obtained yes/no",
+            "Wound disposition: left open / packed / drain placed / closed",
+            "Post-procedure assessment and aftercare instructions"
+          ],
+          "specRef": "B6"
+        },
+        {
+          "id": "id.doc.10061",
+          "kind": "docChecklist",
+          "code": "10061",
+          "required": [
+            "Complicating element stated concretely: packing, drain, multiple incisions, loculations probed, tissue excision/closure — or 2+ distinct lesions drained"
+          ],
+          "specRef": "B6"
+        },
+        {
+          "id": "id.doc.10140",
+          "kind": "docChecklist",
+          "code": "10140",
+          "required": [
+            "Medical necessity for drainage stated (severe pain, infection, or failed conservative measures)"
+          ],
+          "specRef": "B6"
+        },
+        {
+          "id": "id.doc.10160",
+          "kind": "docChecklist",
+          "code": "10160",
+          "required": [
+            "Needle/puncture approach with NO incision",
+            "What was aspirated and the volume",
+            "Each distinct lesion documented separately if units > 1"
+          ],
+          "specRef": "B6"
+        },
+        {
+          "id": "id.doc.10180",
+          "kind": "docChecklist",
+          "code": "10180",
+          "required": [
+            "Postoperative wound infection of a prior surgical wound identified",
+            "Complex work described: suture/staple removal, re-incision, drainage, necrotic tissue excision, packing/drain",
+            "Not the same encounter as the surgery that caused the infection"
+          ],
+          "specRef": "B6/A7.5"
+        }
+      ]
+    }
+  ]
+}

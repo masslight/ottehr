@@ -49,6 +49,41 @@ const searchParamsMatch = (params1: SearchParams, params2: SearchParams): boolea
 };
 
 /**
+ * Invalidates only the chart-fields queries for `encounterId` that actually ask for one of
+ * `fields`.
+ *
+ * Every field set gets its own cache entry, so a blanket invalidate of the
+ * `CHART_FIELDS_QUERY_KEY` prefix refetches every chart query mounted on the page — a dozen
+ * or more on Review & Sign — when a section changed one of them.
+ */
+export const invalidateChartFields = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  encounterId: string | undefined,
+  fields: RequestedFields[]
+): void => {
+  if (!encounterId || fields.length === 0) return;
+
+  queryClient
+    .getQueryCache()
+    .getAll()
+    .forEach((query) => {
+      const [base, encId, searchParamsKey] = query.queryKey;
+      if (base !== CHART_FIELDS_QUERY_KEY || encId !== encounterId) return;
+
+      let requested: Record<string, unknown>;
+      try {
+        requested = JSON.parse((searchParamsKey as string) || '{}');
+      } catch {
+        return;
+      }
+
+      if (fields.some((field) => field in requested)) {
+        void queryClient.invalidateQueries({ queryKey: query.queryKey, exact: true });
+      }
+    });
+};
+
+/**
  * Hook for fetching and managing chart data fields.
  *
  * This hook implements a caching strategy that replaces the common cache with standard react-query caches:

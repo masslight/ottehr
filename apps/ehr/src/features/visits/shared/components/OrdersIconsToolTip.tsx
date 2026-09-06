@@ -110,6 +110,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
         statusChip: <InHouseLabsStatusChip status={order.status} />,
         unreadBadge: IN_HOUSE_LAB_ORDERS_PENDING_BADGE_STATUSES.includes(order.status),
       })),
+      includeTableNavButton: true,
     };
     orderConfigs.push(inHouseLabOrderConfig);
   }

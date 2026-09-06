@@ -26,7 +26,7 @@ import {
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
 import { medicationApplianceRoutes } from 'utils/lib/types/api/medication-administration.types';
-import procedureType from '../../../../../../config/oystehr/procedure-type.json' assert { type: 'json' };
+import procedureType from '../../../../../../config/oystehr/procedure-type.json';
 
 const PROCESS_ID = `orderCancellation.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID);

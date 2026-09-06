@@ -18,7 +18,7 @@ import {
   medicationApplianceLocations,
   medicationApplianceRoutes,
 } from 'utils/lib/types/api/medication-administration.types';
-import vaccines from '../../../../../../config/oystehr/vaccines.json' assert { type: 'json' };
+import vaccines from '../../../../../../config/oystehr/vaccines.json';
 
 interface VaccineInfo {
   vaccine: string;

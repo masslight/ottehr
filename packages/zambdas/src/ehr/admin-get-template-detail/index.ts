@@ -31,6 +31,7 @@ import {
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
 import { collectKnownRosFields, getRosFindingStateFromKey } from 'utils/lib/ottehr-config/review-of-systems';
+import { parseStructuredFacts } from 'utils/lib/procedure-coding/codec';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   AdminGetTemplateDetailInput,
@@ -548,6 +549,9 @@ const performEffect = async (
       medicationUsed: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.medicationUsed.url),
       suppliesUsed: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url),
       procedureDetails: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.procedureDetails.url),
+      structuredFacts: parseStructuredFacts(
+        getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.structuredFacts.url)
+      ),
       specimenSent: getExtensionBoolean(plan, FHIR_EXTENSION.ServiceRequest.specimenSent.url),
       complications: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.complications.url),
       patientResponse: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.patientResponse.url),

@@ -18,12 +18,12 @@ vi.mock('notistack', () => ({
   enqueueSnackbar: (...args: unknown[]) => enqueueSnackbar(...args),
 }));
 
-// EBML magic — what a healthy desktop (WebM) recording starts with.
+// The marker a WebM file opens with — a healthy desktop recording.
 const EBML_HEADER = [0x1a, 0x45, 0xdf, 0xa3, 0x01, 0x00, 0x00, 0x00];
-// The recording that broke transcription in production: a bare `moof` fragment, because a second
-// recorder's chunks were mixed in and the init segment ended up mid-file.
-const HEADERLESS_FRAGMENT = [0x00, 0x00, 0x01, 0x24, 0x6d, 0x6f, 0x6f, 0x66];
-// An ISO-BMFF/MP4 header (`....ftypisom`) — what iOS Safari actually produces.
+// Copied from the recording that broke transcription in production: a chunk from the middle of a recording,
+// with no opening marker, because a second recorder's chunks were mixed in and pushed the header mid-file.
+const HEADERLESS_CHUNK = [0x00, 0x00, 0x01, 0x24, 0x6d, 0x6f, 0x6f, 0x66];
+// The marker an MP4 file carries in bytes 4-8 (`ftyp`) — what iOS Safari produces.
 const FTYP_HEADER = [0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d];
 
 // Minimal MediaRecorder/getUserMedia stubs — jsdom/node don't provide the media capture APIs.
@@ -298,7 +298,7 @@ describe('audioRecording.store', () => {
 
     const hex = await uploadedHex();
     expect(hex).not.toContain('deadbeef'); // the stale recorder's bytes stayed out
-    expect(hex.startsWith('1a45dfa3')).toBe(true); // enc-2 still begins with its own init segment
+    expect(hex.startsWith('1a45dfa3')).toBe(true); // enc-2 still begins with its own opening marker
   });
 
   test('a recording with no container header is not uploaded', async () => {
@@ -307,8 +307,9 @@ describe('audioRecording.store', () => {
     );
 
     await audioRecordingActions.startRecording({ visitID: 'enc-1', oystehr });
-    // A fragment where the init segment should be: uploading it buys an opaque Vertex 400 and no note.
-    MockMediaRecorder.instances[0].emit(HEADERLESS_FRAGMENT);
+    // A chunk from mid-recording, where the opening marker should be: uploading it buys an opaque Vertex
+    // 400 and no note.
+    MockMediaRecorder.instances[0].emit(HEADERLESS_CHUNK);
     audioRecordingActions.stop();
 
     await vi.waitFor(() => expect(enqueueSnackbar).toHaveBeenCalled());

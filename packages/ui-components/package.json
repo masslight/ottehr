@@ -1,11 +1,11 @@
 {
   "name": "ui-components",
   "private": true,
-  "version": "1.41.16",
+  "version": "1.42.4",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
   "engines": {
-    "node": ">=22.0.0",
+    "node": ">=22.13.0",
     "npm": ">=10.0.0"
   },
   "scripts": {

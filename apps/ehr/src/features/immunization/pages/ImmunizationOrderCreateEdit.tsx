@@ -22,6 +22,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
@@ -48,9 +49,19 @@ import { OrderDetailsSection } from '../components/OrderDetailsSection';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
 
-export const ImmunizationOrderCreateEdit: React.FC = () => {
+interface ImmunizationOrderCreateEditProps {
+  orderId?: string;
+  onFinished?: () => void;
+}
+
+export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditProps> = ({
+  orderId: orderIdProp,
+  onFinished,
+}) => {
   const navigate = useNavigate();
-  const { id: appointmentId, orderId } = useParams();
+  const isInlineFlow = useIsInlineFlow();
+  const { id: appointmentId, orderId: orderIdFromUrl } = useParams();
+  const orderId = orderIdProp ?? orderIdFromUrl;
   const {
     resources: { encounter, patient },
   } = useAppointmentData(appointmentId);
@@ -76,6 +87,8 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
 
   useMarkDraftNavigatedAway({ encounterId, setDraft, hasDraft });
 
+  const finish = onFinished ?? ((): void => navigate(getImmunizationMARUrl(appointmentId!)));
+
   const onSubmit = async (data: any): Promise<void> => {
     await createUpdateOrder({
       encounterId: encounter?.id ?? '',
@@ -84,14 +97,14 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
     });
     setIsOrderSaved(true);
     if (isCreating && encounterId) clearDraft(encounterId);
-    navigate(getImmunizationMARUrl(appointmentId!));
+    finish();
   };
 
   const handleDeleteOrder = async (): Promise<void> => {
     if (!orderId) return;
     try {
       await cancelOrder({ orderId });
-      navigate(getImmunizationMARUrl(appointmentId!));
+      finish();
     } catch {
       setIsDeleteDialogOpen(false);
       enqueueSnackbar('An error occurred while deleting the immunization order. Please try again.', {
@@ -102,7 +115,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
 
   const handleBack = (): void => {
     if (isCreating && encounterId) clearDraft(encounterId);
-    navigate(getImmunizationMARUrl(appointmentId!));
+    finish();
   };
 
   const { data: ordersResponse, isLoading: isOrderLoading } = useGetImmunizationOrders({
@@ -233,10 +246,12 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmit)}>
         <Stack spacing={2}>
-          <BaseBreadcrumbs
-            sectionName={orderId ? 'Edit Immunization Order' : 'Order Immunization'}
-            baseCrumb={{ label: 'Immunizations', path: getImmunizationMARUrl(appointmentId ?? '') }}
-          />
+          {!isInlineFlow && (
+            <BaseBreadcrumbs
+              sectionName={orderId ? 'Edit Immunization Order' : 'Order Immunization'}
+              baseCrumb={{ label: 'Immunizations', path: getImmunizationMARUrl(appointmentId ?? '') }}
+            />
+          )}
           <PageHeader
             title={orderId ? 'Edit Immunization Order' : 'Order Immunization'}
             variant="h3"

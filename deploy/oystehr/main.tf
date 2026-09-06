@@ -22,9 +22,11 @@ resource "oystehr_secret" "sendgrid_send_email_api_key" {
 }
 
 # One-shot bootstrap seeds for the self-service-managed resources (global templates,
-# in-house meds/labs, quick texts, E&M codes). Kept in a submodule so this file stays
-# focused as more seeds are added. `depends_on` makes the whole set run after the
-# global-templates holder list is provisioned (the global-templates seed links to it).
+# in-house meds/labs, quick texts, E&M codes, Locations + their Schedules). Kept in a
+# submodule so this file stays focused as more seeds are added. `depends_on` makes the
+# whole set run after the global-templates holder list is provisioned (the
+# global-templates seed links to it) — which is also the FHIR-readiness gate the
+# scheduling seed needs.
 module "seed" {
   source      = "./seed"
   environment = var.environment
@@ -60,28 +62,7 @@ moved {
   to   = module.seed.terraform_data.seed_em_codes
 }
 
-# One-shot seed of the default scheduling resources (Locations + their Schedules,
-# and the default group-scheduling graph). These were moved out of Terraform to be
-# self-service (see removed-locations.tf.json, generated from config/runtime-seed/),
-# which removed the ability to create them on a fresh environment. This bootstraps
-# them once from config/runtime-seed/. Terraform tracks only this bootstrap node,
-# never the individual resources — so admins can create/edit/deactivate them via the
-# self-service UI without Terraform reverting the change.
-#
-# `triggers_replace` is a constant, so on a given env the provisioner runs once on
-# create and never again. The seeder is idempotent (it skips any file whose resources
-# already exist), so a provisioner re-run — and migrating an environment that already
-# had these resources via Terraform — is a harmless no-op. The depends_on only orders
-# this after the FHIR API/provider is known-ready (via the seed module, whose global-
-# template bootstrap is the readiness gate); it is not a data dependency. The seed
-# resources live in module.seed, so we depend on the whole module — the root can't
-# reference a resource nested inside a child module.
-resource "terraform_data" "seed_runtime_resources" {
-  depends_on       = [module.seed]
-  triggers_replace = "runtime-resources-v1"
-
-  provisioner "local-exec" {
-    working_dir = "${path.root}/../packages/zambdas"
-    command     = "npm run seed-runtime-resources -- ${var.environment}"
-  }
+moved {
+  from = terraform_data.seed_runtime_resources
+  to   = module.seed.terraform_data.seed_runtime_resources
 }

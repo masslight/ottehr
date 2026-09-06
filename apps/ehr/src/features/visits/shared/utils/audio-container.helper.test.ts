@@ -8,6 +8,10 @@ const FTYP = [0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 
 const RIFF_WAVE = [0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45]; // `RIFF....WAVE`
 const ID3 = [0x49, 0x44, 0x33, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]; // MP3 with an ID3v2 tag
 const MP3_FRAME_SYNC = [0xff, 0xfb, 0x90, 0x44, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]; // bare MP3 frame
+// Copied from the recording that actually failed in production: a chunk from the middle of a recording,
+// where the file's opening bytes should be. A recorder writes its header once and then appends audio chunks;
+// two recorders writing into one buffer pushed the header into the middle, leaving this at the front.
+const HEADERLESS_CHUNK = [0x00, 0x00, 0x01, 0x24, 0x6d, 0x6f, 0x6f, 0x66, 0x00, 0x00, 0x00, 0x00];
 
 describe('detectAudioContainerType', () => {
   // Every type MIME_TYPES lets MediaRecorder pick: a narrower list throws away valid audio.
@@ -22,20 +26,15 @@ describe('detectAudioContainerType', () => {
   });
 
   test('rejects a buffer that starts mid-stream', async () => {
-    // The production failure: a bare `moof` fragment where the init segment should be.
-    const moofFragment = [0x00, 0x00, 0x01, 0x24, 0x6d, 0x6f, 0x6f, 0x66, 0x00, 0x00, 0x00, 0x00];
-
-    await expect(detectAudioContainerType(blobOf(...moofFragment), 'audio/mp4')).rejects.toThrow(
+    await expect(detectAudioContainerType(blobOf(...HEADERLESS_CHUNK), 'audio/mp4')).rejects.toThrow(
       /no audio\/mp4 container header \(first bytes: 00 00 01 24 6d 6f 6f 66/
     );
   });
 
   test('a headerless recording is rejected under either spelling of its container', async () => {
-    const moofFragment = [0x00, 0x00, 0x01, 0x24, 0x6d, 0x6f, 0x6f, 0x66, 0x00, 0x00, 0x00, 0x00];
-
     // MIME_TYPES lists `audio/mp3` next to `audio/mpeg`. Without the alias this took the pass-through branch
     // as a "container we have no signature for", uploading the corrupt recording the check exists to catch.
-    await expect(detectAudioContainerType(blobOf(...moofFragment), 'audio/mp3')).rejects.toThrow(
+    await expect(detectAudioContainerType(blobOf(...HEADERLESS_CHUNK), 'audio/mp3')).rejects.toThrow(
       /no audio\/mpeg container header/
     );
   });

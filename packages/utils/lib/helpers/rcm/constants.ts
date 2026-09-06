@@ -257,6 +257,7 @@ export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REVENUE_CODE = 'https://terminology
 
 export const EXTENSION_URL_CPT_MODIFIER = 'https://fhir.ottehr.com/Extension/cpt-code-modifier';
 export const CODE_SYSTEM_CPT_MODIFIER = 'https://fhir.ottehr.com/CodeSystem/cpt-code-modifier';
+export const EXTENSION_URL_CPT_BILLABLE_UNITS = 'https://fhir.ottehr.com/Extension/cpt-code-billable-units';
 
 export const CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE =
   'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-referring-provider-type';

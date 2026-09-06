@@ -413,17 +413,98 @@ double-texted anyone (an SMS send failure after the commit is logged, not retrie
 
 ---
 
-## 9. Reference, key files
+## 9. Read path: the notification zambdas
+
+The bell and its settings page make no direct FHIR calls. Everything goes through four `http_auth`
+zambdas that read and write on the user's behalf, and each derives the practitioner it acts for from
+the caller's token — no request shape carries a recipient, a practitioner id, or a status to write.
+
+| Endpoint | Replaces | Notes |
+| --- | --- | --- |
+| `get-provider-notifications` | browser `Communication` search + `_include=Communication:encounter` | No parameters. Returns `ProviderNotificationDto[]`, newest `sent` first: `{ id, message, isUnread, sentAt?, target? }`. Called on the bell's 10-second poll, so it stays one FHIR search — the Encounter behind a telemed notification's link rides along in it. Resolving the recipient still costs an uncached `/user/me` per tick, which is overlapped with the M2M token rather than awaited ahead of it. |
+| `mark-provider-notifications-read` | browser `fhir.batch` json-patch of `Communication.status` | `{ notificationIds }` → `{ markedReadIds }`. |
+| `update-provider-notification-settings` | browser `fhir.patch` on `Practitioner` | `{ preferences, phoneNumber? }` → the normalized values as stored. |
+| `list-active-locations` | browser paginated `Location?status=active` | Populates the settings table's location picker. Lives with the `locations/` zambda family since it is generic. |
+
+Three behaviors worth knowing:
+
+- **`target`, not a URL.** The DTO names where a notification goes (`{ type: 'visit', appointmentId }`
+  or `{ type: 'inboundFax', faxCommunicationId }`) and the app maps that to a route, so `/visit/:id`
+  and the fax match path stay owned by the frontend. Resolution is
+  `resolveNotificationTarget` — the visit wins when both are present, and a notification with neither
+  renders unclickable. Pre-`about` fax notifications simply have no target and age out of the window.
+- **Ordering is by `sent`, not `_lastUpdated`.** Marking read rewrites `status` and so bumps
+  `_lastUpdated`; ordering by it let a just-read notification hold a slot in the 10-item window and
+  push a newer one out of it.
+- **Mark-read is doubly scoped.** Every id named is re-searched constrained to the caller's
+  Practitioner *and* to the provider-notification categories, and only what comes back is patched.
+  Recipient scoping alone would not be enough: a chat `Communication` also has the practitioner as
+  recipient. Ids that don't qualify — someone else's, already read, chat-shaped, nonexistent — are
+  dropped silently, so an id that isn't yours is indistinguishable from one that doesn't exist.
+
+The settings save reads the Practitioner fresh and builds its index-based patch from that, under an
+optimistic lock (`patchWithOptimisticLock`). The browser built it from its cached profile, so a second
+save in one session computed indices against a stale copy and appended a duplicate settings extension
+and `sms` telecom instead of replacing either. Reading fresh is not sufficient on its own: two saves in
+flight at once would both compute their paths against a Practitioner with no settings extension and both
+`add /extension/-`. The lock turns that race into a 412, which the helper answers with a re-read and a
+recompute.
+
+Note that the browser still holds `FHIR:Practitioner` update rights for an unrelated reason —
+`useEvolveUser` stamps a last-login meta tag and the browser timezone on mount — so this endpoint is not
+the only writer of that resource. That patch fires once per page load, before any settings save, but it
+is why the lock matters rather than being belt-and-braces.
+
+### 9.1 FHIR permissions
+
+Moving the feature off direct FHIR did **not** remove any grant from the EHR roles in
+`config/oystehr-core/roles.json`, because none of them existed for notifications in the first place —
+`FHIR:Communication` traces back to the initial commit, carried through the ottehr-spec → Terraform
+migration, and `accessPolicies.ts` still labels it "Needed for Evolve chat message sending".
+
+What each grant is still held for:
+
+| Grant | Still required by |
+| --- | --- |
+| `FHIR:Communication` Search/Read | `markAllMessagesRead` (`packages/utils/lib/fhir/chat.ts`, via `apps/ehr/src/features/chat/ChatModal.tsx`); two searches in `apps/ehr/src/rcm/features/scheduled-patient-outreach/OutreachTasksReport.tsx` |
+| `FHIR:Communication` Update | `markAllMessagesRead` (same batch-patch-Binary shape) |
+| `FHIR:Communication` Create | `apps/ehr/src/components/dialogs/ReportIssueDialog.tsx` |
+| `FHIR:Practitioner` Read/Update | `useEvolveUser` — last-login meta tag and timezone extension |
+| `FHIR:Location` Search/Read | ~15 other files (schedules, patient search, reports, selects) |
+| `FHIR:Encounter` Read | used throughout the EHR |
+
+Two things to know before attempting the removal:
+
+- Oystehr access-policy rules here support only `resource`, `action`, and `effect`. There is no tag or
+  field condition, so `Communication` cannot be narrowed to `recipient=me` in config — the only way to
+  scope it is to move the read behind a zambda, which is what this feature now does. Deleting the grant
+  outright requires migrating chat, the RCM outreach report, and the report-issue dialog the same way.
+- `packages/zambdas/src/shared/accessPolicies.ts` is a **second, already-divergent copy** of these
+  policies, and `scripts/invite-user.ts` / `scripts/update-user-roles.ts` call
+  `oystehr.role.update()` with it — overwriting whatever Terraform applied. Any grant removal must edit
+  both files, or the next invite resurrects it.
+
+One asymmetry is unchanged and still open: the cron notifies all active staff with a Practitioner
+profile (deliberately, so Billing/Coding/Charting reach non-providers), but the bell only mounts for
+`Provider`/`Clinician` (`apps/ehr/src/components/navigation/UserMenu.tsx`), so other staff receive
+notifications they can neither see nor clear.
+
+---
+
+## 10. Reference, key files
 
 | Area | File |
 | --- | --- |
-| V2 types, maps, tag/URL constants, helpers | `packages/utils/lib/types/api/provider-notifications.ts` |
+| V2 types, maps, tag/URL constants, helpers, endpoint DTOs | `packages/utils/lib/types/api/provider-notifications.ts` |
 | Notification-type enum (`AppointmentProviderNotificationTypes`) | `packages/utils/lib/types/api/practitioner.types.ts` |
 | `getProviderNotificationPreferencesV2`, `hasExplicit…` | `packages/utils/lib/fhir/patient.ts` |
 | Cron engines (task-category, telemed, assignment) | `packages/zambdas/src/cron/notifications-updater/index.ts` |
 | Task location/category helpers | `packages/zambdas/src/shared/tasks.ts` |
+| Target resolution, DTO mapping, category search param | `packages/zambdas/src/ehr/notifications/shared/notifications.ts` |
+| Endpoints | `packages/zambdas/src/ehr/notifications/{get-provider-notifications,mark-provider-notifications-read,update-provider-notification-settings}/`, `packages/zambdas/src/ehr/locations/list-active-locations/` |
 | Settings UI table | `apps/ehr/src/features/notifications/NotificationSettingsTable.tsx` |
 | Settings page (`/profile`) | `apps/ehr/src/pages/EmployeeProfilePage.tsx` |
 | Read/write queries + locations hook | `apps/ehr/src/features/notifications/notifications.queries.ts` |
 | In-app bell | `apps/ehr/src/features/notifications/ProviderNotifications.tsx` |
-| Unit tests | `packages/utils/lib/fhir/patient.providerNotificationsV2.test.ts`, `packages/zambdas/test/unit/notifications-updater.test.ts` |
+| Unit tests | `packages/utils/lib/fhir/patient.providerNotificationsV2.test.ts`, `packages/zambdas/test/unit/notifications-updater.test.ts`, `packages/zambdas/test/unit/provider-notification{-target,s-dto}.test.ts`, `packages/zambdas/test/unit/update-provider-notification-settings.test.ts` |
+| Integration test (per-caller scoping) | `packages/zambdas/test/integration/provider-notifications.test.ts` |

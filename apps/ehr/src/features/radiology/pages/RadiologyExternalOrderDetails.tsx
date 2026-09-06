@@ -12,6 +12,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { SendFaxButton } from 'src/features/visits/shared/components/review-tab/SendFaxButton';
 import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
@@ -21,7 +22,7 @@ import { LATERALITY_SELECTORS } from 'utils/lib/fhir/radiology';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { toTenDigitPhoneNumber } from 'utils/lib/helpers/helpers';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
-import { RadiologyResultDTO } from 'utils/lib/types/api/radiology';
+import { GetRadiologyOrderListZambdaOrder, RadiologyResultDTO } from 'utils/lib/types/api/radiology';
 import { RADIOLOGY_SAFETY_FLAG_LABELS as SAFETY_FLAG_LABELS } from 'utils/lib/types/api/radiology';
 import {
   createZ3Object,
@@ -55,11 +56,23 @@ const DetailRow: React.FC<{ label: string; value?: React.ReactNode; icon?: React
   </Box>
 );
 
-export const RadiologyExternalOrderDetailsPage: React.FC = () => {
+interface RadiologyExternalOrderDetailsPageProps {
+  serviceRequestId?: string;
+  onBack?: () => void;
+  onEdit?: (order: GetRadiologyOrderListZambdaOrder) => void;
+}
+
+export const RadiologyExternalOrderDetailsPage: React.FC<RadiologyExternalOrderDetailsPageProps> = ({
+  serviceRequestId: serviceRequestIdProp,
+  onBack,
+  onEdit,
+}) => {
   const urlParams = useParams();
-  const serviceRequestId = urlParams.serviceRequestID as string;
+  const serviceRequestId = serviceRequestIdProp ?? (urlParams.serviceRequestID as string);
   const appointmentId = urlParams.id as string;
   const navigate = useNavigate();
+  const isInlineFlow = useIsInlineFlow();
+  const goBack = onBack ?? ((): void => navigate(-1));
   const theme = useTheme();
 
   const { oystehrZambda } = useApiClients();
@@ -173,7 +186,7 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
         <Typography variant="h6">
           {ordersError ? 'Failed to load the radiology order.' : 'Radiology order not found.'}
         </Typography>
-        <Button variant="outlined" onClick={() => navigate(-1)}>
+        <Button variant="outlined" onClick={goBack}>
           Back
         </Button>
       </Stack>
@@ -187,8 +200,8 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
   // The order is editable only until results are uploaded (spec).
   const canEdit = !isReadOnly && results.length === 0;
 
-  return (
-    <WithRadiologyBreadcrumbs sectionName={order.studyType}>
+  const content = (
+    <>
       <div style={{ maxWidth: '714px', margin: '0 auto' }}>
         <Stack spacing={2} sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -291,7 +304,10 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
                 Order Details
               </Typography>
               {canEdit && (
-                <IconButton aria-label="edit external radiology order" onClick={() => navigate(editUrl)}>
+                <IconButton
+                  aria-label="edit external radiology order"
+                  onClick={() => (onEdit ? onEdit(order) : navigate(editUrl))}
+                >
                   <EditIcon color="primary" />
                 </IconButton>
               )}
@@ -344,8 +360,26 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
           </Box>
 
           <RadiologyOrderHistoryCard orderHistory={order.history} label="Order History" />
+
+          {/* The page leaves through its breadcrumbs; inline they are suppressed, so give it a Back button. */}
+          {isInlineFlow && (
+            <Box>
+              <Button
+                variant="outlined"
+                color="primary"
+                sx={{ borderRadius: 28, padding: '8px 22px', textTransform: 'none' }}
+                onClick={goBack}
+              >
+                Back
+              </Button>
+            </Box>
+          )}
         </Stack>
       </div>
-    </WithRadiologyBreadcrumbs>
+    </>
   );
+
+  if (isInlineFlow) return content;
+
+  return <WithRadiologyBreadcrumbs sectionName={order.studyType}>{content}</WithRadiologyBreadcrumbs>;
 };

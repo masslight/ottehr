@@ -14,7 +14,7 @@ import { ReactElement } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { getNursingOrderDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
-import { NursingOrdersSearchBy } from 'utils/lib/types/data/orders/types';
+import { NursingOrder, NursingOrdersSearchBy } from 'utils/lib/types/data/orders/types';
 import { NursingOrdersTableRow } from './NursingOrdersTableRow';
 import { useGetNursingOrders } from './useNursingOrders';
 
@@ -26,6 +26,7 @@ type NursingOrdersTableProps = {
   appointmentId: string;
   allowDelete?: boolean;
   onCreateOrder?: () => void;
+  onRowClick?: (order: NursingOrder) => void;
 };
 
 export const NursingOrdersTable = ({
@@ -34,6 +35,7 @@ export const NursingOrdersTable = ({
   appointmentId,
   allowDelete,
   onCreateOrder,
+  onRowClick,
 }: NursingOrdersTableProps): ReactElement => {
   const navigateTo = useNavigate();
   const [searchParams] = useSearchParams();
@@ -41,7 +43,11 @@ export const NursingOrdersTable = ({
 
   const { nursingOrders, loading, error, fetchNursingOrders: refetch } = useGetNursingOrders({ searchBy });
 
-  const onRowClick = (nursingOrderData: { serviceRequestId: string }): void => {
+  const openOrder = (nursingOrderData: NursingOrder): void => {
+    if (onRowClick) {
+      onRowClick(nursingOrderData);
+      return;
+    }
     const url = getNursingOrderDetailsUrl(appointmentId, nursingOrderData.serviceRequestId);
     navigateTo(encounterIdParam ? `${url}?encounterId=${encounterIdParam}` : url);
   };
@@ -135,7 +141,7 @@ export const NursingOrdersTable = ({
                 <NursingOrdersTableRow
                   key={order.serviceRequestId}
                   nursingOrderData={order}
-                  onRowClick={() => onRowClick(order)}
+                  onRowClick={() => openOrder(order)}
                   columns={columns}
                   refetchOrders={refetch}
                   allowDelete={allowDelete}

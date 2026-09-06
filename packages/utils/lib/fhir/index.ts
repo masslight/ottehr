@@ -22,6 +22,7 @@ export * from './practitioners';
 export * from './insurance';
 export * from './radiology';
 export * from './payments';
+export * from './paymentRefunds';
 export * from './deduplicateUnbundledResources';
 export * from './getAllFhirSearchPages';
 export * from './serviceCategoryResolution';

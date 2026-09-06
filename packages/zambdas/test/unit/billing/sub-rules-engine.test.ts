@@ -44,6 +44,7 @@ import {
   RuleFailureError,
   snapshotModel,
 } from '../../../src/subscriptions/task/sub-rules-engine';
+import { ClaimSubmissionRejectedError } from '../../../src/subscriptions/task/sub-rules-engine/submit-claim';
 
 const AGENT: ProvenanceAgent = { who: { reference: 'Device/rules-engine-device' } };
 
@@ -173,6 +174,72 @@ describe('sub-rules-engine performEffect', () => {
     expect(result.statusReason).toContain('submitted');
     // Status change (insuranceArStatus -> submitted) commits with its Provenance.
     expect(transaction).toHaveBeenCalled();
+  });
+
+  it('throws a ClaimSubmissionRejectedError, not the raw SDK error, when Oystehr rejects the submission with an HTTP 400 (e.g. a duplicate diagnosis code)', async () => {
+    const { oystehr, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    submitClaimRcm.mockRejectedValue({ message: 'Duplicate diagnosis code on claim', code: 400 });
+
+    let thrown: unknown;
+    try {
+      await performEffect(
+        oystehr,
+        { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
+        [AGENT]
+      );
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ClaimSubmissionRejectedError);
+    expect((thrown as Error).message).toBe('Duplicate diagnosis code on claim');
+  });
+
+  it.each([401, 403, 404, 500])(
+    'rethrows the original error unchanged when Oystehr submit-claim fails with a %i (not a 400)',
+    async (code) => {
+      const { oystehr, submitClaimRcm } = makeOystehrMock();
+      const model = makeModel(AR_STAGE.insurancePayer);
+      submitClaimRcm.mockRejectedValue({ message: 'some other failure', code });
+
+      let thrown: unknown;
+      try {
+        await performEffect(
+          oystehr,
+          { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
+          [AGENT]
+        );
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).not.toBeInstanceOf(ClaimSubmissionRejectedError);
+      expect(thrown).toEqual({ message: 'some other failure', code });
+    }
+  );
+
+  it('throws a ClaimSubmissionRejectedError when Oystehr returns a 200 with outcome: "error"', async () => {
+    const { oystehr, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    submitClaimRcm.mockResolvedValue({
+      outcome: 'error',
+      error: [{ code: { text: 'Duplicate diagnosis code on claim' } }],
+    });
+
+    let thrown: unknown;
+    try {
+      await performEffect(
+        oystehr,
+        { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
+        [AGENT]
+      );
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ClaimSubmissionRejectedError);
+    expect((thrown as Error).message).toBe('Duplicate diagnosis code on claim');
   });
 
   it('fails and holds the claim instead of submitting when rules changed a shared (non-working-copy) resource', async () => {

@@ -1,4 +1,5 @@
 import { RosFindingState } from '../../ottehr-config/review-of-systems/in-person.config';
+import { StructuredProcedureFacts } from '../../procedure-coding/model.types';
 import { TemplateWarning } from './apply-template.types';
 
 // ── admin-create-template ──
@@ -153,6 +154,8 @@ export interface TemplateProcedurePlan {
   medicationUsed: string | undefined;
   suppliesUsed: string | undefined;
   procedureDetails: string | undefined;
+  /** Partial structured-facts prefill; templates may store lengths etc. (provider's choice). */
+  structuredFacts: StructuredProcedureFacts | undefined;
   specimenSent: boolean | undefined;
   complications: string | undefined;
   patientResponse: string | undefined;

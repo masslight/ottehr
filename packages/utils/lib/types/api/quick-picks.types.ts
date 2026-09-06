@@ -1,3 +1,5 @@
+import { StructuredProcedureFacts } from '../../procedure-coding/model.types';
+
 // ── Generic CRUD types for all quick pick categories ──
 
 export interface QuickPickCreateInput<T> {
@@ -59,6 +61,8 @@ export interface ProcedureQuickPickData {
   suppliesUsed?: (string | undefined)[];
   otherSuppliesUsed?: string;
   procedureDetails?: string;
+  /** Partial structured-facts prefill (all facts independently optional; mirrors ProcedureDTO.structuredFacts). */
+  structuredFacts?: StructuredProcedureFacts;
   specimenSent?: boolean;
   complications?: string;
   otherComplications?: string;

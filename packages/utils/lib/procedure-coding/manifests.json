@@ -1,0 +1,1103 @@
+{
+ "laceration": {
+  "family": "laceration",
+  "fields": [
+   {
+    "name": "wounds",
+    "kind": "wound-map",
+    "label": "Wounds repaired",
+    "pairedSites": [
+     {
+      "value": "arm",
+      "label": "Arm"
+     },
+     {
+      "value": "leg",
+      "label": "Leg"
+     },
+     {
+      "value": "hand",
+      "label": "Hand"
+     },
+     {
+      "value": "foot",
+      "label": "Foot"
+     },
+     {
+      "value": "ear",
+      "label": "Ear"
+     },
+     {
+      "value": "eyelid",
+      "label": "Eyelid"
+     },
+     {
+      "value": "cheek",
+      "label": "Cheek"
+     },
+     {
+      "value": "axilla",
+      "label": "Axilla"
+     }
+    ],
+    "unsidedSites": [
+     {
+      "value": "scalp",
+      "label": "Scalp"
+     },
+     {
+      "value": "face",
+      "label": "Face"
+     },
+     {
+      "value": "forehead",
+      "label": "Forehead"
+     },
+     {
+      "value": "chin",
+      "label": "Chin"
+     },
+     {
+      "value": "mouth",
+      "label": "Mouth"
+     },
+     {
+      "value": "nose",
+      "label": "Nose"
+     },
+     {
+      "value": "lip",
+      "label": "Lip"
+     },
+     {
+      "value": "mucous-membrane",
+      "label": "Mucous membrane"
+     },
+     {
+      "value": "neck",
+      "label": "Neck"
+     },
+     {
+      "value": "genitalia",
+      "label": "Genital"
+     },
+     {
+      "value": "trunk",
+      "label": "Torso"
+     }
+    ],
+    "otherOption": {
+     "value": "other",
+     "label": "Other"
+    },
+    "lengthLabel": "Length (cm)",
+    "depthLabel": "Repair depth",
+    "depthOptions": [
+     {
+      "value": "tissue-adhesive-only",
+      "label": "Tissue adhesive only"
+     },
+     {
+      "value": "adhesive-strips-only",
+      "label": "Adhesive strips only"
+     },
+     {
+      "value": "single-layer",
+      "label": "Single-layer closure"
+     },
+     {
+      "value": "layered",
+      "label": "Layered closure"
+     }
+    ],
+    "detailsDepths": [
+     "single-layer",
+     "layered"
+    ],
+    "complexElementOptions": [
+     {
+      "value": "extensive-undermining",
+      "label": "Extensive undermining"
+     },
+     {
+      "value": "retention-sutures",
+      "label": "Retention sutures"
+     },
+     {
+      "value": "stent-placement",
+      "label": "Stent placement"
+     },
+     {
+      "value": "debridement",
+      "label": "Debridement of wound edges"
+     },
+     {
+      "value": "exposed-structure",
+      "label": "Exposed bone/cartilage/tendon/named neurovascular structure"
+     },
+     {
+      "value": "free-margin",
+      "label": "Free margin involved (helical rim / vermilion border / nostril rim)"
+     }
+    ],
+    "contaminatedLabel": "Heavily contaminated, extensive cleaning performed",
+    "addWoundLabel": "+ another wound at {site}"
+   },
+   {
+    "name": "closure_material",
+    "kind": "text",
+    "label": "Closure material"
+   },
+   {
+    "name": "suture_count",
+    "kind": "number",
+    "label": "Suture/staple count"
+   },
+   {
+    "name": "irrigation",
+    "kind": "checkbox",
+    "label": "Wound irrigation performed"
+   },
+   {
+    "name": "adjacent_tissue_transfer",
+    "kind": "checkbox",
+    "label": "Flap or Z-plasty required"
+   }
+  ]
+ },
+ "cerumen": {
+  "family": "cerumen",
+  "fields": [
+   {
+    "name": "impaction_basis",
+    "kind": "select",
+    "label": "Impaction finding",
+    "options": [
+     {
+      "value": "visual",
+      "label": "Blocks view of eardrum"
+     },
+     {
+      "value": "qualitative",
+      "label": "Hard, dry, symptomatic"
+     },
+     {
+      "value": "inflammatory",
+      "label": "Odor, infection, or dermatitis"
+     },
+     {
+      "value": "quantitative",
+      "label": "Needs magnification to remove"
+     },
+     {
+      "value": "none",
+      "label": "Not impacted"
+     }
+    ]
+   },
+   {
+    "name": "left_ear_method",
+    "kind": "select",
+    "label": "Left ear \u2014 removal method",
+    "options": [
+     {
+      "value": "none",
+      "label": "None"
+     },
+     {
+      "value": "irrigation",
+      "label": "Irrigation / lavage"
+     },
+     {
+      "value": "instrumentation",
+      "label": "Instrumentation"
+     },
+     {
+      "value": "both",
+      "label": "Irrigation and instrumentation"
+     }
+    ]
+   },
+   {
+    "name": "right_ear_method",
+    "kind": "select",
+    "label": "Right ear \u2014 removal method",
+    "options": [
+     {
+      "value": "none",
+      "label": "None"
+     },
+     {
+      "value": "irrigation",
+      "label": "Irrigation / lavage"
+     },
+     {
+      "value": "instrumentation",
+      "label": "Instrumentation"
+     },
+     {
+      "value": "both",
+      "label": "Irrigation and instrumentation"
+     }
+    ]
+   }
+  ]
+ },
+ "incision-drainage": {
+  "family": "incision-drainage",
+  "fields": [
+   {
+    "name": "lesion_type",
+    "kind": "select",
+    "label": "Lesion type",
+    "options": [
+     {
+      "value": "abscess_cyst_purulent",
+      "label": "Abscess / cyst / furuncle / paronychia (purulent)"
+     },
+     {
+      "value": "hematoma_seroma_fluid",
+      "label": "Hematoma / seroma / fluid collection"
+     },
+     {
+      "value": "bulla",
+      "label": "Bulla"
+     },
+     {
+      "value": "pilonidal_cyst",
+      "label": "Pilonidal cyst"
+     },
+     {
+      "value": "postop_wound_infection",
+      "label": "Post-op wound infection"
+     }
+    ]
+   },
+   {
+    "name": "approach",
+    "kind": "select",
+    "label": "Approach",
+    "options": [
+     {
+      "value": "incision",
+      "label": "Incision"
+     },
+     {
+      "value": "puncture_aspiration",
+      "label": "Puncture aspiration (needle only)"
+     }
+    ]
+   },
+   {
+    "name": "lesion_count",
+    "kind": "number",
+    "label": "Lesions treated",
+    "defaultValue": 1
+   },
+   {
+    "name": "packing_placed",
+    "kind": "checkbox",
+    "label": "Packing placed",
+    "visibleWhen": {
+     "fact": "approach",
+     "anyOf": [
+      "incision"
+     ]
+    }
+   },
+   {
+    "name": "drain_placed",
+    "kind": "checkbox",
+    "label": "Drain placed",
+    "visibleWhen": {
+     "fact": "approach",
+     "anyOf": [
+      "incision"
+     ]
+    }
+   },
+   {
+    "name": "multiple_incisions",
+    "kind": "checkbox",
+    "label": "Multiple incisions",
+    "visibleWhen": {
+     "fact": "approach",
+     "anyOf": [
+      "incision"
+     ]
+    }
+   },
+   {
+    "name": "loculations_probed",
+    "kind": "checkbox",
+    "label": "Loculations broken up",
+    "visibleWhen": {
+     "fact": "approach",
+     "anyOf": [
+      "incision"
+     ]
+    }
+   },
+   {
+    "name": "tissue_excision_or_closure",
+    "kind": "checkbox",
+    "label": "Tissue excision or closure",
+    "visibleWhen": {
+     "fact": "approach",
+     "anyOf": [
+      "incision"
+     ]
+    }
+   },
+   {
+    "name": "same_site_other_procedure",
+    "kind": "checkbox",
+    "label": "Other procedure at this site today"
+   }
+  ]
+ },
+ "splinting": {
+  "family": "splinting",
+  "fields": [
+   {
+    "name": "device_type",
+    "kind": "select",
+    "label": "Device applied",
+    "options": [
+     {
+      "value": "splint",
+      "label": "Splint (fabricated from raw materials)"
+     },
+     {
+      "value": "strapping",
+      "label": "Strapping / taping (incl. Unna boot)"
+     },
+     {
+      "value": "cast",
+      "label": "Circumferential cast"
+     },
+     {
+      "value": "prefabricated_orthotic",
+      "label": "Prefabricated brace / boot / packaged splint"
+     }
+    ]
+   },
+   {
+    "name": "body_region",
+    "kind": "select",
+    "label": "Body region",
+    "options": [
+     {
+      "value": "shoulder_to_hand",
+      "label": "Shoulder to hand (long arm)"
+     },
+     {
+      "value": "forearm_to_hand",
+      "label": "Forearm to hand (short arm)"
+     },
+     {
+      "value": "finger",
+      "label": "Finger"
+     },
+     {
+      "value": "thigh_to_foot",
+      "label": "Thigh to foot (long leg)"
+     },
+     {
+      "value": "calf_to_foot",
+      "label": "Calf to foot (short leg)"
+     },
+     {
+      "value": "thorax",
+      "label": "Thorax (strapping)"
+     },
+     {
+      "value": "shoulder",
+      "label": "Shoulder (strapping)"
+     },
+     {
+      "value": "elbow_or_wrist",
+      "label": "Elbow or wrist (strapping)"
+     },
+     {
+      "value": "hip",
+      "label": "Hip (strapping)"
+     },
+     {
+      "value": "knee",
+      "label": "Knee (strapping)"
+     },
+     {
+      "value": "ankle_or_foot",
+      "label": "Ankle or foot (strapping)"
+     },
+     {
+      "value": "lower_leg_unna_boot",
+      "label": "Lower leg \u2014 Unna boot"
+     }
+    ]
+   },
+   {
+    "name": "splint_mobility",
+    "kind": "select",
+    "label": "Splint mobility",
+    "options": [
+     {
+      "value": "static",
+      "label": "Static"
+     },
+     {
+      "value": "dynamic",
+      "label": "Dynamic (moving parts)"
+     }
+    ],
+    "visibleWhen": {
+     "fact": "device_type",
+     "anyOf": [
+      "splint"
+     ]
+    },
+    "valueWhenHidden": "na",
+    "defaultValue": "static"
+   },
+   {
+    "name": "care_context",
+    "kind": "select",
+    "label": "Care context",
+    "options": [
+     {
+      "value": "initial_stabilization_referral",
+      "label": "Initial stabilization"
+     },
+     {
+      "value": "replacement_during_or_after_followup",
+      "label": "Replacement"
+     },
+     {
+      "value": "definitive_care_by_this_provider",
+      "label": "Definitive fracture care"
+     },
+     {
+      "value": "dressing_after_procedure",
+      "label": "Dressing after a procedure"
+     }
+    ],
+    "defaultValue": "initial_stabilization_referral"
+   },
+   {
+    "name": "same_area_musculoskeletal_procedure",
+    "kind": "checkbox",
+    "label": "Same-area orthopedic procedure today"
+   },
+   {
+    "name": "laterality",
+    "kind": "select",
+    "label": "Laterality",
+    "options": [
+     {
+      "value": "left",
+      "label": "Left"
+     },
+     {
+      "value": "right",
+      "label": "Right"
+     },
+     {
+      "value": "bilateral",
+      "label": "Bilateral"
+     },
+     {
+      "value": "midline_na",
+      "label": "Midline / N/A"
+     }
+    ]
+   },
+   {
+    "name": "finger_count",
+    "kind": "number",
+    "label": "Fingers splinted",
+    "defaultValue": 1,
+    "visibleWhen": {
+     "fact": "body_region",
+     "anyOf": [
+      "finger"
+     ]
+    }
+   }
+  ]
+ },
+ "foreign-body": {
+  "family": "foreign-body",
+  "fields": [
+   {
+    "name": "fb_site",
+    "kind": "select",
+    "label": "Foreign body location",
+    "options": [
+     {
+      "value": "subcutaneous",
+      "label": "Subcutaneous tissue"
+     },
+     {
+      "value": "deeper_than_subcutaneous",
+      "label": "Deeper than subcutaneous (fascia/muscle)"
+     },
+     {
+      "value": "intranasal",
+      "label": "Intranasal"
+     },
+     {
+      "value": "external_auditory_canal",
+      "label": "External auditory canal"
+     },
+     {
+      "value": "cornea",
+      "label": "Cornea"
+     },
+     {
+      "value": "conjunctiva",
+      "label": "Conjunctiva"
+     }
+    ]
+   },
+   {
+    "name": "incision_made",
+    "kind": "checkbox",
+    "label": "Incision required",
+    "visibleWhen": {
+     "fact": "fb_site",
+     "anyOf": [
+      "subcutaneous"
+     ]
+    }
+   },
+   {
+    "name": "wound_infection",
+    "kind": "checkbox",
+    "label": "Site infected",
+    "visibleWhen": {
+     "fact": "fb_site",
+     "anyOf": [
+      "subcutaneous"
+     ]
+    }
+   },
+   {
+    "name": "scarring_or_delayed_presentation",
+    "kind": "checkbox",
+    "label": "Embedded/old (scarred in)",
+    "visibleWhen": {
+     "fact": "fb_site",
+     "anyOf": [
+      "subcutaneous"
+     ]
+    }
+   },
+   {
+    "name": "extensive_exploration_or_debridement",
+    "kind": "checkbox",
+    "label": "Extensive exploration required",
+    "visibleWhen": {
+     "fact": "fb_site",
+     "anyOf": [
+      "subcutaneous"
+     ]
+    }
+   },
+   {
+    "name": "distinct_fb_count",
+    "kind": "number",
+    "label": "Foreign bodies removed",
+    "defaultValue": 1,
+    "visibleWhen": {
+     "fact": "fb_site",
+     "anyOf": [
+      "subcutaneous"
+     ]
+    }
+   },
+   {
+    "name": "slit_lamp_used",
+    "kind": "checkbox",
+    "label": "Slit lamp used",
+    "visibleWhen": {
+     "fact": "fb_site",
+     "anyOf": [
+      "cornea"
+     ]
+    }
+   },
+   {
+    "name": "conjunctival_depth",
+    "kind": "select",
+    "label": "Conjunctival depth",
+    "options": [
+     {
+      "value": "superficial",
+      "label": "Superficial"
+     },
+     {
+      "value": "embedded_or_scleral_nonperforating",
+      "label": "Embedded / subconjunctival / scleral nonperforating"
+     }
+    ],
+    "visibleWhen": {
+     "fact": "fb_site",
+     "anyOf": [
+      "conjunctiva"
+     ]
+    }
+   },
+   {
+    "name": "laterality",
+    "kind": "select",
+    "label": "Side",
+    "options": [
+     {
+      "value": "left",
+      "label": "Left"
+     },
+     {
+      "value": "right",
+      "label": "Right"
+     },
+     {
+      "value": "bilateral",
+      "label": "Bilateral"
+     }
+    ],
+    "visibleWhen": {
+     "fact": "fb_site",
+     "anyOf": [
+      "external_auditory_canal",
+      "cornea",
+      "conjunctiva"
+     ]
+    }
+   }
+  ]
+ },
+ "nasal-packing": {
+  "family": "nasal-packing",
+  "fields": [
+   {
+    "name": "left_anterior_extent",
+    "kind": "select",
+    "label": "Left side \u2014 anterior control",
+    "options": [
+     {
+      "value": "none",
+      "label": "None"
+     },
+     {
+      "value": "temporary_pledget_only",
+      "label": "Temporary pledget only (removed, no cautery/packing)"
+     },
+     {
+      "value": "limited",
+      "label": "Limited cautery and/or packing (single site)"
+     },
+     {
+      "value": "extensive",
+      "label": "Extensive \u2014 initial control failed / repeated cautery / layered or deeper packing"
+     }
+    ]
+   },
+   {
+    "name": "right_anterior_extent",
+    "kind": "select",
+    "label": "Right side \u2014 anterior control",
+    "options": [
+     {
+      "value": "none",
+      "label": "None"
+     },
+     {
+      "value": "temporary_pledget_only",
+      "label": "Temporary pledget only (removed, no cautery/packing)"
+     },
+     {
+      "value": "limited",
+      "label": "Limited cautery and/or packing (single site)"
+     },
+     {
+      "value": "extensive",
+      "label": "Extensive \u2014 initial control failed / repeated cautery / layered or deeper packing"
+     }
+    ]
+   },
+   {
+    "name": "posterior_control",
+    "kind": "checkbox",
+    "label": "Posterior bleeding treated"
+   },
+   {
+    "name": "posterior_sequence",
+    "kind": "select",
+    "label": "Posterior control sequence",
+    "options": [
+     {
+      "value": "initial",
+      "label": "First treatment"
+     },
+     {
+      "value": "subsequent",
+      "label": "Repeat treatment"
+     }
+    ],
+    "visibleWhen": {
+     "fact": "posterior_control",
+     "anyOf": [
+      true
+     ]
+    }
+   }
+  ]
+ },
+ "burn-treatment": {
+  "family": "burn-treatment",
+  "fields": [
+   {
+    "name": "burn_depth",
+    "kind": "select",
+    "label": "Burn degree",
+    "options": [
+     {
+      "value": "first_degree",
+      "label": "First degree"
+     },
+     {
+      "value": "partial_thickness",
+      "label": "Partial thickness (second degree)"
+     },
+     {
+      "value": "full_thickness",
+      "label": "Full thickness (third degree)"
+     }
+    ]
+   },
+   {
+    "name": "tbsa_tenths_treated",
+    "kind": "number",
+    "label": "TBSA treated (%)",
+    "scale": 10
+   }
+  ]
+ },
+ "ekg": {
+  "family": "ekg",
+  "fields": [
+   {
+    "name": "component",
+    "kind": "select",
+    "label": "Component furnished",
+    "options": [
+     {
+      "value": "tracing_and_interpretation",
+      "label": "Tracing + interpretation (own equipment)"
+     },
+     {
+      "value": "tracing_only",
+      "label": "Tracing only"
+     },
+     {
+      "value": "interpretation_only",
+      "label": "Interpretation of an outside tracing"
+     }
+    ],
+    "defaultValue": "tracing_and_interpretation"
+   },
+   {
+    "name": "num_ecgs_same_day",
+    "kind": "number",
+    "label": "ECGs today",
+    "defaultValue": 1
+   }
+  ]
+ },
+ "urinary-catheterization": {
+  "family": "urinary-catheterization",
+  "fields": [
+   {
+    "name": "catheter_type",
+    "kind": "select",
+    "label": "Catheter type",
+    "options": [
+     {
+      "value": "straight_nonindwelling",
+      "label": "Straight (in-and-out)"
+     },
+     {
+      "value": "temporary_indwelling",
+      "label": "Temporary indwelling (e.g. Foley)"
+     }
+    ]
+   },
+   {
+    "name": "indwelling_insertion_complicated",
+    "kind": "checkbox",
+    "label": "Complicated insertion (altered anatomy, guide wire, coud\u00e9, retained catheter)",
+    "visibleWhen": {
+     "fact": "catheter_type",
+     "anyOf": [
+      "temporary_indwelling"
+     ]
+    }
+   },
+   {
+    "name": "purpose",
+    "kind": "select",
+    "label": "Primary purpose",
+    "options": [
+     {
+      "value": "specimen_collection_only",
+      "label": "Specimen collection only"
+     },
+     {
+      "value": "residual_urine_measurement",
+      "label": "Residual urine measurement"
+     },
+     {
+      "value": "retention_or_drainage",
+      "label": "Retention / drainage"
+     },
+     {
+      "value": "other",
+      "label": "Other"
+     }
+    ],
+    "defaultValue": "retention_or_drainage"
+   }
+  ]
+ },
+ "lesion-destruction": {
+  "family": "lesion-destruction",
+  "fields": [
+   {
+    "name": "lesion_category",
+    "kind": "select",
+    "label": "Lesion category",
+    "options": [
+     {
+      "value": "benign_other",
+      "label": "Benign (warts, molluscum, seborrheic keratoses, milia, other)"
+     },
+     {
+      "value": "skin_tag",
+      "label": "Skin tag"
+     },
+     {
+      "value": "premalignant",
+      "label": "Premalignant (e.g. actinic keratosis)"
+     },
+     {
+      "value": "cutaneous_vascular_proliferative",
+      "label": "Cutaneous vascular proliferative lesion"
+     },
+     {
+      "value": "anogenital",
+      "label": "Anogenital lesion"
+     },
+     {
+      "value": "malignant",
+      "label": "Malignant lesion"
+     }
+    ]
+   },
+   {
+    "name": "lesion_count",
+    "kind": "number",
+    "label": "Lesions destroyed",
+    "defaultValue": 1
+   }
+  ]
+ },
+ "injection-infusion": {
+  "family": "injection-infusion",
+  "fields": [
+   {
+    "name": "administrations",
+    "kind": "repeatable-group",
+    "label": "Administrations",
+    "addLabel": "+ Add administration",
+    "itemFields": [
+     {
+      "name": "route",
+      "kind": "select",
+      "label": "Route",
+      "options": [
+       {
+        "value": "im",
+        "label": "IM"
+       },
+       {
+        "value": "sc",
+        "label": "SC"
+       },
+       {
+        "value": "iv-push",
+        "label": "IV push"
+       },
+       {
+        "value": "iv-infusion",
+        "label": "IV infusion"
+       }
+      ]
+     },
+     {
+      "name": "drug",
+      "kind": "text",
+      "label": "Drug / substance"
+     },
+     {
+      "name": "startTime",
+      "kind": "time",
+      "label": "Start time",
+      "visibleWhen": {
+       "fact": "route",
+       "anyOf": [
+        "iv-infusion"
+       ]
+      }
+     },
+     {
+      "name": "stopTime",
+      "kind": "time",
+      "label": "Stop time",
+      "visibleWhen": {
+       "fact": "route",
+       "anyOf": [
+        "iv-infusion"
+       ]
+      }
+     },
+     {
+      "name": "ivSiteId",
+      "kind": "text",
+      "label": "IV site",
+      "visibleWhen": {
+       "fact": "route",
+       "anyOf": [
+        "iv-infusion",
+        "iv-push"
+       ]
+      }
+     },
+     {
+      "name": "primaryReason",
+      "kind": "checkbox",
+      "label": "Primary reason for encounter",
+      "visibleWhen": {
+       "fact": "route",
+       "anyOf": [
+        "iv-infusion",
+        "iv-push"
+       ]
+      }
+     },
+     {
+      "name": "separateEncounterReturn",
+      "kind": "checkbox",
+      "label": "Separate visit (left and returned)",
+      "visibleWhen": {
+       "fact": "route",
+       "anyOf": [
+        "iv-infusion",
+        "iv-push"
+       ]
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "nail-trephination": {
+  "family": "nail-trephination",
+  "fields": [
+   {
+    "name": "nail_plate_avulsed",
+    "kind": "checkbox",
+    "label": "Nail plate removed/avulsed"
+   },
+   {
+    "name": "nail_bed_repair_performed",
+    "kind": "checkbox",
+    "label": "Nail bed laceration repaired"
+   },
+   {
+    "name": "digits_treated",
+    "kind": "number",
+    "label": "Digits treated",
+    "defaultValue": 1
+   }
+  ]
+ },
+ "nursemaid-elbow": {
+  "family": "nursemaid-elbow",
+  "fields": [
+   {
+    "name": "elbow_condition",
+    "kind": "select",
+    "label": "Elbow condition",
+    "options": [
+     {
+      "value": "radial_head_subluxation",
+      "label": "Radial head subluxation (nursemaid\u2019s elbow)"
+     },
+     {
+      "value": "true_dislocation_or_fracture",
+      "label": "True dislocation or fracture"
+     },
+     {
+      "value": "other",
+      "label": "Other / not confirmed"
+     }
+    ]
+   }
+  ]
+ },
+ "iv-catheter-placement": {
+  "family": "iv-catheter-placement",
+  "fields": []
+ },
+ "nebulizer": {
+  "family": "nebulizer",
+  "fields": [
+   {
+    "name": "neb_treatment_context",
+    "kind": "select",
+    "label": "Treatment context",
+    "options": [
+     {
+      "value": "acute_airway_obstruction",
+      "label": "Acute airway obstruction"
+     },
+     {
+      "value": "sputum_induction",
+      "label": "Sputum induction"
+     },
+     {
+      "value": "bronchodilator_for_spirometry_study",
+      "label": "Bronchodilator for a spirometry responsiveness study"
+     },
+     {
+      "value": "none",
+      "label": "No treatment given"
+     }
+    ],
+    "defaultValue": "acute_airway_obstruction"
+   },
+   {
+    "name": "neb_continuous_over_one_hour",
+    "kind": "checkbox",
+    "label": "Continuous treatment over 1 hour"
+   },
+   {
+    "name": "neb_episodes_of_care",
+    "kind": "number",
+    "label": "Treatment episodes today",
+    "defaultValue": 1
+   }
+  ]
+ }
+}

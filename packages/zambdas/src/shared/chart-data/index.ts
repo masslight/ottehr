@@ -52,6 +52,7 @@ import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { getVitalObservationFhirInterpretations } from 'utils/lib/helpers/vitals/utils';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import { parseStructuredFacts, serializeStructuredFacts } from 'utils/lib/procedure-coding/codec';
 import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
 import {
   DispositionMetaFieldsNames,
@@ -108,7 +109,12 @@ import {
   ObservationTextFieldDTO,
 } from 'utils/lib/types/data/screening-questions/types';
 import { removePrefix } from '../appointment/helpers';
-import { getCptModifierCodeFromProcedure } from '../candid';
+import {
+  getCptBillableUnitsFromProcedure,
+  getCptModifierCodeFromProcedure,
+  makeCptBillableUnitsExtension,
+  makeCptModifierExtension,
+} from '../candid';
 import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
 import {
@@ -381,8 +387,19 @@ export function makeProcedureResource(
     result.note = [{ text: text }];
   } else if ('code' in data && 'display' in data) {
     result.code = {
-      coding: [{ system: CPT_CODE_SYSTEM, code: data.code, display: data.display }],
+      coding: [
+        {
+          system: CPT_CODE_SYSTEM,
+          code: data.code,
+          display: data.display,
+          // Same coding-level extension the claim builder and makeCPTCodeDTO read.
+          extension: data.modifier?.length ? [makeCptModifierExtension(data.modifier)] : undefined,
+        },
+      ],
     };
+    if (data.billableUnits != null && data.billableUnits > 0) {
+      result.extension = [makeCptBillableUnitsExtension(data.billableUnits)];
+    }
   }
   if (partOf) {
     result.partOf = [{ reference: partOf }];
@@ -547,6 +564,7 @@ export function makeCPTCodeDTO(resource: Procedure): CPTCodeDTO | undefined {
       code: coding?.code,
       display: coding?.display,
       modifier: getCptModifierCodeFromProcedure(resource),
+      billableUnits: getCptBillableUnitsFromProcedure(resource),
     };
   }
   return undefined;
@@ -1960,6 +1978,7 @@ export type ProcedureFormFields = Pick<
   | 'technique'
   | 'suppliesUsed'
   | 'procedureDetails'
+  | 'structuredFacts'
   | 'specimenSent'
   | 'complications'
   | 'patientResponse'
@@ -1988,6 +2007,9 @@ export const readProcedureFormFieldsFromServiceRequest = (sr: ServiceRequest): P
     .filter((value): value is string => value != null),
   suppliesUsed: getExtension(sr, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url)?.valueString,
   procedureDetails: getExtension(sr, FHIR_EXTENSION.ServiceRequest.procedureDetails.url)?.valueString,
+  structuredFacts: parseStructuredFacts(
+    getExtension(sr, FHIR_EXTENSION.ServiceRequest.structuredFacts.url)?.valueString
+  ),
   specimenSent: getExtension(sr, FHIR_EXTENSION.ServiceRequest.specimenSent.url)?.valueBoolean,
   complications: getExtension(sr, FHIR_EXTENSION.ServiceRequest.complications.url)?.valueString,
   patientResponse: getExtension(sr, FHIR_EXTENSION.ServiceRequest.patientResponse.url)?.valueString,
@@ -2024,6 +2046,14 @@ export const createProcedureServiceRequest = (
     {
       url: FHIR_EXTENSION.ServiceRequest.procedureDetails.url,
       valueString: procedure.procedureDetails,
+    },
+    {
+      // The full per-family facts object persists as one opaque JSON extension:
+      // the 15 fact sets are heterogeneous (incl. nested wound lists), evolve
+      // with the decision tables, and are never queried via FHIR search —
+      // display always goes through the manifest-driven formatter.
+      url: FHIR_EXTENSION.ServiceRequest.structuredFacts.url,
+      valueString: serializeStructuredFacts(procedure.structuredFacts),
     },
     {
       url: FHIR_EXTENSION.ServiceRequest.specimenSent.url,

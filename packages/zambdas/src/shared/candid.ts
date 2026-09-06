@@ -94,6 +94,7 @@ import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_CPT_MODIFIER,
+  EXTENSION_URL_CPT_BILLABLE_UNITS,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm';
 import { Secrets } from 'utils/lib/secrets';
@@ -1597,7 +1598,9 @@ export function getBillableUnitsForProcedure(
   medicationAdministrations: MedicationAdministration[]
 ): number | undefined {
   const maRef = procedure.partOf?.find((ref) => ref.reference?.startsWith('MedicationAdministration/'));
-  if (!maRef?.reference) return undefined;
+  // Standalone cpt-code Procedures (e.g. engine-suggested multi-unit lines) carry
+  // their units in the billable-units extension rather than via a linked MA.
+  if (!maRef?.reference) return getCptBillableUnitsFromProcedure(procedure);
 
   const maId = maRef.reference.replace('MedicationAdministration/', '');
   const ma = medicationAdministrations.find((m) => m.id === maId);
@@ -1657,6 +1660,19 @@ export const getCptModifierCodeFromProcedure = (
   );
 
   return modifier;
+};
+
+export const makeCptBillableUnitsExtension = (billableUnits: number): Extension => {
+  return {
+    url: EXTENSION_URL_CPT_BILLABLE_UNITS,
+    valueInteger: billableUnits,
+  };
+};
+
+export const getCptBillableUnitsFromProcedure = (fhirProcedure: Procedure): number | undefined => {
+  const billableUnits = fhirProcedure.extension?.find((ext) => ext.url === EXTENSION_URL_CPT_BILLABLE_UNITS)
+    ?.valueInteger;
+  return billableUnits != null && Number.isFinite(billableUnits) && billableUnits > 0 ? billableUnits : undefined;
 };
 
 export function shouldUseCandid(secrets: Secrets): boolean {
