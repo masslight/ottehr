@@ -52,6 +52,55 @@ vi.mock('../src/shared/pdf', async (importOriginal) => {
   return { ...original, createPdfBytes: vi.fn() };
 });
 
+// Pin the consent-form config to the two-form baseline this suite was written
+// against so tests are not affected by per-project config overlays.
+vi.mock('utils/lib/ottehr-config/consent-forms', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/consent-forms')>();
+  const MOCK_HIPAA = {
+    id: 'hipaa-acknowledgement',
+    assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+    publicUrl: '/hipaa_notice_template.pdf',
+    formTitle: 'HIPAA Acknowledgement',
+    resourceTitle: 'HIPAA forms',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+      text: 'HIPAA Acknowledgement forms',
+    },
+    createsConsentResource: false,
+  };
+  const MOCK_CTT_DEFAULT = {
+    id: 'consent-to-treat',
+    assetPath: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf',
+    publicUrl: '/consent_to_treat_template.pdf',
+    formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
+    resourceTitle: 'Consent forms',
+    type: {
+      coding: [
+        { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+        {
+          system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+          code: 'patient-registration',
+          display: 'Patient Registration Consent',
+        },
+      ],
+      text: 'Consent forms',
+    },
+    createsConsentResource: true,
+  };
+  return {
+    ...original,
+    getConsentFormsForLocation: (locationState?: string) => [
+      MOCK_HIPAA,
+      locationState === 'IL'
+        ? {
+            ...MOCK_CTT_DEFAULT,
+            assetPath: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf',
+          }
+        : MOCK_CTT_DEFAULT,
+    ],
+  };
+});
+
 const mockCreateFilesDocumentReferences = vi.mocked(createFilesDocumentReferences);
 const mockCreateConsentResource = vi.mocked(createConsentResource);
 const mockGetConsentAndDocRefs = vi.mocked(getConsentAndRelatedDocRefsForAppointment);

@@ -30,6 +30,24 @@ vi.mock('../../src/ehr/lab/shared/orderable-items', () => ({
   getOrderableItems: vi.fn(),
 }));
 
+// Pin VALUE_SETS.externalLabCptCodesToAddPerEncounter to the value this suite was
+// written against so tests are not affected by per-project config overlays.
+vi.mock('utils/lib/ottehr-config/value-sets', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/value-sets')>();
+  return {
+    ...original,
+    VALUE_SETS: {
+      ...original.VALUE_SETS,
+      externalLabCptCodesToAddPerEncounter: [
+        {
+          label: 'Handling and/or conveyance of specimen for transfer to a laboratory',
+          value: '99001',
+        },
+      ],
+    },
+  };
+});
+
 const EXTERNAL_LAB_PLAN_TAG = chartDataTagSystem('external-lab-template-plan');
 const LAB_GUID = 'lab-guid-1';
 
