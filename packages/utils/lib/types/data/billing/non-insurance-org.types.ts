@@ -24,6 +24,10 @@ export const NIO_PORTAL_NOTES_EXTENSION_URL = 'https://fhir.ottehr.com/billing/p
 export const NIO_WC_BILLING_MODE_EXTENSION_URL = 'https://fhir.ottehr.com/billing/wc-billing-mode';
 export const NIO_WC_PAYER_EXTENSION_URL = 'https://fhir.ottehr.com/billing/wc-insurance-payer';
 
+// Claim extension carrying the non-insurance payer responsible for the claim: a valueReference to
+// the NIO Organization in the billing workspace (e.g. the visit's occupational-medicine employer).
+export const CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL = 'https://fhir.ottehr.com/billing/non-insurance-payer';
+
 export const NIO_COVERAGE_CATEGORY_LABELS: Record<NioCoverageCategory, string> = {
   'workers-comp': 'Workers Comp',
   'occupational-medicine': 'Occupational Medicine',

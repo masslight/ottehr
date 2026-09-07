@@ -1,6 +1,7 @@
 import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
@@ -491,7 +492,8 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
     rulesEngine: determineRulesEngineForClaim(claim),
     patientName,
     patientDob: patient?.birthDate ?? '',
-    payerName: insurer?.name ?? '',
+    // Non-insurance claims have no insurer; show their stamped non-insurance payer in the Payer column.
+    payerName: insurer?.name ?? getClaimNonInsurancePayer(claim)?.display ?? '',
     payerId: getPayerId(insurer) ?? '',
     memberId: coverage?.subscriberId ?? '',
     service: getClaimService(claim),

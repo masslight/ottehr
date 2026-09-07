@@ -19,6 +19,7 @@ import {
   CircularProgress,
   FormControlLabel,
   IconButton,
+  Link as MuiLink,
   MenuItem,
   Select,
   Stack,
@@ -35,7 +36,7 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
@@ -65,6 +66,7 @@ import {
   formatAntCaseString,
   formatClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
+import { NonInsuranceOrganizationItem } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { RULES_ENGINES, RulesEngineDef } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import z from 'zod';
@@ -76,6 +78,7 @@ import {
   getPatientCoverages,
   runBillingRulesEngine,
   saveBillingServiceFacility,
+  searchBillingNonInsuranceOrgs,
   searchBillingTags,
   tagBillingClaim,
   updateBillingCoverage,
@@ -624,6 +627,11 @@ export default function ClaimDetail(): ReactElement {
             ) : (
               <></>
             )}
+            {(claim.statuses.arStage === AR_STAGE.nonInsurancePayer ||
+              claim.nonInsurancePayerFhirId ||
+              claim.nonInsurancePayerName) && (
+              <NonInsurancePayerSection claim={claim} updateResource={updateResource} />
+            )}
             <RenderingProviderSection claim={claim} updateResource={updateResource} />
             <FacilitySection claim={claim} updateResource={updateResource} />
             <BillingProviderSection claim={claim} updateResource={updateResource} />
@@ -920,6 +928,134 @@ export function InsuranceSection({
               <></>
             )}
           </Box>
+        </Box>
+      )}
+    </EditableSection>
+  );
+}
+
+// The claim's non-insurance payer (e.g. the visit's occupational-medicine employer), stamped at
+// claim creation from the clinical employer selection and editable here for claims whose visit
+// lacked one. Rendered only for claims in non-insurance payer AR or already carrying a payer.
+export function NonInsurancePayerSection({
+  claim,
+  updateResource,
+}: {
+  claim: ClaimDetailResponse;
+  updateResource: UpdateFn;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [options, setOptions] = useState<NonInsuranceOrganizationItem[]>([]);
+  const [selected, setSelected] = useState<NonInsuranceOrganizationItem | null>(null);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
+  const loadOptions = async (): Promise<void> => {
+    if (!oystehrZambda || options.length) return;
+    try {
+      const data = await searchBillingNonInsuranceOrgs(oystehrZambda, { pageSize: 100 });
+      setOptions((data.organizations ?? []).filter((org) => org.active));
+    } catch {
+      // Leave the list empty; reopening the autocomplete retries.
+    }
+  };
+
+  const handleSave = async (): Promise<string | null> => {
+    if (!selected) return 'Choose a non-insurance organization';
+    const err = await updateResource('Claim', claim.id, { nonInsurancePayer: { id: selected.id } });
+    if (!err) setSelected(null);
+    return err;
+  };
+
+  const handleRemove = async (): Promise<void> => {
+    setRemoving(true);
+    setRemoveError(null);
+    const err = await updateResource('Claim', claim.id, { nonInsurancePayer: null });
+    setRemoving(false);
+    setConfirmingRemove(false);
+    if (err) setRemoveError(err);
+  };
+
+  const hasPayer = Boolean(claim.nonInsurancePayerFhirId || claim.nonInsurancePayerName);
+
+  return (
+    <EditableSection
+      title="Non-insurance Payer"
+      onSave={handleSave}
+      onCancel={() => setSelected(null)}
+      editForm={
+        <Autocomplete
+          size="small"
+          options={options}
+          value={selected}
+          onChange={(_, v) => setSelected(v)}
+          onOpen={() => void loadOptions()}
+          getOptionLabel={(o) => o.name}
+          renderInput={(p) => <TextField {...p} size="small" label={hasPayer ? 'Replace payer' : 'Choose payer'} />}
+          isOptionEqualToValue={(o, v) => o.id === v.id}
+          sx={{ maxWidth: 480 }}
+        />
+      }
+    >
+      {hasPayer ? (
+        <Box sx={{ display: 'flex', py: 0.75 }}>
+          <Typography variant="body2" color="primary.dark" sx={{ width: 180, flexShrink: 0 }}>
+            Payer
+          </Typography>
+          {claim.nonInsurancePayerFhirId ? (
+            <MuiLink
+              component={RouterLink}
+              to={`/non-insurance-organizations/${claim.nonInsurancePayerFhirId}`}
+              variant="body2"
+              sx={{ fontWeight: 500 }}
+            >
+              {claim.nonInsurancePayerName || claim.nonInsurancePayerFhirId}
+            </MuiLink>
+          ) : (
+            <Typography variant="body2">{claim.nonInsurancePayerName}</Typography>
+          )}
+        </Box>
+      ) : (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
+          No non-insurance payer specified
+        </Typography>
+      )}
+      {hasPayer && (
+        <Box sx={{ mt: 1.5 }}>
+          {removeError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {removeError}
+            </Alert>
+          )}
+          {confirmingRemove ? (
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Remove payer?
+              </Typography>
+              <Button size="small" onClick={() => setConfirmingRemove(false)} disabled={removing}>
+                Cancel
+              </Button>
+              <Button
+                size="small"
+                color="error"
+                variant="contained"
+                onClick={() => void handleRemove()}
+                disabled={removing}
+              >
+                {removing ? 'Removing...' : 'Confirm'}
+              </Button>
+            </Box>
+          ) : (
+            <Button
+              size="small"
+              color="error"
+              startIcon={<DeleteOutlineIcon fontSize="small" />}
+              onClick={() => setConfirmingRemove(true)}
+            >
+              Remove payer
+            </Button>
+          )}
         </Box>
       )}
     </EditableSection>

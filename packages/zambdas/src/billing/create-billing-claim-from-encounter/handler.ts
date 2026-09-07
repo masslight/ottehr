@@ -32,18 +32,27 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isAppointmentOccupationalMedicine } from 'utils/lib/fhir/appointments';
-import { getDefaultClaimSubmissionExtensions, setCoveragePlanType } from 'utils/lib/fhir/billing';
+import {
+  claimNonInsurancePayerExtension,
+  getDefaultClaimSubmissionExtensions,
+  setCoveragePlanType,
+} from 'utils/lib/fhir/billing';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   FHIR_IDENTIFIER_NPI,
+  OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
   PARTICIPATION_CODE_SYSTEM,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
-import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
+import {
+  getPaymentVariantFromEncounter,
+  getVisitOccupationalMedicineEmployerFromEncounter,
+  PaymentVariant,
+} from 'utils/lib/fhir/encounter';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { getNPIIdentifier, getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { getCandidPlanTypeCodeFromCoverage, getPayerId } from 'utils/lib/helpers/helpers';
+import { extractNioIdFromReferenceUrl, getCandidPlanTypeCodeFromCoverage, getPayerId } from 'utils/lib/helpers/helpers';
 import { InternalError } from 'utils/lib/helpers/oystehrApi';
 import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -120,6 +129,8 @@ interface ClinicalResources {
   payors: Organization[];
   diagnoses: Array<Condition>;
   procedures: Array<Procedure>;
+  /** The patient's occ-med Account (owner = the visit's employer); resolved only for employer-billed visits. */
+  occupationalMedicineAccount?: Account;
 }
 
 interface BillingResources {
@@ -142,6 +153,8 @@ interface ClaimResources {
   // Only patient is required, everything else will prompt for data before claim submission in the UI
   /** Ordered list of coverages. First entry is the target of the claim. */
   coverageRefs: CoverageRefs;
+  /** The visit's non-insurance payer (billing-side NIO Organization reference), when one applies. */
+  nonInsurancePayer?: Reference;
   // The per-claim working copies (their ids are urn:uuid placeholders the transaction resolves), so
   // the claim references the copies and later edits (UI, rules engine) never touch the shared originals.
   serviceFacility?: Location;
@@ -441,6 +454,7 @@ export async function performEffect(
     diagnoses: clinicalResources.diagnoses,
     procedures: clinicalResources.procedures,
     coverageRefs: getClaimCoveragesForEncounter(appointmentService, mainPatientAccounts, claimCoverages),
+    nonInsurancePayer: await resolveNonInsurancePayer(billingOystehr, clinicalResources),
     renderingProvider: claimRenderingProvider,
     serviceFacility: claimServiceFacility,
     billingProvider: claimBillingProvider,
@@ -599,6 +613,38 @@ export function getClaimCoveragesForEncounter(
       return [];
     }
   }
+}
+
+const isOccupationalMedicineAccount = (account: Account): boolean =>
+  !!account.type?.coding?.some(
+    (coding) =>
+      OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE?.coding?.some((c) => c.system === coding.system && c.code === coding.code)
+  );
+
+// The visit's NIO employer: a visit-level selection on the Encounter (pre-op) wins, else the
+// patient's occ-med Account owner (occupational medicine). Only billing-app NIO reference tokens
+// become the claim's non-insurance payer — the token's uuid IS the billing-side NIO Organization id,
+// so the claim references it natively. Legacy clinical employer Organizations have no billing copy
+// and leave the claim unstamped, as before.
+export async function resolveNonInsurancePayer(
+  billingOystehr: Oystehr,
+  clinicalResources: Pick<ClinicalResources, 'encounter' | 'occupationalMedicineAccount'>
+): Promise<Reference | undefined> {
+  const employerRef =
+    getVisitOccupationalMedicineEmployerFromEncounter(clinicalResources.encounter) ??
+    clinicalResources.occupationalMedicineAccount?.owner;
+  const nioId = extractNioIdFromReferenceUrl(employerRef?.reference);
+  if (!nioId) return undefined;
+  let display = employerRef?.display;
+  if (!display) {
+    // Claim history snapshots displays at write time, so backfill a missing one from the NIO itself.
+    try {
+      display = (await billingOystehr.fhir.get<Organization>({ resourceType: 'Organization', id: nioId })).name;
+    } catch (error) {
+      console.error(`Failed to resolve name for non-insurance payer Organization/${nioId}`, error);
+    }
+  }
+  return { reference: `Organization/${nioId}`, ...(display ? { display } : {}) };
 }
 
 export function copyAccount(account: Account, patientId: string, billingCoverages?: Coverage[]): Account {
@@ -863,6 +909,27 @@ async function getClinicalResources(
     })
   );
 
+  // The occ-med Account (owner = the visit's employer) is patient-level and not consistently
+  // referenced from the Encounter, so for employer-billed visits fall back to a patient search
+  // when the encounter-linked accounts don't include it.
+  let occupationalMedicineAccount = accounts.find(isOccupationalMedicineAccount);
+  if (
+    !occupationalMedicineAccount &&
+    (isAppointmentOccupationalMedicine(appointment) ||
+      getPaymentVariantFromEncounter(encounter) === PaymentVariant.employer)
+  ) {
+    const patientAccounts = (
+      await oystehr.fhir.search<Account>({
+        resourceType: 'Account',
+        params: [
+          { name: 'patient', value: patient.id! },
+          { name: 'status', value: 'active' },
+        ],
+      })
+    ).unbundle();
+    occupationalMedicineAccount = patientAccounts.find(isOccupationalMedicineAccount);
+  }
+
   const defaultBillingProviderRef = params.secrets.DEFAULT_BILLING_RESOURCE;
   if (!defaultBillingProviderRef) throw FHIR_RESOURCE_NOT_FOUND('Organization');
   const billingProviders = (
@@ -890,6 +957,7 @@ async function getClinicalResources(
     payors,
     diagnoses,
     procedures,
+    ...(occupationalMedicineAccount ? { occupationalMedicineAccount } : {}),
   };
 }
 
@@ -1130,7 +1198,10 @@ function buildClaim(resources: ClaimResources): Claim {
     type: { coding: [getClaimTypeCoding()] },
     use: 'claim',
     created: now,
-    extension: getDefaultClaimSubmissionExtensions(),
+    extension: [
+      ...getDefaultClaimSubmissionExtensions(),
+      ...(resources.nonInsurancePayer ? [claimNonInsurancePayerExtension(resources.nonInsurancePayer)] : []),
+    ],
     patient: uuidOrUrnReference('Patient', resources.patientId),
     provider: resources.billingProvider?.id
       ? {

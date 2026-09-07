@@ -1,5 +1,7 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
-import { Claim, Coverage, FhirResource, ProvenanceAgent } from 'fhir/r4b';
+import { Claim, Coverage, FhirResource, Organization, ProvenanceAgent } from 'fhir/r4b';
+import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
+import { NIO_KIND_CODE, NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/update-billing-claim/index';
 import { validateRequestParameters } from '../../../src/billing/update-billing-claim/validateRequestParameters';
@@ -166,5 +168,88 @@ describe('update-billing-claim performEffect', () => {
     const written = writtenResources(transaction);
     expect(written.some((r) => r.resourceType === 'Claim')).toBe(true);
     expect(written.some((r) => r.resourceType === 'Coverage')).toBe(false);
+  });
+});
+
+describe('update-billing-claim non-insurance payer', () => {
+  const NIO_ID = '5b0261af-71c6-4f7e-9a51-e0d16a468980';
+  const nioOrganization: Organization = {
+    resourceType: 'Organization',
+    id: NIO_ID,
+    name: 'FedEx',
+    type: [{ coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: NIO_KIND_CODE }] }],
+  };
+
+  const makeOystehr = (
+    organization: Organization | undefined,
+    existingClaim: Claim = claim
+  ): { oystehr: Oystehr; transaction: ReturnType<typeof vi.fn> } => {
+    const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'Claim') return Promise.resolve({ unbundle: () => [structuredClone(existingClaim)] });
+      if (resourceType === 'Organization')
+        return Promise.resolve({ unbundle: () => (organization ? [structuredClone(organization)] : []) });
+      return Promise.resolve({ unbundle: () => [] });
+    });
+    const transaction = vi.fn().mockResolvedValue({ entry: [] });
+    return { oystehr: { fhir: { search, transaction } } as unknown as Oystehr, transaction };
+  };
+
+  const fieldsUpdate = (fields: Record<string, unknown>): Parameters<typeof performEffect>[1] =>
+    ({
+      resourceType: 'Claim',
+      resourceId: CLAIM_ID,
+      claimId: CLAIM_ID,
+      fields,
+      secrets: {},
+    }) as Parameters<typeof performEffect>[1];
+
+  it('sets the non-insurance payer with the NIO name as display', async () => {
+    const { oystehr, transaction } = makeOystehr(nioOrganization);
+
+    await performEffect(oystehr, fieldsUpdate({ nonInsurancePayer: { id: NIO_ID } }), agent);
+
+    const writtenClaim = writtenResources(transaction).find((r): r is Claim => r.resourceType === 'Claim');
+    expect(getClaimNonInsurancePayer(writtenClaim)).toEqual({
+      reference: `Organization/${NIO_ID}`,
+      display: 'FedEx',
+    });
+  });
+
+  it('clears the non-insurance payer when null is sent', async () => {
+    const claimWithPayer: Claim = {
+      ...claim,
+      extension: [
+        {
+          url: 'https://fhir.ottehr.com/billing/non-insurance-payer',
+          valueReference: { reference: `Organization/${NIO_ID}`, display: 'FedEx' },
+        },
+      ],
+    };
+    const { oystehr, transaction } = makeOystehr(nioOrganization, claimWithPayer);
+
+    await performEffect(oystehr, fieldsUpdate({ nonInsurancePayer: null }), agent);
+
+    const writtenClaim = writtenResources(transaction).find((r): r is Claim => r.resourceType === 'Claim');
+    expect(getClaimNonInsurancePayer(writtenClaim)).toBeUndefined();
+  });
+
+  it('rejects an Organization that is not a non-insurance organization', async () => {
+    const { oystehr } = makeOystehr({ resourceType: 'Organization', id: NIO_ID, name: 'Not an NIO' });
+
+    await expect(performEffect(oystehr, fieldsUpdate({ nonInsurancePayer: { id: NIO_ID } }), agent)).rejects.toThrow(
+      'nonInsurancePayer must reference a non-insurance organization'
+    );
+  });
+
+  it('validateRequestParameters accepts set and clear payloads and rejects a non-uuid id', () => {
+    expect(
+      validateRequestParameters({ headers: null, body: body({ nonInsurancePayer: { id: NIO_ID } }), secrets: {} })
+    ).toMatchObject({ fields: { nonInsurancePayer: { id: NIO_ID } } });
+    expect(
+      validateRequestParameters({ headers: null, body: body({ nonInsurancePayer: null }), secrets: {} })
+    ).toMatchObject({ fields: { nonInsurancePayer: null } });
+    expect(() =>
+      validateRequestParameters({ headers: null, body: body({ nonInsurancePayer: { id: 'not-a-uuid' } }), secrets: {} })
+    ).toThrow();
   });
 });

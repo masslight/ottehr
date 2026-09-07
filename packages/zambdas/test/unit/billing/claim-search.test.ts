@@ -52,6 +52,27 @@ const makeLookups = (
   patientPaidByClaimId,
 });
 
+describe('mapClaimToItem: payer column', () => {
+  it('shows the stamped non-insurance payer when the claim has no insurer', () => {
+    const claim = {
+      ...makeClaim('claim-1', 100),
+      extension: [
+        {
+          url: 'https://fhir.ottehr.com/billing/non-insurance-payer',
+          valueReference: { reference: 'Organization/nio-1', display: 'FedEx' },
+        },
+      ],
+    } as Claim;
+    const item = mapClaimToItem(claim, makeLookups(new Map()));
+    expect(item.payerName).toBe('FedEx');
+  });
+
+  it('leaves the payer blank when the claim has neither insurer nor non-insurance payer', () => {
+    const item = mapClaimToItem(makeClaim('claim-1', 100), makeLookups(new Map()));
+    expect(item.payerName).toBe('');
+  });
+});
+
 describe('mapClaimToItem: patient payments', () => {
   it('reports the linked patient payment total and nets it from the balance', () => {
     const item = mapClaimToItem(makeClaim('claim-1', 100), makeLookups(new Map([['claim-1', 30]])));

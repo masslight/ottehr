@@ -25,9 +25,10 @@ import {
   PARTICIPATION_CODE_SYSTEM,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
-import { PaymentVariant } from 'utils/lib/fhir/encounter';
+import { getEncounterVisitOccupationalMedicineEmployerExtension, PaymentVariant } from 'utils/lib/fhir/encounter';
 import { CANDID_PLAN_TYPE_SYSTEM } from 'utils/lib/fhir/insurance';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { getNioReferenceUrl } from 'utils/lib/helpers/helpers';
 import {
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
@@ -44,6 +45,7 @@ import {
 } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
+import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { AUTO_ACCIDENT_SYSTEM_TAG, AUTO_ACCIDENT_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import {
   APIError,
@@ -63,6 +65,7 @@ import {
   findMainBillingPatient,
   getClaimCoveragesForEncounter,
   performEffect,
+  resolveNonInsurancePayer,
 } from '../../../src/billing/create-billing-claim-from-encounter/handler';
 import { validateRequestParameters } from '../../../src/billing/create-billing-claim-from-encounter/validateRequestParameters';
 import {
@@ -1457,6 +1460,161 @@ describe('create-billing-claim-from-encounter', () => {
   });
 
   const TEST_PROVENANCE_AGENT = { who: { reference: 'Practitioner/test-user' } };
+
+  describe('resolveNonInsurancePayer', () => {
+    const NIO_ID = '5b0261af-71c6-4f7e-9a51-e0d16a468980';
+    const nioToken = getNioReferenceUrl(NIO_ID);
+    const baseEncounter: Encounter = { resourceType: 'Encounter', id: 'encounter-123', class: {}, status: 'finished' };
+    const occMedAccount = (owner: { reference: string; display?: string }): Account => ({
+      resourceType: 'Account',
+      id: 'occ-med-account-123',
+      status: 'active',
+      type: { coding: [{ system: ACCOUNT_TYPE_CODE_SYSTEM, code: 'OCCUPATIONALMEDICINEACCT' }] },
+      subject: [{ reference: 'Patient/patient-123' }],
+      owner,
+    });
+    const billingOystehrWithGet = (get: Mock): Oystehr => ({ fhir: { get } }) as unknown as Oystehr;
+
+    it('stamps the occ-med Account owner NIO token as a native billing Organization reference', async () => {
+      const get = vi.fn();
+      const result = await resolveNonInsurancePayer(billingOystehrWithGet(get), {
+        encounter: baseEncounter,
+        occupationalMedicineAccount: occMedAccount({ reference: nioToken, display: 'FedEx' }),
+      });
+      expect(result).toEqual({ reference: `Organization/${NIO_ID}`, display: 'FedEx' });
+      expect(get).not.toHaveBeenCalled();
+    });
+
+    it('prefers the visit-level employer on the Encounter over the Account owner', async () => {
+      const visitNioId = 'e59b1a63-2a89-4a0e-bb08-32ff03bfb4b8';
+      const encounter: Encounter = {
+        ...baseEncounter,
+        extension: [
+          getEncounterVisitOccupationalMedicineEmployerExtension({
+            reference: getNioReferenceUrl(visitNioId),
+            display: 'Visit Employer',
+          }),
+        ],
+      };
+      const result = await resolveNonInsurancePayer(billingOystehrWithGet(vi.fn()), {
+        encounter,
+        occupationalMedicineAccount: occMedAccount({ reference: nioToken, display: 'FedEx' }),
+      });
+      expect(result).toEqual({ reference: `Organization/${visitNioId}`, display: 'Visit Employer' });
+    });
+
+    it('leaves legacy clinical employer Organizations unstamped', async () => {
+      const result = await resolveNonInsurancePayer(billingOystehrWithGet(vi.fn()), {
+        encounter: baseEncounter,
+        occupationalMedicineAccount: occMedAccount({ reference: 'Organization/legacy-employer-1', display: 'Legacy' }),
+      });
+      expect(result).toBeUndefined();
+    });
+
+    it('resolves nothing when the visit has no employer', async () => {
+      const result = await resolveNonInsurancePayer(billingOystehrWithGet(vi.fn()), { encounter: baseEncounter });
+      expect(result).toBeUndefined();
+    });
+
+    it('backfills a missing display from the billing-side NIO', async () => {
+      const get = vi.fn().mockResolvedValue({ resourceType: 'Organization', id: NIO_ID, name: 'FedEx' });
+      const result = await resolveNonInsurancePayer(billingOystehrWithGet(get), {
+        encounter: baseEncounter,
+        occupationalMedicineAccount: occMedAccount({ reference: nioToken }),
+      });
+      expect(get).toHaveBeenCalledWith({ resourceType: 'Organization', id: NIO_ID });
+      expect(result).toEqual({ reference: `Organization/${NIO_ID}`, display: 'FedEx' });
+    });
+
+    it('still stamps the reference when the display backfill fails', async () => {
+      const get = vi.fn().mockRejectedValue(new Error('boom'));
+      const result = await resolveNonInsurancePayer(billingOystehrWithGet(get), {
+        encounter: baseEncounter,
+        occupationalMedicineAccount: occMedAccount({ reference: nioToken }),
+      });
+      expect(result).toEqual({ reference: `Organization/${NIO_ID}` });
+    });
+  });
+
+  describe('performEffect, occupational-medicine visit with an NIO employer', () => {
+    it('stamps the claim with the non-insurance payer and lands it in non-insurance payer AR', async () => {
+      const NIO_ID = '5b0261af-71c6-4f7e-9a51-e0d16a468980';
+      const txFn = vi.fn().mockResolvedValueOnce({
+        entry: [
+          { resource: { resourceType: 'Patient', id: 'billing-patient' } },
+          { resource: { resourceType: 'Patient', id: 'claim-patient' } },
+          { resource: { resourceType: 'Account', id: 'billing-account' } },
+          { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
+          { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
+        ],
+      });
+      const billingOystehr = {
+        fhir: { transaction: txFn },
+        rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
+      } as unknown as Oystehr;
+
+      const occMedAppointment = structuredClone(clinicalResources.appointment);
+      occMedAppointment.serviceCategory![0].coding![0].code = 'occupational-medicine';
+      const occMedEncounter = structuredClone(clinicalResources.encounter);
+      // No payment selection: the occ-med appointment drives the AR stage.
+      delete occMedEncounter.extension;
+      const occMedAccount: Account = {
+        resourceType: 'Account',
+        id: 'occ-med-account-123',
+        status: 'active',
+        type: { coding: [{ system: ACCOUNT_TYPE_CODE_SYSTEM, code: 'OCCUPATIONALMEDICINEACCT' }] },
+        subject: [{ reference: 'Patient/patient-123' }],
+        owner: { reference: getNioReferenceUrl(NIO_ID), display: 'FedEx' },
+      };
+
+      const cvo: ComplexValidationOutput = {
+        clinicalResources: {
+          accounts: [occMedAccount],
+          appointment: occMedAppointment,
+          billingProvider: clinicalResources.billingProvider,
+          coverages: [],
+          diagnoses: [...clinicalResources.conditions],
+          encounter: occMedEncounter,
+          location: clinicalResources.location,
+          patient: clinicalResources.patient,
+          payors: [],
+          practitioners: [clinicalResources.practitioner],
+          procedures: [clinicalResources.procedure],
+          occupationalMedicineAccount: occMedAccount,
+        },
+        billingResources: {
+          accounts: [],
+          billingProvider: undefined,
+          coverages: [],
+          mainPatient: undefined,
+          person: undefined,
+          practitioners: [],
+          renderingProvider: undefined,
+          serviceFacility: undefined,
+          subscribers: [],
+        },
+      };
+
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
+      expect(result.claimId).toEqual('claim');
+
+      const claimRequest = txFn.mock.calls[0][0].requests.find(
+        (r: { url: string }) => r.url === '/Claim'
+      ) as BatchInputPostRequest<Claim>;
+      expect(claimRequest.resource.extension).toContainEqual({
+        url: CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+        valueReference: { reference: `Organization/${NIO_ID}`, display: 'FedEx' },
+      });
+      expect(claimRequest.resource.meta?.tag).toContainEqual({
+        system: CLAIM_STATUS_TAG_SYSTEMS.arStage,
+        code: AR_STAGE.nonInsurancePayer,
+      });
+      // Occ-med claims carry no insurance payer; the NIO extension is the payer.
+      expect(claimRequest.resource.insurer).toBeUndefined();
+    });
+  });
 
   describe('performEffect', () => {
     it('creates all billing resources and claim when none exist yet', async () => {

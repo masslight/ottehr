@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
+import { Claim, Organization, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getCoveragePlanType } from 'utils/lib/fhir/billing';
+import { getClaimNonInsurancePayer, getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { SubscriberRelationship } from 'utils/lib/fhir/constants';
 import { getCoding, getExtension, getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -85,13 +85,15 @@ export async function performEffect(
   const encounterId =
     claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value ?? '';
 
-  // Other claims via Person lookup, this claim's ERA adjudications, and its patient payments
-  const [otherClaims, claimResponsesByClaimId, paymentsByEncounter] = await Promise.all([
+  // Other claims via Person lookup, this claim's ERA adjudications, its patient payments, and its
+  // non-insurance payer (when stamped)
+  const [otherClaims, claimResponsesByClaimId, paymentsByEncounter, nonInsurancePayer] = await Promise.all([
     fetchOtherClaims(oystehr, patient?.id, claimId),
     fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
     encounterId
       ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
       : Promise.resolve(new Map<string, PaymentNotice[]>()),
+    resolveNonInsurancePayerDetail(oystehr, claim),
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, claimResponseByPrId } = await fetchClaimEraLinks(eraReadClient, claimResponses);
@@ -204,8 +206,8 @@ export async function performEffect(
     quaternaryPayerName: quaternaryInsurer?.name ?? '',
     quaternaryPayerId: getPayerId(quaternaryInsurer) ?? '',
     quaternaryMemberId: quaternaryCoverage?.subscriberId ?? '',
-    nonInsurancePayerFhirId: '',
-    nonInsurancePayerName: '',
+    nonInsurancePayerFhirId: nonInsurancePayer.fhirId,
+    nonInsurancePayerName: nonInsurancePayer.name,
     renderingProviderId: renderingProvider?.id ?? '',
     renderingProviderType: renderingProvider?.resourceType ?? '',
     renderingProvider: renderingProvider
@@ -273,6 +275,27 @@ export async function performEffect(
   };
 }
 
+// The claim's non-insurance payer (e.g. the visit's occ-med employer): resolve the NIO's current
+// name so renames show through, falling back to the display snapshotted on the claim when the
+// Organization is gone.
+async function resolveNonInsurancePayerDetail(
+  oystehr: Oystehr,
+  claim: Claim
+): Promise<{ fhirId: string; name: string }> {
+  const payerRef = getClaimNonInsurancePayer(claim);
+  const fhirId = payerRef?.reference?.replace('Organization/', '') ?? '';
+  let name = payerRef?.display ?? '';
+  if (fhirId) {
+    try {
+      const org = await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: fhirId });
+      name = org.name ?? name;
+    } catch {
+      console.warn(`Non-insurance payer Organization/${fhirId} could not be resolved; using the stored display.`);
+    }
+  }
+  return { fhirId, name };
+}
+
 // Flatten the working-copy subscriber RelatedPerson into the policy-holder summary the UI prefills from.
 function extractPolicyHolder(subscriber: RelatedPerson | undefined): BillingPolicyHolderSummary | null {
   if (!subscriber) return null;
@@ -324,7 +347,10 @@ async function fetchOtherClaims(
     status: getClaimStatus(c),
     arStage: getClaimStatusValues(c).arStage,
     serviceDate: c.item?.[0]?.servicedPeriod?.start ?? c.created ?? '',
-    payerName: (c.insurer?.reference ? payersByRef.get(c.insurer.reference) : undefined)?.name ?? '',
+    payerName:
+      (c.insurer?.reference ? payersByRef.get(c.insurer.reference) : undefined)?.name ??
+      getClaimNonInsurancePayer(c)?.display ??
+      '',
     billed: c.total?.value ?? 0,
     cptCodes: (c.item ?? []).map((item) => item.productOrService?.coding?.[0]?.code ?? '').filter(Boolean),
   }));
