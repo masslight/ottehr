@@ -2,42 +2,22 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Observation, Patient, Practitioner } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
-import { getFullName } from 'utils/lib/fhir/patient';
-import {
-  extractBloodPressureObservationMethod,
-  extractDotVisionScreening,
-  extractHeartbeatObservationMethod,
-  extractOxySaturationObservationMethod,
-  extractTemperatureObservationMethod,
-  extractVisionValues,
-  LOINC_SYSTEM,
-  parseLastMenstrualPeriodObservation,
-  VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
-  VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
-} from 'utils/lib/fhir/vitals';
-import { convertVitalsListToMap, getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
-import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
-import {
-  PATIENT_VITALS_META_SYSTEM,
-  VitalsBloodPressureObservationDTO,
-  VitalsHeartbeatObservationDTO,
-  VitalsObservationDTO,
-  VitalsOxygenSatObservationDTO,
-  VitalsTemperatureObservationDTO,
-  VitalsVisionObservationDTO,
-} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { convertVitalsListToMap } from 'utils/lib/helpers/vitals/utils';
 import {
   GetVitalsForListOfEncountersRequestPayload,
   GetVitalsForListOfEncountersResponseData,
 } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import * as z from 'zod';
 import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
+import {
+  parseVitalsObservationsToDTOs,
+  VITALS_ENCOUNTER_CHUNK_SIZE,
+  vitalsObservationSearchParams,
+} from '../../../../shared/vitals/parse-vitals-observations';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-vitals-for-list-of-encounters';
@@ -74,13 +54,13 @@ const performEffect = async (
   const encountersVitalsMap: GetVitalsForListOfEncountersResponseData = {};
   encounters.forEach((encounter) => {
     const observations = observationsByEncounter.get(`Encounter/${encounter.id}`) ?? [];
-    encountersVitalsMap[encounter.id] = convertVitalsListToMap(parseResourcesToDTOs(observations, practitioners));
+    encountersVitalsMap[encounter.id] = convertVitalsListToMap(
+      parseVitalsObservationsToDTOs(observations, practitioners)
+    );
   });
 
   return encountersVitalsMap;
 };
-
-const VITALS_ENCOUNTER_CHUNK_SIZE = 25;
 
 const fetchVitalsForEncounters = async (
   encounterIds: string[],
@@ -92,14 +72,7 @@ const fetchVitalsForEncounters = async (
       // truncated the way an unbounded single-page search could be.
       oystehr.fhir.searchAndGetAllPages<Observation | Practitioner>({
         resourceType: 'Observation',
-        params: [
-          { name: 'encounter', value: encounterIdChunk.map((id) => `Encounter/${id}`).join(',') },
-          { name: 'status:not', value: 'entered-in-error,cancelled,unknown,cannot-be-obtained' },
-          { name: '_tag', value: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}|` },
-          { name: '_include', value: 'Observation:performer' },
-          { name: '_sort', value: '-date' }, // Sort by date descending
-          { name: '_count', value: '1000' },
-        ],
+        params: vitalsObservationSearchParams(encounterIdChunk),
       })
     )
   );
@@ -126,180 +99,6 @@ const fetchVitalsForEncounters = async (
   });
 
   return { observationsByEncounter, practitioners };
-};
-
-const fieldNameSchema = z.nativeEnum(VitalFieldNames);
-
-const parseResourcesToDTOs = (observations: Observation[], practitioners: Practitioner[]): VitalsObservationDTO[] => {
-  const observationPerformerMap = new Map<string, Practitioner>();
-  observations.forEach((obs) => {
-    const performer = practitioners.find(
-      (tempPractitioner) =>
-        obs.performer?.some((p) => p.reference?.replace('Practitioner/', '') === tempPractitioner.id)
-    );
-    if (performer && obs.id) {
-      observationPerformerMap.set(obs.id, performer);
-    }
-  });
-
-  // console.log('Observation to performer map:', observationPerformerMap, observations.length, practitioners.length);
-
-  const vitalsDTOs: VitalsObservationDTO[] = Array.from(observationPerformerMap.entries()).flatMap(
-    ([obsId, performer]) => {
-      const observation = observations.find((obs) => obs.id === obsId);
-      if (!observation || !observation.id) return [];
-      // todo: don't base this on meta tag, but on the observation code
-      const fieldCode = observation?.meta?.tag?.find(
-        (tag) => tag.system === `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}`
-      )?.code;
-
-      if (!fieldCode) return [];
-
-      const parsedField = fieldNameSchema.safeParse(fieldCode);
-      if (!parsedField.success) return [];
-
-      const field = parsedField.data;
-
-      let vitalObservation: VitalsObservationDTO | undefined = undefined;
-
-      if (field === VitalFieldNames.VitalBloodPressure) {
-        vitalObservation = parseBloodPressureObservation(observation, performer);
-      } else if (field === VitalFieldNames.VitalVision) {
-        vitalObservation = parseVisionObservation(observation, performer);
-      } else if (field === VitalFieldNames.VitalLastMenstrualPeriod) {
-        vitalObservation = parseLastMenstrualPeriodObservation(observation, performer);
-      } else {
-        vitalObservation = parseNumericValueObservation(observation, performer, field);
-      }
-
-      if (vitalObservation) {
-        vitalObservation.alertCriticality = getVitalDTOCriticalityFromObservation(observation);
-        return vitalObservation;
-      }
-      return [];
-    }
-  );
-  return vitalsDTOs;
-};
-
-const parseBloodPressureObservation = (
-  observation: Observation,
-  performer: Practitioner
-): VitalsBloodPressureObservationDTO | undefined => {
-  // if (observation.code?.coding?.[0]?.code !== '85354-9') return undefined; interesting suggestion from AI...
-  const systolicBP = observation.component?.find(
-    (comp) =>
-      comp.code?.coding?.some(
-        (cc) => cc.code === VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE && cc.system === LOINC_SYSTEM
-      )
-  )?.valueQuantity?.value;
-  const diastolicBP = observation.component?.find(
-    (comp) =>
-      comp.code?.coding?.some(
-        (cc) => cc.code === VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE && cc.system === LOINC_SYSTEM
-      )
-  )?.valueQuantity?.value;
-  if (systolicBP === undefined || diastolicBP === undefined) return undefined;
-  return {
-    resourceId: observation.id,
-    field: VitalFieldNames.VitalBloodPressure,
-    systolicPressure: systolicBP,
-    diastolicPressure: diastolicBP,
-    authorId: performer.id,
-    authorName: getFullName(performer),
-    observationMethod: extractBloodPressureObservationMethod(observation),
-    lastUpdated: observation.effectiveDateTime || '',
-  };
-};
-
-const parseVisionObservation = (
-  observation: Observation,
-  performer: Practitioner
-): VitalsVisionObservationDTO | undefined => {
-  // Check if the observation has the correct field code
-  const fieldCode = observation?.meta?.tag?.find(
-    (tag) => tag.system === `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}`
-  )?.code;
-
-  if (fieldCode !== VitalFieldNames.VitalVision) return undefined;
-
-  const components = observation.component || [];
-
-  const {
-    leftEyeVisText: leftEyeVisionText,
-    rightEyeVisText: rightEyeVisionText,
-    bothEyesVisText: bothEyesVisionText,
-    visionOptions,
-  } = extractVisionValues(components);
-
-  const dotVisionScreening = extractDotVisionScreening(components, observation.derivedFrom);
-
-  if (
-    leftEyeVisionText === undefined &&
-    rightEyeVisionText === undefined &&
-    bothEyesVisionText === undefined &&
-    dotVisionScreening === undefined
-  ) {
-    return undefined;
-  }
-
-  return {
-    resourceId: observation.id,
-    field: VitalFieldNames.VitalVision,
-    leftEyeVisionText: leftEyeVisionText ?? '',
-    rightEyeVisionText: rightEyeVisionText ?? '',
-    bothEyesVisionText,
-    authorId: performer.id,
-    authorName: getFullName(performer),
-    lastUpdated: observation.effectiveDateTime || '',
-    extraVisionOptions: visionOptions,
-    dotVisionScreening,
-  };
-};
-
-type AllOtherFields =
-  | VitalFieldNames.VitalHeartbeat
-  | VitalFieldNames.VitalOxygenSaturation
-  | VitalFieldNames.VitalTemperature
-  | VitalFieldNames.VitalRespirationRate
-  | VitalFieldNames.VitalHeight
-  | VitalFieldNames.VitalWeight
-  | VitalFieldNames.VitalBMI;
-
-const parseNumericValueObservation = (
-  observation: Observation,
-  performer: Practitioner,
-  field: AllOtherFields
-): VitalsObservationDTO | undefined => {
-  const value = observation.valueQuantity?.value;
-  if (value === undefined) return undefined;
-  const baseFields = {
-    resourceId: observation.id,
-    field,
-    value,
-    authorId: performer.id,
-    authorName: getFullName(performer),
-    lastUpdated: observation.effectiveDateTime || '',
-  };
-  if (field === VitalFieldNames.VitalOxygenSaturation) {
-    return {
-      ...baseFields,
-      observationMethod: extractOxySaturationObservationMethod(observation),
-    } as VitalsOxygenSatObservationDTO;
-  }
-  if (field === VitalFieldNames.VitalHeartbeat) {
-    return {
-      ...baseFields,
-      observationMethod: extractHeartbeatObservationMethod(observation),
-    } as VitalsHeartbeatObservationDTO;
-  }
-  if (field === VitalFieldNames.VitalTemperature) {
-    return {
-      ...baseFields,
-      observationMethod: extractTemperatureObservationMethod(observation),
-    } as VitalsTemperatureObservationDTO;
-  }
-  return baseFields;
 };
 
 interface InputParameters extends GetVitalsForListOfEncountersRequestPayload {

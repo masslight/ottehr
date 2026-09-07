@@ -78,6 +78,7 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
       {resultDetails.resultType === 'preliminary' && (
         <PrelimCardView
           resultPdfUrl={resultDetails.resultPdfUrl}
+          labGeneratedResultUrls={resultDetails.labGeneratedResultUrls}
           receivedDate={resultDetails.receivedDate}
           reviewedDate={resultDetails.reviewedDate}
           onPrelimView={() => onMarkAsReviewed()} // todo: add open PDF when task will be ready

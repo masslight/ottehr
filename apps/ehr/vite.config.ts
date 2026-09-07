@@ -31,6 +31,16 @@ export default ({ mode }: { mode: string }): UserConfig => {
         sourcemaps: {
           assets: ['./build/**/*'],
         },
+        // Release injection is disabled because @sentry/vite-plugin 2.x predates Rolldown and its
+        // injected module deadlocks against Vite 8's runtime chunk: the runtime imports the injection
+        // file and calls its export at the top of the chunk, while the injection file imports a runtime
+        // helper that is not defined until further down. The cycle resolves the import to `undefined`,
+        // so every Sentry-enabled build dies on load with "e is not a function" before rendering.
+        //
+        // Only bites deployed environments — the plugin is skipped without SENTRY_* credentials, so
+        // local builds look fine. Sourcemaps still resolve: debug IDs are injected per chunk
+        // independently of this. Remove once the plugin is upgraded to a Rolldown-aware version.
+        release: { inject: false },
       })
     );
   }
