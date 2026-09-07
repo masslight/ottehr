@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Organization, PaymentReconciliation } from 'fhir/r4b';
 import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
@@ -9,6 +9,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { countEraClaims, fetchClaimEraLinks, fetchClaimResponsesByPaymentReconciliations } from '../claim-amounts';
 import {
+  CLAIM_PCN_IDENTIFIER_SYSTEM,
   createBillingClient,
   createEraReadClient,
   CURRENT_STATUS_TAG_SYSTEM,
@@ -124,27 +125,38 @@ async function findEraPaymentReconciliationIds(eraReadClient: Oystehr, claimIds:
 
 async function findMatchingClaimIds(oystehr: Oystehr, params: SearchErasParams): Promise<Set<string>> {
   const PAGE_SIZE = 200;
-  const baseParams: { name: string; value: string }[] = [{ name: '_elements', value: 'id' }];
+  const baseParams: SearchParam[] = [{ name: '_elements', value: 'id' }];
   if (params.claimStatus)
     baseParams.push({ name: '_tag', value: `${CURRENT_STATUS_TAG_SYSTEM}|${params.claimStatus}` });
   if (params.dosFrom) baseParams.push({ name: 'created', value: `ge${params.dosFrom}` });
   if (params.dosTo) baseParams.push({ name: 'created', value: `le${params.dosTo}` });
   if (params.patientId) baseParams.push({ name: 'patient', value: `Patient/${params.patientId}` });
-  if (params.searchText) baseParams.push({ name: 'patient.name', value: params.searchText });
+
+  const paramsSets: SearchParam[][] = [];
+  if (params.searchText) {
+    paramsSets.push([...baseParams, { name: 'patient.name', value: params.searchText }]);
+    paramsSets.push([
+      ...baseParams,
+      { name: 'identifier', value: CLAIM_PCN_IDENTIFIER_SYSTEM + '|' + params.searchText },
+    ]);
+  } else {
+    paramsSets.push(baseParams);
+  }
 
   const ids = new Set<string>();
-
-  await fetchAllPages(async (offset, count) => {
-    const bundle = await oystehr.fhir.search<Claim>({
-      resourceType: 'Claim',
-      params: [...baseParams, { name: '_count', value: String(count) }, { name: '_offset', value: String(offset) }],
-    });
-    const page = bundle.unbundle();
-    for (const c of page) {
-      if (c.id) ids.add(c.id);
-    }
-    return bundle;
-  }, PAGE_SIZE);
+  for (const params of paramsSets) {
+    await fetchAllPages(async (offset, count) => {
+      const bundle = await oystehr.fhir.search<Claim>({
+        resourceType: 'Claim',
+        params: [...params, { name: '_count', value: String(count) }, { name: '_offset', value: String(offset) }],
+      });
+      const page = bundle.unbundle();
+      for (const c of page) {
+        if (c.id) ids.add(c.id);
+      }
+      return bundle;
+    }, PAGE_SIZE);
+  }
 
   return ids;
 }
