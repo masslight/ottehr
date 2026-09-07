@@ -151,11 +151,6 @@ function buildUpdateOperations(currentTask: Task, invoiceTaskInput: InvoiceTaskI
     updateOperations.push({ op: 'remove', path: '/businessStatus' });
   }
 
-  // A send that finished after this event was queued has already written its output and status, and
-  // deriving the status from the stale payload would roll that back to "ready".
-  // Only include the status op when it actually changes the value to avoid redundant /status writes
-  // (a no-op patch can still emit a FHIR update event).
-  // This prevents unnecessary downstream triggers and reduces write noise.
   const getLastTaskOutput = getLatestTaskOutput(currentTask);
   const newStatus =
     getLastTaskOutput?.type === 'success'
@@ -163,9 +158,7 @@ function buildUpdateOperations(currentTask: Task, invoiceTaskInput: InvoiceTaskI
       : getLastTaskOutput?.type === 'error'
       ? mapDisplayToInvoiceTaskStatus('error')
       : mapDisplayToInvoiceTaskStatus('ready');
-  if (currentTask.status !== newStatus) {
-    updateOperations.push({ op: 'replace', path: '/status', value: newStatus });
-  }
+  updateOperations.push({ op: currentTask.status ? 'replace' : 'add', path: '/status', value: newStatus });
 
   return updateOperations;
 }
