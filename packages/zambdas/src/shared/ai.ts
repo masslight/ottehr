@@ -125,6 +125,16 @@ const AI_RESPONSE_KEY_TO_FIELD = {
   procedures: AiObservationField.Procedures,
 };
 
+export class VertexAIRequestError extends Error {
+  readonly status?: number;
+
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = 'VertexAIRequestError';
+    this.status = status;
+  }
+}
+
 export const VERTEX_AI_MODEL = 'gemini-3.1-flash-lite';
 
 export async function invokeChatbotVertexAI(
@@ -220,7 +230,10 @@ export async function invokeChatbotVertexAI(
   // Unchecked, an error body fell through to `candidates[0]` and every Vertex failure surfaced as
   // `TypeError: Cannot read properties of undefined` with an empty stack.
   if (!settled.ok) {
-    throw new Error(`Vertex AI request failed: ${settled.status} ${settled.statusText} ${body.slice(0, 1000)}`);
+    throw new VertexAIRequestError(
+      `Vertex AI request failed: ${settled.status} ${settled.statusText} ${body.slice(0, 1000)}`,
+      settled.status
+    );
   }
 
   // Size only: on a transcription call the body is the transcript, which is PHI.
