@@ -50,10 +50,7 @@ export const invoiceTaskSourceTag = (source: InvoiceTaskSource): Coding => ({
 export const INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('invoice-task-claim-id');
 
 export const InvoiceTaskInputSchemaBase = z.object({
-  dueDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'dueDate must be in YYYY-MM-DD format')
-    .refine((val) => !isNaN(new Date(val).getTime()), 'dueDate must be a valid date'),
+  dueDate: z.string(),
   memo: z.string(),
   smsTextMessage: z.string(),
   amountCents: z.number(),
@@ -63,6 +60,10 @@ export const InvoiceTaskInputSchemaBase = z.object({
 export const InvoiceTaskInputSchema = InvoiceTaskInputSchemaBase.partial();
 export type InvoiceTaskInput = z.infer<typeof InvoiceTaskInputSchema>;
 export const SubSendInvoiceToPatientTaskInputSchema = InvoiceTaskInputSchemaBase.extend({
+  dueDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'dueDate must be in YYYY-MM-DD format')
+    .refine((val) => !isNaN(new Date(val).getTime()), 'dueDate must be a valid date'),
   memo: z.string().optional(),
   amountCents: z.number().gt(0),
 });
