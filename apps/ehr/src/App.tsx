@@ -64,6 +64,7 @@ import { QuestionnaireNew } from './features/visits/telemed/components/admin/que
 import RadiologyQuickPickDetailPage from './features/visits/telemed/components/admin/RadiologyQuickPickDetailPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
+import { PRIMARY_EHR_STAFF_ROLES } from './hooks/useNavigationQuickPicks';
 import AddEmployeePage from './pages/AddEmployeePage';
 import AddPatient from './pages/AddPatient';
 import { AdminPage } from './pages/AdminPage';
@@ -98,15 +99,6 @@ setupSentry({
 });
 
 const InPersonRoutingLazy = lazy(() => import('./features/visits/in-person/routing/InPersonRouting'));
-
-const PRIMARY_EHR_STAFF_ROLES = [
-  RoleType.Administrator,
-  RoleType.Staff,
-  RoleType.Manager,
-  RoleType.Provider,
-  RoleType.Clinician,
-  RoleType.CustomerSupport,
-];
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 if (MUI_X_LICENSE_KEY != null) {
