@@ -100,6 +100,8 @@ const ERA_SORT_PARAM = {
   value: '-created',
 };
 
+const SCAN_PAGE_SIZE = 200;
+
 async function fetchErasPage(
   eraReadClient: Oystehr,
   filterParams: SearchParam[],
@@ -129,8 +131,6 @@ async function fetchErasPage(
     total: bundle.total ?? 0,
   };
 }
-
-const CHECK_NUMBER_SCAN_PAGE_SIZE = 200;
 
 async function findErasByCheckNumber(
   eraReadClient: Oystehr,
@@ -168,7 +168,7 @@ async function findErasByCheckNumber(
       if (pr.id && eraCheckNumberMatches(pr, checkNumber)) matchingIds.push(pr.id);
     }
     return bundle;
-  }, CHECK_NUMBER_SCAN_PAGE_SIZE);
+  }, SCAN_PAGE_SIZE);
 
   const pageIds = matchingIds.slice(offset, offset + pageSize);
   if (pageIds.length === 0) {
@@ -222,7 +222,6 @@ async function findEraPaymentReconciliationIds(eraReadClient: Oystehr, claimIds:
 }
 
 async function findMatchingClaimIds(oystehr: Oystehr, params: SearchErasParams): Promise<Set<string>> {
-  const PAGE_SIZE = 200;
   const baseParams: SearchParam[] = [{ name: '_elements', value: 'id' }];
   if (params.claimStatus)
     baseParams.push({ name: '_tag', value: `${CURRENT_STATUS_TAG_SYSTEM}|${params.claimStatus}` });
@@ -253,7 +252,7 @@ async function findMatchingClaimIds(oystehr: Oystehr, params: SearchErasParams):
         if (c.id) ids.add(c.id);
       }
       return bundle;
-    }, PAGE_SIZE);
+    }, SCAN_PAGE_SIZE);
   }
 
   return ids;
