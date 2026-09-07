@@ -504,6 +504,14 @@ export function getEraCheckNumber(
   return pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? pr.paymentIdentifier?.value;
 }
 
+export function eraCheckNumberMatches(
+  pr: Pick<PaymentReconciliation, 'identifier' | 'paymentIdentifier'>,
+  checkNumber: string
+): boolean {
+  const stored = getEraCheckNumber(pr)?.trim().toLowerCase();
+  return !!stored && stored === checkNumber.trim().toLowerCase();
+}
+
 export const CLAIM_PCN_IDENTIFIER_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-claim-patient-control-number';
 
 export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string | undefined {
