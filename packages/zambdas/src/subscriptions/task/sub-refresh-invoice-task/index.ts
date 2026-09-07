@@ -22,7 +22,7 @@ import { getCandidEncounterIdFromEncounter } from '../../../shared/candid';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { addErrorToTaskOutput, getTaskAndSecretsFromInput, updateTaskStatusAndOutput } from '../../helpers';
+import { addErrorToInvoicingTaskOutput, getTaskAndSecretsFromInput, updateTaskStatusAndOutput } from '../../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -114,7 +114,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error) {
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     console.log('updating task status to failed and output');
-    const taskCopy = addErrorToTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
+    const taskCopy = addErrorToInvoicingTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
     await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);
     throw error;
   }

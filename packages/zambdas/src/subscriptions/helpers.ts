@@ -1,8 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Task, TaskOutput } from 'fhir/r4b';
+import { RcmTaskCodings } from 'utils/lib/fhir';
 import { sanitizeStringForFhirCode } from 'utils/lib/fhir/helpers';
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, RcmTaskCodings } from 'utils/lib/types/errors';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../shared/types/common';
 import { safeJsonParse } from '../shared/validation';
 
@@ -93,7 +94,7 @@ export async function updateTaskStatusAndOutput(
   });
 }
 
-export function addErrorToTaskOutput(task: Task, error: string): Task {
+export function addErrorToInvoicingTaskOutput(task: Task, error: string): Task {
   const taskCopy = { ...task };
   if (!taskCopy.output) taskCopy.output = [];
   const taskError = RcmTaskCodings.sendInvoiceOutputError;

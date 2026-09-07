@@ -28,7 +28,7 @@ import { wrapHandler } from '../../../shared/sentry';
 import { ensureStripeCustomerId, getStripeClient, stripeEncounterMetadata } from '../../../shared/stripeIntegration';
 import { resolveTemplatePlaceholders } from '../../../shared/template-placeholders';
 import { ZambdaInput } from '../../../shared/types/common';
-import { addErrorToTaskOutput, getTaskAndSecretsFromInput, updateTaskStatusAndOutput } from '../../helpers';
+import { addErrorToInvoicingTaskOutput, getTaskAndSecretsFromInput, updateTaskStatusAndOutput } from '../../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -180,7 +180,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error) {
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     console.log('updating task status to failed and output');
-    const taskCopy = addErrorToTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
+    const taskCopy = addErrorToInvoicingTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
     await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);
     if (isInvalidEmailError(error)) {
       console.warn('Invoice not sent due to invalid patient email; task updated but error suppressed from Sentry');
