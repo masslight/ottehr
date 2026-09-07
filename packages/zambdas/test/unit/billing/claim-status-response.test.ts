@@ -1,6 +1,6 @@
 import { ClaimResponse } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { parseClaimStatusResponse } from '../../../src/billing/claim-status-response';
+import { classifyClaimStatusResponse, parseClaimStatusResponse } from '../../../src/billing/claim-status-response';
 
 const response = (valueString: string): ClaimResponse => ({
   resourceType: 'ClaimResponse',
@@ -61,5 +61,66 @@ describe('parseClaimStatusResponse', () => {
     const fixture = response('{}');
     fixture.identifier![0].value = '';
     expect(() => parseClaimStatusResponse(fixture)).toThrow('empty claim status event ID');
+  });
+});
+
+describe('classifyClaimStatusResponse', () => {
+  it.each([
+    ['A', 'acknowledgment'],
+    ['W', 'warning'],
+    ['other', 'unknown'],
+    [undefined, 'unknown'],
+  ])('classifies %s despite older rejection messages and an error outcome', (status, kind) => {
+    const raw = { status, messages: [{ status: 'R', message: 'Older rejection' }] };
+    const fixture = response(JSON.stringify(raw));
+    fixture.error = [{ code: { text: 'Older rejection' } }];
+    const result = classifyClaimStatusResponse(fixture);
+    expect(result?.kind).toBe(kind);
+    expect(result).not.toHaveProperty('details');
+  });
+  it('classifies queued acknowledgments', () => {
+    const fixture = response('{"status":"A"}');
+    fixture.outcome = 'queued';
+    expect(classifyClaimStatusResponse(fixture)?.kind).toBe('acknowledgment');
+  });
+  it.each(['First error', 'Second error'])('preserves distinct rejection IDs with second detail %s', (secondText) => {
+    const first = { status: 'R', responseid: '9001', mesgid: 'R-01', fields: 'ins_number', message: ' First error ' };
+    const second = { status: 'R', responseid: '9002', message: secondText };
+    const raw = { status: 'R', messages: [first, { status: 'A', message: 'Accepted' }, second] };
+    const fixture = response(JSON.stringify(raw));
+    fixture.error = [{ code: { text: 'Fallback error' } }];
+    expect(classifyClaimStatusResponse(fixture)).toMatchObject({
+      kind: 'rejection-candidate',
+      raw,
+      messages: [first, second],
+      details: ['First error', secondText],
+    });
+  });
+  it.each([undefined, [], [{ status: 'R' }], [{ status: 'R', message: ' ' }]])(
+    'handles rejection without message text (%j)',
+    (messages) => {
+      expect(classifyClaimStatusResponse(response(JSON.stringify({ status: 'R', messages })))).toMatchObject({
+        kind: 'rejection-candidate',
+        details: ['Claim rejected; no details provided.'],
+      });
+    }
+  );
+  it('uses nonblank FHIR error text when raw rejection details are absent', () => {
+    const fixture = response('{"status":"R","messages":[{"status":"W","message":"Warning"}]}');
+    fixture.error = [
+      { code: {} },
+      { code: { text: ' ' } },
+      { code: { text: ' First ' } },
+      { code: { text: 'Second' } },
+    ];
+    expect(classifyClaimStatusResponse(fixture)).toMatchObject({
+      kind: 'rejection-candidate',
+      messages: [],
+      details: ['First', 'Second'],
+    });
+  });
+  it('keeps feed validation in front of classification', () => {
+    expect(classifyClaimStatusResponse({ ...response('invalid'), identifier: undefined })).toBeUndefined();
+    expect(() => classifyClaimStatusResponse(response('invalid'))).toThrow('invalid raw claim status response');
   });
 });

@@ -44,3 +44,30 @@ export function parseClaimStatusResponse(response: ClaimResponse): ParsedClaimSt
     throw new Error(`ClaimResponse/${response.id} has an invalid raw claim status response`, { cause });
   }
 }
+
+export type ClassifiedClaimStatusResponse = ParsedClaimStatusResponse &
+  (
+    | { kind: 'acknowledgment' | 'warning' | 'unknown' }
+    | { kind: 'rejection-candidate'; messages: z.infer<typeof ClaimStatusMessageSchema>[]; details: string[] }
+  );
+
+export function classifyClaimStatusResponse(response: ClaimResponse): ClassifiedClaimStatusResponse | undefined {
+  const parsed = parseClaimStatusResponse(response);
+  if (!parsed) return undefined;
+  const { raw } = parsed;
+  if (raw.status === 'A') return { ...parsed, kind: 'acknowledgment' };
+  if (raw.status === 'W') return { ...parsed, kind: 'warning' };
+  if (raw.status !== 'R') return { ...parsed, kind: 'unknown' };
+
+  const messages = (raw.messages ?? []).filter((message) => message.status === 'R');
+  let details = messages.map((message) => message.message?.trim()).filter((text): text is string => !!text);
+  if (details.length === 0) {
+    details = (response.error ?? []).map((error) => error.code.text?.trim()).filter((text): text is string => !!text);
+  }
+  return {
+    ...parsed,
+    kind: 'rejection-candidate',
+    messages,
+    details: details.length ? details : ['Claim rejected; no details provided.'], // probaly shouldn't happen
+  };
+}
