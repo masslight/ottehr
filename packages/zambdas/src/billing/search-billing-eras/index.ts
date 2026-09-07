@@ -53,7 +53,7 @@ export async function performEffect(
   }
 
   // ERA-level FHIR search, without the paging the server can only apply to the filters it runs
-  const filterParams: { name: string; value: string }[] = [];
+  const filterParams: SearchParam[] = [];
   if (params.eraDateFrom) filterParams.push({ name: 'created', value: `ge${params.eraDateFrom}` });
   if (params.eraDateTo) filterParams.push({ name: 'created', value: `le${params.eraDateTo}` });
   if (params.eraStatus) filterParams.push({ name: 'outcome', value: params.eraStatus });
@@ -102,10 +102,13 @@ const ERA_SORT_PARAM = {
 
 async function fetchErasPage(
   eraReadClient: Oystehr,
-  filterParams: { name: string; value: string }[],
+  filterParams: SearchParam[],
   offset: number,
   pageSize: number
-): Promise<{ payments: PaymentReconciliation[]; total: number }> {
+): Promise<{
+  payments: PaymentReconciliation[];
+  total: number;
+}> {
   const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
     resourceType: 'PaymentReconciliation',
     params: [
@@ -131,10 +134,7 @@ const CHECK_NUMBER_SCAN_PAGE_SIZE = 200;
 
 async function findErasByCheckNumber(
   eraReadClient: Oystehr,
-  filterParams: {
-    name: string;
-    value: string;
-  }[],
+  filterParams: SearchParam[],
   checkNumber: string,
   offset: number,
   pageSize: number
