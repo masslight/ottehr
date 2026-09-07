@@ -508,8 +508,10 @@ export function eraCheckNumberMatches(
   pr: Pick<PaymentReconciliation, 'identifier' | 'paymentIdentifier'>,
   checkNumber: string
 ): boolean {
+  const normalizedCheckNumber = checkNumber.trim().toLowerCase();
+  if (!normalizedCheckNumber) return false;
   const stored = getEraCheckNumber(pr)?.trim().toLowerCase();
-  return !!stored && stored === checkNumber.trim().toLowerCase();
+  return !!stored && stored === normalizedCheckNumber;
 }
 
 export const CLAIM_PCN_IDENTIFIER_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-claim-patient-control-number';
