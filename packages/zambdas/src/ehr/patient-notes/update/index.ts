@@ -40,6 +40,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (notePatientId !== note.patientId)
     throw FHIR_RESOURCE_VALIDATION_ERROR('Note does not belong to the specified patient');
 
+  if (existing.status !== 'completed')
+    throw FHIR_RESOURCE_VALIDATION_ERROR('Note has been deleted and cannot be updated');
+
   const callerId = await getMyPractitionerId(userToken, secrets);
   const senderId = existing.sender?.reference?.split('/')[1];
   if (callerId !== senderId) throw NOT_AUTHORIZED;

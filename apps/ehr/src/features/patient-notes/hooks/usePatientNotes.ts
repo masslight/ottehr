@@ -1,4 +1,4 @@
-import { useInfiniteQuery, UseInfiniteQueryResult } from '@tanstack/react-query';
+import { InfiniteData, useInfiniteQuery, UseInfiniteQueryResult } from '@tanstack/react-query';
 import { GetPatientNotesOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { getPatientNotes } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -7,7 +7,7 @@ const PAGE_SIZE = 20;
 
 export const usePatientNotes = (
   patientId: string | undefined
-): UseInfiniteQueryResult<{ pages: GetPatientNotesOutput[] }, Error> => {
+): UseInfiniteQueryResult<InfiniteData<GetPatientNotesOutput>, Error> => {
   const { oystehrZambda } = useApiClients();
 
   return useInfiniteQuery({

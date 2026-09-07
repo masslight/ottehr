@@ -1,5 +1,5 @@
 import { DeletePatientNoteInput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
-import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../../shared/validation';
@@ -11,13 +11,8 @@ const DeletePatientNoteSchema = z.object({
 export function validateRequestParameters(
   input: ZambdaInput
 ): DeletePatientNoteInput & Pick<ZambdaInput, 'secrets'> & { userToken: string } {
-  if (!input.body) {
-    throw MISSING_REQUEST_BODY;
-  }
-
-  if (input.headers?.Authorization === undefined) {
-    throw new Error('Authorization header is required');
-  }
+  if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.headers?.Authorization) throw MISSING_AUTH_TOKEN;
 
   const userToken = (input.headers.Authorization as string).replace('Bearer ', '');
   const parsedJSON = safeJsonParse(input.body);

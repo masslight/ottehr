@@ -45,6 +45,7 @@ export const PatientNotesButton: React.FC<PatientNotesButtonProps> = ({ patientI
         }}
       >
         <Button
+          aria-label={`Patient notes (${count ?? 0})`}
           onClick={() => setOpen(true)}
           sx={{
             display: 'flex',
