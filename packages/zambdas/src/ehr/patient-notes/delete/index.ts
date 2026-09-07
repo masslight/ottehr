@@ -1,10 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
-import { FHIR_RESOURCE_VALIDATION_ERROR, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { FHIR_RESOURCE_VALIDATION_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
-import { getMyPractitionerId } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -14,7 +13,7 @@ const PATIENT_NOTE_TAG = `${PRIVATE_EXTENSION_BASE_URL}/patient|patient-note`;
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { resourceId, userToken, secrets } = validateRequestParameters(input);
+  const { resourceId, secrets } = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
@@ -22,10 +21,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const hasPatientNoteTag = resource.meta?.tag?.some((tag) => `${tag.system}|${tag.code}` === PATIENT_NOTE_TAG);
   if (!hasPatientNoteTag) throw FHIR_RESOURCE_VALIDATION_ERROR('Resource is not a patient note');
-
-  const callerId = await getMyPractitionerId(userToken, secrets);
-  const senderId = resource.sender?.reference?.split('/')[1];
-  if (callerId !== senderId) throw NOT_AUTHORIZED;
 
   await oystehr.fhir.update<Communication>({ ...resource, id: resourceId, status: 'entered-in-error' });
 

@@ -79,7 +79,6 @@ const { index: deleteHandler } = (await import('../src/ehr/patient-notes/delete/
 const VALID_PATIENT_ID = '550e8400-e29b-41d4-a716-446655440000';
 const VALID_NOTE_ID = '660e8400-e29b-41d4-a716-446655440001';
 const CALLER_ID = 'practitioner-caller-id';
-const OTHER_ID = 'practitioner-other-id';
 const PATIENT_NOTE_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/patient`;
 const PATIENT_NOTE_TAG = `${PATIENT_NOTE_SYSTEM}|patient-note`;
 
@@ -333,9 +332,12 @@ describe('get-patient-notes handler', () => {
     expect(body.hasMore).toBe(false);
   });
 
-  it('returns hasMore=true when the server returns pageSize+1 items', async () => {
-    const twentyOneNotes = Array.from({ length: 21 }, () => fakeNote());
-    mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => twentyOneNotes });
+  it('returns hasMore=true when the bundle has a next link', async () => {
+    const twentyNotes = Array.from({ length: 20 }, () => fakeNote());
+    mockFhirClient.fhir.search.mockResolvedValue({
+      unbundle: () => twentyNotes,
+      link: [{ relation: 'next', url: 'https://fhir.example.com/next' }],
+    });
 
     const result = await getHandler(makeInput({ patientId: VALID_PATIENT_ID }));
     const body = JSON.parse(result.body);
@@ -344,7 +346,7 @@ describe('get-patient-notes handler', () => {
     expect(body.notes).toHaveLength(20);
   });
 
-  it('returns hasMore=false when exactly pageSize items are returned (edge case the old heuristic got wrong)', async () => {
+  it('returns hasMore=false when the bundle has no next link', async () => {
     const twentyNotes = Array.from({ length: 20 }, () => fakeNote());
     mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => twentyNotes });
 
@@ -362,7 +364,7 @@ describe('get-patient-notes handler', () => {
     expect(JSON.parse(result.body).notes).toHaveLength(0);
   });
 
-  it('passes _count as pageSize+1, _offset, and other required params to FHIR search', async () => {
+  it('passes _count as pageSize, _offset, and other required params to FHIR search', async () => {
     mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => [] });
 
     await getHandler(makeInput({ patientId: VALID_PATIENT_ID, offset: 20, pageSize: 10 }));
@@ -375,7 +377,7 @@ describe('get-patient-notes handler', () => {
         { name: '_tag', value: PATIENT_NOTE_TAG },
         { name: 'status', value: 'completed' },
         { name: '_sort', value: '-_lastUpdated' },
-        { name: '_count', value: '11' },
+        { name: '_count', value: '10' },
         { name: '_offset', value: '20' },
       ])
     );
@@ -526,13 +528,12 @@ describe('create-patient-note handler', () => {
 describe('update-patient-note handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getMyPractitionerId).mockResolvedValue(CALLER_ID);
   });
 
-  it('returns 200 and updates the Communication when caller is the author', async () => {
+  it('returns 200 and updates the Communication', async () => {
     const existing = fakeNote();
     const updated = fakeNote({ payload: [{ contentString: 'updated text' }] });
-    mockFhirClient.fhir.get.mockResolvedValueOnce(existing).mockResolvedValueOnce(fakePractitioner);
+    mockFhirClient.fhir.get.mockResolvedValueOnce(existing);
     mockFhirClient.fhir.update.mockResolvedValue(updated);
 
     const result = await updateHandler(
@@ -585,21 +586,39 @@ describe('update-patient-note handler', () => {
     expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
   });
 
-  it('throws NOT_AUTHORIZED (4000) when caller is not the original author', async () => {
-    const ownedByOther = fakeNote({ sender: { reference: `Practitioner/${OTHER_ID}` } });
-    mockFhirClient.fhir.get.mockResolvedValue(ownedByOther);
+  it('allows any caller to update a note they did not author', async () => {
+    const existing = fakeNote();
+    const updated = fakeNote({ payload: [{ contentString: 'updated text' }] });
+    mockFhirClient.fhir.get.mockResolvedValueOnce(existing);
+    mockFhirClient.fhir.update.mockResolvedValue(updated);
 
-    await expect(
-      updateHandler(makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID } }, 'user-token'))
-    ).rejects.toMatchObject({ code: 4000 });
+    const result = await updateHandler(
+      makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID, text: 'updated text' } }, 'other-token')
+    );
 
-    expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
+    expect(result.statusCode).toBe(200);
+    expect(mockFhirClient.fhir.update).toHaveBeenCalledWith(expect.objectContaining({ id: VALID_NOTE_ID }));
+  });
+
+  it('preserves the original author when a different user edits the note', async () => {
+    const existing = fakeNote();
+    const updated = fakeNote();
+    mockFhirClient.fhir.get.mockResolvedValueOnce(existing);
+    mockFhirClient.fhir.update.mockResolvedValue(updated);
+
+    const result = await updateHandler(
+      makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID, text: 'new text' } }, 'other-token')
+    );
+
+    const { note } = JSON.parse(result.body);
+    expect(note.authorId).toBe(CALLER_ID);
+    expect(note.authorName).toBe('Jane Smith');
   });
 
   it('preserves the original sent timestamp so edit detection works correctly', async () => {
     const originalSent = '2026-01-01T10:00:00.000Z';
     const existing = fakeNote({ sent: originalSent });
-    mockFhirClient.fhir.get.mockResolvedValueOnce(existing).mockResolvedValueOnce(fakePractitioner);
+    mockFhirClient.fhir.get.mockResolvedValueOnce(existing);
     mockFhirClient.fhir.update.mockResolvedValue(fakeNote({ sent: originalSent }));
 
     await updateHandler(
@@ -618,10 +637,9 @@ describe('update-patient-note handler', () => {
 describe('delete-patient-note handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getMyPractitionerId).mockResolvedValue(CALLER_ID);
   });
 
-  it('returns 200 and soft-deletes (entered-in-error) when tag is present and caller is the author', async () => {
+  it('returns 200 and soft-deletes (entered-in-error) when tag is present', async () => {
     mockFhirClient.fhir.get.mockResolvedValue(fakeNote());
     mockFhirClient.fhir.update.mockResolvedValue(undefined);
 
@@ -647,15 +665,14 @@ describe('delete-patient-note handler', () => {
     expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
   });
 
-  it('throws NOT_AUTHORIZED (4000) when the caller is not the author', async () => {
-    const ownedByOther = fakeNote({ sender: { reference: `Practitioner/${OTHER_ID}` } });
-    mockFhirClient.fhir.get.mockResolvedValue(ownedByOther);
+  it('allows any caller to delete a note they did not author', async () => {
+    mockFhirClient.fhir.get.mockResolvedValue(fakeNote());
+    mockFhirClient.fhir.update.mockResolvedValue(undefined);
 
-    await expect(deleteHandler(makeInput({ resourceId: VALID_NOTE_ID }, 'user-token'))).rejects.toMatchObject({
-      code: 4000,
-    });
+    const result = await deleteHandler(makeInput({ resourceId: VALID_NOTE_ID }, 'other-token'));
 
-    expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body).deleted).toBe(true);
   });
 
   it('throws FHIR_RESOURCE_VALIDATION_ERROR (4103) when the resource has no meta at all', async () => {

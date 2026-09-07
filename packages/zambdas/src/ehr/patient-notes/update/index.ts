@@ -3,7 +3,7 @@ import { Communication, Practitioner } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { SavePatientNoteOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
-import { FHIR_RESOURCE_NOT_FOUND, FHIR_RESOURCE_VALIDATION_ERROR, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { FHIR_RESOURCE_NOT_FOUND, FHIR_RESOURCE_VALIDATION_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, fillMeta } from '../../../shared/helpers';
 import { getMyPractitionerId } from '../../../shared/practitioners';
@@ -44,8 +44,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw FHIR_RESOURCE_VALIDATION_ERROR('Note has been deleted and cannot be updated');
 
   const callerId = await getMyPractitionerId(userToken, secrets);
-  const senderId = existing.sender?.reference?.split('/')[1];
-  if (callerId !== senderId) throw NOT_AUTHORIZED;
 
   const callerPractitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: callerId });
   const callerName = callerPractitioner.name?.[0]
