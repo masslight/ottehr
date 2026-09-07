@@ -18,20 +18,34 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ChartPlanRequest, ChartPlanResponse, ChartReviewRequest, ChartReviewResponse } from 'utils/lib/easy-chart/api';
-import { PlanStage } from 'utils/lib/easy-chart/api';
+import {
+  ChartPlanRequest,
+  ChartPlanResponse,
+  ChartReviewRequest,
+  ChartReviewResponse,
+  EscalationInfo,
+} from 'utils/lib/easy-chart/api';
+import { PLAN_STAGES, PlannedAction, PlanStage } from 'utils/lib/easy-chart/api';
 import {
   buildChartStateSummary,
   buildNoteContextFromChart,
   chartedExamFindingLabels,
 } from 'utils/lib/easy-chart/chart-state';
+import { overwritesWrittenNoteField } from 'utils/lib/easy-chart/note-fields';
 import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { buildChartSnapshot } from '../../apps/ehr/src/features/easy-chart/executor/chartSnapshot';
 import { runPlan } from '../../apps/ehr/src/features/easy-chart/executor/runPlan';
 import { GoldData } from './gold-types';
 import { buildEvalContext } from './harness';
 import type { SimFinalState } from './score-harvested';
-import { aggregateScores, CaseScore, formatCaseLine, formatSummary, scoreCase } from './score-harvested';
+import {
+  aggregateScores,
+  CaseScore,
+  EvalTokenUsage,
+  formatCaseLine,
+  formatSummary,
+  scoreCase,
+} from './score-harvested';
 import { foldProcedureWritesIntoState, foldStepsIntoState } from './sim-state';
 import { simStateToChartData } from './sim-to-chart';
 import { mintToken } from './token';
@@ -43,6 +57,35 @@ interface HarvestedCase {
   caseId: string;
   transcript: string;
   gold: GoldData;
+  meta?: { patientStatus?: string };
+}
+
+/**
+ * New-vs-established for the E&M family selector, from the best source the case file has.
+ *
+ * `meta.patientStatus` is the real thing: derived against the live project at harvest time from the
+ * patient's prior finished encounters, exactly as production does. It is missing on 17 of the 40
+ * harvested cases — not because those patients are genuinely unknown, but because this repo has no
+ * harvest/backfill tooling, so those cases were never backfilled.
+ *
+ * Nothing can recover it offline. The corpus stores no FHIR ids at all, only an opaque `encounterHash`
+ * (deliberately — see HARVESTED.md), and the harness runs headless against a simulated chart, so there
+ * are no prior encounters for the endpoint to count even in principle.
+ *
+ * So fall back to the family of the GOLD E&M code. This is chart context, not gold leakage: the family
+ * follows from registration and visit history, which the provider could see before coding anything, and
+ * it reveals nothing about the LEVEL — the last digit, which is the whole of what this metric scores.
+ * Without it the prompt falls back to the established family, 16 of those 17 gold codes are new-patient
+ * codes, and the headline E&M number mostly measures that fallback rather than the model. The
+ * per-case score file records which source was used, so the report can split the two.
+ */
+function resolvePatientStatus(evalCase: HarvestedCase): 'new' | 'established' | undefined {
+  const harvested = evalCase.meta?.patientStatus;
+  if (harvested === 'new' || harvested === 'established') return harvested;
+  const code = evalCase.gold.billing?.emCode?.code ?? '';
+  if (/^9920\d$/.test(code)) return 'new';
+  if (/^9921\d$/.test(code)) return 'established';
+  return undefined;
 }
 
 interface Options {
@@ -56,6 +99,21 @@ interface Options {
   skipReview: boolean;
   /** Replace the single monolithic plan call with the per-section stage graph. */
   stages: boolean;
+  /**
+   * Stages to run AFTER the monolith instead of instead of it — the hybrid.
+   *
+   * A third configuration worth measuring on its own: the monolith keeps the sections it is good at and
+   * one dedicated call takes the section it is not. The additive pilot that measured this by accident
+   * scored better than either the monolith or the full graph, which is a result and not a methodology
+   * error — it just answers a different question than "does the graph replace the monolith".
+   */
+  addStages: PlanStage[];
+  /**
+   * How many cases to run at once. Default 1, because that is what every previous run did and a
+   * baseline should not change its meaning when a flag gains a default. Raise it to shorten a run; too
+   * high and the model starts timing out, which costs more than it saves.
+   */
+  concurrency: number;
   /**
    * The practice's procedure quick-picks, fetched once at startup.
    *
@@ -110,6 +168,11 @@ function parseArgs(argv: string[]): Options {
     rescore,
     skipReview: argv.includes('--no-review'),
     stages: argv.includes('--stages'),
+    addStages: (get('--add-stages') ?? '')
+      .split(',')
+      .map((name) => name.trim())
+      .filter((name): name is PlanStage => PLAN_STAGES.includes(name as PlanStage)),
+    concurrency: Math.max(1, Number(get('--concurrency') ?? 1) || 1),
   };
 }
 
@@ -202,9 +265,7 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
   // Passing it explicitly is what makes the E&M family measurable: without it the prompt falls back to
   // the ESTABLISHED family and every new-patient case mismatches, which reads as a model failure and is
   // not one. The endpoint still prefers the chart whenever it can look the status up.
-  const meta = (evalCase as { meta?: { patientStatus?: string } }).meta;
-  const patientStatus =
-    meta?.patientStatus === 'new' || meta?.patientStatus === 'established' ? meta.patientStatus : undefined;
+  const patientStatus = resolvePatientStatus(evalCase);
   // THE MONOLITHIC PASS — skipped entirely in staged mode.
   //
   // Running the stages ON TOP of it, which the first pilot did, measures a configuration nobody would
@@ -225,7 +286,17 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
   // the moment a stage was added: the stage's tokens landed nowhere, so the summary reported a staged
   // run as costing exactly what the single-call run cost. A change whose whole trade-off is "more calls
   // for more recall" cannot be judged against a cost figure that structurally cannot move.
-  const plannerUsage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, calls: 0 };
+  const plannerUsage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, thinkingTokens: 0, calls: 0 };
+  /**
+   * The REVIEW pass's own cost, which used to go unrecorded.
+   *
+   * `scoreCase` was handed `{ planner }` and nothing else, so every summary reported
+   * `usage[review]: 0 calls, in 0` for runs where review had demonstrably run — its writes are visible
+   * in the `final` scope. A run's headline cost was therefore short by one full LLM pass per case, and
+   * "planner-only vs planner+review" was the one comparison the numbers could not support.
+   */
+  const reviewUsage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, thinkingTokens: 0, calls: 0 };
+  let firstReviewUsage: ChartPlanResponse['usage'][number] | undefined;
   /** Per-GROUP wall clock, so a run can say where the time actually goes. */
   const stageTimings: { group: string; ms: number }[] = [];
   /**
@@ -237,6 +308,7 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
    * used to work out why a section regressed, which is the one thing it exists for.
    */
   const plannedActions: { stage: string; action: unknown }[] = [];
+  const stageRejected: { stage: string; kind: string; display?: string; reason: string }[] = [];
   /** Provider and model of the first call that reported any — the monolith has none in staged mode. */
   let firstUsage: ChartPlanResponse['usage'][number] | undefined;
   const recordUsage = (entries: ChartPlanResponse['usage'] | undefined): void => {
@@ -245,7 +317,19 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
       plannerUsage.inputTokens += entry.inputTokens ?? 0;
       plannerUsage.outputTokens += entry.outputTokens ?? 0;
       plannerUsage.cacheReadTokens += entry.cacheReadTokens ?? 0;
+      // Thinking tokens are BILLED and were being dropped, which understated every reasoning-model run.
+      plannerUsage.thinkingTokens += entry.thinkingTokens ?? 0;
       plannerUsage.calls += 1;
+    }
+  };
+  const recordReviewUsage = (entries: ChartPlanResponse['usage'] | undefined): void => {
+    for (const entry of entries ?? []) {
+      firstReviewUsage ??= entry;
+      reviewUsage.inputTokens += entry.inputTokens ?? 0;
+      reviewUsage.outputTokens += entry.outputTokens ?? 0;
+      reviewUsage.cacheReadTokens += entry.cacheReadTokens ?? 0;
+      reviewUsage.thinkingTokens += entry.thinkingTokens ?? 0;
+      reviewUsage.calls += 1;
     }
   };
   recordUsage(response.usage);
@@ -278,8 +362,16 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
     ['coding'],
   ];
 
-  if (options.stages) {
-    for (const group of STAGE_GROUPS) {
+  // Full graph, or just the named stages on top of the monolith. Same code either way: the hybrid is
+  // the graph with most of its groups removed, not a second mechanism.
+  const groupsToRun = options.stages
+    ? STAGE_GROUPS
+    : STAGE_GROUPS.map((group) => group.filter((stage) => options.addStages.includes(stage))).filter(
+        (group) => group.length > 0
+      );
+
+  if (groupsToRun.length > 0) {
+    for (const group of groupsToRun) {
       // Every stage in the group sees the SAME chart — the one the previous group left. Snapshotting it
       // once, before any of them runs, is what makes concurrency safe here.
       const chartBefore = chartContextFrom(state);
@@ -292,7 +384,15 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
             const stageResponse = await plan(options, {
               narrative: evalCase.transcript,
               stage,
-              incremental: true,
+              // NOT incremental. A stage is the FIRST pass over its own section, not an addendum to a
+              // written note — and `incremental` says the opposite in as many words: "the note is
+              // already written and this narrative only adds to it. Chart ONLY what is new." Setting it
+              // here is the mistake the flag's own doc warns about, that a non-empty chart state does
+              // not make a turn incremental; last time it cost the template, exam and E&M scaffolding.
+              // It also flips a guard: on an incremental turn a new diagnosis may never usurp the
+              // existing primary, so the stage could not correct a wrong template default even when it
+              // spotted one.
+              incremental: false,
               ...(patientStatus ? { patientStatus } : {}),
               // What the `template` stage applied, so the later stages can tell a template's defaults
               // apart from what the provider dictated — the chart state cannot, every row in it looks
@@ -319,6 +419,11 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
         if (!stageResponse) continue;
         recordUsage(stageResponse.usage);
         for (const action of stageResponse.actions ?? []) plannedActions.push({ stage, action });
+        // A STAGE'S REFUSALS, saved beside the monolith's. Only `response.rejected` was written, so a
+        // stage's guard rejections were invisible: when the hybrid's surviving remove-* count fell from
+        // 30 to 11, nothing in the result files could say whether the guard had refused them or the
+        // model had stopped emitting them — opposite conclusions about where a fix landed.
+        for (const rejection of stageResponse.rejected ?? []) stageRejected.push({ stage, ...rejection });
         try {
           const stageRun = await runPlan(stageResponse.actions, { ...context, chart: snapshotBefore });
           foldStepsIntoState(stageRun.steps, 'planner', state);
@@ -342,6 +447,12 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
   // provider accepts or ignores, so `final` is the UPPER BOUND — the note if every suggestion were
   // accepted. It is not a claim about what a given provider would keep.
   let reviewSuggestions = 0;
+  // Review's own refusals and triggers, saved beside the plan's. Only the PLAN's were written to the
+  // result file, so every question about the second look — did a guard drop the replacement diagnosis,
+  // did the disposition card exist at all — needed a re-run to answer.
+  let reviewRejected: ChartReviewResponse['rejected'] = [];
+  let reviewTriggers: ChartReviewResponse['triggers'] = [];
+  let reviewEscalation: ChartReviewResponse['escalation'] | undefined;
   // The scorer has a whole aggregate bucket for this and it read "no data 20" until now: the endpoints
   // report the deterministic triggers, the runner simply never forwarded them. "The guard never fired"
   // and "the guard fired and the model ignored it" are opposite bugs with the same symptom, which is the
@@ -349,7 +460,23 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
   let dispositionTrigger: { fired: boolean; matchedPattern?: string; modelProposed: boolean } | null = null;
   const readDispositionTrigger = (triggers: ChartPlanResponse['triggers'] | undefined): void => {
     const hit = triggers?.find((trigger) => trigger.trigger === 'disposition-language-without-disposition');
-    if (hit) dispositionTrigger = { fired: hit.fired, matchedPattern: hit.trigger, modelProposed: hit.complied };
+    // A LATER SURFACE OVERRIDES ONLY WHEN ITS OWN TRIGGER FIRED.
+    //
+    // Review's trigger fires only when the narrative states a disposition AND none is charted, i.e. when
+    // the planner left one owed. So a review that reports `fired: false` is reporting that there was
+    // nothing left to force — which must not erase the planner's "fired and charted it". Overwriting
+    // unconditionally turned every visit the planner got right into a not-fired, and the pair exists
+    // precisely to keep "the guard never fired" apart from "it fired and was ignored".
+    if (!hit || (dispositionTrigger?.fired && !hit.fired)) return;
+    // The PATTERN's label, not the trigger's name. Naming the trigger here collapsed the summary's
+    // firedByPattern bucket to a single key, so it could report that some disposition language went
+    // unaddressed but never which kind — and a missed referral, a missed ER instruction and a missed
+    // follow-up interval are three different problems.
+    dispositionTrigger = {
+      fired: hit.fired,
+      ...(hit.matchedPattern ? { matchedPattern: hit.matchedPattern } : {}),
+      modelProposed: hit.complied,
+    };
   };
   readDispositionTrigger(response.triggers);
   if (!options.skipReview) {
@@ -363,13 +490,49 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
         ...reviewContext,
       });
       reviewSuggestions = reviewResponse.suggestions.length;
-      // Review's own view wins when it has one: the check belongs to the second look.
+      reviewRejected = reviewResponse.rejected;
+      reviewTriggers = reviewResponse.triggers;
+      reviewEscalation = reviewResponse.escalation;
+      recordReviewUsage(reviewResponse.usage);
+      // Review's view wins when its own trigger fired — the check belongs to the second look whenever
+      // there was still a disposition owed. See readDispositionTrigger.
       readDispositionTrigger(reviewResponse.triggers);
-      const reviewActions = reviewResponse.suggestions.flatMap((suggestion) => suggestion.actions ?? []);
+      // MIRROR THE APP, or `final` measures a note nobody would ever have.
+      //
+      // A review `edit-note-text` aimed at a field that ALREADY HAS TEXT is not applied in the app — it
+      // becomes a card the provider confirms (see PendingNoteEdit in useChartAssistant). Applying it here
+      // would credit the harness with a rewrite the product does not perform. The written fields are
+      // exactly the keys `reviewContext.noteContext` carries, since that builder drops empty ones.
+      const written = reviewContext.noteContext ?? {};
+      const reviewActions: PlannedAction[] = [];
+      for (const action of reviewResponse.suggestions.flatMap((suggestion) => suggestion.actions ?? [])) {
+        if (overwritesWrittenNoteField(action, written)) {
+          state.pendingNoteEdits.push({ field: action.field, newText: action.newText ?? '', source: 'review' });
+        } else {
+          reviewActions.push(action);
+        }
+      }
       if (reviewActions.length > 0) {
-        // Seeded with the chart AS THE PLAN LEFT IT: a review that corrects a diagnosis has to resolve
-        // its removal against the row the plan charted, not against the empty chart the plan started from.
-        const reviewRun = await runPlan(reviewActions, { ...context, chart: planRun.chart });
+        // Seeded with the chart AS THE WHOLE FIRST PASS LEFT IT: a review that corrects a diagnosis has
+        // to resolve its removal against the row that was actually charted, not against the empty chart
+        // the plan started from.
+        //
+        // Derived from `state`, NOT from `planRun.chart`. `planRun` is the MONOLITH only, so in staged
+        // and hybrid mode every row a stage wrote was invisible here — review's removals resolved
+        // against a chart missing the whole findings section, and `reclaimPrimaryOnSwap` could not see a
+        // primary the `diagnoses` stage had set. `state` is the accumulated truth and is what each stage
+        // group already snapshots from, so this is the same rule applied to the last consumer that was
+        // not using it. It matters most in full `--stages` mode, where the diagnoses review corrects are
+        // charted by a stage rather than by the monolith.
+        //
+        // Worth recording what this did NOT fix, because it looked like the obvious culprit: the hybrid's
+        // removeTargetMissing 14 (against the monolith's 2) is unchanged by it. Those removals are all
+        // the `findings` stage's own — see the polarity note in the README — not review resolving against
+        // a stale chart.
+        const reviewRun = await runPlan(reviewActions, {
+          ...context,
+          chart: buildChartSnapshot(simStateToChartData(state)),
+        });
         foldStepsIntoState(reviewRun.steps, 'review', state);
       }
     } catch (error) {
@@ -392,8 +555,22 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
         inputTokens: plannerUsage.inputTokens,
         outputTokens: plannerUsage.outputTokens,
         cacheReadTokens: plannerUsage.cacheReadTokens,
+        thinkingTokens: plannerUsage.thinkingTokens,
         calls: plannerUsage.calls,
-        escalation: { escalated: response.escalation?.escalated, attempts: response.escalation?.attempts },
+        escalation: escalationRecord(response.escalation),
+      },
+      review: firstReviewUsage && {
+        provider: firstReviewUsage.provider === 'anthropic' ? 'claude' : 'gemini',
+        model: firstReviewUsage.model,
+        inputTokens: reviewUsage.inputTokens,
+        outputTokens: reviewUsage.outputTokens,
+        cacheReadTokens: reviewUsage.cacheReadTokens,
+        thinkingTokens: reviewUsage.thinkingTokens,
+        calls: reviewUsage.calls,
+        // Recorded for the same reason the planner's is, and it was simply missing: the summary read
+        // "escalation[review]: no data" on every run, so how often the primary model failed on the
+        // surface that WRITES INTO THE NOTE was the one thing the escalation bucket could not tell you.
+        escalation: escalationRecord(reviewEscalation),
       },
     },
     dispositionTrigger
@@ -401,10 +578,59 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
 
   writeFileSync(
     join(options.outDir, `${evalCase.caseId}.result.json`),
-    JSON.stringify({ actions: plannedActions, rejected: response.rejected, state }, null, 2)
+    JSON.stringify(
+      { actions: plannedActions, rejected: response.rejected, stageRejected, reviewRejected, reviewTriggers, state },
+      null,
+      2
+    )
   );
-  writeFileSync(join(options.outDir, `${evalCase.caseId}.score.json`), JSON.stringify(score, null, 2));
+  // `patientStatusSent` rides along beside the score, because E&M cannot be read without it, and
+  // `patientStatusSource` beside that, because the two sources do not mean the same thing.
+  //
+  // The E&M code's FAMILY (99202-99205 new vs 99212-99215 established) follows from patient status, and
+  // the prompt is told to default to the established family when the status is unknown. 17 of the 40
+  // harvested cases carry no `meta.patientStatus`, so their family is taken from the gold code's own
+  // family instead (see resolvePatientStatus). That is the right call for measuring the LEVEL, which is
+  // what the metric is about, but it is not the same evidence as a harvested status — so the source is
+  // recorded and the report splits the two rather than the reader having to.
+  writeFileSync(
+    join(options.outDir, `${evalCase.caseId}.score.json`),
+    JSON.stringify(
+      {
+        ...score,
+        patientStatusSent: patientStatus ?? null,
+        patientStatusSource: evalCase.meta?.patientStatus ? 'harvested' : patientStatus ? 'gold-family' : 'none',
+      },
+      null,
+      2
+    )
+  );
   return { score, planSteps: planRun.steps.length, reviewSuggestions, stageTimings };
+}
+
+/**
+ * Our `EscalationInfo` in the shape the scorer's escalation bucket reads.
+ *
+ * The two do not line up, and the mismatch was silent in the worst way: the scorer keys on
+ * `primaryFailed` and `reason`, neither of which the runner set, so EVERY case fell through to the
+ * "primary was fine" branch and `reasons` stayed empty — a run where the primary model failed on half
+ * the corpus and escalated to the backup reported exactly the same escalation summary as a clean one.
+ * Review was worse still: its `escalation` object came out empty and the phase was counted as no-data
+ * on all 40 cases, so the surface that writes into the note could not report a failure at all.
+ *
+ * `escalated` means the primary was abandoned and the backup answered, which IS `primaryFailed`; the
+ * first recorded failure is the reason worth bucketing (a second attempt that fails differently is
+ * noise next to why the primary was given up on).
+ */
+function escalationRecord(info: EscalationInfo | undefined): EvalTokenUsage['escalation'] {
+  if (!info) return undefined;
+  return {
+    escalated: info.escalated,
+    attempts: info.attempts,
+    primaryAttempts: info.attempts,
+    primaryFailed: info.escalated,
+    ...(info.failures?.length ? { reason: info.failures[0] } : {}),
+  };
 }
 
 /** Rebuild the summary from score files already on disk — no model calls, so a failed batch can be
@@ -436,23 +662,40 @@ async function main(): Promise<void> {
     console.log(`Rescoring ${scores.length} existing case scores — no model calls.`);
   } else {
     const cases = loadCases(options);
-    console.log(`${cases.length} cases → ${options.url}`);
+    console.log(
+      `${cases.length} cases → ${options.url}${options.concurrency > 1 ? ` (concurrency ${options.concurrency})` : ''}`
+    );
     scores = [];
-    for (const evalCase of cases) {
-      try {
-        const result = await runOne(options, evalCase);
-        scores.push(result.score);
-        for (const timing of result.stageTimings) {
-          const bucket = (allTimings[timing.group] ??= []);
-          bucket.push(timing.ms);
+    // CASES RUN CONCURRENTLY. They are genuinely independent — one transcript, one simulated chart, one
+    // score file each, and nothing shared but the read-only catalogues — so the only reason to serialise
+    // them was that nobody had asked. A worker pool rather than Promise.all over all forty: the limit
+    // exists to stay under the model's rate limit, and forty simultaneous plans is how a run turns into
+    // a wall of 90-second timeouts that cost more than the serialisation ever did.
+    //
+    // Per-case OUTPUT stays whole: each case logs one line when it finishes, so lines interleave between
+    // cases but never within one. The summary is rebuilt from the directory at the end and does not care
+    // what order they landed in.
+    const queue = [...cases];
+    const worker = async (): Promise<void> => {
+      for (;;) {
+        const evalCase = queue.shift();
+        if (!evalCase) return;
+        try {
+          const result = await runOne(options, evalCase);
+          scores.push(result.score);
+          for (const timing of result.stageTimings) {
+            const bucket = (allTimings[timing.group] ??= []);
+            bucket.push(timing.ms);
+          }
+          console.log(formatCaseLine(result.score, result.planSteps, result.reviewSuggestions));
+        } catch (error) {
+          // One case must not end a run that costs hours. Report it and continue; re-run it later with
+          // --cases, and the summary picks up whatever landed.
+          console.error(`${evalCase.caseId}: FAILED — ${error instanceof Error ? error.message : String(error)}`);
         }
-        console.log(formatCaseLine(result.score, result.planSteps, result.reviewSuggestions));
-      } catch (error) {
-        // One case must not end a run that costs hours. Report it and continue; re-run it later with
-        // --cases, and the summary picks up whatever landed.
-        console.error(`${evalCase.caseId}: FAILED — ${error instanceof Error ? error.message : String(error)}`);
       }
-    }
+    };
+    await Promise.all(Array.from({ length: Math.min(options.concurrency, cases.length) }, worker));
     // Include earlier partial runs so an interleaved retry summarises the whole corpus.
     scores = loadScores(options.outDir);
   }

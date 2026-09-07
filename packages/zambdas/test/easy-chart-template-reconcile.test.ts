@@ -49,14 +49,21 @@ describe('the reconciliation instruction', () => {
 describe('the zambda withholds the template list on that call', () => {
   const SOURCE = readFileSync(join(__dirname, '../src/ehr/easy-chart-plan/index.ts'), 'utf8');
 
+  // These read the SOURCE because the gate is a request-assembly decision with no return value to
+  // assert on. That makes them brittle by nature: they were written against an earlier
+  // `params.reconcileTemplate ? undefined : readTemplateTitles(...)` expression and broke — while still
+  // being satisfied — the moment the same decision moved into the `templatesUsable` flag that the stage
+  // surfaces also needed. Anchor on the flag's DEFINITION plus its two uses, so a rename fails loudly
+  // and a refactor that keeps the behaviour does not.
   it('does not even read the practice templates when reconciling', () => {
     // Withholding the list is a harder constraint than instructing the model not to apply one: there is
     // no title left to name. It also drops the largest block in the tail from a call that cannot use it.
-    expect(SOURCE).toContain('params.reconcileTemplate ? undefined : readTemplateTitles');
+    expect(SOURCE).toMatch(/const templatesUsable = !params\.reconcileTemplate &&/);
+    expect(SOURCE).toMatch(/templatesUsable \|\| params\.appliedTemplate \? readTemplateTitles/);
   });
 
   it('drops the caller-supplied fallback too, so the client cannot put the list back', () => {
-    expect(SOURCE).toMatch(/templateTitles: params\.reconcileTemplate \? undefined :/);
+    expect(SOURCE).toMatch(/templateTitles: templatesUsable \? templateTitles \?\? params\.templateTitles : undefined/);
   });
 
   it('force-includes the instruction only on that call', () => {

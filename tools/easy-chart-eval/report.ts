@@ -41,6 +41,16 @@ interface Section {
   precision: number;
   recall: number;
   f1: number;
+  /**
+   * Whether the scorer actually MEASURED precision here.
+   *
+   * It reports `null` — not zero — for `medsInHouse`, `medsPrescribed` and `immunizations`, because all
+   * three carry the SAME `predicted` count (the combined medication total) and dividing by it three
+   * times measures nothing. Precision for those lives in the `medsCombined` bucket instead. Collapsing
+   * that null to 0 printed "not measured" as "catastrophically bad", and worse, fed one set of
+   * predictions into the TOTAL denominator three times over.
+   */
+  precisionMeasured: boolean;
 }
 
 type Scope = 'plannerOnly' | 'final';
@@ -58,7 +68,17 @@ interface RunSummary {
 
 interface CaseScore {
   caseId: string;
-  scopes: Record<Scope, Record<string, SectionLike>>;
+  scopes: Record<Scope, Record<string, SectionLike>> & Record<Scope, { em?: EmLike }>;
+  /** 'new' | 'established' when the corpus knew the patient's status, null when it did not. */
+  patientStatusSent?: 'new' | 'established' | null;
+  /** Where that status came from — see emLine. */
+  patientStatusSource?: 'harvested' | 'gold-family' | 'none';
+}
+
+/** The per-case E&M pair. `gold`/`predicted` here are CPT code STRINGS, not counts. */
+interface EmLike {
+  gold?: string | null;
+  predicted?: string | null;
 }
 
 interface Run {
@@ -109,7 +129,15 @@ function normalize(section: SectionLike | undefined): Section {
   const matched = section?.matched ?? 0;
   const precision = rate(section?.precision);
   const recall = rate(section?.recall);
-  return { gold, predicted, matched, precision, recall, f1: f1(precision, recall) };
+  return {
+    gold,
+    predicted,
+    matched,
+    precision,
+    recall,
+    f1: f1(precision, recall),
+    precisionMeasured: section?.precision != null,
+  };
 }
 
 /**
@@ -128,15 +156,36 @@ function totalsOf(sections: Record<string, SectionLike>, names: string[]): Secti
   let gold = 0;
   let predicted = 0;
   let matched = 0;
+  // Precision gets its OWN accumulators, over the sections the scorer was willing to measure. Recall
+  // stays over everything: it divides by GOLD, which is counted once per section and is always sound.
+  let predictedMeasured = 0;
+  let matchedMeasured = 0;
   for (const name of names) {
     const n = normalize(sections[name]);
     gold += n.gold;
     predicted += n.predicted;
     matched += n.matched;
+    if (n.precisionMeasured) {
+      predictedMeasured += n.predicted;
+      matchedMeasured += n.matched;
+    }
   }
-  const precision = predicted ? matched / predicted : 0;
+  const precision = predictedMeasured ? matchedMeasured / predictedMeasured : 0;
   const recall = gold ? matched / gold : 0;
-  return { gold, predicted, matched, precision, recall, f1: f1(precision, recall) };
+  return {
+    gold,
+    predicted,
+    matched,
+    precision,
+    recall,
+    f1: f1(precision, recall),
+    precisionMeasured: predictedMeasured > 0,
+  };
+}
+
+/** Sections the scorer declined to measure precision for, named so the total can say what it excluded. */
+function unmeasuredPrecisionSections(sections: Record<string, SectionLike>, names: string[]): string[] {
+  return names.filter((name) => sections[name] && !normalize(sections[name]).precisionMeasured);
 }
 
 function loadRun(dir: string): Run {
@@ -193,7 +242,10 @@ function printScope(baseline: Run, current: Run, scope: Scope): void {
     console.log(
       `  ${padEnd(name, 16)}${pad(c.gold, 6)}${pad(c.predicted, 7)}${pad(deltaInt(c.predicted, b.predicted), 7)}` +
         `${pad(c.matched, 7)}${pad(deltaInt(c.matched, b.matched), 7)}` +
-        `${pad(c.precision.toFixed(3), 8)}${pad(c.recall.toFixed(3), 8)}${pad(c.f1.toFixed(3), 8)}` +
+        `${pad(c.precisionMeasured ? c.precision.toFixed(3) : '—', 8)}${pad(c.recall.toFixed(3), 8)}${pad(
+          c.f1.toFixed(3),
+          8
+        )}` +
         `${pad(delta(c.f1, b.f1), 8)}`
     );
   }
@@ -203,10 +255,87 @@ function printScope(baseline: Run, current: Run, scope: Scope): void {
   console.log(
     `  ${padEnd('TOTAL', 16)}${pad(ct.gold, 6)}${pad(ct.predicted, 7)}${pad(deltaInt(ct.predicted, bt.predicted), 7)}` +
       `${pad(ct.matched, 7)}${pad(deltaInt(ct.matched, bt.matched), 7)}` +
-      `${pad(ct.precision.toFixed(3), 8)}${pad(ct.recall.toFixed(3), 8)}${pad(ct.f1.toFixed(3), 8)}` +
+      `${pad(ct.precisionMeasured ? ct.precision.toFixed(3) : '—', 8)}${pad(ct.recall.toFixed(3), 8)}${pad(
+        ct.f1.toFixed(3),
+        8
+      )}` +
       `${pad(delta(ct.f1, bt.f1), 8)}`
   );
+  const unmeasured = unmeasuredPrecisionSections(cs, names);
+  if (unmeasured.length > 0) {
+    console.log(
+      `  precision excludes ${unmeasured.join(
+        ', '
+      )} — the scorer reports none for them (shared denominator); recall still counts them`
+    );
+  }
 }
+
+/**
+ * E&M exact-match, reported TWICE: over every case, and over the cases where the patient's status was
+ * actually supplied.
+ *
+ * The split is not a nicety. An E&M code's family — 99202-99205 for a new patient, 99212-99215 for an
+ * established one — follows from patient status, and the prompt is instructed to default to the
+ * established family when the status is unknown. 17 of the 40 harvested cases carry no status (a partial
+ * backfill; production derives it from prior appointments) and 16 of those 17 gold codes are in the NEW
+ * family. The overall figure therefore mostly measures that fallback firing, and moves for reasons that
+ * have nothing to do with coding. Read the second column.
+ */
+/**
+ * E&M exact match, split by WHERE the patient status came from.
+ *
+ * The split used to be "status supplied vs not", which stopped saying anything once the runner started
+ * resolving a status for every case. What matters now is the EVIDENCE behind it: a `harvested` status was
+ * derived against the live project from the patient's prior encounters, exactly as production does, while
+ * a `gold-family` one was read off the family of the gold code because the corpus never got backfilled.
+ * The second is legitimate for measuring the LEVEL — it cannot reveal the last digit — but it is not the
+ * same claim, so the harvested column is the honest headline and the total is the parity number.
+ */
+function emLine(run: Run): string {
+  const counts: Record<string, { n: number; exact: number }> = {};
+  let all = 0;
+  let allExact = 0;
+  // THE ONLY E&M COLUMN THAT DISCRIMINATES. Gold is the family's level-4 code in 35 of the 40 cases, so
+  // a predictor that always says "level 4 of the family I was told" scores 34/40 — above every
+  // implementation measured here. A rise in the headline is therefore consistent with getting BETTER at
+  // coding and with collapsing onto the mode, and those are opposite outcomes. One prompt edit scored
+  // 29/40 while going 0-for-5 on the cases where gold is NOT level 4, against the dabrams run's 4-of-5
+  // on the same five. Read `discriminating` first; the headline mostly measures the corpus.
+  let disc = 0;
+  let discExact = 0;
+  for (const score of run.cases.values()) {
+    const em = score.scopes?.final?.em;
+    if (!em?.gold || !em.predicted) continue;
+    const exact = em.gold === em.predicted;
+    all++;
+    if (exact) allExact++;
+    if (!MODAL_EM_CODES.has(em.gold)) {
+      disc++;
+      if (exact) discExact++;
+    }
+    const source = score.patientStatusSource ?? (score.patientStatusSent ? 'harvested' : 'none');
+    counts[source] ??= { n: 0, exact: 0 };
+    counts[source].n++;
+    if (exact) counts[source].exact++;
+  }
+  const bySource = ['harvested', 'gold-family', 'none']
+    .filter((source) => counts[source])
+    .map((source) => `${source} ${counts[source].exact}/${counts[source].n}`)
+    .join(', ');
+  return (
+    `  ${padEnd(run.name, 26)}exact ${pad(`${allExact}/${all}`, 8)} | discriminating ${pad(
+      `${discExact}/${disc}`,
+      6
+    )} | ${bySource || 'source not recorded'}`
+  );
+}
+
+/**
+ * The level-4 codes, i.e. the gold value for 35 of the 40 harvested cases. A case whose gold is one of
+ * these cannot tell a coding judgement apart from a constant guess — see emLine.
+ */
+const MODAL_EM_CODES = new Set(['99204', '99214']);
 
 /** Per-case F1 movement, worst first. The view that says whether an aggregate gain is broad or lucky. */
 interface CaseMove {
@@ -287,6 +416,9 @@ function printReport(baseline: Run, current: Run): void {
     }
   }
 
+  console.log('\n  E&M exact match (scope: final)');
+  for (const run of [baseline, current]) console.log(emLine(run));
+
   console.log('\n  counters');
   const counterKeys = [
     ...new Set([...Object.keys(baseline.summary.counters), ...Object.keys(current.summary.counters)]),
@@ -361,7 +493,7 @@ function scopeTable(baseline: Run, current: Run, scope: Scope): string {
         deltaIntCell(c.predicted, b.predicted) +
         `<td class="num">${c.matched}</td>` +
         deltaIntCell(c.matched, b.matched) +
-        `<td class="num">${cell(c.precision)}</td><td class="num">${cell(c.recall)}</td>` +
+        `<td class="num">${c.precisionMeasured ? cell(c.precision) : '—'}</td><td class="num">${cell(c.recall)}</td>` +
         `<td class="num">${cell(c.f1)}</td>` +
         deltaCell(c.f1, b.f1) +
         `<td class="barcell">${bar}</td></tr>`
@@ -375,7 +507,7 @@ function scopeTable(baseline: Run, current: Run, scope: Scope): string {
     deltaIntCell(ct.predicted, bt.predicted) +
     `<td class="num">${ct.matched}</td>` +
     deltaIntCell(ct.matched, bt.matched) +
-    `<td class="num">${cell(ct.precision)}</td><td class="num">${cell(ct.recall)}</td>` +
+    `<td class="num">${ct.precisionMeasured ? cell(ct.precision) : '—'}</td><td class="num">${cell(ct.recall)}</td>` +
     `<td class="num">${cell(ct.f1)}</td>` +
     deltaCell(ct.f1, bt.f1) +
     `<td></td></tr>`;

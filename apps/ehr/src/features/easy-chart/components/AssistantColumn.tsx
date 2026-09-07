@@ -163,14 +163,14 @@ export const AssistantColumn: FC<AssistantColumnProps> = ({ assistant, readOnly,
             );
           }
           if (entry.kind === 'review') {
-            // The second look's findings. Rendered as QUESTIONS with their reasoning, never as applied
-            // changes: each carries the actions that would answer it, and the provider decides.
+            // The second look's findings, AS APPLIED. The steps say what changed; the question and its
+            // reasoning stay above them because that is the part the chart cannot tell the provider.
             return (
               <Paper key={entry.id} variant="outlined" sx={{ p: 1.5, borderColor: 'warning.light' }}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
                   A second look at the note
                 </Typography>
-                <Stack spacing={1}>
+                <Stack spacing={1.5}>
                   {entry.suggestions.map((suggestion, index) => (
                     <Box key={`${entry.id}-${index}`}>
                       <Typography variant="body2" fontWeight={600}>
@@ -181,14 +181,64 @@ export const AssistantColumn: FC<AssistantColumnProps> = ({ assistant, readOnly,
                           {suggestion.rationale}
                         </Typography>
                       )}
-                      {suggestion.partial && suggestion.partialNote && (
+                      {suggestion.partialNote && (
                         <Typography variant="caption" color="warning.main" display="block">
                           {suggestion.partialNote}
                         </Typography>
                       )}
+                      <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                        {suggestion.steps.map((step) => (
+                          <StepRow key={`${entry.id}-${index}-${step.index}-${step.label}`} step={step} />
+                        ))}
+                      </Stack>
                     </Box>
                   ))}
                 </Stack>
+              </Paper>
+            );
+          }
+          if (entry.kind === 'note-edit') {
+            // The ONE review action that waits for the provider: a rewrite of prose they already wrote.
+            // Overwriting a correct paragraph is worse than missing the suggestion, so this one asks.
+            const { edit } = entry;
+            return (
+              <Paper key={entry.id} variant="outlined" sx={{ p: 1.5, borderColor: 'warning.main' }}>
+                <Typography variant="subtitle2">Proposed edit — {edit.label}</Typography>
+                <Typography variant="body2" fontWeight={600} sx={{ mt: 0.5 }}>
+                  {edit.question}
+                </Typography>
+                {edit.rationale && (
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    {edit.rationale}
+                  </Typography>
+                )}
+                <Box sx={{ mt: 1, p: 1, backgroundColor: 'rgba(0,0,0,0.03)', borderRadius: 1 }}>
+                  <CollapsibleText text={edit.newText} />
+                </Box>
+                {edit.settled ? (
+                  <Typography variant="caption" color={edit.settled === 'failed' ? 'error' : 'text.secondary'}>
+                    {edit.settled === 'applied'
+                      ? '✓ Applied'
+                      : edit.settled === 'dismissed'
+                      ? 'Dismissed'
+                      : '✗ Could not be saved — edit the field by hand'}
+                  </Typography>
+                ) : (
+                  <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                    {/* A signed visit takes no writes — the card stays readable, the write does not happen. */}
+                    <Button
+                      size="small"
+                      variant="contained"
+                      disabled={readOnly}
+                      onClick={() => void assistant.applyNoteEdit(edit)}
+                    >
+                      Apply edit
+                    </Button>
+                    <Button size="small" onClick={() => assistant.dismissNoteEdit(edit)}>
+                      Dismiss
+                    </Button>
+                  </Stack>
+                )}
               </Paper>
             );
           }

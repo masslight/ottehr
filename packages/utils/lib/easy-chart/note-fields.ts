@@ -73,6 +73,29 @@ export function noteFieldForChartKey(key: NoteChartKey): NoteTextField {
   return CHART_KEY_TO_CLINICAL_FIELD[key];
 }
 
+/**
+ * Would applying this action REPLACE prose that is already in the note?
+ *
+ * The one review action that is never applied unattended. Every other suggestion adds a structured row —
+ * visible, attributable, trivially undone — while this one overwrites a paragraph the provider wrote. It
+ * went wrong once and that was enough: a med-reconcile card "corrected" a medical-decision paragraph
+ * whose colchicine loading dose was right. Overwriting correct clinical prose is worse than missing the
+ * suggestion, so a hit here becomes a card the provider confirms.
+ *
+ * An edit to an EMPTY field is not a replacement and applies like anything else.
+ *
+ * `written` is a note context keyed by CLINICAL field name and carrying only non-empty fields — i.e.
+ * exactly what `buildNoteContextFromChart` returns. Shared between the client and the eval harness on
+ * purpose: they must agree, or `final` scores a note the product would never produce.
+ */
+export function overwritesWrittenNoteField<T extends { kind: string; field?: string }>(
+  action: T,
+  written: Record<string, string | undefined>
+): action is T & { field: NoteTextField } {
+  if (action.kind !== 'edit-note-text' || !action.field) return false;
+  return !!written[action.field]?.trim();
+}
+
 /** Human label for a clinical note field, for step cards and picker prompts. */
 export const NOTE_FIELD_LABELS: Record<NoteTextField, string> = {
   chiefComplaint: 'Chief Complaint',

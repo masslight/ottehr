@@ -19,7 +19,7 @@ import { IcdSearchFn, repairUnsupportedEtiology, resolveIcd } from 'utils/lib/ea
 import { findingPolarity, rosPolarity, verifiedSourceText } from 'utils/lib/easy-chart/provenance';
 import { allowedFields, isActionKind, missingRequiredFields } from 'utils/lib/easy-chart/registry';
 import { coerceNumericFields } from 'utils/lib/easy-chart/schema';
-import { detectSpeakerLabels, sniffIcdCodeScoped } from 'utils/lib/easy-chart/sniffers';
+import { detectDispositionLanguage, detectSpeakerLabels, sniffIcdCodeScoped } from 'utils/lib/easy-chart/sniffers';
 import { parseVitalDisplay, recoverVitalReading, sniffVitalsFromNarrative } from 'utils/lib/easy-chart/vitals';
 import { createTerminologyIcdSearch } from './icd-search';
 
@@ -49,6 +49,17 @@ export interface GuardContext {
    * absent — one instance per invocation, because it carries the warm-call cache.
    */
   icdSearch?: IcdSearchFn;
+  /**
+   * What the aetiology guard judges a code's qualifiers against. Defaults to the narrative, which is the
+   * whole story on the PLAN surface — there the narrative is the only thing that has been said yet.
+   *
+   * The REVIEW surface needs more. It runs against a note that is already written, so the note's own free
+   * text and the items already charted are just as trustworthy as the dictation: a qualifier the PROVIDER
+   * charted must never be refused as "unsupported by the visit". Deliberately never includes the action's
+   * own display or searchTerms — the failure mode this guard exists for is the model inventing the
+   * qualifier inside the proposal itself, and quoting the proposal back at the guard would excuse it.
+   */
+  etiologyEvidence?: string;
 }
 
 /** The context every guard actually runs against: the search function is resolved exactly once. */
@@ -161,11 +172,24 @@ async function guardOne(input: RawAction, context: ResolvedGuardContext): Promis
     case 'add-cpt':
       return guardCpt(action, context);
     case 'add-exam-finding':
-    case 'remove-exam-finding':
       return guardExamFinding(action, kind);
     case 'add-ros-finding':
-    case 'remove-ros-finding':
       return guardRosFinding(action);
+    // A REMOVAL OF EITHER MUST ALSO NAME SOMETHING ON THE CHART.
+    //
+    // These two used to stop at the polarity check, so "a remove-* may only target an item listed in
+    // ALREADY ON THE CHART" — enforced for allergies, conditions, medications, surgical history,
+    // hospitalizations and diagnoses — was not enforced for the two kinds that make up almost every
+    // removal the `findings` stage emits. Measured on the hybrid: 18 removals, 14 of which matched
+    // nothing, against the monolith's 2. What they targeted says why the polarity check alone cannot
+    // catch it — the chart held "Denies fever" and the stage asked to remove "REPORTS fever", the
+    // opposite entry, which was never charted. Polarity-valid, chart-invalid.
+    case 'remove-exam-finding':
+    case 'remove-ros-finding': {
+      const shape = kind === 'remove-exam-finding' ? guardExamFinding(action, kind) : guardRosFinding(action);
+      if ('rejected' in shape) return shape;
+      return guardRemoval(shape.action, kind, context);
+    }
     case 'remove-allergy':
     case 'remove-condition':
     case 'remove-medication':
@@ -280,9 +304,10 @@ async function guardDiagnosisLike(action: PlannedAction, context: ResolvedGuardC
   // FIRST: the condition is usually right and only the qualifier is wrong ("Gonococcal vulvovaginitis"
   // for a yeast narrative, "serous" otitis media for a purulent one), so refusing outright throws away
   // a correct finding. Only an unrepairable one is refused.
-  const unsupported = unsupportedEtiologyQualifiers(row.display, context.narrative);
+  const evidence = context.etiologyEvidence ?? context.narrative;
+  const unsupported = unsupportedEtiologyQualifiers(row.display, evidence);
   if (unsupported.length > 0) {
-    const repaired = await repairUnsupportedEtiology(context.icdSearch, row, context.narrative);
+    const repaired = await repairUnsupportedEtiology(context.icdSearch, row, evidence);
     if (!repaired) {
       // Codes and qualifier labels only — never narrative text.
       console.log(`[${context.logPrefix}] etiology guard refused ${row.code} (unsupported: ${unsupported.join(', ')})`);
@@ -660,19 +685,33 @@ function applyBackstops(actions: PlannedAction[], context: ResolvedGuardContext)
  * Report BOTH whether the trigger fired and whether the model complied. Without the pair you cannot
  * distinguish "the guard never fired" from "the guard fired and the model ignored it" — opposite
  * bugs with the same symptom. Counts and pattern labels only, never narrative text.
+ *
+ * Exported because the REVIEW surface cannot use the set `applyGuards` returns. Review guards one
+ * SUGGESTION at a time, so those reports are per card: a run whose disposition arrived on the second
+ * card read as "the trigger fired and the model ignored it", which is how the harvested corpus
+ * reported 0 complied out of 6 fired while the disposition was in fact charted in all six. Compliance
+ * is a property of the WHOLE response, so review computes it once over every surviving action.
  */
-function buildTriggerReports(narrative: string, actions: PlannedAction[]): TriggerReport[] {
+export function buildTriggerReports(narrative: string, actions: PlannedAction[]): TriggerReport[] {
   const text = narrative.toLowerCase();
   const reports: TriggerReport[] = [];
 
-  const dispositionLanguage =
-    /\bfollow(?:\s|-)?up\b|\breturn (?:to|here|if)\b|\brefer(?:ral)?\b|\bgo to the (?:er|ed|emergency)\b|\bcall 911\b|\bdischarge\b/.test(
-      text
-    );
+  // The SHARED detector, not a regex of its own.
+  //
+  // This used to test one loose alternation — a bare "follow up", "referral" or "discharge" anywhere in
+  // the narrative. `detectDispositionLanguage` exists for exactly this, is unit-tested, and was wired to
+  // nothing: it anchors each of its nine patterns ("follow-up" needs `with`/an interval/`as needed`/`if`,
+  // so "here for follow-up of his asthma" — the visit's REASON — does not fire), suppresses leading and
+  // trailing negation ("no referral needed"), and scans every occurrence so an early negated hit cannot
+  // mask a later real one. Measured on the harvested corpus the loose version fired 6 times and the model
+  // proposed a disposition 0 of those times, which read as the model disobeying a guard when it was the
+  // guard crying wolf.
+  const disposition = detectDispositionLanguage(narrative);
   reports.push({
     trigger: 'disposition-language-without-disposition',
-    fired: dispositionLanguage,
+    fired: disposition !== undefined,
     complied: actions.some((a) => a.kind === 'set-disposition'),
+    ...(disposition ? { matchedPattern: disposition.pattern } : {}),
   });
 
   const emRequired = actions.length > 0;

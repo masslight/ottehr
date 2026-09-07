@@ -15,7 +15,7 @@
 //    trades measured quality for tidiness.
 
 import { Surface } from './actions';
-import { CAPABILITIES, capabilitiesForSurface } from './registry';
+import { CAPABILITIES, capabilitiesForSurface, Capability } from './registry';
 
 export const FIXED_INSTRUCTIONS_END = '═══ END OF FIXED INSTRUCTIONS — act on the narrative + context below ═══';
 
@@ -85,9 +85,14 @@ const SHARED_TRANSCRIPT_RULES = `- Each step is one self-contained action. "add 
   EXCEPTION — REVIEW OF SYSTEMS: a patient DENYING a symptom in the history IS a chartable ROS
   finding. See add-ros-finding.
 - NEVER INVENT NEGATIVES. Do not pad the exam or the ROS with findings nobody addressed.
-- A remove-* step may ONLY target an item explicitly listed in the ALREADY ON THE CHART block below.
-  If the chart is empty or the item is not listed, there is nothing to remove and no remove-* step is
-  valid.
+- A remove-* step may ONLY target an item explicitly listed in the ALREADY ON THE CHART block below,
+  and its "display" must be that line's wording, COPIED. If the chart is empty or the item is not
+  listed, there is nothing to remove and no remove-* step is valid.
+  A REPLACEMENT IS NOT ONE MOVE. Charting the right item and removing a wrong one are separate steps
+  and each stands on its own: when the thing you would replace is not on the chart, emit the add ALONE
+  and no removal. Naming what you are correcting rather than what is listed is the single most common
+  way a remove-* step ends up pointing at nothing — measured across a corpus, most misses shared not
+  one word with any line actually on the chart.
 - DEMOGRAPHIC, INSURANCE and CONTACT details (address, phone, email, race, ethnicity, language,
   carrier/member ID, PCP info, responsible party, emergency contacts) are NOT chart actions — omit
   them. They live on the Patient/Coverage resources via intake.
@@ -106,9 +111,21 @@ const SHARED_TRANSCRIPT_RULES = `- Each step is one self-contained action. "add 
   guessing defeats the purpose.`;
 
 /** What the full planner adds on top: ordering, which only exists when a plan has several sections. */
+/**
+ * The E&M level tiebreak, for the surfaces that AUTHOR a code.
+ *
+ * Deliberately not in `set-em-code`'s registry `promptDoc`, which is shared with the review surface —
+ * review's check 4 exists to catch a level that came out too low, and a rule to round down turns that
+ * check against itself. See the comment on `set-em-code` in registry.ts for the measured trade-off this
+ * tiebreak represents; it is a billing-policy choice, and it applies to the first pass, not the audit.
+ */
+const EM_LEVEL_TIEBREAK = `- When torn between two E&M levels choose the LOWER — the goal is that a defensible level is always
+  present and the provider can adjust.`;
+
 const PLAN_RULES = `RULES:
 - Steps must be in the canonical order above.
-${SHARED_TRANSCRIPT_RULES}`;
+${SHARED_TRANSCRIPT_RULES}
+${EM_LEVEL_TIEBREAK}`;
 
 const FINDINGS_PREAMBLE = `You are recording the OBJECTIVE FINDINGS of a clinical encounter from the provider's free-text
 NARRATIVE, which appears at the END of this message after the instructions, along with the per-visit
@@ -130,6 +147,11 @@ Return a JSON object with an "actions" array.`;
 
 const FINDINGS_RULES = `RULES:
 ${SHARED_TRANSCRIPT_RULES}
+- RECONCILE THE TEMPLATE'S NORMALS. A template charts a screenful of default normal exam findings from
+  its own title, having never seen this narrative. Where the narrative directly CONTRADICTS one — the
+  chart says "Oropharynx clear" and the provider described an injected oropharynx — emit
+  remove-exam-finding for the normal as well as add-exam-finding for what they described. A narrative
+  that merely does not mention a normal does not contradict it: leave those alone.
 - ORDER DOES NOT MATTER on this call — there is only one section group, so chart findings as you meet
   them in the narrative rather than sorting them.`;
 
@@ -234,17 +256,25 @@ Return a JSON object with an "actions" array.`;
 
 const CODING_RULES = `RULES:
 ${SHARED_TRANSCRIPT_RULES}
-- Exactly one set-em-code per visit. Never emit two.`;
+- ALWAYS emit exactly one set-em-code. Every visit is coded; there is no visit that gets none, and
+  there is no visit that gets two.
+- add-cpt for anything else PERFORMED. A code for a procedure or point-of-care test that did not happen
+  is a billing claim nobody can support.
+${EM_LEVEL_TIEBREAK}`;
 
 const TEMPLATE_PREAMBLE = `You are deciding whether one of this practice's saved TEMPLATES fits this visit, from the provider's
 free-text NARRATIVE at the END of this message.
 
 ${STAGE_SCOPE_NOTE}
 
-This is the FIRST call of the visit and the only one that may apply a template. Everything a template
-brings — its default exam findings, its diagnosis, its MDM scaffolding — lands on the chart before any
-other call runs, and every later call sees it and reconciles against it. That is why a wrong template
-here is expensive and a missing one is cheap.
+This is the FIRST call of the visit and the only one that may apply a template. THE CHART IS EMPTY and
+the narrative is all you have — there is no diagnosis to match against yet, because nothing has charted
+one. Match on the PRESENTATION the provider describes, in their words.
+
+Everything a template brings — its default exam findings, its diagnosis, its MDM scaffolding — lands on
+the chart before any other call runs, and every later call sees it and reconciles against it. That is
+why a wrong template here is expensive and a missing one is cheap: a later call can add what a missing
+template would have brought, but it cannot reliably tell a wrong template's defaults from the truth.
 
 Emit ONE apply-template, or NOTHING. Never two.
 
@@ -260,11 +290,18 @@ message, and from what is already on the chart below.
 
 ${STAGE_SCOPE_NOTE}
 
-The history, the exam, the ROS and the vitals have already been charted — read them below before you
-decide. If a template was applied it has charted a DEFAULT diagnosis, and that default was chosen from
-the template's title without ever seeing this narrative: check it against what the provider actually
-said, and when it is wrong, emit remove-diagnosis for it AND add-diagnosis for the one the visit
-supports. Never a bare removal that leaves the note with no diagnosis.
+STATED DIAGNOSIS WINS. When the provider explicitly names the diagnosis ("this is a urinary tract
+infection"), chart THAT as the primary — never substitute a more severe or more specific condition
+INFERRED FROM THE FINDINGS. Flank tenderness does not upgrade a stated UTI to pyelonephritis. An
+escalated condition may appear as a SECONDARY only when the provider actually voiced it as suspected,
+never because the findings could support it. The exam, the ROS and the vitals are below so you can see
+what was examined — not so you can diagnose from them.
+
+ANY DIAGNOSIS ALREADY ON THE CHART WAS PUT THERE BY THE TEMPLATE. No other call charts a diagnosis
+before this one, so there is nothing to work out: whatever is listed is the template's default, chosen
+from the template's own title without ever seeing this narrative. When it matches what the provider
+said, leave it. When it does not, emit remove-diagnosis for it AND add-diagnosis for the one the visit
+supports — never a bare removal that leaves the note with no diagnosis.
 
 Return a JSON object with an "actions" array.`;
 
@@ -296,26 +333,46 @@ const REVIEW_CHECKS = `THE TEN CHECKS:
    eRx order manually." Set "highlight" to the corrected drug name.
 
 2) "diagnosis" — the charted diagnosis code is less specific than the narrative supports: recurrence
-   ("frequent ear infections", "recurrent"), a laterality, or an acuity the code does not capture.
-   ACTION: remove-diagnosis for the charted text, then add-diagnosis for the more specific one. The
-   add MUST restate the removed item's isPrimary status (ALREADY ON THE CHART marks it "(primary)") —
-   swapping the primary without isPrimary:true leaves the note with no primary diagnosis, which is
-   billing-invalid.
+   ("frequent ear infections", "recurrent", repeated prior episodes), a laterality, or an acuity the
+   code does not capture. E.g. the chart shows non-recurrent bilateral AOM (H66.003) while the child
+   has frequent recurrent infections → suggest recurrent bilateral AOM (H66.006).
+   ACTION: remove-diagnosis for the charted text, then add-diagnosis for the more specific one, with
+   searchTerms and your best ICD-10 code. Set the add's "isPrimary" BOOLEAN to whatever the removed item
+   was — the chart marks a primary diagnosis "(primary)", so read it from there and answer true/false.
+   Never write that marker into any text field; the boolean is the only place it belongs. Swapping the
+   primary without isPrimary:true leaves the note with no primary diagnosis, which is billing-invalid.
 
 3) "pertinent-negative" — a negative the provider EXPLICITLY voiced in this dictation is not charted.
    ACTION: one or more add-ros-finding. Only ROS negatives are chartable here — NEVER add-exam-finding
    for a negative: exam findings are positive/abnormal checkboxes, so charting "no tragus tenderness"
    would check the abnormal box and assert the OPPOSITE of what the provider said.
-   HARD LIMITS, because this check fabricates findings if used loosely: quote, don't infer — only
-   propose a negative whose words appear in the narrative, never a "classic" negative for the
-   complaint pulled from memory; and never deny the chief complaint or a symptom the patient is
-   presenting with.
+   The display MUST begin with "Denies" or "Reports". Exam normals the provider voiced are the first
+   pass's job, not this check's.
+   HARD LIMITS, because this check fabricates findings if used loosely:
+   - Quote, don't infer. Only propose a negative whose words appear in the narrative — the dictation
+     literally says "denies fever" or "no photophobia". Do NOT pull the "classic" negatives for the
+     complaint from memory: do not suggest "no tragus tenderness", "canals normal" or "no neck
+     stiffness" just because they are typical for the visit type. If the provider didn't say it, it is
+     not a finding.
+   - Never deny the chief complaint or a symptom the patient is PRESENTING WITH — a visit for ear pain
+     must never get "Denies ear pain"; the patient HAS it.
 
 4) "em-level" — assess the charted E&M against the documented complexity, WITHIN the correct family
-   for the patient's status (see the PATIENT STATUS line below; absent = assume established,
-   99212-99215). If the charted code is in the wrong family, suggest the same-level code in the right
-   one. ACTION: one set-em-code. REQUIRED: a one-line "rationale" explaining the level by MDM
-   elements (problems / data / risk).
+   for the patient's status: NEW patient (no professional services in the past 3 years) → 99202-99205;
+   ESTABLISHED patient → 99212-99215. Read the status from the PATIENT STATUS line below; when no such
+   line is present the status is unknown — assume established and stay in 99212-99215. If the charted
+   code is in the WRONG family for the stated status, suggest the same-level code in the correct one.
+   THE LEVEL, not just the family: the MDM-complexity logic is identical in both families and the last
+   digit is the level. E.g. if a NEW prescription was given (prescription drug management = moderate
+   risk) and the charted code is the family's level-3 code (99203 new / 99213 established), suggest the
+   SAME family's level-4 code (99204 / 99214); if the documentation clearly supports a different level,
+   suggest that instead. Level 3 is right for a straightforward, low-complexity visit — a single
+   self-limited problem with simple management — and level 5 (99205 / 99215) for high complexity or high
+   risk. JUDGE THE LEVEL, do not default to one: this check's job is to match the code to the
+   documentation, in whichever direction that points, and a level the note genuinely supports needs no
+   suggestion at all. Emit nothing here when the charted code is already right.
+   ACTION: one set-em-code. REQUIRED: a one-line "rationale" explaining the level by MDM elements
+   (problems / data / risk).
 
 5) "secondary-dx" — a DISTINCT, active problem the provider actually evaluated or treated this visit
    is not charted. ACTION: one add-diagnosis with isPrimary:false. BE CONSERVATIVE: a single minor
@@ -328,22 +385,40 @@ const REVIEW_CHECKS = `THE TEN CHECKS:
    dose/strength/form and nothing else; set "highlight" to the corrected value. Ignore pure formatting
    differences ("5 mg" vs "5 MG"), and never flag a medication that is not actually on the chart.
 
-7) "disposition" — the narrative clearly states where the patient goes next or a follow-up plan, but
-   no disposition is charted. A stated follow-up is a patient-safety item and must never silently
-   vanish. ACTION: one set-disposition. A conditional follow-up still counts — keep the condition in
-   the text. STRICT: only a disposition the narrative actually voices, never one inferred from the
-   visit type.
+7) "disposition" — the narrative clearly STATES where the patient goes next or a follow-up plan
+   ("follow up with your PCP in a week", "go to the ER if it worsens", "referral to ortho", "come back
+   here in 3 days if no better"), but no disposition is charted. A stated follow-up is a patient-safety
+   item and must never silently vanish.
+   ACTION: one set-disposition with { dispositionType, text, followUpInDays }. Pick dispositionType:
+   "pcp" (follow up with their own PCP / "see your doctor"), "specialty" (referral or follow-up with a
+   named specialist — use this even when offered as "<specialist> or PCP"), "ed" (go to the ER / call
+   911), "another" (return to THIS clinic, or any other follow-up), "ip" (admitted to hospital).
+   "text" is the disposition as one clinical sentence. Set followUpInDays ONLY when an interval is
+   stated, converted to DAYS: "in 1 week" → 7, "in 3 days" → 3, "in 2 weeks" → 14.
+   A CONDITIONAL follow-up ("if not improving") still counts — keep the condition in "text". STRICT:
+   only a disposition the narrative actually voices, never one inferred from the visit type.
 
 8) "cpt" — a procedure or point-of-care test the narrative says was PERFORMED this visit has no
-   billing code. ACTION: one or more add-cpt. Bill only what was actually done: not send-out labs,
-   not imaging orders, not prescriptions, not planned/conditional/declined procedures, and not a code
-   already charted.
+   billing code: splinting, laceration repair, ear lavage / cerumen removal, foreign-body removal,
+   I&D, burn dressing, a rapid strep/flu/COVID/RSV or urinalysis run in the office ("the rapid strep
+   came back positive"), a nebuliser treatment given in clinic.
+   ACTION: one or more add-cpt — one card may carry several. Give your best CPT; it is validated
+   downstream and dropped if it is not real, so be confident even when unsure of the exact digits.
+   Bill only what was actually DONE this visit: not send-out labs (they bill through the lab order),
+   not imaging orders, not prescriptions, not planned/conditional procedures ("we'll splint it next
+   week if it's still swollen"), not procedures merely discussed or declined, and not a code already
+   charted — nor one carried by a procedure entry already in ALREADY ON THE CHART.
 
 9) "coherence" — a charted structured item the note's own content does not support. Cross-check every
    charted diagnosis first and foremost, then medications and CPTs, against the HPI/MDM and the
-   narrative. ACTION for a wrong DIAGNOSIS: the same two-action swap as check 2 — remove-diagnosis
+   narrative. Flag an item ONLY when it names a condition, body system or clinical scenario the note
+   clearly does not describe — e.g. the sole charted diagnosis is "Personal history of pneumonia" while
+   the MDM and HPI describe folliculitis of the nasal vestibule.
+   ACTION for a wrong DIAGNOSIS: the same two-action swap as check 2 — remove-diagnosis
    then add-diagnosis for what the note DOES support, never a bare removal, and never one that would
-   leave the chart with zero diagnoses while the note documents a diagnosable condition.
+   leave the chart with zero diagnoses while the note documents a diagnosable condition. E.g. the chart
+   codes acute vaginitis (N76.0) but the note describes a candidal yeast infection → swap to candidal
+   vulvovaginitis (B37.3); do NOT merely remove N76.0.
    The swap belongs to THIS check — do not defer it to check 2. A live failure, reproduced twice: the
    chart coded acute vaginitis while the narrative described a candidal infection, and the review
    emitted a BARE removal, leaving the chart with no diagnosis at all.
@@ -379,7 +454,17 @@ const REVIEW_RULES = `RULES:
   with marginal ones.`;
 
 function actionShapesBlock(surface: Surface): string {
-  const docs = capabilitiesForSurface(surface).map((kind) => CAPABILITIES[kind].promptDoc);
+  // `authoringDoc` is for the surfaces that COMPOSE a note. Review corrects one that is already
+  // written, so it gets the action's shape and the rules about what may be charted, and none of the
+  // guidance about writing content from scratch — see the field's doc comment in registry.ts.
+  const authoring = surface !== 'review';
+  const docs = capabilitiesForSurface(surface).map((kind) => {
+    // `CAPABILITIES` is `as const`, so an entry without `authoringDoc` has no such property in its
+    // literal type. Read through the interface, the same way `surfaces` is read elsewhere.
+    const capability: Capability = CAPABILITIES[kind];
+    const extra = authoring ? capability.authoringDoc : undefined;
+    return extra ? `${capability.promptDoc}\n${extra}` : capability.promptDoc;
+  });
   return `ACTION SHAPES — these are the ONLY action kinds that exist. Anything not listed here cannot be
 charted through this interface.\n\n${docs.join('\n\n')}`;
 }
@@ -400,7 +485,37 @@ const STAGE_PROSE: Partial<Record<Surface, { preamble: string; rules: string }>>
   coding: { preamble: CODING_PREAMBLE, rules: CODING_RULES },
 };
 
+/**
+ * A file whose contents REPLACE the static instructions, for A/B-testing a prompt end to end.
+ *
+ * Local experiment hook, in the same spirit as EASY_CHART_LOG_RESPONSE: the only way to answer "is the
+ * difference the prompt or something else" is to run one implementation's prose through the other's
+ * everything else. Comparing the two texts by eye cannot settle it — it did not, three times.
+ *
+ * Unset in every deployed environment, and it must stay that way: the prose here is version-controlled
+ * beside the registry that generates half of it, and a prompt loaded from a path on someone's disk is a
+ * prompt nobody can review. Applies to the PLAN surface only, so a stage or the review pass cannot be
+ * silently swapped out from under its own vocabulary.
+ */
+function promptOverride(): string | undefined {
+  const path = process.env.EASY_CHART_PROMPT_FILE;
+  if (!path) return undefined;
+  try {
+    // Required lazily: this module is imported by the browser bundle, which has no fs.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { readFileSync } = require('node:fs') as typeof import('node:fs');
+    return readFileSync(path, 'utf8');
+  } catch (error) {
+    console.error(`[easy-chart] EASY_CHART_PROMPT_FILE could not be read: ${String(error)}`);
+    return undefined;
+  }
+}
+
 export function buildStaticInstructions(surface: Surface): string {
+  if (surface === 'plan') {
+    const override = promptOverride();
+    if (override) return override;
+  }
   if (surface === 'review') {
     return [REVIEW_PREAMBLE, REVIEW_CHECKS, actionShapesBlock('review'), REVIEW_RULES].join('\n\n');
   }
@@ -451,25 +566,46 @@ export interface PromptTailInput {
 }
 
 /** Everything that varies per call, in one block, appended after the static instructions. */
-export function buildVariableTail(input: PromptTailInput): string {
+export function buildVariableTail(surface: Surface, input: PromptTailInput): string {
   const parts: string[] = [];
 
-  const titles = input.templateTitles ?? [];
-  parts.push(
-    titles.length
-      ? `AVAILABLE TEMPLATES in this practice (exact titles — match these when you apply-template; do NOT invent template names):\n${titles
-          .map((t) => `- ${t}`)
-          .join('\n')}`
-      : 'AVAILABLE TEMPLATES in this practice: none. Do NOT emit apply-template.'
-  );
+  // ONLY where apply-template exists. The block used to render on every surface, so the review pass
+  // was handed the practice's whole template list and a rule about an action it cannot emit — and when
+  // no titles were passed, the words "Do NOT emit apply-template" for an action that was never on
+  // offer. Keyed off the vocabulary rather than a hardcoded surface list so a new surface gets this
+  // right by construction.
+  if (capabilitiesForSurface(surface).includes('apply-template')) {
+    const titles = input.templateTitles ?? [];
+    parts.push(
+      titles.length
+        ? `AVAILABLE TEMPLATES in this practice (exact titles — match these when you apply-template; do NOT invent template names):\n${titles
+            .map((t) => `- ${t}`)
+            .join('\n')}`
+        : 'AVAILABLE TEMPLATES in this practice: none. Do NOT emit apply-template.'
+    );
+  }
 
   if (input.patientLine) {
     parts.push(`PATIENT (authoritative — take age and sex from here, never from the narrative):\n${input.patientLine}`);
   }
 
+  // Name the E&M FAMILY, not just the status.
+  //
+  // The two branches were asymmetric in the worst direction: the one with NO information spelled out
+  // which family to use, and the one that actually knew the answer stated a bare fact and left the model
+  // to derive the family from it. Measured on the harvested corpus, where 30 of 40 gold codes are 99204:
+  // in the 23 cases the status was supplied at all, E&M came out exact 11 times. `set-em-code` is scored
+  // on the code, and the family is half the code — so the line that carries the status has to say what
+  // the status IMPLIES.
+  //
+  // The unknown branch keeps directing to the established family on purpose: it is the conservative
+  // billing choice when the chart cannot say. Note what that costs in an eval — a case whose status
+  // never reached the prompt is not measuring the model's coding, it is measuring this fallback.
   parts.push(
-    input.patientStatus
-      ? `PATIENT STATUS: ${input.patientStatus === 'new' ? 'NEW to the practice' : 'ESTABLISHED with the practice'}.`
+    input.patientStatus === 'new'
+      ? 'PATIENT STATUS (authoritative — from the chart): NEW patient — no professional services in the past 3 years. Use the NEW-patient E&M family (99202-99205) for set-em-code.'
+      : input.patientStatus === 'established'
+      ? 'PATIENT STATUS (authoritative — from the chart): ESTABLISHED patient. Use the established-patient E&M family (99212-99215) for set-em-code.'
       : 'PATIENT STATUS: unknown — do not guess; use the established-patient E&M family (99212-99215).'
   );
 
@@ -515,5 +651,5 @@ export function buildVariableTail(input: PromptTailInput): string {
 
 /** Static prefix + variable tail, in that order. The only supported way to build a prompt. */
 export function buildPrompt(surface: Surface, tail: PromptTailInput): string {
-  return `${buildStaticInstructions(surface)}\n\n${FIXED_INSTRUCTIONS_END}\n\n${buildVariableTail(tail)}`;
+  return `${buildStaticInstructions(surface)}\n\n${FIXED_INSTRUCTIONS_END}\n\n${buildVariableTail(surface, tail)}`;
 }

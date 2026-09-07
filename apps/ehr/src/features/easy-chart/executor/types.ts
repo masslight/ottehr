@@ -225,6 +225,12 @@ export interface ChartSnapshot {
   procedures: ChartedItem[];
   cptCodes: (ChartedItem & { code?: string })[];
   hasEmCode: boolean;
+  /**
+   * The exam cards' free-text notes. Separate from `examFindings`, which holds ticked checkboxes: a
+   * note is an exam observation with `note` set and no `value`, and it is where a dictated finding
+   * goes when no checkbox can represent it.
+   */
+  examComments: { resourceId?: string; field: string; note: string }[];
 }
 
 export interface PickerRequest {

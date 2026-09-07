@@ -372,6 +372,9 @@ describe('deterministic triggers', () => {
       trigger: 'disposition-language-without-disposition',
       fired: true,
       complied: false,
+      // The pattern's own label, asserted rather than ignored: the trigger reports a FAMILY of nine
+      // patterns, and "which one fired" is what tells a referral apart from an ER instruction later.
+      matchedPattern: 'follow-up',
     });
   });
 

@@ -1,5 +1,6 @@
 import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { buildPrompt as buildSurfacePrompt, PromptTailInput } from 'utils/lib/easy-chart/prompt';
+import { capabilitiesForSurface } from 'utils/lib/easy-chart/registry';
 import { describe, expect, it } from 'vitest';
 import { carrySwapPrimaryFromChartState } from '../src/ehr/easy-chart-shared/swap-primary';
 
@@ -38,6 +39,33 @@ describe('easy-chart-review coherence dx swap', () => {
     });
   });
 
+  // The planner's E&M level tiebreak is a policy for AUTHORING a code and must not reach the audit.
+  // Review's check 4 exists to catch an E&M that came out too low; telling it to round down when torn
+  // leaves it arguing with itself, and the corpus says which side wins — 15 of the 16 E&M misses on the
+  // cases with a known patient status were under-codes. It lived in `set-em-code`'s registry promptDoc,
+  // which all three surfaces share, so this is easy to reintroduce by accident.
+  describe('the level tiebreak is scoped to the surfaces that author a code', () => {
+    const collapse = (surface: 'plan' | 'coding' | 'review'): string =>
+      buildSurfacePrompt(surface, { narrative: 'Synthetic narrative.' }).replace(/\s+/g, ' ');
+
+    it('is present on plan and coding', () => {
+      expect(collapse('plan')).toMatch(/choose the LOWER/);
+      expect(collapse('coding')).toMatch(/choose the LOWER/);
+    });
+
+    it('is absent from review', () => {
+      expect(collapse('review')).not.toMatch(/choose the LOWER/);
+    });
+
+    it('never carries a developer note about our own eval scores into any prompt', () => {
+      // `promptDoc` is prompt text. A note documenting the tiebreak trade-off — with our eval counts and
+      // a restatement of the rule we had decided NOT to use — spent one run inside that template literal.
+      for (const surface of ['plan', 'coding', 'review'] as const) {
+        expect(collapse(surface)).not.toMatch(/MEASURED TRADE-OFF|billing-policy call|reproduced across paired/);
+      }
+    });
+  });
+
   describe('prompt static-prefix caching structure', () => {
     const marker = '═══ END OF FIXED INSTRUCTIONS';
     const prefixOf = (p: string): string => {
@@ -69,7 +97,10 @@ describe('easy-chart-review coherence dx swap', () => {
       // it is per-call and would otherwise poison the cacheable prefix.
       for (const header of [
         'PATIENT (authoritative',
-        'PATIENT STATUS:',
+        // The parenthetical, not a bare "PATIENT STATUS:" — the fixed prefix's em-level rule refers to
+        // "the PATIENT STATUS line below", so the bare string matches inside the cacheable prefix and the
+        // assertion would pass on the wrong occurrence. This form renders only in the per-visit block.
+        'PATIENT STATUS (authoritative',
         'ALREADY ON THE CHART:',
         'MUST ADDRESS THIS CALL:',
       ]) {
@@ -105,5 +136,97 @@ describe('easy-chart-review coherence dx swap', () => {
       carrySwapPrimaryFromChartState(actions, 'Diagnoses: Headache (R51.9) (primary); Acute vaginitis (N76.0)');
       expect(actions[1].isPrimary).toBe(true);
     });
+  });
+});
+
+// The review surface must carry NO planner-only guidance. `promptDoc` is shared by every surface
+// offering an action, which made this leak repeatedly and expensively:
+//   - the E&M level tiebreak told the audit to round down while check 4 asks it to round up (+4 exact
+//     E&M once removed);
+//   - `edit-note-text` told it to "ALWAYS emit … for HPI AND MDM on EVERY visit", so it proposed
+//     rewriting both on every call — 19-28 confirmation cards per 40 cases against dabrams' 0;
+//   - `add-cpt` and `provider-note` told it to emit `add-medication`, which is not in its vocabulary;
+//   - the tail rendered the practice's template list and a rule about `apply-template`, which review
+//     cannot emit at all.
+// Anything surface-specific belongs in that surface's RULES or in `authoringDoc`, never in `promptDoc`.
+describe('the review prompt carries no planner-only guidance', () => {
+  const review = buildSurfacePrompt('review', {
+    narrative: 'Synthetic narrative.',
+    templateTitles: ['Sinusitis', 'Otitis Media'],
+    chartStateSummary: 'Diagnoses: Acute vaginitis (N76.0) (primary)',
+  }).replace(/\s+/g, ' ');
+
+  it.each([
+    ['the template list', /AVAILABLE TEMPLATES/],
+    ['apply-template', /apply-template/],
+    ['add-medication', /add-medication/],
+    ['add-patient-instruction', /add-patient-instruction/],
+    ['the "always rewrite HPI and MDM" instruction', /ALWAYS emit edit-note-text/],
+    ['the note-authoring VOICE block', /VOICE for newText/],
+    ['the injection/HCPCS billing table', /INJECTION ADMINISTRATION BILLING|J1885/],
+  ])('does not mention %s', (_label, pattern) => {
+    expect(review).not.toMatch(pattern);
+  });
+
+  it('still describes every action the review surface actually offers', () => {
+    for (const kind of capabilitiesForSurface('review')) {
+      expect(review).toContain(kind);
+    }
+  });
+
+  it('keeps that guidance on the surfaces that author a note', () => {
+    const plan = buildSurfacePrompt('plan', { narrative: 'Synthetic narrative.' }).replace(/\s+/g, ' ');
+    expect(plan).toMatch(/ALWAYS emit edit-note-text/);
+    expect(plan).toMatch(/VOICE for newText/);
+    expect(plan).toMatch(/INJECTION ADMINISTRATION BILLING/);
+    expect(plan).toMatch(/add-medication/);
+  });
+});
+
+// The checks are where review's value lives, and every one of them had been compressed to roughly half
+// the dabrams wording — losing the operative detail, not padding. These pin the specifics that were
+// missing, each of which maps to a metric: the level rule to E&M, the dispositionType list and interval
+// conversion to disposition coverage, the procedure list to CPT.
+describe('the ten checks carry their operative detail', () => {
+  const review = buildSurfacePrompt('review', { narrative: 'Synthetic narrative.' }).replace(/\s+/g, ' ');
+
+  it('check 4 names the rule that raises a level, not just the family', () => {
+    expect(review).toMatch(/prescription drug management = moderate risk/);
+    expect(review).toMatch(/99203 new \/ 99213 established/);
+    expect(review).toMatch(/99204 \/ 99214/);
+  });
+
+  // The level rule cuts both ways or it is not a rule. A first attempt at check 4 added "an E&M left a
+  // level below what the note supports is under-billing, and correcting it is this check's whole
+  // purpose" plus extra level-4 triggers; the model read that as a standing order to escalate and
+  // collapsed onto 99204 — 29/40 exact while going 0-for-5 on the cases whose gold is NOT level 4,
+  // against the dabrams run's 4-of-5. Gold is level 4 in 35 of 40 cases, so the headline rewarded it.
+  it('check 4 does not bias the level upward', () => {
+    expect(review).toMatch(/JUDGE THE LEVEL, do not default to one/);
+    expect(review).toMatch(/Level 3 is right for a straightforward, low-complexity visit/);
+    expect(review).toMatch(/Emit nothing here when the charted code is already right/);
+    expect(review).not.toMatch(/under-billing/);
+  });
+
+  it('check 7 enumerates the disposition types and the interval conversion', () => {
+    for (const type of ['"pcp"', '"specialty"', '"ed"', '"another"', '"ip"']) expect(review).toContain(type);
+    expect(review).toMatch(/"in 1 week" → 7/);
+  });
+
+  it('check 8 enumerates what is actually billable', () => {
+    expect(review).toMatch(/cerumen removal/i);
+    expect(review).toMatch(/rapid strep/i);
+  });
+
+  it('checks 2 and 9 carry worked code swaps', () => {
+    expect(review).toMatch(/H66\.003/);
+    expect(review).toMatch(/H66\.006/);
+    expect(review).toMatch(/N76\.0/);
+    expect(review).toMatch(/B37\.3/);
+  });
+
+  it('check 3 keeps the quote-do-not-infer limits', () => {
+    expect(review).toMatch(/no tragus tenderness/);
+    expect(review).toMatch(/Denies ear pain/);
   });
 });

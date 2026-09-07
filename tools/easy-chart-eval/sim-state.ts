@@ -10,12 +10,17 @@
 // SKIPPED is recorded as skipped with its reason, and only applied actions become state. So a matcher
 // change shows up in the score instead of being invisible to it.
 
+import { buildExamCommentFields } from 'utils/lib/config-helpers/exam-leaves';
 import { NOTE_TEXT_FIELDS } from 'utils/lib/easy-chart/actions';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
+import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { PlanStep } from '../../apps/ehr/src/features/easy-chart/executor/types';
 import { EvalWriterLog } from './harness';
-import { emptySimState, SimFinalState, SimSource } from './score-harvested';
+import { emptySimState, SimDiagnosis, SimExamObs, SimFinalState, SimSource } from './score-harvested';
 import { resolveTemplateByDisplay } from './template-catalog';
+
+/** The exam cards' free-text fields, so a comment write is never scored as a ticked checkbox. */
+const EXAM_COMMENT_FIELDS = new Set(Object.values(buildExamCommentFields(DefaultExamComponentsConfig)));
 
 /**
  * Note fields the model can edit. Imported rather than re-listed: a local copy would silently stop
@@ -28,6 +33,17 @@ const NOTE_FIELDS: readonly string[] = NOTE_TEXT_FIELDS;
  * only the fields it knows — so these ride along in the result file and the run summary without changing
  * a single score, which is what makes them safe to add.
  */
+/**
+ * A charted row that a TEMPLATE contributed, not the model.
+ *
+ * Declared here rather than in the scorer because the scorer must stay a faithful port: it reads only
+ * the fields it knows and ignores the rest, so provenance rides along in the result file without moving
+ * a single score. What it buys is the ability to tell the two apart afterwards — a template contributes
+ * ~28 default exam normals per application, so an exam precision figure that lumps them in with the
+ * model's own choices is really reporting how many templates were applied.
+ */
+type TemplateSourced<T> = T & { templateName?: string };
+
 export type SimStateWithTemplateStats = SimFinalState & {
   /** How many diagnoses templates actually contributed. */
   templateDxApplied?: number;
@@ -141,12 +157,21 @@ export function foldStepsIntoState(steps: PlanStep[], source: SimSource, into?: 
       case 'remove-cpt':
         markRemoved(state.cptCodes, display || (asCode(action.code) ?? ''), source);
         break;
-      case 'add-exam-finding':
+      case 'add-exam-finding': {
         // The RESOLVED catalogue field, not the dictated phrase. The scorer compares against gold's own
         // field keys, so a slug of "no wheezing" could never match `ros-respiratory-wheezing` — that is
         // what made exam and ROS score a flat zero even once the actions were charting correctly.
-        state.examObservations.push({ field: resolvedId(step), label: display, source });
+        const field = resolvedId(step);
+        // A finding the checkbox catalogue could not represent is written to the card's FREE-TEXT note
+        // instead (see the exam-comment fallback in handlers.ts). It is not a ticked observation and
+        // must not be scored as one — the gold exam items are checkbox fields.
+        if (EXAM_COMMENT_FIELDS.has(field)) {
+          state.examComments.push({ section: field, text: display, source });
+          break;
+        }
+        state.examObservations.push({ field, label: display, source });
         break;
+      }
       case 'remove-exam-finding':
         markRemovedBy(state.examObservations, display, source);
         break;
@@ -206,8 +231,8 @@ export function foldStepsIntoState(steps: PlanStep[], source: SimSource, into?: 
         // template's dx, the simulated one did not, and the diagnoses section was marked down for a
         // miss the planner never made. Templates fire on 28 of 40 cases, so this is not an edge.
         //
-        // Only the diagnoses. Default exam findings, MDM and instructions live in the template's
-        // contained Observations and Communications and are still not simulated — see template-catalog.
+        // Diagnoses here, default exam findings further down. MDM and instructions live in the
+        // template's contained Communications and are still not simulated — see template-catalog.
         const stats = state as SimStateWithTemplateStats;
         stats.templateDxApplied ??= 0;
         stats.templateTitleUnmatched ??= [];
@@ -231,12 +256,14 @@ export function foldStepsIntoState(steps: PlanStep[], source: SimSource, into?: 
           // Rank 1 is the template's primary, but a primary already on the chart is NEVER usurped —
           // the same rule the zambda's append semantics apply.
           const hasPrimary = active.some((item) => item.isPrimary);
-          state.diagnoses.push({
+          const templateDx: TemplateSourced<SimDiagnosis> = {
             display: dx.display,
             code: dx.code,
             ...(dx.rank === 1 && !hasPrimary ? { isPrimary: true } : {}),
             source,
-          });
+            templateName: template.title,
+          };
+          state.diagnoses.push(templateDx);
           stats.templateDxApplied += 1;
         }
 
@@ -250,7 +277,17 @@ export function foldStepsIntoState(steps: PlanStep[], source: SimSource, into?: 
         stats.templateExamApplied ??= 0;
         for (const finding of template.examFindings) {
           if (state.examObservations.some((obs) => !obs.removed && obs.field === finding.field)) continue;
-          state.examObservations.push({ field: finding.field, label: finding.label, source });
+          // `templateName` is provenance, not score: the scorer reads only the fields it knows, so this
+          // rides along harmlessly — but without it a template's ~28 default normals are indistinguishable
+          // from findings the model actually chose, and every exam precision figure silently becomes a
+          // statement about how many templates were applied. The diagnosis branch above already carries it.
+          const templateFinding: TemplateSourced<SimExamObs> = {
+            field: finding.field,
+            label: finding.label,
+            source,
+            templateName: template.title,
+          };
+          state.examObservations.push(templateFinding);
           stats.templateExamApplied += 1;
         }
         break;

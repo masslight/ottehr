@@ -13,8 +13,14 @@
 //   - A skip carries a REASON written for a provider to read.
 //   - Nothing is written on a guess. If the catalogue does not resolve, skip and say why.
 
+import {
+  buildExamCommentFields,
+  buildExamLeafCatalogue,
+  inferExamSectionKey,
+} from 'utils/lib/config-helpers/exam-leaves';
 import { ActionKind, NoteTextField } from 'utils/lib/easy-chart/actions';
 import { chartKeyForNoteField, NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
+import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
 import { ProcedureQuickPickContext } from './procedure-quick-pick';
 import { describeQuery, resolvePick } from './resolve';
@@ -58,6 +64,15 @@ async function addFromCatalogue(
      * provider's words, and which of its fields need their own "default, verify".
      */
     write: (match: CatalogueMatch) => Promise<string[] | CompositeWriteResult>;
+    /**
+     * What to do when the catalogue holds nothing for this wording, instead of skipping.
+     *
+     * Only the exam passes it: its catalogue is a fixed set of checkboxes while the provider's
+     * vocabulary is not, and the exam tab has a free-text note per card to put the words in. Every
+     * other catalogue is a real terminology and "no match" there means the item genuinely cannot be
+     * charted, which the provider must be told rather than have written somewhere approximate.
+     */
+    onNoMatch?: () => Promise<StepOutcome>;
   }
 ): Promise<StepOutcome> {
   const subject = describeQuery(action.display);
@@ -83,6 +98,11 @@ async function addFromCatalogue(
     prompt: `Which ${options.noun} did you mean?`,
   });
   if (!pick) {
+    // ONLY when the catalogue held nothing. `resolvePick` also returns undefined when the provider was
+    // ASKED and declined, and a decline must be respected, not answered with a fallback write — its own
+    // doc comment says as much. `classifyMatches` reports 'none' only for an empty candidate list, so
+    // that is the condition to test, never the absence of a pick.
+    if (options.onNoMatch && matches.length === 0) return options.onNoMatch();
     return skipped(`no ${options.noun} in the catalogue matches "${subject}"`);
   }
   const written = await options.write(pick.match);
@@ -146,6 +166,56 @@ async function removeCharted(
 
   await context.writer.remove(options.field, pick.match.payload as ChartedItem);
   return applied();
+}
+
+/** Words that carry no anatomy, so a comment made only of these has nothing to file it under. */
+const COMMENT_FALLBACK_SECTION = 'general';
+
+/**
+ * Append a dictated exam finding to the free-text note of the card it most likely belongs to.
+ *
+ * The last resort for `add-exam-finding`, reached only when the checkbox catalogue matched nothing.
+ * Appends rather than overwrites — the provider may have typed in that box, and the plan and the
+ * review pass can both route a finding here — and dedupes, because "Positive Homan's sign; Positive
+ * Homan's sign" is what appending twice looks like.
+ */
+async function writeExamComment(action: { display?: string }, context: HandlerContext): Promise<StepOutcome> {
+  const text = (action.display ?? '').trim();
+  if (!text) return skipped('no exam finding was named, so nothing was charted');
+
+  const leaves = buildExamLeafCatalogue(DefaultExamComponentsConfig);
+  const commentFields = buildExamCommentFields(DefaultExamComponentsConfig);
+  const sectionKey = inferExamSectionKey(
+    `${text} ${(action as { searchTerms?: string[] }).searchTerms?.join(' ') ?? ''}`,
+    leaves
+  );
+  const field = commentFields[sectionKey ?? ''] ?? commentFields[COMMENT_FALLBACK_SECTION];
+  if (!field) return skipped(`"${text}" matched no exam finding, and this exam has no comment field to note it in`);
+
+  const existing = context.chart.examComments.find((comment) => comment.field === field);
+  const normalize = (value: string): string =>
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  if (existing && normalize(existing.note).includes(normalize(text))) {
+    return skipped(`"${text}" is already in that exam section's note`);
+  }
+  const note = existing?.note ? `${existing.note}; ${text}` : text;
+  const created = await context.writer.save({
+    examObservations: [{ ...(existing?.resourceId ? { resourceId: existing.resourceId } : {}), field, note }],
+  });
+  // LOW CONFIDENCE, always. The words are the provider's, but the CARD is this function's guess, and a
+  // finding filed one section away is exactly what a reader needs flagged.
+  return applied(created, {
+    lowConfidence: true,
+    note: `no checkbox matched — noted in the exam section's free text`,
+    // The chart field actually written. Anything reading a plan afterwards — the provenance layer, the
+    // eval harness — needs to tell a comment write from a ticked checkbox, and the field is what says
+    // so: every comment field is one of `buildExamCommentFields`' values, which is a membership test
+    // rather than a guess at the shape of the name.
+    matchedId: field,
+  });
 }
 
 const noteText: Handler<'edit-note-text'> = async (action, context) => {
@@ -312,13 +382,16 @@ export const HANDLERS = {
   'edit-note-text': noteText,
   'set-vital': setVital,
 
-  'add-exam-finding': async (action, context) =>
-    addFromCatalogue(action, context, {
+  'add-exam-finding': async (action, context) => {
+    // NO CHECKBOX FOR IT IS NOT NOTHING TO CHART — see onNoMatch.
+    return addFromCatalogue(action, context, {
       search: (q) => context.catalogue.examFindings(q),
       noun: 'exam finding',
       write: (match) =>
         context.writer.save({ examObservations: [{ field: match.id, value: true, ...(match.payload as object) }] }),
-    }),
+      onNoMatch: () => writeExamComment(action, context),
+    });
+  },
   'remove-exam-finding': async (action, context) =>
     removeCharted(action, context, {
       items: context.chart.examFindings,

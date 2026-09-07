@@ -8,6 +8,7 @@ import {
   MAX_NOTE_FIELD_CHARS,
   NOTE_FIELD_LABELS,
   noteFieldForChartKey,
+  overwritesWrittenNoteField,
   pickNoteContext,
 } from './note-fields';
 
@@ -67,5 +68,30 @@ describe('pickNoteContext', () => {
   it('caps a single field so one request cannot push the prompt past the context window', () => {
     const picked = pickNoteContext({ ros: 'x'.repeat(MAX_NOTE_FIELD_CHARS + 500) });
     expect(picked?.ros).toHaveLength(MAX_NOTE_FIELD_CHARS);
+  });
+});
+
+// The client and the eval harness both key the "queue instead of apply" decision off this, so it is
+// the one thing keeping `final` scoring a note the product would actually produce.
+describe('overwritesWrittenNoteField', () => {
+  const written = { medicalDecision: 'Colchicine 1.2 mg load, then 0.6 mg in one hour.', ros: '   ' };
+
+  it('flags a rewrite of a field that already has prose', () => {
+    expect(
+      overwritesWrittenNoteField({ kind: 'edit-note-text', field: 'medicalDecision', newText: 'x' }, written)
+    ).toBe(true);
+  });
+
+  it('lets a rewrite of an EMPTY field through — there is nothing to overwrite', () => {
+    expect(overwritesWrittenNoteField({ kind: 'edit-note-text', field: 'chiefComplaint' }, written)).toBe(false);
+  });
+
+  it('treats a whitespace-only field as empty', () => {
+    expect(overwritesWrittenNoteField({ kind: 'edit-note-text', field: 'ros' }, written)).toBe(false);
+  });
+
+  it('never flags anything that is not a note-text edit', () => {
+    expect(overwritesWrittenNoteField({ kind: 'add-diagnosis', field: 'medicalDecision' }, written)).toBe(false);
+    expect(overwritesWrittenNoteField({ kind: 'edit-note-text' }, written)).toBe(false);
   });
 });

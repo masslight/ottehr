@@ -139,7 +139,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Read by the primary-diagnosis invariant: on an addendum, an existing primary must not be usurped.
     incremental: params.incremental,
     // The planner sees the whole plan, so it is the only surface that can decide "this plan has no primary".
-    promoteMissingPrimary: true,
+    // ONLY where diagnoses are in the vocabulary. It is a whole-plan invariant — "the planner sees the
+    // whole plan, so it is the only surface that can decide this plan has no primary" — and a stage that
+    // cannot emit a diagnosis has no plan to judge. Asked of `findings` or `coding` it reasons about an
+    // empty set; asked of `diagnoses`, which owns every diagnosis in the visit, it means what it always
+    // meant.
+    promoteMissingPrimary: capabilitiesForSurface(surface).includes('add-diagnosis'),
   });
 
   console.log(

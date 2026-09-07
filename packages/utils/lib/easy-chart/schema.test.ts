@@ -46,6 +46,45 @@ describe('review response schema', () => {
   it('carries its own actions[] on every suggestion, so accepting one needs no new charting logic', () => {
     const item = (buildReviewResponseSchema().properties as any).suggestions.items;
     expect(item.required).toContain('actions');
-    expect(item.properties.actions).toEqual((buildResponseSchema('review').properties as any).actions);
+    const plan = (buildResponseSchema('review').properties as any).actions;
+    // Same action shape as the surface's own schema, with one deliberate difference — see below.
+    expect(item.properties.actions.items.properties).toEqual(plan.items.properties);
+  });
+
+  // A diagnosis-swap card is a remove+add pair whose add must restate the removed diagnosis's primary
+  // status, or the note ends with no primary at all. Leaving the boolean optional is what made the
+  // model express primacy in prose instead — the `(primary) (primary) …` string loop of trap 3.
+  it('REQUIRES isPrimary on every review action, so primacy is never expressed as prose', () => {
+    const actions = (buildReviewResponseSchema().properties as any).suggestions.items.properties.actions;
+    expect(actions.items.required).toEqual(['kind', 'isPrimary']);
+    // And the plan surface is untouched: there the whole-plan invariant handles a missing primary.
+    expect((buildResponseSchema('review').properties as any).actions.items.required).toEqual(['kind']);
+  });
+});
+
+// TRAP 3. A capped string makes a repetition loop terminate inside a valid value instead of running to
+// the output cap and destroying the response. Every string in the schema must carry a bound, including
+// the ones nested in arrays and in the review card itself — a single uncapped field is enough.
+describe('every string field is length-capped', () => {
+  const uncapped = (schema: unknown, path = '$'): string[] => {
+    if (schema == null || typeof schema !== 'object') return [];
+    const node = schema as Record<string, unknown>;
+    const found: string[] = [];
+    // An enum is bounded by its own member list, so it needs no maxLength.
+    if (node.type === 'string' && node.maxLength == null && !Array.isArray(node.enum)) found.push(path);
+    for (const [key, value] of Object.entries(node)) {
+      if (value && typeof value === 'object') found.push(...uncapped(value, `${path}.${key}`));
+    }
+    return found;
+  };
+
+  it('across every surface schema', () => {
+    for (const surface of ['plan', 'review', 'template', 'findings', 'diagnoses', 'orders', 'coding'] as const) {
+      expect(uncapped(buildResponseSchema(surface))).toEqual([]);
+    }
+  });
+
+  it('across the review card schema, cards and nested arrays included', () => {
+    expect(uncapped(buildReviewResponseSchema())).toEqual([]);
   });
 });

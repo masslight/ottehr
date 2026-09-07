@@ -182,3 +182,131 @@ function humanizeFieldName(fieldName: string): string {
     )
     .join(' ');
 }
+
+/**
+ * Each exam card's free-text COMMENT field, keyed by both section key and section label.
+ *
+ * The exam tab is mostly checkboxes plus one free-text area per card. That area is where a dictated
+ * observation goes when the checkbox catalogue cannot represent it: "positive Homan's sign" is a real
+ * finding with no leaf to tick, and the alternative to writing it here is losing the provider's words
+ * entirely. Keyed by both because a caller may hold either — the leaf catalogue carries `sectionKey`,
+ * while a section label is what a human-readable inference produces.
+ */
+export function buildExamCommentFields(examConfig: ExamItemConfig): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const [sectionKey, card] of Object.entries(examConfig)) {
+    const field = Object.keys(card.components.comment ?? {})[0];
+    if (!field) continue;
+    map[sectionKey] = field;
+    if (card.label) map[card.label] = field;
+  }
+  return map;
+}
+
+/**
+ * The exam card a free-text finding belongs to, or undefined when it cannot be told confidently.
+ *
+ * HIGH PRECISION OVER COVERAGE, deliberately: only a word from the CARD'S OWN NAME counts, and only
+ * when exactly one card matches. A finding filed under the wrong body system is worse than one filed
+ * under the general card — "Photophobia" appearing under Genitourinary is actively misleading in a
+ * signed note, and that is what a scoring heuristic over leaf labels produced (it also sent "left ear
+ * canal" to Lungs, on the strength of "tenderness" appearing in several chest-wall leaves).
+ *
+ * So this answers only the easy cases — "ear canal", "lung field", "abdomen soft" — and returns
+ * undefined for everything else, which the caller files under the general card. Widening it means
+ * adding an anatomy vocabulary curated to the same standard: a term that names exactly one card, and
+ * nothing for a term that does not ("discharge" is any orifice; "vestibule" is nasal or vaginal).
+ */
+export function inferExamSectionKey(text: string, leaves: ExamLeaf[]): string | undefined {
+  const words = new Set(
+    text
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length >= 3 && !STOP_WORDS.has(w))
+  );
+  if (words.size === 0) return undefined;
+
+  const hits = new Set<string>();
+  // Terms that name exactly ONE card but share no word with its name. Curated to the same standard as
+  // the card-name match: a term that could belong to two cards is deliberately absent, so it falls
+  // through to the general card rather than guessing.
+  for (const word of words) {
+    const section = UNAMBIGUOUS_ANATOMY[word];
+    if (section) hits.add(section);
+  }
+  const seen = new Set<string>();
+  for (const leaf of leaves) {
+    if (seen.has(leaf.sectionKey)) continue;
+    seen.add(leaf.sectionKey);
+    const name = `${leaf.sectionKey} ${leaf.sectionLabel}`.toLowerCase().split(/[^a-z0-9]+/);
+    for (const word of words) {
+      // Whole word against whole word, tolerating only a plural 's' — substring matching makes "ear"
+      // hit "smear" and "back" hit "backache" in another card's name, while a strict equality misses
+      // the singular/plural split every card name has ("ear canal" vs the card "Ears").
+      if (name.some((part) => part === word || part === `${word}s` || `${part}s` === word)) {
+        hits.add(leaf.sectionKey);
+      }
+    }
+  }
+  return hits.size === 1 ? [...hits][0] : undefined;
+}
+
+/**
+ * Anatomy that names exactly one exam card without sharing a word with its label. Kept short on
+ * purpose: every entry is a term a clinician would only ever use about that one card. Anything
+ * ambiguous ("discharge" is any orifice, "vestibule" is nasal or vaginal) belongs nowhere near here.
+ */
+const UNAMBIGUOUS_ANATOMY: Record<string, string> = {
+  tympanic: 'ears',
+  auricle: 'ears',
+  tragus: 'ears',
+  otoscopy: 'ears',
+  cerumen: 'ears',
+  photophobia: 'eyes',
+  conjunctiva: 'eyes',
+  conjunctival: 'eyes',
+  sclera: 'eyes',
+  pupil: 'eyes',
+  pupils: 'eyes',
+  nasal: 'nose',
+  nares: 'nose',
+  pharynx: 'oral',
+  pharyngeal: 'oral',
+  oropharynx: 'oral',
+  tonsils: 'oral',
+  tonsillar: 'oral',
+  wrist: 'extremities',
+  ankle: 'extremities',
+  knee: 'extremities',
+  elbow: 'extremities',
+  shoulder: 'extremities',
+  wheeze: 'lungs',
+  wheezing: 'lungs',
+  crackles: 'lungs',
+  rales: 'lungs',
+  cervical: 'neck',
+  lymphadenopathy: 'lymph',
+  murmur: 'heart',
+};
+
+/** Words too generic to point at a body system. */
+const STOP_WORDS = new Set([
+  'with',
+  'without',
+  'positive',
+  'negative',
+  'mild',
+  'moderate',
+  'severe',
+  'noted',
+  'sign',
+  // Laterality and vague position words identify no card.
+  'left',
+  'right',
+  'bilateral',
+  'over',
+  'the',
+  'and',
+  'area',
+  'region',
+]);

@@ -67,6 +67,14 @@ export interface TriggerReport {
   trigger: string;
   fired: boolean;
   complied: boolean;
+  /**
+   * WHICH pattern fired, when the trigger is a family of them (disposition language is nine).
+   *
+   * A label, never narrative text — it reaches logs and eval summaries. Without it a run can only say
+   * that some disposition language went unaddressed, not whether it was a referral, an ER instruction or
+   * a follow-up interval, and those need different fixes.
+   */
+  matchedPattern?: string;
 }
 
 /** One turn of the conversation, summarised for the model. See Phase 5.7b. */

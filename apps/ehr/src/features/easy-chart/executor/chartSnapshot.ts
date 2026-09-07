@@ -58,6 +58,13 @@ export function buildChartSnapshot(
 
     examFindings: named(checked(chartData?.examObservations), (o) => o.label ?? examLabels.get(o.field) ?? o.field),
 
+    // The per-card free-text notes, which are exam observations carrying `note` rather than
+    // `value: true` — so `checked()` above deliberately excludes them. Needed here because a finding
+    // routed to a card's note APPENDS to whatever is already there and must not duplicate it.
+    examComments: (chartData?.examObservations ?? [])
+      .filter((o) => typeof o.note === 'string' && o.note.trim().length > 0)
+      .map((o) => ({ resourceId: o.resourceId, field: o.field, note: (o.note ?? '').trim() })),
+
     rosFindings: named(checked(chartData?.rosObservations), (o) => {
       // ROS field keys carry their polarity as a suffix; the provider reads "Denies fever", so a
       // removal must be matched against that, not against the bare symptom.

@@ -20,6 +20,7 @@ import {
 const emptyChart = (): ChartSnapshot => ({
   diagnoses: [],
   examFindings: [],
+  examComments: [],
   rosFindings: [],
   medications: [],
   allergies: [],
@@ -146,19 +147,21 @@ describe('every step settles', () => {
     const h = harness({ matches: { medications: [match('m1', 'Amoxicillin 500 mg', 1)] } });
     const actions: PlannedAction[] = [
       { kind: 'add-medication', display: 'Amoxicillin' },
-      { kind: 'add-exam-finding', display: 'Right TM bulging' }, // nothing in the catalogue
+      // Nothing in the exam catalogue — which now APPLIES as a free-text note on the card rather than
+      // skipping, so the provider's words survive. See the exam-comment fallback tests below.
+      { kind: 'add-exam-finding', display: 'Right TM bulging' },
       { kind: 'add-diagnosis', display: 'Strep throat' }, // no confirmed code
     ];
     const { steps } = await runPlan(actions, h.context);
 
-    expect(steps.map((s) => s.outcome?.status)).toEqual(['applied', 'skipped', 'skipped']);
+    expect(steps.map((s) => s.outcome?.status)).toEqual(['applied', 'applied', 'skipped']);
     for (const step of steps) {
       expect(step.outcome, `step ${step.index} never settled`).toBeDefined();
       if (step.outcome!.status !== 'applied') {
         expect(step.outcome!.reason?.trim(), `step ${step.index} skipped with no reason`).toBeTruthy();
       }
     }
-    expect(summarisePlan(steps)).toEqual({ applied: 1, skipped: 2, failed: 0 });
+    expect(summarisePlan(steps)).toEqual({ applied: 2, skipped: 1, failed: 0 });
   });
 
   // An old client against a newer endpoint. Falling through to a generic "no match" would read to a
@@ -543,5 +546,77 @@ describe('ROS polarity is stored in the field key', () => {
     );
     const written = h.saved.flatMap((call) => (call.rosObservations as { field: string; value: boolean }[]) ?? []);
     expect(written).toEqual([{ field: 'ros-gi-vomiting-reports', value: true }]);
+  });
+});
+
+// The exam catalogue is a fixed set of checkboxes; a provider's vocabulary is not. "Positive Homan's
+// sign" is a real finding with no leaf to tick, and skipping it threw the words away — the one outcome
+// this executor exists to prevent. They now go into the free-text note of the card they belong to.
+describe('exam finding with no checkbox', () => {
+  it('writes the words into the inferred exam card note instead of skipping', async () => {
+    const h = harness({ matches: { examFindings: [] } });
+    const { steps } = await runPlan(
+      [{ kind: 'add-exam-finding', display: 'Tenderness over the left ear canal' }],
+      h.context
+    );
+
+    expect(steps[0].outcome?.status).toBe('applied');
+    // Always low-confidence: the words are the provider's, the CARD is an inference.
+    expect(steps[0].outcome?.lowConfidence).toBe(true);
+    const saved = h.saved.find((s) => 'examObservations' in s) as {
+      examObservations: { field: string; note: string }[];
+    };
+    expect(saved.examObservations[0].note).toBe('Tenderness over the left ear canal');
+    // Filed under Ears, not the general fallback — the inference read "ear" from the wording.
+    expect(saved.examObservations[0].field).toBe('ears-comment');
+  });
+
+  it('falls back to the general card when the wording names no body system', async () => {
+    const h = harness({ matches: { examFindings: [] } });
+    const { steps } = await runPlan([{ kind: 'add-exam-finding', display: 'Positive Homan sign' }], h.context);
+
+    expect(steps[0].outcome?.status).toBe('applied');
+    const saved = h.saved.find((s) => 'examObservations' in s) as { examObservations: { field: string }[] };
+    expect(saved.examObservations[0].field).toBe('general-comment');
+  });
+
+  it('APPENDS to an existing note rather than overwriting what the provider typed', async () => {
+    const h = harness({
+      matches: { examFindings: [] },
+      chart: { examComments: [{ resourceId: 'obs-1', field: 'general-comment', note: 'Appears comfortable' }] },
+    });
+    await runPlan([{ kind: 'add-exam-finding', display: 'Positive Homan sign' }], h.context);
+
+    const saved = h.saved.find((s) => 'examObservations' in s) as {
+      examObservations: { resourceId?: string; note: string }[];
+    };
+    expect(saved.examObservations[0].note).toBe('Appears comfortable; Positive Homan sign');
+    expect(saved.examObservations[0].resourceId).toBe('obs-1');
+  });
+
+  it('does not duplicate a finding the note already carries', async () => {
+    const h = harness({
+      matches: { examFindings: [] },
+      chart: { examComments: [{ field: 'general-comment', note: 'Positive Homan sign' }] },
+    });
+    const { steps } = await runPlan([{ kind: 'add-exam-finding', display: 'Positive Homan sign' }], h.context);
+
+    expect(steps[0].outcome?.status).toBe('skipped');
+    expect(h.saved.some((s) => 'examObservations' in s)).toBe(false);
+  });
+
+  // The bug this fallback introduced on its first attempt: `resolvePick` returns undefined BOTH when
+  // nothing matched and when the provider was asked and declined. Answering a decline with a fallback
+  // write is the opposite of respecting it.
+  it('respects a declined picker instead of writing a comment', async () => {
+    const h = harness({
+      mode: 'interactive',
+      matches: { examFindings: [match('e1', 'Erythematous pharynx', 1), match('e2', 'Erythematous tonsils', 0.95)] },
+      answer: () => undefined,
+    });
+    const { steps } = await runPlan([{ kind: 'add-exam-finding', display: 'Erythema' }], h.context);
+
+    expect(steps[0].outcome?.status).toBe('skipped');
+    expect(h.saved.some((s) => 'examObservations' in s)).toBe(false);
   });
 });

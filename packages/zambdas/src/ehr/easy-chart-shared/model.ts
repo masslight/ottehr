@@ -25,7 +25,7 @@ export const EASY_CHART_PRIMARY_MODEL = 'gemini-3.1-flash-lite';
 /** Backup: a different provider, so a provider-wide outage or refusal does not end the turn. */
 export const EASY_CHART_BACKUP_MODEL = 'claude-haiku-4-5-20251001';
 
-const REQUEST_TIMEOUT_MS = 90_000;
+const REQUEST_TIMEOUT_MS = 180_000;
 
 export interface ModelCallResult<T> {
   parsed: T;
@@ -179,17 +179,23 @@ async function callVertex(
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0,
+          // BOTH of these, and neither is optional.
+          //
+          // Leaving `thinkingConfig` unset does NOT mean "the model decides" — on gemini-3.1-flash-lite
+          // the provider default reports `thoughtsTokenCount: 0`, i.e. the planner was extracting a whole
+          // visit in one forward pass with no reasoning at all. Measured against the harvested corpus,
+          // that alone accounted for most of the gap to the dabrams implementation, which has carried a
+          // 2048 budget all along: its planner emitted 104 ROS findings to our 76 on the same 40 cases,
+          // same model, same prompt — and ROS was 10 of the 17 gold items it matched and we did not.
+          //
+          // The budget is CAPPED rather than uncapped because a reasoning model with no bound burns tens
+          // of thousands of tokens thinking and never emits the plan. `maxOutputTokens` has to be raised
+          // alongside it: the plan carries per-action `sourceText` provenance and a full visit runs to
+          // several thousand tokens, so a small cap truncates the JSON and fails the entire chart.
+          maxOutputTokens: 16384,
+          thinkingConfig: { thinkingBudget: 2048 },
           responseMimeType: 'application/json',
           responseSchema,
-          // THINKING OFF. Measured on a realistic prompt: 7.1s with it against 2.1s without, and 1042
-          // thought tokens against an answer of 146 — seven times more spent on reasoning than on the
-          // reply, none of which `candidatesTokenCount` reports, so it is invisible in the usage line.
-          //
-          // Latency is a product requirement here, not a preference: the provider is dictating and
-          // watching, and every second is one they stand still for. `thinkingLevel: 'LOW'` is not an
-          // option — it measured 244 thought tokens against 264 for the default, i.e. it changes almost
-          // nothing. A budget of 0 is the only setting that actually turns it off.
-          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),

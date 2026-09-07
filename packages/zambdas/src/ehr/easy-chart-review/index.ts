@@ -27,15 +27,11 @@ import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { authorizeEasyChartRequest } from '../easy-chart-shared/authorize';
-import { applyGuards } from '../easy-chart-shared/guards';
+import { applyGuards, buildTriggerReports } from '../easy-chart-shared/guards';
+import { createTerminologyIcdSearch } from '../easy-chart-shared/icd-search';
 import { callModelForJson } from '../easy-chart-shared/model';
 import { carrySwapPrimaryFromChartState } from '../easy-chart-shared/swap-primary';
-import {
-  buildNoteContext,
-  describeChart,
-  readTemplateTitles,
-  readVisitContext,
-} from '../easy-chart-shared/visit-context';
+import { buildNoteContext, describeChart, readVisitContext } from '../easy-chart-shared/visit-context';
 import { getChartData } from '../get-chart-data';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -62,10 +58,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Read the chart here, not from the caller — same reason and same two calls as the planner. It matters
   // more on this surface: review's whole job is to compare the note AS WRITTEN against the narrative, so a
   // summary that omits a section is a section it cannot review.
-  const [chart, templateTitles] = await Promise.all([
-    encounterId ? readChart(oystehr, m2mToken, encounterId) : undefined,
-    readTemplateTitles(oystehr, ZAMBDA_NAME),
-  ]);
+  // No template list. `apply-template` is not in the review vocabulary, so the titles were a
+  // round-trip per call whose only effect was to render a block naming an action this surface cannot
+  // emit. The tail now omits it for any surface without the capability; not fetching it is the other
+  // half of the same fix.
+  const chart = encounterId ? await readChart(oystehr, m2mToken, encounterId) : undefined;
   // The block the removal guard and the primary carry-over match against. Server-read when there is an
   // encounter; the caller's string only when there is not.
   const chartStateText = chart ? buildChartStateSummary(chart) : params.chartState;
@@ -73,7 +70,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const tail: PromptTailInput = {
     narrative,
-    templateTitles: templateTitles ?? params.templateTitles,
     patientLine: visit?.patientLine,
     patientStatus: visit?.patientStatus ?? params.patientStatus,
     chartStateSummary: describeChart(chartStateText, examFindings),
@@ -106,29 +102,91 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // because it came from the "corrector". Guarding per suggestion keeps each rejection attached to the
   // suggestion it belongs to.
   const chartedItems = [...(examFindings ?? []), ...splitChartState(chartStateText)];
-  const guarded: ReviewSuggestion[] = [];
-  const rejected: ChartReviewResponse['rejected'] = [];
-  const triggers: ChartReviewResponse['triggers'] = [];
 
-  for (const suggestion of parsed) {
-    // A "diagnosis"/"coherence" card pairs remove-diagnosis with add-diagnosis, and the prompt requires the
-    // add to restate the removed diagnosis's isPrimary. The model reliably omits it, and a missing flag
-    // charts as SECONDARY — leaving the note with no primary whenever the swap replaced the primary one.
-    carrySwapPrimaryFromChartState((suggestion.actions ?? []) as PlannedAction[], chartStateText);
-    const result = await applyGuards((suggestion.actions ?? []) as PlannedAction[], {
-      oystehr,
-      narrative,
-      chartedItems,
-      logPrefix: ZAMBDA_NAME,
-    });
+  // ONE search function for the whole call. It carries the warm-call cache, so building one per
+  // suggestion would pay for the same terminology round-trip on every card — and sharing it is what makes
+  // guarding the cards CONCURRENTLY worth doing: the round-trips dominate a multi-card review's latency
+  // and the cards are independent of each other.
+  const icdSearch = createTerminologyIcdSearch(oystehr);
+
+  // What the aetiology guard judges a qualifier against on this surface — see GuardContext.
+  const etiologyEvidenceBase = [narrative, chartStateText ?? '', tail.noteContext ?? ''].join(' ');
+
+  const rejected: ChartReviewResponse['rejected'] = [];
+  const results = await Promise.all(
+    parsed.map(async (suggestion) => {
+      const proposed = (suggestion.actions ?? []) as PlannedAction[];
+      // Verbatim gate FIRST, before a round-trip is spent on anything else: the prompt demands a
+      // near-verbatim quote for a suggested ROS negative and the primary model still fabricates the
+      // classics for the complaint ("Denies sinus pain" on an eye visit). Prose cannot enforce it; this
+      // can.
+      const quoted = proposed.filter((action) => {
+        if (rosActionIsVerbatim(action, narrative)) return true;
+        rejected.push({
+          kind: action.kind,
+          display: action.display,
+          reason: `"${action.display}" is not something the dictation says, so it was not charted`,
+        });
+        return false;
+      });
+      // A "diagnosis"/"coherence" card pairs remove-diagnosis with add-diagnosis, and the prompt requires
+      // the add to restate the removed diagnosis's isPrimary. The model reliably omits it, and a missing
+      // flag charts as SECONDARY — leaving the note with no primary whenever the swap replaced the
+      // primary one.
+      carrySwapPrimaryFromChartState(quoted, chartStateText);
+      const result = await applyGuards(quoted, {
+        oystehr,
+        icdSearch,
+        narrative,
+        etiologyEvidence: `${etiologyEvidenceBase} ${suggestion.rationale ?? ''}`,
+        chartedItems,
+        logPrefix: ZAMBDA_NAME,
+      });
+      return { suggestion, proposed: quoted, result };
+    })
+  );
+
+  const guarded: ReviewSuggestion[] = [];
+  for (const { suggestion, proposed, result } of results) {
     rejected.push(...result.rejected);
+    const actions = dropOrphanedRemovals(proposed, result.actions, rejected);
     // A suggestion whose every action was refused has nothing left to offer, so it is dropped rather than
     // shown as a question the provider cannot act on. The refusals still surface in `rejected`.
-    if (result.actions.length > 0) {
-      guarded.push({ ...suggestion, actions: result.actions });
+    if (actions.length === 0) continue;
+    // A swap that resolved back onto the code it replaces would churn the chart and change nothing. It
+    // happens when the ICD search was itself the reason the first code was wrong, so the replacement
+    // re-resolves to it.
+    if (swapCancelsItself(actions)) {
+      rejected.push({
+        kind: 'add-diagnosis',
+        display: suggestion.question,
+        reason: 'the replacement diagnosis resolved to the same code it would replace, so nothing changed',
+      });
+      continue;
     }
-    // Triggers are computed per call against the same narrative; keep the first set only.
-    if (triggers.length === 0) triggers.push(...result.triggers);
+    guarded.push({ ...suggestion, actions });
+  }
+
+  // Compliance is a property of the WHOLE response, not of one card — see buildTriggerReports.
+  const triggers = buildTriggerReports(
+    narrative,
+    guarded.flatMap((suggestion) => suggestion.actions)
+  );
+  const disposition = triggers.find((trigger) => trigger.trigger === 'disposition-language-without-disposition');
+  if (disposition) {
+    // REPORT THE TRIGGER THIS SURFACE ACTUALLY APPLIED.
+    //
+    // The generic report keys `fired` off disposition language in the narrative alone, which is the right
+    // question for the planner — it starts from an empty chart, so language means a disposition is owed.
+    // On review it is the wrong question and reported a guard failure on every visit the PLANNER had
+    // already got right: the narrative says "follow up in a week", the plan charted it, review correctly
+    // says nothing, and the report called that "the trigger fired and the model ignored it". Six of six
+    // on the harvested corpus, every run. What review was actually told to address is `mustAddress`, which
+    // fires only when the language is there AND nothing is charted — so that is what `fired` must mean.
+    disposition.fired = !!tail.mustAddress;
+    // Read the model's RAW output too: a disposition it proposed and a guard then dropped still answered
+    // the trigger, which is a different failure from declining it.
+    if (parsed.some((suggestion) => suggestion.category === 'disposition')) disposition.complied = true;
   }
 
   console.log(
@@ -139,6 +197,80 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const response: ChartReviewResponse = { suggestions: guarded, rejected, usage, escalation, triggers };
   return { statusCode: 200, body: JSON.stringify(response) };
 });
+
+/**
+ * Enforce the near-verbatim rule the prompt states for a suggested ROS negative: every meaningful word of
+ * the symptom must actually appear in the dictation.
+ *
+ * Only ROS additions are judged. Everything else passes through — an exam finding is resolved against a
+ * catalogue, a diagnosis against the terminology service, and a disposition is prose the provider reads.
+ */
+export function rosActionIsVerbatim(action: PlannedAction, narrative: string): boolean {
+  if (action.kind !== 'add-ros-finding' || typeof action.display !== 'string') return true;
+  const symptom = action.display.replace(/^(denies|reports)\b[:\s-]*/i, '');
+  const words = symptom
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((word) => word.length >= 3 && !['the', 'any', 'and', 'her', 'his'].includes(word));
+  const haystack = narrative.toLowerCase();
+  return words.length > 0 && words.every((word) => haystack.includes(word));
+}
+
+/** The kinds whose removal only makes sense as half of a swap, paired with the addition that replaces it. */
+const SWAP_PAIRS = [
+  { add: 'add-diagnosis', remove: 'remove-diagnosis' },
+  { add: 'add-cpt', remove: 'remove-cpt' },
+  { add: 'add-medication', remove: 'remove-medication' },
+] as const;
+
+/**
+ * Drop a removal whose replacement did not survive the guards.
+ *
+ * A correction card is a PAIR — remove the wrong item, add the right one — and when a guard refuses the
+ * addition the removal must go with it. Left alone it becomes a BARE removal that takes the item off the
+ * chart and puts nothing back: reproduced twice on the harvested corpus as a note left with zero
+ * diagnoses, which is billing-invalid and strictly worse than the wrong code it "fixed".
+ *
+ * Surgical rather than dropping the whole card, so a valid unrelated action on the same card survives.
+ */
+export function dropOrphanedRemovals(
+  proposed: PlannedAction[],
+  guarded: PlannedAction[],
+  rejected: ChartReviewResponse['rejected']
+): PlannedAction[] {
+  let kept = guarded;
+  for (const { add, remove } of SWAP_PAIRS) {
+    const wasASwap = proposed.some((action) => action.kind === add) && kept.some((action) => action.kind === remove);
+    if (!wasASwap || kept.some((action) => action.kind === add)) continue;
+    kept = kept.filter((action) => {
+      if (action.kind !== remove) return true;
+      rejected.push({
+        kind: action.kind,
+        display: action.display,
+        reason: `the replacement for "${action.display}" could not be charted, so it was left in place`,
+      });
+      return false;
+    });
+  }
+  return kept;
+}
+
+/** True when the card's addition resolved to a code the card also removes, so applying it is a no-op. */
+export function swapCancelsItself(actions: PlannedAction[]): boolean {
+  const removed = new Set(
+    actions
+      .filter((action) => action.kind === 'remove-diagnosis')
+      .map((action) => {
+        const inDisplay = /\(([A-TV-Z][0-9][A-Z0-9](?:\.[A-Z0-9]{1,4})?[A-Z]?)\)/.exec(action.display ?? '');
+        return (action.code ?? inDisplay?.[1] ?? '').toUpperCase().replace(/\./g, '');
+      })
+      .filter(Boolean)
+  );
+  if (removed.size === 0) return false;
+  return actions.some(
+    (action) => action.kind === 'add-diagnosis' && removed.has((action.code ?? '').toUpperCase().replace(/\./g, ''))
+  );
+}
 
 /** The chart-state summary as individual lines, for the removal guard to match against. */
 function splitChartState(chartState?: string): string[] {

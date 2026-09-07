@@ -50,6 +50,24 @@ export interface Capability {
   chartField?: ChartField | readonly ChartField[];
   /** The prose the model is shown for this action. Assembled into the prompt per surface. */
   promptDoc: string;
+  /**
+   * Extra prose for the surfaces that AUTHOR a note, i.e. everything except `review`.
+   *
+   * `promptDoc` is shared by every surface offering the action, and that is right for the action's
+   * SHAPE and for the rules about what may be charted. It is wrong for guidance about composing
+   * content from scratch, because the review surface never composes: it makes one targeted correction
+   * to a note somebody else already wrote.
+   *
+   * Leaving that guidance in `promptDoc` had review reading instructions it cannot act on, or must not:
+   * `edit-note-text` told it to "ALWAYS emit … for historyOfPresentIllness AND medicalDecision on
+   * EVERY visit" — so it proposed rewriting both on every call, 19-28 confirmation cards per 40 cases
+   * against the dabrams implementation's 0 — and `add-cpt` told it to "emit the add-medication for the
+   * drug", which is not in review's vocabulary at all.
+   *
+   * Same lesson as the E&M level tiebreak, which used to live in `set-em-code`'s `promptDoc` and was
+   * worth +4 exact E&M once review stopped being told to round down.
+   */
+  authoringDoc?: string;
 }
 
 const NOTE_FIELD_LIST = NOTE_TEXT_FIELDS.join(' | ');
@@ -183,15 +201,15 @@ export const CAPABILITIES = {
     promptDoc: `- edit-note-text: { kind, field, newText } — field is one of: ${NOTE_FIELD_LIST}.
   newText is the FULL new content for that field. When existing text is shown in the context below and
   the narrative implies an edit in place, return the entire updated paragraph, not just the change.
-  ALWAYS emit edit-note-text for historyOfPresentIllness AND medicalDecision on EVERY visit, even when
+  Review of Systems is NOT free text here — it is structured; use add-ros-finding, not
+  edit-note-text on "ros".`,
+    authoringDoc: `  ALWAYS emit edit-note-text for historyOfPresentIllness AND medicalDecision on EVERY visit, even when
   a template was applied — both are required for a complete, signable note, they are patient-specific,
   and a template's defaults are generic boilerplate the patient-specific text must supersede.
   chiefComplaint is CONDITIONAL: most providers leave it blank because the HPI's opening one-liner
   already states the reason for the visit. Emit it ONLY when it adds information that first line does
   not already carry, and then as a 2–6 word label ("Low back pain", "Cough x3 days"), never a
   sentence, and never merged into the HPI. mechanismOfInjury: injury visits only.
-  Review of Systems is NOT free text here — it is structured; use add-ros-finding, not
-  edit-note-text on "ros".
 
   VOICE for newText — write as a treating clinician documents, not as a layperson summarising:
     * Third person, no patient first name in the body ("the patient", "an 8mo female").
@@ -404,6 +422,24 @@ export const CAPABILITIES = {
   narrative, NOT values — never emit bodySide="side".`,
   },
 
+  // THE LEVEL TIEBREAK IS NOT HERE. "When torn between two levels choose the LOWER" lives in the plan
+  // and coding RULES instead (see prompt.ts), because it is a policy for AUTHORING a code and this
+  // string is shared with the REVIEW surface, whose check 4 exists to catch an E&M that came out too
+  // low. Handing review a rule to round down and a check that asks it to round up leaves it arguing
+  // with itself, and the corpus shows which side wins: 15 of the 16 E&M misses on the cases with a
+  // known patient status are under-codes.
+  //
+  // MEASURED TRADE-OFF on that tiebreak, deliberately left as it stands for the PLANNER: replacing it
+  // with "code the level the documentation supports; rounding down is as much an error as overreaching"
+  // lifts E&M exact from 7-8 to 13 of the 23 cases whose patient status is knowable, and costs 3 primary
+  // diagnoses (11/37 -> 8/38) and 4 gold items overall. Both halves reproduced across paired repeat
+  // runs, and raising the thinking budget to 4096 does not recover the diagnoses, so it is a real trade
+  // and not a budget artifact. Which side is worth more is a billing-policy call, not an engineering one.
+  //
+  // And note where that had to be written down: it spent one run INSIDE `promptDoc`, which is assembled
+  // verbatim into all three prompts, so the model was reading a note about our eval scores — including a
+  // restatement of the rule we had decided not to use — right after being given the rule we had.
+  // `promptDoc` is prompt text. A note about the prompt goes above the string, never inside it.
   'set-em-code': {
     surfaces: ['plan', 'review', 'coding'],
     required: ['code'],
@@ -418,8 +454,7 @@ export const CAPABILITIES = {
   (99203/99213) for a straightforward, low-complexity visit — a single self-limited problem with simple
   management; level 4 (99204/99214) for moderate complexity, which prescription drug management, an
   acute illness needing a procedure, an injury needing imaging, or multiple problems commonly support.
-  Reserve level 5 (99205/99215) for high complexity or high risk. When torn between two levels choose
-  the LOWER — the goal is that a defensible level is always present and the provider can adjust.`,
+  Reserve level 5 (99205/99215) for high complexity or high risk.`,
   },
   'remove-em-code': {
     surfaces: ['plan', 'coding'],
@@ -435,7 +470,8 @@ export const CAPABILITIES = {
     promptDoc: `- add-cpt: { kind, code, display } — an additional CPT/HCPCS code for something actually PERFORMED
   this visit. Not send-out labs (they bill through the lab order), not imaging orders, not
   prescriptions, not planned or declined procedures, and not a code already charted.
-  INJECTION ADMINISTRATION BILLING is the one case where you should supply codes yourself, and only
+  Every CPT/HCPCS code is validated downstream and dropped if it is not real.`,
+    authoringDoc: `  INJECTION ADMINISTRATION BILLING is the one case where you should supply codes yourself, and only
   when a medication was GIVEN IN CLINIC by an INJECTED/INFUSED route (IM, SC, IV). It does NOT apply to
   oral meds, topical creams, otic/ophthalmic drops, inhalers/nebulisers, or anything sent to a
   pharmacy. When the route IS injection, emit the add-medication for the drug AND an add-cpt for the
@@ -450,8 +486,7 @@ export const CAPABILITIES = {
       J2550 promethazine per 25 mg · J2405 ondansetron per 1 mg · J1200 diphenhydramine per 50 mg
       J3420 vitamin B-12 per 1000 mcg
   If the drug is given in clinic but is not in the table, still emit the 96372 administration code and
-  omit the J-code rather than guess it.
-  Every CPT/HCPCS code is validated downstream and dropped if it is not real.`,
+  omit the J-code rather than guess it.`,
   },
   'remove-cpt': {
     surfaces: ['plan', 'review', 'coding'],
@@ -511,8 +546,14 @@ export const CAPABILITIES = {
   the chart, for something dictated that these actions CANNOT chart. Use it for results of tests
   already performed ("Enter the urinalysis result in the In-House Labs flow: positive nitrites, 2+
   leukocyte esterase"), prescriptions that must be transmitted by eRx, and any other dictated
-  instruction requiring the provider to act in the regular chart.
-  It is also how a VOICED TREATMENT COMMITMENT is preserved when no drug was named. A commitment
+  instruction requiring the provider to act in the regular chart.`,
+    // VERBATIM, IN THE ORIGINAL ORDER, and it has to stay that way. Splitting the commitment ladder out
+    // of this doc and reflowing it around "Keep each note to one or two sentences" — same sentences, new
+    // order — moved 8 commitments per 40 cases off `provider-note` and onto `add-medication`: medications
+    // charted 17 → 25 while matched fell 4 → 3 (precision 0.235 → 0.120), provider notes 22 → 12, and
+    // voiced-commitment coverage 10/12 → 8/12. The model started guessing a drug where it had previously
+    // written a note. The ladder only makes sense read as one block with the paragraph that frames it.
+    authoringDoc: `  It is also how a VOICED TREATMENT COMMITMENT is preserved when no drug was named. A commitment
   ("I'll send you…", "let me get you on…", "we'll start…") must NEVER be silently dropped, and you must
   NEVER invent a drug, dose or strength that was not voiced. The ladder:
     • Drug NAMED → add-medication as usual.
