@@ -1,12 +1,14 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk';
 import { createHash } from 'crypto';
-import { Claim, ClaimResponse, FhirResource, ProvenanceAgent } from 'fhir/r4b';
+import { Claim, ClaimResponse, FhirResource, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
-import { ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
+import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
 import { AR_STAGE, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { z } from 'zod';
 import { ClassifiedClaimStatusResponse, classifyClaimStatusResponse } from './claim-status-response';
 import { claimMetaTagsWithProvenanceRequests, claimProvenanceRequest, recordedNow } from './provenance';
 import { buildUpdatedClaimStatusTags, fetchById, findById, hasTag } from './shared';
@@ -15,14 +17,15 @@ export interface ClaimStatusContext {
   claimResponse: ClaimResponse;
   claim: Claim;
   classification: ClassifiedClaimStatusResponse;
+  history: Provenance[];
+  recordedFields: ReadonlySet<string>;
 }
 
 // Sender and chronology checks decide whether AR can change; rejection history is recorded either way.
 export function claimRejectionRequests(
-  { claim, claimResponse, classification }: ClaimStatusContext,
+  { claim, claimResponse, classification, recordedFields }: ClaimStatusContext,
   agent: ProvenanceAgent,
-  allowStatusChange: boolean,
-  recordedFields: ReadonlySet<string> = new Set()
+  allowStatusChange: boolean
 ): BatchInputRequest<FhirResource>[] {
   if (
     classification.kind !== 'rejection-candidate' ||
@@ -134,7 +137,41 @@ export async function loadClaimStatusContext(
   const claim = await resolveClaimForStatusResponse(projectClient, claimResponse);
   if (!claim) return undefined;
 
-  return { claimResponse, claim, classification };
+  const history = await loadClaimStatusHistory(projectClient, claim.id!);
+  return { claimResponse, claim, classification, ...history };
+}
+
+export async function loadClaimStatusHistory(
+  projectClient: Oystehr,
+  claimId: string
+): Promise<Pick<ClaimStatusContext, 'history' | 'recordedFields'>> {
+  const history = await getAllFhirSearchPages<Provenance>(
+    {
+      resourceType: 'Provenance',
+      params: [
+        { name: 'target', value: `Claim/${claimId}` },
+        { name: '_tag', value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}` },
+      ],
+    },
+    projectClient
+  );
+  const recordedFields = new Set<string>();
+  for (const provenance of history) {
+    const extension = provenance.extension?.find((ext) => ext.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL);
+    if (!extension) continue;
+    try {
+      const changes = z.array(z.object({ field: z.string() })).parse(JSON.parse(extension.valueString ?? ''));
+      changes.forEach(({ field }) => {
+        if (field.startsWith('rejection.')) recordedFields.add(field);
+      });
+    } catch (cause) {
+      if (cause instanceof SyntaxError || cause instanceof z.ZodError) {
+        throw { ...INVALID_INPUT_ERROR(`Provenance/${provenance.id} has an invalid claim history change set`), cause };
+      }
+      throw cause;
+    }
+  }
+  return { history, recordedFields };
 }
 
 export async function resolveClaimForStatusResponse(
