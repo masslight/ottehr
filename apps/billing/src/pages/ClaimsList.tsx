@@ -127,6 +127,7 @@ const columns: GridColDef[] = [
   { field: 'serviceDate', headerName: 'Service Date', width: 120 },
   { field: 'payerName', headerName: 'Payer Name', flex: 1, minWidth: 160 },
   { field: 'payerId', headerName: 'Payer ID', width: 100 },
+  { field: 'nonInsurancePayerName', headerName: 'Non-insurance Organization', width: 200 },
   ...statusColumns,
   {
     field: 'type',

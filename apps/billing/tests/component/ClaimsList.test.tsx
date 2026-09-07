@@ -136,6 +136,7 @@ const makeRow = (
   patientDob: '1990-01-01',
   payerName: 'Acme',
   payerId: 'P1',
+  nonInsurancePayerName: '',
   memberId: '',
   service: undefined,
   serviceDate: '2026-01-02',

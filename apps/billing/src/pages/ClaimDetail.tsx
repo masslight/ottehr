@@ -946,10 +946,36 @@ export function NonInsurancePayerSection({
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
   const [options, setOptions] = useState<NonInsuranceOrganizationItem[]>([]);
-  const [selected, setSelected] = useState<NonInsuranceOrganizationItem | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+
+  // The claim's current payer as an autocomplete value, so edit mode opens prefilled (matching the
+  // insurance sections). It may be missing from the loaded options (inactive, or options not loaded
+  // yet), so it is also merged into the option list below.
+  const currentPayer = useMemo<NonInsuranceOrganizationItem | null>(
+    () =>
+      claim.nonInsurancePayerFhirId
+        ? {
+            id: claim.nonInsurancePayerFhirId,
+            name: claim.nonInsurancePayerName || claim.nonInsurancePayerFhirId,
+            employer: false,
+            active: true,
+            contacts: [],
+            covers: [],
+          }
+        : null,
+    [claim.nonInsurancePayerFhirId, claim.nonInsurancePayerName]
+  );
+  const [selected, setSelected] = useState<NonInsuranceOrganizationItem | null>(currentPayer);
+  useEffect(() => {
+    setSelected(currentPayer);
+  }, [currentPayer]);
+
+  const optionList = useMemo(() => {
+    if (!currentPayer || options.some((org) => org.id === currentPayer.id)) return options;
+    return [currentPayer, ...options];
+  }, [options, currentPayer]);
 
   const loadOptions = async (): Promise<void> => {
     if (!oystehrZambda || options.length) return;
@@ -963,9 +989,7 @@ export function NonInsurancePayerSection({
 
   const handleSave = async (): Promise<string | null> => {
     if (!selected) return 'Choose a non-insurance organization';
-    const err = await updateResource('Claim', claim.id, { nonInsurancePayer: { id: selected.id } });
-    if (!err) setSelected(null);
-    return err;
+    return updateResource('Claim', claim.id, { nonInsurancePayer: { id: selected.id } });
   };
 
   const handleRemove = async (): Promise<void> => {
@@ -983,16 +1007,16 @@ export function NonInsurancePayerSection({
     <EditableSection
       title="Non-insurance Payer"
       onSave={handleSave}
-      onCancel={() => setSelected(null)}
+      onCancel={() => setSelected(currentPayer)}
       editForm={
         <Autocomplete
           size="small"
-          options={options}
+          options={optionList}
           value={selected}
           onChange={(_, v) => setSelected(v)}
           onOpen={() => void loadOptions()}
           getOptionLabel={(o) => o.name}
-          renderInput={(p) => <TextField {...p} size="small" label={hasPayer ? 'Replace payer' : 'Choose payer'} />}
+          renderInput={(p) => <TextField {...p} size="small" label={hasPayer ? 'Payer' : 'Choose payer'} />}
           isOptionEqualToValue={(o, v) => o.id === v.id}
           sx={{ maxWidth: 480 }}
         />

@@ -630,9 +630,7 @@ describe('ClaimDetail — non-insurance payer section', () => {
     updateBillingResourceMock.mockResolvedValue({ id: 'claim-1' });
     renderDetail();
 
-    const section = (await screen.findByText('Non-insurance Payer')).closest(
-      '.MuiCard-root'
-    ) as HTMLElement;
+    const section = (await screen.findByText('Non-insurance Payer')).closest('.MuiCard-root') as HTMLElement;
     await user.click(within(section).getByRole('button', { name: 'Edit' }));
     await user.click(within(section).getByLabelText('Choose payer'));
 
@@ -649,6 +647,49 @@ describe('ClaimDetail — non-insurance payer section', () => {
         resourceId: 'claim-1',
         claimId: 'claim-1',
         fields: { nonInsurancePayer: { id: 'nio-1' } },
+      })
+    );
+  });
+
+  it('opens edit mode with the current payer prefilled and saves a replacement', async () => {
+    const user = userEvent.setup();
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.nonInsurancePayer),
+      nonInsurancePayerFhirId: 'nio-1',
+      nonInsurancePayerName: 'FedEx',
+    });
+    searchBillingNonInsuranceOrgsMock.mockResolvedValue({
+      organizations: [
+        { id: 'nio-1', name: 'FedEx', employer: true, active: true, contacts: [], covers: [] },
+        { id: 'nio-3', name: 'UPS', employer: true, active: true, contacts: [], covers: [] },
+      ],
+      total: 2,
+      offset: 0,
+      pageSize: 100,
+    });
+    updateBillingResourceMock.mockResolvedValue({ id: 'claim-1' });
+    renderDetail();
+
+    const section = (await screen.findByText('Non-insurance Payer')).closest('.MuiCard-root') as HTMLElement;
+    await user.click(within(section).getByRole('button', { name: 'Edit' }));
+
+    const input = within(section).getByLabelText('Payer');
+    expect(input).toHaveValue('FedEx');
+
+    await user.click(input);
+    // The current payer appears once in the list, merged with the loaded options.
+    const options = await screen.findAllByRole('option');
+    expect(options.map((o) => o.textContent)).toEqual(['FedEx', 'UPS']);
+
+    await user.click(screen.getByRole('option', { name: 'UPS' }));
+    await user.click(within(section).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(updateBillingResourceMock).toHaveBeenCalledWith(oystehrZambdaStub, {
+        resourceType: 'Claim',
+        resourceId: 'claim-1',
+        claimId: 'claim-1',
+        fields: { nonInsurancePayer: { id: 'nio-3' } },
       })
     );
   });

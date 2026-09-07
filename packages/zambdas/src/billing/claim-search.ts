@@ -492,8 +492,10 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
     rulesEngine: determineRulesEngineForClaim(claim),
     patientName,
     patientDob: patient?.birthDate ?? '',
-    // Non-insurance claims have no insurer; show their stamped non-insurance payer in the Payer column.
-    payerName: insurer?.name ?? getClaimNonInsurancePayer(claim)?.display ?? '',
+    payerName: insurer?.name ?? '',
+    // The stamped non-insurance payer gets its own column; mixing it into payerName would conflate
+    // insurance payers and NIOs.
+    nonInsurancePayerName: getClaimNonInsurancePayer(claim)?.display ?? '',
     payerId: getPayerId(insurer) ?? '',
     memberId: coverage?.subscriberId ?? '',
     service: getClaimService(claim),

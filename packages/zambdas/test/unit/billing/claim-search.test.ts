@@ -52,8 +52,8 @@ const makeLookups = (
   patientPaidByClaimId,
 });
 
-describe('mapClaimToItem: payer column', () => {
-  it('shows the stamped non-insurance payer when the claim has no insurer', () => {
+describe('mapClaimToItem: payer columns', () => {
+  it('shows the stamped non-insurance payer in its own column, never under payerName', () => {
     const claim = {
       ...makeClaim('claim-1', 100),
       extension: [
@@ -64,12 +64,14 @@ describe('mapClaimToItem: payer column', () => {
       ],
     } as Claim;
     const item = mapClaimToItem(claim, makeLookups(new Map()));
-    expect(item.payerName).toBe('FedEx');
+    expect(item.nonInsurancePayerName).toBe('FedEx');
+    expect(item.payerName).toBe('');
   });
 
-  it('leaves the payer blank when the claim has neither insurer nor non-insurance payer', () => {
+  it('leaves both payer columns blank when the claim has neither insurer nor non-insurance payer', () => {
     const item = mapClaimToItem(makeClaim('claim-1', 100), makeLookups(new Map()));
     expect(item.payerName).toBe('');
+    expect(item.nonInsurancePayerName).toBe('');
   });
 });
 

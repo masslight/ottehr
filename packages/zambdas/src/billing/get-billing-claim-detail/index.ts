@@ -347,10 +347,7 @@ async function fetchOtherClaims(
     status: getClaimStatus(c),
     arStage: getClaimStatusValues(c).arStage,
     serviceDate: c.item?.[0]?.servicedPeriod?.start ?? c.created ?? '',
-    payerName:
-      (c.insurer?.reference ? payersByRef.get(c.insurer.reference) : undefined)?.name ??
-      getClaimNonInsurancePayer(c)?.display ??
-      '',
+    payerName: (c.insurer?.reference ? payersByRef.get(c.insurer.reference) : undefined)?.name ?? '',
     billed: c.total?.value ?? 0,
     cptCodes: (c.item ?? []).map((item) => item.productOrService?.coding?.[0]?.code ?? '').filter(Boolean),
   }));
