@@ -8,8 +8,11 @@ import PersonSearchIcon from '@mui/icons-material/PersonSearch';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { getInitialEncounterIdForFollowUp } from 'utils/lib/fhir/encounter';
 import { RoleType } from 'utils/lib/types/api/user.types';
+import { useAppointmentData } from '../features/visits/shared/stores/appointment/appointment.store';
 import { CommandPaletteItem } from '../state/command-palette.store';
+import { useCommandPaletteRouteContext } from './useCommandPaletteRouteContext';
 import { useCommandPaletteSource } from './useCommandPaletteSource';
 import useEvolveUser from './useEvolveUser';
 
@@ -31,6 +34,9 @@ interface NavigationDestination {
   /** Keep the item visible even when it already matches the current path/query.
    *  Used for tracking-board entries so the palette can act like tab-switching. */
   keepVisibleOnSamePath?: boolean;
+  /** Router state passed through to `navigate`. Used by the follow-up destination
+   *  to carry the encounter the new follow-up hangs off. */
+  state?: unknown;
 }
 
 const ADMIN_ROLES = [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport];
@@ -212,6 +218,28 @@ export function useNavigationQuickPicks(): void {
   const navigate = useNavigate();
   const [, setSearchParams] = useSearchParams();
   const currentUser = useEvolveUser();
+  const { visitId, patientId } = useCommandPaletteRouteContext();
+  const { patient, encounter, followUpOriginEncounter } = useAppointmentData(visitId);
+
+  const followUpPatientId = visitId ? patient?.id : patientId;
+
+  const followUpDestination = useMemo<NavigationDestination | undefined>(() => {
+    if (!followUpPatientId) {
+      return undefined;
+    }
+
+    return {
+      id: 'nav-add-followup-visit',
+      label: 'Add Follow-up Visit',
+      to: `/patient/${followUpPatientId}/followup/add`,
+      icon: LocalHospitalIcon,
+      roles: VISIT_CREATION_ROLES,
+      keywords: ['follow-up', 'followup', 'follow up visit', 'recheck'],
+      state: visitId
+        ? { initialEncounterId: getInitialEncounterIdForFollowUp(encounter, followUpOriginEncounter) }
+        : undefined,
+    };
+  }, [followUpPatientId, visitId, encounter, followUpOriginEncounter]);
 
   const items = useMemo<CommandPaletteItem[]>(() => {
     const currentSearchParams = new URLSearchParams(location.search);
@@ -227,39 +255,45 @@ export function useNavigationQuickPicks(): void {
       return Object.entries(destination.query).every(([key, value]) => currentSearchParams.get(key) === value);
     };
 
-    return NAVIGATION_DESTINATIONS.filter((destination) => {
-      if (destination.roles && (!currentUser || !currentUser.hasRole(destination.roles))) {
-        return false;
-      }
-      if (destinationMatchesCurrent(destination) && !destination.keepVisibleOnSamePath) {
-        return false;
-      }
-      return true;
-    }).map((destination) => ({
-      id: destination.id,
-      label: destination.label,
-      category: 'Go To',
-      keywords: destination.keywords,
-      parentId: destination.parentId,
-      onSelect: () => {
-        if (destination.query && destination.keepVisibleOnSamePath && location.pathname === destination.to) {
-          // Same path — just update the query in place so the page reacts
-          // (e.g. AppointmentTabs's useSearchParams syncs to the new tab).
-          setSearchParams(
-            (prev) => {
-              const next = new URLSearchParams(prev);
-              for (const [k, v] of Object.entries(destination.query!)) next.set(k, v);
-              return next;
-            },
-            { replace: true }
-          );
-        } else {
-          const qs = destination.query ? '?' + new URLSearchParams(destination.query).toString() : '';
-          navigate(`${destination.to}${qs}`);
+    const destinations = followUpDestination
+      ? [...NAVIGATION_DESTINATIONS, followUpDestination]
+      : NAVIGATION_DESTINATIONS;
+
+    return destinations
+      .filter((destination) => {
+        if (destination.roles && (!currentUser || !currentUser.hasRole(destination.roles))) {
+          return false;
         }
-      },
-    }));
-  }, [currentUser, location.pathname, location.search, navigate, setSearchParams]);
+        if (destinationMatchesCurrent(destination) && !destination.keepVisibleOnSamePath) {
+          return false;
+        }
+        return true;
+      })
+      .map((destination) => ({
+        id: destination.id,
+        label: destination.label,
+        category: 'Go To',
+        keywords: destination.keywords,
+        parentId: destination.parentId,
+        onSelect: () => {
+          if (destination.query && destination.keepVisibleOnSamePath && location.pathname === destination.to) {
+            // Same path — just update the query in place so the page reacts
+            // (e.g. AppointmentTabs's useSearchParams syncs to the new tab).
+            setSearchParams(
+              (prev) => {
+                const next = new URLSearchParams(prev);
+                for (const [k, v] of Object.entries(destination.query!)) next.set(k, v);
+                return next;
+              },
+              { replace: true }
+            );
+          } else {
+            const qs = destination.query ? '?' + new URLSearchParams(destination.query).toString() : '';
+            navigate(`${destination.to}${qs}`, destination.state ? { state: destination.state } : undefined);
+          }
+        },
+      }));
+  }, [currentUser, followUpDestination, location.pathname, location.search, navigate, setSearchParams]);
 
   useCommandPaletteSource('navigation', items);
 }
