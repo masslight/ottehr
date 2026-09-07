@@ -1,6 +1,16 @@
+import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
+import { applyPatch, Operation } from 'fast-json-patch';
 import { ClaimResponse } from 'fhir/r4b';
-import { describe, expect, it } from 'vitest';
+import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  claimStatusTagRequest,
+  loadClaimStatusContext,
+  resolveClaimForStatusResponse,
+} from '../../../src/billing/claim-status-processing';
 import { classifyClaimStatusResponse, parseClaimStatusResponse } from '../../../src/billing/claim-status-response';
+import { topLevelCatch } from '../../../src/shared/lambda';
 
 const response = (valueString: string): ClaimResponse => ({
   resourceType: 'ClaimResponse',
@@ -122,5 +132,70 @@ describe('classifyClaimStatusResponse', () => {
   it('keeps feed validation in front of classification', () => {
     expect(classifyClaimStatusResponse({ ...response('invalid'), identifier: undefined })).toBeUndefined();
     expect(() => classifyClaimStatusResponse(response('invalid'))).toThrow('invalid raw claim status response');
+  });
+});
+
+describe('claimStatusTagRequest', () => {
+  it.each([false, true])('preserves metadata when existing tags are present: %s', (withTags) => {
+    const fixture = response('{"status":"R"}');
+    fixture.meta = {
+      versionId: '7',
+      source: 'https://example.com/source',
+      security: [{ system: 'security', code: 'restricted' }],
+      ...(withTags ? { tag: [{ ...BILLING_RESOURCE_TAG, code: 'other-code', display: 'Keep this tag' }] } : {}),
+    };
+    const before = structuredClone(fixture);
+    const request = claimStatusTagRequest(fixture)!;
+    expect(request.ifMatch).toBe('W/"7"');
+    expect(request.url).toBe('/ClaimResponse/response-1');
+    if (!('resource' in request)) throw new Error('Expected a Binary patch');
+    const operations = JSON.parse(Buffer.from(request.resource.data!, 'base64').toString('utf8')) as Operation[];
+    const tagged = applyPatch(fixture, operations, true, false).newDocument;
+    expect(tagged).toEqual({
+      ...before,
+      meta: { ...before.meta, tag: [...(before.meta?.tag ?? []), BILLING_RESOURCE_TAG] },
+    });
+    expect(fixture).toEqual(before);
+    expect(claimStatusTagRequest(tagged)).toBeUndefined();
+  });
+  it('refuses an update without a version to protect concurrent changes', () => {
+    expect(() => claimStatusTagRequest(response('{}'))).toThrow('ID and version are required');
+  });
+});
+
+describe('claim status error reporting', () => {
+  const emptyClient = { fhir: { search: async () => ({ unbundle: () => [] }) } } as unknown as Oystehr;
+  beforeEach(() => {
+    vi.mocked(captureException).mockClear();
+    vi.stubEnv('PLAYWRIGHT_SUITE_ID', undefined);
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+  it.each([
+    { name: 'invalid JSON', run: () => parseClaimStatusResponse(response('invalid')) },
+    { name: 'invalid raw object', run: () => parseClaimStatusResponse(response('null')) },
+    { name: 'missing version', run: () => claimStatusTagRequest(response('{}')) },
+    { name: 'missing reference', run: () => resolveClaimForStatusResponse(emptyClient, { id: 'response-1' }) },
+    { name: 'missing claim', run: () => resolveClaimForStatusResponse(emptyClient, response('{}')) },
+    { name: 'missing response', run: () => loadClaimStatusContext(emptyClient, 'response-1') },
+  ])('handles $name without reporting an internal error', async ({ run }) => {
+    const error = await Promise.resolve()
+      .then(async () => {
+        await run();
+      })
+      .catch((error) => error);
+    const result = await topLevelCatch('sub-claim-status-response', error, 'production');
+    expect(result.statusCode).toBe(400);
+    expect(captureException).not.toHaveBeenCalled();
+  });
+  it('still reports a FHIR service failure', async () => {
+    const cause = new Error('FHIR service unavailable');
+    const client = { fhir: { search: vi.fn().mockRejectedValue(cause) } } as unknown as Oystehr;
+    const error = await resolveClaimForStatusResponse(client, response('{}')).catch((error) => error);
+    expect(error).toBe(cause);
+    const result = await topLevelCatch('sub-claim-status-response', error, 'production');
+    expect(result.statusCode).toBe(500);
+    expect(captureException).toHaveBeenCalledOnce();
   });
 });
