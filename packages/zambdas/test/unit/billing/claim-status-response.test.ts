@@ -1,10 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { applyPatch, Operation } from 'fast-json-patch';
-import { ClaimResponse } from 'fhir/r4b';
+import { Claim, ClaimResponse, Provenance } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
+import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL } from 'utils/lib/types/data/billing/claim-history';
+import { AR_STAGE, claimStatusValuesToTags } from 'utils/lib/types/data/billing/claim-status';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  claimRejectionRequests,
   claimStatusTagRequest,
   loadClaimStatusContext,
   resolveClaimForStatusResponse,
@@ -197,5 +200,50 @@ describe('claim status error reporting', () => {
     const result = await topLevelCatch('sub-claim-status-response', error, 'production');
     expect(result.statusCode).toBe(500);
     expect(captureException).toHaveBeenCalledOnce();
+  });
+});
+
+describe('claimRejectionRequests', () => {
+  it.each(['R', 'A', 'W', 'unknown'])('builds AR changes and linked rejection history only for %s', (status) => {
+    const claimResponse = response(
+      JSON.stringify({ status, messages: [{ status: 'R', message: 'Invalid subscriber' }] })
+    );
+    const tags = claimStatusValuesToTags({ arStage: AR_STAGE.insurancePayer, insuranceArStatus: 'submitted' });
+    const claim: Claim = {
+      resourceType: 'Claim',
+      id: claimResponse.request!.reference!.replace('Claim/', ''),
+      status: 'active',
+      use: 'claim',
+      patient: claimResponse.patient,
+      type: claimResponse.type,
+      created: claimResponse.created,
+      provider: { reference: 'Organization/provider-1' },
+      priority: { coding: [{ code: 'normal' }] },
+      insurance: [{ sequence: 1, focal: true, coverage: { reference: 'Coverage/coverage-1' } }],
+      meta: { versionId: '3', tag: [BILLING_RESOURCE_TAG, ...tags] },
+    };
+    const requests = claimRejectionRequests(
+      { claim, claimResponse, classification: classifyClaimStatusResponse(claimResponse)! },
+      { who: { reference: 'Device/system' } }
+    );
+    if (status !== 'R') {
+      expect(requests).toEqual([]);
+      return;
+    }
+    expect(requests).toHaveLength(2);
+    expect(requests[0]).toMatchObject({ url: `/${claimResponse.request!.reference}`, ifMatch: 'W/"3"' });
+    const history = requests[1];
+    if (!('resource' in history)) throw new Error('Expected a Provenance');
+    const provenance = history.resource as Provenance;
+    expect(provenance.target).toEqual([claimResponse.request]);
+    expect(provenance.entity).toContainEqual({ role: 'source', what: { reference: 'ClaimResponse/response-1' } });
+    const changes = JSON.parse(
+      provenance.extension!.find((e) => e.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL)!.valueString!
+    );
+    expect(changes.map((change: { newValue: string }) => change.newValue)).toEqual([
+      'Adjudicated',
+      'Rejected',
+      'Invalid subscriber',
+    ]);
   });
 });

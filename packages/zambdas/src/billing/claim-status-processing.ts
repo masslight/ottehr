@@ -1,16 +1,52 @@
-import Oystehr, { BatchInputPatchRequest } from '@oystehr/sdk';
-import { Claim, ClaimResponse, FhirResource } from 'fhir/r4b';
+import Oystehr, { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk';
+import { Claim, ClaimResponse, FhirResource, ProvenanceAgent } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { AR_STAGE, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { ClassifiedClaimStatusResponse, classifyClaimStatusResponse } from './claim-status-response';
-import { fetchById, findById, hasTag } from './shared';
+import { claimMetaTagsWithProvenanceRequests } from './provenance';
+import { buildUpdatedClaimStatusTags, fetchById, findById, hasTag } from './shared';
 
 export interface ClaimStatusContext {
   claimResponse: ClaimResponse;
   claim: Claim;
   classification: ClassifiedClaimStatusResponse;
+}
+
+// The caller must check sender eligibility, chronology and duplicates before executing these requests.
+export function claimRejectionRequests(
+  { claim, claimResponse, classification }: ClaimStatusContext,
+  agent: ProvenanceAgent
+): BatchInputRequest<FhirResource>[] {
+  if (
+    classification.kind !== 'rejection-candidate' ||
+    !hasTag(claim, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)
+  )
+    return [];
+  const status = getClaimStatusValues(claim);
+  if (status.arStage !== AR_STAGE.insurancePayer || !['submitted', 'adjudicated'].includes(status.insuranceArStatus))
+    return [];
+  if (status.insurancePaidStatus && status.insurancePaidStatus !== 'unpaid') return [];
+  if (status.adjudicationStatus && status.adjudicationStatus !== 'rejected') return [];
+  if (!claim.id || !claimResponse.id || !makeOptimisticLockIfMatchHeader(claim)) {
+    throw INVALID_INPUT_ERROR('Claim and ClaimResponse IDs and Claim version are required for rejection processing');
+  }
+  const adjudicated: Claim = {
+    ...claim,
+    meta: { ...claim.meta, tag: buildUpdatedClaimStatusTags(claim, 'insuranceArStatus', 'adjudicated') },
+  };
+  const tags = buildUpdatedClaimStatusTags(adjudicated, 'adjudicationStatus', 'rejected');
+  return claimMetaTagsWithProvenanceRequests(claim, tags, 'statusChange', agent, {
+    sourceReference: `ClaimResponse/${claimResponse.id}`,
+    extraChanges: classification.details.map((detail, index) => ({
+      field: `rejection.${index}`,
+      label: 'Error',
+      previousValue: null,
+      newValue: detail,
+    })),
+  });
 }
 
 export function claimStatusTagRequest(response: ClaimResponse): BatchInputPatchRequest<FhirResource> | undefined {
