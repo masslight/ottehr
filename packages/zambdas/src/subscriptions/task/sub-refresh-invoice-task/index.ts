@@ -22,6 +22,7 @@ import { getCandidEncounterIdFromEncounter } from '../../../shared/candid';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
+import { addErrorToTaskOutput, getTaskAndSecretsFromInput, updateTaskStatusAndOutput } from '../../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -34,79 +35,89 @@ interface RefreshedInvoiceData {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedParams = validateRequestParameters(input);
-  const { task, secrets, invoiceTaskInput, taskId } = validatedParams;
-
+  const { task, taskId, secrets } = getTaskAndSecretsFromInput(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const source = getInvoiceTaskSource(task);
-  console.log(`Refreshing ${source} invoice task ${taskId}`);
+  try {
+    const validatedParams = validateRequestParameters(task);
+    const { invoiceTaskInput } = validatedParams;
 
-  let refreshed: RefreshedInvoiceData | undefined;
-  if (source === 'ottehr-billing') {
-    refreshed = await getBillingRefreshData(oystehr, task);
-  } else {
-    const candid = await getOrCreateCandidApiClient(oystehr, secrets);
-    refreshed = await getCandidRefreshData({
-      oystehr,
-      candid,
-      taskId,
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+    const source = getInvoiceTaskSource(task);
+    console.log(`Refreshing ${source} invoice task ${task.id}`);
+
+    let refreshed: RefreshedInvoiceData | undefined;
+    if (source === 'ottehr-billing') {
+      refreshed = await getBillingRefreshData(oystehr, task);
+    } else {
+      const candid = await getOrCreateCandidApiClient(oystehr, secrets);
+      refreshed = await getCandidRefreshData({
+        oystehr,
+        candid,
+        taskId,
+      });
+    }
+
+    if (refreshed) {
+      if (refreshed.finalizationDateIso) {
+        invoiceTaskInput.finalizationDate = refreshed.finalizationDateIso;
+        console.log('Updating finalization date: ', invoiceTaskInput.finalizationDate);
+      }
+
+      if (!invoiceTaskInput.claimId && refreshed.claimId) {
+        invoiceTaskInput.claimId = refreshed.claimId;
+        console.log('Updating claim id: ', invoiceTaskInput.claimId);
+      }
+
+      if (refreshed.amountCents !== undefined) {
+        invoiceTaskInput.amountCents = refreshed.amountCents;
+        console.log('Updating amount cents: ', invoiceTaskInput.amountCents);
+      }
+      console.log('Updating task input...', JSON.stringify(createInvoiceTaskInput(invoiceTaskInput), null, 2));
+
+      // The `task` we were handed is the subscription payload — a snapshot taken when the event was
+      // queued. It can be stale by the time we get here (duplicate deliveries, redelivery after a
+      // timeout, a concurrent update-invoice-task write), and an op that assumes a path exists
+      // (`replace`, `remove`) is rejected outright if that guess is wrong. Re-read the resource so the
+      // patch is built against what is actually stored.
+      const currentTask = (await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId })) as Task & { id: string };
+
+      // Re-reading narrows the window in which a concurrent write can invalidate a path we expect to
+      // exist, but it cannot close it. Patching under the version we read turns that lost race into a
+      // 412 rather than a patch built on a guess that no longer holds, and since every operation is a
+      // pure function of the stored Task, the retry recomputes them against what the winning write left.
+      await patchWithOptimisticLock(oystehr, currentTask, (freshTask) =>
+        buildUpdateOperations(freshTask, invoiceTaskInput)
+      );
+
+      console.log(`Updated task input for task id: "${taskId}"`);
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ message: 'Task was successfully updated.' }),
+      };
+    }
+
+    const missingRecordLabel = source === 'ottehr-billing' ? 'patient AR claim' : 'Candid inventory record';
+    const notUpdatedMessage = `Task was not updated because no ${missingRecordLabel} was found for the task.`;
+    console.warn(notUpdatedMessage);
+    await oystehr.fhir.patch({
+      resourceType: 'Task',
+      id: taskId,
+      operations: [{ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('error') }],
     });
-  }
-
-  if (refreshed) {
-    if (refreshed.finalizationDateIso) {
-      invoiceTaskInput.finalizationDate = refreshed.finalizationDateIso;
-      console.log('Updating finalization date: ', invoiceTaskInput.finalizationDate);
-    }
-
-    if (!invoiceTaskInput.claimId && refreshed.claimId) {
-      invoiceTaskInput.claimId = refreshed.claimId;
-      console.log('Updating claim id: ', invoiceTaskInput.claimId);
-    }
-
-    if (refreshed.amountCents !== undefined) {
-      invoiceTaskInput.amountCents = refreshed.amountCents;
-      console.log('Updating amount cents: ', invoiceTaskInput.amountCents);
-    }
-    console.log('Updating task input...', JSON.stringify(createInvoiceTaskInput(invoiceTaskInput), null, 2));
-
-    // The `task` we were handed is the subscription payload — a snapshot taken when the event was
-    // queued. It can be stale by the time we get here (duplicate deliveries, redelivery after a
-    // timeout, a concurrent update-invoice-task write), and an op that assumes a path exists
-    // (`replace`, `remove`) is rejected outright if that guess is wrong. Re-read the resource so the
-    // patch is built against what is actually stored.
-    const currentTask = (await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId })) as Task & { id: string };
-
-    // Re-reading narrows the window in which a concurrent write can invalidate a path we expect to
-    // exist, but it cannot close it. Patching under the version we read turns that lost race into a
-    // 412 rather than a patch built on a guess that no longer holds, and since every operation is a
-    // pure function of the stored Task, the retry recomputes them against what the winning write left.
-    await patchWithOptimisticLock(oystehr, currentTask, (freshTask) =>
-      buildUpdateOperations(freshTask, invoiceTaskInput)
-    );
-
-    console.log(`Updated task input for task id: "${taskId}"`);
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Task was successfully updated.' }),
+      body: JSON.stringify({ message: notUpdatedMessage }),
     };
+  } catch (error) {
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+    console.log('updating task status to failed and output');
+    const taskCopy = addErrorToTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
+    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);
+    throw error;
   }
-
-  const missingRecordLabel = source === 'ottehr-billing' ? 'patient AR claim' : 'Candid inventory record';
-  const notUpdatedMessage = `Task was not updated because no ${missingRecordLabel} was found for the task.`;
-  console.warn(notUpdatedMessage);
-  await oystehr.fhir.patch({
-    resourceType: 'Task',
-    id: taskId,
-    operations: [{ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('error') }],
-  });
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ message: notUpdatedMessage }),
-  };
 });
 
 /**

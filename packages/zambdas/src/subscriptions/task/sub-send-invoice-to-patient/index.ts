@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Operation } from 'fast-json-patch';
 import { Account, Appointment, Encounter, Location, Patient, Schedule, Task, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
@@ -29,7 +28,8 @@ import { wrapHandler } from '../../../shared/sentry';
 import { ensureStripeCustomerId, getStripeClient, stripeEncounterMetadata } from '../../../shared/stripeIntegration';
 import { resolveTemplatePlaceholders } from '../../../shared/template-placeholders';
 import { ZambdaInput } from '../../../shared/types/common';
-import { getTaskAndSecretsFromInput, validateRequestParameters } from './validateRequestParameters';
+import { addErrorToTaskOutput, getTaskAndSecretsFromInput, updateTaskStatusAndOutput } from '../../helpers';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
@@ -355,33 +355,6 @@ async function getFhirResources(
   };
 }
 
-async function updateTaskStatusAndOutput(
-  oystehr: Oystehr,
-  task: Task,
-  status: Task['status'],
-  newOutput?: TaskOutput[]
-): Promise<void> {
-  const patchOperations: Operation[] = [
-    {
-      op: 'replace',
-      path: '/status',
-      value: status,
-    },
-  ];
-  if (newOutput) {
-    patchOperations.push({
-      op: task.output ? 'replace' : 'add',
-      path: '/output',
-      value: newOutput,
-    });
-  }
-  await oystehr.fhir.patch({
-    resourceType: 'Task',
-    id: task.id!,
-    operations: patchOperations,
-  });
-}
-
 function addInvoiceIdToTaskOutput(task: Task, invoiceId: string): Task {
   const taskCopy = { ...task };
   if (!taskCopy.output) taskCopy.output = [];
@@ -398,18 +371,6 @@ function addInvoiceIdToTaskOutput(task: Task, invoiceId: string): Task {
     taskCopy.output?.push(newInvoiceId);
     return taskCopy;
   }
-}
-
-function addErrorToTaskOutput(task: Task, error: string): Task {
-  const taskCopy = { ...task };
-  if (!taskCopy.output) taskCopy.output = [];
-  const taskError = RcmTaskCodings.sendInvoiceOutputError;
-
-  taskCopy.output?.push({
-    type: taskError,
-    valueString: error,
-  });
-  return taskCopy;
 }
 
 function isInvalidEmailError(error: unknown): boolean {
