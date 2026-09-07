@@ -26,16 +26,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       { name: '_tag', value: PATIENT_NOTE_TAG },
       { name: 'status', value: 'completed' },
       { name: '_sort', value: '-_lastUpdated' },
-      { name: '_count', value: String(pageSize + 1) },
+      { name: '_count', value: String(pageSize) },
       { name: '_offset', value: String(offset) },
     ],
   });
 
   const resources = bundle.unbundle();
-  const hasMore = resources.length > pageSize;
-  const pagedResources = resources.slice(0, pageSize);
+  const hasMore = bundle.link?.some((link) => link.relation === 'next') ?? false;
 
-  const notes: PatientNoteDTO[] = pagedResources.map((resource) => ({
+  const notes: PatientNoteDTO[] = resources.map((resource) => ({
     resourceId: resource.id,
     patientId: resource.subject?.reference?.split('/')[1] ?? '',
     text: resource.payload?.[0]?.contentString ?? '',
