@@ -283,8 +283,14 @@ describe('delete-patient-note validateRequestParameters', () => {
     expect(result.userToken).toBe('my-token');
   });
 
-  it('throws when Authorization header is missing', () => {
-    expect(() => validateDelete(makeInput({ resourceId: VALID_NOTE_ID }))).toThrow(/Authorization/i);
+  it('throws MISSING_AUTH_TOKEN (4203) when Authorization header is missing', () => {
+    let thrown: unknown;
+    try {
+      validateDelete(makeInput({ resourceId: VALID_NOTE_ID }));
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toMatchObject({ code: 4203 });
   });
 
   it('throws when body is missing', () => {
@@ -564,6 +570,17 @@ describe('update-patient-note handler', () => {
     await expect(
       updateHandler(makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID } }, 'user-token'))
     ).rejects.toMatchObject({ code: 4103, message: expect.stringMatching(/does not belong/i) });
+
+    expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
+  });
+
+  it('throws FHIR_RESOURCE_VALIDATION_ERROR (4103) when the note is soft-deleted (entered-in-error)', async () => {
+    const deleted = fakeNote({ status: 'entered-in-error' });
+    mockFhirClient.fhir.get.mockResolvedValue(deleted);
+
+    await expect(
+      updateHandler(makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID } }, 'user-token'))
+    ).rejects.toMatchObject({ code: 4103, message: expect.stringMatching(/deleted/i) });
 
     expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
   });
