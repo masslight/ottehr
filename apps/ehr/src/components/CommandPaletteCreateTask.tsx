@@ -25,8 +25,8 @@ export const CommandPaletteCreateTask: FC = () => {
   const { patient } = useGetPatient(open ? patientId : undefined);
 
   const initialPatient = useMemo(
-    () => (patient?.id ? { id: patient.id, name: getPatientLabel(patient) } : undefined),
-    [patient]
+    () => (patient?.id && patient.id === patientId ? { id: patient.id, name: getPatientLabel(patient) } : undefined),
+    [patient, patientId]
   );
 
   if (!open) {
