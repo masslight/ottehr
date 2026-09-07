@@ -79,8 +79,9 @@ export async function performEffect(
     });
   }
 
-  const { payments, total } = params.checkNumber
-    ? await findErasByCheckNumber(eraReadClient, filterParams, params.checkNumber, offset, pageSize)
+  const normalizedCheckNumber = params.checkNumber?.trim();
+  const { payments, total } = normalizedCheckNumber
+    ? await findErasByCheckNumber(eraReadClient, filterParams, normalizedCheckNumber, offset, pageSize)
     : await fetchErasPage(eraReadClient, filterParams, offset, pageSize);
 
   const claimResponsesByPrId = await fetchClaimResponsesByPaymentReconciliations(eraReadClient, payments);
