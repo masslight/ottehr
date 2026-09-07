@@ -490,17 +490,17 @@ describe('generate-oystehr-resources', () => {
         featureFlags.nonInsuranceOrganizationsEnabled = false;
       });
 
-      it('accepts BILLING_INTEGRATION=ottehr when the NIO flag is on', async () => {
-        setupMocks({ BILLING_INTEGRATION: 'ottehr' });
+      it.each(['ottehr', 'all'])('accepts BILLING_INTEGRATION=%s when the NIO flag is on', async (value) => {
+        setupMocks({ BILLING_INTEGRATION: value });
 
         await expect(generateOystehrResources(createTestArgs())).resolves.toBeUndefined();
       });
 
-      it.each(['candid', 'all'])('rejects BILLING_INTEGRATION=%s when the NIO flag is on', async (value) => {
-        setupMocks({ BILLING_INTEGRATION: value });
+      it('rejects candid-only BILLING_INTEGRATION when the NIO flag is on', async () => {
+        setupMocks({ BILLING_INTEGRATION: 'candid' });
 
         await expect(generateOystehrResources(createTestArgs())).rejects.toThrow(
-          'Candid claims are not supported with non-insurance organizations'
+          'Non-insurance organizations need Ottehr billing as the system of record'
         );
       });
 

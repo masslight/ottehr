@@ -40,9 +40,13 @@ describe('shouldUseCandid NIO guard', () => {
       expect(shouldUseCandid(secretsWith('ottehr'))).toBe(false);
     });
 
-    it.each(['candid', 'all'])('throws for BILLING_INTEGRATION=%s', (value) => {
-      expect(() => shouldUseCandid(secretsWith(value))).toThrow(
-        'Candid claims are not supported with non-insurance organizations'
+    it('returns true for BILLING_INTEGRATION=all — Candid runs alongside Ottehr billing for claim comparison', () => {
+      expect(shouldUseCandid(secretsWith('all'))).toBe(true);
+    });
+
+    it('throws for candid-only BILLING_INTEGRATION', () => {
+      expect(() => shouldUseCandid(secretsWith('candid'))).toThrow(
+        'Non-insurance organizations need Ottehr billing as the system of record'
       );
     });
 

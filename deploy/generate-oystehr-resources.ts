@@ -191,23 +191,25 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
 
 /**
  * With nonInsuranceOrganizationsEnabled on, employer billing lives in the billing app and Candid
- * can't see it, so claims must route through Ottehr billing exclusively. Failing generation is the
- * loud, early stop for that misconfiguration; shouldUseCandid in packages/zambdas backstops
- * secrets edited outside IaC. Unset BILLING_INTEGRATION counts as Candid — that's its runtime
- * default while secrets migrate.
+ * can't see it, so Ottehr billing must be in the claims path: 'ottehr' alone, or 'all' to also
+ * send comparison claims to Candid (those go out without the NIO employer). Candid-only routing —
+ * 'candid', or unset, whose runtime default is Candid while secrets migrate — would silently drop
+ * employer billing, so generation fails loudly; shouldUseCandid in packages/zambdas backstops
+ * secrets edited outside IaC.
  */
 function assertBillingIntegrationSupportsNios(vars: { [key: string]: unknown }, env: string): void {
   if (!FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled) {
     return;
   }
   const billingIntegration = vars.BILLING_INTEGRATION;
-  if (billingIntegration !== 'ottehr') {
+  if (billingIntegration !== 'ottehr' && billingIntegration !== 'all') {
     throw new Error(
       `BILLING_INTEGRATION is '${
         billingIntegration || '(unset)'
-      }' for env '${env}', which routes claims through Candid, but the nonInsuranceOrganizationsEnabled ` +
-        `feature flag is on. Candid claims are not supported with non-insurance organizations: set ` +
-        `BILLING_INTEGRATION to 'ottehr' in config/.env/${env}.json, or turn off nonInsuranceOrganizationsEnabled.`
+      }' for env '${env}', which routes claims through Candid only, but the nonInsuranceOrganizationsEnabled ` +
+        `feature flag is on. Non-insurance organizations need Ottehr billing as the system of record: set ` +
+        `BILLING_INTEGRATION to 'ottehr' (or 'all' to also send comparison claims to Candid) in ` +
+        `config/.env/${env}.json, or turn off nonInsuranceOrganizationsEnabled.`
     );
   }
 }

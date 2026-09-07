@@ -21,10 +21,11 @@ const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   // and land at undefined (falsy → FHIR categories suppressed) — customers
   // opt in explicitly by setting `dynamicServiceCategoriesEnabled: true`.
   dynamicServiceCategoriesEnabled: true,
-  // OFF until an environment migrates claims to Ottehr billing: the core e2e envs still run
-  // BILLING_INTEGRATION 'all', and flag-on requires 'ottehr' exclusively (terraform generation
-  // and shouldUseCandid both reject the combination). Flip to true alongside setting
-  // BILLING_INTEGRATION='ottehr' in every env this build deploys to. Off, everything runs the
+  // OFF until an environment puts Ottehr billing in its claims path. Flag-on requires
+  // BILLING_INTEGRATION 'ottehr' or 'all' — with 'all', Candid runs alongside for claim
+  // comparison, but employers come only from the billing app (Candid claims go out without a
+  // non-insurance payer). Candid-only routing ('candid', or unset, whose runtime default is
+  // Candid) is rejected by terraform generation and by shouldUseCandid. Off, everything runs the
   // legacy Employers mode with Candid sync; unit/component tests pin the flag themselves, so
   // both paths stay covered either way.
   nonInsuranceOrganizationsEnabled: false,
