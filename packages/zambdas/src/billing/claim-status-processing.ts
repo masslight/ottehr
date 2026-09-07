@@ -1,12 +1,14 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk';
+import { createHash } from 'crypto';
 import { Claim, ClaimResponse, FhirResource, ProvenanceAgent } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
 import { AR_STAGE, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { ClassifiedClaimStatusResponse, classifyClaimStatusResponse } from './claim-status-response';
-import { claimMetaTagsWithProvenanceRequests } from './provenance';
+import { claimMetaTagsWithProvenanceRequests, claimProvenanceRequest, recordedNow } from './provenance';
 import { buildUpdatedClaimStatusTags, fetchById, findById, hasTag } from './shared';
 
 export interface ClaimStatusContext {
@@ -15,22 +17,42 @@ export interface ClaimStatusContext {
   classification: ClassifiedClaimStatusResponse;
 }
 
-// The caller must check sender eligibility, chronology and duplicates before executing these requests.
+// Sender and chronology checks decide whether AR can change; rejection history is recorded either way.
 export function claimRejectionRequests(
   { claim, claimResponse, classification }: ClaimStatusContext,
-  agent: ProvenanceAgent
+  agent: ProvenanceAgent,
+  allowStatusChange: boolean,
+  recordedFields: ReadonlySet<string> = new Set()
 ): BatchInputRequest<FhirResource>[] {
   if (
     classification.kind !== 'rejection-candidate' ||
     !hasTag(claim, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)
   )
     return [];
+  if (!claim.id || !claimResponse.id) {
+    throw INVALID_INPUT_ERROR('Claim and ClaimResponse IDs are required for rejection processing');
+  }
   const status = getClaimStatusValues(claim);
-  if (status.arStage !== AR_STAGE.insurancePayer || !['submitted', 'adjudicated'].includes(status.insuranceArStatus))
-    return [];
-  if (status.insurancePaidStatus && status.insurancePaidStatus !== 'unpaid') return [];
-  if (status.adjudicationStatus && status.adjudicationStatus !== 'rejected') return [];
-  if (!claim.id || !claimResponse.id || !makeOptimisticLockIfMatchHeader(claim)) {
+  const canChangeAr =
+    allowStatusChange &&
+    status.arStage === AR_STAGE.insurancePayer &&
+    ['submitted', 'adjudicated'].includes(status.insuranceArStatus) &&
+    (!status.insurancePaidStatus || status.insurancePaidStatus === 'unpaid') &&
+    (!status.adjudicationStatus || status.adjudicationStatus === 'rejected');
+  const extraChanges = claimRejectionHistoryChanges(classification, recordedFields);
+  if (!canChangeAr) {
+    const history = claimProvenanceRequest({
+      targetReference: `ClaimResponse/${claimResponse.id}`,
+      claimReference: `Claim/${claim.id}`,
+      sourceReference: `ClaimResponse/${claimResponse.id}`,
+      agent,
+      activity: 'update',
+      recorded: recordedNow(),
+      extraChanges,
+    });
+    return history ? [history] : [];
+  }
+  if (!makeOptimisticLockIfMatchHeader(claim)) {
     throw INVALID_INPUT_ERROR('Claim and ClaimResponse IDs and Claim version are required for rejection processing');
   }
   const adjudicated: Claim = {
@@ -40,12 +62,43 @@ export function claimRejectionRequests(
   const tags = buildUpdatedClaimStatusTags(adjudicated, 'adjudicationStatus', 'rejected');
   return claimMetaTagsWithProvenanceRequests(claim, tags, 'statusChange', agent, {
     sourceReference: `ClaimResponse/${claimResponse.id}`,
-    extraChanges: classification.details.map((detail, index) => ({
-      field: `rejection.${index}`,
-      label: 'Error',
-      previousValue: null,
-      newValue: detail,
-    })),
+    extraChanges,
+  });
+}
+
+export function claimRejectionHistoryChanges(
+  classification: ClassifiedClaimStatusResponse,
+  recordedFields: ReadonlySet<string> = new Set()
+): ClaimFieldChange[] {
+  if (classification.kind !== 'rejection-candidate') return [];
+  const { raw, eventIdentifier } = classification;
+  const account = eventIdentifier.slice(0, eventIdentifier.indexOf(':'));
+  const seen = new Set(recordedFields);
+  const fallback = classification.messages.some((message) => message.message?.trim())
+    ? 'Claim rejected; no details provided.'
+    : classification.details.join('\n');
+  const messages: typeof classification.messages = classification.messages.length
+    ? classification.messages
+    : classification.details.map((message) => ({ message }));
+  return messages.flatMap((message) => {
+    const text = message.message?.trim() || fallback;
+    // Without message IDs, deduplicate within an event; later events can repeat a rejection after resubmission.
+    const payload = [
+      eventIdentifier,
+      raw.senderid,
+      raw.sender_name,
+      raw.sender_icn,
+      message.mesgid,
+      message.fields,
+      text,
+    ];
+    const identity = message.responseid
+      ? `id:${message.responseid}`
+      : `payload:${createHash('sha256').update(JSON.stringify(payload)).digest('hex')}`;
+    const field = `rejection.${account}:${identity}`;
+    if (seen.has(field)) return [];
+    seen.add(field);
+    return [{ field, label: 'Error', previousValue: null, newValue: text }];
   });
 }
 

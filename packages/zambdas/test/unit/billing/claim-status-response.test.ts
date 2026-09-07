@@ -7,6 +7,7 @@ import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL } from 'utils/lib/types/data/billin
 import { AR_STAGE, claimStatusValuesToTags } from 'utils/lib/types/data/billing/claim-status';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  claimRejectionHistoryChanges,
   claimRejectionRequests,
   claimStatusTagRequest,
   loadClaimStatusContext,
@@ -74,6 +75,55 @@ describe('parseClaimStatusResponse', () => {
     const fixture = response('{}');
     fixture.identifier![0].value = '';
     expect(() => parseClaimStatusResponse(fixture)).toThrow('empty claim status event ID');
+  });
+  it.each(['9001', ':9001', 'account:'])('rejects an event identifier without both parts: %s', (value) => {
+    const fixture = response('{}');
+    fixture.identifier![0].value = value;
+    expect(() => parseClaimStatusResponse(fixture)).toThrow('account:event');
+  });
+});
+
+describe('claimRejectionHistoryChanges', () => {
+  it('deduplicates normalized IDs and already recorded messages within the account', () => {
+    const messages = [2300221673, '2300221673', '9007199254740993'].map((responseid) => ({
+      status: 'R',
+      responseid,
+      message: 'Same text',
+    }));
+    const classified = classifyClaimStatusResponse(response(JSON.stringify({ status: 'R', messages })))!;
+    const changes = claimRejectionHistoryChanges(classified);
+    expect(changes.map((change) => change.field)).toEqual([
+      'rejection.example-account:id:2300221673',
+      'rejection.example-account:id:9007199254740993',
+    ]);
+    expect(claimRejectionHistoryChanges(classified, new Set([changes[0].field]))).toEqual([changes[1]]);
+    const recorded = new Set(changes.map((change) => change.field));
+    expect(claimRejectionHistoryChanges({ ...classified, eventIdentifier: 'example-account:new' }, recorded)).toEqual(
+      []
+    );
+    expect(
+      claimRejectionHistoryChanges({ ...classified, eventIdentifier: 'other-account:new' }, recorded)
+    ).toHaveLength(2);
+  });
+  it('keeps separate events without IDs and deduplicates their retries', () => {
+    const messages = [{ status: 'R', fields: 'subscriber', message: 'Invalid' }];
+    const classified = classifyClaimStatusResponse(response(JSON.stringify({ status: 'R', senderid: 'A', messages })))!;
+    const changes = claimRejectionHistoryChanges(classified);
+    const recorded = new Set(changes.map((change) => change.field));
+    const repeated = {
+      ...classified,
+      eventIdentifier: 'example-account:later',
+      raw: { ...classified.raw, response_time: 'later' },
+    };
+    expect(claimRejectionHistoryChanges(classified, recorded)).toEqual([]);
+    expect(claimRejectionHistoryChanges(repeated, recorded)).toHaveLength(1);
+    expect(
+      claimRejectionHistoryChanges({ ...classified, raw: { ...classified.raw, senderid: 'B' } }, recorded)
+    ).toHaveLength(1);
+    const changed = classifyClaimStatusResponse(
+      response(JSON.stringify({ status: 'R', senderid: 'A', messages: [{ ...messages[0], fields: 'provider' }] }))
+    )!;
+    expect(claimRejectionHistoryChanges(changed, recorded)).toHaveLength(1);
   });
 });
 
@@ -204,11 +254,25 @@ describe('claim status error reporting', () => {
 });
 
 describe('claimRejectionRequests', () => {
-  it.each(['R', 'A', 'W', 'unknown'])('builds AR changes and linked rejection history only for %s', (status) => {
+  it.each([
+    { status: 'R', ar: 'submitted', paid: '', allow: true },
+    { status: 'A', ar: 'submitted', paid: '', allow: true },
+    { status: 'W', ar: 'submitted', paid: '', allow: true },
+    { status: 'unknown', ar: 'submitted', paid: '', allow: true },
+    { status: 'R', ar: 'finalized', paid: '', allow: true },
+    { status: 'R', ar: 'created', paid: '', allow: true },
+    { status: 'R', ar: 'submitted', paid: 'fully-paid', allow: true },
+    { status: 'R', ar: 'submitted', paid: 'partially-paid', allow: true },
+    { status: 'R', ar: 'submitted', paid: '', allow: false },
+  ])('records $status with AR $ar, paid $paid, status changes allowed $allow', ({ status, ar, paid, allow }) => {
     const claimResponse = response(
       JSON.stringify({ status, messages: [{ status: 'R', message: 'Invalid subscriber' }] })
     );
-    const tags = claimStatusValuesToTags({ arStage: AR_STAGE.insurancePayer, insuranceArStatus: 'submitted' });
+    const tags = claimStatusValuesToTags({
+      arStage: AR_STAGE.insurancePayer,
+      insuranceArStatus: ar,
+      insurancePaidStatus: paid,
+    });
     const claim: Claim = {
       resourceType: 'Claim',
       id: claimResponse.request!.reference!.replace('Claim/', ''),
@@ -224,26 +288,28 @@ describe('claimRejectionRequests', () => {
     };
     const requests = claimRejectionRequests(
       { claim, claimResponse, classification: classifyClaimStatusResponse(claimResponse)! },
-      { who: { reference: 'Device/system' } }
+      { who: { reference: 'Device/system' } },
+      allow
     );
     if (status !== 'R') {
       expect(requests).toEqual([]);
       return;
     }
-    expect(requests).toHaveLength(2);
-    expect(requests[0]).toMatchObject({ url: `/${claimResponse.request!.reference}`, ifMatch: 'W/"3"' });
-    const history = requests[1];
+    const changesAr = allow && ar === 'submitted' && !paid;
+    expect(requests).toHaveLength(changesAr ? 2 : 1);
+    if (changesAr) expect(requests[0]).toMatchObject({ url: `/${claimResponse.request!.reference}`, ifMatch: 'W/"3"' });
+    const history = requests[requests.length - 1];
+    expect(history.method).toBe('POST');
     if (!('resource' in history)) throw new Error('Expected a Provenance');
     const provenance = history.resource as Provenance;
-    expect(provenance.target).toEqual([claimResponse.request]);
+    expect(provenance.resourceType).toBe('Provenance');
+    expect(provenance.target).toContainEqual(claimResponse.request);
     expect(provenance.entity).toContainEqual({ role: 'source', what: { reference: 'ClaimResponse/response-1' } });
     const changes = JSON.parse(
       provenance.extension!.find((e) => e.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL)!.valueString!
     );
-    expect(changes.map((change: { newValue: string }) => change.newValue)).toEqual([
-      'Adjudicated',
-      'Rejected',
-      'Invalid subscriber',
-    ]);
+    expect(changes.map((change: { newValue: string }) => change.newValue)).toEqual(
+      changesAr ? ['Adjudicated', 'Rejected', 'Invalid subscriber'] : ['Invalid subscriber']
+    );
   });
 });

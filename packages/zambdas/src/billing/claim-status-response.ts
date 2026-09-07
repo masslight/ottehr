@@ -38,6 +38,9 @@ export function parseClaimStatusResponse(response: ClaimResponse): ParsedClaimSt
   if (!identifier) return undefined;
   if (!identifier.value?.trim())
     throw INVALID_INPUT_ERROR(`ClaimResponse/${response.id} has an empty claim status event ID`);
+  const separator = identifier.value.indexOf(':');
+  if (separator < 1 || separator === identifier.value.length - 1)
+    throw INVALID_INPUT_ERROR(`ClaimResponse/${response.id} must have an account:event claim status event ID`);
   const raw = response.extension?.find((entry) => entry.url === RAW_RESPONSE_EXTENSION_URL)?.valueString;
   if (!raw) throw INVALID_INPUT_ERROR(`ClaimResponse/${response.id} is missing the raw claim status response`);
   try {
