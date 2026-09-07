@@ -18,18 +18,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  // _summary=count returns a Bundle with `total` set but no entries — fast FHIR count query
+  // Avoid _summary=count — Oystehr returns total: 1 even for 0 results when that flag is set.
+  // Instead do a regular search: if entries are returned the status filter was applied correctly
+  // and bundle.total holds the accurate cross-page total; if the array is empty there are no notes.
   const bundle = await oystehr.fhir.search<Communication>({
     resourceType: 'Communication',
     params: [
       { name: 'subject', value: `Patient/${patientId}` },
       { name: '_tag', value: PATIENT_NOTE_TAG },
       { name: 'status', value: 'completed' },
-      { name: '_summary', value: 'count' },
     ],
   });
 
-  const output: GetPatientNotesCountOutput = { count: bundle.total ?? 0 };
+  const entries = bundle.unbundle();
+  const count = entries.length > 0 ? bundle.total ?? entries.length : 0;
+  const output: GetPatientNotesCountOutput = { count };
 
   return {
     body: JSON.stringify(output),

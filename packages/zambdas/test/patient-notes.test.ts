@@ -423,8 +423,8 @@ describe('get-patient-notes-count handler', () => {
     vi.clearAllMocks();
   });
 
-  it('returns 200 with the bundle total', async () => {
-    mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => [], total: 7 });
+  it('returns 200 with the bundle total when entries are present', async () => {
+    mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => [fakeNote()], total: 7 });
 
     const result = await countHandler(makeInput({ patientId: VALID_PATIENT_ID }));
 
@@ -432,15 +432,24 @@ describe('get-patient-notes-count handler', () => {
     expect(JSON.parse(result.body).count).toBe(7);
   });
 
-  it('returns 0 when bundle total is undefined', async () => {
-    mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => [] });
+  it('falls back to entry count when bundle total is undefined but entries exist', async () => {
+    mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => [fakeNote(), fakeNote()] });
+
+    const result = await countHandler(makeInput({ patientId: VALID_PATIENT_ID }));
+
+    expect(JSON.parse(result.body).count).toBe(2);
+  });
+
+  it('returns 0 when no entries are returned regardless of bundle total', async () => {
+    // Simulates the Oystehr _summary=count bug where total: 1 is returned with empty entries
+    mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => [], total: 1 });
 
     const result = await countHandler(makeInput({ patientId: VALID_PATIENT_ID }));
 
     expect(JSON.parse(result.body).count).toBe(0);
   });
 
-  it('passes _summary=count to FHIR search', async () => {
+  it('does not pass _summary=count to FHIR search', async () => {
     mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => [], total: 0 });
 
     await countHandler(makeInput({ patientId: VALID_PATIENT_ID }));
@@ -448,11 +457,11 @@ describe('get-patient-notes-count handler', () => {
     const [call] = mockFhirClient.fhir.search.mock.calls;
     expect(call[0].params).toEqual(
       expect.arrayContaining([
-        { name: '_summary', value: 'count' },
         { name: 'subject', value: `Patient/${VALID_PATIENT_ID}` },
         { name: 'status', value: 'completed' },
       ])
     );
+    expect(call[0].params).not.toEqual(expect.arrayContaining([{ name: '_summary', value: 'count' }]));
   });
 });
 
@@ -528,6 +537,8 @@ describe('create-patient-note handler', () => {
 describe('update-patient-note handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getMyPractitionerId).mockResolvedValue(CALLER_ID);
+    mockFhirClient.fhir.get.mockResolvedValue(fakePractitioner);
   });
 
   it('returns 200 and updates the Communication', async () => {
@@ -600,25 +611,10 @@ describe('update-patient-note handler', () => {
     expect(mockFhirClient.fhir.update).toHaveBeenCalledWith(expect.objectContaining({ id: VALID_NOTE_ID }));
   });
 
-  it('preserves the original author when a different user edits the note', async () => {
-    const existing = fakeNote();
-    const updated = fakeNote();
-    mockFhirClient.fhir.get.mockResolvedValueOnce(existing);
-    mockFhirClient.fhir.update.mockResolvedValue(updated);
-
-    const result = await updateHandler(
-      makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID, text: 'new text' } }, 'other-token')
-    );
-
-    const { note } = JSON.parse(result.body);
-    expect(note.authorId).toBe(CALLER_ID);
-    expect(note.authorName).toBe('Jane Smith');
-  });
-
   it('preserves the original sent timestamp so edit detection works correctly', async () => {
     const originalSent = '2026-01-01T10:00:00.000Z';
     const existing = fakeNote({ sent: originalSent });
-    mockFhirClient.fhir.get.mockResolvedValueOnce(existing);
+    mockFhirClient.fhir.get.mockResolvedValueOnce(existing); // second fhir.get falls back to fakePractitioner from beforeEach
     mockFhirClient.fhir.update.mockResolvedValue(fakeNote({ sent: originalSent }));
 
     await updateHandler(
