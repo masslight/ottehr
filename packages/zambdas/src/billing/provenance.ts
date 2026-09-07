@@ -614,6 +614,17 @@ export async function commitClaimMetaTagsWithProvenance(
   activity: Extract<ClaimProvenanceActivityKey, 'statusChange' | 'tagChange'>,
   agent: ProvenanceAgent | ProvenanceAgent[]
 ): Promise<void> {
+  const requests = claimMetaTagsWithProvenanceRequests(claim, updatedTags, activity, agent);
+  await oystehr.fhir.transaction<FhirResource>({ requests });
+}
+
+// Build the same patch and history requests for callers composing a larger transaction.
+export function claimMetaTagsWithProvenanceRequests(
+  claim: Claim,
+  updatedTags: Coding[],
+  activity: Extract<ClaimProvenanceActivityKey, 'statusChange' | 'tagChange'>,
+  agent: ProvenanceAgent | ProvenanceAgent[]
+): BatchInputRequest<FhirResource>[] {
   const claimReference = `Claim/${claim.id}`;
   const afterClaim: Claim = { ...claim, meta: { ...claim.meta, tag: updatedTags } };
   const recorded = recordedNow();
@@ -648,8 +659,7 @@ export async function commitClaimMetaTagsWithProvenance(
     patchOperations,
     ifMatch: makeOptimisticLockIfMatchHeader(claim),
   });
-  const requests: BatchInputRequest<FhirResource>[] = [patch, ...(provenance ? [provenance] : [])];
-  await oystehr.fhir.transaction<FhirResource>({ requests });
+  return [patch, ...(provenance ? [provenance] : [])];
 }
 
 /**
