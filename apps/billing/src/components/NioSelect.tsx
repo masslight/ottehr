@@ -10,7 +10,7 @@ import { useDebounce } from '../hooks/useDebounce';
 // list's NIO filter use. Selecting only real organizations (no free text) is the point.
 
 // The slice of a directory organization the picker needs.
-interface NioOption {
+export interface NioOption {
   id: string;
   name: string;
 }
@@ -20,6 +20,12 @@ interface NioSelectProps {
   value: string | string[] | null | undefined;
   onChange: (value: string | string[]) => void;
   label?: string;
+  // Options the caller already knows (e.g. the claim's current payer), so a stored id shows its
+  // display name before any search has run.
+  initialOptions?: NioOption[];
+  // Offer only active organizations — claim editing picks a payer to bill, while the rule builder
+  // and the claims-list filter search the whole directory.
+  activeOnly?: boolean;
   required?: boolean;
   // Validation display + react-hook-form focus ref, for use inside Controller-registered forms.
   error?: boolean;
@@ -32,7 +38,10 @@ const optionLabel = (o: NioOption): string => o.name || o.id;
 // Debounced server-side search plus a memory of organizations we've seen, so a selected
 // organization keeps its label even after the option list changes (or on edit, once it shows up in
 // a search).
-function useNioSearch(): {
+function useNioSearch(
+  initialOptions?: NioOption[],
+  activeOnly?: boolean
+): {
   options: NioOption[];
   known: Record<string, NioOption>;
   search: (query?: string) => void;
@@ -40,13 +49,17 @@ function useNioSearch(): {
   const { oystehrZambda } = useApiClients();
   const { debounce } = useDebounce(300);
   const [options, setOptions] = useState<NioOption[]>([]);
-  const [known, setKnown] = useState<Record<string, NioOption>>({});
+  const [known, setKnown] = useState<Record<string, NioOption>>(() =>
+    Object.fromEntries((initialOptions ?? []).filter((o) => o.id).map((o) => [o.id, o]))
+  );
 
   const runSearch = async (query?: string): Promise<void> => {
     if (!oystehrZambda) return;
     try {
       const res = await searchBillingNonInsuranceOrgs(oystehrZambda, query ? { name: query } : {});
-      const orgs = (res.organizations ?? []).map(({ id, name }) => ({ id, name }));
+      const orgs = (res.organizations ?? [])
+        .filter((org) => !activeOnly || org.active)
+        .map(({ id, name }) => ({ id, name }));
       setOptions(orgs);
       setKnown((prev) => {
         const next = { ...prev };
@@ -70,12 +83,14 @@ export function NioSelect({
   value,
   onChange,
   label = 'Non-insurance organization',
+  initialOptions,
+  activeOnly,
   required,
   error,
   helperText,
   inputRef,
 }: NioSelectProps): ReactElement {
-  const { options, known, search } = useNioSearch();
+  const { options, known, search } = useNioSearch(initialOptions, activeOnly);
 
   // Props shared by the single- and multi-select variants. Callbacks are typed with their own
   // (narrower) signatures so the object is assignable to both Autocomplete generic instantiations.
