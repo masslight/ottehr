@@ -400,13 +400,7 @@
         "linkId": "mobile-opt-in",
         "type": "boolean",
         "text": "Yes! I would like to receive helpful text messages from Ottehr regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.",
-        "required": false,
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/hide-control-label",
-            "valueBoolean": true
-          }
-        ]
+        "required": false
       },
       {
         "linkId": "patient-will-be-18",
@@ -973,10 +967,6 @@
             "valueString": "hidden"
           },
           {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/hide-control-label",
-            "valueBoolean": true
-          },
-          {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
             "valueString": "Link"
           },
@@ -1166,6 +1156,26 @@
         "linkId": "travel-usa",
         "type": "choice",
         "text": "Have you traveled out of the USA in the last 2 weeks?",
+        "required": false,
+        "answerOption": [
+          {
+            "valueString": "Yes"
+          },
+          {
+            "valueString": "No"
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+            "valueString": "Radio List"
+          }
+        ]
+      },
+      {
+        "linkId": "seen-in-last-3-years",
+        "type": "choice",
+        "text": "Have you been seen by us in the last 3 years?",
         "required": false,
         "answerOption": [
           {
@@ -1769,10 +1779,6 @@
             "valueString": "hidden"
           },
           {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/hide-control-label",
-            "valueBoolean": true
-          },
-          {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
             "extension": [
               {
@@ -2357,10 +2363,6 @@
             "valueString": "hidden"
           },
           {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/hide-control-label",
-            "valueBoolean": true
-          },
-          {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
             "valueString": "Button"
           },
@@ -2548,13 +2550,7 @@
             "linkId": "policy-holder-address-as-patient-2",
             "type": "boolean",
             "text": "Policy holder address is the same as patient's address",
-            "required": false,
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/hide-control-label",
-                "valueBoolean": true
-              }
-            ]
+            "required": false
           },
           {
             "linkId": "policy-holder-address-2",
@@ -3058,17 +3054,6 @@
         ]
       },
       {
-        "linkId": "card-payment-details-text",
-        "type": "display",
-        "text": "If you choose not to enter your credit card information in advance, payment (cash or credit) will be required upon arrival.",
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
-            "valueString": "p"
-          }
-        ]
-      },
-      {
         "linkId": "patient-has-medicaid",
         "type": "boolean",
         "text": "I have Medicaid insurance coverage, credit card information not required",
@@ -3265,10 +3250,6 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
             "valueString": "hidden"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/hide-control-label",
-            "valueBoolean": true
           }
         ]
       },
@@ -4074,13 +4055,7 @@
         "linkId": "emergency-contact-address-as-patient",
         "type": "boolean",
         "text": "Same as patient's address",
-        "required": false,
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/hide-control-label",
-            "valueBoolean": true
-          }
-        ]
+        "required": false
       },
       {
         "linkId": "emergency-contact-address",
