@@ -595,7 +595,7 @@
         "resourceType": "Subscription",
         "status": "active",
         "reason": "Process claim-status responses for billing",
-        "criteria": "ClaimResponse",
+        "criteria": "ClaimResponse?identifier=https://identifiers.fhir.oystehr.com/rcm-claim-response-event-id|",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-CLAIM-STATUS-RESPONSE/id}"

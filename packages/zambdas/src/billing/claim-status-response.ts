@@ -76,6 +76,6 @@ export function classifyClaimStatusResponse(response: ClaimResponse): Classified
     ...parsed,
     kind: 'rejection-candidate',
     messages,
-    details: details.length ? details : ['Claim rejected; no details provided.'], // probaly shouldn't happen
+    details: details.length ? details : ['Claim rejected; no details provided.'], // probably shouldn't happen
   };
 }
