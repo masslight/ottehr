@@ -4,7 +4,12 @@ import { Claim, ClaimResponse, FhirResource, Provenance, ProvenanceAgent } from 
 import { DateTime } from 'luxon';
 import { BILLING_RESOURCE_TAG, CLAIM_STATUS_RESPONSE_EVENT_SYSTEM } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { getCoding, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import {
+  getCoding,
+  isVersionConflictError,
+  makeOptimisticLockIfMatchHeader,
+  withVersionConflictRetries,
+} from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { CLAIM_STATUS_PROCESSED_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
@@ -13,7 +18,7 @@ import {
   ClaimFieldChange,
 } from 'utils/lib/types/data/billing/claim-history';
 import { AR_STAGE, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
-import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR, PRECONDITION_FAILED } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { ClassifiedClaimStatusResponse, classifyClaimStatusResponse } from './claim-status-response';
 import { claimMetaTagsWithProvenanceRequests, claimProvenanceRequest, recordedNow } from './provenance';
@@ -25,6 +30,41 @@ export interface ClaimStatusContext {
   classification: ClassifiedClaimStatusResponse;
   history: Provenance[];
   recordedFields: ReadonlySet<string>;
+}
+
+export async function processClaimStatusResponse(
+  projectClient: Oystehr,
+  billingClient: Oystehr,
+  claimResponseId: string,
+  agent: ProvenanceAgent,
+  allowStatusChange: boolean
+): Promise<void> {
+  await withVersionConflictRetries(async () => {
+    const context = await loadClaimStatusContext(projectClient, claimResponseId);
+    if (!context) return;
+    const completion = claimStatusCompletionRequest(context.claimResponse);
+    if (!completion) return;
+    const requests = claimRejectionRequests(context, agent, allowStatusChange);
+    const { claim } = context;
+    // History-only writes also lock the Claim, preventing duplicate messages across concurrent responses.
+    if (requests.length > 0 && !requests.some((request) => request.url === `/Claim/${claim.id}`)) {
+      if (!makeOptimisticLockIfMatchHeader(claim)) {
+        throw INVALID_INPUT_ERROR(`Claim/${claim.id} needs a version for rejection history processing`);
+      }
+      requests.unshift(...claimMetaTagsWithProvenanceRequests(claim, claim.meta?.tag ?? [], 'statusChange', agent));
+    }
+    await billingClient.fhir.transaction({ requests: [...requests, completion] });
+  }).catch((cause) => {
+    if (isVersionConflictError(cause)) {
+      throw {
+        ...PRECONDITION_FAILED(
+          `ClaimResponse/${claimResponseId} processing conflicted with another update; retry processing`
+        ),
+        cause,
+      };
+    }
+    throw cause;
+  });
 }
 
 // Sender and chronology checks decide whether AR can change; rejection history is recorded either way.
