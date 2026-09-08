@@ -21,6 +21,10 @@ const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   // and land at undefined (falsy → FHIR categories suppressed) — customers
   // opt in explicitly by setting `dynamicServiceCategoriesEnabled: true`.
   dynamicServiceCategoriesEnabled: true,
+  // ON in core so dev/e2e exercise the billing app's non-insurance organizations.
+  // Customer forks omit this field (undefined → falsy → legacy Employers mode with
+  // Candid sync) and opt in at their migration time.
+  nonInsuranceOrganizationsEnabled: true,
 };
 
 export const FEATURE_FLAGS_CONFIG = Object.freeze(FeatureFlagsConfigSchema.parse(FEATURE_FLAGS_DATA));

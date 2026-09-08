@@ -2,6 +2,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import {
   Apartment as ApartmentIcon,
   Business as BusinessIcon,
+  BusinessCenterOutlined as BusinessCenterIcon,
   Description as DescriptionIcon,
   Label as LabelIcon,
   List as ListIcon,
@@ -27,6 +28,11 @@ const navItems = [
   { label: 'Billing Providers', path: '/billing-providers', icon: <BusinessIcon sx={{ fontSize: 18 }} /> },
   { label: 'Rendering Providers', path: '/rendering-providers', icon: <MedicalServicesIcon sx={{ fontSize: 18 }} /> },
   { label: 'Service Facilities', path: '/service-facilities', icon: <ApartmentIcon sx={{ fontSize: 18 }} /> },
+  {
+    label: 'Non-Insurance Orgs',
+    path: '/non-insurance-organizations',
+    icon: <BusinessCenterIcon sx={{ fontSize: 18 }} />,
+  },
   {
     label: ChargeItemDefinitionLabels['charge-master'].listTitle,
     path: `/${ChargeItemDefinitionLabels['charge-master'].pathComponent}`,
