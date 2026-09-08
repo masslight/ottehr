@@ -353,18 +353,17 @@ describe('claim status error reporting', () => {
 
 describe('claimRejectionRequests', () => {
   it.each([
-    { status: 'R', ar: 'submitted', paid: '', allow: true },
-    { status: 'A', ar: 'submitted', paid: '', allow: true },
-    { status: 'W', ar: 'submitted', paid: '', allow: true },
-    { status: 'unknown', ar: 'submitted', paid: '', allow: true },
-    { status: 'R', ar: 'finalized', paid: '', allow: true },
-    { status: 'R', ar: 'created', paid: '', allow: true },
-    { status: 'R', ar: 'submitted', paid: 'fully-paid', allow: true },
-    { status: 'R', ar: 'submitted', paid: 'partially-paid', allow: true },
-    { status: 'R', ar: 'submitted', paid: '', allow: false },
-    { status: 'R', ar: 'submitted', paid: '', allow: true, newerStatus: true },
-  ])('records $status with AR $ar, paid $paid, status changes allowed $allow', (scenario) => {
-    const { status, ar, paid, allow, newerStatus } = scenario;
+    { status: 'R', ar: 'submitted', paid: '' },
+    { status: 'A', ar: 'submitted', paid: '' },
+    { status: 'W', ar: 'submitted', paid: '' },
+    { status: 'unknown', ar: 'submitted', paid: '' },
+    { status: 'R', ar: 'finalized', paid: '' },
+    { status: 'R', ar: 'created', paid: '' },
+    { status: 'R', ar: 'submitted', paid: 'fully-paid' },
+    { status: 'R', ar: 'submitted', paid: 'partially-paid' },
+    { status: 'R', ar: 'submitted', paid: '', newerStatus: true },
+  ])('records $status with AR $ar, paid $paid, newer status $newerStatus', (scenario) => {
+    const { status, ar, paid, newerStatus } = scenario;
     const claimResponse = response(
       JSON.stringify({
         status,
@@ -406,14 +405,13 @@ describe('claimRejectionRequests', () => {
         ],
         recordedFields: new Set(),
       },
-      { who: { reference: 'Device/system' } },
-      allow
+      { who: { reference: 'Device/system' } }
     );
     if (status !== 'R') {
       expect(requests).toEqual([]);
       return;
     }
-    const changesAr = allow && !newerStatus && ar === 'submitted' && !paid;
+    const changesAr = !newerStatus && ar === 'submitted' && !paid;
     expect(requests).toHaveLength(changesAr ? 2 : 1);
     if (changesAr) expect(requests[0]).toMatchObject({ url: `/${claimResponse.request!.reference}`, ifMatch: 'W/"3"' });
     const history = requests[requests.length - 1];
