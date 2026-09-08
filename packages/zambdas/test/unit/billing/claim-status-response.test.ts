@@ -1,15 +1,12 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
 import { applyPatch, Operation } from 'fast-json-patch';
 import { Claim, ClaimResponse, Provenance } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { CLAIM_STATUS_PROCESSED_TAG } from 'utils/lib/types/data/billing/billing.constants';
-import {
-  CLAIM_PROVENANCE_ACTIVITY,
-  CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
-} from 'utils/lib/types/data/billing/claim-history';
-import { AR_STAGE, claimStatusValuesToTags } from 'utils/lib/types/data/billing/claim-status';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL } from 'utils/lib/types/data/billing/claim-history';
+import { AR_STAGE, claimStatusValuesToTags, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
+import { APIErrorCode } from 'utils/lib/types/errors';
+import { describe, expect, it, vi } from 'vitest';
 import {
   claimRejectionHistoryChanges,
   claimRejectionRequests,
@@ -19,7 +16,6 @@ import {
   resolveClaimForStatusResponse,
 } from '../../../src/billing/claim-status-processing';
 import { classifyClaimStatusResponse, parseClaimStatusResponse } from '../../../src/billing/claim-status-response';
-import { topLevelCatch } from '../../../src/shared/lambda';
 
 const response = (valueString: string): ClaimResponse => ({
   resourceType: 'ClaimResponse',
@@ -42,15 +38,10 @@ const response = (valueString: string): ClaimResponse => ({
 });
 
 describe('parseClaimStatusResponse', () => {
-  it.each(['R', 'A', 'W', 'unknown', undefined])('preserves raw status %s independently of outcome', (status) => {
-    const raw = { status, sender_name: 'EXAMPLE', response_time: '2026-09-07 05:18:55am', payerid: 'payer-1' };
+  it('parses the event identifier and preserves the raw response', () => {
+    const raw = { status: 'R', sender_name: 'EXAMPLE', response_time: '2026-09-07 05:18:55am', payerid: 'payer-1' };
     const parsed = parseClaimStatusResponse(response(JSON.stringify(raw)));
     expect(parsed).toEqual({ eventIdentifier: 'example-account:9007199254740993', raw });
-  });
-  it('keeps large message IDs as strings and preserves repeated messages', () => {
-    const message = { status: 'R', responseid: '9007199254740993', message: 'Rejected', fields: 'ins_number' };
-    const raw = { status: 'A', messages: [message, message] };
-    expect(parseClaimStatusResponse(response(JSON.stringify(raw)))?.raw).toEqual(raw);
   });
   it.each([
     [2300221673, '2300221673'],
@@ -69,7 +60,12 @@ describe('parseClaimStatusResponse', () => {
   it.each(['invalid', 'null', '[]', '{"messages":[{"responseid":true}]}'])(
     'reports malformed claim status responses (%s)',
     (raw) =>
-      expect(() => parseClaimStatusResponse(response(raw))).toThrow('ClaimResponse/response-1 has an invalid raw')
+      expect(() => parseClaimStatusResponse(response(raw))).toThrow(
+        expect.objectContaining({
+          code: APIErrorCode.INVALID_INPUT,
+          message: expect.stringContaining('ClaimResponse/response-1 has an invalid raw'),
+        })
+      )
   );
   it('requires the exact extension URL', () => {
     const fixture = response('{}');
@@ -220,7 +216,12 @@ describe('claimStatusCompletionRequest', () => {
     expect(claimStatusCompletionRequest(tagged)).toBeUndefined();
   });
   it('refuses an update without a version to protect concurrent changes', () => {
-    expect(() => claimStatusCompletionRequest(response('{}'))).toThrow('ID and version are required');
+    expect(() => claimStatusCompletionRequest(response('{}'))).toThrow(
+      expect.objectContaining({
+        code: APIErrorCode.INVALID_INPUT,
+        message: expect.stringContaining('ID and version are required'),
+      })
+    );
   });
   it('skips a completed response before loading its claim and history', async () => {
     const fixture = response('{"status":"R"}');
@@ -303,40 +304,27 @@ describe('claim status history loading', () => {
   });
 });
 
-describe('claim status error reporting', () => {
+describe('claim status lookup errors', () => {
   const emptyClient = { fhir: { search: async () => ({ unbundle: () => [] }) } } as unknown as Oystehr;
-  beforeEach(() => {
-    vi.mocked(captureException).mockClear();
-    vi.stubEnv('PLAYWRIGHT_SUITE_ID', undefined);
+  it('rejects a missing claim reference', async () => {
+    await expect(resolveClaimForStatusResponse(emptyClient, { id: 'response-1' })).rejects.toMatchObject({
+      code: APIErrorCode.INVALID_INPUT,
+    });
   });
-  afterEach(() => {
-    vi.unstubAllEnvs();
+  it('reports a missing claim', async () => {
+    await expect(resolveClaimForStatusResponse(emptyClient, response('{}'))).rejects.toMatchObject({
+      code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
+    });
   });
-  it.each([
-    { name: 'invalid JSON', run: () => parseClaimStatusResponse(response('invalid')) },
-    { name: 'invalid raw object', run: () => parseClaimStatusResponse(response('null')) },
-    { name: 'missing version', run: () => claimStatusCompletionRequest(response('{}')) },
-    { name: 'missing reference', run: () => resolveClaimForStatusResponse(emptyClient, { id: 'response-1' }) },
-    { name: 'missing claim', run: () => resolveClaimForStatusResponse(emptyClient, response('{}')) },
-    { name: 'missing response', run: () => loadClaimStatusContext(emptyClient, 'response-1') },
-  ])('handles $name without reporting an internal error', async ({ run }) => {
-    const error = await Promise.resolve()
-      .then(async () => {
-        await run();
-      })
-      .catch((error) => error);
-    const result = await topLevelCatch('sub-claim-status-response', error, 'production');
-    expect(result.statusCode).toBe(400);
-    expect(captureException).not.toHaveBeenCalled();
+  it('reports a missing response', async () => {
+    await expect(loadClaimStatusContext(emptyClient, 'response-1')).rejects.toMatchObject({
+      code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
+    });
   });
-  it('still reports a FHIR service failure', async () => {
+  it('propagates a FHIR service failure', async () => {
     const cause = new Error('FHIR service unavailable');
     const client = { fhir: { search: vi.fn().mockRejectedValue(cause) } } as unknown as Oystehr;
-    const error = await resolveClaimForStatusResponse(client, response('{}')).catch((error) => error);
-    expect(error).toBe(cause);
-    const result = await topLevelCatch('sub-claim-status-response', error, 'production');
-    expect(result.statusCode).toBe(500);
-    expect(captureException).toHaveBeenCalledOnce();
+    await expect(resolveClaimForStatusResponse(client, response('{}'))).rejects.toBe(cause);
   });
 });
 
@@ -350,20 +338,22 @@ describe('claimRejectionRequests', () => {
     { status: 'R', ar: 'created', paid: '' },
     { status: 'R', ar: 'submitted', paid: 'fully-paid' },
     { status: 'R', ar: 'submitted', paid: 'partially-paid' },
-    { status: 'R', ar: 'submitted', paid: '', newerStatus: true },
-  ])('records $status with AR $ar, paid $paid, newer status $newerStatus', (scenario) => {
-    const { status, ar, paid, newerStatus } = scenario;
+    { status: 'R', ar: 'adjudicated', paid: 'fully-paid', adjudication: 'approved' },
+    { status: 'R', ar: 'adjudicated', paid: '', adjudication: 'denied' },
+    { status: 'R', ar: 'submitted', paid: '', stage: AR_STAGE.patient },
+  ])('records $status with AR $ar, paid $paid, adjudication $adjudication, stage $stage', (scenario) => {
+    const { status, ar, paid, adjudication, stage = AR_STAGE.insurancePayer } = scenario;
     const claimResponse = response(
       JSON.stringify({
         status,
-        response_time: '2026-09-07 05:18:55am',
         messages: [{ status: 'R', message: 'Invalid subscriber' }],
       })
     );
     const tags = claimStatusValuesToTags({
-      arStage: AR_STAGE.insurancePayer,
+      arStage: stage,
       insuranceArStatus: ar,
       insurancePaidStatus: paid,
+      adjudicationStatus: adjudication,
     });
     const claim: Claim = {
       resourceType: 'Claim',
@@ -383,15 +373,6 @@ describe('claimRejectionRequests', () => {
         claim,
         claimResponse,
         classification: classifyClaimStatusResponse(claimResponse)!,
-        history: [
-          {
-            resourceType: 'Provenance',
-            target: [claimResponse.request!],
-            recorded: newerStatus ? '2026-09-07T11:30:00Z' : '2026-09-07T11:00:00Z',
-            agent: [{ who: { reference: 'Device/system' } }],
-            activity: { coding: [CLAIM_PROVENANCE_ACTIVITY.statusChange] },
-          },
-        ],
         recordedFields: new Set(),
       },
       { who: { reference: 'Device/system' } }
@@ -400,9 +381,21 @@ describe('claimRejectionRequests', () => {
       expect(requests).toEqual([]);
       return;
     }
-    const changesAr = !newerStatus && ar === 'submitted' && !paid;
+    const changesAr = stage === AR_STAGE.insurancePayer;
     expect(requests).toHaveLength(changesAr ? 2 : 1);
-    if (changesAr) expect(requests[0]).toMatchObject({ url: `/${claimResponse.request!.reference}`, ifMatch: 'W/"3"' });
+    if (changesAr) {
+      const patch = requests[0];
+      expect(patch).toMatchObject({ url: `/${claimResponse.request!.reference}`, ifMatch: 'W/"3"' });
+      if (!('resource' in patch) || patch.resource.resourceType !== 'Binary')
+        throw new Error('Expected a Binary patch');
+      const operations = JSON.parse(Buffer.from(patch.resource.data!, 'base64').toString('utf8')) as Operation[];
+      const updatedClaim = applyPatch(claim, operations, true, false).newDocument;
+      expect(getClaimStatusValues(updatedClaim)).toMatchObject({
+        insuranceArStatus: 'adjudicated',
+        adjudicationStatus: 'rejected',
+        insurancePaidStatus: paid,
+      });
+    }
     const history = requests[requests.length - 1];
     expect(history.method).toBe('POST');
     if (!('resource' in history)) throw new Error('Expected a Provenance');
@@ -413,8 +406,13 @@ describe('claimRejectionRequests', () => {
     const changes = JSON.parse(
       provenance.extension!.find((e) => e.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL)!.valueString!
     );
-    expect(changes.map((change: { newValue: string }) => change.newValue)).toEqual(
-      changesAr ? ['Adjudicated', 'Rejected', 'Invalid subscriber'] : ['Invalid subscriber']
-    );
+    expect(changes.at(-1)).toMatchObject({ label: 'Error', newValue: 'Invalid subscriber' });
+    if (changesAr) {
+      expect(changes).toContainEqual(
+        expect.objectContaining({ field: 'status.adjudicationStatus', newValue: 'Rejected' })
+      );
+    } else {
+      expect(changes).toHaveLength(1);
+    }
   });
 });

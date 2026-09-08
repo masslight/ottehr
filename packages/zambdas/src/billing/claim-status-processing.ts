@@ -1,17 +1,12 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk';
 import { createHash } from 'crypto';
 import { Claim, ClaimResponse, FhirResource, Provenance, ProvenanceAgent } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { getCoding, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { CLAIM_STATUS_PROCESSED_TAG } from 'utils/lib/types/data/billing/billing.constants';
-import {
-  CLAIM_PROVENANCE_ACTIVITY,
-  CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
-  ClaimFieldChange,
-} from 'utils/lib/types/data/billing/claim-history';
+import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
 import { AR_STAGE, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
@@ -23,12 +18,11 @@ interface ClaimStatusContext {
   claimResponse: ClaimResponse;
   claim: Claim;
   classification: ClassifiedClaimStatusResponse;
-  history: Provenance[];
   recordedFields: ReadonlySet<string>;
 }
 
 export function claimRejectionRequests(
-  { claim, claimResponse, classification, history, recordedFields }: ClaimStatusContext,
+  { claim, claimResponse, classification, recordedFields }: ClaimStatusContext,
   agent: ProvenanceAgent
 ): BatchInputRequest<FhirResource>[] {
   if (!classification.rejection || !hasTag(claim, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)) return [];
@@ -36,14 +30,8 @@ export function claimRejectionRequests(
     throw INVALID_INPUT_ERROR('Claim and ClaimResponse IDs are required for rejection processing');
   }
   const status = getClaimStatusValues(claim);
-  const canChangeAr =
-    rejectionPostdatesStatusHistory(classification.raw.response_time, history) &&
-    status.arStage === AR_STAGE.insurancePayer &&
-    ['submitted', 'adjudicated'].includes(status.insuranceArStatus) &&
-    (!status.insurancePaidStatus || status.insurancePaidStatus === 'unpaid') &&
-    (!status.adjudicationStatus || status.adjudicationStatus === 'rejected');
   const extraChanges = claimRejectionHistoryChanges(classification, recordedFields);
-  if (!canChangeAr) {
+  if (status.arStage !== AR_STAGE.insurancePayer) {
     const rejectionHistory = claimProvenanceRequest({
       targetReference: `ClaimResponse/${claimResponse.id}`,
       claimReference: `Claim/${claim.id}`,
@@ -67,23 +55,6 @@ export function claimRejectionRequests(
     sourceReference: `ClaimResponse/${claimResponse.id}`,
     extraChanges,
   });
-}
-
-// ClaimMD uses Mountain time and has no submission attempt ID.
-function rejectionPostdatesStatusHistory(responseTime: string | undefined, history: Provenance[]): boolean {
-  const format = 'yyyy-MM-dd hh:mm:ssa';
-  const sourceTime = responseTime?.trim().toUpperCase() ?? '';
-  const eventTime = DateTime.fromFormat(sourceTime, format, { zone: 'America/Denver' });
-  if (!eventTime.isValid || eventTime.getPossibleOffsets().length !== 1 || eventTime.toFormat(format) !== sourceTime)
-    return false;
-
-  const { system, code } = CLAIM_PROVENANCE_ACTIVITY.statusChange;
-  return history
-    .filter((entry) => getCoding(entry.activity, system!)?.code === code)
-    .every((entry) => {
-      const recorded = DateTime.fromISO(entry.recorded);
-      return recorded.isValid && recorded.toMillis() < eventTime.toMillis();
-    });
 }
 
 export function claimRejectionHistoryChanges(
@@ -157,10 +128,10 @@ export async function loadClaimStatusContext(
   const claim = await resolveClaimForStatusResponse(projectClient, claimResponse);
   if (!claim) return undefined;
 
-  const history = classification.rejection
+  const recordedFields = classification.rejection
     ? await loadClaimStatusHistory(projectClient, claim.id!)
-    : { history: [], recordedFields: new Set<string>() };
-  return { claimResponse, claim, classification, ...history };
+    : new Set<string>();
+  return { claimResponse, claim, classification, recordedFields };
 }
 
 const isLinkedToClaimResponse = (provenance: Provenance): boolean =>
@@ -168,10 +139,7 @@ const isLinkedToClaimResponse = (provenance: Provenance): boolean =>
     (entity) => entity.role === 'source' && entity.what.reference?.startsWith('ClaimResponse/')
   ) ?? false;
 
-export async function loadClaimStatusHistory(
-  projectClient: Oystehr,
-  claimId: string
-): Promise<Pick<ClaimStatusContext, 'history' | 'recordedFields'>> {
+export async function loadClaimStatusHistory(projectClient: Oystehr, claimId: string): Promise<Set<string>> {
   const history = await getAllFhirSearchPages<Provenance>(
     {
       resourceType: 'Provenance',
@@ -199,7 +167,7 @@ export async function loadClaimStatusHistory(
       throw cause;
     }
   }
-  return { history, recordedFields };
+  return recordedFields;
 }
 
 export async function resolveClaimForStatusResponse(
