@@ -307,7 +307,8 @@ describe('sub-refresh-invoice-task', () => {
     mockClinicalClient.fhir.patch.mockRejectedValue(Object.assign(new Error('bad path'), { code: 422 }));
 
     await expect(runHandler(billingTask({ businessStatus: ZERO_BALANCE_BUSINESS_STATUS }))).rejects.toThrow('bad path');
-    expect(mockClinicalClient.fhir.patch).toHaveBeenCalledTimes(1);
+    // The catch block makes a second patch call to record the error on the task, then re-throws.
+    expect(mockClinicalClient.fhir.patch).toHaveBeenCalledTimes(2);
   });
 
   it('gives up rather than retrying a conflict forever', async () => {
@@ -315,7 +316,8 @@ describe('sub-refresh-invoice-task', () => {
     mockClinicalClient.fhir.patch.mockRejectedValue(Object.assign(new Error('conflict'), { code: 412 }));
 
     await expect(runHandler(billingTask())).rejects.toThrow('conflict');
-    expect(mockClinicalClient.fhir.patch).toHaveBeenCalledTimes(3);
+    // 3 retries from patchWithOptimisticLock + 1 from the catch block recording the error.
+    expect(mockClinicalClient.fhir.patch).toHaveBeenCalledTimes(4);
   });
 
   it('derives the status from the stored task output, not the queued payload', async () => {
@@ -370,7 +372,10 @@ describe('sub-refresh-invoice-task', () => {
     expect(JSON.parse(result.body).message).toContain('no Candid inventory record');
   });
 
-  it('rejects a task whose dueDate is in the past', async () => {
+  it('accepts a billing task whose dueDate is in the past', async () => {
+    // Past-date enforcement was moved to sub-send-invoice-to-patient only; the refresh handler
+    // must not reject stale tasks that were created before the due-date came into effect.
+    nonZeroBalanceAr();
     const dueDateInput: TaskInput[] = [
       {
         type: { coding: [{ system: ottehrCodeSystemUrl('invoice-task-input'), code: 'dueDate' }] },
@@ -379,8 +384,8 @@ describe('sub-refresh-invoice-task', () => {
     ];
     const pastTask = billingTask({ input: dueDateInput });
 
-    await expect(runHandler(pastTask)).rejects.toThrow('dueDate');
-    expect(mockClinicalClient.fhir.patch).not.toHaveBeenCalled();
+    const result = await runHandler(pastTask);
+    expect(JSON.parse(result.body).message).toContain('successfully updated');
   });
 
   it('rejects a task whose dueDate has an invalid format', async () => {
@@ -393,6 +398,7 @@ describe('sub-refresh-invoice-task', () => {
     const badFormatTask = billingTask({ input: dueDateInput });
 
     await expect(runHandler(badFormatTask)).rejects.toThrow();
-    expect(mockClinicalClient.fhir.patch).not.toHaveBeenCalled();
+    // The catch block records the validation error on the task before re-throwing.
+    expect(mockClinicalClient.fhir.patch).toHaveBeenCalledTimes(1);
   });
 });
