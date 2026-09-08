@@ -154,7 +154,10 @@ export async function loadClaimStatusContext(
   const claim = await resolveClaimForStatusResponse(projectClient, claimResponse);
   if (!claim) return undefined;
 
-  const history = await loadClaimStatusHistory(projectClient, claim.id!);
+  const history =
+    classification.kind === 'rejection-candidate'
+      ? await loadClaimStatusHistory(projectClient, claim.id!)
+      : { history: [], recordedFields: new Set<string>() };
   return { claimResponse, claim, classification, ...history };
 }
 
@@ -174,6 +177,13 @@ export async function loadClaimStatusHistory(
   );
   const recordedFields = new Set<string>();
   for (const provenance of history) {
+    // Rejection message keys belong to history linked to a source ClaimResponse.
+    if (
+      !provenance.entity?.some(
+        (entity) => entity.role === 'source' && entity.what.reference?.startsWith('ClaimResponse/')
+      )
+    )
+      continue;
     const extension = provenance.extension?.find((ext) => ext.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL);
     if (!extension) continue;
     try {

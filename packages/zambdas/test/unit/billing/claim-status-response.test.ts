@@ -12,6 +12,7 @@ import {
   claimRejectionRequests,
   claimStatusCompletionRequest,
   loadClaimStatusContext,
+  loadClaimStatusHistory,
   resolveClaimForStatusResponse,
 } from '../../../src/billing/claim-status-processing';
 import { classifyClaimStatusResponse, parseClaimStatusResponse } from '../../../src/billing/claim-status-response';
@@ -242,6 +243,70 @@ describe('claimStatusCompletionRequest', () => {
       loadClaimStatusContext({ fhir: { search } } as unknown as Oystehr, fixture.id!)
     ).resolves.toBeUndefined();
     expect(search).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('claim status history loading', () => {
+  it.each(['A', 'W', 'unknown', 'R'])('loads rejection history only when needed for %s', async (status) => {
+    const fixture = response(JSON.stringify({ status }));
+    const claim: Claim = {
+      resourceType: 'Claim',
+      id: fixture.request!.reference!.split('/')[1],
+      status: 'active',
+      use: 'claim',
+      type: fixture.type,
+      patient: fixture.patient,
+      created: fixture.created,
+      provider: { reference: 'Organization/provider-1' },
+      priority: { coding: [{ code: 'normal' }] },
+      insurance: [{ sequence: 1, focal: true, coverage: { reference: 'Coverage/coverage-1' } }],
+      meta: { tag: [BILLING_RESOURCE_TAG] },
+    };
+    const unrelated: Provenance = {
+      resourceType: 'Provenance',
+      id: 'unrelated',
+      target: [fixture.request!],
+      recorded: fixture.created,
+      agent: [{ who: { reference: 'Device/system' } }],
+      extension: [{ url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL, valueString: 'invalid' }],
+    };
+    const field = 'rejection.example-account:id:9001';
+    const rejection: Provenance = {
+      ...unrelated,
+      id: 'rejection',
+      entity: [{ role: 'source', what: { reference: 'ClaimResponse/earlier' } }],
+      extension: [
+        {
+          url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+          valueString: JSON.stringify([{ field, label: 'Error', previousValue: null, newValue: 'Rejected' }]),
+        },
+      ],
+    };
+    const search = vi
+      .fn()
+      .mockResolvedValueOnce({ unbundle: () => [fixture] })
+      .mockResolvedValueOnce({ unbundle: () => [claim] })
+      .mockResolvedValueOnce({ unbundle: () => [unrelated, rejection] });
+    const context = await loadClaimStatusContext({ fhir: { search } } as unknown as Oystehr, fixture.id!);
+    expect(context?.recordedFields).toEqual(new Set(status === 'R' ? [field] : []));
+    expect(search.mock.calls.map(([input]) => input.resourceType)).toEqual(
+      status === 'R' ? ['ClaimResponse', 'Claim', 'Provenance'] : ['ClaimResponse', 'Claim']
+    );
+  });
+  it('reports malformed response-linked history instead of risking duplicate messages', async () => {
+    const search = vi.fn().mockResolvedValue({
+      unbundle: () => [
+        {
+          resourceType: 'Provenance',
+          id: 'malformed',
+          entity: [{ role: 'source', what: { reference: 'ClaimResponse/earlier' } }],
+          extension: [{ url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL, valueString: 'invalid' }],
+        },
+      ],
+    });
+    await expect(loadClaimStatusHistory({ fhir: { search } } as unknown as Oystehr, 'claim-1')).rejects.toMatchObject({
+      message: 'Provenance/malformed has an invalid claim history change set',
+    });
   });
 });
 
