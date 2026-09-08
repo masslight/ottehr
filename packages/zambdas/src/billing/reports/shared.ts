@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { FhirResource, FhirSearchParams } from '@oystehr/sdk';
 import { Claim, ClaimResponse, Location, Organization, PaymentReconciliation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
@@ -12,6 +12,26 @@ export const ERA_PAGE_SIZE = 200;
 export const CLAIM_BATCH_SIZE = 100;
 export const UNKNOWN_PAYER_NAME = 'Unknown Payer';
 export const WATERFALL_UNKNOWN_MONTH = 'unknown';
+
+// Full-table report scans go through the async bulk API: one server-side job instead of
+// hundreds of paged searches. The SDK throws on job failure/expiry/timeout, but not on
+// error files, so an errored manifest is rejected here — a report must not cache partial data.
+export async function searchAllViaBulk<T extends FhirResource>(
+  oystehr: Oystehr,
+  params: FhirSearchParams<T>
+): Promise<T[]> {
+  const job = await oystehr.fhir.search<T>(params, { mode: 'async-bulk' });
+  const result = await oystehr.fhir.waitForAsyncBulkOutput<T>(job.jobId, {
+    pollIntervalMs: 2000,
+    timeoutMs: 600_000,
+  });
+  if (result.manifest.error.length > 0) {
+    throw new Error(
+      `Bulk ${params.resourceType} search job ${job.jobId} produced ${result.manifest.error.length} error file(s)`
+    );
+  }
+  return result.output.flatMap((file) => file.resources);
+}
 
 // Platform account + connected accounts from Organization identifiers and Location
 // schedule-owner extensions; candidates verified against Stripe (test data carries junk ids).

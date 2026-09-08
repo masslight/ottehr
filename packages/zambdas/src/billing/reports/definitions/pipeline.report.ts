@@ -1,13 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { ReportDateWindowParams, ReportDateWindowParamsSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { GetBillingPipelineReportResponse, PipelineReportRow } from 'utils/lib/types/data/billing/billing.types';
 import { AR_STAGE, getActiveStatusGroup, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { gunzipSync, gzipSync } from 'zlib';
 import { ReportDefinition } from '../framework/types';
+import { searchAllViaBulk } from '../shared';
 
 const REPORT_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('billing-report');
 const HISTORY_KEY = 'pipeline-report-history:v1';
@@ -55,13 +55,10 @@ async function computePipelineReport(oystehr: Oystehr, params: ReportDateWindowP
   if (params.dateTo) searchParams.push({ name: 'created', value: `le${params.dateTo}` });
 
   // meta carries the AR stage/status tags; total is the claim's billed charges
-  const claims = await getAllFhirSearchPages<Claim>(
-    {
-      resourceType: 'Claim',
-      params: searchParams,
-    },
-    oystehr
-  );
+  const claims = await searchAllViaBulk<Claim>(oystehr, {
+    resourceType: 'Claim',
+    params: searchParams,
+  });
 
   const cellByKey = new Map<string, PipelineReportRow>();
   let totalBilled = 0;

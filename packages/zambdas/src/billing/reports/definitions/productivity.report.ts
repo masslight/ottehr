@@ -1,7 +1,6 @@
-import Oystehr from '@oystehr/sdk';
-import { Device, Practitioner, Provenance } from 'fhir/r4b';
+import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
+import { Bundle, Device, Practitioner, Provenance } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { ReportDateWindowParams, ReportDateWindowParamsSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   GetBillingProductivityReportResponse,
@@ -10,6 +9,7 @@ import {
 import { CLAIM_PROVENANCE_ACTIVITY, CLAIM_PROVENANCE_AGENT_TYPE } from 'utils/lib/types/data/billing/claim-history';
 import { fhirName } from '../../shared';
 import { ReportDefinition } from '../framework/types';
+import { searchAllViaBulk } from '../shared';
 
 const ACTOR_BATCH_SIZE = 100;
 const CLAIM_ACTIVITY_SYSTEM = CLAIM_PROVENANCE_ACTIVITY.create.system;
@@ -47,10 +47,10 @@ async function computeProductivityReport(
   if (params.dateFrom) searchParams.push({ name: 'recorded', value: `ge${params.dateFrom}` });
   if (params.dateTo) searchParams.push({ name: 'recorded', value: `le${params.dateTo}` });
 
-  const provenances = await getAllFhirSearchPages<Provenance>(
-    { resourceType: 'Provenance', params: searchParams },
-    oystehr
-  );
+  const provenances = await searchAllViaBulk<Provenance>(oystehr, {
+    resourceType: 'Provenance',
+    params: searchParams,
+  });
 
   const byActor = new Map<string, ActorAccumulator>();
   const allClaimIds = new Set<string>();
@@ -119,24 +119,30 @@ async function resolveActorNames(untaggedClient: Oystehr, actorRefs: string[]): 
     }
   }
 
-  const nameByRef = new Map<string, string>();
+  const requests: BatchInputGetRequest[] = [];
   for (const [type, ids] of idsByType) {
     for (let i = 0; i < ids.length; i += ACTOR_BATCH_SIZE) {
       const batch = ids.slice(i, i + ACTOR_BATCH_SIZE);
-      try {
-        const bundle = await untaggedClient.fhir.search<Practitioner | Device>({
-          resourceType: type,
-          params: [{ name: '_id', value: batch.join(',') }],
-        });
-        for (const resource of bundle.unbundle()) {
-          const name =
-            resource.resourceType === 'Practitioner' ? fhirName(resource) : resource.deviceName?.[0]?.name ?? 'System';
-          if (resource.id) nameByRef.set(`${type}/${resource.id}`, name);
-        }
-      } catch (err) {
-        console.warn(`Failed to resolve ${type} names:`, (err as Error)?.message);
+      requests.push({ method: 'GET', url: `/${type}?_id=${batch.join(',')}` });
+    }
+  }
+
+  const nameByRef = new Map<string, string>();
+  if (requests.length === 0) return nameByRef;
+  try {
+    const result = await untaggedClient.fhir.batch<Bundle<Practitioner | Device>>({ requests });
+    for (const entry of result.entry ?? []) {
+      for (const inner of entry.resource?.entry ?? []) {
+        const resource = inner.resource;
+        if (!resource?.id || (resource.resourceType !== 'Practitioner' && resource.resourceType !== 'Device')) continue;
+        const name =
+          resource.resourceType === 'Practitioner' ? fhirName(resource) : resource.deviceName?.[0]?.name ?? 'System';
+        nameByRef.set(`${resource.resourceType}/${resource.id}`, name);
       }
     }
+  } catch (err) {
+    // unresolved names fall back to the raw refs in the report rows
+    console.warn('Failed to resolve actor names:', (err as Error)?.message);
   }
   return nameByRef;
 }
