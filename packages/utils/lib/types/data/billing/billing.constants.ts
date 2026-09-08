@@ -31,6 +31,11 @@ export type RefreshReportKind = (typeof REFRESH_REPORT_KINDS)[number];
 // Max claims a single CSV export includes; matches beyond this are truncated and flagged incomplete.
 export const EXPORT_CLAIMS_MATCH_LIMIT = 10_000;
 
+// Max claims a service date search scans. Claim has no service-date search parameter, so that filter
+// runs in memory and the scan has to hold every match at once; without a ceiling a wide range fills
+// the lambda. Matches beyond this are dropped and the result is flagged incomplete.
+export const CLAIM_SCAN_MATCH_LIMIT = 10_000;
+
 // FHIR administrative gender, labeled the way the billing app displays it. The demographics forms,
 // the rules field catalog, and the engine's gender writer all share this one list.
 export const PERSON_GENDER_OPTIONS: { value: NonNullable<Patient['gender']>; label: string }[] = [

@@ -32,6 +32,7 @@ export enum APIErrorCode {
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
   FHIR_RESOURCE_IS_GONE = 4102,
+  FHIR_RESOURCE_VALIDATION_ERROR = 4103,
   PRECONDITION_FAILED = 4120,
   // 42xx
   MISSING_REQUEST_BODY = 4200,
@@ -54,6 +55,7 @@ export enum APIErrorCode {
   APPOINTMENT_ALREADY_EXISTS = 4341,
   PRACTITIONER_SCHEDULE_CONFLICT = 4342,
   APPOINTMENT_SEARCH_TOO_BROAD = 4343,
+  CLAIM_SEARCH_TOO_BROAD = 4344,
   // 44xx
   EXTERNAL_LAB_GENERAL = 4400,
   MISSING_NLM_API_KEY_ERROR = 4401,
@@ -300,6 +302,12 @@ export const APPOINTMENT_SEARCH_TOO_BROAD_ERROR: APIError = {
     'This search returned too much data to load. Please narrow the date range or select fewer locations/providers and try again.',
 };
 
+export const CLAIM_SEARCH_TOO_BROAD_ERROR: APIError = {
+  code: APIErrorCode.CLAIM_SEARCH_TOO_BROAD,
+  message:
+    'This search returned too much data to load. Please lower the rows per page, or narrow the date range or other filters, and try again.',
+};
+
 export const APPOINTMENT_CANT_BE_IN_PAST_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_IN_PAST,
   message: "An appointment can't be scheduled for a date in the past",
@@ -339,6 +347,12 @@ export const FHIR_RESOURCE_IS_GONE = (): APIError => ({
   code: APIErrorCode.FHIR_RESOURCE_IS_GONE,
   statusCode: 410,
   message: `The requested resource is gone`,
+});
+
+export const FHIR_RESOURCE_VALIDATION_ERROR = (message: string): APIError => ({
+  code: APIErrorCode.FHIR_RESOURCE_VALIDATION_ERROR,
+  statusCode: 422,
+  message,
 });
 
 export const CLAIM_NOT_READY_FOR_X12_EXPORT: APIError = {

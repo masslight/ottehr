@@ -26,7 +26,7 @@ export class ScreeningPage {
   async enterScreeningNote(note: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.screeningPage.screeningNoteField)
-      .locator('input')
+      .locator('textarea')
       .locator('visible=true')
       .fill(note);
   }

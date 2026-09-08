@@ -139,8 +139,9 @@ const makeTask = (filters: ExportBillingClaimsInput): Task =>
     ],
   }) as Task;
 
-// Claim searches arrive in three shapes: the paged export search, the search-text clause searches
-// (_elements) and the by-id hydration (_id).
+// Claim searches arrive in three shapes, told apart by their includes: the by-id hydration (_id),
+// the search-text clause searches (no _include, since they only resolve ids) and the paged export
+// search. Every list read carries _elements, so that alone does not distinguish them.
 const stubSearches = ({
   claimPages = [] as Resource[][],
   searchTextMatches = [] as Claim[],
@@ -157,7 +158,6 @@ const stubSearches = ({
   mockOystehrClient.fhir.search.mockImplementation(async ({ resourceType, params }: any) => {
     const named = (name: string): string | undefined => params?.find((param: any) => param.name === name)?.value;
     if (resourceType !== 'Claim') return bundleOf([]);
-    if (named('_elements')) return bundleOf(searchTextMatches, searchTextTotal ?? searchTextMatches.length);
     if (named('_id')) {
       if (hydrated.length > 0) return bundleOf(hydrated);
       return bundleOf([
@@ -167,6 +167,7 @@ const stubSearches = ({
         patient,
       ]);
     }
+    if (!named('_include')) return bundleOf(searchTextMatches, searchTextTotal ?? searchTextMatches.length);
     return pages.length > 0 ? bundleOf(pages.shift()!, claimTotal) : bundleOf([], 0);
   });
 };

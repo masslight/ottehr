@@ -53,12 +53,13 @@ import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPa
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
+import { formatPatientTabTitle } from 'src/shared/utils';
 import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import {
   getCancellationReasonDisplay,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
 } from 'utils/lib/fhir/appointments';
-import { FHIR_EXTENSION, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { FHIR_EXTENSION, ROOM_EXTENSION_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
   getVisitOccupationalMedicineEmployerFromEncounter,
   isScheduledFollowupEncounter,
@@ -67,7 +68,7 @@ import {
 } from 'utils/lib/fhir/encounter';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
-import { getFormattedPatientFullName } from 'utils/lib/fhir/patient';
+import { getFormattedPatientFullName, getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { resolveServiceCategoryAbbreviation } from 'utils/lib/helpers/helpers';
 import { BOOKING_CONFIG, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
@@ -96,6 +97,7 @@ import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
 import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
+import { PatientNotesButton } from '../features/patient-notes/components/PatientNotesButton';
 import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
 import { formatLastModifiedTag } from '../helpers';
 import {
@@ -392,6 +394,15 @@ export default function VisitDetailsPage(): ReactElement {
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patientId ?? '');
 
   const fullName = (patient && getFormattedPatientFullName(patient)) ?? '';
+
+  const room = appointment?.extension?.find((ext) => ext.url === ROOM_EXTENSION_URL)?.valueString;
+
+  useEffect(() => {
+    const tabTitle = patient && formatPatientTabTitle(getFullestAvailableName(patient), room);
+    if (tabTitle) {
+      document.title = tabTitle;
+    }
+  }, [patient, room]);
 
   const isInPerson = isInPersonAppointment(appointment);
 
@@ -958,20 +969,23 @@ export default function VisitDetailsPage(): ReactElement {
               {loading || activityLogsLoading || !patient ? (
                 <Skeleton aria-busy="true" width={200} height="" />
               ) : (
-                <Box
-                  onClick={() => navigate(`/patient/${patientId}/info`)}
-                  sx={{ cursor: 'pointer', display: 'flex', gap: 1 }}
-                >
-                  <AssignmentIndOutlinedIcon
-                    sx={{ width: '27px', height: '27px', color: 'primary.light', alignSelf: 'center' }}
-                  ></AssignmentIndOutlinedIcon>
-                  <Typography
-                    variant="h2"
-                    color="primary.dark"
-                    data-testid={dataTestIds.appointmentPage.patientFullName}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box
+                    onClick={() => navigate(`/patient/${patientId}/info`)}
+                    sx={{ cursor: 'pointer', display: 'flex', gap: 1 }}
                   >
-                    {fullName}
-                  </Typography>
+                    <AssignmentIndOutlinedIcon
+                      sx={{ width: '27px', height: '27px', color: 'primary.light', alignSelf: 'center' }}
+                    ></AssignmentIndOutlinedIcon>
+                    <Typography
+                      variant="h2"
+                      color="primary.dark"
+                      data-testid={dataTestIds.appointmentPage.patientFullName}
+                    >
+                      {fullName}
+                    </Typography>
+                  </Box>
+                  <PatientNotesButton patientId={patientId} />
                 </Box>
               )}
 

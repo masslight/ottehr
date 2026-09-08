@@ -162,7 +162,7 @@ function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | und
   const arStage = claim.statuses.arStage;
   if (arStage === AR_STAGE.insurancePayer) return RULES_ENGINES['claim-submission'];
   if (arStage === AR_STAGE.nonInsurancePayer) return RULES_ENGINES['non-insurance-payer-pre-invoice'];
-  if (arStage === AR_STAGE.patient && !claim.coverageFhirId) return RULES_ENGINES['patient-ar-pre-invoice'];
+  if (arStage === AR_STAGE.patient) return RULES_ENGINES['patient-ar-pre-invoice'];
   return undefined;
 }
 
