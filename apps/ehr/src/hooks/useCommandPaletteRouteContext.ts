@@ -9,9 +9,7 @@ export function useCommandPaletteRouteContext(): { visitId: string | undefined; 
   const { pathname } = useLocation();
 
   const visitId = (matchPath('/in-person/:id/*', pathname) ?? matchPath('/visit/:id', pathname))?.params.id;
-  const patientId = visitId
-    ? undefined
-    : (matchPath('/patient/:id/*', pathname) ?? matchPath('/patient/:id', pathname))?.params.id;
+  const patientId = visitId ? undefined : matchPath('/patient/:id/*', pathname)?.params.id;
 
   return { visitId, patientId };
 }
