@@ -7,7 +7,7 @@ import {
   ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
   PaymentVariant,
   updateEncounterPaymentVariantExtension,
-} from 'utils/lib/fhir/encounter';
+} from 'utils/lib/fhir';
 import { hasAttorneyInformationPage, hasEmployerInformationPage } from 'utils/lib/helpers/create-demo-visits';
 import {
   getAttorneyInformationStepAnswers,
