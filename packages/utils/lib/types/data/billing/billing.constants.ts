@@ -4,8 +4,10 @@ import { Patient } from 'fhir/r4b';
 // (description, system flag) is a separate Basic resource (see save-billing-tag).
 export const CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/claim-tag';
 
-// ClaimResponse completion tag; its code is the source account:event identifier.
-export const CLAIM_STATUS_PROCESSED_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/claim-status-processed';
+export const CLAIM_STATUS_PROCESSED_TAG = {
+  system: 'https://fhir.ottehr.com/billing/claim-status-processed',
+  code: 'processed',
+};
 
 // Task code (under EXPORT_TASK_SYSTEM) for a claims-list CSV export, and the codes its Task inputs
 // and outputs carry. The Subscription that runs the export matches on the code.

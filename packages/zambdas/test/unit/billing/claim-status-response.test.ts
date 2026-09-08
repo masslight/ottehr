@@ -3,7 +3,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { applyPatch, Operation } from 'fast-json-patch';
 import { Claim, ClaimResponse, Provenance } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
-import { CLAIM_STATUS_PROCESSED_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { CLAIM_STATUS_PROCESSED_TAG } from 'utils/lib/types/data/billing/billing.constants';
 import {
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
@@ -133,59 +133,54 @@ describe('claimRejectionHistoryChanges', () => {
 });
 
 describe('classifyClaimStatusResponse', () => {
-  it.each([
-    ['A', 'acknowledgment'],
-    ['W', 'warning'],
-    ['other', 'unknown'],
-    [undefined, 'unknown'],
-  ])('classifies %s despite older rejection messages and an error outcome', (status, kind) => {
+  it.each(['A', 'W', 'other', undefined])('keeps %s as a non-rejection despite older rejection messages', (status) => {
     const raw = { status, messages: [{ status: 'R', message: 'Older rejection' }] };
     const fixture = response(JSON.stringify(raw));
     fixture.error = [{ code: { text: 'Older rejection' } }];
     const result = classifyClaimStatusResponse(fixture);
-    expect(result?.kind).toBe(kind);
-    expect(result).not.toHaveProperty('details');
+    expect(result?.raw).toEqual(raw);
+    expect(result?.rejection).toBeUndefined();
   });
   it('classifies queued acknowledgments', () => {
     const fixture = response('{"status":"A"}');
     fixture.outcome = 'queued';
-    expect(classifyClaimStatusResponse(fixture)?.kind).toBe('acknowledgment');
+    expect(classifyClaimStatusResponse(fixture)?.rejection).toBeUndefined();
   });
   it.each(['First error', 'Second error'])('preserves distinct rejection IDs with second detail %s', (secondText) => {
     const first = { status: 'R', responseid: '9001', mesgid: 'R-01', fields: 'ins_number', message: ' First error ' };
     const second = { status: 'R', responseid: '9002', message: secondText };
     const raw = { status: 'R', messages: [first, { status: 'A', message: 'Accepted' }, second] };
     const fixture = response(JSON.stringify(raw));
-    fixture.error = [{ code: { text: 'Fallback error' } }];
     expect(classifyClaimStatusResponse(fixture)).toMatchObject({
-      kind: 'rejection-candidate',
       raw,
-      messages: [first, second],
-      details: ['First error', secondText],
+      rejection: [
+        { ...first, text: 'First error' },
+        { ...second, text: secondText },
+      ],
     });
   });
-  it.each([undefined, [], [{ status: 'R' }], [{ status: 'R', message: ' ' }]])(
+  it.each([undefined, [], [{ status: 'R' }], [{ status: 'R', message: ' ' }], [{ status: 'W', message: 'Warning' }]])(
     'handles rejection without message text (%j)',
     (messages) => {
       expect(classifyClaimStatusResponse(response(JSON.stringify({ status: 'R', messages })))).toMatchObject({
-        kind: 'rejection-candidate',
-        details: ['Claim rejected; no details provided.'],
+        rejection: [{ text: 'Claim rejected; no details provided.' }],
       });
     }
   );
-  it('uses nonblank FHIR error text when raw rejection details are absent', () => {
-    const fixture = response('{"status":"R","messages":[{"status":"W","message":"Warning"}]}');
-    fixture.error = [
-      { code: {} },
-      { code: { text: ' ' } },
-      { code: { text: ' First ' } },
-      { code: { text: 'Second' } },
-    ];
-    expect(classifyClaimStatusResponse(fixture)).toMatchObject({
-      kind: 'rejection-candidate',
-      messages: [],
-      details: ['First', 'Second'],
-    });
+  it('uses a default for a blank rejection message', () => {
+    const fixture = response(
+      JSON.stringify({
+        status: 'R',
+        messages: [
+          { status: 'R', responseid: '9001', message: ' Invalid subscriber ' },
+          { status: 'R', responseid: '9002' },
+        ],
+      })
+    );
+    expect(classifyClaimStatusResponse(fixture)?.rejection).toMatchObject([
+      { responseid: '9001', text: 'Invalid subscriber' },
+      { responseid: '9002', text: 'Claim rejected; no details provided.' },
+    ]);
   });
   it('keeps feed validation in front of classification', () => {
     expect(classifyClaimStatusResponse({ ...response('invalid'), identifier: undefined })).toBeUndefined();
@@ -200,7 +195,7 @@ describe('claimStatusCompletionRequest', () => {
       existingTag === 'billing'
         ? BILLING_RESOURCE_TAG
         : { ...BILLING_RESOURCE_TAG, code: 'other-code', display: 'Keep this tag' };
-    const completionTag = { system: CLAIM_STATUS_PROCESSED_TAG_SYSTEM, code: fixture.identifier![0].value };
+    const completionTag = CLAIM_STATUS_PROCESSED_TAG;
     fixture.meta = {
       versionId: '7',
       source: 'https://example.com/source',
@@ -227,19 +222,11 @@ describe('claimStatusCompletionRequest', () => {
   it('refuses an update without a version to protect concurrent changes', () => {
     expect(() => claimStatusCompletionRequest(response('{}'))).toThrow('ID and version are required');
   });
-  it('requires completion for the current event', () => {
-    const fixture = response('{}');
-    fixture.meta = {
-      versionId: '7',
-      tag: [BILLING_RESOURCE_TAG, { system: CLAIM_STATUS_PROCESSED_TAG_SYSTEM, code: 'example-account:older' }],
-    };
-    expect(claimStatusCompletionRequest(fixture)).toBeDefined();
-  });
   it('skips a completed response before loading its claim and history', async () => {
     const fixture = response('{"status":"R"}');
     fixture.meta = {
       versionId: '7',
-      tag: [BILLING_RESOURCE_TAG, { system: CLAIM_STATUS_PROCESSED_TAG_SYSTEM, code: fixture.identifier![0].value }],
+      tag: [BILLING_RESOURCE_TAG, CLAIM_STATUS_PROCESSED_TAG],
     };
     const search = vi.fn().mockResolvedValue({ unbundle: () => [fixture] });
     await expect(
@@ -292,6 +279,9 @@ describe('claim status history loading', () => {
       .mockResolvedValueOnce({ unbundle: () => [unrelated, rejection] });
     const context = await loadClaimStatusContext({ fhir: { search } } as unknown as Oystehr, fixture.id!);
     expect(context?.recordedFields).toEqual(new Set(status === 'R' ? [field] : []));
+    expect(context).toBeDefined();
+    expect(Boolean(context?.classification.rejection)).toBe(status === 'R');
+    expect(claimStatusCompletionRequest({ ...fixture, meta: { versionId: '1' } })).toBeDefined();
     expect(search.mock.calls.map(([input]) => input.resourceType)).toEqual(
       status === 'R' ? ['ClaimResponse', 'Claim', 'Provenance'] : ['ClaimResponse', 'Claim']
     );
@@ -326,7 +316,6 @@ describe('claim status error reporting', () => {
     { name: 'invalid JSON', run: () => parseClaimStatusResponse(response('invalid')) },
     { name: 'invalid raw object', run: () => parseClaimStatusResponse(response('null')) },
     { name: 'missing version', run: () => claimStatusCompletionRequest(response('{}')) },
-    { name: 'missing event ID', run: () => claimStatusCompletionRequest({ ...response('{}'), identifier: [] }) },
     { name: 'missing reference', run: () => resolveClaimForStatusResponse(emptyClient, { id: 'response-1' }) },
     { name: 'missing claim', run: () => resolveClaimForStatusResponse(emptyClient, response('{}')) },
     { name: 'missing response', run: () => loadClaimStatusContext(emptyClient, 'response-1') },

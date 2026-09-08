@@ -27,6 +27,10 @@ const ClaimStatusResponseSchema = z
   })
   .passthrough();
 
+const NO_DETAILS = 'Claim rejected; no details provided.';
+
+type RejectionEntry = z.infer<typeof ClaimStatusMessageSchema> & { text: string };
+
 export interface ParsedClaimStatusResponse {
   eventIdentifier: string;
   raw: z.infer<typeof ClaimStatusResponseSchema>;
@@ -53,29 +57,16 @@ export function parseClaimStatusResponse(response: ClaimResponse): ParsedClaimSt
   }
 }
 
-export type ClassifiedClaimStatusResponse = ParsedClaimStatusResponse &
-  (
-    | { kind: 'acknowledgment' | 'warning' | 'unknown' }
-    | { kind: 'rejection-candidate'; messages: z.infer<typeof ClaimStatusMessageSchema>[]; details: string[] }
-  );
+export type ClassifiedClaimStatusResponse = ParsedClaimStatusResponse & { rejection?: RejectionEntry[] };
 
 export function classifyClaimStatusResponse(response: ClaimResponse): ClassifiedClaimStatusResponse | undefined {
   const parsed = parseClaimStatusResponse(response);
   if (!parsed) return undefined;
   const { raw } = parsed;
-  if (raw.status === 'A') return { ...parsed, kind: 'acknowledgment' };
-  if (raw.status === 'W') return { ...parsed, kind: 'warning' };
-  if (raw.status !== 'R') return { ...parsed, kind: 'unknown' };
+  if (raw.status !== 'R') return parsed;
 
-  const messages = (raw.messages ?? []).filter((message) => message.status === 'R');
-  let details = messages.map((message) => message.message?.trim()).filter((text): text is string => !!text);
-  if (details.length === 0) {
-    details = (response.error ?? []).map((error) => error.code.text?.trim()).filter((text): text is string => !!text);
-  }
-  return {
-    ...parsed,
-    kind: 'rejection-candidate',
-    messages,
-    details: details.length ? details : ['Claim rejected; no details provided.'], // probably shouldn't happen
-  };
+  const entries = (raw.messages ?? [])
+    .filter((message) => message.status === 'R')
+    .map((message) => ({ ...message, text: message.message?.trim() || NO_DETAILS }));
+  return { ...parsed, rejection: entries.length ? entries : [{ text: NO_DETAILS }] };
 }

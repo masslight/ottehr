@@ -2,11 +2,11 @@ import Oystehr, { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk
 import { createHash } from 'crypto';
 import { Claim, ClaimResponse, FhirResource, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { BILLING_RESOURCE_TAG, CLAIM_STATUS_RESPONSE_EVENT_SYSTEM } from 'utils/lib/fhir/constants';
+import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
-import { CLAIM_STATUS_PROCESSED_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { CLAIM_STATUS_PROCESSED_TAG } from 'utils/lib/types/data/billing/billing.constants';
 import {
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
@@ -27,45 +27,24 @@ interface ClaimStatusContext {
   recordedFields: ReadonlySet<string>;
 }
 
-// Record unseen rejections even when current AR cannot change.
 export function claimRejectionRequests(
   { claim, claimResponse, classification, history, recordedFields }: ClaimStatusContext,
   agent: ProvenanceAgent
 ): BatchInputRequest<FhirResource>[] {
-  if (
-    classification.kind !== 'rejection-candidate' ||
-    !hasTag(claim, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)
-  )
-    return [];
+  if (!classification.rejection || !hasTag(claim, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)) return [];
   if (!claim.id || !claimResponse.id) {
     throw INVALID_INPUT_ERROR('Claim and ClaimResponse IDs are required for rejection processing');
   }
-  // ClaimMD reports Mountain time; the feed has no submission-attempt ID.
-  const sourceTime = classification.raw.response_time?.trim().toUpperCase() ?? '';
-  const format = 'yyyy-MM-dd hh:mm:ssa';
-  const eventTime = DateTime.fromFormat(sourceTime, format, { zone: 'America/Denver' });
-  const statusActivity = CLAIM_PROVENANCE_ACTIVITY.statusChange;
-  const statusChanges = history.filter(
-    (entry) => getCoding(entry.activity, statusActivity.system!)?.code === statusActivity.code
-  );
-  const chronologyAllowsChange =
-    eventTime.isValid &&
-    eventTime.getPossibleOffsets().length === 1 &&
-    eventTime.toFormat(format) === sourceTime &&
-    statusChanges.every((entry) => {
-      const recorded = DateTime.fromISO(entry.recorded);
-      return recorded.isValid && recorded.toMillis() < eventTime.toMillis();
-    });
   const status = getClaimStatusValues(claim);
   const canChangeAr =
-    chronologyAllowsChange &&
+    rejectionPostdatesStatusHistory(classification.raw.response_time, history) &&
     status.arStage === AR_STAGE.insurancePayer &&
     ['submitted', 'adjudicated'].includes(status.insuranceArStatus) &&
     (!status.insurancePaidStatus || status.insurancePaidStatus === 'unpaid') &&
     (!status.adjudicationStatus || status.adjudicationStatus === 'rejected');
   const extraChanges = claimRejectionHistoryChanges(classification, recordedFields);
   if (!canChangeAr) {
-    const history = claimProvenanceRequest({
+    const rejectionHistory = claimProvenanceRequest({
       targetReference: `ClaimResponse/${claimResponse.id}`,
       claimReference: `Claim/${claim.id}`,
       sourceReference: `ClaimResponse/${claimResponse.id}`,
@@ -74,7 +53,7 @@ export function claimRejectionRequests(
       recorded: recordedNow(),
       extraChanges,
     });
-    return history ? [history] : [];
+    return rejectionHistory ? [rejectionHistory] : [];
   }
   if (!makeOptimisticLockIfMatchHeader(claim)) {
     throw INVALID_INPUT_ERROR('Claim and ClaimResponse IDs and Claim version are required for rejection processing');
@@ -90,54 +69,59 @@ export function claimRejectionRequests(
   });
 }
 
+// ClaimMD uses Mountain time and has no submission attempt ID.
+function rejectionPostdatesStatusHistory(responseTime: string | undefined, history: Provenance[]): boolean {
+  const format = 'yyyy-MM-dd hh:mm:ssa';
+  const sourceTime = responseTime?.trim().toUpperCase() ?? '';
+  const eventTime = DateTime.fromFormat(sourceTime, format, { zone: 'America/Denver' });
+  if (!eventTime.isValid || eventTime.getPossibleOffsets().length !== 1 || eventTime.toFormat(format) !== sourceTime)
+    return false;
+
+  const { system, code } = CLAIM_PROVENANCE_ACTIVITY.statusChange;
+  return history
+    .filter((entry) => getCoding(entry.activity, system!)?.code === code)
+    .every((entry) => {
+      const recorded = DateTime.fromISO(entry.recorded);
+      return recorded.isValid && recorded.toMillis() < eventTime.toMillis();
+    });
+}
+
 export function claimRejectionHistoryChanges(
   classification: ClassifiedClaimStatusResponse,
   recordedFields: ReadonlySet<string> = new Set()
 ): ClaimFieldChange[] {
-  if (classification.kind !== 'rejection-candidate') return [];
-  const { raw, eventIdentifier } = classification;
+  if (!classification.rejection) return [];
+  const { raw, eventIdentifier, rejection } = classification;
   const account = eventIdentifier.slice(0, eventIdentifier.indexOf(':'));
   const seen = new Set(recordedFields);
-  const fallback = classification.messages.some((message) => message.message?.trim())
-    ? 'Claim rejected; no details provided.'
-    : classification.details.join('\n');
-  const messages: typeof classification.messages = classification.messages.length
-    ? classification.messages
-    : classification.details.map((message) => ({ message }));
-  return messages.flatMap((message) => {
-    const text = message.message?.trim() || fallback;
-    // Without message IDs, deduplicate within an event; later events can repeat a rejection after resubmission.
-    const payload = [
+  return rejection.flatMap((entry) => {
+    // Without a message ID, deduplicate within this event so later rejections remain separate.
+    const identifyingFields = [
       eventIdentifier,
       raw.senderid,
       raw.sender_name,
       raw.sender_icn,
-      message.mesgid,
-      message.fields,
-      text,
+      entry.mesgid,
+      entry.fields,
+      entry.text,
     ];
-    const identity = message.responseid
-      ? `id:${message.responseid}`
-      : `payload:${createHash('sha256').update(JSON.stringify(payload)).digest('hex')}`;
+    const identity = entry.responseid
+      ? `id:${entry.responseid}`
+      : `payload:${createHash('sha256').update(JSON.stringify(identifyingFields)).digest('hex')}`;
     const field = `rejection.${account}:${identity}`;
     if (seen.has(field)) return [];
     seen.add(field);
-    return [{ field, label: 'Error', previousValue: null, newValue: text }];
+    return [{ field, label: 'Error', previousValue: null, newValue: entry.text }];
   });
 }
 
-// Save this request with the AR/history writes in one transaction; the tag means all required writes succeeded.
+// Commit this tag in the same transaction as the status and history.
 export function claimStatusCompletionRequest(
   response: ClaimResponse
 ): BatchInputPatchRequest<FhirResource> | undefined {
-  const eventIdentifier = response.identifier?.find((id) => id.system === CLAIM_STATUS_RESPONSE_EVENT_SYSTEM)?.value;
-  if (!eventIdentifier?.trim()) {
-    throw INVALID_INPUT_ERROR(`ClaimResponse/${response.id} is missing a claim status event ID`);
-  }
-  const missingTags = [
-    BILLING_RESOURCE_TAG,
-    { system: CLAIM_STATUS_PROCESSED_TAG_SYSTEM, code: eventIdentifier },
-  ].filter((tag) => !hasTag(response, tag.system, tag.code));
+  const missingTags = [BILLING_RESOURCE_TAG, CLAIM_STATUS_PROCESSED_TAG].filter(
+    (tag) => !hasTag(response, tag.system, tag.code)
+  );
   if (missingTags.length === 0) return undefined;
   const ifMatch = makeOptimisticLockIfMatchHeader(response);
   if (!response.id || !ifMatch)
@@ -161,25 +145,28 @@ export async function loadClaimStatusContext(
   projectClient: Oystehr,
   claimResponseId: string
 ): Promise<ClaimStatusContext | undefined> {
-  // Use the project client as Oystehr ClaimResponses do not have the billing workspace tag yet.
+  // New ClaimResponses do not have the billing tag yet.
   const claimResponse = await fetchById<ClaimResponse>(projectClient, 'ClaimResponse', claimResponseId);
   const classification = classifyClaimStatusResponse(claimResponse);
   if (!classification) return undefined;
-  if (
-    hasTag(claimResponse, CLAIM_STATUS_PROCESSED_TAG_SYSTEM, classification.eventIdentifier) &&
-    hasTag(claimResponse, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)
-  )
-    return undefined;
+  const alreadyProcessed =
+    hasTag(claimResponse, CLAIM_STATUS_PROCESSED_TAG.system, CLAIM_STATUS_PROCESSED_TAG.code) &&
+    hasTag(claimResponse, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code);
+  if (alreadyProcessed) return undefined;
 
   const claim = await resolveClaimForStatusResponse(projectClient, claimResponse);
   if (!claim) return undefined;
 
-  const history =
-    classification.kind === 'rejection-candidate'
-      ? await loadClaimStatusHistory(projectClient, claim.id!)
-      : { history: [], recordedFields: new Set<string>() };
+  const history = classification.rejection
+    ? await loadClaimStatusHistory(projectClient, claim.id!)
+    : { history: [], recordedFields: new Set<string>() };
   return { claimResponse, claim, classification, ...history };
 }
+
+const isLinkedToClaimResponse = (provenance: Provenance): boolean =>
+  provenance.entity?.some(
+    (entity) => entity.role === 'source' && entity.what.reference?.startsWith('ClaimResponse/')
+  ) ?? false;
 
 export async function loadClaimStatusHistory(
   projectClient: Oystehr,
@@ -197,13 +184,7 @@ export async function loadClaimStatusHistory(
   );
   const recordedFields = new Set<string>();
   for (const provenance of history) {
-    // Rejection message keys belong to history linked to a source ClaimResponse.
-    if (
-      !provenance.entity?.some(
-        (entity) => entity.role === 'source' && entity.what.reference?.startsWith('ClaimResponse/')
-      )
-    )
-      continue;
+    if (!isLinkedToClaimResponse(provenance)) continue;
     const extension = provenance.extension?.find((ext) => ext.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL);
     if (!extension) continue;
     try {
