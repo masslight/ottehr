@@ -8,21 +8,29 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConditionalEditor } from '../../src/components/rules/RuleBuilder';
 import Rules from '../../src/pages/Rules';
 
-const { getBillingRulesMock, saveBillingRulesMock, searchBillingProvidersMock, searchBillingTagsMock, stableClients } =
-  vi.hoisted(() => ({
-    getBillingRulesMock: vi.fn(),
-    saveBillingRulesMock: vi.fn(),
-    searchBillingProvidersMock: vi.fn(),
-    searchBillingTagsMock: vi.fn(),
-    stableClients: { oystehrZambda: {} },
-  }));
+const {
+  getBillingRulesMock,
+  saveBillingRulesMock,
+  searchBillingNonInsuranceOrgsMock,
+  searchBillingProvidersMock,
+  searchBillingTagsMock,
+  stableClients,
+} = vi.hoisted(() => ({
+  getBillingRulesMock: vi.fn(),
+  saveBillingRulesMock: vi.fn(),
+  searchBillingNonInsuranceOrgsMock: vi.fn(),
+  searchBillingProvidersMock: vi.fn(),
+  searchBillingTagsMock: vi.fn(),
+  stableClients: { oystehrZambda: {} },
+}));
 
 vi.mock('../../src/api/api', () => ({
   getBillingRules: getBillingRulesMock,
   saveBillingRules: saveBillingRulesMock,
   // PayerSelect (rendered for the payerId condition) searches payers on open/input, not on mount;
   // same for TagSelect (apply-tag action), ProcedureCodeAutocomplete (CPT inputs), and the
-  // provider/facility reference pickers.
+  // provider/facility/NIO reference pickers.
+  searchBillingNonInsuranceOrgs: searchBillingNonInsuranceOrgsMock,
   searchBillingPayers: () => Promise.resolve({ payers: [] }),
   searchBillingProcedureCodes: () => Promise.resolve({ codes: [] }),
   searchBillingProviders: searchBillingProvidersMock,
@@ -126,6 +134,60 @@ describe('ConditionalEditor', () => {
     render(<ConditionalForm conditional={ruleA.conditional} />);
     // ruleA has a payerId condition and a setField-payerId action — both should be payer pickers.
     expect(screen.getAllByPlaceholderText(/Search payers/)).toHaveLength(2);
+  });
+
+  it('uses the searchable NIO picker for the non-insurance organization field in both the condition and the action', () => {
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'field', field: 'nonInsurancePayerId', operator: 'eq', value: 'nio-1' },
+          outcome: { type: 'actions', actions: [{ type: 'setField', field: 'nonInsurancePayerId', value: '' }] },
+        },
+      ],
+    };
+    render(<ConditionalForm conditional={conditional} />);
+    expect(screen.getAllByPlaceholderText(/Search non-insurance organizations/)).toHaveLength(2);
+  });
+
+  it('offers directory organizations in the set-NIO picker and stores the organization id', async () => {
+    searchBillingNonInsuranceOrgsMock.mockReset();
+    searchBillingNonInsuranceOrgsMock.mockResolvedValue({
+      organizations: [
+        {
+          id: '8f1f6f3e-1111-4222-8333-444455556666',
+          name: 'Acme Trucking',
+          employer: true,
+          active: true,
+          contacts: [],
+          covers: [],
+        },
+      ],
+      total: 1,
+    });
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'all' },
+          outcome: { type: 'actions', actions: [{ type: 'setField', field: 'nonInsurancePayerId', value: '' }] },
+        },
+      ],
+    };
+    const onValid = vi.fn();
+    render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+
+    const input = screen.getByPlaceholderText(/Search non-insurance organizations/);
+    fireEvent.mouseDown(input);
+    fireEvent.click(await screen.findByRole('option', { name: 'Acme Trucking' }));
+    expect(searchBillingNonInsuranceOrgsMock).toHaveBeenCalledWith(expect.anything(), {});
+
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(onValid).toHaveBeenCalled());
+    const action = onValid.mock.calls[0][0].conditional.branches[0].outcome.actions[0];
+    expect(action).toEqual({
+      type: 'setField',
+      field: 'nonInsurancePayerId',
+      value: '8f1f6f3e-1111-4222-8333-444455556666',
+    });
   });
 
   it('renders line match and set controls for an update-service-lines action', () => {
