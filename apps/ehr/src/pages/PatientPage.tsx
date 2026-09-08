@@ -82,6 +82,8 @@ export default function PatientPage(): JSX.Element {
 
   const { loading, patient, duplicatePatients } = useGetPatient(id);
 
+  // Progress and the finished message come from MedicalRecordExportWatcher, app-wide; the page only
+  // needs to know whether this patient already has an export running.
   const { downloadMedicalRecord, isDownloading: isDownloadingMedicalRecord } = useDownloadMedicalRecord(id);
 
   const queryClient = useQueryClient();
@@ -370,6 +372,7 @@ export default function PatientPage(): JSX.Element {
           >
             <MenuItem
               data-testid={dataTestIds.patientRecordPage.downloadMedicalRecordArchiveMenuItem}
+              disabled={isDownloadingMedicalRecord}
               onClick={() => {
                 setMedicalRecordMenuAnchor(null);
                 void downloadMedicalRecord();
