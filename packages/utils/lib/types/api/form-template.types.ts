@@ -56,7 +56,6 @@ export interface CreateFormTemplateUploadUrlInput {
 
 export interface CreateFormTemplateUploadUrlOutput {
   documentReferenceId: string;
-  identifier: string;
   z3Url: string;
   /** The client PUTs the PDF here directly; the zambda never carries the file body. */
   presignedUploadUrl: string;
@@ -155,7 +154,6 @@ export interface ImportFormTemplateFromUrlOutput {
   resolvedFrom: string;
   /** Absent when replacing: no record is created in that mode. */
   documentReferenceId?: string;
-  identifier?: string;
 }
 
 /** Presign step for returning a completed form. Writes nothing — see `DocumentVerificationResult`. */

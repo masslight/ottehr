@@ -1,32 +1,25 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { randomUUID } from 'crypto';
-import { DocumentReference } from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import {
-  BUCKET_NAMES,
-  FORM_TEMPLATE_CATEGORY_CODING,
-  FORM_TEMPLATE_IDENTIFIER_SYSTEM,
-  FORM_TEMPLATE_SOURCE_URL_EXTENSION_URL,
-} from 'utils/lib/fhir/constants';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   ImportFormTemplateFromUrlInput,
   ImportFormTemplateFromUrlOutput,
 } from 'utils/lib/types/api/form-template.types';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
-import { sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchRemotePdf, RemotePdfError } from '../../shared/fetch-remote-pdf';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
-import { makeZ3FileUrl } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
-import { FORM_TEMPLATE_DOC_STATUS, getFormTemplateOrThrow } from '../shared/form-template-helpers';
+import {
+  createFormTemplateDraft,
+  getFormTemplateOrThrow,
+  makeFormTemplateZ3Url,
+} from '../shared/form-template-helpers';
 
 const ZAMBDA_NAME = 'import-form-template-from-url';
 
@@ -91,11 +84,10 @@ const performEffect = async (
 ): Promise<ImportFormTemplateFromUrlOutput> => {
   const { title, description, sourceUrl, documentReferenceId, secrets } = validatedInput;
 
-  const { bytes, finalUrl } = await fetchRemotePdf(sourceUrl);
+  const { bytes, finalUrl } = await fetchRemotePdf(sourceUrl, secrets);
   console.log(`${ZAMBDA_NAME}: fetched ${bytes.length} bytes from ${finalUrl}`);
 
-  const objectName = `${randomUUID()}-${sanitizeFileNameForZ3(fileNameFromUrl(finalUrl))}`;
-  const z3Url = makeZ3FileUrl({ secrets, bucketName: BUCKET_NAMES.FORM_TEMPLATES, fileName: objectName });
+  const z3Url = makeFormTemplateZ3Url(secrets, fileNameFromUrl(finalUrl));
   await uploadObjectToZ3(bytes, await createPresignedUrl(token, z3Url, 'upload'));
 
   // Replacing: the bytes are parked and nothing else touched. `replace-form-template-pdf` decides whether
@@ -106,25 +98,9 @@ const performEffect = async (
     return { z3Url, resolvedFrom: finalUrl };
   }
 
-  const identifierValue = randomUUID();
-  const created = await oystehr.fhir.create<DocumentReference>({
-    resourceType: 'DocumentReference',
-    status: 'current',
-    // A draft until analysis has looked at it, same as an uploaded file.
-    docStatus: FORM_TEMPLATE_DOC_STATUS.draft,
-    category: [{ coding: [FORM_TEMPLATE_CATEGORY_CODING] }],
-    identifier: [{ system: FORM_TEMPLATE_IDENTIFIER_SYSTEM, value: identifierValue }],
-    date: DateTime.now().setZone('UTC').toISO() ?? '',
-    description,
-    extension: [{ url: FORM_TEMPLATE_SOURCE_URL_EXTENSION_URL, valueUrl: finalUrl }],
-    content: [{ attachment: { url: z3Url, contentType: 'application/pdf', title } }],
-  });
+  const createdId = await createFormTemplateDraft({ oystehr, title, description, z3Url, sourceUrl: finalUrl });
 
-  if (!created.id) {
-    throw new Error('Failed to create DocumentReference for the imported form template');
-  }
-
-  return { z3Url, resolvedFrom: finalUrl, documentReferenceId: created.id, identifier: identifierValue };
+  return { z3Url, resolvedFrom: finalUrl, documentReferenceId: createdId };
 };
 
 /** The published file's own name, which is a better default title for the stored object than a UUID alone. */

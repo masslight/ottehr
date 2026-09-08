@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { fetchRemotePdf, RemotePdfError } from '../../src/shared/fetch-remote-pdf';
+import { fetchRemotePdf, isDeploymentHost, RemotePdfError } from '../../src/shared/fetch-remote-pdf';
+
+/** Stands in for a deployment's own addresses, which the guard refuses to fetch from. */
+const SECRETS = {
+  PROJECT_API: 'https://project-api.zapehr.com/v1',
+  FHIR_API: 'https://fhir-api.zapehr.com/r4',
+  AUTH0_ENDPOINT: 'https://auth.zapehr.com',
+  WEBSITE_URL: 'https://ehr.example.org',
+};
 
 /**
  * Only the cases the guard settles before any network call: a rejected address never reaches `fetch`, so
@@ -8,7 +16,7 @@ import { fetchRemotePdf, RemotePdfError } from '../../src/shared/fetch-remote-pd
  */
 const rejectionFor = async (url: string): Promise<RemotePdfError> => {
   try {
-    await fetchRemotePdf(url);
+    await fetchRemotePdf(url, SECRETS);
   } catch (error) {
     if (error instanceof RemotePdfError) return error;
     throw error;
@@ -48,7 +56,39 @@ describe('fetchRemotePdf address guard', () => {
     expect((await rejectionFor('https://[::ffff:127.0.0.1]/')).reason).toBe('blockedAddress');
   });
 
+  it("rejects this deployment's own API, storage and site", async () => {
+    // Public DNS on public addresses, so nothing in the range checks would stop these.
+    for (const url of [
+      'https://project-api.zapehr.com/z3/some-bucket/file.pdf',
+      'https://fhir-api.zapehr.com/r4/Patient',
+      'https://auth.zapehr.com/.well-known/jwks.json',
+      'https://ehr.example.org/form.pdf',
+    ]) {
+      expect((await rejectionFor(url)).reason).toBe('blockedAddress');
+    }
+  });
+
+  it('rejects subdomains of its own hosts, not just the exact names', async () => {
+    expect((await rejectionFor('https://internal.project-api.zapehr.com/x.pdf')).reason).toBe('blockedAddress');
+  });
+
   it('carries a message an administrator can act on', async () => {
     expect((await rejectionFor('http://example.com/form.pdf')).message).toMatch(/https/i);
+  });
+});
+
+/** Tested directly: reaching this through `fetchRemotePdf` with an allowed host would need the network. */
+describe('isDeploymentHost', () => {
+  const own = new Set(['fhir-api.zapehr.com']);
+
+  it('matches the host itself and its subdomains', () => {
+    expect(isDeploymentHost('fhir-api.zapehr.com', own)).toBe(true);
+    expect(isDeploymentHost('internal.fhir-api.zapehr.com', own)).toBe(true);
+  });
+
+  it('matches on the label boundary, not on the string ending', () => {
+    // A plain `endsWith` would refuse this, and it is a different domain entirely.
+    expect(isDeploymentHost('notfhir-api.zapehr.com', own)).toBe(false);
+    expect(isDeploymentHost('zapehr.com', own)).toBe(false);
   });
 });

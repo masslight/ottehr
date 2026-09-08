@@ -1,5 +1,6 @@
 import dns from 'node:dns/promises';
 import net from 'node:net';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 
 /** Beyond this a template is not a form, and holding it in a lambda's memory is its own problem. */
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -74,16 +75,49 @@ const toDottedQuad = (mapped: string): string => {
 };
 
 /**
- * Rejects a URL that this server should not be made to fetch.
+ * Hosts belonging to this deployment, derived from the addresses it is configured with so the set follows
+ * the environment instead of being a list someone has to maintain.
  *
- * ⚠️ **This narrows the exposure; it does not remove it.** Accepting a URL and fetching it server-side
- * means an authenticated administrator can cause requests to originate from inside our network, which is a
- * position they do not otherwise hold. The host is resolved and checked here, but the connection is made
- * separately by `fetch`, so a name that resolves differently between the two — DNS rebinding — still gets
- * through. Closing that properly needs an egress allowlist or a proxy, which belongs to infrastructure
- * rather than to this function.
+ * The address checks above cannot cover these. Our own API and storage answer on public DNS at public
+ * addresses, so they are indistinguishable from any other host on the internet — and fetching one of them
+ * server-side is the case worth refusing outright, because the zambda reaches it holding a network
+ * position the caller does not have.
  */
-const assertFetchable = async (raw: string): Promise<URL> => {
+const deploymentHosts = (secrets: Secrets | null): ReadonlySet<string> => {
+  const hosts = new Set<string>();
+  // PROJECT_API serves Z3 as well as the API, so refusing it covers stored files too.
+  const configured = [
+    SecretsKeys.PROJECT_API,
+    SecretsKeys.FHIR_API,
+    SecretsKeys.AUTH0_ENDPOINT,
+    SecretsKeys.WEBSITE_URL,
+  ];
+
+  for (const key of configured) {
+    try {
+      hosts.add(new URL(getSecret(key, secrets)).hostname);
+    } catch {
+      // Unset, or set to something that is not a URL. It contributes no host to refuse.
+    }
+  }
+  return hosts;
+};
+
+/** Matched on the label boundary, so `notfhir-api.example.com` is not caught by `fhir-api.example.com`. */
+export const isDeploymentHost = (host: string, ownHosts: ReadonlySet<string>): boolean =>
+  [...ownHosts].some((own) => host === own || host.endsWith(`.${own}`));
+
+/**
+ * Rejects a URL this server should not be made to fetch. Every path that fetches a user-supplied address
+ * has to come through here — the risk is not the PDF but the request, which leaves from inside our network
+ * and reaches hosts a browser could not.
+ *
+ * It cannot close DNS rebinding: the name is resolved here and resolved again by `fetch`, and nothing makes
+ * the two answers agree. That gap is tolerable because of two things, and stops being tolerable if either
+ * changes — only administrators can reach these endpoints, and only bytes that pass the `%PDF-` check are
+ * kept, so an internal service answering with JSON is discarded rather than handed back.
+ */
+const assertFetchable = async (raw: string, ownHosts: ReadonlySet<string>): Promise<URL> => {
   let url: URL;
   try {
     url = new URL(raw);
@@ -99,6 +133,12 @@ const assertFetchable = async (raw: string): Promise<URL> => {
   // `hostname` keeps the brackets around an IPv6 literal, which `net.isIP` does not accept — without
   // stripping them every IPv6 address falls through to the DNS path and is never range-checked.
   const host = url.hostname.replace(/^\[|\]$/g, '');
+
+  // Checked before the address ranges, since these resolve to ordinary public addresses and would
+  // otherwise pass. Applies to redirect targets too, this being called for every hop.
+  if (isDeploymentHost(host, ownHosts)) {
+    throw new RemotePdfError('blockedAddress', "A form template cannot be imported from this system's own address.");
+  }
 
   const literal = net.isIP(host) ? host : undefined;
   if (literal) {
@@ -131,8 +171,12 @@ const assertFetchable = async (raw: string): Promise<URL> => {
  * clear the same checks — a permitted URL that redirects to an internal one is the obvious way around a
  * check applied only to what the user typed.
  */
-export const fetchRemotePdf = async (rawUrl: string): Promise<{ bytes: Uint8Array; finalUrl: string }> => {
-  let url = await assertFetchable(rawUrl);
+export const fetchRemotePdf = async (
+  rawUrl: string,
+  secrets: Secrets | null
+): Promise<{ bytes: Uint8Array; finalUrl: string }> => {
+  const ownHosts = deploymentHosts(secrets);
+  let url = await assertFetchable(rawUrl, ownHosts);
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     const response = await fetch(url, {
@@ -148,7 +192,7 @@ export const fetchRemotePdf = async (rawUrl: string): Promise<{ bytes: Uint8Arra
       if (!location) {
         throw new RemotePdfError('unreachable', 'The address redirected without saying where to.');
       }
-      url = await assertFetchable(new URL(location, url).toString());
+      url = await assertFetchable(new URL(location, url).toString(), ownHosts);
       continue;
     }
 
