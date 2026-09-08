@@ -150,6 +150,7 @@ export const SearchBillingClaimsInputSchema = z.object({
   serviceDateTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
+  nonInsurancePayerId: nonEmptyString.uuid().optional(),
   service: nonEmptyString.optional(),
   patientId: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),
@@ -571,6 +572,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
         .string()
         .refine((code) => INSURANCE_CANDID_PLAN_TYPE_CODES.includes(code), 'Invalid plan type')
         .optional(),
+      nonInsurancePayer: z.object({ id: nonEmptyString.uuid() }).nullable().optional(),
       diagnoses: z.array(claimDiagnosisSchema).optional(),
       serviceLines: z.array(claimServiceLineSchema).optional(),
       billType: nonEmptyString.min(4).max(4).optional().or(z.literal('')),

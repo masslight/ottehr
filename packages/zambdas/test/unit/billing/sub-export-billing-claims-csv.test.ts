@@ -215,9 +215,11 @@ describe('sub-export-billing-claims-csv', () => {
     const [headers, row, ...rest] = await csvRows();
     expect(rest).toHaveLength(0);
     // The identifiers the claims list has no room for lead the export.
-    expect(headers.startsWith('Claim ID,Patient Name,Patient DOB,Service Date,Payer Name,Payer ID,Member ID')).toBe(
-      true
-    );
+    expect(
+      headers.startsWith(
+        'Claim ID,Patient Name,Patient DOB,Service Date,Payer Name,Payer ID,Non-insurance Organization,Member ID'
+      )
+    ).toBe(true);
     expect(headers).toContain('AR Stage');
     expect(row).toContain('claim-1');
     expect(row).toContain('1990-01-01');

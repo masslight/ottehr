@@ -1,6 +1,7 @@
 import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
@@ -8,6 +9,7 @@ import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants
 import { SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingClaimItem } from 'utils/lib/types/data/billing/billing.types';
 import { CLAIM_STATUS_TAG_SYSTEMS, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
+import { CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { fetchClaimResponsesByClaimIds, fetchPatientPaidByClaimId, summarizeClaimPayments } from './claim-amounts';
@@ -59,6 +61,7 @@ export type ClaimFilterInput = Pick<
   | 'service'
   | 'payerId'
   | 'payerName'
+  | 'nonInsurancePayerId'
   | 'tag'
 >;
 
@@ -140,6 +143,11 @@ export async function buildClaimFilterParams({
     filterParams.push({
       name: '_tag',
       value: `${CLAIM_TAG_SYSTEM}|${params.tag}`,
+    });
+  if (params.nonInsurancePayerId)
+    filterParams.push({
+      name: '_tag',
+      value: `${CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM}|${params.nonInsurancePayerId}`,
     });
 
   return filterParams;
@@ -481,6 +489,7 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
     patientName,
     patientDob: patient?.birthDate ?? '',
     payerName: insurer?.name ?? '',
+    nonInsurancePayerName: getClaimNonInsurancePayer(claim)?.display ?? '',
     payerId: getPayerId(insurer) ?? '',
     memberId: coverage?.subscriberId ?? '',
     service: getClaimService(claim),

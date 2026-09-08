@@ -108,6 +108,7 @@ import {
   formatPhoneNumber,
   getPayerId,
   getPayerUrl,
+  isNioReferenceUrl,
   isPayerUrl,
 } from 'utils/lib/helpers/helpers';
 import { filterHiddenRemovableFields, isFieldExplicitlyCleared } from 'utils/lib/helpers/paperwork/paperwork';
@@ -2201,7 +2202,8 @@ const mergeGuarantors = (guarantors: Account['guarantor'], organizationReference
     {
       party: {
         reference: organizationReference,
-        type: 'Organization',
+        // An NIO reference token is not a FHIR Organization reference, so it carries no type hint.
+        ...(isNioReferenceUrl(organizationReference) ? {} : { type: 'Organization' }),
       },
     },
   ];
@@ -2279,16 +2281,19 @@ interface BuildEmployerAccountResourceParams {
   patientId: string;
   existingAccount?: Account;
   organizationReference: string;
+  // Persisted on Account.owner so NIO reference tokens render a name without any FHIR read.
+  organizationDisplay?: string;
   accountTypeCoding?: CodeableConcept;
   employerInformation?: EmployerInformation;
   coverageReference?: string;
 }
 
-const buildEmployerAccountResource = (params: BuildEmployerAccountResourceParams): Account => {
+export const buildEmployerAccountResource = (params: BuildEmployerAccountResourceParams): Account => {
   const {
     patientId,
     existingAccount,
     organizationReference,
+    organizationDisplay,
     accountTypeCoding,
     employerInformation,
     coverageReference,
@@ -2312,7 +2317,7 @@ const buildEmployerAccountResource = (params: BuildEmployerAccountResourceParams
     },
     name: employerInformation?.employerName,
     subject,
-    owner: { reference: organizationReference },
+    owner: { reference: organizationReference, ...(organizationDisplay ? { display: organizationDisplay } : {}) },
     guarantor,
     contained: organizationIdFromReference
       ? baseAccount.contained?.filter(
@@ -3173,6 +3178,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       patientId: patient.id!,
       existingAccount: existingOccupationalMedicineAccount,
       organizationReference: occupationalMedicineEmployerReference.reference,
+      organizationDisplay: occupationalMedicineEmployerReference.display,
       accountTypeCoding: OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
       employerInformation,
     });

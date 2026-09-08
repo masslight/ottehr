@@ -39,6 +39,7 @@ import {
   formatAntCaseString,
   formatClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
+import { NonInsuranceOrganizationItem } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { MAX_RUN_RULES_ENGINE_CLAIMS } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import {
@@ -46,6 +47,7 @@ import {
   getBillingClaimsExportStatus,
   runBillingRulesEngine,
   searchBillingClaims,
+  searchBillingNonInsuranceOrgs,
   searchBillingPatients,
   searchBillingPayers,
   searchBillingServices,
@@ -70,6 +72,7 @@ interface Filters {
   serviceDateFrom?: string;
   serviceDateTo?: string;
   payerId?: string;
+  nonInsurancePayerId?: string;
   patientId?: string;
   type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | '';
   service?: string;
@@ -86,6 +89,7 @@ function toSearchParams(filters: Filters): ExportBillingClaimsInput {
   if (filters.serviceDateFrom) params.serviceDateFrom = filters.serviceDateFrom;
   if (filters.serviceDateTo) params.serviceDateTo = filters.serviceDateTo;
   if (filters.payerId) params.payerId = filters.payerId;
+  if (filters.nonInsurancePayerId) params.nonInsurancePayerId = filters.nonInsurancePayerId;
   if (filters.patientId) params.patientId = filters.patientId;
   if (filters.type) params.type = filters.type;
   if (filters.service) params.service = filters.service;
@@ -127,6 +131,7 @@ const columns: GridColDef[] = [
   { field: 'serviceDate', headerName: 'Service Date', width: 120 },
   { field: 'payerName', headerName: 'Payer Name', flex: 1, minWidth: 160 },
   { field: 'payerId', headerName: 'Payer ID', width: 100 },
+  { field: 'nonInsurancePayerName', headerName: 'Non-insurance Organization', width: 200 },
   ...statusColumns,
   {
     field: 'type',
@@ -177,6 +182,7 @@ export default function ClaimsList(): ReactElement {
   const [exporting, setExporting] = useState(false);
 
   const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
+  const [nioOptions, setNioOptions] = useState<NonInsuranceOrganizationItem[]>([]);
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
   const [searchText, setSearchText] = useState('');
@@ -189,6 +195,7 @@ export default function ClaimsList(): ReactElement {
   const [serviceDateFrom, setServiceDateFrom] = useState('');
   const [serviceDateTo, setServiceDateTo] = useState('');
   const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
+  const [selectedNio, setSelectedNio] = useState<NonInsuranceOrganizationItem | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
   const [typeFilter, setTypeFilter] = useState<keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | ''>('');
   const [selectedService, setSelectedService] = useState<BillingService | null>(null);
@@ -196,6 +203,7 @@ export default function ClaimsList(): ReactElement {
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const serviceDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const payerDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nioDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const patientDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const statusOptions = useMemo(() => {
@@ -273,6 +281,19 @@ export default function ClaimsList(): ReactElement {
   );
   useEffect(() => searchPayers(''), [searchPayers]);
 
+  const searchNios = useCallback(
+    (query: string): void => {
+      if (!oystehrZambda) return;
+      if (nioDebounce.current) clearTimeout(nioDebounce.current);
+      nioDebounce.current = setTimeout(async () => {
+        const res = await searchBillingNonInsuranceOrgs(oystehrZambda, query ? { name: query } : {});
+        setNioOptions(res.organizations ?? []);
+      }, 300);
+    },
+    [oystehrZambda]
+  );
+  useEffect(() => searchNios(''), [searchNios]);
+
   const searchPatients = useCallback(
     (query: string): void => {
       if (!oystehrZambda) return;
@@ -314,6 +335,7 @@ export default function ClaimsList(): ReactElement {
       serviceDateFrom: overrides?.serviceDateFrom ?? serviceDateFrom,
       serviceDateTo: overrides?.serviceDateTo ?? serviceDateTo,
       payerId: overrides?.payerId ?? selectedPayer?.payerId,
+      nonInsurancePayerId: overrides?.nonInsurancePayerId ?? selectedNio?.id,
       patientId: overrides?.patientId ?? selectedPatient?.id,
       type: overrides?.type ?? typeFilter,
       service: overrides?.service ?? selectedService?.name,
@@ -328,6 +350,7 @@ export default function ClaimsList(): ReactElement {
       serviceDateFrom,
       serviceDateTo,
       selectedPayer,
+      selectedNio,
       selectedPatient,
       typeFilter,
       selectedService,
@@ -363,6 +386,7 @@ export default function ClaimsList(): ReactElement {
     setServiceDateFrom('');
     setServiceDateTo('');
     setSelectedPayer(null);
+    setSelectedNio(null);
     setSelectedPatient(null);
     setTypeFilter('');
     setSelectedService(null);
@@ -381,6 +405,7 @@ export default function ClaimsList(): ReactElement {
     serviceDateFrom ||
     serviceDateTo ||
     selectedPayer ||
+    selectedNio ||
     selectedPatient ||
     typeFilter ||
     selectedService;
@@ -617,6 +642,25 @@ export default function ClaimsList(): ReactElement {
           renderInput={(params) => <TextField {...params} label="Payer" />}
           isOptionEqualToValue={(o, v) => o.payerId === v.payerId}
           sx={{ minWidth: 200 }}
+        />
+
+        <Autocomplete
+          size="small"
+          options={nioOptions}
+          getOptionLabel={(o) => o.name}
+          onInputChange={(_, value, reason) => {
+            if (reason === 'input') searchNios(value);
+          }}
+          onOpen={() => searchNios('')}
+          filterOptions={(x) => x}
+          value={selectedNio}
+          onChange={(_, v) => {
+            setSelectedNio(v);
+            applyFilters({ nonInsurancePayerId: v?.id ?? '' });
+          }}
+          renderInput={(params) => <TextField {...params} label="Non-insurance Organization" />}
+          isOptionEqualToValue={(o, v) => o.id === v.id}
+          sx={{ minWidth: 230 }}
         />
 
         <Autocomplete

@@ -285,6 +285,7 @@ export interface BillingClaimItem {
   patientDob: string;
   payerName: string;
   payerId: string;
+  nonInsurancePayerName: string;
   memberId: string;
   service: string | undefined;
   serviceDate: string;
