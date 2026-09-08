@@ -22,6 +22,43 @@ export const PERSON_GENDER_OPTIONS: { value: NonNullable<Patient['gender']>; lab
   { value: 'unknown', label: 'Unknown' },
 ];
 
+// X12 drug quantity unit codes offered by the service line medication detail dialog.
+export const DRUG_UNIT_CODE_VALUES = ['UN', 'ME', 'ML', 'GM', 'F2', 'MJ'] as const;
+export type DrugUnitCode = (typeof DRUG_UNIT_CODE_VALUES)[number];
+export const DRUG_UNIT_CODES: { code: DrugUnitCode; label: string; description: string }[] = [
+  { code: 'UN', label: 'Units', description: 'Standard default for most drugs, procedures, or visits' },
+  { code: 'ME', label: 'Milligrams (MG)', description: 'Drug amount in milligrams' },
+  { code: 'ML', label: 'Milliliters (ML)', description: 'Drug amount in milliliters' },
+  { code: 'GM', label: 'Grams (GM)', description: 'Drug amount in grams' },
+  {
+    code: 'F2',
+    label: 'International Units',
+    description: 'For specific biologicals/drugs; largely replaced by UN in 5010',
+  },
+  { code: 'MJ', label: 'Minutes', description: 'Time-based modalities billed in increments' },
+];
+
+// Dashed NDC layouts by digit count: 10 → 4-4-2 / 5-3-2 / 5-4-1, 11 → 5-4-2, 12 → 6-4-2.
+export const NDC_DASH_FORMATS: Record<number, readonly (readonly [number, number, number])[]> = {
+  10: [
+    [4, 4, 2],
+    [5, 3, 2],
+    [5, 4, 1],
+  ],
+  11: [[5, 4, 2]],
+  12: [[6, 4, 2]],
+};
+// Plain 10-12 digits, or dashed per an allowed layout (dashes are validated only when present).
+export const NDC_REGEX = /^(?:\d{10,12}|\d{4}-\d{4}-\d{2}|\d{5}-\d{3}-\d{2}|\d{5}-\d{4}-\d{1,2}|\d{6}-\d{4}-\d{2})$/;
+export const formatNdc = (digits: string, [a, b]: readonly [number, number, number]): string =>
+  `${digits.slice(0, a)}-${digits.slice(a, a + b)}-${digits.slice(a + b)}`;
+// Undashed entries default to the first layout for their length (10 → 4-4-2, 11 → 5-4-2, 12 → 6-4-2).
+export const normalizeNdc = (ndc: string): string => {
+  if (ndc.includes('-')) return ndc;
+  const format = NDC_DASH_FORMATS[ndc.length]?.[0];
+  return format ? formatNdc(ndc, format) : ndc;
+};
+
 export const X12_ADJUSTMENT_GROUP_CODE = {
   contractualObligation: 'CO',
   correctionReversal: 'CR',

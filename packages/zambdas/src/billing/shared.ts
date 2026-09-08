@@ -21,6 +21,7 @@ import {
   Coverage,
   DocumentReference,
   DomainResource,
+  Extension,
   FhirResource,
   Identifier,
   List,
@@ -276,6 +277,42 @@ export const EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS =
   'https://extensions.fhir.oystehr.com/rcm-claim-patient-discharge-status';
 export const EXTENSION_CLAIM_FACILITY_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-facility-type-code';
 export const EXTENSION_CLAIM_FREQUENCY_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-frequency-code';
+
+// Per-line ordering provider, carried as a complex extension on Claim.item.
+export const EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER = 'https://fhir.ottehr.com/billing/ordering-provider';
+
+export interface LineOrderingProvider {
+  name: string;
+  npi?: string;
+  taxonomy?: string;
+  kind?: 'individual' | 'organization';
+  providerId?: string;
+}
+
+export const buildOrderingProviderExtension = (op: LineOrderingProvider): Extension => ({
+  url: EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER,
+  extension: [
+    { url: 'name', valueString: op.name },
+    ...(op.npi ? [{ url: 'npi', valueString: op.npi }] : []),
+    ...(op.taxonomy ? [{ url: 'taxonomy', valueString: op.taxonomy }] : []),
+    ...(op.kind ? [{ url: 'kind', valueString: op.kind }] : []),
+    ...(op.providerId ? [{ url: 'providerId', valueString: op.providerId }] : []),
+  ],
+});
+
+export const readOrderingProviderExtension = (item: ClaimItem): LineOrderingProvider | undefined => {
+  const ext = item.extension?.find((e) => e.url === EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER);
+  const sub = (url: string): string | undefined => ext?.extension?.find((e) => e.url === url)?.valueString;
+  const name = sub('name');
+  if (!name) return undefined;
+  return {
+    name,
+    npi: sub('npi'),
+    taxonomy: sub('taxonomy'),
+    kind: sub('kind') as LineOrderingProvider['kind'],
+    providerId: sub('providerId'),
+  };
+};
 export const CODE_SYSTEM_NUBC_REVENUE = 'https://www.nubc.org/CodeSystem/RevenueCodes';
 
 export function getEraExtensionString(

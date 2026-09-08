@@ -19,6 +19,7 @@ import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
+  CODE_SYSTEM_NDC,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
 } from 'utils/lib/helpers/rcm/constants';
@@ -34,6 +35,7 @@ import {
   buildAddress,
   buildClaimCoverageCopies,
   buildDiagnosisSequence,
+  buildOrderingProviderExtension,
   buildSubscriberRelatedPerson,
   claimHasRealCoverage,
   CODE_SYSTEM_NUBC_REVENUE,
@@ -334,6 +336,16 @@ async function attachClaimResources(
       net: { value: line.charges, currency: 'USD' },
       quantity: { value: line.units, unit: 'UN' },
       revenue: line.revenueCode ? codeableConcept(line.revenueCode, CODE_SYSTEM_NUBC_REVENUE) : undefined,
+      detail: line.drug
+        ? [
+            {
+              sequence: 1,
+              productOrService: { coding: [{ system: CODE_SYSTEM_NDC, code: line.drug.ndc }] },
+              quantity: { value: line.drug.quantity, unit: line.drug.units },
+            },
+          ]
+        : undefined,
+      extension: line.orderingProvider ? [buildOrderingProviderExtension(line.orderingProvider)] : undefined,
     }));
     claim.total = { value: fields.serviceLines.reduce((sum, l) => sum + l.charges, 0), currency: 'USD' };
   } else if (fields.diagnoses) {

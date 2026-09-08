@@ -5,7 +5,7 @@ import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { STATE_CODES } from '../../common';
-import { BILLING_MANUAL_PAYMENT_METHODS } from './billing.constants';
+import { BILLING_MANUAL_PAYMENT_METHODS, DRUG_UNIT_CODE_VALUES, NDC_REGEX } from './billing.constants';
 import { CLAIM_NOTE_MAX_LENGTH } from './claim-history';
 import {
   CLAIM_STATUS_FIELD_KEYS,
@@ -223,6 +223,27 @@ const claimServiceLineSchema = z.object({
   // 1-based references into the claim's diagnosis list (FHIR item.diagnosisSequence)
   diagnosisPointers: z.array(z.number().int().positive()).optional(),
   revenueCode: z.string().max(5).optional(),
+  drug: z
+    .object({
+      ndc: z.string().regex(NDC_REGEX, 'NDC must be 10-12 digits; dashes are optional but must match a valid layout'),
+      quantity: z.number().positive(),
+      units: z.enum(DRUG_UNIT_CODE_VALUES),
+    })
+    .optional(),
+  orderingProvider: z
+    .object({
+      name: nonEmptyString,
+      npi: z
+        .string()
+        .trim()
+        .refine(isNPIValidWithChecksum, 'NPI must be 10 digits with a valid check digit')
+        .optional(),
+      taxonomy: z.string().trim().optional(),
+      kind: z.enum(['individual', 'organization']).optional(),
+      // FHIR id when picked from an existing billing provider
+      providerId: z.string().optional(),
+    })
+    .optional(),
 });
 
 export const GetServiceFacilityInputSchema = z.object({

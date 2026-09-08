@@ -1,12 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
+import { Claim, ClaimItem, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { SubscriberRelationship } from 'utils/lib/fhir/constants';
 import { getCoding, getExtension, getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getPayerId } from 'utils/lib/helpers/helpers';
+import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { asEraClaimStatusCode, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
   BillingPolicyHolderSummary,
@@ -50,6 +51,7 @@ import {
   getClaimType,
   getEraCheckNumber,
   getTaxonomy,
+  readOrderingProviderExtension,
   resolvePayersByRef,
   toAddressParts,
 } from '../shared';
@@ -57,6 +59,13 @@ import { GetClaimDetailParams, validateRequestParameters } from './validateReque
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-claim-detail';
+
+// Medication detail (NDC + drug quantity) is stored as the line's first item.detail entry.
+const readLineDrug = (item: ClaimItem): { ndc: string; quantity: number; units: string } | undefined => {
+  const detail = item.detail?.[0];
+  const ndc = detail?.productOrService?.coding?.find((c) => c.system === CODE_SYSTEM_NDC)?.code;
+  return ndc ? { ndc, quantity: detail?.quantity?.value ?? 0, units: detail?.quantity?.unit ?? 'UN' } : undefined;
+};
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
@@ -277,6 +286,8 @@ export async function performEffect(
       placeOfService: item.locationCodeableConcept?.coding?.[0]?.code ?? '',
       diagnosisPointers: item.diagnosisSequence ?? [],
       revenueCode: getCoding(item.revenue, CODE_SYSTEM_NUBC_REVENUE)?.code ?? '',
+      drug: readLineDrug(item),
+      orderingProvider: readOrderingProviderExtension(item),
     })),
     billed,
     allowed: payments.allowed,

@@ -67,6 +67,7 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
 } from 'utils/lib/helpers/rcm/constants';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { DrugUnitCode } from 'utils/lib/types/data/billing/billing.constants';
 import {
   CreateBillingProviderInput,
   SaveServiceFacilityInput,
@@ -113,11 +114,15 @@ import {
   updateBillingProvider,
   updateBillingResource,
 } from '../api/api';
+import { CapsuleIcon } from '../components/claim/CapsuleIcon';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimNotesDrawer } from '../components/claim/ClaimNotesDrawer';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
+import { DoctorIcon } from '../components/claim/DoctorIcon';
 import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
+import { MedicationDetailDialog, ServiceLineDrug } from '../components/claim/MedicationDetailDialog';
+import { OrderingProviderDialog, ServiceLineOrderingProvider } from '../components/claim/OrderingProviderDialog';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CopyButton } from '../components/CopyButton';
@@ -1376,10 +1381,22 @@ function ServiceLinesSection({
         placeOfService: line.placeOfService,
         diagnosisPointers: line.diagnosisPointers,
         revenueCode: line.revenueCode,
+        drug: line.drug
+          ? { ndc: line.drug.ndc, quantity: String(line.drug.quantity), units: line.drug.units as DrugUnitCode }
+          : null,
+        orderingProvider: line.orderingProvider
+          ? {
+              ...line.orderingProvider,
+              kind: line.orderingProvider.kind as ServiceLineOrderingProvider['kind'],
+            }
+          : null,
       })),
     [claim]
   );
   const [rows, setRows] = useState<ServiceLineRow[]>(toRows);
+  // indexes into claim.serviceLines for the read-only "edit one detail only" dialogs
+  const [drugEditIndex, setDrugEditIndex] = useState<number | null>(null);
+  const [providerEditIndex, setProviderEditIndex] = useState<number | null>(null);
 
   const resetFields = useCallback((): void => setRows(toRows()), [toRows]);
 
@@ -1389,6 +1406,44 @@ function ServiceLinesSection({
 
   const dxCode = (sequence: number): string =>
     claim.diagnoses.find((dx) => dx.sequence === sequence)?.code ?? String(sequence);
+
+  // Saves one line's medication or ordering-provider detail from the read-only view, keeping all lines as-is.
+  const saveLineExtras = async (
+    index: number,
+    patch: { drug?: ServiceLineDrug | null; orderingProvider?: ServiceLineOrderingProvider | null }
+  ): Promise<void> => {
+    const error = await updateResource('Claim', claim.id, {
+      serviceLines: claim.serviceLines.map((line, i) => {
+        const nextDrug = i === index && patch.drug !== undefined ? patch.drug : line.drug;
+        const nextProvider =
+          i === index && patch.orderingProvider !== undefined ? patch.orderingProvider : line.orderingProvider;
+        return {
+          cptCode: line.cptCode,
+          units: line.units,
+          charges: line.charges,
+          serviceDate: line.serviceDate,
+          placeOfService: line.placeOfService,
+          ...(line.modifiers.length ? { modifiers: line.modifiers } : {}),
+          ...(line.diagnosisPointers.length ? { diagnosisPointers: line.diagnosisPointers } : {}),
+          revenueCode: line.revenueCode,
+          ...(nextDrug
+            ? {
+                drug: { ndc: nextDrug.ndc, quantity: Number(nextDrug.quantity), units: nextDrug.units as DrugUnitCode },
+              }
+            : {}),
+          ...(nextProvider
+            ? {
+                orderingProvider: {
+                  ...nextProvider,
+                  kind: nextProvider.kind as ServiceLineOrderingProvider['kind'],
+                },
+              }
+            : {}),
+        };
+      }),
+    });
+    if (error) enqueueSnackbar(error, { variant: 'error' });
+  };
 
   const handleSave = async (): Promise<string | null> => {
     for (const row of rows) {
@@ -1413,6 +1468,10 @@ function ServiceLinesSection({
           ...(modifiers.length ? { modifiers } : {}),
           ...(row.diagnosisPointers.length ? { diagnosisPointers: row.diagnosisPointers } : {}),
           revenueCode: row.revenueCode,
+          ...(row.drug
+            ? { drug: { ndc: row.drug.ndc, quantity: Number(row.drug.quantity), units: row.drug.units } }
+            : {}),
+          ...(row.orderingProvider ? { orderingProvider: row.orderingProvider } : {}),
         };
       }),
     });
@@ -1452,11 +1511,57 @@ function ServiceLinesSection({
               </TableRow>
             </TableHead>
             <TableBody>
-              {claim.serviceLines.map((line) => (
+              {claim.serviceLines.map((line, idx) => (
                 <TableRow key={line.sequence}>
-                  <TableCell>{line.sequence}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
+                      {line.sequence}
+                      {line.drug && (
+                        <Tooltip title={`NDC ${line.drug.ndc} · ${line.drug.quantity} ${line.drug.units}`}>
+                          <IconButton
+                            size="small"
+                            onClick={() => setDrugEditIndex(idx)}
+                            aria-label="Edit medication detail"
+                            sx={{ p: 0.25 }}
+                          >
+                            <CapsuleIcon sx={{ fontSize: 24, color: 'primary.main' }} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {line.orderingProvider && (
+                        <Tooltip
+                          title={`Ordering: ${line.orderingProvider.name}${
+                            line.orderingProvider.npi ? ` · NPI ${line.orderingProvider.npi}` : ''
+                          }`}
+                        >
+                          <IconButton
+                            size="small"
+                            onClick={() => setProviderEditIndex(idx)}
+                            aria-label="Edit ordering provider"
+                            sx={{ p: 0.25 }}
+                          >
+                            <DoctorIcon sx={{ fontSize: 24, color: 'primary.main' }} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </TableCell>
                   <TableCell>{line.serviceDate}</TableCell>
-                  <TableCell>{line.cptCode}</TableCell>
+                  <TableCell>
+                    {line.cptCode}
+                    {line.drug && (
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        NDC {line.drug.ndc} · {line.drug.quantity} {line.drug.units}
+                      </Typography>
+                    )}
+                    {line.orderingProvider && (
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        Ordering: {line.orderingProvider.name}
+                        {line.orderingProvider.npi ? ` · NPI ${line.orderingProvider.npi}` : ''}
+                        {line.orderingProvider.taxonomy ? ` · ${line.orderingProvider.taxonomy}` : ''}
+                      </Typography>
+                    )}
+                  </TableCell>
                   <TableCell>{line.modifiers.join(', ') || '-'}</TableCell>
                   <TableCell>{line.diagnosisPointers.map(dxCode).join(', ') || '-'}</TableCell>
                   <TableCell>{line.placeOfService || '-'}</TableCell>
@@ -1472,6 +1577,47 @@ function ServiceLinesSection({
         <Typography variant="body2" color="text.secondary">
           No service lines
         </Typography>
+      )}
+      {drugEditIndex !== null && claim.serviceLines[drugEditIndex]?.drug && (
+        <MedicationDetailDialog
+          open
+          value={{
+            ndc: claim.serviceLines[drugEditIndex].drug!.ndc,
+            quantity: String(claim.serviceLines[drugEditIndex].drug!.quantity),
+            units: claim.serviceLines[drugEditIndex].drug!.units as DrugUnitCode,
+          }}
+          onSave={(drug) => {
+            const idx = drugEditIndex;
+            setDrugEditIndex(null);
+            void saveLineExtras(idx, { drug });
+          }}
+          onRemove={() => {
+            const idx = drugEditIndex;
+            setDrugEditIndex(null);
+            void saveLineExtras(idx, { drug: null });
+          }}
+          onClose={() => setDrugEditIndex(null)}
+        />
+      )}
+      {providerEditIndex !== null && claim.serviceLines[providerEditIndex]?.orderingProvider && (
+        <OrderingProviderDialog
+          open
+          value={{
+            ...claim.serviceLines[providerEditIndex].orderingProvider!,
+            kind: claim.serviceLines[providerEditIndex].orderingProvider!.kind as ServiceLineOrderingProvider['kind'],
+          }}
+          onSave={(provider) => {
+            const idx = providerEditIndex;
+            setProviderEditIndex(null);
+            void saveLineExtras(idx, { orderingProvider: provider });
+          }}
+          onRemove={() => {
+            const idx = providerEditIndex;
+            setProviderEditIndex(null);
+            void saveLineExtras(idx, { orderingProvider: null });
+          }}
+          onClose={() => setProviderEditIndex(null)}
+        />
       )}
     </EditableSection>
   );

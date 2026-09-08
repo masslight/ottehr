@@ -23,6 +23,7 @@ import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
+  CODE_SYSTEM_NDC,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
@@ -39,6 +40,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   buildDiagnosisSequence,
+  buildOrderingProviderExtension,
   copyBillingPatientWithClinicalIds,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
@@ -319,6 +321,16 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams, payerN
         : undefined,
       net: { value: line.charges, currency: 'USD' },
       quantity: { value: line.units, unit: 'UN' },
+      detail: line.drug
+        ? [
+            {
+              sequence: 1,
+              productOrService: { coding: [{ system: CODE_SYSTEM_NDC, code: line.drug.ndc }] },
+              quantity: { value: line.drug.quantity, unit: line.drug.units },
+            },
+          ]
+        : undefined,
+      extension: line.orderingProvider ? [buildOrderingProviderExtension(line.orderingProvider)] : undefined,
     }));
     claim.total = { value: params.serviceLines.reduce((sum, l) => sum + l.charges, 0), currency: 'USD' };
   }

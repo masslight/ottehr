@@ -477,6 +477,8 @@ export interface ClaimDetailResponse {
     placeOfService: string;
     diagnosisPointers: number[];
     revenueCode: string;
+    drug?: { ndc: string; quantity: number; units: string };
+    orderingProvider?: { name: string; npi?: string; taxonomy?: string; kind?: string; providerId?: string };
   }[];
   billed: number;
   allowed: number;
