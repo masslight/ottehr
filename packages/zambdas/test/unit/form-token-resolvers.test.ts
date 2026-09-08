@@ -138,12 +138,30 @@ describe('patient tokens with logic behind them', () => {
     expect(resolveToken('patient.addressFull', ctx)).toBe('1 Analytical Way, Austin, TX, 78701');
   });
 
-  it('reads the Social Security number, and its last four separately', () => {
+  it('reads the Social Security number, whole and in the three groups forms split it into', () => {
     const ctx = withPatient({
       identifier: [{ system: 'http://hl7.org/fhir/sid/us-ssn', value: '123-45-6789' }],
     });
 
     expect(resolveToken('patient.ssn', ctx)).toBe('123-45-6789');
+    expect(resolveToken('patient.ssnFirst3', ctx)).toBe('123');
+    expect(resolveToken('patient.ssnMiddle2', ctx)).toBe('45');
+    expect(resolveToken('patient.ssnLast4', ctx)).toBe('6789');
+  });
+
+  it('splits an undashed number into the same three groups', () => {
+    const ctx = withPatient({ identifier: [{ system: 'http://hl7.org/fhir/sid/us-ssn', value: '123456789' }] });
+
+    expect(resolveToken('patient.ssnFirst3', ctx)).toBe('123');
+    expect(resolveToken('patient.ssnMiddle2', ctx)).toBe('45');
+  });
+
+  it('leaves the leading groups blank on a partial number rather than mislabelling its digits', () => {
+    const ctx = withPatient({ identifier: [{ system: 'http://hl7.org/fhir/sid/us-ssn', value: '6789' }] });
+
+    expect(resolveToken('patient.ssnFirst3', ctx)).toBeUndefined();
+    expect(resolveToken('patient.ssnMiddle2', ctx)).toBeUndefined();
+    // Counted from the end, so this one is still right.
     expect(resolveToken('patient.ssnLast4', ctx)).toBe('6789');
   });
 

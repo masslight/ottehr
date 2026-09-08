@@ -84,6 +84,22 @@ const oneLineAddress = (address: Address | undefined): string | undefined => {
 const socialSecurityNumber = (patient: Patient | undefined): string | undefined =>
   patient?.identifier?.find((identifier) => identifier.system === SSN_SYSTEM)?.value;
 
+/** Just the digits, so punctuation — dashes, spaces, anything else — does not shift the positions. */
+const ssnDigits = (patient: Patient | undefined): string | undefined =>
+  socialSecurityNumber(patient)?.replace(/\D/g, '');
+
+/**
+ * The digits, but only when all nine are present.
+ *
+ * Anything indexed from the front is wrong on a partial value: a chart holding only `6789` would answer
+ * "first three" with `678`, which looks like an area number and is not one. Counting from the end has no
+ * such problem, which is why the last-four token does not use this.
+ */
+const wholeSsnDigits = (patient: Patient | undefined): string | undefined => {
+  const digits = ssnDigits(patient);
+  return digits?.length === 9 ? digits : undefined;
+};
+
 /** The practitioner attending the visit, preferring the encounter's own participant list. */
 const attendingPractitioner = (ctx: FormFillContext): Practitioner | undefined => {
   const participantIds = (ctx.encounter?.participant ?? [])
@@ -238,12 +254,14 @@ export const TOKEN_RESOLVERS: Record<string, FormTokenResolver> = {
   'patient.phone': (ctx) => contact(ctx.patient?.telecom, 'phone'),
   'patient.addressFull': (ctx) => oneLineAddress(homeAddress(ctx.patient)),
   'patient.ssn': (ctx) => socialSecurityNumber(ctx.patient),
+  // Counted from the end, so a value stored as only the last four still yields the right four.
   'patient.ssnLast4': (ctx) => {
-    // Taken from the digits rather than the last four characters, so a value stored without dashes — or
-    // with any other punctuation — still yields the right four.
-    const digits = socialSecurityNumber(ctx.patient)?.replace(/\D/g, '');
+    const digits = ssnDigits(ctx.patient);
     return digits && digits.length >= 4 ? digits.slice(-4) : undefined;
   },
+  // Counted from the start, which is only meaningful on a complete number — see `wholeSsnDigits`.
+  'patient.ssnFirst3': (ctx) => wholeSsnDigits(ctx.patient)?.slice(0, 3),
+  'patient.ssnMiddle2': (ctx) => wholeSsnDigits(ctx.patient)?.slice(3, 5),
   'patient.email': (ctx) => contact(ctx.patient?.telecom, 'email'),
   'patient.recordNumber': (ctx) => ctx.patient?.id,
 

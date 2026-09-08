@@ -54,6 +54,22 @@ export const TOKEN_CATALOG: readonly FormTokenDescriptor[] = Object.freeze([
     type: 'string',
     description: 'The last four digits only, which is all many forms ask for.',
   },
+  // Forms that print the number as three boxes want each group separately. Together with the last four
+  // above these cover that layout; the whole number remains available for forms with a single field.
+  {
+    key: 'patient.ssnFirst3',
+    label: 'Social Security number (first 3)',
+    group: 'Patient',
+    type: 'string',
+    description: 'The area number, for forms that split the number across three boxes.',
+  },
+  {
+    key: 'patient.ssnMiddle2',
+    label: 'Social Security number (middle 2)',
+    group: 'Patient',
+    type: 'string',
+    description: 'The group number, for forms that split the number across three boxes.',
+  },
   { key: 'patient.email', label: 'Email address', group: 'Patient', type: 'string' },
   {
     key: 'patient.recordNumber',

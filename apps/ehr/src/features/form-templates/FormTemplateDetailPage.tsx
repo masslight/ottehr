@@ -374,10 +374,13 @@ export const FormTemplateDetailPage = (): ReactElement => {
                   )}
 
                   <TableContainer sx={{ flex: 1, minWidth: 0 }}>
-                    <Table size="small">
+                    {/* Fixed layout because these names are machine-generated and can run very long with no
+                        spaces to break at. Sized to content, one such name widens its column until the control
+                        beside it is pushed off the edge — and the control is the part being edited. */}
+                    <Table size="small" sx={{ tableLayout: 'fixed' }}>
                       <TableHead>
                         <TableRow>
-                          <TableCell>Form field</TableCell>
+                          <TableCell sx={{ width: '58%' }}>Form field</TableCell>
                           <TableCell sx={{ width: '42%' }}>Fill with</TableCell>
                         </TableRow>
                       </TableHead>
@@ -404,7 +407,23 @@ export const FormTemplateDetailPage = (): ReactElement => {
                             >
                               <TableCell>
                                 <Tooltip title={field.name} placement="top-start">
-                                  <Typography variant="body2">{fieldLabel(field)}</Typography>
+                                  {/* Wrapped rather than truncated: names like `form1[0].#subform[1].TextField12[0]`
+                                      differ only in their last few characters, so an ellipsis at the end would make
+                                      distinct rows read identically. Broken mid-token since there is nothing else to
+                                      break at, and clamped so one enormous name cannot push the rest of the list off
+                                      the screen. The whole name stays in the tooltip. */}
+                                  <Typography
+                                    variant="body2"
+                                    sx={{
+                                      overflowWrap: 'anywhere',
+                                      display: '-webkit-box',
+                                      WebkitBoxOrient: 'vertical',
+                                      WebkitLineClamp: 3,
+                                      overflow: 'hidden',
+                                    }}
+                                  >
+                                    {fieldLabel(field)}
+                                  </Typography>
                                 </Tooltip>
                                 <Stack direction="row" gap={0.5} sx={{ mt: 0.5 }}>
                                   <Chip size="small" variant="outlined" label={field.type} />
@@ -414,6 +433,7 @@ export const FormTemplateDetailPage = (): ReactElement => {
                               <TableCell>
                                 <Autocomplete
                                   size="small"
+                                  fullWidth
                                   options={options}
                                   groupBy={(option) => option.group}
                                   getOptionLabel={(option) => option.label}
