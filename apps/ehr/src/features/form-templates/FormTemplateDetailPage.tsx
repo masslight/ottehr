@@ -21,7 +21,7 @@ import {
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import { lazy, ReactElement, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, lazy, ReactElement, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -103,6 +103,28 @@ const fieldLabel = (field: FormFieldInfo): string => {
   // Nothing descriptive left. The raw name is at least unique, which keeps otherwise identical rows apart.
   return name || `Unlabelled ${field.type}`;
 };
+
+/**
+ * A label with break opportunities at the separators generated field names are assembled from.
+ *
+ * These names are paths — `topmostSubform[0].Page1[0].f1_03[0]` — and the dots and underscores joining
+ * their parts are the only word boundaries they have. CSS does not treat either as one, so without this the
+ * whole path is a single unbreakable word and the only way to fit it is to break mid-token: `topmostSub` /
+ * `form[0]`, which reads as a different name than the row above it rather than the same one wrapped.
+ *
+ * `<wbr>` says a break is permitted here without putting anything in the text, so the name still reads and
+ * copies exactly as the PDF spells it. Rewriting the dots as spaces would have wrapped just as well, but it
+ * would also mean the name on screen is no longer the name in the file — and matching the two by eye is
+ * what this column is for.
+ */
+const withBreakOpportunities = (label: string): ReactNode =>
+  // Split after each separator so it stays at the end of the line it belongs to, the way a hyphen does.
+  label.split(/(?<=[._])/).map((part, index) => (
+    <Fragment key={index}>
+      {part}
+      <wbr />
+    </Fragment>
+  ));
 
 /** Order-insensitive, since local edit order has nothing to do with how the server stored them. */
 const sameBindings = (a: FormFieldBinding[], b: FormFieldBinding[]): boolean => {
@@ -376,12 +398,18 @@ export const FormTemplateDetailPage = (): ReactElement => {
                   <TableContainer sx={{ flex: 1, minWidth: 0 }}>
                     {/* Fixed layout because these names are machine-generated and can run very long with no
                         spaces to break at. Sized to content, one such name widens its column until the control
-                        beside it is pushed off the edge — and the control is the part being edited. */}
+                        beside it is pushed off the edge — and the control is the part being edited.
+
+                        The larger share goes to the control rather than the name, because the two degrade
+                        differently under pressure: a name wraps onto another line and stays entirely readable,
+                        while a token label has nowhere to go and is cut mid-word. Space spent on the name is
+                        mostly whitespace at the end of a wrapped line; the same space spent on the control is
+                        the difference between reading the mapping and guessing at it. */}
                     <Table size="small" sx={{ tableLayout: 'fixed' }}>
                       <TableHead>
                         <TableRow>
-                          <TableCell sx={{ width: '58%' }}>Form field</TableCell>
-                          <TableCell sx={{ width: '42%' }}>Fill with</TableCell>
+                          <TableCell sx={{ width: '45%' }}>Form field</TableCell>
+                          <TableCell sx={{ width: '55%' }}>Fill with</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -415,6 +443,8 @@ export const FormTemplateDetailPage = (): ReactElement => {
                                   <Typography
                                     variant="body2"
                                     sx={{
+                                      // Only reached when a single segment is itself wider than the column;
+                                      // the break opportunities above are preferred wherever they fit.
                                       overflowWrap: 'anywhere',
                                       display: '-webkit-box',
                                       WebkitBoxOrient: 'vertical',
@@ -422,7 +452,7 @@ export const FormTemplateDetailPage = (): ReactElement => {
                                       overflow: 'hidden',
                                     }}
                                   >
-                                    {fieldLabel(field)}
+                                    {withBreakOpportunities(fieldLabel(field))}
                                   </Typography>
                                 </Tooltip>
                                 <Stack direction="row" gap={0.5} sx={{ mt: 0.5 }}>
