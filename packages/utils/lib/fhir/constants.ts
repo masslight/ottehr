@@ -762,6 +762,10 @@ export const FOLDERS_CONFIG: ListConfig[] = [
   },
 ];
 
+// Relationships deliberately absent here fall back to 'other' at the call sites. 'Employee' is one:
+// the HL7 subscriber-relationship CodeSystem has no employee code, and mapping it here would give
+// 'other' two keys, making the reverse lookup in the billing rules engine order-dependent. The
+// coding's `display` carries the original label either way.
 export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
   Child: 'child',
   Parent: 'parent',
@@ -773,7 +777,8 @@ export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
 };
 
 // Canonical set of subscriber/policy-holder relationships to the patient, shared across the
-// clinical EHR and billing app so the values stay aligned.
+// clinical EHR and billing app so the values stay aligned. Keep in step with
+// `relationshipToInsuredOptions` in ottehr-config/value-sets, which drives the paperwork dropdown.
 export const SUBSCRIBER_RELATIONSHIPS = [
   'Self',
   'Child',
@@ -781,6 +786,7 @@ export const SUBSCRIBER_RELATIONSHIPS = [
   'Spouse',
   'Common Law Spouse',
   'Injured Party',
+  'Employee',
   'Other',
 ] as const;
 export type SubscriberRelationship = (typeof SUBSCRIBER_RELATIONSHIPS)[number];
