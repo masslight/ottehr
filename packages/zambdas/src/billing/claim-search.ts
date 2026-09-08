@@ -482,8 +482,6 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
     patientName,
     patientDob: patient?.birthDate ?? '',
     payerName: insurer?.name ?? '',
-    // The stamped non-insurance payer gets its own column; mixing it into payerName would conflate
-    // insurance payers and NIOs.
     nonInsurancePayerName: getClaimNonInsurancePayer(claim)?.display ?? '',
     payerId: getPayerId(insurer) ?? '',
     memberId: coverage?.subscriberId ?? '',
