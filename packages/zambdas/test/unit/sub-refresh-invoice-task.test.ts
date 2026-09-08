@@ -316,8 +316,9 @@ describe('sub-refresh-invoice-task', () => {
     mockClinicalClient.fhir.patch.mockRejectedValue(Object.assign(new Error('conflict'), { code: 412 }));
 
     await expect(runHandler(billingTask())).rejects.toThrow('conflict');
-    // 3 retries from patchWithOptimisticLock + 1 from the catch block recording the error.
-    expect(mockClinicalClient.fhir.patch).toHaveBeenCalledTimes(4);
+    // 3 retries from patchWithOptimisticLock (happy path) + 3 from patchWithOptimisticLock inside
+    // updateTaskStatusAndOutput (catch block), since the lock is permanently rejected.
+    expect(mockClinicalClient.fhir.patch).toHaveBeenCalledTimes(6);
   });
 
   it('derives the status from the stored task output, not the queued payload', async () => {
