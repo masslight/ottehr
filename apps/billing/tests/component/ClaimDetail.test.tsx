@@ -610,12 +610,12 @@ describe('ClaimDetail — non-insurance payer section', () => {
     expect(screen.queryByRole('button', { name: 'Remove payer' })).not.toBeInTheDocument();
   });
 
-  it('is not rendered for insurance claims without a stamped payer', async () => {
+  it('is rendered with the empty state even for insurance claims', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
     renderDetail();
 
-    await screen.findAllByText('Jane Doe');
-    expect(screen.queryByText('Non-insurance Payer')).not.toBeInTheDocument();
+    expect(await screen.findByText('Non-insurance Payer')).toBeInTheDocument();
+    expect(screen.getByText('No non-insurance payer specified')).toBeInTheDocument();
   });
 
   it('sets a payer through the edit form', async () => {

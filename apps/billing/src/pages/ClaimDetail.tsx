@@ -662,11 +662,7 @@ export default function ClaimDetail(): ReactElement {
             ) : (
               <></>
             )}
-            {(claim.statuses.arStage === AR_STAGE.nonInsurancePayer ||
-              claim.nonInsurancePayerFhirId ||
-              claim.nonInsurancePayerName) && (
-              <NonInsurancePayerSection claim={claim} updateResource={updateResource} />
-            )}
+            <NonInsurancePayerSection claim={claim} updateResource={updateResource} />
             <RenderingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
             <FacilitySection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
             <BillingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
@@ -973,9 +969,6 @@ export function InsuranceSection({
   );
 }
 
-// The claim's non-insurance payer (e.g. the visit's occupational-medicine employer), stamped at
-// claim creation from the clinical employer selection and editable here for claims whose visit
-// lacked one. Rendered only for claims in non-insurance payer AR or already carrying a payer.
 export function NonInsurancePayerSection({
   claim,
   updateResource,
@@ -989,9 +982,6 @@ export function NonInsurancePayerSection({
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
-  // The claim's current payer as an autocomplete value, so edit mode opens prefilled (matching the
-  // insurance sections). It may be missing from the loaded options (inactive, or options not loaded
-  // yet), so it is also merged into the option list below.
   const currentPayer = useMemo<NonInsuranceOrganizationItem | null>(
     () =>
       claim.nonInsurancePayerFhirId

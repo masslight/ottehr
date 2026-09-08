@@ -97,9 +97,7 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
       await updatePatientVisitDetails(oystehrZambda, input);
     },
     onSuccess: async (_data, variables) => {
-      // Write the saved employer into the cache before invalidating: form reseeds triggered by the
-      // account refetch landing first would otherwise read the stale visit details and flash the
-      // previous employer until the visit-details refetch completes.
+      // Writing to the cache prevents flickering the old value on save
       applyVisitEmployerToVisitDetailsCache(
         queryClient,
         variables.appointmentId,
