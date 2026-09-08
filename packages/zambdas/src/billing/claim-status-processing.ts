@@ -1,12 +1,17 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk';
 import { createHash } from 'crypto';
 import { Claim, ClaimResponse, FhirResource, Provenance, ProvenanceAgent } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { BILLING_RESOURCE_TAG, CLAIM_STATUS_RESPONSE_EVENT_SYSTEM } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { getCoding, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { CLAIM_STATUS_PROCESSED_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
-import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
+import {
+  CLAIM_PROVENANCE_ACTIVITY,
+  CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+  ClaimFieldChange,
+} from 'utils/lib/types/data/billing/claim-history';
 import { AR_STAGE, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
@@ -24,7 +29,7 @@ export interface ClaimStatusContext {
 
 // Sender and chronology checks decide whether AR can change; rejection history is recorded either way.
 export function claimRejectionRequests(
-  { claim, claimResponse, classification, recordedFields }: ClaimStatusContext,
+  { claim, claimResponse, classification, history, recordedFields }: ClaimStatusContext,
   agent: ProvenanceAgent,
   allowStatusChange: boolean
 ): BatchInputRequest<FhirResource>[] {
@@ -36,9 +41,26 @@ export function claimRejectionRequests(
   if (!claim.id || !claimResponse.id) {
     throw INVALID_INPUT_ERROR('Claim and ClaimResponse IDs are required for rejection processing');
   }
+  // ClaimMD reports Mountain time
+  const sourceTime = classification.raw.response_time?.trim().toUpperCase() ?? '';
+  const format = 'yyyy-MM-dd hh:mm:ssa';
+  const eventTime = DateTime.fromFormat(sourceTime, format, { zone: 'America/Denver' });
+  const statusActivity = CLAIM_PROVENANCE_ACTIVITY.statusChange;
+  const statusChanges = history.filter(
+    (entry) => getCoding(entry.activity, statusActivity.system!)?.code === statusActivity.code
+  );
+  const chronologyAllowsChange =
+    eventTime.isValid &&
+    eventTime.getPossibleOffsets().length === 1 &&
+    eventTime.toFormat(format) === sourceTime &&
+    statusChanges.every((entry) => {
+      const recorded = DateTime.fromISO(entry.recorded);
+      return recorded.isValid && recorded.toMillis() < eventTime.toMillis();
+    });
   const status = getClaimStatusValues(claim);
   const canChangeAr =
     allowStatusChange &&
+    chronologyAllowsChange &&
     status.arStage === AR_STAGE.insurancePayer &&
     ['submitted', 'adjudicated'].includes(status.insuranceArStatus) &&
     (!status.insurancePaidStatus || status.insurancePaidStatus === 'unpaid') &&

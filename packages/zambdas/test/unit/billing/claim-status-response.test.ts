@@ -4,7 +4,10 @@ import { applyPatch, Operation } from 'fast-json-patch';
 import { Claim, ClaimResponse, Provenance } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { CLAIM_STATUS_PROCESSED_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
-import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL } from 'utils/lib/types/data/billing/claim-history';
+import {
+  CLAIM_PROVENANCE_ACTIVITY,
+  CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+} from 'utils/lib/types/data/billing/claim-history';
 import { AR_STAGE, claimStatusValuesToTags } from 'utils/lib/types/data/billing/claim-status';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -359,9 +362,15 @@ describe('claimRejectionRequests', () => {
     { status: 'R', ar: 'submitted', paid: 'fully-paid', allow: true },
     { status: 'R', ar: 'submitted', paid: 'partially-paid', allow: true },
     { status: 'R', ar: 'submitted', paid: '', allow: false },
-  ])('records $status with AR $ar, paid $paid, status changes allowed $allow', ({ status, ar, paid, allow }) => {
+    { status: 'R', ar: 'submitted', paid: '', allow: true, newerStatus: true },
+  ])('records $status with AR $ar, paid $paid, status changes allowed $allow', (scenario) => {
+    const { status, ar, paid, allow, newerStatus } = scenario;
     const claimResponse = response(
-      JSON.stringify({ status, messages: [{ status: 'R', message: 'Invalid subscriber' }] })
+      JSON.stringify({
+        status,
+        response_time: '2026-09-07 05:18:55am',
+        messages: [{ status: 'R', message: 'Invalid subscriber' }],
+      })
     );
     const tags = claimStatusValuesToTags({
       arStage: AR_STAGE.insurancePayer,
@@ -379,14 +388,22 @@ describe('claimRejectionRequests', () => {
       provider: { reference: 'Organization/provider-1' },
       priority: { coding: [{ code: 'normal' }] },
       insurance: [{ sequence: 1, focal: true, coverage: { reference: 'Coverage/coverage-1' } }],
-      meta: { versionId: '3', tag: [BILLING_RESOURCE_TAG, ...tags] },
+      meta: { versionId: '3', lastUpdated: '2026-09-07T12:00:00Z', tag: [BILLING_RESOURCE_TAG, ...tags] },
     };
     const requests = claimRejectionRequests(
       {
         claim,
         claimResponse,
         classification: classifyClaimStatusResponse(claimResponse)!,
-        history: [],
+        history: [
+          {
+            resourceType: 'Provenance',
+            target: [claimResponse.request!],
+            recorded: newerStatus ? '2026-09-07T11:30:00Z' : '2026-09-07T11:00:00Z',
+            agent: [{ who: { reference: 'Device/system' } }],
+            activity: { coding: [CLAIM_PROVENANCE_ACTIVITY.statusChange] },
+          },
+        ],
         recordedFields: new Set(),
       },
       { who: { reference: 'Device/system' } },
@@ -396,7 +413,7 @@ describe('claimRejectionRequests', () => {
       expect(requests).toEqual([]);
       return;
     }
-    const changesAr = allow && ar === 'submitted' && !paid;
+    const changesAr = allow && !newerStatus && ar === 'submitted' && !paid;
     expect(requests).toHaveLength(changesAr ? 2 : 1);
     if (changesAr) expect(requests[0]).toMatchObject({ url: `/${claimResponse.request!.reference}`, ifMatch: 'W/"3"' });
     const history = requests[requests.length - 1];
