@@ -37,7 +37,7 @@ import {
   isValidClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
 import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
-import { DateValue, ServiceLineSetOperation } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { ServiceLineSetOperation, ServiceLineSetValue } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
 import { updateExtension } from '../../shared/helpers';
 import { getCLIA, getPlaceOfServiceCode } from '../service-facility.helpers';
@@ -284,7 +284,15 @@ const resolveFirstServiceLineDate = (model: RulesEngineClaimModel): DateValueRes
 // error for a bad literal). Blank/omitted, and the explicit firstServiceLineDate source, both fall
 // back to the claim's first service line's date — addServiceLine's long-standing implicit behavior,
 // now this resolver's single definition of it.
-export const resolveDateValue = (value: DateValue | undefined, model: RulesEngineClaimModel): DateValueResolution => {
+//
+// Takes ServiceLineSetValue (not the narrower DateValue) because updateServiceLines' set.value is
+// shared across every settable property — the caller only reaches here once it knows the target
+// property is date-typed, but the value's static type still carries the other derived-source shapes,
+// which fall through to the "Unknown date source" error below like any other bad source.
+export const resolveDateValue = (
+  value: ServiceLineSetValue | undefined,
+  model: RulesEngineClaimModel
+): DateValueResolution => {
   if (value != null && typeof value === 'object') {
     return value.source === 'firstServiceLineDate'
       ? resolveFirstServiceLineDate(model)
@@ -292,6 +300,20 @@ export const resolveDateValue = (value: DateValue | undefined, model: RulesEngin
   }
   const literal = value?.trim();
   return literal ? { value: literal } : resolveFirstServiceLineDate(model);
+};
+
+// Resolve the facilityPlaceOfService derived source: the CMS place-of-service code configured on the
+// claim's service facility (model.serviceFacility, prefetched from Claim.facility). Unlike
+// resolveDateValue there is no blank-fallback — a claim without a service facility, or a facility
+// without a place-of-service code set, is a rule failure rather than a silent no-op.
+export const resolveFacilityPlaceOfService = (model: RulesEngineClaimModel): { value: string } | { error: string } => {
+  if (!model.serviceFacility) {
+    return {
+      error: 'The claim has no service facility set',
+    };
+  }
+  const code = getPlaceOfServiceCode(model.serviceFacility);
+  return code ? { value: code } : { error: "Claim's facility has no place-of-service code configured" };
 };
 
 // The claim's billed total is the sum of line charges (the invariant the claim editor maintains);

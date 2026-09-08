@@ -317,7 +317,16 @@ describe('rule value validation', () => {
     expect(serviceLineSetValueProblem(lineDate, undefined, { source: 'firstServiceLineDate' })).toBeUndefined();
     expect(serviceLineSetValueProblem(lineDate, undefined, { source: 'bogus' } as never)).toBe('Unknown date source');
     expect(serviceLineSetValueProblem(units, undefined, { source: 'firstServiceLineDate' } as never)).toBe(
-      'This property does not accept a derived date value'
+      'This property does not accept a derived value'
+    );
+
+    // A derived place-of-service source is only accepted on the placeOfService property.
+    expect(serviceLineSetValueProblem(pos, undefined, { source: 'facilityPlaceOfService' })).toBeUndefined();
+    expect(serviceLineSetValueProblem(pos, undefined, { source: 'bogus' } as never)).toBe(
+      'Unknown place of service source'
+    );
+    expect(serviceLineSetValueProblem(units, undefined, { source: 'facilityPlaceOfService' } as never)).toBe(
+      'This property does not accept a derived value'
     );
   });
 
@@ -718,7 +727,7 @@ describe('validateRuleFieldReferences', () => {
     );
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain('updates service line property "cptCode" with an invalid value');
-    expect(problems[0]).toContain('does not accept a derived date value');
+    expect(problems[0]).toContain('does not accept a derived value');
   });
 
   it('validates the applyChargeMasterPrices line match like the other service-line actions', () => {

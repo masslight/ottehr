@@ -2,6 +2,7 @@ import { RULES_ENGINE_TYPES, RULES_ENGINES } from './rules-engine.constants';
 import {
   ADD_SERVICE_LINE_FIELDS,
   DATE_SOURCE_CATALOG,
+  POS_SOURCE_CATALOG,
   RULE_FIELD_CATALOG,
   RULE_FIELD_GROUP_LABELS,
   RULE_FIELD_GROUPS,
@@ -144,6 +145,12 @@ function renderDateSourceTable(): string {
   return lines.join('\n');
 }
 
+function renderPosSourceTable(): string {
+  const lines = ['| Source | Description |', '| --- | --- |'];
+  for (const option of POS_SOURCE_CATALOG) lines.push(`| ${cell(option.label)} | ${cell(option.description)} |`);
+  return lines.join('\n');
+}
+
 function renderEnginesTable(): string {
   const lines = ['| Rules | Run automatically | When every rule passes |', '| --- | --- | --- |'];
   for (const type of RULES_ENGINE_TYPES) {
@@ -233,7 +240,7 @@ A matched branch's outcome is a list of actions, applied in order:
 | Set a property (\`setField\`) | Sets one of the settable claim properties above to a new value. Setting an empty value clears the property. The change is written to the claim's working-copy resources and recorded in the claim history, attributed to the specific rule that made it (linked from the history view). If the property cannot be set (unknown or read-only property, invalid value, or the target resource is missing from the claim), the rule fails and the claim is held. |
 | Apply a tag (\`applyTag\`) | Adds a tag to the claim (no-op if the claim already carries it). Applying the **${HOLD_TAG_NAME}** tag holds the claim: the run stops and the on-success effect does not happen. |
 | Add a service line (\`addServiceLine\`) | Appends a new service line built from the fields below and recomputes the claim's billed total. Blank optional fields use the claim editor's defaults, and the new line is tied to the claim's rendering provider when one is set. The service date can be a literal date or one of the derived sources below. An invalid field value fails the rule and holds the claim. |
-| Update service lines (\`updateServiceLines\`) | Applies one change (an updatable service line property + value; for modifiers, a set/add/remove operation) to every line matching the action's line predicate. When updating the service date, the value can be a literal date or one of the derived sources below. Zero matching lines is a no-op, not a failure — pair the action with a condition when a match must exist. An invalid value or an operation that doesn't apply to the property fails the rule and holds the claim. Changing charges recomputes the claim's billed total. |
+| Update service lines (\`updateServiceLines\`) | Applies one change (an updatable service line property + value; for modifiers, a set/add/remove operation) to every line matching the action's line predicate. When updating the service date, the value can be a literal date or one of the derived sources below; when updating the place of service, the value can be a literal CMS code or copied from the claim's facility (see Place of service sources). Zero matching lines is a no-op, not a failure — pair the action with a condition when a match must exist. An invalid value or an operation that doesn't apply to the property fails the rule and holds the claim. Changing charges recomputes the claim's billed total. |
 | Remove service lines (\`removeServiceLines\`) | Removes every line matching the action's line predicate (all lines when the predicate is "all service lines"). Surviving lines are re-sequenced and the claim's billed total is recomputed. Zero matching lines is a no-op. |
 | Apply charge master prices (\`applyChargeMasterPrices\`) | Re-prices every line matching the action's line predicate from the best applicable charge master: the active charge master designated as the default for the claim's billing type (insurance when the claim carries a real coverage, self-pay otherwise) whose effective date is the most recent on or before the claim's date of service. Each matched line's charges are set from the entry for its CPT code — an entry with a matching modifier for lines with modifiers, a modifier-less entry otherwise. A matched line the charge master has no entry for (or that has no CPT code) keeps its existing charges. The claim's billed total is recomputed when any line was re-priced. Zero matching lines is a no-op. This action never fails the rule or holds the claim — when no charge master applies (or the claim has no date of service to select one by), no lines are changed. Add a separate rule to hold claims whose lines are missing a price. |
 | Do nothing (\`noop\`) | Explicitly does nothing. Useful as an else branch that intentionally takes no action. |
@@ -252,6 +259,15 @@ ${renderDateSourceTable()}
 "Exact date" is the default. On "Add a service line", leaving it blank is equivalent to "First
 service line's date" (kept for rules saved before this option existed). Service line **matching**
 always compares against a literal date.
+
+### Place of service sources
+
+The place of service on "Update service lines", when updating the \`placeOfService\` property, can
+come from one of:
+
+${renderPosSourceTable()}
+
+"Exact code" is the default. Service line **matching** always compares against a literal code.
 
 Actions after a failed action or after the **${HOLD_TAG_NAME}** tag do not run.`);
 
