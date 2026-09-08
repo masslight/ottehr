@@ -122,10 +122,12 @@ describe('useBillingReport', () => {
       .mockResolvedValueOnce(wire({ state: 'running', progress: 'finishing' }))
       .mockResolvedValue(wire({ state: 'idle' }));
     const { result } = renderReport(fetchReport);
-    // the gzip stream needs a variable number of real macrotask turns to settle
+    // the gzip stream needs a variable amount of real time; use a real-time deadline
+    // (not an iteration count) so the wait is robust under CI load
     await act(async () => {
-      for (let i = 0; i < 200 && !result.current.report?.rows?.length; i++) {
-        await new Promise((resolve) => setImmediate(resolve));
+      const deadline = Date.now() + 4000;
+      while (!result.current.report?.rows?.length && Date.now() < deadline) {
+        await new Promise<void>((resolve) => setImmediate(resolve));
       }
     });
     expect(result.current.report?.rows).toEqual([1, 2, 3]);
