@@ -177,7 +177,8 @@ describe('ConditionalEditor', () => {
 
     const input = screen.getByPlaceholderText(/Search non-insurance organizations/);
     fireEvent.mouseDown(input);
-    fireEvent.click(await screen.findByRole('option', { name: 'Acme Trucking' }));
+    // Generous timeout: the option waits on a 300ms-debounced fetch, slow enough to flake at 1s.
+    fireEvent.click(await screen.findByRole('option', { name: 'Acme Trucking' }, { timeout: 5000 }));
     expect(searchBillingNonInsuranceOrgsMock).toHaveBeenCalledWith(expect.anything(), {});
 
     fireEvent.click(screen.getByText('Save'));
