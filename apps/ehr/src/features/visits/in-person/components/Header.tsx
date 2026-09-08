@@ -294,6 +294,7 @@ export const Header = (): JSX.Element => {
 
   const primaryInsurancePayerRef =
     insuranceData?.coverages.primary?.payor.find((p) => !!p.reference)?.reference ??
+    insuranceData?.coverages.secondary?.payor.find((p) => !!p.reference)?.reference ??
     insuranceData?.coverages.workersComp?.payor.find((p) => !!p.reference)?.reference;
   const insuranceOrgId =
     extractPayerIdFromUrl(primaryInsurancePayerRef) ?? primaryInsurancePayerRef?.replace('Organization/', '');
@@ -732,6 +733,7 @@ export const Header = (): JSX.Element => {
                       ) : null}
                       <PatientMetadata>{language}</PatientMetadata> |<PatientMetadata>{reasonForVisit}</PatientMetadata>
                       <PatientMetadata
+                        data-testid={dataTestIds.inPersonHeader.payment}
                         sx={{
                           marginLeft: 6,
                           maxWidth: 400,
