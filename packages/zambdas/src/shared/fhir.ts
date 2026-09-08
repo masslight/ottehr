@@ -589,7 +589,10 @@ const MAX_PAGINATION_OFFSET = 100000;
 
 export async function fetchAllPages(
   fetchPage: (offset: number, count: number) => Promise<Bundle>,
-  initialPageSize: number
+  initialPageSize: number,
+  // failOnLimit: callers whose result must be complete (e.g. cached reports) fail loudly
+  // instead of silently serving a truncated dataset
+  options?: { failOnLimit?: boolean }
 ): Promise<void> {
   let offset = 0;
   let pageSize = initialPageSize;
@@ -606,6 +609,11 @@ export async function fetchAllPages(
     offset += pageSize;
 
     if (offset > MAX_PAGINATION_OFFSET) {
+      if (options?.failOnLimit) {
+        throw new Error(
+          `Result set exceeds the ${MAX_PAGINATION_OFFSET}-item pagination limit; refusing to return truncated data`
+        );
+      }
       console.warn(`Reached maximum pagination limit (${MAX_PAGINATION_OFFSET} items). Stopping search.`);
       break;
     }
