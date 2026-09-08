@@ -150,6 +150,7 @@ export const SearchBillingClaimsInputSchema = z.object({
   serviceDateTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
+  nonInsurancePayerId: nonEmptyString.uuid().optional(),
   service: nonEmptyString.optional(),
   patientId: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),

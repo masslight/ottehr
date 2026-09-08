@@ -45,7 +45,10 @@ import {
 } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
-import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
+import {
+  CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+  CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
+} from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { AUTO_ACCIDENT_SYSTEM_TAG, AUTO_ACCIDENT_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import {
   APIError,
@@ -1610,6 +1613,11 @@ describe('create-billing-claim-from-encounter', () => {
       expect(claimRequest.resource.meta?.tag).toContainEqual({
         system: CLAIM_STATUS_TAG_SYSTEMS.arStage,
         code: AR_STAGE.nonInsurancePayer,
+      });
+      // The searchable meta.tag mirror of the extension.
+      expect(claimRequest.resource.meta?.tag).toContainEqual({
+        system: CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
+        code: NIO_ID,
       });
       // Occ-med claims carry no insurance payer; the NIO extension is the payer.
       expect(claimRequest.resource.insurer).toBeUndefined();

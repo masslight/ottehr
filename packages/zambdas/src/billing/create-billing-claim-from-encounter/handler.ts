@@ -34,6 +34,7 @@ import { DateTime } from 'luxon';
 import { isAppointmentOccupationalMedicine } from 'utils/lib/fhir/appointments';
 import {
   claimNonInsurancePayerExtension,
+  claimNonInsurancePayerTag,
   getDefaultClaimSubmissionExtensions,
   setCoveragePlanType,
 } from 'utils/lib/fhir/billing';
@@ -1177,6 +1178,7 @@ function buildClaim(resources: ClaimResources): Claim {
 
   // AR Stage tag + the stage's auto-initialized progress status (e.g. Insurance AR Status -> "Created").
   const claimStatusTags = claimStatusValuesToTags(withArStageInitialization({ arStage: determineArStage(resources) }));
+  const nonInsurancePayerId = resources.nonInsurancePayer?.reference?.split('/')[1];
 
   const claim: Claim = {
     resourceType: 'Claim',
@@ -1194,6 +1196,7 @@ function buildClaim(resources: ClaimResources): Claim {
         ...(serviceCoding ? [serviceCoding] : []),
         ...(resources.billingTags ?? []).map((t) => ({ system: CLAIM_TAG_SYSTEM, code: t })),
         ...claimStatusTags,
+        ...(nonInsurancePayerId ? [claimNonInsurancePayerTag(nonInsurancePayerId)] : []),
       ],
     },
     type: { coding: [getClaimTypeCoding()] },

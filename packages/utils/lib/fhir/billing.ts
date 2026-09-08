@@ -21,7 +21,10 @@ import {
 } from '../helpers/rcm/constants';
 import { ELIGIBILITY_BENEFIT_CODES, INSURANCE_PLAN_ID_CODING } from '../telemed/constants';
 import { CoverageCheckCoverageDetails } from '../types/api/patient-account';
-import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from '../types/data/billing/non-insurance-org.types';
+import {
+  CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+  CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
+} from '../types/data/billing/non-insurance-org.types';
 import { InsuranceEligibilityCheckStatus } from '../types/data/paperwork/paperwork.types';
 import {
   BillingProviderData,
@@ -496,6 +499,17 @@ export const claimNonInsurancePayerExtension = (payer: Reference): Extension => 
   url: CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
   valueReference: payer,
 });
+
+export const claimNonInsurancePayerTag = (nioId: string): Coding => ({
+  system: CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
+  code: nioId,
+});
+
+export const applyClaimNonInsurancePayerTag = (claim: Claim, nioId: string | null): void => {
+  const tags = (claim.meta?.tag ?? []).filter((tag) => tag.system !== CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM);
+  if (nioId) tags.push(claimNonInsurancePayerTag(nioId));
+  claim.meta = { ...claim.meta, tag: tags };
+};
 
 export const getDefaultClaimSubmissionExtensions = (): Extension[] => [
   { url: EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR, valueBoolean: true },

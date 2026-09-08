@@ -1,7 +1,11 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { Claim, Coverage, FhirResource, Organization, ProvenanceAgent } from 'fhir/r4b';
 import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
-import { NIO_KIND_CODE, NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
+import {
+  CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
+  NIO_KIND_CODE,
+  NIO_ORGANIZATION_KIND_SYSTEM,
+} from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/update-billing-claim/index';
 import { validateRequestParameters } from '../../../src/billing/update-billing-claim/validateRequestParameters';
@@ -338,11 +342,13 @@ describe('update-billing-claim non-insurance payer', () => {
       reference: `Organization/${NIO_ID}`,
       display: 'FedEx',
     });
+    expect(writtenClaim?.meta?.tag).toContainEqual({ system: CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM, code: NIO_ID });
   });
 
   it('clears the non-insurance payer when null is sent', async () => {
     const claimWithPayer: Claim = {
       ...claim,
+      meta: { tag: [{ system: CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM, code: NIO_ID }] },
       extension: [
         {
           url: 'https://fhir.ottehr.com/billing/non-insurance-payer',
@@ -356,6 +362,7 @@ describe('update-billing-claim non-insurance payer', () => {
 
     const writtenClaim = writtenResources(transaction).find((r): r is Claim => r.resourceType === 'Claim');
     expect(getClaimNonInsurancePayer(writtenClaim)).toBeUndefined();
+    expect(writtenClaim?.meta?.tag?.some((tag) => tag.system === CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM)).toBe(false);
   });
 
   it('rejects an Organization that is not a non-insurance organization', async () => {

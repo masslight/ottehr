@@ -1,6 +1,13 @@
+import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse } from 'fhir/r4b';
+import { CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { describe, expect, it } from 'vitest';
-import { claimMatchesServiceDateRange, getClaimServiceDate, mapClaimToItem } from '../../../src/billing/claim-search';
+import {
+  buildClaimFilterParams,
+  claimMatchesServiceDateRange,
+  getClaimServiceDate,
+  mapClaimToItem,
+} from '../../../src/billing/claim-search';
 
 type Lookups = Parameters<typeof mapClaimToItem>[1];
 
@@ -50,6 +57,20 @@ const makeLookups = (
   coverages: [],
   claimResponsesByClaimId,
   patientPaidByClaimId,
+});
+
+describe('buildClaimFilterParams: non-insurance payer', () => {
+  it('filters by the NIO meta.tag mirror', async () => {
+    const nioId = '5b0261af-71c6-4f7e-9a51-e0d16a468980';
+    const params = await buildClaimFilterParams({
+      oystehr: {} as unknown as Oystehr,
+      params: { nonInsurancePayerId: nioId },
+    });
+    expect(params).toContainEqual({
+      name: '_tag',
+      value: `${CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM}|${nioId}`,
+    });
+  });
 });
 
 describe('mapClaimToItem: payer columns', () => {

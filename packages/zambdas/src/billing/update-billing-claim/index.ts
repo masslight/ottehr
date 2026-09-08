@@ -12,7 +12,7 @@ import {
   ProvenanceAgent,
   RelatedPerson,
 } from 'fhir/r4b';
-import { claimNonInsurancePayerExtension } from 'utils/lib/fhir/billing';
+import { applyClaimNonInsurancePayerTag, claimNonInsurancePayerExtension } from 'utils/lib/fhir/billing';
 import { codeableConcept, setNpi } from 'utils/lib/fhir/helpers';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import {
@@ -377,8 +377,10 @@ async function attachClaimResources(
         claim,
         claimNonInsurancePayerExtension({ reference: `Organization/${org.id}`, display: org.name })
       );
+      applyClaimNonInsurancePayerTag(claim, fields.nonInsurancePayer.id);
     } else {
       removeExtension(claim, CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL);
+      applyClaimNonInsurancePayerTag(claim, null);
     }
   }
 
