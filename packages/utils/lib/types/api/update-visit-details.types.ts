@@ -1,6 +1,7 @@
 import { Attachment, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { z } from 'zod';
+import { isNioReferenceUrl } from '../../helpers/helpers';
 import { REASON_ADDITIONAL_MAX_CHAR } from '../../validation/constants';
 import { isValidUUID } from '../../validation/helper';
 import {
@@ -41,8 +42,9 @@ const organizationReferenceSchema = z
   .string()
   .refine(
     (val) =>
-      val.startsWith(ORGANIZATION_REFERENCE_PREFIX) && isValidUUID(val.slice(ORGANIZATION_REFERENCE_PREFIX.length)),
-    { message: 'reference must be Organization/{uuid}' }
+      (val.startsWith(ORGANIZATION_REFERENCE_PREFIX) && isValidUUID(val.slice(ORGANIZATION_REFERENCE_PREFIX.length))) ||
+      isNioReferenceUrl(val),
+    { message: 'reference must be Organization/{uuid} or a non-insurance organization reference' }
   );
 
 export const FhirOrganizationReferenceSchema = z.object({

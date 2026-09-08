@@ -11,6 +11,7 @@ const {
   runBillingRulesEngineMock,
   exportBillingClaimsMock,
   getBillingClaimsExportStatusMock,
+  searchBillingNonInsuranceOrgsMock,
   pollExportTaskMock,
   downloadTextFileMock,
 } = vi.hoisted(() => ({
@@ -18,6 +19,7 @@ const {
   runBillingRulesEngineMock: vi.fn(),
   exportBillingClaimsMock: vi.fn(),
   getBillingClaimsExportStatusMock: vi.fn(),
+  searchBillingNonInsuranceOrgsMock: vi.fn().mockResolvedValue({ organizations: [] }),
   pollExportTaskMock: vi.fn(),
   downloadTextFileMock: vi.fn(),
 }));
@@ -27,6 +29,7 @@ vi.mock('../../src/api/api', () => ({
   runBillingRulesEngine: runBillingRulesEngineMock,
   exportBillingClaims: exportBillingClaimsMock,
   getBillingClaimsExportStatus: getBillingClaimsExportStatusMock,
+  searchBillingNonInsuranceOrgs: searchBillingNonInsuranceOrgsMock,
   searchBillingPatients: vi.fn().mockResolvedValue({ patients: [] }),
   searchBillingPayers: vi.fn().mockResolvedValue({ payers: [] }),
   // Preloaded on mount behind a debounce timer — without this export the timer explodes on slow
@@ -136,6 +139,7 @@ const makeRow = (
   patientDob: '1990-01-01',
   payerName: 'Acme',
   payerId: 'P1',
+  nonInsurancePayerName: '',
   memberId: '',
   service: undefined,
   serviceDate: '2026-01-02',
@@ -445,5 +449,33 @@ describe('ClaimsList — incomplete results', () => {
     fireEvent.click(screen.getByRole('button', { name: 'next page' }));
 
     await waitFor(() => expect(screen.queryByText(INCOMPLETE_WARNING)).not.toBeInTheDocument());
+  });
+});
+
+describe('ClaimsList — non-insurance organization filter', () => {
+  beforeEach(() => {
+    searchBillingClaimsMock.mockReset();
+    searchBillingNonInsuranceOrgsMock.mockReset();
+    searchBillingNonInsuranceOrgsMock.mockResolvedValue({ organizations: [] });
+  });
+
+  it('filters claims by the selected non-insurance organization', async () => {
+    const NIO_ID = '5b0261af-71c6-4f7e-9a51-e0d16a468980';
+    searchBillingClaimsMock.mockResolvedValue({ claims: [], total: 0 });
+    searchBillingNonInsuranceOrgsMock.mockResolvedValue({
+      organizations: [{ id: NIO_ID, name: 'FedEx', employer: true, active: true, contacts: [], covers: [] }],
+    });
+    renderList();
+
+    const input = await screen.findByLabelText('Non-insurance Organization');
+    fireEvent.mouseDown(input);
+    fireEvent.click(await screen.findByRole('option', { name: 'FedEx' }));
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ nonInsurancePayerId: NIO_ID })
+      )
+    );
   });
 });
