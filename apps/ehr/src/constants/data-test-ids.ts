@@ -27,6 +27,7 @@ export const dataTestIds = {
     allergies: 'header-allergies',
     weight: 'header-weight',
     roomSelect: 'header-room-select',
+    payment: 'header-payment',
   },
   inPersonLayout: {
     selectProviderAlert: 'select-provider-alert',
