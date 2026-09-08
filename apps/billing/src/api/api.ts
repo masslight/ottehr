@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
 import {
   AddClaimAttachmentInputSchema,
   AddClaimNoteInputSchema,
@@ -21,6 +22,7 @@ import {
   GetBillingClaimsExportStatusInputSchema,
   GetBillingCoverageInputSchema,
   GetBillingPatientBalanceInputSchema,
+  GetBillingPaymentsReportDrilldownInputSchema,
   GetBillingProviderInputSchema,
   GetChargeItemDefinitionInputSchema,
   GetClaimDetailInputSchema,
@@ -31,8 +33,10 @@ import {
   GetServiceFacilityInputSchema,
   ImportEraInputSchema,
   MatchClaimResponseToClaimInputSchema,
+  PatientPaymentsDrilldownParamsSchema,
   RecordBillingManualPaymentInputSchema,
   RenameClaimAttachmentInputSchema,
+  ReportDateWindowParams,
   SaveBillingTagInputSchema,
   SaveServiceFacilityInputSchema,
   SearchBillingClaimsInputSchema,
@@ -67,8 +71,16 @@ import {
   DownloadClaimAttachmentResponse,
   EraDetailResponse,
   ExportClaimX12Response,
+  GetBillingCardsOnFileReportResponse,
   GetBillingCoverageResponse,
+  GetBillingInvoiceReportResponse,
   GetBillingPatientBalanceResponse,
+  GetBillingPatientPaymentsDrilldownResponse,
+  GetBillingPatientPaymentsReportResponse,
+  GetBillingPaymentsReportDrilldownResponse,
+  GetBillingPaymentsReportResponse,
+  GetBillingPipelineReportResponse,
+  GetBillingProductivityReportResponse,
   GetPatientCoveragesResponse,
   OkResponse,
   PatientDetailResponse,
@@ -369,6 +381,84 @@ export const lookupProcedureDescriptions = async (
 
 export const searchBillingTags = (oystehr: Oystehr): Promise<SearchBillingTagsResponse> =>
   executeBillingZambda(oystehr, 'search-billing-tags');
+
+// --- Reports ---
+
+// Unified cached-report endpoint; typed per-kind wrappers below.
+const getBillingReport = <T>(
+  oystehr: Oystehr,
+  kind: RefreshReportKind,
+  params?: Record<string, unknown>,
+  refresh?: boolean,
+  drilldown?: Record<string, unknown>
+): Promise<T> =>
+  executeBillingZambda(oystehr, 'get-billing-report', {
+    kind,
+    ...(params && Object.keys(params).length > 0 ? { params } : {}),
+    ...(refresh ? { refresh: true } : {}),
+    ...(drilldown ? { drilldown } : {}),
+  });
+
+export const getBillingPaymentsReport = (
+  oystehr: Oystehr,
+  params?: ReportDateWindowParams,
+  refresh?: boolean
+): Promise<GetBillingPaymentsReportResponse> =>
+  getBillingReport(oystehr, 'payments', params as Record<string, unknown>, refresh);
+
+export const getBillingPatientPaymentsReport = (
+  oystehr: Oystehr,
+  params?: ReportDateWindowParams,
+  refresh?: boolean
+): Promise<GetBillingPatientPaymentsReportResponse> =>
+  getBillingReport(oystehr, 'patient-payments', params as Record<string, unknown>, refresh);
+
+export const getBillingInvoiceReport = (
+  oystehr: Oystehr,
+  _params?: undefined,
+  refresh?: boolean
+): Promise<GetBillingInvoiceReportResponse> => getBillingReport(oystehr, 'invoice', undefined, refresh);
+
+export const getBillingCardsOnFileReport = (
+  oystehr: Oystehr,
+  _params?: undefined,
+  refresh?: boolean
+): Promise<GetBillingCardsOnFileReportResponse> => getBillingReport(oystehr, 'cards-on-file', undefined, refresh);
+
+export const getBillingPipelineReport = (
+  oystehr: Oystehr,
+  params?: ReportDateWindowParams,
+  refresh?: boolean
+): Promise<GetBillingPipelineReportResponse> =>
+  getBillingReport(oystehr, 'pipeline', params as Record<string, unknown>, refresh);
+
+export const getBillingProductivityReport = (
+  oystehr: Oystehr,
+  params?: ReportDateWindowParams,
+  refresh?: boolean
+): Promise<GetBillingProductivityReportResponse> =>
+  getBillingReport(oystehr, 'productivity', params as Record<string, unknown>, refresh);
+
+// ERA drilldown over the payments report's cached detail
+export const getBillingPaymentsReportDrilldown = (
+  oystehr: Oystehr,
+  drilldown: z.input<typeof GetBillingPaymentsReportDrilldownInputSchema>
+): Promise<GetBillingPaymentsReportDrilldownResponse> =>
+  getBillingReport(oystehr, 'payments', undefined, undefined, drilldown as Record<string, unknown>);
+
+// row-filtered drilldown over the window's cached detail
+export const getBillingPatientPaymentsDrilldown = (
+  oystehr: Oystehr,
+  params: ReportDateWindowParams,
+  drilldown: z.input<typeof PatientPaymentsDrilldownParamsSchema>
+): Promise<GetBillingPatientPaymentsDrilldownResponse> =>
+  getBillingReport(
+    oystehr,
+    'patient-payments',
+    params as Record<string, unknown>,
+    undefined,
+    drilldown as Record<string, unknown>
+  );
 
 export const saveBillingTag = (
   oystehr: Oystehr,

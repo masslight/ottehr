@@ -19,8 +19,9 @@ import {
 import { ReactElement, useEffect, useRef, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { BillingClaimItem } from 'utils/lib/types/data/billing/billing.types';
+import { BillingClaimItem, EraClaimListItem } from 'utils/lib/types/data/billing/billing.types';
 import { formatAntCaseString } from 'utils/lib/types/data/billing/claim-status';
+import { formatCurrency } from 'utils/lib/utils/convert';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { matchClaimResponseToClaim, searchBillingClaims } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
@@ -29,6 +30,7 @@ import { Meta } from '../pages/ClaimDetail';
 
 interface Props {
   claimResponseId: string;
+  eraClaim: EraClaimListItem;
   onClose: () => void;
   onMatched: () => void;
 }
@@ -37,7 +39,7 @@ interface FormData {
   searchText: string;
 }
 
-export function MatchClaimDialog({ claimResponseId, onMatched, onClose }: Props): ReactElement {
+export function MatchClaimDialog({ claimResponseId, eraClaim, onMatched, onClose }: Props): ReactElement {
   const { oystehrZambda } = useApiClients();
   const methods = useForm<FormData>({ defaultValues: { searchText: '' } });
   const {
@@ -124,6 +126,24 @@ export function MatchClaimDialog({ claimResponseId, onMatched, onClose }: Props)
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ px: 3, pb: 0 }}>
+          <Box sx={{ mb: 2.5 }}>
+            <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
+              ERA details
+            </Typography>
+            <Typography variant="h5" color="primary.dark" fontWeight={600}>
+              {eraClaim.patientName}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
+              <Meta label="Date of Service" value={eraClaim.dos} />
+              <Meta label="Patient DOB" value={eraClaim.patientDob} />
+              <Meta label="Billed" value={formatCurrency(eraClaim.billed)} />
+              <Meta label="Allowed" value={formatCurrency(eraClaim.allowed)} />
+              <Meta label="Ins Paid" value={formatCurrency(eraClaim.paid)} />
+              <Meta label="Patient Resp" value={formatCurrency(eraClaim.patientResp)} />
+              <Meta label="Patient Account Number" value={eraClaim.patientAccountNumber} />
+              <Meta label="Member ID" value={eraClaim.memberId} />
+            </Box>
+          </Box>
           <FormProvider {...methods}>
             <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>

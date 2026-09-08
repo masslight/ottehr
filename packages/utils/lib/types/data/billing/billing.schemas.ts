@@ -146,6 +146,8 @@ export const SearchBillingClaimsInputSchema = z.object({
   tag: nonEmptyString.optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
+  // only claims last updated on/before this ISO timestamp (stale-claim drilldowns)
+  updatedBefore: nonEmptyString.optional(),
   serviceDateFrom: nonEmptyString.optional(),
   serviceDateTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
@@ -683,7 +685,19 @@ export const UnmatchClaimResponseInputSchema = z.object({
 });
 
 // report date-window fields: ISO date (YYYY-MM-DD), with from <= to when both are set
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected an ISO date (YYYY-MM-DD)');
+const isCalendarDate = (value: string): boolean => {
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day ?? 1));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === (day ?? 1);
+};
+const isoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected an ISO date (YYYY-MM-DD)')
+  .refine(isCalendarDate, 'Not a valid calendar date');
+const isoMonth = z
+  .string()
+  .regex(/^\d{4}-\d{2}$/, 'Expected an ISO month (YYYY-MM)')
+  .refine(isCalendarDate, 'Not a valid calendar month');
 const dateWindowIsOrdered = (data: { dateFrom?: string; dateTo?: string }): boolean =>
   !data.dateFrom || !data.dateTo || data.dateFrom <= data.dateTo;
 const DATE_WINDOW_MESSAGE = { message: 'dateFrom must not be after dateTo', path: ['dateFrom'] };
@@ -708,8 +722,25 @@ export const ReportDateWindowParamsSchema = z
 
 export const EmptyReportParamsSchema = z.object({});
 
-export type GetBillingReportInput = z.output<typeof GetBillingReportInputSchema>;
-export type ReportDateWindowParams = z.output<typeof ReportDateWindowParamsSchema>;
+export const GetBillingPaymentsReportDrilldownInputSchema = z
+  .object({
+    // payer row context: payer ID, or 'none' for ERAs without a payer reference
+    payerId: nonEmptyString.optional(),
+    // check (payment) date window, ISO dates
+    dateFrom: isoDate.optional(),
+    dateTo: isoDate.optional(),
+    // waterfall cell context: 'YYYY-MM' or 'unknown'
+    serviceMonth: z.union([isoMonth, z.literal('unknown')]).optional(),
+    checkMonth: z.union([isoMonth, z.literal('unknown')]).optional(),
+  })
+  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
+
+// patient-payments drilldown row filter (the date window travels in the report params)
+export const PatientPaymentsDrilldownParamsSchema = z.object({
+  // FHIR Location id; 'none' selects payments with no resolvable location
+  locationId: nonEmptyString.optional(),
+  paymentMethod: nonEmptyString.optional(),
+});
 
 export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
@@ -760,6 +791,10 @@ export type GetPatientDetailInput = z.output<typeof GetPatientDetailInputSchema>
 export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputSchema>;
 export type GetBillingBillingProviderInput = z.output<typeof GetBillingProviderInputSchema>;
 export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;
+export type GetBillingReportInput = z.output<typeof GetBillingReportInputSchema>;
+export type ReportDateWindowParams = z.output<typeof ReportDateWindowParamsSchema>;
+export type GetBillingPaymentsReportDrilldownInput = z.output<typeof GetBillingPaymentsReportDrilldownInputSchema>;
+export type PatientPaymentsDrilldownParams = z.output<typeof PatientPaymentsDrilldownParamsSchema>;
 export type ExportBillingClaimsInput = z.output<typeof ExportBillingClaimsInputSchema>;
 export type GetBillingClaimsExportStatusInput = z.output<typeof GetBillingClaimsExportStatusInputSchema>;
 export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;
