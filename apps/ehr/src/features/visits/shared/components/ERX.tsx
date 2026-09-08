@@ -7,7 +7,7 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPractitionerMissingFields } from 'src/shared/utils/practitioner.helper';
 import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { RoleType } from 'utils/lib/types/api/user.types';
-import { getErxPatientSyncErrorMessage, useErxPatientVitals } from '../hooks/useErxPatientVitals';
+import { useErxPatientVitals } from '../hooks/useErxPatientVitals';
 import {
   useCheckPractitionerEnrollment,
   useConnectPractitionerToERX,
@@ -15,6 +15,7 @@ import {
   useSyncERXPatient,
 } from '../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
+import { getErxPatientSyncErrorMessage } from '../utils/erxErrors';
 import { ERXDialog } from './ERXDialog';
 export enum ERXStatus {
   INITIAL,

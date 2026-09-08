@@ -14,7 +14,6 @@ import { isValidUUID } from 'utils/lib/validation/helper';
 import { fetchClaimResponsesByClaimIds, fetchPatientPaidByClaimId, summarizeClaimPayments } from './claim-amounts';
 import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
-  claimIdFromPcn,
   ClaimSearchParam,
   determineRulesEngineForClaim,
   fhirName,
@@ -237,16 +236,6 @@ export function buildClaimSearchTextQueries({
       {
         name: '_id',
         value: text,
-      },
-    ]);
-  }
-
-  const pcnClaimId = claimIdFromPcn(text);
-  if (pcnClaimId) {
-    queries.push([
-      {
-        name: '_id',
-        value: pcnClaimId,
       },
     ]);
   }

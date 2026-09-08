@@ -1,5 +1,6 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { QuestionnaireResponseItem } from 'fhir/r4b';
+import { useClient } from 'src/providers/intakeOysterClientProvider';
 import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
 import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
 import { OystehrAPIClient } from 'ui-components/lib/data/oystehrApi';
@@ -60,6 +61,50 @@ export const useUpdatePaperworkMutation = () => {
         questionnaireResponseId,
         answers,
       });
+    },
+  });
+};
+
+export const useUploadPatientConditionPhotoMutation = (): UseMutationResult<
+  void,
+  Error,
+  {
+    appointmentID: string;
+    z3URL: string;
+    title?: string;
+    mimeType?: string;
+  }
+> => {
+  const oystehr = useClient({ tokenless: false });
+  return useMutation({
+    mutationFn: async ({
+      appointmentID,
+      z3URL,
+      title,
+      mimeType,
+    }: {
+      appointmentID: string;
+      z3URL: string;
+      title?: string;
+      mimeType?: string;
+    }) => {
+      if (!oystehr) {
+        throw new Error('client not defined');
+      }
+      await oystehr.zambda.execute({ id: 'upload-patient-condition-photo', appointmentID, z3URL, title, mimeType });
+    },
+  });
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useDeletePatientConditionPhotoMutation = () => {
+  const oystehr = useClient({ tokenless: false });
+  return useMutation({
+    mutationFn: async ({ documentRefId }: { documentRefId: string }) => {
+      if (!oystehr) {
+        throw new Error('client not defined');
+      }
+      await oystehr.zambda.execute({ id: 'delete-patient-document', documentRefId });
     },
   });
 };

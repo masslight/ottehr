@@ -194,8 +194,11 @@ export async function invokeChatbotVertexAI(
       }
       return response;
     } catch (error) {
-      console.error('Error invoking Vertex AI:', error);
-      captureException(error);
+      // One attempt failing is not an incident — the ladder exists because Vertex sheds load with 429s and a
+      // later attempt usually succeeds. Keep it in the log for the trace, but don't report it: reporting here
+      // raised a Sentry alert for every self-healed retry, and double-reported the ones that did fail, since
+      // whatever this function finally throws reaches Sentry once via the handler's topLevelCatch.
+      console.warn('Vertex AI attempt failed:', error);
       throw error;
     }
   });

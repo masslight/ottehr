@@ -1,5 +1,5 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
-import { Bundle, Encounter, FhirResource, MedicationAdministration, Patient, Procedure, Resource } from 'fhir/r4b';
+import { Bundle, FhirResource, MedicationAdministration, Patient, Procedure, Resource } from 'fhir/r4b';
 import {
   getCptCodesFromMA,
   getDosageFromMA,
@@ -50,9 +50,13 @@ type ResourceTypeWithEncounterAsEncounter = Extract<
 
 type ResourceTypeWithEncounterAsContext = Extract<SupportedResourceType, 'MedicationStatement'>;
 
+/**
+ * Every chart search is built from the encounter id alone — patient-scoped ones included, via
+ * createFindResourceRequestByEncounterSubject — so getChartData can issue its whole request set
+ * in a single wave.
+ */
 export function createFindResourceRequest(
-  patient: Patient | undefined,
-  encounter: Encounter | undefined,
+  encounterId: string,
   resourceType: SupportedResourceType,
   searchParams?: SearchParams,
   defaultSearchBy?: 'encounter' | 'patient'
@@ -60,24 +64,47 @@ export function createFindResourceRequest(
   const searchBy = searchParams?._search_by ?? defaultSearchBy;
 
   if (searchBy === 'encounter' && resourceType !== 'EpisodeOfCare') {
-    if (!encounter) {
-      throw new Error('Encounter is required for encounter-based search');
-    }
     if (resourceType === 'MedicationStatement') {
-      return createFindResourceRequestByEncounterField(encounter.id!, resourceType, 'context', searchParams);
-    } else {
-      return createFindResourceRequestByEncounterField(encounter.id!, resourceType, 'encounter', searchParams);
+      return createFindResourceRequestByEncounterField(encounterId, resourceType, 'context', searchParams);
     }
-  } else {
-    if (!patient) {
-      throw new Error('Patient is required for patient-based search');
-    }
-    if (resourceType === 'AllergyIntolerance' || resourceType === 'EpisodeOfCare') {
-      return createFindResourceRequestByPatientField(patient.id, resourceType, 'patient', searchParams);
-    } else {
-      return createFindResourceRequestByPatientField(patient.id, resourceType, 'subject', searchParams);
-    }
+    return createFindResourceRequestByEncounterField(encounterId, resourceType, 'encounter', searchParams);
   }
+  if (resourceType === 'AllergyIntolerance' || resourceType === 'EpisodeOfCare') {
+    return createFindResourceRequestByEncounterSubject(encounterId, resourceType, 'patient', searchParams);
+  }
+  return createFindResourceRequestByEncounterSubject(encounterId, resourceType, 'subject', searchParams);
+}
+
+/** Search URL that scopes a patient-scoped resource to the subject of an encounter. */
+export const encounterSubjectScopedSearchUrl = (
+  resourceType: SupportedResourceType | 'Patient',
+  field: 'patient' | 'subject' | null,
+  encounterId: string
+): string =>
+  field === null
+    ? `/${resourceType}?_has:Encounter:subject:_id=${encounterId}`
+    : `/${resourceType}?${field}:Patient._has:Encounter:subject:_id=${encounterId}`;
+
+/**
+ * CAUTION: do not add `_revinclude` / `_include:iterate` to a search scoped this way without
+ * checking where the included resource can point. An iterate leg that walks out through a resource
+ * shared with other patients would pull their data into a patient-scoped result. No patient-scoped
+ * chart search carries one today (the only `_revinclude` in the chart field set is on
+ * `radiologyOrders`, which is encounter-scoped).
+ */
+export function createFindResourceRequestByEncounterSubject(
+  encounterId: string,
+  resourceType: SupportedResourceType,
+  field: 'patient' | 'subject',
+  searchParams?: RequestOptions
+): BatchInputGetRequest {
+  let url = encounterSubjectScopedSearchUrl(resourceType, field, encounterId);
+  url = addSearchParams(url, searchParams);
+
+  return {
+    method: 'GET',
+    url: url,
+  };
 }
 
 export function createFindResourceRequestByPatientField(
@@ -149,7 +176,8 @@ export function createFindResourceRequestById(
   };
 }
 
-function parseBundleResources(bundle: Bundle<FhirResource>): FhirResource[] {
+/** Flattens a batch response's nested searchset bundles into a flat resource list. */
+export function parseChartDataBundle(bundle: Bundle<FhirResource>): FhirResource[] {
   if (bundle.resourceType !== 'Bundle' || bundle.entry === undefined) {
     console.error('Search response appears malformed: ', JSON.stringify(bundle));
     throw new Error('Could not parse search response for chart data');
@@ -211,7 +239,7 @@ export async function convertSearchResultsToResponse(
           },
         }),
   };
-  const resources = parseBundleResources(bundle);
+  const resources = parseChartDataBundle(bundle);
 
   const chartDataResources: Resource[] = [];
 

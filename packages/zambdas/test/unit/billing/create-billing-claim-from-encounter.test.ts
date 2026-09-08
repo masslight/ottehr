@@ -1714,6 +1714,10 @@ describe('create-billing-claim-from-encounter', () => {
                 currency: 'USD',
                 value: 0,
               },
+              billablePeriod: {
+                start: expect.any(String),
+                end: undefined,
+              },
               item: [
                 {
                   sequence: 1,
@@ -1886,6 +1890,10 @@ describe('create-billing-claim-from-encounter', () => {
               total: {
                 currency: 'USD',
                 value: 0,
+              },
+              billablePeriod: {
+                start: expect.any(String),
+                end: undefined,
               },
               item: [
                 {
@@ -2245,6 +2253,10 @@ describe('create-billing-claim-from-encounter', () => {
                 currency: 'USD',
                 value: 0,
               },
+              billablePeriod: {
+                start: expect.any(String),
+                end: undefined,
+              },
               item: [
                 {
                   sequence: 1,
@@ -2390,6 +2402,10 @@ describe('create-billing-claim-from-encounter', () => {
               total: {
                 currency: 'USD',
                 value: 0,
+              },
+              billablePeriod: {
+                start: expect.any(String),
+                end: undefined,
               },
               item: [
                 {
@@ -2790,6 +2806,10 @@ describe('create-billing-claim-from-encounter', () => {
                 currency: 'USD',
                 value: 0,
               },
+              billablePeriod: {
+                start: expect.any(String),
+                end: undefined,
+              },
               item: [
                 {
                   sequence: 1,
@@ -2897,6 +2917,10 @@ describe('create-billing-claim-from-encounter', () => {
                 currency: 'USD',
                 value: 0,
               },
+              billablePeriod: {
+                start: expect.any(String),
+                end: undefined,
+              },
               item: [
                 {
                   sequence: 1,
@@ -2996,6 +3020,10 @@ describe('create-billing-claim-from-encounter', () => {
               total: {
                 currency: 'USD',
                 value: 0,
+              },
+              billablePeriod: {
+                start: expect.any(String),
+                end: undefined,
               },
               item: [
                 {
@@ -3123,6 +3151,10 @@ describe('create-billing-claim-from-encounter', () => {
               total: {
                 currency: 'USD',
                 value: 0,
+              },
+              billablePeriod: {
+                start: expect.any(String),
+                end: undefined,
               },
               item: [
                 {
@@ -3263,6 +3295,10 @@ describe('create-billing-claim-from-encounter', () => {
               total: {
                 currency: 'USD',
                 value: 0,
+              },
+              billablePeriod: {
+                start: expect.any(String),
+                end: undefined,
               },
               item: [
                 {
@@ -3470,6 +3506,10 @@ describe('create-billing-claim-from-encounter', () => {
                 currency: 'USD',
                 value: 0,
               },
+              billablePeriod: {
+                start: expect.any(String),
+                end: undefined,
+              },
               item: [
                 {
                   sequence: 1,
@@ -3615,6 +3655,10 @@ describe('create-billing-claim-from-encounter', () => {
               total: {
                 currency: 'USD',
                 value: 0,
+              },
+              billablePeriod: {
+                start: expect.any(String),
+                end: undefined,
               },
               item: [
                 {

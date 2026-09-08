@@ -68,26 +68,3 @@ export const useErxPatientVitals = (): {
     isVitalsFetched: isHeightFetched && isWeightFetched,
   };
 };
-
-/**
- * Maps an eRx `syncPatient` failure to a user-facing message. Shared so both eRx flows surface
- * the same guidance (bad phone, missing weight for minors, unconfigured service, etc.).
- */
-export const getErxPatientSyncErrorMessage = (
-  error: { code?: string; message?: string },
-  phoneNumber?: string
-): string => {
-  if (error.code === '4006') {
-    if (error.message?.toLowerCase()?.includes('phone')) {
-      return `Patient has specified some wrong phone number: ${phoneNumber}. Please provide a real patient's phone number`;
-    }
-    if (error.message?.includes('eRx service is not configured')) {
-      return `eRx service is not configured. Please contact support.`;
-    }
-    if (error.message?.includes('Weight must be entered for patient 18 years old and under')) {
-      return `Weight must be entered for patient 18 years old and under. Please specify patient's weight in the 'Vitals' tab.`;
-    }
-    return `Something is wrong with patient data.`;
-  }
-  return 'Something went wrong while trying to sync patient to eRx';
-};

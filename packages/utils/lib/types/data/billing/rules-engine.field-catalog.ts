@@ -9,6 +9,11 @@ import { BILLING_INSURANCE_TYPE_OPTIONS } from './billing.types';
 import { CLAIM_STATUS_FIELDS } from './claim-status';
 import {
   AddServiceLineInput,
+  DATE_SOURCE_KIND,
+  DateSourceKind,
+  DateValue,
+  DIAGNOSIS_POINTER_MODES,
+  effectiveDiagnosisMode,
   operatorIsMultiValue,
   operatorIsRegex,
   operatorNeedsValue,
@@ -229,6 +234,13 @@ const POS_OPTIONS: RuleFieldOption[] = CMS_PLACE_OF_SERVICE_CODES.map((pos) => (
   label: `${pos.code} - ${pos.display}`,
 }));
 const POS_OPTIONS_DOC_NOTE = 'any CMS place-of-service code';
+
+// Menu options for the addServiceLine action's diagnosis-selection mode (DIAGNOSIS_POINTER_MODES).
+const DIAGNOSIS_POINTER_MODE_OPTIONS: RuleFieldOption[] = [
+  { value: 'primary', label: "Claim's primary diagnosis" },
+  { value: 'all', label: "All of the claim's diagnoses" },
+  { value: 'specific', label: 'Specific diagnoses (pointers)' },
+];
 
 // One catalog entry per claim status indicator (AR stage, insurance/patient/non-insurance statuses),
 // generated from the same CLAIM_STATUS_FIELDS definition the claim screens use.
@@ -894,7 +906,9 @@ export const SERVICE_LINE_PROPERTY_CATALOG: ServiceLinePropertyDef[] = [
     valueType: 'date',
     operators: DATE_OPS,
     settable: true,
-    description: "The line's date of service (YYYY-MM-DD).",
+    description:
+      "The line's date of service (YYYY-MM-DD). When updating, the new value can be a literal date or " +
+      'derived from the claim (see Service date sources) — matching still compares against a literal date only.',
   },
   {
     id: 'revenueCode',
@@ -957,23 +971,68 @@ export const ADD_SERVICE_LINE_FIELDS: AddServiceLineFieldDef[] = [
     whenBlank: "inherited from the claim's first service line; the action fails if the claim has no lines",
   },
   {
+    id: 'diagnosisMode',
+    label: 'Diagnoses',
+    valueType: 'select',
+    required: false,
+    whenBlank: "uses the claim's primary diagnosis",
+    options: DIAGNOSIS_POINTER_MODE_OPTIONS,
+  },
+  {
     id: 'diagnosisPointers',
     label: 'Diagnosis pointers (comma-separated)',
     valueType: 'string',
-    required: false,
-    whenBlank: 'points at the first diagnosis (1)',
+    // Only shown (and only meaningful) when Diagnoses is 'Specific diagnoses' — see the diagnosisMode
+    // field above and effectiveDiagnosisMode() — so whenever it's on screen, leaving it blank isn't a
+    // valid "use the default" choice.
+    required: true,
   },
   { id: 'revenueCode', label: 'Revenue code', valueType: 'string', required: false },
 ];
 
+// The date-source options exposed by the addServiceLine/updateServiceLines serviceDate inputs and the
+// generated docs. "exact" is not part of DateSourceKind (it's the plain-string form, no tag) — it is
+// the UI/docs default.
+export const EXACT_DATE_SOURCE = 'exact' as const;
+export type DateSourceSelectValue = DateSourceKind | typeof EXACT_DATE_SOURCE;
+
+export const DATE_SOURCE_CATALOG: { value: DateSourceSelectValue; label: string; description: string }[] = [
+  { value: 'exact', label: 'Exact date', description: 'A literal date entered on the rule.' },
+  {
+    value: 'firstServiceLineDate',
+    label: "First service line's date",
+    description:
+      "The claim's first service line's date of service — the same value a blank serviceDate has always " +
+      'inherited on "Add a service line".',
+  },
+];
+
+// A date-typed rule value's problem when it may be a derived source instead of a literal date. A
+// literal is accepted as-is here (format is checked by each caller, since blank handling differs
+// between addServiceLine and updateServiceLines); a source object must name a known kind.
+export function derivedDateValueProblem(value: DateValue): string | undefined {
+  if (typeof value !== 'object') return undefined;
+  const known: string[] = Object.values(DATE_SOURCE_KIND);
+  return known.includes(value.source) ? undefined : 'Unknown date source';
+}
+
 // One add-line field's format problem, or undefined when the value is acceptable. Shared by the rule
 // builder (per-field validation messages) and save-time validation; claim-dependent checks (e.g. a
 // pointer beyond the claim's diagnosis count) happen at apply time in the engine.
+//
+// `line` carries the sibling diagnosisMode so diagnosisPointers can be validated as required exactly
+// when the mode makes it meaningful ('specific') — the rest of the fields don't need it.
 export function addServiceLineFieldProblem(
   fieldId: AddServiceLineFieldDef['id'],
-  value: string | undefined
+  value: string | DateValue | undefined,
+  line?: Pick<AddServiceLineInput, 'diagnosisMode'>
 ): string | undefined {
-  const trimmed = value?.trim() ?? '';
+  if (fieldId === 'serviceDate') {
+    if (value == null || value === '') return undefined; // inherited from the claim's first service line
+    if (typeof value === 'object') return derivedDateValueProblem(value);
+    return isoDateRegex.test(value.trim()) ? undefined : 'Service date must be an ISO date (YYYY-MM-DD)';
+  }
+  const trimmed = (value as string | undefined)?.trim() ?? '';
   switch (fieldId) {
     case 'cptCode':
       return trimmed ? undefined : 'CPT code is required';
@@ -987,8 +1046,15 @@ export function addServiceLineFieldProblem(
       const units = Number(trimmed);
       return Number.isFinite(units) && units > 0 ? undefined : 'Units must be a positive number';
     }
-    case 'diagnosisPointers': {
+    case 'diagnosisMode':
       if (!trimmed) return undefined;
+      return (DIAGNOSIS_POINTER_MODES as readonly string[]).includes(trimmed) ? undefined : 'Unknown diagnosis mode';
+    case 'diagnosisPointers': {
+      if (!trimmed) {
+        return effectiveDiagnosisMode({ diagnosisMode: line?.diagnosisMode, diagnosisPointers: trimmed }) === 'specific'
+          ? "Diagnosis pointers are required when Diagnoses is 'Specific diagnoses'"
+          : undefined;
+      }
       const pointers = trimmed.split(',').map((part) => Number(part.trim()));
       return pointers.every((pointer) => Number.isInteger(pointer) && pointer >= 1)
         ? undefined
@@ -997,9 +1063,6 @@ export function addServiceLineFieldProblem(
     case 'placeOfService':
       if (!trimmed) return undefined;
       return CMS_PLACE_OF_SERVICE_CODE_SET.has(trimmed) ? undefined : 'Unknown place of service code';
-    case 'serviceDate':
-      if (!trimmed) return undefined;
-      return isoDateRegex.test(trimmed) ? undefined : 'Service date must be an ISO date (YYYY-MM-DD)';
     default:
       return undefined;
   }
@@ -1118,12 +1181,17 @@ export function serviceLineMatchValueProblem(
 
 // An updateServiceLines set value's problem — mirrors the line writers exactly: units require a
 // positive number, charges a non-negative number, cptCode/serviceDate a value; placeOfService and
-// modifiers-with-"set" allow empty (clears).
+// modifiers-with-"set" allow empty (clears). A derived date-source object is only valid when the
+// target property is date-typed — there is no blank-fallback on update, unlike addServiceLine.
 export function serviceLineSetValueProblem(
   def: Pick<ServiceLinePropertyDef, 'id' | 'valueType' | 'options' | 'format'>,
   operation: ServiceLineSetOperation | undefined,
-  value: string | null | undefined
+  value: DateValue | null | undefined
 ): string | undefined {
+  if (typeof value === 'object' && value != null) {
+    if (def.valueType !== 'date') return 'This property does not accept a derived date value';
+    return derivedDateValueProblem(value);
+  }
   const trimmed = value?.trim() ?? '';
   if (def.valueType === 'list') {
     // modifiers: add/remove need the one modifier; "set" replaces the list (empty clears).
@@ -1311,7 +1379,7 @@ export function validateRuleFieldReferences(rule: { name: string; conditional: R
     }
     if (action.type === 'addServiceLine') {
       for (const field of ADD_SERVICE_LINE_FIELDS) {
-        const problem = addServiceLineFieldProblem(field.id, action.line[field.id]);
+        const problem = addServiceLineFieldProblem(field.id, action.line[field.id], action.line);
         if (problem) problems.push(`rule "${rule.name}" adds a service line: ${problem}`);
       }
       return;

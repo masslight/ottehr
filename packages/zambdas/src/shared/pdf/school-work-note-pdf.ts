@@ -9,7 +9,10 @@ import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { getPdfLogo, handleBadSpaces, PdfInfo, rgbNormalized, splitLongStringToPageSize } from './pdf-utils';
 
-async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): Promise<Uint8Array> {
+export async function createSchoolWorkNotePdfBytes(
+  data: SchoolWorkNoteExcuseDocDTO,
+  clinicAddress?: string
+): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
   const page = pdfDoc.addPage();
@@ -33,12 +36,17 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
       font: RubikFont,
       fontSize: 16,
     },
+    clinicAddress: {
+      font: RubikFont,
+      fontSize: 12,
+    },
     digitalSign: {
       font: dancingSignatureFont,
       fontSize: 22,
     },
     spacing: {
       image: 65,
+      clinicAddress: 20,
       regularText: 2,
       header: 25,
       paragraph: 3,
@@ -99,21 +107,28 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
     });
   };
 
-  // add Ottehr logo at the top of the PDF
+  // add the Ottehr logo and the clinic address to the top left corner of the PDF
   const logoBuffer = await getPdfLogo();
-  if (logoBuffer) {
-    const img = await pdfDoc.embedPng(new Uint8Array(logoBuffer));
-    const logoScale = Math.min(styles.image.width / img.width, styles.image.height / img.height);
-    const drawWidth = img.width * logoScale;
-    const drawHeight = img.height * logoScale;
+  if (logoBuffer || clinicAddress) {
     currYPos -= styles.margin.y;
-    page.drawImage(img, {
-      x: styles.margin.x,
-      y: currYPos + (styles.image.height - drawHeight) / 2,
-      width: drawWidth,
-      height: drawHeight,
-    });
-    currYPos -= styles.image.height + styles.spacing.image; // space after image
+    if (logoBuffer) {
+      const img = await pdfDoc.embedPng(new Uint8Array(logoBuffer));
+      const logoScale = Math.min(styles.image.width / img.width, styles.image.height / img.height);
+      const drawWidth = img.width * logoScale;
+      const drawHeight = img.height * logoScale;
+      page.drawImage(img, {
+        x: styles.margin.x,
+        y: currYPos + (styles.image.height - drawHeight) / 2,
+        width: drawWidth,
+        height: drawHeight,
+      });
+      currYPos -= styles.image.height;
+    }
+    if (clinicAddress) {
+      currYPos -= styles.spacing.clinicAddress; // space between the logo and the address
+      drawText(clinicAddress, styles.clinicAddress.font, styles.clinicAddress.fontSize, styles.color.grey);
+    }
+    currYPos -= styles.spacing.image; // space after the header block
   }
 
   // add all sections to PDF
@@ -143,14 +158,15 @@ export async function createSchoolWorkNotePDF(
   input: SchoolWorkNoteExcuseDocDTO,
   patient: Patient,
   secrets: Secrets | null,
-  token: string
+  token: string,
+  clinicAddress?: string
 ): Promise<PdfInfo> {
   console.log('Creating consent PDFs');
   if (!patient.id) {
     throw new Error('No patient id found for consent items');
   }
 
-  const pdfBytes = await createSchoolWorkNotePdfBytes(input).catch((error) => {
+  const pdfBytes = await createSchoolWorkNotePdfBytes(input, clinicAddress).catch((error) => {
     throw new Error('failed creating pdfBytes: ' + error.message);
   });
   const bucketName = `${SCHOOL_WORK_NOTE}s`;

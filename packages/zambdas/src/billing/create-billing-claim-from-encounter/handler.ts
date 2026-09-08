@@ -91,6 +91,7 @@ import {
   copySourceRef,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
+  deriveClaimBillablePeriod,
   determineRulesEngineForClaim,
   ensureClaimInsurance,
   ensureSystemManagedTags,
@@ -1319,6 +1320,8 @@ function buildClaim(resources: ClaimResources): Claim {
       currency: 'USD',
     },
   };
+
+  claim.billablePeriod = deriveClaimBillablePeriod(claim.item);
 
   return claim;
 }

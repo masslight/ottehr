@@ -58,6 +58,15 @@ export interface GetLocationResponse {
   schedules: LocationScheduleSummary[];
 }
 
+/**
+ * Every active Location reduced to what a picker needs. Deliberately not `Location[]`: callers that
+ * only populate a select shouldn't receive — or need read access to — the whole resource.
+ */
+export interface ListActiveLocationsOutput {
+  /** `name` falls back to the id so an unnamed Location is still selectable rather than blank. */
+  locations: { id: string; name: string }[];
+}
+
 export interface ToggleLocationActiveParams {
   locationId: string;
   /** `true` → active, `false` → inactive (archived; drops out of patient booking). */

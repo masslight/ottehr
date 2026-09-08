@@ -224,10 +224,6 @@ describe('search-billing-claims search text', () => {
     expect(await idsFor(createdClaimIds[0])).toEqual([createdClaimIds[0]]);
   }, 60_000);
 
-  it('finds the claim by the PCN shown in the UI, which is its id with dashes stripped', async () => {
-    expect(await idsFor(createdClaimIds[0].replaceAll('-', ''))).toEqual([createdClaimIds[0]]);
-  }, 60_000);
-
   it('finds a claim by an explicit patient control number identifier', async () => {
     expect(await idsFor(`${customPcn}-${unique}`)).toEqual([createdClaimIds[1]]);
   }, 60_000);

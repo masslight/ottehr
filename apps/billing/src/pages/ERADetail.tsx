@@ -11,17 +11,13 @@ import {
   Button,
   Chip,
   CircularProgress,
-  FormControl,
   IconButton,
   InputAdornment,
-  InputLabel,
   List,
   ListItem,
   ListItemButton,
   ListItemText,
-  MenuItem,
   Popover,
-  Select,
   Stack,
   Tab,
   TextField,
@@ -70,7 +66,6 @@ export default function ERADetail(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState('1');
   const [claimSearch, setClaimSearch] = useState('');
-  const [claimStatusFilter, setClaimStatusFilter] = useState('');
   const [claimResponseToMatch, setClaimResponseToMatch] = useState<string | null>(null);
   const [claimResponsesToUnmatch, setClaimResponsesToUnmatch] = useState<string[] | null>(null);
   const [unmatching, setUnmatching] = useState(false);
@@ -165,11 +160,8 @@ export default function ERADetail(): ReactElement {
       const q = claimSearch.toLowerCase();
       claims = claims.filter((c) => c.patientName.toLowerCase().includes(q) || c.claimId.toLowerCase().includes(q));
     }
-    if (claimStatusFilter) {
-      claims = claims.filter((c) => c.status === claimStatusFilter);
-    }
     return claims;
-  }, [era, claimSearch, claimStatusFilter]);
+  }, [era, claimSearch]);
 
   if (loading) {
     return (
@@ -269,26 +261,12 @@ export default function ERADetail(): ReactElement {
                 }}
                 sx={{ minWidth: 280 }}
               />
-              <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel>Claim Status</InputLabel>
-                <Select
-                  value={claimStatusFilter}
-                  label="Claim Status"
-                  onChange={(e) => setClaimStatusFilter(e.target.value)}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="complete">Complete</MenuItem>
-                  <MenuItem value="queued">Queued</MenuItem>
-                  <MenuItem value="error">Error</MenuItem>
-                </Select>
-              </FormControl>
-              {(claimSearch || claimStatusFilter) && (
+              {claimSearch && (
                 <Button
                   variant="text"
                   size="small"
                   onClick={() => {
                     setClaimSearch('');
-                    setClaimStatusFilter('');
                   }}
                 >
                   Clear filters

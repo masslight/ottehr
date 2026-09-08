@@ -1,5 +1,8 @@
 import Oystehr from '@oystehr/sdk';
-import { Bundle, CodeableConcept, Coding, Encounter, FhirResource, Resource, ServiceRequest } from 'fhir/r4b';
+import { Bundle, CodeableConcept, Coding, Encounter, FhirResource, Location, Resource, ServiceRequest } from 'fhir/r4b';
+import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
+import { getAddressString } from 'utils/lib/fhir/helpers';
+import { isLocationVirtual } from 'utils/lib/fhir/location';
 import { DispositionMetaFieldsNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { ChartDataWithResources } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
@@ -83,6 +86,10 @@ export async function getEncounterAndRelatedResources(oystehr: Oystehr, encounte
           value: 'Encounter:appointment',
         },
         {
+          name: '_include',
+          value: 'Encounter:location',
+        },
+        {
           name: '_revinclude:iterate',
           value: 'List:patient',
         },
@@ -101,6 +108,26 @@ export async function getEncounterAndRelatedResources(oystehr: Oystehr, encounte
       ],
     })
   ).unbundle();
+}
+
+/**
+ * Address of the clinic the visit took place at, printed under the logo on the school/work note.
+ * Virtual Locations are skipped even when they have an address, and a Location without a street line
+ * is skipped rather than rendered as a partial address.
+ */
+export function getEncounterClinicAddress(encounter: Encounter, allResources: Resource[]): string | undefined {
+  const locationId = getEncounterLocationId(encounter);
+  if (!locationId) return undefined;
+
+  const location = allResources.find(
+    (resource): resource is Location => resource.resourceType === 'Location' && resource.id === locationId
+  );
+  if (!location) return undefined;
+
+  const { address } = location;
+  if (isLocationVirtual(location) || !address?.line?.[0]) return undefined;
+
+  return getAddressString(address);
 }
 
 export function filterServiceRequestsFromFhir(

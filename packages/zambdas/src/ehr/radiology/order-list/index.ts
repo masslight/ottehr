@@ -100,7 +100,7 @@ const performEffect = async (
     serviceRequestId,
     itemsPerPage,
     pageIndex,
-    callerPractitionerId: await resolveCallerPractitionerId(validatedInput.callerAccessToken, secrets),
+    callerPractitionerId: resolveCallerPractitionerId(validatedInput.callerAccessToken, secrets),
   };
 
   return await getRadiologyOrders(oystehr, searchParams);
@@ -137,7 +137,7 @@ export const getRadiologyOrders = async (
     serviceRequestId?: string;
     itemsPerPage?: number;
     pageIndex?: number;
-    callerPractitionerId?: string;
+    callerPractitionerId?: Promise<string | undefined>;
   }
 ): Promise<GetRadiologyOrderListZambdaOutput> => {
   const searchParams = [
@@ -185,6 +185,9 @@ export const getRadiologyOrders = async (
   const { serviceRequests, tasks, diagnosticReports, practitioners, encounters, documentReferences } =
     extractResources(resources);
 
+  // Awaited before the early return as well, so no path leaves this promise unobserved.
+  const resolvedCallerPractitionerId = await callerPractitionerId;
+
   if (!serviceRequests.length) {
     return {
       orders: [],
@@ -200,7 +203,7 @@ export const getRadiologyOrders = async (
       practitioners,
       encounters,
       documentReferences,
-      callerPractitionerId
+      resolvedCallerPractitionerId
     )
   );
 
@@ -210,7 +213,7 @@ export const getRadiologyOrders = async (
   };
 };
 
-const parseResultsToOrder = (
+export const parseResultsToOrder = (
   serviceRequest: ServiceRequest,
   tasks: Task[],
   diagnosticReports: DiagnosticReport[],

@@ -4,6 +4,7 @@ import { chartDataTagSystem, CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { resourceHasTagSystem } from 'utils/lib/fhir/helpers';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { isPSCOrder, locationIsEnabledForLabs } from 'utils/lib/helpers/labs/helpers';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { TemplateSectionAction, TemplateWarning } from 'utils/lib/types/data/apply-template.types';
@@ -325,12 +326,20 @@ export interface ExternalLabCptResult {
  * intermediate parsed plans + item map so applyExternalLabPlans can reuse them
  * without re-fetching, and warnings for any malformed plan entries.
  * Short-circuits to empty when the external labs section is 'skip'.
- * CPT Procedures are only created when the selected payment method is ClientBill,
- * matching the create-order flow which only saves CPT codes for client bill orders.
+ * CPT Procedures for a plan's own test-specific codes are only created when the
+ * selected payment method is ClientBill, matching the create-order flow which
+ * only saves those CPT codes for client bill orders.
+ *
+ * Also mirrors CreateExternalLabOrder.tsx's addAdditionalCptCodesToEncounter:
+ * whenever at least one matched plan is a non-PSC order, the per-encounter CPT
+ * codes configured in VALUE_SETS.externalLabCptCodesToAddPerEncounter (e.g.
+ * "99001" - handling/conveyance of specimen) get added once per encounter,
+ * regardless of payment method, skipping any code already present on the chart.
  */
 export const collectExternalLabCptProcedures = async (
   templateList: List,
   encounter: Encounter,
+  encounterResources: TemplateEncounterResource[],
   action: TemplateSectionAction,
   m2mToken: string,
   selectedPaymentMethod: CreateLabPaymentMethod | undefined
@@ -364,13 +373,18 @@ export const collectExternalLabCptProcedures = async (
 
   const cptCodesToSkip = new Set<string>();
   const procedures: Procedure[] = [];
-  // CPT codes only apply to client bill orders — skip procedure creation for other payment types
-  if (selectedPaymentMethod === LabPaymentMethod.ClientBill) {
-    for (const plan of parsedPlans) {
-      const items = itemsByLabGuid.get(plan.labGuid);
-      if (!items || items === 'fetch-failed') continue;
-      const matched = matchOrderableItemForPlan(plan, items);
-      if (!matched || !encounter.subject) continue;
+  let hasNonPscMatchedPlan = false;
+  for (const plan of parsedPlans) {
+    const items = itemsByLabGuid.get(plan.labGuid);
+    if (!items || items === 'fetch-failed') continue;
+    const matched = matchOrderableItemForPlan(plan, items);
+    if (!matched || !encounter.subject) continue;
+
+    if (!plan.psc) hasNonPscMatchedPlan = true;
+
+    // Test-specific CPT codes only apply to client bill orders — skip procedure creation for
+    // other payment types.
+    if (selectedPaymentMethod === LabPaymentMethod.ClientBill) {
       for (const cpt of matched.item.cptCodes) {
         cptCodesToSkip.add(cpt.cptCode);
         procedures.push({
@@ -384,6 +398,38 @@ export const collectExternalLabCptProcedures = async (
       }
     }
   }
+
+  // Mirrors CreateExternalLabOrder.tsx: whenever a non-PSC external lab order is applied, add
+  // the per-encounter CPT codes (e.g. 99001) once per encounter, regardless of payment method,
+  // skipping any code already present on the chart.
+  if (hasNonPscMatchedPlan && encounter.subject) {
+    const existingCptCodes = new Set(
+      encounterResources
+        .filter(
+          (r): r is Procedure =>
+            r.resourceType === 'Procedure' && resourceHasTagSystem(r, chartDataTagSystem('cpt-code'))
+        )
+        .flatMap((r) => r.code?.coding ?? [])
+        .filter((coding) => coding.system === CPT_CODE_SYSTEM && coding.code)
+        .map((coding) => coding.code as string)
+    );
+
+    for (const perEncounterCode of VALUE_SETS.externalLabCptCodesToAddPerEncounter ?? []) {
+      if (existingCptCodes.has(perEncounterCode.value) || cptCodesToSkip.has(perEncounterCode.value)) continue;
+      cptCodesToSkip.add(perEncounterCode.value);
+      procedures.push({
+        resourceType: 'Procedure',
+        subject: encounter.subject,
+        encounter: { reference: `Encounter/${encounter.id}` },
+        status: 'completed',
+        meta: fillMeta('cpt-code', 'cpt-code'),
+        code: {
+          coding: [{ system: CPT_CODE_SYSTEM, code: perEncounterCode.value, display: perEncounterCode.label }],
+        },
+      });
+    }
+  }
+
   return { procedures, cptCodesToSkip, parsedPlans, itemsByLabGuid, warnings };
 };
 

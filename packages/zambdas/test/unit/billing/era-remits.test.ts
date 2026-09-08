@@ -437,7 +437,6 @@ describe('eraPatientAccountNumber', () => {
     const cr = claimResponse();
     const claim = submittedClaim({ identifier: [{ system: CLAIM_PCN_IDENTIFIER_SYSTEM, value: 'PCN-42' }] });
     expect(eraPatientAccountNumber([cr], claim, true)).toBe('PCN-42');
-    expect(eraPatientAccountNumber([cr], submittedClaim({ id: 'aaaa-bbbb' }), true)).toBe('aaaabbbb');
     // an unmatched row's claim id is synthetic, so it must never leak out as an account number
     expect(eraPatientAccountNumber([cr], submittedClaim({ id: 'unmatched-cr-1' }), false)).toBe('');
     expect(eraPatientAccountNumber([], undefined, false)).toBe('');

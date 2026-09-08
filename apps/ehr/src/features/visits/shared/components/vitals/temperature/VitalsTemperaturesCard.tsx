@@ -97,7 +97,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
   };
 
   return (
-    <Box sx={{ mt: 3 }}>
+    <Box>
       <AccordionCard
         label={`Temp (C) ${latestTemperatureValue != null ? roundTemperatureValue(latestTemperatureValue) : ''}`}
         collapsed={isCollapsed}

@@ -1,0 +1,131 @@
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { Box, Button } from '@mui/material';
+import { FC, ReactNode, useEffect, useRef, useState } from 'react';
+import { InlineFlowProvider } from 'src/components/InlineFlow';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { NoteSectionCard } from './NoteSectionCard';
+import { NoteSectionIconKey } from './NoteSectionIcon';
+
+interface InlineEditSectionProps {
+  // kebab-case section identifier used for test ids, e.g. 'allergies'
+  sectionName: string;
+  // section name shown in the card header
+  title: string;
+  // sidebar menu icon shown in the card header
+  iconKey?: NoteSectionIconKey;
+  editLabel: string;
+  editContent: ReactNode;
+  // render children without any edit affordance (e.g. supervisor approval box)
+  disabled?: boolean;
+  children: ReactNode;
+}
+
+export const InlineEditSection: FC<InlineEditSectionProps> = ({
+  sectionName,
+  title,
+  iconKey,
+  editLabel,
+  editContent,
+  disabled,
+  children,
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const scrollBackOnCollapse = useRef(false);
+
+  // The editor is usually much taller than the summary, so after clicking Done at the
+  // bottom of a long editor the scroll position can land far below the collapsed
+  // section. Bring the section heading back into view (72px clears the sticky navbar).
+  useEffect(() => {
+    if (isEditing || !scrollBackOnCollapse.current) return;
+    scrollBackOnCollapse.current = false;
+    const el = rootRef.current;
+    if (el && el.getBoundingClientRect().top < 72) {
+      el.scrollIntoView?.({ block: 'start' });
+    }
+  }, [isEditing]);
+
+  const canEdit = !isAppointmentReadOnly && !disabled;
+
+  if (!canEdit) {
+    return (
+      <NoteSectionCard title={title} iconKey={iconKey}>
+        {children}
+      </NoteSectionCard>
+    );
+  }
+
+  const closeEditor = (): void => {
+    scrollBackOnCollapse.current = true;
+    setIsEditing(false);
+  };
+
+  // The editor shows the same information in more detail, so the read-only summary is
+  // replaced while editing rather than duplicated above it; the card header keeps the
+  // section title either way.
+  if (isEditing) {
+    return (
+      <Box sx={{ width: '100%' }} data-testid={dataTestIds.progressNotePage.inlineEditSection(sectionName)}>
+        <NoteSectionCard
+          title={title}
+          iconKey={iconKey}
+          // the header's collapse control leaves editing: a misclick into a long editor
+          // shouldn't require scrolling to the bottom Done button to get back out
+          onToggle={closeEditor}
+          expanded
+          headerTestId={dataTestIds.progressNotePage.inlineEditHeader(sectionName)}
+        >
+          {/* Reused page components read this to drop their page frame — breadcrumbs, the
+              detail page container — instead of branching on a prop of their own. */}
+          <InlineFlowProvider>{editContent}</InlineFlowProvider>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+            <RoundedButton
+              variant="contained"
+              onClick={closeEditor}
+              data-testid={dataTestIds.progressNotePage.inlineEditDoneButton(sectionName)}
+            >
+              Done
+            </RoundedButton>
+          </Box>
+        </NoteSectionCard>
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      ref={rootRef}
+      sx={{ width: '100%', scrollMarginTop: '72px' }}
+      data-testid={dataTestIds.progressNotePage.inlineEditSection(sectionName)}
+    >
+      <NoteSectionCard
+        title={title}
+        iconKey={iconKey}
+        onToggle={() => setIsEditing(true)}
+        expanded={false}
+        headerTestId={dataTestIds.progressNotePage.inlineEditHeader(sectionName)}
+        onBodyClick={() => setIsEditing(true)}
+        headerItem={
+          <Button
+            size="small"
+            startIcon={<EditOutlinedIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              setIsEditing(true);
+            }}
+            aria-label={editLabel}
+            data-testid={dataTestIds.progressNotePage.inlineEditButton(sectionName)}
+            sx={{ flexShrink: 0 }}
+          >
+            Edit
+          </Button>
+        }
+      >
+        {children}
+      </NoteSectionCard>
+    </Box>
+  );
+};

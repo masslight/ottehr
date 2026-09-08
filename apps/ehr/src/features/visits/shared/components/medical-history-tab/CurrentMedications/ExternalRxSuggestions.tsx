@@ -16,7 +16,13 @@ import { FC, useCallback, useMemo, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
-import { ExternalMedication, useExternalMedicationHistory } from '../../../hooks/useExternalMedicationHistory';
+import {
+  EXTERNAL_HISTORY_EMPTY_MESSAGE,
+  EXTERNAL_HISTORY_FAILED_MESSAGE,
+  EXTERNAL_HISTORY_FORBIDDEN_MESSAGE,
+  ExternalMedication,
+  useExternalMedicationHistory,
+} from '../../../hooks/useExternalMedicationHistory';
 import { ExtractObjectType } from '../../../stores/appointment/appointment.queries';
 
 const COLLAPSED_COUNT = 5;
@@ -152,13 +158,11 @@ export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedM
           </Box>
         ) : !isAvailable ? (
           <Typography variant="body2" color="text.secondary">
-            {isPermissionDenied
-              ? 'Not available — your role does not have access to external medication history.'
-              : 'Not available'}
+            {isPermissionDenied ? EXTERNAL_HISTORY_FORBIDDEN_MESSAGE : EXTERNAL_HISTORY_FAILED_MESSAGE}
           </Typography>
         ) : visibleMedications.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            No external medications found, or all have been reconciled.
+            {EXTERNAL_HISTORY_EMPTY_MESSAGE}
           </Typography>
         ) : (
           <>

@@ -131,7 +131,7 @@ const makeBillingClient = (notices: PaymentNotice[]): Oystehr => {
 describe('get-billing-claim-detail performEffect: patient payments', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (fetchClaimGraph as Mock).mockResolvedValue({
+    (fetchClaimGraph as Mock<typeof fetchClaimGraph>).mockResolvedValue({
       claim,
       patient,
       billingProvider: undefined,
@@ -139,10 +139,11 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
       renderingProvider: undefined,
       coverages: [],
       subscribers: [],
+      documentReferences: [],
     });
-    (resolvePayersByRef as Mock).mockResolvedValue(new Map());
-    (fetchClaimResponsesByClaimIds as Mock).mockResolvedValue(new Map());
-    (fetchClaimEraLinks as Mock).mockResolvedValue({
+    (resolvePayersByRef as Mock<typeof resolvePayersByRef>).mockResolvedValue(new Map());
+    (fetchClaimResponsesByClaimIds as Mock<typeof fetchClaimResponsesByClaimIds>).mockResolvedValue(new Map());
+    (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
       paymentReconciliations: [],
       claimResponseByPrId: new Map(),
     });
@@ -257,6 +258,7 @@ describe('get-billing-claim-detail performEffect: non-insurance payer', () => {
       renderingProvider: undefined,
       coverages: [],
       subscribers: [],
+      documentReferences: [],
     });
   };
 

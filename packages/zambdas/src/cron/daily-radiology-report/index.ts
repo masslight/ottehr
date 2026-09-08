@@ -3,8 +3,10 @@ import { DiagnosticReport, Encounter, Patient, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   ORDER_TYPE_CODE_SYSTEM,
+  RADIOLOGY_REPORT_SUPPRESSED_TAG,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
@@ -35,24 +37,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
-  const oneMonthAgo = DateTime.now().toUTC().minus({ days: 30 }).startOf('day');
+  const sevenDaysAgo = DateTime.now().toUTC().minus({ days: 7 }).startOf('day');
   const now = DateTime.now().toUTC();
 
-  console.log(`Fetching radiology studies for date range: ${oneMonthAgo.toISO()} to ${now.toISO()}`);
+  console.log(`Fetching radiology studies for date range: ${sevenDaysAgo.toISO()} to ${now.toISO()}`);
 
-  // Fetch in batches of 3 days to avoid 5MB response payload limit
+  // Fetch in batches of 1 day to avoid 5MB response payload limit
   const serviceRequests: ServiceRequest[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const encounters: Encounter[] = [];
   const patients: Patient[] = [];
 
-  // Calculate 10 batches of 3 days each to cover 30 days
-  const batchSizeDays = 3;
-  const numberOfBatches = 10;
+  const batchSizeDays = 1;
+  const numberOfBatches = 7;
 
   for (let i = 0; i < numberOfBatches; i++) {
-    const batchStart = oneMonthAgo.plus({ days: i * batchSizeDays });
-    const batchEnd = oneMonthAgo.plus({ days: (i + 1) * batchSizeDays });
+    const batchStart = sevenDaysAgo.plus({ days: i * batchSizeDays });
+    const batchEnd = sevenDaysAgo.plus({ days: (i + 1) * batchSizeDays });
 
     console.log(`Fetching batch ${i + 1}/${numberOfBatches}: ${batchStart.toISO()} to ${batchEnd.toISO()}`);
 
@@ -111,7 +112,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`Found ${serviceRequests.length} radiology studies`);
 
   if (serviceRequests.length === 0) {
-    const message = `No radiology studies found since ${oneMonthAgo.toFormat('yyyy-MM-dd')}`;
+    const message = `No radiology studies found since ${sevenDaysAgo.toFormat('yyyy-MM-dd')}`;
     console.log(message);
 
     return {
@@ -140,6 +141,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const relatedDiagnosticReports = diagnosticReports.filter(
         (report) => report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
       );
+
+      const isSuppressed = serviceRequest.meta?.tag?.some(
+        (tag) =>
+          tag.system === RADIOLOGY_REPORT_SUPPRESSED_TAG.system && tag.code === RADIOLOGY_REPORT_SUPPRESSED_TAG.code
+      );
+      if (isSuppressed) {
+        return;
+      }
 
       const maybeNeedsToBeSentForTeleradTime = serviceRequest?.extension?.find(
         (ext) => ext.url === SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL
@@ -170,13 +179,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     .filter((maybeStudyReportItem) => maybeStudyReportItem !== undefined);
 
   if (studiesAwaitingFinalReportMoreThan24Hours.length > 0) {
+    const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
     let outputStrings = '';
     outputStrings += 'Studies awaiting final report for more than 24 hours:';
     studiesAwaitingFinalReportMoreThan24Hours.forEach((study) => {
+      const consoleUrl = `https://console.oystehr.com/app/${projectId}/fhir/ServiceRequest/${study.serviceRequestId}`;
       outputStrings += `\nServiceRequest/${study.serviceRequestId}, Patient: ${
         study.patientName || 'Unknown'
       }, Appointment ID: ${study.appointmentId}`;
+      outputStrings += `\n  Console: ${consoleUrl}`;
     });
+    outputStrings += `\n\nTo suppress a study from this report, add this tag to the ServiceRequest in the Oystehr console:`;
+    outputStrings += `\n  ${JSON.stringify(RADIOLOGY_REPORT_SUPPRESSED_TAG)}`;
     console.log(outputStrings);
     throw new Error(outputStrings);
   } else {

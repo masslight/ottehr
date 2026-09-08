@@ -70,7 +70,7 @@ export const DotVisionScreeningSection: FC<DotVisionScreeningSectionProps> = ({
   const disabled = isReadOnly || isSaving;
 
   return (
-    <Box sx={{ mt: 2 }}>
+    <Box sx={{ m: 2 }}>
       <AccordionCard
         label="DOT Vision Screening"
         collapsed={collapsed}

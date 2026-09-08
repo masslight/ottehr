@@ -1,5 +1,11 @@
 import { deepStrictEqual } from 'node:assert';
-import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, OystehrConfig, SearchParam } from '@oystehr/sdk';
+import Oystehr, {
+  BatchInputPostRequest,
+  BatchInputPutRequest,
+  FhirResourceReturnValue,
+  OystehrConfig,
+  SearchParam,
+} from '@oystehr/sdk';
 import {
   Account,
   Address,
@@ -7,10 +13,13 @@ import {
   ChargeItemDefinition,
   ChargeItemDefinitionPropertyGroup,
   Claim,
+  ClaimItem,
   ClaimResponse,
   ClaimResponseItem,
+  ClaimSupportingInfo,
   Coding,
   Coverage,
+  DocumentReference,
   DomainResource,
   FhirResource,
   Identifier,
@@ -20,6 +29,7 @@ import {
   Patient,
   PaymentNotice,
   PaymentReconciliation,
+  Period,
   Person,
   Practitioner,
   Provenance,
@@ -28,6 +38,7 @@ import {
   Resource,
   Task,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { setCoveragePlanType } from 'utils/lib/fhir/billing';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
@@ -495,25 +506,8 @@ export function getEraCheckNumber(
 
 export const CLAIM_PCN_IDENTIFIER_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-claim-patient-control-number';
 
-export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string {
-  return (
-    claim.identifier?.find((id) => id.system === CLAIM_PCN_IDENTIFIER_SYSTEM)?.value ??
-    claim.id?.replaceAll('-', '') ??
-    ''
-  );
-}
-
-export function claimIdFromPcn(pcn: string): string | undefined {
-  const minified = pcn.toLowerCase();
-  if (!/^[0-9a-f]{32}$/.test(minified)) return undefined;
-  const claimId = [
-    minified.slice(0, 8),
-    minified.slice(8, 12),
-    minified.slice(12, 16),
-    minified.slice(16, 20),
-    minified.slice(20),
-  ].join('-');
-  return isValidUUID(claimId) ? claimId : undefined;
+export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string | undefined {
+  return claim.identifier?.find((id) => id.system === CLAIM_PCN_IDENTIFIER_SYSTEM)?.value;
 }
 
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
@@ -571,6 +565,24 @@ export async function searchTagBasics(oystehr: Oystehr): Promise<Basic[]> {
 export async function fetchDefinedTagNames(oystehr: Oystehr): Promise<Set<string>> {
   const basics = await searchTagBasics(oystehr);
   return new Set(basics.map((tag) => tag.code?.text).filter((name): name is string => !!name));
+}
+
+// A claim's billable period spans its service lines: the earliest service start and the latest
+// service end across all items. Used at claim creation so UB-04 admission/discharge dates default
+// to the actual span of care rather than being left blank.
+export function deriveClaimBillablePeriod(items: ClaimItem[] | undefined): Period | undefined {
+  const millis = (date: string): number => DateTime.fromISO(date).toMillis();
+  const start = (items ?? [])
+    .map((item) => item.servicedPeriod?.start ?? item.servicedDate)
+    .filter((date): date is string => !!date)
+    .sort((a, b) => millis(a) - millis(b))
+    .at(0);
+  const end = (items ?? [])
+    .map((item) => item.servicedPeriod?.end ?? item.servicedDate)
+    .filter((date): date is string => !!date)
+    .sort((a, b) => millis(a) - millis(b))
+    .at(-1);
+  return start ? { start, end } : undefined;
 }
 
 // Re-point careTeam sequence 1 (the rendering provider) at `provider`, preserving other members,
@@ -641,7 +653,7 @@ export async function findById<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
   id: string
-): Promise<T | undefined> {
+): Promise<FhirResourceReturnValue<T> | undefined> {
   const result = await oystehr.fhir.search<T>({
     resourceType,
     params: [
@@ -651,14 +663,14 @@ export async function findById<T extends FhirResource>(
       },
     ],
   });
-  return result.unbundle()[0];
+  return result.unbundle()[0] as FhirResourceReturnValue<T>;
 }
 
 export async function fetchById<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
   id: string
-): Promise<T> {
+): Promise<FhirResourceReturnValue<T>> {
   const resource = await findById<T>(oystehr, resourceType, id);
   if (!resource) throw FHIR_RESOURCE_NOT_FOUND(resourceType);
   return resource;
@@ -736,6 +748,8 @@ export interface ClaimGraph {
   renderingProvider?: Practitioner | Organization;
   // Working-copy subscriber RelatedPersons of the fetched coverages.
   subscribers: RelatedPerson[];
+  // Attachments
+  documentReferences: DocumentReference[];
 }
 
 export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promise<ClaimGraph> {
@@ -771,6 +785,24 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
     const [type, id] = renderingRef.split('/');
     queries.push(`/${type}?_id=${id}`);
   }
+
+  // Any DocumentReference resources referenced in supportingInfo entries cannot be _include'd
+  queries.push(
+    ...(claim.supportingInfo ?? [])
+      .filter(
+        (
+          supportingInfo
+        ): supportingInfo is Omit<ClaimSupportingInfo, 'valueReferrence'> & { valueReference: Reference } =>
+          !!supportingInfo.valueReference && !!supportingInfo.valueReference.reference
+      )
+      .map(
+        (supportingInfo) =>
+          `/${supportingInfo.valueReference.reference?.split(
+            '/'
+          )[0]}?_id=${supportingInfo.valueReference.reference?.split('/')[1]}`
+      )
+  );
+
   const followUp = queries.length ? await getResourcesFromBatchInlineRequests(oystehr, queries) : [];
 
   const coverages = coverageRefs
@@ -783,8 +815,18 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
       ) as Practitioner | Organization | undefined)
     : undefined;
   const subscribers = followUp.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson');
+  const documentReferences = followUp.filter((r): r is DocumentReference => r.resourceType === 'DocumentReference');
 
-  return { claim, patient, billingProvider, serviceFacility, coverages, renderingProvider, subscribers };
+  return {
+    claim,
+    patient,
+    billingProvider,
+    serviceFacility,
+    coverages,
+    renderingProvider,
+    subscribers,
+    documentReferences,
+  };
 }
 
 export function getTag(resource: Resource, system: string): string | undefined {
@@ -1625,4 +1667,26 @@ export function mapProvider(resource: Practitioner | Organization): BillingProvi
     name: resource.name ?? '',
     stripeAccountId: resource.identifier?.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)?.value ?? '',
   };
+}
+export const CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-attachment-report-type-code';
+export const BILLING_APP_BUCKET = (projectId: string): string => {
+  return `${projectId}-billing-app`;
+};
+export const CLAIM_ATTACHMENT_OBJECT_PATH = (claimId: string, fileName: string): string => {
+  return `claim-attachments/${claimId}/${fileName}`;
+};
+
+export function getClaimAttachmentBucketAndPathFromZ3Url(projectApi: string, z3Url: string): [string, string] {
+  const [bucket, ...pathParts] = z3Url.replace(`${projectApi}/z3/`, '').split('/');
+  return [bucket, pathParts.join('/')];
+}
+
+export function getClaimAttachmentUrl(
+  projectApi: string,
+  projectId: string,
+  claimId: string,
+  fileName: string
+): string {
+  return `${projectApi}/z3/${BILLING_APP_BUCKET(projectId)}/${CLAIM_ATTACHMENT_OBJECT_PATH(claimId, fileName)}`;
 }

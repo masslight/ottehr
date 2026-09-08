@@ -33,10 +33,22 @@ describe('CLINICIAN_RULES', () => {
     expect(grantsAction(CLINICIAN_RULES, 'eRx:Configuration', 'eRx:GetConfiguration')).toBe(true);
   });
 
-  it('does not grant prescribing, practitioner enrollment, or patient-scoped eRx actions', () => {
+  // Reading a patient's outside medications is reconciliation, not prescribing — it needs no NPI and is
+  // exactly the nurse/MA task the Clinician role exists for. The EHR calls it straight from the browser
+  // with the user's token, so without this the chart's external-medications panel is empty.
+  it('grants reading the patient external medication history', () => {
+    expect(grantsAction(CLINICIAN_RULES, 'eRx:Patient', 'eRx:GetMedicationHistory')).toBe(true);
+  });
+
+  // Granting the eRx:Patient resource is only safe because the action list stays closed.
+  it('does not grant the other patient-scoped eRx actions', () => {
+    expect(grantsAction(CLINICIAN_RULES, 'eRx:Patient', 'eRx:SyncPatient')).toBe(false);
+    expect(grantsAction(CLINICIAN_RULES, 'eRx:Patient', 'eRx:AddPatientPharmacy')).toBe(false);
+  });
+
+  it('does not grant prescribing, practitioner enrollment, interaction checks, or pharmacy access', () => {
     expect(grantsResource(CLINICIAN_RULES, 'eRx:Prescription')).toBe(false);
     expect(grantsResource(CLINICIAN_RULES, 'eRx:Practitioner')).toBe(false);
-    expect(grantsResource(CLINICIAN_RULES, 'eRx:Patient')).toBe(false);
     expect(grantsResource(CLINICIAN_RULES, 'eRx:Interaction')).toBe(false);
     expect(grantsResource(CLINICIAN_RULES, 'eRx:Pharmacy')).toBe(false);
   });
