@@ -285,7 +285,6 @@ export interface BillingClaimItem {
   patientDob: string;
   payerName: string;
   payerId: string;
-  /** The claim's non-insurance payer (NIO) name — its own column, never mixed into payerName. */
   nonInsurancePayerName: string;
   memberId: string;
   service: string | undefined;
