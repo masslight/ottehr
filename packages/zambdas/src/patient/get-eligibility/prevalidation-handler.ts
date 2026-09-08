@@ -281,7 +281,7 @@ const makeCoverage = (input: CoverageInput): Coverage => {
         reference: getPayerUrl(payor.id!),
       },
     ],
-    relationship: getSubscriberRelationshipCodeableConcept(relationship ?? ''),
+    relationship: relationship ? getSubscriberRelationshipCodeableConcept(relationship) : undefined,
     status: 'active',
     class: coverageClass ? [coverageClass] : [],
     type: { coding: [INSURANCE_COVERAGE_CODING] },
