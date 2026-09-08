@@ -16,6 +16,8 @@ interface Props {
   fields: FormFieldInfo[];
   /** Field whose rectangle should be called out, by `FormFieldInfo.name`. */
   selectedFieldName?: string;
+  /** What that field is filled with, captioned beside its rectangle. Absent when it is not yet mapped. */
+  selectedFieldMapping?: string;
   /** Names of fields that already have a binding, drawn less prominently. */
   mappedFieldNames: ReadonlySet<string>;
   /** 1-based. Controlled by the parent so the field list can show only this page's fields. */
@@ -45,6 +47,7 @@ export const FormTemplatePdfPreview: FC<Props> = ({
   fileUrl,
   fields,
   selectedFieldName,
+  selectedFieldMapping,
   mappedFieldNames,
   pageNumber,
   onPageChange,
@@ -275,6 +278,51 @@ export const FormTemplatePdfPreview: FC<Props> = ({
               />
             );
           })}
+
+          {/* The mapping is captioned outside the rectangle rather than inside it.
+              A field's box is only 10-20px tall here and is drawn over the form's own printed label — which
+              the translucent fill exists to keep readable, since on forms that repeat "First Name:" four
+              times that print is the only thing telling the rectangles apart. Text set inside would be
+              illegible at that height and would cover the very thing it needs to sit beside. */}
+          {selectedFieldMapping &&
+            (() => {
+              const highlight = highlights.find((candidate) => candidate.name === selectedFieldName);
+              if (!highlight) return null;
+
+              // Fields near the top of the page have nothing above them to hang the caption on.
+              const below = highlight.top < 28;
+              // Anchored to whichever edge of the rectangle leaves room, so a field on the right margin
+              // grows the caption leftwards instead of off the page.
+              const anchorRight = highlight.left + highlight.width / 2 > containerWidth / 2;
+
+              return (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    ...(anchorRight
+                      ? { right: Math.max(0, containerWidth - (highlight.left + highlight.width)) }
+                      : { left: Math.max(0, highlight.left) }),
+                    ...(below
+                      ? { top: highlight.top + highlight.height + 4 }
+                      : // Shifted up by its own height, so nothing has to be measured to place it.
+                        { top: highlight.top, transform: 'translateY(calc(-100% - 4px))' }),
+                    maxWidth: '75%',
+                    px: 0.75,
+                    py: 0.25,
+                    borderRadius: 1,
+                    zIndex: 3,
+                    pointerEvents: 'none',
+                    backgroundColor: theme.palette.warning.main,
+                    color: theme.palette.getContrastText(theme.palette.warning.main),
+                    boxShadow: 2,
+                  }}
+                >
+                  <Typography variant="caption" sx={{ fontWeight: 600, lineHeight: 1.3, display: 'block' }}>
+                    {selectedFieldMapping}
+                  </Typography>
+                </Box>
+              );
+            })()}
         </Box>
       </Box>
     </Stack>

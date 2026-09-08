@@ -292,6 +292,12 @@ export const FormTemplateDetailPage = (): ReactElement => {
 
   const boundCount = mappableFields.filter((field) => bindings[field.name]).length;
 
+  // What the selected field is filled with, spelled out for the preview to caption its rectangle. The group
+  // is included because the labels are only unique within one: "First name" belongs to a patient, a
+  // subscriber and a provider alike, and the row in the table gets that context from the input's outline.
+  const selectedToken = selectedFieldName ? tokensByKey[bindings[selectedFieldName]?.tokenKey ?? ''] : undefined;
+  const selectedFieldMapping = selectedToken ? `${selectedToken.group} · ${selectedToken.label}` : undefined;
+
   if (isLoading) return <CircularProgress />;
   if (isError || !data) return <Typography color="error">This form template could not be loaded.</Typography>;
 
@@ -383,6 +389,7 @@ export const FormTemplateDetailPage = (): ReactElement => {
                           fileUrl={data.item.pdfPresignedUrl}
                           fields={mappableFields}
                           selectedFieldName={selectedFieldName}
+                          selectedFieldMapping={selectedFieldMapping}
                           mappedFieldNames={mappedFieldNames}
                           pageNumber={pageNumber}
                           onRetry={() => void refetch()}
