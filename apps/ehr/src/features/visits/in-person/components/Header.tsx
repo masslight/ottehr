@@ -35,7 +35,7 @@ import { useGetPatientAccount } from 'src/hooks/useGetPatient';
 import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
 import { useFindApplicableFeeScheduleQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { formatLabelValue } from 'src/shared/utils/formatLabelValue';
-import { formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
+import { DEFAULT_TAB_TITLE, formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
 import {
   getAppointmentRoom,
   isAppointmentOccupationalMedicine,
@@ -344,6 +344,9 @@ export const Header = (): JSX.Element => {
     if (tabTitle) {
       document.title = tabTitle;
     }
+    return () => {
+      document.title = DEFAULT_TAB_TITLE;
+    };
   }, [patientFirstLastName, room]);
 
   const pronouns = formatLabelValue(mappedData?.pronouns, 'Pronouns');
