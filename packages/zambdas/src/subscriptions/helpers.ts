@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Task, TaskOutput } from 'fhir/r4b';
 import { RcmTaskCodings } from 'utils/lib/fhir';
-import { sanitizeStringForFhirCode } from 'utils/lib/fhir/helpers';
+import { patchWithOptimisticLock, sanitizeStringForFhirCode } from 'utils/lib/fhir/helpers';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../shared/types/common';
 import { safeJsonParse } from '../shared/validation';
@@ -67,41 +67,34 @@ export function getTaskAndSecretsFromInput(
   };
 }
 
+/**
+ * Re-reads the current stored Task, appends `outputToAppend` entries to whatever output is
+ * already there, and patches status + output under an optimistic lock. Basing the add/replace
+ * decision and the merged output array on the freshly fetched resource avoids two failure modes
+ * that arise when the subscription payload is stale:
+ *   (a) overwriting newer output entries written by a concurrent update, and
+ *   (b) a 422 "bad path" if the payload's idea of whether /output exists is wrong.
+ */
 export async function updateTaskStatusAndOutput(
   oystehr: Oystehr,
-  task: Task,
+  task: Pick<Task, 'id'>,
   status: Task['status'],
-  newOutput?: TaskOutput[]
+  outputToAppend?: TaskOutput[]
 ): Promise<void> {
-  const patchOperations: Operation[] = [
-    {
-      op: 'replace',
-      path: '/status',
-      value: status,
-    },
-  ];
-  if (newOutput) {
-    patchOperations.push({
-      op: task.output ? 'replace' : 'add',
-      path: '/output',
-      value: newOutput,
-    });
-  }
-  await oystehr.fhir.patch({
-    resourceType: 'Task',
-    id: task.id!,
-    operations: patchOperations,
+  const currentTask = (await oystehr.fhir.get<Task>({ resourceType: 'Task', id: task.id! })) as Task & { id: string };
+
+  await patchWithOptimisticLock(oystehr, currentTask, (freshTask): Operation[] => {
+    const patchOperations: Operation[] = [{ op: 'replace', path: '/status', value: status }];
+
+    if (outputToAppend?.length) {
+      const merged = [...(freshTask.output ?? []), ...outputToAppend];
+      patchOperations.push({ op: freshTask.output ? 'replace' : 'add', path: '/output', value: merged });
+    }
+
+    return patchOperations;
   });
 }
 
-export function addErrorToInvoicingTaskOutput(task: Task, error: string): Task {
-  const taskCopy = { ...task };
-  if (!taskCopy.output) taskCopy.output = [];
-  const taskError = RcmTaskCodings.sendInvoiceOutputError;
-
-  taskCopy.output?.push({
-    type: taskError,
-    valueString: error,
-  });
-  return taskCopy;
+export function addErrorToInvoicingTaskOutput(error: string): TaskOutput {
+  return { type: RcmTaskCodings.sendInvoiceOutputError, valueString: error };
 }

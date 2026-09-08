@@ -41,8 +41,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     const validatedParams = validateRequestParameters(task);
     const { invoiceTaskInput } = validatedParams;
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     const source = getInvoiceTaskSource(task);
@@ -114,8 +112,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error) {
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     console.log('updating task status to failed and output');
-    const taskCopy = addErrorToInvoicingTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
-    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);
+    const errorEntry = addErrorToInvoicingTaskOutput(error instanceof Error ? error.message : 'Unknown error');
+    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), [errorEntry]);
     throw error;
   }
 });

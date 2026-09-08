@@ -63,7 +63,6 @@ export const InvoiceTaskInputSchemaBase = z.object({
 export const InvoiceTaskInputSchema = InvoiceTaskInputSchemaBase.partial();
 export type InvoiceTaskInput = z.infer<typeof InvoiceTaskInputSchema>;
 export const SubSendInvoiceToPatientTaskInputSchema = InvoiceTaskInputSchemaBase.extend({
-  dueDate: z.string(),
   memo: z.string().optional(),
   amountCents: z.number().gt(0),
 });

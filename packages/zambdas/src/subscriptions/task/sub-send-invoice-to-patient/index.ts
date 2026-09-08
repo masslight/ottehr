@@ -138,8 +138,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Sms sent to patient');
 
     console.log('Setting task status to completed');
-    const taskCopy = addInvoiceIdToTaskOutput(task, invoiceResponse.id);
-    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), taskCopy.output);
+    const invoiceEntry: TaskOutput = {
+      type: RcmTaskCodings.sendInvoiceOutputInvoiceId,
+      valueString: invoiceResponse.id,
+    };
+    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), [invoiceEntry]);
     console.log('Task status and output updated');
 
     // Trigger statement generation explicitly so it only runs on a real send, not on refreshes.
@@ -180,8 +183,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error) {
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     console.log('updating task status to failed and output');
-    const taskCopy = addErrorToInvoicingTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
-    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);
+    const errorEntry = addErrorToInvoicingTaskOutput(error instanceof Error ? error.message : 'Unknown error');
+    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), [errorEntry]);
     if (isInvalidEmailError(error)) {
       console.warn('Invoice not sent due to invalid patient email; task updated but error suppressed from Sentry');
       return { statusCode: 200, body: JSON.stringify({ message: 'Invoice skipped: invalid patient email' }) };
@@ -353,24 +356,6 @@ async function getFhirResources(
     schedule,
     stripeAccountId: stripeAccount,
   };
-}
-
-function addInvoiceIdToTaskOutput(task: Task, invoiceId: string): Task {
-  const taskCopy = { ...task };
-  if (!taskCopy.output) taskCopy.output = [];
-  const invoiceIdCoding = RcmTaskCodings.sendInvoiceOutputInvoiceId;
-
-  const existingInvoiceId = taskCopy.output.find((output) => output.valueString === invoiceId);
-  if (existingInvoiceId) {
-    return taskCopy;
-  } else {
-    const newInvoiceId: TaskOutput = {
-      type: invoiceIdCoding,
-      valueString: invoiceId,
-    };
-    taskCopy.output?.push(newInvoiceId);
-    return taskCopy;
-  }
 }
 
 function isInvalidEmailError(error: unknown): boolean {
