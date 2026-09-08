@@ -1,10 +1,11 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk';
 import { createHash } from 'crypto';
 import { Claim, ClaimResponse, FhirResource, Provenance, ProvenanceAgent } from 'fhir/r4b';
-import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
+import { BILLING_RESOURCE_TAG, CLAIM_STATUS_RESPONSE_EVENT_SYSTEM } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { CLAIM_STATUS_PROCESSED_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
 import { AR_STAGE, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
@@ -105,8 +106,19 @@ export function claimRejectionHistoryChanges(
   });
 }
 
-export function claimStatusTagRequest(response: ClaimResponse): BatchInputPatchRequest<FhirResource> | undefined {
-  if (hasTag(response, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)) return undefined;
+// Save this request with the AR/history writes in one transaction; the tag means all required writes succeeded.
+export function claimStatusCompletionRequest(
+  response: ClaimResponse
+): BatchInputPatchRequest<FhirResource> | undefined {
+  const eventIdentifier = response.identifier?.find((id) => id.system === CLAIM_STATUS_RESPONSE_EVENT_SYSTEM)?.value;
+  if (!eventIdentifier?.trim()) {
+    throw INVALID_INPUT_ERROR(`ClaimResponse/${response.id} is missing a claim status event ID`);
+  }
+  const missingTags = [
+    BILLING_RESOURCE_TAG,
+    { system: CLAIM_STATUS_PROCESSED_TAG_SYSTEM, code: eventIdentifier },
+  ].filter((tag) => !hasTag(response, tag.system, tag.code));
+  if (missingTags.length === 0) return undefined;
   const ifMatch = makeOptimisticLockIfMatchHeader(response);
   if (!response.id || !ifMatch)
     throw INVALID_INPUT_ERROR('ClaimResponse ID and version are required for billing tagging');
@@ -118,8 +130,8 @@ export function claimStatusTagRequest(response: ClaimResponse): BatchInputPatchR
     patchOperations: [
       {
         op: 'add',
-        path: response.meta?.tag ? '/meta/tag/-' : '/meta/tag',
-        value: response.meta?.tag ? BILLING_RESOURCE_TAG : [BILLING_RESOURCE_TAG],
+        path: '/meta/tag',
+        value: [...(response.meta?.tag ?? []), ...missingTags],
       },
     ],
   });
@@ -133,6 +145,11 @@ export async function loadClaimStatusContext(
   const claimResponse = await fetchById<ClaimResponse>(projectClient, 'ClaimResponse', claimResponseId);
   const classification = classifyClaimStatusResponse(claimResponse);
   if (!classification) return undefined;
+  if (
+    hasTag(claimResponse, CLAIM_STATUS_PROCESSED_TAG_SYSTEM, classification.eventIdentifier) &&
+    hasTag(claimResponse, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)
+  )
+    return undefined;
 
   const claim = await resolveClaimForStatusResponse(projectClient, claimResponse);
   if (!claim) return undefined;

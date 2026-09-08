@@ -3,13 +3,14 @@ import { captureException } from '@sentry/aws-serverless';
 import { applyPatch, Operation } from 'fast-json-patch';
 import { Claim, ClaimResponse, Provenance } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
+import { CLAIM_STATUS_PROCESSED_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL } from 'utils/lib/types/data/billing/claim-history';
 import { AR_STAGE, claimStatusValuesToTags } from 'utils/lib/types/data/billing/claim-status';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   claimRejectionHistoryChanges,
   claimRejectionRequests,
-  claimStatusTagRequest,
+  claimStatusCompletionRequest,
   loadClaimStatusContext,
   resolveClaimForStatusResponse,
 } from '../../../src/billing/claim-status-processing';
@@ -188,17 +189,22 @@ describe('classifyClaimStatusResponse', () => {
   });
 });
 
-describe('claimStatusTagRequest', () => {
-  it.each([false, true])('preserves metadata when existing tags are present: %s', (withTags) => {
+describe('claimStatusCompletionRequest', () => {
+  it.each(['none', 'other', 'billing'])('preserves metadata with existing tag: %s', (existingTag) => {
     const fixture = response('{"status":"R"}');
+    const priorTag =
+      existingTag === 'billing'
+        ? BILLING_RESOURCE_TAG
+        : { ...BILLING_RESOURCE_TAG, code: 'other-code', display: 'Keep this tag' };
+    const completionTag = { system: CLAIM_STATUS_PROCESSED_TAG_SYSTEM, code: fixture.identifier![0].value };
     fixture.meta = {
       versionId: '7',
       source: 'https://example.com/source',
       security: [{ system: 'security', code: 'restricted' }],
-      ...(withTags ? { tag: [{ ...BILLING_RESOURCE_TAG, code: 'other-code', display: 'Keep this tag' }] } : {}),
+      ...(existingTag !== 'none' ? { tag: [priorTag] } : {}),
     };
     const before = structuredClone(fixture);
-    const request = claimStatusTagRequest(fixture)!;
+    const request = claimStatusCompletionRequest(fixture)!;
     expect(request.ifMatch).toBe('W/"7"');
     expect(request.url).toBe('/ClaimResponse/response-1');
     if (!('resource' in request)) throw new Error('Expected a Binary patch');
@@ -206,13 +212,36 @@ describe('claimStatusTagRequest', () => {
     const tagged = applyPatch(fixture, operations, true, false).newDocument;
     expect(tagged).toEqual({
       ...before,
-      meta: { ...before.meta, tag: [...(before.meta?.tag ?? []), BILLING_RESOURCE_TAG] },
+      meta: {
+        ...before.meta,
+        tag: [...(before.meta?.tag ?? []), ...(existingTag === 'billing' ? [] : [BILLING_RESOURCE_TAG]), completionTag],
+      },
     });
     expect(fixture).toEqual(before);
-    expect(claimStatusTagRequest(tagged)).toBeUndefined();
+    expect(claimStatusCompletionRequest(tagged)).toBeUndefined();
   });
   it('refuses an update without a version to protect concurrent changes', () => {
-    expect(() => claimStatusTagRequest(response('{}'))).toThrow('ID and version are required');
+    expect(() => claimStatusCompletionRequest(response('{}'))).toThrow('ID and version are required');
+  });
+  it('requires completion for the current event', () => {
+    const fixture = response('{}');
+    fixture.meta = {
+      versionId: '7',
+      tag: [BILLING_RESOURCE_TAG, { system: CLAIM_STATUS_PROCESSED_TAG_SYSTEM, code: 'example-account:older' }],
+    };
+    expect(claimStatusCompletionRequest(fixture)).toBeDefined();
+  });
+  it('skips a completed response before loading its claim and history', async () => {
+    const fixture = response('{"status":"R"}');
+    fixture.meta = {
+      versionId: '7',
+      tag: [BILLING_RESOURCE_TAG, { system: CLAIM_STATUS_PROCESSED_TAG_SYSTEM, code: fixture.identifier![0].value }],
+    };
+    const search = vi.fn().mockResolvedValue({ unbundle: () => [fixture] });
+    await expect(
+      loadClaimStatusContext({ fhir: { search } } as unknown as Oystehr, fixture.id!)
+    ).resolves.toBeUndefined();
+    expect(search).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -228,7 +257,8 @@ describe('claim status error reporting', () => {
   it.each([
     { name: 'invalid JSON', run: () => parseClaimStatusResponse(response('invalid')) },
     { name: 'invalid raw object', run: () => parseClaimStatusResponse(response('null')) },
-    { name: 'missing version', run: () => claimStatusTagRequest(response('{}')) },
+    { name: 'missing version', run: () => claimStatusCompletionRequest(response('{}')) },
+    { name: 'missing event ID', run: () => claimStatusCompletionRequest({ ...response('{}'), identifier: [] }) },
     { name: 'missing reference', run: () => resolveClaimForStatusResponse(emptyClient, { id: 'response-1' }) },
     { name: 'missing claim', run: () => resolveClaimForStatusResponse(emptyClient, response('{}')) },
     { name: 'missing response', run: () => loadClaimStatusContext(emptyClient, 'response-1') },
@@ -287,7 +317,13 @@ describe('claimRejectionRequests', () => {
       meta: { versionId: '3', tag: [BILLING_RESOURCE_TAG, ...tags] },
     };
     const requests = claimRejectionRequests(
-      { claim, claimResponse, classification: classifyClaimStatusResponse(claimResponse)! },
+      {
+        claim,
+        claimResponse,
+        classification: classifyClaimStatusResponse(claimResponse)!,
+        history: [],
+        recordedFields: new Set(),
+      },
       { who: { reference: 'Device/system' } },
       allow
     );
