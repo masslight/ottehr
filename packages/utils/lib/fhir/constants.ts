@@ -66,6 +66,8 @@ export const PARTICIPATION_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/
 export const ACCOUNT_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/account-type';
 
 export const RAW_X12_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/rcm-raw-x12';
+export const RAW_RESPONSE_EXTENSION_URL = `${OYSTEHR_EXTENSION_BASE_URL}/raw-response`;
+export const CLAIM_STATUS_RESPONSE_EVENT_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-claim-response-event-id';
 
 export const FHIR_EXTENSION = {
   Appointment: {
