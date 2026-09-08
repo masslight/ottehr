@@ -91,7 +91,6 @@ import {
   formatAntCaseString,
   formatClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
-import { NonInsuranceOrganizationItem } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { RULES_ENGINES, RulesEngineDef } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
@@ -108,7 +107,6 @@ import {
   renameClaimAttachment,
   runBillingRulesEngine,
   saveBillingServiceFacility,
-  searchBillingNonInsuranceOrgs,
   searchBillingTags,
   tagBillingClaim,
   updateBillingCoverage,
@@ -131,6 +129,7 @@ import {
   InstitutionalClaimAdditionalFields,
   InstitutionalClaimAdditionalFieldsData,
 } from '../components/InstitutionalClaimAdditionalFields';
+import { NioOption, NioSelect } from '../components/NioSelect';
 import { ProviderDetailForm } from '../components/ProviderDetailSection';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
@@ -976,49 +975,28 @@ export function NonInsurancePayerSection({
   claim: ClaimDetailResponse;
   updateResource: UpdateFn;
 }): ReactElement {
-  const { oystehrZambda } = useApiClients();
-  const [options, setOptions] = useState<NonInsuranceOrganizationItem[]>([]);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
-  const currentPayer = useMemo<NonInsuranceOrganizationItem | null>(
+  const currentPayer = useMemo<NioOption | null>(
     () =>
       claim.nonInsurancePayerFhirId
         ? {
             id: claim.nonInsurancePayerFhirId,
             name: claim.nonInsurancePayerName || claim.nonInsurancePayerFhirId,
-            employer: false,
-            active: true,
-            contacts: [],
-            covers: [],
           }
         : null,
     [claim.nonInsurancePayerFhirId, claim.nonInsurancePayerName]
   );
-  const [selected, setSelected] = useState<NonInsuranceOrganizationItem | null>(currentPayer);
+  const [selectedId, setSelectedId] = useState<string>(currentPayer?.id ?? '');
   useEffect(() => {
-    setSelected(currentPayer);
+    setSelectedId(currentPayer?.id ?? '');
   }, [currentPayer]);
 
-  const optionList = useMemo(() => {
-    if (!currentPayer || options.some((org) => org.id === currentPayer.id)) return options;
-    return [currentPayer, ...options];
-  }, [options, currentPayer]);
-
-  const loadOptions = async (): Promise<void> => {
-    if (!oystehrZambda || options.length) return;
-    try {
-      const data = await searchBillingNonInsuranceOrgs(oystehrZambda, { pageSize: 100 });
-      setOptions((data.organizations ?? []).filter((org) => org.active));
-    } catch {
-      // Leave the list empty; reopening the autocomplete retries.
-    }
-  };
-
   const handleSave = async (): Promise<string | null> => {
-    if (!selected) return 'Choose a non-insurance organization';
-    return updateResource('Claim', claim.id, { nonInsurancePayer: { id: selected.id } });
+    if (!selectedId) return 'Choose a non-insurance organization';
+    return updateResource('Claim', claim.id, { nonInsurancePayer: { id: selectedId } });
   };
 
   const handleRemove = async (): Promise<void> => {
@@ -1036,19 +1014,18 @@ export function NonInsurancePayerSection({
     <EditableSection
       title="Non-insurance Payer"
       onSave={handleSave}
-      onCancel={() => setSelected(currentPayer)}
+      onCancel={() => setSelectedId(currentPayer?.id ?? '')}
       editForm={
-        <Autocomplete
-          size="small"
-          options={optionList}
-          value={selected}
-          onChange={(_, v) => setSelected(v)}
-          onOpen={() => void loadOptions()}
-          getOptionLabel={(o) => o.name}
-          renderInput={(p) => <TextField {...p} size="small" label={hasPayer ? 'Payer' : 'Choose payer'} />}
-          isOptionEqualToValue={(o, v) => o.id === v.id}
-          sx={{ maxWidth: 480 }}
-        />
+        <Box sx={{ maxWidth: 480 }}>
+          <NioSelect
+            multiple={false}
+            activeOnly
+            value={selectedId}
+            onChange={(v) => setSelectedId(typeof v === 'string' ? v : v[0] ?? '')}
+            label={hasPayer ? 'Payer' : 'Choose payer'}
+            initialOptions={currentPayer ? [currentPayer] : []}
+          />
+        </Box>
       }
     >
       {hasPayer ? (
