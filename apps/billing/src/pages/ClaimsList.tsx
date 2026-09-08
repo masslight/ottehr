@@ -30,7 +30,6 @@ import {
   BillingPayerOption,
   BillingService,
 } from 'utils/lib/types/data/billing/billing.types';
-import { NonInsuranceOrganizationItem } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import {
   ALL_CLAIM_STATUS_OPTIONS_2,
   ALL_CLAIM_STATUS_OPTIONS_BY_GROUP,
@@ -40,6 +39,7 @@ import {
   formatAntCaseString,
   formatClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
+import { NonInsuranceOrganizationItem } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { MAX_RUN_RULES_ENGINE_CLAIMS } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import {
@@ -47,8 +47,8 @@ import {
   getBillingClaimsExportStatus,
   runBillingRulesEngine,
   searchBillingClaims,
-  searchBillingPatients,
   searchBillingNonInsuranceOrgs,
+  searchBillingPatients,
   searchBillingPayers,
   searchBillingServices,
   searchBillingTags,
