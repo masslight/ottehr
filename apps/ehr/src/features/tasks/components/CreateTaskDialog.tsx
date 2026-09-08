@@ -25,6 +25,12 @@ import {
   useRadiologyOrdersOptions,
 } from '../common';
 
+const noPrefillApplied = (): { appointment: boolean; patient: boolean; location: boolean } => ({
+  appointment: false,
+  patient: false,
+  location: false,
+});
+
 interface Props {
   open: boolean;
   handleClose: () => void;
@@ -47,20 +53,20 @@ export const CreateTaskDialog: React.FC<Props> = ({
 
   // Context prefills apply at most once per dialog open, so a field the user
   // deliberately cleared isn't re-filled when a dep changes identity mid-open.
-  const prefillApplied = useRef({ patient: false, location: false });
+  const prefillApplied = useRef(noPrefillApplied());
 
   // StrictMode double-invokes mount effects but refs survive the simulated remount;
   // reset on cleanup so each mount's prefill pass starts fresh.
   useEffect(() => {
     return () => {
-      prefillApplied.current = { patient: false, location: false };
+      prefillApplied.current = noPrefillApplied();
     };
   }, []);
 
   useEffect(() => {
     if (!open) {
       methods.reset();
-      prefillApplied.current = { patient: false, location: false };
+      prefillApplied.current = noPrefillApplied();
     }
     setRefreshKey(Date.now());
   }, [open, methods]);
@@ -151,14 +157,15 @@ export const CreateTaskDialog: React.FC<Props> = ({
   const appointmentId = appointmentIdProp ?? urlParams['id'];
   const appointment = useAppointmentData(appointmentId);
   useEffect(() => {
-    if (appointment.patient && open) {
+    if (appointment.patient && open && !prefillApplied.current.appointment) {
       methods.setValue('patient', {
         id: appointment.patient.id,
         name: getPatientLabel(appointment.patient),
       });
       methods.setValue('appointment', appointmentId);
+      prefillApplied.current.appointment = true;
     }
-  }, [appointmentId, appointment, methods, open]);
+  }, [appointmentId, appointment.patient, methods, open]);
 
   useEffect(() => {
     if (
