@@ -6,6 +6,7 @@ import {
   SectionHeading,
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
+import { formatInfusionTimeRange, repairDepthDisplayLabel } from 'utils/lib/procedure-coding/format';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 
 export const ProceduresContainer: FC = () => {
@@ -57,6 +58,15 @@ export const ProceduresContainer: FC = () => {
             {renderProperty('Anaesthesia / medication used', procedure.medicationUsed)}
             {renderProperty('Site/location', procedure.bodySite)}
             {renderProperty('Side of body', procedure.bodySide)}
+            {renderProperty('Wound/lesion size', procedure.lengthCm != null ? `${procedure.lengthCm} cm` : undefined)}
+            {renderProperty(
+              'Repair depth',
+              procedure.repairDepth != null ? repairDepthDisplayLabel(procedure.repairDepth) : undefined
+            )}
+            {renderProperty(
+              'Infusion time',
+              formatInfusionTimeRange(procedure.infusionStartTime, procedure.infusionStopTime)
+            )}
             {renderProperty('Technique', procedure.technique ? procedure.technique.join(', ') : undefined)}
             {renderProperty('Instruments / supplies used', procedure.suppliesUsed)}
             {renderProperty('Procedure details', procedure.procedureDetails)}

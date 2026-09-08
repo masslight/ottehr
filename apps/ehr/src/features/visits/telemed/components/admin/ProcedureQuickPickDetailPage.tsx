@@ -4,6 +4,12 @@ import React, { ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Row } from 'src/components/layout/Row';
 import { Section } from 'src/components/layout/Section';
+import {
+  detectProcedureFamily,
+  formatInfusionTimeRange,
+  procedureFieldVisibility,
+  repairDepthDisplayLabel,
+} from 'utils';
 import { useProcedureQuickPicksQuery } from './admin.queries';
 
 function ValueDisplay({ value }: { value: string | undefined | null }): ReactElement {
@@ -70,6 +76,11 @@ export default function ProcedureQuickPickDetailPage(): ReactElement {
     ...(quickPick.otherSuppliesUsed ? [`Other: ${quickPick.otherSuppliesUsed}`] : []),
   ] as string[];
 
+  const fieldVisibility = procedureFieldVisibility(
+    detectProcedureFamily({ procedureType: quickPick.procedureType, cptCodes: quickPick.cptCodes }),
+    quickPick
+  );
+
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto', py: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
@@ -103,6 +114,23 @@ export default function ProcedureQuickPickDetailPage(): ReactElement {
           <Row label="Body Side">
             <ValueDisplay value={quickPick.bodySide} />
           </Row>
+          {fieldVisibility.length && (
+            <Row label="Wound/Lesion Size">
+              <ValueDisplay value={quickPick.lengthCm != null ? `${quickPick.lengthCm} cm` : undefined} />
+            </Row>
+          )}
+          {fieldVisibility.repairDepth && (
+            <Row label="Repair Depth">
+              <ValueDisplay
+                value={quickPick.repairDepth != null ? repairDepthDisplayLabel(quickPick.repairDepth) : undefined}
+              />
+            </Row>
+          )}
+          {fieldVisibility.infusionTimes && (
+            <Row label="Infusion Time">
+              <ValueDisplay value={formatInfusionTimeRange(quickPick.infusionStartTime, quickPick.infusionStopTime)} />
+            </Row>
+          )}
           <Row label="Medication Used">
             <ValueDisplay value={quickPick.medicationUsed} />
           </Row>

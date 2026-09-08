@@ -198,6 +198,45 @@ const mockTemplateDetail = {
         diagnoses: [{ code: 'S62.001A', display: 'Fracture of left wrist' }],
         cptCodes: [{ code: '29105', display: 'Application of long arm splint', modifiers: [] }],
       },
+      {
+        planId: 'proc-2',
+        procedureType: 'Laceration repair',
+        performerType: 'Provider',
+        bodySite: 'Forehead',
+        technique: ['Simple interrupted sutures'],
+        medicationUsed: 'Lidocaine 1% with epinephrine',
+        suppliesUsed: '5-0 nylon',
+        procedureDetails: 'Wound irrigated and closed in layers.',
+        lengthCm: 3.5,
+        repairDepth: 'subcutaneous-layered',
+        specimenSent: false,
+        complications: undefined,
+        patientResponse: 'Tolerated well',
+        postInstructions: 'Keep the wound dry for 24 hours.',
+        timeSpent: '20 minutes',
+        documentedBy: 'Provider',
+        consentObtained: true,
+        diagnoses: [{ code: 'S01.81XA', display: 'Laceration of other part of head, initial encounter' }],
+        cptCodes: [{ code: '12051', display: 'Repair, intermediate, wounds of face', modifiers: [] }],
+      },
+      {
+        planId: 'proc-3',
+        procedureType: 'IV fluid administration',
+        performerType: 'Nurse',
+        bodySite: 'Antecubital fossa',
+        bodySide: 'Right',
+        technique: ['Peripheral IV'],
+        medicationUsed: 'Normal saline 1 L',
+        suppliesUsed: '20 gauge catheter',
+        infusionStartTime: '10:15',
+        infusionStopTime: '11:00',
+        patientResponse: 'Tolerated well',
+        timeSpent: '45 minutes',
+        documentedBy: 'Nurse',
+        consentObtained: true,
+        diagnoses: [{ code: 'E86.0', display: 'Dehydration' }],
+        cptCodes: [{ code: '96360', display: 'Hydration, initial 31 minutes to 1 hour', modifiers: [] }],
+      },
     ],
     inHouseMedications: [
       {
@@ -233,7 +272,7 @@ const createWrapper = () => {
 
   return ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>{children}</BrowserRouter>
+      <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>{children}</BrowserRouter>
     </QueryClientProvider>
   );
 };
@@ -685,6 +724,10 @@ describe('ApplyTemplate', () => {
     expect(within(procCard).getByText(/S62.001A/)).toBeInTheDocument();
     expect(within(procCard).getByText(/Wrist/)).toBeInTheDocument();
     expect(within(procCard).getByText(/Closed reduction/)).toBeInTheDocument();
+
+    expect(within(procCard).getByText(/3\.5 cm/)).toBeInTheDocument();
+    expect(within(procCard).getByText(/Subcutaneous — layered closure/)).toBeInTheDocument();
+    expect(within(procCard).getByText(/10:15–11:00 \(45 min\)/)).toBeInTheDocument();
   });
 
   it('should not render the procedures section when the template carries no procedures', async () => {

@@ -26,7 +26,6 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> |
           getMedicationOrdersZambdaID: 'get-medication-orders',
           aiSuggestionNotesZambdaID: 'ai-suggestion-notes',
           recommendBillingSuggestionsZambdaID: 'recommend-billing-suggestions',
-          recommendBillingCodesZambdaID: 'recommend-billing-codes',
           isAppLocal: import.meta.env.VITE_APP_IS_LOCAL,
           getPatientAccountZambdaID: 'get-patient-account',
           updatePatientAccountZambdaID: 'update-patient-account',

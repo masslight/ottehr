@@ -41,6 +41,7 @@ export interface QuickPickRemoveResponse {
 export interface ProcedureQuickPickCptCode {
   code: string;
   display: string;
+  billableUnits?: number;
 }
 
 export interface ProcedureQuickPickData {
@@ -59,6 +60,10 @@ export interface ProcedureQuickPickData {
   suppliesUsed?: (string | undefined)[];
   otherSuppliesUsed?: string;
   procedureDetails?: string;
+  lengthCm?: number;
+  repairDepth?: string;
+  infusionStartTime?: string;
+  infusionStopTime?: string;
   specimenSent?: boolean;
   complications?: string;
   otherComplications?: string;

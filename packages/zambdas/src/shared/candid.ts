@@ -71,6 +71,7 @@ import {
   isAppointmentPreOp,
   isAppointmentWorkersComp,
 } from 'utils/lib/fhir/appointments';
+import { getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
 import { ACCIDENT_STATE_EXTENSION, ACCIDENT_TYPE_SYSTEM, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
 import { createReference } from 'utils/lib/fhir/helpers';
@@ -1596,6 +1597,11 @@ export function getBillableUnitsForProcedure(
   procedure: Procedure,
   medicationAdministrations: MedicationAdministration[]
 ): number | undefined {
+  const procedureCoding = procedure.code?.coding?.[0];
+  const storedBillableUnits = getCptBillableUnitsFromCoding(procedureCoding);
+
+  if (storedBillableUnits != null) return storedBillableUnits;
+
   const maRef = procedure.partOf?.find((ref) => ref.reference?.startsWith('MedicationAdministration/'));
   if (!maRef?.reference) return undefined;
 

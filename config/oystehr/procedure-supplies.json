@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "value-set-procedure-supplies": {
+    "value-set-procedure-supplies-1_0_1": {
       "resource": {
         "resourceType": "ValueSet",
         "url": "https://fhir.ottehr.com/ValueSet/procedure-supplies",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "name": "Procedures - Supplies used",
         "status": "active",
         "expansion": {
@@ -40,6 +40,41 @@
               "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
               "code": "iv-kit",
               "display": "IV Kit"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
+              "code": "iodoform-packing",
+              "display": "Iodoform Packing Strip"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
+              "code": "drain",
+              "display": "Drain"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
+              "code": "tissue-adhesive",
+              "display": "Tissue Adhesive (e.g. Dermabond)"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
+              "code": "steri-strips",
+              "display": "Steri-Strips"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
+              "code": "fiberglass",
+              "display": "Fiberglass"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
+              "code": "plaster",
+              "display": "Plaster"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
+              "code": "unna-boot",
+              "display": "Unna Boot"
             },
             {
               "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",

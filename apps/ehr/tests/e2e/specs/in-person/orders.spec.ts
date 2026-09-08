@@ -75,22 +75,34 @@ interface ProcedureInfo {
 const PROCEDURE_TYPE_CODINGS = Object.entries(procedureType.fhirResources).find(([key]) =>
   key.startsWith('value-set-procedure-type')
 )?.[1].resource.expansion.contains;
+
 const PROCEDURE_MEDICATIONS_USED_CODINGS =
   procedureMedicationsUsed.fhirResources['value-set-procedure-medications-used'].resource.expansion.contains;
-const PROCEDURE_BODY_SITES_CODINGS =
-  procedureBodySites.fhirResources['value-set-procedure-body-sites'].resource.expansion.contains;
+
+const PROCEDURE_BODY_SITES_CODINGS = Object.entries(procedureBodySites.fhirResources).find(([key]) =>
+  key.startsWith('value-set-procedure-body-sites')
+)![1].resource.expansion.contains;
+
 const PROCEDURE_BODY_SIDES_CODINGS =
   procedureBodySides.fhirResources['value-set-procedure-body-sides'].resource.expansion.contains;
-const PROCEDURE_TECHNIQUES_CODINGS =
-  procedureTechniques.fhirResources['value-set-procedure-techniques'].resource.expansion.contains;
-const PROCEDURE_SUPPLIES_CODINGS =
-  procedureSupplies.fhirResources['value-set-procedure-supplies'].resource.expansion.contains;
+
+const PROCEDURE_TECHNIQUES_CODINGS = Object.entries(procedureTechniques.fhirResources).find(([key]) =>
+  key.startsWith('value-set-procedure-techniques')
+)![1].resource.expansion.contains;
+
+const PROCEDURE_SUPPLIES_CODINGS = Object.entries(procedureSupplies.fhirResources).find(([key]) =>
+  key.startsWith('value-set-procedure-supplies')
+)![1].resource.expansion.contains;
+
 const PROCEDURE_COMPLICATIONS_CODINGS =
   procedureComplications.fhirResources['value-set-procedure-complications'].resource.expansion.contains;
+
 const PROCEDURE_PATIENT_RESPONSES_CODINGS =
   procedurePatientResponses.fhirResources['value-set-procedure-patient-responses'].resource.expansion.contains;
+
 const PROCEDURE_POST_INSTRUCTIONS_CODINGS =
   procedurePostInstructions.fhirResources['value-set-procedure-post-instructions'].resource.expansion.contains;
+
 const PROCEDURE_TIME_SPENT_CODINGS =
   procedureTimeSpent.fhirResources['value-set-procedure-time-spent'].resource.expansion.contains;
 

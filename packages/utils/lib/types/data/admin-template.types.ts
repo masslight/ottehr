@@ -153,6 +153,10 @@ export interface TemplateProcedurePlan {
   medicationUsed: string | undefined;
   suppliesUsed: string | undefined;
   procedureDetails: string | undefined;
+  lengthCm: number | undefined;
+  repairDepth: string | undefined;
+  infusionStartTime: string | undefined;
+  infusionStopTime: string | undefined;
   specimenSent: boolean | undefined;
   complications: string | undefined;
   patientResponse: string | undefined;

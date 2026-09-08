@@ -30,6 +30,7 @@ import {
   PatientPaymentBenefit,
 } from '../types/data/telemed/eligibility.types';
 import { APIErrorCode } from '../types/errors';
+import { CPT_BILLABLE_UNITS_EXTENSION_URL } from './constants';
 import { getNPI, getTaxID } from './helpers';
 import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from './insurance';
 
@@ -432,6 +433,11 @@ export const extractCptCodeModifiersFromCoding = (coding: Coding): { code: strin
     .map((extCoding) => ({ code: extCoding.code ?? '', display: extCoding.display ?? '' }));
   console.log(`Modifiers for the coding ${JSON.stringify(coding)}: `, JSON.stringify(modifiers));
   return modifiers;
+};
+
+export const getCptBillableUnitsFromCoding = (coding: Coding | undefined): number | undefined => {
+  const billableUnits = coding?.extension?.find((ext) => ext.url === CPT_BILLABLE_UNITS_EXTENSION_URL)?.valueDecimal;
+  return billableUnits != null && Number.isFinite(billableUnits) && billableUnits > 0 ? billableUnits : undefined;
 };
 
 // Maps the claim.md insurance type code returned by the eligibility check (key)

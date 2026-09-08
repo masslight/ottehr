@@ -393,4 +393,46 @@ describe('Schema20250925 generate()', () => {
       );
     });
   });
+
+  describe('committed config', () => {
+    const CONFIG_DIRS = ['config/oystehr', 'config/oystehr-core'];
+
+    const repoRoot = path.resolve(__dirname, '..', '..', '..');
+
+    async function readSpecFiles(dir: string): Promise<{ path: string; spec: any }[]> {
+      const absDir = path.join(repoRoot, dir);
+      const entries = await fs.readdir(absDir);
+      const specs: { path: string; spec: any }[] = [];
+      for (const entry of entries.filter((e) => e.endsWith('.json')).sort()) {
+        const abs = path.join(absDir, entry);
+        specs.push({ path: path.join(dir, entry), spec: JSON.parse(await fs.readFile(abs, 'utf-8')) });
+      }
+      return specs;
+    }
+
+    it.each(CONFIG_DIRS)('loads %s without duplicate resource keys', async (dir) => {
+      const specs = await readSpecFiles(dir);
+      expect(specs.length).toBeGreaterThan(0);
+      expect(() => new Schema20250925(specs, {}, tmpDir, '/zambdas')).not.toThrow();
+    });
+
+    it('loads all config dirs together without duplicate resource keys', async () => {
+      const specs = (await Promise.all(CONFIG_DIRS.map(readSpecFiles))).flat();
+      expect(() => new Schema20250925(specs, {}, tmpDir, '/zambdas')).not.toThrow();
+    });
+
+    it('suffixes every archived canonical resource key with a version', async () => {
+      const specs = await readSpecFiles('config/oystehr');
+      const offenders: string[] = [];
+      for (const { path: specPath, spec } of specs.filter((s) => s.path.includes('-archive.'))) {
+        for (const [key, entry] of Object.entries<any>(spec.fhirResources ?? {})) {
+          if (!entry?.resource?.version) continue;
+          if (!/-\d+_\d+_\d+$/.test(key)) {
+            offenders.push(`${specPath}: archived key "${key}" has no -<major>_<minor>_<patch> suffix`);
+          }
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
+  });
 });

@@ -32,7 +32,11 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isAppointmentOccupationalMedicine } from 'utils/lib/fhir/appointments';
-import { getDefaultClaimSubmissionExtensions, setCoveragePlanType } from 'utils/lib/fhir/billing';
+import {
+  getCptBillableUnitsFromCoding,
+  getDefaultClaimSubmissionExtensions,
+  setCoveragePlanType,
+} from 'utils/lib/fhir/billing';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   FHIR_IDENTIFIER_NPI,
@@ -1240,7 +1244,7 @@ function buildClaim(resources: ClaimResources): Claim {
               value: 0,
               currency: 'USD',
             },
-            quantity: { value: 1, unit: 'UN' },
+            quantity: { value: getCptBillableUnitsFromCoding(procedureCode.coding?.[0]) ?? 1, unit: 'UN' },
           };
         })
       : [],
