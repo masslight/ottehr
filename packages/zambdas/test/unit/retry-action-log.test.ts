@@ -10,6 +10,7 @@ import {
   getOutboundDeliveryRecipientSnapshot,
   makeOutboundDeliveryAttempt,
 } from 'utils/lib/fhir/outbound-delivery';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -278,28 +279,31 @@ describe('retry-action-log eligibility', () => {
     });
   });
 
-  it('retries an email to its stored recipient and records the retrying practitioner', async () => {
-    const original: Task = { ...emailTask, status: 'failed' };
-    const { oystehr, create } = makeSuccessfulRetryHarness(original);
-    stubPresignedUrl();
+  it.skipIf(FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled)(
+    'retries an email to its stored recipient and records the retrying practitioner',
+    async () => {
+      const original: Task = { ...emailTask, status: 'failed' };
+      const { oystehr, create } = makeSuccessfulRetryHarness(original);
+      stubPresignedUrl();
 
-    const result = await performEffect(
-      { attemptId: 'attempt-1', secrets: createMockSecrets() },
-      oystehr,
-      { id: 'user-1', profile: 'Practitioner/practitioner-1' } as any,
-      'token'
-    );
+      const result = await performEffect(
+        { attemptId: 'attempt-1', secrets: createMockSecrets() },
+        oystehr,
+        { id: 'user-1', profile: 'Practitioner/practitioner-1' } as any,
+        'token'
+      );
 
-    expect(result).toEqual({ attemptId: 'retry-1' });
-    expect(mockSendEmail).toHaveBeenCalledWith(
-      'original@example.com',
-      expect.objectContaining({ 'visit-note-url': 'https://example.test/signed' })
-    );
-    const retryTask = create.mock.calls[0][0] as Task;
-    expect(retryTask.partOf).toEqual([{ reference: 'Task/attempt-1' }]);
-    expect(retryTask.requester?.reference).toBe('Practitioner/practitioner-1');
-    expect(getOutboundDeliveryInput(retryTask, OUTBOUND_DELIVERY_INPUT_CODES.senderId)?.valueString).toBe('user-1');
-  });
+      expect(result).toEqual({ attemptId: 'retry-1' });
+      expect(mockSendEmail).toHaveBeenCalledWith(
+        'original@example.com',
+        expect.objectContaining({ 'visit-note-url': 'https://example.test/signed' })
+      );
+      const retryTask = create.mock.calls[0][0] as Task;
+      expect(retryTask.partOf).toEqual([{ reference: 'Task/attempt-1' }]);
+      expect(retryTask.requester?.reference).toBe('Practitioner/practitioner-1');
+      expect(getOutboundDeliveryInput(retryTask, OUTBOUND_DELIVERY_INPUT_CODES.senderId)?.valueString).toBe('user-1');
+    }
+  );
 
   it('recovers the visit note from the appointment for backfilled fax attempts', async () => {
     const backfilledTask = makeOutboundDeliveryAttempt({
