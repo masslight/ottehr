@@ -23,6 +23,7 @@ import EraClaimDetail from './pages/EraClaimDetail';
 import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
 import InvoiceReport from './pages/InvoiceReport';
+import { NonInsuranceOrganizationDetail, NonInsuranceOrganizationsList } from './pages/NonInsuranceOrganizations';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
 import PaymentsReport from './pages/PaymentsReport';
@@ -87,6 +88,8 @@ export default function App(): ReactElement {
               <Route path="/rendering-providers/:id" element={<RenderingProviderDetail />} />
               <Route path="/service-facilities" element={<ServiceFacilitiesList />} />
               <Route path="/service-facilities/:id" element={<ServiceFacilityDetail />} />
+              <Route path="/non-insurance-organizations" element={<NonInsuranceOrganizationsList />} />
+              <Route path="/non-insurance-organizations/:id" element={<NonInsuranceOrganizationDetail />} />
               <Route
                 path={`/${ChargeItemDefinitionLabels['charge-master'].pathComponent}`}
                 element={<ChargeItemDefinitionList type="charge-master" />}

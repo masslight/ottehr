@@ -11,7 +11,9 @@ const mockGetToken = vi.fn();
 let capturedTokenSupplier: (() => Promise<string>) | undefined;
 
 vi.mock('candidhealth', () => {
-  const CandidApiClient = vi.fn().mockImplementation((options: { token?: () => Promise<string> }) => {
+  const CandidApiClient = vi.fn().mockImplementation(function CandidApiClient(options: {
+    token?: () => Promise<string>;
+  }) {
     if (typeof options?.token === 'function') capturedTokenSupplier = options.token;
     return {
       auth: { default: { getToken: mockGetToken } },

@@ -36,6 +36,7 @@ import {
   Grid,
   IconButton,
   InputLabel,
+  Link as MuiLink,
   ListItem,
   ListItemIcon,
   ListItemText,
@@ -59,7 +60,7 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import Dropzone, { DropzoneProps } from 'react-dropzone';
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES } from 'utils';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
@@ -128,6 +129,7 @@ import {
   InstitutionalClaimAdditionalFields,
   InstitutionalClaimAdditionalFieldsData,
 } from '../components/InstitutionalClaimAdditionalFields';
+import { NioOption, NioSelect } from '../components/NioSelect';
 import { ProviderDetailForm } from '../components/ProviderDetailSection';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
@@ -659,6 +661,7 @@ export default function ClaimDetail(): ReactElement {
             ) : (
               <></>
             )}
+            <NonInsurancePayerSection claim={claim} updateResource={updateResource} />
             <RenderingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
             <FacilitySection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
             <BillingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
@@ -959,6 +962,130 @@ export function InsuranceSection({
               <></>
             )}
           </Box>
+        </Box>
+      )}
+    </EditableSection>
+  );
+}
+
+export function NonInsurancePayerSection({
+  claim,
+  updateResource,
+}: {
+  claim: ClaimDetailResponse;
+  updateResource: UpdateFn;
+}): ReactElement {
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
+  const currentPayer = useMemo<NioOption | null>(
+    () =>
+      claim.nonInsurancePayerFhirId
+        ? {
+            id: claim.nonInsurancePayerFhirId,
+            name: claim.nonInsurancePayerName || claim.nonInsurancePayerFhirId,
+          }
+        : null,
+    [claim.nonInsurancePayerFhirId, claim.nonInsurancePayerName]
+  );
+  const [selectedId, setSelectedId] = useState<string>(currentPayer?.id ?? '');
+  useEffect(() => {
+    setSelectedId(currentPayer?.id ?? '');
+  }, [currentPayer]);
+
+  const handleSave = async (): Promise<string | null> => {
+    if (!selectedId) return 'Choose a non-insurance organization';
+    return updateResource('Claim', claim.id, { nonInsurancePayer: { id: selectedId } });
+  };
+
+  const handleRemove = async (): Promise<void> => {
+    setRemoving(true);
+    setRemoveError(null);
+    const err = await updateResource('Claim', claim.id, { nonInsurancePayer: null });
+    setRemoving(false);
+    setConfirmingRemove(false);
+    if (err) setRemoveError(err);
+  };
+
+  const hasPayer = Boolean(claim.nonInsurancePayerFhirId || claim.nonInsurancePayerName);
+
+  return (
+    <EditableSection
+      title="Non-insurance Payer"
+      onSave={handleSave}
+      onCancel={() => setSelectedId(currentPayer?.id ?? '')}
+      editForm={
+        <Box sx={{ maxWidth: 480 }}>
+          <NioSelect
+            multiple={false}
+            activeOnly
+            value={selectedId}
+            onChange={(v) => setSelectedId(typeof v === 'string' ? v : v[0] ?? '')}
+            label={hasPayer ? 'Payer' : 'Choose payer'}
+            initialOptions={currentPayer ? [currentPayer] : []}
+          />
+        </Box>
+      }
+    >
+      {hasPayer ? (
+        <Box sx={{ display: 'flex', py: 0.75 }}>
+          <Typography variant="body2" color="primary.dark" sx={{ width: 180, flexShrink: 0 }}>
+            Payer
+          </Typography>
+          {claim.nonInsurancePayerFhirId ? (
+            <MuiLink
+              component={RouterLink}
+              to={`/non-insurance-organizations/${claim.nonInsurancePayerFhirId}`}
+              variant="body2"
+              sx={{ fontWeight: 500 }}
+            >
+              {claim.nonInsurancePayerName || claim.nonInsurancePayerFhirId}
+            </MuiLink>
+          ) : (
+            <Typography variant="body2">{claim.nonInsurancePayerName}</Typography>
+          )}
+        </Box>
+      ) : (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
+          No non-insurance payer specified
+        </Typography>
+      )}
+      {hasPayer && (
+        <Box sx={{ mt: 1.5 }}>
+          {removeError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {removeError}
+            </Alert>
+          )}
+          {confirmingRemove ? (
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Remove payer?
+              </Typography>
+              <Button size="small" onClick={() => setConfirmingRemove(false)} disabled={removing}>
+                Cancel
+              </Button>
+              <Button
+                size="small"
+                color="error"
+                variant="contained"
+                onClick={() => void handleRemove()}
+                disabled={removing}
+              >
+                {removing ? 'Removing...' : 'Confirm'}
+              </Button>
+            </Box>
+          ) : (
+            <Button
+              size="small"
+              color="error"
+              startIcon={<DeleteOutlineIcon fontSize="small" />}
+              onClick={() => setConfirmingRemove(true)}
+            >
+              Remove payer
+            </Button>
+          )}
         </Box>
       )}
     </EditableSection>
@@ -1394,6 +1521,7 @@ function ServiceLinesSection({
     for (const row of rows) {
       if (!row.cptCode.trim()) return 'Each service line needs a CPT code';
       if (!row.serviceDate) return 'Each service line needs a date of service';
+      if (!row.placeOfService.trim()) return 'Each service line needs a place of service';
       if (!(Number(row.units) > 0)) return 'Units must be a positive number';
       if (row.charges.trim() === '' || !Number.isFinite(Number(row.charges))) return 'Charges must be a number';
     }
@@ -1408,7 +1536,7 @@ function ServiceLinesSection({
           units: Number(row.units),
           charges: Number(row.charges),
           serviceDate: row.serviceDate,
-          ...(row.placeOfService.trim() ? { placeOfService: row.placeOfService.trim() } : {}),
+          placeOfService: row.placeOfService.trim(),
           ...(modifiers.length ? { modifiers } : {}),
           ...(row.diagnosisPointers.length ? { diagnosisPointers: row.diagnosisPointers } : {}),
           revenueCode: row.revenueCode,

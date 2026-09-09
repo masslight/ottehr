@@ -1,0 +1,104 @@
+{
+  "schema-version": "2025-09-25",
+  "fhirResources": {
+    "NIO_EMPLOYER_1": {
+      "resource": {
+        "resourceType": "Organization",
+        "active": true,
+        "name": "Acme Industrial Corp",
+        "meta": {
+          "tag": [
+            {
+              "system": "https://fhir.ottehr.com/billing/resource-type",
+              "code": "billing-resource"
+            }
+          ]
+        },
+        "type": [
+          {
+            "coding": [
+              {
+                "system": "https://fhir.ottehr.com/billing/organization-kind",
+                "code": "non-insurance-organization"
+              }
+            ]
+          },
+          {
+            "coding": [
+              {
+                "system": "https://fhir.ottehr.com/billing/organization-kind",
+                "code": "employer"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "NIO_EMPLOYER_2": {
+      "resource": {
+        "resourceType": "Organization",
+        "active": true,
+        "name": "Summit Construction LLC",
+        "meta": {
+          "tag": [
+            {
+              "system": "https://fhir.ottehr.com/billing/resource-type",
+              "code": "billing-resource"
+            }
+          ]
+        },
+        "type": [
+          {
+            "coding": [
+              {
+                "system": "https://fhir.ottehr.com/billing/organization-kind",
+                "code": "non-insurance-organization"
+              }
+            ]
+          },
+          {
+            "coding": [
+              {
+                "system": "https://fhir.ottehr.com/billing/organization-kind",
+                "code": "employer"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "NIO_EMPLOYER_3": {
+      "resource": {
+        "resourceType": "Organization",
+        "active": true,
+        "name": "Pacific Freight Services",
+        "meta": {
+          "tag": [
+            {
+              "system": "https://fhir.ottehr.com/billing/resource-type",
+              "code": "billing-resource"
+            }
+          ]
+        },
+        "type": [
+          {
+            "coding": [
+              {
+                "system": "https://fhir.ottehr.com/billing/organization-kind",
+                "code": "non-insurance-organization"
+              }
+            ]
+          },
+          {
+            "coding": [
+              {
+                "system": "https://fhir.ottehr.com/billing/organization-kind",
+                "code": "employer"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
