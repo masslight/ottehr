@@ -951,3 +951,9 @@ export interface AddClaimAttachmentResponse {
 export interface DownloadClaimAttachmentResponse {
   downloadUrl: string;
 }
+
+export interface CreateTimelyFilingReportResponse {
+  downloadUrl: string;
+  documentReferenceId: string;
+  fileName: string;
+}

@@ -3,6 +3,7 @@ import { ReactElement } from 'react';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { CreateBillingProviderInput, UpdateBillingProviderInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingProviderOption } from 'utils/lib/types/data/billing/billing.types';
+import { formatTaxId } from 'utils/lib/utils/convert';
 import { updateBillingProvider } from '../api/api';
 import {
   defaultProviderFormValues,
@@ -12,7 +13,6 @@ import {
   providerToUpdateInput,
 } from '../constants/provider';
 import { useApiClients } from '../hooks/useAppClients';
-import { formatTaxId } from '../utils/format';
 import { EditableSection, TitleWithSourceLink } from './claim/EditableSection';
 import { ProviderAddressFields, ProviderFields } from './ProviderFields';
 import { Row } from './Row';
