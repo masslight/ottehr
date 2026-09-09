@@ -397,7 +397,23 @@ export const FormTemplateDetailPage = (): ReactElement => {
                           p: 1,
                         }}
                       >
-                        <Suspense fallback={<CircularProgress size={20} />}>
+                        <Suspense
+                          fallback={
+                            // Approximate page proportions, to hold the space the preview will take. Without
+                            // it the row collapses to the height of the spinner and jumps when pdf.js lands.
+                            <Box
+                              sx={{
+                                width: '100%',
+                                aspectRatio: '8.5 / 11',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              <CircularProgress size={20} />
+                            </Box>
+                          }
+                        >
                           <FormTemplatePdfPreview
                             fileUrl={data.item.pdfPresignedUrl}
                             fields={mappableFields}
