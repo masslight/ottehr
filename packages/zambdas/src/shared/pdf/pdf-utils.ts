@@ -737,6 +737,21 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     currYPos -= (lineStyle.margin?.top ?? 0) + lineStyle.thickness + (lineStyle.margin?.bottom ?? 0);
   };
 
+  // Paints a background block on the current page without moving the cursor, so the caller draws the
+  // text that sits on top afterwards. Used for table header bands and row striping.
+  const drawFilledRectangle = (rectangle: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    color: Color;
+  }): void => {
+    page.drawRectangle({
+      ...rectangle,
+      borderWidth: 0,
+    });
+  };
+
   const setPageStyles = (newStyles: PageStyles): void => {
     pageStyles = newStyles;
   };
@@ -884,6 +899,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     embedPdfFromBase64,
     embedImageFromBase64,
     drawSeparatedLine,
+    drawFilledRectangle,
     getLeftBound,
     getRightBound,
     setLeftBound,
