@@ -11,7 +11,7 @@ import {
 } from 'fhir/r4b';
 import { CPT_CODE_SYSTEM, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
-import { EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
+import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE, EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
 import { RULES_ENGINE_TYPES } from 'utils/lib/types/data/billing/rules-engine.constants';
@@ -26,6 +26,8 @@ import {
   READABLE_FIELD_IDS,
   readField,
   readServiceLineProperty,
+  resolveDateValue,
+  resolveFacilityPlaceOfService,
   RulesEngineClaimModel,
   SERVICE_LINE_READABLE_PROPERTY_IDS,
   SERVICE_LINE_WRITABLE_PROPERTY_IDS,
@@ -185,6 +187,59 @@ describe('field catalog / claim-model pairing', () => {
     expect([...SERVICE_LINE_READABLE_PROPERTY_IDS].sort()).toEqual([...propertyIds].sort());
     const settableIds = SERVICE_LINE_PROPERTY_CATALOG.filter((p) => p.settable).map((p) => p.id);
     expect([...SERVICE_LINE_WRITABLE_PROPERTY_IDS].sort()).toEqual([...settableIds].sort());
+  });
+});
+
+describe('resolveDateValue', () => {
+  it('returns a literal string as-is', () => {
+    const m = makeModel();
+    expect(resolveDateValue('2026-03-15', m)).toEqual({ value: '2026-03-15' });
+  });
+
+  it("falls back to the first service line's date when blank or omitted", () => {
+    const m = makeModel();
+    expect(resolveDateValue('', m)).toEqual({ value: '2026-01-05' });
+    expect(resolveDateValue(undefined, m)).toEqual({ value: '2026-01-05' });
+  });
+
+  it('errors on blank/omitted when the claim has no existing service lines', () => {
+    const m = makeModel();
+    m.claim.item = [];
+    expect(resolveDateValue(undefined, m)).toEqual({
+      error: 'no service date could be resolved — the claim has no existing service lines to inherit one from',
+    });
+  });
+
+  it('reads firstServiceLineDate explicitly, same as the blank fallback', () => {
+    const m = makeModel();
+    expect(resolveDateValue({ source: 'firstServiceLineDate' }, m)).toEqual({ value: '2026-01-05' });
+    m.claim.item = [];
+    expect(resolveDateValue({ source: 'firstServiceLineDate' }, m)).toEqual({
+      error: 'no service date could be resolved — the claim has no existing service lines to inherit one from',
+    });
+  });
+});
+
+describe('resolveFacilityPlaceOfService', () => {
+  it("reads the CMS place-of-service code off the claim's service facility", () => {
+    const m = makeModel();
+    m.serviceFacility!.extension = [{ url: CODE_SYSTEM_CMS_PLACE_OF_SERVICE, valueString: '11' }];
+    expect(resolveFacilityPlaceOfService(m)).toEqual({ value: '11' });
+  });
+
+  it('errors when the facility has no place-of-service code configured', () => {
+    const m = makeModel();
+    expect(resolveFacilityPlaceOfService(m)).toEqual({
+      error: "Claim's facility has no place-of-service code configured",
+    });
+  });
+
+  it('errors when the claim has no service facility at all', () => {
+    const m = makeModel();
+    m.serviceFacility = undefined;
+    expect(resolveFacilityPlaceOfService(m)).toEqual({
+      error: 'The claim has no service facility set',
+    });
   });
 });
 
@@ -619,6 +674,36 @@ describe('service line actions', () => {
     ).toContain('units');
   });
 
+  it("sets a line's place of service from the claim's facility", () => {
+    const m = makeModel();
+    m.serviceFacility!.extension = [{ url: CODE_SYSTEM_CMS_PLACE_OF_SERVICE, valueString: '11' }];
+    const error = applyAction(
+      {
+        type: 'updateServiceLines',
+        match: { type: 'all' },
+        set: { property: 'placeOfService', value: { source: 'facilityPlaceOfService' } },
+      },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(readServiceLineProperty(m.claim.item![0], 'placeOfService')).toBe('11');
+  });
+
+  it('fails the rule when the facility place-of-service source cannot be resolved', () => {
+    const m = makeModel();
+    const error = applyAction(
+      {
+        type: 'updateServiceLines',
+        match: { type: 'all' },
+        set: { property: 'placeOfService', value: { source: 'facilityPlaceOfService' } },
+      },
+      m
+    );
+    expect(error).toContain("Claim's facility has no place-of-service code configured");
+    // The line's original place of service is untouched.
+    expect(readServiceLineProperty(m.claim.item![0], 'placeOfService')).toBe('20');
+  });
+
   it('removes matching lines, re-sequences survivors, and recomputes the total', () => {
     const m = makeModel();
     addLine(m, '99214', 200);
@@ -694,6 +779,76 @@ describe('service line actions', () => {
     expect(readField(m, 'billed')).toBe('170.75');
   });
 
+  it('points an added line at every claim diagnosis when diagnosisMode is "all"', () => {
+    const m = makeModel();
+    m.claim.diagnosis = [
+      { sequence: 1, diagnosisCodeableConcept: { coding: [{ code: 'J06.9' }] } },
+      { sequence: 2, diagnosisCodeableConcept: { coding: [{ code: 'R05' }] } },
+      { sequence: 3, diagnosisCodeableConcept: { coding: [{ code: 'R50.9' }] } },
+    ];
+    const error = applyAction(
+      { type: 'addServiceLine', line: { cptCode: '87880', charges: '45.25', diagnosisMode: 'all' } },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(m.claim.item![1].diagnosisSequence).toEqual([1, 2, 3]);
+  });
+
+  it('points an added line at only the primary diagnosis when diagnosisMode is "primary"', () => {
+    const m = makeModel();
+    m.claim.diagnosis = [
+      { sequence: 1, diagnosisCodeableConcept: { coding: [{ code: 'J06.9' }] } },
+      { sequence: 2, diagnosisCodeableConcept: { coding: [{ code: 'R05' }] } },
+    ];
+    const error = applyAction(
+      { type: 'addServiceLine', line: { cptCode: '87880', charges: '45.25', diagnosisMode: 'primary' } },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(m.claim.item![1].diagnosisSequence).toEqual([1]);
+  });
+
+  it('defaults to the primary diagnosis when diagnosisMode is unset, and to specific pointers when only diagnosisPointers is set (legacy rules)', () => {
+    const m1 = makeModel();
+    m1.claim.diagnosis = [
+      { sequence: 1, diagnosisCodeableConcept: { coding: [{ code: 'J06.9' }] } },
+      { sequence: 2, diagnosisCodeableConcept: { coding: [{ code: 'R05' }] } },
+    ];
+    expect(applyAction({ type: 'addServiceLine', line: { cptCode: '87880', charges: '45.25' } }, m1)).toBeUndefined();
+    expect(m1.claim.item![1].diagnosisSequence).toEqual([1]);
+
+    const m2 = makeModel();
+    m2.claim.diagnosis = [
+      { sequence: 1, diagnosisCodeableConcept: { coding: [{ code: 'J06.9' }] } },
+      { sequence: 2, diagnosisCodeableConcept: { coding: [{ code: 'R05' }] } },
+    ];
+    expect(
+      applyAction({ type: 'addServiceLine', line: { cptCode: '87880', charges: '45.25', diagnosisPointers: '2' } }, m2)
+    ).toBeUndefined();
+    expect(m2.claim.item![1].diagnosisSequence).toEqual([2]);
+  });
+
+  it('rejects diagnosisMode "specific" with no pointers instead of silently falling back to the primary diagnosis', () => {
+    const m = makeModel();
+    expect(
+      applyAction(
+        { type: 'addServiceLine', line: { cptCode: '87880', charges: '45.25', diagnosisMode: 'specific' } },
+        m
+      )
+    ).toContain('diagnosis pointers are required');
+    expect(
+      applyAction(
+        {
+          type: 'addServiceLine',
+          line: { cptCode: '87880', charges: '45.25', diagnosisMode: 'specific', diagnosisPointers: '   ' },
+        },
+        m
+      )
+    ).toContain('diagnosis pointers are required');
+    // The failed adds must not have appended anything.
+    expect(m.claim.item).toHaveLength(1);
+  });
+
   it('fills the claim editor defaults for blank optional fields on an added line', () => {
     const m = makeModel();
     m.claim.careTeam = [{ sequence: 1, provider: { reference: 'Practitioner/rp' } }];
@@ -734,6 +889,31 @@ describe('service line actions', () => {
     expect(m.claim.item).toHaveLength(1);
   });
 
+  it("adds a service line explicitly dated from the claim's first line's date", () => {
+    const m = makeModel();
+    expect(
+      applyAction(
+        {
+          type: 'addServiceLine',
+          line: { cptCode: '99050', charges: '30', serviceDate: { source: 'firstServiceLineDate' } },
+        },
+        m
+      )
+    ).toBeUndefined();
+    expect(readServiceLineProperty(m.claim.item![1], 'serviceDate')).toBe('2026-01-05');
+
+    m.claim.item = [];
+    expect(
+      applyAction(
+        {
+          type: 'addServiceLine',
+          line: { cptCode: '99051', charges: '30', serviceDate: { source: 'firstServiceLineDate' } },
+        },
+        m
+      )
+    ).toContain('service date');
+  });
+
   it('rejects invalid line place-of-service and service-date values instead of silently dropping them', () => {
     const m = makeModel();
     expect(
@@ -757,6 +937,41 @@ describe('service line actions', () => {
     // The failed actions must not have changed the claim's lines.
     expect(m.claim.item).toHaveLength(1);
     expect(readServiceLineProperty(m.claim.item![0], 'placeOfService')).toBe('20');
+  });
+
+  it('resolves firstServiceLineDate once, before mutating, even when the first line is among those updated', () => {
+    const m = makeModel();
+    addLine(m, '99214', 200);
+    m.claim.item![1].servicedPeriod = { start: '2026-05-05' }; // give line 2 a distinct date to update from
+    const error = applyAction(
+      {
+        type: 'updateServiceLines',
+        match: { type: 'all' }, // includes the first line itself
+        set: { property: 'serviceDate', value: { source: 'firstServiceLineDate' } },
+      },
+      m
+    );
+    expect(error).toBeUndefined();
+    // Both lines land on the *original* first line's date (2026-01-05), not a value from an
+    // already-mutated line earlier in the iteration.
+    expect(readServiceLineProperty(m.claim.item![0], 'serviceDate')).toBe('2026-01-05');
+    expect(readServiceLineProperty(m.claim.item![1], 'serviceDate')).toBe('2026-01-05');
+  });
+
+  it('fails the whole update when firstServiceLineDate cannot be resolved (no existing lines)', () => {
+    const m = makeModel();
+    m.claim.item = [];
+    const error = applyAction(
+      {
+        type: 'updateServiceLines',
+        match: { type: 'all' },
+        set: { property: 'serviceDate', value: { source: 'firstServiceLineDate' } },
+      },
+      m
+    );
+    expect(error).toContain('serviceDate');
+    expect(error).toContain('no service date could be resolved');
+    expect(m.claim.item).toEqual([]);
   });
 
   it('detects duplicate CPT codes and executes the canonical hold-on-duplicates rule', () => {

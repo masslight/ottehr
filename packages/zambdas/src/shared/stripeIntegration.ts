@@ -1,9 +1,11 @@
 import Oystehr from '@oystehr/sdk';
-import { Account, Identifier, Patient, RelatedPerson } from 'fhir/r4b';
+import { Account, Identifier, Patient, PaymentNotice, RelatedPerson } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
 import { getEmailForIndividual, getFullName } from 'utils/lib/fhir/patient';
+import { parsePaymentRefundsFromNotice, upsertPaymentRefundsExtension } from 'utils/lib/fhir/paymentRefunds';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { makeStripeCustomerId } from '../patient/payment-methods/helpers';
 
 export interface StripeEnvironmentConfig {
@@ -43,6 +45,30 @@ export function getStripeClient(secrets: Secrets | null): Stripe {
   });
 }
 
+// Spaces out request starts so bulk crawls stay well under Stripe's rate limits
+// (100 req/s live mode, 25 req/s test mode). Shared across all throttled clients in a warm container.
+const STRIPE_MIN_REQUEST_SPACING_MS = 60; // ~16 req/s
+let stripeNextRequestAt = 0;
+const throttledStripeFetch: typeof fetch = async (input, init) => {
+  const now = Date.now();
+  const startAt = Math.max(now, stripeNextRequestAt);
+  stripeNextRequestAt = startAt + STRIPE_MIN_REQUEST_SPACING_MS;
+  if (startAt > now) await new Promise<void>((resolve) => setTimeout(resolve, startAt - now));
+  return fetch(input, init);
+};
+
+// For high-request-volume flows (report crawls): throttles request rate and retries transient
+// failures (including 429s) at the SDK level.
+export function getRateLimitedStripeClient(secrets: Secrets | null): Stripe {
+  const env = validateStripeEnvironment(secrets);
+  return new Stripe(env.secretKey, {
+    // @ts-expect-error default api version older than sdk
+    apiVersion: env.apiVersion,
+    maxNetworkRetries: 2,
+    httpClient: Stripe.createFetchHttpClient(throttledStripeFetch),
+  });
+}
+
 export const STRIPE_PAYMENT_ID_SYSTEM = 'https://fhir.oystehr.com/PaymentIdSystem/stripe';
 export const makeBusinessIdentifierForStripePayment = (stripePaymentId: string): Identifier => {
   return {
@@ -71,6 +97,43 @@ export const stripeEncounterMetadata = (params: { encounterId: string; patientId
 export const stripeEncounterMetadataQuery = (encounterId: string): string =>
   `metadata['${STRIPE_METADATA_KEYS.legacyEncounterId}']:"${encounterId}" OR ` +
   `metadata['${STRIPE_METADATA_KEYS.encounterId}']:"${encounterId}"`;
+
+export const stripeRefundToDTO = (refund: Stripe.Refund): PaymentRefundDTO => ({
+  stripeRefundId: refund.id,
+  amountInCents: refund.amount ?? 0,
+  dateISO: new Date(refund.created * 1000).toISOString(),
+  status: refund.status ?? undefined,
+  // refunds issued from the EHR carry the staff-selected reason (and notes) in metadata
+  reason: refund.metadata?.reason ?? refund.reason ?? undefined,
+  notes: refund.metadata?.notes ?? undefined,
+  refundedBy: refund.metadata?.refundedBy ?? undefined,
+});
+
+// stamps refund state onto the original PaymentNotice so consumers can read it from FHIR without Stripe
+export const applyRefundsToPaymentNotice = async (
+  oystehr: Oystehr,
+  notice: PaymentNotice,
+  refunds: PaymentRefundDTO[]
+): Promise<void> => {
+  if (!notice.id) return;
+  const existing = parsePaymentRefundsFromNotice(notice);
+  if (refunds.length === 0 && !existing) return;
+  const canonical = (list: PaymentRefundDTO[]): string =>
+    JSON.stringify([...list].sort((a, b) => a.stripeRefundId.localeCompare(b.stripeRefundId)));
+  if (existing && canonical(existing) === canonical(refunds)) return;
+
+  await oystehr.fhir.patch<PaymentNotice>({
+    resourceType: 'PaymentNotice',
+    id: notice.id,
+    operations: [
+      {
+        op: notice.extension !== undefined ? 'replace' : 'add',
+        path: '/extension',
+        value: upsertPaymentRefundsExtension(notice.extension, refunds),
+      },
+    ],
+  });
+};
 
 interface EnsureStripeCustomerIdParams {
   guarantorResource: Patient | RelatedPerson | undefined;

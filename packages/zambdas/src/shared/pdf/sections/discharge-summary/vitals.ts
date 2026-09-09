@@ -75,12 +75,18 @@ export const createVitalsSectionForDischargeSummary = <
       const colWidth = (client.getRightBound() - leftX - colGap) / 2;
       const rightX = leftX + colWidth + colGap;
 
-      let y = client.getY();
-
-      const lineHeight = styles.textStyles.regular.font.heightAtSize(styles.textStyles.regular.fontSize);
       const rowSpacing = 6;
 
+      // Track the row's page/Y explicitly rather than assuming both columns stay on the
+      // same page: if column 1 overflows onto a new page, column 2 must follow it there
+      // instead of resuming at the stale pre-break Y
+      let rowStartPage = client.getCurrentPageIndex();
+      let rowStartY = client.getY();
+
       vitals.forEach(([label1, value1, label2, value2]) => {
+        client.setPageByIndex(rowStartPage);
+        client.setY(rowStartY);
+
         client.drawTextSequential(
           `${label1}: `,
           {
@@ -106,11 +112,17 @@ export const createVitalsSectionForDischargeSummary = <
           }
         );
 
+        const col1EndPage = client.getCurrentPageIndex();
+        const col1EndY = client.getY();
+
         if (!label2) {
+          rowStartPage = col1EndPage;
+          rowStartY = col1EndY - rowSpacing;
           return;
         }
 
-        client.setY(y);
+        client.setPageByIndex(col1EndPage);
+        client.setY(col1EndPage === rowStartPage ? rowStartY : client.getPageTopY());
         client.drawTextSequential(
           `${label2}: `,
           {
@@ -136,9 +148,20 @@ export const createVitalsSectionForDischargeSummary = <
           }
         );
 
-        y -= lineHeight + rowSpacing;
-        client.setY(y);
+        const col2EndPage = client.getCurrentPageIndex();
+        const col2EndY = client.getY();
+
+        if (col2EndPage !== col1EndPage) {
+          rowStartPage = col2EndPage;
+          rowStartY = col2EndY - rowSpacing;
+        } else {
+          rowStartPage = col1EndPage;
+          rowStartY = Math.min(col1EndY, col2EndY) - rowSpacing;
+        }
       });
+
+      client.setPageByIndex(rowStartPage);
+      client.setY(rowStartY);
 
       const dotLines = data.vitals.dotVisionScreening ?? [];
       if (dotLines.length > 0) {

@@ -35,8 +35,8 @@ const MIME_TYPES = ['audio/webm', 'audio/wav', 'audio/mpeg', 'audio/mp4', 'audio
 const STOP_FALLBACK_MS = 5000;
 
 // Per-recording state, reached only through that recorder's own handlers. `chunks` especially must not live
-// on the shared `capture` below: a recorder outliving its session would append fragments to the *next*
-// recording, producing two interleaved streams no decoder (or Vertex) can read.
+// on the shared `capture` below: a recorder outliving its session would append its chunks to the *next*
+// recording, interleaving two recordings into one file that no decoder (or Vertex) can read.
 interface ActiveCapture {
   visitID: string;
   recorder: MediaRecorder;

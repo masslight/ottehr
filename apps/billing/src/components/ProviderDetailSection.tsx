@@ -48,6 +48,7 @@ export function ProviderDetailSection({
 }
 
 export function ProviderDetailForm({
+  title,
   provider,
   role,
   onSave,
@@ -55,6 +56,7 @@ export function ProviderDetailForm({
   selector,
   showSourceLink,
 }: {
+  title?: string;
   provider: BillingProviderOption | null;
   role: ProviderRole;
   onSave: (payload: CreateBillingProviderInput | UpdateBillingProviderInput) => Promise<string | null>;
@@ -79,7 +81,7 @@ export function ProviderDetailForm({
     <EditableSection
       title={
         <TitleWithSourceLink
-          title={'Provider Details'}
+          title={title ?? 'Provider Details'}
           sourceId={showSourceLink ? provider?.workingCopyReferenceResourceId : undefined}
           sourceRouteBase={role === 'rendering' ? '/rendering-providers/' : '/billing-providers/'}
         />

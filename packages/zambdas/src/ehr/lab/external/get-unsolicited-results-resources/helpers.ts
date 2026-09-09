@@ -25,6 +25,7 @@ import {
   UnsolicitedResultTaskRowDTO,
   UR_TASK_ACTION,
 } from 'utils/lib/types/data/labs/labs.types';
+import { EXTERNAL_LAB_UNSOLICITED_RESULTS_ALREADY_MATCHED } from 'utils/lib/types/errors';
 import { compareDates } from 'utils/lib/utils/dateUtils';
 import { getContainedPatientFromDiagnosticReport } from '../../shared/helpers';
 import {
@@ -265,7 +266,7 @@ const taskIsLabRelated = (code: string): boolean => {
 };
 
 const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnsolicitedResultsMatchDataOutput => {
-  const { diagnosticReport, readyTasks, labOrg } = resources;
+  const { diagnosticReport, readyTasks, completedTasks, labOrg } = resources;
 
   const { unsolicitedPatient, unsolicitedProvider } = getUnsolicitedResourcesFromDr(diagnosticReport);
   const task = readyTasks.find(
@@ -274,6 +275,21 @@ const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnso
         (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
       )
   );
+
+  // we should check if the match task is is completed and throw a better error letting the user know
+  // it has already been matched and direct them to to view the results
+  if (!task) {
+    const completedTask = completedTasks.find(
+      (task) =>
+        task.code?.coding?.find(
+          (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
+        )
+    );
+    if (completedTask) {
+      throw EXTERNAL_LAB_UNSOLICITED_RESULTS_ALREADY_MATCHED('These results have already been matched.');
+    }
+  }
+
   if (!task?.id) throw Error(`Could not parse match unsolicited result task id`);
 
   const patientName = unsolicitedPatient ? getFullestAvailableName(unsolicitedPatient, true) : undefined;

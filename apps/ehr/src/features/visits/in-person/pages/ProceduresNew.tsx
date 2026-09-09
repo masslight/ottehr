@@ -40,6 +40,7 @@ import { createProcedureQuickPick, getProcedureQuickPicks, updateProcedureQuickP
 import { AccordionCard } from 'src/components/AccordionCard';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
@@ -49,6 +50,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { TRACKING_BOARD_QUERY_KEY } from 'src/hooks/useGetTrackingBoard';
 import { sortQuickPicks, useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
@@ -212,10 +214,20 @@ function pageStateToDraft(pageState: LocalPageState): ProcedurePageState {
   };
 }
 
-export default function ProceduresNew(): ReactElement {
+interface ProceduresNewProps {
+  procedureId?: string;
+  onFinished?: () => void;
+}
+
+export default function ProceduresNew({
+  procedureId: procedureIdProp,
+  onFinished,
+}: ProceduresNewProps = {}): ReactElement {
   const navigate = useNavigate();
+  const isInlineFlow = useIsInlineFlow();
   const theme = useTheme();
-  const { id: appointmentId, procedureId } = useParams();
+  const { id: appointmentId, procedureId: procedureIdFromUrl } = useParams();
+  const procedureId = procedureIdProp ?? procedureIdFromUrl;
   const { oystehr, oystehrZambda } = useApiClients();
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
@@ -421,7 +433,8 @@ export default function ProceduresNew(): ReactElement {
 
   const onCancel = (): void => {
     if (!procedureId && encounter.id) clearDraft(encounter.id);
-    navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
+    if (onFinished) onFinished();
+    else navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
   };
 
   const onSave = async (): Promise<void> => {
@@ -465,13 +478,14 @@ export default function ProceduresNew(): ReactElement {
             documentedDateTime: DateTime.now().toUTC().toString(),
             performerType: state.performerType,
             medicationUsed: state.medicationUsed,
-            bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite?.trim(),
+            bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite?.trim() || OTHER,
             bodySide: state.bodySide,
             technique: state.technique,
             suppliesUsed: combineMultipleValuesForSave(state.suppliesUsed, state.otherSuppliesUsed),
             procedureDetails: state.procedureDetails,
             specimenSent: state.specimenSent,
-            complications: state.complications !== OTHER ? state.complications : state.otherComplications?.trim(),
+            complications:
+              state.complications !== OTHER ? state.complications : state.otherComplications?.trim() || OTHER,
             patientResponse: state.patientResponse,
             postInstructions: combineMultipleValuesForSave(state.postInstructions, state.otherPostInstructions),
             timeSpent: state.timeSpent,
@@ -507,14 +521,15 @@ export default function ProceduresNew(): ReactElement {
       }
 
       void queryClient.invalidateQueries({
-        queryKey: ['procedures-for-tracking-board'],
+        queryKey: [TRACKING_BOARD_QUERY_KEY],
         refetchType: 'active',
       });
 
       setSaveInProgress(false);
       enqueueSnackbar('Procedure saved!', { variant: 'success' });
       if (!procedureId && encounter.id) clearDraft(encounter.id);
-      navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
+      if (onFinished) onFinished();
+      else navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
     } catch {
       setSaveInProgress(false);
       enqueueSnackbar('An error has occurred while saving procedure. Please try again.', { variant: 'error' });
@@ -960,15 +975,21 @@ export default function ProceduresNew(): ReactElement {
   }, [methods, procedure]);
 
   const onQuickPickSelect = (quickPick: ProcedureQuickPickData): void => {
-    updateState((state) => {
-      if (quickPick.procedureType) {
-        methods.reset({
-          ...formValues,
-          procedureType:
-            selectOptions?.procedureTypes.find((procedureType) => procedureType.code === quickPick.procedureType)
-              ?.name ?? quickPick.procedureType,
-        });
+    if (quickPick.procedureType) {
+      const resolvedProcedureType =
+        selectOptions?.procedureTypes.find((procedureType) => procedureType.code === quickPick.procedureType)?.name ??
+        quickPick.procedureType;
+      methods.reset({
+        ...formValues,
+        procedureType: resolvedProcedureType,
+      });
+      // methods.reset() above doesn't reliably notify the procedureType draft-sync subscription,
+      // so persist it directly here — same as every other quick-pick field going through updateState.
+      if (!procedureId && encounter.id) {
+        setDraft(encounter.id, { procedureType: resolvedProcedureType });
       }
+    }
+    updateState((state) => {
       QUICK_PICK_APPLY_KEYS.forEach((key) => {
         if (key === 'cptCodes') {
           state.cptCodes = mergeCptCodes(state.cptCodes, quickPick.cptCodes);
@@ -1031,11 +1052,13 @@ export default function ProceduresNew(): ReactElement {
   return (
     <FormProvider {...methods}>
       <Stack spacing={1}>
-        <PageTitle
-          label="Document Procedure"
-          showIntakeNotesButton={false}
-          dataTestId={dataTestIds.documentProcedurePage.title}
-        />
+        {!isInlineFlow && (
+          <PageTitle
+            label="Document Procedure"
+            showIntakeNotesButton={false}
+            dataTestId={dataTestIds.documentProcedurePage.title}
+          />
+        )}
         {!procedureId && hasDraft(encounter.id ?? '') && (
           <UnsavedDraftWarning
             message={

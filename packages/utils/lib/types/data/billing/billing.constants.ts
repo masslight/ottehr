@@ -4,14 +4,42 @@ import { Patient } from 'fhir/r4b';
 // (description, system flag) is a separate Basic resource (see save-billing-tag).
 export const CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/claim-tag';
 
+export const CLAIM_STATUS_PROCESSED_TAG = {
+  system: 'https://fhir.ottehr.com/billing/claim-status-processed',
+  code: 'processed',
+};
+
 // Task code (under EXPORT_TASK_SYSTEM) for a claims-list CSV export, and the codes its Task inputs
 // and outputs carry. The Subscription that runs the export matches on the code.
 export const EXPORT_CLAIMS_CSV_TASK_CODE = 'export-billing-claims-csv';
 export const EXPORT_CLAIMS_FILTERS_CODE = 'export-claims-filters';
 export const EXPORT_CLAIMS_INCOMPLETE_CODE = 'export-claims-incomplete';
 
+// Async billing-report refresh Task: kind/params/cacheKey travel as Task inputs; the
+// Subscription matches on the code.
+export const REFRESH_REPORT_TASK_CODE = 'refresh-billing-report';
+export const REFRESH_REPORT_KIND_CODE = 'refresh-report-kind';
+export const REFRESH_REPORT_PARAMS_CODE = 'refresh-report-params';
+export const REFRESH_REPORT_CACHE_KEY_CODE = 'refresh-report-cache-key';
+// continuation depth of a chained multi-run refresh (bounds runaway chains)
+export const REFRESH_REPORT_CHAIN_CODE = 'refresh-report-chain';
+export const REFRESH_REPORT_KINDS = [
+  'payments',
+  'patient-payments',
+  'invoice',
+  'cards-on-file',
+  'pipeline',
+  'productivity',
+] as const;
+export type RefreshReportKind = (typeof REFRESH_REPORT_KINDS)[number];
+
 // Max claims a single CSV export includes; matches beyond this are truncated and flagged incomplete.
 export const EXPORT_CLAIMS_MATCH_LIMIT = 10_000;
+
+// Max claims a service date search scans. Claim has no service-date search parameter, so that filter
+// runs in memory and the scan has to hold every match at once; without a ceiling a wide range fills
+// the lambda. Matches beyond this are dropped and the result is flagged incomplete.
+export const CLAIM_SCAN_MATCH_LIMIT = 10_000;
 
 // FHIR administrative gender, labeled the way the billing app displays it. The demographics forms,
 // the rules field catalog, and the engine's gender writer all share this one list.

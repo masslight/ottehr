@@ -101,6 +101,7 @@ export interface OrderToolTipConfig {
     statusChip: JSX.Element;
     unreadBadge?: boolean;
   }[];
+  includeTableNavButton?: boolean;
 }
 
 export interface OrdersForTrackingBoardTable {

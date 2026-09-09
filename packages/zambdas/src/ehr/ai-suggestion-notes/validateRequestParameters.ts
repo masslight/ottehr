@@ -1,5 +1,5 @@
 import { AISuggestionNotesInput } from 'utils/lib/types/api/ai-suggestions-notes';
-import { MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse } from '../../shared/validation';
 
@@ -9,17 +9,17 @@ export function validateRequestParameters(input: ZambdaInput): AISuggestionNotes
   }
 
   // no complication
-  const { type, hpi, details } = safeJsonParse(input.body);
+  const { type, hpi, details, appointmentId, encounterId } = safeJsonParse(input.body);
 
   if (!type) {
     throw MISSING_REQUIRED_PARAMETERS(['type']);
   }
 
-  if (!['procedure', 'missing-hpi'].includes(type)) {
-    throw new Error('Invalid type');
+  if (!['procedure', 'missing-hpi', 'note-review'].includes(type)) {
+    throw INVALID_INPUT_ERROR(`type must be one of: procedure, missing-hpi, note-review; received "${type}"`);
   }
 
-  if (type === 'procedure' && details.procedureDetails == undefined) {
+  if (type === 'procedure' && details?.procedureDetails == undefined) {
     throw new Error('If type is procedure, procedureDetails is required');
   }
 
@@ -27,10 +27,19 @@ export function validateRequestParameters(input: ZambdaInput): AISuggestionNotes
     throw new Error('If type is missing-hpi, hpi is required');
   }
 
+  if (type === 'note-review') {
+    const missing = [...(appointmentId ? [] : ['appointmentId']), ...(encounterId ? [] : ['encounterId'])];
+    if (missing.length > 0) {
+      throw MISSING_REQUIRED_PARAMETERS(missing);
+    }
+  }
+
   return {
     type,
     hpi,
     details,
+    appointmentId,
+    encounterId,
     secrets: input.secrets,
   };
 }

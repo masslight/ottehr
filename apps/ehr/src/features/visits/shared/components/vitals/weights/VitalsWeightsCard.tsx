@@ -84,7 +84,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({ field }): JSX.Ele
       : '');
 
   return (
-    <Box sx={{ mt: 3 }}>
+    <Box>
       <AccordionCard
         label={title}
         collapsed={isCollapsed}

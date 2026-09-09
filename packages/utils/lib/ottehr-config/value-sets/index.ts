@@ -339,6 +339,7 @@ export const formValueSetsData = {
     { label: 'Spouse', value: 'Spouse' },
     { label: 'Common Law Spouse', value: 'Common Law Spouse' },
     { label: 'Injured Party', value: 'Injured Party' },
+    { label: 'Employee', value: 'Employee' },
     { label: 'Other', value: 'Other' },
   ],
   rxHistoryConsentOptions: [

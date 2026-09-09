@@ -17,7 +17,7 @@ export const RULES_ENGINE_TYPES = [
   // Created in Non-insurance Payer AR / "Prepare for invoice"; moves the Non-insurance AR Status to
   // Ready to invoice when every rule passes.
   'non-insurance-payer-pre-invoice',
-  // Created self-pay (no coverage) in Patient AR / "Prepare for invoice"; moves the Patient AR
+  // Created in Patient AR / "Prepare for invoice"; moves the Patient AR
   // Status to Ready to invoice when every rule passes.
   'patient-ar-pre-invoice',
 ] as const;
@@ -59,7 +59,7 @@ export const RULES_ENGINES: Record<RulesEngineType, RulesEngineDef> = {
   'patient-ar-pre-invoice': {
     type: 'patient-ar-pre-invoice',
     label: 'Patient AR Pre-Invoice Rules',
-    runsWhen: 'when a self-pay claim is created in Patient AR',
+    runsWhen: 'when a claim is created in Patient AR',
     onPass: 'the Patient AR Status moves to Ready to invoice',
     runButtonLabel: 'Prepare for invoice',
   },

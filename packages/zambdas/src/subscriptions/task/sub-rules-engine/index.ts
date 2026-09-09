@@ -61,6 +61,7 @@ import {
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapTaskHandler } from '../helpers';
 import { finalizeEngineRun } from './finalize';
+import { ClaimSubmissionRejectedError } from './submit-claim';
 
 // ---------------------------------------------------------------------------
 // Billing rules engines.
@@ -123,6 +124,13 @@ export const index = wrapTaskHandler('sub-rules-engine', async (input, _oystehr)
         `[rules-engine] could not add error or apply Hold tag to Claim/${claimId} after failure:`,
         handleErrorError
       );
+    }
+    if (error instanceof ClaimSubmissionRejectedError) {
+      // Oystehr rejected the submission for a request-level reason (e.g. a duplicate diagnosis
+      // code) — an expected business outcome, not an engine bug. Complete the Task as "failed"
+      // instead of rethrowing, so wrapTaskHandler doesn't report it to Sentry as a crash; the
+      // rejection is already recorded on the claim history above.
+      return { taskStatus: 'failed', statusReason: error.message };
     }
     throw error;
   }

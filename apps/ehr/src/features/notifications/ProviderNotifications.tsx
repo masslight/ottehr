@@ -4,6 +4,8 @@ import { DateTime } from 'luxon';
 import { EventHandler, FC, memo, MouseEvent, useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IconButtonContained } from 'src/features/visits/shared/components/IconButtonContained';
+import { ProviderNotificationTarget } from 'utils/lib/types/api/provider-notifications';
+import { inboundFaxMatchPath } from '../inbound-fax/routes';
 import { useGetProviderNotifications, useUpdateProviderNotificationsMutation } from './notifications.queries';
 
 const MAX_NOTIFICATION_MESSAGE_LENGTH = 140;
@@ -14,7 +16,15 @@ type ProviderNotificationDisplay = {
   isUnread: boolean;
   link?: string;
   sent: string;
-  timestamp?: string;
+};
+
+/**
+ * The route for a notification's destination. The endpoint names the destination rather than spelling
+ * a path, so these two route shapes stay owned by the app that defines them.
+ */
+const pathForTarget = (target: ProviderNotificationTarget | undefined): string | undefined => {
+  if (!target) return undefined;
+  return target.type === 'visit' ? `/visit/${target.appointmentId}` : inboundFaxMatchPath(target.faxCommunicationId);
 };
 
 export const ProviderNotifications: FC = memo(() => {
@@ -25,37 +35,33 @@ export const ProviderNotifications: FC = memo(() => {
   const [notificationsOpen, setNotificationsOpen] = useState<boolean>(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
 
-  const notifications: ProviderNotificationDisplay[] = useMemo(() => {
-    return (
-      notificationsData?.map<ProviderNotificationDisplay>((notification) => {
-        // if isUnread play sound
-        // notificationAudio.play().catch((error) => console.log(error));
-        return {
-          id: notification.communication.id!,
-          isUnread: notification.communication.status === 'in-progress',
-          message: notification.communication.payload?.[0]?.contentString || '',
-          sent: notification.communication.sent
-            ? DateTime.fromISO(notification.communication.sent).toRelative()!
-            : 'N/A',
-          timestamp: notification.communication.sent,
-          link: notification.appointmentID ? `/visit/${notification.appointmentID}` : notification.link,
-        };
-      }) || []
-    ).sort((a, b) => {
-      if (!a.timestamp || !b.timestamp) return 0;
-      return b.timestamp.localeCompare(a.timestamp);
-    });
-  }, [notificationsData]);
+  // Already newest-first from the endpoint, so this only formats.
+  const notifications: ProviderNotificationDisplay[] = useMemo(
+    () =>
+      notificationsData?.map<ProviderNotificationDisplay>((notification) => ({
+        id: notification.id,
+        isUnread: notification.isUnread,
+        message: notification.message,
+        sent: (notification.sentAt ? DateTime.fromISO(notification.sentAt).toRelative() : null) ?? 'N/A',
+        link: pathForTarget(notification.target),
+      })) ?? [],
+    [notificationsData]
+  );
 
   const hasUnread = notifications.some((notification) => notification.isUnread);
 
   const handleIconButtonClick: EventHandler<MouseEvent<HTMLElement>> = useCallback(() => {
     setNotificationsOpen(true);
     if (hasUnread) {
-      void updateNotifications.mutateAsync({
-        ids: notifications.filter((notification) => notification.isUnread).map((notification) => notification.id),
-        status: 'completed',
-      });
+      // Fire-and-forget, but caught: `mutateAsync` rejects on a failed mark-read, and the badge simply
+      // stays lit until the next poll rather than the browser logging an unhandled rejection.
+      void updateNotifications
+        .mutateAsync({
+          notificationIds: notifications
+            .filter((notification) => notification.isUnread)
+            .map((notification) => notification.id),
+        })
+        .catch(console.error);
     }
   }, [hasUnread, notifications, updateNotifications]);
 

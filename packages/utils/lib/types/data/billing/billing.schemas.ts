@@ -5,7 +5,7 @@ import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { STATE_CODES } from '../../common';
-import { BILLING_MANUAL_PAYMENT_METHODS } from './billing.constants';
+import { BILLING_MANUAL_PAYMENT_METHODS, REFRESH_REPORT_KINDS } from './billing.constants';
 import { CLAIM_NOTE_MAX_LENGTH } from './claim-history';
 import {
   CLAIM_STATUS_FIELD_KEYS,
@@ -146,6 +146,8 @@ export const SearchBillingClaimsInputSchema = z.object({
   tag: nonEmptyString.optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
+  // only claims last updated on/before this ISO timestamp (stale-claim drilldowns)
+  updatedBefore: nonEmptyString.optional(),
   serviceDateFrom: nonEmptyString.optional(),
   serviceDateTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
@@ -222,6 +224,7 @@ const claimServiceLineSchema = z.object({
   modifiers: z.array(z.string()).optional(),
   // 1-based references into the claim's diagnosis list (FHIR item.diagnosisSequence)
   diagnosisPointers: z.array(z.number().int().positive()).optional(),
+  revenueCode: z.string().max(5).optional(),
 });
 
 export const GetServiceFacilityInputSchema = z.object({
@@ -572,6 +575,12 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
         .optional(),
       diagnoses: z.array(claimDiagnosisSchema).optional(),
       serviceLines: z.array(claimServiceLineSchema).optional(),
+      billType: nonEmptyString.min(4).max(4).optional().or(z.literal('')),
+      patientDischargeStatusCode: nonEmptyString.max(2).optional().or(z.literal('')),
+      admissionType: nonEmptyString.max(1).optional().or(z.literal('')),
+      admissionSource: nonEmptyString.max(1).optional().or(z.literal('')),
+      admissionDate: nonEmptyString.optional().or(z.literal('')),
+      dischargeDate: nonEmptyString.optional().or(z.literal('')),
     }),
   }),
 ]);
@@ -589,6 +598,26 @@ export const UpdateBillingResourceInputSchema = updateBillingResourceUnion.super
       path: ['fields', 'policyHolder'],
       message: 'Policy holder details are required when the relationship to insured is not "Self"',
     });
+  }
+
+  // Institutional claim submission requires a full admission/discharge period: neither can be blank.
+  // Only checked when at least one key is present in the payload (the UI always submits them
+  // together); a payload that omits both entirely is left alone since it isn't touching this pair.
+  if (data.resourceType === 'Claim' && (data.fields.admissionDate != null || data.fields.dischargeDate != null)) {
+    if (!data.fields.admissionDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fields', 'admissionDate'],
+        message: 'Admission date is required',
+      });
+    }
+    if (!data.fields.dischargeDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fields', 'dischargeDate'],
+        message: 'Discharge date is required',
+      });
+    }
   }
 });
 
@@ -655,6 +684,64 @@ export const UnmatchClaimResponseInputSchema = z.object({
   claimResponseId: nonEmptyString,
 });
 
+// report date-window fields: ISO date (YYYY-MM-DD), with from <= to when both are set
+const isCalendarDate = (value: string): boolean => {
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day ?? 1));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === (day ?? 1);
+};
+const isoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected an ISO date (YYYY-MM-DD)')
+  .refine(isCalendarDate, 'Not a valid calendar date');
+const isoMonth = z
+  .string()
+  .regex(/^\d{4}-\d{2}$/, 'Expected an ISO month (YYYY-MM)')
+  .refine(isCalendarDate, 'Not a valid calendar month');
+const dateWindowIsOrdered = (data: { dateFrom?: string; dateTo?: string }): boolean =>
+  !data.dateFrom || !data.dateTo || data.dateFrom <= data.dateTo;
+const DATE_WINDOW_MESSAGE = { message: 'dateFrom must not be after dateTo', path: ['dateFrom'] };
+
+export const GetBillingReportInputSchema = z.object({
+  kind: z.enum(REFRESH_REPORT_KINDS),
+  // validated against the definition's paramsSchema server-side
+  params: z.record(z.unknown()).optional(),
+  // queue an async recompute (idempotent per kind+params)
+  refresh: z.boolean().optional(),
+  // filtered slice of the report's cached detail dataset
+  drilldown: z.record(z.unknown()).optional(),
+});
+
+// date window shared by the parameterized report kinds
+export const ReportDateWindowParamsSchema = z
+  .object({
+    dateFrom: isoDate.optional(),
+    dateTo: isoDate.optional(),
+  })
+  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
+
+export const EmptyReportParamsSchema = z.object({});
+
+export const GetBillingPaymentsReportDrilldownInputSchema = z
+  .object({
+    // payer row context: payer ID, or 'none' for ERAs without a payer reference
+    payerId: nonEmptyString.optional(),
+    // check (payment) date window, ISO dates
+    dateFrom: isoDate.optional(),
+    dateTo: isoDate.optional(),
+    // waterfall cell context: 'YYYY-MM' or 'unknown'
+    serviceMonth: z.union([isoMonth, z.literal('unknown')]).optional(),
+    checkMonth: z.union([isoMonth, z.literal('unknown')]).optional(),
+  })
+  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
+
+// patient-payments drilldown row filter (the date window travels in the report params)
+export const PatientPaymentsDrilldownParamsSchema = z.object({
+  // FHIR Location id; 'none' selects payments with no resolvable location
+  locationId: nonEmptyString.optional(),
+  paymentMethod: nonEmptyString.optional(),
+});
+
 export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
   amountInCents: z.number().int().positive(),
@@ -667,6 +754,27 @@ export const RecordBillingManualPaymentInputSchema = z.object({
     .string()
     .max(128)
     .regex(/^[A-Za-z0-9._-]+$/),
+});
+
+export const AddClaimAttachmentInputSchema = z.object({
+  claimId: nonEmptyString,
+  name: nonEmptyString,
+  reportTypeCode: nonEmptyString.optional(),
+});
+
+export const RenameClaimAttachmentInputSchema = z.object({
+  documentReferenceId: nonEmptyString,
+  name: nonEmptyString,
+});
+
+export const DeleteClaimAttachmentInputSchema = z.object({
+  claimId: nonEmptyString,
+  documentReferenceId: nonEmptyString,
+});
+
+export const DownloadClaimAttachmentInputSchema = z.object({
+  claimId: nonEmptyString,
+  documentReferenceId: nonEmptyString,
 });
 
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
@@ -683,6 +791,10 @@ export type GetPatientDetailInput = z.output<typeof GetPatientDetailInputSchema>
 export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputSchema>;
 export type GetBillingBillingProviderInput = z.output<typeof GetBillingProviderInputSchema>;
 export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;
+export type GetBillingReportInput = z.output<typeof GetBillingReportInputSchema>;
+export type ReportDateWindowParams = z.output<typeof ReportDateWindowParamsSchema>;
+export type GetBillingPaymentsReportDrilldownInput = z.output<typeof GetBillingPaymentsReportDrilldownInputSchema>;
+export type PatientPaymentsDrilldownParams = z.output<typeof PatientPaymentsDrilldownParamsSchema>;
 export type ExportBillingClaimsInput = z.output<typeof ExportBillingClaimsInputSchema>;
 export type GetBillingClaimsExportStatusInput = z.output<typeof GetBillingClaimsExportStatusInputSchema>;
 export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;
@@ -727,3 +839,7 @@ export type GenderOption = z.input<typeof gender>;
 export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
+export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
+export type RenameClaimAttachmentInput = z.output<typeof RenameClaimAttachmentInputSchema>;
+export type DeleteClaimAttachmentInput = z.output<typeof DeleteClaimAttachmentInputSchema>;
+export type DownloadClaimAttachmentInput = z.output<typeof DownloadClaimAttachmentInputSchema>;
