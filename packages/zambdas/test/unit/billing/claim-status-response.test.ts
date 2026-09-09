@@ -1,7 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { applyPatch, Operation } from 'fast-json-patch';
 import { Claim, ClaimResponse, Provenance } from 'fhir/r4b';
-import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
+import {
+  BILLING_RESOURCE_TAG,
+  CLAIM_STATUS_RESPONSE_EVENT_SYSTEM,
+  RAW_RESPONSE_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
 import { CLAIM_STATUS_PROCESSED_TAG } from 'utils/lib/types/data/billing/billing.constants';
 import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL } from 'utils/lib/types/data/billing/claim-history';
 import { AR_STAGE, claimStatusValuesToTags, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
@@ -25,8 +29,8 @@ const response = (valueString: string): ClaimResponse => ({
   created: '2026-09-07T12:18:55Z',
   outcome: 'error',
   request: { reference: 'Claim/claim-1' },
-  identifier: [{ system: 'https://identifiers.fhir.oystehr.com/rcm-claim-response-event-id', value: 'account:9001' }],
-  extension: [{ url: 'https://extensions.fhir.oystehr.com/raw-response', valueString }],
+  identifier: [{ system: CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, value: 'account:9001' }],
+  extension: [{ url: RAW_RESPONSE_EXTENSION_URL, valueString }],
 });
 const claim: Claim = {
   resourceType: 'Claim',
