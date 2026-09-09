@@ -739,6 +739,9 @@ const useSearchPatientDocuments = (
         appointmentId: filters?.visit?.appointmentId,
       },
     ],
+    // Same reason as `useGetDocsFolders` above: without this the guards below are reachable, and the
+    // query fails and error-retries on every mount that precedes a patient or a client.
+    enabled: !!oystehr && !!patientId,
 
     queryFn: async () => {
       if (!oystehr) throw new Error('useSearchPatientDocuments() oystehr not defined');
@@ -784,16 +787,14 @@ const useSearchPatientDocuments = (
       console.log(`useSearchPatientDocuments() search results cnt=[${searchResultsResources.length}]`);
 
       const docRefsResources =
-        searchResultsResources
-          ?.filter(
-            (resource: FhirResource) =>
-              resource.resourceType === 'DocumentReference' &&
-              // `superseded` says a newer copy of this same document exists, so listing it only offers a
-              // way to open the stale one.
-              resource.status !== 'superseded' &&
-              !isHiddenDraft(resource)
-          )
-          ?.map((docRefResource: FhirResource) => docRefResource as DocumentReference) ?? [];
+        searchResultsResources?.filter(
+          (resource: FhirResource): resource is DocumentReference =>
+            resource.resourceType === 'DocumentReference' &&
+            // `superseded` says a newer copy of this same document exists, so listing it only offers a
+            // way to open the stale one.
+            resource.status !== 'superseded' &&
+            !isHiddenDraft(resource)
+        ) ?? [];
 
       const documents = docRefsResources.map((docRef) => createDocumentInfo(docRef));
 

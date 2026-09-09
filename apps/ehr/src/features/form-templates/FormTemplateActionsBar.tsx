@@ -57,7 +57,9 @@ export const FormTemplateActionsBar: FC<{ item: FormTemplateItem }> = ({ item })
     },
   });
 
-  const isBusy = publishMutation.isPending || deleteMutation.isPending;
+  // A missing client is a startup condition rather than something an administrator can act on, so the
+  // controls go inert instead of offering an action that would throw.
+  const disabled = !oystehrZambda || publishMutation.isPending || deleteMutation.isPending;
 
   return (
     <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2} flexWrap="wrap">
@@ -66,7 +68,7 @@ export const FormTemplateActionsBar: FC<{ item: FormTemplateItem }> = ({ item })
           control={
             <Switch
               checked={item.published}
-              disabled={isBusy}
+              disabled={disabled}
               onChange={(e) => publishMutation.mutate(e.target.checked)}
             />
           }
@@ -78,7 +80,7 @@ export const FormTemplateActionsBar: FC<{ item: FormTemplateItem }> = ({ item })
 
       <RoundedButton
         startIcon={<DeleteOutlineIcon />}
-        disabled={isBusy}
+        disabled={disabled}
         onClick={() => {
           if (window.confirm(`Remove "${item.title}"?`)) deleteMutation.mutate();
         }}

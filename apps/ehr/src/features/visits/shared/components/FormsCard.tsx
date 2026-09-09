@@ -47,7 +47,9 @@ export const FormsCard: FC = () => {
   // A template whose stored file is missing is a broken link to a provider; the admin page surfaces it
   // for repair, but the chart simply omits it.
   const forms = (data?.items ?? []).filter((form) => form.pdfPresignedUrl);
-  const busy = !!pendingId || returning;
+  // Readiness rides along with the in-flight state: both mean the controls should not act, and neither is
+  // something the provider can do anything about from here.
+  const busy = !fillTemplate.isReady || !returnForm.isReady || !!pendingId || returning;
 
   const openForm = (templateId: string): void => {
     if (!appointment?.id || busy) return;

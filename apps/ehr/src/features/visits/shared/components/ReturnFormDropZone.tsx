@@ -46,7 +46,20 @@ export const ReturnFormDropZone: FC<ReturnFormDropZoneProps> = ({ onFile, disabl
 
   return (
     <Box
+      // Semantics rather than a real <button>: the zone's contents are block elements, which a button may
+      // not contain. Its accessible name comes from the text inside it.
+      role="button"
+      tabIndex={interactive ? 0 : -1}
+      aria-disabled={!interactive}
       onClick={() => interactive && inputRef.current?.click()}
+      onKeyDown={(event) => {
+        if (!interactive) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          // Space would scroll the page instead of opening the picker.
+          event.preventDefault();
+          inputRef.current?.click();
+        }
+      }}
       onDragOver={(event) => {
         event.preventDefault();
         if (interactive) setIsOver(true);
@@ -72,6 +85,12 @@ export const ReturnFormDropZone: FC<ReturnFormDropZoneProps> = ({ onFile, disabl
         cursor: interactive ? 'pointer' : 'default',
         textAlign: 'center',
         transition: 'border-color 120ms, background-color 120ms',
+        // Without this the zone can be focused with nothing on screen to say so, which is worse than not
+        // being reachable at all.
+        '&:focus-visible': {
+          outline: `2px solid ${theme.palette.primary.main}`,
+          outlineOffset: 2,
+        },
       }}
     >
       {busy ? <CircularProgress size={28} /> : <FileUploadOutlinedIcon fontSize="large" />}

@@ -35,10 +35,25 @@ export const stampDocumentProvenance = (doc: PDFDocument, provenance: DocumentPr
 /** Whether the document already carries a form, checked without the side effect of `getForm()`. */
 export const hasAcroForm = (doc: PDFDocument): boolean => !!doc.catalog.lookupMaybe(PDFName.of('AcroForm'), PDFDict);
 
+/**
+ * Writes the payload into the info dictionary, creating one if the document has none.
+ *
+ * Creating it matters: a flat PDF has no AcroForm for the other carrier to use, so skipping the write
+ * would leave it with no stamp at all — and an unstamped document is accepted on return rather than
+ * refused, so the guard would quietly not apply to it. Nothing about that failure is visible, since
+ * `save` adds an info dictionary of its own afterwards and the result looks like any stamped file.
+ */
 const writeInfoEntry = (doc: PDFDocument, payload: string): void => {
   const infoRef = doc.context.trailerInfo.Info;
-  const info = infoRef ? doc.context.lookupMaybe(infoRef, PDFDict) : undefined;
-  info?.set(PDFName.of(INFO_KEY), PDFString.of(payload));
+  const existing = infoRef ? doc.context.lookupMaybe(infoRef, PDFDict) : undefined;
+
+  let info = existing;
+  if (!info) {
+    info = PDFDict.withContext(doc.context);
+    doc.context.trailerInfo.Info = doc.context.register(info);
+  }
+
+  info.set(PDFName.of(INFO_KEY), PDFString.of(payload));
 };
 
 /**

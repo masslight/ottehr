@@ -20,13 +20,7 @@ import { replaceFormTemplateFromUrl, replaceFormTemplateWithPdf, updateFormTempl
 import { clearMappingDraft } from './mapping-draft';
 import { FORM_TEMPLATES_QUERY_KEY } from './useFormTemplates';
 
-/**
- * Name, description and the PDF itself — everything about a template except how its fields are mapped.
- *
- * Separate from the mapping below it because the two are edited on different rhythms: a name is corrected
- * in passing, while a mapping is a sitting. Sharing one save button would make each change wait on the
- * other being finished.
- */
+/** Name, description and the PDF itself — everything about a template except how its fields are mapped. */
 export const FormTemplateDetailsCard: FC<{ item: FormTemplateItem }> = ({ item }) => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
@@ -100,7 +94,8 @@ export const FormTemplateDetailsCard: FC<{ item: FormTemplateItem }> = ({ item }
   });
 
   const isBusy = saveMutation.isPending;
-  const canSave = !isBusy && !!title.trim() && (metadataChanged || !!replacement);
+  // Without a client nothing can be written, so the form stays readable but the save is not offered.
+  const canSave = !isBusy && !!oystehrZambda && !!title.trim() && (metadataChanged || !!replacement);
 
   return (
     <Card variant="outlined">

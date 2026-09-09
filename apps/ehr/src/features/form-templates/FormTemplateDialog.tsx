@@ -74,6 +74,7 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose }) => {
   });
 
   const isBusy = saveMutation.isPending;
+  const canSubmit = !isBusy && !!oystehrZambda;
   const titleError = submitAttempted && !title.trim() ? 'This field is required' : undefined;
   const usingLink = source === 'link';
   const fileError = submitAttempted && !usingLink && !file ? 'A PDF file is required' : undefined;
@@ -172,7 +173,7 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose }) => {
         <RoundedButton
           variant="contained"
           onClick={handleSubmit}
-          disabled={isBusy}
+          disabled={!canSubmit}
           startIcon={isBusy ? <CircularProgress size={16} /> : <UploadFileIcon />}
         >
           Upload

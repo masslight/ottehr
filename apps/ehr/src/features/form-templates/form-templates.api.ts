@@ -12,6 +12,7 @@ import {
   FillFormTemplateInput,
   FillFormTemplateOutput,
   FormTemplateAnalysisStatus,
+  FormTemplateRejection,
   GetFormTemplateDetailInput,
   GetFormTemplateDetailOutput,
   ImportFormTemplateFromUrlInput,
@@ -101,6 +102,23 @@ const saveCompletedForm = async (
  * chart record is created only by the third call, so abandoning the upload — or uploading a form belonging
  * to another patient — leaves nothing behind to tidy up.
  */
+/**
+ * Turns a failed upload into an error worth reading.
+ *
+ * These PUTs go straight to storage rather than through a zambda, so there is no typed API error to
+ * unwrap the way `apiErrorToThrow` does elsewhere in this file — the cause is in the response body, and
+ * discarding it leaves "403 Forbidden", which does not distinguish an expired link from a refused one.
+ * The whole body is logged; only its error code is put in front of anyone, with the status as a fallback
+ * for a body that is empty or in some other shape.
+ */
+const uploadFailure = async (response: Response, subject: string): Promise<Error> => {
+  const body = (await response.text().catch(() => '')).trim();
+  if (body) console.error(`Upload of the ${subject} failed with ${response.status}:`, body);
+
+  const code = /<Code>([^<]+)<\/Code>/.exec(body)?.[1];
+  return new Error(`Failed to upload the ${subject} (${code ?? `${response.status} ${response.statusText}`})`);
+};
+
 export const returnCompletedForm = async (
   oystehr: Oystehr,
   parameters: { appointmentId: string; file: File }
@@ -118,7 +136,7 @@ export const returnCompletedForm = async (
     body: file,
   });
   if (!uploadResponse.ok) {
-    throw new Error(`Failed to upload the form (${uploadResponse.status} ${uploadResponse.statusText})`);
+    throw await uploadFailure(uploadResponse, 'form');
   }
 
   // The stored location comes back too: an upload that could not be identified is answered with
@@ -244,12 +262,12 @@ export const replaceFormTemplateWithPdf = async (
     body: file,
   });
   if (!uploadResponse.ok) {
-    throw new Error(`Failed to upload the PDF (${uploadResponse.status} ${uploadResponse.statusText})`);
+    throw await uploadFailure(uploadResponse, 'PDF');
   }
 
   const result = await replaceFormTemplatePdf(oystehr, { documentReferenceId, z3Url: candidate.z3Url });
 
-  const rejection = REJECTION_MESSAGES[result.status as FormTemplateAnalysisStatus];
+  const rejection = rejectionMessage(result.status);
   if (rejection) {
     throw new Error(`${rejection} The existing PDF has been kept.`);
   }
@@ -257,8 +275,13 @@ export const replaceFormTemplateWithPdf = async (
   return result;
 };
 
-/** Why a PDF could not be accepted, in terms an administrator can act on. */
-export const REJECTION_MESSAGES: Record<string, string> = {
+/**
+ * Why a PDF could not be accepted, in terms an administrator can act on.
+ *
+ * Keyed by `FormTemplateRejection`, so a status added to the analysis union without a message here fails
+ * the build instead of reading as an acceptance.
+ */
+export const REJECTION_MESSAGES: Record<FormTemplateRejection, string> = {
   encrypted:
     'This PDF needs a password to open, so its fields cannot be read. Please upload a copy that opens without one.',
   fillingNotPermitted:
@@ -269,6 +292,10 @@ export const REJECTION_MESSAGES: Record<string, string> = {
     'This PDF uses Adobe’s dynamic XFA format, which browsers cannot display. Please upload a standard PDF version of the form.',
   unreadable: 'This file could not be read as a PDF. Please check the file and try again.',
 };
+
+/** Why this template cannot be accepted, or nothing when it can. */
+export const rejectionMessage = (status: FormTemplateAnalysisStatus): string | undefined =>
+  status === 'fillable' || status === 'printable' ? undefined : REJECTION_MESSAGES[status];
 
 const importFormTemplateFromUrl = async (
   oystehr: Oystehr,
@@ -300,7 +327,7 @@ export const createFormTemplateFromUrl = async (
   }
   const analysis = await analyzeFormTemplate(oystehr, { documentReferenceId: created.documentReferenceId });
 
-  const rejection = REJECTION_MESSAGES[analysis.status as FormTemplateAnalysisStatus];
+  const rejection = rejectionMessage(analysis.status);
   if (rejection) {
     throw new Error(rejection);
   }
@@ -329,7 +356,7 @@ export const replaceFormTemplateFromUrl = async (
     sourceUrl: candidate.resolvedFrom,
   });
 
-  const rejection = REJECTION_MESSAGES[result.status as FormTemplateAnalysisStatus];
+  const rejection = rejectionMessage(result.status);
   if (rejection) {
     throw new Error(`${rejection} The existing PDF has been kept.`);
   }
@@ -360,12 +387,12 @@ export const createFormTemplateWithPdf = async (
   });
 
   if (!uploadResponse.ok) {
-    throw new Error(`Failed to upload the PDF (${uploadResponse.status} ${uploadResponse.statusText})`);
+    throw await uploadFailure(uploadResponse, 'PDF');
   }
 
   const analysis = await analyzeFormTemplate(oystehr, { documentReferenceId: created.documentReferenceId });
 
-  const rejection = REJECTION_MESSAGES[analysis.status as FormTemplateAnalysisStatus];
+  const rejection = rejectionMessage(analysis.status);
   if (rejection) {
     throw new Error(rejection);
   }

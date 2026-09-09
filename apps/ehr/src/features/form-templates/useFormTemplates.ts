@@ -14,6 +14,17 @@ import { fileReturnedForm, fillFormTemplate, listFormTemplates, returnCompletedF
 export const FORM_TEMPLATES_QUERY_KEY = 'form-templates';
 
 /**
+ * A mutation, plus whether it is able to run at all.
+ *
+ * `useMutation` has no `enabled` option the way `useQuery` does, so without this a caller cannot tell that
+ * the API client is still missing except by firing the mutation and watching it fail. Reporting readiness
+ * here lets the control that triggers it be disabled instead of offering an action that cannot work.
+ */
+type MutationWithReadiness<TData, TVariables> = UseMutationResult<TData, Error, TVariables> & {
+  isReady: boolean;
+};
+
+/**
  * Form templates for the current project.
  *
  * `includeUnpublished` separates the two callers: the admin page passes `true` so drafts are editable,
@@ -43,15 +54,17 @@ export const useFormTemplates = (options?: {
  * retires the previous one. Nothing is cached — asking twice is meant to produce a fresh document, since
  * the chart may have moved on since the last one.
  */
-export const useFillFormTemplate = (): UseMutationResult<FillFormTemplateOutput, Error, FillFormTemplateInput> => {
+export const useFillFormTemplate = (): MutationWithReadiness<FillFormTemplateOutput, FillFormTemplateInput> => {
   const { oystehrZambda } = useApiClients();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async (input: FillFormTemplateInput) => {
       if (!oystehrZambda) throw new Error('API client not available');
       return fillFormTemplate(oystehrZambda, input);
     },
   });
+
+  return { ...mutation, isReady: !!oystehrZambda };
 };
 
 /**
@@ -73,11 +86,11 @@ type ReturnInput =
 /** The stored location rides along on the first leg, so a `needsSource` reply can be answered. */
 type ReturnResult = SaveCompletedFormOutput & { z3Url?: string };
 
-export const useReturnCompletedForm = (): UseMutationResult<ReturnResult, Error, ReturnInput> => {
+export const useReturnCompletedForm = (): MutationWithReadiness<ReturnResult, ReturnInput> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async (input: ReturnInput) => {
       if (!oystehrZambda) throw new Error('API client not available');
       if ('file' in input) {
@@ -94,6 +107,8 @@ export const useReturnCompletedForm = (): UseMutationResult<ReturnResult, Error,
       void queryClient.invalidateQueries({ queryKey: [COMPLETED_FORMS_QUERY_KEY] });
     },
   });
+
+  return { ...mutation, isReady: !!oystehrZambda };
 };
 
 export const COMPLETED_FORMS_QUERY_KEY = 'completed-forms';

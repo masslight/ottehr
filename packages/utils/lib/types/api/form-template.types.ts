@@ -250,6 +250,14 @@ export type FormTemplateAnalysisStatus =
   | 'dynamicXfa'
   | 'unreadable';
 
+/**
+ * The statuses under which a template cannot be accepted.
+ *
+ * Derived rather than listed, so adding a status above forces it to be classified here — an acceptance by
+ * naming it in the exclusion, a refusal by leaving it out and writing the message that goes with it.
+ */
+export type FormTemplateRejection = Exclude<FormTemplateAnalysisStatus, 'fillable' | 'printable'>;
+
 export interface FormTemplateAnalysis {
   status: FormTemplateAnalysisStatus;
   fields: FormFieldInfo[];

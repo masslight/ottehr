@@ -81,12 +81,9 @@ const byReadingOrder = (a: FormFieldInfo, b: FormFieldInfo): number => {
 };
 
 /**
- * What the administrator sees for a field, in descending order of usefulness: the author's own tooltip,
- * then the field's name, then a description assembled from what the field actually contains.
- *
- * The last tier matters more than it sounds. Some PDFs arrive with both the tooltip and the name set to
- * "undefined", and those fields are often perfectly good — one such radio group carries Male/Female — so
- * listing its options identifies it far better than its name does. The real name stays in the tooltip.
+ * What the administrator sees for a field: the author's tooltip, then the name, then whatever the field
+ * itself contains. The last tier is load-bearing — some PDFs set both tooltip and name to "undefined",
+ * and listing a radio group's options identifies it where its name cannot. The name stays in the tooltip.
  */
 const fieldLabel = (field: FormFieldInfo): string => {
   const alternateText = field.alternateText?.trim();
@@ -214,12 +211,13 @@ export const FormTemplateDetailPage = (): ReactElement => {
     onSuccess: (savedMapping) => {
       enqueueSnackbar('Mapping saved', { variant: 'success' });
       setDirty(false);
-      if (templateId) clearMappingDraft(templateId);
-      // Write the saved mapping straight into the cached detail rather than refetching it. Refetching
-      // would mint a new presigned URL and make the preview re-download the PDF for no reason; leaving
-      // the cache alone is worse still, because reopening this page would then hydrate from a mapping
-      // that predates the save and appear to have lost the work.
       if (templateId) {
+        clearMappingDraft(templateId);
+
+        // Write the saved mapping straight into the cached detail rather than refetching it. Refetching
+        // would mint a new presigned URL and make the preview re-download the PDF for no reason; leaving
+        // the cache alone is worse still, because reopening this page would then hydrate from a mapping
+        // that predates the save and appear to have lost the work.
         queryClient.setQueryData<GetFormTemplateDetailOutput>(
           [FORM_TEMPLATES_QUERY_KEY, 'detail', templateId],
           (previous) => (previous ? { ...previous, mapping: savedMapping } : previous)
@@ -239,10 +237,9 @@ export const FormTemplateDetailPage = (): ReactElement => {
   /**
    * Fields worth showing: those the PDF lets us write to, and that at least one token could supply.
    *
-   * The second half matters more than it sounds. A checkbox can only be driven by a boolean token, and
-   * the catalog currently has none, so every checkbox would otherwise occupy a row offering an empty
-   * dropdown. Filtering on compatibility rather than on any property of the field means this corrects
-   * itself the moment a boolean token is added, instead of needing a rule rewritten.
+   * The second half matters more than it sounds: a field whose type no token can supply would otherwise
+   * occupy a row offering an empty dropdown. Filtering on compatibility rather than on the field's own
+   * properties means the list follows the catalog as it grows, instead of needing a rule rewritten.
    */
   const { mappableFields, omittedCount } = useMemo(() => {
     const writable = (data?.fields ?? []).filter((f) => f.mappable);
@@ -293,9 +290,7 @@ export const FormTemplateDetailPage = (): ReactElement => {
 
   const boundCount = mappableFields.filter((field) => bindings[field.name]).length;
 
-  // What the selected field is filled with, spelled out for the preview to caption its rectangle. The group
-  // is included because the labels are only unique within one: "First name" belongs to a patient, a
-  // subscriber and a provider alike, and the row in the table gets that context from the input's outline.
+  // What the selected field is filled with, spelled out for the preview to caption its rectangle.
   const selectedToken = selectedFieldName ? tokensByKey[bindings[selectedFieldName]?.tokenKey ?? ''] : undefined;
   const selectedFieldMapping = selectedToken ? `${selectedToken.group} · ${selectedToken.label}` : undefined;
 
@@ -347,7 +342,7 @@ export const FormTemplateDetailPage = (): ReactElement => {
                     <RoundedButton
                       variant="contained"
                       startIcon={saveMutation.isPending ? <CircularProgress size={16} /> : <SaveIcon />}
-                      disabled={!dirty || saveMutation.isPending || incompleteCount > 0}
+                      disabled={!oystehrZambda || !dirty || saveMutation.isPending || incompleteCount > 0}
                       onClick={() => saveMutation.mutate()}
                     >
                       Save mapping
