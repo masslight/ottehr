@@ -11,7 +11,11 @@ import {
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { CLAIM_STATUS_PROCESSED_TAG } from 'utils/lib/types/data/billing/billing.constants';
-import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
+import {
+  CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+  ClaimAcknowledgmentEvent,
+  ClaimFieldChange,
+} from 'utils/lib/types/data/billing/claim-history';
 import { AR_STAGE, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import {
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
@@ -21,6 +25,7 @@ import {
 } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import {
+  acknowledgmentEventFromMessage,
   claimStatusAccount,
   ClaimStatusMessage,
   claimStatusMessageIdentity,
@@ -48,6 +53,9 @@ import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'sub-claim-status-response';
+
+const REJECTION_FIELD_PREFIX = 'rejection.';
+const ACKNOWLEDGMENT_FIELD_PREFIX = 'acknowledgment.';
 
 let m2mToken: string;
 
@@ -114,9 +122,10 @@ export async function complexValidation(
   const claim = await resolveClaimForStatusResponse(projectClient, claimResponse);
   if (!claim) return undefined;
 
-  const recordedFields = classification.rejection
-    ? await loadClaimStatusHistory(projectClient, claim.id!)
-    : new Set<string>();
+  const recordedFields =
+    classification.rejection || classification.acknowledgments.length
+      ? await loadClaimStatusHistory(projectClient, claim.id!)
+      : new Set<string>();
   return { claimResponse, claim, classification, recordedFields, completion };
 }
 
@@ -127,15 +136,63 @@ export async function performEffect(
 ): Promise<void> {
   const { claim, completion } = validated;
   const agent = await resolveClaimActor('system', oystehr, undefined, secrets);
-  const requests = claimRejectionRequests(validated, agent);
+  const requests = claimStatusRequests(validated, agent);
   // Lock the Claim for history-only writes to prevent concurrent duplicate messages.
   if (requests.length > 0 && !requests.some((request) => request.url === `/Claim/${claim.id}`)) {
     if (!makeOptimisticLockIfMatchHeader(claim)) {
-      throw INVALID_INPUT_ERROR(`Claim/${claim.id} needs a version for rejection history processing`);
+      throw INVALID_INPUT_ERROR(`Claim/${claim.id} needs a version for claim status history processing`);
     }
     requests.unshift(...claimMetaTagsWithProvenanceRequests(claim, claim.meta?.tag ?? [], 'statusChange', agent));
   }
   await oystehr.fhir.transaction({ requests: [...requests, completion] });
+}
+
+export function claimStatusRequests(
+  validated: Pick<ComplexValidationOutput, 'claim' | 'claimResponse' | 'classification' | 'recordedFields'>,
+  agent: ProvenanceAgent
+): BatchInputRequest<FhirResource>[] {
+  return [...claimAcknowledgmentRequests(validated, agent), ...claimRejectionRequests(validated, agent)];
+}
+
+export function claimAcknowledgmentRequests(
+  {
+    claim,
+    claimResponse,
+    classification,
+    recordedFields,
+  }: Pick<ComplexValidationOutput, 'claim' | 'claimResponse' | 'classification' | 'recordedFields'>,
+  agent: ProvenanceAgent
+): BatchInputRequest<FhirResource>[] {
+  if (!hasTag(claim, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)) return [];
+  if (!classification.acknowledgments.length) return [];
+  if (!claim.id || !claimResponse.id) {
+    throw INVALID_INPUT_ERROR('Claim and ClaimResponse IDs are required for acknowledgment processing');
+  }
+  const account = claimStatusAccount(classification.eventIdentifier);
+  const seen = new Set(recordedFields);
+  return classification.acknowledgments.flatMap((acknowledgment) => {
+    const field = `${ACKNOWLEDGMENT_FIELD_PREFIX}${account}:${acknowledgment.responseId}`;
+    if (seen.has(field)) return [];
+    seen.add(field);
+    const request = claimProvenanceRequest({
+      targetReference: `ClaimResponse/${claimResponse.id}`,
+      claimReference: `Claim/${claim.id}`,
+      sourceReference: `ClaimResponse/${claimResponse.id}`,
+      agent,
+      activity: 'acknowledgment',
+      recorded: acknowledgment.eventTime,
+      acknowledgment,
+      extraChanges: [
+        {
+          field,
+          label: acknowledgment.entityName,
+          previousValue: null,
+          newValue: acknowledgment.message,
+        },
+      ],
+    });
+    return request ? [request] : [];
+  });
 }
 
 export function claimRejectionRequests(
@@ -193,7 +250,7 @@ export function claimRejectionHistoryChanges(
       raw,
       message: entry,
     });
-    const field = `rejection.${account}:${identity}`;
+    const field = `${REJECTION_FIELD_PREFIX}${account}:${identity}`;
     if (seen.has(field)) return [];
     seen.add(field);
     return [{ field, label: 'Error', previousValue: null, newValue: entry.text }];
@@ -250,7 +307,8 @@ export async function loadClaimStatusHistory(projectClient: Oystehr, claimId: st
     try {
       const changes = z.array(z.object({ field: z.string() })).parse(JSON.parse(extension.valueString ?? ''));
       changes.forEach(({ field }) => {
-        if (field.startsWith('rejection.')) recordedFields.add(field);
+        if (field.startsWith(REJECTION_FIELD_PREFIX) || field.startsWith(ACKNOWLEDGMENT_FIELD_PREFIX))
+          recordedFields.add(field);
       });
     } catch (cause) {
       if (cause instanceof SyntaxError || cause instanceof z.ZodError) {
@@ -284,16 +342,40 @@ const NO_DETAILS = 'Claim rejected; no details provided.';
 
 type RejectionEntry = ClaimStatusMessage & { text: string };
 
-export type ClassifiedClaimStatusResponse = ParsedClaimStatusResponse & { rejection?: RejectionEntry[] };
+export type ClassifiedClaimStatusResponse = ParsedClaimStatusResponse & {
+  rejection?: RejectionEntry[];
+  acknowledgments: ClaimAcknowledgmentEvent[];
+};
 
-export function classifyClaimStatusResponse(response: ClaimResponse): ClassifiedClaimStatusResponse | undefined {
+export function classifyClaimStatusResponse(
+  response: ClaimResponse,
+  fallbackTime = response.created
+): ClassifiedClaimStatusResponse | undefined {
   const parsed = parseClaimStatusResponse(response);
   if (!parsed) return undefined;
   const { raw } = parsed;
-  if (raw.status !== 'R') return parsed;
+  const acknowledgments = (raw.messages ?? [])
+    .filter((message) => message.status === 'A')
+    .map((message) =>
+      acknowledgmentEventFromMessage({
+        parsed,
+        message,
+        fallbackTime,
+      })
+    );
+  if (raw.status !== 'R') {
+    return {
+      ...parsed,
+      acknowledgments,
+    };
+  }
 
   const entries = (raw.messages ?? [])
     .filter((message) => message.status === 'R')
     .map((message) => ({ ...message, text: message.message?.trim() || NO_DETAILS }));
-  return { ...parsed, rejection: entries.length ? entries : [{ text: NO_DETAILS }] };
+  return {
+    ...parsed,
+    acknowledgments,
+    rejection: entries.length ? entries : [{ text: NO_DETAILS }],
+  };
 }
