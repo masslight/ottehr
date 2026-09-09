@@ -63,6 +63,7 @@ import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { otherColors } from '../../themes/ottehr/colors';
 import { DateInput } from '../DateInput';
 import { FacilitySelect } from '../FacilitySelect';
+import { NioSelect } from '../NioSelect';
 import { PayerSelect } from '../PayerSelect';
 import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
 import { ProviderSelect } from '../ProviderSelect';
@@ -341,6 +342,20 @@ function FieldValueInput({
   if (def?.valueType === 'payer') {
     return (
       <PayerSelect
+        multiple={multiple}
+        value={value}
+        onChange={onChange}
+        label={label}
+        required={required}
+        error={error}
+        helperText={helperText}
+        inputRef={inputRef}
+      />
+    );
+  }
+  if (def?.valueType === 'nio') {
+    return (
+      <NioSelect
         multiple={multiple}
         value={value}
         onChange={onChange}

@@ -637,11 +637,12 @@ describe('ClaimDetail — non-insurance payer section', () => {
     await user.click(within(section).getByRole('button', { name: 'Edit' }));
     await user.click(within(section).getByLabelText('Choose payer'));
 
-    expect(await screen.findByText('FedEx')).toBeInTheDocument();
+    // Generous timeout: the options wait on a 300ms-debounced fetch, slow enough to flake at 1s.
+    const fedEx = await screen.findByRole('option', { name: 'FedEx' }, { timeout: 5000 });
     // Inactive organizations can't be chosen as the payer.
-    expect(screen.queryByText('Inactive Org')).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Inactive Org' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByText('FedEx'));
+    await user.click(fedEx);
     await user.click(within(section).getByRole('button', { name: 'Save' }));
 
     await waitFor(() =>
@@ -680,8 +681,10 @@ describe('ClaimDetail — non-insurance payer section', () => {
     expect(input).toHaveValue('FedEx');
 
     await user.click(input);
-    // The current payer appears once in the list, merged with the loaded options.
-    const options = await screen.findAllByRole('option');
+    // Wait out the debounced fetch, then check the current payer appears once, merged with the
+    // loaded options.
+    await screen.findByRole('option', { name: 'UPS' }, { timeout: 5000 });
+    const options = screen.getAllByRole('option');
     expect(options.map((o) => o.textContent)).toEqual(['FedEx', 'UPS']);
 
     await user.click(screen.getByRole('option', { name: 'UPS' }));

@@ -469,7 +469,8 @@ describe('ClaimsList — non-insurance organization filter', () => {
 
     const input = await screen.findByLabelText('Non-insurance Organization');
     fireEvent.mouseDown(input);
-    fireEvent.click(await screen.findByRole('option', { name: 'FedEx' }));
+    // Generous timeout: the option waits on a 300ms-debounced fetch, slow enough to flake at 1s.
+    fireEvent.click(await screen.findByRole('option', { name: 'FedEx' }, { timeout: 5000 }));
 
     await waitFor(() =>
       expect(searchBillingClaimsMock).toHaveBeenCalledWith(

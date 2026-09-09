@@ -3,6 +3,7 @@ import {
   ADD_SERVICE_LINE_FIELDS,
   addServiceLineFieldProblem,
   collectApplyTagNames,
+  collectSetNioIds,
   collectSetResourceRefs,
   getRuleFieldDef,
   getServiceLinePropertyDef,
@@ -442,6 +443,63 @@ describe('rule value validation', () => {
       { field: 'billingProvider.ref', ref: 'Organization/org-1' },
       { field: 'serviceFacility.ref', ref: 'Location/loc-1' },
     ]);
+  });
+
+  it('validates non-insurance organization values as directory ids', () => {
+    const nio = field('nonInsurancePayerId');
+    const uuid = '8f1f6f3e-1111-4222-8333-444455556666';
+    expect(setFieldValueProblem(nio, uuid)).toBeUndefined();
+    expect(setFieldValueProblem(nio, '')).toBeUndefined(); // clear is legal
+    expect(setFieldValueProblem(nio, 'not-a-uuid')).toContain('non-insurance organization id');
+
+    expect(ruleConditionValueProblem(nio, 'eq', uuid)).toBeUndefined();
+    expect(ruleConditionValueProblem(nio, 'in', [uuid, 'nope'])).toContain('non-insurance organization id');
+    expect(ruleConditionValueProblem(nio, 'exists', undefined)).toBeUndefined();
+  });
+
+  it('collects setField NIO ids across nested conditionals, deduped, skipping clears', () => {
+    const uuidA = '8f1f6f3e-1111-4222-8333-444455556666';
+    const uuidB = '2b9c0d1e-2222-4333-9444-555566667777';
+    const ids = collectSetNioIds({
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: {
+              type: 'conditional',
+              conditional: {
+                branches: [
+                  {
+                    condition: { type: 'all' },
+                    outcome: {
+                      type: 'actions',
+                      actions: [
+                        { type: 'setField', field: 'nonInsurancePayerId', value: uuidA },
+                        // Other setFields and clears are not collected.
+                        { type: 'setField', field: 'patient.state', value: 'CA' },
+                        { type: 'setField', field: 'nonInsurancePayerId', value: '' },
+                      ],
+                    },
+                  },
+                ],
+                otherwise: {
+                  type: 'actions',
+                  actions: [{ type: 'setField', field: 'nonInsurancePayerId', value: uuidB }],
+                },
+              },
+            },
+          },
+          {
+            condition: { type: 'all' },
+            outcome: {
+              type: 'actions',
+              actions: [{ type: 'setField', field: 'nonInsurancePayerId', value: uuidA }],
+            },
+          },
+        ],
+      },
+    });
+    expect(ids).toEqual([uuidA, uuidB]);
   });
 
   it('detects applyChargeMasterPrices actions anywhere in the conditional tree', () => {
