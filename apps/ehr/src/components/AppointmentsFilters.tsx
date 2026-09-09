@@ -238,7 +238,9 @@ export default function AppointmentsFilters(): ReactElement {
     <FormProvider {...methods}>
       <Paper sx={{ padding: 2 }}>
         <Stack spacing={2}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
+          {/* useFlexGap: the Link below is `display: contents`, so the margin Stack uses for `spacing`
+              by default would be dropped, leaving the button flush against the Visit Type filter. */}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start" useFlexGap>
             <Box sx={{ flex: 1, width: '100%' }}>
               <SelectInput
                 name="visitType"
