@@ -207,6 +207,8 @@ export const SearchBillingServicesInputSchema = z.object({
 export const SearchBillingPayersInputSchema = z.object({
   name: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
+  cursor: nonEmptyString.optional(),
+  limit: z.number().int().positive().max(200).optional(),
 });
 
 const claimDiagnosisSchema = z.object({
