@@ -122,6 +122,19 @@ export function claimStatusEntity(
   };
 }
 
+export const ClaimAcknowledgmentEventSchema = z.object({
+  source: z.literal('claimmd'),
+  entityName: z.string(),
+  entityKind: z.enum(['clearinghouse', 'payer']),
+  message: z.string(),
+  messageId: z.string().optional(),
+  responseId: z.string(),
+  batchId: z.string().optional(),
+  clearinghouseClaimId: z.string().optional(),
+  payerClaimControlNumber: z.string().optional(),
+  eventTime: z.string(),
+}) satisfies z.ZodType<ClaimAcknowledgmentEvent>;
+
 export function acknowledgmentEventFromMessage({
   parsed,
   message,

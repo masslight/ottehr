@@ -16,7 +16,12 @@ import {
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { ClaimHistoryEntry, ClaimHistoryLink, ClaimHistoryRuleRef } from 'utils/lib/types/data/billing/claim-history';
+import {
+  ClaimAcknowledgmentEvent,
+  ClaimHistoryEntry,
+  ClaimHistoryLink,
+  ClaimHistoryRuleRef,
+} from 'utils/lib/types/data/billing/claim-history';
 import { getBillingClaimHistory } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { otherColors } from '../../themes/ottehr/colors';
@@ -66,7 +71,59 @@ function RuleSuffix({ rule }: { rule?: ClaimHistoryRuleRef }): ReactElement | nu
   );
 }
 
+function AcknowledgmentDetail({ acknowledgment }: { acknowledgment: ClaimAcknowledgmentEvent }): ReactElement {
+  const references = [
+    {
+      label: 'Batch ID',
+      value: acknowledgment.batchId,
+    },
+    {
+      label: 'Claim.MD ID',
+      value: acknowledgment.clearinghouseClaimId,
+    },
+    {
+      label: 'Payer Claim Control #',
+      value: acknowledgment.payerClaimControlNumber,
+    },
+  ].filter((reference) => reference.value);
+  return (
+    <>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          py: 0.25,
+        }}
+      >
+        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+          {acknowledgment.entityName}
+        </Typography>
+        <Chip
+          label={acknowledgment.entityKind === 'clearinghouse' ? 'Clearinghouse' : 'Payer'}
+          size="small"
+          variant="outlined"
+          sx={{
+            height: 18,
+            fontSize: 10,
+          }}
+        />
+      </Box>
+      <Typography variant="body2">{acknowledgment.message}</Typography>
+      {references.length > 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ pt: 0.25 }}>
+          {references.map((reference) => `${reference.label}: ${reference.value}`).join(' · ')}
+        </Typography>
+      )}
+    </>
+  );
+}
+
 function HistoryDetail({ entry }: { entry: ClaimHistoryEntry }): ReactElement {
+  if (entry.acknowledgment) {
+    return <AcknowledgmentDetail acknowledgment={entry.acknowledgment} />;
+  }
+
   // for claim notes
   if (entry.message) {
     return (

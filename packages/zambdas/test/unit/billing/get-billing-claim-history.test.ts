@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { Organization, Practitioner, Provenance, Resource } from 'fhir/r4b';
 import {
+  CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_AGENT_TYPE,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
@@ -293,6 +294,103 @@ describe('get-billing-claim-history performEffect', () => {
 
     const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
     expect(entries[0].actor.display).toContain('Doe');
+  });
+
+  it('maps an acknowledgment provenance into an entry carrying the event and no note', async () => {
+    const acknowledgment = {
+      source: 'claimmd',
+      entityName: 'CIGNA',
+      entityKind: 'payer',
+      message: "Code 21 - Forwarded to entity's internal adjudication system.",
+      messageId: 'ACK',
+      responseId: 'id:9001',
+      batchId: '20260805123456789',
+      clearinghouseClaimId: '48213765',
+      payerClaimControlNumber: '762839104822',
+      eventTime: '2026-08-06T12:47:00.000Z',
+    };
+    const provenance: Provenance = {
+      ...provenanceBase('prov1', acknowledgment.eventTime),
+      activity: {
+        coding: [CLAIM_PROVENANCE_ACTIVITY.acknowledgment],
+      },
+      target: [
+        {
+          reference: 'ClaimResponse/cr1',
+        },
+        {
+          reference: 'Claim/c1',
+        },
+      ],
+      extension: [
+        diffExtension([
+          {
+            field: 'acknowledgment.account:id:9001',
+            label: 'CIGNA',
+            previousValue: null,
+            newValue: acknowledgment.message,
+          },
+        ]),
+        {
+          url: CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
+          valueString: JSON.stringify(acknowledgment),
+        },
+      ],
+    };
+    const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], [practitionerU1]) });
+
+    const { entries } = await performEffect(oystehr, {
+      claimId: 'c1',
+      secrets: null,
+    });
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      activity: 'Acknowledgment',
+      recorded: acknowledgment.eventTime,
+      acknowledgment,
+    });
+    // The notes drawer keys off `message`, so an acknowledgment must never populate it.
+    expect(entries[0].message).toBeUndefined();
+  });
+
+  it('still renders the history row when the stored acknowledgment is unreadable', async () => {
+    const provenance: Provenance = {
+      ...provenanceBase('prov1', '2026-08-06T12:47:00.000Z'),
+      activity: {
+        coding: [CLAIM_PROVENANCE_ACTIVITY.acknowledgment],
+      },
+      target: [
+        { reference: 'ClaimResponse/cr1' },
+        {
+          reference: 'Claim/c1',
+        },
+      ],
+      extension: [
+        diffExtension([
+          {
+            field: 'acknowledgment.account:id:9001',
+            label: 'CIGNA',
+            previousValue: null,
+            newValue: 'Acknowledged',
+          },
+        ]),
+        {
+          url: CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
+          valueString: '{"entityName":"CIGNA"}',
+        },
+      ],
+    };
+    const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], [practitionerU1]) });
+
+    const { entries } = await performEffect(oystehr, {
+      claimId: 'c1',
+      secrets: null,
+    });
+
+    expect(entries[0].acknowledgment).toBeUndefined();
+    expect(entries[0].changes).toHaveLength(1);
+    expect(captureExceptionMock).toHaveBeenCalled();
   });
 });
 
