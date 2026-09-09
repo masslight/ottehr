@@ -25,6 +25,7 @@ import { Fragment, lazy, ReactElement, ReactNode, Suspense, useEffect, useMemo, 
 import { useNavigate, useParams } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
+import PageContainer from 'src/layout/PageContainer';
 import {
   checkCompatibility,
   DATE_FORMAT_LABELS,
@@ -298,112 +299,124 @@ export const FormTemplateDetailPage = (): ReactElement => {
   const selectedToken = selectedFieldName ? tokensByKey[bindings[selectedFieldName]?.tokenKey ?? ''] : undefined;
   const selectedFieldMapping = selectedToken ? `${selectedToken.group} · ${selectedToken.label}` : undefined;
 
-  if (isLoading) return <CircularProgress />;
-  if (isError || !data) return <Typography color="error">This form template could not be loaded.</Typography>;
+  if (isLoading)
+    return (
+      <PageContainer tabTitle="Form template">
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <CircularProgress />
+        </Box>
+      </PageContainer>
+    );
+
+  if (isError || !data)
+    return (
+      <PageContainer tabTitle="Form template">
+        <Typography color="error">This form template could not be loaded.</Typography>
+      </PageContainer>
+    );
 
   return (
-    // This page is routed outside the admin layout, so it supplies its own gutters — without them the
-    // header sits flush against the edge of the viewport.
-    <Box sx={{ px: 3, py: 3 }}>
-      <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 3 }}>
-        <RoundedButton startIcon={<ArrowBackIcon />} onClick={() => navigate('/admin/form-templates')}>
-          Back
-        </RoundedButton>
-        <Typography variant="h6">{data.item.title}</Typography>
-      </Stack>
+    <PageContainer tabTitle={data.item.title}>
+      <>
+        <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 3 }}>
+          <RoundedButton startIcon={<ArrowBackIcon />} onClick={() => navigate('/admin/form-templates')}>
+            Back
+          </RoundedButton>
+          <Typography variant="h6">{data.item.title}</Typography>
+        </Stack>
 
-      <Stack spacing={3}>
-        <FormTemplateActionsBar item={data.item} />
+        <Stack spacing={3}>
+          <FormTemplateActionsBar item={data.item} />
 
-        <FormTemplateDetailsCard item={data.item} />
+          <FormTemplateDetailsCard item={data.item} />
 
-        {/* `overflow: visible` is load-bearing. MUI's Card clips by default, and any clipping ancestor
+          {/* `overflow: visible` is load-bearing. MUI's Card clips by default, and any clipping ancestor
             silently disables `position: sticky` for everything inside it — which is why the preview
             column would not follow the field list however it was styled. */}
-        <Card variant="outlined" sx={{ overflow: 'visible' }}>
-          <CardContent>
-            <Stack spacing={2}>
-              <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2} flexWrap="wrap">
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Field mapping
-                </Typography>
-                <Stack direction="row" alignItems="center" gap={2}>
-                  <Typography variant="body2" color="text.secondary">
-                    {boundCount} of {mappableFields.length} fields mapped
+          <Card variant="outlined" sx={{ overflow: 'visible' }}>
+            <CardContent>
+              <Stack spacing={2}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2} flexWrap="wrap">
+                  <Typography variant="subtitle1" fontWeight={600}>
+                    Field mapping
                   </Typography>
-                  <RoundedButton
-                    variant="contained"
-                    startIcon={saveMutation.isPending ? <CircularProgress size={16} /> : <SaveIcon />}
-                    disabled={!dirty || saveMutation.isPending || incompleteCount > 0}
-                    onClick={() => saveMutation.mutate()}
-                  >
-                    Save mapping
-                  </RoundedButton>
-                </Stack>
-              </Stack>
-
-              {data.status === 'printable' && (
-                <Typography color="text.secondary" sx={{ py: 2 }}>
-                  This PDF has no fillable fields, so there is nothing to map. Providers can still open and print it.
-                </Typography>
-              )}
-
-              {omittedCount > 0 && (
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  {omittedCount} field{omittedCount === 1 ? '' : 's'} on this form cannot be filled from chart data and
-                  are left for the provider to complete.
-                </Typography>
-              )}
-
-              {incompleteCount > 0 && (
-                <Typography color="warning.main" variant="body2" sx={{ mb: 1 }}>
-                  {incompleteCount} mapping{incompleteCount === 1 ? ' needs' : 's need'} a format before this can be
-                  saved.
-                </Typography>
-              )}
-
-              {mappableFields.length > 0 && (
-                <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="flex-start">
-                  {data.item.pdfPresignedUrl && (
-                    <Box
-                      sx={{
-                        flex: '0 0 46%',
-                        maxWidth: { xs: '100%', lg: '46%' },
-                        position: { lg: 'sticky' },
-                        top: { lg: 16 },
-                        // Sticky alone was not enough: a rendered page is taller than the window, and a
-                        // sticky element taller than the viewport still scrolls out of sight. Capping the
-                        // height gives the preview somewhere to scroll internally instead.
-                        maxHeight: { lg: 'calc(100vh - 32px)' },
-                        display: 'flex',
-                        flexDirection: 'column',
-                        border: 1,
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        overflow: 'hidden',
-                        p: 1,
-                      }}
+                  <Stack direction="row" alignItems="center" gap={2}>
+                    <Typography variant="body2" color="text.secondary">
+                      {boundCount} of {mappableFields.length} fields mapped
+                    </Typography>
+                    <RoundedButton
+                      variant="contained"
+                      startIcon={saveMutation.isPending ? <CircularProgress size={16} /> : <SaveIcon />}
+                      disabled={!dirty || saveMutation.isPending || incompleteCount > 0}
+                      onClick={() => saveMutation.mutate()}
                     >
-                      <Suspense fallback={<CircularProgress size={20} />}>
-                        <FormTemplatePdfPreview
-                          fileUrl={data.item.pdfPresignedUrl}
-                          fields={mappableFields}
-                          selectedFieldName={selectedFieldName}
-                          selectedFieldMapping={selectedFieldMapping}
-                          mappedFieldNames={mappedFieldNames}
-                          pageNumber={pageNumber}
-                          onRetry={() => void refetch()}
-                          onPageChange={(next) => {
-                            setPageNumber(next);
-                            setSelectedFieldName(undefined);
-                          }}
-                        />
-                      </Suspense>
-                    </Box>
-                  )}
+                      Save mapping
+                    </RoundedButton>
+                  </Stack>
+                </Stack>
 
-                  <TableContainer sx={{ flex: 1, minWidth: 0 }}>
-                    {/* Fixed layout because these names are machine-generated and can run very long with no
+                {data.status === 'printable' && (
+                  <Typography color="text.secondary" sx={{ py: 2 }}>
+                    This PDF has no fillable fields, so there is nothing to map. Providers can still open and print it.
+                  </Typography>
+                )}
+
+                {omittedCount > 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {omittedCount} field{omittedCount === 1 ? '' : 's'} on this form cannot be filled from chart data
+                    and are left for the provider to complete.
+                  </Typography>
+                )}
+
+                {incompleteCount > 0 && (
+                  <Typography color="warning.main" variant="body2" sx={{ mb: 1 }}>
+                    {incompleteCount} mapping{incompleteCount === 1 ? ' needs' : 's need'} a format before this can be
+                    saved.
+                  </Typography>
+                )}
+
+                {mappableFields.length > 0 && (
+                  <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="flex-start">
+                    {data.item.pdfPresignedUrl && (
+                      <Box
+                        sx={{
+                          flex: '0 0 46%',
+                          maxWidth: { xs: '100%', lg: '46%' },
+                          position: { lg: 'sticky' },
+                          top: { lg: 16 },
+                          // Sticky alone was not enough: a rendered page is taller than the window, and a
+                          // sticky element taller than the viewport still scrolls out of sight. Capping the
+                          // height gives the preview somewhere to scroll internally instead.
+                          maxHeight: { lg: 'calc(100vh - 32px)' },
+                          display: 'flex',
+                          flexDirection: 'column',
+                          border: 1,
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          overflow: 'hidden',
+                          p: 1,
+                        }}
+                      >
+                        <Suspense fallback={<CircularProgress size={20} />}>
+                          <FormTemplatePdfPreview
+                            fileUrl={data.item.pdfPresignedUrl}
+                            fields={mappableFields}
+                            selectedFieldName={selectedFieldName}
+                            selectedFieldMapping={selectedFieldMapping}
+                            mappedFieldNames={mappedFieldNames}
+                            pageNumber={pageNumber}
+                            onRetry={() => void refetch()}
+                            onPageChange={(next) => {
+                              setPageNumber(next);
+                              setSelectedFieldName(undefined);
+                            }}
+                          />
+                        </Suspense>
+                      </Box>
+                    )}
+
+                    <TableContainer sx={{ flex: 1, minWidth: 0 }}>
+                      {/* Fixed layout because these names are machine-generated and can run very long with no
                         spaces to break at. Sized to content, one such name widens its column until the control
                         beside it is pushed off the edge — and the control is the part being edited.
 
@@ -412,173 +425,174 @@ export const FormTemplateDetailPage = (): ReactElement => {
                         while a token label has nowhere to go and is cut mid-word. Space spent on the name is
                         mostly whitespace at the end of a wrapped line; the same space spent on the control is
                         the difference between reading the mapping and guessing at it. */}
-                    <Table size="small" sx={{ tableLayout: 'fixed' }}>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell sx={{ width: '45%' }}>Form field</TableCell>
-                          <TableCell sx={{ width: '55%' }}>Fill with</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {visibleFields.map((field) => {
-                          const binding = bindings[field.name];
-                          const token = binding ? tokensByKey[binding.tokenKey] : undefined;
-                          const transformKind = token ? requiredTransformKind(token.type, field.type) : undefined;
-                          const needsFormat = !!transformKind && !binding?.transform;
+                      <Table size="small" sx={{ tableLayout: 'fixed' }}>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell sx={{ width: '45%' }}>Form field</TableCell>
+                            <TableCell sx={{ width: '55%' }}>Fill with</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {visibleFields.map((field) => {
+                            const binding = bindings[field.name];
+                            const token = binding ? tokensByKey[binding.tokenKey] : undefined;
+                            const transformKind = token ? requiredTransformKind(token.type, field.type) : undefined;
+                            const needsFormat = !!transformKind && !binding?.transform;
 
-                          // Only offer tokens this field could actually accept, so an impossible pairing is
-                          // simply not selectable rather than being rejected after the fact.
-                          const options = TOKEN_CATALOG.filter(
-                            (candidate) => checkCompatibility(candidate.type, field.type) !== 'incompatible'
-                          );
+                            // Only offer tokens this field could actually accept, so an impossible pairing is
+                            // simply not selectable rather than being rejected after the fact.
+                            const options = TOKEN_CATALOG.filter(
+                              (candidate) => checkCompatibility(candidate.type, field.type) !== 'incompatible'
+                            );
 
-                          return (
-                            <TableRow
-                              key={field.name}
-                              hover
-                              selected={field.name === selectedFieldName}
-                              onClick={() => setSelectedFieldName(field.name)}
-                              sx={{ cursor: 'pointer' }}
-                            >
-                              <TableCell>
-                                <Tooltip title={field.name} placement="top-start">
-                                  {/* Wrapped rather than truncated: names like `form1[0].#subform[1].TextField12[0]`
+                            return (
+                              <TableRow
+                                key={field.name}
+                                hover
+                                selected={field.name === selectedFieldName}
+                                onClick={() => setSelectedFieldName(field.name)}
+                                sx={{ cursor: 'pointer' }}
+                              >
+                                <TableCell>
+                                  <Tooltip title={field.name} placement="top-start">
+                                    {/* Wrapped rather than truncated: names like `form1[0].#subform[1].TextField12[0]`
                                       differ only in their last few characters, so an ellipsis at the end would make
                                       distinct rows read identically. Broken mid-token since there is nothing else to
                                       break at, and clamped so one enormous name cannot push the rest of the list off
                                       the screen. The whole name stays in the tooltip. */}
-                                  <Typography
-                                    variant="body2"
-                                    sx={{
-                                      // Only reached when a single segment is itself wider than the column;
-                                      // the break opportunities above are preferred wherever they fit.
-                                      overflowWrap: 'anywhere',
-                                      display: '-webkit-box',
-                                      WebkitBoxOrient: 'vertical',
-                                      WebkitLineClamp: 3,
-                                      overflow: 'hidden',
-                                    }}
-                                  >
-                                    {withBreakOpportunities(fieldLabel(field))}
-                                  </Typography>
-                                </Tooltip>
-                                <Stack direction="row" gap={0.5} sx={{ mt: 0.5 }}>
-                                  <Chip size="small" variant="outlined" label={field.type} />
-                                </Stack>
-                              </TableCell>
+                                    <Typography
+                                      variant="body2"
+                                      sx={{
+                                        // Only reached when a single segment is itself wider than the column;
+                                        // the break opportunities above are preferred wherever they fit.
+                                        overflowWrap: 'anywhere',
+                                        display: '-webkit-box',
+                                        WebkitBoxOrient: 'vertical',
+                                        WebkitLineClamp: 3,
+                                        overflow: 'hidden',
+                                      }}
+                                    >
+                                      {withBreakOpportunities(fieldLabel(field))}
+                                    </Typography>
+                                  </Tooltip>
+                                  <Stack direction="row" gap={0.5} sx={{ mt: 0.5 }}>
+                                    <Chip size="small" variant="outlined" label={field.type} />
+                                  </Stack>
+                                </TableCell>
 
-                              <TableCell>
-                                <Autocomplete
-                                  size="small"
-                                  fullWidth
-                                  options={options}
-                                  groupBy={(option) => option.group}
-                                  getOptionLabel={(option) => option.label}
-                                  value={token ?? null}
-                                  onChange={(_e, next) =>
-                                    setBinding(
-                                      field.name,
-                                      next ? { fieldName: field.name, tokenKey: next.key } : undefined
-                                    )
-                                  }
-                                  renderInput={(params) => (
-                                    // The group rides on the outline as a floating label rather than inside the
-                                    // value, so "First name" is unambiguous without lengthening what is selected.
-                                    // Absent when nothing is bound, which lets the placeholder show through.
-                                    <TextField {...params} label={token?.group} placeholder="Not mapped" />
-                                  )}
-                                />
-
-                                {/* Only a minority of bindings need a format, so it appears beneath the token it
-                            belongs to rather than occupying a column that is empty on most rows. */}
-                                {transformKind === 'dateFormat' && (
-                                  <TextField
-                                    select
+                                <TableCell>
+                                  <Autocomplete
                                     size="small"
                                     fullWidth
-                                    sx={{ mt: 1 }}
-                                    // The column header used to supply this context; inline, the control has to
-                                    // say what it is on its own.
-                                    label="Date format"
-                                    error={needsFormat}
-                                    helperText={needsFormat ? 'Choose how the date should be written' : undefined}
-                                    value={binding?.transform?.kind === 'dateFormat' ? binding.transform.format : ''}
-                                    onChange={(e) =>
-                                      binding &&
-                                      setBinding(field.name, {
-                                        ...binding,
-                                        transform: { kind: 'dateFormat', format: e.target.value } as FormTransform,
-                                      })
+                                    options={options}
+                                    groupBy={(option) => option.group}
+                                    getOptionLabel={(option) => option.label}
+                                    value={token ?? null}
+                                    onChange={(_e, next) =>
+                                      setBinding(
+                                        field.name,
+                                        next ? { fieldName: field.name, tokenKey: next.key } : undefined
+                                      )
                                     }
-                                  >
-                                    {Object.entries(DATE_FORMAT_LABELS).map(([format, example]) => (
-                                      <MenuItem key={format} value={format}>
-                                        {example}
-                                      </MenuItem>
-                                    ))}
-                                  </TextField>
-                                )}
+                                    renderInput={(params) => (
+                                      // The group rides on the outline as a floating label rather than inside the
+                                      // value, so "First name" is unambiguous without lengthening what is selected.
+                                      // Absent when nothing is bound, which lets the placeholder show through.
+                                      <TextField {...params} label={token?.group} placeholder="Not mapped" />
+                                    )}
+                                  />
 
-                                {transformKind === 'booleanText' && (
-                                  <Stack direction="row" gap={1} sx={{ mt: 1 }}>
+                                  {/* Only a minority of bindings need a format, so it appears beneath the token it
+                            belongs to rather than occupying a column that is empty on most rows. */}
+                                  {transformKind === 'dateFormat' && (
                                     <TextField
+                                      select
                                       size="small"
-                                      label="If yes"
+                                      fullWidth
+                                      sx={{ mt: 1 }}
+                                      // The column header used to supply this context; inline, the control has to
+                                      // say what it is on its own.
+                                      label="Date format"
                                       error={needsFormat}
-                                      value={
-                                        binding?.transform?.kind === 'booleanText' ? binding.transform.trueText : ''
-                                      }
+                                      helperText={needsFormat ? 'Choose how the date should be written' : undefined}
+                                      value={binding?.transform?.kind === 'dateFormat' ? binding.transform.format : ''}
                                       onChange={(e) =>
                                         binding &&
                                         setBinding(field.name, {
                                           ...binding,
-                                          transform: {
-                                            kind: 'booleanText',
-                                            trueText: e.target.value,
-                                            falseText:
-                                              binding.transform?.kind === 'booleanText'
-                                                ? binding.transform.falseText
-                                                : '',
-                                          },
+                                          transform: { kind: 'dateFormat', format: e.target.value } as FormTransform,
                                         })
                                       }
-                                    />
-                                    <TextField
-                                      size="small"
-                                      label="If no"
-                                      value={
-                                        binding?.transform?.kind === 'booleanText' ? binding.transform.falseText : ''
-                                      }
-                                      onChange={(e) =>
-                                        binding &&
-                                        setBinding(field.name, {
-                                          ...binding,
-                                          transform: {
-                                            kind: 'booleanText',
-                                            trueText:
-                                              binding.transform?.kind === 'booleanText'
-                                                ? binding.transform.trueText
-                                                : '',
-                                            falseText: e.target.value,
-                                          },
-                                        })
-                                      }
-                                    />
-                                  </Stack>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </Stack>
-              )}
-            </Stack>
-          </CardContent>
-        </Card>
-      </Stack>
-    </Box>
+                                    >
+                                      {Object.entries(DATE_FORMAT_LABELS).map(([format, example]) => (
+                                        <MenuItem key={format} value={format}>
+                                          {example}
+                                        </MenuItem>
+                                      ))}
+                                    </TextField>
+                                  )}
+
+                                  {transformKind === 'booleanText' && (
+                                    <Stack direction="row" gap={1} sx={{ mt: 1 }}>
+                                      <TextField
+                                        size="small"
+                                        label="If yes"
+                                        error={needsFormat}
+                                        value={
+                                          binding?.transform?.kind === 'booleanText' ? binding.transform.trueText : ''
+                                        }
+                                        onChange={(e) =>
+                                          binding &&
+                                          setBinding(field.name, {
+                                            ...binding,
+                                            transform: {
+                                              kind: 'booleanText',
+                                              trueText: e.target.value,
+                                              falseText:
+                                                binding.transform?.kind === 'booleanText'
+                                                  ? binding.transform.falseText
+                                                  : '',
+                                            },
+                                          })
+                                        }
+                                      />
+                                      <TextField
+                                        size="small"
+                                        label="If no"
+                                        value={
+                                          binding?.transform?.kind === 'booleanText' ? binding.transform.falseText : ''
+                                        }
+                                        onChange={(e) =>
+                                          binding &&
+                                          setBinding(field.name, {
+                                            ...binding,
+                                            transform: {
+                                              kind: 'booleanText',
+                                              trueText:
+                                                binding.transform?.kind === 'booleanText'
+                                                  ? binding.transform.trueText
+                                                  : '',
+                                              falseText: e.target.value,
+                                            },
+                                          })
+                                        }
+                                      />
+                                    </Stack>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Stack>
+                )}
+              </Stack>
+            </CardContent>
+          </Card>
+        </Stack>
+      </>
+    </PageContainer>
   );
 };
