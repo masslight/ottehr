@@ -528,8 +528,11 @@ export function commaFormattedName(resource?: { firstName: string; lastName: str
   return `${resource.lastName}, ${resource.firstName}`.trim();
 }
 
+// Claim.MD's "no specific type" attachment report code, used when the caller names nothing better.
+export const DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE = 'OZ';
+
 export const CLAIM_ATTACHMENT_REPORT_TYPE_CODES = [
-  { code: 'OZ', label: 'Support Data for Claim' },
+  { code: DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE, label: 'Support Data for Claim' },
   { code: '03', label: 'Report Justifying Treatment Beyond Utilization Guidelines' },
   { code: '04', label: 'Drugs Administered' },
   { code: '05', label: 'Treatment Diagnosis' },

@@ -60,7 +60,7 @@ import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import Dropzone, { DropzoneProps } from 'react-dropzone';
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES } from 'utils';
+import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
@@ -1608,7 +1608,10 @@ function AttachmentsSection({
   };
 
   const openAddDialog = (): void => {
-    addReset({ name: '', reportTypeCode: 'OZ' });
+    addReset({
+      name: '',
+      reportTypeCode: DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE,
+    });
     setShowAddDialog(true);
   };
   const closeAddDialog = (): void => {
@@ -1720,10 +1723,11 @@ function AttachmentsSection({
                     <TableCell>{line.sequence}</TableCell>
                     <TableCell>{line.fileName}</TableCell>
                     <TableCell>
-                      {line.reportTypeCode ?? 'OZ'} &mdash;{' '}
+                      {line.reportTypeCode ?? DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE} &mdash;{' '}
                       {
-                        CLAIM_ATTACHMENT_REPORT_TYPE_CODES.find(({ code }) => code === (line.reportTypeCode ?? 'OZ'))
-                          ?.label
+                        CLAIM_ATTACHMENT_REPORT_TYPE_CODES.find(
+                          ({ code }) => code === (line.reportTypeCode ?? DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE)
+                        )?.label
                       }
                     </TableCell>
                     <TableCell>{formatDateTime(line.dateAdded)}</TableCell>

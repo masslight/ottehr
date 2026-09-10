@@ -479,6 +479,13 @@
       "runtime": "nodejs22.x",
       "src": "src/billing/download-claim-attachment/index",
       "zip": ".dist/zips/download-claim-attachment.zip"
+    },
+    "CREATE-TIMELY-FILING-REPORT": {
+      "name": "create-timely-filing-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-timely-filing-report/index",
+      "zip": ".dist/zips/create-timely-filing-report.zip"
     }
   },
   "fhirResources": {
