@@ -65,13 +65,16 @@ describe('InsuranceOrganizationsList', () => {
     });
   });
 
-  it('merges custom and RCM rows into one grid', async () => {
+  it('merges custom and RCM rows into one grid, showing only Name and Payer Id', async () => {
     renderList();
 
-    // Columns further right (Org Id, Insurance Type, etc.) sit past jsdom's virtualized viewport,
-    // so only the always-visible Name column is asserted here.
     expect(await screen.findByText('Acme Insurance')).toBeInTheDocument();
     expect(screen.getByText('RCM Payer Co')).toBeInTheDocument();
+    // A custom org has no RCM payer id — its "OTR-" org id fills the Payer Id column instead.
+    expect(screen.getByText('OTR-ACME')).toBeInTheDocument();
+    expect(screen.getByText('PAYER1')).toBeInTheDocument();
+    expect(screen.queryByText('Insurance Type')).not.toBeInTheDocument();
+    expect(screen.queryByText('Submission')).not.toBeInTheDocument();
   });
 
   it('rejects an org id that does not start with "OTR-"', async () => {

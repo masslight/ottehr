@@ -5,12 +5,7 @@ import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { BillingPayerOption } from 'utils/lib/types/data/billing/billing.types';
-import {
-  INSURANCE_ORG_CLAIM_FORM_LABELS,
-  INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS,
-  INSURANCE_ORG_TYPE_LABELS,
-  InsuranceOrganizationItem,
-} from 'utils/lib/types/data/billing/insurance-org.types';
+import { InsuranceOrganizationItem } from 'utils/lib/types/data/billing/insurance-org.types';
 import { deleteBillingInsuranceOrg, searchBillingInsuranceOrgs, searchBillingPayers } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { InsuranceOrgDetailSection } from '../components/insurance-org/InsuranceOrgDetailSection';
@@ -24,10 +19,6 @@ interface InsuranceOrgRow {
   source: 'rcm' | 'custom';
   name: string;
   payerId: string;
-  orgId: string;
-  insuranceTypesDisplay: string;
-  submissionMechanismDisplay: string;
-  acceptedClaimFormDisplay: string;
 }
 
 function payerToRow(payer: BillingPayerOption): InsuranceOrgRow {
@@ -37,10 +28,6 @@ function payerToRow(payer: BillingPayerOption): InsuranceOrgRow {
     source: 'rcm',
     name: payer.name,
     payerId: payer.payerId,
-    orgId: '',
-    insuranceTypesDisplay: '',
-    submissionMechanismDisplay: '',
-    acceptedClaimFormDisplay: '',
   };
 }
 
@@ -50,27 +37,14 @@ function customOrgToRow(item: InsuranceOrganizationItem): InsuranceOrgRow {
     id: item.id,
     source: 'custom',
     name: item.name,
-    payerId: '',
-    orgId: item.orgId,
-    insuranceTypesDisplay: item.insuranceTypes.map((type) => INSURANCE_ORG_TYPE_LABELS[type]).join(', '),
-    submissionMechanismDisplay: INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS[item.submissionMechanism] ?? '',
-    acceptedClaimFormDisplay: INSURANCE_ORG_CLAIM_FORM_LABELS[item.acceptedClaimForm] ?? '',
+    // Custom orgs have no RCM payer id — their "OTR-" org id fills the same column.
+    payerId: item.orgId,
   };
 }
 
 const columns: GridColDef<InsuranceOrgRow>[] = [
-  { field: 'name', headerName: 'Name', flex: 1, minWidth: 220 },
-  {
-    field: 'source',
-    headerName: 'Source',
-    width: 90,
-    valueFormatter: (params: { value: InsuranceOrgRow['source'] }) => (params.value === 'custom' ? 'Custom' : 'RCM'),
-  },
-  { field: 'payerId', headerName: 'Payer ID', width: 130 },
-  { field: 'orgId', headerName: 'Org Id', width: 130 },
-  { field: 'insuranceTypesDisplay', headerName: 'Insurance Type', flex: 1, minWidth: 200 },
-  { field: 'submissionMechanismDisplay', headerName: 'Submission', width: 130 },
-  { field: 'acceptedClaimFormDisplay', headerName: 'Claim Form', width: 120 },
+  { field: 'name', headerName: 'Name', flex: 1, minWidth: 240 },
+  { field: 'payerId', headerName: 'Payer Id', width: 160 },
 ];
 
 export function InsuranceOrganizationsList(): ReactElement {
