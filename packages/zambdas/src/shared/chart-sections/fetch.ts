@@ -4,8 +4,7 @@ import { chunkThings } from 'utils/lib/fhir/chat';
 import { createFindResourceRequestById, parseSearchsetEntry } from '../chart-data/search-requests';
 
 // A FHIR batch runs its entries one after another on the server, so one batch of N searches costs roughly
-// the sum of all N. Spreading them over concurrent batches turns that sum into a max: measured against this
-// backend, ~18 searches took 455ms as one batch and 173ms as six concurrent batches of three.
+// the sum of all N. Spreading them over concurrent batches turns that sum into a max.
 export const CHART_BATCH_TARGET_CONCURRENCY = 6;
 export const CHART_BATCH_MIN_SIZE = 3;
 
