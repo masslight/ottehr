@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -42,11 +42,14 @@ vi.mock('src/api/api', () => ({
 
 // Whether the patient signed consent in their paperwork, which is what the "Completed consent
 // forms" block reports as Signed/Not signed. Set per test before rendering.
-const { consentPdfUrlsMock } = vi.hoisted(() => ({ consentPdfUrlsMock: { current: [] as string[] } }));
+const { consentPdfUrlsMock, imagesLoadingMock } = vi.hoisted(() => ({
+  consentPdfUrlsMock: { current: [] as string[] },
+  imagesLoadingMock: { current: false },
+}));
 
 vi.mock('src/hooks/useVisitCards', () => ({
   useVisitCards: () => ({
-    imagesLoading: false,
+    imagesLoading: imagesLoadingMock.current,
     refetchFileData: vi.fn(),
     consentPdfUrls: consentPdfUrlsMock.current,
     idCards: { front: null, frontId: null, back: null, backId: null },
@@ -90,19 +93,25 @@ vi.mock('src/helpers/activityLogsUtils', async () => {
 
 // Stands in for every Save button in the "About this patient" section: they all route their write
 // through the guard the page hands down, so one button driving it exercises the same wiring.
-const { patientRecordSaveMock } = vi.hoisted(() => ({
+const { patientRecordSaveMock, confirmSaveRef } = vi.hoisted(() => ({
   patientRecordSaveMock: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+  // The guard itself, captured so a test can drive two saves into it concurrently - something no
+  // amount of clicking can do once the modal is up.
+  confirmSaveRef: { current: undefined as ConfirmSave | undefined },
 }));
 
 vi.mock('src/pages/PatientInformationPage', () => ({
-  PatientAccountComponent: ({ confirmSave }: { confirmSave?: ConfirmSave }) => (
-    <button
-      data-testid="save-patient-record"
-      onClick={() => void (confirmSave ? confirmSave(patientRecordSaveMock) : patientRecordSaveMock())}
-    >
-      Save All
-    </button>
-  ),
+  PatientAccountComponent: ({ confirmSave }: { confirmSave?: ConfirmSave }) => {
+    confirmSaveRef.current = confirmSave;
+    return (
+      <button
+        data-testid="save-patient-record"
+        onClick={() => void (confirmSave ? confirmSave(patientRecordSaveMock) : patientRecordSaveMock())}
+      >
+        Save All
+      </button>
+    );
+  },
 }));
 
 vi.mock('src/layout/PageContainer', () => ({ default: ({ children }: { children: ReactNode }) => <>{children}</> }));
@@ -154,13 +163,17 @@ interface RenderOptions {
   consentIsAttested?: boolean;
   /** Consent signed by the patient in their paperwork. */
   patientSignedConsent?: boolean;
+  /** Leaves the consent-files query in flight, which is what holds the checkbox unseeded. */
+  filesStillLoading?: boolean;
 }
 
-const renderPage = async ({
+const mountPage = ({
   consentIsAttested = false,
   patientSignedConsent = false,
-}: RenderOptions = {}): Promise<void> => {
+  filesStillLoading = false,
+}: RenderOptions = {}): void => {
   consentPdfUrlsMock.current = patientSignedConsent ? ['https://example.com/consent.pdf'] : [];
+  imagesLoadingMock.current = filesStillLoading;
   getPatientVisitDetailsMock.mockResolvedValue(visitDetails(consentIsAttested));
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -170,6 +183,10 @@ const renderPage = async ({
       </MemoryRouter>
     </QueryClientProvider>
   );
+};
+
+const renderPage = async (options: RenderOptions = {}): Promise<void> => {
+  mountPage(options);
   await screen.findByText('I verify that patient consent has been obtained.');
 };
 
@@ -191,6 +208,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   updatePatientVisitDetailsMock.mockResolvedValue(undefined);
   patientRecordSaveMock.mockResolvedValue(undefined);
+  imagesLoadingMock.current = false;
+  confirmSaveRef.current = undefined;
 });
 
 // ============================================================================
@@ -275,6 +294,91 @@ describe('Visit details consent reminder', () => {
         bookingDetails: { consentForms: { consentAttested: true } },
       })
     );
+  });
+
+  // The consent-files query is independent of the visit query, so the account form can be editable
+  // while the checkbox is still unseeded. A save landing in that window has to be judged on the
+  // server's answer, not on the unseeded value reading as unattested.
+  it('raises no reminder for an attested visit saved while the consent files are still loading', async () => {
+    mountPage({ consentIsAttested: true, filesStillLoading: true });
+
+    await savePatientRecord();
+
+    await waitFor(() => expect(patientRecordSaveMock).toHaveBeenCalledOnce());
+    expect(reminderDialog()).toBeNull();
+    // Still unseeded: the footer only renders once the files query settles.
+    expect(screen.queryByText('I verify that patient consent has been obtained.')).toBeNull();
+  });
+
+  it('still reminds for an unattested visit saved while the consent files are still loading', async () => {
+    mountPage({ consentIsAttested: false, filesStillLoading: true });
+
+    await savePatientRecord();
+
+    await screen.findByTestId(dataTestIds.visitDetailsPage.consentReminderDialog);
+    expect(patientRecordSaveMock).not.toHaveBeenCalled();
+  });
+
+  it('abandons a second save rather than stranding the one already awaiting the reminder', async () => {
+    await renderPage();
+    const confirmSave = confirmSaveRef.current;
+    expect(confirmSave).toBeDefined();
+
+    const secondSaveMock = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+    let firstSettled = false;
+    let secondSettled = false;
+
+    // Two saves racing inside one tick - unreachable by clicking, since the dialog is modal, but
+    // the guard must not overwrite the first save's resolver if it ever happens.
+    await act(async () => {
+      void confirmSave!(patientRecordSaveMock).then(() => {
+        firstSettled = true;
+      });
+      void confirmSave!(secondSaveMock).then(() => {
+        secondSettled = true;
+      });
+    });
+
+    // The second is dropped straight away instead of taking over the dialog.
+    expect(secondSettled).toBe(true);
+    expect(secondSaveMock).not.toHaveBeenCalled();
+    expect(firstSettled).toBe(false);
+
+    // Only one dialog is up, and confirming it settles the save that opened it.
+    await screen.findByTestId(dataTestIds.visitDetailsPage.consentReminderDialog);
+    await userEvent.click(screen.getByTestId(dataTestIds.dialog.proceedButton));
+
+    await waitFor(() => expect(firstSettled).toBe(true));
+    expect(patientRecordSaveMock).toHaveBeenCalledOnce();
+  });
+
+  it('reopens the reminder for a later save once an earlier one has been cancelled', async () => {
+    await renderPage();
+
+    await savePatientRecord();
+    await screen.findByTestId(dataTestIds.visitDetailsPage.consentReminderDialog);
+    await userEvent.click(screen.getByTestId(dataTestIds.dialog.cancelButton));
+    await waitFor(() => expect(reminderDialog()).toBeNull());
+
+    // Cancelling has to clear the pending-save guard, or every later save would be dropped silently.
+    await savePatientRecord();
+    await screen.findByTestId(dataTestIds.visitDetailsPage.consentReminderDialog);
+    await userEvent.click(screen.getByTestId(dataTestIds.dialog.proceedButton));
+    await waitFor(() => expect(patientRecordSaveMock).toHaveBeenCalledOnce());
+  });
+
+  it('reopens the reminder for a later save once an earlier one has completed', async () => {
+    await renderPage();
+
+    await savePatientRecord();
+    await userEvent.click(await screen.findByTestId(dataTestIds.dialog.proceedButton));
+    await waitFor(() => expect(patientRecordSaveMock).toHaveBeenCalledOnce());
+    await waitFor(() => expect(reminderDialog()).toBeNull());
+
+    await savePatientRecord();
+    await screen.findByTestId(dataTestIds.visitDetailsPage.consentReminderDialog);
+    await userEvent.click(screen.getByTestId(dataTestIds.dialog.proceedButton));
+    await waitFor(() => expect(patientRecordSaveMock).toHaveBeenCalledTimes(2));
   });
 
   it('persists the attestation from the consent block, and lets it be retracted', async () => {

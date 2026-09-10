@@ -23,7 +23,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Appointment, Flag, Organization } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { ReactElement, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   generatePaperworkPdf,
@@ -241,6 +241,10 @@ export default function VisitDetailsPage(): ReactElement {
   // handed a bare function (React would run it as a state updater instead of storing it).
   const [pendingSave, setPendingSave] = useState<{ proceed: () => Promise<void>; cancel: () => void } | null>(null);
   const [pendingSaveIsRunning, setPendingSaveIsRunning] = useState(false);
+  // Mirrors `pendingSave` for the check-and-set in the guard below, which has to be synchronous:
+  // reading the state there would see a value one render stale, and doing the check inside a
+  // `setPendingSave` updater would run it twice under StrictMode and drop a resolver.
+  const pendingSaveExists = useRef(false);
 
   const [editDialogConfig, setEditDialogConfig] = useState<EditDialogConfig>(CLOSED_EDIT_DIALOG);
 
@@ -357,30 +361,45 @@ export default function VisitDetailsPage(): ReactElement {
     setConsentAttested((previous) => (previous === null ? previous : null));
   }, [appointmentID]);
 
+  // Consent the patient completed in their paperwork already is obtained consent, so a signed
+  // consent form counts as attested even when no staff attestation was ever recorded.
+  const consentAttestedOrSigned = serverConsentAttested || patientSignedConsent;
+
   useEffect(() => {
     // Seed the checkbox from the server only once the visit details and the consent files have
     // actually loaded. Seeding it from the `?? false` defaults on the first render would latch an
     // already-attested visit to unchecked, since this only ever runs while the local value is null.
-    //
-    // Consent the patient completed in their paperwork already is obtained consent, so a signed
-    // consent form starts the box checked even when no staff attestation was ever recorded. That
-    // leaves the consent block's own Save enabled so the attestation can still be persisted.
+    // A signed consent starts the box checked, which leaves the consent block's own Save enabled so
+    // the attestation can still be persisted.
     if (visitDetailsData && !imagesLoading && consentAttested === null) {
-      setConsentAttested(serverConsentAttested || patientSignedConsent);
+      setConsentAttested(consentAttestedOrSigned);
     }
-  }, [visitDetailsData, imagesLoading, serverConsentAttested, patientSignedConsent, consentAttested]);
+  }, [visitDetailsData, imagesLoading, consentAttestedOrSigned, consentAttested]);
 
   const hasConsentChanged = consentAttested !== serverConsentAttested;
+
+  // What the reminder below keys off. The checkbox once it has been seeded; until then the value the
+  // seed is going to use, so a save landing in the loading window (the files query can still be in
+  // flight after the account form is editable) is judged on the server's answer rather than on
+  // `null` reading as unattested.
+  const consentVerified = consentAttested ?? consentAttestedOrSigned;
 
   // Saving the patient record with the attestation unchecked is allowed, but the staff member is
   // reminded first and the write only happens once they confirm. Passed down to every Save button
   // in the "About this patient" section.
   const confirmSaveWithConsentReminder = useCallback<ConfirmSave>(
     async (proceed) => {
-      if (consentAttested) {
+      if (consentVerified) {
         await proceed();
         return;
       }
+      if (pendingSaveExists.current) {
+        // A reminder is already up for an earlier save. The dialog is modal, so reaching this needs
+        // two saves to race inside the same tick (each Save button validates before it gets here).
+        // Abandon this one - overwriting `pendingSave` would strand the earlier caller's resolver.
+        return;
+      }
+      pendingSaveExists.current = true;
       // Resolve either way so the caller's await never dangles: on confirm once the write settles,
       // on cancel as soon as the dialog closes.
       await new Promise<void>((resolve) => {
@@ -396,12 +415,13 @@ export default function VisitDetailsPage(): ReactElement {
         });
       });
     },
-    [consentAttested]
+    [consentVerified]
   );
 
   const handleCancelPendingSave = useCallback((): void => {
     if (pendingSaveIsRunning) return;
     pendingSave?.cancel();
+    pendingSaveExists.current = false;
     setPendingSave(null);
   }, [pendingSave, pendingSaveIsRunning]);
 
@@ -416,6 +436,7 @@ export default function VisitDetailsPage(): ReactElement {
       console.error('Error saving after the consent reminder:', error);
     } finally {
       setPendingSaveIsRunning(false);
+      pendingSaveExists.current = false;
       setPendingSave(null);
     }
   }, [pendingSave]);
