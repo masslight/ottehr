@@ -42,13 +42,6 @@ export default defineConfig({
     server: {
       deps: {
         // `utils` is a workspace package consumed as TypeScript source, so it has to be transformed here.
-        //
-        // Do not add `@sentry` back. Inlining it pulls the OpenTelemetry packages beneath it into Vite's
-        // resolution, which prefers their `module` entry — an ESM build whose relative imports carry no
-        // file extensions and which Node's ESM resolver therefore cannot load. Left external, Node
-        // resolves `main`, the CJS build, and the chain loads. This only ever broke on macOS: OTel picks
-        // a machine-id implementation per platform, and the darwin one is the only one that imports a
-        // relative sibling, so Linux CI resolved on bare specifiers alone and stayed green.
         inline: [/utils/],
       },
     },
