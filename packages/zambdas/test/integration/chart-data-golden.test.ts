@@ -274,10 +274,18 @@ describe('get-chart-data golden integration', () => {
     expect(responsesA.addendumNote.addendumNote).toEqual({ text: 'alpha legacy addendum' });
     expect(responsesA.intakeNotes.notes?.map((n) => n.text)).toEqual(['alpha intake note']);
     expect(responsesA.birthHistory.birthHistory).toEqual([expect.objectContaining({ field: 'weight', value: 3.4 })]);
-    expect(responsesA.screening.observations?.map((o) => o.field)).toEqual(['covid-symptoms']);
     expect(responsesA.erx.prescribedMedications).toEqual([]);
     expect(responsesA.erx.preferredPharmacies).toEqual([]);
     expect(responsesA.medicationHistory.medications?.map((m) => m.name)).toEqual(['alpha medication']);
+  });
+
+  it("the screening screen's request matches nothing: its bare tag is compared with the question code", () => {
+    // ScreeningBody asks for observations with `_tag: 'additional-questions-field'`, which the endpoint forwards
+    // to FHIR as given. A bare `_tag` value is matched against tag codes, and a screening Observation's tag code
+    // is the question (`covid-symptoms`) with that string as the tag system, so the search matches nothing. The
+    // screen reads only this call's loading state; the answers it shows come from the unscoped chart.
+    expect(responsesA.unscoped.observations?.map((o) => o.field)).toContain('covid-symptoms');
+    expect(responsesA.screening.observations).toEqual([]);
   });
 
   it('no response for patient A contains anything saved for patient B', () => {
