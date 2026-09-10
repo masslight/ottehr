@@ -1,4 +1,4 @@
-import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
 import { PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL } from 'utils/lib/types/constants';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { ContactInfo, PatientDataInput, PdfSection } from '../types';
@@ -9,7 +9,7 @@ export const composeContactData: DataComposer<PatientDataInput, ContactInfo> = (
   const addressLineOptional = patientAddress?.line?.[1] ?? '';
   const city = patientAddress?.city ?? '';
   const state = patientAddress?.state ?? '';
-  const zip = patientAddress?.postalCode ?? '';
+  const zip = formatZipcodeForDisplay(patientAddress?.postalCode ?? '');
 
   const patientMobile =
     formatPhoneNumberDisplay(
