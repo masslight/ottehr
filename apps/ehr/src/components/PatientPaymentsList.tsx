@@ -1798,6 +1798,7 @@ export default function PatientPaymentList({
         onClose={() => setRemoveCardDialogOpen(false)}
         onRemove={() => removeCardOnFile.mutate()}
         loading={removeCardOnFile.isPending}
+        canRemove={canManagePayments}
       />
       <Snackbar
         // anchorOrigin={{ vertical: snackbarOpen.vertical, horizontal: snackbarOpen.horizontal }}

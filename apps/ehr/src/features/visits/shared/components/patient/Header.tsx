@@ -3,6 +3,7 @@ import { Box, IconButton, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { showEnvironmentBanner } from 'src/App';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { PatientNotesButton } from 'src/features/patient-notes/components/PatientNotesButton';
 import { PrintVisitLabelButton } from 'src/features/visits/in-person/components/PrintVisitLabelButton';
 import { BANNER_HEIGHT } from 'src/helpers/misc.helper';
 import { useGetPatient } from 'src/hooks/useGetPatient';
@@ -53,6 +54,7 @@ export const Header: FC<HeaderProps> = ({ handleDiscard, id }) => {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Box sx={{ display: 'flex', rowGap: 0.5, columnGap: 2, flexWrap: 'wrap' }}>
               <FullNameDisplay patient={patient} loading={loading} variant="h5" />
+              <PatientNotesButton patientId={id} />
               <PrintVisitLabelButton encounterId={latestAppointmentEncounterId} />
               <Summary patient={patient} loading={loading} />
             </Box>

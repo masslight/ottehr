@@ -18,6 +18,7 @@ import { chunkThings } from 'utils/lib/fhir/chat';
 import { ERX_MEDICATION_META_TAG_CODE, FHIR_EXTENSION, PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getExtension } from 'utils/lib/fhir/helpers';
 import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
+import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { isDeletedMedicationOrder } from 'utils/lib/helpers/order-status.helper';
 import { emptyOrdersForTrackingBoardTable } from 'utils/lib/helpers/tracking-board';
 import { convertVitalsListToMap, getAbnormalVitals } from 'utils/lib/helpers/vitals/utils';
@@ -51,7 +52,6 @@ import {
 import { mapResourcesToInHouseOrderDTOs } from '../lab/in-house/get-in-house-orders/helpers';
 import { parseResultsToOrder } from '../radiology/order-list';
 import { buildSearchUrl, executeBatchSearches, MAX_ENTRIES_PER_BATCH } from './batch-search';
-import { isResponseSizeExceededError } from './helpers';
 
 /**
  * Tracking board consolidation, Step B and Step C.
@@ -411,25 +411,25 @@ export const buildOrdersForTrackingBoard = ({
     // result-review Tasks based on the reports.
     const reportTasks = filterFinalAndPrelimAndCorrectedTasks(pools.tasks.filter(hasDiagnosticReportBasedOn));
     const labTasks = dedupeById([...pools.tasks.filter(isTaskPST), ...reportTasks]);
-    const externalLabOrders = mapResourcesToLabOrderDTOs(
+    const externalLabOrders = mapResourcesToLabOrderDTOs({
       searchBy,
-      partitions.externalLab,
-      labTasks,
-      pools.diagnosticReports,
-      allPractitioners,
+      serviceRequests: partitions.externalLab,
+      tasks: labTasks,
+      results: pools.diagnosticReports,
+      practitioners: allPractitioners,
       encounters,
-      [],
+      locations: [],
       appointments,
-      provenancesFor(partitions.externalLab),
-      [],
-      [],
-      undefined,
-      [],
-      {},
-      undefined,
-      [],
-      environment
-    );
+      provenances: provenancesFor(partitions.externalLab),
+      organizations: [],
+      questionnaires: [],
+      labDocuments: undefined,
+      specimens: [],
+      appointmentScheduleMap: {},
+      communications: undefined,
+      coverages: [],
+      environment,
+    });
     table.externalLabOrdersByAppointmentId = groupBy(externalLabOrders, (order) => order.appointmentId);
   }
 
