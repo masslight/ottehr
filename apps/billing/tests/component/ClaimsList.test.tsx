@@ -580,7 +580,8 @@ describe('ClaimsList — persisted filters', () => {
 
     const patientCombobox = await screen.findByRole('combobox', { name: 'Patient' });
     fireEvent.mouseDown(patientCombobox);
-    fireEvent.click(await screen.findByRole('option', { name: 'Jones, Alex' }));
+    // Generous timeout: the option waits on a 300ms-debounced fetch, slow enough to flake at 1s.
+    fireEvent.click(await screen.findByRole('option', { name: 'Jones, Alex' }, { timeout: 5000 }));
 
     await waitFor(() => {
       const stored = JSON.parse(sessionStorage.getItem(FILTERS_STORAGE_KEY) ?? '{}');
