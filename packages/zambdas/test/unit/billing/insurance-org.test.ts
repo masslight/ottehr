@@ -22,6 +22,7 @@ const fullInput: CreateInsuranceOrgInput = {
   name: 'Acme Insurance',
   insuranceTypes: ['workers-comp', 'auto'],
   submissionMechanism: 'portal',
+  submissionDetails: { portalUrl: 'https://portal.acme.com', portalDetails: 'Use the claims tab' },
   acceptedClaimForm: 'cms-1500',
   note: 'Prefers electronic submission',
 };
@@ -60,6 +61,7 @@ describe('insurance-org FHIR mapping', () => {
       active: true,
       insuranceTypes: ['workers-comp', 'auto'],
       submissionMechanism: 'portal',
+      submissionDetails: { portalUrl: 'https://portal.acme.com', portalDetails: 'Use the claims tab' },
       acceptedClaimForm: 'cms-1500',
       note: 'Prefers electronic submission',
     });
@@ -67,8 +69,64 @@ describe('insurance-org FHIR mapping', () => {
 
   it('omits note when not provided', () => {
     const org = buildInsuranceOrganization({ ...fullInput, note: undefined });
-    expect(org.extension?.some((ext) => ext.valueString)).toBe(false);
+    expect(org.extension?.some((ext) => ext.valueString === 'Prefers electronic submission')).toBe(false);
     expect(mapInsuranceOrganization(org).note).toBeUndefined();
+  });
+
+  it('omits submissionDetails when none are provided', () => {
+    const org = buildInsuranceOrganization({ ...fullInput, submissionDetails: undefined });
+    expect(org.telecom).toBeUndefined();
+    expect(org.address).toBeUndefined();
+    expect(mapInsuranceOrganization(org).submissionDetails).toBeUndefined();
+  });
+
+  it('writes email to telecom for the email mechanism', () => {
+    const org = buildInsuranceOrganization({
+      ...fullInput,
+      submissionMechanism: 'email',
+      submissionDetails: { email: 'claims@acme.com' },
+    });
+    expect(org.telecom).toEqual([{ system: 'email', value: 'claims@acme.com' }]);
+    expect(mapInsuranceOrganization(org).submissionDetails).toEqual({ email: 'claims@acme.com' });
+  });
+
+  it('writes portal url to telecom (system: url) and portal details to an extension', () => {
+    const org = buildInsuranceOrganization({
+      ...fullInput,
+      submissionMechanism: 'portal',
+      submissionDetails: { portalUrl: 'https://portal.acme.com', portalDetails: 'Use the claims tab' },
+    });
+    expect(org.telecom).toEqual([{ system: 'url', value: 'https://portal.acme.com' }]);
+    expect(org.extension).toContainEqual({
+      url: 'https://fhir.ottehr.com/billing/insurance-org-portal-details',
+      valueString: 'Use the claims tab',
+    });
+    expect(mapInsuranceOrganization(org).submissionDetails).toEqual({
+      portalUrl: 'https://portal.acme.com',
+      portalDetails: 'Use the claims tab',
+    });
+  });
+
+  it('writes fax number to telecom for the fax mechanism', () => {
+    const org = buildInsuranceOrganization({
+      ...fullInput,
+      submissionMechanism: 'fax',
+      submissionDetails: { faxNumber: '555-123-4567' },
+    });
+    expect(org.telecom).toEqual([{ system: 'fax', value: '555-123-4567' }]);
+    expect(mapInsuranceOrganization(org).submissionDetails).toEqual({ faxNumber: '555-123-4567' });
+  });
+
+  it('writes the mail address for the mail mechanism', () => {
+    const org = buildInsuranceOrganization({
+      ...fullInput,
+      submissionMechanism: 'mail',
+      submissionDetails: { mailAddress: { line1: '1 Main St', city: 'Springfield', state: 'CA', zip: '90210' } },
+    });
+    expect(org.address).toEqual([{ line: ['1 Main St'], city: 'Springfield', state: 'CA', postalCode: '90210' }]);
+    expect(mapInsuranceOrganization(org).submissionDetails).toEqual({
+      mailAddress: { line1: '1 Main St', city: 'Springfield', state: 'CA', zip: '90210' },
+    });
   });
 
   it('writes one type coding per selected insurance type plus the kind coding', () => {

@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
+import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import {
   INSURANCE_ORG_CLAIM_FORMS,
   INSURANCE_ORG_SUBMISSION_MECHANISMS,
@@ -25,11 +25,13 @@ import {
 } from 'utils/lib/types/data/billing/insurance-org.types';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { InsuranceOrgForm } from '../../constants/insuranceOrg';
+import { NioAddressFields } from '../nio/NioAddressFields';
 
 // The whole custom Insurance Organization form body, shared by the create dialog and the detail
 // page's edit mode. Must render inside a FormProvider whose values are an InsuranceOrgForm.
 export function InsuranceOrgFormFields(): ReactElement {
   const { control } = useFormContext<InsuranceOrgForm>();
+  const submissionMechanism = useWatch({ control, name: 'submissionMechanism' });
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 480 }}>
       <Controller
@@ -119,6 +121,79 @@ export function InsuranceOrgFormFields(): ReactElement {
           </FormControl>
         )}
       />
+
+      {submissionMechanism === 'email' && (
+        <Controller
+          name="submissionDetails.email"
+          control={control}
+          rules={{
+            validate: (value: string) =>
+              !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()) || 'Invalid email address',
+          }}
+          render={({ field, fieldState: { error } }) => (
+            <TextField
+              label="Email Address"
+              size="small"
+              fullWidth
+              value={field.value}
+              onChange={(e) => field.onChange(e.target.value)}
+              error={!!error}
+              helperText={error?.message}
+            />
+          )}
+        />
+      )}
+
+      {submissionMechanism === 'portal' && (
+        <>
+          <Controller
+            name="submissionDetails.portalUrl"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                label="Portal URL"
+                size="small"
+                fullWidth
+                value={field.value}
+                onChange={(e) => field.onChange(e.target.value)}
+              />
+            )}
+          />
+          <Controller
+            name="submissionDetails.portalDetails"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                label="Portal Details"
+                size="small"
+                fullWidth
+                multiline
+                minRows={3}
+                value={field.value}
+                onChange={(e) => field.onChange(e.target.value)}
+              />
+            )}
+          />
+        </>
+      )}
+
+      {submissionMechanism === 'fax' && (
+        <Controller
+          name="submissionDetails.faxNumber"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              label="Fax Number"
+              size="small"
+              fullWidth
+              value={field.value}
+              onChange={(e) => field.onChange(e.target.value)}
+            />
+          )}
+        />
+      )}
+
+      {submissionMechanism === 'mail' && <NioAddressFields prefix="submissionDetails.mailAddress" />}
 
       <Controller
         name="acceptedClaimForm"

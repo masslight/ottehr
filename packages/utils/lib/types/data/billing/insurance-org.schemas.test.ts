@@ -66,4 +66,34 @@ describe('insurance-org input schemas', () => {
     expect(DeleteInsuranceOrgInputSchema.safeParse({}).success).toBe(false);
     expect(DeleteInsuranceOrgInputSchema.safeParse({ insuranceOrgId: ORG_ID }).success).toBe(true);
   });
+
+  it('accepts mechanism-specific submissionDetails', () => {
+    expect(
+      CreateInsuranceOrgInputSchema.safeParse({ ...fullInput, submissionDetails: { email: 'claims@acme.com' } }).success
+    ).toBe(true);
+    expect(
+      CreateInsuranceOrgInputSchema.safeParse({
+        ...fullInput,
+        submissionDetails: { portalUrl: 'https://portal.acme.com', portalDetails: 'Use the claims tab' },
+      }).success
+    ).toBe(true);
+    expect(
+      CreateInsuranceOrgInputSchema.safeParse({ ...fullInput, submissionDetails: { faxNumber: '555-123-4567' } })
+        .success
+    ).toBe(true);
+    expect(
+      CreateInsuranceOrgInputSchema.safeParse({
+        ...fullInput,
+        submissionDetails: { mailAddress: { line1: '1 Main St', city: 'Springfield', state: 'CA', zip: '90210' } },
+      }).success
+    ).toBe(true);
+  });
+
+  it('rejects a malformed submissionDetails.email', () => {
+    const result = CreateInsuranceOrgInputSchema.safeParse({
+      ...fullInput,
+      submissionDetails: { email: 'not-an-email' },
+    });
+    expect(result.success).toBe(false);
+  });
 });

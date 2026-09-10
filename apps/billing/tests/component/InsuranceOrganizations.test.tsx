@@ -41,6 +41,7 @@ const acmeCustomOrg: InsuranceOrganizationItem = {
   active: true,
   insuranceTypes: ['workers-comp', 'auto'],
   submissionMechanism: 'portal',
+  submissionDetails: { portalUrl: 'https://portal.acme.com', portalDetails: 'Use the claims tab' },
   acceptedClaimForm: 'cms-1500',
   note: 'Prefers electronic submission',
 };
@@ -119,6 +120,7 @@ describe('InsuranceOrganizationsList', () => {
     await user.click(dialog.getByRole('checkbox', { name: 'Medical' }));
 
     // Submission Mechanism and Accepted Claim Form keep their Email / CMS-1500 defaults.
+    await user.type(dialog.getByLabelText('Email Address'), 'claims@beta.com');
     await user.click(dialog.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(createBillingInsuranceOrgMock).toHaveBeenCalledTimes(1));
@@ -127,10 +129,37 @@ describe('InsuranceOrganizationsList', () => {
       name: 'Beta Insurance',
       insuranceTypes: ['medical'],
       submissionMechanism: 'email',
+      submissionDetails: { email: 'claims@beta.com' },
       acceptedClaimForm: 'cms-1500',
     });
     // Initial load + refresh after create.
     await waitFor(() => expect(searchBillingInsuranceOrgsMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('swaps the submission-detail field(s) shown as the mechanism radio changes', async () => {
+    const user = userEvent.setup();
+    renderList();
+    await screen.findByText('Acme Insurance');
+
+    await user.click(screen.getByRole('button', { name: /add organization/i }));
+    const dialog = within(screen.getByRole('dialog'));
+
+    // Email is the default.
+    expect(dialog.getByLabelText('Email Address')).toBeInTheDocument();
+    expect(dialog.queryByLabelText('Portal URL')).not.toBeInTheDocument();
+
+    await user.click(dialog.getByRole('radio', { name: 'Portal' }));
+    expect(dialog.queryByLabelText('Email Address')).not.toBeInTheDocument();
+    expect(dialog.getByLabelText('Portal URL')).toBeInTheDocument();
+    expect(dialog.getByLabelText('Portal Details')).toBeInTheDocument();
+
+    await user.click(dialog.getByRole('radio', { name: 'Fax' }));
+    expect(dialog.queryByLabelText('Portal URL')).not.toBeInTheDocument();
+    expect(dialog.getByLabelText('Fax Number')).toBeInTheDocument();
+
+    await user.click(dialog.getByRole('radio', { name: 'Mail' }));
+    expect(dialog.queryByLabelText('Fax Number')).not.toBeInTheDocument();
+    expect(dialog.getByLabelText('Address Line 1')).toBeInTheDocument();
   });
 });
 
@@ -155,12 +184,16 @@ describe('InsuranceOrganizationDetail', () => {
     );
   }
 
-  it('renders the read-only summary', async () => {
+  it('renders the read-only summary, including the portal submission details', async () => {
     renderDetail();
 
     expect(await screen.findByText('Organization Details')).toBeInTheDocument();
     expect(screen.getByText('OTR-ACME')).toBeInTheDocument();
     expect(screen.getByText('Workers Comp, Auto')).toBeInTheDocument();
+    expect(screen.getByText('https://portal.acme.com')).toBeInTheDocument();
+    // Portal Details is a multiline field, so its collapsed (hidden) edit-form textarea also
+    // renders the value as text, matching twice.
+    expect(screen.getAllByText('Use the claims tab').length).toBeGreaterThan(0);
     // The collapsed (hidden) edit form's Select also renders the current value as text, so these
     // match twice — once in the read-only row, once in the not-yet-visible Select.
     expect(screen.getAllByText('Portal').length).toBeGreaterThan(0);
@@ -185,6 +218,11 @@ describe('InsuranceOrganizationDetail', () => {
     expect(payload.insuranceOrgId).toBe('org-1');
     expect(payload.name).toBe('Acme Insurance Co');
     expect(payload.orgId).toBe('OTR-ACME');
+    // The stored portal details round-trip through the edit form unchanged.
+    expect(payload.submissionDetails).toEqual({
+      portalUrl: 'https://portal.acme.com',
+      portalDetails: 'Use the claims tab',
+    });
     await waitFor(() => expect(searchBillingInsuranceOrgsMock).toHaveBeenCalledTimes(2));
   });
 });

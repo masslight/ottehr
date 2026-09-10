@@ -17,11 +17,33 @@ const orgIdSchema = z
   .trim()
   .regex(/^OTR-.+$/, 'Id must start with "OTR-"');
 
+export const InsuranceOrgAddressSchema = z.object({
+  line1: z.string().trim().optional(),
+  line2: z.string().trim().optional(),
+  city: z.string().trim().optional(),
+  state: z.string().trim().optional(),
+  zip: z.string().trim().optional(),
+});
+export type InsuranceOrgAddress = z.output<typeof InsuranceOrgAddressSchema>;
+
+// Mechanism-specific submission details; which of these is relevant is driven by
+// submissionMechanism, but nothing here enforces that cross-field rule server-side — the UI only
+// ever collects the field(s) for the currently selected mechanism.
+export const InsuranceOrgSubmissionDetailsSchema = z.object({
+  email: z.string().trim().email('Invalid email address').optional(),
+  portalUrl: z.string().trim().optional(),
+  portalDetails: z.string().trim().optional(),
+  faxNumber: z.string().trim().optional(),
+  mailAddress: InsuranceOrgAddressSchema.optional(),
+});
+export type InsuranceOrgSubmissionDetails = z.output<typeof InsuranceOrgSubmissionDetailsSchema>;
+
 export const CreateInsuranceOrgInputSchema = z.object({
   orgId: orgIdSchema,
   name: nonEmptyString,
   insuranceTypes: z.array(z.enum(INSURANCE_ORG_TYPES)).default([]),
   submissionMechanism: z.enum(INSURANCE_ORG_SUBMISSION_MECHANISMS),
+  submissionDetails: InsuranceOrgSubmissionDetailsSchema.optional(),
   note: z.string().trim().optional(),
   acceptedClaimForm: z.enum(INSURANCE_ORG_CLAIM_FORMS),
 });

@@ -17,6 +17,7 @@ describe('insurance-org zambdas - validateRequestParameters', () => {
         name: 'Acme Insurance',
         insuranceTypes: ['workers-comp', 'auto'],
         submissionMechanism: 'portal',
+        submissionDetails: { portalUrl: 'https://portal.acme.com', portalDetails: 'Use the claims tab' },
         acceptedClaimForm: 'cms-1500',
         note: 'Prefers electronic submission',
       },
@@ -27,10 +28,25 @@ describe('insurance-org zambdas - validateRequestParameters', () => {
       name: 'Acme Insurance',
       insuranceTypes: ['workers-comp', 'auto'],
       submissionMechanism: 'portal',
+      submissionDetails: { portalUrl: 'https://portal.acme.com', portalDetails: 'Use the claims tab' },
       acceptedClaimForm: 'cms-1500',
       note: 'Prefers electronic submission',
       secrets,
     });
+  });
+
+  test('create rejects an invalid submissionDetails.email', () => {
+    const input = createMockZambdaInput(
+      {
+        orgId: 'OTR-ACME',
+        name: 'Acme Insurance',
+        submissionMechanism: 'email',
+        submissionDetails: { email: 'not-an-email' },
+        acceptedClaimForm: 'other',
+      },
+      { secrets }
+    );
+    expect(() => validateCreate(input)).toThrow();
   });
 
   test('create defaults insuranceTypes to an empty array', () => {
