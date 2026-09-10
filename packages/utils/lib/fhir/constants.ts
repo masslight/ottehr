@@ -66,6 +66,8 @@ export const PARTICIPATION_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/
 export const ACCOUNT_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/account-type';
 
 export const RAW_X12_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/rcm-raw-x12';
+export const RAW_RESPONSE_EXTENSION_URL = `${OYSTEHR_EXTENSION_BASE_URL}/raw-response`;
+export const CLAIM_STATUS_RESPONSE_EVENT_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-claim-response-event-id';
 
 export const FHIR_EXTENSION = {
   Appointment: {
@@ -867,6 +869,10 @@ export const FOLDERS_CONFIG: ListConfig[] = [
   },
 ];
 
+// Relationships deliberately absent here fall back to 'other' at the call sites. 'Employee' is one:
+// the HL7 subscriber-relationship CodeSystem has no employee code, and mapping it here would give
+// 'other' two keys, making the reverse lookup in the billing rules engine order-dependent. The
+// coding's `display` carries the original label either way.
 export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
   Child: 'child',
   Parent: 'parent',
@@ -878,7 +884,8 @@ export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
 };
 
 // Canonical set of subscriber/policy-holder relationships to the patient, shared across the
-// clinical EHR and billing app so the values stay aligned.
+// clinical EHR and billing app so the values stay aligned. Keep in step with
+// `relationshipToInsuredOptions` in ottehr-config/value-sets, which drives the paperwork dropdown.
 export const SUBSCRIBER_RELATIONSHIPS = [
   'Self',
   'Child',
@@ -886,6 +893,7 @@ export const SUBSCRIBER_RELATIONSHIPS = [
   'Spouse',
   'Common Law Spouse',
   'Injured Party',
+  'Employee',
   'Other',
 ] as const;
 export type SubscriberRelationship = (typeof SUBSCRIBER_RELATIONSHIPS)[number];

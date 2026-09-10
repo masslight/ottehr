@@ -252,7 +252,7 @@ export default function ERAList(): ReactElement {
       <TextField
         fullWidth
         size="small"
-        placeholder="Search by patient name..."
+        placeholder="Search by patient name or PCN..."
         value={searchText}
         onChange={(e) => handleDebouncedFilter(setSearchText, 'searchText')(e.target.value)}
         InputProps={{

@@ -32,6 +32,7 @@ import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDia
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
 import { FaxVisitOption, SendFaxDialog, useSendFax } from 'src/features/fax';
+import { PatientNotesButton } from 'src/features/patient-notes/components/PatientNotesButton';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { PatientAvatar } from 'src/features/visits/shared/components/patient/info/Avatar';
 import Contacts from 'src/features/visits/shared/components/patient/info/Contacts';
@@ -43,8 +44,9 @@ import { formatVisitDateTimeWithZone } from 'src/helpers/formatDateTime';
 import { useDownloadMedicalRecord } from 'src/hooks/useDownloadMedicalRecord';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useGetActiveMergeTask } from 'src/hooks/useGetPatient';
+import { formatPatientTabTitle } from 'src/shared/utils';
 import { otherColors } from 'src/themes/ottehr/colors';
-import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
+import { getFirstName, getFullestAvailableName, getLastName } from 'utils/lib/fhir/patient';
 import { GetMergePatientsTaskResponse, MergePatientsResponse } from 'utils/lib/types/api/patient-account';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
@@ -235,9 +237,11 @@ export default function PatientPage(): JSX.Element {
     openFaxDialog();
   };
 
+  const tabTitle = (patient && formatPatientTabTitle(getFullestAvailableName(patient))) ?? 'Patient Profile';
+
   return (
     <>
-      <PageContainer tabTitle="Patient Profile">
+      <PageContainer tabTitle={tabTitle}>
         <Stack spacing={2}>
           <CustomBreadcrumbs
             chain={[
@@ -272,7 +276,10 @@ export default function PatientPage(): JSX.Element {
 
             <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
               <IdentifiersRow patient={patient} loading={loading} />
-              <FullNameDisplay patient={patient} loading={loading} />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <FullNameDisplay patient={patient} loading={loading} />
+                <PatientNotesButton patientId={patient?.id} />
+              </Box>
               <Summary patient={patient} loading={loading} />
               <Contacts patient={patient} loading={loading} />
             </Box>
