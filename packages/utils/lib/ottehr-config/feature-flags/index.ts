@@ -29,6 +29,9 @@ const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   // legacy Employers mode with Candid sync; unit/component tests pin the flag themselves, so
   // both paths stay covered either way.
   nonInsuranceOrganizationsEnabled: false,
+  // ON in core so the Ambient Scribe recommendations prototype can be exercised locally.
+  // Per-customer configs omit this field and land at undefined (falsy -> panel hidden).
+  ambientScribeRecommendationsEnabled: true,
 };
 
 export const FEATURE_FLAGS_CONFIG = Object.freeze(FeatureFlagsConfigSchema.parse(FEATURE_FLAGS_DATA));

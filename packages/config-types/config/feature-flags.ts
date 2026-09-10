@@ -31,6 +31,10 @@ export const FeatureFlagsConfigSchema = z.object({
   // Candid non-insurance payer sync — stays active. Per-deployment so customers
   // can migrate at different times.
   nonInsuranceOrganizationsEnabled: z.boolean().optional(),
+  // Prototype: side-by-side "Ambient Scribe" panel on the in-person visit screens that turns a
+  // pasted encounter transcript into reviewable charting recommendations. The analysis is faked
+  // in the EHR for now; the flag exists so the panel can be hidden per customer.
+  ambientScribeRecommendationsEnabled: z.boolean().optional(),
 });
 
 export type FeatureFlagsConfig = z.infer<typeof FeatureFlagsConfigSchema>;
