@@ -1,6 +1,7 @@
 import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { getAllFhirSearchPages, searchPageWithSizeRetry } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
@@ -8,7 +9,13 @@ import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingClaimItem } from 'utils/lib/types/data/billing/billing.types';
-import { CLAIM_STATUS_TAG_SYSTEMS, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
+import {
+  AR_STAGE,
+  AR_STAGE_NONE,
+  CLAIM_STATUS_TAG_SYSTEMS,
+  getClaimStatusValues,
+} from 'utils/lib/types/data/billing/claim-status';
+import { CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { fetchClaimResponsesByClaimIds, fetchPatientPaidByClaimId, summarizeClaimPayments } from './claim-amounts';
@@ -100,10 +107,12 @@ export type ClaimFilterInput = Pick<
   | 'arStage'
   | 'createdFrom'
   | 'createdTo'
+  | 'updatedBefore'
   | 'patientId'
   | 'service'
   | 'payerId'
   | 'payerName'
+  | 'nonInsurancePayerId'
   | 'tag'
 >;
 
@@ -147,7 +156,15 @@ export async function buildClaimFilterParams({
       value: `${CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.insurancePaidStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.adjudicationStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.patientArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.patientPaidStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.nonInsuranceArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.nonInsurancePaidStatus}|${params.status}`,
     });
   }
-  if (params.arStage)
+  if (params.arStage === AR_STAGE_NONE)
+    // "no AR stage" = no stage tag at all; :not params AND together
+    Object.values(AR_STAGE).forEach((code) =>
+      filterParams.push({
+        name: '_tag:not',
+        value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${code}`,
+      })
+    );
+  else if (params.arStage)
     filterParams.push({
       name: '_tag',
       value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${params.arStage}`,
@@ -161,6 +178,11 @@ export async function buildClaimFilterParams({
     filterParams.push({
       name: 'created',
       value: `le${params.createdTo}`,
+    });
+  if (params.updatedBefore)
+    filterParams.push({
+      name: '_lastUpdated',
+      value: `le${params.updatedBefore}`,
     });
   if (params.patientId)
     filterParams.push(
@@ -185,6 +207,11 @@ export async function buildClaimFilterParams({
     filterParams.push({
       name: '_tag',
       value: `${CLAIM_TAG_SYSTEM}|${params.tag}`,
+    });
+  if (params.nonInsurancePayerId)
+    filterParams.push({
+      name: '_tag',
+      value: `${CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM}|${params.nonInsurancePayerId}`,
     });
 
   return filterParams;
@@ -582,6 +609,7 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
     patientName,
     patientDob: patient?.birthDate ?? '',
     payerName: insurer?.name ?? '',
+    nonInsurancePayerName: getClaimNonInsurancePayer(claim)?.display ?? '',
     payerId: getPayerId(insurer) ?? '',
     memberId: coverage?.subscriberId ?? '',
     service: getClaimService(claim),

@@ -1,7 +1,7 @@
 import Oystehr, { BatchInputJSONPatchRequest, BatchInputPatchRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Account, Appointment, Encounter, Extension, Organization, Patient } from 'fhir/r4b';
+import { Account, Appointment, Encounter, Extension, Organization, Patient, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { userMe } from 'utils/lib/auth/user-me.helper';
 import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
@@ -18,10 +18,13 @@ import {
 } from 'utils/lib/fhir/encounter';
 import { cleanUpStaffHistoryTag, getCoding, getCriticalUpdateTagOp } from 'utils/lib/fhir/helpers';
 import { resolveServiceCategory } from 'utils/lib/fhir/serviceCategoryResolution';
+import { extractNioIdFromReferenceUrl } from 'utils/lib/helpers/helpers';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isEmployerOrganization } from '../../../rcm/employers/helpers';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getNonInsuranceOrganizationById } from '../../../shared/nio-directory';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { accountMatchesType } from '../../shared/harvest';
@@ -436,24 +439,7 @@ const complexValidation = async (input: UpdateVisitDetailsValidatedInput, oysteh
 
   const visitEmployer = input.bookingDetails.visitOccupationalMedicineEmployer;
   if (visitEmployer) {
-    const organizationId = visitEmployer.reference?.split('/')[1];
-
-    if (!organizationId) {
-      throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer.reference must be Organization/{id}');
-    }
-
-    const organization = await oystehr.fhir.get<Organization>({
-      resourceType: 'Organization',
-      id: organizationId,
-    });
-
-    if (!isEmployerOrganization(organization)) {
-      throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer must reference an occupational medicine employer');
-    }
-
-    if (organization.active === false) {
-      throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer must reference an active organization');
-    }
+    await validateVisitEmployerSelection(oystehr, visitEmployer);
   }
 
   const accounts = (
@@ -490,3 +476,58 @@ const consolidatePatchRequests = (ops: BatchInputJSONPatchRequest[]): BatchInput
   });
   return Object.values(consolidated);
 };
+
+// Pre-op visit employer validation. In NIO mode every selection is a billing-app NIO reference
+// token, validated over the wire through the billing zambda interface — legacy clinical employer
+// orgs remain visible on historical visits but can never be selected again. With the flag off,
+// the legacy FHIR validation stands and tokens are rejected (nothing mints them).
+export async function validateVisitEmployerSelection(oystehr: Oystehr, visitEmployer: Reference): Promise<void> {
+  const nioId = extractNioIdFromReferenceUrl(visitEmployer.reference);
+  if (nioId) {
+    if (!FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled) {
+      throw INVALID_INPUT_ERROR(
+        'visitOccupationalMedicineEmployer may not reference a non-insurance organization on this deployment'
+      );
+    }
+    const option = await getNonInsuranceOrganizationById(oystehr, nioId);
+    if (!option) {
+      throw INVALID_INPUT_ERROR(
+        'visitOccupationalMedicineEmployer must reference an existing non-insurance organization'
+      );
+    }
+    if (!option.active) {
+      throw INVALID_INPUT_ERROR(
+        'visitOccupationalMedicineEmployer must reference an active non-insurance organization'
+      );
+    }
+    if (!option.employer) {
+      throw INVALID_INPUT_ERROR(
+        'visitOccupationalMedicineEmployer must reference an employer non-insurance organization'
+      );
+    }
+    return;
+  }
+
+  if (FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled) {
+    throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer must reference a non-insurance organization');
+  }
+
+  const organizationId = visitEmployer.reference?.split('/')[1];
+
+  if (!organizationId) {
+    throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer.reference must be Organization/{id}');
+  }
+
+  const organization = await oystehr.fhir.get<Organization>({
+    resourceType: 'Organization',
+    id: organizationId,
+  });
+
+  if (!isEmployerOrganization(organization)) {
+    throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer must reference an occupational medicine employer');
+  }
+
+  if (organization.active === false) {
+    throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer must reference an active organization');
+  }
+}

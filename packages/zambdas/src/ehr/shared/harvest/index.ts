@@ -54,6 +54,7 @@ import {
   PREFERRED_PHARMACY_PLACES_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
+  SubscriberRelationship,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils/lib/fhir/constants';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
@@ -108,6 +109,7 @@ import {
   formatPhoneNumber,
   getPayerId,
   getPayerUrl,
+  isNioReferenceUrl,
   isPayerUrl,
 } from 'utils/lib/helpers/helpers';
 import { filterHiddenRemovableFields, isFieldExplicitlyCleared } from 'utils/lib/helpers/paperwork/paperwork';
@@ -225,7 +227,7 @@ interface PolicyHolder {
   middleName: string;
   lastName: string;
   memberId: string;
-  relationship: 'Self' | 'Child' | 'Parent' | 'Spouse' | 'Common Law Spouse' | 'Injured Party' | 'Other';
+  relationship: SubscriberRelationship;
 
   number?: string;
   email?: string;
@@ -1956,12 +1958,7 @@ const extractPolicyHolder = (
     number: findAnswer(`policy-holder-number${suffix}`),
     email: findAnswer(`policy-holder-email${suffix}`),
     memberId: findAnswer(`insurance-member-id${suffix}`) ?? '',
-    relationship: findAnswer(`patient-relationship-to-insured${suffix}`) as
-      | 'Self'
-      | 'Spouse'
-      | 'Parent'
-      | 'Legal Guardian'
-      | 'Other',
+    relationship: findAnswer(`patient-relationship-to-insured${suffix}`) as SubscriberRelationship,
   };
 
   const sameAsPatient = findBooleanAnswer(`policy-holder-address-as-patient${suffix}`) === true;
@@ -2201,7 +2198,8 @@ const mergeGuarantors = (guarantors: Account['guarantor'], organizationReference
     {
       party: {
         reference: organizationReference,
-        type: 'Organization',
+        // An NIO reference token is not a FHIR Organization reference, so it carries no type hint.
+        ...(isNioReferenceUrl(organizationReference) ? {} : { type: 'Organization' }),
       },
     },
   ];
@@ -2279,16 +2277,19 @@ interface BuildEmployerAccountResourceParams {
   patientId: string;
   existingAccount?: Account;
   organizationReference: string;
+  // Persisted on Account.owner so NIO reference tokens render a name without any FHIR read.
+  organizationDisplay?: string;
   accountTypeCoding?: CodeableConcept;
   employerInformation?: EmployerInformation;
   coverageReference?: string;
 }
 
-const buildEmployerAccountResource = (params: BuildEmployerAccountResourceParams): Account => {
+export const buildEmployerAccountResource = (params: BuildEmployerAccountResourceParams): Account => {
   const {
     patientId,
     existingAccount,
     organizationReference,
+    organizationDisplay,
     accountTypeCoding,
     employerInformation,
     coverageReference,
@@ -2312,7 +2313,7 @@ const buildEmployerAccountResource = (params: BuildEmployerAccountResourceParams
     },
     name: employerInformation?.employerName,
     subject,
-    owner: { reference: organizationReference },
+    owner: { reference: organizationReference, ...(organizationDisplay ? { display: organizationDisplay } : {}) },
     guarantor,
     contained: organizationIdFromReference
       ? baseAccount.contained?.filter(
@@ -3173,6 +3174,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       patientId: patient.id!,
       existingAccount: existingOccupationalMedicineAccount,
       organizationReference: occupationalMedicineEmployerReference.reference,
+      organizationDisplay: occupationalMedicineEmployerReference.display,
       accountTypeCoding: OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
       employerInformation,
     });

@@ -53,7 +53,7 @@ import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPa
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
-import { formatPatientTabTitle } from 'src/shared/utils';
+import { DEFAULT_TAB_TITLE, formatPatientTabTitle } from 'src/shared/utils';
 import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import {
   getCancellationReasonDisplay,
@@ -402,6 +402,9 @@ export default function VisitDetailsPage(): ReactElement {
     if (tabTitle) {
       document.title = tabTitle;
     }
+    return () => {
+      document.title = DEFAULT_TAB_TITLE;
+    };
   }, [patient, room]);
 
   const isInPerson = isInPersonAppointment(appointment);

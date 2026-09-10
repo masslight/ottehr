@@ -99,12 +99,25 @@ export const useUploadPatientConditionPhotoMutation = (): UseMutationResult<
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useDeletePatientConditionPhotoMutation = () => {
   const oystehr = useClient({ tokenless: false });
+
   return useMutation({
-    mutationFn: async ({ documentRefId }: { documentRefId: string }) => {
+    mutationFn: async ({
+      appointmentID,
+      documentReferenceId,
+    }: {
+      appointmentID: string;
+      documentReferenceId: string;
+    }) => {
       if (!oystehr) {
         throw new Error('client not defined');
       }
-      await oystehr.zambda.execute({ id: 'delete-patient-document', documentRefId });
+
+      await oystehr.zambda.execute({
+        id: 'upload-patient-condition-photo',
+        action: 'delete',
+        appointmentID,
+        documentReferenceId,
+      });
     },
   });
 };

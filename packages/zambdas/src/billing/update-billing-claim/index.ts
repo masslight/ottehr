@@ -12,6 +12,7 @@ import {
   ProvenanceAgent,
   RelatedPerson,
 } from 'fhir/r4b';
+import { applyClaimNonInsurancePayerTag, claimNonInsurancePayerExtension } from 'utils/lib/fhir/billing';
 import { codeableConcept, setNpi } from 'utils/lib/fhir/helpers';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import {
@@ -23,11 +24,13 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
 } from 'utils/lib/helpers/rcm/constants';
 import { BillingPolicyHolderInput, BillingSubscriberRelationship } from 'utils/lib/types/data/billing/billing.schemas';
-import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { removeExtension, updateExtension } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { isNonInsuranceOrganization } from '../non-insurance-org.helpers';
 import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../provenance';
 import {
   attachCoverageToClaim,
@@ -362,6 +365,23 @@ async function attachClaimResources(
     const display = fields.payerId ? payerDisplay(await oystehr.rcm.getPayer({ id: fields.payerId })) : undefined;
     // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
     if (payerUrl && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl, display };
+  }
+
+  if (fields.nonInsurancePayer !== undefined) {
+    if (fields.nonInsurancePayer) {
+      const org = await fetchById<Organization>(oystehr, 'Organization', fields.nonInsurancePayer.id);
+      if (!isNonInsuranceOrganization(org)) {
+        throw INVALID_INPUT_ERROR('nonInsurancePayer must reference a non-insurance organization');
+      }
+      updateExtension(
+        claim,
+        claimNonInsurancePayerExtension({ reference: `Organization/${org.id}`, display: org.name })
+      );
+      applyClaimNonInsurancePayerTag(claim, fields.nonInsurancePayer.id);
+    } else {
+      removeExtension(claim, CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL);
+      applyClaimNonInsurancePayerTag(claim, null);
+    }
   }
 
   if (fields.billType != null) {

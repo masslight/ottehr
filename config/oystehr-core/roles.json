@@ -28,6 +28,7 @@
             "Zambda:Function:get-appointment-details",
             "Zambda:Function:patch-paperwork",
             "Zambda:Function:submit-paperwork",
+            "Zambda:Function:upload-patient-condition-photo",
             "Zambda:Function:payment-methods-list",
             "Zambda:Function:payment-methods-delete",
             "Zambda:Function:payment-methods-setup",
@@ -323,7 +324,11 @@
             "Zambda:Function:record-billing-manual-payment",
             "Zambda:Function:search-billing-patient-ar-claims",
             "Zambda:Function:get-billing-patient-balance",
-            "Zambda:Function:export-billing-claims"
+            "Zambda:Function:export-billing-claims",
+            "Zambda:Function:create-billing-non-insurance-org",
+            "Zambda:Function:update-billing-non-insurance-org",
+            "Zambda:Function:search-billing-non-insurance-orgs",
+            "Zambda:Function:delete-billing-non-insurance-org"
           ]
         }
       ]

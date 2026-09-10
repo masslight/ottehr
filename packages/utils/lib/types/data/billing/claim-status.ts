@@ -42,6 +42,9 @@ export const AR_STAGE = {
   nonInsurancePayer: 'non-insurance-payer-ar',
 } as const;
 
+// Sentinel arStage search value meaning "claims with no AR stage tag".
+export const AR_STAGE_NONE = 'none';
+
 export type ArStageCode = (typeof AR_STAGE)[keyof typeof AR_STAGE];
 
 // Conceptual groupings of the status fields. AR Stage stands on its own as the top-level field, so
