@@ -303,6 +303,10 @@ export const CAPABILITIES = {
     surfaces: ['plan', 'review', 'findings'],
     required: ['display'],
     chartField: 'rosObservations',
+    // The pertinent-positives line below stays in `promptDoc` — i.e. on EVERY surface, review
+    // included — because review's uncharted-finding check IS "a symptom was stated and never reached
+    // the chart". It was briefly deleted along with the volume guidance it sat next to, and on the
+    // 191-case corpus review's ROS contribution fell from 12 matches to 7.
     promptDoc: `- add-ros-finding: { kind, display, searchTerms } — a structured Review-of-Systems finding. The display
   MUST begin with "Denies" or "Reports" followed by the symptom name; searchTerms are 1–3 synonyms for
   the symptom and must NOT include the word Denies/Reports.
@@ -310,13 +314,30 @@ export const CAPABILITIES = {
   chartable item. "denies fevers, nausea, vomiting" → a separate "Denies …" finding for EACH symptom.
   Also record dictated pertinent POSITIVES in other systems ("she has a mild headache" → "Reports
   headache") — positives outside the chief complaint are easy to lose.
-  Focus the ROS on the pertinent negatives the provider stated and on associated symptoms in systems
-  OTHER than the chief complaint; you need not mechanically re-list every chief-complaint phrase from
-  the HPI. Never invent a negative nobody addressed, and never deny the chief complaint itself.
+  Never invent a negative nobody addressed, and never deny the chief complaint itself.
   Format example — "denies chest pain and shortness of breath; reports a headache":
     {"kind":"add-ros-finding","display":"Denies chest pain","searchTerms":["chest pain"]}
     {"kind":"add-ros-finding","display":"Denies shortness of breath","searchTerms":["shortness of breath","dyspnea"]}
     {"kind":"add-ros-finding","display":"Reports headache","searchTerms":["headache","cephalgia"]}`,
+    // How much ROS to WRITE, which is an authoring decision and must not reach the audit.
+    //
+    // An earlier version of this guidance lived in `promptDoc`, so review saw it too. Measured on 40
+    // cases: every planner-scope metric improved (ROS matched +9, exam +8, E&M exact +4) while every
+    // post-review metric fell (diagnoses matched -4 on +10 more predictions, E&M exact -4, primary dx
+    // -2) — review read "a symptom left out here is simply absent" as licence to add, which is what an
+    // authoring instruction does to an audit prompt. Third time this exact leak has cost a run; see
+    // the E&M tiebreak on `set-em-code` and the HPI/MDM rule on `edit-note-text`.
+    //
+    // What it replaced told the model to "focus the ROS on the pertinent negatives … in systems OTHER
+    // than the chief complaint; you need not mechanically re-list every chief-complaint phrase". That
+    // inverted the polarity balance against the corpus: providers chart roughly twice as many reported
+    // symptoms as denied ones, and the chief complaint's own symptoms are charted, not skipped.
+    authoringDoc: `  RECORD BOTH DIRECTIONS, and weight them by what the provider actually said. A symptom the
+  patient REPORTS is as chartable as one they deny, and that INCLUDES the symptoms of the presenting
+  complaint itself: "she's congested with a runny nose and a cough" → "Reports nasal congestion" AND
+  "Reports rhinorrhea" AND "Reports cough". Do not skip a symptom because it also appears in the HPI —
+  the ROS is a separate structured section, not a summary of the narrative, and a symptom left out here
+  is simply absent from it.`,
   },
   'remove-ros-finding': {
     surfaces: ['plan', 'findings'],

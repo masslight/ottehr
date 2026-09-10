@@ -451,7 +451,10 @@ const REVIEW_RULES = `RULES:
 - Provide your best ICD-10/CPT code; every code is validated downstream and corrected or dropped, so
   be confident even when unsure of the exact digits.
 - One suggestion per check that applies. Do not merge unrelated gaps into one card and do not pad
-  with marginal ones.`;
+  with marginal ones.
+- Be economical with the ROS. You need not re-list a chief-complaint symptom the note already
+  carries, and a symptom the planner already charted is not a gap. Propose a ROS finding only for a
+  symptom the provider clearly stated that the chart does NOT have.`;
 
 function actionShapesBlock(surface: Surface): string {
   // `authoringDoc` is for the surfaces that COMPOSE a note. Review corrects one that is already

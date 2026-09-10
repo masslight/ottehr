@@ -31,6 +31,7 @@
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { GoldData } from './gold-types';
+import { rosBaseAndPolarity } from './score-harvested';
 
 const CASES_DIR = join(__dirname, 'harvested-cases');
 
@@ -53,8 +54,10 @@ interface Row {
   intentOnly?: boolean;
   /**
    * Why an item carries no tag. Every untagged item in the corpus is one the scorer drops
-   * BEFORE voicing matters — unchecked exam fields (`present !== true`, 142 of them) and
-   * lab-order diagnoses (36, scored as context). Naming the reason keeps an auditor from
+   * BEFORE voicing matters — exam rows with `present !== true` (142: 136 are `*-comment` /
+   * `*-location` free-text fields whose boolean is meaningless, 6 are findings explicitly
+   * recorded false) and lab-order diagnoses (36, scored as context). Naming the reason keeps an
+   * auditor from
    * spending attention on items that never entered a denominator; a bare "untagged" would
    * also read as "not voiced", which is the opposite of how the scorer treats an absent tag.
    */
@@ -98,8 +101,12 @@ function sectionsOf(gold: GoldData): { name: string; rows: Row[] }[] {
     },
     {
       name: 'ros',
+      // Polarity is encoded in the FIELD NAME (`…-denies` / `…-reports`), which is why the scorer
+      // reads it through rosBaseAndPolarity and reports polarityAgree separately. It is NOT in
+      // `present` — every ROS row in the corpus is present:true — so deriving it from that flag
+      // would label every denial as a positive finding.
       rows: (gold.reviewOfSystems?.observations ?? []).map((o) =>
-        row(o.label ?? o.field, o, o.present === false ? 'negative' : 'positive')
+        row(o.label ?? o.field, o, rosBaseAndPolarity(o.field).polarity)
       ),
     },
     {
@@ -111,7 +118,9 @@ function sectionsOf(gold: GoldData): { name: string; rows: Row[] }[] {
             e,
             [e.abnormal ? 'ABNORMAL' : 'normal', e.note ? `note: ${e.note}` : ''].filter(Boolean).join(', ')
           ),
-          'the clinician left this field unchecked — dropped before scoring'
+          /-comment$|-location$/.test(e.field)
+            ? 'exam free-text field — its content is the note, not a ticked finding; counted as examComments'
+            : 'explicitly recorded as not present — dropped before scoring'
         )
       ),
     },

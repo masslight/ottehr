@@ -164,6 +164,10 @@ describe('the review prompt carries no planner-only guidance', () => {
     ['the "always rewrite HPI and MDM" instruction', /ALWAYS emit edit-note-text/],
     ['the note-authoring VOICE block', /VOICE for newText/],
     ['the injection/HCPCS billing table', /INJECTION ADMINISTRATION BILLING|J1885/],
+    // How much ROS to write is an authoring call. When this lived in `promptDoc` review read it as
+    // licence to add: on 40 cases every planner-scope metric rose and every post-review one fell
+    // (diagnoses matched -4 on +10 predictions, E&M exact -4, primary dx -2).
+    ['the "record both ROS directions" authoring rule', /RECORD BOTH DIRECTIONS/],
   ])('does not mention %s', (_label, pattern) => {
     expect(review).not.toMatch(pattern);
   });
@@ -180,6 +184,7 @@ describe('the review prompt carries no planner-only guidance', () => {
     expect(plan).toMatch(/VOICE for newText/);
     expect(plan).toMatch(/INJECTION ADMINISTRATION BILLING/);
     expect(plan).toMatch(/add-medication/);
+    expect(plan).toMatch(/RECORD BOTH DIRECTIONS/);
   });
 });
 
