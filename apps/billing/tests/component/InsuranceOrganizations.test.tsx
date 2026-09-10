@@ -93,6 +93,18 @@ describe('InsuranceOrganizationsList', () => {
     expect(createBillingInsuranceOrgMock).not.toHaveBeenCalled();
   });
 
+  it('defaults Submission Mechanism to Email and Accepted Claim Form to CMS-1500', async () => {
+    const user = userEvent.setup();
+    renderList();
+    await screen.findByText('Acme Insurance');
+
+    await user.click(screen.getByRole('button', { name: /add organization/i }));
+    const dialog = within(screen.getByRole('dialog'));
+
+    expect(dialog.getByRole('radio', { name: 'Email' })).toBeChecked();
+    expect(dialog.getByRole('radio', { name: 'CMS-1500' })).toBeChecked();
+  });
+
   it('creates a custom org and refreshes the list', async () => {
     const user = userEvent.setup();
     createBillingInsuranceOrgMock.mockResolvedValue({ id: 'org-2' });
@@ -106,12 +118,7 @@ describe('InsuranceOrganizationsList', () => {
     await user.type(dialog.getByLabelText('Id *'), 'OTR-BETA');
     await user.click(dialog.getByRole('checkbox', { name: 'Medical' }));
 
-    await user.click(dialog.getByRole('combobox', { name: /submission mechanism/i }));
-    await user.click(screen.getByRole('option', { name: 'Email' }));
-
-    await user.click(dialog.getByRole('combobox', { name: /accepted claim form/i }));
-    await user.click(screen.getByRole('option', { name: 'CMS-1500' }));
-
+    // Submission Mechanism and Accepted Claim Form keep their Email / CMS-1500 defaults.
     await user.click(dialog.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(createBillingInsuranceOrgMock).toHaveBeenCalledTimes(1));

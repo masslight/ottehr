@@ -5,9 +5,9 @@ import {
   FormControlLabel,
   FormGroup,
   FormHelperText,
-  InputLabel,
-  MenuItem,
-  Select,
+  FormLabel,
+  Radio,
+  RadioGroup,
   TextField,
   Typography,
 } from '@mui/material';
@@ -103,20 +103,18 @@ export function InsuranceOrgFormFields(): ReactElement {
         control={control}
         rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
         render={({ field, fieldState: { error } }) => (
-          <FormControl size="small" fullWidth error={!!error}>
-            <InputLabel id="submission-mechanism-label">Submission Mechanism *</InputLabel>
-            <Select
-              labelId="submission-mechanism-label"
-              label="Submission Mechanism *"
-              value={field.value}
-              onChange={(e) => field.onChange(e.target.value)}
-            >
+          <FormControl error={!!error}>
+            <FormLabel sx={{ fontSize: 14 }}>Submission Mechanism *</FormLabel>
+            <RadioGroup row value={field.value} onChange={(e) => field.onChange(e.target.value)}>
               {INSURANCE_ORG_SUBMISSION_MECHANISMS.map((mechanism) => (
-                <MenuItem key={mechanism} value={mechanism}>
-                  {INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS[mechanism]}
-                </MenuItem>
+                <FormControlLabel
+                  key={mechanism}
+                  value={mechanism}
+                  control={<Radio size="small" />}
+                  label={INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS[mechanism]}
+                />
               ))}
-            </Select>
+            </RadioGroup>
             {error && <FormHelperText>{error.message}</FormHelperText>}
           </FormControl>
         )}
@@ -127,20 +125,18 @@ export function InsuranceOrgFormFields(): ReactElement {
         control={control}
         rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
         render={({ field, fieldState: { error } }) => (
-          <FormControl size="small" fullWidth error={!!error}>
-            <InputLabel id="accepted-claim-form-label">Accepted Claim Form *</InputLabel>
-            <Select
-              labelId="accepted-claim-form-label"
-              label="Accepted Claim Form *"
-              value={field.value}
-              onChange={(e) => field.onChange(e.target.value)}
-            >
+          <FormControl error={!!error}>
+            <FormLabel sx={{ fontSize: 14 }}>Accepted Claim Form *</FormLabel>
+            <RadioGroup row value={field.value} onChange={(e) => field.onChange(e.target.value)}>
               {INSURANCE_ORG_CLAIM_FORMS.map((claimForm) => (
-                <MenuItem key={claimForm} value={claimForm}>
-                  {INSURANCE_ORG_CLAIM_FORM_LABELS[claimForm]}
-                </MenuItem>
+                <FormControlLabel
+                  key={claimForm}
+                  value={claimForm}
+                  control={<Radio size="small" />}
+                  label={INSURANCE_ORG_CLAIM_FORM_LABELS[claimForm]}
+                />
               ))}
-            </Select>
+            </RadioGroup>
             {error && <FormHelperText>{error.message}</FormHelperText>}
           </FormControl>
         )}

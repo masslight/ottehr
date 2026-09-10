@@ -20,8 +20,8 @@ export function emptyInsuranceOrgForm(): InsuranceOrgForm {
     orgId: '',
     name: '',
     insuranceTypes: [],
-    submissionMechanism: '',
-    acceptedClaimForm: '',
+    submissionMechanism: 'email',
+    acceptedClaimForm: 'cms-1500',
     note: '',
   };
 }
