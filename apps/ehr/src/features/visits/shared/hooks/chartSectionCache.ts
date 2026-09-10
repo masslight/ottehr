@@ -1,5 +1,5 @@
-import { QueryClient, QueryKey } from '@tanstack/react-query';
-import { CHART_SECTION_QUERY_KEY, VISIT_NOTE_QUERY_KEY } from 'src/constants';
+import { hashKey, QueryClient, QueryKey } from '@tanstack/react-query';
+import { CHART_SECTION_QUERY_KEY, QUERY_STALE_TIME, VISIT_NOTE_QUERY_KEY } from 'src/constants';
 import { progressNoteNoteTypes } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
 import {
   CHART_SECTIONS,
@@ -8,6 +8,8 @@ import {
   ChartSectionParams,
   FIELD_TO_SECTION,
   GetChartSectionRequest,
+  NotesSectionData,
+  NotesSectionParams,
 } from 'utils/lib/types/api/chart-data/chart-sections.types';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { VisitNoteResponse } from 'utils/lib/types/api/chart-data/get-visit-note.types';
@@ -100,9 +102,10 @@ async function waitForVisitNoteInFlight(queryClient: QueryClient, encounterId: s
 }
 
 /**
- * Reads one section entry: the seed a visit-note read in flight leaves in it when there is one, otherwise
- * get-chart-section. Every section observer reads through this, so a visit-note read and the section
- * observers mounted around it cost one request between them.
+ * Reads one section entry: the seed a visit-note read in flight leaves in it when there is one, a fresh wider
+ * notes list when the section allows it (deriveChartSectionFromCache), otherwise get-chart-section. Every
+ * section observer reads through this, so a visit-note read and the section observers mounted around it cost
+ * one request between them.
  */
 export async function readChartSection<S extends ChartSection>(
   queryClient: QueryClient,
@@ -117,6 +120,9 @@ export async function readChartSection<S extends ChartSection>(
   await waitForVisitNoteInFlight(queryClient, encounterId);
   const seeded = queryClient.getQueryState<ChartSectionData<S>>(queryKey);
   if (seeded?.data !== undefined && seeded.dataUpdatedAt > before) return seeded.data;
+  // A notes list is a subset of a wider fresh list (the visit note's, on its pages): no read needed.
+  const derived = deriveChartSectionFromCache(queryClient, encounterId, section, params);
+  if (derived !== undefined) return derived;
   return fetchChartSection(apiClient, encounterId, section, params);
 }
 
@@ -200,4 +206,49 @@ export async function markChartStale(queryClient: QueryClient, encounterId: stri
     queryClient.invalidateQueries({ queryKey: chartSectionsQueryKey(encounterId), refetchType: 'none' }),
     queryClient.invalidateQueries({ queryKey: visitNoteQueryKey(encounterId), refetchType: 'none' }),
   ]);
+}
+
+/**
+ * The notes section is the one section whose option set selects a subset of its data: the server scopes each
+ * note type on its own, so a list of some types is exactly the matching rows of a list of more types. That
+ * lets a notes variant be served from a fresh superset (the visit note's list holds every progress-note type)
+ * and lets a write to a subset be applied to its supersets too.
+ */
+export const notesVariantCovers = (superset: unknown, subset: unknown): boolean => {
+  const wide = (superset as NotesSectionParams | undefined)?.types;
+  const narrow = (subset as NotesSectionParams | undefined)?.types;
+  return Array.isArray(wide) && Array.isArray(narrow) && narrow.every((type) => wide.includes(type));
+};
+
+const isFresh = (state: { dataUpdatedAt: number; isInvalidated: boolean; data?: unknown }): boolean =>
+  state.data !== undefined && !state.isInvalidated && Date.now() - state.dataUpdatedAt < QUERY_STALE_TIME;
+
+/**
+ * A section variant's data derived from another, fresh cache entry when the section allows it (see
+ * notesVariantCovers), or undefined when it has to be read.
+ */
+export function deriveChartSectionFromCache<S extends ChartSection>(
+  queryClient: QueryClient,
+  encounterId: string,
+  section: S,
+  params: ChartSectionParams<S>
+): ChartSectionData<S> | undefined {
+  if (section !== 'notes') return undefined;
+  const types = (params as NotesSectionParams | undefined)?.types;
+  if (!types) return undefined;
+  const own = hashKey(chartSectionQueryKey(encounterId, section, params));
+  // The most recently written fresh list of more types, never this variant's own entry.
+  const superset = queryClient
+    .getQueryCache()
+    .findAll({ queryKey: chartSectionsQueryKey(encounterId, 'notes') })
+    .filter(
+      (query) =>
+        hashKey(query.queryKey) !== own &&
+        isFresh(query.state) &&
+        notesVariantCovers(readChartSectionParams(query.queryKey), params)
+    )
+    .sort((a, b) => b.state.dataUpdatedAt - a.state.dataUpdatedAt)[0];
+  if (!superset) return undefined;
+  const data = superset.state.data as NotesSectionData;
+  return { notes: data.notes.filter((note) => types.includes(note.type)) } as ChartSectionData<S>;
 }

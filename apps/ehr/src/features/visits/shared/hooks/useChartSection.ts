@@ -10,7 +10,13 @@ import {
   ChartSectionParams,
 } from 'utils/lib/types/api/chart-data/chart-sections.types';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
-import { chartSectionQueryKey, chartSectionsQueryKey, readChartSection } from './chartSectionCache';
+import {
+  chartSectionQueryKey,
+  chartSectionsQueryKey,
+  notesVariantCovers,
+  readChartSection,
+  readChartSectionParams,
+} from './chartSectionCache';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
 
 export type ChartSectionUpdater<S extends ChartSection> =
@@ -39,7 +45,8 @@ export interface UseChartSectionResult<S extends ChartSection> {
   refetch: () => Promise<QueryObserverResult<ChartSectionData<S>, Error>>;
   /**
    * Writes into this section's cache entry — typically what a save just returned — so the screen shows it
-   * without a round trip. The section's other option-set variants are marked stale and refetch where shown.
+   * without a round trip. A wider notes list gets the same write; any other variant is marked stale and
+   * refetches where shown.
    */
   setSectionData: (updater: ChartSectionUpdater<S>) => void;
   encounterId: string | undefined;
@@ -91,11 +98,23 @@ export function useChartSection<S extends ChartSection>(
         queryClient.setQueryData<ChartSectionData<S>>(queryKey, { ...previous, ...patch });
       }
       const own = hashKey(queryKey);
+      const ownParams = readChartSectionParams(queryKey);
       queryClient
         .getQueryCache()
         .findAll({ queryKey: chartSectionsQueryKey(encounterId, section) })
         .forEach((other) => {
-          if (hashKey(other.queryKey) !== own) {
+          if (hashKey(other.queryKey) === own) return;
+          // A wider notes list shows these same rows: a function updater applies there too (a plain value is
+          // this variant's whole list, so it cannot). Any other variant re-reads.
+          const otherData = other.state.data as ChartSectionData<S> | undefined;
+          if (
+            section === 'notes' &&
+            typeof updater === 'function' &&
+            otherData !== undefined &&
+            notesVariantCovers(readChartSectionParams(other.queryKey), ownParams)
+          ) {
+            queryClient.setQueryData<ChartSectionData<S>>(other.queryKey, { ...otherData, ...updater(otherData) });
+          } else {
             void queryClient.invalidateQueries({ queryKey: other.queryKey, exact: true });
           }
         });
