@@ -123,10 +123,10 @@ const uploadFailure = async (response: Response, subject: string): Promise<Error
 export const returnCompletedForm = async (
   oystehr: Oystehr,
   parameters: { appointmentId: string; file: File }
-): Promise<{ result: SaveCompletedFormOutput; z3Url: string }> => {
+): Promise<{ result: SaveCompletedFormOutput; objectName: string }> => {
   const { appointmentId, file } = parameters;
 
-  const { z3Url, presignedUploadUrl } = await createCompletedFormUploadUrl(oystehr, {
+  const { objectName, presignedUploadUrl } = await createCompletedFormUploadUrl(oystehr, {
     appointmentId,
     fileName: file.name,
   });
@@ -140,15 +140,15 @@ export const returnCompletedForm = async (
     throw await uploadFailure(uploadResponse, 'form');
   }
 
-  // The stored location comes back too: an upload that could not be identified is answered with
+  // The object's name comes back too: an upload that could not be identified is answered with
   // `needsSource`, and finishing it means calling again for the same bytes rather than uploading twice.
-  return { result: await saveCompletedForm(oystehr, { appointmentId, z3Url }), z3Url };
+  return { result: await saveCompletedForm(oystehr, { appointmentId, objectName }), objectName };
 };
 
 /** Completes an upload that came back `needsSource`, once the caller knows what it is. */
 export const fileReturnedForm = async (
   oystehr: Oystehr,
-  parameters: { appointmentId: string; z3Url: string; templateId?: string; discard?: boolean }
+  parameters: { appointmentId: string; objectName: string; templateId?: string; discard?: boolean }
 ): Promise<SaveCompletedFormOutput> => saveCompletedForm(oystehr, parameters);
 
 export const createFormTemplateUploadUrl = async (
@@ -266,7 +266,7 @@ export const replaceFormTemplateWithPdf = async (
     throw await uploadFailure(uploadResponse, 'PDF');
   }
 
-  const result = await replaceFormTemplatePdf(oystehr, { documentReferenceId, z3Url: candidate.z3Url });
+  const result = await replaceFormTemplatePdf(oystehr, { documentReferenceId, objectName: candidate.objectName });
 
   const rejection = rejectionMessage(result.status);
   if (rejection) {
@@ -353,7 +353,7 @@ export const replaceFormTemplateFromUrl = async (
 
   const result = await replaceFormTemplatePdf(oystehr, {
     documentReferenceId,
-    z3Url: candidate.z3Url,
+    objectName: candidate.objectName,
     sourceUrl: candidate.resolvedFrom,
   });
 

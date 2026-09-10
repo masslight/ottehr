@@ -52,7 +52,7 @@ import ServiceCategoriesAdminPage from 'src/pages/ServiceCategoriesAdminPage';
 import Invoicing from 'src/rcm/features/invoicing/Invoicing';
 import ScheduledPatientOutreach from 'src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach';
 import { GLOBAL_ACTION_LOG_VIEWER_ROLES } from 'utils/lib/types/api/action-logs.types';
-import { RoleType } from 'utils/lib/types/api/user.types';
+import { ADMIN_TIER_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import PaperworkFlowsAdminPage from '../visits/telemed/components/admin/paperwork-flows/PaperworkFlowsAdminPage';
 import QuestionnaireAdminPage from '../visits/telemed/components/admin/questionnaires/QuestionnaireAdminPage';
 
@@ -317,7 +317,7 @@ export const allAdminNavItems: AdminNavItem[] = adminNavGroups.flatMap((group) =
 export const DEFAULT_ADMIN_PATH = allAdminNavItems[0].path;
 
 /** Roles with access to every admin page unless an item supplies a narrower explicit policy. */
-export const ADMIN_TIER_ROLES: RoleType[] = [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport];
+export { ADMIN_TIER_ROLES };
 
 /** Nav groups the given user may see, dropping groups left with no accessible items. */
 export function resolveAccessibleAdminNavGroups(hasRole: (roles: RoleType[]) => boolean): AdminNavGroup[] {

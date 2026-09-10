@@ -69,7 +69,8 @@ export type CreateFormTemplateUploadUrlInput = NewFormTemplateUpload | Replaceme
 
 export interface CreateFormTemplateUploadUrlOutput {
   documentReferenceId: string;
-  z3Url: string;
+  /** Name of the object the upload URL points at. Hand this back to `replace-form-template-pdf`. */
+  objectName: string;
   /** The client PUTs the PDF here directly; the zambda never carries the file body. */
   presignedUploadUrl: string;
 }
@@ -172,8 +173,8 @@ export interface ReplacementFormTemplateImport {
 export type ImportFormTemplateFromUrlInput = NewFormTemplateImport | ReplacementFormTemplateImport;
 
 export interface ImportFormTemplateFromUrlOutput {
-  /** Where the fetched bytes were stored. The candidate location when replacing. */
-  z3Url: string;
+  /** Name of the object the fetched bytes were stored as. The candidate when replacing. */
+  objectName: string;
   /** Where the bytes actually came from, after any redirects. */
   resolvedFrom: string;
   /** Absent when replacing: no record is created in that mode. */
@@ -188,14 +189,21 @@ export interface CreateCompletedFormUploadUrlInput {
 }
 
 export interface CreateCompletedFormUploadUrlOutput {
-  z3Url: string;
+  /** Name of the object the upload URL points at. Hand this back to `save-completed-form`. */
+  objectName: string;
   presignedUploadUrl: string;
 }
 
 /** Second step: verify the uploaded bytes, and create the chart record only if they check out. */
 export interface SaveCompletedFormInput {
   appointmentId: string;
-  z3Url: string;
+  /**
+   * Names the stored object, without describing where it lives.
+   *
+   * A caller hands this back rather than a URL: the server assembles the address from the bucket and the
+   * patient it already knows, so neither is expressible here. See `makeZ3ObjectUrl`.
+   */
+  objectName: string;
   /**
    * Which template this belongs to, where the caller knows.
    *
@@ -325,7 +333,13 @@ export interface SaveFormTemplateMappingOutput {
 export interface ReplaceFormTemplatePdfInput {
   documentReferenceId: string;
   /** Candidate object already uploaded via a URL minted with `documentReferenceId` set. */
-  z3Url: string;
+  /**
+   * Names the stored object, without describing where it lives.
+   *
+   * A caller hands this back rather than a URL: the server assembles the address from the bucket and the
+   * patient it already knows, so neither is expressible here. See `makeZ3ObjectUrl`.
+   */
+  objectName: string;
   /**
    * Where the replacement was fetched from, when it came from a link.
    *

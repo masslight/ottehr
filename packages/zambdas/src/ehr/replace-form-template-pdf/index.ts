@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import {
+  BUCKET_NAMES,
   FORM_TEMPLATE_ANALYSIS_EXTENSION_URL,
   FORM_TEMPLATE_FIELD_INVENTORY_EXTENSION_URL,
   FORM_TEMPLATE_FILLABILITY_SYSTEM,
@@ -19,9 +20,10 @@ import {
 } from 'utils/lib/types/api/form-template.types';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, requireAdminTierUser } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
+import { makeZ3ObjectUrl } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
@@ -47,6 +49,9 @@ let m2mToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedInput = validateRequestParameters(input);
+    // Managing templates is an administration action; every clinical role can invoke any zambda,
+    // so the role check has to happen here rather than being inferred from reachability.
+    await requireAdminTierUser(validatedInput.userToken ?? '', validatedInput.secrets);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 
@@ -63,19 +68,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 const inputSchema: z.ZodType<ReplaceFormTemplatePdfInput> = z.object({
   documentReferenceId: z.string().min(1, 'documentReferenceId is required'),
-  z3Url: z.string().min(1, 'z3Url is required'),
+  objectName: z.string().min(1, 'objectName is required'),
   sourceUrl: z.string().optional(),
 });
 
 export function validateRequestParameters(
   input: ZambdaInput
-): ReplaceFormTemplatePdfInput & Pick<ZambdaInput, 'secrets'> {
+): ReplaceFormTemplatePdfInput & Pick<ZambdaInput, 'secrets'> & { userToken?: string } {
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
   return {
     ...safeValidate(inputSchema, safeJsonParse(input.body)),
     secrets: input.secrets,
+    // Who is asking, as opposed to the machine identity that does the writing.
+    userToken: input.headers?.Authorization?.replace('Bearer ', ''),
   };
 }
 
@@ -88,11 +95,14 @@ export function validateRequestParameters(
  * here there is a live template and an authored mapping worth protecting.
  */
 const performEffect = async (
-  validatedInput: ReplaceFormTemplatePdfInput & Pick<ZambdaInput, 'secrets'>,
+  validatedInput: ReplaceFormTemplatePdfInput & Pick<ZambdaInput, 'secrets'> & { userToken?: string },
   oystehr: Oystehr,
   token: string
 ): Promise<ReplaceFormTemplatePdfOutput> => {
-  const { documentReferenceId, z3Url: candidateUrl, sourceUrl } = validatedInput;
+  const { documentReferenceId, objectName, sourceUrl, secrets } = validatedInput;
+
+  // Assembled from the bucket this server chose, not from anything the caller could name.
+  const candidateUrl = makeZ3ObjectUrl({ secrets, bucketName: BUCKET_NAMES.FORM_TEMPLATES, objectName });
 
   const docRef = await getFormTemplateOrThrow(oystehr, documentReferenceId);
   const previousUrl = docRef.content?.[0]?.attachment?.url;

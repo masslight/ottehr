@@ -16,7 +16,7 @@ import {
 } from 'utils/lib/types/api/form-template.types';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, requireAdminTierUser } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
@@ -40,6 +40,9 @@ let m2mToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedInput = validateRequestParameters(input);
+    // Managing templates is an administration action; every clinical role can invoke any zambda,
+    // so the role check has to happen here rather than being inferred from reachability.
+    await requireAdminTierUser(validatedInput.userToken ?? '', validatedInput.secrets);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 
@@ -58,18 +61,22 @@ const inputSchema: z.ZodType<AnalyzeFormTemplateInput> = z.object({
   documentReferenceId: z.string().min(1, 'documentReferenceId is required'),
 });
 
-export function validateRequestParameters(input: ZambdaInput): AnalyzeFormTemplateInput & Pick<ZambdaInput, 'secrets'> {
+export function validateRequestParameters(
+  input: ZambdaInput
+): AnalyzeFormTemplateInput & Pick<ZambdaInput, 'secrets'> & { userToken?: string } {
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
   return {
     ...safeValidate(inputSchema, safeJsonParse(input.body)),
     secrets: input.secrets,
+    // Who is asking, as opposed to the machine identity that does the writing.
+    userToken: input.headers?.Authorization?.replace('Bearer ', ''),
   };
 }
 
 const performEffect = async (
-  validatedInput: AnalyzeFormTemplateInput & Pick<ZambdaInput, 'secrets'>,
+  validatedInput: AnalyzeFormTemplateInput & Pick<ZambdaInput, 'secrets'> & { userToken?: string },
   oystehr: Oystehr,
   token: string
 ): Promise<AnalyzeFormTemplateOutput> => {

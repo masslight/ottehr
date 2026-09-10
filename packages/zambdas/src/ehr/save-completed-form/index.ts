@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { PDFDocument } from 'pdf-lib';
-import { FORM_INSTANCE_CATEGORY_CODING } from 'utils/lib/fhir/constants';
+import { BUCKET_NAMES, FORM_INSTANCE_CATEGORY_CODING } from 'utils/lib/fhir/constants';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { DocumentVerificationStatus } from 'utils/lib/types/api/document-provenance.types';
@@ -16,6 +16,7 @@ import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { resolveCallerPractitionerRef } from '../../shared/practitioners';
+import { makeZ3ObjectUrl } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
@@ -42,7 +43,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 const inputSchema: z.ZodType<SaveCompletedFormInput> = z.object({
   appointmentId: z.string().min(1, 'appointmentId is required'),
-  z3Url: z.string().min(1, 'z3Url is required'),
+  objectName: z.string().min(1, 'objectName is required'),
   templateId: z.string().optional(),
   discard: z.boolean().optional(),
 });
@@ -81,13 +82,22 @@ const performEffect = async (
   oystehr: Oystehr,
   token: string
 ): Promise<SaveCompletedFormOutput> => {
-  const { appointmentId, z3Url, templateId, discard, userToken, secrets } = validatedInput;
+  const { appointmentId, objectName, templateId, discard, userToken, secrets } = validatedInput;
 
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
   const patientId = visitResources?.patient?.id;
   if (!patientId) {
     throw new Error(`No patient found for appointment ${appointmentId}`);
   }
+
+  // Built from the patient this appointment resolves to, so one patient's upload cannot be named on
+  // another's chart, and no caller-supplied address ever reaches the presign or delete helpers.
+  const z3Url = makeZ3ObjectUrl({
+    secrets,
+    bucketName: BUCKET_NAMES.FORM_INSTANCES,
+    patientID: patientId,
+    objectName,
+  });
 
   // Asked for outright, before anything is read: the caller has already decided this does not belong.
   if (discard) {

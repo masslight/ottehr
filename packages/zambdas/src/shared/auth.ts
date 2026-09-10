@@ -5,7 +5,7 @@ import { decodeJwt } from 'jose';
 import { getPatientsForUser } from 'utils/lib/auth/user-auth.helper';
 import { TEST_USER_ID, userMe } from 'utils/lib/auth/user-me.helper';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { RoleType } from 'utils/lib/types/api/user.types';
+import { ADMIN_TIER_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import { MISSING_AUTH_TOKEN, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { getAuth0Token } from './getAuth0Token';
 
@@ -71,6 +71,16 @@ export const requireUserWithRole = async (
 
 export const requireAdminUser = async (userToken: string, secrets: Secrets | null): Promise<void> => {
   await requireUserWithRole(userToken, secrets, [RoleType.Administrator]);
+};
+
+/**
+ * Requires one of the roles the administration area is offered to.
+ *
+ * Distinct from `requireAdminUser`, which is Administrator alone: the admin navigation admits managers and
+ * customer support too, so gating those endpoints on Administrator would refuse users the UI invites in.
+ */
+export const requireAdminTierUser = async (userToken: string, secrets: Secrets | null): Promise<void> => {
+  await requireUserWithRole(userToken, secrets, ADMIN_TIER_ROLES);
 };
 
 /**

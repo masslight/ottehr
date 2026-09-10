@@ -118,7 +118,8 @@ describe('form template lifecycle integration', () => {
     const created = await presign({ title: 'Integration test template', fileName: 'integration-test.pdf' });
 
     expect(created.documentReferenceId).toBeTruthy();
-    expect(created.z3Url).toContain('form-templates');
+    // A name, not an address — the bucket is the server's to choose and is not expressible here.
+    expect(created.objectName).not.toContain('/');
     expect(created.presignedUploadUrl).toBeTruthy();
     createdTemplateIds.push(created.documentReferenceId);
     await tagForCleanup(created.documentReferenceId);
@@ -209,7 +210,7 @@ describe('form template lifecycle integration', () => {
 
     // The same record, and a different place to put the candidate bytes.
     expect(replacement.documentReferenceId).toBe(created.documentReferenceId);
-    expect(replacement.z3Url).not.toBe(created.z3Url);
+    expect(replacement.objectName).not.toBe(created.objectName);
 
     // Read the record itself rather than counting the listing: the contract is that this template still
     // points at its working file until `replace-form-template-pdf` has analysed the candidate, and a
@@ -219,7 +220,9 @@ describe('form template lifecycle integration', () => {
       resourceType: 'DocumentReference',
       id: created.documentReferenceId,
     });
-    expect(stored.content?.[0]?.attachment?.url).toBe(created.z3Url);
+    // Compared by name, since the address is the server's and the test only ever sees the name.
+    expect(stored.content?.[0]?.attachment?.url).toContain(created.objectName);
+    expect(stored.content?.[0]?.attachment?.url).not.toContain(replacement.objectName);
     expect(stored.docStatus).toBe('preliminary');
   });
 

@@ -12,7 +12,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
-import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
+import { makeZ3ObjectUrl, z3ObjectNameDatePrefix } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
@@ -76,14 +76,17 @@ const performEffect = async (
     throw new Error(`No patient found for appointment ${appointmentId}`);
   }
 
-  const z3Url = makeZ3Url({
+  // Named here and assembled here. The caller gets the name back and nothing else, so the return leg
+  // cannot point this deployment's credentials at an address of its own choosing.
+  const objectName = `${z3ObjectNameDatePrefix()}-${sanitizeFileName(fileName)}`;
+  const z3Url = makeZ3ObjectUrl({
     secrets,
     bucketName: BUCKET_NAMES.FORM_INSTANCES,
     patientID: patientId,
-    fileName: sanitizeFileName(fileName),
+    objectName,
   });
 
-  return { z3Url, presignedUploadUrl: await createPresignedUrl(token, z3Url, 'upload') };
+  return { objectName, presignedUploadUrl: await createPresignedUrl(token, z3Url, 'upload') };
 };
 
 /** Keeps a user-supplied name from steering the object anywhere other than where it was meant to go. */

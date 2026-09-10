@@ -3,7 +3,6 @@ import { randomUUID } from 'crypto';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  BUCKET_NAMES,
   FORM_TEMPLATE_CATEGORY_CODING,
   FORM_TEMPLATE_FILLABILITY_SYSTEM,
   FORM_TEMPLATE_IDENTIFIER_SYSTEM,
@@ -12,10 +11,9 @@ import {
 } from 'utils/lib/fhir/constants';
 import { FormTemplateMapping } from 'utils/lib/form-tokens/mapping';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
-import { Secrets } from 'utils/lib/secrets';
 import { FormFieldInfo, FormTemplateItem } from 'utils/lib/types/api/form-template.types';
 import { sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
-import { makeZ3FileUrl } from '../../shared/presigned-file-urls/helpers';
+import { z3ObjectNameDatePrefix } from '../../shared/presigned-file-urls/helpers';
 
 /**
  * `docStatus` marks a template as a draft (`preliminary`) or published (`final`). This mirrors the
@@ -92,13 +90,9 @@ export const isFillable = (docRef: DocumentReference): boolean =>
 export const isPublished = (docRef: DocumentReference): boolean =>
   docRef.docStatus === FORM_TEMPLATE_DOC_STATUS.published;
 
-/** Storage path for a template's PDF. The UUID keeps two same-day uploads of one file name apart. */
-export const makeFormTemplateZ3Url = (secrets: Secrets | null, fileName: string): string =>
-  makeZ3FileUrl({
-    secrets,
-    bucketName: BUCKET_NAMES.FORM_TEMPLATES,
-    fileName: `${randomUUID()}-${sanitizeFileNameForZ3(fileName)}`,
-  });
+/** Object name for a template's PDF. The UUID keeps two same-day uploads of one file name apart. */
+export const makeFormTemplateObjectName = (fileName: string): string =>
+  `${z3ObjectNameDatePrefix()}-${randomUUID()}-${sanitizeFileNameForZ3(fileName)}`;
 
 /**
  * Creates the record for a new template. Always a draft: nothing has read the PDF at this point, and

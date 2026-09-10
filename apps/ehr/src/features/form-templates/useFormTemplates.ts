@@ -75,16 +75,14 @@ export const useFillFormTemplate = (): MutationWithReadiness<FillFormTemplateOut
  */
 type ReturnInput =
   | { appointmentId: string; file: File }
-  | { appointmentId: string; z3Url: string; templateId?: string; discard?: boolean };
+  | { appointmentId: string; objectName: string; templateId?: string; discard?: boolean };
 
 /**
- * Files a completed form back onto the chart.
- *
- * Takes either a file to upload, or the location of one already uploaded — the second form completes an
+ * Takes either a file to upload, or the name of one already uploaded — the second form completes an
  * upload that came back needing to be told what it is.
  */
-/** The stored location rides along on the first leg, so a `needsSource` reply can be answered. */
-type ReturnResult = SaveCompletedFormOutput & { z3Url?: string };
+/** The object's name rides along on the first leg, so a `needsSource` reply can be answered. */
+type ReturnResult = SaveCompletedFormOutput & { objectName?: string };
 
 export const useReturnCompletedForm = (): MutationWithReadiness<ReturnResult, ReturnInput> => {
   const { oystehrZambda } = useApiClients();
@@ -94,8 +92,8 @@ export const useReturnCompletedForm = (): MutationWithReadiness<ReturnResult, Re
     mutationFn: async (input: ReturnInput) => {
       if (!oystehrZambda) throw new Error('API client not available');
       if ('file' in input) {
-        const { result, z3Url } = await returnCompletedForm(oystehrZambda, input);
-        return { ...result, z3Url };
+        const { result, objectName } = await returnCompletedForm(oystehrZambda, input);
+        return { ...result, objectName };
       }
       return fileReturnedForm(oystehrZambda, input);
     },

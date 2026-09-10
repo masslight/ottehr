@@ -32,7 +32,7 @@ export const FormsCard: FC = () => {
   const [returning, setReturning] = useState(false);
   // Set only when an upload arrived that nothing identifies — a scan of a printed form, usually. Its bytes
   // are already stored; naming the form is what finishes filing it.
-  const [awaitingSource, setAwaitingSource] = useState<{ z3Url: string; fileName: string } | undefined>();
+  const [awaitingSource, setAwaitingSource] = useState<{ objectName: string; fileName: string } | undefined>();
   // Keyed by template, so each row can offer its own form back without a shared "most recent" slot that
   // says nothing about which row it belongs to.
   const [readyForms, setReadyForms] = useState<Record<string, string>>({});
@@ -99,8 +99,8 @@ export const FormsCard: FC = () => {
 
           // Nothing in the document says what it is, so ask rather than guess. It is already stored; the
           // answer completes the filing without a second upload.
-          if (result.status === 'needsSource' && result.z3Url) {
-            setAwaitingSource({ z3Url: result.z3Url, fileName: file.name });
+          if (result.status === 'needsSource' && result.objectName) {
+            setAwaitingSource({ objectName: result.objectName, fileName: file.name });
             return;
           }
 
@@ -122,9 +122,9 @@ export const FormsCard: FC = () => {
   const finishFiling = (templateId: string | undefined): void => {
     if (!appointment?.id || !awaitingSource) return;
 
-    const { z3Url, fileName } = awaitingSource;
+    const { objectName, fileName } = awaitingSource;
     returnForm.mutate(
-      { appointmentId: appointment.id, z3Url, templateId, discard: !templateId },
+      { appointmentId: appointment.id, objectName, templateId, discard: !templateId },
       {
         onSuccess: (result) => {
           const filedUnder = forms.find((form) => form.documentReferenceId === result.filedUnderTemplateId);

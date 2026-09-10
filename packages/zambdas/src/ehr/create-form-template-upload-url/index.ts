@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   CreateFormTemplateUploadUrlInput,
@@ -7,9 +8,10 @@ import {
 } from 'utils/lib/types/api/form-template.types';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, requireAdminTierUser } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
+import { makeZ3ObjectUrl } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
@@ -17,7 +19,7 @@ import { createPresignedUrl } from '../../shared/z3Utils';
 import {
   createFormTemplateDraft,
   getFormTemplateOrThrow,
-  makeFormTemplateZ3Url,
+  makeFormTemplateObjectName,
 } from '../shared/form-template-helpers';
 
 const ZAMBDA_NAME = 'create-form-template-upload-url';
@@ -27,6 +29,9 @@ let m2mToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedInput = validateRequestParameters(input);
+    // Managing templates is an administration action; every clinical role can invoke any zambda,
+    // so the role check has to happen here rather than being inferred from reachability.
+    await requireAdminTierUser(validatedInput.userToken ?? '', validatedInput.secrets);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 
@@ -60,24 +65,27 @@ const inputSchema: z.ZodType<CreateFormTemplateUploadUrlInput> = z.union([
 
 export function validateRequestParameters(
   input: ZambdaInput
-): CreateFormTemplateUploadUrlInput & Pick<ZambdaInput, 'secrets'> {
+): CreateFormTemplateUploadUrlInput & Pick<ZambdaInput, 'secrets'> & { userToken?: string } {
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
   return {
     ...safeValidate(inputSchema, safeJsonParse(input.body)),
     secrets: input.secrets,
+    // Who is asking, as opposed to the machine identity that does the writing.
+    userToken: input.headers?.Authorization?.replace('Bearer ', ''),
   };
 }
 
 const performEffect = async (
-  validatedInput: CreateFormTemplateUploadUrlInput & Pick<ZambdaInput, 'secrets'>,
+  validatedInput: CreateFormTemplateUploadUrlInput & Pick<ZambdaInput, 'secrets'> & { userToken?: string },
   oystehr: Oystehr,
   token: string
 ): Promise<CreateFormTemplateUploadUrlOutput> => {
   const { secrets } = validatedInput;
 
-  const z3Url = makeFormTemplateZ3Url(secrets, validatedInput.fileName);
+  const objectName = makeFormTemplateObjectName(validatedInput.fileName);
+  const z3Url = makeZ3ObjectUrl({ secrets, bucketName: BUCKET_NAMES.FORM_TEMPLATES, objectName });
   const presignedUploadUrl = await createPresignedUrl(token, z3Url, 'upload');
 
   // Replacing an existing template's PDF: hand back a candidate location and change nothing. The
@@ -87,7 +95,7 @@ const performEffect = async (
   // input shapes, and truthiness would not narrow it because a string can itself be falsy.
   if (validatedInput.documentReferenceId !== undefined) {
     await getFormTemplateOrThrow(oystehr, validatedInput.documentReferenceId);
-    return { documentReferenceId: validatedInput.documentReferenceId, z3Url, presignedUploadUrl };
+    return { documentReferenceId: validatedInput.documentReferenceId, objectName, presignedUploadUrl };
   }
 
   // Created before the bytes exist: the browser does the uploading and needs somewhere to send them.
@@ -98,5 +106,5 @@ const performEffect = async (
     z3Url,
   });
 
-  return { documentReferenceId: createdId, z3Url, presignedUploadUrl };
+  return { documentReferenceId: createdId, objectName, presignedUploadUrl };
 };

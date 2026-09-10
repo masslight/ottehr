@@ -161,7 +161,7 @@ describe('save-completed-form wrong-patient guard integration', () => {
   const returnForm = async (
     appointmentId: string,
     bytes: Uint8Array
-  ): Promise<{ result: SaveCompletedFormOutput; z3Url: string }> => {
+  ): Promise<{ result: SaveCompletedFormOutput; objectName: string }> => {
     const upload = (
       await oystehrZambdas.zambda.execute({
         id: 'create-completed-form-upload-url',
@@ -181,13 +181,13 @@ describe('save-completed-form wrong-patient guard integration', () => {
       await oystehrZambdas.zambda.execute({
         id: 'save-completed-form',
         appointmentId,
-        z3Url: upload.z3Url,
+        objectName: upload.objectName,
       })
     ).output as SaveCompletedFormOutput;
 
     if (result.documentReferenceId) await tagForCleanup(result.documentReferenceId);
 
-    return { result, z3Url: upload.z3Url };
+    return { result, objectName: upload.objectName };
   };
 
   const documentsFor = async (patientId: string): Promise<DocumentReference[]> =>
@@ -200,7 +200,7 @@ describe('save-completed-form wrong-patient guard integration', () => {
 
   it('refuses a form stamped for another patient, and writes nothing to the chart it was offered to', async () => {
     const stampedForA = await produceFilledForm(visitA.appointment.id!);
-    const { result, z3Url } = await returnForm(visitB.appointment.id!, stampedForA);
+    const { result, objectName } = await returnForm(visitB.appointment.id!, stampedForA);
 
     expect(result.status).toBe('patientMismatch');
     // Names the chart it actually belongs to, which is what makes the refusal actionable.
@@ -214,7 +214,7 @@ describe('save-completed-form wrong-patient guard integration', () => {
     // answer is about something that was never written.
     const documents = await documentsFor(visitB.patient.id!);
     expect(
-      documents.some((doc) => doc.content?.some((entry) => entry.attachment?.url === z3Url)),
+      documents.some((doc) => doc.content?.some((entry) => entry.attachment?.url?.endsWith(objectName))),
       'a refused upload must leave no document behind'
     ).toBe(false);
   });
@@ -264,7 +264,7 @@ describe('save-completed-form wrong-patient guard integration', () => {
       await oystehrZambdas.zambda.execute({
         id: 'save-completed-form',
         appointmentId: visitB.appointment.id,
-        z3Url: upload.z3Url,
+        objectName: upload.objectName,
         templateId,
       })
     ).output as SaveCompletedFormOutput;
@@ -297,7 +297,7 @@ describe('save-completed-form wrong-patient guard integration', () => {
       await oystehrZambdas.zambda.execute({
         id: 'save-completed-form',
         appointmentId: visitB.appointment.id,
-        z3Url: upload.z3Url,
+        objectName: upload.objectName,
       })
     ).output as SaveCompletedFormOutput;
 
@@ -310,7 +310,7 @@ describe('save-completed-form wrong-patient guard integration', () => {
       await oystehrZambdas.zambda.execute({
         id: 'save-completed-form',
         appointmentId: visitB.appointment.id,
-        z3Url: upload.z3Url,
+        objectName: upload.objectName,
         discard: true,
       })
     ).output as SaveCompletedFormOutput;
