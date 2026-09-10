@@ -1,208 +1,26 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
-import { Bundle, FhirResource, MedicationAdministration, Patient, Procedure, Resource } from 'fhir/r4b';
-import {
-  getCptCodesFromMA,
-  getDosageFromMA,
-  getMedicationFromMA,
-  getNdcCodeFromMedication,
-  MedicationCptCodeEntry,
-} from 'utils/lib/fhir/medication-administration';
-import { addSearchParams, SearchParams } from 'utils/lib/fhir/uri';
-import { ChartDataWithResources, PharmacyDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { Bundle, FhirResource, Patient, Resource } from 'fhir/r4b';
+import { ChartDataWithResources } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ChartDataRequestedFields, GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { SCHOOL_WORK_NOTE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { handleCustomDTOExtractions, mapResourceToChartDataResponse } from '../../shared/chart-data';
+import { enrichCptCodesWithMedicationAdministration } from '../../shared/chart-data/cpt-billing';
+import { makePreferredPharmacies } from '../../shared/chart-data/preferred-pharmacies';
+import { parseChartDataBundle } from '../../shared/chart-data/search-requests';
 import { makeEncounterLabResults } from '../lab/shared/labs';
 
-type RequestOptions = ChartDataRequestedFields[keyof ChartDataRequestedFields];
-
-// for patient prop
-type ResourceTypeWithPatientAsPatient = 'AllergyIntolerance' | 'EpisodeOfCare';
-
-type ResourceTypeWithPatientAsSubject =
-  | 'Observation'
-  | 'Procedure'
-  | 'MedicationStatement'
-  | 'MedicationRequest'
-  | 'Condition'
-  | 'ClinicalImpression'
-  | 'Communication'
-  | 'ServiceRequest'
-  | 'DocumentReference'
-  | 'QuestionnaireResponse';
-
-export type SupportedResourceType = ResourceTypeWithPatientAsPatient | ResourceTypeWithPatientAsSubject;
-
-// for encounter prop
-type ResourceTypeWithEncounterAsEncounter = Extract<
+// The search-request builders live with the rest of the chart-data code now (they are shared with the
+// chart sections); re-exported here so existing imports keep working until this endpoint is removed.
+export {
+  createFindResourceRequest,
+  createFindResourceRequestByEncounterField,
+  createFindResourceRequestByEncounterSubject,
+  createFindResourceRequestById,
+  createFindResourceRequestByPatientField,
+  encounterSubjectScopedSearchUrl,
+  parseChartDataBundle,
   SupportedResourceType,
-  | 'Observation'
-  | 'Procedure'
-  | 'MedicationRequest'
-  | 'Condition'
-  | 'ClinicalImpression'
-  | 'Communication'
-  | 'ServiceRequest'
-  | 'AllergyIntolerance'
-  | 'DocumentReference'
-  | 'QuestionnaireResponse'
->;
-
-type ResourceTypeWithEncounterAsContext = Extract<SupportedResourceType, 'MedicationStatement'>;
-
-/**
- * Every chart search is built from the encounter id alone — patient-scoped ones included, via
- * createFindResourceRequestByEncounterSubject — so getChartData can issue its whole request set
- * in a single wave.
- */
-export function createFindResourceRequest(
-  encounterId: string,
-  resourceType: SupportedResourceType,
-  searchParams?: SearchParams,
-  defaultSearchBy?: 'encounter' | 'patient'
-): BatchInputGetRequest {
-  const searchBy = searchParams?._search_by ?? defaultSearchBy;
-
-  if (searchBy === 'encounter' && resourceType !== 'EpisodeOfCare') {
-    if (resourceType === 'MedicationStatement') {
-      return createFindResourceRequestByEncounterField(encounterId, resourceType, 'context', searchParams);
-    }
-    return createFindResourceRequestByEncounterField(encounterId, resourceType, 'encounter', searchParams);
-  }
-  if (resourceType === 'AllergyIntolerance' || resourceType === 'EpisodeOfCare') {
-    return createFindResourceRequestByEncounterSubject(encounterId, resourceType, 'patient', searchParams);
-  }
-  return createFindResourceRequestByEncounterSubject(encounterId, resourceType, 'subject', searchParams);
-}
-
-/** Search URL that scopes a patient-scoped resource to the subject of an encounter. */
-export const encounterSubjectScopedSearchUrl = (
-  resourceType: SupportedResourceType | 'Patient',
-  field: 'patient' | 'subject' | null,
-  encounterId: string
-): string =>
-  field === null
-    ? `/${resourceType}?_has:Encounter:subject:_id=${encounterId}`
-    : `/${resourceType}?${field}:Patient._has:Encounter:subject:_id=${encounterId}`;
-
-/**
- * CAUTION: do not add `_revinclude` / `_include:iterate` to a search scoped this way without
- * checking where the included resource can point. An iterate leg that walks out through a resource
- * shared with other patients would pull their data into a patient-scoped result. No patient-scoped
- * chart search carries one today (the only `_revinclude` in the chart field set is on
- * `radiologyOrders`, which is encounter-scoped).
- */
-export function createFindResourceRequestByEncounterSubject(
-  encounterId: string,
-  resourceType: SupportedResourceType,
-  field: 'patient' | 'subject',
-  searchParams?: RequestOptions
-): BatchInputGetRequest {
-  let url = encounterSubjectScopedSearchUrl(resourceType, field, encounterId);
-  url = addSearchParams(url, searchParams);
-
-  return {
-    method: 'GET',
-    url: url,
-  };
-}
-
-export function createFindResourceRequestByPatientField(
-  patientId: Patient['id'],
-  resourceType: ResourceTypeWithPatientAsPatient,
-  field: 'patient',
-  searchParams?: RequestOptions
-): BatchInputGetRequest;
-export function createFindResourceRequestByPatientField(
-  patientId: Patient['id'],
-  resourceType: ResourceTypeWithPatientAsSubject,
-  field: 'subject',
-  searchParams?: RequestOptions
-): BatchInputGetRequest;
-export function createFindResourceRequestByPatientField(
-  patientId: Patient['id'],
-  resourceType: SupportedResourceType,
-  field: 'patient' | 'subject',
-  searchParams?: RequestOptions
-): BatchInputGetRequest {
-  let url = `/${resourceType}?${field}=Patient/${patientId}`;
-  url = addSearchParams(url, searchParams);
-
-  return {
-    method: 'GET',
-    url: url,
-  };
-}
-
-export function createFindResourceRequestByEncounterField(
-  encounterId: Patient['id'],
-  resourceType: ResourceTypeWithEncounterAsContext,
-  field: 'context',
-  searchParams?: RequestOptions
-): BatchInputGetRequest;
-export function createFindResourceRequestByEncounterField(
-  encounterId: Patient['id'],
-  resourceType: ResourceTypeWithEncounterAsEncounter,
-  field: 'encounter',
-  searchParams?: RequestOptions
-): BatchInputGetRequest;
-export function createFindResourceRequestByEncounterField(
-  encounterId: Patient['id'],
-  resourceType: SupportedResourceType,
-  field: 'context' | 'encounter',
-  searchParams?: RequestOptions
-): BatchInputGetRequest {
-  let url = `/${resourceType}?${field}=Encounter/${encounterId}`;
-
-  url = addSearchParams(url, searchParams);
-
-  return {
-    method: 'GET',
-    url: url,
-  };
-}
-
-export function createFindResourceRequestById(
-  resourceId: string,
-  resourceType: string,
-  searchParams?: RequestOptions
-): BatchInputGetRequest {
-  let url = `/${resourceType}?_id=${resourceId}`;
-  url = addSearchParams(url, searchParams);
-
-  return {
-    method: 'GET',
-    url: url,
-  };
-}
-
-/** Flattens a batch response's nested searchset bundles into a flat resource list. */
-export function parseChartDataBundle(bundle: Bundle<FhirResource>): FhirResource[] {
-  if (bundle.resourceType !== 'Bundle' || bundle.entry === undefined) {
-    console.error('Search response appears malformed: ', JSON.stringify(bundle));
-    throw new Error('Could not parse search response for chart data');
-  }
-
-  const resultResources: FhirResource[] = [];
-  for (const entry of bundle.entry) {
-    if (
-      entry.response?.outcome?.id === 'ok' &&
-      entry.resource &&
-      entry.resource.resourceType === 'Bundle' &&
-      entry.resource.type === 'searchset'
-    ) {
-      const innerBundle = entry.resource as Bundle<FhirResource>;
-      const innerEntries = innerBundle.entry;
-      if (innerEntries) {
-        for (const item of innerEntries) {
-          const resource = item.resource;
-          if (resource) resultResources.push(resource);
-        }
-      }
-    }
-  }
-  return resultResources;
-}
+} from '../../shared/chart-data/search-requests';
 
 export async function convertSearchResultsToResponse(
   bundle: Bundle<FhirResource>,
@@ -258,64 +76,11 @@ export async function convertSearchResultsToResponse(
   });
 
   if (getChartDataResponse.cptCodes?.length && oystehr) {
-    // Build procedure ID → MA ID map from partOf references
-    const procedureMaIdMap = new Map<string, string>();
-    resources.forEach((r) => {
-      if (r.resourceType === 'Procedure' && r.id) {
-        const proc = r as Procedure;
-        const maRef = proc.partOf?.find((ref) => ref.reference?.startsWith('MedicationAdministration/'));
-        if (maRef?.reference) {
-          procedureMaIdMap.set(r.id, maRef.reference.replace('MedicationAdministration/', ''));
-        }
-      }
-    });
-
-    if (procedureMaIdMap.size > 0) {
-      const maIds = [...new Set(procedureMaIdMap.values())];
-      const maBundle = await oystehr.fhir.search<MedicationAdministration>({
-        resourceType: 'MedicationAdministration',
-        params: [{ name: '_id', value: maIds.join(',') }],
-      });
-      const maMap = new Map<string, MedicationAdministration>();
-      maBundle.unbundle().forEach((ma) => {
-        if (ma.id) maMap.set(ma.id, ma);
-      });
-
-      const procedureBillingMap = new Map<
-        string,
-        { ndcCode?: string; dose?: number; doseUnits?: string; cptEntries?: MedicationCptCodeEntry[] }
-      >();
-      procedureMaIdMap.forEach((maId, procedureId) => {
-        const ma = maMap.get(maId);
-        if (!ma) return;
-        const med = getMedicationFromMA(ma);
-        const ndc = med ? getNdcCodeFromMedication(med) : undefined;
-        const dosage = getDosageFromMA(ma);
-        const cptEntries = getCptCodesFromMA(ma);
-        if (ndc || dosage || cptEntries) {
-          procedureBillingMap.set(procedureId, {
-            ndcCode: ndc,
-            dose: dosage?.dose,
-            doseUnits: dosage?.units,
-            cptEntries,
-          });
-        }
-      });
-
-      if (procedureBillingMap.size > 0) {
-        getChartDataResponse.cptCodes = getChartDataResponse.cptCodes.map((cpt) => {
-          const billing = cpt.resourceId ? procedureBillingMap.get(cpt.resourceId) : undefined;
-          if (!billing) return cpt;
-          const billableUnits = billing.cptEntries?.find((entry) => entry.code === cpt.code)?.billableUnits;
-          return {
-            ...cpt,
-            ...(billing.ndcCode != null && { ndcCode: billing.ndcCode }),
-            ...(billing.dose != null && { dose: billing.dose, doseUnits: billing.doseUnits }),
-            ...(billableUnits != null && { billableUnits }),
-          };
-        });
-      }
-    }
+    getChartDataResponse.cptCodes = await enrichCptCodesWithMedicationAdministration(
+      getChartDataResponse.cptCodes,
+      resources,
+      oystehr
+    );
   }
 
   getChartDataResponse = handleCustomDTOExtractions(getChartDataResponse, resources) as GetChartDataResponse;
@@ -332,35 +97,7 @@ export async function convertSearchResultsToResponse(
 
   if (fields?.includes('preferredPharmacies')) {
     const qr = resources.find((r) => r.resourceType === 'QuestionnaireResponse');
-
-    const pharmacies: PharmacyDTO[] = (patientResource?.contained ?? [])
-      .filter((r) => r.resourceType === 'Organization')
-      .map((org) => ({
-        name: org.name || '',
-        address: org.address?.[0]?.text || '',
-        phone: org.telecom?.find((t) => t.system === 'phone')?.value,
-      }));
-
-    if (qr) {
-      const getAnswer = (linkId: string): string | undefined =>
-        qr.item?.find((i) => i.linkId === linkId)?.answer?.[0]?.valueString;
-
-      const qrName = getAnswer('pharmacy-name');
-      const qrAddress = getAnswer('pharmacy-address');
-      const qrPhone = getAnswer('pharmacy-phone');
-
-      pharmacies.forEach((ph) => {
-        if (
-          (qrName && ph.name?.toLowerCase() === qrName.toLowerCase()) ||
-          (qrAddress && ph.address?.toLowerCase().includes(qrAddress.toLowerCase())) ||
-          (qrPhone && ph.phone === qrPhone)
-        ) {
-          ph.primary = true;
-        }
-      });
-    }
-
-    getChartDataResponse.preferredPharmacies = pharmacies;
+    getChartDataResponse.preferredPharmacies = makePreferredPharmacies(patientResource, qr);
   }
 
   const encounter = resources.find((r) => r.resourceType === 'Encounter');
