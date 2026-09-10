@@ -1,5 +1,5 @@
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { Box, Checkbox, Chip, IconButton, Paper, Tooltip, Typography, useTheme } from '@mui/material';
+import { Box, Chip, IconButton, Paper, Tooltip, Typography, useTheme } from '@mui/material';
 import { FC, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -26,7 +26,6 @@ export const RecommendationsList: FC<RecommendationsListProps> = ({ templates, o
   const itemState = useScribeRecommendationsStore((state) => state.itemState);
   const isApplying = useScribeRecommendationsStore((state) => state.isApplying);
   const setSelected = useScribeRecommendationsStore((state) => state.setSelected);
-  const setManySelected = useScribeRecommendationsStore((state) => state.setManySelected);
   const updateRecommendation = useScribeRecommendationsStore((state) => state.updateRecommendation);
 
   const groups = useMemo(
@@ -50,8 +49,6 @@ export const RecommendationsList: FC<RecommendationsListProps> = ({ templates, o
         const pending = items.filter((rec) => itemState[rec.id]?.status !== 'applied');
         const selectedCount = pending.filter((rec) => itemState[rec.id]?.selected).length;
         const appliedCount = items.length - pending.length;
-        const allSelected = pending.length > 0 && selectedCount === pending.length;
-        const someSelected = selectedCount > 0 && !allSelected;
 
         return (
           <Paper key={section} variant="outlined" data-testid={testIds.group(section)}>
@@ -59,29 +56,15 @@ export const RecommendationsList: FC<RecommendationsListProps> = ({ templates, o
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 0.5,
-                px: 1,
+                gap: 0.75,
+                pl: 1.5,
+                pr: 1,
                 py: 0.5,
                 backgroundColor: theme.palette.action.hover,
                 borderBottom: '1px solid',
                 borderColor: 'divider',
               }}
             >
-              <Checkbox
-                size="small"
-                checked={allSelected}
-                indeterminate={someSelected}
-                disabled={pending.length === 0 || isApplying}
-                onChange={(event) =>
-                  setManySelected(
-                    pending.map((rec) => rec.id),
-                    event.target.checked
-                  )
-                }
-                inputProps={{ 'aria-label': `Select all ${meta.label} recommendations` }}
-                data-testid={testIds.groupCheckbox(section)}
-                sx={{ p: 0.5 }}
-              />
               <Box sx={{ display: 'flex', alignItems: 'center', color: theme.palette.primary.dark }}>
                 {sidebarMenuIcons[meta.iconKey]}
               </Box>

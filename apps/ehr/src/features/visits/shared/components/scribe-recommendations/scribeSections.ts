@@ -42,8 +42,15 @@ export const getVisitBasePath = (pathname: string): string | undefined => pathna
 export const kgFromLbs = (lbs: number): number => Math.round((lbs / 2.20462) * 100) / 100;
 
 export interface RecommendationText {
+  /** The recommendation itself, always on screen. */
   primary: string;
+  /** A short clinical qualifier that earns a permanent line of its own. */
   secondary?: string;
+  /**
+   * How the AI got here — kept out of the row and revealed on demand, alongside the transcript
+   * quote, so a list of twenty recommendations stays scannable.
+   */
+  detail?: string;
 }
 
 export const describeRecommendation = (rec: ScribeRecommendation): RecommendationText => {
@@ -51,17 +58,17 @@ export const describeRecommendation = (rec: ScribeRecommendation): Recommendatio
     case 'template':
       return {
         primary: `Apply template “${rec.templateName}”`,
-        secondary:
+        detail:
           'Fills exam findings, MDM, patient instructions and codes; appends diagnoses. Leaves ROS and orders to the items below.',
       };
     case 'hpi':
-      return { primary: rec.text, secondary: 'Added to History of Present Illness' };
+      return { primary: rec.text };
     case 'ros':
       return { primary: `${rec.systemLabel}: ${rec.label}` };
     case 'vital-weight':
       return { primary: `Weight ${rec.weightLbs} lbs (${kgFromLbs(rec.weightLbs)} kg)` };
     case 'allergy':
-      return { primary: rec.name, secondary: 'Added as a current allergy' };
+      return { primary: rec.name };
     case 'medication': {
       const details = [
         rec.type === 'as-needed' ? 'As needed' : 'Scheduled',
@@ -72,9 +79,9 @@ export const describeRecommendation = (rec: ScribeRecommendation): Recommendatio
     case 'diagnosis': {
       const details = [
         `Heard as “${rec.transcriptTerm}”`,
-        rec.isPrimary ? 'Primary if none is charted yet' : undefined,
-      ];
-      return { primary: `${rec.display} (${rec.code})`, secondary: details.filter(Boolean).join(' · ') };
+        rec.isPrimary ? 'Set as primary if no diagnosis is charted yet' : undefined,
+      ].filter(Boolean);
+      return { primary: `${rec.display} (${rec.code})`, detail: details.join(' · ') };
     }
   }
 };

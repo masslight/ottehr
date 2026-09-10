@@ -1,11 +1,12 @@
-import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
-import { Box, Button, Checkbox, Paper, Typography, useTheme } from '@mui/material';
-import { FC } from 'react';
+import { Box, Button, Checkbox, Collapse, Paper, Typography, useTheme } from '@mui/material';
+import { FC, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sidebarMenuIcons } from '../sidebarMenuIcons';
+import { ProvenanceContent, ProvenancePanel, ProvenanceToggle } from './Provenance';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
 import { getVisitBasePath, IN_HOUSE_MEDICATION_ORDER_ROUTE } from './scribeSections';
+import { OrderSuggestion } from './types';
 
 const testIds = dataTestIds.scribeRecommendations;
 
@@ -40,77 +41,99 @@ export const OrderSuggestions: FC = () => {
         </Typography>
       </Box>
       <Paper variant="outlined">
-        {orderSuggestions.map((order) => {
-          const done = Boolean(ordersDone[order.id]);
-          return (
-            <Box
-              key={order.id}
-              data-testid={testIds.orderSuggestion(order.id)}
-              sx={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 0.5,
-                px: 1,
-                py: 0.75,
-                '&:not(:last-of-type)': { borderBottom: '1px solid', borderColor: 'divider' },
-              }}
-            >
-              <Checkbox
-                size="small"
-                checked={done}
-                onChange={(event) => setOrderDone(order.id, event.target.checked)}
-                inputProps={{ 'aria-label': `Mark ${order.name} as done` }}
-                data-testid={testIds.orderCheckbox(order.id)}
-                sx={{ p: 0.5, mt: -0.25 }}
-              />
-              <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                  <Box sx={{ display: 'flex', color: theme.palette.primary.dark, '& svg': { width: 16, height: 16 } }}>
-                    {sidebarMenuIcons['Med. Administration']}
-                  </Box>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontWeight: 500,
-                      textDecoration: done ? 'line-through' : 'none',
-                      color: done ? 'text.secondary' : 'text.primary',
-                    }}
-                  >
-                    {order.name}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    In-house medication
-                  </Typography>
-                </Box>
-                <Typography variant="caption" color="text.secondary">
-                  {order.rationale}
-                </Typography>
-                {order.evidence && (
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.25, color: 'text.secondary' }}>
-                    <FormatQuoteIcon sx={{ fontSize: 14, mt: '1px', flexShrink: 0 }} />
-                    <Typography variant="caption" sx={{ fontStyle: 'italic' }}>
-                      {order.evidence}
-                    </Typography>
-                  </Box>
-                )}
-              </Box>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={startOrder}
-                disabled={done}
-                data-testid={testIds.orderButton(order.id)}
-                sx={{ textTransform: 'none', borderRadius: 100, flexShrink: 0, whiteSpace: 'nowrap' }}
-              >
-                Order
-              </Button>
-            </Box>
-          );
-        })}
+        {orderSuggestions.map((order) => (
+          <OrderSuggestionRow
+            key={order.id}
+            order={order}
+            done={Boolean(ordersDone[order.id])}
+            onDoneChange={(done) => setOrderDone(order.id, done)}
+            onStartOrder={startOrder}
+          />
+        ))}
       </Paper>
       <Typography variant="caption" color="text.secondary">
-        Orders are never placed automatically. Use “Order” to start one in the note, then tick it off here.
+        Nothing here is ordered automatically.
       </Typography>
+    </Box>
+  );
+};
+
+interface OrderSuggestionRowProps {
+  order: OrderSuggestion;
+  done: boolean;
+  onDoneChange: (done: boolean) => void;
+  onStartOrder: () => void;
+}
+
+const OrderSuggestionRow: FC<OrderSuggestionRowProps> = ({ order, done, onDoneChange, onStartOrder }) => {
+  const theme = useTheme();
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const provenance = { note: order.rationale, evidence: order.evidence };
+
+  return (
+    <Box
+      data-testid={testIds.orderSuggestion(order.id)}
+      sx={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 0.5,
+        px: 1,
+        py: 0.75,
+        '&:not(:last-of-type)': { borderBottom: '1px solid', borderColor: 'divider' },
+      }}
+    >
+      <Checkbox
+        size="small"
+        checked={done}
+        onChange={(event) => onDoneChange(event.target.checked)}
+        inputProps={{ 'aria-label': `Mark ${order.name} as done` }}
+        data-testid={testIds.orderCheckbox(order.id)}
+        sx={{ p: 0.5, mt: -0.25 }}
+      />
+      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', color: theme.palette.primary.dark, '& svg': { width: 16, height: 16 } }}>
+            {sidebarMenuIcons['Med. Administration']}
+          </Box>
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 500,
+              textDecoration: done ? 'line-through' : 'none',
+              color: done ? 'text.secondary' : 'text.primary',
+            }}
+          >
+            {order.name}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            In-house medication
+          </Typography>
+        </Box>
+        <Collapse in={isDetailOpen} unmountOnExit>
+          <ProvenancePanel dataTestId={testIds.orderDetail(order.id)}>
+            <ProvenanceContent {...provenance} />
+          </ProvenancePanel>
+        </Collapse>
+      </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
+        <ProvenanceToggle
+          content={<ProvenanceContent {...provenance} />}
+          isOpen={isDetailOpen}
+          onToggle={() => setIsDetailOpen((open) => !open)}
+          subject={order.name}
+          dataTestId={testIds.orderDetailButton(order.id)}
+        />
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={onStartOrder}
+          disabled={done}
+          data-testid={testIds.orderButton(order.id)}
+          sx={{ textTransform: 'none', borderRadius: 100, whiteSpace: 'nowrap' }}
+        >
+          Order
+        </Button>
+      </Box>
     </Box>
   );
 };

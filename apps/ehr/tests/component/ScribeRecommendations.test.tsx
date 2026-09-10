@@ -201,11 +201,8 @@ describe('ScribeRecommendationsDrawer', () => {
     await user.click(rowCheckbox('medication-claritin'));
     expect(rowCheckbox('medication-claritin')).not.toBeChecked();
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 1} of ${total} selected`);
-    // partially selected group
-    expect(within(screen.getByTestId(testIds.groupCheckbox('medications'))).getByRole('checkbox')).toHaveAttribute(
-      'data-indeterminate',
-      'true'
-    );
+    // the group header counts what is still selected within it
+    expect(within(screen.getByTestId(testIds.group('medications'))).getByText('1/2')).toBeVisible();
 
     await user.click(screen.getByTestId(testIds.applyButton));
     await waitFor(() => expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 1} applied`));
@@ -263,7 +260,7 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(applied.find((rec) => rec.id === 'dx-postnasal-drip')).toMatchObject({ code: 'J01.00' });
   });
 
-  it('keeps failed rows unapplied with a retry, and lets a group be toggled as a whole', async () => {
+  it('keeps failed rows unapplied with a retry, and skips whatever was unchecked', async () => {
     const user = userEvent.setup();
     mocks.applyOne.mockImplementation(async (rec) => {
       if ((rec as ScribeRecommendation).kind === 'template') throw new Error('Template not available here');
@@ -271,12 +268,13 @@ describe('ScribeRecommendationsDrawer', () => {
     await openPanelWithRecommendations(user);
     const total = useScribeRecommendationsStore.getState().recommendations.length;
 
-    // uncheck all of ROS in one go
-    await user.click(within(screen.getByTestId(testIds.groupCheckbox('ros'))).getByRole('checkbox'));
     const rosIds = useScribeRecommendationsStore
       .getState()
       .recommendations.filter((rec) => rec.section === 'ros')
       .map((rec) => rec.id);
+    for (const id of rosIds) {
+      await user.click(rowCheckbox(id));
+    }
     rosIds.forEach((id) => expect(rowCheckbox(id)).not.toBeChecked());
 
     await user.click(screen.getByTestId(testIds.applyButton));
@@ -298,9 +296,41 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(appliedIds()).toEqual(['template-acute-sinusitis']);
   });
 
-  it('tracks suggested orders as a manual checklist', async () => {
+  it('keeps the transcript evidence out of the row until it is asked for', async () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
+
+    const quote = "I'm about 170 pounds.";
+    const caution = 'Patient-reported, not measured.';
+    expect(screen.queryByText(quote)).toBeNull();
+    expect(screen.queryByText(caution)).toBeNull();
+    expect(screen.queryByTestId(testIds.rowDetail('vital-weight'))).toBeNull();
+
+    // hovering reads it without committing to anything
+    await user.hover(screen.getByTestId(testIds.rowDetailButton('vital-weight')));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(quote);
+
+    // clicking pins it open, then closes it again
+    await user.click(screen.getByTestId(testIds.rowDetailButton('vital-weight')));
+    const detail = screen.getByTestId(testIds.rowDetail('vital-weight'));
+    expect(within(detail).getByText(quote)).toBeVisible();
+    expect(within(detail).getByText(caution)).toBeVisible();
+
+    await user.click(screen.getByTestId(testIds.rowDetailButton('vital-weight')));
+    await waitFor(() => expect(screen.queryByTestId(testIds.rowDetail('vital-weight'))).toBeNull());
+
+    // rows the AI is confident about get the same affordance, unflagged
+    expect(screen.getByTestId(testIds.rowDetailButton('dx-acute-sinusitis'))).toBeVisible();
+  });
+
+  it('tracks suggested orders as a manual checklist, with their rationale on demand', async () => {
+    const user = userEvent.setup();
+    await openPanelWithRecommendations(user);
+
+    const rationale = 'Thins secretions to relieve the post-nasal drip and sinus congestion.';
+    expect(screen.queryByText(rationale)).toBeNull();
+    await user.click(screen.getByTestId(testIds.orderDetailButton('order-guaifenesin')));
+    expect(within(screen.getByTestId(testIds.orderDetail('order-guaifenesin'))).getByText(rationale)).toBeVisible();
 
     const checkbox = within(screen.getByTestId(testIds.orderCheckbox('order-guaifenesin'))).getByRole('checkbox');
     await user.click(checkbox);

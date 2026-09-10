@@ -2,8 +2,6 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CloseIcon from '@mui/icons-material/Close';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
-import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import {
   Autocomplete,
   Box,
@@ -11,6 +9,7 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  Collapse,
   IconButton,
   InputAdornment,
   TextField,
@@ -25,6 +24,7 @@ import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-pe
 import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
 import { DiagnosesField } from '../assessment-tab/DiagnosesField';
 import { TemplateOption } from '../templates/useListTemplates';
+import { hasProvenance, ProvenanceContent, ProvenancePanel, ProvenanceToggle } from './Provenance';
 import { RecommendationItemState } from './scribeRecommendations.store';
 import { describeRecommendation, rosFindingLabel } from './scribeSections';
 import { ScribeRecommendation } from './types';
@@ -52,7 +52,8 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
   onRetry,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const { primary, secondary } = describeRecommendation(recommendation);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const { primary, secondary, detail } = describeRecommendation(recommendation);
   const isApplied = itemState.status === 'applied';
   const isApplying = itemState.status === 'applying';
   const canEdit = !isApplied && !isApplying && !locked;
@@ -62,9 +63,14 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
     recommendation.kind === 'template' &&
     templates.length > 0 &&
     !templates.some((t) => t.label.toLowerCase() === recommendation.templateName.trim().toLowerCase());
-  const warning = templateMissing
+  const rawWarning = templateMissing
     ? 'This template isn’t available in this environment. Edit the recommendation to pick another one.'
     : recommendation.warning;
+  // Once the item is in the chart the caution has been acted on, so it stops flagging the row.
+  const warning = isApplied ? undefined : rawWarning;
+
+  const provenance = { warning, note: detail, evidence: recommendation.evidence };
+  const showProvenance = hasProvenance(provenance);
 
   const renderStatus = (): JSX.Element | null => {
     if (isApplying) {
@@ -134,10 +140,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
         ) : (
           <>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <Typography
-                variant="body2"
-                sx={{ fontWeight: 500, overflowWrap: 'anywhere', textDecoration: isApplied ? 'none' : undefined }}
-              >
+              <Typography variant="body2" sx={{ fontWeight: 500, overflowWrap: 'anywhere' }}>
                 {primary}
               </Typography>
               {recommendation.kind === 'ros' && (
@@ -164,23 +167,12 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
                 {secondary}
               </Typography>
             )}
+            <Collapse in={isDetailOpen} unmountOnExit>
+              <ProvenancePanel hasWarning={Boolean(warning)} dataTestId={testIds.rowDetail(recommendation.id)}>
+                <ProvenanceContent {...provenance} />
+              </ProvenancePanel>
+            </Collapse>
           </>
-        )}
-
-        {recommendation.evidence && !isEditing && (
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.25, color: 'text.secondary' }}>
-            <FormatQuoteIcon sx={{ fontSize: 14, mt: '1px', flexShrink: 0 }} />
-            <Typography variant="caption" sx={{ fontStyle: 'italic' }}>
-              {recommendation.evidence}
-            </Typography>
-          </Box>
-        )}
-
-        {warning && !isApplied && (
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, color: 'warning.dark' }}>
-            <WarningAmberOutlinedIcon sx={{ fontSize: 16, flexShrink: 0 }} />
-            <Typography variant="caption">{warning}</Typography>
-          </Box>
         )}
 
         {itemState.status === 'error' && (
@@ -201,7 +193,17 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
         )}
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, minWidth: 28, justifyContent: 'flex-end' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
+        {showProvenance && !isEditing && (
+          <ProvenanceToggle
+            content={<ProvenanceContent {...provenance} />}
+            isOpen={isDetailOpen}
+            onToggle={() => setIsDetailOpen((open) => !open)}
+            subject={primary}
+            hasWarning={Boolean(warning)}
+            dataTestId={testIds.rowDetailButton(recommendation.id)}
+          />
+        )}
         {renderStatus()}
         {canEdit && !isEditing && (
           <Tooltip title="Edit before applying">
