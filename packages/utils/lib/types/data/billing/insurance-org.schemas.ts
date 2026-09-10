@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { NioContactSchema } from './non-insurance-org.schemas';
 
 const nonEmptyString = z.string().trim().min(1);
 const nonNegativeInt = z.number().int().nonnegative();
@@ -46,6 +47,7 @@ export const CreateInsuranceOrgInputSchema = z.object({
   submissionDetails: InsuranceOrgSubmissionDetailsSchema.optional(),
   note: z.string().trim().optional(),
   acceptedClaimForm: z.enum(INSURANCE_ORG_CLAIM_FORMS),
+  contacts: z.array(NioContactSchema).optional(),
 });
 export type CreateInsuranceOrgInput = z.output<typeof CreateInsuranceOrgInputSchema>;
 

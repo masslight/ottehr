@@ -44,6 +44,7 @@ const acmeCustomOrg: InsuranceOrganizationItem = {
   submissionDetails: { portalUrl: 'https://portal.acme.com', portalDetails: 'Use the claims tab' },
   acceptedClaimForm: 'cms-1500',
   note: 'Prefers electronic submission',
+  contacts: [{ name: 'Jane Smith', title: 'Claims Manager' }],
 };
 
 function renderList(): void {
@@ -161,6 +162,36 @@ describe('InsuranceOrganizationsList', () => {
     expect(dialog.queryByLabelText('Fax Number')).not.toBeInTheDocument();
     expect(dialog.getByLabelText('Address Line 1')).toBeInTheDocument();
   });
+
+  it('adds and removes contacts in the dialog, and creates the org with them', async () => {
+    const user = userEvent.setup();
+    createBillingInsuranceOrgMock.mockResolvedValue({ id: 'org-2' });
+    renderList();
+    await screen.findByText('Acme Insurance');
+
+    await user.click(screen.getByRole('button', { name: /add organization/i }));
+    const dialog = within(screen.getByRole('dialog'));
+
+    expect(dialog.getByText('No contacts added yet.')).toBeInTheDocument();
+    await user.click(dialog.getByRole('button', { name: /add contact/i }));
+    await user.click(dialog.getByRole('button', { name: /add contact/i }));
+    expect(dialog.getByText('Contact 1')).toBeInTheDocument();
+    expect(dialog.getByText('Contact 2')).toBeInTheDocument();
+    await user.click(dialog.getByRole('button', { name: 'Remove contact 2' }));
+    expect(dialog.queryByText('Contact 2')).not.toBeInTheDocument();
+
+    await user.type(dialog.getByLabelText('Name *'), 'Jane Smith');
+    await user.type(dialog.getByLabelText('Title'), 'Claims Manager');
+
+    await user.type(dialog.getByLabelText('Organization Name *'), 'Beta Insurance');
+    await user.type(dialog.getByLabelText('Id *'), 'OTR-BETA');
+    await user.type(dialog.getByLabelText('Email Address'), 'claims@beta.com');
+    await user.click(dialog.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(createBillingInsuranceOrgMock).toHaveBeenCalledTimes(1));
+    const [, payload] = createBillingInsuranceOrgMock.mock.calls[0];
+    expect(payload.contacts).toEqual([{ name: 'Jane Smith', title: 'Claims Manager' }]);
+  });
 });
 
 describe('InsuranceOrganizationDetail', () => {
@@ -199,6 +230,7 @@ describe('InsuranceOrganizationDetail', () => {
     expect(screen.getAllByText('Portal').length).toBeGreaterThan(0);
     expect(screen.getAllByText('CMS-1500').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Prefers electronic submission').length).toBeGreaterThan(0);
+    expect(screen.getByText('Jane Smith — Claims Manager')).toBeInTheDocument();
   });
 
   it('edits and saves with the stored insuranceOrgId, then refetches', async () => {
@@ -223,6 +255,8 @@ describe('InsuranceOrganizationDetail', () => {
       portalUrl: 'https://portal.acme.com',
       portalDetails: 'Use the claims tab',
     });
+    // The stored contact round-trips through the edit form unchanged.
+    expect(payload.contacts).toEqual([{ name: 'Jane Smith', title: 'Claims Manager' }]);
     await waitFor(() => expect(searchBillingInsuranceOrgsMock).toHaveBeenCalledTimes(2));
   });
 });

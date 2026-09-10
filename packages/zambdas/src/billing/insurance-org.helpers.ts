@@ -19,7 +19,9 @@ import {
   InsuranceOrganizationItem,
   InsuranceOrgSubmissionDetails,
 } from 'utils/lib/types/data/billing/insurance-org.types';
+import { NioContact } from 'utils/lib/types/data/billing/non-insurance-org.schemas';
 import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
+import { toFhirContact, toNioContact } from './non-insurance-org.helpers';
 
 // --- Type guard ---
 
@@ -72,6 +74,7 @@ export function buildInsuranceOrganization(input: CreateInsuranceOrgInput, exist
   if (details?.faxNumber) telecom.push({ system: 'fax', value: details.faxNumber });
   if (details?.portalUrl) telecom.push({ system: 'url', value: details.portalUrl });
   const address = toFhirAddress(details?.mailAddress);
+  const contacts = (input.contacts ?? []).map(toFhirContact);
 
   const extension: Extension[] = [
     { url: INSURANCE_ORG_SUBMISSION_MECHANISM_EXTENSION_URL, valueCode: input.submissionMechanism },
@@ -95,6 +98,7 @@ export function buildInsuranceOrganization(input: CreateInsuranceOrgInput, exist
     extension,
     ...(telecom.length ? { telecom } : {}),
     ...(address ? { address: [address] } : {}),
+    ...(contacts.length ? { contact: contacts } : {}),
   };
 }
 
@@ -131,6 +135,9 @@ export function mapInsuranceOrganization(org: Organization): InsuranceOrganizati
     ?.valueCode as InsuranceOrgClaimForm;
   const note = org.extension?.find((ext) => ext.url === INSURANCE_ORG_NOTE_EXTENSION_URL)?.valueString;
   const submissionDetails = mapSubmissionDetails(org);
+  const contacts = (org.contact ?? [])
+    .map(toNioContact)
+    .filter((contact): contact is NioContact => contact !== undefined);
 
   return {
     id: org.id ?? '',
@@ -142,6 +149,7 @@ export function mapInsuranceOrganization(org: Organization): InsuranceOrganizati
     ...(submissionDetails ? { submissionDetails } : {}),
     acceptedClaimForm,
     ...(note ? { note } : {}),
+    contacts,
   };
 }
 

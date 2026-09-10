@@ -96,4 +96,19 @@ describe('insurance-org input schemas', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('accepts contacts, requiring a name on each but nothing else', () => {
+    expect(CreateInsuranceOrgInputSchema.safeParse({ ...fullInput, contacts: [{ name: 'Jane' }] }).success).toBe(true);
+    expect(CreateInsuranceOrgInputSchema.safeParse({ ...fullInput, contacts: [{ title: 'Manager' }] }).success).toBe(
+      false
+    );
+  });
+
+  it('rejects a malformed contact email', () => {
+    const result = CreateInsuranceOrgInputSchema.safeParse({
+      ...fullInput,
+      contacts: [{ name: 'Jane', email: 'not-an-email' }],
+    });
+    expect(result.success).toBe(false);
+  });
 });

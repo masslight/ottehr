@@ -56,6 +56,7 @@ describe('insurance-org CRUD', () => {
       submissionDetails: { portalUrl: 'https://portal.acme.com', portalDetails: 'Use the claims tab' },
       acceptedClaimForm: 'cms-1500',
       note: 'Prefers electronic submission',
+      contacts: [{ name: 'Jane Smith', title: 'Claims Manager', phone: '555-123-4567', email: 'jane@acme.com' }],
     };
     const { id } = (await oystehr.zambda.execute({ id: 'create-billing-insurance-org', ...input }))
       .output as CreatedResourceResponse;
@@ -81,6 +82,7 @@ describe('insurance-org CRUD', () => {
       submissionDetails: { portalUrl: 'https://portal.acme.com', portalDetails: 'Use the claims tab' },
       acceptedClaimForm: 'cms-1500',
       note: 'Prefers electronic submission',
+      contacts: [{ name: 'Jane Smith', title: 'Claims Manager', phone: '555-123-4567', email: 'jane@acme.com' }],
     });
   }, 90_000);
 
@@ -103,7 +105,7 @@ describe('insurance-org CRUD', () => {
     expect(response.organizations.some((org) => org.id === insuranceOrgId)).toBe(true);
   }, 90_000);
 
-  it('update-billing-insurance-org rewrites the org fields, replacing portal details with a fax number', async () => {
+  it('update-billing-insurance-org rewrites the org fields (full replace), swapping the contact', async () => {
     const updated = (
       await oystehr.zambda.execute({
         id: 'update-billing-insurance-org',
@@ -114,6 +116,7 @@ describe('insurance-org CRUD', () => {
         submissionMechanism: 'fax',
         submissionDetails: { faxNumber: '555-999-0000' },
         acceptedClaimForm: 'cms-1450',
+        contacts: [{ name: 'John Doe' }],
       })
     ).output as SavedResourceResponse;
     expect(updated.id).toBe(insuranceOrgId);
@@ -125,6 +128,7 @@ describe('insurance-org CRUD', () => {
       submissionMechanism: 'fax',
       submissionDetails: { faxNumber: '555-999-0000' },
       acceptedClaimForm: 'cms-1450',
+      contacts: [{ name: 'John Doe' }],
     });
     expect(detail.note).toBeUndefined();
   }, 90_000);

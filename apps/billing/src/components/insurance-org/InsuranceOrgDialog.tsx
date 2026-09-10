@@ -55,7 +55,7 @@ export function InsuranceOrgDialog({ open, onClose, onCreated }: InsuranceOrgDia
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth={false} PaperProps={{ sx: { width: 560, maxWidth: '95vw' } }}>
+    <Dialog open={open} onClose={onClose} maxWidth={false} PaperProps={{ sx: { width: 1080, maxWidth: '95vw' } }}>
       <DialogTitle sx={{ px: 3, pt: 3, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="h5">Add Insurance Organization</Typography>
         <IconButton size="small" onClick={onClose} aria-label="Close">

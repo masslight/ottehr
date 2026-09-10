@@ -8,7 +8,8 @@ import {
   InsuranceOrganizationItem,
   InsuranceOrgSubmissionDetails,
 } from 'utils/lib/types/data/billing/insurance-org.types';
-import { emptyNioAddressForm, formatNioAddress, NioAddressForm } from './nonInsuranceOrg';
+import { NioContact } from 'utils/lib/types/data/billing/non-insurance-org.schemas';
+import { emptyNioAddressForm, formatNioAddress, NioAddressForm, NioContactForm } from './nonInsuranceOrg';
 
 export interface InsuranceOrgSubmissionDetailsForm {
   email: string;
@@ -26,6 +27,7 @@ export interface InsuranceOrgForm {
   submissionDetails: InsuranceOrgSubmissionDetailsForm;
   acceptedClaimForm: '' | InsuranceOrgClaimForm;
   note: string;
+  contacts: NioContactForm[];
 }
 
 function emptySubmissionDetailsForm(): InsuranceOrgSubmissionDetailsForm {
@@ -41,6 +43,7 @@ export function emptyInsuranceOrgForm(): InsuranceOrgForm {
     submissionDetails: emptySubmissionDetailsForm(),
     acceptedClaimForm: 'cms-1500',
     note: '',
+    contacts: [],
   };
 }
 
@@ -72,6 +75,12 @@ export function insuranceOrgItemToFormValues(item?: InsuranceOrganizationItem | 
   form.submissionDetails = submissionDetailsToForm(item.submissionDetails);
   form.acceptedClaimForm = item.acceptedClaimForm ?? '';
   form.note = item.note ?? '';
+  form.contacts = item.contacts.map((contact) => ({
+    name: contact.name,
+    title: contact.title ?? '',
+    phone: contact.phone ?? '',
+    email: contact.email ?? '',
+  }));
   return form;
 }
 
@@ -110,8 +119,21 @@ function addressToInput(address: NioAddressForm): InsuranceOrgSubmissionDetails[
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
+function contactsToInput(contacts: NioContactForm[]): NioContact[] | undefined {
+  const result: NioContact[] = contacts
+    .filter((contact) => contact.name.trim())
+    .map((contact) => ({
+      name: contact.name.trim(),
+      ...(contact.title.trim() ? { title: contact.title.trim() } : {}),
+      ...(contact.phone.trim() ? { phone: contact.phone.trim() } : {}),
+      ...(contact.email.trim() ? { email: contact.email.trim() } : {}),
+    }));
+  return result.length ? result : undefined;
+}
+
 export function insuranceOrgFormToInput(form: InsuranceOrgForm): CreateInsuranceOrgInput {
   const submissionDetails = submissionDetailsToInput(form);
+  const contacts = contactsToInput(form.contacts);
   return {
     orgId: form.orgId.trim(),
     name: form.name.trim(),
@@ -120,6 +142,7 @@ export function insuranceOrgFormToInput(form: InsuranceOrgForm): CreateInsurance
     ...(submissionDetails ? { submissionDetails } : {}),
     acceptedClaimForm: form.acceptedClaimForm as InsuranceOrgClaimForm,
     ...(form.note.trim() ? { note: form.note.trim() } : {}),
+    ...(contacts ? { contacts } : {}),
   };
 }
 

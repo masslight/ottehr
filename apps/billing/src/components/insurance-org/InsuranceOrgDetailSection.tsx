@@ -40,6 +40,9 @@ export function InsuranceOrgDetailSection({
   };
 
   const insuranceTypesSummary = item.insuranceTypes.map((type) => INSURANCE_ORG_TYPE_LABELS[type]).join(', ');
+  const contactsSummary = item.contacts
+    .map((contact) => [contact.name, contact.title].filter(Boolean).join(' — '))
+    .join('; ');
 
   return (
     <EditableSection
@@ -66,7 +69,8 @@ export function InsuranceOrgDetailSection({
         <Row label="Mail Address" value={formatInsuranceOrgAddress(item.submissionDetails?.mailAddress)} />
       )}
       <Row label="Accepted Claim Form" value={INSURANCE_ORG_CLAIM_FORM_LABELS[item.acceptedClaimForm]} />
-      <Row label="Note" value={item.note ?? ''} hideBorder />
+      <Row label="Note" value={item.note ?? ''} />
+      <Row label="Contacts" value={contactsSummary} hideBorder />
     </EditableSection>
   );
 }

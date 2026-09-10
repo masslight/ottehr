@@ -52,7 +52,11 @@ function makeOystehr(): MockOystehr {
 
 describe('insurance-org FHIR mapping', () => {
   it('round-trips a full input through build/map back to the DTO', () => {
-    const org = { ...buildInsuranceOrganization(fullInput), id: ORG_ID };
+    const input: CreateInsuranceOrgInput = {
+      ...fullInput,
+      contacts: [{ name: 'Jane Smith', title: 'Claims Manager', phone: '555-123-4567', email: 'jane@acme.com' }],
+    };
+    const org = { ...buildInsuranceOrganization(input), id: ORG_ID };
     const item = mapInsuranceOrganization(org);
     expect(item).toEqual({
       id: ORG_ID,
@@ -64,7 +68,39 @@ describe('insurance-org FHIR mapping', () => {
       submissionDetails: { portalUrl: 'https://portal.acme.com', portalDetails: 'Use the claims tab' },
       acceptedClaimForm: 'cms-1500',
       note: 'Prefers electronic submission',
+      contacts: [{ name: 'Jane Smith', title: 'Claims Manager', phone: '555-123-4567', email: 'jane@acme.com' }],
     });
+  });
+
+  it('defaults contacts to an empty array when none are provided', () => {
+    const org = buildInsuranceOrganization({ ...fullInput, contacts: undefined });
+    expect(org.contact).toBeUndefined();
+    expect(mapInsuranceOrganization(org).contacts).toEqual([]);
+  });
+
+  it('writes multiple contacts to Organization.contact and maps them back', () => {
+    const org = buildInsuranceOrganization({
+      ...fullInput,
+      contacts: [
+        { name: 'Jane Smith', title: 'Claims Manager', phone: '555-123-4567', email: 'jane@acme.com' },
+        { name: 'John Doe' },
+      ],
+    });
+    expect(org.contact).toEqual([
+      {
+        name: { text: 'Jane Smith' },
+        purpose: { text: 'Claims Manager' },
+        telecom: [
+          { system: 'phone', value: '555-123-4567' },
+          { system: 'email', value: 'jane@acme.com' },
+        ],
+      },
+      { name: { text: 'John Doe' } },
+    ]);
+    expect(mapInsuranceOrganization(org).contacts).toEqual([
+      { name: 'Jane Smith', title: 'Claims Manager', phone: '555-123-4567', email: 'jane@acme.com' },
+      { name: 'John Doe' },
+    ]);
   });
 
   it('omits note when not provided', () => {

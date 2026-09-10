@@ -35,6 +35,37 @@ describe('insurance-org zambdas - validateRequestParameters', () => {
     });
   });
 
+  test('create accepts contacts and requires a name on each', () => {
+    const input = createMockZambdaInput(
+      {
+        orgId: 'OTR-ACME',
+        name: 'Acme Insurance',
+        submissionMechanism: 'email',
+        acceptedClaimForm: 'other',
+        contacts: [{ name: 'Jane Smith', title: 'Claims Manager', phone: '555-123-4567', email: 'jane@acme.com' }],
+      },
+      { secrets }
+    );
+    expect(validateCreate(input)).toMatchObject({
+      contacts: [{ name: 'Jane Smith', title: 'Claims Manager', phone: '555-123-4567', email: 'jane@acme.com' }],
+    });
+
+    expect(() =>
+      validateCreate(
+        createMockZambdaInput(
+          {
+            orgId: 'OTR-ACME',
+            name: 'Acme Insurance',
+            submissionMechanism: 'email',
+            acceptedClaimForm: 'other',
+            contacts: [{ title: 'Missing a name' }],
+          },
+          { secrets }
+        )
+      )
+    ).toThrow();
+  });
+
   test('create rejects an invalid submissionDetails.email', () => {
     const input = createMockZambdaInput(
       {

@@ -4,6 +4,7 @@ import {
   InsuranceOrgSubmissionMechanism,
   InsuranceOrgType,
 } from './insurance-org.schemas';
+import { NioContact } from './non-insurance-org.schemas';
 
 // --- FHIR systems & extensions (billing workspace) ---
 // Organization.type carries the shared "kind" coding from non-insurance-org.types.ts
@@ -69,6 +70,7 @@ export interface InsuranceOrganizationItem {
   submissionDetails?: InsuranceOrgSubmissionDetails;
   acceptedClaimForm: InsuranceOrgClaimForm;
   note?: string;
+  contacts: NioContact[];
 }
 
 export interface SearchInsuranceOrgsResponse {
