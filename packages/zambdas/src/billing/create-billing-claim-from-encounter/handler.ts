@@ -179,7 +179,11 @@ let m2mToken: string;
 
 export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult> {
   const params = validateRequestParameters(input);
+  const response = await createClaimFromEncounter(params);
+  return { statusCode: 200, body: JSON.stringify(response) };
+}
 
+export async function createClaimFromEncounter(params: CreateClaimFromEncounterParams): Promise<{ claimId: string }> {
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
@@ -190,7 +194,7 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
   const { claimId, claim } = await performEffect(billingOystehr, cvo, agent);
   const engine = determineRulesEngineForClaim(claim);
   if (engine) await kickOffRulesEngine(billingOystehr, engine, claimId, agent.who, params.secrets);
-  return { statusCode: 200, body: JSON.stringify({ claimId }) };
+  return { claimId };
 }
 
 export async function performEffect(
