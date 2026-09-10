@@ -82,7 +82,7 @@ export const TemplateStage: FC<TemplateStageProps> = ({
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               {isApplied ? (
                 <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, color: 'success.main' }}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, color: 'success.main' }}
                   data-testid={testIds.rowStatus(recommendation.id)}
                 >
                   <CheckCircleIcon sx={{ fontSize: 18, flexShrink: 0 }} />
@@ -97,14 +97,15 @@ export const TemplateStage: FC<TemplateStageProps> = ({
                   disabled={locked || templateMissing}
                   data-testid={testIds.templateApplyButton}
                   // The name belongs in the button: there is one thing to do here, and this says
-                  // exactly what it will do. Long template names wrap rather than overflow.
-                  sx={{ flex: 1, whiteSpace: 'normal', textAlign: 'left', justifyContent: 'flex-start' }}
+                  // exactly what it will do. It hugs its label, and a long template name wraps
+                  // inside it rather than overflowing the panel.
+                  sx={{ whiteSpace: 'normal' }}
                 >
                   {`${itemState.status === 'error' ? 'Try again' : 'Apply template'}: ${recommendation.templateName}`}
                 </RoundedButton>
               )}
 
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0, ml: 'auto' }}>
                 {hasProvenance(provenance) && (
                   <ProvenanceToggle
                     content={<ProvenanceContent {...provenance} />}
