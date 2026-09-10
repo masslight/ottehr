@@ -3,6 +3,7 @@
  */
 
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { VisitNoteResponse } from 'utils/lib/types/api/chart-data/get-visit-note.types';
 import { describe, expect, it, vi } from 'vitest';
 import { ChartDataApiClient, COPYABLE_FOLLOWUP_FIELDS, fetchCopySourceChartData } from './copyFollowupFields';
 
@@ -148,68 +149,88 @@ describe('COPYABLE_FOLLOWUP_FIELDS', () => {
 });
 
 describe('fetchCopySourceChartData', () => {
+  const emptyNote = (): VisitNoteResponse =>
+    ({
+      patientId: 'p1',
+      encounterNotes: { reasonForVisit: { text: '' } },
+      history: {
+        allergies: [],
+        conditions: [],
+        medications: [],
+        inhouseMedications: [],
+        surgicalHistory: [],
+        episodeOfCare: [],
+        birthHistory: [],
+        practitioners: [],
+      },
+      screening: { observations: [] },
+      exam: { examObservations: [], rosObservations: [] },
+      assessment: { diagnosis: [], cptCodes: [], procedures: [] },
+      plan: {
+        instructions: [],
+        schoolWorkNotes: [],
+        prescribedMedications: [],
+        preferredPharmacies: [],
+        practitioners: [],
+      },
+      notes: { notes: [] },
+      aiChat: { aiChat: { documents: [], providers: [] }, observations: [] },
+      vitalsObservations: [],
+      externalLabResults: { labOrderResults: [] },
+      inHouseLabResults: { labOrderResults: [] },
+      radiologyOrders: [],
+      practitioners: [],
+      patientHasPreviousVisits: false,
+    }) as unknown as VisitNoteResponse;
+
   const makeClient = (
-    noteFields: Record<string, unknown>,
-    fullChart: Record<string, unknown>
-  ): { client: ChartDataApiClient; getChartData: ReturnType<typeof vi.fn> } => {
-    const getChartData = vi.fn().mockImplementation((params: { requestedFields?: unknown }) => {
-      return Promise.resolve(params.requestedFields ? noteFields : fullChart);
-    });
-    return { client: { getChartData }, getChartData };
+    note: VisitNoteResponse
+  ): { client: ChartDataApiClient; getVisitNote: ReturnType<typeof vi.fn> } => {
+    const getVisitNote = vi.fn().mockResolvedValue(note);
+    return { client: { getVisitNote }, getVisitNote };
   };
 
-  it('issues two get-chart-data calls in parallel — one scoped, one unscoped', async () => {
-    const { client, getChartData } = makeClient({}, {});
+  it('reads the source visit once, as a visit note', async () => {
+    const { client, getVisitNote } = makeClient(emptyNote());
     await fetchCopySourceChartData(client, 'enc-1');
-    expect(getChartData).toHaveBeenCalledTimes(2);
-    const calls = getChartData.mock.calls.map((c) => c[0]);
-    expect(calls.some((c) => c.requestedFields)).toBe(true);
-    expect(calls.some((c) => !c.requestedFields)).toBe(true);
+    expect(getVisitNote).toHaveBeenCalledTimes(1);
+    expect(getVisitNote).toHaveBeenCalledWith({ encounterId: 'enc-1' });
   });
 
-  it('takes scalar note fields from the scoped call and array fields from the unscoped one', async () => {
-    const note = {
+  it('presents the note fields, the diagnoses and the exam in the whole-chart shape the copy configs read', async () => {
+    const note = emptyNote();
+    note.encounterNotes = {
       chiefComplaint: { resourceId: 'r1', text: 'A' },
       historyOfPresentIllness: { resourceId: 'r2', text: 'B' },
       mechanismOfInjury: { resourceId: 'r3', text: 'C' },
-      accident: { resourceId: 'r4', date: '2025-01-01' },
+      accident: { resourceId: 'r4', type: ['AA'], date: '2025-01-01' },
       reasonForVisit: { text: 'ear pain' },
     };
-    const full = {
-      diagnosis: [{ resourceId: 'd1', display: 'Dx' }],
-      examObservations: [{ resourceId: 'e1', field: 'hr' }],
-      rosObservations: [{ resourceId: 'ro1', field: 'general' }],
-    };
-    const { client } = makeClient(note, full);
+    note.assessment.diagnosis = [{ resourceId: 'd1', code: 'J02.9', display: 'Dx', isPrimary: true }];
+    note.exam.examObservations = [{ resourceId: 'e1', field: 'hr', value: true }];
+    note.exam.rosObservations = [{ resourceId: 'ro1', field: 'general', value: true }];
+    const { client } = makeClient(note);
     const result = await fetchCopySourceChartData(client, 'enc-1');
-    expect(result.chiefComplaint).toEqual(note.chiefComplaint);
-    expect(result.historyOfPresentIllness).toEqual(note.historyOfPresentIllness);
-    expect(result.mechanismOfInjury).toEqual(note.mechanismOfInjury);
-    expect(result.accident).toEqual(note.accident);
-    expect(result.reasonForVisit).toEqual(note.reasonForVisit);
-    expect(result.diagnosis).toEqual(full.diagnosis);
-    expect(result.examObservations).toEqual(full.examObservations);
-    expect(result.rosObservations).toEqual(full.rosObservations);
+    expect(result.chiefComplaint).toEqual(note.encounterNotes.chiefComplaint);
+    expect(result.historyOfPresentIllness).toEqual(note.encounterNotes.historyOfPresentIllness);
+    expect(result.mechanismOfInjury).toEqual(note.encounterNotes.mechanismOfInjury);
+    expect(result.accident).toEqual(note.encounterNotes.accident);
+    expect(result.reasonForVisit).toEqual(note.encounterNotes.reasonForVisit);
+    expect(result.diagnosis).toEqual(note.assessment.diagnosis);
+    expect(result.examObservations).toEqual(note.exam.examObservations);
+    expect(result.rosObservations).toEqual(note.exam.rosObservations);
   });
 
-  it('treats empty-array scalar response as undefined (get-chart-data init artifact)', async () => {
-    // get-chart-data inits requested fields to []; a scalar left as [] means "no data".
-    const { client } = makeClient({ chiefComplaint: [], historyOfPresentIllness: { resourceId: 'r1', text: 'B' } }, {});
+  it('leaves absent single-valued fields undefined', async () => {
+    const { client } = makeClient(emptyNote());
     const result = await fetchCopySourceChartData(client, 'enc-1');
     expect(result.chiefComplaint).toBeUndefined();
-    expect(result.historyOfPresentIllness).toEqual({ resourceId: 'r1', text: 'B' });
-  });
-
-  it('propagates rejections from get-chart-data so callers can handle them', async () => {
-    const client = { getChartData: vi.fn().mockRejectedValue(new Error('forbidden')) };
-    await expect(fetchCopySourceChartData(client, 'enc-1')).rejects.toThrow('forbidden');
-  });
-
-  it('never falls back to the unscoped accident (it can belong to a different visit)', async () => {
-    // Scoped call (selected visit) has no accident; unscoped call returns one from another
-    // visit (its Conditions are fetched by-patient). The result must stay undefined. (OTR-2467)
-    const { client } = makeClient({}, { accident: { resourceId: 'other-visit', date: '2020-01-01' } });
-    const result = await fetchCopySourceChartData(client, 'enc-1');
     expect(result.accident).toBeUndefined();
+    expect(result.reasonForVisit).toEqual({ text: '' });
+  });
+
+  it('propagates rejections from get-visit-note so callers can handle them', async () => {
+    const client = { getVisitNote: vi.fn().mockRejectedValue(new Error('forbidden')) };
+    await expect(fetchCopySourceChartData(client, 'enc-1')).rejects.toThrow('forbidden');
   });
 });

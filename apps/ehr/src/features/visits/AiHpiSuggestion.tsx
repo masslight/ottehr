@@ -3,19 +3,14 @@ import { FC, useCallback, useState } from 'react';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
 import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
-import { useChartFields } from './shared/hooks/useChartFields';
+import { useChartSection } from './shared/hooks/useChartSection';
 import { useChartData, useSaveChartData } from './shared/stores/appointment/appointment.store';
 
 export const AiHpiSuggestion: FC = () => {
   const { chartData } = useChartData();
   const { mutate: saveChartData } = useSaveChartData();
   const [appendedIds, setAppendedIds] = useState<Set<string>>(new Set());
-  const { data: hpiFields } = useChartFields({
-    requestedFields: { chiefComplaint: { _tag: 'chief-complaint' } },
-  });
-  const { data: moiFields } = useChartFields({
-    requestedFields: { mechanismOfInjury: { _tag: 'mechanism-of-injury' } },
-  });
+  const { data: encounterNotes, setSectionData } = useChartSection('encounterNotes');
 
   const aiHistoryOfPresentIllness = chartData?.observations?.filter(
     (observation) => observation.field === AiObservationField.HistoryOfPresentIllness
@@ -25,38 +20,31 @@ export const AiHpiSuggestion: FC = () => {
     (observation) => observation.field === AiObservationField.MechanismOfInjury
   ) as ObservationTextFieldDTO[];
 
-  const { setQueryCache: setHpiCache } = useChartFields({
-    requestedFields: { chiefComplaint: { _tag: 'chief-complaint' } },
-  });
-  const { setQueryCache: setMoiCache } = useChartFields({
-    requestedFields: { mechanismOfInjury: { _tag: 'mechanism-of-injury' } },
-  });
-
   const appendToHpi = useCallback(
     (text: string, resourceId?: string) => {
-      const current = hpiFields?.chiefComplaint?.text || '';
+      const current = encounterNotes?.chiefComplaint?.text || '';
       const newText = current ? `${current}\n\n${text}` : text;
       // Optimistic update — appears instantly in the text field
-      setHpiCache({ chiefComplaint: { ...hpiFields?.chiefComplaint, text: newText } });
+      setSectionData({ chiefComplaint: { ...encounterNotes?.chiefComplaint, text: newText } });
       if (resourceId) {
         setAppendedIds((prev) => new Set(prev).add(resourceId));
       }
       saveChartData(
         {
           chiefComplaint: {
-            resourceId: hpiFields?.chiefComplaint?.resourceId,
+            resourceId: encounterNotes?.chiefComplaint?.resourceId,
             text: newText,
           },
         },
         {
           onSuccess: (data) => {
             if (data?.chartData?.chiefComplaint) {
-              setHpiCache({ chiefComplaint: data.chartData.chiefComplaint });
+              setSectionData({ chiefComplaint: data.chartData.chiefComplaint });
             }
           },
           onError: () => {
             // Rollback
-            setHpiCache({ chiefComplaint: hpiFields?.chiefComplaint });
+            setSectionData({ chiefComplaint: encounterNotes?.chiefComplaint });
             if (resourceId) {
               setAppendedIds((prev) => {
                 const next = new Set(prev);
@@ -69,34 +57,34 @@ export const AiHpiSuggestion: FC = () => {
         }
       );
     },
-    [hpiFields, saveChartData, setHpiCache]
+    [encounterNotes, saveChartData, setSectionData]
   );
 
   const appendToMoi = useCallback(
     (text: string, resourceId?: string) => {
-      const current = moiFields?.mechanismOfInjury?.text || '';
+      const current = encounterNotes?.mechanismOfInjury?.text || '';
       const newText = current ? `${current}\n\n${text}` : text;
       // Optimistic update — appears instantly in the text field
-      setMoiCache({ mechanismOfInjury: { ...moiFields?.mechanismOfInjury, text: newText } });
+      setSectionData({ mechanismOfInjury: { ...encounterNotes?.mechanismOfInjury, text: newText } });
       if (resourceId) {
         setAppendedIds((prev) => new Set(prev).add(resourceId));
       }
       saveChartData(
         {
           mechanismOfInjury: {
-            resourceId: moiFields?.mechanismOfInjury?.resourceId,
+            resourceId: encounterNotes?.mechanismOfInjury?.resourceId,
             text: newText,
           },
         },
         {
           onSuccess: (data) => {
             if (data?.chartData?.mechanismOfInjury) {
-              setMoiCache({ mechanismOfInjury: data.chartData.mechanismOfInjury });
+              setSectionData({ mechanismOfInjury: data.chartData.mechanismOfInjury });
             }
           },
           onError: () => {
             // Rollback
-            setMoiCache({ mechanismOfInjury: moiFields?.mechanismOfInjury });
+            setSectionData({ mechanismOfInjury: encounterNotes?.mechanismOfInjury });
             if (resourceId) {
               setAppendedIds((prev) => {
                 const next = new Set(prev);
@@ -109,7 +97,7 @@ export const AiHpiSuggestion: FC = () => {
         }
       );
     },
-    [moiFields, saveChartData, setMoiCache]
+    [encounterNotes, saveChartData, setSectionData]
   );
 
   if (

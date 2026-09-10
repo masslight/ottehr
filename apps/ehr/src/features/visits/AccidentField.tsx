@@ -6,7 +6,7 @@ import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { DateInput } from 'src/components/input/DateInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { AllStates } from 'utils/lib/types/common';
-import { useChartFields } from './shared/hooks/useChartFields';
+import { useChartSection } from './shared/hooks/useChartSection';
 import { useDeleteChartData, useSaveChartData } from './shared/stores/appointment/appointment.store';
 
 interface Props {
@@ -22,17 +22,7 @@ interface FormData {
 }
 
 export const AccidentField: FC<Props> = ({ readOnly }) => {
-  const {
-    data: chartDataFields,
-    setQueryCache,
-    isLoading: isChartDataLoading,
-  } = useChartFields({
-    requestedFields: {
-      accident: {
-        _tag: 'accident',
-      },
-    },
-  });
+  const { data: chartDataFields, refetch, isLoading: isChartDataLoading } = useChartSection('encounterNotes');
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
 
@@ -80,14 +70,9 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
         }
         if (types.length === 0) {
           if (chartDataFields?.accident != null) {
-            deleteChartData(
-              {
-                accident: chartDataFields?.accident,
-              },
-              {
-                onSuccess: () => setQueryCache({ accident: undefined }),
-              }
-            );
+            deleteChartData({
+              accident: chartDataFields?.accident,
+            });
           }
           return;
         }
@@ -120,13 +105,13 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
             },
           },
           {
-            onSuccess: (data) => setQueryCache({ accident: data.chartData.accident }),
+            onSuccess: () => void refetch(),
           }
         );
       },
     });
     return () => callback();
-  }, [methods, chartDataFields, deleteChartData, saveChartData, setQueryCache]);
+  }, [methods, chartDataFields, deleteChartData, saveChartData, refetch]);
 
   const disabled = isChartDataLoading || readOnly;
 

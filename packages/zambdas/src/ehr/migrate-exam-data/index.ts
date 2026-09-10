@@ -1,9 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { MigrateExamDataInput, MigrateExamDataOutput } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { runExamMigrations } from '../../shared/chart-data/migrations';
-import { buildVisitNote, visitNoteToLegacyChartData } from '../../shared/chart-sections/visit-note';
+import { buildVisitNote } from '../../shared/chart-sections/visit-note';
 import { getPatientEncounter } from '../../shared/encounter';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
