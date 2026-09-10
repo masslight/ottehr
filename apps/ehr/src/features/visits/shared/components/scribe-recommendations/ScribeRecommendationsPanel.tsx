@@ -187,7 +187,11 @@ const ResultsStep: FC = () => {
           templates={templates}
           locked={isApplying}
           onEdit={(patch) => updateRecommendation(template.id, patch)}
-          onApply={() => void applyRecommendation(template.id)}
+          onApply={async (sectionActions, options) => {
+            // Park the choice on the recommendation so the apply — and any retry — uses it.
+            updateRecommendation(template.id, { sectionActions, applyOptions: options });
+            await applyRecommendation(template.id);
+          }}
         />
       </ScribeStage>
     );

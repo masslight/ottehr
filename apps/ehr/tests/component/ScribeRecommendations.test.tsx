@@ -43,6 +43,39 @@ vi.mock('../../src/features/visits/shared/components/scribe-recommendations/useA
   };
 });
 
+vi.mock('../../src/features/visits/shared/components/templates/TemplatePreviewDialog', () => ({
+  TemplatePreviewDialog: ({
+    open,
+    templateId,
+    templateName,
+    isApplying,
+    onCancel,
+    onApply,
+  }: {
+    open: boolean;
+    templateId: string | null;
+    templateName: string;
+    isApplying: boolean;
+    onCancel: () => void;
+    onApply: (actions: Record<string, string>) => void;
+  }) =>
+    open ? (
+      <div data-testid="template-preview-dialog">
+        <span>{`Preview ${templateName} (${templateId ?? 'none'})`}</span>
+        <button data-testid="preview-cancel" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          data-testid="preview-apply"
+          disabled={isApplying}
+          onClick={() => onApply({ hpi: 'append', ros: 'skip', mdm: 'overwrite' })}
+        >
+          Apply chosen sections
+        </button>
+      </div>
+    ) : null,
+}));
+
 vi.mock('../../src/features/visits/shared/components/templates/useListTemplates', () => ({
   useListTemplates: () => ({
     templates: [
@@ -251,10 +284,25 @@ describe('ScribeRecommendationsDrawer', () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
+    // the apply button opens the section picker rather than applying everything outright
     await user.click(screen.getByTestId(testIds.templateApplyButton));
+    expect(screen.getByTestId('template-preview-dialog')).toHaveTextContent('Preview Sinusitis (t-1)');
+    expect(mocks.applyOne).not.toHaveBeenCalled();
+
+    await user.click(screen.getByTestId('preview-cancel'));
+    expect(screen.queryByTestId('template-preview-dialog')).toBeNull();
+    expect(mocks.applyOne).not.toHaveBeenCalled();
+
+    await user.click(screen.getByTestId(testIds.templateApplyButton));
+    await user.click(screen.getByTestId('preview-apply'));
     await waitFor(() => expect(screen.queryByTestId(testIds.templateApplyButton)).toBeNull());
 
     expect(appliedIds()).toEqual([TEMPLATE_ID]);
+    // and the sections chosen in the dialog ride along with it
+    expect(mocks.applyOne.mock.calls[0][0]).toMatchObject({
+      sectionActions: { hpi: 'append', ros: 'skip', mdm: 'overwrite' },
+    });
+    expect(screen.queryByTestId('template-preview-dialog')).toBeNull();
     expect(screen.getByTestId(testIds.rowStatus(TEMPLATE_ID))).toHaveTextContent('Template applied');
     // the observations are still waiting on their own button
     observations().forEach((rec) => expect(rowCheckbox(rec.id)).toBeChecked());
@@ -332,6 +380,7 @@ describe('ScribeRecommendationsDrawer', () => {
     await openPanelWithRecommendations(user);
 
     await user.click(screen.getByTestId(testIds.templateApplyButton));
+    await user.click(screen.getByTestId('preview-apply'));
     await waitFor(() => expect(screen.getByText('Template not available here')).toBeVisible());
     expect(screen.getByTestId(testIds.templateApplyButton)).toHaveTextContent('Try again');
 
@@ -344,6 +393,7 @@ describe('ScribeRecommendationsDrawer', () => {
 
     mocks.applyOne.mockResolvedValue(undefined);
     await user.click(screen.getByTestId(testIds.templateApplyButton));
+    await user.click(screen.getByTestId('preview-apply'));
     await waitFor(() =>
       expect(screen.getByTestId(testIds.rowStatus(TEMPLATE_ID))).toHaveTextContent('Template applied')
     );

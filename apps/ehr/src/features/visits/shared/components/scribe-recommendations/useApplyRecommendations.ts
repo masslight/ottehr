@@ -39,9 +39,10 @@ import {
 } from './types';
 
 /**
- * How the recommended template is applied. The transcript-derived items in the same batch cover
- * ROS, so the template must not overwrite it; orders stay a manual checklist, so the template's
- * lab/procedure/medication plans are skipped too. Everything else takes the apply-template defaults.
+ * Fallback for applying the recommended template. The provider normally picks the sections in the
+ * apply-template dialog; this is what a template applied without going through it would use. The
+ * transcript-derived items cover ROS, so the template does not overwrite it, and orders stay a
+ * manual checklist, so the template's lab/procedure/medication plans are skipped.
  */
 export const SCRIBE_TEMPLATE_SECTION_ACTIONS: TemplateSectionActions = {
   hpi: 'append',
@@ -104,7 +105,8 @@ export const useApplyRecommendations = (): {
       const result = await applyTemplate(oystehrZambda, {
         encounterId,
         templateName: template.value,
-        sectionActions: SCRIBE_TEMPLATE_SECTION_ACTIONS,
+        sectionActions: rec.sectionActions ?? SCRIBE_TEMPLATE_SECTION_ACTIONS,
+        ...(rec.applyOptions?.externalLabs ? { externalLabs: rec.applyOptions.externalLabs } : {}),
       });
       // Exam observations live in Zustand rather than React Query, so they need a reset before the
       // refetch below can repopulate them (same as ApplyTemplate does).

@@ -4,7 +4,9 @@ import { Box, Collapse, IconButton, Paper, Tooltip, Typography, useTheme } from 
 import { FC, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { TemplatePreviewApplyOptions, TemplateSectionActions } from 'utils/lib/types/data/apply-template.types';
 import { sidebarMenuIcons } from '../sidebarMenuIcons';
+import { TemplatePreviewDialog } from '../templates/TemplatePreviewDialog';
 import { TemplateOption } from '../templates/useListTemplates';
 import { hasProvenance, ProvenanceContent, ProvenancePanel, ProvenanceToggle } from './Provenance';
 import { RecommendationEditor } from './RecommendationRow';
@@ -19,7 +21,8 @@ interface TemplateStageProps {
   /** True while any stage is writing to the chart. */
   locked: boolean;
   onEdit: (patch: Partial<ScribeRecommendation>) => void;
-  onApply: () => void;
+  /** Resolves once the apply has finished, successfully or not. */
+  onApply: (sectionActions: TemplateSectionActions, options?: TemplatePreviewApplyOptions) => Promise<void>;
 }
 
 const testIds = dataTestIds.scribeRecommendations;
@@ -40,14 +43,16 @@ export const TemplateStage: FC<TemplateStageProps> = ({
   const theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const { detail } = describeRecommendation(recommendation);
 
   const isApplied = itemState.status === 'applied';
   const isApplying = itemState.status === 'applying';
 
-  const templateMissing =
-    templates.length > 0 &&
-    !templates.some((t) => t.label.toLowerCase() === recommendation.templateName.trim().toLowerCase());
+  const templateOption = templates.find(
+    (t) => t.label.toLowerCase() === recommendation.templateName.trim().toLowerCase()
+  );
+  const templateMissing = templates.length > 0 && !templateOption;
   const warning =
     isApplied || !templateMissing
       ? undefined
@@ -138,9 +143,9 @@ export const TemplateStage: FC<TemplateStageProps> = ({
               <RoundedButton
                 variant="contained"
                 size="small"
-                onClick={onApply}
+                onClick={() => setIsPreviewOpen(true)}
                 loading={isApplying}
-                disabled={locked}
+                disabled={locked || templateMissing}
                 data-testid={testIds.templateApplyButton}
               >
                 {itemState.status === 'error' ? 'Try again' : 'Apply template'}
@@ -149,6 +154,19 @@ export const TemplateStage: FC<TemplateStageProps> = ({
           </Box>
         </Box>
       )}
+
+      {/* The same dialog the HPI screen uses, so the provider picks which parts of the template
+          to take here rather than getting all of it or none of it. */}
+      <TemplatePreviewDialog
+        open={isPreviewOpen}
+        templateId={templateOption?.id ?? null}
+        templateName={recommendation.templateName}
+        isApplying={isApplying}
+        onCancel={() => setIsPreviewOpen(false)}
+        onApply={(sectionActions, options) => {
+          void onApply(sectionActions, options).finally(() => setIsPreviewOpen(false));
+        }}
+      />
     </Paper>
   );
 };

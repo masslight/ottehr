@@ -1,4 +1,5 @@
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
+import { TemplatePreviewApplyOptions, TemplateSectionActions } from 'utils/lib/types/data/apply-template.types';
 
 /**
  * Chart sections a recommendation writes into. Drives the grouping in the panel and the
@@ -59,6 +60,13 @@ export interface RosRecommendation extends ScribeRecommendationBase {
 export interface TemplateRecommendation extends ScribeRecommendationBase {
   kind: 'template';
   templateName: string;
+  /**
+   * What the provider chose in the apply-template dialog. Absent until they have been through it,
+   * in which case the panel's own defaults apply.
+   */
+  sectionActions?: TemplateSectionActions;
+  /** Extra inputs the dialog collects, such as the payment method for external lab orders. */
+  applyOptions?: TemplatePreviewApplyOptions;
 }
 
 export type ScribeRecommendation =
