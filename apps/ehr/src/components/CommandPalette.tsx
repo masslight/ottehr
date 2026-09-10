@@ -13,9 +13,15 @@ import {
 } from '@mui/material';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getInsertTarget } from '../helpers/insertTextAtCaret';
 import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-palette.store';
 
 const PATIENT_SEARCH_ITEM_ID = '__patient-search__';
+
+// Pinned group order: "Actions" first, "Phrases" directly below it; every other
+// group keeps its alphabetical order after those two.
+const CATEGORY_RANK: Record<string, number> = { Actions: 0, Phrases: 1 };
+const categoryRank = (category: string): number => CATEGORY_RANK[category] ?? Object.keys(CATEGORY_RANK).length;
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -60,6 +66,8 @@ const sortItems = (items: CommandPaletteItem[], query = ''): CommandPaletteItem[
   };
 
   return [...items].sort((left, right) => {
+    const rankComparison = categoryRank(left.category) - categoryRank(right.category);
+    if (rankComparison !== 0) return rankComparison;
     const categoryComparison = left.category.localeCompare(right.category);
     if (categoryComparison !== 0) return categoryComparison;
     const priorityComparison = matchPriority(left) - matchPriority(right);
@@ -99,8 +107,8 @@ export const CommandPalette: FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const isOpen = useCommandPaletteStore((state) => state.isOpen);
+  const openWithInsertTarget = useCommandPaletteStore((state) => state.openWithInsertTarget);
   const close = useCommandPaletteStore((state) => state.close);
-  const toggle = useCommandPaletteStore((state) => state.toggle);
   const sources = useCommandPaletteStore((state) => state.sources);
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -202,23 +210,19 @@ export const CommandPalette: FC = () => {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        if (!isOpen) {
-          const activeElement = document.activeElement;
-          if (activeElement instanceof HTMLElement) {
-            const tagName = activeElement.tagName;
-            if (tagName === 'INPUT' || tagName === 'TEXTAREA' || activeElement.isContentEditable) {
-              return;
-            }
-          }
-        }
         event.preventDefault();
-        toggle();
+        if (isOpen) {
+          close();
+          return;
+        }
+        // Opened from a text field: remember it so phrases can insert into it.
+        openWithInsertTarget(getInsertTarget(document.activeElement));
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, toggle]);
+  }, [close, isOpen, openWithInsertTarget]);
 
   const selectItem = useCallback(
     (item: CommandPaletteItem) => {
@@ -392,6 +396,8 @@ export const CommandPalette: FC = () => {
                         )}
                         <ListItemText
                           primary={item.label}
+                          secondary={item.description}
+                          secondaryTypographyProps={{ noWrap: true, fontSize: '12px' }}
                           primaryTypographyProps={{
                             fontSize: isChild ? '13px' : '14px',
                             color: isChild ? 'text.secondary' : undefined,

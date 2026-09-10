@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { InsertTarget } from '../helpers/insertTextAtCaret';
 
 export interface CommandPaletteItem {
   id: string;
@@ -6,6 +7,8 @@ export interface CommandPaletteItem {
   category: string;
   onSelect: () => void;
   keywords?: string[];
+  /** Optional one-line secondary text rendered under the label. */
+  description?: string;
   /** When set, marks this item as a child of another item with the matching id.
    *  The renderer indents children below their parent within the same group
    *  to communicate hierarchy (e.g. "Tracking Board" parent with sub-tab
@@ -25,10 +28,14 @@ export interface PendingQuickPick {
 
 interface CommandPaletteState {
   isOpen: boolean;
+  /** The text field that had focus when the palette was opened (insert target for phrases). */
+  insertTarget: InsertTarget | null;
   sources: Record<string, CommandPaletteSource>;
   pendingQuickPick: PendingQuickPick | null;
   createTaskDialogOpen: boolean;
   open: () => void;
+  /** Opens the palette from a focused text field, remembering it as the insert target. */
+  openWithInsertTarget: (insertTarget: InsertTarget | null) => void;
   close: () => void;
   toggle: () => void;
   registerSource: (sourceId: string, items: CommandPaletteItem[]) => void;
@@ -39,12 +46,14 @@ interface CommandPaletteState {
 
 export const useCommandPaletteStore = create<CommandPaletteState>()((set) => ({
   isOpen: false,
+  insertTarget: null,
   sources: {},
   pendingQuickPick: null,
   createTaskDialogOpen: false,
-  open: () => set({ isOpen: true }),
-  close: () => set({ isOpen: false }),
-  toggle: () => set((state) => ({ isOpen: !state.isOpen })),
+  open: () => set({ isOpen: true, insertTarget: null }),
+  openWithInsertTarget: (insertTarget) => set({ isOpen: true, insertTarget }),
+  close: () => set({ isOpen: false, insertTarget: null }),
+  toggle: () => set((state) => ({ isOpen: !state.isOpen, insertTarget: null })),
   registerSource: (sourceId, items) =>
     set((state) => {
       const existingSource = state.sources[sourceId];
