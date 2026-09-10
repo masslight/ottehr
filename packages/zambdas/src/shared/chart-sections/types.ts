@@ -1,5 +1,5 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
-import { Encounter, FhirResource } from 'fhir/r4b';
+import { Encounter, FhirResource, Practitioner } from 'fhir/r4b';
 import {
   ChartSection,
   ChartSectionData,
@@ -16,6 +16,8 @@ export interface SectionContext extends ChartClient {
   encounterId: string;
   patientId: string;
   encounter: Encounter;
+  /** Practitioners already read for this visit, so a section can resolve a reference without another lookup. */
+  knownPractitioners?: Practitioner[];
 }
 
 /**

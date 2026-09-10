@@ -8,7 +8,7 @@
  * other API mocked — but each chart hook call below is the call the named real component makes, with the same
  * section and options. The API client records every zambda call.
  *
- * The FHIR cost behind each of these calls is measured in packages/zambdas/test/unit/review-and-sign-budget.test.ts.
+ * The FHIR cost behind the visit-note read is measured in packages/zambdas/test/unit/review-and-sign-budget.test.ts.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, waitFor } from '@testing-library/react';
@@ -153,17 +153,17 @@ describe('Review & Sign load', () => {
       </QueryClientProvider>
     );
 
-  it('opening the visit on Review & Sign costs one visit-note read and one read for the addendum list', async () => {
+  it('opening the visit on Review & Sign costs one visit-note read and nothing else', async () => {
     renderApp('review-and-sign');
     await waitFor(() => expect(apiClient.getVisitNote).toHaveBeenCalledTimes(1));
     await settle();
 
     expect(apiClient.getVisitNote).toHaveBeenCalledTimes(1);
-    // The addendum list's note type is not part of the visit note's set, so it is the one section read.
-    expect(sectionCalls()).toEqual([['notes', { types: [NOTE_TYPE.ADDENDUM] }]]);
+    // The addendum list shows one of the note types the visit note reads, so it is served from that list.
+    expect(sectionCalls()).toEqual([]);
   });
 
-  it('coming back to Review & Sign from another screen re-reads the note and the addendum list, nothing else', async () => {
+  it('coming back to Review & Sign from another screen re-reads the note, nothing else', async () => {
     const { rerender } = renderApp('review-and-sign');
     await waitFor(() => expect(apiClient.getVisitNote).toHaveBeenCalledTimes(1));
     await settle();
@@ -195,7 +195,7 @@ describe('Review & Sign load', () => {
     await waitFor(() => expect(apiClient.getVisitNote).toHaveBeenCalledTimes(1));
     await settle();
     expect(apiClient.getVisitNote).toHaveBeenCalledTimes(1);
-    expect(sectionCalls()).toEqual([['notes', { types: [NOTE_TYPE.ADDENDUM] }]]);
+    expect(sectionCalls()).toEqual([]);
   });
 
   it('entering the visit again within staleTime re-reads what the screen shows', async () => {

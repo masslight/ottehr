@@ -1,5 +1,5 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
-import { Bundle, Encounter, FhirResource } from 'fhir/r4b';
+import { Bundle, BundleEntry, Encounter, FhirResource } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { createFindResourceRequestById, parseSearchsetEntry } from '../chart-data/search-requests';
 import { patientIdFromReference } from '../helpers';
@@ -19,9 +19,17 @@ export interface FetchedChartResources<Owner extends string> {
   patientId: string;
   /** The resources each owner's searches returned, in search order. */
   byOwner: Record<Owner, FhirResource[]>;
+  /** The summed `total` of each owner's searches; what a `_summary=count` search contributes. */
+  totals: Record<Owner, number>;
 }
 
 const ENCOUNTER_OWNER = '__encounter__';
+
+/** A searchset's `total`, which is all a `_summary=count` search carries; undefined when the entry failed. */
+const searchsetTotal = (entry: BundleEntry<FhirResource> | undefined): number | undefined =>
+  entry?.response?.outcome?.id === 'ok' && entry.resource?.resourceType === 'Bundle'
+    ? (entry.resource as Bundle<FhirResource>).total
+    : undefined;
 
 /**
  * Runs the Encounter read plus every owner's searches in one wave of concurrent batches and hands each
@@ -53,6 +61,7 @@ export async function fetchChartResources<Owner extends string>(
   );
 
   const byOwner = Object.fromEntries(owners.map((owner) => [owner, []])) as unknown as Record<Owner, FhirResource[]>;
+  const totals = Object.fromEntries(owners.map((owner) => [owner, 0])) as unknown as Record<Owner, number>;
   let encounter: Encounter | undefined;
 
   groups.forEach((group, groupIndex) => {
@@ -63,6 +72,7 @@ export async function fetchChartResources<Owner extends string>(
         encounter = resources.find((resource): resource is Encounter => resource.resourceType === 'Encounter');
       } else {
         byOwner[owned.owner as Owner].push(...resources);
+        totals[owned.owner as Owner] += searchsetTotal(entries[entryIndex]) ?? resources.length;
       }
     });
   });
@@ -71,23 +81,5 @@ export async function fetchChartResources<Owner extends string>(
   const patientId = patientIdFromReference(encounter.subject?.reference);
   if (patientId === undefined) throw new Error(`Encounter  ${encounterId} must be associated with a patient... `);
 
-  return { encounter, patientId, byOwner };
-}
-
-/** How many appointments the encounter's patient has; more than one means they have been seen before. */
-export async function fetchPatientAppointmentCount(oystehr: Oystehr, encounterId: string): Promise<number> {
-  try {
-    const result = await oystehr.fhir.batch<FhirResource>({
-      requests: [
-        {
-          method: 'GET',
-          url: `/Appointment?patient:Patient._has:Encounter:subject:_id=${encounterId}&_summary=count`,
-        },
-      ],
-    });
-    return (result.entry?.[0]?.resource as Bundle<FhirResource> | undefined)?.total ?? 0;
-  } catch (error) {
-    console.log('Error fetching appointment count for patient...', error);
-    return 0;
-  }
+  return { encounter, patientId, byOwner, totals };
 }
