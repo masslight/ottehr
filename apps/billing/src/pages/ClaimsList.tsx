@@ -242,9 +242,9 @@ export default function ClaimsList(): ReactElement {
   const [serviceDateFrom, setServiceDateFrom] = useState(storedFilters?.serviceDateFrom ?? '');
   const [serviceDateTo, setServiceDateTo] = useState(storedFilters?.serviceDateTo ?? '');
   const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(storedFilters?.selectedPayer ?? null);
-const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(
-  storedFilters?.selectedPatient?.id ? toBillingPatientOption(storedFilters.selectedPatient) : null
-);
+  const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(
+    storedFilters?.selectedPatient?.id ? toBillingPatientOption(storedFilters.selectedPatient) : null
+  );
   const [typeFilter, setTypeFilter] = useState<keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | ''>(
     storedFilters?.typeFilter ?? ''
   );
@@ -401,9 +401,9 @@ const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | nu
       createdTo,
       serviceDateFrom,
       serviceDateTo,
-selectedPayer,
-selectedPatient: selectedPatient?.id ? { id: selectedPatient.id, name: selectedPatient.name } : null,
-typeFilter,
+      selectedPayer,
+      selectedPatient: selectedPatient?.id ? { id: selectedPatient.id, name: selectedPatient.name } : null,
+      typeFilter,
       selectedService,
       paginationModel,
     };
