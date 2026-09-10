@@ -67,7 +67,9 @@ describe('form token catalog', () => {
     expect(resolveToken('patient.postalCode', ctx)).toBe('78701');
     expect(resolveToken('patient.phone', ctx)).toBe('512-555-0100');
     expect(resolveToken('patient.email', ctx)).toBe('ada@example.com');
-    expect(resolveToken('visit.date', ctx)).toBe('2026-08-26T15:00:00Z');
+    // A date, not the appointment's timestamp: formatting a timestamp as a date lands an evening visit
+    // on the following day. Timezone handling has its own tests in form-token-resolvers.test.ts.
+    expect(resolveToken('visit.date', ctx)).toBe('2026-08-26');
     expect(resolveToken('facility.name', ctx)).toBe('Downtown Clinic');
     expect(resolveToken('diagnosis.primaryCode', ctx)).toBe('M54.5');
     expect(resolveToken('diagnosis.allDisplays', ctx)).toBe('Low back pain, Headache');

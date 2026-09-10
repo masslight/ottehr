@@ -13,11 +13,7 @@ import {
 import { EMPTY_MAPPING, FormTemplateMapping } from 'utils/lib/form-tokens/mapping';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import {
-  FormTemplateAnalysisStatus,
-  ReplaceFormTemplatePdfInput,
-  ReplaceFormTemplatePdfOutput,
-} from 'utils/lib/types/api/form-template.types';
+import { ReplaceFormTemplatePdfInput, ReplaceFormTemplatePdfOutput } from 'utils/lib/types/api/form-template.types';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken, requireAdminTierUser } from '../../shared/auth';
@@ -31,18 +27,13 @@ import { createPresignedUrl, deleteZ3Object, uploadObjectToZ3 } from '../../shar
 import {
   FORM_TEMPLATE_DOC_STATUS,
   getFormTemplateOrThrow,
+  isRejectedAnalysis,
   readExtensionJson,
   reconcileMappingWithFields,
 } from '../shared/form-template-helpers';
 import { analyzeFormTemplatePdf } from '../shared/form-template-pdf';
 
 const ZAMBDA_NAME = 'replace-form-template-pdf';
-
-const REJECTED: ReadonlySet<FormTemplateAnalysisStatus> = new Set<FormTemplateAnalysisStatus>([
-  'encrypted',
-  'dynamicXfa',
-  'unreadable',
-]);
 
 let m2mToken: string;
 
@@ -114,7 +105,7 @@ const performEffect = async (
   }
   const { status, fields, normalized } = await analyzeFormTemplatePdf(new Uint8Array(await response.arrayBuffer()));
 
-  if (REJECTED.has(status)) {
+  if (isRejectedAnalysis(status)) {
     // Discard the candidate and leave the template exactly as it was.
     try {
       await deleteZ3Object(candidateUrl, token);

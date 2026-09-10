@@ -191,14 +191,21 @@ export const fillFormTemplatePdf = async (input: {
       continue;
     }
 
-    // A checkbox is driven by whether there is a value at all, so it is decided before the empty check:
-    // an absent value means "leave unticked", which is a correct outcome rather than a skip.
+    // Decided on `raw` rather than the formatted text, and before the empty check, because a checkbox
+    // answers yes/no rather than printing a value.
+    //
+    // "No" is an answer: templates arrive with boxes already ticked, so leaving one alone because the
+    // chart said false records the opposite of the chart. Only a genuinely absent value leaves the box
+    // as the template had it.
     if (field instanceof PDFCheckBox) {
-      if (isTruthy(raw)) {
+      if (raw === undefined || raw === null || raw === '') {
+        skipped.push({ fieldName, tokenKey, reason: 'noValue' });
+      } else if (isTruthy(raw)) {
         field.check();
         filled.push({ fieldName, tokenKey, value: 'checked' });
       } else {
-        skipped.push({ fieldName, tokenKey, reason: 'noValue' });
+        field.uncheck();
+        filled.push({ fieldName, tokenKey, value: 'unchecked' });
       }
       continue;
     }

@@ -2,9 +2,14 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { DocumentReference } from 'fhir/r4b';
+import { FORM_TEMPLATE_ANALYSIS_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { addOperation, replaceOperation } from 'utils/lib/helpers/operations';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { UpdateFormTemplateInput, UpdateFormTemplateOutput } from 'utils/lib/types/api/form-template.types';
+import {
+  FormTemplateAnalysisStatus,
+  UpdateFormTemplateInput,
+  UpdateFormTemplateOutput,
+} from 'utils/lib/types/api/form-template.types';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken, requireAdminTierUser } from '../../shared/auth';
@@ -13,7 +18,7 @@ import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
-import { FORM_TEMPLATE_DOC_STATUS, getFormTemplateOrThrow } from '../shared/form-template-helpers';
+import { FORM_TEMPLATE_DOC_STATUS, getFormTemplateOrThrow, readExtensionJson } from '../shared/form-template-helpers';
 
 const ZAMBDA_NAME = 'update-form-template';
 
@@ -81,6 +86,19 @@ const performEffect = async (
     operations.push(
       existing.description === undefined ? addOperation(path, description) : replaceOperation(path, description)
     );
+  }
+
+  if (published) {
+    // Publishing is the moment a template becomes visible in every chart, so it is the right place to
+    // insist the PDF was actually found usable. A rejected upload is normally deleted by analysis, but a
+    // draft that was never analysed at all has no stored status and would otherwise sail through.
+    const analysis = readExtensionJson<{ status: FormTemplateAnalysisStatus }>(
+      existing,
+      FORM_TEMPLATE_ANALYSIS_EXTENSION_URL
+    );
+    if (analysis && analysis.status !== 'fillable' && analysis.status !== 'printable') {
+      throw new Error(`Cannot publish a template whose analysis reported "${analysis.status}"`);
+    }
   }
 
   if (published !== undefined) {

@@ -267,7 +267,18 @@ export const TOKEN_RESOLVERS: Record<string, FormTokenResolver> = {
 
   // ── Visit ─────────────────────────────────────────────────────────────────
   // Resolves to an ISO date; the mapping's date transform decides how it is written into the PDF.
-  'visit.date': (ctx) => ctx.appointmentPackage?.appointment?.start,
+  // Reduced to a date in the visit's own timezone. `Appointment.start` is a timestamp, and a timestamp
+  // formatted as a date in UTC dates an evening visit to the following day — the same mistake
+  // `form.currentDate` avoids below, and the one `buildDisplayName` avoids when naming a returned form.
+  'visit.date': (ctx) => {
+    const start = ctx.appointmentPackage?.appointment?.start;
+    if (!start) return undefined;
+    return (
+      DateTime.fromISO(start)
+        .setZone(ctx.appointmentPackage?.timezone || 'utc')
+        .toISODate() ?? undefined
+    );
+  },
   'visit.reasonForVisit': (ctx) =>
     ctx.allChartData?.chartData?.reasonForVisit?.text ?? ctx.appointmentPackage?.appointment?.description,
   'visit.chiefComplaint': (ctx) => ctx.allChartData?.chartData?.chiefComplaint?.text,

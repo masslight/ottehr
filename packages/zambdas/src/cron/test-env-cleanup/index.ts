@@ -1,4 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils/lib/types/constants';
 import {
   cleanAppointmentGraph,
@@ -37,7 +38,11 @@ export const index = wrapHandler('test-env-cleanup', async (input: ZambdaInput):
   await cleanupIntegrationTestQuestionnaires(oystehr);
   // Tag-anchored rather than reachable from an appointment: a form template belongs to the project, not
   // to a patient, so no graph sweep leads to one.
-  await cleanupIntegrationTestDocumentReferences(oystehr);
+  await cleanupIntegrationTestDocumentReferences(
+    oystehr,
+    oystehrToken,
+    `${getSecret(SecretsKeys.PROJECT_API, input.secrets)}/z3/${getSecret(SecretsKeys.PROJECT_ID, input.secrets)}-`
+  );
 
   return {
     statusCode: 200,

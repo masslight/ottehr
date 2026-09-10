@@ -17,6 +17,25 @@ const contextWith = (chartData: Record<string, unknown>, extra: Record<string, u
     ...extra,
   }) as unknown as FormFillContext;
 
+describe('visit.date', () => {
+  const withVisit = (start: string, timezone?: string): FormFillContext =>
+    contextWith({}, { appointmentPackage: { appointment: { resourceType: 'Appointment', start }, timezone } });
+
+  it('dates an evening visit by the clinic\u2019s day, not by UTC', () => {
+    // 9pm on the 26th in Chicago is already the 27th in UTC. Formatting the raw timestamp would print
+    // the 27th on the form — a date that is wrong and looks entirely plausible.
+    expect(resolveToken('visit.date', withVisit('2026-08-27T02:00:00Z', 'America/Chicago'))).toBe('2026-08-26');
+  });
+
+  it('falls back to UTC when the visit has no timezone', () => {
+    expect(resolveToken('visit.date', withVisit('2026-08-27T02:00:00Z'))).toBe('2026-08-27');
+  });
+
+  it('reports nothing when the appointment has no start', () => {
+    expect(resolveToken('visit.date', contextWith({}))).toBeUndefined();
+  });
+});
+
 describe('vitals tokens', () => {
   const height = { field: 'vital-height', value: 180, lastUpdated: '2026-09-01T10:00:00Z' };
   const weight = { field: 'vital-weight', value: 70, lastUpdated: '2026-09-01T10:00:00Z' };

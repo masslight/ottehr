@@ -9,11 +9,7 @@ import {
 } from 'utils/lib/fhir/constants';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import {
-  AnalyzeFormTemplateInput,
-  AnalyzeFormTemplateOutput,
-  FormTemplateAnalysisStatus,
-} from 'utils/lib/types/api/form-template.types';
+import { AnalyzeFormTemplateInput, AnalyzeFormTemplateOutput } from 'utils/lib/types/api/form-template.types';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken, requireAdminTierUser } from '../../shared/auth';
@@ -23,17 +19,10 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
 import { createPresignedUrl, deleteZ3Object, uploadObjectToZ3 } from '../../shared/z3Utils';
-import { getFormTemplateOrThrow } from '../shared/form-template-helpers';
+import { getFormTemplateOrThrow, isRejectedAnalysis } from '../shared/form-template-helpers';
 import { analyzeFormTemplatePdf } from '../shared/form-template-pdf';
 
 const ZAMBDA_NAME = 'analyze-form-template';
-
-/** Statuses that mean the upload can never be used, so the half-created template is removed. */
-const REJECTED: ReadonlySet<FormTemplateAnalysisStatus> = new Set<FormTemplateAnalysisStatus>([
-  'encrypted',
-  'dynamicXfa',
-  'unreadable',
-]);
 
 let m2mToken: string;
 
@@ -97,7 +86,7 @@ const performEffect = async (
 
   const { status, fields, normalized } = await analyzeFormTemplatePdf(bytes);
 
-  if (REJECTED.has(status)) {
+  if (isRejectedAnalysis(status)) {
     // Nothing about this upload is usable, so leave nothing behind. The template was only ever a draft,
     // so no chart has seen it and no mapping can reference it.
     await oystehr.fhir.delete({ resourceType: 'DocumentReference', id: documentReferenceId });

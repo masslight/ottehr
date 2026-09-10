@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { FORM_TEMPLATE_CATEGORY_SEARCH_PARAM } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   FormTemplateItem,
@@ -62,19 +63,24 @@ const performEffect = async (
 ): Promise<ListFormTemplatesOutput> => {
   const { includeUnpublished } = validatedInput;
 
-  const searchResult = await oystehr.fhir.search<DocumentReference>({
-    resourceType: 'DocumentReference',
-    params: [
-      { name: 'category', value: FORM_TEMPLATE_CATEGORY_SEARCH_PARAM },
-      // Soft-deleted templates are `superseded`; only `current` ones are live anywhere.
-      { name: 'status', value: 'current' },
-      { name: '_elements', value: FORM_TEMPLATE_LIST_ELEMENTS.join(',') },
-    ],
-  });
+  // Every page. A single search returns one server-sized page, so once a project has more templates than
+  // that, the rest would vanish from the admin list and from every chart — silently, and worse as the
+  // project grows.
+  const searchResult = await getAllFhirSearchPages<DocumentReference>(
+    {
+      resourceType: 'DocumentReference',
+      params: [
+        { name: 'category', value: FORM_TEMPLATE_CATEGORY_SEARCH_PARAM },
+        // Soft-deleted templates are `superseded`; only `current` ones are live anywhere.
+        { name: 'status', value: 'current' },
+        { name: '_elements', value: FORM_TEMPLATE_LIST_ELEMENTS.join(',') },
+      ],
+    },
+    oystehr
+  );
 
   // `docStatus` is not a FHIR search parameter, so draft filtering happens here rather than in the query.
   const docRefs = searchResult
-    .unbundle()
     .filter((docRef) => includeUnpublished || isPublished(docRef))
     .filter((docRef) => {
       if (!docRef.content?.[0]?.attachment?.url) {

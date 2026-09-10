@@ -11,7 +11,12 @@ import {
 } from 'utils/lib/fhir/constants';
 import { FormTemplateMapping } from 'utils/lib/form-tokens/mapping';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
-import { FormFieldInfo, FormTemplateItem } from 'utils/lib/types/api/form-template.types';
+import {
+  FormFieldInfo,
+  FormTemplateAnalysisStatus,
+  FormTemplateItem,
+  FormTemplateRejection,
+} from 'utils/lib/types/api/form-template.types';
 import { sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
 import { z3ObjectNameDatePrefix } from '../../shared/presigned-file-urls/helpers';
 
@@ -89,6 +94,23 @@ export const isFillable = (docRef: DocumentReference): boolean =>
 
 export const isPublished = (docRef: DocumentReference): boolean =>
   docRef.docStatus === FORM_TEMPLATE_DOC_STATUS.published;
+
+/**
+ * Statuses under which an analysed PDF cannot be used as a template.
+ *
+ * A complete map of `FormTemplateRejection` rather than a set of strings, so adding a rejection status to
+ * the analysis union fails to compile here instead of quietly falling through as an acceptable template —
+ * which is how `fillingNotPermitted` and `certified` came to be treated as printable.
+ */
+const REJECTED_ANALYSIS: Record<FormTemplateRejection, true> = {
+  encrypted: true,
+  fillingNotPermitted: true,
+  certified: true,
+  dynamicXfa: true,
+  unreadable: true,
+};
+
+export const isRejectedAnalysis = (status: FormTemplateAnalysisStatus): boolean => status in REJECTED_ANALYSIS;
 
 /** Object name for a template's PDF. The UUID keeps two same-day uploads of one file name apart. */
 export const makeFormTemplateObjectName = (fileName: string): string =>

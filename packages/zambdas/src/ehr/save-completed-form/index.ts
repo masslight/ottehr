@@ -105,7 +105,7 @@ const performEffect = async (
     return { status: 'discarded' };
   }
 
-  const { status, provenance } = await verifyAgainstChart(z3Url, patientId, token);
+  const { status, provenance, contentType } = await verifyAgainstChart(z3Url, patientId, token);
 
   if (status.status === 'patientMismatch') {
     console.error(
@@ -155,7 +155,7 @@ const performEffect = async (
     relatesTo: template?.id
       ? [{ code: 'transforms' as const, target: { reference: `DocumentReference/${template.id}` } }]
       : undefined,
-    content: [{ attachment: { url: z3Url, contentType: 'application/pdf', title: displayName } }],
+    content: [{ attachment: { url: z3Url, contentType, title: displayName } }],
   });
 
   console.log(
@@ -165,6 +165,15 @@ const performEffect = async (
 
   return { status: status.status, documentReferenceId: created.id, filedUnderTemplateId: template?.id };
 };
+
+/** `%PDF-`. Judged on the bytes rather than on a file name or a declared type, neither of which is checked. */
+const looksLikePdf = (bytes: Uint8Array): boolean =>
+  bytes.length >= 5 &&
+  bytes[0] === 0x25 &&
+  bytes[1] === 0x50 &&
+  bytes[2] === 0x44 &&
+  bytes[3] === 0x46 &&
+  bytes[4] === 0x2d;
 
 /**
  * Compares the stamp inside the uploaded file with the chart it is being filed onto.
@@ -179,24 +188,46 @@ const verifyAgainstChart = async (
 ): Promise<{
   status: { status: DocumentVerificationStatus; stampedPatientId?: string };
   provenance?: DocumentProvenance;
+  /** What the bytes turned out to be, so the record does not have to assert a type it never checked. */
+  contentType: string;
 }> => {
-  let provenance;
-  try {
-    const response = await fetch(await getPresignedURL(z3Url, token));
-    if (!response.ok) {
-      throw new Error(`Could not read the upload (${response.status} ${response.statusText})`);
-    }
-    const doc = await PDFDocument.load(new Uint8Array(await response.arrayBuffer()), { ignoreEncryption: true });
-    provenance = readDocumentProvenance(doc);
-  } catch (error) {
-    console.warn(`${ZAMBDA_NAME}: could not read a stamp from ${z3Url}, treating as unstamped: ${error}`);
-    return { status: { status: 'unstamped' } };
+  // Deliberately outside the try below. Failing to read the object back is this system malfunctioning,
+  // not a document that arrived without a stamp, and swallowing it would file an unverified document on
+  // the strength of an error we caused.
+  const response = await fetch(await getPresignedURL(z3Url, token));
+  if (!response.ok) {
+    throw new Error(`Could not read the upload (${response.status} ${response.statusText})`);
+  }
+  const bytes = new Uint8Array(await response.arrayBuffer());
+
+  // Nothing but a PDF can carry a stamp, so anything else is unstamped by nature rather than by failure —
+  // a scan or a photograph of a signed page, which this route is meant to accept.
+  if (!looksLikePdf(bytes)) {
+    return { status: { status: 'unstamped' }, contentType: 'application/octet-stream' };
   }
 
-  if (!provenance) return { status: { status: 'unstamped' } };
-  if (provenance.patientId === chartPatientId) return { status: { status: 'verified' }, provenance };
+  let provenance;
+  try {
+    const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    provenance = readDocumentProvenance(doc);
+  } catch (error) {
+    // A PDF that will not parse is not the same as a document with no stamp: a stamped form could be
+    // sitting in bytes we cannot read, and treating that as unstamped would file it unchecked. Refused
+    // rather than guessed at.
+    console.error(`${ZAMBDA_NAME}: ${z3Url} begins as a PDF but could not be parsed: ${error}`);
+    throw new Error('That file looks like a PDF but could not be read. Please re-export it and try again.');
+  }
 
-  return { status: { status: 'patientMismatch', stampedPatientId: provenance.patientId }, provenance };
+  if (!provenance) return { status: { status: 'unstamped' }, contentType: 'application/pdf' };
+  if (provenance.patientId === chartPatientId) {
+    return { status: { status: 'verified' }, provenance, contentType: 'application/pdf' };
+  }
+
+  return {
+    status: { status: 'patientMismatch', stampedPatientId: provenance.patientId },
+    provenance,
+    contentType: 'application/pdf',
+  };
 };
 
 /**

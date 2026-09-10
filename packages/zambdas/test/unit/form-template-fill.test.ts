@@ -30,6 +30,11 @@ const buildTestForm = async (): Promise<Uint8Array> => {
   sex.addOptionToPage('Male', page, { x: 10, y: 580, width: 20, height: 20 });
   sex.addOptionToPage('Female', page, { x: 40, y: 580, width: 20, height: 20 });
 
+  // Ticked in the template, the way a real form arrives with a default answer already marked.
+  const preTicked = form.createCheckBox('preTicked');
+  preTicked.addToPage(page, { x: 10, y: 500, width: 20, height: 20 });
+  preTicked.check();
+
   // A stray trailing space, which is legal in an `/Opt` array and does not survive a naive comparison.
   const state = form.createDropdown('state');
   state.setOptions(['CA ', 'TX']);
@@ -132,6 +137,23 @@ describe('fillFormTemplatePdf', () => {
     // `'false'` is a non-empty string but plainly means no.
     const clear = await fill([{ fieldName: 'consent', tokenKey: 'x' }], { x: 'false' });
     expect((await reload(clear.pdfBytes)).getForm().getCheckBox('consent').isChecked()).toBe(false);
+  });
+
+  it('clears a box the template arrived with ticked when the answer is no', async () => {
+    // The reason the empty-value case cannot stand in for an explicit false: this box starts ticked, so
+    // "leave it alone" would publish the opposite of what the chart says.
+    const result = await fill([{ fieldName: 'preTicked', tokenKey: 'x' }], { x: false });
+
+    expect((await reload(result.pdfBytes)).getForm().getCheckBox('preTicked').isChecked()).toBe(false);
+    expect(result.filled).toContainEqual({ fieldName: 'preTicked', tokenKey: 'x', value: 'unchecked' });
+    expect(result.skipped).toEqual([]);
+  });
+
+  it('leaves a ticked box as the template had it when nothing is known', async () => {
+    const result = await fill([{ fieldName: 'preTicked', tokenKey: 'x' }], {});
+
+    expect((await reload(result.pdfBytes)).getForm().getCheckBox('preTicked').isChecked()).toBe(true);
+    expect(result.skipped).toContainEqual({ fieldName: 'preTicked', tokenKey: 'x', reason: 'noValue' });
   });
 
   it('falls back to the binding’s default when the token resolves to nothing', async () => {

@@ -51,6 +51,19 @@ describe('fetchRemotePdf address guard', () => {
     }
   });
 
+  it('rejects every link-local address, not just the fe80 prefix', async () => {
+    // fe80::/10 spans fe80 through febf. A guard matching only `fe80` leaves the rest of the range open.
+    for (const host of ['[fe80::1]', '[fe90::1]', '[fea0::1]', '[febf::1]', '[fe80:0:0:0:0:0:0:1]']) {
+      expect((await rejectionFor(`https://${host}/form.pdf`)).reason, host).toBe('blockedAddress');
+    }
+  });
+
+  it('does not treat a merely similar-looking first group as link-local', async () => {
+    // `fe8` is a three-character group — 0x0fe8 — and nothing to do with fe80::/10. It has to reach the
+    // DNS path rather than being refused, so the check cannot simply be a substring test.
+    expect((await rejectionFor('http://[fe8::1]/form.pdf')).reason).toBe('invalidUrl');
+  });
+
   it('rejects a private address smuggled through an IPv4-mapped IPv6 literal', async () => {
     expect((await rejectionFor('https://[::ffff:169.254.169.254]/')).reason).toBe('blockedAddress');
     expect((await rejectionFor('https://[::ffff:127.0.0.1]/')).reason).toBe('blockedAddress');

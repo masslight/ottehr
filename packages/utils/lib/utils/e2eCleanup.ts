@@ -469,7 +469,7 @@ export const cleanupIntegrationTestLocations = async (oystehr: Oystehr): Promise
 export const INTEGRATION_TEST_TAG_SYSTEM = 'OTTEHR_AUTOMATED_TEST';
 
 /**
- * Removes DocumentReferences left behind by integration tests.
+ * Removes DocumentReferences left behind by integration tests, and the objects they point at.
  *
  * Anchored on the tag rather than on a patient, which the appointment sweep above cannot be. Two kinds of
  * document need collecting and only one of them has a subject: a prefilled or returned form belongs to a
@@ -479,7 +479,13 @@ export const INTEGRATION_TEST_TAG_SYSTEM = 'OTTEHR_AUTOMATED_TEST';
  * The age filter is what makes this safe to run against a shared environment: a document a test is still
  * working with is minutes old, so only abandoned ones are in range.
  */
-export const cleanupIntegrationTestDocumentReferences = async (oystehr: Oystehr): Promise<void> => {
+export const cleanupIntegrationTestDocumentReferences = async (
+  oystehr: Oystehr,
+  /** Used to delete the stored bytes. Only ever sent to a URL under `z3BaseUrl`. */
+  token: string,
+  /** `{PROJECT_API}/z3/{PROJECT_ID}-`. Anything not under it is left alone — see below. */
+  z3BaseUrl: string
+): Promise<void> => {
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
   const documents = await getAllFhirSearchPages<DocumentReference>(
@@ -499,6 +505,30 @@ export const cleanupIntegrationTestDocumentReferences = async (oystehr: Oystehr)
   }
 
   console.log(`Found ${documents.length} integration test DocumentReferences to clean up`);
+
+  // The stored bytes go first: once the reference is gone, nothing records where they were, and an
+  // orphaned object in a PHI bucket is the thing this sweep exists to prevent.
+  //
+  // Only objects belonging to this project. A test can legitimately record a DocumentReference pointing
+  // somewhere else entirely — one existing test uses `https://example.com/...` — and a DELETE carries the
+  // M2M token, so an unchecked URL here would hand that token to whatever host a test happened to name.
+  for (const doc of documents) {
+    for (const attachmentUrl of (doc.content ?? []).map((entry) => entry.attachment?.url)) {
+      if (!attachmentUrl || !attachmentUrl.startsWith(z3BaseUrl)) continue;
+      try {
+        const response = await fetch(attachmentUrl, {
+          method: 'DELETE',
+          headers: { authorization: `Bearer ${token}` },
+        });
+        // 404 means someone already removed it, which is the outcome this wanted.
+        if (!response.ok && response.status !== 404) {
+          console.log(`Could not delete ${attachmentUrl}: ${response.status} ${response.statusText}`);
+        }
+      } catch (e) {
+        console.log(`Could not delete ${attachmentUrl}: ${e}`);
+      }
+    }
+  }
 
   const deleteRequests: BatchInputDeleteRequest[] = documents
     .filter((doc) => doc.id)

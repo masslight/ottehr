@@ -148,7 +148,13 @@ const performEffect = async (
   );
 
   const patientId = visitResources.patient.id;
-  const fileName = buildFileName(template.description ?? 'form', visitResources, appointmentId);
+  // Title first, the same order `buildDisplayName` uses when naming a returned form. Description is
+  // optional, so leading with it made every template that lacks one download as `form_<patient>_…pdf`.
+  const fileName = buildFileName(
+    template.content?.[0]?.attachment?.title ?? template.description ?? 'form',
+    visitResources,
+    appointmentId
+  );
 
   const z3Url = makeZ3Url({ secrets, bucketName: BUCKET_NAMES.FORM_INSTANCES, patientID: patientId, fileName });
   const uploadUrl = await createPresignedUrl(token, z3Url, 'upload');
@@ -183,7 +189,12 @@ const performEffect = async (
 
   // Superseded only once the replacement exists, so a failure here leaves the previous draft as the
   // current one rather than leaving the encounter with none.
-  await supersedePreviousInstances(oystehr, { patientId, templateId: documentReferenceId, keepId: instance.id! });
+  await supersedePreviousInstances(oystehr, {
+    patientId,
+    encounterId: visitResources.encounter?.id,
+    templateId: documentReferenceId,
+    keepId: instance.id!,
+  });
 
   return {
     documentReferenceId: instance.id!,
@@ -206,13 +217,18 @@ const performEffect = async (
  * Superseding rather than deleting: the earlier draft may already have been opened, and knowing an instance
  * was generated is what later allows a never-returned form to be spotted.
  *
+ * Only drafts, and only this visit's. A completed form filed by `save-completed-form` is a form instance
+ * against the same template on the same patient, so a search by those alone also matches forms the provider
+ * signed and returned — superseding one hides it from the documents list, which filters superseded out. The
+ * `docStatus` filter is what prevents that; the encounter narrows it further, to the visit being worked on.
+ *
  * Best-effort by design. Tidying the previous draft must not cost the provider the form they just asked for.
  */
 const supersedePreviousInstances = async (
   oystehr: Oystehr,
-  args: { patientId: string; templateId: string; keepId: string }
+  args: { patientId: string; encounterId?: string; templateId: string; keepId: string }
 ): Promise<void> => {
-  const { patientId, templateId, keepId } = args;
+  const { patientId, encounterId, templateId, keepId } = args;
 
   try {
     const previous = (
@@ -223,11 +239,14 @@ const supersedePreviousInstances = async (
           { name: 'category', value: FORM_INSTANCE_CATEGORY_SEARCH_PARAM },
           { name: 'status', value: 'current' },
           { name: 'relatesto', value: `DocumentReference/${templateId}` },
+          ...(encounterId ? [{ name: 'encounter', value: `Encounter/${encounterId}` }] : []),
         ],
       })
     )
       .unbundle()
-      .filter((docRef) => docRef.id && docRef.id !== keepId);
+      // `docStatus` has no search parameter, so the draft/returned distinction is drawn here. Without it
+      // a returned form would be superseded and disappear from the chart.
+      .filter((docRef) => docRef.id && docRef.id !== keepId && docRef.docStatus === 'preliminary');
 
     await Promise.all(
       previous.map((docRef) =>

@@ -45,7 +45,9 @@ const isBlockedAddress = (address: string): boolean => {
       normalized === '::1' || // loopback
       normalized.startsWith('fc') || // unique local
       normalized.startsWith('fd') ||
-      normalized.startsWith('fe80') // link-local
+      // Link-local is fe80::/10, so the first group runs fe80 through febf. Tested on that group rather
+      // than as a prefix: `fe80` alone lets fe90::1 and febf::1 through, and they reach the same hosts.
+      /^fe[89ab][0-9a-f]$/.test(normalized.split(':')[0])
     ) {
       return true;
     }
