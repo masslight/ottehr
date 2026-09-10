@@ -3,14 +3,14 @@ import { VisitNoteResponse } from '../../types/api/chart-data/get-visit-note.typ
 import { telemedProgressNoteNoteTypes } from './progress-note-chart-data-requested-fields.helper';
 
 export interface LegacyChartData {
-  /** What the unscoped get-chart-data call returns. */
+  /** The whole-chart shape: every list of the chart plus the visit's single-valued fields. */
   chartData: GetChartDataResponse;
   /** What the progress-note field set returns (the in-person or the telemed one). */
   additionalChartData: GetChartDataResponse;
 }
 
 /**
- * Presents a visit note as the two get-chart-data responses the PDF composers, the discharge summary and
+ * Presents a visit note as the two whole-chart shapes the PDF composers, the discharge summary and
  * the EHR's `useChartData` consumers were written against, so they can switch reads without changing what
  * they render. Goes away once those readers use the sections directly.
  */
@@ -23,7 +23,7 @@ export function visitNoteToLegacyChartData(
   const chartData: GetChartDataResponse = {
     patientId: note.patientId,
     conditions: history.conditions,
-    // The unscoped call searches current-medication only.
+    // The whole-chart shape lists current medications only.
     medications: history.medications.filter((medication) => medication.type !== 'prescribed-medication'),
     allergies: history.allergies,
     surgicalHistory: history.surgicalHistory,
@@ -36,7 +36,7 @@ export function visitNoteToLegacyChartData(
     observations: [...screening.observations, ...aiChat.observations],
     practitioners: [],
     aiChat: aiChat.aiChat,
-    // Scalars the unscoped call picks up from its unfiltered Condition and Procedure searches.
+    // The visit's single-valued fields.
     chiefComplaint: encounterNotes.chiefComplaint,
     historyOfPresentIllness: encounterNotes.historyOfPresentIllness,
     mechanismOfInjury: encounterNotes.mechanismOfInjury,

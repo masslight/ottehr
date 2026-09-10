@@ -716,7 +716,7 @@ describe('makeCreateRequests — procedure plans', () => {
     expect(created).toHaveLength(2);
     for (const req of created) {
       // Each must be the chart-data shape (completed/original-order/procedure tag)
-      // rather than the plan shape — get-chart-data filters on these.
+      // rather than the plan shape — the chart's plan section filters on these.
       expect(req.resource.status).toBe('completed');
       expect(req.resource.intent).toBe('original-order');
       expect(

@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPutRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputGetRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import {
   Account,
   Appointment,
@@ -27,10 +27,11 @@ import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
 import { createUserResourcesForPatient } from 'utils/lib/fhir/patient';
 import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
 import { Secrets } from 'utils/lib/secrets';
-import { ChartDataRequestedFields } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { IN_PERSON_NOTE_ID } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { encounterScopedSearch, patientScopedSearch } from '../../shared/chart-data/search-requests';
+import { fetchChartResources } from '../../shared/chart-sections/fetch';
 import { getStripeClient } from '../../shared/stripeIntegration';
-import { getChartData } from '../get-chart-data';
 import {
   accountMatchesType,
   coveragesAreSame,
@@ -49,30 +50,39 @@ export interface PerformMergeInput {
   secrets: Secrets | null;
 }
 
-const CONDITIONAL_CHART_DATA_FIELDS: ChartDataRequestedFields = {
-  chiefComplaint: { _tag: 'chief-complaint' },
-  historyOfPresentIllness: { _tag: 'history-of-present-illness' },
-  mechanismOfInjury: { _tag: 'mechanism-of-injury' },
-  ros: { _tag: 'ros' },
-  accident: {},
-  surgicalHistoryNote: { _tag: 'surgical-history-note' },
-  medications: {},
-  inhouseMedications: {},
-  prescribedMedications: {},
-  disposition: {},
-  procedures: {},
-  medicalDecision: { _tag: 'medical-decision' },
-  episodeOfCare: {},
-  notes: { _count: 10000 },
-  observations: {},
-  vitalsObservations: { _search_by: 'encounter' },
-  birthHistory: {},
-  externalLabResults: {},
-  inHouseLabResults: {},
-  reasonForVisit: {},
-  patientInfoConfirmed: {},
-  addendumNote: {},
-};
+/**
+ * Every chart resource of an encounter that a merge has to re-point at the surviving patient: the encounter
+ * itself, the patient-level history (conditions, allergies, procedures, medication statements,
+ * hospitalizations, birth history, provider notes) and everything documented on the visit (observations,
+ * communications, documents, service requests, prescriptions, the medical decision).
+ */
+const chartResourceSearches = (encounterId: string): BatchInputGetRequest[] => [
+  patientScopedSearch('AllergyIntolerance', encounterId),
+  patientScopedSearch('Condition', encounterId),
+  patientScopedSearch('Procedure', encounterId),
+  patientScopedSearch('MedicationStatement', encounterId, {
+    _tag: 'current-medication,prescribed-medication,in-house-medication',
+  }),
+  patientScopedSearch('EpisodeOfCare', encounterId),
+  patientScopedSearch('Observation', encounterId, { _tag: `${PRIVATE_EXTENSION_BASE_URL}/birth-history|` }),
+  patientScopedSearch('Communication', encounterId, { _tag: IN_PERSON_NOTE_ID }),
+  encounterScopedSearch('Observation', encounterId),
+  encounterScopedSearch('Communication', encounterId),
+  encounterScopedSearch('DocumentReference', encounterId),
+  encounterScopedSearch('ServiceRequest', encounterId),
+  encounterScopedSearch('MedicationRequest', encounterId),
+  encounterScopedSearch('ClinicalImpression', encounterId),
+];
+
+async function collectEncounterChartResources(oystehr: Oystehr, encounterId: string): Promise<FhirResource[]> {
+  const { encounter, byOwner } = await fetchChartResources(
+    oystehr,
+    encounterId,
+    chartResourceSearches(encounterId).map((request) => ({ owner: 'chart' as const, request })),
+    ['chart']
+  );
+  return [encounter, ...byOwner.chart];
+}
 
 function patchPatientRef(resource: Resource, oldPatientId: string, newPatientRef: string): string[] {
   const updated: string[] = [];
@@ -144,13 +154,7 @@ async function collectEncounterResources(
   newPatientRef: string,
   processedIds: Set<string>
 ): Promise<FhirResource[]> {
-  const { chartResources: defaultResources } = await getChartData(oystehr, m2mToken, encounterId);
-  const { chartResources: conditionalResources } = await getChartData(
-    oystehr,
-    m2mToken,
-    encounterId,
-    CONDITIONAL_CHART_DATA_FIELDS
-  );
+  const chartResources = await collectEncounterChartResources(oystehr, encounterId);
 
   const immunizationResources = (
     await oystehr.fhir.search<MedicationAdministration>({
@@ -173,12 +177,7 @@ async function collectEncounterResources(
   ).unbundle();
 
   const resourceMap = new Map<string, Resource>();
-  for (const r of [
-    ...defaultResources,
-    ...conditionalResources,
-    ...immunizationResources,
-    ...medicationOrderResources,
-  ]) {
+  for (const r of [...chartResources, ...immunizationResources, ...medicationOrderResources]) {
     if (r.id) resourceMap.set(`${r.resourceType}/${r.id}`, r);
   }
 

@@ -61,7 +61,7 @@ export interface IntegrationTestSetupResult {
 
 /**
  * Creates a unique process ID for the test run
- * @param testFileName - The name of the test file (e.g., 'get-chart-data.test.ts')
+ * @param testFileName - The name of the test file (e.g., 'chart-data.test.ts')
  * @returns A unique process ID string
  */
 export const createProcessId = (testFileName: string): string => {
@@ -116,10 +116,10 @@ export const getProcessMetaTag = (processId: string): Appointment['meta'] => {
  * instance (its QuestionnaireResponse, Consent, etc. mirror each instance's intake-paperwork
  * configuration), so sharing one canned copy across differently-configured instances was unsafe.
  * Instead we author only the resources the integration tests actually exercise:
- *   - Patient + Encounter  → get-chart-data (asserts an empty chart) and radiology
+ *   - Patient + Encounter  → the chart reads (assert an empty chart) and radiology
  *   - a non-user RelatedPerson, QuestionnaireResponse, Consent, DocumentReference and Account
  *     → merge-patients asserts each of these is re-pointed to the surviving patient
- * The Encounter carries `patient-info-confirmed = false` (get-chart-data surfaces it as
+ * The Encounter carries `patient-info-confirmed = false` (the chart reads surface it as
  * `patientInfoConfirmed`), and nothing here references an intake questionnaire URL, so the graph
  * is identical on every instance regardless of its ottehr-config overlay.
  *
@@ -198,7 +198,7 @@ export const insertInPersonAppointmentBase = async (
     subject: { reference: patientRef },
     appointment: [{ reference: appointmentRef }],
     location: [{ location: { reference: `Location/${location.id}` } }],
-    // get-chart-data surfaces this extension as `patientInfoConfirmed`
+    // the chart reads surface this extension as `patientInfoConfirmed`
     extension: [{ url: 'patient-info-confirmed', valueBoolean: false }],
   };
 
@@ -315,7 +315,7 @@ export const cleanupResources = async (oystehr: Oystehr, processId: string): Pro
 /**
  * Sets up all necessary clients and data for integration tests
  * This function should be called in the beforeAll hook of integration tests
- * @param testFileName - The name of the test file (e.g., 'get-chart-data.test.ts')
+ * @param testFileName - The name of the test file (e.g., 'chart-data.test.ts')
  * @returns An object containing all setup data and cleanup function
  */
 export const setupIntegrationTest = async (

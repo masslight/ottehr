@@ -3,7 +3,7 @@ import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-d
 import { handleCustomDTOExtractions, mapResourceToChartDataResponse } from '../chart-data';
 
 /**
- * Runs resources through the same resource-to-DTO mapping get-chart-data uses, seeded with the fields
+ * Runs resources through the chart's resource-to-DTO mapping, seeded with the fields
  * the caller wants collected. Array fields are only filled when the seed contains them; scalar fields are
  * assigned whenever a matching resource is found; the Encounter-derived fields (disposition, diagnosis,
  * procedures, accident and the extension flags) are computed from the Encounter and the resources.

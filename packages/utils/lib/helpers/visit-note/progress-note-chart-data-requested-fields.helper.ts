@@ -1,9 +1,5 @@
-import { PRIVATE_EXTENSION_BASE_URL } from '../../fhir/constants';
-import { SearchParams } from '../../fhir/uri';
 import { VitalFieldNames } from '../../types/api/chart-data/chart-data.constants';
-import { IN_PERSON_NOTE_ID } from '../../types/api/chart-data/chart-data.types';
 import { NOTE_TYPE } from '../../types/api/chart-data/chart-data.types';
-import { ChartDataRequestedFields } from '../../types/api/chart-data/get-chart-data.types';
 import { createVitalsSearchConfig } from './create-vitals-search-config.helper';
 
 /** The note types the in-person visit note shows. */
@@ -23,66 +19,11 @@ export const progressNoteNoteTypes: NOTE_TYPE[] = [
 /** The note types the telemed visit note shows. */
 export const telemedProgressNoteNoteTypes: NOTE_TYPE[] = [NOTE_TYPE.VITALS, NOTE_TYPE.ADDENDUM];
 
-export const vitalsObservationsRequest: SearchParams = {
-  _search_by: 'encounter',
+/** The search the visit note reads the encounter's vitals with: every vital field's tag, newest first. */
+export const vitalsObservationsRequest: { _sort: string; _count: number; _tag: string } = {
   _sort: '-_lastUpdated',
   _count: 100,
   _tag: Object.values(VitalFieldNames)
     .map((name) => (createVitalsSearchConfig(name, 'encounter').searchParams as { _tag: string })._tag)
     .join(','),
-};
-
-/**
- * The one chart-fields request behind the Review & Sign and follow-up note pages. Every section summary on
- * those pages reads from this query (see useProgressNoteChartFields), so it has to stay a superset of what
- * they need; a section that requests its own fields costs the page an extra get-chart-data call.
- */
-export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
-  chiefComplaint: { _tag: 'chief-complaint' },
-  reasonForVisit: {},
-  mechanismOfInjury: { _tag: 'mechanism-of-injury' },
-  historyOfPresentIllness: { _tag: 'history-of-present-illness' },
-  ros: { _tag: 'ros' },
-  accident: { _tag: 'accident' },
-  surgicalHistoryNote: { _tag: 'surgical-history-note' },
-  patientInfoConfirmed: {},
-  addendumNote: {},
-  episodeOfCare: {},
-  prescribedMedications: {},
-  disposition: { _tag: 'disposition-follow-up,sub-follow-up' },
-  notes: {
-    _sort: '-_lastUpdated',
-    _count: 1000,
-    _tag: progressNoteNoteTypes.map((note) => `${PRIVATE_EXTENSION_BASE_URL}/${note}|${IN_PERSON_NOTE_ID}`).join(','),
-  },
-  vitalsObservations: vitalsObservationsRequest,
-  externalLabResults: {},
-  inHouseLabResults: {},
-  // DocumentReference:related pulls in external orders' uploaded result files (they have no DiagnosticReport).
-  radiologyOrders: { _tag: 'radiology', _revinclude: ['DiagnosticReport:based-on', 'DocumentReference:related'] },
-  practitioners: {},
-  medicalDecision: {
-    _tag: 'medical-decision',
-  },
-};
-
-export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFields = {
-  chiefComplaint: { _tag: 'chief-complaint' },
-  ros: { _tag: 'ros' },
-  prescribedMedications: {},
-  disposition: {},
-  medicalDecision: {
-    _tag: 'medical-decision',
-  },
-  surgicalHistoryNote: {
-    _tag: 'surgical-history-note',
-  },
-  notes: {
-    _sort: '-_lastUpdated',
-    _count: 1000,
-    _tag: telemedProgressNoteNoteTypes
-      .map((note) => `${PRIVATE_EXTENSION_BASE_URL}/${note}|${IN_PERSON_NOTE_ID}`)
-      .join(','),
-  },
-  vitalsObservations: vitalsObservationsRequest,
 };

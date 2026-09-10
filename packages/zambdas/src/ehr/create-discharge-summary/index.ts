@@ -99,7 +99,7 @@ export const performEffect = async (
     medicationOrdersPromise,
     upcomingFollowUpsPromise,
   ]);
-  // The discharge summary composers read the two get-chart-data shapes; the adapter presents the note as both.
+  // The discharge summary composers still read the two whole-chart shapes.
   const { chartData, additionalChartData } = visitNoteToLegacyChartData(visitNote, { module: 'in-person' });
   const medicationOrders = medicationOrdersData?.orders.filter((order) => order.status !== 'cancelled');
 

@@ -153,7 +153,7 @@ describe('the chart caches', () => {
     });
   });
 
-  it('presents the chart to useChartData in the shape the unscoped get-chart-data call returned', async () => {
+  it('presents the chart to useChartData in the legacy whole-chart shape', async () => {
     const { result } = renderHook(() => useChartData(), { wrapper: wrapperFor(queryClient) });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));

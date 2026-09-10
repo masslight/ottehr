@@ -20,8 +20,8 @@ import {
 } from './chartSectionCache';
 
 /**
- * The bridge between the whole-chart shape `useChartData` consumers read and write (the unscoped
- * get-chart-data response) and the section cache entries that hold the data. Reads assemble the shape
+ * The bridge between the whole-chart shape `useChartData` consumers read and write and the section cache
+ * entries that hold the data now. Reads assemble the shape
  * from the caches; writes route each field to its section, with the few fields whose legacy shape differs
  * from the section's handled explicitly.
  */

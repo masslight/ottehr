@@ -80,7 +80,7 @@ describe('COPYABLE_FOLLOWUP_FIELDS', () => {
     });
 
     it('"Chief Complaint" is empty when reasonForVisit text is blank', () => {
-      // get-chart-data returns { text: '' } for an absent reason-for-visit extension.
+      // The encounterNotes section returns { text: '' } for an absent reason-for-visit extension.
       expect(chiefComplaint.isEmpty(chartWith({ reasonForVisit: { text: '' } }))).toBe(true);
     });
   });
