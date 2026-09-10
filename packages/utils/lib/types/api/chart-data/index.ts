@@ -5,3 +5,5 @@ export * from './chart-data.constants';
 export * from './save-chart-data.types';
 export * from './exam-fields-map';
 export * from './get-vitals.types';
+export * from './chart-sections.types';
+export * from './get-visit-note.types';

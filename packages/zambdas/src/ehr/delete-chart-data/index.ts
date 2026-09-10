@@ -38,12 +38,12 @@ import {
   updateEncounterDischargeDisposition,
 } from '../../shared/chart-data';
 import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
+import { createFindResourceRequestByPatientField } from '../../shared/chart-data/search-requests';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { parseCreatedResourcesBundle } from '../../shared/resources.helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { deleteZ3Object } from '../../shared/z3Utils';
-import { createFindResourceRequestByPatientField } from '../get-chart-data/helpers';
 import { deleteResourceRequest, getEncounterAndRelatedResources } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
