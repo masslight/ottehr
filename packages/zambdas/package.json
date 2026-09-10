@@ -65,7 +65,6 @@
     "migrate-practitioner-credentials": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/migrate-practitioner-credentials.ts",
     "backfill-outbound-fax-attempts": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/backfill-outbound-fax-attempts.ts",
     "backfill-billing-patient-clinical-identifiers": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/backfill-billing-patient-clinical-identifiers.ts",
-    "backfill-claim-status-history": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/backfill-claim-status-history.ts",
     "mock-attachment-result": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/labs/attachment-result-helper.ts",
     "mock-abn-doc": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/labs/create-abn-doc.ts",
     "get-lab-sr-dr-docref": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/labs/get-external-lab-sr-dr-docref.ts",
