@@ -5,7 +5,6 @@ exports[`get-chart-data FHIR request budget > pins the FHIR searches issued for 
   {
     "name": "01 unscoped (InPersonLayout, Header, Sidebar, ProgressNote)",
     "urls": [
-      "/Patient?_has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
       "/Encounter?_id=11111111-1111-4111-8111-111111111111",
       "/AllergyIntolerance?patient:Patient._has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
       "/Condition?subject:Patient._has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
@@ -23,39 +22,13 @@ exports[`get-chart-data FHIR request budget > pins the FHIR searches issued for 
   {
     "name": "02 InPersonNavigationContext",
     "urls": [
-      "/Patient?_has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
       "/Encounter?_id=11111111-1111-4111-8111-111111111111",
       "/EpisodeOfCare?patient:Patient._has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
     ],
   },
   {
-    "name": "03 MissingCard",
+    "name": "03 useProgressNoteChartFields (ProgressNoteDetails, MissingCard, ReviewAndSignButton, section summaries)",
     "urls": [
-      "/Patient?_has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
-      "/Encounter?_id=11111111-1111-4111-8111-111111111111",
-      "/Condition?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=chief-complaint",
-      "/Condition?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=history-of-present-illness",
-      "/ClinicalImpression?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=medical-decision",
-      "/Condition?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=accident",
-    ],
-  },
-  {
-    "name": "04 ReviewAndSignButton",
-    "urls": [
-      "/Patient?_has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
-      "/Encounter?_id=11111111-1111-4111-8111-111111111111",
-      "/Condition?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=chief-complaint",
-      "/Condition?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=history-of-present-illness",
-      "/ClinicalImpression?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=medical-decision",
-      "/Condition?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=accident",
-      "/DocumentReference?status=current&type=11502-2&encounter=11111111-1111-4111-8111-111111111111&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on&_include:iterate=DiagnosticReport:result",
-      "/ServiceRequest?encounter=Encounter/11111111-1111-4111-8111-111111111111&status=active&code=https://terminology.fhir.oystehr.com/CodeSystem/oystehr-lab-local-codes|,http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code|",
-    ],
-  },
-  {
-    "name": "05 ProgressNoteDetails (progressNoteChartDataRequestedFields)",
-    "urls": [
-      "/Patient?_has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
       "/Encounter?_id=11111111-1111-4111-8111-111111111111",
       "/ServiceRequest?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=disposition-follow-up,sub-follow-up",
       "/MedicationRequest?encounter=Encounter/11111111-1111-4111-8111-111111111111",
@@ -64,9 +37,11 @@ exports[`get-chart-data FHIR request budget > pins the FHIR searches issued for 
       "/Condition?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=history-of-present-illness",
       "/Condition?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=mechanism-of-injury",
       "/Condition?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=ros",
+      "/Procedure?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=surgical-history-note",
       "/ClinicalImpression?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=medical-decision",
       "/Observation?encounter=Encounter/11111111-1111-4111-8111-111111111111&_count=100&_sort=-_lastUpdated&_tag=vital-temperature,vital-heartbeat,vital-blood-pressure,vital-oxygen-sat,vital-respiration-rate,vital-weight,vital-height,vital-bmi,vital-vision,vital-last-menstrual-period",
       "/EpisodeOfCare?patient:Patient._has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
+      "/Condition?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=accident",
       "/Practitioner?_has:Encounter:participant:_id=11111111-1111-4111-8111-111111111111",
       "/DocumentReference?status=current&type=11502-2&encounter=11111111-1111-4111-8111-111111111111&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on&_include:iterate=DiagnosticReport:result",
       "/ServiceRequest?encounter=Encounter/11111111-1111-4111-8111-111111111111&status=active&code=https://terminology.fhir.oystehr.com/CodeSystem/oystehr-lab-local-codes|,http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code|",
@@ -74,84 +49,20 @@ exports[`get-chart-data FHIR request budget > pins the FHIR searches issued for 
     ],
   },
   {
-    "name": "06 usePatientInstructionsVisibility + PatientInstructionsContainer",
+    "name": "04 AddendumCard GenericNoteList",
     "urls": [
-      "/Patient?_has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
-      "/Encounter?_id=11111111-1111-4111-8111-111111111111",
-      "/ServiceRequest?encounter=Encounter/11111111-1111-4111-8111-111111111111",
-    ],
-  },
-  {
-    "name": "07 ChiefComplaintContainer",
-    "urls": [
-      "/Patient?_has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
-      "/Encounter?_id=11111111-1111-4111-8111-111111111111",
-      "/Condition?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=history-of-present-illness",
-    ],
-  },
-  {
-    "name": "08 HpiMoiContainer",
-    "urls": [
-      "/Patient?_has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
-      "/Encounter?_id=11111111-1111-4111-8111-111111111111",
-      "/Condition?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=chief-complaint",
-      "/Condition?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=mechanism-of-injury",
-      "/Condition?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=accident",
-    ],
-  },
-  {
-    "name": "09 SurgicalHistoryContainer",
-    "urls": [
-      "/Patient?_has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
-      "/Encounter?_id=11111111-1111-4111-8111-111111111111",
-      "/Procedure?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=surgical-history-note",
-    ],
-  },
-  {
-    "name": "10 AssessmentGroupContainer",
-    "urls": [
-      "/Patient?_has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
-      "/Encounter?_id=11111111-1111-4111-8111-111111111111",
-      "/ClinicalImpression?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=medical-decision",
-    ],
-  },
-  {
-    "name": "11 AddendumCard (legacy addendumNote)",
-    "urls": [
-      "/Patient?_has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
-      "/Encounter?_id=11111111-1111-4111-8111-111111111111",
-    ],
-  },
-  {
-    "name": "12 AddendumCard GenericNoteList",
-    "urls": [
-      "/Patient?_has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
       "/Encounter?_id=11111111-1111-4111-8111-111111111111",
       "/Communication?encounter=Encounter/11111111-1111-4111-8111-111111111111&_count=1000&_sort=-_lastUpdated&_tag=https://fhir.zapehr.com/r4/StructureDefinitions/addendum|css-note",
     ],
   },
   {
-    "name": "13 HospitalizationContainer (episodeOfCare refetch, staleTime 0)",
+    "name": "ERxContainer",
     "urls": [
-      "/Patient?_has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
       "/Encounter?_id=11111111-1111-4111-8111-111111111111",
-      "/EpisodeOfCare?patient:Patient._has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
-    ],
-  },
-  {
-    "name": "c1 PrescribedMedicationsContainer",
-    "urls": [
+      "/MedicationRequest?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=erx-medication",
+      "/Practitioner?_has:Encounter:participant:_id=11111111-1111-4111-8111-111111111111",
+      "/QuestionnaireResponse?encounter=Encounter/11111111-1111-4111-8111-111111111111",
       "/Patient?_has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
-      "/Encounter?_id=11111111-1111-4111-8111-111111111111",
-      "/MedicationRequest?encounter=Encounter/11111111-1111-4111-8111-111111111111",
-    ],
-  },
-  {
-    "name": "c2 ReviewOfSystemsContainer (legacy ros text)",
-    "urls": [
-      "/Patient?_has:Encounter:subject:_id=11111111-1111-4111-8111-111111111111",
-      "/Encounter?_id=11111111-1111-4111-8111-111111111111",
-      "/Condition?encounter=Encounter/11111111-1111-4111-8111-111111111111&_tag=ros",
     ],
   },
 ]

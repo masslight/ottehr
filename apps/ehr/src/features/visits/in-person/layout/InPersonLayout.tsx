@@ -7,7 +7,7 @@ import {
   lightTheme,
   MeetingProvider,
 } from 'amazon-chime-sdk-component-library-react';
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Outlet } from 'react-router-dom';
 import { CommandPaletteInPersonRegistrations } from 'src/components/CommandPaletteRegistrations';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -15,12 +15,16 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { ThemeProvider } from 'styled-components';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getSelectors } from 'utils/lib/store';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { isVisitFinished } from 'utils/lib/utils/visitUtils';
 import { Sidebar } from '../../shared/components/Sidebar';
 import { useAiResourcesPolling } from '../../shared/components/useAiResourcesPolling';
+import { AI_CHAT_REQUESTED_FIELDS } from '../../shared/hooks/aiChartRequests';
 import { useAiSuggestionsPolling } from '../../shared/hooks/useAiSuggestionsPolling';
 import { useAssignedProvider } from '../../shared/hooks/useAssignedProvider';
+import { useChartFields } from '../../shared/hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
+import { useInvalidateChartFieldsOnNavigate } from '../../shared/hooks/useInvalidateChartFieldsOnNavigate';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
 import { useStopAmbientScribeOnLeave } from '../../shared/hooks/useStopAmbientScribeOnLeave';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
@@ -66,7 +70,21 @@ export const InPersonLayout: React.FC = () => {
   // Keep the Ambient Scribe recording alive across rotation; stop & save it on leaving the visit.
   useStopAmbientScribeOnLeave({ hostKey: encounter.id ?? '' });
   const { chartData, refetch: refetchChartData } = useChartData({ shouldUpdateExams: true });
+  useInvalidateChartFieldsOnNavigate();
   const { oystehr } = useApiClients();
+  const aiDocumentCount = chartData?.aiChat?.documents?.length ?? 0;
+  const hasPendingRecording = Boolean(chartData?.aiChat?.hasPendingRecording);
+  // Each poll tick fetches only the AI chat documents; the unscoped chart, which the Ambient Scribe panel
+  // and the sidebar read aiChat from, is refetched once they change rather than on every tick.
+  const { refetch: refetchAiChat } = useChartFields({ requestedFields: AI_CHAT_REQUESTED_FIELDS, enabled: false });
+  const refetchAiResources = useCallback(async (): Promise<void> => {
+    const result = await refetchAiChat();
+    const aiChat = (result.data as Pick<GetChartDataResponse, 'aiChat'> | undefined)?.aiChat;
+    const changed =
+      (aiChat?.documents?.length ?? 0) !== aiDocumentCount ||
+      Boolean(aiChat?.hasPendingRecording) !== hasPendingRecording;
+    if (changed) await refetchChartData();
+  }, [refetchAiChat, refetchChartData, aiDocumentCount, hasPendingRecording]);
   // Mounted here (not in the OttehrAi route) so a pending recording or AI interview keeps getting
   // refetched no matter which tab the provider is on — the Ambient Scribe panel above reads
   // chartData.aiChat straight from the same query cache this refetch loop keeps warm.
@@ -74,9 +92,9 @@ export const InPersonLayout: React.FC = () => {
     appointment,
     encounter,
     oystehr,
-    chartDataHasResources: (chartData?.aiChat?.documents?.length ?? 0) > 0,
-    hasPendingRecording: Boolean(chartData?.aiChat?.hasPendingRecording),
-    onRefetch: refetchChartData,
+    chartDataHasResources: aiDocumentCount > 0,
+    hasPendingRecording,
+    onRefetch: refetchAiResources,
   });
   const { isAssignedProviderEligible, isAssignedProviderStale, assignedProviderName } = useAssignedProvider();
   // A finished visit is a record, not work in progress. The provider gate exists to stop new

@@ -1,7 +1,7 @@
 import { QueryObserverResult, RefetchOptions, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { CHART_FIELDS_QUERY_KEY } from 'src/constants';
+import { CHART_FIELDS_QUERY_KEY, QUERY_STALE_TIME } from 'src/constants';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { SearchParams } from 'utils/lib/fhir/uri';
 import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
@@ -167,7 +167,11 @@ export function useChartFields<T extends ChartDataRequestedFields>({
       return result as Pick<GetChartDataResponse, keyof ChartDataRequestedFields>;
     },
     enabled: !!apiClient && !!encounterId && !!user && enabled,
-    staleTime: 0, // TODO: add QUERY_STALE_TIME; set to 0 for now since not all api calls update cache (e.g., in-house order status changes to "collected")
+    // Fresh data within a screen is shared by every component that mounts the same field set. Moving to
+    // another visit screen marks every chart-fields query stale (useInvalidateChartFieldsOnNavigate), so
+    // flows that change chart data through other endpoints, such as an in-house lab order being
+    // collected, are picked up on the next screen; flows that stay on one screen invalidate explicitly.
+    staleTime: QUERY_STALE_TIME,
     refetchInterval: refetchInterval || false,
   });
 

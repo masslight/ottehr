@@ -617,11 +617,13 @@ describe('useChartDataField', () => {
         expect(result1.current.isLoading).toBe(false);
       });
 
-      renderHook(() => useChartFields({ requestedFields: params2 }), { wrapper });
+      const { result: result2 } = renderHook(() => useChartFields({ requestedFields: params2 }), { wrapper });
 
+      // Equivalent params produce the same key, and fresh data is shared within staleTime: one call in total.
       await waitFor(() => {
-        expect(mockApiClient.getChartData).toHaveBeenCalledTimes(2); // staleTime is 0, so two calls are expected now
+        expect(result2.current.data).toBeDefined();
       });
+      expect(mockApiClient.getChartData).toHaveBeenCalledTimes(1);
     });
   });
 });

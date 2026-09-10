@@ -2,7 +2,12 @@ import { enqueueSnackbar } from 'notistack';
 import { SearchParams } from 'utils/lib/fhir/uri';
 import { SaveableDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
-import { useChartData, useDeleteChartData, useSaveChartData } from '../stores/appointment/appointment.store';
+import {
+  ChartDataResponse,
+  useChartData,
+  useDeleteChartData,
+  useSaveChartData,
+} from '../stores/appointment/appointment.store';
 import { useChartFields } from './useChartFields';
 
 type ChartDataArrayValueType = Pick<
@@ -36,7 +41,7 @@ export const useChartDataArrayValue = <
 } => {
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
-  const { chartData, refetch } = useChartData();
+  const { chartData, setPartialChartData } = useChartData();
 
   const {
     isLoading: isChartDataLoading,
@@ -47,9 +52,15 @@ export const useChartDataArrayValue = <
     enabled: !!customParams,
   });
 
-  const values = (
-    customParams ? currentFieldData?.[name] || [] : (chartData as ChartDataArrayValueType)?.[name] || []
-  ) as K;
+  const unscopedValues = ((chartData as ChartDataArrayValueType)?.[name] || []) as K & SaveableDTO[];
+  const values = (customParams ? currentFieldData?.[name] || [] : unscopedValues) as K;
+
+  // Both caches are patched from the save/delete response instead of re-running the unscoped chart's
+  // thirteen FHIR searches after every change. The unscoped query is marked stale (not refetched) so the
+  // next screen that mounts it still starts from the server.
+  const patchUnscopedChart = (next: SaveableDTO[]): void => {
+    setPartialChartData({ [name]: next } as Partial<ChartDataResponse>, { invalidateQueries: false });
+  };
 
   const onSubmit = (data: ElementType<K>): Promise<boolean> => {
     return new Promise((resolve, reject) => {
@@ -58,14 +69,14 @@ export const useChartDataArrayValue = <
           [name]: [data],
         },
         {
-          onSuccess: async (data) => {
+          onSuccess: (data) => {
+            const saved = (data.chartData[name] ?? []) as unknown as SaveableDTO[];
             if (customParams) {
               setQueryCache({
-                [name]: [...(currentFieldData?.[name] || []), ...(data.chartData[name] as K)],
+                [name]: [...((currentFieldData?.[name] || []) as unknown as SaveableDTO[]), ...saved],
               });
             }
-
-            await refetch();
+            patchUnscopedChart([...unscopedValues, ...saved]);
             resolve(true);
           },
           onError: (error) => {
@@ -89,16 +100,15 @@ export const useChartDataArrayValue = <
         [name]: newState,
       },
       {
-        onSuccess: async (_data) => {
+        onSuccess: () => {
+          const withoutRemoved = (items: SaveableDTO[] | undefined): SaveableDTO[] =>
+            (items || []).filter((value) => value.resourceId !== resourceId);
           if (customParams) {
             setQueryCache({
-              [name]: ((currentFieldData?.[name] || []) as unknown as K & SaveableDTO[]).filter(
-                (value) => value.resourceId !== resourceId
-              ),
+              [name]: withoutRemoved(currentFieldData?.[name] as unknown as SaveableDTO[] | undefined),
             });
           }
-
-          await refetch();
+          patchUnscopedChart(withoutRemoved(unscopedValues));
           onRemoveCallback?.();
         },
         onError: () => {

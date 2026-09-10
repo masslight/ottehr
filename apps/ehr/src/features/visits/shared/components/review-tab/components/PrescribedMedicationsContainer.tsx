@@ -7,15 +7,13 @@ import {
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
-import { useChartFields } from '../../../hooks/useChartFields';
+import { useProgressNoteChartFields } from '../../../hooks/useProgressNoteChartFields';
 import { PrescribedMedicationReviewItem } from './PrescribedMedicationReviewItem';
 
 export const PrescribedMedicationsContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { oystehr } = useApiClients();
-  const { data: chartFields } = useChartFields({
-    requestedFields: { prescribedMedications: {} },
-  });
+  const { data: chartFields } = useProgressNoteChartFields();
 
   const prescriptions = chartFields?.prescribedMedications;
 

@@ -10,10 +10,9 @@ import { PrescribedMedicationsContainer } from 'src/features/visits/shared/compo
 import { ProceduresContainer } from 'src/features/visits/shared/components/review-tab/components/ProceduresContainer';
 import { SurgicalHistoryContainer } from 'src/features/visits/shared/components/review-tab/components/SurgicalHistoryContainer';
 import { SectionList } from 'src/features/visits/shared/components/SectionList';
-import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
 import { usePatientInstructionsVisibility } from 'src/features/visits/shared/hooks/usePatientInstructionsVisibility';
+import { useProgressNoteChartFields } from 'src/features/visits/shared/hooks/useProgressNoteChartFields';
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
@@ -24,7 +23,7 @@ import { InHouseMedicationsContainer } from '../progress-note/InHouseMedications
 
 export const FollowUpNoteDetails: FC = () => {
   const { encounter } = useAppointmentData();
-  const { data: chartFields } = useChartFields({ requestedFields: progressNoteChartDataRequestedFields });
+  const { data: chartFields } = useProgressNoteChartFields();
   const { chartData } = useChartData();
   const { medications: inHouseMedications } = useMedicationAPI();
 

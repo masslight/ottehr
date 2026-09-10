@@ -420,7 +420,14 @@ exports[`get-chart-data mapping layer — golden fixture > every requestable fie
 
 exports[`get-chart-data mapping layer — golden fixture > progress-note mode (useChartFields with progressNoteChartDataRequestedFields) > matches the golden snapshot 1`] = `
 {
-  "accident": undefined,
+  "accident": {
+    "date": "2026-01-10",
+    "resourceId": "cond-accident",
+    "state": "IL",
+    "type": [
+      "AA",
+    ],
+  },
   "addToVisitNote": {
     "value": true,
   },
@@ -666,6 +673,10 @@ exports[`get-chart-data mapping layer — golden fixture > progress-note mode (u
   "ros": {
     "resourceId": "cond-ros",
     "text": "Negative except as noted",
+  },
+  "surgicalHistoryNote": {
+    "resourceId": "proc-surgical-history-note",
+    "text": "Uncomplicated recovery",
   },
   "vitalsObservations": [
     {

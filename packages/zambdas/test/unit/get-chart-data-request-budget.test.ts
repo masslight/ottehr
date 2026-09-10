@@ -1,9 +1,9 @@
 /**
  * Characterization of the FHIR requests get-chart-data issues.
  *
- * The zambda builds its FHIR batch deterministically from `requestedFields`, so the URLs below are exact
+ * The zambda builds its FHIR batches deterministically from `requestedFields`, so the URLs below are exact
  * for a page load. The scenarios replay every distinct react-query key mounted when the in-person
- * Review & Sign page opens, plus the two conditional ones, and pin:
+ * Review & Sign page opens and pin:
  *   - the URL set each call issues (snapshot),
  *   - the totals for the page load (explicit, so a change is a deliberate diff in this file),
  *   - the two ways a caller can steer a search off the requested encounter (documented as `it.fails`,
@@ -80,64 +80,32 @@ interface Scenario {
   fields?: ChartDataRequestedFields;
 }
 
-/** One entry per distinct react-query key mounted on /in-person/:id/review-and-sign, in mount order. */
+/**
+ * One entry per distinct react-query key mounted on /in-person/:id/review-and-sign, in mount order.
+ * Every section summary on the page reads the shared progress-note query (useProgressNoteChartFields),
+ * so the page costs the layout's unscoped call, the navigation context's hospitalizations, the note itself
+ * and the addendum list.
+ */
 export const REVIEW_AND_SIGN_SCENARIOS: Scenario[] = [
   { name: '01 unscoped (InPersonLayout, Header, Sidebar, ProgressNote)', fields: undefined },
   { name: '02 InPersonNavigationContext', fields: { episodeOfCare: {} } },
   {
-    name: '03 MissingCard',
-    fields: {
-      medicalDecision: { _tag: 'medical-decision' },
-      chiefComplaint: { _tag: 'chief-complaint' },
-      historyOfPresentIllness: { _tag: 'history-of-present-illness' },
-      patientInfoConfirmed: {},
-      accident: { _tag: 'accident' },
-    },
-  },
-  {
-    name: '04 ReviewAndSignButton',
-    fields: {
-      medicalDecision: { _tag: 'medical-decision' },
-      chiefComplaint: { _tag: 'chief-complaint' },
-      historyOfPresentIllness: { _tag: 'history-of-present-illness' },
-      accident: { _tag: 'accident' },
-      inHouseLabResults: {},
-      patientInfoConfirmed: {},
-    },
-  },
-  {
-    name: '05 ProgressNoteDetails (progressNoteChartDataRequestedFields)',
+    name: '03 useProgressNoteChartFields (ProgressNoteDetails, MissingCard, ReviewAndSignButton, section summaries)',
     fields: progressNoteChartDataRequestedFields,
   },
-  { name: '06 usePatientInstructionsVisibility + PatientInstructionsContainer', fields: { disposition: {} } },
   {
-    name: '07 ChiefComplaintContainer',
-    fields: { historyOfPresentIllness: { _tag: 'history-of-present-illness' }, reasonForVisit: {} },
-  },
-  {
-    name: '08 HpiMoiContainer',
-    fields: {
-      chiefComplaint: { _tag: 'chief-complaint' },
-      mechanismOfInjury: { _tag: 'mechanism-of-injury' },
-      accident: { _tag: 'accident' },
-    },
-  },
-  { name: '09 SurgicalHistoryContainer', fields: { surgicalHistoryNote: { _tag: 'surgical-history-note' } } },
-  { name: '10 AssessmentGroupContainer', fields: { medicalDecision: { _tag: 'medical-decision' } } },
-  { name: '11 AddendumCard (legacy addendumNote)', fields: { addendumNote: {} } },
-  {
-    name: '12 AddendumCard GenericNoteList',
+    name: '04 AddendumCard GenericNoteList',
     fields: {
       notes: { _search_by: 'encounter', _sort: '-_lastUpdated', _count: 1000, _tag: noteTag([NOTE_TYPE.ADDENDUM]) },
     },
   },
-  { name: '13 HospitalizationContainer (episodeOfCare refetch, staleTime 0)', fields: { episodeOfCare: {} } },
 ];
 
-export const CONDITIONAL_SCENARIOS: Scenario[] = [
-  { name: 'c1 PrescribedMedicationsContainer', fields: { prescribedMedications: {} } },
-  { name: 'c2 ReviewOfSystemsContainer (legacy ros text)', fields: { ros: { _tag: 'ros' } } },
-];
+/** The eRX screen is the only reader of preferredPharmacies, and so the only request that needs the Patient. */
+const PREFERRED_PHARMACIES_SCENARIO: Scenario = {
+  name: 'ERxContainer',
+  fields: { practitioners: {}, prescribedMedications: { _tag: 'erx-medication' }, preferredPharmacies: {} },
+};
 
 interface ScenarioResult {
   name: string;
@@ -156,6 +124,14 @@ async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
     fhirSearches: mine.reduce((n, call) => n + call.urls.length, 0),
     urls: mine.flatMap((call) => call.urls),
   };
+}
+
+async function runAll(scenarios: Scenario[]): Promise<ScenarioResult[]> {
+  const results: ScenarioResult[] = [];
+  for (const scenario of scenarios) {
+    results.push(await runScenario(scenario));
+  }
+  return results;
 }
 
 const summarize = (
@@ -177,47 +153,66 @@ describe('get-chart-data FHIR request budget', () => {
   });
 
   it('pins the FHIR searches issued for every distinct request on the Review & Sign page', async () => {
-    const results: ScenarioResult[] = [];
-    for (const scenario of [...REVIEW_AND_SIGN_SCENARIOS, ...CONDITIONAL_SCENARIOS]) {
-      results.push(await runScenario(scenario));
-    }
+    const results = await runAll([...REVIEW_AND_SIGN_SCENARIOS, PREFERRED_PHARMACIES_SCENARIO]);
     // Snapshot the URL set of every scenario so that any change in what the endpoint searches is visible in
     // review rather than measured after the fact.
     expect(results.map(({ name, urls }) => ({ name, urls }))).toMatchSnapshot();
   });
 
-  it('opening Review & Sign costs 13 calls, 27 FHIR round trips and 71 searches, 40 of them redundant', async () => {
-    const results: ScenarioResult[] = [];
-    for (const scenario of REVIEW_AND_SIGN_SCENARIOS) {
-      results.push(await runScenario(scenario));
-    }
-    expect(results).toHaveLength(13);
+  it('opening Review & Sign costs 4 calls, 33 FHIR searches (29 distinct) over 13 concurrent batches', async () => {
+    // Down from 13 calls, 71 searches (31 distinct, 40 redundant) and 27 round trips before the section
+    // summaries shared one query and the Patient stopped being fetched on every call. The remaining
+    // redundancy is the Encounter read each call still makes plus the hospitalizations the navigation
+    // context and the note both ask for. Round trips are now a latency choice rather than a cost: each
+    // call spreads its searches over concurrent batches (see CHART_DATA_BATCH_TARGET_CONCURRENCY).
+    const results = await runAll(REVIEW_AND_SIGN_SCENARIOS);
+    expect(results).toHaveLength(4);
     expect(summarize(results)).toEqual({
-      fhirHttpRequests: 27,
-      fhirSearches: 71,
-      distinctSearches: 31,
-      redundantSearches: 40,
+      fhirHttpRequests: 13,
+      fhirSearches: 33,
+      distinctSearches: 29,
+      redundantSearches: 4,
     });
   });
 
-  it('every call re-fetches the Patient in its own round trip and the Encounter inside the chart batch', async () => {
-    const results: ScenarioResult[] = [];
-    for (const scenario of REVIEW_AND_SIGN_SCENARIOS) {
-      results.push(await runScenario(scenario));
-    }
-    const patientSearches = results.flatMap((r) => r.urls).filter((url) => url.startsWith('/Patient?'));
-    const encounterSearches = results.flatMap((r) => r.urls).filter((url) => url.startsWith('/Encounter?_id='));
-    expect(patientSearches).toHaveLength(13);
-    expect(encounterSearches).toHaveLength(13);
-    // Only the unscoped call adds a third round trip, for the appointment count behind patientHasPreviousVisits.
-    expect(results.map((r) => r.fhirHttpRequests)).toEqual([3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
+  it('fetches the Patient only when preferredPharmacies is requested, inside a chart batch', async () => {
+    const reviewAndSign = await runAll(REVIEW_AND_SIGN_SCENARIOS);
+    expect(reviewAndSign.flatMap((r) => r.urls).filter((url) => url.startsWith('/Patient?'))).toEqual([]);
+
+    recorded.length = 0;
+    const pharmacies = await runScenario(PREFERRED_PHARMACIES_SCENARIO);
+    expect(pharmacies.urls.filter((url) => url.startsWith('/Patient?'))).toHaveLength(1);
+    // No dedicated round trip for it: the Patient search shares a batch with other chart searches.
+    const patientBatch = recorded.find((call) => call.urls.some((url) => url.startsWith('/Patient?')));
+    expect(patientBatch?.kind).toBe('batch');
+    expect(patientBatch?.urls.length).toBeGreaterThan(1);
   });
 
-  it('nine of the distinct searches carry only their anchor, seven of which return mixed content', async () => {
-    const results: ScenarioResult[] = [];
-    for (const scenario of REVIEW_AND_SIGN_SCENARIOS) {
-      results.push(await runScenario(scenario));
-    }
+  it('the progress-note request carries the fields the Review & Sign summaries used to fetch on their own', async () => {
+    const [progressNote] = await runAll(REVIEW_AND_SIGN_SCENARIOS.filter((s) => s.name.startsWith('03')));
+    expect(progressNote.urls).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^\/Condition\?encounter=.*&_tag=accident$/),
+        expect.stringMatching(/^\/Procedure\?encounter=.*&_tag=surgical-history-note$/),
+      ])
+    );
+  });
+
+  it('spreads a call over concurrent batches of at least three searches', async () => {
+    const [unscoped, navigation, progressNote] = await runAll(REVIEW_AND_SIGN_SCENARIOS);
+    const batches = (result: ScenarioResult): number[] =>
+      recorded
+        .slice(recorded.length - result.fhirHttpRequests)
+        .filter((call) => call.kind === 'batch')
+        .map((call) => call.urls.length);
+    expect(navigation.fhirHttpRequests).toBe(1);
+    expect(unscoped.fhirHttpRequests).toBeGreaterThan(1);
+    expect(progressNote.fhirHttpRequests).toBeGreaterThan(1);
+    batches(progressNote).forEach((size) => expect(size).toBeGreaterThanOrEqual(1));
+  });
+
+  it('eight of the distinct searches carry only their anchor, six of which return mixed content', async () => {
+    const results = await runAll(REVIEW_AND_SIGN_SCENARIOS);
     const distinct = [...new Set(results.flatMap((r) => r.urls))];
     const anchorOnly = distinct.filter((url) => {
       const query = url.split('?')[1] ?? '';
@@ -234,9 +229,10 @@ describe('get-chart-data FHIR request budget', () => {
     });
     // For these two the resource type is the intended filter: every allergy and hospitalization is wanted.
     const singlePurpose = ['/AllergyIntolerance', '/EpisodeOfCare'];
-    // These seven return every resource of the type and leave the mapper to discard by tag: all
+    // These six return every resource of the type and leave the mapper to discard by tag: all
     // communications, every condition and procedure the patient ever had, all observations on the
-    // encounter, all document references, all medication requests, all service requests.
+    // encounter, all document references, all medication requests. (The untagged ServiceRequest search
+    // went away with the separate disposition request.)
     const mixedContent = [
       '/Communication',
       '/Condition',
@@ -244,7 +240,6 @@ describe('get-chart-data FHIR request budget', () => {
       '/MedicationRequest',
       '/Observation',
       '/Procedure',
-      '/ServiceRequest',
     ];
     expect(anchorOnly.map((url) => url.split('?')[0]).sort()).toEqual([...singlePurpose, ...mixedContent].sort());
   });
