@@ -401,9 +401,9 @@ export default function ClaimsList(): ReactElement {
       createdTo,
       serviceDateFrom,
       serviceDateTo,
-      selectedPayer,
-      selectedPatient: selectedPatient ? { id: selectedPatient.id, name: selectedPatient.name } : null,
-      typeFilter,
+selectedPayer,
+selectedPatient: selectedPatient?.id ? { id: selectedPatient.id, name: selectedPatient.name } : null,
+typeFilter,
       selectedService,
       paginationModel,
     };
