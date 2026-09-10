@@ -94,6 +94,14 @@ function toSearchParams(filters: Filters): ExportBillingClaimsInput {
 
 const CLAIMS_LIST_FILTERS_STORAGE_KEY = 'billing.claimsListFilters';
 
+// Only the minimum needed to restore the patient filter and re-render the Autocomplete's closed
+// display — never persist the rest of BillingPatientOption (dob, address, gender, clinical IDs, etc.)
+// to browser storage.
+interface StoredPatientOption {
+  id: string | undefined;
+  name: string;
+}
+
 interface StoredClaimsListFilters {
   searchText: string;
   arStageFilter: string;
@@ -104,7 +112,7 @@ interface StoredClaimsListFilters {
   serviceDateFrom: string;
   serviceDateTo: string;
   selectedPayer: BillingPayerOption | null;
-  selectedPatient: BillingPatientOption | null;
+  selectedPatient: StoredPatientOption | null;
   typeFilter: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | '';
   selectedService: BillingService | null;
   paginationModel: GridPaginationModel;
@@ -117,6 +125,20 @@ function loadStoredClaimsListFilters(): StoredClaimsListFilters | null {
   } catch {
     return null;
   }
+}
+
+function toBillingPatientOption(stored: StoredPatientOption): BillingPatientOption {
+  return {
+    id: stored.id,
+    name: stored.name,
+    firstName: '',
+    lastName: '',
+    dob: '',
+    gender: '',
+    address: '',
+    clinicalId: '',
+    clinicalFriendlyId: '',
+  };
 }
 
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
@@ -221,7 +243,7 @@ export default function ClaimsList(): ReactElement {
   const [serviceDateTo, setServiceDateTo] = useState(storedFilters?.serviceDateTo ?? '');
   const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(storedFilters?.selectedPayer ?? null);
   const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(
-    storedFilters?.selectedPatient ?? null
+    storedFilters?.selectedPatient ? toBillingPatientOption(storedFilters.selectedPatient) : null
   );
   const [typeFilter, setTypeFilter] = useState<keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | ''>(
     storedFilters?.typeFilter ?? ''
@@ -380,7 +402,7 @@ export default function ClaimsList(): ReactElement {
       serviceDateFrom,
       serviceDateTo,
       selectedPayer,
-      selectedPatient,
+      selectedPatient: selectedPatient ? { id: selectedPatient.id, name: selectedPatient.name } : null,
       typeFilter,
       selectedService,
       paginationModel,
@@ -395,7 +417,6 @@ export default function ClaimsList(): ReactElement {
     }, 200);
 
     return () => window.clearTimeout(timeout);
-  }
   }, [
     searchText,
     arStageFilter,
