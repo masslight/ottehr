@@ -5,9 +5,10 @@ import {
   progressNoteNoteTypes,
   telemedProgressNoteNoteTypes,
 } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
+import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { getMedicationOrders } from '../../ehr/get-medication-orders';
 import { getImmunizationOrders } from '../../ehr/immunization/get-orders';
-import { buildVisitNote, visitNoteToLegacyChartData } from '../chart-sections/visit-note';
+import { buildVisitNote } from '../chart-sections/visit-note';
 import { fetchErxPharmacies } from '../erx';
 import { getEncounterSignatures } from './get-encounter-signatures';
 import { getUpcomingFollowUps } from './get-upcoming-follow-ups';

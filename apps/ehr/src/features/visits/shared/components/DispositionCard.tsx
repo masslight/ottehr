@@ -46,7 +46,7 @@ import {
   SEND_OUT_VIRUS_TEST_LABEL,
   virusTestsOptions,
 } from '../../telemed/utils/disposition.helper';
-import { useChartFields } from '../hooks/useChartFields';
+import { useChartSection } from '../hooks/useChartSection';
 import { useDispositionMultipleNotes } from '../hooks/useDispositionMultipleNotes';
 import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
 import { useSaveChartData } from '../stores/appointment/appointment.store';
@@ -75,10 +75,9 @@ export const DispositionCard: FC = () => {
 
   const {
     data: chartFields,
-    setQueryCache,
+    setSectionData,
     isLoading: isChartFieldsLoading,
-  } = useChartFields({
-    requestedFields: { disposition: {} },
+  } = useChartSection('plan', {
     onSuccess: (data) => {
       isResetting.current = true;
       reset(data?.disposition ? mapDispositionToForm(data.disposition) : DEFAULT_DISPOSITION_VALUES);
@@ -117,7 +116,7 @@ export const DispositionCard: FC = () => {
               if (requestId === latestRequestId.current) {
                 const disposition = data.chartData?.disposition;
                 if (disposition) {
-                  setQueryCache({ disposition });
+                  setSectionData({ disposition });
                   isResetting.current = true;
                   reset(mapDispositionToForm(disposition));
                   isResetting.current = false;
@@ -136,7 +135,7 @@ export const DispositionCard: FC = () => {
         );
       });
     },
-    [debounce, mutate, withNote, setQueryCache, reset]
+    [debounce, mutate, withNote, setSectionData, reset]
   );
 
   useEffect(() => {

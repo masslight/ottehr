@@ -21,18 +21,15 @@ import {
   REFUSAL_OF_EMS_TRANSPORT_LABEL,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { usePatientInstructionsVisibility } from '../../../hooks/usePatientInstructionsVisibility';
-import { useProgressNoteChartFields } from '../../../hooks/useProgressNoteChartFields';
-import { useChartData } from '../../../stores/appointment/appointment.store';
+import { useVisitNote } from '../../../hooks/useVisitNote';
 
 export const PatientInstructionsContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
-  const { data: chartFields } = useProgressNoteChartFields();
+  const { data: note } = useVisitNote();
 
-  const { chartData } = useChartData();
-
-  const instructions = chartData?.instructions;
-  const disposition = chartFields?.disposition;
-  const schoolWorkExcuses = useExcusePresignedFiles(chartData?.schoolWorkNotes);
+  const instructions = note?.plan.instructions;
+  const disposition = note?.plan.disposition;
+  const schoolWorkExcuses = useExcusePresignedFiles(note?.plan.schoolWorkNotes);
 
   const { showInstructions, showDischargeInstructions, showFollowUp, showSchoolWorkExcuse } =
     usePatientInstructionsVisibility();

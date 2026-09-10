@@ -14,7 +14,7 @@ import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screeni
 import { ASQ_FIELD, ASQKeys, asqLabels } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { Field } from 'utils/lib/types/data/screening-questions/types';
-import { useChartData } from '../../../stores/appointment/appointment.store';
+import { useVisitNote } from '../../../hooks/useVisitNote';
 
 type AdditionalQuestionsContainerProps = {
   notes?: NoteDTO[];
@@ -23,11 +23,11 @@ type AdditionalQuestionsContainerProps = {
 
 export const AdditionalQuestionsContainer: FC<AdditionalQuestionsContainerProps> = ({ notes, emptyMessage }) => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
-  const { chartData } = useChartData();
+  const { data: note } = useVisitNote();
   const theme = useTheme();
 
   const getObservationByField = (field: string): any => {
-    return chartData?.observations?.find((obs) => obs.field === field);
+    return note?.screening.observations?.find((obs) => obs.field === field);
   };
 
   const renderFieldValue = (field: Field): React.ReactElement | null => {
@@ -44,7 +44,7 @@ export const AdditionalQuestionsContainer: FC<AdditionalQuestionsContainerProps>
     );
   };
 
-  const currentASQObs = chartData?.observations?.find((obs) => obs.field === ASQ_FIELD);
+  const currentASQObs = note?.screening.observations?.find((obs) => obs.field === ASQ_FIELD);
 
   return (
     <Box
@@ -53,7 +53,7 @@ export const AdditionalQuestionsContainer: FC<AdditionalQuestionsContainerProps>
     >
       {!titleInCardHeader && <SectionHeading>Screening questions</SectionHeading>}
 
-      {emptyMessage && !chartData?.observations?.length && !notes?.length && (
+      {emptyMessage && !note?.screening.observations?.length && !notes?.length && (
         <Typography color={theme.palette.text.secondary}>{emptyMessage}</Typography>
       )}
 

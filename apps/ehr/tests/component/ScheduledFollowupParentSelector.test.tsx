@@ -6,6 +6,7 @@ import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ScheduledFollowupParentSelector from '../../src/features/visits/shared/components/patient/ScheduledFollowupParentSelector';
+import { emptyVisitNote } from './helpers/emptyVisitNote';
 
 const navigateMock = vi.fn();
 
@@ -22,9 +23,9 @@ vi.mock('../../src/features/visits/shared/components/patient/useParentEncounters
   useParentEncounters: (...args: unknown[]) => useParentEncountersMock(...args),
 }));
 
-const getChartDataMock = vi.fn();
+const getVisitNoteMock = vi.fn();
 vi.mock('../../src/features/visits/shared/hooks/useOystehrAPIClient', () => ({
-  useOystehrAPIClient: () => ({ getChartData: getChartDataMock }),
+  useOystehrAPIClient: () => ({ getVisitNote: getVisitNoteMock }),
 }));
 
 const patient: Patient = {
@@ -65,7 +66,7 @@ const renderWithProviders = (): void => {
 describe('ScheduledFollowupParentSelector', () => {
   beforeEach(() => {
     navigateMock.mockReset();
-    getChartDataMock.mockReset();
+    getVisitNoteMock.mockReset();
     useParentEncountersMock.mockReset();
   });
 
@@ -78,22 +79,26 @@ describe('ScheduledFollowupParentSelector', () => {
   describe('with a selected parent visit and populated chart data', () => {
     beforeEach(() => {
       mockParentEncounters(parentEncounterRow);
-      // Both get-chart-data calls (scoped + unscoped) return populated source data.
-      getChartDataMock.mockImplementation((params: { requestedFields?: unknown }) => {
-        if (params.requestedFields) {
-          return Promise.resolve({
+      // The source visit's note has every copyable field populated.
+      getVisitNoteMock.mockResolvedValue(
+        emptyVisitNote({
+          encounterNotes: {
             chiefComplaint: { resourceId: 'r1', text: 'narrative' },
             historyOfPresentIllness: { resourceId: 'r2', text: 'sore throat' },
             mechanismOfInjury: { resourceId: 'r3', text: 'slip' },
-            accident: { resourceId: 'r4', date: '2025-01-01' },
-          });
-        }
-        return Promise.resolve({
-          diagnosis: [{ resourceId: 'd1', display: 'Dx' }],
-          examObservations: [{ resourceId: 'e1', field: 'hr' }],
-          rosObservations: [{ resourceId: 'ro1', field: 'general' }],
-        });
-      });
+            accident: { resourceId: 'r4', type: ['AA'], date: '2025-01-01' },
+          },
+          assessment: {
+            diagnosis: [{ resourceId: 'd1', code: 'J02.9', display: 'Dx', isPrimary: true }],
+            cptCodes: [],
+            procedures: [],
+          },
+          exam: {
+            examObservations: [{ resourceId: 'e1', field: 'hr', value: true }],
+            rosObservations: [{ resourceId: 'ro1', field: 'general', value: true }],
+          },
+        } as any)
+      );
     });
 
     it('renders the copy section with all 6 checkboxes enabled and checked', async () => {
@@ -171,8 +176,8 @@ describe('ScheduledFollowupParentSelector', () => {
   describe('with empty chart data', () => {
     beforeEach(() => {
       mockParentEncounters(parentEncounterRow);
-      // get-chart-data initializes requested fields to [] and unscoped call returns nothing.
-      getChartDataMock.mockResolvedValue({});
+      // The source visit's note is empty.
+      getVisitNoteMock.mockResolvedValue(emptyVisitNote());
     });
 
     it('disables empty-source checkboxes and excludes them from copy', async () => {

@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
 import { hashInput } from 'src/helpers/hash';
-import { ERX_MEDICATION_META_TAG_CODE } from 'utils/lib/fhir/constants';
 import { getRosFindingStateFromKey, rosField } from 'utils/lib/ottehr-config/review-of-systems';
 import { InPersonRosConfig, RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import {
@@ -14,9 +13,9 @@ import {
 import { getReturningPatient } from '../components/additional-questions/AdditionalQuestionsPatientColumn';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 import { useRosObservationsStore } from '../stores/appointment/ros-observations.store';
-import { useChartFields } from './useChartFields';
 import { useEMCodes } from './useEMCodes';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
+import { useVisitNote } from './useVisitNote';
 
 export interface BillingSuggestionsResult {
   icdCodesSuggest: { code: string; description: string; reason: string }[] | undefined;
@@ -165,25 +164,18 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
   const { appointment, encounter, patient } = useAppointmentData();
   const encounterId = encounter.id;
 
-  const {
-    data: chartDataFields,
-    isLoading: chartDataFieldsLoading,
-    isFetching: chartDataFieldsFetching,
-  } = useChartFields({
-    requestedFields: {
-      chiefComplaint: {
-        _tag: 'chief-complaint',
+  const { data: visitNote, isLoading: chartDataFieldsLoading, isFetching: chartDataFieldsFetching } = useVisitNote();
+  const chartDataFields = useMemo(
+    () =>
+      visitNote && {
+        chiefComplaint: visitNote.encounterNotes.chiefComplaint,
+        medicalDecision: visitNote.encounterNotes.medicalDecision,
+        inHouseLabResults: visitNote.inHouseLabResults,
+        externalLabResults: visitNote.externalLabResults,
+        prescribedMedications: visitNote.plan.prescribedMedications,
       },
-      medicalDecision: {
-        _tag: 'medical-decision',
-      },
-      inHouseLabResults: {},
-      externalLabResults: {},
-      prescribedMedications: {
-        _tag: ERX_MEDICATION_META_TAG_CODE,
-      },
-    },
-  });
+    [visitNote]
+  );
 
   const { orders: radiologyOrders } = usePatientRadiologyOrders({
     encounterIds: encounterId,

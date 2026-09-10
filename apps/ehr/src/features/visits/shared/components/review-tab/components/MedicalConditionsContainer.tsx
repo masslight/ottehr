@@ -7,13 +7,13 @@ import {
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { AssessmentTitle } from '../../../../../../components/AssessmentTitle';
-import { useChartData } from '../../../stores/appointment/appointment.store';
+import { useVisitNote } from '../../../hooks/useVisitNote';
 
 export const MedicalConditionsContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
-  const { chartData } = useChartData();
+  const { data: note } = useVisitNote();
   const theme = useTheme();
-  const conditions = chartData?.conditions?.filter((condition) => condition.current === true);
+  const conditions = note?.history.conditions?.filter((condition) => condition.current === true);
 
   return (
     <Box

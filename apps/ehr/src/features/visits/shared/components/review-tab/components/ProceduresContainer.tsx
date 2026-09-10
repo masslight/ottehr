@@ -6,13 +6,13 @@ import {
   SectionHeading,
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
-import { useChartData } from '../../../stores/appointment/appointment.store';
+import { useVisitNote } from '../../../hooks/useVisitNote';
 
 export const ProceduresContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
-  const { chartData } = useChartData();
+  const { data: note } = useVisitNote();
   const theme = useTheme();
-  const procedures = chartData?.procedures;
+  const procedures = note?.assessment.procedures;
 
   const renderProperty = (label: string, value: string | undefined): ReactElement | undefined => {
     if (value == null) {

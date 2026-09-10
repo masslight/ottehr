@@ -24,11 +24,10 @@ import { PageTitle } from 'src/features/visits/shared/components/PageTitle';
 import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetErxConfig';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { ERX_MEDICATION_META_TAG_CODE } from 'utils/lib/fhir/constants';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { RoundedButton } from '../../../../../components/RoundedButton';
-import { useChartFields } from '../../hooks/useChartFields';
+import { useChartSection } from '../../hooks/useChartSection';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { ERX, ERXStatus } from '../ERX';
@@ -131,22 +130,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
   );
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const {
-    isLoading,
-    isFetching,
-    refetch,
-    data: chartFields,
-  } = useChartFields({
-    requestedFields: {
-      practitioners: {},
-      prescribedMedications: {
-        _include: 'MedicationRequest:requester',
-        _tag: ERX_MEDICATION_META_TAG_CODE,
-      },
-      preferredPharmacies: {},
-    },
-    refetchInterval: 10000,
-  });
+  const { isLoading, isFetching, refetch, data: chartFields } = useChartSection('plan', { refetchInterval: 10000 });
 
   const [isERXOpen, setIsERXOpen] = useState(false);
   const [erxStatus, setERXStatus] = useState(ERXStatus.INITIAL);

@@ -7,7 +7,8 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
 import { SCHOOL_NOTE_CODE, WORK_NOTE_CODE } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
+import { useVisitNote } from '../../hooks/useVisitNote';
+import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { createAndOpenDischargeSummary, handleDischarge } from './DischargeButton';
 
 interface DischargeAndPrintDialogProps {
@@ -26,11 +27,11 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
   patientId,
 }) => {
   const { oystehrZambda } = useApiClients();
-  const { chartData } = useChartData();
+  const { data: note } = useVisitNote();
   const { appointmentRefetch } = useAppointmentData();
   const { downloadDocument } = useGetPatientDocs(patientId ?? '');
 
-  const schoolWorkNotes = chartData?.schoolWorkNotes ?? [];
+  const schoolWorkNotes = note?.plan.schoolWorkNotes ?? [];
   const presignedFiles = useExcusePresignedFiles(schoolWorkNotes);
   const workNote = presignedFiles.find((file) => file.type === WORK_NOTE_CODE);
   const schoolNote = presignedFiles.find((file) => file.type === SCHOOL_NOTE_CODE);

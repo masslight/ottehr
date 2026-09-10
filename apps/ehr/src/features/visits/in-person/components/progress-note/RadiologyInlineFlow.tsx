@@ -24,7 +24,7 @@ export const RadiologyInlineFlow: FC = () => {
   const [view, setView] = useState<RadiologyInlineView>({ name: 'list' });
   const { encounter } = useAppointmentData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const refreshSummaries = useRefreshNoteSummaries({ fields: ['radiologyOrders'] });
+  const refreshSummaries = useRefreshNoteSummaries();
 
   const goToList = useCallback((): void => {
     setView({ name: 'list' });

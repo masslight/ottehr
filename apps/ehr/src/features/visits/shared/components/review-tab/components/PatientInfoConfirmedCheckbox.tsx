@@ -2,39 +2,33 @@ import { Checkbox, FormControlLabel } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useChartFields } from '../../../hooks/useChartFields';
+import { useChartSection } from '../../../hooks/useChartSection';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { useSaveChartData } from '../../../stores/appointment/appointment.store';
 
 export const PatientInfoConfirmedCheckbox: FC = () => {
-  const {
-    data: chartData,
-    setQueryCache,
-    isFetching,
-  } = useChartFields({
-    requestedFields: { patientInfoConfirmed: {} },
-  });
+  const { data: chartData, setSectionData, isFetching } = useChartSection('encounterNotes');
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate, isPending: isLoading } = useSaveChartData();
 
   const patientInfoConfirmed = chartData?.patientInfoConfirmed?.value || false;
 
   const onChange = (value: boolean): void => {
-    setQueryCache({ patientInfoConfirmed: { value } });
+    setSectionData({ patientInfoConfirmed: { value } });
     mutate(
       { patientInfoConfirmed: { value } },
       {
         onSuccess: (data) => {
           const patientInfoConfirmedUpdated = data.chartData.patientInfoConfirmed;
           if (patientInfoConfirmedUpdated) {
-            setQueryCache({ patientInfoConfirmed: patientInfoConfirmedUpdated });
+            setSectionData({ patientInfoConfirmed: patientInfoConfirmedUpdated });
           }
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while confirming patient information. Please try again.', {
             variant: 'error',
           });
-          setQueryCache({ patientInfoConfirmed: chartData?.patientInfoConfirmed });
+          setSectionData({ patientInfoConfirmed: chartData?.patientInfoConfirmed });
         },
       }
     );

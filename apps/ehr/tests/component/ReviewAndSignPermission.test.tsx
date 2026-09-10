@@ -26,8 +26,21 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
     encounter: { id: 'encounter-1', resourceType: 'Encounter' },
     appointmentRefetch: vi.fn(),
   }),
-  useChartData: () => ({
-    chartData: { diagnosis: [{ isPrimary: true }], emCode: { code: '99213' } },
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useVisitNote', () => ({
+  useVisitNote: () => ({
+    data: {
+      assessment: { diagnosis: [{ isPrimary: true }], emCode: { code: '99213' }, cptCodes: [], procedures: [] },
+      encounterNotes: {
+        medicalDecision: { text: 'MDM' },
+        chiefComplaint: { text: 'HPI' },
+        historyOfPresentIllness: { text: 'HPI' },
+        accident: {},
+        patientInfoConfirmed: { value: true },
+      },
+      inHouseLabResults: {},
+    },
   }),
 }));
 
@@ -40,19 +53,6 @@ vi.mock('utils/lib/utils/visitUtils', async (importOriginal) => ({
 
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
   useGetAppointmentAccessibility: () => ({ visitType: 'in-person', isAppointmentReadOnly: false }),
-}));
-
-vi.mock('../../src/features/visits/shared/hooks/useChartFields', () => ({
-  useChartFields: () => ({
-    data: {
-      medicalDecision: { text: 'MDM' },
-      chiefComplaint: { text: 'HPI' },
-      historyOfPresentIllness: { text: 'HPI' },
-      accident: {},
-      inHouseLabResults: {},
-      patientInfoConfirmed: { value: true },
-    },
-  }),
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/useOystehrAPIClient', () => ({

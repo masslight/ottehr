@@ -9,7 +9,7 @@ type InHouseMedicationsInlineView = { name: 'mar' } | { name: 'order-new' } | { 
 export const InHouseMedicationsInlineFlow: FC = () => {
   const [view, setView] = useState<InHouseMedicationsInlineView>({ name: 'mar' });
   const [tab, setTab] = useState<InHouseMedicationTab>('mar');
-  const refreshSummaries = useRefreshNoteSummaries({ fields: ['notes'] });
+  const refreshSummaries = useRefreshNoteSummaries();
 
   const goToMar = useCallback((): void => {
     setView({ name: 'mar' });
