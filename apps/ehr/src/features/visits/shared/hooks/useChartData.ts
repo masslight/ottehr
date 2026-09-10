@@ -33,10 +33,9 @@ export interface UseChartDataResult extends ChartDataState {
 }
 
 /**
- * The whole chart of a visit in the shape the unscoped get-chart-data call returned, read from the section
- * caches (see useVisitNote). Writes go to the section each field lives in; with `invalidateQueries` (the
- * default) the touched sections are then re-read where they are shown, which is one small call per section
- * instead of the thirteen-search chart read this used to trigger.
+ * The whole chart of a visit in the `GetChartDataResponse` shape, read from the section caches (see
+ * useVisitNote). Writes go to the section each field lives in; with `invalidateQueries` (the default) the
+ * touched sections are then re-read where they are shown, one small call per section.
  *
  * Screens that show one section should read it with `useChartSection` instead; this hook stays for the
  * places that still read the chart as a whole.
