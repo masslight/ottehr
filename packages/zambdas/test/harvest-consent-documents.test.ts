@@ -237,8 +237,10 @@ describe('createDocumentResources', () => {
 });
 
 describe('createConsentResources', () => {
-  const [HIPAA_FORM, CTT_FORM] = getConsentFormsForLocation();
+  const FORMS = getConsentFormsForLocation();
+  const [HIPAA_FORM, CTT_FORM] = FORMS;
   const IL_FORMS = getConsentFormsForLocation('IL');
+  const consentCreatingForms = FORMS.filter((f) => f.createsConsentResource);
 
   const SECRETS = { PROJECT_ID: 'proj-123', PROJECT_API: 'https://project.api' } as unknown as Secrets;
 
@@ -366,11 +368,11 @@ describe('createConsentResources', () => {
       });
     }
 
-    // Only the consent-to-treat form creates a Consent resource, linked to its docref
-    expect(mockCreateConsentResource).toHaveBeenCalledTimes(1);
+    // One Consent resource per form with createsConsentResource=true, in form-list order
+    expect(mockCreateConsentResource).toHaveBeenCalledTimes(consentCreatingForms.length);
     const [consentPatientId, consentDocRefId, consentDate] = mockCreateConsentResource.mock.calls[0];
     expect(consentPatientId).toBe(PATIENT_ID);
-    expect(consentDocRefId).toBe(`dr-${CTT_FORM.type.text}-0`);
+    expect(consentDocRefId).toBe(`dr-${consentCreatingForms[0].type.text}-0`);
     expect(consentDate).toContain('2026-08-20T15:00:00');
   });
 
@@ -399,7 +401,9 @@ describe('createConsentResources', () => {
     await run({ location: makeLocation('IL') });
     const cttPdfInfo = mockCreatePdfBytes.mock.calls[1][3];
     expect(cttPdfInfo.copyFromPath).toBe(IL_FORMS[1].assetPath);
-    expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
+    if (IL_FORMS[1].assetPath !== CTT_FORM.assetPath) {
+      expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
+    }
   });
 
   test('labels telemed visits with the telemedicine facility name', async () => {
@@ -437,6 +441,6 @@ describe('createConsentResources', () => {
         content: [{ attachment: { url: file.url, title: 'some other title' } }],
       })),
     }));
-    await expect(run()).rejects.toThrow(`DocumentReference for "${CTT_FORM.formTitle}" not found`);
+    await expect(run()).rejects.toThrow(`DocumentReference for "${consentCreatingForms[0].formTitle}" not found`);
   });
 });
