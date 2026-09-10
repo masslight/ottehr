@@ -5,6 +5,7 @@ import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ConfirmSave } from '../../src/features/visits/shared/components/patient/SaveConfirmationContext';
 
 // ============================================================================
 // MOCKS
@@ -39,12 +40,15 @@ vi.mock('src/api/api', () => ({
   getOrCreateVisitDetailsPdf: vi.fn(),
 }));
 
+// Whether the patient signed consent in their paperwork, which is what the "Completed consent
+// forms" block reports as Signed/Not signed. Set per test before rendering.
+const { consentPdfUrlsMock } = vi.hoisted(() => ({ consentPdfUrlsMock: { current: [] as string[] } }));
+
 vi.mock('src/hooks/useVisitCards', () => ({
   useVisitCards: () => ({
     imagesLoading: false,
     refetchFileData: vi.fn(),
-    // A signed consent PDF makes the "Completed consent forms" block render its attestation footer.
-    consentPdfUrls: ['https://example.com/consent.pdf'],
+    consentPdfUrls: consentPdfUrlsMock.current,
     idCards: { front: null, frontId: null, back: null, backId: null },
     primaryInsuranceCards: { front: null, frontId: null, back: null, backId: null },
     secondaryInsuranceCards: { front: null, frontId: null, back: null, backId: null },
@@ -84,24 +88,33 @@ vi.mock('src/helpers/activityLogsUtils', async () => {
   return { ...actual, getAppointmentAndPatientHistory: vi.fn().mockResolvedValue(undefined) };
 });
 
-// The bottom "Save All" bar lives inside the shared patient-account component. Stub it down to the
-// one prop this page controls so the assertion is about the gate, not about the account form.
+// Stands in for every Save button in the "About this patient" section: they all route their write
+// through the guard the page hands down, so one button driving it exercises the same wiring.
+const { patientRecordSaveMock } = vi.hoisted(() => ({
+  patientRecordSaveMock: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+}));
+
 vi.mock('src/pages/PatientInformationPage', () => ({
-  PatientAccountComponent: ({ submitBlockedReason }: { submitBlockedReason?: string }) => (
-    <div data-testid="save-all-blocked-reason">{submitBlockedReason ?? ''}</div>
+  PatientAccountComponent: ({ confirmSave }: { confirmSave?: ConfirmSave }) => (
+    <button
+      data-testid="save-patient-record"
+      onClick={() => void (confirmSave ? confirmSave(patientRecordSaveMock) : patientRecordSaveMock())}
+    >
+      Save All
+    </button>
   ),
 }));
 
 vi.mock('src/layout/PageContainer', () => ({ default: ({ children }: { children: ReactNode }) => <>{children}</> }));
 
-// Child blocks that fetch or render their own heavy trees; irrelevant to the consent gate.
+// Child blocks that fetch or render their own heavy trees; irrelevant to the consent reminder.
 vi.mock('src/components/CardThumbnail', () => ({ default: () => <div /> }));
 vi.mock('src/components/PatientPaymentsList', () => ({ default: () => <div /> }));
 vi.mock('src/components/AppointmentNotesHistory', () => ({ default: () => <div /> }));
 vi.mock('src/components/dialogs/ActivityLogDialog', () => ({ default: () => <div /> }));
 vi.mock('src/components/ScannerModal', () => ({ ScannerModal: () => <div /> }));
 // The visit page now embeds the documents explorer, whose hooks would
-// otherwise have to be mocked wholesale. Not part of the consent gate.
+// otherwise have to be mocked wholesale. Not part of the consent reminder.
 vi.mock('src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer', () => ({
   PatientDocumentsExplorer: () => <div />,
 }));
@@ -113,8 +126,8 @@ import VisitDetailsPage from '../../src/pages/VisitDetailsPage';
 // HARNESS
 // ============================================================================
 
-const CONSENT_NOT_SAVED_MESSAGE =
-  'Please check "I verify that patient consent has been obtained." and click Save in the "Completed consent forms" block before saving.';
+const CONSENT_REMINDER_MESSAGE =
+  "Consent forms are not yet signed for this encounter. Please verify consent and check the 'I verify that patient consent has been obtained.' checkbox before the patient is marked 'Ready'.";
 
 const visitDetails = (consentIsAttested: boolean): EHRVisitDetails =>
   ({
@@ -137,7 +150,17 @@ const visitDetails = (consentIsAttested: boolean): EHRVisitDetails =>
     consentDetails: null,
   }) as unknown as EHRVisitDetails;
 
-const renderPage = async (consentIsAttested: boolean): Promise<void> => {
+interface RenderOptions {
+  consentIsAttested?: boolean;
+  /** Consent signed by the patient in their paperwork. */
+  patientSignedConsent?: boolean;
+}
+
+const renderPage = async ({
+  consentIsAttested = false,
+  patientSignedConsent = false,
+}: RenderOptions = {}): Promise<void> => {
+  consentPdfUrlsMock.current = patientSignedConsent ? ['https://example.com/consent.pdf'] : [];
   getPatientVisitDetailsMock.mockResolvedValue(visitDetails(consentIsAttested));
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -157,38 +180,112 @@ const consentCheckbox = (): HTMLInputElement =>
 const consentSaveButton = (): HTMLElement =>
   screen.getByTestId(dataTestIds.visitDetailsPage.consentAttestationSaveButton);
 
-const saveAllBlockedReason = (): string => screen.getByTestId('save-all-blocked-reason').textContent ?? '';
+const savePatientRecord = async (): Promise<void> => {
+  await userEvent.click(screen.getByTestId('save-patient-record'));
+};
+
+const reminderDialog = (): HTMLElement | null =>
+  screen.queryByTestId(dataTestIds.visitDetailsPage.consentReminderDialog);
 
 beforeEach(() => {
   vi.clearAllMocks();
   updatePatientVisitDetailsMock.mockResolvedValue(undefined);
+  patientRecordSaveMock.mockResolvedValue(undefined);
 });
 
 // ============================================================================
 // TESTS
 // ============================================================================
 
-describe('Visit details consent attestation gate', () => {
-  it('keeps Save All blocked until the attestation is persisted, not merely checked', async () => {
-    await renderPage(false);
+describe('Visit details consent reminder', () => {
+  it('reminds instead of blocking when the attestation is unchecked, and saves on confirm', async () => {
+    await renderPage();
 
     expect(consentCheckbox()).not.toBeChecked();
-    expect(consentSaveButton()).toBeDisabled();
-    expect(saveAllBlockedReason()).toBe(CONSENT_NOT_SAVED_MESSAGE);
+    // The save button is live: an unattested consent is a warning, not a lock.
+    expect(screen.getByTestId('save-patient-record')).toBeEnabled();
 
-    await userEvent.click(consentCheckbox());
+    await savePatientRecord();
 
-    // Checking the box only enables the consent block's own save; Save All stays blocked because the
-    // server still has no attestation recorded.
-    expect(consentSaveButton()).toBeEnabled();
-    expect(saveAllBlockedReason()).toBe(CONSENT_NOT_SAVED_MESSAGE);
+    const dialog = await screen.findByTestId(dataTestIds.visitDetailsPage.consentReminderDialog);
+    expect(dialog).toHaveTextContent('Reminder: consent not signed');
+    expect(dialog).toHaveTextContent(CONSENT_REMINDER_MESSAGE);
+    // Nothing is written while the reminder is up.
+    expect(patientRecordSaveMock).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByTestId(dataTestIds.dialog.proceedButton));
+
+    // Confirming saves the edits the user had already typed into the section.
+    await waitFor(() => expect(patientRecordSaveMock).toHaveBeenCalledOnce());
+    await waitFor(() => expect(reminderDialog()).toBeNull());
+    // The reminder is advisory only - it never persists an attestation the staff member didn't make.
+    expect(updatePatientVisitDetailsMock).not.toHaveBeenCalled();
+    expect(consentCheckbox()).not.toBeChecked();
   });
 
-  it('unblocks Save All once the persisted attestation comes back from the server', async () => {
-    await renderPage(false);
+  it('abandons the save when the reminder is cancelled', async () => {
+    await renderPage();
+
+    await savePatientRecord();
+    await screen.findByTestId(dataTestIds.visitDetailsPage.consentReminderDialog);
+
+    await userEvent.click(screen.getByTestId(dataTestIds.dialog.cancelButton));
+
+    await waitFor(() => expect(reminderDialog()).toBeNull());
+    expect(patientRecordSaveMock).not.toHaveBeenCalled();
+  });
+
+  it('saves straight away once the attestation checkbox is checked, without waiting on its own Save', async () => {
+    await renderPage();
 
     await userEvent.click(consentCheckbox());
-    // The mutation's onSuccess refetches the visit, so the next read reports the attestation.
+    await savePatientRecord();
+
+    // Checking the box is enough: the old flow needed the consent block's Save committed first.
+    await waitFor(() => expect(patientRecordSaveMock).toHaveBeenCalledOnce());
+    expect(reminderDialog()).toBeNull();
+  });
+
+  it('raises no reminder for a visit whose attestation is already persisted', async () => {
+    await renderPage({ consentIsAttested: true });
+
+    expect(consentCheckbox()).toBeChecked();
+    await savePatientRecord();
+
+    await waitFor(() => expect(patientRecordSaveMock).toHaveBeenCalledOnce());
+    expect(reminderDialog()).toBeNull();
+  });
+
+  it('auto-selects the attestation when the patient signed consent in their paperwork', async () => {
+    await renderPage({ consentIsAttested: false, patientSignedConsent: true });
+
+    expect(consentCheckbox()).toBeChecked();
+    // Signed consent means no reminder, even though no staff attestation is recorded yet.
+    await savePatientRecord();
+    await waitFor(() => expect(patientRecordSaveMock).toHaveBeenCalledOnce());
+    expect(reminderDialog()).toBeNull();
+
+    // The auto-selection still differs from what's persisted, so it can be committed.
+    expect(consentSaveButton()).toBeEnabled();
+    getPatientVisitDetailsMock.mockResolvedValue(visitDetails(true));
+    await userEvent.click(consentSaveButton());
+    await waitFor(() =>
+      expect(updatePatientVisitDetailsMock).toHaveBeenCalledWith(expect.anything(), {
+        appointmentId: 'appointment-1',
+        bookingDetails: { consentForms: { consentAttested: true } },
+      })
+    );
+  });
+
+  it('persists the attestation from the consent block, and lets it be retracted', async () => {
+    await renderPage();
+
+    // Nothing changed yet, so the block's own save starts disabled.
+    expect(consentSaveButton()).toBeDisabled();
+
+    await userEvent.click(consentCheckbox());
+    expect(consentSaveButton()).toBeEnabled();
+
     getPatientVisitDetailsMock.mockResolvedValue(visitDetails(true));
     await userEvent.click(consentSaveButton());
 
@@ -198,23 +295,11 @@ describe('Visit details consent attestation gate', () => {
         bookingDetails: { consentForms: { consentAttested: true } },
       })
     );
-    await waitFor(() => expect(saveAllBlockedReason()).toBe(''));
-    // Nothing left to change, so the block's own save goes back to disabled.
     await waitFor(() => expect(consentSaveButton()).toBeDisabled());
-  });
 
-  it('lets an attested consent be retracted and saved', async () => {
-    await renderPage(true);
-
-    expect(consentCheckbox()).toBeChecked();
-    expect(saveAllBlockedReason()).toBe('');
-    // Nothing changed yet, so the block's own save stays disabled.
-    expect(consentSaveButton()).toBeDisabled();
-
+    // Unchecking is a savable change: the retraction has to be persistable, otherwise the page and
+    // the server would be stuck disagreeing.
     await userEvent.click(consentCheckbox());
-
-    // Unchecking is a savable change: the retraction has to be persistable, otherwise the page would
-    // be stuck blocked with no way to reconcile the UI and the server.
     expect(consentSaveButton()).toBeEnabled();
     getPatientVisitDetailsMock.mockResolvedValue(visitDetails(false));
     await userEvent.click(consentSaveButton());
@@ -225,6 +310,8 @@ describe('Visit details consent attestation gate', () => {
         bookingDetails: { consentForms: { consentAttested: false } },
       })
     );
-    await waitFor(() => expect(saveAllBlockedReason()).toBe(CONSENT_NOT_SAVED_MESSAGE));
+    // Back to unattested, so the reminder comes back.
+    await savePatientRecord();
+    await screen.findByTestId(dataTestIds.visitDetailsPage.consentReminderDialog);
   });
 });

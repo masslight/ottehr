@@ -14,7 +14,6 @@ import {
   Skeleton,
   Stack,
   TextField,
-  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -98,6 +97,7 @@ import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { PatientNotesButton } from '../features/patient-notes/components/PatientNotesButton';
+import { ConfirmSave } from '../features/visits/shared/components/patient/SaveConfirmationContext';
 import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
 import { formatLastModifiedTag } from '../helpers';
 import {
@@ -118,17 +118,16 @@ import { PatientAccountComponent } from './PatientInformationPage';
 const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
 
 // The "About this patient" saves - the bottom "Save All" button and each section's own Save button
-// alike - plus the "Completed consent forms" block's own Save button are gated on the staff member
-// attesting that consent was obtained. The "Booking details" pencil-icon dialogs (DOB, reason for
-// visit, service category, non-legal guardians) and the payments, notes and document blocks are
-// intentionally not gated.
+// alike - are reminders, not gates: with the attestation checkbox unchecked they still save, but
+// only after the staff member acknowledges this dialog. The "Booking details" pencil-icon dialogs
+// (DOB, reason for visit, service category, non-legal guardians) and the payments, notes and
+// document blocks carry no reminder at all.
 //
-// The "About this patient" gate reads the *persisted* attestation, not the local checkbox, so it has
-// to spell out that the checkbox must be committed via the consent block's Save button first.
-const CONSENT_ATTESTATION_NOT_SAVED_MESSAGE =
-  'Please check "I verify that patient consent has been obtained." and click Save in the "Completed consent forms" block before saving.';
-const CONSENT_ATTESTATION_REQUIRED_MESSAGE =
-  'Please check "I verify that patient consent has been obtained." before saving.';
+// The reminder reads the *checkbox*, not the persisted attestation, so checking the box quiets it
+// immediately - the separate Save in the "Completed consent forms" block is what persists it.
+const CONSENT_REMINDER_TITLE = 'Reminder: consent not signed';
+const CONSENT_REMINDER_MESSAGE =
+  "Consent forms are not yet signed for this encounter. Please verify consent and check the 'I verify that patient consent has been obtained.' checkbox before the patient is marked 'Ready'.";
 
 interface EditDOBParams {
   dob?: DateTime | null;
@@ -238,6 +237,10 @@ export default function VisitDetailsPage(): ReactElement {
   const [visitDetailsPdfLoading, setVisitDetailsPdfLoading] = React.useState<boolean>(false);
 
   const [consentAttested, setConsentAttested] = useState<boolean | null>(null);
+  // A save waiting on the consent reminder dialog. Held in an object so `setPendingSave` is never
+  // handed a bare function (React would run it as a state updater instead of storing it).
+  const [pendingSave, setPendingSave] = useState<{ proceed: () => Promise<void>; cancel: () => void } | null>(null);
+  const [pendingSaveIsRunning, setPendingSaveIsRunning] = useState(false);
 
   const [editDialogConfig, setEditDialogConfig] = useState<EditDialogConfig>(CLOSED_EDIT_DIALOG);
 
@@ -298,6 +301,10 @@ export default function VisitDetailsPage(): ReactElement {
     handleScanComplete,
   } = useVisitCards({ appointmentId: appointmentID, patientId });
 
+  // Consent the patient signed in their paperwork. Same signal the "Completed consent forms" block
+  // renders its Signed/Not signed status from, so the checkbox and the status can never disagree.
+  const patientSignedConsent = consentPdfUrls.length > 0;
+
   const { data: faxData, isLoading: faxLoading } = useQuery({
     queryKey: ['get-visit-fax-history', appointmentID],
 
@@ -351,15 +358,67 @@ export default function VisitDetailsPage(): ReactElement {
   }, [appointmentID]);
 
   useEffect(() => {
-    // Seed the checkbox from the server only once the visit details have actually loaded. Seeding it
-    // from the `?? false` default on the first render would latch an already-attested visit to
-    // unchecked, since this only ever runs while the local value is still null.
-    if (visitDetailsData && consentAttested === null) {
-      setConsentAttested(serverConsentAttested);
+    // Seed the checkbox from the server only once the visit details and the consent files have
+    // actually loaded. Seeding it from the `?? false` defaults on the first render would latch an
+    // already-attested visit to unchecked, since this only ever runs while the local value is null.
+    //
+    // Consent the patient completed in their paperwork already is obtained consent, so a signed
+    // consent form starts the box checked even when no staff attestation was ever recorded. That
+    // leaves the consent block's own Save enabled so the attestation can still be persisted.
+    if (visitDetailsData && !imagesLoading && consentAttested === null) {
+      setConsentAttested(serverConsentAttested || patientSignedConsent);
     }
-  }, [visitDetailsData, serverConsentAttested, consentAttested]);
+  }, [visitDetailsData, imagesLoading, serverConsentAttested, patientSignedConsent, consentAttested]);
 
   const hasConsentChanged = consentAttested !== serverConsentAttested;
+
+  // Saving the patient record with the attestation unchecked is allowed, but the staff member is
+  // reminded first and the write only happens once they confirm. Passed down to every Save button
+  // in the "About this patient" section.
+  const confirmSaveWithConsentReminder = useCallback<ConfirmSave>(
+    async (proceed) => {
+      if (consentAttested) {
+        await proceed();
+        return;
+      }
+      // Resolve either way so the caller's await never dangles: on confirm once the write settles,
+      // on cancel as soon as the dialog closes.
+      await new Promise<void>((resolve) => {
+        setPendingSave({
+          proceed: async () => {
+            try {
+              await proceed();
+            } finally {
+              resolve();
+            }
+          },
+          cancel: resolve,
+        });
+      });
+    },
+    [consentAttested]
+  );
+
+  const handleCancelPendingSave = useCallback((): void => {
+    if (pendingSaveIsRunning) return;
+    pendingSave?.cancel();
+    setPendingSave(null);
+  }, [pendingSave, pendingSaveIsRunning]);
+
+  const handleConfirmPendingSave = useCallback(async (): Promise<void> => {
+    if (!pendingSave) return;
+    setPendingSaveIsRunning(true);
+    try {
+      await pendingSave.proceed();
+    } catch (error) {
+      // The save's own mutation hooks already report failures as a snackbar; the dialog just
+      // closes so the still-dirty section can be retried.
+      console.error('Error saving after the consent reminder:', error);
+    } finally {
+      setPendingSaveIsRunning(false);
+      setPendingSave(null);
+    }
+  }, [pendingSave]);
 
   const paperworkModifiedFlag = useMemo(
     () =>
@@ -843,13 +902,8 @@ export default function VisitDetailsPage(): ReactElement {
     />
   );
 
-  // The consent block's own Save commits the checkbox. It stays disabled until the checkbox differs
-  // from what's persisted, so when nothing has been attested yet the tooltip has to spell out that
-  // the box must be checked first. No reason means no Tooltip at all: an empty title would still
-  // wrap the button in a listener-bearing anchor that never shows anything.
-  const consentSaveBlockedReason =
-    !hasConsentChanged && !consentAttested ? CONSENT_ATTESTATION_REQUIRED_MESSAGE : undefined;
-
+  // The consent block's own Save commits the checkbox, and is the "save again" step after consent
+  // has been obtained. It stays disabled while the checkbox matches what's already persisted.
   const consentAttestationSaveButton = (
     <LoadingButton
       data-testid={dataTestIds.visitDetailsPage.consentAttestationSaveButton}
@@ -891,14 +945,7 @@ export default function VisitDetailsPage(): ReactElement {
         }}
       />
       <Typography>I verify that patient consent has been obtained.</Typography>
-      {consentSaveBlockedReason ? (
-        <Tooltip title={consentSaveBlockedReason}>
-          {/* A disabled button emits no pointer events, so the tooltip needs an enabled wrapper. */}
-          <span>{consentAttestationSaveButton}</span>
-        </Tooltip>
-      ) : (
-        consentAttestationSaveButton
-      )}
+      {consentAttestationSaveButton}
     </Box>
   );
 
@@ -1323,7 +1370,7 @@ export default function VisitDetailsPage(): ReactElement {
                 appointmentId={appointmentID}
                 renderInsuranceCardThumbnail={renderInsuranceCardThumbnail}
                 photoIdCardSlot={photoIdCardSlot}
-                submitBlockedReason={serverConsentAttested ? undefined : CONSENT_ATTESTATION_NOT_SAVED_MESSAGE}
+                confirmSave={confirmSaveWithConsentReminder}
               />
             </Grid>
           </Grid>
@@ -1610,6 +1657,35 @@ export default function VisitDetailsPage(): ReactElement {
           onClose={() => setScannerModalOpen(false)}
           outputFormat="png"
           onScanComplete={handleScanComplete}
+        />
+        <CustomDialog
+          open={Boolean(pendingSave)}
+          handleClose={handleCancelPendingSave}
+          title={CONSENT_REMINDER_TITLE}
+          description={CONSENT_REMINDER_MESSAGE}
+          dataTestId={dataTestIds.visitDetailsPage.consentReminderDialog}
+          actions={
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+              <Button
+                variant="outlined"
+                onClick={handleCancelPendingSave}
+                disabled={pendingSaveIsRunning}
+                sx={{ fontWeight: 500, borderRadius: '100px', textTransform: 'none' }}
+                data-testid={dataTestIds.dialog.cancelButton}
+              >
+                Cancel
+              </Button>
+              <LoadingButton
+                variant="contained"
+                onClick={handleConfirmPendingSave}
+                loading={pendingSaveIsRunning}
+                sx={{ fontWeight: 500, borderRadius: '100px', textTransform: 'none' }}
+                data-testid={dataTestIds.dialog.proceedButton}
+              >
+                Save
+              </LoadingButton>
+            </Box>
+          }
         />
         {appointmentID && (
           <SendFormDialog
