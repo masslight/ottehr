@@ -73,6 +73,27 @@ describe('parseClaimStatusResponse', () => {
     });
   });
 
+  it('accepts unquoted Claim.MD identifiers', () => {
+    const parsed = parseClaimStatusResponse(
+      response({
+        status: 'A',
+        batchid: 987654321,
+        claimmd_id: 48213765,
+        messages: [
+          {
+            status: 'A',
+            responseid: 9001,
+          },
+        ],
+      })
+    );
+    expect(parsed?.raw).toMatchObject({
+      batchid: '987654321',
+      claimmd_id: '48213765',
+    });
+    expect(parsed?.raw.messages?.[0].responseid).toBe('9001');
+  });
+
   it('preserves unrecognized fields rather than dropping them', () => {
     const parsed = parseClaimStatusResponse(
       response({

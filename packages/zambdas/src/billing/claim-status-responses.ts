@@ -6,13 +6,16 @@ import { ClaimAcknowledgmentEvent } from 'utils/lib/types/data/billing/claim-his
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
 
+// Claim.MD sends its numeric identifiers quoted or unquoted.
+const claimMdId = z
+  .union([z.string(), z.number()])
+  .transform((id) => String(id))
+  .optional();
+
 export const ClaimStatusMessageSchema = z
   .object({
     status: z.string().optional(),
-    responseid: z
-      .union([z.string(), z.number()])
-      .transform((id) => String(id))
-      .optional(),
+    responseid: claimMdId,
     message: z.string().optional(),
     mesgid: z.string().optional(),
     fields: z.string().optional(),
@@ -26,11 +29,8 @@ export const ClaimStatusResponseSchema = z
     sender_name: z.string().optional(),
     senderid: z.string().optional(),
     sender_icn: z.string().optional(),
-    batchid: z.string().optional(),
-    claimmd_id: z.string().optional(),
-    payerid: z.string().optional(),
-    remote_claimid: z.string().optional(),
-    pcn: z.string().optional(),
+    batchid: claimMdId,
+    claimmd_id: claimMdId,
     messages: z.array(ClaimStatusMessageSchema).optional(),
   })
   .passthrough();
