@@ -98,6 +98,7 @@ import {
   addClaimAttachment,
   createBillingCoverage,
   createBillingProvider,
+  createTimelyFilingReport,
   deleteClaimAttachment,
   downloadClaimAttachment,
   exportClaimX12,
@@ -180,6 +181,7 @@ export default function ClaimDetail(): ReactElement {
   const [tab, setTab] = useState('1');
   const [exportOpen, setExportOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [buildingReport, setBuildingReport] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
   const [editingHeader, setEditingHeader] = useState(false);
   const [savingHeader, setSavingHeader] = useState(false);
@@ -212,6 +214,28 @@ export default function ClaimDetail(): ReactElement {
   useEffect(() => {
     void fetchDetail();
   }, [fetchDetail]);
+
+  const onCreateTimelyFilingReport = useCallback(async () => {
+    if (!oystehrZambda || !id) return;
+    setBuildingReport(true);
+    try {
+      const { downloadUrl } = await createTimelyFilingReport(oystehrZambda, {
+        claimId: id,
+      });
+      window.open(downloadUrl, '_blank');
+      await fetchDetail();
+    } catch (err) {
+      enqueueSnackbar(
+        getApiError({
+          error: err,
+          defaultError: 'Failed to create the timely filing report',
+        }),
+        { variant: 'error' }
+      );
+    } finally {
+      setBuildingReport(false);
+    }
+  }, [oystehrZambda, id, fetchDetail]);
 
   useEffect(() => {
     setShowCoverageMap({
@@ -491,6 +515,16 @@ export default function ClaimDetail(): ReactElement {
           sx={{ mt: 0.5 }}
         >
           Export X12
+        </Button>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<DescriptionIcon />}
+          onClick={() => void onCreateTimelyFilingReport()}
+          disabled={buildingReport}
+          sx={{ mt: 0.5 }}
+        >
+          {buildingReport ? 'Building…' : 'Timely Filing Report'}
         </Button>
         <Button
           size="small"
