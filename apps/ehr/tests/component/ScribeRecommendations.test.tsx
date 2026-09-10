@@ -644,6 +644,26 @@ describe('applyRecommendations', () => {
     expect(itemState['tpl'].status).toBe('applied');
   });
 
+  it('shows what the server actually refused, not a generic message', async () => {
+    // Zambda calls reject with a plain object rather than an Error instance.
+    const applyOne = vi.fn(async (rec: ScribeRecommendation) => {
+      if (rec.id === 'dx-1') throw { message: 'Encounter is locked' };
+      if (rec.id === 'ros-1') throw { output: { message: 'Medication is not valid', code: 400 } };
+      if (rec.id === 'hpi') throw new Error('');
+    });
+
+    await applyRecommendations(
+      recommendations.map((rec) => rec.id),
+      applyOne
+    );
+
+    const { itemState } = useScribeRecommendationsStore.getState();
+    expect(itemState['dx-1'].error).toBe('Encounter is locked');
+    expect(itemState['ros-1'].error).toBe('Medication is not valid');
+    // and something genuinely wordless still gets a human sentence
+    expect(itemState['hpi'].error).toBe('Something went wrong. Please try again.');
+  });
+
   it('records a failure on the row, carries on with the rest, and still reconciles', async () => {
     const applyOne = vi.fn(async (rec: ScribeRecommendation) => {
       if (rec.id === 'dx-1') throw new Error('Duplicate code');

@@ -1,3 +1,4 @@
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
 import { ScribeRecommendation } from './types';
 
@@ -24,8 +25,11 @@ export const sortForApply = (recommendations: ScribeRecommendation[]): ScribeRec
     return 0;
   });
 
+// Zambda calls reject with a plain APIError object rather than an Error instance, so an
+// `instanceof Error` check throws the server's own wording away — which is how a medication the
+// FHIR API rejected only ever showed up as "something went wrong".
 const errorMessage = (error: unknown): string =>
-  error instanceof Error && error.message ? error.message : 'Something went wrong. Please try again.';
+  getApiError({ error, defaultError: 'Something went wrong. Please try again.' });
 
 export interface ApplyRunResult {
   applied: number;
