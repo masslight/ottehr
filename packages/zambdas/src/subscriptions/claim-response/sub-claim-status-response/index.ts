@@ -354,15 +354,15 @@ export function classifyClaimStatusResponse(
   const parsed = parseClaimStatusResponse(response);
   if (!parsed) return undefined;
   const { raw } = parsed;
-  const acknowledgments = (raw.messages ?? [])
-    .filter((message) => message.status === 'A')
-    .map((message) =>
-      acknowledgmentEventFromMessage({
-        parsed,
-        message,
-        fallbackTime,
-      })
-    );
+  const acknowledgingMessages = (raw.messages ?? []).filter((message) => message.status === 'A');
+  if (!acknowledgingMessages.length && raw.status === 'A') acknowledgingMessages.push({});
+  const acknowledgments = acknowledgingMessages.map((message) =>
+    acknowledgmentEventFromMessage({
+      parsed,
+      message,
+      fallbackTime,
+    })
+  );
   if (raw.status !== 'R') {
     return {
       ...parsed,

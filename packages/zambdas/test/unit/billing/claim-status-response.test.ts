@@ -132,7 +132,7 @@ describe('claim status subscription', () => {
     expect(() => claimStatusCompletionRequest(response('{}'))).toThrow('ID and version are required');
   });
 
-  it.each(['A', 'R'])('loads recorded rejection fields only for status %s', async (status) => {
+  it.each(['A', 'R', 'W'])('loads recorded history only when status %s has something to record', async (status) => {
     const fixture = response(JSON.stringify({ status }));
     fixture.meta = { versionId: '1' };
     const field = 'rejection.account:id:9001';
@@ -149,11 +149,13 @@ describe('claim status subscription', () => {
           },
         ],
       });
+    // 'W' yields neither an acknowledgment nor a rejection, so there is nothing to deduplicate.
+    const hasRecords = status !== 'W';
     const context = await complexValidation({ fhir: { search } } as unknown as Oystehr, fixture.id!);
-    expect(context?.recordedFields).toEqual(new Set(status === 'R' ? [field] : []));
+    expect(context?.recordedFields).toEqual(new Set(hasRecords ? [field] : []));
     expect(context?.completion).toBeDefined();
     expect(search.mock.calls.map(([input]) => input.resourceType)).toEqual(
-      status === 'R' ? ['ClaimResponse', 'Claim', 'Provenance'] : ['ClaimResponse', 'Claim']
+      hasRecords ? ['ClaimResponse', 'Claim', 'Provenance'] : ['ClaimResponse', 'Claim']
     );
   });
 
@@ -296,6 +298,23 @@ describe('claim status acknowledgments', () => {
         newValue: 'Code 19 - Entity acknowledges receipt of claim.',
       },
     ]);
+  });
+
+  it('records an acknowledgment even without messages', () => {
+    const requests = acknowledgmentRequests(acknowledgingResponse([]));
+    expect(requests).toHaveLength(1);
+    const acknowledgment = acknowledgmentOf(provenanceOf(requests[0]));
+    expect(acknowledgment).toMatchObject({
+      entityName: 'CIGNA',
+      message: 'Claim acknowledged.',
+      batchId: '20260805123456789',
+    });
+    // No responseid to key on, so the payload hash carries the redelivery de-duplication.
+    expect(acknowledgment.responseId).toMatch(/^payload:/);
+  });
+
+  it('does not invent an acknowledgment for an unrecognized status', () => {
+    expect(acknowledgmentRequests(acknowledgingResponse([], 'P'))).toEqual([]);
   });
 
   it('writes one record per accepted message and ignores the rejected ones', () => {
