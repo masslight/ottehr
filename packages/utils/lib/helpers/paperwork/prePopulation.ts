@@ -53,6 +53,7 @@ import {
   getPayerId,
   getPayerUrl,
   isNioReferenceUrl,
+  normalizeZipcode,
 } from '../helpers';
 
 // used when patient books an appointment and some of the inputs come from the create-appointment params
@@ -229,7 +230,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
             answer = makeAnswer(patientState);
           }
           if (linkId === 'patient-zip' && patientPostalCode) {
-            answer = makeAnswer(patientPostalCode);
+            answer = makeAnswer(normalizeZipcode(patientPostalCode));
           }
           if (linkId === 'patient-email' && patientEmail) {
             answer = makeAnswer(patientEmail);
@@ -666,7 +667,7 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
       answer = makeAnswer(patientState ?? initialStringValue);
     }
     if (linkId === 'patient-zip' && patientPostalCode) {
-      answer = makeAnswer(patientPostalCode);
+      answer = makeAnswer(normalizeZipcode(patientPostalCode));
     }
     if (linkId === 'patient-email' && patientEmail) {
       answer = makeAnswer(patientEmail);
