@@ -4,7 +4,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
-import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { MedicationDTO, NOTE_TYPE, NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ChartSection } from 'utils/lib/types/api/chart-data/chart-sections.types';
 import { VisitNoteResponse } from 'utils/lib/types/api/chart-data/get-visit-note.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -49,7 +49,7 @@ const ENCOUNTER_ID = 'encounter-123';
 
 const covid = { resourceId: 'obs-covid', field: 'covid-symptoms', value: true };
 const aiHpi = { resourceId: 'obs-ai', field: 'ai-history-of-present-illness', value: 'Sore throat.' };
-const current = {
+const current: MedicationDTO = {
   resourceId: 'ms-1',
   id: 'm1',
   name: 'Albuterol',
@@ -57,7 +57,7 @@ const current = {
   status: 'active',
   intakeInfo: {},
 };
-const prescribed = {
+const prescribed: MedicationDTO = {
   resourceId: 'ms-2',
   id: 'm2',
   name: 'Cetirizine',
@@ -65,12 +65,14 @@ const prescribed = {
   status: 'active',
   intakeInfo: {},
 };
-const intakeNote = {
+const intakeNote: NoteDTO = {
   resourceId: 'note-intake',
   type: NOTE_TYPE.INTAKE,
   text: 'intake',
   authorId: 'a',
   authorName: 'A',
+  patientId: 'patient-1',
+  encounterId: ENCOUNTER_ID,
 };
 
 const goldenNote = (): VisitNoteResponse =>
