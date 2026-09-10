@@ -33,7 +33,6 @@ import {
   DeleteChartDataRequest,
   DeleteChartDataResponse,
 } from 'utils/lib/types/api/chart-data/delete-chart-data.types';
-import { GetChartDataRequest, GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { GetVisitNoteRequest, VisitNoteResponse } from 'utils/lib/types/api/chart-data/get-visit-note.types';
 import { SaveChartDataRequest, SaveChartDataResponse } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import {
@@ -112,7 +111,6 @@ import { GetOystehrTelemedAPIParams } from './types';
 
 enum ZambdaNames {
   'init telemed session' = 'init telemed session',
-  'get chart data' = 'get chart data',
   'get chart section' = 'get chart section',
   'get visit note' = 'get visit note',
   'save chart data' = 'save chart data',
@@ -155,7 +153,6 @@ enum ZambdaNames {
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'init telemed session': false,
-  'get chart data': false,
   'get chart section': false,
   'get visit note': false,
   'save chart data': false,
@@ -207,7 +204,6 @@ export const getOystehrTelemedAPI = (
   oystehr: Oystehr
 ): {
   initTelemedSession: typeof initTelemedSession;
-  getChartData: typeof getChartData;
   getChartSection: typeof getChartSection;
   getVisitNote: typeof getVisitNote;
   saveChartData: typeof saveChartData;
@@ -251,7 +247,6 @@ export const getOystehrTelemedAPI = (
 } => {
   const {
     initTelemedSessionZambdaID,
-    getChartDataZambdaID,
     getChartSectionZambdaID,
     getVisitNoteZambdaID,
     saveChartDataZambdaID,
@@ -294,7 +289,6 @@ export const getOystehrTelemedAPI = (
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
     'init telemed session': initTelemedSessionZambdaID,
-    'get chart data': getChartDataZambdaID,
     'get chart section': getChartSectionZambdaID,
     'get visit note': getVisitNoteZambdaID,
     'save chart data': saveChartDataZambdaID,
@@ -348,10 +342,6 @@ export const getOystehrTelemedAPI = (
     parameters: InitTelemedSessionRequestParams
   ): Promise<InitTelemedSessionResponse> => {
     return await makeZapRequest('init telemed session', parameters);
-  };
-
-  const getChartData = async (parameters: GetChartDataRequest): Promise<GetChartDataResponse> => {
-    return await makeZapRequest('get chart data', parameters);
   };
 
   const getChartSection = async <S extends ChartSection>(
@@ -573,7 +563,6 @@ export const getOystehrTelemedAPI = (
 
   return {
     initTelemedSession,
-    getChartData,
     getChartSection,
     getVisitNote,
     saveChartData,
