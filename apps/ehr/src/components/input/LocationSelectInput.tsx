@@ -77,7 +77,7 @@ export const LocationSelectInput: React.FC<Props> = ({ name, label, multiple, re
   );
 };
 
-function getLocationLabel(location: Location): string {
+export function getLocationLabel(location: Location): string {
   if (!location.name) {
     return 'Unknown Location';
   }
