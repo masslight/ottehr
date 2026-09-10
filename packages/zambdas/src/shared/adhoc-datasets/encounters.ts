@@ -641,6 +641,8 @@ export async function fetchAdHocEncounterRows(
       const abnormalVitals: string[] = [];
       const criticalVitals: string[] = [];
 
+      // Reports what was flagged at the time of care. The chart re-derives from the current
+      // thresholds instead, so the two can differ after a threshold change.
       for (const [field, name] of Object.entries(VITAL_ALERT_FIELDS)) {
         const levels = chronological(field).map((o) => getVitalDTOCriticalityFromObservation(o));
         if (levels.some((level) => level != null)) abnormalVitals.push(name);

@@ -48,6 +48,7 @@ export * from './prebook-create-appointment';
 export * from './print-chart-data';
 export * from './procedures.types';
 export * from './progress-note-config';
+export * from './vitals-alert-config';
 export * from './procedures.constants';
 export * from './radiology';
 export * from './rcm-claims';

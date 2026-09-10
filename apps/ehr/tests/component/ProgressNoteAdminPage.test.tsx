@@ -1,18 +1,28 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { adminUpdateProgressNoteConfig, getProgressNoteConfig } from 'src/api/api';
+import {
+  adminUpdateProgressNoteConfig,
+  adminUpdateVitalsAlertConfig,
+  getProgressNoteConfig,
+  getVitalsAlertConfig,
+} from 'src/api/api';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils/lib/utils/progress-note-config';
+import { DEFAULT_VITALS_ALERT_CONFIG } from 'utils/lib/utils/vitals-alert-config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ProgressNoteAdminPage from '../../src/features/admin/ProgressNoteAdminPage';
 
 vi.mock('src/api/api', () => ({
   getProgressNoteConfig: vi.fn(),
   adminUpdateProgressNoteConfig: vi.fn(),
+  // The page also mounts the vital alert levels section, which reads its own config.
+  getVitalsAlertConfig: vi.fn(),
+  adminUpdateVitalsAlertConfig: vi.fn(),
 }));
 
 vi.mock('src/hooks/useAppClients', () => ({
@@ -66,9 +76,10 @@ const createWrapper =
 
 const getMdmSwitch = (): HTMLInputElement =>
   screen.getByRole('checkbox', { name: 'MDM required for sign and close' }) as HTMLInputElement;
-const getSaveButton = (): HTMLButtonElement => screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement;
+const getSaveButton = (): HTMLButtonElement =>
+  screen.getByTestId(dataTestIds.progressNoteAdmin.saveButton) as HTMLButtonElement;
 const getDiscardButton = (): HTMLButtonElement =>
-  screen.getByRole('button', { name: 'Discard changes' }) as HTMLButtonElement;
+  screen.getByTestId(dataTestIds.progressNoteAdmin.discardButton) as HTMLButtonElement;
 const getMdmDefaultField = (): HTMLTextAreaElement =>
   screen.getByLabelText('Default Medical Decision Making content') as HTMLTextAreaElement;
 
@@ -76,6 +87,8 @@ describe('ProgressNoteAdminPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useApiClients).mockReturnValue({ oystehrZambda: mockOystehrZambda } as any);
+    vi.mocked(getVitalsAlertConfig).mockResolvedValue(DEFAULT_VITALS_ALERT_CONFIG);
+    vi.mocked(adminUpdateVitalsAlertConfig).mockResolvedValue(undefined);
     asUser(RoleType.Administrator);
   });
 
@@ -313,5 +326,154 @@ describe('ProgressNoteAdminPage', () => {
 
     expect(getMdmDefaultField().value).toBe('Unsaved draft text.');
     expect(getSaveButton()).not.toBeDisabled();
+  });
+
+  it('keeps the progress note settings editable when the vital alert levels fail to load', async () => {
+    vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
+    vi.mocked(getVitalsAlertConfig).mockRejectedValue(new Error('boom'));
+    vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);
+
+    render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => expect(screen.getByText('Failed to load the current vital alert levels.')).toBeInTheDocument());
+    await waitFor(() => expect(getMdmSwitch()).toBeInTheDocument());
+
+    fireEvent.click(getMdmSwitch());
+    fireEvent.click(getSaveButton());
+
+    await waitFor(() =>
+      expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, {
+        ...requiredConfigWithoutPrompt,
+        mdmRequired: false,
+      })
+    );
+  });
+
+  it('keeps the vital alert levels editable when the progress note settings fail to load', async () => {
+    vi.mocked(getProgressNoteConfig).mockRejectedValue(new Error('boom'));
+    vi.mocked(getVitalsAlertConfig).mockResolvedValue(DEFAULT_VITALS_ALERT_CONFIG);
+
+    render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+    await waitFor(() =>
+      expect(screen.getByText('Failed to load the current progress note settings.')).toBeInTheDocument()
+    );
+    expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.addAgeRangeButton)).toBeInTheDocument();
+  });
+
+  it('submits trimmed text, so the saved baseline matches what the server stores', async () => {
+    vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
+    vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);
+
+    render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => expect(getMdmDefaultField()).toBeInTheDocument());
+    fireEvent.change(getMdmDefaultField(), { target: { value: '   Padded MDM text.   ' } });
+    fireEvent.click(getSaveButton());
+
+    await waitFor(() => expect(adminUpdateProgressNoteConfig).toHaveBeenCalled());
+    const [, payload] = vi.mocked(adminUpdateProgressNoteConfig).mock.calls[0];
+    expect(payload.medicalDecisionDefaultText).toBe('Padded MDM text.');
+  });
+
+  describe('shared Save / Discard across both config sections', () => {
+    const getVitalThresholdInput = async (): Promise<HTMLInputElement> => {
+      const accordion = screen.getByTestId(dataTestIds.vitalsAlertConfig.vitalAccordion('vital-heartbeat'));
+      fireEvent.click(within(accordion).getAllByRole('button')[0]);
+      await waitFor(() => expect(within(accordion).getByRole('table')).toBeInTheDocument());
+      return screen
+        .getByTestId(dataTestIds.vitalsAlertConfig.thresholdInput('vital-heartbeat', '18+y', 'abnormalHigh'))
+        .querySelector('input') as HTMLInputElement;
+    };
+
+    it('renders both config sections inside a single Paper with one Save and one Discard', async () => {
+      vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
+
+      const { container } = render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+      await waitFor(() => expect(getMdmSwitch()).toBeInTheDocument());
+      expect(container.querySelectorAll('.MuiPaper-root form, form.MuiPaper-root')).toHaveLength(1);
+      expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.section)).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: 'Save' })).toHaveLength(1);
+      expect(screen.getAllByRole('button', { name: 'Discard changes' })).toHaveLength(1);
+    });
+
+    it('enables the shared Save when only the vital alert levels change', async () => {
+      vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
+
+      render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+      await waitFor(() => expect(getMdmSwitch()).toBeInTheDocument());
+      expect(getSaveButton()).toBeDisabled();
+
+      fireEvent.change(await getVitalThresholdInput(), { target: { value: '95' } });
+
+      expect(getSaveButton()).not.toBeDisabled();
+    });
+
+    it('saves only the section that changed', async () => {
+      vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
+
+      render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+      await waitFor(() => expect(getMdmSwitch()).toBeInTheDocument());
+
+      fireEvent.change(await getVitalThresholdInput(), { target: { value: '95' } });
+      fireEvent.click(getSaveButton());
+
+      await waitFor(() => expect(adminUpdateVitalsAlertConfig).toHaveBeenCalledTimes(1));
+      expect(adminUpdateProgressNoteConfig).not.toHaveBeenCalled();
+    });
+
+    it('saves both sections from one click when both changed', async () => {
+      vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
+
+      render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+      await waitFor(() => expect(getMdmSwitch()).toBeInTheDocument());
+
+      fireEvent.click(getMdmSwitch());
+      fireEvent.change(await getVitalThresholdInput(), { target: { value: '95' } });
+      fireEvent.click(getSaveButton());
+
+      await waitFor(() => expect(adminUpdateProgressNoteConfig).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(adminUpdateVitalsAlertConfig).toHaveBeenCalledTimes(1));
+    });
+
+    it('saves neither section when the other one is invalid', async () => {
+      vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
+
+      render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+      await waitFor(() => expect(getMdmDefaultField()).toBeInTheDocument());
+
+      fireEvent.change(getMdmDefaultField(), { target: { value: 'Updated default MDM text.' } });
+      fireEvent.change(await getVitalThresholdInput(), { target: { value: '40' } });
+      fireEvent.click(getSaveButton());
+
+      await waitFor(() =>
+        expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.errorSummary)).toHaveTextContent(
+          /must be greater than or equal to/i
+        )
+      );
+      expect(adminUpdateProgressNoteConfig).not.toHaveBeenCalled();
+      expect(adminUpdateVitalsAlertConfig).not.toHaveBeenCalled();
+    });
+
+    it('discards edits in both sections', async () => {
+      vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
+
+      render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+      await waitFor(() => expect(getMdmSwitch()).toBeInTheDocument());
+
+      fireEvent.click(getMdmSwitch());
+      const thresholdInput = await getVitalThresholdInput();
+      fireEvent.change(thresholdInput, { target: { value: '95' } });
+      expect(getSaveButton()).not.toBeDisabled();
+
+      fireEvent.click(getDiscardButton());
+
+      await waitFor(() => expect(getMdmSwitch().checked).toBe(true));
+      expect(thresholdInput.value).toBe('100');
+      expect(getSaveButton()).toBeDisabled();
+      expect(adminUpdateProgressNoteConfig).not.toHaveBeenCalled();
+      expect(adminUpdateVitalsAlertConfig).not.toHaveBeenCalled();
+    });
   });
 });

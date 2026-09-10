@@ -8,6 +8,7 @@ import {
   MedicationAdministration,
   MedicationRequest,
   Observation,
+  Patient,
   Practitioner,
   Provenance,
   Resource,
@@ -18,8 +19,10 @@ import { chunkThings } from 'utils/lib/fhir/chat';
 import { ERX_MEDICATION_META_TAG_CODE, FHIR_EXTENSION, PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getExtension } from 'utils/lib/fhir/helpers';
 import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
+import { getParticipantIdFromAppointment } from 'utils/lib/helpers/helpers';
 import { isDeletedMedicationOrder } from 'utils/lib/helpers/order-status.helper';
 import { emptyOrdersForTrackingBoardTable } from 'utils/lib/helpers/tracking-board';
+import { VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { convertVitalsListToMap, getAbnormalVitals } from 'utils/lib/helpers/vitals/utils';
 import { GetVitalsForListOfEncountersResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
@@ -39,6 +42,7 @@ import {
   VITALS_ENCOUNTER_CHUNK_SIZE,
   vitalsObservationSearchParams,
 } from '../../shared/vitals/parse-vitals-observations';
+import { VitalAlertContext } from '../../shared/vitals-alert-config';
 import { buildOrderPackage, mapMedicalAdministrationToDTO } from '../get-medication-orders';
 import { mapResourcesNursingOrderDTOs } from '../get-nursing-orders/helpers';
 import { mapMedicationAdministrationToImmunizationOrder } from '../immunization/get-orders';
@@ -94,6 +98,29 @@ export const selectTrackingBoardEncounterIds = (
 // Encounter references per batch entry. Oystehr's search URL limit is 10 KB and a batch entry's URL is inline, so
 // the comma list stays well under it; the aggregate response is what actually bounds these, and a size error
 // halves them (see fetchTrackingBoardResources).
+export type VitalsPatientsByEncounterId = Record<string, Pick<Patient, 'birthDate' | 'gender'>>;
+
+export const selectVitalsPatientsByEncounterId = ({
+  appointments,
+  apptRefToEncounterMap,
+  patientIdMap,
+}: {
+  appointments: Appointment[];
+  apptRefToEncounterMap: Record<string, Encounter>;
+  patientIdMap: Record<string, Patient>;
+}): VitalsPatientsByEncounterId => {
+  const patientsByEncounterId: VitalsPatientsByEncounterId = {};
+  appointments.forEach((appointment) => {
+    const encounterId = apptRefToEncounterMap[`Appointment/${appointment.id}`]?.id;
+    const patientId = getParticipantIdFromAppointment(appointment, 'Patient');
+    const patient = patientId ? patientIdMap[patientId] : undefined;
+    if (encounterId && patient) {
+      patientsByEncounterId[encounterId] = { birthDate: patient.birthDate, gender: patient.gender };
+    }
+  });
+  return patientsByEncounterId;
+};
+
 export const ORDER_ENCOUNTER_CHUNK_SIZE = 50;
 const ORDER_SEARCH_PAGE_SIZE = 500;
 const MIN_ENCOUNTER_CHUNK_SIZE = 5;
@@ -533,18 +560,28 @@ export const buildOrdersForTrackingBoard = ({
 };
 
 /** Step C for vitals: only encounters with at least one abnormal reading, which is all the badge renders. */
-export const buildVitalsForTrackingBoard = (
-  pools: Pick<TrackingBoardResourcePools, 'observations' | 'practitioners'>
-): GetVitalsForListOfEncountersResponseData => {
+export const buildVitalsForTrackingBoard = ({
+  observations,
+  practitioners,
+  patientsByEncounterId,
+  vitalsAlertConfig,
+}: Pick<TrackingBoardResourcePools, 'observations' | 'practitioners'> & {
+  patientsByEncounterId: VitalsPatientsByEncounterId;
+  vitalsAlertConfig: VitalsSchema | undefined;
+}): GetVitalsForListOfEncountersResponseData => {
   const observationsByEncounter = groupBy(
-    pools.observations,
+    observations,
     (observation) => observation.encounter?.reference?.replace('Encounter/', '')
   );
   const vitals: GetVitalsForListOfEncountersResponseData = {};
-  Object.entries(observationsByEncounter).forEach(([encounterId, observations]) => {
+  Object.entries(observationsByEncounter).forEach(([encounterId, encounterObservations]) => {
     if (!encounterId) return;
+    const patient = patientsByEncounterId[encounterId];
+    const alertContext: VitalAlertContext | undefined = vitalsAlertConfig
+      ? { patientDOB: patient?.birthDate, patientSex: patient?.gender, vitalsAlertConfig }
+      : undefined;
     const abnormal = getAbnormalVitals(
-      convertVitalsListToMap(parseVitalsObservationsToDTOs(observations, pools.practitioners))
+      convertVitalsListToMap(parseVitalsObservationsToDTOs(encounterObservations, practitioners, alertContext))
     );
     if (Object.keys(abnormal).length > 0) vitals[encounterId] = abnormal;
   });
@@ -553,11 +590,15 @@ export const buildVitalsForTrackingBoard = (
 
 export interface BuildTrackingBoardExtrasInput extends Omit<BuildOrdersInput, 'pools'> {
   fetched: TrackingBoardResources;
+  patientsByEncounterId: VitalsPatientsByEncounterId;
+  vitalsAlertConfig: VitalsSchema | undefined;
 }
 
 /** Turns Step B's raw resources into the `orders` and `vitals` fields of the response. */
 export const buildTrackingBoardExtras = ({
   fetched,
+  patientsByEncounterId,
+  vitalsAlertConfig,
   ...ordersInput
 }: BuildTrackingBoardExtrasInput): TrackingBoardExtras => {
   const incomplete = fetched.failedUrls.length > 0;
@@ -567,7 +608,12 @@ export const buildTrackingBoardExtras = ({
   const pools = poolTrackingBoardResources(fetched.resources);
   return {
     orders: buildOrdersForTrackingBoard({ ...ordersInput, pools }),
-    vitals: buildVitalsForTrackingBoard(pools),
+    vitals: buildVitalsForTrackingBoard({
+      observations: pools.observations,
+      practitioners: pools.practitioners,
+      patientsByEncounterId,
+      vitalsAlertConfig,
+    }),
     ...(incomplete ? { ordersAndVitalsIncomplete: true } : {}),
   };
 };
