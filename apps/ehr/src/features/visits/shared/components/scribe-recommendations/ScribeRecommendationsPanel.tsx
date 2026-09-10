@@ -8,7 +8,6 @@ import {
   Alert,
   Box,
   Button,
-  Divider,
   IconButton,
   LinearProgress,
   TextField,
@@ -16,7 +15,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { FC, Fragment, ReactNode } from 'react';
+import { FC, ReactNode } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { AiDisclaimerTooltip } from '../AiSection';
@@ -276,12 +275,7 @@ const ResultsStep: FC = () => {
   return (
     <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
       <TranscriptSummary transcript={transcript} />
-      {stages.map((stage, index) => (
-        <Fragment key={index}>
-          {index > 0 && <Divider />}
-          {stage}
-        </Fragment>
-      ))}
+      {stages}
     </Box>
   );
 };

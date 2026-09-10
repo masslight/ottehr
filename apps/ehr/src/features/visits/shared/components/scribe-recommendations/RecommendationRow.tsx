@@ -139,28 +139,33 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
           />
         ) : (
           <>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <Typography variant="body2" sx={{ fontWeight: 500, overflowWrap: 'anywhere' }}>
-                {primary}
-              </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75 }}>
+              {/* The finding leads the line — "Reports sinus pain" is the order it is read in.
+                  It sits in a fixed column of its own so the findings line up to skim down and a
+                  long system name wraps under itself rather than under the chip. */}
               {recommendation.kind === 'ros' && (
                 <Chip
                   size="small"
                   label={rosFindingLabel(recommendation.finding)}
                   color={recommendation.finding === RosFindingState.Reports ? 'error' : 'success'}
                   variant="outlined"
-                  sx={{ height: 20, fontSize: 11 }}
+                  sx={{ flexShrink: 0, height: 20, width: 62, fontSize: 11, '& .MuiChip-label': { px: 0.75 } }}
                 />
               )}
-              {recommendation.kind === 'diagnosis' && recommendation.isPrimary && (
-                <Chip
-                  size="small"
-                  label="Primary"
-                  color="primary"
-                  variant="outlined"
-                  sx={{ height: 20, fontSize: 11 }}
-                />
-              )}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', minWidth: 0 }}>
+                <Typography variant="body2" sx={{ fontWeight: 500, overflowWrap: 'anywhere' }}>
+                  {primary}
+                </Typography>
+                {recommendation.kind === 'diagnosis' && recommendation.isPrimary && (
+                  <Chip
+                    size="small"
+                    label="Primary"
+                    color="primary"
+                    variant="outlined"
+                    sx={{ height: 20, fontSize: 11 }}
+                  />
+                )}
+              </Box>
             </Box>
             {secondary && (
               <Typography variant="caption" color="text.secondary">

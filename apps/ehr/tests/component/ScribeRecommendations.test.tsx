@@ -46,8 +46,8 @@ vi.mock('../../src/features/visits/shared/components/scribe-recommendations/useA
 vi.mock('../../src/features/visits/shared/components/templates/useListTemplates', () => ({
   useListTemplates: () => ({
     templates: [
-      { id: 't-1', value: 'Acute Sinusitis Unspecified', label: 'Acute Sinusitis Unspecified', isCurrentVersion: true },
-      { id: 't-2', value: 'Sinusitis', label: 'Sinusitis', isCurrentVersion: true },
+      { id: 't-1', value: 'Sinusitis', label: 'Sinusitis', isCurrentVersion: true },
+      { id: 't-2', value: 'Sinusitis: Wait See', label: 'Sinusitis: Wait See', isCurrentVersion: true },
     ],
     isLoading: false,
     error: null,
@@ -96,7 +96,7 @@ import { ScribeRecommendation } from '../../src/features/visits/shared/component
 // ============================================================================
 
 const testIds = dataTestIds.scribeRecommendations;
-const TEMPLATE_ID = 'template-acute-sinusitis';
+const TEMPLATE_ID = 'template-sinusitis';
 
 const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
   <MemoryRouter initialEntries={['/in-person/appointment-1/review-and-sign']}>{children}</MemoryRouter>
@@ -183,7 +183,7 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(within(orders).getByText(/orders you might want to make/)).toBeVisible();
 
     // stage one is a single named template with its own button, not a row in the list below
-    expect(within(template).getByText('Acute Sinusitis Unspecified')).toBeVisible();
+    expect(within(template).getByText('Sinusitis')).toBeVisible();
     expect(within(template).getByTestId(testIds.templateApplyButton)).toBeEnabled();
     expect(screen.queryByTestId(testIds.rowCheckbox(TEMPLATE_ID))).toBeNull();
     expect(screen.queryByTestId(testIds.group('template'))).toBeNull();
@@ -218,6 +218,29 @@ describe('ScribeRecommendationsDrawer', () => {
 
     await user.click(within(orders).getByTestId(testIds.orderButton('order-dexamethasone')));
     expect(mocks.navigate).toHaveBeenCalledWith('/in-person/appointment-1/in-house-medication/order/new');
+  });
+
+  it('leads each review-of-systems row with the finding, positives first', async () => {
+    const user = userEvent.setup();
+    await openPanelWithRecommendations(user);
+
+    const rosRows = within(screen.getByTestId(testIds.group('ros'))).getAllByText(/Reports|Denies/);
+    // positives carry the clinical weight, so they sit above the denials
+    expect(rosRows.map((chip) => chip.textContent)).toEqual([
+      'Reports',
+      'Reports',
+      'Reports',
+      'Denies',
+      'Denies',
+      'Denies',
+      'Denies',
+    ]);
+
+    // and the finding reads before the system, not after it
+    const firstRow = screen.getByTestId(testIds.row('ros-eyes-discharge'));
+    expect(firstRow.textContent?.indexOf('Reports')).toBeLessThan(
+      firstRow.textContent?.indexOf('Eyes: Discharge') ?? -1
+    );
   });
 
   it('applies the template on its own, leaving the observations untouched', async () => {
@@ -311,9 +334,9 @@ describe('ScribeRecommendationsDrawer', () => {
     // swap in a template this environment actually has
     await user.click(screen.getByTestId(testIds.rowEditButton(TEMPLATE_ID)));
     await user.click(screen.getByTestId(testIds.rowEditInput(TEMPLATE_ID)));
-    await user.click(screen.getByRole('option', { name: /^Sinusitis$/ }));
+    await user.click(screen.getByRole('option', { name: 'Sinusitis: Wait See' }));
     await user.click(screen.getByTestId(testIds.rowEditSaveButton(TEMPLATE_ID)));
-    expect(screen.getByText('Sinusitis')).toBeVisible();
+    expect(screen.getByText('Sinusitis: Wait See')).toBeVisible();
 
     mocks.applyOne.mockResolvedValue(undefined);
     await user.click(screen.getByTestId(testIds.templateApplyButton));

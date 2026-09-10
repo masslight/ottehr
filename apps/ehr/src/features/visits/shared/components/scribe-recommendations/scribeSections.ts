@@ -95,5 +95,16 @@ export const describeRecommendation = (rec: ScribeRecommendation): Recommendatio
   }
 };
 
+/**
+ * Reading order within a group. Positive review-of-systems findings carry the clinical weight, so
+ * they sit above the denials rather than in whatever order the transcript happened to mention
+ * them. Everything else keeps the order the AI returned.
+ */
+export const sortForReview = (recommendations: ScribeRecommendation[]): ScribeRecommendation[] => {
+  const weight = (rec: ScribeRecommendation): number =>
+    rec.kind === 'ros' && rec.finding === RosFindingState.Denies ? 1 : 0;
+  return [...recommendations].sort((a, b) => weight(a) - weight(b));
+};
+
 export const rosFindingLabel = (finding: RosFindingState): string =>
   finding === RosFindingState.Reports ? 'Reports' : 'Denies';

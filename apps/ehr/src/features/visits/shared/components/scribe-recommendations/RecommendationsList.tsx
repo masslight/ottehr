@@ -5,7 +5,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { TemplateOption } from '../templates/useListTemplates';
 import { RecommendationRow } from './RecommendationRow';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
-import { getVisitBasePath, SCRIBE_SECTION_ORDER, SCRIBE_SECTIONS } from './scribeSections';
+import { getVisitBasePath, SCRIBE_SECTION_ORDER, SCRIBE_SECTIONS, sortForReview } from './scribeSections';
 import { ScribeRecommendation, ScribeSectionKey } from './types';
 
 interface RecommendationsListProps {
@@ -41,7 +41,7 @@ export const RecommendationsList: FC<RecommendationsListProps> = ({ recommendati
     () =>
       SCRIBE_SECTION_ORDER.map((section) => ({
         section,
-        items: recommendations.filter((rec) => rec.section === section),
+        items: sortForReview(recommendations.filter((rec) => rec.section === section)),
       })).filter((group) => group.items.length > 0),
     [recommendations]
   );

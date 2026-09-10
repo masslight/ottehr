@@ -28,12 +28,14 @@ Provider: Good to know. Do you know your current weight?
 Patient: I'm about 170 pounds.
 Provider: Okay. This sounds like a sinus infection on top of the drip. Let's take a look.`;
 
-export const SAMPLE_TEMPLATE_NAME = 'Acute Sinusitis Unspecified';
+// Matches a template in the global-templates seed data so the first stage really applies
+// against a seeded environment rather than failing on a name nothing has.
+export const SAMPLE_TEMPLATE_NAME = 'Sinusitis';
 
 const SAMPLE_ANALYSIS: ScribeAnalysis = {
   recommendations: [
     {
-      id: 'template-acute-sinusitis',
+      id: 'template-sinusitis',
       kind: 'template',
       section: 'template',
       templateName: SAMPLE_TEMPLATE_NAME,
