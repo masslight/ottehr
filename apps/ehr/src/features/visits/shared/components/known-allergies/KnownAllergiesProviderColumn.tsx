@@ -252,6 +252,7 @@ const AllergyListItem: FC<{
           disabled={(isLoading && areNotesEqual) || !isAlreadySaved}
           size="small"
           fullWidth
+          multiline
           label="Notes for inactive allergy"
           InputProps={{
             endAdornment: !areNotesEqual && (

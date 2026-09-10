@@ -241,6 +241,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
           disabled={(isLoading && areNotesEqual) || !isAlreadySaved}
           size="small"
           fullWidth
+          multiline
           label="Notes for inactive condition"
           InputProps={{
             endAdornment: !areNotesEqual && (

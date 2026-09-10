@@ -532,10 +532,11 @@ describe('pre-invoice engines performEffect', () => {
     );
   });
 
-  it('completes without a status change when the Patient AR claim carries insurance coverage', async () => {
-    const { oystehr, transaction } = makeOystehrMock();
+  it('moves the Patient AR Status to ready-to-invoice for a claim carrying insurance coverage', async () => {
+    const { oystehr, search, transaction } = makeOystehrMock();
     const model = makeModel(AR_STAGE.patient);
     model.claim.insurance = [{ sequence: 1, focal: true, coverage: { reference: 'Coverage/coverage-1' } }];
+    search.mockResolvedValue({ unbundle: () => [model.claim] });
 
     const result = await performEffect(
       oystehr,
@@ -544,7 +545,30 @@ describe('pre-invoice engines performEffect', () => {
     );
 
     expect(result.taskStatus).toBe('completed');
-    expect(result.statusReason).toContain('not self-pay');
+    expect(result.statusReason).toContain('Ready to invoice');
+    expect(patchedTags(transaction)).toContainEqual(
+      expect.objectContaining({ system: expect.stringContaining('patient-ar-status'), code: 'ready-to-invoice' })
+    );
+  });
+
+  it('completes without a status change when the claim is no longer in Patient AR', async () => {
+    const { oystehr, transaction } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+
+    const result = await performEffect(
+      oystehr,
+      {
+        engine: 'patient-ar-pre-invoice',
+        claimId: 'claim-1',
+        rules: [],
+        model,
+        skipRules: false,
+      },
+      [AGENT]
+    );
+
+    expect(result.taskStatus).toBe('completed');
+    expect(result.statusReason).toContain('not marked ready to invoice');
     expect(transaction).not.toHaveBeenCalled();
   });
 

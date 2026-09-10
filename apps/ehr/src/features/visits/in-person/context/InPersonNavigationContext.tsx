@@ -1,5 +1,6 @@
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useMatch, useNavigate, useParams } from 'react-router-dom';
+import { filterActiveMedications } from 'utils/lib/helpers/medications/current-medications.helper';
 import { sidebarMenuIcons } from '../../shared/components/Sidebar';
 import { useChartFields } from '../../shared/hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
@@ -253,7 +254,9 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
         case 'allergies':
           return chartData?.allergies?.length ? 'Allergies Confirmed' : 'Confirmed No Known Allergies';
         case 'medications':
-          return chartData?.medications?.length ? 'Medications Confirmed' : 'Confirmed No Medications';
+          return filterActiveMedications(chartData?.medications).length
+            ? 'Medications Confirmed'
+            : 'Confirmed No Medications';
         case 'medical-conditions':
           return chartData?.conditions?.length ? 'Medical Conditions Confirmed' : 'Confirmed No Medical Conditions';
         case 'surgical-history':
