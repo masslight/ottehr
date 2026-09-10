@@ -385,11 +385,17 @@ export default function ClaimsList(): ReactElement {
       selectedService,
       paginationModel,
     };
-    try {
-      sessionStorage.setItem(CLAIMS_LIST_FILTERS_STORAGE_KEY, JSON.stringify(toStore));
-    } catch {
-      // ignore storage errors (e.g. private browsing / quota exceeded)
-    }
+
+    const timeout = window.setTimeout(() => {
+      try {
+        sessionStorage.setItem(CLAIMS_LIST_FILTERS_STORAGE_KEY, JSON.stringify(toStore));
+      } catch {
+        // ignore storage errors (e.g. private browsing / quota exceeded)
+      }
+    }, 200);
+
+    return () => window.clearTimeout(timeout);
+  }
   }, [
     searchText,
     arStageFilter,
