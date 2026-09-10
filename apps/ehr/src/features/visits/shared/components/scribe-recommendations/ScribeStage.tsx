@@ -1,11 +1,9 @@
 import { aiIcon } from '@ehrTheme/icons';
-import { Avatar, Badge, Box, Typography } from '@mui/material';
+import { Avatar, Box, Typography } from '@mui/material';
 import { FC, ReactNode } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 
 interface ScribeStageProps {
-  /** Position in the run of stages actually on screen, not a fixed identity. */
-  number: number;
   name: string;
   lead: string;
   children: ReactNode;
@@ -16,32 +14,30 @@ const AI_SURFACE = '#E1F5FECC';
 
 /**
  * One step of the review, introduced by the scribe itself. The lead is set as a message from the
- * assistant — avatar, numbered step, speech bubble — so the panel reads as advice being offered
- * in order rather than as three anonymous headings, and the work each step asks for sits
- * underneath it.
+ * assistant — avatar and speech bubble — so the panel reads as advice being offered in order
+ * rather than as anonymous headings, and the work each step asks for sits underneath it. The
+ * leads say "then" and "finally", so the sequence needs no step numbers on top of that.
  */
-export const ScribeStage: FC<ScribeStageProps> = ({ number, name, lead, children }) => (
+export const ScribeStage: FC<ScribeStageProps> = ({ name, lead, children }) => (
   <Box
     component="section"
-    aria-label={`Step ${number}: ${lead}`}
+    aria-label={lead}
     data-testid={dataTestIds.scribeRecommendations.stage(name)}
     sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
   >
     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-      <Badge
-        overlap="circular"
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        badgeContent={number}
-        color="primary"
+      <Avatar
         sx={{
           flexShrink: 0,
-          '& .MuiBadge-badge': { height: 15, minWidth: 15, fontSize: 9, fontWeight: 700, p: 0 },
+          width: 28,
+          height: 28,
+          backgroundColor: '#FFFFFF',
+          border: '1px solid',
+          borderColor: '#B3E5FC',
         }}
       >
-        <Avatar sx={{ width: 28, height: 28, backgroundColor: '#FFFFFF', border: '1px solid', borderColor: '#B3E5FC' }}>
-          <img src={aiIcon} alt="" aria-hidden style={{ width: 18 }} />
-        </Avatar>
-      </Badge>
+        <img src={aiIcon} alt="" aria-hidden style={{ width: 18 }} />
+      </Avatar>
       <Box
         sx={{
           flex: 1,

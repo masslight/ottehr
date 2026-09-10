@@ -167,7 +167,7 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.getByTestId(testIds.rail)).toBeVisible();
   });
 
-  it('lays the results out as three numbered stages', async () => {
+  it('lays the results out as three stages in order', async () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
@@ -175,11 +175,15 @@ describe('ScribeRecommendationsDrawer', () => {
     const observationsStage = screen.getByTestId(testIds.stage('observations'));
     const orders = screen.getByTestId(testIds.stage('orders'));
 
-    expect(within(template).getByText('1')).toBeVisible();
+    // the leads carry the sequence, so the stages need no numbering of their own
+    expect(
+      screen
+        .getAllByRole('region')
+        .map((section) => section.getAttribute('data-testid'))
+        .filter((id) => id?.startsWith('scribe-stage-'))
+    ).toEqual(['scribe-stage-template', 'scribe-stage-observations', 'scribe-stage-orders']);
     expect(within(template).getByText(/template that looks like a good fit/)).toBeVisible();
-    expect(within(observationsStage).getByText('2')).toBeVisible();
     expect(within(observationsStage).getByText(/observations, which I read in the transcript/)).toBeVisible();
-    expect(within(orders).getByText('3')).toBeVisible();
     expect(within(orders).getByText(/orders you might want to make/)).toBeVisible();
 
     // stage one is a single named template with its own button, not a row in the list below

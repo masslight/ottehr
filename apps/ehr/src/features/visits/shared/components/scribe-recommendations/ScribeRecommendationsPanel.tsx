@@ -172,16 +172,12 @@ const ResultsStep: FC = () => {
     .filter(Boolean)
     .join(' · ');
 
-  // Stages are numbered by what is actually on screen, so a transcript with no template still
-  // reads 1, 2 rather than starting at 2.
   const stages: ReactNode[] = [];
-  const nextNumber = (): number => stages.length + 1;
 
   if (template) {
     stages.push(
       <ScribeStage
         key="template"
-        number={nextNumber()}
         name="template"
         lead="There’s a template that looks like a good fit. I recommend applying it first."
       >
@@ -201,7 +197,6 @@ const ResultsStep: FC = () => {
     stages.push(
       <ScribeStage
         key="observations"
-        number={nextNumber()}
         name="observations"
         lead="Then add these observations, which I read in the transcript."
       >
@@ -261,12 +256,7 @@ const ResultsStep: FC = () => {
 
   if (orderSuggestions.length > 0) {
     stages.push(
-      <ScribeStage
-        key="orders"
-        number={nextNumber()}
-        name="orders"
-        lead="Finally, here are some orders you might want to make:"
-      >
+      <ScribeStage key="orders" name="orders" lead="Finally, here are some orders you might want to make:">
         <OrderSuggestions />
       </ScribeStage>
     );
