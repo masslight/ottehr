@@ -34,6 +34,8 @@ interface RecommendationRowProps {
   itemState: RecommendationItemState;
   /** Disables the checkbox and editing while a batch is being applied. */
   locked: boolean;
+  /** The chart already holds this, so there is nothing to apply. */
+  charted: boolean;
   templates: TemplateOption[];
   onSelectedChange: (selected: boolean) => void;
   onEdit: (patch: Partial<ScribeRecommendation>) => void;
@@ -46,6 +48,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
   recommendation,
   itemState,
   locked,
+  charted,
   templates,
   onSelectedChange,
   onEdit,
@@ -56,7 +59,9 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
   const { primary, secondary, detail } = describeRecommendation(recommendation);
   const isApplied = itemState.status === 'applied';
   const isApplying = itemState.status === 'applying';
-  const canEdit = !isApplied && !isApplying && !locked;
+  // Settled either way: this panel wrote it, or it was there already.
+  const isDone = isApplied || charted;
+  const canEdit = !isDone && !isApplying && !locked;
 
   // A template the environment doesn't have can't be applied; say so before the provider tries.
   const templateMissing =
@@ -67,7 +72,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
     ? 'This template isn’t available in this environment. Edit the recommendation to pick another one.'
     : recommendation.warning;
   // Once the item is in the chart the caution has been acted on, so it stops flagging the row.
-  const warning = isApplied ? undefined : rawWarning;
+  const warning = isDone ? undefined : rawWarning;
 
   const provenance = { warning, note: detail, evidence: recommendation.evidence };
   const showProvenance = hasProvenance(provenance);
@@ -112,14 +117,14 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
         gap: 0.5,
         px: 1,
         py: 0.75,
-        opacity: !itemState.selected && !isApplied ? 0.65 : 1,
+        opacity: !itemState.selected && !isDone ? 0.65 : 1,
         '&:not(:last-of-type)': { borderBottom: '1px solid', borderColor: 'divider' },
       }}
     >
       <Checkbox
         size="small"
-        checked={isApplied || itemState.selected}
-        disabled={isApplied || isApplying || locked}
+        checked={isDone || itemState.selected}
+        disabled={isDone || isApplying || locked}
         onChange={(event) => onSelectedChange(event.target.checked)}
         inputProps={{ 'aria-label': `Apply: ${primary}` }}
         data-testid={testIds.rowCheckbox(recommendation.id)}
@@ -164,6 +169,11 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
                     variant="outlined"
                     sx={{ height: 20, fontSize: 11 }}
                   />
+                )}
+                {charted && !isApplied && (
+                  <Tooltip title="Already in the chart, so it won't be added again">
+                    <Chip size="small" label="Already charted" variant="outlined" sx={{ height: 20, fontSize: 11 }} />
+                  </Tooltip>
                 )}
               </Box>
             </Box>

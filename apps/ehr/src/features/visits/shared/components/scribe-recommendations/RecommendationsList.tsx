@@ -27,6 +27,7 @@ const testIds = dataTestIds.scribeRecommendations;
  */
 export const RecommendationsList: FC<RecommendationsListProps> = ({ recommendations, templates, onRetry }) => {
   const itemState = useScribeRecommendationsStore((state) => state.itemState);
+  const chartedIds = useScribeRecommendationsStore((state) => state.chartedIds);
   const isApplying = useScribeRecommendationsStore((state) => state.isApplying);
   const setSelected = useScribeRecommendationsStore((state) => state.setSelected);
   const updateRecommendation = useScribeRecommendationsStore((state) => state.updateRecommendation);
@@ -58,6 +59,7 @@ export const RecommendationsList: FC<RecommendationsListProps> = ({ recommendati
                 recommendation={rec}
                 itemState={itemState[rec.id] ?? { selected: true, status: 'idle' }}
                 locked={isApplying}
+                charted={chartedIds.includes(rec.id)}
                 templates={templates}
                 onSelectedChange={(selected) => setSelected(rec.id, selected)}
                 onEdit={(patch: Partial<ScribeRecommendation>) => updateRecommendation(rec.id, patch)}

@@ -9,6 +9,7 @@ import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-system
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { DiagnosisDTO, ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { TemplateSectionActions } from 'utils/lib/types/data/apply-template.types';
 import { invalidateChartFields, useChartFields } from '../../hooks/useChartFields';
 import { GET_MEDICATION_ORDERS_QUERY_KEY } from '../../stores/appointment/appointment.queries';
@@ -27,6 +28,7 @@ import {
 import { useListTemplates } from '../templates/useListTemplates';
 import { useSaveVitals } from '../vitals/hooks/useSaveVitals';
 import { applyRecommendations, pendingObservationIds } from './applyRecommendations';
+import { buildChartSnapshot, ChartSnapshot, isAlreadyCharted } from './chartedRecommendations';
 import {
   AllergyRecommendation,
   DiagnosisRecommendation,
@@ -129,8 +131,6 @@ export const useApplyRecommendations = (): {
       if (!addition) throw new Error('The HPI text is empty.');
       const existing = hpiFields?.chiefComplaint;
       const current = existing?.text?.trim() ?? '';
-      // Re-applying (or a template that already wrote the same sentence) shouldn't duplicate it.
-      if (current.includes(addition)) return;
       const text = current ? `${current}\n${addition}` : addition;
       const result = await saveChartData({ chiefComplaint: { resourceId: existing?.resourceId, text } });
       setHpiQueryCache({ chiefComplaint: result.chartData.chiefComplaint });
@@ -141,7 +141,6 @@ export const useApplyRecommendations = (): {
   const applyDiagnosis = useCallback(
     async (rec: DiagnosisRecommendation): Promise<void> => {
       const diagnoses = getChartData()?.diagnosis ?? [];
-      if (diagnoses.some((d) => d.code === rec.code)) return;
       const hasPrimary = diagnoses.some((d) => d.isPrimary);
       const prepared: DiagnosisDTO = { code: rec.code, display: rec.display, isPrimary: !hasPrimary };
       const result = await saveChartData({ diagnosis: [prepared] });
@@ -163,8 +162,6 @@ export const useApplyRecommendations = (): {
     async (rec: AllergyRecommendation): Promise<void> => {
       const name = rec.name.trim();
       if (!name) throw new Error('The allergy name is empty.');
-      const allergies = getChartData()?.allergies ?? [];
-      if (allergies.some((a) => a.current && a.name?.trim().toLowerCase() === name.toLowerCase())) return;
       // No allergen catalog id: the transcript only gives us a name, which the chart stores as an
       // "other" allergy, the same way a manually typed one is.
       const result = await saveChartData({
@@ -178,7 +175,7 @@ export const useApplyRecommendations = (): {
         { invalidateQueries: false }
       );
     },
-    [getChartData, saveChartData, chartDataSetState]
+    [saveChartData, chartDataSetState]
   );
 
   const applyWeight = useCallback(
@@ -197,8 +194,6 @@ export const useApplyRecommendations = (): {
     async (rec: MedicationRecommendation): Promise<void> => {
       const name = rec.name.trim();
       if (!name) throw new Error('The medication name is empty.');
-      const medications = getChartData()?.medications ?? [];
-      if (medications.some((m) => m.status === 'active' && m.name.trim().toLowerCase() === name.toLowerCase())) return;
       await saveChartData({
         medications: [
           {
@@ -212,7 +207,7 @@ export const useApplyRecommendations = (): {
       // The Medications screen lists from its own chart-fields query; the note summary from chart data.
       invalidateChartFields(queryClient, encounterId, ['medications']);
     },
-    [getChartData, saveChartData, queryClient, encounterId]
+    [saveChartData, queryClient, encounterId]
   );
 
   const applyRos = useCallback(
@@ -244,8 +239,25 @@ export const useApplyRecommendations = (): {
     [saveChartData, deleteChartData]
   );
 
+  // Read fresh each time: a batch writes one item at a time, and each write changes what the
+  // next one would be duplicating.
+  const currentSnapshot = useCallback(
+    (): ChartSnapshot =>
+      buildChartSnapshot({
+        chartData: getChartData(),
+        rosObservations: useRosObservationsStore.getState(),
+        historyOfPresentIllness: hpiFields?.chiefComplaint?.text,
+        vitals: queryClient.getQueryData<GetVitalsResponseData>([`current-encounter-vitals-${encounterId}`]),
+      }),
+    [getChartData, hpiFields, queryClient, encounterId]
+  );
+
   const applyOne = useCallback(
     async (rec: ScribeRecommendation): Promise<void> => {
+      // Already in the chart — from a template, an earlier apply, or the provider's own typing.
+      // Nothing to write, and the row is marked done either way.
+      if (isAlreadyCharted(rec, currentSnapshot())) return;
+
       switch (rec.kind) {
         case 'template':
           return applyTemplateRecommendation(rec);
@@ -263,7 +275,16 @@ export const useApplyRecommendations = (): {
           return applyRos(rec);
       }
     },
-    [applyTemplateRecommendation, applyHpi, applyDiagnosis, applyAllergy, applyWeight, applyMedication, applyRos]
+    [
+      currentSnapshot,
+      applyTemplateRecommendation,
+      applyHpi,
+      applyDiagnosis,
+      applyAllergy,
+      applyWeight,
+      applyMedication,
+      applyRos,
+    ]
   );
 
   const runApply = useCallback(

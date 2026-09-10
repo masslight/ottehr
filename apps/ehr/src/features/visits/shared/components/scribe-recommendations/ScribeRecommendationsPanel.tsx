@@ -20,6 +20,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { AiDisclaimerTooltip } from '../AiSection';
 import { useListTemplates } from '../templates/useListTemplates';
+import { useSyncChartedRecommendations } from './chartedRecommendations';
 import { SAMPLE_TRANSCRIPT } from './fakeScribeAnalysis';
 import { OrderSuggestions } from './OrderSuggestions';
 import { RecommendationsList } from './RecommendationsList';
@@ -146,22 +147,33 @@ const ResultsStep: FC = () => {
   const isApplying = useScribeRecommendationsStore((state) => state.isApplying);
   const setManySelected = useScribeRecommendationsStore((state) => state.setManySelected);
   const updateRecommendation = useScribeRecommendationsStore((state) => state.updateRecommendation);
+  const chartedIds = useScribeRecommendationsStore((state) => state.chartedIds);
   const { templates } = useListTemplates();
   const { applyObservations, applyRecommendation } = useApplyRecommendations();
+
+  // Watches the chart and marks off anything it already holds — whether it was there all along,
+  // arrived with the template, or the provider just entered it on one of the visit screens.
+  useSyncChartedRecommendations(recommendations);
 
   // The template writes whole sections, so it leads; the observations land on top of it.
   const template = recommendations.find((rec): rec is TemplateRecommendation => rec.kind === 'template');
   const observations = recommendations.filter((rec) => rec.section !== 'template');
 
-  const pending = observations.filter((rec) => itemState[rec.id]?.status !== 'applied');
+  const charted = new Set(chartedIds);
+  const appliedCount = observations.filter((rec) => itemState[rec.id]?.status === 'applied').length;
+  const chartedCount = observations.filter(
+    (rec) => charted.has(rec.id) && itemState[rec.id]?.status !== 'applied'
+  ).length;
+  // Only what is left to write: anything already in the chart is nothing to do.
+  const pending = observations.filter((rec) => itemState[rec.id]?.status !== 'applied' && !charted.has(rec.id));
   const selectedPending = pending.filter((rec) => itemState[rec.id]?.selected);
-  const appliedCount = observations.length - pending.length;
   const failedCount = observations.filter((rec) => itemState[rec.id]?.status === 'error').length;
   const allPendingSelected = pending.length > 0 && selectedPending.length === pending.length;
 
   const summary = [
     pending.length > 0 ? `${selectedPending.length} of ${pending.length} selected` : undefined,
     appliedCount > 0 ? `${appliedCount} added` : undefined,
+    chartedCount > 0 ? `${chartedCount} already charted` : undefined,
     failedCount > 0 ? `${failedCount} failed` : undefined,
   ]
     .filter(Boolean)

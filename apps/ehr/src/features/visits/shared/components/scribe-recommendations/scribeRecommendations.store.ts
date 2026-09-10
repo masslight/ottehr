@@ -36,6 +36,8 @@ interface ScribeRecommendationsState {
   orderSuggestions: OrderSuggestion[];
   ordersDone: Record<string, boolean>;
   isApplying: boolean;
+  /** Recommendations the chart already holds, derived from live chart data. */
+  chartedIds: string[];
 
   open: () => void;
   close: () => void;
@@ -53,6 +55,7 @@ interface ScribeRecommendationsState {
   setItemStatus: (id: string, status: RecommendationApplyStatus, error?: string) => void;
   setIsApplying: (isApplying: boolean) => void;
   setOrderDone: (id: string, done: boolean) => void;
+  setChartedIds: (ids: string[]) => void;
 }
 
 const SESSION_INITIAL = {
@@ -64,6 +67,7 @@ const SESSION_INITIAL = {
   orderSuggestions: [] as OrderSuggestion[],
   ordersDone: {} as Record<string, boolean>,
   isApplying: false,
+  chartedIds: [] as string[],
 };
 
 export const useScribeRecommendationsStore = create<ScribeRecommendationsState>()(
@@ -155,6 +159,13 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
         })),
       setIsApplying: (isApplying) => set({ isApplying }),
       setOrderDone: (id, done) => set((state) => ({ ordersDone: { ...state.ordersDone, [id]: done } })),
+      setChartedIds: (ids) =>
+        set((state) => {
+          // Chart data re-renders often; only a real change should reach subscribers.
+          const unchanged =
+            state.chartedIds.length === ids.length && state.chartedIds.every((id, index) => id === ids[index]);
+          return unchanged ? {} : { chartedIds: ids };
+        }),
     }),
     {
       name: 'ambient-scribe-recommendations-panel',

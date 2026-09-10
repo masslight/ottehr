@@ -34,11 +34,14 @@ export interface ApplyRunResult {
 
 /** Ids of the observations the provider still has checked in the "add these observations" stage. */
 export const pendingObservationIds = (): string[] => {
-  const { recommendations, itemState } = useScribeRecommendationsStore.getState();
+  const { recommendations, itemState, chartedIds } = useScribeRecommendationsStore.getState();
+  const charted = new Set(chartedIds);
   return recommendations
     .filter((rec) => {
       // The template is its own stage with its own button, so it never rides along with a batch.
       if (rec.section === 'template') return false;
+      // Anything the chart already holds is nothing to write.
+      if (charted.has(rec.id)) return false;
       const item = itemState[rec.id];
       return item?.selected && item.status !== 'applied';
     })

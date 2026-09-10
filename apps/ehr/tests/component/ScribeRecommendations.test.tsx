@@ -13,6 +13,10 @@ const mocks = vi.hoisted(() => ({
   applyOne: vi.fn(async (_recommendation: unknown): Promise<void> => undefined),
   enqueueSnackbar: vi.fn(),
   navigate: vi.fn(),
+  // What the chart already holds. The charted predicate itself is left real.
+  chartData: {} as Record<string, unknown>,
+  chartFields: {} as Record<string, unknown>,
+  vitals: undefined as Record<string, unknown> | undefined,
 }));
 
 // The fake model waits a bit to feel like a request; the tests don't need to.
@@ -89,6 +93,15 @@ vi.mock('../../src/features/visits/shared/components/templates/useListTemplates'
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ encounter: { id: 'encounter-1' } }),
+  useChartData: () => ({ chartData: mocks.chartData }),
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useChartFields', () => ({
+  useChartFields: () => ({ data: mocks.chartFields }),
+}));
+
+vi.mock('../../src/features/visits/shared/components/vitals/hooks/useGetVitals', () => ({
+  useGetVitals: () => ({ data: mocks.vitals }),
 }));
 
 // ICD-10 search needs the API; the editor just needs something that calls back with a code.
@@ -118,11 +131,16 @@ import {
   pendingObservationIds,
 } from '../../src/features/visits/shared/components/scribe-recommendations/applyRecommendations';
 import {
+  buildChartSnapshot,
+  isAlreadyCharted,
+} from '../../src/features/visits/shared/components/scribe-recommendations/chartedRecommendations';
+import {
   SCRIBE_PANEL_DEFAULT_WIDTH,
   useScribeRecommendationsStore,
 } from '../../src/features/visits/shared/components/scribe-recommendations/scribeRecommendations.store';
 import { ScribeRecommendationsDrawer } from '../../src/features/visits/shared/components/scribe-recommendations/ScribeRecommendationsDrawer';
 import { ScribeRecommendation } from '../../src/features/visits/shared/components/scribe-recommendations/types';
+import { useRosObservationsStore } from '../../src/features/visits/shared/stores/appointment/ros-observations.store';
 
 // ============================================================================
 // HELPERS
@@ -136,7 +154,12 @@ const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
 );
 
 const resetStore = (): void => {
+  mocks.chartData = {};
+  mocks.chartFields = {};
+  mocks.vitals = undefined;
+  useRosObservationsStore.setState({}, true);
   useScribeRecommendationsStore.setState({
+    chartedIds: [],
     isOpen: false,
     width: SCRIBE_PANEL_DEFAULT_WIDTH,
     encounterId: undefined,
@@ -450,6 +473,54 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(appliedIds()).toEqual(['allergy-fentanyl']);
   });
 
+  it('marks recommendations the chart already holds and leaves them out of the batch', async () => {
+    const user = userEvent.setup();
+    // the visit already has one of the diagnoses and the allergy on it
+    mocks.chartData = {
+      diagnosis: [{ code: 'R42', display: 'Dizziness and giddiness', isPrimary: false }],
+      allergies: [{ name: 'Fentanyl', current: true }],
+    };
+    await openPanelWithRecommendations(user);
+
+    const chartedRow = screen.getByTestId(testIds.row('dx-dizziness'));
+    expect(within(chartedRow).getByText('Already charted')).toBeVisible();
+    expect(rowCheckbox('dx-dizziness')).toBeDisabled();
+    expect(within(screen.getByTestId(testIds.row('allergy-fentanyl'))).getByText('Already charted')).toBeVisible();
+    // there is nothing to edit about something that is already in the chart
+    expect(screen.queryByTestId(testIds.rowEditButton('dx-dizziness'))).toBeNull();
+
+    const total = observations().length;
+    expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 2} of ${total - 2} selected`);
+    expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent('2 already charted');
+    expect(screen.getByTestId(testIds.applyObservationsButton)).toHaveTextContent(`Add ${total - 2} observations`);
+
+    await user.click(screen.getByTestId(testIds.applyObservationsButton));
+    await waitFor(() => expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 2} added`));
+    expect(appliedIds()).not.toContain('dx-dizziness');
+    expect(appliedIds()).not.toContain('allergy-fentanyl');
+  });
+
+  it('marks a suggestion off as soon as it appears in the chart elsewhere', async () => {
+    const user = userEvent.setup();
+    await openPanelWithRecommendations(user);
+
+    expect(within(screen.getByTestId(testIds.row('ros-neuro-headache'))).queryByText('Already charted')).toBeNull();
+    expect(rowCheckbox('ros-neuro-headache')).toBeEnabled();
+    const before = observations().length;
+
+    // the provider ticks Headache on the Review of Systems screen while the panel is open
+    useRosObservationsStore.setState({
+      'ros-neuro-headache-reports': { field: 'ros-neuro-headache-reports', label: 'Headache', value: true },
+    });
+
+    await waitFor(() =>
+      expect(within(screen.getByTestId(testIds.row('ros-neuro-headache'))).getByText('Already charted')).toBeVisible()
+    );
+    expect(rowCheckbox('ros-neuro-headache')).toBeDisabled();
+    expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent('1 already charted');
+    expect(screen.getByTestId(testIds.applyObservationsButton)).toHaveTextContent(`Add ${before - 1} observations`);
+  });
+
   it('keeps the transcript evidence out of the row until it is asked for', async () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
@@ -607,5 +678,68 @@ describe('applyRecommendations', () => {
     );
 
     expect(seen).toEqual(['Edited']);
+  });
+});
+
+describe('isAlreadyCharted', () => {
+  const snapshot = buildChartSnapshot({
+    chartData: {
+      diagnosis: [{ code: 'J01.90', display: 'Acute sinusitis, unspecified', isPrimary: true }],
+      allergies: [
+        { name: 'Fentanyl', current: true },
+        { name: 'Penicillin', current: false },
+      ],
+      medications: [
+        { name: 'Ibuprofen', status: 'active', type: 'as-needed', intakeInfo: {} },
+        { name: 'Amoxicillin', status: 'completed', type: 'scheduled', intakeInfo: {} },
+      ],
+    },
+    rosObservations: {
+      'ros-neuro-headache-reports': { field: 'ros-neuro-headache-reports', value: true },
+      'ros-ent-ear-pain-denies': { field: 'ros-ent-ear-pain-denies', value: false },
+    },
+    historyOfPresentIllness: 'Patient reports having post-nasal drip and sinus pressure for 1 week.',
+    vitals: undefined,
+  });
+
+  const charted = (rec: Partial<ScribeRecommendation>): boolean =>
+    isAlreadyCharted(rec as ScribeRecommendation, snapshot);
+
+  it('matches a diagnosis on its code', () => {
+    expect(charted({ kind: 'diagnosis', code: 'J01.90' })).toBe(true);
+    expect(charted({ kind: 'diagnosis', code: 'R42' })).toBe(false);
+  });
+
+  it('ignores case and spacing on names, and only counts live entries', () => {
+    expect(charted({ kind: 'allergy', name: ' fentanyl ' })).toBe(true);
+    // an inactive allergy is not charted for our purposes
+    expect(charted({ kind: 'allergy', name: 'Penicillin' })).toBe(false);
+    expect(charted({ kind: 'medication', name: 'IBUPROFEN' })).toBe(true);
+    // a completed medication is history, not a current one
+    expect(charted({ kind: 'medication', name: 'Amoxicillin' })).toBe(false);
+  });
+
+  it('matches a review-of-systems finding only on the side that was recorded', () => {
+    expect(charted({ kind: 'ros', baseKey: 'ros-neuro-headache', finding: RosFindingState.Reports })).toBe(true);
+    expect(charted({ kind: 'ros', baseKey: 'ros-neuro-headache', finding: RosFindingState.Denies })).toBe(false);
+    // recorded as false is the same as not recorded
+    expect(charted({ kind: 'ros', baseKey: 'ros-ent-ear-pain', finding: RosFindingState.Denies })).toBe(false);
+  });
+
+  it('matches HPI text already present in the note, and never claims a template is charted', () => {
+    expect(charted({ kind: 'hpi', text: 'post-nasal drip and sinus pressure for 1 week.' })).toBe(true);
+    expect(charted({ kind: 'hpi', text: 'Patient denies fever.' })).toBe(false);
+    expect(charted({ kind: 'template', templateName: 'Sinusitis' })).toBe(false);
+  });
+
+  it('treats any weight on the encounter as the weight suggestion being charted', () => {
+    const withWeight = buildChartSnapshot({
+      chartData: {},
+      rosObservations: {},
+      historyOfPresentIllness: undefined,
+      vitals: { 'vital-weight': [{ field: 'vital-weight', value: 77 }] } as never,
+    });
+    expect(isAlreadyCharted({ kind: 'vital-weight', weightLbs: 170 } as ScribeRecommendation, withWeight)).toBe(true);
+    expect(charted({ kind: 'vital-weight', weightLbs: 170 })).toBe(false);
   });
 });
