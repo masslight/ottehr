@@ -23,9 +23,7 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 // A FHIR batch runs its entries one after another on the server, so one batch of N searches costs roughly
-// the sum of all N. Splitting the chart searches into several concurrent batches turns that sum into a max:
-// measured against this backend, the progress note's ~18 searches took 455ms as one batch and 173ms as six
-// concurrent batches of three, while three batches of six were indistinguishable from six of three.
+// the sum of all N. Splitting the chart searches into several concurrent batches turns that sum into a max.
 const CHART_DATA_BATCH_TARGET_CONCURRENCY = 6;
 const CHART_DATA_MIN_BATCH_SIZE = 3;
 

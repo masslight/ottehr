@@ -56,7 +56,7 @@ export const useChartDataArrayValue = <
   const values = (customParams ? currentFieldData?.[name] || [] : unscopedValues) as K;
 
   // Both caches are patched from the save/delete response instead of re-running the unscoped chart's
-  // thirteen FHIR searches after every change. The unscoped query is marked stale (not refetched) so the
+  // many FHIR searches after every change. The unscoped query is marked stale (not refetched) so the
   // next screen that mounts it still starts from the server.
   const patchUnscopedChart = (next: SaveableDTO[]): void => {
     setPartialChartData({ [name]: next } as Partial<ChartDataResponse>, { invalidateQueries: false });
