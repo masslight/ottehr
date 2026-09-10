@@ -1,12 +1,19 @@
 /**
- * The FHIR cost of opening Review & Sign once the EHR reads the chart through the sections: the page makes
- * two chart reads — get-visit-note, and get-chart-section for the addendum list, whose note type is not part
- * of the visit note's set (see apps/ehr/src/features/visits/shared/hooks/reviewAndSignLoad.test.tsx for the
- * client side of that measurement). Both run here through the real builders against the golden FHIR server.
+ * The FHIR cost of opening Review & Sign once the EHR reads the chart through the sections: one chart read,
+ * get-visit-note. The addendum list on the page reads its own note type from the visit note's list (see
+ * apps/ehr/src/features/visits/shared/hooks/reviewAndSignLoad.test.tsx for the client side of that
+ * measurement). The read runs here through the real builders against the golden FHIR server.
+ *
+ * For comparison, measured the same way before this project: 13 chart reads, 27 FHIR round trips and 71
+ * searches (40 of them repeats); after Phase 0: 4 reads, 13 round trips, 33 searches.
+ *
+ * The six round trips are six concurrent batches on purpose: a FHIR batch runs its entries one after another
+ * on the server, so one batch of 32 searches would take roughly the sum of them all, while six batches run
+ * side by side (CHART_BATCH_TARGET_CONCURRENCY in shared/chart-sections/fetch.ts). Set it to 1 to trade the
+ * page's latency for a single round trip.
  */
-import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { buildChartSection } from '../../src/shared/chart-sections/registry';
+import { CHART_BATCH_TARGET_CONCURRENCY } from '../../src/shared/chart-sections/fetch';
 import { buildVisitNote } from '../../src/shared/chart-sections/visit-note';
 import { buildGoldenChartResources, GOLDEN_IDS, GOLDEN_NOW } from './fixtures/chart-data-golden.fixture';
 import { createGoldenFhirServer, GoldenFhirServer } from './fixtures/golden-fhir-server';
@@ -24,36 +31,22 @@ describe('Review & Sign FHIR budget', () => {
     vi.useRealTimers();
   });
 
-  it('costs two chart reads, nine FHIR round trips and 35 searches for the whole page', async () => {
-    const client = { oystehr: server.oystehr, m2mToken: 'token' };
-    const perRead: Record<string, { fhirHttpRequests: number; fhirSearches: number }> = {};
+  it('costs one chart read, six FHIR round trips and 32 searches for the whole page', async () => {
+    await buildVisitNote({ oystehr: server.oystehr, m2mToken: 'token' }, GOLDEN_IDS.encounterId);
 
-    const measure = async (name: string, read: () => Promise<unknown>): Promise<void> => {
-      const before = server.recorded.length;
-      await read();
-      const mine = server.recorded.slice(before);
-      perRead[name] = {
-        fhirHttpRequests: mine.length,
-        fhirSearches: mine.reduce((n, call) => n + call.urls.length, 0),
-      };
-    };
-
-    await measure('get-visit-note', () => buildVisitNote(client, GOLDEN_IDS.encounterId));
-    await measure('get-chart-section notes (addendum)', () =>
-      buildChartSection(client, GOLDEN_IDS.encounterId, 'notes', { types: [NOTE_TYPE.ADDENDUM] })
-    );
-
-    expect(perRead).toEqual({
-      'get-visit-note': { fhirHttpRequests: 8, fhirSearches: 33 },
-      'get-chart-section notes (addendum)': { fhirHttpRequests: 1, fhirSearches: 2 },
-    });
     const urls = server.recorded.flatMap((call) => call.urls);
     expect({
-      chartReads: Object.keys(perRead).length,
+      chartReads: 1,
       fhirHttpRequests: server.recorded.length,
       fhirSearches: urls.length,
-      // The Encounter read is the only search issued twice: each zambda call anchors itself on it.
       repeatedSearches: urls.length - new Set(urls).size,
-    }).toEqual({ chartReads: 2, fhirHttpRequests: 9, fhirSearches: 35, repeatedSearches: 1 });
+      largestBatch: Math.max(...server.recorded.map((call) => call.urls.length)),
+    }).toEqual({
+      chartReads: 1,
+      fhirHttpRequests: CHART_BATCH_TARGET_CONCURRENCY,
+      fhirSearches: 32,
+      repeatedSearches: 0,
+      largestBatch: 6,
+    });
   });
 });
