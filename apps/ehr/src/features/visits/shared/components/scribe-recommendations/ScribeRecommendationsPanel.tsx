@@ -44,7 +44,7 @@ export const ScribeRecommendationsPanel: FC<ScribeRecommendationsPanelProps> = (
       data-testid={testIds.panel}
       sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
       role="complementary"
-      aria-label="Ambient Scribe recommendations"
+      aria-label="AI Chart Recommendations"
     >
       <Box
         sx={{
@@ -52,20 +52,15 @@ export const ScribeRecommendationsPanel: FC<ScribeRecommendationsPanelProps> = (
           alignItems: 'center',
           gap: 1,
           px: 1.5,
-          minHeight: 48,
+          minHeight: 40,
           borderBottom: `1px solid ${theme.palette.divider}`,
           flexShrink: 0,
         }}
       >
         <img src={aiIcon} alt="" aria-hidden style={{ width: 22 }} />
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
-            Ambient Scribe
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
-            Charting recommendations
-          </Typography>
-        </Box>
+        <Typography variant="subtitle2" sx={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 13 }}>
+          AI Chart Recommendations
+        </Typography>
         <AiDisclaimerTooltip />
         <Tooltip title="Collapse panel">
           <IconButton

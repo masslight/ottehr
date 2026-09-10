@@ -98,8 +98,8 @@ export const ScribeRecommendationsDrawer: FC = () => {
           backgroundColor: theme.palette.background.paper,
         }}
       >
-        <Tooltip title="Ambient Scribe recommendations" placement="left">
-          <IconButton onClick={open} aria-label="Open Ambient Scribe recommendations" data-testid={testIds.openButton}>
+        <Tooltip title="AI Chart Recommendations" placement="left">
+          <IconButton onClick={open} aria-label="Open AI Chart Recommendations" data-testid={testIds.openButton}>
             <Badge badgeContent={pendingCount} color="primary" max={99}>
               <img src={aiIcon} alt="" aria-hidden style={{ width: 22 }} />
             </Badge>
