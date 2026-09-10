@@ -219,9 +219,11 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(within(observationsStage).getByText(/observations, which I read in the transcript/)).toBeVisible();
     expect(within(orders).getByText(/orders you might want to make/)).toBeVisible();
 
-    // stage one is a single named template with its own button, not a row in the list below
-    expect(within(template).getByText('Sinusitis')).toBeVisible();
+    // stage one is a single button naming the template, not a row in the list below
+    expect(within(template).getByTestId(testIds.templateApplyButton)).toHaveTextContent('Apply template: Sinusitis');
     expect(within(template).getByTestId(testIds.templateApplyButton)).toBeEnabled();
+    // and it carries the same rail as the observation groups
+    expect(within(template).getByTestId(testIds.goToSectionButton('template'))).toBeVisible();
     expect(screen.queryByTestId(testIds.rowCheckbox(TEMPLATE_ID))).toBeNull();
     expect(screen.queryByTestId(testIds.group('template'))).toBeNull();
 
@@ -255,6 +257,19 @@ describe('ScribeRecommendationsDrawer', () => {
 
     await user.click(within(orders).getByTestId(testIds.orderButton('order-dexamethasone')));
     expect(mocks.navigate).toHaveBeenCalledWith('/in-person/appointment-1/in-house-medication/order/new');
+  });
+
+  it('puts the primary diagnosis at the head of the assessment group', async () => {
+    const user = userEvent.setup();
+    await openPanelWithRecommendations(user);
+
+    const rows = within(screen.getByTestId(testIds.group('assessment'))).getAllByTestId(/^scribe-row-dx-/);
+    expect(rows.map((row) => row.getAttribute('data-testid'))).toEqual([
+      'scribe-row-dx-acute-sinusitis',
+      'scribe-row-dx-postnasal-drip',
+      'scribe-row-dx-dizziness',
+    ]);
+    expect(within(rows[0]).getByText('Primary')).toBeVisible();
   });
 
   it('leads each review-of-systems row with the finding, positives first', async () => {
@@ -303,7 +318,7 @@ describe('ScribeRecommendationsDrawer', () => {
       sectionActions: { hpi: 'append', ros: 'skip', mdm: 'overwrite' },
     });
     expect(screen.queryByTestId('template-preview-dialog')).toBeNull();
-    expect(screen.getByTestId(testIds.rowStatus(TEMPLATE_ID))).toHaveTextContent('Template applied');
+    expect(screen.getByTestId(testIds.rowStatus(TEMPLATE_ID))).toHaveTextContent('Sinusitis applied');
     // the observations are still waiting on their own button
     observations().forEach((rec) => expect(rowCheckbox(rec.id)).toBeChecked());
     expect(screen.getByTestId(testIds.applyObservationsButton)).toBeEnabled();
@@ -389,13 +404,14 @@ describe('ScribeRecommendationsDrawer', () => {
     await user.click(screen.getByTestId(testIds.rowEditInput(TEMPLATE_ID)));
     await user.click(screen.getByRole('option', { name: 'Sinusitis: Wait See' }));
     await user.click(screen.getByTestId(testIds.rowEditSaveButton(TEMPLATE_ID)));
-    expect(screen.getByText('Sinusitis: Wait See')).toBeVisible();
+    // picking a different template clears the failure, so this is a fresh apply rather than a retry
+    expect(screen.getByTestId(testIds.templateApplyButton)).toHaveTextContent('Apply template: Sinusitis: Wait See');
 
     mocks.applyOne.mockResolvedValue(undefined);
     await user.click(screen.getByTestId(testIds.templateApplyButton));
     await user.click(screen.getByTestId('preview-apply'));
     await waitFor(() =>
-      expect(screen.getByTestId(testIds.rowStatus(TEMPLATE_ID))).toHaveTextContent('Template applied')
+      expect(screen.getByTestId(testIds.rowStatus(TEMPLATE_ID))).toHaveTextContent('Sinusitis: Wait See applied')
     );
   });
 

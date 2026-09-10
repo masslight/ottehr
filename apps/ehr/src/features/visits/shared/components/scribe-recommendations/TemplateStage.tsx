@@ -1,17 +1,17 @@
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Box, Collapse, IconButton, Paper, Tooltip, Typography, useTheme } from '@mui/material';
+import { Box, Collapse, IconButton, Paper, Tooltip, Typography } from '@mui/material';
 import { FC, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { TemplatePreviewApplyOptions, TemplateSectionActions } from 'utils/lib/types/data/apply-template.types';
-import { sidebarMenuIcons } from '../sidebarMenuIcons';
 import { TemplatePreviewDialog } from '../templates/TemplatePreviewDialog';
 import { TemplateOption } from '../templates/useListTemplates';
 import { hasProvenance, ProvenanceContent, ProvenancePanel, ProvenanceToggle } from './Provenance';
 import { RecommendationEditor } from './RecommendationRow';
 import { RecommendationItemState } from './scribeRecommendations.store';
 import { describeRecommendation } from './scribeSections';
+import { SectionRail } from './SectionRail';
 import { ScribeRecommendation, TemplateRecommendation } from './types';
 
 interface TemplateStageProps {
@@ -40,7 +40,6 @@ export const TemplateStage: FC<TemplateStageProps> = ({
   onEdit,
   onApply,
 }) => {
-  const theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -63,97 +62,89 @@ export const TemplateStage: FC<TemplateStageProps> = ({
     <Paper
       variant="outlined"
       data-testid={testIds.row(recommendation.id)}
-      sx={{ p: 1.5, backgroundColor: isApplied ? undefined : theme.palette.action.hover }}
+      sx={{ display: 'flex', alignItems: 'stretch', overflow: 'hidden' }}
     >
-      {isEditing ? (
-        <RecommendationEditor
-          recommendation={recommendation}
-          templates={templates}
-          onSave={(patch) => {
-            onEdit(patch);
-            setIsEditing(false);
-          }}
-          onCancel={() => setIsEditing(false)}
-        />
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-            <Box
-              sx={{
-                display: 'flex',
-                color: theme.palette.primary.dark,
-                mt: '2px',
-                '& svg': { width: 18, height: 18 },
-              }}
-            >
-              {sidebarMenuIcons['History']}
-            </Box>
-            <Typography variant="body2" sx={{ flex: 1, fontWeight: 600, overflowWrap: 'anywhere' }}>
-              {recommendation.templateName}
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
-              {hasProvenance(provenance) && (
-                <ProvenanceToggle
-                  content={<ProvenanceContent {...provenance} />}
-                  isOpen={isDetailOpen}
-                  onToggle={() => setIsDetailOpen((open) => !open)}
-                  subject={recommendation.templateName}
-                  hasWarning={Boolean(warning)}
-                  dataTestId={testIds.rowDetailButton(recommendation.id)}
-                />
+      <SectionRail section="template" />
+
+      <Box sx={{ flex: 1, minWidth: 0, p: 1 }}>
+        {isEditing ? (
+          <RecommendationEditor
+            recommendation={recommendation}
+            templates={templates}
+            onSave={(patch) => {
+              onEdit(patch);
+              setIsEditing(false);
+            }}
+            onCancel={() => setIsEditing(false)}
+          />
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {isApplied ? (
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, color: 'success.main' }}
+                  data-testid={testIds.rowStatus(recommendation.id)}
+                >
+                  <CheckCircleIcon sx={{ fontSize: 18, flexShrink: 0 }} />
+                  <Typography variant="body2">{`${recommendation.templateName} applied`}</Typography>
+                </Box>
+              ) : (
+                <RoundedButton
+                  variant="contained"
+                  size="small"
+                  onClick={() => setIsPreviewOpen(true)}
+                  loading={isApplying}
+                  disabled={locked || templateMissing}
+                  data-testid={testIds.templateApplyButton}
+                  // The name belongs in the button: there is one thing to do here, and this says
+                  // exactly what it will do. Long template names wrap rather than overflow.
+                  sx={{ flex: 1, whiteSpace: 'normal', textAlign: 'left', justifyContent: 'flex-start' }}
+                >
+                  {`${itemState.status === 'error' ? 'Try again' : 'Apply template'}: ${recommendation.templateName}`}
+                </RoundedButton>
               )}
-              {!isApplied && !isApplying && !locked && (
-                <Tooltip title="Choose a different template">
-                  <IconButton
-                    size="small"
-                    onClick={() => setIsEditing(true)}
-                    aria-label={`Choose a different template than ${recommendation.templateName}`}
-                    data-testid={testIds.rowEditButton(recommendation.id)}
-                    sx={{ p: 0.5 }}
-                  >
-                    <EditOutlinedIcon sx={{ fontSize: 18 }} />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Box>
-          </Box>
 
-          <Collapse in={isDetailOpen} unmountOnExit>
-            <ProvenancePanel hasWarning={Boolean(warning)} dataTestId={testIds.rowDetail(recommendation.id)}>
-              <ProvenanceContent {...provenance} />
-            </ProvenancePanel>
-          </Collapse>
-
-          {itemState.status === 'error' && (
-            <Typography variant="caption" color="error">
-              {itemState.error ?? 'Could not apply the template.'}
-            </Typography>
-          )}
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {isApplied ? (
-              <Box
-                sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'success.main' }}
-                data-testid={testIds.rowStatus(recommendation.id)}
-              >
-                <CheckCircleIcon sx={{ fontSize: 18 }} />
-                <Typography variant="body2">Template applied</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
+                {hasProvenance(provenance) && (
+                  <ProvenanceToggle
+                    content={<ProvenanceContent {...provenance} />}
+                    isOpen={isDetailOpen}
+                    onToggle={() => setIsDetailOpen((open) => !open)}
+                    subject={recommendation.templateName}
+                    hasWarning={Boolean(warning)}
+                    dataTestId={testIds.rowDetailButton(recommendation.id)}
+                  />
+                )}
+                {!isApplied && !isApplying && !locked && (
+                  <Tooltip title="Choose a different template">
+                    <IconButton
+                      size="small"
+                      onClick={() => setIsEditing(true)}
+                      aria-label={`Choose a different template than ${recommendation.templateName}`}
+                      data-testid={testIds.rowEditButton(recommendation.id)}
+                      sx={{ p: 0.5 }}
+                    >
+                      <EditOutlinedIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Box>
-            ) : (
-              <RoundedButton
-                variant="contained"
-                size="small"
-                onClick={() => setIsPreviewOpen(true)}
-                loading={isApplying}
-                disabled={locked || templateMissing}
-                data-testid={testIds.templateApplyButton}
-              >
-                {itemState.status === 'error' ? 'Try again' : 'Apply template'}
-              </RoundedButton>
+            </Box>
+
+            <Collapse in={isDetailOpen} unmountOnExit>
+              <ProvenancePanel hasWarning={Boolean(warning)} dataTestId={testIds.rowDetail(recommendation.id)}>
+                <ProvenanceContent {...provenance} />
+              </ProvenancePanel>
+            </Collapse>
+
+            {itemState.status === 'error' && (
+              <Typography variant="caption" color="error">
+                {itemState.error ?? 'Could not apply the template.'}
+              </Typography>
             )}
           </Box>
-        </Box>
-      )}
+        )}
+      </Box>
 
       {/* The same dialog the HPI screen uses, so the provider picks which parts of the template
           to take here rather than getting all of it or none of it. */}

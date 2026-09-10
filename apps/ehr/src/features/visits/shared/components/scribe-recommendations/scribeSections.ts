@@ -96,13 +96,18 @@ export const describeRecommendation = (rec: ScribeRecommendation): Recommendatio
 };
 
 /**
- * Reading order within a group. Positive review-of-systems findings carry the clinical weight, so
- * they sit above the denials rather than in whatever order the transcript happened to mention
- * them. Everything else keeps the order the AI returned.
+ * Reading order within a group: whatever carries the most clinical weight first, rather than
+ * whatever order the transcript happened to mention it in. Positive review-of-systems findings
+ * lead the denials, and the primary diagnosis leads the rest. Everything else keeps the order the
+ * AI returned.
  */
 export const sortForReview = (recommendations: ScribeRecommendation[]): ScribeRecommendation[] => {
-  const weight = (rec: ScribeRecommendation): number =>
-    rec.kind === 'ros' && rec.finding === RosFindingState.Denies ? 1 : 0;
+  const weight = (rec: ScribeRecommendation): number => {
+    if (rec.kind === 'ros') return rec.finding === RosFindingState.Denies ? 1 : 0;
+    // The primary diagnosis is the one the visit is coded and billed on, so it heads the list.
+    if (rec.kind === 'diagnosis') return rec.isPrimary ? 0 : 1;
+    return 0;
+  };
   return [...recommendations].sort((a, b) => weight(a) - weight(b));
 };
 
