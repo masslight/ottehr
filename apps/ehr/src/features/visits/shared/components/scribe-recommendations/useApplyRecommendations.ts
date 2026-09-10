@@ -26,7 +26,7 @@ import {
 } from '../../stores/appointment/ros-observations.store';
 import { useListTemplates } from '../templates/useListTemplates';
 import { useSaveVitals } from '../vitals/hooks/useSaveVitals';
-import { applySelectedRecommendations } from './applySelectedRecommendations';
+import { applyRecommendations, pendingObservationIds } from './applyRecommendations';
 import {
   AllergyRecommendation,
   DiagnosisRecommendation,
@@ -64,7 +64,12 @@ export const SCRIBE_TEMPLATE_SECTION_ACTIONS: TemplateSectionActions = {
  * use. Each `apply*` below mirrors what the corresponding screen does when a provider enters the
  * same thing by hand, including how it keeps the client-side caches in step.
  */
-export const useApplyRecommendations = (): { applySelected: () => Promise<void> } => {
+export const useApplyRecommendations = (): {
+  /** Stage 2: everything still checked in the observations list. */
+  applyObservations: () => Promise<void>;
+  /** Stage 1: one recommendation on its own button, whether or not it is checked. */
+  applyRecommendation: (id: string) => Promise<void>;
+} => {
   const { encounter } = useAppointmentData();
   const encounterId = encounter?.id;
   const queryClient = useQueryClient();
@@ -259,26 +264,41 @@ export const useApplyRecommendations = (): { applySelected: () => Promise<void> 
     [applyTemplateRecommendation, applyHpi, applyDiagnosis, applyAllergy, applyWeight, applyMedication, applyRos]
   );
 
-  const applySelected = useCallback(async (): Promise<void> => {
-    const { applied, failed } = await applySelectedRecommendations(applyOne, {
-      // Reconcile every summary on screen with what the server actually stored. Allergies and
-      // diagnoses live on the chart-data query itself; the fields below have caches of their own.
-      reconcile: async () => {
-        await refetchChartData();
-        invalidateChartFields(queryClient, encounterId, ['chiefComplaint', 'medications', 'vitalsObservations']);
-      },
-    });
+  const runApply = useCallback(
+    async (ids: string[]): Promise<{ applied: number; failed: number }> =>
+      applyRecommendations(ids, applyOne, {
+        // Reconcile every summary on screen with what the server actually stored. Allergies and
+        // diagnoses live on the chart-data query itself; the fields below have caches of their own.
+        reconcile: async () => {
+          await refetchChartData();
+          invalidateChartFields(queryClient, encounterId, ['chiefComplaint', 'medications', 'vitalsObservations']);
+        },
+      }),
+    [applyOne, refetchChartData, queryClient, encounterId]
+  );
+
+  const applyObservations = useCallback(async (): Promise<void> => {
+    const { applied, failed } = await runApply(pendingObservationIds());
     if (applied === 0 && failed === 0) return;
 
-    const noun = (count: number): string => `${count} recommendation${count === 1 ? '' : 's'}`;
+    const noun = (count: number): string => `${count} observation${count === 1 ? '' : 's'}`;
     if (failed === 0) {
-      enqueueSnackbar(`Applied ${noun(applied)} to the progress note.`, { variant: 'success' });
+      enqueueSnackbar(`Added ${noun(applied)} to the progress note.`, { variant: 'success' });
     } else {
-      enqueueSnackbar(`Applied ${noun(applied)}; ${failed} could not be applied. See the panel for details.`, {
+      enqueueSnackbar(`Added ${noun(applied)}; ${failed} could not be applied. See the panel for details.`, {
         variant: 'warning',
       });
     }
-  }, [applyOne, refetchChartData, queryClient, encounterId]);
+  }, [runApply]);
 
-  return { applySelected };
+  const applySingle = useCallback(
+    async (id: string): Promise<void> => {
+      const { applied } = await runApply([id]);
+      // A single row shows its own outcome, so only the happy path needs a word.
+      if (applied > 0) enqueueSnackbar('Applied to the progress note.', { variant: 'success' });
+    },
+    [runApply]
+  );
+
+  return { applyObservations, applyRecommendation: applySingle };
 };

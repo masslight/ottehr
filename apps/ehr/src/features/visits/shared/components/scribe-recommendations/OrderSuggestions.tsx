@@ -11,12 +11,10 @@ import { OrderSuggestion } from './types';
 const testIds = dataTestIds.scribeRecommendations;
 
 /**
- * Things the AI proposes ordering. Deliberately not part of "Apply to progress note": an order is
- * a clinical decision with its own workflow, so this is a checklist the provider works through and
- * ticks off by hand.
+ * Stage three. An order is a clinical decision with its own workflow, so nothing here is ever
+ * written by the panel: it is a checklist the provider works through and ticks off by hand.
  */
 export const OrderSuggestions: FC = () => {
-  const theme = useTheme();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const orderSuggestions = useScribeRecommendationsStore((state) => state.orderSuggestions);
@@ -32,14 +30,6 @@ export const OrderSuggestions: FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      <Box>
-        <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', color: theme.palette.primary.dark }}>
-          Suggested orders
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          You may wish to give one or both of:
-        </Typography>
-      </Box>
       <Paper variant="outlined">
         {orderSuggestions.map((order) => (
           <OrderSuggestionRow

@@ -11,18 +11,19 @@ import { getVisitBasePath, SCRIBE_SECTION_ORDER, SCRIBE_SECTIONS } from './scrib
 import { ScribeRecommendation, ScribeSectionKey } from './types';
 
 interface RecommendationsListProps {
+  /** The observations to group. The template is its own stage, so it never appears here. */
+  recommendations: ScribeRecommendation[];
   templates: TemplateOption[];
   onRetry: () => void;
 }
 
 const testIds = dataTestIds.scribeRecommendations;
 
-/** The structured recommendations, grouped by the chart section each one writes into. */
-export const RecommendationsList: FC<RecommendationsListProps> = ({ templates, onRetry }) => {
+/** Stage two: the individual observations, grouped by the chart section each one writes into. */
+export const RecommendationsList: FC<RecommendationsListProps> = ({ recommendations, templates, onRetry }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const recommendations = useScribeRecommendationsStore((state) => state.recommendations);
   const itemState = useScribeRecommendationsStore((state) => state.itemState);
   const isApplying = useScribeRecommendationsStore((state) => state.isApplying);
   const setSelected = useScribeRecommendationsStore((state) => state.setSelected);

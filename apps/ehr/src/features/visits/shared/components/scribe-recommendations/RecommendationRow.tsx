@@ -223,7 +223,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
   );
 };
 
-interface RecommendationEditorProps {
+export interface RecommendationEditorProps {
   recommendation: ScribeRecommendation;
   templates: TemplateOption[];
   onSave: (patch: Partial<ScribeRecommendation>) => void;
@@ -231,7 +231,12 @@ interface RecommendationEditorProps {
 }
 
 /** Inline editor for the parts of a recommendation a provider is likely to want to correct. */
-const RecommendationEditor: FC<RecommendationEditorProps> = ({ recommendation, templates, onSave, onCancel }) => {
+export const RecommendationEditor: FC<RecommendationEditorProps> = ({
+  recommendation,
+  templates,
+  onSave,
+  onCancel,
+}) => {
   const id = recommendation.id;
   const [text, setText] = useState(() => {
     switch (recommendation.kind) {

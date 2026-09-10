@@ -16,7 +16,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { FC } from 'react';
+import { FC, Fragment, ReactNode } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { AiDisclaimerTooltip } from '../AiSection';
@@ -25,6 +25,9 @@ import { SAMPLE_TRANSCRIPT } from './fakeScribeAnalysis';
 import { OrderSuggestions } from './OrderSuggestions';
 import { RecommendationsList } from './RecommendationsList';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
+import { ScribeStage } from './ScribeStage';
+import { TemplateStage } from './TemplateStage';
+import { TemplateRecommendation } from './types';
 import { useApplyRecommendations } from './useApplyRecommendations';
 
 interface ScribeRecommendationsPanelProps {
@@ -142,130 +145,185 @@ const TranscriptStep: FC = () => {
 };
 
 const ResultsStep: FC = () => {
-  const theme = useTheme();
   const transcript = useScribeRecommendationsStore((state) => state.transcript);
   const recommendations = useScribeRecommendationsStore((state) => state.recommendations);
   const itemState = useScribeRecommendationsStore((state) => state.itemState);
+  const orderSuggestions = useScribeRecommendationsStore((state) => state.orderSuggestions);
   const isApplying = useScribeRecommendationsStore((state) => state.isApplying);
-  const resetAnalysis = useScribeRecommendationsStore((state) => state.resetAnalysis);
   const setManySelected = useScribeRecommendationsStore((state) => state.setManySelected);
+  const updateRecommendation = useScribeRecommendationsStore((state) => state.updateRecommendation);
   const { templates } = useListTemplates();
-  const { applySelected } = useApplyRecommendations();
+  const { applyObservations, applyRecommendation } = useApplyRecommendations();
 
-  const pending = recommendations.filter((rec) => itemState[rec.id]?.status !== 'applied');
+  // The template writes whole sections, so it leads; the observations land on top of it.
+  const template = recommendations.find((rec): rec is TemplateRecommendation => rec.kind === 'template');
+  const observations = recommendations.filter((rec) => rec.section !== 'template');
+
+  const pending = observations.filter((rec) => itemState[rec.id]?.status !== 'applied');
   const selectedPending = pending.filter((rec) => itemState[rec.id]?.selected);
-  const appliedCount = recommendations.length - pending.length;
-  const failedCount = recommendations.filter((rec) => itemState[rec.id]?.status === 'error').length;
+  const appliedCount = observations.length - pending.length;
+  const failedCount = observations.filter((rec) => itemState[rec.id]?.status === 'error').length;
   const allPendingSelected = pending.length > 0 && selectedPending.length === pending.length;
 
   const summary = [
-    `${selectedPending.length} of ${pending.length} selected`,
-    appliedCount > 0 ? `${appliedCount} applied` : undefined,
+    pending.length > 0 ? `${selectedPending.length} of ${pending.length} selected` : undefined,
+    appliedCount > 0 ? `${appliedCount} added` : undefined,
     failedCount > 0 ? `${failedCount} failed` : undefined,
   ]
     .filter(Boolean)
     .join(' · ');
 
-  return (
-    <>
-      <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Accordion variant="outlined" disableGutters sx={{ '&:before': { display: 'none' } }}>
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            sx={{ minHeight: 40, '& .MuiAccordionSummary-content': { my: 0.5 } }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, gap: 1 }}>
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                Transcript
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {transcript.trim().split(/\s+/).length} words
-              </Typography>
-            </Box>
-          </AccordionSummary>
-          <AccordionDetails sx={{ pt: 0 }}>
-            <Typography
-              variant="body2"
-              sx={{ whiteSpace: 'pre-wrap', maxHeight: 220, overflowY: 'auto', color: 'text.secondary' }}
-            >
-              {transcript}
+  // Stages are numbered by what is actually on screen, so a transcript with no template still
+  // reads 1, 2 rather than starting at 2.
+  const stages: ReactNode[] = [];
+  const nextNumber = (): number => stages.length + 1;
+
+  if (template) {
+    stages.push(
+      <ScribeStage
+        key="template"
+        number={nextNumber()}
+        name="template"
+        lead="There’s a template that looks like a good fit. I recommend applying it first."
+      >
+        <TemplateStage
+          recommendation={template}
+          itemState={itemState[template.id] ?? { selected: true, status: 'idle' }}
+          templates={templates}
+          locked={isApplying}
+          onEdit={(patch) => updateRecommendation(template.id, patch)}
+          onApply={() => void applyRecommendation(template.id)}
+        />
+      </ScribeStage>
+    );
+  }
+
+  if (observations.length > 0) {
+    stages.push(
+      <ScribeStage
+        key="observations"
+        number={nextNumber()}
+        name="observations"
+        lead="Then add these observations, which I read in the transcript."
+      >
+        <RecommendationsList
+          recommendations={observations}
+          templates={templates}
+          onRetry={() => void applyObservations()}
+        />
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <Typography variant="caption" color="text.secondary" data-testid={testIds.selectionSummary}>
+              {summary}
             </Typography>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+            {pending.length > 0 && (
               <Button
                 size="small"
-                onClick={resetAnalysis}
+                onClick={() =>
+                  setManySelected(
+                    pending.map((rec) => rec.id),
+                    !allPendingSelected
+                  )
+                }
                 disabled={isApplying}
-                sx={{ textTransform: 'none' }}
-                data-testid={testIds.editTranscriptButton}
+                sx={{ textTransform: 'none', alignSelf: 'flex-start', minWidth: 0, p: 0, fontSize: 12 }}
+                data-testid={testIds.toggleAllButton}
               >
-                Edit transcript &amp; run again
+                {allPendingSelected ? 'Deselect all' : 'Select all'}
               </Button>
-            </Box>
-          </AccordionDetails>
-        </Accordion>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Box>
-            <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', color: theme.palette.primary.dark }}>
-              Chart updates
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Checked items are written to the note when you apply. Uncheck anything you don’t want, or edit it first.
-            </Typography>
+            )}
           </Box>
-          <RecommendationsList templates={templates} onRetry={() => void applySelected()} />
-        </Box>
-
-        <Divider />
-
-        <OrderSuggestions />
-      </Box>
-
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 1,
-          px: 2,
-          py: 1.5,
-          borderTop: `1px solid ${theme.palette.divider}`,
-          backgroundColor: theme.palette.background.paper,
-          flexShrink: 0,
-          flexWrap: 'wrap',
-        }}
-      >
-        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <Typography variant="caption" color="text.secondary" data-testid={testIds.selectionSummary}>
-            {summary}
-          </Typography>
+          {/* Once every observation is in the chart there is nothing left for this button to do. */}
           {pending.length > 0 && (
-            <Button
-              size="small"
-              onClick={() =>
-                setManySelected(
-                  pending.map((rec) => rec.id),
-                  !allPendingSelected
-                )
-              }
-              disabled={isApplying}
-              sx={{ textTransform: 'none', alignSelf: 'flex-start', minWidth: 0, p: 0, fontSize: 12 }}
-              data-testid={testIds.toggleAllButton}
+            <RoundedButton
+              variant="contained"
+              onClick={() => void applyObservations()}
+              disabled={selectedPending.length === 0 || isApplying}
+              loading={isApplying}
+              data-testid={testIds.applyObservationsButton}
             >
-              {allPendingSelected ? 'Deselect all' : 'Select all'}
-            </Button>
+              {selectedPending.length === 0
+                ? 'Add observations'
+                : `Add ${selectedPending.length} ${selectedPending.length === 1 ? 'observation' : 'observations'}`}
+            </RoundedButton>
           )}
         </Box>
-        <RoundedButton
-          variant="contained"
-          onClick={() => void applySelected()}
-          disabled={selectedPending.length === 0 || isApplying}
-          loading={isApplying}
-          data-testid={testIds.applyButton}
+      </ScribeStage>
+    );
+  }
+
+  if (orderSuggestions.length > 0) {
+    stages.push(
+      <ScribeStage
+        key="orders"
+        number={nextNumber()}
+        name="orders"
+        lead="Finally, here are some orders you might want to make:"
+      >
+        <OrderSuggestions />
+      </ScribeStage>
+    );
+  }
+
+  return (
+    <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <TranscriptSummary transcript={transcript} />
+      {stages.map((stage, index) => (
+        <Fragment key={index}>
+          {index > 0 && <Divider />}
+          {stage}
+        </Fragment>
+      ))}
+    </Box>
+  );
+};
+
+const TranscriptSummary: FC<{ transcript: string }> = ({ transcript }) => {
+  const resetAnalysis = useScribeRecommendationsStore((state) => state.resetAnalysis);
+  const isApplying = useScribeRecommendationsStore((state) => state.isApplying);
+
+  return (
+    <Accordion variant="outlined" disableGutters sx={{ '&:before': { display: 'none' } }}>
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon />}
+        sx={{ minHeight: 40, '& .MuiAccordionSummary-content': { my: 0.5 } }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, gap: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            Transcript
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {transcript.trim().split(/\s+/).length} words
+          </Typography>
+        </Box>
+      </AccordionSummary>
+      <AccordionDetails sx={{ pt: 0 }}>
+        <Typography
+          variant="body2"
+          sx={{ whiteSpace: 'pre-wrap', maxHeight: 220, overflowY: 'auto', color: 'text.secondary' }}
         >
-          Apply to progress note
-        </RoundedButton>
-      </Box>
-    </>
+          {transcript}
+        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+          <Button
+            size="small"
+            onClick={resetAnalysis}
+            disabled={isApplying}
+            sx={{ textTransform: 'none' }}
+            data-testid={testIds.editTranscriptButton}
+          >
+            Edit transcript &amp; run again
+          </Button>
+        </Box>
+      </AccordionDetails>
+    </Accordion>
   );
 };
