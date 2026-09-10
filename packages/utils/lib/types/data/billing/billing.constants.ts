@@ -4,6 +4,11 @@ import { Patient } from 'fhir/r4b';
 // (description, system flag) is a separate Basic resource (see save-billing-tag).
 export const CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/claim-tag';
 
+export const BILLING_CLAIM_TASK_CODING = {
+  system: 'https://fhir.ottehr.com/billing/task',
+  code: 'billing-claim',
+};
+
 export const CLAIM_STATUS_PROCESSED_TAG = {
   system: 'https://fhir.ottehr.com/billing/claim-status-processed',
   code: 'processed',

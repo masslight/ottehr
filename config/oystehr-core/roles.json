@@ -277,6 +277,7 @@
           "effect": "Allow",
           "resource": [
             "Zambda:Function:create-billing-claim-from-encounter",
+            "Zambda:Function:create-billing-claim-task",
             "Zambda:Function:search-billing-providers",
             "Zambda:Function:get-billing-provider",
             "Zambda:Function:get-charge-item-definition",
