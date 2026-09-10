@@ -41,7 +41,7 @@ export const useChartDataArrayValue = <
 } => {
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
-  const { chartData, setPartialChartData } = useChartData();
+  const { chartData, chartDataSetState } = useChartData();
 
   const {
     isLoading: isChartDataLoading,
@@ -56,10 +56,26 @@ export const useChartDataArrayValue = <
   const values = (customParams ? currentFieldData?.[name] || [] : unscopedValues) as K;
 
   // Both caches are patched from the save/delete response instead of re-running the unscoped chart's
-  // many FHIR searches after every change. The unscoped query is marked stale (not refetched) so the
+  // many FHIR searches after every change. Each patch reads the cache's current value, so two responses
+  // that land before a re-render both apply. The unscoped query is marked stale (not refetched) so the
   // next screen that mounts it still starts from the server.
-  const patchUnscopedChart = (next: SaveableDTO[]): void => {
-    setPartialChartData({ [name]: next } as Partial<ChartDataResponse>, { invalidateQueries: false });
+  const patchCaches = (update: (current: SaveableDTO[]) => SaveableDTO[]): void => {
+    if (customParams) {
+      setQueryCache(
+        (state) =>
+          ({ [name]: update(((state as Record<string, unknown>)?.[name] ?? []) as SaveableDTO[]) }) as Partial<
+            typeof state
+          >
+      );
+    }
+    chartDataSetState(
+      (state) => {
+        const current = ((state.chartData as ChartDataArrayValueType | undefined)?.[name] ?? []) as SaveableDTO[];
+        const next = { [name]: update(current) } as Partial<ChartDataResponse>;
+        return { chartData: { ...state.chartData, patientId: state.chartData?.patientId || '', ...next } };
+      },
+      { invalidateQueries: false }
+    );
   };
 
   const onSubmit = (data: ElementType<K>): Promise<boolean> => {
@@ -71,12 +87,7 @@ export const useChartDataArrayValue = <
         {
           onSuccess: (data) => {
             const saved = (data.chartData[name] ?? []) as unknown as SaveableDTO[];
-            if (customParams) {
-              setQueryCache({
-                [name]: [...((currentFieldData?.[name] || []) as unknown as SaveableDTO[]), ...saved],
-              });
-            }
-            patchUnscopedChart([...unscopedValues, ...saved]);
+            patchCaches((current) => [...current, ...saved]);
             resolve(true);
           },
           onError: (error) => {
@@ -101,14 +112,7 @@ export const useChartDataArrayValue = <
       },
       {
         onSuccess: () => {
-          const withoutRemoved = (items: SaveableDTO[] | undefined): SaveableDTO[] =>
-            (items || []).filter((value) => value.resourceId !== resourceId);
-          if (customParams) {
-            setQueryCache({
-              [name]: withoutRemoved(currentFieldData?.[name] as unknown as SaveableDTO[] | undefined),
-            });
-          }
-          patchUnscopedChart(withoutRemoved(unscopedValues));
+          patchCaches((current) => current.filter((value) => value.resourceId !== resourceId));
           onRemoveCallback?.();
         },
         onError: () => {

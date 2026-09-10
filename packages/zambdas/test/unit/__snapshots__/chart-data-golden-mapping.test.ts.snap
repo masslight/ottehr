@@ -16,6 +16,53 @@ exports[`get-chart-data mapping layer — golden fixture > every requestable fie
   "addendumNote": {
     "text": "Legacy single-string addendum",
   },
+  "aiChat": {
+    "documents": [
+      {
+        "content": [
+          {
+            "attachment": {
+              "title": "AI consult note",
+              "url": "https://z3.example/ai/consult-note.json",
+            },
+          },
+        ],
+        "context": {
+          "encounter": [
+            {
+              "reference": "Encounter/11111111-1111-4111-8111-111111111111",
+            },
+          ],
+        },
+        "date": "2026-01-15T12:00:00.000Z",
+        "extension": [
+          {
+            "url": "https://extensions.fhir.zapehr.com/provider",
+            "valueReference": {
+              "reference": "Practitioner/33333333-3333-4333-8333-333333333333",
+            },
+          },
+        ],
+        "id": "dr-ai-consult-note",
+        "resourceType": "DocumentReference",
+        "status": "current",
+        "subject": {
+          "reference": "Patient/22222222-2222-4222-8222-222222222222",
+        },
+        "type": {
+          "coding": [
+            {
+              "code": "11488-4",
+              "display": "Consult note",
+              "system": "http://loinc.org",
+            },
+          ],
+        },
+      },
+    ],
+    "hasPendingRecording": true,
+    "providers": [],
+  },
   "birthHistory": [
     {
       "field": "weight",

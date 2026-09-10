@@ -16,7 +16,7 @@ import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-no
 import { IN_PERSON_NOTE_ID, NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ChartDataRequestedFields } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { getChartData } from '../../src/ehr/get-chart-data';
+import { CHART_DATA_MIN_BATCH_SIZE, getChartData } from '../../src/ehr/get-chart-data';
 
 const ENCOUNTER_ID = '11111111-1111-4111-8111-111111111111';
 const PATIENT_ID = '22222222-2222-4222-8222-222222222222';
@@ -112,6 +112,8 @@ interface ScenarioResult {
   fhirHttpRequests: number;
   fhirSearches: number;
   urls: string[];
+  /** The FHIR round trips this scenario made, in the order they were issued. */
+  calls: RecordedCall[];
 }
 
 async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
@@ -123,6 +125,7 @@ async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
     fhirHttpRequests: mine.length,
     fhirSearches: mine.reduce((n, call) => n + call.urls.length, 0),
     urls: mine.flatMap((call) => call.urls),
+    calls: mine,
   };
 }
 
@@ -198,17 +201,22 @@ describe('get-chart-data FHIR request budget', () => {
     );
   });
 
-  it('spreads a call over concurrent batches of at least three searches', async () => {
+  it('spreads a call over concurrent chart batches of at least three searches, the remainder aside', async () => {
     const [unscoped, navigation, progressNote] = await runAll(REVIEW_AND_SIGN_SCENARIOS);
-    const batches = (result: ScenarioResult): number[] =>
-      recorded
-        .slice(recorded.length - result.fhirHttpRequests)
-        .filter((call) => call.kind === 'batch')
+    // The appointment count is a single-search batch on purpose (it stays out of the merged chart bundle);
+    // the chart searches are chunked into batches of at least CHART_DATA_MIN_BATCH_SIZE, the last one taking
+    // whatever is left.
+    const chartBatchSizes = (result: ScenarioResult): number[] =>
+      result.calls
+        .filter((call) => call.kind === 'batch' && !call.urls.some((url) => url.includes('_summary=count')))
         .map((call) => call.urls.length);
     expect(navigation.fhirHttpRequests).toBe(1);
-    expect(unscoped.fhirHttpRequests).toBeGreaterThan(1);
-    expect(progressNote.fhirHttpRequests).toBeGreaterThan(1);
-    batches(progressNote).forEach((size) => expect(size).toBeGreaterThanOrEqual(1));
+    [unscoped, progressNote].forEach((result) => {
+      const sizes = chartBatchSizes(result);
+      expect(sizes.length).toBeGreaterThan(1);
+      sizes.slice(0, -1).forEach((size) => expect(size).toBeGreaterThanOrEqual(CHART_DATA_MIN_BATCH_SIZE));
+      expect(sizes[sizes.length - 1]).toBeGreaterThanOrEqual(1);
+    });
   });
 
   it('eight of the distinct searches carry only their anchor, six of which return mixed content', async () => {
@@ -231,8 +239,8 @@ describe('get-chart-data FHIR request budget', () => {
     const singlePurpose = ['/AllergyIntolerance', '/EpisodeOfCare'];
     // These six return every resource of the type and leave the mapper to discard by tag: all
     // communications, every condition and procedure the patient ever had, all observations on the
-    // encounter, all document references, all medication requests. (The untagged ServiceRequest search
-    // went away with the separate disposition request.)
+    // encounter, all document references, all medication requests. (Every ServiceRequest search carries a
+    // status or tag filter, so none of them is anchor-only.)
     const mixedContent = [
       '/Communication',
       '/Condition',

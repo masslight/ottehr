@@ -4,13 +4,17 @@
 
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { act, render, renderHook, waitFor } from '@testing-library/react';
-import { ReactNode } from 'react';
+import { FC, ReactNode } from 'react';
 import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChartFields } from './useChartFields';
+import { useInvalidateChartFieldsOnNavigate } from './useInvalidateChartFieldsOnNavigate';
+
+const route = vi.hoisted(() => ({ pathname: '/in-person/appointment-123/review-and-sign' }));
 
 vi.mock('react-router-dom', () => ({
   useParams: vi.fn().mockReturnValue({ id: 'appointment-123' }),
+  useLocation: () => ({ pathname: route.pathname }),
 }));
 
 vi.mock('src/hooks/useEvolveUser', () => ({
@@ -1100,5 +1104,48 @@ describe('useChartDataField - Advanced Cache Management', () => {
 
       expect(renderSpy).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('useInvalidateChartFieldsOnNavigate', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    route.pathname = '/in-person/appointment-123/review-and-sign';
+    const { useOystehrAPIClient } = await import('./useOystehrAPIClient');
+    vi.mocked(useOystehrAPIClient).mockReturnValue(mockApiClient);
+    mockApiClient.getChartData.mockResolvedValue(mockChartData);
+  });
+
+  it('marks the chart fields stale before the next screen subscribes, so that screen re-reads them', async () => {
+    const requestedFields = { episodeOfCare: {} };
+    /** A screen reading a field set; the next screen reads the same set through a fresh mount. */
+    const Screen: FC = () => {
+      useChartFields({ requestedFields });
+      return null;
+    };
+    /** The layout around every screen, as InPersonLayout mounts the hook. */
+    const Layout: FC<{ screen: string }> = ({ screen }) => {
+      useInvalidateChartFieldsOnNavigate();
+      return <Screen key={screen} />;
+    };
+    const Wrapper = createWrapper();
+
+    const { rerender } = render(
+      <Wrapper>
+        <Layout screen="review-and-sign" />
+      </Wrapper>
+    );
+    await waitFor(() => expect(mockApiClient.getChartData).toHaveBeenCalledTimes(1));
+
+    // The data is fresh within staleTime; only the screen change makes the next screen read it again. The
+    // new screen's query subscribes in a passive effect that runs before the layout's, so the stale mark
+    // has to land in a layout effect to be seen.
+    route.pathname = '/in-person/appointment-123/hospitalization';
+    rerender(
+      <Wrapper>
+        <Layout screen="hospitalization" />
+      </Wrapper>
+    );
+    await waitFor(() => expect(mockApiClient.getChartData).toHaveBeenCalledTimes(2));
   });
 });

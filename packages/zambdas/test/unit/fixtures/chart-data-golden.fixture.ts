@@ -118,6 +118,7 @@ export const ALL_REQUESTED_FIELDS: RequestedFields[] = [
   'accident',
   'patientHasPreviousVisits',
   'radiologyOrders',
+  'aiChat',
 ];
 
 export const PROGRESS_NOTE_FIELDS = Object.keys(progressNoteChartDataRequestedFields) as RequestedFields[];

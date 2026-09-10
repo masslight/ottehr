@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
@@ -9,8 +9,10 @@ import { useAppointmentData } from '../stores/appointment/appointment.store';
  * screen. Nothing is refetched here: a stale query is refetched when a component on the new screen mounts
  * it, so each distinct field set costs one request per screen visit rather than one per component mount.
  *
- * This replaces the `staleTime: 0` the chart-fields cache used to run with, which kept every screen fresh
- * by refetching on every mount, including the many mounts of the same field set within one screen.
+ * A layout effect on purpose: react-query decides whether to fetch on mount when a query subscribes, in a
+ * passive effect, and the new screen's components (children of this layout) run their passive effects
+ * before the layout's. Marking stale in a layout effect puts it ahead of every subscription of the new
+ * screen; in a passive effect it would land after them and the new screen would show the old chart.
  */
 export const useInvalidateChartFieldsOnNavigate = (): void => {
   const { pathname } = useLocation();
@@ -19,7 +21,7 @@ export const useInvalidateChartFieldsOnNavigate = (): void => {
   const encounterId = encounter?.id;
   const previousPathname = useRef(pathname);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (previousPathname.current === pathname) return;
     previousPathname.current = pathname;
     if (!encounterId) return;
