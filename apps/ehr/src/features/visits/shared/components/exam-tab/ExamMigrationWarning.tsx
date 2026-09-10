@@ -7,7 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { migrateExamData } from 'src/api/api';
-import { CHART_DATA_QUERY_KEY } from 'src/constants';
+import { invalidateChartSections } from 'src/features/visits/shared/hooks/chartSectionCache';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { useExamObservationsStore } from '../../stores/appointment/exam-observations.store';
@@ -45,11 +45,8 @@ export const ExamMigrationWarning: FC<ExamMigrationWarningProps> = ({ unmatchedF
         Object.entries(currentState).filter(([key]) => !unmatchedFields.includes(key))
       );
       useExamObservationsStore.setState(filteredState, true);
-      // Refetch chart data to pull in the newly migrated observations
-      await queryClient.invalidateQueries({
-        queryKey: [CHART_DATA_QUERY_KEY, resources.encounter.id],
-        refetchType: 'active',
-      });
+      // Re-read the exam section to pull in the newly migrated observations
+      await invalidateChartSections(queryClient, resources.encounter.id, ['exam']);
     } catch (error) {
       console.error('Migration failed:', error);
       enqueueSnackbar('Failed to migrate exam data. Please try again.', { variant: 'error' });

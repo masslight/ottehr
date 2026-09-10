@@ -16,6 +16,7 @@ import {
   progressNoteNoteTypes,
   telemedProgressNoteNoteTypes,
 } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
+import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { NOTE_TYPE, NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
   CHART_SECTIONS,
@@ -28,7 +29,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { makeConditionResource, makeNoteResource } from '../../src/shared/chart-data';
 import { CHART_BATCH_TARGET_CONCURRENCY } from '../../src/shared/chart-sections/fetch';
 import { buildChartSection } from '../../src/shared/chart-sections/registry';
-import { buildVisitNote, visitNoteToLegacyChartData } from '../../src/shared/chart-sections/visit-note';
+import { buildVisitNote } from '../../src/shared/chart-sections/visit-note';
 import {
   buildForeignPatientResources,
   buildGoldenChartData,

@@ -6,11 +6,11 @@ import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-d
 import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProgressNoteDetails } from '../../src/features/visits/in-person/components/progress-note/ProgressNoteDetails';
+import { emptyVisitNote } from './helpers/emptyVisitNote';
 
 // Mock all the hooks and dependencies
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: vi.fn(),
-  useChartData: vi.fn(),
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/useOystehrAPIClient', () => ({
@@ -33,8 +33,8 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-vi.mock('../../src/features/visits/shared/hooks/useChartFields', () => ({
-  useChartFields: vi.fn(),
+vi.mock('../../src/features/visits/shared/hooks/useVisitNote', () => ({
+  useVisitNote: vi.fn(),
 }));
 
 vi.mock('../../src/features/visits/in-person/hooks/useMedicationOperations', () => ({
@@ -128,19 +128,30 @@ import { useGetImmunizationOrders } from '../../src/features/visits/in-person/ho
 import { useMedicationAPI } from '../../src/features/visits/in-person/hooks/useMedicationOperations';
 import { PatientInstructionsContainer } from '../../src/features/visits/shared/components/review-tab/components/PatientInstructionsContainer';
 import { ProceduresContainer } from '../../src/features/visits/shared/components/review-tab/components/ProceduresContainer';
-import { useChartFields } from '../../src/features/visits/shared/hooks/useChartFields';
 import { useOystehrAPIClient } from '../../src/features/visits/shared/hooks/useOystehrAPIClient';
 import { usePatientInstructionsVisibility } from '../../src/features/visits/shared/hooks/usePatientInstructionsVisibility';
-import {
-  useAppointmentData,
-  useChartData,
-} from '../../src/features/visits/shared/stores/appointment/appointment.store';
+import { useVisitNote } from '../../src/features/visits/shared/hooks/useVisitNote';
+import { useAppointmentData } from '../../src/features/visits/shared/stores/appointment/appointment.store';
 import { useSignAppointmentMutation } from '../../src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import useEvolveUser from '../../src/hooks/useEvolveUser';
 
 const mockUseAppointmentData = vi.mocked(useAppointmentData);
-const mockUseChartData = vi.mocked(useChartData);
-const mockUseChartFields = vi.mocked(useChartFields);
+const mockUseVisitNote = vi.mocked(useVisitNote);
+
+/** The visit note for a chart with the given procedures (the note reads them from the assessment section). */
+const noteResult = (chartData: Partial<GetChartDataResponse>): ReturnType<typeof useVisitNote> =>
+  ({
+    data: emptyVisitNote({
+      patientId: chartData.patientId ?? 'patient123',
+      assessment: { diagnosis: [], cptCodes: [], procedures: chartData.procedures ?? [] },
+    }),
+    isLoading: false,
+    isFetching: false,
+    isFetched: true,
+    error: null,
+    refetch: vi.fn(),
+    encounterId: 'enc1',
+  }) as unknown as ReturnType<typeof useVisitNote>;
 const mockUseMedicationAPI = vi.mocked(useMedicationAPI);
 const mockUseGetImmunizationOrders = vi.mocked(useGetImmunizationOrders);
 const mockUseOystehrAPIClient = vi.mocked(useOystehrAPIClient);
@@ -162,16 +173,7 @@ describe('ProgressNoteDetails - Deleted Items Backend Filtering Tests', () => {
       appointmentSetState: vi.fn(),
     } as any);
 
-    mockUseChartData.mockReturnValue({
-      chartData: {},
-      isChartDataLoading: false,
-      refetch: vi.fn(),
-    } as any);
-
-    mockUseChartFields.mockReturnValue({
-      data: {},
-      isLoading: false,
-    } as any);
+    mockUseVisitNote.mockReturnValue(noteResult({}));
 
     mockUseMedicationAPI.mockReturnValue({
       medications: [],
@@ -308,22 +310,7 @@ describe('ProgressNoteDetails - Deleted Items Backend Filtering Tests', () => {
       patientId: 'patient123',
     };
 
-    mockUseChartData.mockReturnValue({
-      chartData: chartData as GetChartDataResponse,
-      isChartDataLoading: false,
-      refetch: vi.fn(),
-      isLoading: false,
-      isFetching: false,
-      isPending: false,
-      error: null,
-      queryKey: [],
-      isFetched: true,
-      setPartialChartData: vi.fn(),
-      updateObservation: vi.fn(),
-      chartDataSetState: vi.fn(),
-      chartDataRefetch: vi.fn(),
-      chartDataError: null,
-    });
+    mockUseVisitNote.mockReturnValue(noteResult(chartData));
 
     mockProceduresContainer.mockReturnValue(<div data-testid="procedures-container">Procedures: 2</div>);
 
@@ -344,22 +331,7 @@ describe('ProgressNoteDetails - Deleted Items Backend Filtering Tests', () => {
       patientId: 'patient123',
     };
 
-    mockUseChartData.mockReturnValue({
-      chartData: chartData as GetChartDataResponse,
-      isChartDataLoading: false,
-      refetch: vi.fn(),
-      isLoading: false,
-      isFetching: false,
-      isPending: false,
-      error: null,
-      queryKey: [],
-      isFetched: true,
-      setPartialChartData: vi.fn(),
-      updateObservation: vi.fn(),
-      chartDataSetState: vi.fn(),
-      chartDataRefetch: vi.fn(),
-      chartDataError: null,
-    });
+    mockUseVisitNote.mockReturnValue(noteResult(chartData));
 
     renderComponent();
 
@@ -381,22 +353,7 @@ describe('ProgressNoteDetails - Deleted Items Backend Filtering Tests', () => {
       patientId: 'patient123',
     };
 
-    mockUseChartData.mockReturnValue({
-      chartData: chartData as GetChartDataResponse,
-      isChartDataLoading: false,
-      refetch: vi.fn(),
-      isLoading: false,
-      isFetching: false,
-      isPending: false,
-      error: null,
-      queryKey: [],
-      isFetched: true,
-      setPartialChartData: vi.fn(),
-      updateObservation: vi.fn(),
-      chartDataSetState: vi.fn(),
-      chartDataRefetch: vi.fn(),
-      chartDataError: null,
-    });
+    mockUseVisitNote.mockReturnValue(noteResult(chartData));
 
     mockProceduresContainer.mockReturnValue(<div data-testid="procedures-container">Procedures: 1</div>);
 
@@ -411,22 +368,7 @@ describe('ProgressNoteDetails - Deleted Items Backend Filtering Tests', () => {
       patientId: 'patient123',
     };
 
-    mockUseChartData.mockReturnValue({
-      chartData: chartData as GetChartDataResponse,
-      isChartDataLoading: false,
-      refetch: vi.fn(),
-      isLoading: false,
-      isFetching: false,
-      isPending: false,
-      error: null,
-      queryKey: [],
-      isFetched: true,
-      setPartialChartData: vi.fn(),
-      updateObservation: vi.fn(),
-      chartDataSetState: vi.fn(),
-      chartDataRefetch: vi.fn(),
-      chartDataError: null,
-    });
+    mockUseVisitNote.mockReturnValue(noteResult(chartData));
 
     renderComponent();
 
@@ -439,22 +381,7 @@ describe('ProgressNoteDetails - Deleted Items Backend Filtering Tests', () => {
       patientId: 'patient123',
     };
 
-    mockUseChartData.mockReturnValue({
-      chartData: chartData as GetChartDataResponse,
-      isChartDataLoading: false,
-      refetch: vi.fn(),
-      isLoading: false,
-      isFetching: false,
-      isPending: false,
-      error: null,
-      queryKey: [],
-      isFetched: true,
-      setPartialChartData: vi.fn(),
-      updateObservation: vi.fn(),
-      chartDataSetState: vi.fn(),
-      chartDataRefetch: vi.fn(),
-      chartDataError: null,
-    });
+    mockUseVisitNote.mockReturnValue(noteResult(chartData));
 
     renderComponent();
 

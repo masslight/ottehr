@@ -21,7 +21,7 @@ export const ExternalLabsInlineFlow: FC = () => {
   const { encounter } = useAppointmentData();
   const encounterId = encounter?.id;
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const refreshSummaries = useRefreshNoteSummaries({ fields: ['externalLabResults'] });
+  const refreshSummaries = useRefreshNoteSummaries();
   // Diagnostic-report centric results (reflex, pdf attachment) are keyed by diagnosticReportId
   // and have no inline screen, so those rows still navigate.
   const { openDrDrivenResult } = useLabOrderRowNavigation();

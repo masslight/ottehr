@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
+import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { Secrets } from 'utils/lib/secrets';
 import {
   CreateDischargeSummaryInputValidated,
@@ -9,7 +10,7 @@ import {
 } from 'utils/lib/types/api/create-discharge-summary/create-discharge-summary.types';
 import { PATIENT_EDUCATION_DOC_TYPE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { buildVisitNote, visitNoteToLegacyChartData } from '../../shared/chart-sections/visit-note';
+import { buildVisitNote } from '../../shared/chart-sections/visit-note';
 import { fetchErxPharmacies } from '../../shared/erx';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { createDischargeSummaryPdf } from '../../shared/pdf/discharge-summary-pdf';
