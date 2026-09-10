@@ -1,10 +1,12 @@
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
-import { sidebarMenuIcons } from '../sidebarMenuIcons';
 import { ScribeRecommendation, ScribeSectionKey } from './types';
 
 interface ScribeSectionMeta {
   label: string;
-  iconKey: keyof typeof sidebarMenuIcons;
+  /** Fits the narrow vertical rail beside the group; the full label lives in the tooltip. */
+  shortLabel: string;
+  /** Colour-codes the rail so a section can be found without reading. */
+  accent: string;
   /**
    * Visit route the section is charted on. These are the ROUTER_PATH values from
    * routesInPerson; they're repeated here because importing that module pulls in every visit
@@ -13,14 +15,21 @@ interface ScribeSectionMeta {
   route: string;
 }
 
+// Distinguishable hues rather than a semantic scale: they say "different section", nothing more.
+// Kept clear of the red/green the Reports and Denies chips use on the other side of the row.
 export const SCRIBE_SECTIONS: Record<ScribeSectionKey, ScribeSectionMeta> = {
-  template: { label: 'Template', iconKey: 'History', route: 'history-of-present-illness-and-templates' },
-  hpi: { label: 'HPI', iconKey: 'History', route: 'history-of-present-illness-and-templates' },
-  ros: { label: 'Review of Systems', iconKey: 'Checklist', route: 'review-of-systems' },
-  vitals: { label: 'Vitals', iconKey: 'Vitals', route: 'vitals' },
-  allergies: { label: 'Allergies', iconKey: 'Allergies', route: 'allergies' },
-  medications: { label: 'Medications', iconKey: 'Medications', route: 'medications' },
-  assessment: { label: 'Assessment', iconKey: 'Prescription', route: 'assessment' },
+  template: {
+    label: 'Template',
+    shortLabel: 'Template',
+    accent: '#0F347C',
+    route: 'history-of-present-illness-and-templates',
+  },
+  hpi: { label: 'HPI', shortLabel: 'HPI', accent: '#2169F5', route: 'history-of-present-illness-and-templates' },
+  ros: { label: 'Review of Systems', shortLabel: 'ROS', accent: '#00897B', route: 'review-of-systems' },
+  vitals: { label: 'Vitals', shortLabel: 'Vitals', accent: '#546E7A', route: 'vitals' },
+  allergies: { label: 'Allergies', shortLabel: 'Allergies', accent: '#EF6C00', route: 'allergies' },
+  medications: { label: 'Medications', shortLabel: 'Meds', accent: '#AD1457', route: 'medications' },
+  assessment: { label: 'Assessment', shortLabel: 'Assessment', accent: '#7B1FA2', route: 'assessment' },
 };
 
 /** Display order of the groups in the panel: broad strokes first, then the granular findings. */

@@ -1,9 +1,7 @@
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { Box, Chip, IconButton, Paper, Tooltip, Typography, useTheme } from '@mui/material';
+import { alpha, Box, ButtonBase, Paper, Tooltip, Typography } from '@mui/material';
 import { FC, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { sidebarMenuIcons } from '../sidebarMenuIcons';
 import { TemplateOption } from '../templates/useListTemplates';
 import { RecommendationRow } from './RecommendationRow';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
@@ -19,9 +17,19 @@ interface RecommendationsListProps {
 
 const testIds = dataTestIds.scribeRecommendations;
 
-/** Stage two: the individual observations, grouped by the chart section each one writes into. */
+/** Wide enough for the rotated label to stay legible, narrow enough not to squeeze the rows. */
+const RAIL_WIDTH = 26;
+const RAIL_BAR_WIDTH = 3;
+
+/**
+ * Stage two: the individual observations, grouped by the chart section each one writes into.
+ *
+ * The section name runs down a coloured rail on the left rather than sitting in a header row of
+ * its own — with six or seven groups on screen, those headers were costing more vertical space
+ * than the recommendations they introduced. The rail doubles as the link into that part of the
+ * note.
+ */
 export const RecommendationsList: FC<RecommendationsListProps> = ({ recommendations, templates, onRetry }) => {
-  const theme = useTheme();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const itemState = useScribeRecommendationsStore((state) => state.itemState);
@@ -44,59 +52,61 @@ export const RecommendationsList: FC<RecommendationsListProps> = ({ recommendati
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       {groups.map(({ section, items }) => {
         const meta = SCRIBE_SECTIONS[section];
-        const pending = items.filter((rec) => itemState[rec.id]?.status !== 'applied');
-        const selectedCount = pending.filter((rec) => itemState[rec.id]?.selected).length;
-        const appliedCount = items.length - pending.length;
 
         return (
-          <Paper key={section} variant="outlined" data-testid={testIds.group(section)}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.75,
-                pl: 1.5,
-                pr: 1,
-                py: 0.5,
-                backgroundColor: theme.palette.action.hover,
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', color: theme.palette.primary.dark }}>
-                {sidebarMenuIcons[meta.iconKey]}
-              </Box>
-              <Typography variant="subtitle2" sx={{ flex: 1, color: theme.palette.primary.dark }}>
-                {meta.label}
-              </Typography>
-              {appliedCount > 0 && (
-                <Chip
-                  size="small"
-                  color="success"
-                  variant="outlined"
-                  label={appliedCount === items.length ? 'Applied' : `${appliedCount} applied`}
-                  sx={{ height: 20, fontSize: 11 }}
-                />
-              )}
-              <Typography variant="caption" color="text.secondary">
-                {pending.length > 0 ? `${selectedCount}/${pending.length}` : ''}
-              </Typography>
-              <Tooltip title={`Open ${meta.label} in the note`}>
-                <IconButton
-                  size="small"
-                  onClick={() => goToSection(section)}
-                  aria-label={`Open ${meta.label}`}
-                  data-testid={testIds.goToSectionButton(section)}
-                  sx={{ p: 0.5 }}
+          <Paper
+            key={section}
+            variant="outlined"
+            data-testid={testIds.group(section)}
+            sx={{ display: 'flex', alignItems: 'stretch', overflow: 'hidden' }}
+          >
+            <Tooltip title={`Open ${meta.label} in the note`} placement="left">
+              <ButtonBase
+                onClick={() => goToSection(section)}
+                aria-label={`Open ${meta.label} in the note`}
+                data-testid={testIds.goToSectionButton(section)}
+                sx={{
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'stretch',
+                  backgroundColor: alpha(meta.accent, 0.07),
+                  '&:hover, &:focus-visible': { backgroundColor: alpha(meta.accent, 0.18) },
+                }}
+              >
+                <Box sx={{ width: RAIL_BAR_WIDTH, backgroundColor: meta.accent }} />
+                <Box
+                  sx={{
+                    width: RAIL_WIDTH,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    py: 0.25,
+                  }}
                 >
-                  <ArrowForwardIcon sx={{ fontSize: 18 }} />
-                </IconButton>
-              </Tooltip>
-            </Box>
-            <Box>
+                  <Typography
+                    component="span"
+                    sx={{
+                      // Rotated so the label reads bottom-to-top down the rail.
+                      writingMode: 'vertical-rl',
+                      transform: 'rotate(180deg)',
+                      whiteSpace: 'nowrap',
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      letterSpacing: '0.4px',
+                      textTransform: 'uppercase',
+                      color: meta.accent,
+                    }}
+                  >
+                    {meta.shortLabel}
+                  </Typography>
+                </Box>
+              </ButtonBase>
+            </Tooltip>
+
+            <Box sx={{ flex: 1, minWidth: 0 }}>
               {items.map((rec) => (
                 <RecommendationRow
                   key={rec.id}

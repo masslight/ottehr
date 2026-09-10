@@ -191,9 +191,15 @@ describe('ScribeRecommendationsDrawer', () => {
     // stage two holds every observation, checked, grouped by the section it writes into
     observations().forEach((rec) => expect(rowCheckbox(rec.id)).toBeChecked());
     ['hpi', 'assessment', 'ros', 'vitals', 'allergies', 'medications'].forEach((section) => {
-      expect(within(observationsStage).getByTestId(testIds.group(section))).toBeVisible();
-      expect(within(observationsStage).getByTestId(testIds.goToSectionButton(section))).toBeVisible();
+      const group = within(observationsStage).getByTestId(testIds.group(section));
+      expect(group).toBeVisible();
+      // the rail names the section and doubles as the link into that part of the note
+      expect(within(group).getByTestId(testIds.goToSectionButton(section))).toBeVisible();
     });
+    expect(within(observationsStage).getByTestId(testIds.goToSectionButton('ros'))).toHaveAccessibleName(
+      'Open Review of Systems in the note'
+    );
+    expect(within(screen.getByTestId(testIds.group('medications'))).getByText('Meds')).toBeVisible();
     expect(within(observationsStage).getByText('Acute sinusitis, unspecified (J01.90)')).toBeVisible();
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(
       `${observations().length} of ${observations().length} selected`
@@ -236,8 +242,6 @@ describe('ScribeRecommendationsDrawer', () => {
     await user.click(rowCheckbox('medication-claritin'));
     expect(rowCheckbox('medication-claritin')).not.toBeChecked();
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 1} of ${total} selected`);
-    // the group header counts what is still selected within it
-    expect(within(screen.getByTestId(testIds.group('medications'))).getByText('1/2')).toBeVisible();
 
     await user.click(screen.getByTestId(testIds.applyObservationsButton));
     await waitFor(() => expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 1} added`));
