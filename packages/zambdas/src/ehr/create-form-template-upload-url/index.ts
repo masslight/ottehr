@@ -41,12 +41,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-const inputSchema: z.ZodType<CreateFormTemplateUploadUrlInput> = z.object({
-  title: z.string().min(1, 'title is required'),
-  description: z.string().optional(),
-  fileName: z.string().min(1, 'fileName is required'),
-  documentReferenceId: z.string().min(1).optional(),
-});
+// Two shapes, not one with optional halves: replacing a PDF has no use for a title, and a payload
+// carrying both matches neither branch rather than quietly creating a second template.
+const inputSchema: z.ZodType<CreateFormTemplateUploadUrlInput> = z.union([
+  z.object({
+    fileName: z.string().min(1, 'fileName is required'),
+    documentReferenceId: z.string().min(1),
+    title: z.undefined(),
+    description: z.undefined(),
+  }),
+  z.object({
+    fileName: z.string().min(1, 'fileName is required'),
+    title: z.string().min(1, 'title is required'),
+    description: z.string().optional(),
+    documentReferenceId: z.undefined(),
+  }),
+]);
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -65,21 +75,28 @@ const performEffect = async (
   oystehr: Oystehr,
   token: string
 ): Promise<CreateFormTemplateUploadUrlOutput> => {
-  const { title, description, fileName, documentReferenceId, secrets } = validatedInput;
+  const { secrets } = validatedInput;
 
-  const z3Url = makeFormTemplateZ3Url(secrets, fileName);
+  const z3Url = makeFormTemplateZ3Url(secrets, validatedInput.fileName);
   const presignedUploadUrl = await createPresignedUrl(token, z3Url, 'upload');
 
   // Replacing an existing template's PDF: hand back a candidate location and change nothing. The
   // template keeps pointing at its current file until the upload has been fetched and analysed, so a
   // failed replacement leaves a working template working.
-  if (documentReferenceId) {
-    await getFormTemplateOrThrow(oystehr, documentReferenceId);
-    return { documentReferenceId, z3Url, presignedUploadUrl };
+  // Compared against undefined rather than tested for truth: that is the discriminant between the two
+  // input shapes, and truthiness would not narrow it because a string can itself be falsy.
+  if (validatedInput.documentReferenceId !== undefined) {
+    await getFormTemplateOrThrow(oystehr, validatedInput.documentReferenceId);
+    return { documentReferenceId: validatedInput.documentReferenceId, z3Url, presignedUploadUrl };
   }
 
   // Created before the bytes exist: the browser does the uploading and needs somewhere to send them.
-  const createdId = await createFormTemplateDraft({ oystehr, title, description, z3Url });
+  const createdId = await createFormTemplateDraft({
+    oystehr,
+    title: validatedInput.title,
+    description: validatedInput.description,
+    z3Url,
+  });
 
   return { documentReferenceId: createdId, z3Url, presignedUploadUrl };
 };

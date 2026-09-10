@@ -43,12 +43,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-const inputSchema: z.ZodType<ImportFormTemplateFromUrlInput> = z.object({
-  title: z.string().min(1, 'title is required'),
-  description: z.string().optional(),
-  sourceUrl: z.string().min(1, 'sourceUrl is required'),
-  documentReferenceId: z.string().optional(),
-});
+// Two shapes, not one with optional halves — see `create-form-template-upload-url`.
+const inputSchema: z.ZodType<ImportFormTemplateFromUrlInput> = z.union([
+  z.object({
+    sourceUrl: z.string().min(1, 'sourceUrl is required'),
+    documentReferenceId: z.string().min(1),
+    title: z.undefined(),
+    description: z.undefined(),
+  }),
+  z.object({
+    sourceUrl: z.string().min(1, 'sourceUrl is required'),
+    title: z.string().min(1, 'title is required'),
+    description: z.string().optional(),
+    documentReferenceId: z.undefined(),
+  }),
+]);
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -82,9 +91,9 @@ const performEffect = async (
   oystehr: Oystehr,
   token: string
 ): Promise<ImportFormTemplateFromUrlOutput> => {
-  const { title, description, sourceUrl, documentReferenceId, secrets } = validatedInput;
+  const { secrets } = validatedInput;
 
-  const { bytes, finalUrl } = await fetchRemotePdf(sourceUrl, secrets);
+  const { bytes, finalUrl } = await fetchRemotePdf(validatedInput.sourceUrl, secrets);
   console.log(`${ZAMBDA_NAME}: fetched ${bytes.length} bytes from ${finalUrl}`);
 
   const z3Url = makeFormTemplateZ3Url(secrets, fileNameFromUrl(finalUrl));
@@ -93,12 +102,20 @@ const performEffect = async (
   // Replacing: the bytes are parked and nothing else touched. `replace-form-template-pdf` decides whether
   // they are fit to adopt, so a fetch that succeeds but yields an unusable PDF costs a stored object and
   // nothing more.
-  if (documentReferenceId) {
-    await getFormTemplateOrThrow(oystehr, documentReferenceId);
+  // Compared against undefined rather than tested for truth: that is the discriminant between the two
+  // input shapes, and truthiness would not narrow it because a string can itself be falsy.
+  if (validatedInput.documentReferenceId !== undefined) {
+    await getFormTemplateOrThrow(oystehr, validatedInput.documentReferenceId);
     return { z3Url, resolvedFrom: finalUrl };
   }
 
-  const createdId = await createFormTemplateDraft({ oystehr, title, description, z3Url, sourceUrl: finalUrl });
+  const createdId = await createFormTemplateDraft({
+    oystehr,
+    title: validatedInput.title,
+    description: validatedInput.description,
+    z3Url,
+    sourceUrl: finalUrl,
+  });
 
   return { z3Url, resolvedFrom: finalUrl, documentReferenceId: createdId };
 };

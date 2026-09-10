@@ -53,12 +53,10 @@ export const FormTemplateDetailsCard: FC<{ item: FormTemplateItem }> = ({ item }
       const replaced = usingLink
         ? await replaceFormTemplateFromUrl(oystehrZambda, {
             documentReferenceId: item.documentReferenceId,
-            title: title.trim(),
             sourceUrl: sourceUrl.trim(),
           })
         : await replaceFormTemplateWithPdf(oystehrZambda, {
             documentReferenceId: item.documentReferenceId,
-            title: title.trim(),
             file: file!,
           });
 

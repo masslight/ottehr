@@ -40,19 +40,32 @@ export interface ListFormTemplatesOutput {
   items: FormTemplateItem[];
 }
 
-export interface CreateFormTemplateUploadUrlInput {
+/** Somewhere to PUT the PDF for a template that does not exist yet. The record is created alongside it. */
+export interface NewFormTemplateUpload {
   title: string;
   description?: string;
   /** Used for the stored object key; sanitized server-side. */
   fileName: string;
-  /**
-   * Set when replacing an existing template's PDF rather than creating a new template.
-   *
-   * The returned URL is a *candidate*: nothing about the template changes until the upload has been
-   * fetched and analysed successfully, so a failed replacement leaves the working template alone.
-   */
-  documentReferenceId?: string;
+  documentReferenceId?: undefined;
 }
+
+/**
+ * Somewhere to PUT a replacement PDF for a template that already exists.
+ *
+ * Only the file changes, so no name or description is accepted: those belong to the template rather than
+ * to the file, and `update-form-template` is what edits them.
+ *
+ * The returned URL is a *candidate*: nothing about the template changes until the upload has been
+ * fetched and analysed successfully, so a failed replacement leaves the working template alone.
+ */
+export interface ReplacementFormTemplateUpload {
+  fileName: string;
+  documentReferenceId: string;
+  title?: undefined;
+  description?: undefined;
+}
+
+export type CreateFormTemplateUploadUrlInput = NewFormTemplateUpload | ReplacementFormTemplateUpload;
 
 export interface CreateFormTemplateUploadUrlOutput {
   documentReferenceId: string;
@@ -132,20 +145,31 @@ export interface FillFormTemplateOutput {
  * form will move, revise, or withdraw it, and a template that resolves differently next year is a
  * template nobody can trust. The address is kept as provenance, not as the source of the bytes.
  */
-export interface ImportFormTemplateFromUrlInput {
+/** Import a published PDF as a new template. */
+export interface NewFormTemplateImport {
   title: string;
   description?: string;
   /** Public https address of the PDF. Fetched once, server-side. */
   sourceUrl: string;
-  /**
-   * Set to replace an existing template's PDF rather than create a new one.
-   *
-   * In that mode the fetched file is stored at a candidate location and **nothing else changes** — the
-   * template is repointed by `replace-form-template-pdf` once the replacement has been analysed, so a
-   * fetch that succeeds but produces an unusable PDF leaves the working template working.
-   */
-  documentReferenceId?: string;
+  documentReferenceId?: undefined;
 }
+
+/**
+ * Import a published PDF to replace an existing template's file. No name or description — see
+ * `ReplacementFormTemplateUpload`.
+ *
+ * The fetched file is stored at a candidate location and **nothing else changes** — the template is
+ * repointed by `replace-form-template-pdf` once the replacement has been analysed, so a fetch that
+ * succeeds but produces an unusable PDF leaves the working template working.
+ */
+export interface ReplacementFormTemplateImport {
+  sourceUrl: string;
+  documentReferenceId: string;
+  title?: undefined;
+  description?: undefined;
+}
+
+export type ImportFormTemplateFromUrlInput = NewFormTemplateImport | ReplacementFormTemplateImport;
 
 export interface ImportFormTemplateFromUrlOutput {
   /** Where the fetched bytes were stored. The candidate location when replacing. */

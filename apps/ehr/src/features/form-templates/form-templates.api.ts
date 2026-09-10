@@ -19,6 +19,7 @@ import {
   ImportFormTemplateFromUrlOutput,
   ListFormTemplatesInput,
   ListFormTemplatesOutput,
+  NewFormTemplateUpload,
   ReplaceFormTemplatePdfInput,
   ReplaceFormTemplatePdfOutput,
   SaveCompletedFormInput,
@@ -250,11 +251,11 @@ const replaceFormTemplatePdf = async (
  */
 export const replaceFormTemplateWithPdf = async (
   oystehr: Oystehr,
-  parameters: { documentReferenceId: string; title: string; file: File }
+  parameters: { documentReferenceId: string; file: File }
 ): Promise<ReplaceFormTemplatePdfOutput> => {
-  const { documentReferenceId, title, file } = parameters;
+  const { documentReferenceId, file } = parameters;
 
-  const candidate = await createFormTemplateUploadUrl(oystehr, { documentReferenceId, title, fileName: file.name });
+  const candidate = await createFormTemplateUploadUrl(oystehr, { documentReferenceId, fileName: file.name });
 
   const uploadResponse = await fetch(candidate.presignedUploadUrl, {
     method: 'PUT',
@@ -344,11 +345,11 @@ export const createFormTemplateFromUrl = async (
  */
 export const replaceFormTemplateFromUrl = async (
   oystehr: Oystehr,
-  parameters: { documentReferenceId: string; title: string; sourceUrl: string }
+  parameters: { documentReferenceId: string; sourceUrl: string }
 ): Promise<ReplaceFormTemplatePdfOutput> => {
-  const { documentReferenceId, title, sourceUrl } = parameters;
+  const { documentReferenceId, sourceUrl } = parameters;
 
-  const candidate = await importFormTemplateFromUrl(oystehr, { documentReferenceId, title, sourceUrl });
+  const candidate = await importFormTemplateFromUrl(oystehr, { documentReferenceId, sourceUrl });
 
   const result = await replaceFormTemplatePdf(oystehr, {
     documentReferenceId,
@@ -374,7 +375,7 @@ export const replaceFormTemplateFromUrl = async (
  */
 export const createFormTemplateWithPdf = async (
   oystehr: Oystehr,
-  parameters: CreateFormTemplateUploadUrlInput & { file: File }
+  parameters: NewFormTemplateUpload & { file: File }
 ): Promise<{ created: CreateFormTemplateUploadUrlOutput; analysis: AnalyzeFormTemplateOutput }> => {
   const { file, ...createParams } = parameters;
 

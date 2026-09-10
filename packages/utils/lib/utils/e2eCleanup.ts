@@ -3,6 +3,7 @@ import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   Coding,
+  DocumentReference,
   FhirResource,
   HealthcareService,
   Observation,
@@ -466,6 +467,53 @@ export const cleanupIntegrationTestLocations = async (oystehr: Oystehr): Promise
  * This function finds appointments with this tag and cleans up the entire appointment graph.
  */
 export const INTEGRATION_TEST_TAG_SYSTEM = 'OTTEHR_AUTOMATED_TEST';
+
+/**
+ * Removes DocumentReferences left behind by integration tests.
+ *
+ * Anchored on the tag rather than on a patient, which the appointment sweep above cannot be. Two kinds of
+ * document need collecting and only one of them has a subject: a prefilled or returned form belongs to a
+ * patient, but a form *template* is project-level, so nothing reachable from an appointment graph leads to
+ * it. Both are written by zambdas rather than by the test, so the test stamps the tag on afterwards.
+ *
+ * The age filter is what makes this safe to run against a shared environment: a document a test is still
+ * working with is minutes old, so only abandoned ones are in range.
+ */
+export const cleanupIntegrationTestDocumentReferences = async (oystehr: Oystehr): Promise<void> => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+  const documents = await getAllFhirSearchPages<DocumentReference>(
+    {
+      resourceType: 'DocumentReference',
+      params: [
+        { name: '_tag', value: `${INTEGRATION_TEST_TAG_SYSTEM}|` },
+        { name: '_lastUpdated', value: `lt${oneHourAgo}` },
+      ],
+    },
+    oystehr
+  );
+
+  if (documents.length === 0) {
+    console.log('No integration test DocumentReferences found to clean up');
+    return;
+  }
+
+  console.log(`Found ${documents.length} integration test DocumentReferences to clean up`);
+
+  const deleteRequests: BatchInputDeleteRequest[] = documents
+    .filter((doc) => doc.id)
+    .map((doc) => ({ method: 'DELETE', url: `DocumentReference/${doc.id}` }));
+
+  for (const chunk of chunkThings(deleteRequests, 100)) {
+    try {
+      await oystehr.fhir.transaction({ requests: [...chunk] });
+    } catch (e) {
+      // One bad chunk should not stop the rest; the next run will retry whatever survived.
+      console.log(`Error deleting integration test DocumentReferences: ${e}`);
+    }
+    await sleep(250);
+  }
+};
 
 export const cleanupIntegrationTestAppointments = async (oystehr: Oystehr): Promise<void> => {
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();

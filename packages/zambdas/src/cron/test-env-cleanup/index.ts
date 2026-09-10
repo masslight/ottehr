@@ -4,6 +4,7 @@ import {
   cleanAppointmentGraph,
   cleanupE2ELocations,
   cleanupIntegrationTestAppointments,
+  cleanupIntegrationTestDocumentReferences,
   cleanupIntegrationTestHealthcareServices,
   cleanupIntegrationTestLocations,
   cleanupIntegrationTestPatients,
@@ -34,6 +35,9 @@ export const index = wrapHandler('test-env-cleanup', async (input: ZambdaInput):
   await cleanupIntegrationTestLocations(oystehr);
   await cleanupIntegrationTestHealthcareServices(oystehr);
   await cleanupIntegrationTestQuestionnaires(oystehr);
+  // Tag-anchored rather than reachable from an appointment: a form template belongs to the project, not
+  // to a patient, so no graph sweep leads to one.
+  await cleanupIntegrationTestDocumentReferences(oystehr);
 
   return {
     statusCode: 200,
