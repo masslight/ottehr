@@ -1,10 +1,12 @@
 import { FC } from 'react';
+import { useActionQuickPicks } from '../hooks/useActionQuickPicks';
 import { useGlobalQuickPicks } from '../hooks/useGlobalQuickPicks';
 import { useNavigationQuickPicks } from '../hooks/useNavigationQuickPicks';
 import { useRecentQuickPicks } from '../hooks/useRecentQuickPicks';
 
 export const CommandPaletteRegistrations: FC = () => {
   useNavigationQuickPicks();
+  useActionQuickPicks();
   useRecentQuickPicks();
 
   return null;

@@ -9,6 +9,7 @@ import {
   DialogContentText,
   DialogTitle,
   IconButton,
+  Tooltip,
   useTheme,
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
@@ -18,6 +19,7 @@ interface RemoveCardOnFileDialogProps {
   onClose: () => void;
   onRemove: () => void;
   loading?: boolean;
+  canRemove?: boolean;
 }
 
 export default function RemoveCardOnFileDialog({
@@ -25,6 +27,7 @@ export default function RemoveCardOnFileDialog({
   onClose,
   onRemove,
   loading,
+  canRemove = true,
 }: RemoveCardOnFileDialogProps): ReactElement {
   const theme = useTheme();
   const [confirming, setConfirming] = useState(false);
@@ -99,9 +102,20 @@ export default function RemoveCardOnFileDialog({
             Yes, Remove Card
           </LoadingButton>
         ) : (
-          <Button variant="contained" color="error" size="medium" sx={buttonSx} onClick={() => setConfirming(true)}>
-            Remove Card on File
-          </Button>
+          <Tooltip title={canRemove ? '' : 'Only users with the Billing Admin role can remove the card on file'}>
+            <span>
+              <Button
+                variant="contained"
+                color="error"
+                size="medium"
+                sx={buttonSx}
+                disabled={!canRemove}
+                onClick={() => setConfirming(true)}
+              >
+                Remove Card on File
+              </Button>
+            </span>
+          </Tooltip>
         )}
       </DialogActions>
     </Dialog>

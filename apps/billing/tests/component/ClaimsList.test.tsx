@@ -11,15 +11,19 @@ const {
   runBillingRulesEngineMock,
   exportBillingClaimsMock,
   getBillingClaimsExportStatusMock,
+  searchBillingNonInsuranceOrgsMock,
   pollExportTaskMock,
   downloadTextFileMock,
+  searchBillingPatientsMock,
 } = vi.hoisted(() => ({
   searchBillingClaimsMock: vi.fn(),
   runBillingRulesEngineMock: vi.fn(),
   exportBillingClaimsMock: vi.fn(),
   getBillingClaimsExportStatusMock: vi.fn(),
+  searchBillingNonInsuranceOrgsMock: vi.fn().mockResolvedValue({ organizations: [] }),
   pollExportTaskMock: vi.fn(),
   downloadTextFileMock: vi.fn(),
+  searchBillingPatientsMock: vi.fn().mockResolvedValue({ patients: [] }),
 }));
 
 vi.mock('../../src/api/api', () => ({
@@ -27,7 +31,8 @@ vi.mock('../../src/api/api', () => ({
   runBillingRulesEngine: runBillingRulesEngineMock,
   exportBillingClaims: exportBillingClaimsMock,
   getBillingClaimsExportStatus: getBillingClaimsExportStatusMock,
-  searchBillingPatients: vi.fn().mockResolvedValue({ patients: [] }),
+  searchBillingNonInsuranceOrgs: searchBillingNonInsuranceOrgsMock,
+  searchBillingPatients: searchBillingPatientsMock,
   searchBillingPayers: vi.fn().mockResolvedValue({ payers: [] }),
   // Preloaded on mount behind a debounce timer — without this export the timer explodes on slow
   // (CI) runners after the test body has already finished.
@@ -136,6 +141,7 @@ const makeRow = (
   patientDob: '1990-01-01',
   payerName: 'Acme',
   payerId: 'P1',
+  nonInsurancePayerName: '',
   memberId: '',
   service: undefined,
   serviceDate: '2026-01-02',
@@ -159,6 +165,15 @@ function renderList(): void {
     </MemoryRouter>
   );
 }
+
+// ClaimsList restores/persists filters under this sessionStorage key — see CLAIMS_LIST_FILTERS_STORAGE_KEY
+// in src/pages/ClaimsList.tsx. Every test gets a clean slate so one test's typed filters can't leak
+// into the next test's initial restore.
+const FILTERS_STORAGE_KEY = 'billing.claimsListFilters';
+
+beforeEach(() => {
+  sessionStorage.clear();
+});
 
 describe('ClaimsList — submit claims', () => {
   beforeEach(() => {
@@ -445,5 +460,163 @@ describe('ClaimsList — incomplete results', () => {
     fireEvent.click(screen.getByRole('button', { name: 'next page' }));
 
     await waitFor(() => expect(screen.queryByText(INCOMPLETE_WARNING)).not.toBeInTheDocument());
+  });
+});
+
+describe('ClaimsList — persisted filters', () => {
+  beforeEach(() => {
+    searchBillingClaimsMock.mockReset();
+    searchBillingClaimsMock.mockResolvedValue({ claims: [], total: 0 });
+  });
+
+  it('restores filters saved from a previous visit and searches with them right away', async () => {
+    sessionStorage.setItem(
+      FILTERS_STORAGE_KEY,
+      JSON.stringify({
+        searchText: 'Jones',
+        arStageFilter: AR_STAGE.insurancePayer,
+        statusFilter: 'submitted',
+        tagFilter: '',
+        createdFrom: '2026-01-01',
+        createdTo: '2026-01-31',
+        serviceDateFrom: '2026-02-01',
+        serviceDateTo: '2026-02-15',
+        selectedPayer: { id: 'payer-rcm-1', name: 'Acme Payer', payerId: 'PAY1' },
+        selectedPatient: { id: 'patient-1', name: 'Jones, Alex' },
+        typeFilter: 'professional',
+        selectedService: { name: 'Office Visit' },
+        paginationModel: { page: 2, pageSize: 50 },
+      })
+    );
+
+    renderList();
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({
+          searchText: 'Jones',
+          arStage: AR_STAGE.insurancePayer,
+          status: 'submitted',
+          createdFrom: '2026-01-01',
+          createdTo: '2026-01-31',
+          serviceDateFrom: '2026-02-01',
+          serviceDateTo: '2026-02-15',
+          payerId: 'PAY1',
+          patientId: 'patient-1',
+          type: 'professional',
+          service: 'Office Visit',
+          pageSize: 50,
+          offset: 100,
+        })
+      )
+    );
+
+    // The restored search text is reflected in the input, not just sent to the backend.
+    expect(await screen.findByPlaceholderText(/Search by patient name/)).toHaveValue('Jones');
+  });
+
+  it('never restores the patient PHI fields that were stripped before persisting', async () => {
+    sessionStorage.setItem(
+      FILTERS_STORAGE_KEY,
+      JSON.stringify({
+        searchText: '',
+        arStageFilter: '',
+        statusFilter: '',
+        tagFilter: '',
+        createdFrom: '',
+        createdTo: '',
+        serviceDateFrom: '',
+        serviceDateTo: '',
+        selectedPayer: null,
+        selectedPatient: { id: 'patient-1', name: 'Jones, Alex' },
+        typeFilter: '',
+        selectedService: null,
+        paginationModel: { page: 0, pageSize: 25 },
+      })
+    );
+
+    renderList();
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenCalledWith({}, expect.objectContaining({ patientId: 'patient-1' }))
+    );
+    // Only id/name are ever written for the patient filter — dob, address, gender, and clinical
+    // IDs never round-trip through sessionStorage even though the live selection carries them.
+    expect(screen.getByDisplayValue('Jones, Alex')).toBeInTheDocument();
+  });
+
+  it("saves the current filters to sessionStorage as they're changed, so a later visit can restore them", async () => {
+    renderList();
+    await waitFor(() => expect(searchBillingClaimsMock).toHaveBeenCalled());
+
+    const search = await screen.findByPlaceholderText(/Search by patient name/);
+    fireEvent.change(search, { target: { value: 'Smith' } });
+
+    await waitFor(() => {
+      const stored = JSON.parse(sessionStorage.getItem(FILTERS_STORAGE_KEY) ?? '{}');
+      expect(stored.searchText).toBe('Smith');
+    });
+  });
+
+  it('persists only id/name for a selected patient, stripping PHI like dob and address', async () => {
+    searchBillingPatientsMock.mockResolvedValue({
+      patients: [
+        {
+          id: 'patient-1',
+          name: 'Jones, Alex',
+          firstName: 'Alex',
+          lastName: 'Jones',
+          dob: '1990-01-01',
+          gender: 'male',
+          address: '123 Main St',
+          clinicalId: 'clinical-1',
+          clinicalFriendlyId: 'MRN-1',
+        },
+      ],
+    });
+    renderList();
+    await waitFor(() => expect(searchBillingClaimsMock).toHaveBeenCalled());
+
+    const patientCombobox = await screen.findByRole('combobox', { name: 'Patient' });
+    fireEvent.mouseDown(patientCombobox);
+    // Generous timeout: the option waits on a 300ms-debounced fetch, slow enough to flake at 1s.
+    fireEvent.click(await screen.findByRole('option', { name: 'Jones, Alex' }, { timeout: 5000 }));
+
+    await waitFor(() => {
+      const stored = JSON.parse(sessionStorage.getItem(FILTERS_STORAGE_KEY) ?? '{}');
+      // Only id/name round-trip through sessionStorage — dob, address, gender, and clinical IDs
+      // from the selected option never get written.
+      expect(stored.selectedPatient).toEqual({ id: 'patient-1', name: 'Jones, Alex' });
+    });
+  });
+});
+
+describe('ClaimsList — non-insurance organization filter', () => {
+  beforeEach(() => {
+    searchBillingClaimsMock.mockReset();
+    searchBillingNonInsuranceOrgsMock.mockReset();
+    searchBillingNonInsuranceOrgsMock.mockResolvedValue({ organizations: [] });
+  });
+
+  it('filters claims by the selected non-insurance organization', async () => {
+    const NIO_ID = '5b0261af-71c6-4f7e-9a51-e0d16a468980';
+    searchBillingClaimsMock.mockResolvedValue({ claims: [], total: 0 });
+    searchBillingNonInsuranceOrgsMock.mockResolvedValue({
+      organizations: [{ id: NIO_ID, name: 'FedEx', employer: true, active: true, contacts: [], covers: [] }],
+    });
+    renderList();
+
+    const input = await screen.findByLabelText('Non-insurance Organization');
+    fireEvent.mouseDown(input);
+    // Generous timeout: the option waits on a 300ms-debounced fetch, slow enough to flake at 1s.
+    fireEvent.click(await screen.findByRole('option', { name: 'FedEx' }, { timeout: 5000 }));
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ nonInsurancePayerId: NIO_ID })
+      )
+    );
   });
 });

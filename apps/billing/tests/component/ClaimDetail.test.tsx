@@ -13,12 +13,16 @@ const {
   runBillingRulesEngineMock,
   getBillingClaimHistoryMock,
   addBillingClaimNoteMock,
+  searchBillingNonInsuranceOrgsMock,
+  updateBillingResourceMock,
   oystehrZambdaStub,
 } = vi.hoisted(() => ({
   getBillingClaimDetailMock: vi.fn(),
   runBillingRulesEngineMock: vi.fn(),
   getBillingClaimHistoryMock: vi.fn(),
   addBillingClaimNoteMock: vi.fn(),
+  searchBillingNonInsuranceOrgsMock: vi.fn(),
+  updateBillingResourceMock: vi.fn(),
   oystehrZambdaStub: {},
 }));
 
@@ -29,11 +33,12 @@ vi.mock('../../src/api/api', () => ({
   addBillingClaimNote: addBillingClaimNoteMock,
   getPatientCoverages: vi.fn(),
   searchBillingLocations: vi.fn(),
+  searchBillingNonInsuranceOrgs: searchBillingNonInsuranceOrgsMock,
   searchBillingPayers: vi.fn(),
   searchBillingProviders: vi.fn(),
   searchBillingTags: vi.fn().mockResolvedValue({ tags: [] }),
   tagBillingClaim: vi.fn(),
-  updateBillingResource: vi.fn(),
+  updateBillingResource: updateBillingResourceMock,
 }));
 
 vi.mock('../../src/hooks/useAppClients', () => ({
@@ -301,11 +306,12 @@ describe('ClaimDetail — run rules engine button', () => {
     expect(await screen.findByRole('button', { name: 'Prepare for invoice' })).toBeEnabled();
   });
 
-  it('hides the run button for a Patient AR claim with insurance coverage', async () => {
+  it('shows Prepare for invoice for a Patient AR claim with insurance coverage', async () => {
     getBillingClaimDetailMock.mockResolvedValue({ ...makeClaim(AR_STAGE.patient), coverageFhirId: 'coverage-1' });
     renderDetail();
-    await screen.findAllByText('Jane Doe');
-    expect(screen.queryByRole('button', { name: 'Prepare for invoice' })).not.toBeInTheDocument();
+
+    const prepareButton = await screen.findByRole('button', { name: 'Prepare for invoice' });
+    expect(prepareButton).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Submit claim' })).not.toBeInTheDocument();
   });
 
@@ -573,5 +579,148 @@ describe('ClaimDetail: notes drawer', () => {
     const historyTable = await screen.findByRole('table');
     expect(within(historyTable).getByText(noteMessage)).toBeInTheDocument();
     expect(within(historyTable).getByText('Note')).toBeInTheDocument();
+  });
+});
+
+describe('ClaimDetail — non-insurance payer section', () => {
+  beforeEach(() => {
+    getBillingClaimDetailMock.mockReset();
+    searchBillingNonInsuranceOrgsMock.mockReset();
+    updateBillingResourceMock.mockReset();
+  });
+
+  it('links the stamped payer to its non-insurance organization page', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.nonInsurancePayer),
+      nonInsurancePayerFhirId: 'nio-1',
+      nonInsurancePayerName: 'FedEx',
+    });
+    renderDetail();
+
+    expect(await screen.findByText('Non-insurance Payer')).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: 'FedEx' });
+    expect(link).toHaveAttribute('href', '/non-insurance-organizations/nio-1');
+  });
+
+  it('shows the empty state for a non-insurance AR claim whose visit had no employer', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.nonInsurancePayer));
+    renderDetail();
+
+    expect(await screen.findByText('Non-insurance Payer')).toBeInTheDocument();
+    expect(screen.getByText('No non-insurance payer specified')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Remove payer' })).not.toBeInTheDocument();
+  });
+
+  it('is rendered with the empty state even for insurance claims', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
+    renderDetail();
+
+    expect(await screen.findByText('Non-insurance Payer')).toBeInTheDocument();
+    expect(screen.getByText('No non-insurance payer specified')).toBeInTheDocument();
+  });
+
+  it('sets a payer through the edit form', async () => {
+    const user = userEvent.setup();
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.nonInsurancePayer));
+    searchBillingNonInsuranceOrgsMock.mockResolvedValue({
+      organizations: [
+        { id: 'nio-1', name: 'FedEx', employer: true, active: true, contacts: [], covers: [] },
+        { id: 'nio-2', name: 'Inactive Org', employer: true, active: false, contacts: [], covers: [] },
+      ],
+      total: 2,
+      offset: 0,
+      pageSize: 100,
+    });
+    updateBillingResourceMock.mockResolvedValue({ id: 'claim-1' });
+    renderDetail();
+
+    const section = (await screen.findByText('Non-insurance Payer')).closest('.MuiCard-root') as HTMLElement;
+    await user.click(within(section).getByRole('button', { name: 'Edit' }));
+    await user.click(within(section).getByLabelText('Choose payer'));
+
+    // Generous timeout: the options wait on a 300ms-debounced fetch, slow enough to flake at 1s.
+    const fedEx = await screen.findByRole('option', { name: 'FedEx' }, { timeout: 5000 });
+    // Inactive organizations can't be chosen as the payer.
+    expect(screen.queryByRole('option', { name: 'Inactive Org' })).not.toBeInTheDocument();
+
+    await user.click(fedEx);
+    await user.click(within(section).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(updateBillingResourceMock).toHaveBeenCalledWith(oystehrZambdaStub, {
+        resourceType: 'Claim',
+        resourceId: 'claim-1',
+        claimId: 'claim-1',
+        fields: { nonInsurancePayer: { id: 'nio-1' } },
+      })
+    );
+  });
+
+  it('opens edit mode with the current payer prefilled and saves a replacement', async () => {
+    const user = userEvent.setup();
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.nonInsurancePayer),
+      nonInsurancePayerFhirId: 'nio-1',
+      nonInsurancePayerName: 'FedEx',
+    });
+    searchBillingNonInsuranceOrgsMock.mockResolvedValue({
+      organizations: [
+        { id: 'nio-1', name: 'FedEx', employer: true, active: true, contacts: [], covers: [] },
+        { id: 'nio-3', name: 'UPS', employer: true, active: true, contacts: [], covers: [] },
+      ],
+      total: 2,
+      offset: 0,
+      pageSize: 100,
+    });
+    updateBillingResourceMock.mockResolvedValue({ id: 'claim-1' });
+    renderDetail();
+
+    const section = (await screen.findByText('Non-insurance Payer')).closest('.MuiCard-root') as HTMLElement;
+    await user.click(within(section).getByRole('button', { name: 'Edit' }));
+
+    const input = within(section).getByLabelText('Payer');
+    expect(input).toHaveValue('FedEx');
+
+    await user.click(input);
+    // Wait out the debounced fetch, then check the current payer appears once, merged with the
+    // loaded options.
+    await screen.findByRole('option', { name: 'UPS' }, { timeout: 5000 });
+    const options = screen.getAllByRole('option');
+    expect(options.map((o) => o.textContent)).toEqual(['FedEx', 'UPS']);
+
+    await user.click(screen.getByRole('option', { name: 'UPS' }));
+    await user.click(within(section).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(updateBillingResourceMock).toHaveBeenCalledWith(oystehrZambdaStub, {
+        resourceType: 'Claim',
+        resourceId: 'claim-1',
+        claimId: 'claim-1',
+        fields: { nonInsurancePayer: { id: 'nio-3' } },
+      })
+    );
+  });
+
+  it('removes the payer through the confirm flow', async () => {
+    const user = userEvent.setup();
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.nonInsurancePayer),
+      nonInsurancePayerFhirId: 'nio-1',
+      nonInsurancePayerName: 'FedEx',
+    });
+    updateBillingResourceMock.mockResolvedValue({ id: 'claim-1' });
+    renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: 'Remove payer' }));
+    await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() =>
+      expect(updateBillingResourceMock).toHaveBeenCalledWith(oystehrZambdaStub, {
+        resourceType: 'Claim',
+        resourceId: 'claim-1',
+        claimId: 'claim-1',
+        fields: { nonInsurancePayer: null },
+      })
+    );
   });
 });

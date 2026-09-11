@@ -26,6 +26,8 @@ export const dataTestIds = {
     changeStatusDropdown: 'change-status-dropdown-in-header',
     allergies: 'header-allergies',
     weight: 'header-weight',
+    roomSelect: 'header-room-select',
+    payment: 'header-payment',
   },
   inPersonLayout: {
     selectProviderAlert: 'select-provider-alert',

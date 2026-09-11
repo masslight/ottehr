@@ -11,9 +11,13 @@ import {
 } from 'fhir/r4b';
 import { CPT_CODE_SYSTEM, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
-import { EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
+import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE, EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+  CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
+} from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { RULES_ENGINE_TYPES } from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   RULE_FIELD_CATALOG,
@@ -27,6 +31,7 @@ import {
   readField,
   readServiceLineProperty,
   resolveDateValue,
+  resolveFacilityPlaceOfService,
   RulesEngineClaimModel,
   SERVICE_LINE_READABLE_PROPERTY_IDS,
   SERVICE_LINE_WRITABLE_PROPERTY_IDS,
@@ -215,6 +220,29 @@ describe('resolveDateValue', () => {
     m.claim.item = [];
     expect(resolveDateValue({ source: 'firstServiceLineDate' }, m)).toEqual({
       error: 'no service date could be resolved — the claim has no existing service lines to inherit one from',
+    });
+  });
+});
+
+describe('resolveFacilityPlaceOfService', () => {
+  it("reads the CMS place-of-service code off the claim's service facility", () => {
+    const m = makeModel();
+    m.serviceFacility!.extension = [{ url: CODE_SYSTEM_CMS_PLACE_OF_SERVICE, valueString: '11' }];
+    expect(resolveFacilityPlaceOfService(m)).toEqual({ value: '11' });
+  });
+
+  it('errors when the facility has no place-of-service code configured', () => {
+    const m = makeModel();
+    expect(resolveFacilityPlaceOfService(m)).toEqual({
+      error: "Claim's facility has no place-of-service code configured",
+    });
+  });
+
+  it('errors when the claim has no service facility at all', () => {
+    const m = makeModel();
+    m.serviceFacility = undefined;
+    expect(resolveFacilityPlaceOfService(m)).toEqual({
+      error: 'The claim has no service facility set',
     });
   });
 });
@@ -648,6 +676,36 @@ describe('service line actions', () => {
         m
       )
     ).toContain('units');
+  });
+
+  it("sets a line's place of service from the claim's facility", () => {
+    const m = makeModel();
+    m.serviceFacility!.extension = [{ url: CODE_SYSTEM_CMS_PLACE_OF_SERVICE, valueString: '11' }];
+    const error = applyAction(
+      {
+        type: 'updateServiceLines',
+        match: { type: 'all' },
+        set: { property: 'placeOfService', value: { source: 'facilityPlaceOfService' } },
+      },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(readServiceLineProperty(m.claim.item![0], 'placeOfService')).toBe('11');
+  });
+
+  it('fails the rule when the facility place-of-service source cannot be resolved', () => {
+    const m = makeModel();
+    const error = applyAction(
+      {
+        type: 'updateServiceLines',
+        match: { type: 'all' },
+        set: { property: 'placeOfService', value: { source: 'facilityPlaceOfService' } },
+      },
+      m
+    );
+    expect(error).toContain("Claim's facility has no place-of-service code configured");
+    // The line's original place of service is untouched.
+    expect(readServiceLineProperty(m.claim.item![0], 'placeOfService')).toBe('20');
   });
 
   it('removes matching lines, re-sequences survivors, and recomputes the total', () => {
@@ -1252,6 +1310,88 @@ describe('provider/facility reference swap', () => {
     expect(writeField(m, 'renderingProvider.ref', '')).toBe(false); // no "clear the provider"
     expect(m.createdCopyIds).toBeUndefined();
     expect(m.claim.provider).toEqual({});
+  });
+});
+
+describe('non-insurance payer field', () => {
+  const nioOrg: Organization = { resourceType: 'Organization', id: 'nio-1', name: 'Acme Trucking' };
+  const nioTags = (m: RulesEngineClaimModel): string[] =>
+    (m.claim.meta?.tag ?? [])
+      .filter((t) => t.system === CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM)
+      .map((t) => t.code as string);
+
+  it('reads the stamped extension as the organization id, absent when unstamped', () => {
+    const m = makeModel();
+    expect(readField(m, 'nonInsurancePayerId')).toBeUndefined();
+    m.claim.extension = [
+      ...(m.claim.extension ?? []),
+      {
+        url: CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+        valueReference: { reference: 'Organization/nio-1', display: 'Acme Trucking' },
+      },
+    ];
+    expect(readField(m, 'nonInsurancePayerId')).toBe('nio-1');
+  });
+
+  it('stamps the extension + searchable tag from the prefetched organization, replacing a previous payer', () => {
+    const m = makeModel();
+    m.nioOrganizations = new Map([
+      ['nio-1', nioOrg],
+      ['nio-2', { resourceType: 'Organization', id: 'nio-2', name: 'Beta Fleet' }],
+    ]);
+
+    expect(writeField(m, 'nonInsurancePayerId', 'nio-1')).toBe(true);
+    expect(m.claim.extension).toContainEqual({
+      url: CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+      valueReference: { reference: 'Organization/nio-1', display: 'Acme Trucking' },
+    });
+    expect(nioTags(m)).toEqual(['nio-1']);
+    expect(readField(m, 'nonInsurancePayerId')).toBe('nio-1');
+
+    expect(writeField(m, 'nonInsurancePayerId', 'nio-2')).toBe(true);
+    const stamps = (m.claim.extension ?? []).filter((ext) => ext.url === CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL);
+    expect(stamps).toEqual([
+      {
+        url: CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+        valueReference: { reference: 'Organization/nio-2', display: 'Beta Fleet' },
+      },
+    ]);
+    expect(nioTags(m)).toEqual(['nio-2']);
+  });
+
+  it('clears the extension and tag on an empty value, keeping other extensions and tags', () => {
+    const m = makeModel();
+    m.claim.meta = { tag: [{ system: CLAIM_TAG_SYSTEM, code: 'VIP' }] };
+    m.nioOrganizations = new Map([['nio-1', nioOrg]]);
+    expect(writeField(m, 'nonInsurancePayerId', 'nio-1')).toBe(true);
+    const otherExtensions = (m.claim.extension ?? []).filter(
+      (ext) => ext.url !== CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL
+    );
+
+    // Clearing needs no prefetched organization — an empty value always succeeds.
+    m.nioOrganizations = undefined;
+    expect(writeField(m, 'nonInsurancePayerId', '')).toBe(true);
+    expect(m.claim.extension).toEqual(otherExtensions);
+    expect(readField(m, 'nonInsurancePayerId')).toBeUndefined();
+    expect(nioTags(m)).toEqual([]);
+    expect(claimTags(m)).toEqual(['VIP']);
+
+    // A claim whose only extension was the stamp ends with none at all.
+    const bare = makeModel();
+    bare.claim.extension = undefined;
+    bare.nioOrganizations = new Map([['nio-1', nioOrg]]);
+    expect(writeField(bare, 'nonInsurancePayerId', 'nio-1')).toBe(true);
+    expect(writeField(bare, 'nonInsurancePayerId', '')).toBe(true);
+    expect(bare.claim.extension).toBeUndefined();
+  });
+
+  it('fails the write when the organization was not prefetched (missing or not an NIO)', () => {
+    const m = makeModel();
+    const before = structuredClone(m.claim);
+    expect(writeField(m, 'nonInsurancePayerId', 'nio-1')).toBe(false); // nothing prefetched
+    m.nioOrganizations = new Map([['nio-1', nioOrg]]);
+    expect(writeField(m, 'nonInsurancePayerId', 'nio-other')).toBe(false);
+    expect(m.claim).toEqual(before);
   });
 });
 

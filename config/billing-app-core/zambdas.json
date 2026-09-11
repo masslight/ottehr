@@ -274,6 +274,13 @@
       "src": "src/billing/run-billing-rules-engine/index",
       "zip": ".dist/zips/run-billing-rules-engine.zip"
     },
+    "GET-BILLING-REPORT": {
+      "name": "get-billing-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/reports/get-billing-report/index",
+      "zip": ".dist/zips/get-billing-report.zip"
+    },
     "TAG-BILLING-CLAIM": {
       "name": "tag-billing-claim",
       "type": "http_auth",
@@ -390,6 +397,41 @@
       "src": "src/billing/record-billing-manual-payment/index",
       "zip": ".dist/zips/record-billing-manual-payment.zip"
     },
+    "CREATE-BILLING-NON-INSURANCE-ORG": {
+      "name": "create-billing-non-insurance-org",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-billing-non-insurance-org/index",
+      "zip": ".dist/zips/create-billing-non-insurance-org.zip"
+    },
+    "UPDATE-BILLING-NON-INSURANCE-ORG": {
+      "name": "update-billing-non-insurance-org",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/update-billing-non-insurance-org/index",
+      "zip": ".dist/zips/update-billing-non-insurance-org.zip"
+    },
+    "SEARCH-BILLING-NON-INSURANCE-ORGS": {
+      "name": "search-billing-non-insurance-orgs",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-non-insurance-orgs/index",
+      "zip": ".dist/zips/search-billing-non-insurance-orgs.zip"
+    },
+    "DELETE-BILLING-NON-INSURANCE-ORG": {
+      "name": "delete-billing-non-insurance-org",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-billing-non-insurance-org/index",
+      "zip": ".dist/zips/delete-billing-non-insurance-org.zip"
+    },
+    "LIST-NON-INSURANCE-ORGANIZATIONS": {
+      "name": "list-non-insurance-organizations",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/list-non-insurance-organizations/index",
+      "zip": ".dist/zips/list-non-insurance-organizations.zip"
+    },
     "SUB-RULES-ENGINE": {
       "name": "sub-rules-engine",
       "type": "subscription",
@@ -413,6 +455,14 @@
       "src": "src/subscriptions/task/sub-export-billing-claims-csv/index",
       "zip": ".dist/zips/sub-export-billing-claims-csv.zip"
     },
+    "SUB-REFRESH-BILLING-REPORT": {
+      "name": "sub-refresh-billing-report",
+      "type": "subscription",
+      "timeout": "870",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-refresh-billing-report/index",
+      "zip": ".dist/zips/sub-refresh-billing-report.zip"
+    },
     "CLEANUP-BILLING-CLAIM-EXPORTS": {
       "name": "cleanup-billing-claim-exports",
       "type": "cron",
@@ -422,6 +472,13 @@
       "schedule": {
         "expression": "cron(*/30 * * * ? *)"
       }
+    },
+    "SUB-CLAIM-STATUS-RESPONSE": {
+      "name": "sub-claim-status-response",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/claim-response/sub-claim-status-response/index",
+      "zip": ".dist/zips/sub-claim-status-response.zip"
     },
     "SUB-CLAIM-RESPONSE-ADJUST-STATUS": {
       "name": "sub-claim-response-adjust-status",
@@ -469,6 +526,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-EXPORT-BILLING-CLAIMS-CSV/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_REFRESH_BILLING_REPORT_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Recompute a heavy billing report cache asynchronously",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/export-task|refresh-billing-report&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-REFRESH-BILLING-REPORT/id}"
         },
         "extension": [
           {
@@ -541,6 +616,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-TAG-ERA-RESOURCES/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_CLAIM_STATUS_RESPONSE": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Process claim-status responses for billing",
+        "criteria": "ClaimResponse?identifier=https://identifiers.fhir.oystehr.com/rcm-claim-response-event-id|",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-CLAIM-STATUS-RESPONSE/id}"
         },
         "extension": [
           {

@@ -32,18 +32,21 @@ interface CommandPaletteState {
   isOpen: boolean;
   sources: Record<string, CommandPaletteSource>;
   pendingQuickPick: PendingQuickPick | null;
+  createTaskDialogOpen: boolean;
   open: () => void;
   close: () => void;
   toggle: () => void;
   registerSource: (sourceId: string, items: CommandPaletteItem[]) => void;
   unregisterSource: (sourceId: string) => void;
   setPendingQuickPick: (pending: PendingQuickPick | null) => void;
+  setCreateTaskDialogOpen: (open: boolean) => void;
 }
 
 export const useCommandPaletteStore = create<CommandPaletteState>()((set) => ({
   isOpen: false,
   sources: {},
   pendingQuickPick: null,
+  createTaskDialogOpen: false,
   open: () => set({ isOpen: true }),
   close: () => set({ isOpen: false }),
   toggle: () => set((state) => ({ isOpen: !state.isOpen })),
@@ -71,4 +74,5 @@ export const useCommandPaletteStore = create<CommandPaletteState>()((set) => ({
       return { sources: remainingSources };
     }),
   setPendingQuickPick: (pendingQuickPick) => set({ pendingQuickPick }),
+  setCreateTaskDialogOpen: (createTaskDialogOpen) => set({ createTaskDialogOpen }),
 }));
