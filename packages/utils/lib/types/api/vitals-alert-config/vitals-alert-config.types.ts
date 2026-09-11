@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { VitalsAge, VitalsAgeSchema } from '../../../config-helpers/vitals';
 import { Secrets } from '../../../secrets';
+import { ALL_EHR_STAFF_ROLES, RoleType } from '../user.types';
 
 export const VITAL_ALERT_TYPES = [
   'vital-weight',
@@ -207,3 +208,10 @@ export const UpdateVitalsAlertConfigInputValidatedSchema = UpdateVitalsAlertConf
   userToken: z.string(),
 });
 export type UpdateVitalsAlertConfigInputValidated = z.infer<typeof UpdateVitalsAlertConfigInputValidatedSchema>;
+
+export const VITALS_ALERT_CONFIG_VIEW_ROLES: RoleType[] = ALL_EHR_STAFF_ROLES;
+export const VITALS_ALERT_CONFIG_EDIT_ROLES: RoleType[] = [
+  RoleType.Administrator,
+  RoleType.Manager,
+  RoleType.CustomerSupport,
+];
