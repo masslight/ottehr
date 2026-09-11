@@ -40,8 +40,7 @@ async function performEffect(oystehr: Oystehr, params: CreateBillingProviderPara
   return { id: created.id! };
 }
 
-// Exported for the import-billing-orgs script.
-export function buildProvider(params: CreateBillingProviderParams): Practitioner | Organization {
+function buildProvider(params: CreateBillingProviderParams): Practitioner | Organization {
   const tag = params.roles.map((role) => ({
     system: PROVIDER_ROLE_TAG,
     code: role === 'rendering' ? PROVIDER_ROLE_RENDERING : PROVIDER_ROLE_BILLING,
