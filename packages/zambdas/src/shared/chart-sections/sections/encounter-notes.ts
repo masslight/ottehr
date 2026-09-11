@@ -19,7 +19,7 @@ export const encounterNotesSection: ChartSectionDefinition<'encounterNotes'> = {
     const mapped = mapChartResources(encounter, resources, encounterId, {});
     const reasonForVisit = encounter.extension?.find((e) => e.url === 'reason-for-visit')?.valueString;
     return {
-      reasonForVisit: { text: reasonForVisit ?? '' },
+      reasonForVisit: reasonForVisit === undefined ? undefined : { text: reasonForVisit },
       chiefComplaint: mapped.chiefComplaint,
       historyOfPresentIllness: mapped.historyOfPresentIllness,
       mechanismOfInjury: mapped.mechanismOfInjury,

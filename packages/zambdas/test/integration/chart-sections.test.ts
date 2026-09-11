@@ -34,8 +34,22 @@ interface ChartedPatient {
   saved: SaveChartDataResponse['chartData'];
 }
 
-/** Every field the save endpoint can persist that the sections hand back. */
-const chartPayload = (encounterId: string, label: string): SaveChartDataRequest => ({
+interface NoteAuthor {
+  id: string;
+  name: string;
+}
+
+/**
+ * Every field the save endpoint can persist that the sections hand back. Notes name their author the way
+ * the EHR does (the signed-in practitioner): the server writes `Practitioner/<authorId>` into the note as
+ * given, so an empty author is an invalid reference that fails the whole save transaction.
+ */
+const chartPayload = (
+  encounterId: string,
+  patientId: string,
+  author: NoteAuthor,
+  label: string
+): SaveChartDataRequest => ({
   encounterId,
   chiefComplaint: { text: `${label} history of present illness` },
   historyOfPresentIllness: { text: `${label} chief complaint` },
@@ -72,9 +86,9 @@ const chartPayload = (encounterId: string, label: string): SaveChartDataRequest 
   notes: [NOTE_TYPE.INTAKE, NOTE_TYPE.ALLERGY, NOTE_TYPE.VITALS].map((type) => ({
     type,
     text: `${label} ${type} note`,
-    authorId: '',
-    authorName: '',
-    patientId: '',
+    authorId: author.id,
+    authorName: author.name,
+    patientId,
     encounterId,
   })),
   patientInfoConfirmed: { value: true },
@@ -102,17 +116,27 @@ describe('get-chart-section and get-visit-note golden integration', () => {
   let cleanup: () => Promise<void>;
   let patientA: ChartedPatient;
   let patientB: ChartedPatient;
+  let author: NoteAuthor;
   const sectionsA = {} as ChartSectionDataMap;
   let visitNoteA: VisitNoteResponse;
 
   const saveChart = async (base: InsertFullAppointmentDataBaseResult, label: string): Promise<ChartedPatient> => {
-    const output = (
-      await oystehrLocalZambdas.zambda.execute({
-        id: 'SAVE-CHART-DATA',
-        ...chartPayload(base.encounter.id!, label),
-      })
-    ).output as SaveChartDataResponse;
-    return { base, saved: output.chartData };
+    try {
+      const output = (
+        await oystehrLocalZambdas.zambda.execute({
+          id: 'SAVE-CHART-DATA',
+          ...chartPayload(base.encounter.id!, base.patient.id!, author, label),
+        })
+      ).output as SaveChartDataResponse;
+      return { base, saved: output.chartData };
+    } catch (error) {
+      // The SDK error prints as "[object Object]"; show what the endpoint answered.
+      console.error(
+        `SAVE-CHART-DATA failed for ${label}:`,
+        JSON.stringify(error, Object.getOwnPropertyNames(error ?? {}))
+      );
+      throw error;
+    }
   };
 
   const getSection = async <S extends ChartSection>(encounterId: string, section: S): Promise<ChartSectionData<S>> => {
@@ -132,6 +156,8 @@ describe('get-chart-section and get-visit-note golden integration', () => {
     const setup = await setupIntegrationTest('chart-sections.test.ts', M2MClientMockType.provider);
     oystehrLocalZambdas = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
+    // The shared caller practitioner, as the EHR names the signed-in provider on a note.
+    author = { id: setup.testUserM2MProfile.split('/')[1], name: 'Integration test provider' };
     const [baseA, baseB] = await Promise.all([
       insertInPersonAppointmentBase(setup.oystehr, setup.processId),
       insertInPersonAppointmentBase(setup.oystehr, setup.processId),

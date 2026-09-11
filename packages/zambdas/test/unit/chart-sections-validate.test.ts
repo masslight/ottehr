@@ -4,7 +4,7 @@
  * other key — above all anything that looks like a FHIR search parameter — is rejected.
  */
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { CHART_SECTIONS } from 'utils/lib/types/api/chart-data/chart-sections.types';
+import { CHART_SECTIONS, GetChartSectionRequest } from 'utils/lib/types/api/chart-data/chart-sections.types';
 import { describe, expect, it } from 'vitest';
 import { validateRequestParameters as validateGetChartSection } from '../../src/ehr/get-chart-section/validateRequestParameters';
 import { validateRequestParameters as validateGetVisitNote } from '../../src/ehr/get-visit-note/validateRequestParameters';
@@ -33,7 +33,9 @@ describe('get-chart-section request validation', () => {
     expect(
       validateGetChartSection(input({ encounterId, section: 'history', params: { medicationCount: 100 } })).params
     ).toEqual({ medicationCount: 100 });
-    expect(validateGetChartSection(input({ encounterId, section: 'history' })).params).toBeUndefined();
+    // The typed request agrees with the schema: history's option set may be left out.
+    const historyWithoutParams: GetChartSectionRequest<'history'> = { encounterId, section: 'history' };
+    expect(validateGetChartSection(input(historyWithoutParams)).params).toBeUndefined();
   });
 
   it('requires a body, a uuid encounter id and a known section', () => {
