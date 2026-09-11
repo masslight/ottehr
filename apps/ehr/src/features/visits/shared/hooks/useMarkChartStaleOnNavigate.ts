@@ -5,7 +5,8 @@ import { useAppointmentData } from '../stores/appointment/appointment.store';
 import { markChartStale } from './chartSectionCache';
 
 /**
- * Marks the current encounter's chart stale when the provider moves to another visit screen. Nothing is
+ * Marks the current encounter's chart stale when the provider enters the visit or moves to another visit
+ * screen. Nothing is
  * refetched here: a stale section is re-read once by the screen that shows it, and the stale visit note by
  * the visit-note pages on entry, so flows that change chart data through other endpoints (an in-house lab
  * being collected, say) are picked up on the next screen at the cost of one small read per section shown.
@@ -20,11 +21,12 @@ export const useMarkChartStaleOnNavigate = (): void => {
   const queryClient = useQueryClient();
   const { encounter } = useAppointmentData();
   const encounterId = encounter?.id;
-  const previousPathname = useRef(pathname);
+  // Starts empty so that entering the visit counts as a screen change too.
+  const previous = useRef<{ pathname?: string; encounterId?: string }>({});
 
   useLayoutEffect(() => {
-    if (previousPathname.current === pathname) return;
-    previousPathname.current = pathname;
+    if (previous.current.pathname === pathname && previous.current.encounterId === encounterId) return;
+    previous.current = { pathname, encounterId };
     void markChartStale(queryClient, encounterId);
   }, [pathname, encounterId, queryClient]);
 };
