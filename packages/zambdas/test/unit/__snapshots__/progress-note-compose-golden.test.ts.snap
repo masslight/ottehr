@@ -332,20 +332,7 @@ exports[`composeProgressNoteData — golden chart data > matches the golden snap
     "rosObservations": {},
   },
   "screening": {
-    "additionalQuestions": {
-      "covid-symptoms": {
-        "field": "covid-symptoms",
-        "resourceId": "obs-screening-covid",
-        "value": true,
-      },
-      "travel-usa": {
-        "derivedFrom": undefined,
-        "field": "travel-usa",
-        "note": "Asked on intake",
-        "resourceId": "obs-screening-travel",
-        "value": "No recent travel",
-      },
-    },
+    "additionalQuestions": {},
     "currentASQ": "",
     "notes": [
       "screening note text",
