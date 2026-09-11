@@ -78,6 +78,15 @@ describe('names this server generates', () => {
     }
   });
 
+  it('keeps a very long file name inside the length the validator allows', () => {
+    // The date and UUID take ~62 of the 200 characters. Untrimmed, any file name longer than the
+    // remainder produced an object name that failed validation — so the upload could not happen at all.
+    const objectName = makeFormTemplateObjectName(`${'a'.repeat(400)}.pdf`);
+
+    expect(objectName.length).toBeLessThanOrEqual(200);
+    expect(() => makeZ3ObjectUrl({ secrets: SECRETS, bucketName: 'form-templates', objectName })).not.toThrow();
+  });
+
   it('accepts a completed-form object name, however the browser named the file', () => {
     // Mirrors `create-completed-form-upload-url`, which is the only other producer of these names.
     const sanitize = (fileName: string): string =>

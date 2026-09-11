@@ -43,6 +43,9 @@ const isBlockedAddress = (address: string): boolean => {
     const normalized = address.toLowerCase();
     if (
       normalized === '::1' || // loopback
+      // The unspecified address. Connecting to it reaches a service listening on this host, so it is
+      // loopback by another name — and `::`, `::0` and `0:0:0:0:0:0:0:0` all spell it.
+      /^[0:]+$/.test(normalized) ||
       normalized.startsWith('fc') || // unique local
       normalized.startsWith('fd') ||
       // Link-local is fe80::/10, so the first group runs fe80 through febf. Tested on that group rather

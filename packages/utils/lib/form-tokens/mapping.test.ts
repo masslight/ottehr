@@ -1,7 +1,7 @@
-import { checkCompatibility, isBindingComplete, requiredTransformKind } from 'utils/lib/form-tokens/mapping';
-import { TOKEN_CATALOG } from 'utils/lib/form-tokens/token-catalog';
-import { FormFieldType } from 'utils/lib/types/api/form-template.types';
 import { describe, expect, it } from 'vitest';
+import { FormFieldType } from '../types/api/form-template.types';
+import { checkCompatibility, isBindingComplete, requiredTransformKind } from './mapping';
+import { TOKEN_CATALOG } from './token-catalog';
 
 describe('binding compatibility', () => {
   it('never allows a binding to a signature or button field', () => {

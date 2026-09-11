@@ -19,7 +19,7 @@ import {
   FormTemplateRejection,
 } from 'utils/lib/types/api/form-template.types';
 import { sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
-import { z3ObjectNameDatePrefix } from '../../shared/presigned-file-urls/helpers';
+import { Z3_OBJECT_NAME_MAX_LENGTH, z3ObjectNameDatePrefix } from '../../shared/presigned-file-urls/helpers';
 
 /**
  * `docStatus` marks a template as a draft (`preliminary`) or published (`final`). This mirrors the
@@ -113,9 +113,17 @@ const REJECTED_ANALYSIS: Record<FormTemplateRejection, true> = {
 
 export const isRejectedAnalysis = (status: FormTemplateAnalysisStatus): boolean => status in REJECTED_ANALYSIS;
 
-/** Object name for a template's PDF. The UUID keeps two same-day uploads of one file name apart. */
-export const makeFormTemplateObjectName = (fileName: string): string =>
-  `${z3ObjectNameDatePrefix()}-${randomUUID()}-${sanitizeFileNameForZ3(fileName)}`;
+/**
+ * Object name for a template's PDF. The UUID keeps two same-day uploads of one file name apart.
+ *
+ * The date and UUID take about 62 characters of the budget, and the name is trimmed to what is left
+ * rather than allowed to overrun it — an untrimmed name simply failed validation later, so a template
+ * with a long file name could not be uploaded at all.
+ */
+export const makeFormTemplateObjectName = (fileName: string): string => {
+  const prefix = `${z3ObjectNameDatePrefix()}-${randomUUID()}-`;
+  return `${prefix}${sanitizeFileNameForZ3(fileName).slice(0, Z3_OBJECT_NAME_MAX_LENGTH - prefix.length)}`;
+};
 
 /**
  * Creates the record for a new template. Always a draft: nothing has read the PDF at this point, and
@@ -187,7 +195,10 @@ export const reconcileMappingWithFields = (
     // checkbox leaves a binding that still points somewhere real and now writes the wrong kind of value —
     // which fills silently rather than failing. `isBindingComplete` is the same check the editor applies,
     // so a binding surviving here is one the editor would let an administrator create today.
-    if (field && token && isBindingComplete(binding, token.type, field.type)) {
+    // `mappable` too, not just the type. A replacement that keeps a field's name and type but makes it
+    // read-only leaves a binding the filler will try to write, and a write to a read-only field can take
+    // the whole prefill down rather than skipping one field.
+    if (field?.mappable && token && isBindingComplete(binding, token.type, field.type)) {
       kept.push(binding);
     } else {
       dropped.push(binding.fieldName);

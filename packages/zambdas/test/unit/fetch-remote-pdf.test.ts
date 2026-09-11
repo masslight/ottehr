@@ -64,6 +64,14 @@ describe('fetchRemotePdf address guard', () => {
     expect((await rejectionFor('http://[fe8::1]/form.pdf')).reason).toBe('invalidUrl');
   });
 
+  it('rejects the unspecified address, however it is spelled', async () => {
+    // `::` is not loopback, but connecting to it reaches whatever is listening on this host, so it is
+    // loopback in effect. Every spelling of all-zeros has to go.
+    for (const host of ['[::]', '[::0]', '[0:0:0:0:0:0:0:0]']) {
+      expect((await rejectionFor(`https://${host}/form.pdf`)).reason, host).toBe('blockedAddress');
+    }
+  });
+
   it('rejects a private address smuggled through an IPv4-mapped IPv6 literal', async () => {
     expect((await rejectionFor('https://[::ffff:169.254.169.254]/')).reason).toBe('blockedAddress');
     expect((await rejectionFor('https://[::ffff:127.0.0.1]/')).reason).toBe('blockedAddress');

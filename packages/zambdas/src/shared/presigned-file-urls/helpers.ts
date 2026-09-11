@@ -37,6 +37,9 @@ type Z3UrlInput =
  * Everything remaining is what `sanitizeFileName` and `sanitizeFileNameForZ3` are able to emit, so a name
  * this server generated is never rejected by its own check.
  */
+/** Longest object name the validator accepts. Producers size their names against it. */
+export const Z3_OBJECT_NAME_MAX_LENGTH = 200;
+
 const Z3_OBJECT_NAME = /^[A-Za-z0-9][A-Za-z0-9._+!\-'()@$]{0,199}$/;
 
 /**

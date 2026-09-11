@@ -12,7 +12,11 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
-import { makeZ3ObjectUrl, z3ObjectNameDatePrefix } from '../../shared/presigned-file-urls/helpers';
+import {
+  makeZ3ObjectUrl,
+  Z3_OBJECT_NAME_MAX_LENGTH,
+  z3ObjectNameDatePrefix,
+} from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
@@ -78,7 +82,11 @@ const performEffect = async (
 
   // Named here and assembled here. The caller gets the name back and nothing else, so the return leg
   // cannot point this deployment's credentials at an address of its own choosing.
-  const objectName = `${z3ObjectNameDatePrefix()}-${sanitizeFileName(fileName)}`;
+  const datePrefix = `${z3ObjectNameDatePrefix()}-`;
+  const objectName = `${datePrefix}${sanitizeFileName(fileName).slice(
+    0,
+    Z3_OBJECT_NAME_MAX_LENGTH - datePrefix.length
+  )}`;
   const z3Url = makeZ3ObjectUrl({
     secrets,
     bucketName: BUCKET_NAMES.FORM_INSTANCES,
