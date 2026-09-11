@@ -2,17 +2,25 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { adminUpdateProgressNoteConfig, getProgressNoteConfig } from 'src/api/api';
+import {
+  adminUpdateProgressNoteConfig,
+  adminUpdateVitalsAlertConfig,
+  getProgressNoteConfig,
+  getVitalsAlertConfig,
+} from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils/lib/utils/progress-note-config';
+import { DEFAULT_VITALS_ALERT_CONFIG } from 'utils/lib/utils/vitals-alert-config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ProgressNoteAdminPage from '../../src/features/admin/ProgressNoteAdminPage';
 
 vi.mock('src/api/api', () => ({
   getProgressNoteConfig: vi.fn(),
   adminUpdateProgressNoteConfig: vi.fn(),
+  getVitalsAlertConfig: vi.fn(),
+  adminUpdateVitalsAlertConfig: vi.fn(),
 }));
 
 vi.mock('src/hooks/useAppClients', () => ({
@@ -76,6 +84,8 @@ describe('ProgressNoteAdminPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useApiClients).mockReturnValue({ oystehrZambda: mockOystehrZambda } as any);
+    vi.mocked(getVitalsAlertConfig).mockResolvedValue(DEFAULT_VITALS_ALERT_CONFIG);
+    vi.mocked(adminUpdateVitalsAlertConfig).mockResolvedValue(undefined);
     asUser(RoleType.Administrator);
   });
 

@@ -16,8 +16,10 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { ReactElement, useEffect } from 'react';
+import { FormEvent, ReactElement, useEffect } from 'react';
 import { Control, Controller, useForm } from 'react-hook-form';
+import { useVitalsAlertConfigForm } from 'src/features/admin/vitals-alert-config/useVitalsAlertConfigForm';
+import { VitalsAlertConfigFields } from 'src/features/admin/vitals-alert-config/VitalsAlertConfigFields';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useProgressNoteConfig, useUpdateProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
 import { mapDispositionTypeToLabel } from 'utils/lib/fhir/disposition';
@@ -65,12 +67,15 @@ export default function ProgressNoteAdminPage(): ReactElement {
   const {
     control,
     formState: { isDirty },
-    handleSubmit,
+    getValues,
+    trigger,
     reset,
   } = useForm<ProgressNoteConfig>({
     defaultValues: DEFAULT_PROGRESS_NOTE_CONFIG,
     resolver: zodResolver(UpdateProgressNoteConfigInputSchema),
   });
+
+  const vitalsAlerts = useVitalsAlertConfigForm();
 
   useEffect(() => {
     if (!data) return;
@@ -83,18 +88,45 @@ export default function ProgressNoteAdminPage(): ReactElement {
     );
   }, [data, reset]);
 
-  const onSubmit = (values: ProgressNoteConfig): void => {
-    // The prompt field is customer-support-only, and react-hook-form submits the value it loaded
-    // even for a field it never rendered. Omitting it keeps this form from carrying a stale prompt
-    // back to the server, where absent means "leave the stored prompt alone".
-    const { signReviewPrompt: _signReviewPrompt, ...withoutPrompt } = values;
-    const payload = isCustomerSupport ? values : withoutPrompt;
+  const progressNoteEditable = !isPending && !isError;
+  const vitalsAlertsEditable = !vitalsAlerts.isPending && !vitalsAlerts.isError;
+  const anySubmitting = isSubmitting || vitalsAlerts.isSubmitting;
+  const anyDirty = (progressNoteEditable && isDirty) || (vitalsAlertsEditable && vitalsAlerts.isDirty);
 
-    mutate(payload, {
-      onSuccess: () => {
-        reset(values);
-      },
-    });
+  const handleSave = async (event: FormEvent): Promise<void> => {
+    event.preventDefault();
+    const [progressNoteValid, vitalsAlertsValid] = await Promise.all([
+      progressNoteEditable ? trigger() : true,
+      vitalsAlertsEditable ? vitalsAlerts.validate() : true,
+    ]);
+    if (!progressNoteValid || !vitalsAlertsValid) return;
+
+    if (progressNoteEditable && isDirty) {
+      const parsed = UpdateProgressNoteConfigInputSchema.safeParse(getValues());
+      if (parsed.success) {
+        // The prompt field is customer-support-only, and react-hook-form submits the value it loaded
+        // even for a field it never rendered. Omitting it keeps this form from carrying a stale prompt
+        // back to the server, where absent means "leave the stored prompt alone".
+        const { signReviewPrompt: _signReviewPrompt, ...withoutPrompt } = parsed.data;
+        mutate(isCustomerSupport ? parsed.data : withoutPrompt, {
+          onSuccess: () => {
+            reset(parsed.data);
+          },
+        });
+      }
+    }
+    if (vitalsAlertsEditable && vitalsAlerts.isDirty) {
+      vitalsAlerts.submit();
+    }
+  };
+
+  const handleDiscard = (): void => {
+    if (progressNoteEditable) {
+      reset({ ...DEFAULT_PROGRESS_NOTE_CONFIG, ...data });
+    }
+    if (vitalsAlertsEditable) {
+      vitalsAlerts.discard();
+    }
   };
 
   return (
@@ -103,7 +135,7 @@ export default function ProgressNoteAdminPage(): ReactElement {
         Settings for how providers complete and sign progress notes
       </Typography>
 
-      <Paper component="form" onSubmit={handleSubmit(onSubmit)} sx={{ p: 3 }}>
+      <Paper component="form" onSubmit={handleSave} sx={{ p: 3 }}>
         <Stack spacing={3}>
           {isPending ? (
             <Box display="flex" justifyContent="center" alignItems="center" py={3}>
@@ -232,15 +264,27 @@ export default function ProgressNoteAdminPage(): ReactElement {
 
           <Divider />
 
+          {vitalsAlerts.isPending ? (
+            <Box display="flex" justifyContent="center" alignItems="center" py={3}>
+              <CircularProgress />
+            </Box>
+          ) : vitalsAlerts.isError ? (
+            <Alert severity="error">Failed to load the current vital alert levels.</Alert>
+          ) : (
+            <VitalsAlertConfigFields form={vitalsAlerts} />
+          )}
+
+          <Divider />
+
           <Stack direction="row" spacing={1}>
-            <LoadingButton type="submit" variant="contained" loading={isSubmitting} disabled={!isDirty}>
+            <LoadingButton type="submit" variant="contained" loading={anySubmitting} disabled={!anyDirty}>
               Save
             </LoadingButton>
             <LoadingButton
               type="button"
               variant="outlined"
-              disabled={isSubmitting || !isDirty}
-              onClick={() => reset({ ...DEFAULT_PROGRESS_NOTE_CONFIG, ...data })}
+              disabled={anySubmitting || !anyDirty}
+              onClick={handleDiscard}
             >
               Discard changes
             </LoadingButton>
