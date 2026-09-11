@@ -1,7 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, Provenance } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { RAW_REQUEST_EXTENSION_URL, RAW_RESPONSE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import {
+  CLAIM_STATUS_RESPONSE_EVENT_SYSTEM,
+  RAW_REQUEST_EXTENSION_URL,
+  RAW_RESPONSE_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
@@ -81,21 +85,30 @@ export async function fetchClaimTransmitEvent({
     oystehr
   );
   const submission = responses
-    .filter((response) => response.extension?.some((extension) => extension.url === RAW_REQUEST_EXTENSION_URL))
+    .filter(
+      (response) =>
+        response.extension?.some((extension) => extension.url === RAW_REQUEST_EXTENSION_URL) &&
+        !response.identifier?.some((entry) => entry.system === CLAIM_STATUS_RESPONSE_EVENT_SYSTEM)
+    )
     .sort((a, b) => instant(a.created) - instant(b.created))
     .at(0);
-  if (!submission) return undefined;
+  if (!submission) {
+    console.warn(`No submission ClaimResponse for Claim/${claimId}; the report omits the transmit event`);
+    return undefined;
+  }
 
   const raw = ClaimStatusResponseSchema.safeParse(safeJson(rawResponseOf(submission)));
+  if (!raw.success) {
+    console.warn(`ClaimResponse/${submission.id} has no readable raw response; transmit ids omitted`);
+    return { transmittedAt: submission.created };
+  }
   return {
-    transmittedAt: raw.success
-      ? claimStatusEventTime({
-          raw: raw.data,
-          fallback: submission.created,
-        })
-      : submission.created,
-    ...(raw.success && raw.data.batchid ? { batchId: raw.data.batchid } : {}),
-    ...(raw.success && raw.data.claimmd_id ? { clearinghouseClaimId: raw.data.claimmd_id } : {}),
+    transmittedAt: claimStatusEventTime({
+      raw: raw.data,
+      fallback: submission.created,
+    }),
+    ...(raw.data.batchid ? { batchId: raw.data.batchid } : {}),
+    ...(raw.data.claimmd_id ? { clearinghouseClaimId: raw.data.claimmd_id } : {}),
   };
 }
 

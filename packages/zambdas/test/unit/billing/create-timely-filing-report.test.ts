@@ -1,6 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, Provenance, Resource } from 'fhir/r4b';
-import { RAW_REQUEST_EXTENSION_URL, RAW_RESPONSE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import {
+  CLAIM_STATUS_RESPONSE_EVENT_SYSTEM,
+  RAW_REQUEST_EXTENSION_URL,
+  RAW_RESPONSE_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
 import {
   CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
   CLAIM_PROVENANCE_ACTIVITY,
@@ -298,6 +302,60 @@ describe('fetchClaimTransmitEvent', () => {
     ).resolves.toMatchObject({
       transmittedAt: '2026-08-05T11:53:00.000Z',
     });
+  });
+
+  // A status response can carry a raw response of its own, so the raw-request extension alone does
+  // not separate the two feeds.
+  it('ignores a status response even when it carries a raw request', async () => {
+    const statusResponse = {
+      ...submissionResponse(),
+      id: 'status',
+      identifier: [
+        {
+          system: CLAIM_STATUS_RESPONSE_EVENT_SYSTEM,
+          value: 'account:9001',
+        },
+      ],
+    } as ClaimResponse;
+    const search = vi.fn().mockResolvedValue(pagedBundle([statusResponse]));
+
+    await expect(
+      fetchClaimTransmitEvent({
+        oystehr: {
+          fhir: {
+            search,
+          },
+        } as unknown as Oystehr,
+        claimId: CLAIM_ID,
+      })
+    ).resolves.toBeUndefined();
+  });
+
+  it('still dates the transmit event when the raw response is unreadable', async () => {
+    const noRawResponse = {
+      ...submissionResponse(),
+      extension: [
+        {
+          url: RAW_REQUEST_EXTENSION_URL,
+          valueString: 'ISA*...',
+        },
+      ],
+    } as ClaimResponse;
+    const search = vi.fn().mockResolvedValue(pagedBundle([noRawResponse]));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await expect(
+      fetchClaimTransmitEvent({
+        oystehr: {
+          fhir: {
+            search,
+          },
+        } as unknown as Oystehr,
+        claimId: CLAIM_ID,
+      })
+    ).resolves.toEqual({ transmittedAt: '2026-08-05T11:53:00Z' });
+    // Silently dropping the ids would leave an unexplained gap in the report.
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('ClaimResponse/submission'));
   });
 
   it('ignores status responses, which carry no submitted 837', async () => {
