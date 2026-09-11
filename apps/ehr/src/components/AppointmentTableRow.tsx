@@ -205,7 +205,6 @@ export default function AppointmentTableRow({
   const user = useEvolveUser();
 
   const [primaryActionButtonLoading, setPrimaryActionButtonLoading] = useState(false);
-  const [progressNoteButtonLoading, setProgressNoteButtonLoading] = useState(false);
   const [approveButtonLoading, setApproveButtonLoading] = useState(false);
   const [reviewAndSignButtonLoading, setReviewAndSignButtonLoading] = useState(false);
 
@@ -523,6 +522,7 @@ export default function AppointmentTableRow({
   }
   const encounterId: string = encounter.id;
   const primaryAction = getTrackingBoardPrimaryAction(appointment.status, { isVirtualVisit: isVirtual(appointment) });
+  const progressNoteUrl = getInPersonUrlByAppointmentType(appointment, ROUTER_PATH.REVIEW_AND_SIGN);
   const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
   const assignedProviderId = getAttendingPractitionerId(encounter);
   // Read-only display (Discharged/Cancelled tabs) uses the names resolved on the appointment's
@@ -664,22 +664,6 @@ export default function AppointmentTableRow({
     return renderActionButton(primaryAction.label, handlePrimaryActionButton, primaryAction.dataTestId);
   };
 
-  const navigateToReviewAndSign = async (setLoading: (loading: boolean) => void): Promise<void> => {
-    setLoading(true);
-    try {
-      navigate(getInPersonUrlByAppointmentType(appointment, ROUTER_PATH.REVIEW_AND_SIGN));
-    } catch (error) {
-      console.error(error);
-      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleProgressNoteButton = async (): Promise<void> => {
-    await navigateToReviewAndSign(setProgressNoteButtonLoading);
-  };
-
   const renderProgressNoteButton = (): ReactElement | undefined => {
     if (
       appointment.status === 'intake' ||
@@ -693,12 +677,7 @@ export default function AppointmentTableRow({
       appointment.status === 'ready'
     ) {
       return (
-        <GoToButton
-          text="Progress Note"
-          loading={progressNoteButtonLoading}
-          onClick={handleProgressNoteButton}
-          dataTestId={dataTestIds.dashboard.progressNoteButton}
-        >
+        <GoToButton text="Progress Note" to={progressNoteUrl} dataTestId={dataTestIds.dashboard.progressNoteButton}>
           <img src={progressNoteIcon} />
         </GoToButton>
       );
@@ -707,7 +686,15 @@ export default function AppointmentTableRow({
   };
 
   const handleReviewAndSignButton = async (): Promise<void> => {
-    await navigateToReviewAndSign(setReviewAndSignButtonLoading);
+    setReviewAndSignButtonLoading(true);
+    try {
+      navigate(progressNoteUrl);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    } finally {
+      setReviewAndSignButtonLoading(false);
+    }
   };
 
   const renderReviewAndSignButton = (): ReactElement | undefined => {
@@ -1101,7 +1088,7 @@ export default function AppointmentTableRow({
         <Stack direction={'row'} spacing={1} alignItems="center" justifyContent="center" sx={{ width: '100%' }}>
           <GoToButton
             text="Visit Details"
-            onClick={() => navigate(getInPersonVisitDetailsUrl(appointment.id))}
+            to={getInPersonVisitDetailsUrl(appointment.id)}
             dataTestId={dataTestIds.dashboard.visitDetailsButton}
           >
             <MedicalInformationIcon />
