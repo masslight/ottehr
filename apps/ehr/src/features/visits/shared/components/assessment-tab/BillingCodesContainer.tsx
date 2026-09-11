@@ -8,10 +8,11 @@ import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
-import { CHART_DATA_QUERY_KEY } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { chartSectionQueryKey } from 'src/features/visits/shared/hooks/chartSectionCache';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { makeCptCodeDisplay } from 'utils/lib/fhir/helpers';
+import { AssessmentSectionData } from 'utils/lib/types/api/chart-data/chart-sections.types';
 import { CPTCodeOption } from 'utils/lib/types/common';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { useEMCodes } from '../../hooks/useEMCodes';
@@ -256,7 +257,7 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
   const onDelete = async (resourceId: string): Promise<void> => {
     const preparedValue = cptCodes.find((item) => item.resourceId === resourceId)!;
     const prevCodes = [...cptCodes];
-    const queryKey = [CHART_DATA_QUERY_KEY, encounter?.id];
+    const queryKey = chartSectionQueryKey(encounter?.id, 'assessment');
 
     // Cancel any outgoing refetches (from MDM field) to prevent race condition
     await queryClient.cancelQueries({ queryKey });
@@ -274,10 +275,10 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
       {
         onSuccess: () => {
           // Get fresh data from cache after cancellation and apply the filter again
-          const currentData = queryClient.getQueryData<any>(queryKey);
+          const currentData = queryClient.getQueryData<AssessmentSectionData>(queryKey);
           if (currentData?.cptCodes) {
             setPartialChartData(
-              { cptCodes: currentData.cptCodes.filter((i: any) => i.resourceId !== resourceId) },
+              { cptCodes: currentData.cptCodes.filter((i) => i.resourceId !== resourceId) },
               { invalidateQueries: false }
             );
           }

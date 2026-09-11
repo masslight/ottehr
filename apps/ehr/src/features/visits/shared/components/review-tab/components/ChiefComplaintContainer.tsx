@@ -8,24 +8,22 @@ import {
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { getSpentTime } from 'utils/lib/fhir/encounter';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
-import { useProgressNoteChartFields } from '../../../hooks/useProgressNoteChartFields';
-import { useAppointmentData, useChartData } from '../../../stores/appointment/appointment.store';
+import { useVisitNote } from '../../../hooks/useVisitNote';
+import { useAppointmentData } from '../../../stores/appointment/appointment.store';
 
 // Chief complaint groups everything captured on the Chief Complaint screen: the reason for
 // visit the staff confirmed during the visit, and the free-text additional information.
 export const ChiefComplaintContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { encounter, appointment } = useAppointmentData();
-  const { chartData } = useChartData();
+  const { data: note } = useVisitNote();
   const theme = useTheme();
-
-  const { data: chartFields } = useProgressNoteChartFields();
 
   // Legacy tagging: the "additional information" free text is stored under the
   // history-of-present-illness tag.
-  const additionalInformation = chartFields?.historyOfPresentIllness?.text;
-  const reasonForVisit = chartFields?.reasonForVisit?.text;
-  const addToVisitNote = chartData?.addToVisitNote?.value;
+  const additionalInformation = note?.encounterNotes.historyOfPresentIllness?.text;
+  const reasonForVisit = note?.encounterNotes.reasonForVisit?.text;
+  const addToVisitNote = note?.encounterNotes.addToVisitNote?.value;
   const spentTime = getSpentTime(encounter.statusHistory);
 
   const subSections = [

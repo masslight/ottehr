@@ -36,9 +36,9 @@ import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { AISuggestionNotes } from 'utils/lib/types/api/ai-suggestions-notes';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
-import { useProgressNoteChartFields } from '../../hooks/useProgressNoteChartFields';
+import { useVisitNote } from '../../hooks/useVisitNote';
 import { useAiSuggestionNotes } from '../../stores/appointment/appointment.queries';
-import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
+import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import {
   useExamObservationsInitializationStore,
   useExamObservationsStore,
@@ -68,7 +68,6 @@ const AiBadge: FC = () => (
 export const MissingCard: FC = () => {
   const { id: appointmentIdFromUrl } = useParams();
   const { encounter } = useAppointmentData();
-  const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { hasDraft: hasExternalLabDraft } = useCreateExternalLabStore();
   const { hasDraft: hasInHouseLabDraft } = useCreateInHouseLabStore();
   const { hasDraft: hasRadiologyDraft } = useCreateRadiologyOrderStore();
@@ -78,23 +77,23 @@ export const MissingCard: FC = () => {
   const { hasDraft: hasMedDraft } = useInHouseMedicationOrderStore();
   const { hasDraft: hasVitalsDraft } = useVitalsDraftStore();
 
-  const { data: chartFields, isFetching, isFetched: isChartFieldsFetched } = useProgressNoteChartFields();
+  const { data: note, isLoading: isChartDataLoading, isFetching, isFetched: isChartFieldsFetched } = useVisitNote();
 
   const { mutateAsync: aiSuggestionNotes } = useAiSuggestionNotes();
   const { data: progressNoteConfig } = useProgressNoteConfig();
   const mdmRequired = progressNoteConfig?.mdmRequired ?? true;
 
   const navigate = useNavigate();
-  const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
-  const medicalDecision = chartFields?.medicalDecision?.text;
-  const emCode = chartData?.emCode;
-  const hpi = chartFields?.chiefComplaint?.text;
-  const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
+  const primaryDiagnosis = (note?.assessment.diagnosis || []).find((item) => item.isPrimary);
+  const medicalDecision = note?.encounterNotes.medicalDecision?.text;
+  const emCode = note?.assessment.emCode;
+  const hpi = note?.encounterNotes.chiefComplaint?.text;
+  const patientInfoConfirmed = note?.encounterNotes.patientInfoConfirmed?.value;
   const isPatientVerificationMissing = !patientInfoConfirmed;
-  const isAutoAccident = chartFields?.accident?.type?.includes('AA') ?? false;
-  const hasAccidentType = (chartFields?.accident?.type?.length ?? 0) > 0;
-  const accidentMissingDate = hasAccidentType && !chartFields?.accident?.date;
-  const accidentMissingState = isAutoAccident && !chartFields?.accident?.state;
+  const isAutoAccident = note?.encounterNotes.accident?.type?.includes('AA') ?? false;
+  const hasAccidentType = (note?.encounterNotes.accident?.type?.length ?? 0) > 0;
+  const accidentMissingDate = hasAccidentType && !note?.encounterNotes.accident?.date;
+  const accidentMissingState = isAutoAccident && !note?.encounterNotes.accident?.state;
   const [suggestionNote, setSuggestionNote] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -130,8 +129,8 @@ export const MissingCard: FC = () => {
   // Keyed on the note state this page already knows about, so the AI re-runs when the note changes
   // and not on every mount. None of it is sent — the zambda assembles the note itself.
   const noteStateHash = useMemo(
-    () => hashInput([chartData, chartFields, rosState, examState, vitals]),
-    [chartData, chartFields, rosState, examState, vitals]
+    () => hashInput([note, rosState, examState, vitals]),
+    [note, rosState, examState, vitals]
   );
   // The prompt is an input to the AI call, so a prompt edit has to invalidate the cached review.
   const promptHash = useMemo(() => hashInput(signReviewPrompt), [signReviewPrompt]);

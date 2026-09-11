@@ -1,10 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import {
   ExtendedMedicationDataForResponse,
   GetMedicationOrdersInput,
   UpdateMedicationOrderInput,
 } from 'utils/lib/types/api/medication-administration.types';
+import { invalidateChartSections } from '../../shared/hooks/chartSectionCache';
 import {
   useCreateUpdateMedicationOrder,
   useGetMedicationOrders,
@@ -51,19 +51,9 @@ export const useMedicationAPI = (): MedicationAPI => {
       },
     });
 
-    // Invalidate medication history data (chart-data-fields)
-    // This ensures the medication history updates when a medication is cancelled/deleted
-    // Also since in create-update-medication-order we are now adding medications billing codes
-    // we are updating chart-data to update assessment tab billing codes
-    await queryClient.invalidateQueries({
-      predicate: (query) => {
-        const [prefix, encId] = query.queryKey;
-        return (
-          (prefix === CHART_FIELDS_QUERY_KEY && encId === encounterId) ||
-          (prefix === CHART_DATA_QUERY_KEY && encId === encounterId)
-        );
-      },
-    });
+    // The medication history is the history section, and create-update-medication-order adds billing codes,
+    // which are the assessment section: re-read both where they are shown.
+    await invalidateChartSections(queryClient, encounterId, ['history', 'assessment']);
   };
 
   return {

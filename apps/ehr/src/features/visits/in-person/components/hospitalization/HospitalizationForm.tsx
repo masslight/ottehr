@@ -28,7 +28,7 @@ export const HospitalizationForm: FC = () => {
 
   const { control, reset, handleSubmit } = methods;
 
-  const { isLoading, onSubmit, onRemove, values: hospitalization } = useChartDataArrayValue('episodeOfCare', reset, {});
+  const { isLoading, onSubmit, onRemove, values: hospitalization } = useChartDataArrayValue('episodeOfCare', reset);
   const [isOtherOptionSelected, setIsOtherOptionSelected] = useState(false);
 
   const handleSelectOption = useCallback(

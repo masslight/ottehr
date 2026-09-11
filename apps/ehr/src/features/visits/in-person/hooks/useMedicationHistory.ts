@@ -1,96 +1,47 @@
-import { QueryObserverResult } from '@tanstack/react-query';
-import { SearchParams } from 'utils/lib/fhir/uri';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { AllChartValuesKeys, MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { useChartFields } from '../../shared/hooks/useChartFields';
+import { useChartSection } from '../../shared/hooks/useChartSection';
 
 export type MedicationHistoryField = Extract<AllChartValuesKeys, 'medications' | 'inhouseMedications'>;
 
 export const MEDICATION_HISTORY_FIELDS: MedicationHistoryField[] = ['medications', 'inhouseMedications'];
-export const PATIENT_MEDS_COUNT_TO_LOAD = 100;
 export const COLLAPSED_MEDS_COUNT = 3;
-
-const SEARCH_PARAMS: Record<MedicationHistoryField, SearchParams> = {
-  medications: {
-    _sort: '-effective',
-    _include: 'MedicationStatement:source',
-    _tag: ['current-medication', 'prescribed-medication'],
-  },
-  inhouseMedications: {
-    _sort: '-effective',
-    _include: 'MedicationStatement:source',
-    _tag: 'in-house-medication',
-  },
-};
 
 export interface MedicationWithTypeDTO extends MedicationDTO {
   chartDataField: MedicationHistoryField;
 }
 
+/**
+ * The patient's medication history: current, prescribed and in-house medication statements across all of
+ * their encounters, newest first. All of it is the history section, whose cache entry the other medication
+ * screens share.
+ */
 export const useMedicationHistory = ({
-  search_by = 'patient',
-  count = PATIENT_MEDS_COUNT_TO_LOAD,
   chartDataFields = MEDICATION_HISTORY_FIELDS,
 }: {
-  search_by?: SearchParams['_search_by'];
-  count?: number;
   chartDataFields?: MedicationHistoryField[];
 } = {}): {
   isLoading: boolean;
   medicationHistory: MedicationWithTypeDTO[];
-  refetchHistory: () => Promise<QueryObserverResult<unknown, unknown>>;
+  refetchHistory: () => Promise<unknown>;
 } => {
-  const requestedFields = chartDataFields.reduce(
-    (acc, field) => {
-      acc[field] = {
-        ...SEARCH_PARAMS[field],
-        _search_by: search_by,
-        _count: count,
-      };
-      return acc;
-    },
-    {} as Record<MedicationHistoryField, SearchParams>
-  );
+  const { isLoading, data: history, refetch: refetchHistory } = useChartSection('history');
 
-  const {
-    isLoading,
-    data: historyData,
-    refetch: refetchHistory,
-  } = useChartFields({
-    requestedFields: { ...requestedFields, practitioners: {} },
-  });
-
-  /**
-   * Enrich medication records with practitioner details.
-   * _include=MedicationStatement:source fetches related Practitioner resources.
-   * Replace practitioner references with full objects for display.
-   * todo: consider to move this logic to the backend
-   */
-  if (historyData?.practitioners?.length) {
-    chartDataFields.forEach((field) => {
-      historyData[field]?.forEach((val) => {
-        if (
-          'practitioner' in val &&
-          val.practitioner &&
-          'reference' in val.practitioner &&
-          val.practitioner.reference
-        ) {
-          const ref = removePrefix('Practitioner/', val.practitioner.reference);
-          const practitioner = historyData.practitioners?.find((practitioner) => practitioner.id === ref);
-          val.practitioner = practitioner;
-        }
-      });
-    });
-  }
+  // The section resolves MedicationStatement.informationSource to the Practitioners it references; the
+  // history shows who recorded each medication, so swap the reference for the resolved Practitioner.
+  const practitioners = history?.practitioners ?? [];
+  const withPractitioner = (medication: MedicationDTO): MedicationDTO => {
+    const reference =
+      medication.practitioner && 'reference' in medication.practitioner ? medication.practitioner.reference : undefined;
+    if (!reference) return medication;
+    const practitioner = practitioners.find((candidate) => candidate.id === removePrefix('Practitioner/', reference));
+    return practitioner ? { ...medication, practitioner } : medication;
+  };
 
   const combinedMedicationHistory: MedicationWithTypeDTO[] = chartDataFields
-    .flatMap((field) => {
-      const fieldData = historyData?.[field] || [];
-      return fieldData.map((medication: MedicationDTO) => ({
-        ...medication,
-        chartDataField: field,
-      }));
-    })
+    .flatMap((field) =>
+      (history?.[field] ?? []).map((medication) => ({ ...withPractitioner(medication), chartDataField: field }))
+    )
     .sort((a, b) => {
       const FALLBACK_DATE = 0; // move elements without date to the end of the list
       const dateA = a?.intakeInfo.date ? new Date(a.intakeInfo.date) : FALLBACK_DATE;

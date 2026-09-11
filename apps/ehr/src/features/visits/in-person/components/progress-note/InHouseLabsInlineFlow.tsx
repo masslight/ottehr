@@ -27,7 +27,7 @@ export const InHouseLabsInlineFlow: FC = () => {
   const { encounter } = useAppointmentData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const encounterId = encounter?.id;
-  const refreshSummaries = useRefreshNoteSummaries({ fields: ['inHouseLabResults'] });
+  const refreshSummaries = useRefreshNoteSummaries();
 
   const goToList = useCallback((): void => {
     setView({ name: 'list' });

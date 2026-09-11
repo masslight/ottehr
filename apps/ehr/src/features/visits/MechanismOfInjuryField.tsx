@@ -3,7 +3,7 @@ import { Box, Button, CircularProgress, TextField, Tooltip, Typography } from '@
 import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useChartFields } from './shared/hooks/useChartFields';
+import { useChartSection } from './shared/hooks/useChartSection';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 
 const mechanismOfInjurySuggestion = (
@@ -84,13 +84,7 @@ const mechanismOfInjurySuggestion = (
 );
 
 export const MechanismOfInjuryField: FC = () => {
-  const { data: chartDataFields } = useChartFields({
-    requestedFields: {
-      mechanismOfInjury: {
-        _tag: 'mechanism-of-injury',
-      },
-    },
-  });
+  const { data: chartDataFields } = useChartSection('encounterNotes');
 
   const methods = useForm({
     defaultValues: {
@@ -118,9 +112,7 @@ export const MechanismOfInjuryField: FC = () => {
             value={value}
             onChange={(e) => {
               onChange(e);
-              onValueChange(e.target.value, {
-                refetchChartDataOnSave: true,
-              });
+              onValueChange(e.target.value);
             }}
             disabled={isChartDataLoading}
             label="Mechanism of Injury"
@@ -143,11 +135,7 @@ export const MechanismOfInjuryField: FC = () => {
 };
 
 export const MechanismOfInjuryFieldReadOnly: FC = () => {
-  const { data: chartFields } = useChartFields({
-    requestedFields: {
-      mechanismOfInjury: { _tag: 'mechanism-of-injury' },
-    },
-  });
+  const { data: chartFields } = useChartSection('encounterNotes');
 
   const mechanismOfInjury = chartFields?.mechanismOfInjury?.text;
 

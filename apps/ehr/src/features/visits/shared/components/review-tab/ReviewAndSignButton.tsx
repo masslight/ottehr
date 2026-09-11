@@ -32,8 +32,8 @@ import { RoundedButton } from '../../../../../components/RoundedButton';
 import { useAssignedProvider } from '../../hooks/useAssignedProvider';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
-import { useProgressNoteChartFields } from '../../hooks/useProgressNoteChartFields';
-import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
+import { useVisitNote } from '../../hooks/useVisitNote';
+import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { useSignAppointmentMutation } from '../../stores/tracking-board/tracking-board.queries';
 
 type ReviewAndSignButtonProps = {
@@ -42,7 +42,7 @@ type ReviewAndSignButtonProps = {
 
 export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) => {
   const { patient, appointment, encounter, appointmentRefetch } = useAppointmentData();
-  const { chartData } = useChartData();
+  const { data: note } = useVisitNote();
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const isFollowup = appointmentAccessibility.visitType === 'follow-up';
   const { hasDraft: hasExternalLabDraft } = useCreateExternalLabStore();
@@ -53,8 +53,6 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const { hasDraft: hasImmunizationDraft } = useImmunizationOrderStore();
   const { hasDraft: hasMedDraft } = useInHouseMedicationOrderStore();
   const { hasDraft: hasVitalsDraft } = useVitalsDraftStore();
-
-  const { data: chartFields } = useProgressNoteChartFields();
 
   const apiClient = useOystehrAPIClient();
   const { isAssignedProviderEligible } = useAssignedProvider();
@@ -80,17 +78,17 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const { data: progressNoteConfig } = useProgressNoteConfig();
   const mdmRequired = progressNoteConfig?.mdmRequired ?? true;
 
-  const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
-  const medicalDecision = chartFields?.medicalDecision?.text;
-  const hpi = chartFields?.chiefComplaint?.text;
-  const emCode = chartData?.emCode;
-  const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
-  const hasAccidentType = (chartFields?.accident?.type?.length ?? 0) > 0;
-  const isAutoAccident = chartFields?.accident?.type?.includes('AA') ?? false;
-  const accidentMissingDate = hasAccidentType && !chartFields?.accident?.date;
-  const accidentMissingState = isAutoAccident && !chartFields?.accident?.state;
-  const inHouseLabResultsPending = chartFields?.inHouseLabResults?.resultsPending;
-  const inHouseLabReflexTestPending = chartFields?.inHouseLabResults?.reflexTestsPending;
+  const primaryDiagnosis = (note?.assessment.diagnosis || []).find((item) => item.isPrimary);
+  const medicalDecision = note?.encounterNotes.medicalDecision?.text;
+  const hpi = note?.encounterNotes.chiefComplaint?.text;
+  const emCode = note?.assessment.emCode;
+  const patientInfoConfirmed = note?.encounterNotes.patientInfoConfirmed?.value;
+  const hasAccidentType = (note?.encounterNotes.accident?.type?.length ?? 0) > 0;
+  const isAutoAccident = note?.encounterNotes.accident?.type?.includes('AA') ?? false;
+  const accidentMissingDate = hasAccidentType && !note?.encounterNotes.accident?.date;
+  const accidentMissingState = isAutoAccident && !note?.encounterNotes.accident?.state;
+  const inHouseLabResultsPending = note?.inHouseLabResults?.resultsPending;
+  const inHouseLabReflexTestPending = note?.inHouseLabResults?.reflexTestsPending;
 
   const patientName = getPatientName(patient?.name).firstLastName;
 
