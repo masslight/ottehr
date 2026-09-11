@@ -2,6 +2,7 @@ import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODE_SET, CMS_PLACE_OF_SERVICE_CODES } from '../../../helpers/rcm/constants';
 import { VALUE_SETS } from '../../../ottehr-config/value-sets';
+import { isValidUUID } from '../../../validation/helper';
 import { isoDateRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { AllStates, stateCodeToFullName } from '../../common';
 import { PERSON_GENDER_OPTIONS } from './billing.constants';
@@ -105,7 +106,17 @@ export const RULE_FIELD_GROUP_LABELS: Record<RuleFieldGroup, string> = {
 //   from the rendering/billing providers list (the def's providerRole picks which)
 // - facility: a service facility reference resource ("Location/<id>") chosen from the service
 //   facilities list
-export type RuleFieldValueType = 'string' | 'number' | 'date' | 'select' | 'list' | 'payer' | 'provider' | 'facility';
+// - nio: a non-insurance organization id chosen from the NIO directory
+export type RuleFieldValueType =
+  | 'string'
+  | 'number'
+  | 'date'
+  | 'select'
+  | 'list'
+  | 'payer'
+  | 'provider'
+  | 'facility'
+  | 'nio';
 
 export interface RuleFieldOption {
   value: string;
@@ -505,6 +516,18 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     settable: true,
     description: "The primary payer's ID. Setting it re-points the primary coverage's payer and the claim's insurer.",
     requiredOnSet: true,
+  },
+  {
+    id: 'nonInsurancePayerId',
+    label: 'Non-insurance organization',
+    group: 'claim',
+    valueType: 'nio',
+    operators: REF_OPS,
+    settable: true,
+    description:
+      "The claim's non-insurance payer: a non-insurance organization from the Non-Insurance Organizations page " +
+      "(e.g. the visit's occupational-medicine employer). Setting it stamps the payer on the claim (shown on the " +
+      'claim screens, filterable on the claims list); setting an empty value clears it.',
   },
   {
     id: 'type',
@@ -1146,6 +1169,9 @@ const strictValueProblem = (
   if (def.valueType === 'facility' && !FACILITY_REF_REGEX.test(value)) {
     return 'Must be a facility reference (Location/<id>)';
   }
+  if (def.valueType === 'nio' && !isValidUUID(value)) {
+    return 'Must be a non-insurance organization id';
+  }
   if (def.format) return RULE_VALUE_FORMATS[def.format].validate?.(value);
   return undefined;
 };
@@ -1321,6 +1347,21 @@ export function ruleReferencesPatientCoverage(rule: { conditional: RuleCondition
 export interface SetResourceRef {
   field: string;
   ref: string;
+}
+
+export const NON_INSURANCE_PAYER_FIELD_ID = 'nonInsurancePayerId';
+
+// The NIO organization ids a rule's setField actions assign as the claim's non-insurance payer
+// (deduped, in tree order) — save-billing-rules verifies each names a non-insurance organization,
+// and the engine prefetches them so the synchronous writer can stamp the claim with the payer's name.
+export function collectSetNioIds(rule: { conditional: RuleConditional }): string[] {
+  const ids: string[] = [];
+  forEachRuleAction(rule, (action) => {
+    if (action.type !== 'setField' || action.field !== NON_INSURANCE_PAYER_FIELD_ID) return;
+    const id = action.value?.trim();
+    if (id && !ids.includes(id)) ids.push(id);
+  });
+  return ids;
 }
 
 export function collectSetResourceRefs(rule: { conditional: RuleConditional }): SetResourceRef[] {

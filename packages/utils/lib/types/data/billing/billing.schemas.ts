@@ -152,6 +152,7 @@ export const SearchBillingClaimsInputSchema = z.object({
   serviceDateTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
+  nonInsurancePayerId: nonEmptyString.uuid().optional(),
   service: nonEmptyString.optional(),
   patientId: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),
@@ -208,6 +209,8 @@ export const SearchBillingServicesInputSchema = z.object({
 export const SearchBillingPayersInputSchema = z.object({
   name: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
+  cursor: nonEmptyString.optional(),
+  limit: z.number().int().positive().max(200).optional(),
 });
 
 const claimDiagnosisSchema = z.object({
@@ -220,7 +223,7 @@ const claimServiceLineSchema = z.object({
   units: z.number().positive(),
   charges: z.number(),
   serviceDate: nonEmptyString,
-  placeOfService: z.string().optional(),
+  placeOfService: nonEmptyString,
   modifiers: z.array(z.string()).optional(),
   // 1-based references into the claim's diagnosis list (FHIR item.diagnosisSequence)
   diagnosisPointers: z.array(z.number().int().positive()).optional(),
@@ -573,6 +576,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
         .string()
         .refine((code) => INSURANCE_CANDID_PLAN_TYPE_CODES.includes(code), 'Invalid plan type')
         .optional(),
+      nonInsurancePayer: z.object({ id: nonEmptyString.uuid() }).nullable().optional(),
       diagnoses: z.array(claimDiagnosisSchema).optional(),
       serviceLines: z.array(claimServiceLineSchema).optional(),
       billType: nonEmptyString.min(4).max(4).optional().or(z.literal('')),

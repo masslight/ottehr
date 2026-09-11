@@ -19,6 +19,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { userMe } from 'utils/lib/auth/user-me.helper';
+import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
 import { getNPI, getTaxID, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
@@ -129,6 +130,12 @@ function projectClaim(claim: Claim): FieldProjection[] {
     { field: 'renderingProvider', label: 'Rendering Provider', value: refValue(rendering), ref: rendering?.reference },
     { field: 'facility', label: 'Service Facility', value: refValue(claim.facility), ref: claim.facility?.reference },
     { field: 'payer', label: 'Payer', value: refValue(claim.insurer), ref: claim.insurer?.reference },
+    {
+      field: 'nonInsurancePayer',
+      label: 'Non-insurance Payer',
+      value: refValue(getClaimNonInsurancePayer(claim)),
+      ref: getClaimNonInsurancePayer(claim)?.reference,
+    },
     {
       field: 'coverage',
       label: 'Coverage',

@@ -107,7 +107,7 @@ export interface ClaimHistoryRuleRef {
 // A link from a history value to the billing-app screen that manages that resource. The UI builds
 // the route as `/${screen}/${id}`.
 export interface ClaimHistoryLink {
-  screen: 'billing-providers' | 'rendering-providers' | 'service-facilities';
+  screen: 'billing-providers' | 'rendering-providers' | 'service-facilities' | 'non-insurance-organizations';
   id: string;
 }
 

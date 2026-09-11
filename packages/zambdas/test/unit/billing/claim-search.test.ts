@@ -1,9 +1,12 @@
+import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
+import { CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { describe, expect, it } from 'vitest';
 import {
+  buildClaimFilterParams,
   CLAIM_LIST_ELEMENTS,
   claimMatchesServiceDateRange,
   getClaimServiceDate,
@@ -58,6 +61,43 @@ const makeLookups = (
   coverages: [],
   claimResponsesByClaimId,
   patientPaidByClaimId,
+});
+
+describe('buildClaimFilterParams: non-insurance payer', () => {
+  it('filters by the NIO meta.tag mirror', async () => {
+    const nioId = '5b0261af-71c6-4f7e-9a51-e0d16a468980';
+    const params = await buildClaimFilterParams({
+      oystehr: {} as unknown as Oystehr,
+      params: { nonInsurancePayerId: nioId },
+    });
+    expect(params).toContainEqual({
+      name: '_tag',
+      value: `${CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM}|${nioId}`,
+    });
+  });
+});
+
+describe('mapClaimToItem: payer columns', () => {
+  it('shows the stamped non-insurance payer in its own column, never under payerName', () => {
+    const claim = {
+      ...makeClaim('claim-1', 100),
+      extension: [
+        {
+          url: 'https://fhir.ottehr.com/billing/non-insurance-payer',
+          valueReference: { reference: 'Organization/nio-1', display: 'FedEx' },
+        },
+      ],
+    } as Claim;
+    const item = mapClaimToItem(claim, makeLookups(new Map()));
+    expect(item.nonInsurancePayerName).toBe('FedEx');
+    expect(item.payerName).toBe('');
+  });
+
+  it('leaves both payer columns blank when the claim has neither insurer nor non-insurance payer', () => {
+    const item = mapClaimToItem(makeClaim('claim-1', 100), makeLookups(new Map()));
+    expect(item.payerName).toBe('');
+    expect(item.nonInsurancePayerName).toBe('');
+  });
 });
 
 describe('mapClaimToItem: patient payments', () => {

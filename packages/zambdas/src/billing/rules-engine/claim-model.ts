@@ -11,7 +11,13 @@ import {
   Practitioner,
   RelatedPerson,
 } from 'fhir/r4b';
-import { getCoveragePlanType, setCoveragePlanType } from 'utils/lib/fhir/billing';
+import {
+  applyClaimNonInsurancePayerTag,
+  claimNonInsurancePayerExtension,
+  getClaimNonInsurancePayer,
+  getCoveragePlanType,
+  setCoveragePlanType,
+} from 'utils/lib/fhir/billing';
 import { SUBSCRIBER_RELATIONSHIP_CODE_MAP } from 'utils/lib/fhir/constants';
 import { codeableConcept, getCoding, getExtension, getNPI, getTaxID, setNpi } from 'utils/lib/fhir/helpers';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from 'utils/lib/fhir/insurance';
@@ -36,6 +42,7 @@ import {
   getClaimStatusFieldValue,
   isValidClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
+import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { ServiceLineSetOperation, ServiceLineSetValue } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
@@ -94,6 +101,11 @@ export interface RulesEngineClaimModel {
   // references the "Coverage (from patient)" field. Read-only reference data like
   // referenceResources: the writer copies out of it, never mutates or persists it.
   patientCoverageContext?: PatientCoverageContext;
+  // The non-insurance organizations named by the rule set's "set non-insurance organization"
+  // actions, keyed by id, prefetched by the engine so the synchronous writer can stamp the claim
+  // with the payer's name. Read-only reference data like referenceResources — claims reference
+  // these masters directly, so no working copy is made.
+  nioOrganizations?: Map<string, Organization>;
   // Local placeholder ids of working copies minted by writers during this run. persistModel
   // POSTs them (fullUrl urn:uuid:<id>) in the same transaction as the claim's update; the
   // server resolves the claim's temporary urn references to the created ids, and the model
@@ -402,6 +414,7 @@ const READERS: Record<string, FieldReader> = {
   // The payer is the payor reference on the working-copy Coverage — always an Oystehr payer URL
   // encoding the id in the billing workspace.
   payerId: (m) => extractPayerIdFromUrl(primaryCoverage(m)?.payor?.[0]?.reference),
+  nonInsurancePayerId: (m) => getClaimNonInsurancePayer(m.claim)?.reference?.replace('Organization/', ''),
   type: (m) => getClaimType(m.claim),
   service: (m) => getClaimService(m.claim),
   serviceDate: (m) => m.claim.item?.[0]?.servicedPeriod?.start ?? m.claim.item?.[0]?.servicedDate,
@@ -921,8 +934,31 @@ const setFacilityPosCode = (facility: Location, value: string | null): void => {
   if (facility.extension.length === 0) facility.extension = undefined;
 };
 
+// Stamp or clear the claim's non-insurance payer — the same extension + searchable meta.tag pair
+// update-billing-claim writes. The claim references the NIO master directly (no working copy), so
+// setting only needs the prefetched organization for its name; an id missing from the prefetch
+// (deleted, or not a non-insurance organization) fails the rule.
+const setNonInsurancePayer = (model: RulesEngineClaimModel, value: string | null): boolean => {
+  const id = value?.trim();
+  const rest = (model.claim.extension ?? []).filter((ext) => ext.url !== CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL);
+  if (!id) {
+    model.claim.extension = rest.length ? rest : undefined;
+    applyClaimNonInsurancePayerTag(model.claim, null);
+    return true;
+  }
+  const org = model.nioOrganizations?.get(id);
+  if (!org?.id) return false;
+  model.claim.extension = [
+    ...rest,
+    claimNonInsurancePayerExtension({ reference: `Organization/${org.id}`, display: org.name }),
+  ];
+  applyClaimNonInsurancePayerTag(model.claim, org.id);
+  return true;
+};
+
 const WRITERS: Record<string, FieldWriter> = {
   payerId: (m, v) => setPayerId(m, v),
+  nonInsurancePayerId: (m, v) => setNonInsurancePayer(m, v),
   type: (m, v) => setClaimType(m.claim, v),
   service: (m, v) => setClaimService(m.claim, v),
   serviceDate: (m, v) => setServiceDate(m.claim, v),

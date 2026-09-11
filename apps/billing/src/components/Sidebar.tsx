@@ -3,7 +3,9 @@ import {
   Apartment as ApartmentIcon,
   Assessment as AssessmentIcon,
   Business as BusinessIcon,
+  BusinessCenterOutlined as BusinessCenterIcon,
   Description as DescriptionIcon,
+  HealthAndSafety as HealthAndSafetyIcon,
   Label as LabelIcon,
   List as ListIcon,
   Logout as LogoutIcon,
@@ -14,7 +16,7 @@ import {
 } from '@mui/icons-material';
 import { Box, Divider, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
 import { FC, ReactElement } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { RULES_ENGINE_TYPES, RULES_ENGINES } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
 import { otherColors } from '../themes/ottehr/colors';
@@ -25,9 +27,19 @@ const navItems = [
   // { label: 'Home', path: '/', icon: <HomeIcon sx={{ fontSize: 18 }} /> },
   { label: 'Claims', path: '/claims', icon: <DescriptionIcon sx={{ fontSize: 18 }} /> },
   { label: 'Patients', path: '/patients', icon: <PeopleIcon sx={{ fontSize: 18 }} /> },
+  {
+    label: 'Insurance Organizations',
+    path: '/insurance-organizations',
+    icon: <HealthAndSafetyIcon sx={{ fontSize: 18 }} />,
+  },
   { label: 'Billing Providers', path: '/billing-providers', icon: <BusinessIcon sx={{ fontSize: 18 }} /> },
   { label: 'Rendering Providers', path: '/rendering-providers', icon: <MedicalServicesIcon sx={{ fontSize: 18 }} /> },
   { label: 'Service Facilities', path: '/service-facilities', icon: <ApartmentIcon sx={{ fontSize: 18 }} /> },
+  {
+    label: 'Non-Insurance Orgs',
+    path: '/non-insurance-organizations',
+    icon: <BusinessCenterIcon sx={{ fontSize: 18 }} />,
+  },
   {
     label: ChargeItemDefinitionLabels['charge-master'].listTitle,
     path: `/${ChargeItemDefinitionLabels['charge-master'].pathComponent}`,
@@ -46,41 +58,43 @@ const rulesNavItems = RULES_ENGINE_TYPES.map((engine) => ({
 }));
 
 export const Sidebar: FC = () => {
-  const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth0();
 
   const renderNavItem = ({ label, path, icon }: (typeof navItems)[number]): ReactElement => {
     const isActive = location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
     return (
-      <ListItemButton
-        key={path}
-        selected={isActive}
-        onClick={() => navigate(path)}
-        sx={{
-          borderRadius: 1,
-          mb: '1px',
-          py: 0.75,
-          px: 1.25,
-          '&:hover': { bgcolor: otherColors.apptHover },
-          '&.Mui-selected': {
-            bgcolor: otherColors.apptHover,
-            color: 'primary.dark',
-            '& .MuiListItemIcon-root': { color: 'primary.dark' },
-          },
-          '&.Mui-selected:hover': { bgcolor: otherColors.formCardBg },
-        }}
-      >
-        <ListItemIcon sx={{ minWidth: 28, color: isActive ? 'primary.dark' : 'action.disabled' }}>{icon}</ListItemIcon>
-        <ListItemText
-          primary={label}
-          primaryTypographyProps={{
-            fontSize: 13.5,
-            fontWeight: isActive ? 500 : 450,
-            color: isActive ? 'primary.dark' : 'text.primary',
+      <Link to={path} style={{ display: 'contents', color: 'inherit', textDecoration: 'none' }}>
+        <ListItemButton
+          key={path}
+          selected={isActive}
+          sx={{
+            borderRadius: 1,
+            mb: '1px',
+            py: 0.75,
+            px: 1.25,
+            '&:hover': { bgcolor: otherColors.apptHover },
+            '&.Mui-selected': {
+              bgcolor: otherColors.apptHover,
+              color: 'primary.dark',
+              '& .MuiListItemIcon-root': { color: 'primary.dark' },
+            },
+            '&.Mui-selected:hover': { bgcolor: otherColors.formCardBg },
           }}
-        />
-      </ListItemButton>
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: isActive ? 'primary.dark' : 'action.disabled' }}>
+            {icon}
+          </ListItemIcon>
+          <ListItemText
+            primary={label}
+            primaryTypographyProps={{
+              fontSize: 13.5,
+              fontWeight: isActive ? 500 : 450,
+              color: isActive ? 'primary.dark' : 'text.primary',
+            }}
+          />
+        </ListItemButton>
+      </Link>
     );
   };
 

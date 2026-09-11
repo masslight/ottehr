@@ -779,7 +779,7 @@ export interface VisitDetailsInput {
   emergencyContactResource?: RelatedPerson;
   attorneyRelatedPerson?: RelatedPerson;
   employerOrganization?: Organization;
-  occupationalMedicineEmployerOrganization?: Organization;
+  occupationalMedicineEmployerName?: string;
   consents: Consent[];
   questionnaireResponse?: QuestionnaireResponse;
   payments: PatientPaymentDTO[];
@@ -859,8 +859,10 @@ export interface EmployerDataInput {
   insuranceOrgs?: Organization[];
 }
 
+// Name only: in NIO mode the employer is a billing-app resource the clinical side never reads as
+// FHIR, so the PDF renders from the resolved display name regardless of source.
 export interface OccupationalMedicineEmployerDataInput {
-  employer?: Organization;
+  employerName?: string;
 }
 
 export interface AttorneyDataInput {

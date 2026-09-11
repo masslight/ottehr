@@ -325,7 +325,11 @@
             "Zambda:Function:search-billing-patient-ar-claims",
             "Zambda:Function:get-billing-patient-balance",
             "Zambda:Function:export-billing-claims",
-            "Zambda:Function:create-timely-filing-report"
+            "Zambda:Function:create-timely-filing-report",
+            "Zambda:Function:create-billing-non-insurance-org",
+            "Zambda:Function:update-billing-non-insurance-org",
+            "Zambda:Function:search-billing-non-insurance-orgs",
+            "Zambda:Function:delete-billing-non-insurance-org"
           ]
         }
       ]

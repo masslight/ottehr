@@ -285,6 +285,7 @@ export interface BillingClaimItem {
   patientDob: string;
   payerName: string;
   payerId: string;
+  nonInsurancePayerName: string;
   memberId: string;
   service: string | undefined;
   serviceDate: string;
@@ -587,6 +588,8 @@ export interface SearchBillingServicesResponse {
 
 export interface SearchBillingPayersResponse {
   payers: BillingPayerOption[];
+  // Present when listing (no name/payerId filter) — pass back as `cursor` to fetch the next page.
+  nextCursor?: string | null;
 }
 
 export interface SearchCodeResponse {

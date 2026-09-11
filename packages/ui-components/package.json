@@ -1,18 +1,18 @@
 {
   "name": "ui-components",
   "private": true,
-  "version": "1.42.13",
+  "version": "1.43.1",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
   "engines": {
-    "node": ">=22.0.0",
+    "node": ">=22.13.0",
     "npm": ">=10.0.0"
   },
   "scripts": {
     "start": "vite",
     "build": "concurrently --kill-others-on-fail \"tsc\" \"vite build\"",
-    "test": "vitest run --config ./vitest.config.ts",
-    "test:ci": "vitest run --config ./vitest.config.ts --coverage --passWithNoTests --reporter=dot --reporter=github-actions",
+    "test": "vitest run --config ./vitest.config.mts",
+    "test:ci": "vitest run --config ./vitest.config.mts --coverage --passWithNoTests --reporter=dot --reporter=github-actions",
     "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 .",
     "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 --fix .",
     "preview": "vite preview"
