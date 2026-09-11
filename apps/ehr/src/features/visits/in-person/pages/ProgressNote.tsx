@@ -1,6 +1,7 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { PatientNotesButton } from 'src/features/patient-notes/components/PatientNotesButton';
+import { useTrackRecentlyViewed } from '../../../../hooks/useTrackRecentlyViewed';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { AddendumCard } from '../../shared/components/review-tab/AddendumCard';
@@ -18,11 +19,14 @@ interface PatientInfoProps {
 
 export const ProgressNote: React.FC<PatientInfoProps> = () => {
   const {
-    resources: { appointment, patient },
+    patient,
+    resources: { appointment },
     isAppointmentLoading,
     appointmentError,
     refetch,
   } = useAppointmentData();
+
+  useTrackRecentlyViewed({ appointment, patient, isAppointmentLoading });
 
   const { isChartDataLoading, chartDataError } = useChartData();
   const isLoading = isAppointmentLoading || isChartDataLoading;
