@@ -38,7 +38,6 @@ export const FormsCard: FC = () => {
   const [readyForms, setReadyForms] = useState<Record<string, string>>({});
 
   const { patient, appointment, encounter } = useAppointmentData();
-  // Published templates only — drafts are visible on the admin page and nowhere else.
   const { data, isLoading, isError } = useFormTemplates();
   const fillTemplate = useFillFormTemplate();
   const returnForm = useReturnCompletedForm();
@@ -109,7 +108,7 @@ export const FormsCard: FC = () => {
           setNotice(
             filedUnder
               ? `${file.name} was filed as ${filedUnder.title}.`
-              : `${file.name} has been added to this patient's documents, without being linked to a form.`
+              : `${file.name} has been added to this patient's documents.`
           );
         },
         onError: (err: Error) => setError(err.message || 'The form could not be uploaded.'),

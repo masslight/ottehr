@@ -12,20 +12,43 @@ import { FormFieldBinding } from 'utils/lib/form-tokens/mapping';
  */
 const draftKeyFor = (templateId: string): string => `ottehr.form-template-mapping-draft.${templateId}`;
 
-export const readMappingDraft = (templateId: string): FormFieldBinding[] | undefined => {
+/** Identifies the document, not just the template: replacing the PDF keeps the id and changes the fields. */
+const inventorySignature = (fieldNames: string[]): string => [...fieldNames].sort().join('|');
+
+/**
+ * The draft for this template, if it was authored against the fields the PDF still has.
+ *
+ * Matching on the template id alone is not enough. `clearMappingDraft` only fires on the paths this tab
+ * takes, so a PDF replaced in another tab — or by another administrator — leaves this tab holding a draft
+ * whose bindings name fields that no longer exist. Restoring it would reintroduce exactly the bindings a
+ * replacement had just reconciled away, which is the failure `clearMappingDraft` exists to prevent and
+ * cannot cover on its own.
+ */
+export const readMappingDraft = (templateId: string, fieldNames: string[]): FormFieldBinding[] | undefined => {
   try {
     const raw = sessionStorage.getItem(draftKeyFor(templateId));
     if (!raw) return undefined;
-    const parsed = JSON.parse(raw) as { bindings?: unknown };
-    return Array.isArray(parsed.bindings) ? (parsed.bindings as FormFieldBinding[]) : undefined;
+
+    const parsed = JSON.parse(raw) as { bindings?: unknown; fields?: unknown };
+    if (!Array.isArray(parsed.bindings)) return undefined;
+
+    // A draft from before this check has no `fields`, so it cannot be shown to match and is discarded.
+    if (typeof parsed.fields !== 'string' || parsed.fields !== inventorySignature(fieldNames)) {
+      return undefined;
+    }
+
+    return parsed.bindings as FormFieldBinding[];
   } catch {
     return undefined;
   }
 };
 
-export const writeMappingDraft = (templateId: string, bindings: FormFieldBinding[]): void => {
+export const writeMappingDraft = (templateId: string, fieldNames: string[], bindings: FormFieldBinding[]): void => {
   try {
-    sessionStorage.setItem(draftKeyFor(templateId), JSON.stringify({ version: 1, bindings }));
+    sessionStorage.setItem(
+      draftKeyFor(templateId),
+      JSON.stringify({ version: 1, fields: inventorySignature(fieldNames), bindings })
+    );
   } catch {
     // The mapping still saves normally; only the local draft is lost.
   }

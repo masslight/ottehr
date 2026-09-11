@@ -19,7 +19,11 @@ import { FormTokenDescriptor } from '../types/api/form-token.types';
  *
  * Growing this list is safe and expected. Removing from it is not — see `FormTokenDescriptor.key`.
  */
-export const TOKEN_CATALOG: readonly FormTokenDescriptor[] = Object.freeze([
+// `as const satisfies` rather than a `readonly FormTokenDescriptor[]` annotation: the annotation widens
+// every key to `string`, which is what let the resolver map fall out of step with this list. The literal
+// types exist only so `FormTokenKey` below is the real set of keys; `TOKEN_CATALOG` is published as a
+// plain descriptor array, because consumers want to read a token, not to match 96 literal shapes.
+const CATALOG = [
   // ── Patient ───────────────────────────────────────────────────────────────
   { key: 'patient.firstName', label: 'First name', group: 'Patient', type: 'string' },
   { key: 'patient.middleName', label: 'Middle name', group: 'Patient', type: 'string' },
@@ -364,9 +368,12 @@ export const TOKEN_CATALOG: readonly FormTokenDescriptor[] = Object.freeze([
     type: 'string',
     description: 'Every diagnosis on the visit, comma separated.',
   },
-]);
+] as const satisfies readonly FormTokenDescriptor[];
 
-export type FormTokenKey = (typeof TOKEN_CATALOG)[number]['key'];
+export const TOKEN_CATALOG: readonly FormTokenDescriptor[] = Object.freeze(CATALOG);
+
+/** Every key the catalog declares. Resolvers are keyed on this, so the two halves cannot drift. */
+export type FormTokenKey = (typeof CATALOG)[number]['key'];
 
 export const findToken = (key: string): FormTokenDescriptor | undefined =>
   TOKEN_CATALOG.find((token) => token.key === key);

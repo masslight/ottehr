@@ -183,7 +183,10 @@ export const FormTemplateDetailPage = (): ReactElement => {
     hydratedFor.current = inventoryKey;
 
     const saved = (data.mapping as FormTemplateMapping | undefined)?.bindings ?? [];
-    const draft = readMappingDraft(templateId);
+    const draft = readMappingDraft(
+      templateId,
+      data.fields.map((field) => field.name)
+    );
     const restoring = !!draft && !sameBindings(draft, saved);
     const source = restoring ? draft : saved;
 
@@ -194,11 +197,17 @@ export const FormTemplateDetailPage = (): ReactElement => {
     }
   }, [data, templateId, inventoryKey]);
 
-  // Keep the draft current while there is anything unsaved to lose.
+  // Keep the draft current while there is anything unsaved to lose. Stamped with the inventory it was
+  // authored against, so it is not restored over a document whose fields have since changed.
   useEffect(() => {
-    if (!templateId || !dirty) return;
-    writeMappingDraft(templateId, Object.values(bindings));
-  }, [bindings, dirty, templateId]);
+    if (!templateId || !data) return;
+    if (!dirty) return;
+    writeMappingDraft(
+      templateId,
+      data.fields.map((field) => field.name),
+      Object.values(bindings)
+    );
+  }, [bindings, data, dirty, templateId]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {

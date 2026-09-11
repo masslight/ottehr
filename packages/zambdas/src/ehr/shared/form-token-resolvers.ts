@@ -15,6 +15,7 @@ import {
   isTemperatureVitalObservation,
   isWeightVitalObservation,
 } from 'utils/lib/fhir/vitals';
+import { FormTokenKey } from 'utils/lib/form-tokens/token-catalog';
 import { celsiusToFahrenheit, HeightMeasurement, kgToLbs } from 'utils/lib/helpers/vitals';
 import {
   AllergyDTO,
@@ -200,12 +201,33 @@ const coverageSubscriber = (
  * RelatedPerson is built without a telecom, so they would resolve only for self-insured patients and
  * blank for everyone else.
  */
-const subscriberResolvers = (which: 'primary' | 'secondary'): Record<string, FormTokenResolver> => {
+/** The per-subscriber suffixes, so the generated keys below are literal types the catalog can be checked against. */
+type SubscriberField =
+  | 'FirstName'
+  | 'MiddleName'
+  | 'LastName'
+  | 'FullName'
+  | 'DateOfBirth'
+  | 'Sex'
+  | 'Relationship'
+  | 'AddressLine1'
+  | 'AddressLine2'
+  | 'City'
+  | 'State'
+  | 'PostalCode';
+
+const subscriberResolvers = <W extends 'primary' | 'secondary'>(
+  which: W
+): Record<`insurance.${W}Subscriber${SubscriberField}`, FormTokenResolver> => {
   const subscriber = (ctx: FormFillContext): RelatedPerson | Patient | undefined => coverageSubscriber(ctx, which);
   const address = (ctx: FormFillContext): Address | undefined => homeAddress(subscriber(ctx));
-  const key = `insurance.${which}Subscriber`;
+  const key = `insurance.${which}Subscriber` as const;
 
-  return {
+  // Annotated so `ctx` stays typed, then asserted on return. TypeScript widens a template-literal
+  // computed key to `string`, so it cannot check this body against the declared return type — but the
+  // declaration is what the catalog is checked against, and the parity test covers the twelve names
+  // actually being produced.
+  const resolvers: Record<string, FormTokenResolver> = {
     [`${key}FirstName`]: (ctx) => givenName(subscriber(ctx)),
     [`${key}MiddleName`]: (ctx) => givenName(subscriber(ctx), 1),
     [`${key}LastName`]: (ctx) => familyName(subscriber(ctx)),
@@ -222,6 +244,8 @@ const subscriberResolvers = (which: 'primary' | 'secondary'): Record<string, For
     [`${key}State`]: (ctx) => address(ctx)?.state,
     [`${key}PostalCode`]: (ctx) => address(ctx)?.postalCode,
   };
+
+  return resolvers as Record<`insurance.${W}Subscriber${SubscriberField}`, FormTokenResolver>;
 };
 
 const diagnoses = (ctx: FormFillContext): { code: string; display: string; isPrimary: boolean }[] =>
@@ -238,7 +262,14 @@ const primaryDiagnosis = (ctx: FormFillContext): { code: string; display: string
  * A descriptor without a resolver is a token an administrator can pick that always produces a blank
  * field, so the two halves are kept in step by a test rather than by discipline.
  */
-export const TOKEN_RESOLVERS: Record<string, FormTokenResolver> = {
+/**
+ * A resolver for every token in the catalog, and nothing else.
+ *
+ * Keyed on `FormTokenKey` rather than `string`, so the compiler enforces both directions: adding a
+ * descriptor without a resolver fails to build, and so does a resolver for a key the catalog does not
+ * declare. That correspondence used to be checked only by a unit test, which caught it a step later.
+ */
+export const TOKEN_RESOLVERS: Record<FormTokenKey, FormTokenResolver> = {
   // ── Patient ───────────────────────────────────────────────────────────────
   'patient.firstName': (ctx) => givenName(ctx.patient),
   'patient.middleName': (ctx) => givenName(ctx.patient, 1),
@@ -403,5 +434,12 @@ export const TOKEN_RESOLVERS: Record<string, FormTokenResolver> = {
   },
 };
 
+/**
+ * Resolves a token by key, taking a plain string because that is what arrives.
+ *
+ * A saved mapping holds keys, and a key it holds may no longer be in the catalog — deprecated, or written
+ * by a newer build. The cast is the boundary between "any string a mapping might contain" and the closed
+ * set above; missing keys resolve to nothing rather than throwing.
+ */
 export const resolveToken = (key: string, ctx: FormFillContext): string | number | boolean | undefined =>
-  TOKEN_RESOLVERS[key]?.(ctx);
+  (TOKEN_RESOLVERS as Record<string, FormTokenResolver | undefined>)[key]?.(ctx);

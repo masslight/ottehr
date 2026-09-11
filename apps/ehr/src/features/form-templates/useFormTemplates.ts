@@ -112,12 +112,7 @@ export const useReturnCompletedForm = (): MutationWithReadiness<ReturnResult, Re
 export const COMPLETED_FORMS_QUERY_KEY = 'completed-forms';
 
 /**
- * Template ids that already have a completed form filed against this visit.
- *
- * Drives a "saved to the chart" marker on each form. There is deliberately no counterpart warning for
- * forms that have not come back: a form generated an hour ago and still being filled in is the ordinary
- * case, and flagging it would cry wolf on every visit. The marker's absence carries the same information
- * without asserting that anything is wrong.
+ * Template ids that already have a completed form filed against this visit, for a "saved" marker.
  */
 export const useCompletedForms = (patientId?: string, encounterId?: string): UseQueryResult<Set<string>> => {
   const { oystehr } = useApiClients();
