@@ -77,8 +77,7 @@ async function waitForVisitNoteInFlight(queryClient: QueryClient, encounterId: s
  * One chart section of a visit (get-chart-section). Fresh within a screen for everything that mounts the
  * same section; a screen change marks it stale, so the next screen that shows it re-reads it once.
  *
- * While a visit-note read for the encounter is in flight the section waits for it: that read seeds every
- * section, so the visit-note pages cost one call however many sections they show.
+ * While a visit-note read for the encounter is in flight the section waits for it (waitForVisitNoteInFlight).
  */
 export function useChartSection<S extends ChartSection>(
   section: S,
