@@ -6,6 +6,14 @@
  * When the assembly switches to the visit-note builder, this snapshot must not change.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Pin to baseScreeningQuestionsConfig so the test is overlay-independent: per-project overlays
+// may replace patientScreeningQuestionsConfig with a reduced field set, but this characterization
+// test must always exercise the full base set that includes covid-symptoms and travel-usa.
+vi.mock('utils/lib/ottehr-config/screening-questions', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/screening-questions')>();
+  return { ...original, patientScreeningQuestionsConfig: original.baseScreeningQuestionsConfig };
+});
 import { composeProgressNoteData } from '../../src/shared/pdf/progress-note-pdf';
 import { ProgressNoteInput } from '../../src/shared/pdf/types';
 import {

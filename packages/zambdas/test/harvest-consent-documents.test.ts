@@ -32,6 +32,55 @@ import { createPdfBytes } from '../src/shared/pdf';
 // patches, per-form PDF fan-out, type-code grouping, attachment dedup, creation-time
 // sorting, and reference wiring — runs for real.
 
+// Pin getConsentFormsForLocation to the 2-form core config so this test is overlay-independent:
+// per-project overlays may have a different number of forms or omit state-specific asset paths,
+// which would break the count assertions and the IL variant test.
+vi.mock('utils/lib/ottehr-config/consent-forms', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/consent-forms')>();
+  const hipaa: (typeof original.CONSENT_FORMS_DATA.forms)[number] & { assetPath: string } = {
+    id: 'hipaa-acknowledgement',
+    formTitle: 'HIPAA Acknowledgement',
+    resourceTitle: 'HIPAA forms',
+    assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+    publicUrl: '/hipaa_notice_template.pdf',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+      text: 'HIPAA Acknowledgement forms',
+    },
+    createsConsentResource: false,
+  };
+  const cttBase: (typeof original.CONSENT_FORMS_DATA.forms)[number] & { assetPath: string } = {
+    id: 'consent-to-treat',
+    formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
+    resourceTitle: 'Consent forms',
+    assetPath: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf',
+    publicUrl: '/consent_to_treat_template.pdf',
+    type: {
+      coding: [
+        { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+        {
+          system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+          code: 'patient-registration',
+          display: 'Patient Registration Consent',
+        },
+      ],
+      text: 'Consent forms',
+    },
+    createsConsentResource: true,
+  };
+  const cttIl = {
+    ...cttBase,
+    assetPath: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf',
+  };
+  return {
+    ...original,
+    getConsentFormsForLocation: (locationState?: string): ReturnType<typeof original.getConsentFormsForLocation> =>
+      (locationState === 'IL' ? [hipaa, cttIl] : [hipaa, cttBase]) as ReturnType<
+        typeof original.getConsentFormsForLocation
+      >,
+  };
+});
+
 vi.mock('utils/lib/fhir/helpers', async (importOriginal) => {
   const original = await importOriginal<typeof import('utils/lib/fhir/helpers')>();
   return { ...original, createFilesDocumentReferences: vi.fn(), createConsentResource: vi.fn() };
