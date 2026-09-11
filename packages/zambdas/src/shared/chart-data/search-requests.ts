@@ -164,7 +164,8 @@ export function createFindResourceRequestById(
 
 /**
  * Fixed, server-owned search parameters for the chart sections. Values are written verbatim, so callers
- * pass tag lists as comma-joined strings and repeat a parameter by passing an array.
+ * pass tag lists as comma-joined strings and repeat a parameter by passing an array. No search sets
+ * `_count`: Oystehr's default page size is also its maximum (1000), so an explicit count could not return more.
  */
 export type ChartSearchParams = Record<string, string | number | string[]>;
 
