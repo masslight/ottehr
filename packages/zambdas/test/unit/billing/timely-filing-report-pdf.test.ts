@@ -1,13 +1,32 @@
 import { Claim, Coverage, Organization, Patient, Practitioner } from 'fhir/r4b';
 import { PDFDocument } from 'pdf-lib';
 import { ClaimAcknowledgmentEvent } from 'utils/lib/types/data/billing/claim-history';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   composeTimelyFilingReportData,
   ComposeTimelyFilingReportInput,
   renderTimelyFilingReportPdf,
   TimelyFilingReportData,
 } from '../../../src/shared/pdf/timely-filing-report-pdf';
+
+const { drawnText } = vi.hoisted(() => ({ drawnText: [] as string[] }));
+
+vi.mock('../../../src/shared/pdf/pdf-utils', async (importActual) => {
+  const actual = await importActual<typeof import('../../../src/shared/pdf/pdf-utils')>();
+  return {
+    ...actual,
+    createPdfClient: async (...args: Parameters<typeof actual.createPdfClient>) => {
+      const client = await actual.createPdfClient(...args);
+      return {
+        ...client,
+        drawStartXPosSpecifiedText: (...call: Parameters<typeof client.drawStartXPosSpecifiedText>) => {
+          drawnText.push(call[0]);
+          return client.drawStartXPosSpecifiedText(...call);
+        },
+      };
+    },
+  };
+});
 
 const NOW = '2026-08-06T14:23:00Z';
 
@@ -348,5 +367,25 @@ describe('renderTimelyFilingReportPdf', () => {
 
     const document = await PDFDocument.load(await renderTimelyFilingReportPdf(data));
     expect(document.getPageCount()).toBeGreaterThan(1);
+  });
+
+  // Without the header, a continuation page is three unlabelled columns in a document a payer reads.
+  it('repeats the column header on every page of a paginated trail', async () => {
+    drawnText.length = 0;
+    const data = compose({
+      acknowledgments: Array.from({ length: 45 }, (_, index) =>
+        acknowledgment({
+          responseId: `id:${index}`,
+          message:
+            "Code 21 - Forwarded to entity's internal adjudication system with a message long enough to wrap " +
+            'onto a second line so the row height has to grow.',
+        })
+      ),
+    });
+
+    const document = await PDFDocument.load(await renderTimelyFilingReportPdf(data));
+    const headerDraws = drawnText.filter((text) => text.trim() === 'ENTITY').length;
+    expect(document.getPageCount()).toBeGreaterThan(1);
+    expect(headerDraws).toBe(document.getPageCount());
   });
 });

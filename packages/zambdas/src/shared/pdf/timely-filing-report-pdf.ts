@@ -407,7 +407,9 @@ const drawHistoryTable = (pdfClient: PdfClient, styles: PdfStyles, rows: TimelyF
   const offsets = widths.map((_, index) => left + widths.slice(0, index).reduce((sum, width) => sum + width, 0));
   const bottomMargin = PDF_CLIENT_STYLES.initialPage.pageMargins.bottom ?? 0;
 
-  const drawRow = (cells: string[], style: TextStyle, background?: Color): void => {
+  const headerCells = [`DATE / TIME (${REPORT_TIMEZONE_LABEL})`, 'ENTITY', 'EVENT'];
+
+  const drawRow = (cells: string[], style: TextStyle, background?: Color, isHeader = false): void => {
     const { ascent, lineHeight } = fontMetrics(style);
     const lineSets = cells.map((text, index) =>
       splitLongStringToPageSize(text, style.font, style.fontSize, widths[index] - CELL_PADDING_X * 2 - WRAP_SAFETY)
@@ -418,6 +420,8 @@ const drawHistoryTable = (pdfClient: PdfClient, styles: PdfStyles, rows: TimelyF
     let top = pdfClient.getY() + ascent;
     if (top - height - lineHeight < bottomMargin) {
       pdfClient.addNewPage(PDF_CLIENT_STYLES.initialPage);
+      // draw header on new pages
+      if (!isHeader) drawHeader();
       top = pdfClient.getY() + ascent;
     }
 
@@ -442,7 +446,9 @@ const drawHistoryTable = (pdfClient: PdfClient, styles: PdfStyles, rows: TimelyF
     pdfClient.setY(top - height - ascent);
   };
 
-  drawRow([`DATE / TIME (${REPORT_TIMEZONE_LABEL})`, 'ENTITY', 'EVENT'], headerStyle, HEADER_BACKGROUND);
+  const drawHeader = (): void => drawRow(headerCells, headerStyle, HEADER_BACKGROUND, true);
+
+  drawHeader();
   if (rows.length === 0) {
     drawRow([NOT_AVAILABLE, NOT_AVAILABLE, 'No acknowledgments received for this claim.'], cellStyle);
     return;
