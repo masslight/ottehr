@@ -30,9 +30,9 @@ import { getInPersonVisitStatus, getSupervisorApprovalStatus } from 'utils/lib/u
 import { ConfirmationDialog } from '../../../../../components/ConfirmationDialog';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { useAssignedProvider } from '../../hooks/useAssignedProvider';
-import { useChartFields } from '../../hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
+import { useProgressNoteChartFields } from '../../hooks/useProgressNoteChartFields';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 import { useSignAppointmentMutation } from '../../stores/tracking-board/tracking-board.queries';
 
@@ -54,24 +54,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const { hasDraft: hasMedDraft } = useInHouseMedicationOrderStore();
   const { hasDraft: hasVitalsDraft } = useVitalsDraftStore();
 
-  const { data: chartFields } = useChartFields({
-    requestedFields: {
-      medicalDecision: {
-        _tag: 'medical-decision',
-      },
-      chiefComplaint: {
-        _tag: 'chief-complaint',
-      },
-      historyOfPresentIllness: {
-        _tag: 'history-of-present-illness',
-      },
-      accident: {
-        _tag: 'accident',
-      },
-      inHouseLabResults: {},
-      patientInfoConfirmed: {},
-    },
-  });
+  const { data: chartFields } = useProgressNoteChartFields();
 
   const apiClient = useOystehrAPIClient();
   const { isAssignedProviderEligible } = useAssignedProvider();

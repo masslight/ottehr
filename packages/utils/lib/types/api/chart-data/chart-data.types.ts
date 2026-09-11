@@ -102,7 +102,8 @@ export type RequestedFields =
   | 'reasonForVisit'
   | 'accident'
   | 'patientHasPreviousVisits'
-  | 'radiologyOrders';
+  | 'radiologyOrders'
+  | 'aiChat';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 

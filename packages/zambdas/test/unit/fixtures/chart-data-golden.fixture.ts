@@ -118,6 +118,7 @@ export const ALL_REQUESTED_FIELDS: RequestedFields[] = [
   'accident',
   'patientHasPreviousVisits',
   'radiologyOrders',
+  'aiChat',
 ];
 
 export const PROGRESS_NOTE_FIELDS = Object.keys(progressNoteChartDataRequestedFields) as RequestedFields[];
@@ -641,9 +642,11 @@ export function resourcesReturnedByProgressNoteSearches(resources: FhirResource[
       case 'DiagnosticReport':
         return true;
       case 'Condition':
-        return ['chief-complaint', 'history-of-present-illness', 'mechanism-of-injury', 'ros'].includes(
+        return ['chief-complaint', 'history-of-present-illness', 'mechanism-of-injury', 'ros', 'accident'].includes(
           tagCode(resource) ?? ''
         );
+      case 'Procedure':
+        return tagCode(resource) === 'surgical-history-note';
       case 'ServiceRequest':
         return ['disposition-follow-up', 'sub-follow-up', 'radiology'].includes(tagCode(resource) ?? '');
       case 'Communication':

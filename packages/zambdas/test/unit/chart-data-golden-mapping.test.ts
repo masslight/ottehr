@@ -178,13 +178,16 @@ describe('get-chart-data mapping layer — golden fixture', () => {
       expect(additionalChartData.diagnosis).toBeUndefined();
       expect(additionalChartData.observations).toBeUndefined();
 
+      // The progress-note field set carries the accident and the surgical-history note.
+      expect(additionalChartData.accident).toMatchObject({ type: ['AA'], date: '2026-01-10', state: 'IL' });
+      expect(additionalChartData.surgicalHistoryNote?.text).toBe('Uncomplicated recovery');
+
       // Computed on every call regardless of the request, from whatever the searches happened to return:
-      // the Encounter extension is always there, while the accident Condition and the completed procedure
-      // ServiceRequest are not part of this request's searches, so both come back undefined.
+      // the Encounter extensions are always there, while the completed procedure ServiceRequest is not part
+      // of this request's searches, so procedures comes back undefined.
       expect(additionalChartData.patientInfoConfirmed).toEqual({ value: true });
       expect(additionalChartData.addToVisitNote).toEqual({ value: true });
       expect(additionalChartData.addendumNote).toEqual({ text: 'Legacy single-string addendum' });
-      expect(additionalChartData.accident).toBeUndefined();
       expect(additionalChartData.procedures).toBeUndefined();
     });
   });

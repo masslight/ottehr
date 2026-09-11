@@ -8,7 +8,7 @@ import {
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { makeCptCodeDisplay } from 'utils/lib/fhir/helpers';
-import { useChartFields } from '../../../hooks/useChartFields';
+import { useProgressNoteChartFields } from '../../../hooks/useProgressNoteChartFields';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 
 export const AssessmentGroupContainer: FC = () => {
@@ -16,13 +16,7 @@ export const AssessmentGroupContainer: FC = () => {
   const { chartData } = useChartData();
   const theme = useTheme();
 
-  const { data: chartFields } = useChartFields({
-    requestedFields: {
-      medicalDecision: {
-        _tag: 'medical-decision',
-      },
-    },
-  });
+  const { data: chartFields } = useProgressNoteChartFields();
 
   const diagnoses = chartData?.diagnosis;
   const primaryDiagnosis = diagnoses?.find((item) => item.isPrimary);
