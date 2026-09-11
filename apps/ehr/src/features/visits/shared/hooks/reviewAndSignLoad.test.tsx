@@ -198,6 +198,24 @@ describe('Review & Sign load', () => {
     expect(sectionCalls()).toEqual([['notes', { types: [NOTE_TYPE.ADDENDUM] }]]);
   });
 
+  it('entering the visit again within staleTime re-reads what the screen shows', async () => {
+    const first = renderApp('allergies');
+    await waitFor(() => expect(apiClient.getVisitNote).toHaveBeenCalledTimes(1));
+    await settle();
+    first.unmount();
+    apiClient.getVisitNote.mockClear();
+    apiClient.getChartSection.mockClear();
+
+    // Leaving the visit unmounts the layout; coming back to the screen re-reads its sections, not the note.
+    renderApp('allergies');
+    await settle();
+    expect(apiClient.getVisitNote).not.toHaveBeenCalled();
+    expect(sectionCalls().sort()).toEqual([
+      ['history', undefined],
+      ['notes', { types: [NOTE_TYPE.ALLERGY] }],
+    ]);
+  });
+
   it('a save on Review & Sign re-reads the one section it changed', async () => {
     renderApp('review-and-sign');
     await waitFor(() => expect(apiClient.getVisitNote).toHaveBeenCalledTimes(1));
