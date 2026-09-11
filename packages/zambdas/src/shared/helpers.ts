@@ -222,6 +222,14 @@ export function validateJsonBody(input: ZambdaInput): any {
   }
 }
 
+/**
+ * The id of the Patient a FHIR reference points at, whether the reference is relative
+ * (`Patient/<id>`) or absolute (`https://fhir-api.zapehr.com/r4/Patient/<id>`). Undefined when the
+ * reference is missing or points at another resource type.
+ */
+export const patientIdFromReference = (reference: string | undefined): string | undefined =>
+  reference?.match(/(?:^|\/)Patient\/([^/]+)$/)?.[1];
+
 export function getParticipantFromAppointment(appointment: Appointment, participant: string): string {
   const participantTemp = appointment.participant
     .find((currentParticipant: any) => currentParticipant.actor?.reference?.startsWith(participant))

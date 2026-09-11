@@ -44,22 +44,41 @@ export const useAiSuggestionsPolling = (): void => {
 
     const baseline = aiSuggestionCountRef.current;
     let attempts = 0;
+    let inFlight = false;
+    let stopped = false;
     const intervalId = setInterval(async () => {
+      // One request at a time: a slow response skips ticks instead of stacking requests.
+      if (inFlight) {
+        return;
+      }
       attempts += 1;
       if (attempts > MAX_POLL_ATTEMPTS) {
+        stopped = true;
         clearInterval(intervalId);
         return;
       }
-      const result = await refetchAiSuggestions();
-      const latest = countAiSuggestions(
-        (result.data as Pick<GetChartDataResponse, 'observations'> | undefined)?.observations
-      );
-      if (latest > baseline) {
-        clearInterval(intervalId);
-        void refetch();
+      inFlight = true;
+      try {
+        const result = await refetchAiSuggestions();
+        if (stopped) {
+          return;
+        }
+        const latest = countAiSuggestions(
+          (result.data as Pick<GetChartDataResponse, 'observations'> | undefined)?.observations
+        );
+        if (latest > baseline) {
+          stopped = true;
+          clearInterval(intervalId);
+          void refetch();
+        }
+      } finally {
+        inFlight = false;
       }
     }, POLL_INTERVAL_MS);
 
-    return () => clearInterval(intervalId);
+    return () => {
+      stopped = true;
+      clearInterval(intervalId);
+    };
   }, [endedCallCount, refetch, refetchAiSuggestions]);
 };

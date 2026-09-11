@@ -5,7 +5,7 @@ import { chunkThings } from 'utils/lib/fhir/chat';
 import { PUBLIC_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { ChartDataRequestedFields, GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { createClinicalOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient, patientIdFromReference } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { configLabRequestsForGetChartData } from '../lab/shared/labs';
@@ -302,9 +302,7 @@ export async function getChartData(
   const resources = parseChartDataBundle(result);
   const encounter = resources.find((resource): resource is Encounter => resource.resourceType === 'Encounter');
   if (encounter === undefined) throw new Error(`Encounter with ID ${encounterId} must exist... `);
-  const patientId = encounter.subject?.reference?.startsWith('Patient/')
-    ? encounter.subject.reference.replace('Patient/', '')
-    : undefined;
+  const patientId = patientIdFromReference(encounter.subject?.reference);
   if (patientId === undefined) throw new Error(`Encounter  ${encounterId} must be associated with a patient... `);
   // Searched only when preferredPharmacies was requested; then it has to be there.
   const patient = resources.find((resource): resource is Patient => resource.resourceType === 'Patient');
