@@ -3,9 +3,6 @@
  * two chart reads — get-visit-note, and get-chart-section for the addendum list, whose note type is not part
  * of the visit note's set (see apps/ehr/src/features/visits/shared/hooks/reviewAndSignLoad.test.tsx for the
  * client side of that measurement). Both run here through the real builders against the golden FHIR server.
- *
- * For comparison, measured the same way before this project: 13 chart reads, 27 FHIR round trips and 71
- * searches (40 of them repeats); after Phase 0: 4 reads, 13 round trips, 33 searches.
  */
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
