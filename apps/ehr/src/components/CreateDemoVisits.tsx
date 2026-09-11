@@ -14,7 +14,11 @@ import { useApiClients } from '../hooks/useAppClients';
 const createAppointmentZambdaId = 'create-appointment';
 const intakeZambdaUrl = import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL;
 
-const CreateDemoVisits = (): ReactElement => {
+interface CreateDemoVisitsProps {
+  selectedLocationIds: string[];
+}
+
+const CreateDemoVisits = ({ selectedLocationIds }: CreateDemoVisitsProps): ReactElement => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [inputError, setInputError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -30,16 +34,22 @@ const CreateDemoVisits = (): ReactElement => {
   const { getAccessTokenSilently } = useAuth0();
   const { oystehr } = useApiClients();
 
-  const selectedLocation = JSON.parse(localStorage.getItem('selectedLocation') || '{}');
-
   const handleCreateSampleAppointments = async (
     event: React.MouseEvent<HTMLButtonElement> | React.FormEvent<HTMLFormElement>
   ): Promise<void> => {
     event.preventDefault();
-    if (!selectedLocation || JSON.stringify(selectedLocation) === '{}') {
+    if (selectedLocationIds.length === 0) {
       setSnackbar({
         open: true,
         message: 'No location selected in filters, please select a location first',
+        severity: 'error',
+      });
+      return;
+    }
+    if (selectedLocationIds.length > 1) {
+      setSnackbar({
+        open: true,
+        message: 'Multiple locations selected in filters, please select only one location',
         severity: 'error',
       });
       return;
@@ -73,7 +83,7 @@ const CreateDemoVisits = (): ReactElement => {
           serviceMode: ServiceMode['in-person'],
           createAppointmentZambdaId,
           zambdaUrl: intakeZambdaUrl,
-          selectedLocationId: selectedLocation.id,
+          selectedLocationId: selectedLocationIds[0],
           projectId: import.meta.env.VITE_APP_PROJECT_ID,
           demoData: { numberOfAppointments: 5 },
         }),
