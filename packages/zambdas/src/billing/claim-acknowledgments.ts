@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, Provenance } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { RAW_REQUEST_EXTENSION_URL, RAW_RESPONSE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
@@ -52,7 +53,12 @@ export async function fetchClaimAcknowledgmentEvents({
         return [];
       }
     })
-    .sort((a, b) => (a.eventTime < b.eventTime ? -1 : a.eventTime > b.eventTime ? 1 : 0));
+    .sort((a, b) => instant(a.eventTime) - instant(b.eventTime));
+}
+
+function instant(value: string | undefined): number {
+  const millis = DateTime.fromISO(value ?? '').toMillis();
+  return Number.isNaN(millis) ? Number.MAX_SAFE_INTEGER : millis;
 }
 
 export async function fetchClaimTransmitEvent({
@@ -76,7 +82,7 @@ export async function fetchClaimTransmitEvent({
   );
   const submission = responses
     .filter((response) => response.extension?.some((extension) => extension.url === RAW_REQUEST_EXTENSION_URL))
-    .sort((a, b) => (a.created < b.created ? -1 : a.created > b.created ? 1 : 0))
+    .sort((a, b) => instant(a.created) - instant(b.created))
     .at(0);
   if (!submission) return undefined;
 

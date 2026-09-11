@@ -170,6 +170,32 @@ describe('fetchClaimAcknowledgmentEvents', () => {
     ).resolves.toEqual([earlier, later]);
   });
 
+  it('orders acknowledgments by instant, not by how the timestamp is written', async () => {
+    // 09:00-04:00 is 13:00Z — an hour after 12:00Z, but it sorts ahead of it as a string.
+    const earlier = acknowledgment({
+      responseId: 'id:1',
+      eventTime: '2026-08-06T12:00:00.000Z',
+    });
+    const later = acknowledgment({
+      responseId: 'id:2',
+      eventTime: '2026-08-06T09:00:00-04:00',
+    });
+    const search = vi
+      .fn()
+      .mockResolvedValue(pagedBundle([acknowledgmentProvenance(later, 'b'), acknowledgmentProvenance(earlier, 'a')]));
+
+    await expect(
+      fetchClaimAcknowledgmentEvents({
+        oystehr: {
+          fhir: {
+            search,
+          },
+        } as unknown as Oystehr,
+        claimId: CLAIM_ID,
+      })
+    ).resolves.toEqual([earlier, later]);
+  });
+
   it('skips a record it cannot read rather than failing the report', async () => {
     const broken = acknowledgmentProvenance(acknowledgment(), 'broken');
     broken.extension = [
@@ -235,6 +261,42 @@ describe('fetchClaimTransmitEvent', () => {
       transmittedAt: '2026-08-05T11:53:00.000Z',
       batchId: '20260805123456789',
       clearinghouseClaimId: '48213765',
+    });
+  });
+
+  it('picks the earliest submission by instant', async () => {
+    const submissionAt = (id: string, created: string, responseTime: string): ClaimResponse =>
+      ({
+        ...submissionResponse(),
+        id,
+        created,
+        extension: [
+          {
+            url: RAW_REQUEST_EXTENSION_URL,
+            valueString: 'ISA*...',
+          },
+          {
+            url: RAW_RESPONSE_EXTENSION_URL,
+            valueString: JSON.stringify({ response_time: responseTime }),
+          },
+        ],
+      }) as ClaimResponse;
+    // 08:54-04:00 is 12:54Z — an hour after 11:53Z, but it sorts ahead of it as a string.
+    const earliest = submissionAt('earliest', '2026-08-05T11:53:00.000Z', '2026-08-05 07:53:00AM');
+    const resubmission = submissionAt('resubmission', '2026-08-05T08:54:00-04:00', '2026-08-05 08:54:00AM');
+    const search = vi.fn().mockResolvedValue(pagedBundle([resubmission, earliest]));
+
+    await expect(
+      fetchClaimTransmitEvent({
+        oystehr: {
+          fhir: {
+            search,
+          },
+        } as unknown as Oystehr,
+        claimId: CLAIM_ID,
+      })
+    ).resolves.toMatchObject({
+      transmittedAt: '2026-08-05T11:53:00.000Z',
     });
   });
 
