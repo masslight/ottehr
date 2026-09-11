@@ -1,12 +1,11 @@
 import { Practitioner } from 'fhir/r4b';
-import { SearchParams } from '../../../fhir/uri';
-import { AllChartValues, PharmacyDTO, RequestedFields, SchoolWorkNoteExcuseDocFileDTO } from './chart-data.types';
+import { AllChartValues, PharmacyDTO, SchoolWorkNoteExcuseDocFileDTO } from './chart-data.types';
 
-export interface GetChartDataRequest {
-  encounterId: string;
-  requestedFields?: ChartDataRequestedFields;
-}
-
+/**
+ * The whole-chart shape: every chart list plus the visit's single-valued fields. The EHR's `useChartData`
+ * and the PDF composers read the chart in this shape, assembled from a visit note
+ * (visitNoteToLegacyChartData).
+ */
 export interface GetChartDataResponse extends AllChartValues {
   patientId: string;
   patientHasPreviousVisits?: boolean;
@@ -14,5 +13,3 @@ export interface GetChartDataResponse extends AllChartValues {
   practitioners?: Practitioner[];
   preferredPharmacies?: PharmacyDTO[];
 }
-
-export type ChartDataRequestedFields = Partial<Record<RequestedFields, SearchParams>>;

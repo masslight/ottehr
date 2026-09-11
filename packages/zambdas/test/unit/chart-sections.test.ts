@@ -3,10 +3,8 @@
  * server that interprets search URLs the way the real one does (fixtures/golden-fhir-server.ts).
  *
  * Three things are pinned here:
- *   1. Shape — one snapshot per section and one for the visit note: the API contract.
- *   2. Parity — each section equals the corresponding fields of the two get-chart-data responses in the golden
- *      mapping snapshot, and the visit note presented through the legacy adapter
- *      equals those responses whole, up to the differences listed inline.
+ *   1. Shape — one snapshot per section and one for the visit note: the new API contract.
+ *   2. Adapter — the visit note presented as the two whole-chart shapes the PDF composers read.
  *   3. Boundary — every search a section issues is anchored to the encounter (or to its patient through
  *      _has:Encounter), the foreign patient's resources in the store never surface, the note types keep
  *      the scope the progress note has always shown, and the request budget of the visit note is explicit.
@@ -24,7 +22,6 @@ import {
   ChartSectionData,
   ChartSectionParams,
 } from 'utils/lib/types/api/chart-data/chart-sections.types';
-import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { makeConditionResource, makeNoteResource } from '../../src/shared/chart-data';
 import { CHART_BATCH_TARGET_CONCURRENCY } from '../../src/shared/chart-sections/fetch';
@@ -32,12 +29,10 @@ import { buildChartSection } from '../../src/shared/chart-sections/registry';
 import { buildVisitNote } from '../../src/shared/chart-sections/visit-note';
 import {
   buildForeignPatientResources,
-  buildGoldenChartData,
   buildGoldenChartResources,
   FOREIGN_IDS,
   GOLDEN_IDS,
   GOLDEN_NOW,
-  GoldenChartData,
   GoldenChartResources,
 } from './fixtures/chart-data-golden.fixture';
 import { createGoldenFhirServer, GoldenFhirServer } from './fixtures/golden-fhir-server';
@@ -57,15 +52,6 @@ const visitNoteParams = <S extends ChartSection>(section: S): ChartSectionParams
 
 const build = <S extends ChartSection>(server: GoldenFhirServer, section: S): Promise<ChartSectionData<S>> =>
   buildChartSection(client(server), encounterId, section, visitNoteParams(section));
-
-const byResourceId = (a: { resourceId?: string }, b: { resourceId?: string }): number =>
-  (a.resourceId ?? '').localeCompare(b.resourceId ?? '');
-
-/** Notes come back grouped by scope (this encounter's lists first); the note lists render per type. */
-const withSortedNotes = (data: GetChartDataResponse): GetChartDataResponse => ({
-  ...data,
-  notes: data.notes ? [...data.notes].sort(byResourceId) : data.notes,
-});
 
 /** A second patient with an encounter of their own, a pharmacy on file and chart resources carrying the chart tags. */
 const foreignPatientGraph = (): (Encounter | Patient | Condition)[] => [
@@ -87,13 +73,11 @@ const foreignPatientGraph = (): (Encounter | Patient | Condition)[] => [
 
 describe('chart sections — golden fixture', () => {
   let fixture: GoldenChartResources;
-  let golden: GoldenChartData;
   let server: GoldenFhirServer;
 
   beforeAll(async () => {
     vi.useFakeTimers({ now: new Date(GOLDEN_NOW), toFake: ['Date'] });
     fixture = buildGoldenChartResources();
-    golden = await buildGoldenChartData(fixture);
     server = createGoldenFhirServer([
       ...fixture.resources,
       fixture.patient,
@@ -112,107 +96,9 @@ describe('chart sections — golden fixture', () => {
     });
   });
 
-  describe('each section carries exactly its fields of the golden get-chart-data responses', () => {
-    it('encounterNotes: the single-valued fields of the visit', async () => {
-      const g = golden.additionalChartData;
-      expect(await build(server, 'encounterNotes')).toEqual({
-        reasonForVisit: g.reasonForVisit,
-        chiefComplaint: g.chiefComplaint,
-        historyOfPresentIllness: g.historyOfPresentIllness,
-        mechanismOfInjury: g.mechanismOfInjury,
-        ros: g.ros,
-        accident: g.accident,
-        surgicalHistoryNote: g.surgicalHistoryNote,
-        medicalDecision: g.medicalDecision,
-        addendumNote: g.addendumNote,
-        patientInfoConfirmed: g.patientInfoConfirmed,
-        addToVisitNote: g.addToVisitNote,
-      });
-    });
-
-    it('history: the patient-level lists, with the in-house medications the unscoped call searched and dropped', async () => {
-      const history = await build(server, 'history');
-      expect(history.allergies).toEqual(golden.chartData.allergies);
-      expect(history.conditions).toEqual(golden.chartData.conditions);
-      expect(history.medications).toEqual(golden.chartData.medications);
-      expect(history.surgicalHistory).toEqual(golden.chartData.surgicalHistory);
-      expect(history.episodeOfCare).toEqual(golden.additionalChartData.episodeOfCare);
-      expect(history.inhouseMedications).toEqual([
-        expect.objectContaining({ resourceId: 'ms-in-house', name: 'Ibuprofen 200 mg' }),
-      ]);
-      expect(history.birthHistory).toEqual([expect.objectContaining({ resourceId: 'obs-birth-weight', value: 3.4 })]);
-      // MedicationStatement:source resolves to the practitioner who recorded the medication.
-      expect(history.practitioners).toEqual([fixture.practitioner]);
-    });
-
-    it('screening and aiChat split the Observations the unscoped call returned as one list', async () => {
-      const [screening, aiChat] = await Promise.all([build(server, 'screening'), build(server, 'aiChat')]);
-      const isAi = (field: string): boolean => field.startsWith('ai-');
-      expect(screening.observations).toEqual(golden.chartData.observations?.filter((o) => !isAi(o.field)));
-      expect(aiChat.observations).toEqual(golden.chartData.observations?.filter((o) => isAi(o.field)));
-      expect(screening.observations.map((o) => o.field)).toEqual(['covid-symptoms', 'travel-usa']);
-      // The golden call had no way to reach the provider Practitioner; the section resolves it.
-      expect(aiChat.aiChat).toEqual({ ...golden.chartData.aiChat, providers: [fixture.practitioner] });
-    });
-
-    it('exam: the exam and ROS observations', async () => {
-      const exam = await build(server, 'exam');
-      expect(exam).toEqual({
-        examObservations: golden.chartData.examObservations,
-        rosObservations: golden.chartData.rosObservations,
-      });
-    });
-
-    it('assessment: diagnoses, billing codes and procedures', async () => {
-      const assessment = await build(server, 'assessment');
-      expect(assessment).toEqual({
-        diagnosis: golden.chartData.diagnosis,
-        cptCodes: golden.chartData.cptCodes,
-        emCode: golden.chartData.emCode,
-        procedures: golden.chartData.procedures,
-      });
-    });
-
-    it('plan: disposition, instructions, excuse notes, prescriptions and the preferred pharmacies', async () => {
-      const plan = await build(server, 'plan');
-      expect(plan).toEqual({
-        disposition: golden.additionalChartData.disposition,
-        instructions: golden.chartData.instructions,
-        schoolWorkNotes: golden.chartData.schoolWorkNotes,
-        prescribedMedications: golden.additionalChartData.prescribedMedications,
-        preferredPharmacies: [
-          { name: 'Walgreens #100', address: '1 Main St, Chicago, IL 60601', phone: '312-555-0100' },
-        ],
-        // MedicationRequest:requester resolves to the prescriber.
-        practitioners: [fixture.practitioner],
-      });
-    });
-
-    it('notes: the progress-note types', async () => {
-      const notes = await build(server, 'notes');
-      expect([...notes.notes].sort(byResourceId)).toEqual(
-        [...(golden.additionalChartData.notes ?? [])].sort(byResourceId)
-      );
-    });
-  });
-
   describe('visit note', () => {
     it('matches its snapshot', async () => {
       expect(await buildVisitNote(client(server), encounterId)).toMatchSnapshot();
-    });
-
-    it('presented through the legacy adapter, equals the two golden get-chart-data responses', async () => {
-      const note = await buildVisitNote(client(server), encounterId);
-      const legacy = visitNoteToLegacyChartData(note, { module: 'in-person' });
-
-      // Two deliberate differences from the unscoped golden: it never computed patientHasPreviousVisits
-      // (the visit note does), and it had no way to resolve the AI note's provider (see aiChat above).
-      const { patientHasPreviousVisits, ...chartData } = legacy.chartData;
-      expect(patientHasPreviousVisits).toBe(false);
-      expect(chartData.aiChat?.providers).toEqual([fixture.practitioner]);
-      expect({ ...chartData, aiChat: { ...chartData.aiChat!, providers: [] } }).toEqual(golden.chartData);
-
-      expect(withSortedNotes(legacy.additionalChartData)).toEqual(withSortedNotes(golden.additionalChartData));
     });
 
     it('presented as the telemed progress note, narrows the note types and drops the participants', async () => {
@@ -220,8 +106,8 @@ describe('chart sections — golden fixture', () => {
       const { additionalChartData } = visitNoteToLegacyChartData(note, { module: 'telemed' });
       expect(additionalChartData.notes?.map((n) => n.type).sort()).toEqual([...telemedProgressNoteNoteTypes].sort());
       expect(additionalChartData.practitioners).toEqual([]);
-      expect(additionalChartData.chiefComplaint).toEqual(golden.additionalChartData.chiefComplaint);
-      expect(additionalChartData.disposition).toEqual(golden.additionalChartData.disposition);
+      expect(additionalChartData.chiefComplaint).toEqual(note.encounterNotes.chiefComplaint);
+      expect(additionalChartData.disposition).toEqual(note.plan.disposition);
     });
 
     it('reads the note types it is asked for', async () => {

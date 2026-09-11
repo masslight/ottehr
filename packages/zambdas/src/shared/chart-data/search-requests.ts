@@ -1,9 +1,6 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
-import { Bundle, BundleEntry, FhirResource, Patient } from 'fhir/r4b';
+import { BundleEntry, FhirResource, Patient } from 'fhir/r4b';
 import { addSearchParams, SearchParams } from 'utils/lib/fhir/uri';
-import { ChartDataRequestedFields } from 'utils/lib/types/api/chart-data/get-chart-data.types';
-
-type RequestOptions = ChartDataRequestedFields[keyof ChartDataRequestedFields];
 
 // for patient prop
 type ResourceTypeWithPatientAsPatient = 'AllergyIntolerance' | 'EpisodeOfCare';
@@ -40,28 +37,10 @@ type ResourceTypeWithEncounterAsEncounter = Extract<
 type ResourceTypeWithEncounterAsContext = Extract<SupportedResourceType, 'MedicationStatement'>;
 
 /**
- * Every chart search is built from the encounter id alone — patient-scoped ones included, via
- * createFindResourceRequestByEncounterSubject — so a whole request set can go out in a single wave.
+ * Every chart search is built from the encounter id alone — patient-scoped ones included, through
+ * `_has:Encounter:subject` — so a whole request set can go out in a single wave, and a search can never
+ * reach a patient the encounter does not belong to.
  */
-export function createFindResourceRequest(
-  encounterId: string,
-  resourceType: SupportedResourceType,
-  searchParams?: SearchParams,
-  defaultSearchBy?: 'encounter' | 'patient'
-): BatchInputGetRequest {
-  const searchBy = searchParams?._search_by ?? defaultSearchBy;
-
-  if (searchBy === 'encounter' && resourceType !== 'EpisodeOfCare') {
-    if (resourceType === 'MedicationStatement') {
-      return createFindResourceRequestByEncounterField(encounterId, resourceType, 'context', searchParams);
-    }
-    return createFindResourceRequestByEncounterField(encounterId, resourceType, 'encounter', searchParams);
-  }
-  if (resourceType === 'AllergyIntolerance' || resourceType === 'EpisodeOfCare') {
-    return createFindResourceRequestByEncounterSubject(encounterId, resourceType, 'patient', searchParams);
-  }
-  return createFindResourceRequestByEncounterSubject(encounterId, resourceType, 'subject', searchParams);
-}
 
 /** Search URL that scopes a patient-scoped resource to the subject of an encounter. */
 export const encounterSubjectScopedSearchUrl = (
@@ -73,43 +52,23 @@ export const encounterSubjectScopedSearchUrl = (
     ? `/${resourceType}?_has:Encounter:subject:_id=${encounterId}`
     : `/${resourceType}?${field}:Patient._has:Encounter:subject:_id=${encounterId}`;
 
-/**
- * CAUTION: do not add `_revinclude` / `_include:iterate` to a search scoped this way without
- * checking where the included resource can point. An iterate leg that walks out through a resource
- * shared with other patients would pull their data into a patient-scoped result.
- */
-export function createFindResourceRequestByEncounterSubject(
-  encounterId: string,
-  resourceType: SupportedResourceType,
-  field: 'patient' | 'subject',
-  searchParams?: RequestOptions
-): BatchInputGetRequest {
-  let url = encounterSubjectScopedSearchUrl(resourceType, field, encounterId);
-  url = addSearchParams(url, searchParams);
-
-  return {
-    method: 'GET',
-    url: url,
-  };
-}
-
 export function createFindResourceRequestByPatientField(
   patientId: Patient['id'],
   resourceType: ResourceTypeWithPatientAsPatient,
   field: 'patient',
-  searchParams?: RequestOptions
+  searchParams?: SearchParams
 ): BatchInputGetRequest;
 export function createFindResourceRequestByPatientField(
   patientId: Patient['id'],
   resourceType: ResourceTypeWithPatientAsSubject,
   field: 'subject',
-  searchParams?: RequestOptions
+  searchParams?: SearchParams
 ): BatchInputGetRequest;
 export function createFindResourceRequestByPatientField(
   patientId: Patient['id'],
   resourceType: SupportedResourceType,
   field: 'patient' | 'subject',
-  searchParams?: RequestOptions
+  searchParams?: SearchParams
 ): BatchInputGetRequest {
   let url = `/${resourceType}?${field}=Patient/${patientId}`;
   url = addSearchParams(url, searchParams);
@@ -120,45 +79,10 @@ export function createFindResourceRequestByPatientField(
   };
 }
 
-export function createFindResourceRequestByEncounterField(
-  encounterId: Patient['id'],
-  resourceType: ResourceTypeWithEncounterAsContext,
-  field: 'context',
-  searchParams?: RequestOptions
-): BatchInputGetRequest;
-export function createFindResourceRequestByEncounterField(
-  encounterId: Patient['id'],
-  resourceType: ResourceTypeWithEncounterAsEncounter,
-  field: 'encounter',
-  searchParams?: RequestOptions
-): BatchInputGetRequest;
-export function createFindResourceRequestByEncounterField(
-  encounterId: Patient['id'],
-  resourceType: SupportedResourceType,
-  field: 'context' | 'encounter',
-  searchParams?: RequestOptions
-): BatchInputGetRequest {
-  let url = `/${resourceType}?${field}=Encounter/${encounterId}`;
-
-  url = addSearchParams(url, searchParams);
-
+export function createFindResourceRequestById(resourceId: string, resourceType: string): BatchInputGetRequest {
   return {
     method: 'GET',
-    url: url,
-  };
-}
-
-export function createFindResourceRequestById(
-  resourceId: string,
-  resourceType: string,
-  searchParams?: RequestOptions
-): BatchInputGetRequest {
-  let url = `/${resourceType}?_id=${resourceId}`;
-  url = addSearchParams(url, searchParams);
-
-  return {
-    method: 'GET',
-    url: url,
+    url: `/${resourceType}?_id=${resourceId}`,
   };
 }
 
@@ -210,15 +134,6 @@ export function parseSearchsetEntry(entry: BundleEntry<FhirResource> | undefined
     if (entry) console.error('Chart search entry was not an ok searchset: ', JSON.stringify(entry.response));
     return [];
   }
-  const innerBundle = entry.resource as Bundle<FhirResource>;
+  const innerBundle = entry.resource as { entry?: BundleEntry<FhirResource>[] };
   return (innerBundle.entry ?? []).flatMap((item) => (item.resource ? [item.resource] : []));
-}
-
-/** Flattens a batch response's nested searchset bundles into a flat resource list. */
-export function parseChartDataBundle(bundle: Bundle<FhirResource>): FhirResource[] {
-  if (bundle.resourceType !== 'Bundle' || bundle.entry === undefined) {
-    console.error('Search response appears malformed: ', JSON.stringify(bundle));
-    throw new Error('Could not parse search response for chart data');
-  }
-  return bundle.entry.flatMap((entry) => parseSearchsetEntry(entry));
 }

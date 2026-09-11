@@ -20,7 +20,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    // Load current chart data; the response echoes the whole chart in the unscoped get-chart-data shape.
+    // Load current chart data; the response echoes the whole chart in the legacy whole-chart shape.
     const { chartData } = visitNoteToLegacyChartData(await buildVisitNote({ oystehr, m2mToken }, encounterId), {
       module: 'in-person',
     });

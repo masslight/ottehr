@@ -130,7 +130,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // const [allResources, currentPractitioner, chartDataBeforeUpdate] = await Promise.all([
   //   getEncounterAndRelatedResources(oystehr, encounterId),
   //   getUserPractitioner(oystehr, userToken, secrets),
-  //   getChartData(oystehr, encounterId),
   // ]);
 
   const [allResources, currentPractitioner] = await Promise.all([

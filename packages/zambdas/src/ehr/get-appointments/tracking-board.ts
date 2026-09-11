@@ -486,7 +486,7 @@ export const buildOrdersForTrackingBoard = ({
     });
   table.radiologyOrdersByAppointmentId = groupBy(radiologyOrders, (order) => order.appointmentId);
 
-  // get-chart-data searched procedures with status=completed; the DTO builder wants the encounter for diagnoses.
+  // The chart's assessment section searches procedures with status=completed; the DTO builder wants the encounter for diagnoses.
   const proceduresByEncounter = groupBy(
     partitions.procedure.filter((serviceRequest) => serviceRequest.status === 'completed'),
     (serviceRequest) => serviceRequest.encounter?.reference?.replace('Encounter/', '')
