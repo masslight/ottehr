@@ -62,9 +62,12 @@ export const checkCompatibility = (tokenType: FormTokenType, fieldType: FormFiel
     case 'number':
       return fieldType === 'text' ? 'direct' : 'incompatible';
     case 'boolean':
-      if (fieldType === 'checkbox' || fieldType === 'radio') return 'direct';
-      // "Yes"/"No"? "X"/""? Only the author knows, so make them say.
-      if (fieldType === 'text') return 'needsTransform';
+      // A checkbox is the only field a boolean can drive on its own: it is ticked or it is not.
+      if (fieldType === 'checkbox') return 'direct';
+      // Everything else writes a value, and a raw boolean formats as "true"/"false" — which no radio
+      // group's export values spell, so the pairing produced `noMatchingOption` and a blank field. The
+      // author has to say what yes and no are called on this form: "Yes"/"No"? "X"/""?
+      if (fieldType === 'radio' || fieldType === 'text') return 'needsTransform';
       return 'incompatible';
     case 'date':
       // A date is not a string; something has to decide how it reads on the page.

@@ -27,6 +27,24 @@ describe('binding compatibility', () => {
     expect(requiredTransformKind('boolean', 'checkbox')).toBeUndefined();
   });
 
+  it('makes a boolean on a radio group declare what yes and no are called', () => {
+    // A radio group writes a value, and a raw boolean formats as "true"/"false" — which no real form
+    // spells as its export values. Treated as direct, the pairing looked valid in the editor and then
+    // produced `noMatchingOption` and a blank field at fill time.
+    expect(checkCompatibility('boolean', 'radio')).toBe('needsTransform');
+    expect(requiredTransformKind('boolean', 'radio')).toBe('booleanText');
+
+    const binding = { fieldName: 'consent', tokenKey: 'x' };
+    expect(isBindingComplete(binding, 'boolean', 'radio')).toBe(false);
+    expect(
+      isBindingComplete(
+        { ...binding, transform: { kind: 'booleanText', trueText: 'Yes', falseText: 'No' } },
+        'boolean',
+        'radio'
+      )
+    ).toBe(true);
+  });
+
   it('rejects a date bound to anything other than a text field', () => {
     const nonText: FormFieldType[] = ['checkbox', 'radio', 'dropdown', 'optionList'];
     for (const fieldType of nonText) {

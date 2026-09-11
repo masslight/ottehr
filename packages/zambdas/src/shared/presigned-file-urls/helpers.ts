@@ -28,11 +28,16 @@ type Z3UrlInput =
 /**
  * What a caller may supply to name a stored object: one path segment, nothing else.
  *
- * Must start alphanumeric and cannot contain `/`, so no value passing this can climb out of the folder it
- * is placed in. The rest of the class is exactly what `sanitizeFileName` and `sanitizeFileNameForZ3` are
- * able to emit, so a name this server generated is never rejected by its own check.
+ * Must start alphanumeric, and the class excludes every character the URL parser can turn into a path
+ * separator or a truncation. `/` is the obvious one; **`\` is not** — WHATWG normalises a backslash to a
+ * slash in a special-scheme URL, so `a\..\..\secret.pdf` resolves clean out of the patient folder and
+ * into the bucket root. `%`, `?` and `#` are excluded for the same reason: they change where the path
+ * ends up rather than what it is called.
+ *
+ * Everything remaining is what `sanitizeFileName` and `sanitizeFileNameForZ3` are able to emit, so a name
+ * this server generated is never rejected by its own check.
  */
-const Z3_OBJECT_NAME = /^[A-Za-z0-9][A-Za-z0-9._+!\-'()@$\\]{0,199}$/;
+const Z3_OBJECT_NAME = /^[A-Za-z0-9][A-Za-z0-9._+!\-'()@$]{0,199}$/;
 
 /**
  * Builds the URL of a stored object from an object name and the context the server already holds.

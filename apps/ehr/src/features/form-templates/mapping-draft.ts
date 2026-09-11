@@ -13,7 +13,11 @@ import { FormFieldBinding } from 'utils/lib/form-tokens/mapping';
 const draftKeyFor = (templateId: string): string => `ottehr.form-template-mapping-draft.${templateId}`;
 
 /** Identifies the document, not just the template: replacing the PDF keeps the id and changes the fields. */
-const inventorySignature = (fieldNames: string[]): string => [...fieldNames].sort().join('|');
+const inventorySignature = (fields: { name: string; type: string }[]): string =>
+  fields
+    .map((field) => `${field.name}:${field.type}`)
+    .sort()
+    .join('|');
 
 /**
  * The draft for this template, if it was authored against the fields the PDF still has.
@@ -24,7 +28,10 @@ const inventorySignature = (fieldNames: string[]): string => [...fieldNames].sor
  * replacement had just reconciled away, which is the failure `clearMappingDraft` exists to prevent and
  * cannot cover on its own.
  */
-export const readMappingDraft = (templateId: string, fieldNames: string[]): FormFieldBinding[] | undefined => {
+export const readMappingDraft = (
+  templateId: string,
+  fields: { name: string; type: string }[]
+): FormFieldBinding[] | undefined => {
   try {
     const raw = sessionStorage.getItem(draftKeyFor(templateId));
     if (!raw) return undefined;
@@ -33,7 +40,7 @@ export const readMappingDraft = (templateId: string, fieldNames: string[]): Form
     if (!Array.isArray(parsed.bindings)) return undefined;
 
     // A draft from before this check has no `fields`, so it cannot be shown to match and is discarded.
-    if (typeof parsed.fields !== 'string' || parsed.fields !== inventorySignature(fieldNames)) {
+    if (typeof parsed.fields !== 'string' || parsed.fields !== inventorySignature(fields)) {
       return undefined;
     }
 
@@ -43,11 +50,15 @@ export const readMappingDraft = (templateId: string, fieldNames: string[]): Form
   }
 };
 
-export const writeMappingDraft = (templateId: string, fieldNames: string[], bindings: FormFieldBinding[]): void => {
+export const writeMappingDraft = (
+  templateId: string,
+  fields: { name: string; type: string }[],
+  bindings: FormFieldBinding[]
+): void => {
   try {
     sessionStorage.setItem(
       draftKeyFor(templateId),
-      JSON.stringify({ version: 1, fields: inventorySignature(fieldNames), bindings })
+      JSON.stringify({ version: 1, fields: inventorySignature(fields), bindings })
     );
   } catch {
     // The mapping still saves normally; only the local draft is lost.

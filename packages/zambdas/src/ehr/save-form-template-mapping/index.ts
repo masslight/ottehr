@@ -1,9 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import { FORM_TEMPLATE_MAPPING_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import {
+  FORM_TEMPLATE_FIELD_INVENTORY_EXTENSION_URL,
+  FORM_TEMPLATE_MAPPING_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
+import { FormTemplateMapping } from 'utils/lib/form-tokens/mapping';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { SaveFormTemplateMappingInput, SaveFormTemplateMappingOutput } from 'utils/lib/types/api/form-template.types';
+import {
+  FormFieldInfo,
+  SaveFormTemplateMappingInput,
+  SaveFormTemplateMappingOutput,
+} from 'utils/lib/types/api/form-template.types';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken, requireAdminTierUser } from '../../shared/auth';
@@ -12,7 +20,12 @@ import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
-import { getFormTemplateOrThrow, withExtensionJson } from '../shared/form-template-helpers';
+import {
+  getFormTemplateOrThrow,
+  readExtensionJson,
+  reconcileMappingWithFields,
+  withExtensionJson,
+} from '../shared/form-template-helpers';
 
 const ZAMBDA_NAME = 'save-form-template-mapping';
 
@@ -84,6 +97,23 @@ const performEffect = async (
   const { documentReferenceId, mapping } = validatedInput;
 
   const docRef = await getFormTemplateOrThrow(oystehr, documentReferenceId);
+
+  // Checked against the inventory the template actually has, not against whatever the editor was showing.
+  // An admin tab open across a PDF replacement — or any direct caller — can otherwise reinstate exactly
+  // the bindings the replacement reconciled away, and they fill silently rather than failing.
+  //
+  // Refused rather than quietly reconciled: dropping bindings here would report a successful save for a
+  // mapping the administrator did not agree to, and they would only find out at fill time.
+  const inventory = readExtensionJson<FormFieldInfo[]>(docRef, FORM_TEMPLATE_FIELD_INVENTORY_EXTENSION_URL);
+  if (inventory) {
+    const { dropped } = reconcileMappingWithFields(mapping as FormTemplateMapping, inventory);
+    if (dropped.length > 0) {
+      throw new Error(
+        `This mapping refers to fields the template no longer has, or pairs them with tokens it cannot ` +
+          `accept: ${dropped.join(', ')}. Reload the template and map it again.`
+      );
+    }
+  }
 
   // Replace only the mapping extension: the field inventory and analysis live alongside it and must
   // survive a mapping save untouched.

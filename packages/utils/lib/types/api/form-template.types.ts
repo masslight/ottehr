@@ -211,6 +211,10 @@ export interface SaveCompletedFormInput {
    * it came from in its provenance stamp, which is more reliable than anything the caller can offer and
    * takes precedence. This is the fallback for a document with no stamp — a scan of a printed form, most
    * often — where nothing but the caller knows what it is.
+   *
+   * When neither supplies one, nothing is filed: the response is `needsSource` and no DocumentReference
+   * is created. An absent `documentReferenceId` in the reply is that state, not a successful unattributed
+   * filing.
    */
   templateId?: string;
   /**

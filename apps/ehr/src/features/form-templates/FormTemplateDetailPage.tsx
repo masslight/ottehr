@@ -185,7 +185,7 @@ export const FormTemplateDetailPage = (): ReactElement => {
     const saved = (data.mapping as FormTemplateMapping | undefined)?.bindings ?? [];
     const draft = readMappingDraft(
       templateId,
-      data.fields.map((field) => field.name)
+      data.fields.map((field) => ({ name: field.name, type: field.type }))
     );
     const restoring = !!draft && !sameBindings(draft, saved);
     const source = restoring ? draft : saved;
@@ -204,7 +204,7 @@ export const FormTemplateDetailPage = (): ReactElement => {
     if (!dirty) return;
     writeMappingDraft(
       templateId,
-      data.fields.map((field) => field.name),
+      data.fields.map((field) => ({ name: field.name, type: field.type })),
       Object.values(bindings)
     );
   }, [bindings, data, dirty, templateId]);

@@ -9,7 +9,8 @@ import {
   FORM_TEMPLATE_SOURCE_URL_EXTENSION_URL,
   FormTemplateFillability,
 } from 'utils/lib/fhir/constants';
-import { FormTemplateMapping } from 'utils/lib/form-tokens/mapping';
+import { FormFieldBinding, FormTemplateMapping, isBindingComplete } from 'utils/lib/form-tokens/mapping';
+import { findToken } from 'utils/lib/form-tokens/token-catalog';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import {
   FormFieldInfo,
@@ -173,14 +174,27 @@ export const reconcileMappingWithFields = (
   mapping: FormTemplateMapping,
   fields: FormFieldInfo[]
 ): { mapping: FormTemplateMapping; dropped: string[] } => {
-  const present = new Set(fields.map((field) => field.name));
-  const kept = mapping.bindings.filter((binding) => present.has(binding.fieldName));
-  const dropped = mapping.bindings.filter((binding) => !present.has(binding.fieldName));
+  const byName = new Map(fields.map((field) => [field.name, field]));
 
-  return {
-    mapping: { ...mapping, bindings: kept },
-    dropped: dropped.map((binding) => binding.fieldName),
-  };
+  const kept: FormFieldBinding[] = [];
+  const dropped: string[] = [];
+
+  for (const binding of mapping.bindings) {
+    const field = byName.get(binding.fieldName);
+    const token = findToken(binding.tokenKey);
+
+    // Name alone is not enough. A replacement PDF that keeps a field's name but changes it from text to
+    // checkbox leaves a binding that still points somewhere real and now writes the wrong kind of value —
+    // which fills silently rather than failing. `isBindingComplete` is the same check the editor applies,
+    // so a binding surviving here is one the editor would let an administrator create today.
+    if (field && token && isBindingComplete(binding, token.type, field.type)) {
+      kept.push(binding);
+    } else {
+      dropped.push(binding.fieldName);
+    }
+  }
+
+  return { mapping: { ...mapping, bindings: kept }, dropped };
 };
 
 export const toFormTemplateItem = async (docRef: DocumentReference, token: string): Promise<FormTemplateItem> => {

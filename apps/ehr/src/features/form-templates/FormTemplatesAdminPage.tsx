@@ -14,6 +14,7 @@ import {
   TableRow,
   Tooltip,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -25,6 +26,7 @@ import { useFormTemplates } from './useFormTemplates';
 
 export const FormTemplatesAdminPage = (): ReactElement => {
   const navigate = useNavigate();
+  const theme = useTheme();
   const [addOpen, setAddOpen] = useState(false);
 
   // Admin sees drafts too; the patient chart omits this and gets published templates only.
@@ -73,8 +75,24 @@ export const FormTemplatesAdminPage = (): ReactElement => {
                 <TableRow
                   key={item.documentReferenceId}
                   hover
+                  // Semantics rather than a real link: the row's cells hold their own layout, which an
+                  // anchor may not wrap. Without these the only way into a template is a mouse.
+                  role="link"
+                  tabIndex={0}
                   onClick={() => navigate(`/admin/form-templates/${item.documentReferenceId}`)}
-                  sx={{ cursor: 'pointer' }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      // Space would scroll the table instead of opening the row.
+                      event.preventDefault();
+                      navigate(`/admin/form-templates/${item.documentReferenceId}`);
+                    }
+                  }}
+                  sx={{
+                    cursor: 'pointer',
+                    // Focus has to be visible, or the row is reachable and invisible, which is worse
+                    // than not being reachable.
+                    '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: -2 },
+                  }}
                 >
                   <TableCell>
                     {item.pdfPresignedUrl ? (

@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { randomUUID } from 'crypto';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -14,13 +15,14 @@ import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { FillFormTemplateInput, FillFormTemplateOutput } from 'utils/lib/types/api/form-template.types';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { assembleProgressNoteInput } from '../../shared/pdf/assemble-progress-note-input';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
-import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
+import { makeZ3ObjectUrl, z3ObjectNameDatePrefix } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
@@ -32,7 +34,7 @@ import {
   LOG_TAG,
 } from '../shared/form-fill-context';
 import { fillFormTemplatePdf } from '../shared/form-template-fill';
-import { getFormTemplateOrThrow, readExtensionJson } from '../shared/form-template-helpers';
+import { getFormTemplateOrThrow, isPublished, readExtensionJson } from '../shared/form-template-helpers';
 import { resolveToken } from '../shared/form-token-resolvers';
 
 const ZAMBDA_NAME = 'fill-form-template';
@@ -87,6 +89,18 @@ const performEffect = async (
   const { documentReferenceId, appointmentId, secrets } = validatedInput;
 
   const template = await getFormTemplateOrThrow(oystehr, documentReferenceId);
+
+  // `getFormTemplateOrThrow` only proves the record is a form template, not that it is one anybody should
+  // be filling. Prefilling is chart-facing and reachable by every clinical role, so an id is enough to
+  // reach it — and a draft is a template whose PDF nobody has approved, while a `superseded` one has been
+  // deleted. Neither should be producing documents on a patient's chart.
+  if (template.status !== 'current') {
+    throw new Error(`Form template DocumentReference/${documentReferenceId} has been deleted`);
+  }
+  if (!isPublished(template)) {
+    throw new Error(`Form template DocumentReference/${documentReferenceId} is a draft and cannot be filled`);
+  }
+
   const templateUrl = template.content?.[0]?.attachment?.url;
   if (!templateUrl) {
     throw new Error(`Form template DocumentReference/${documentReferenceId} has no attachment URL`);
@@ -156,7 +170,16 @@ const performEffect = async (
     appointmentId
   );
 
-  const z3Url = makeZ3Url({ secrets, bucketName: BUCKET_NAMES.FORM_INSTANCES, patientID: patientId, fileName });
+  // Stored under a unique name, displayed under the readable one. `fileName` is deterministic for a
+  // template, patient and day, so reusing it as the object name meant every regenerate overwrote the
+  // previous fill's bytes *before* its replacement record existed — and two concurrent fills would leave
+  // both records pointing at whichever upload finished last.
+  const z3Url = makeZ3ObjectUrl({
+    secrets,
+    bucketName: BUCKET_NAMES.FORM_INSTANCES,
+    patientID: patientId,
+    objectName: `${z3ObjectNameDatePrefix()}-${randomUUID()}-${sanitizeFileNameForZ3(fileName)}`,
+  });
   const uploadUrl = await createPresignedUrl(token, z3Url, 'upload');
   await uploadObjectToZ3(pdfBytes, uploadUrl);
 

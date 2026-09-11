@@ -12,6 +12,7 @@ import {
   FORM_TEMPLATE_IDENTIFIER_SYSTEM,
   FormTemplateFillability,
 } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { FORMS_CONFIG } from 'utils/lib/ottehr-config/forms';
 import { isRejectedAnalysis, makeFormTemplateObjectName } from '../ehr/shared/form-template-helpers';
 import { analyzeFormTemplatePdf } from '../ehr/shared/form-template-pdf';
@@ -54,12 +55,15 @@ const seedFormTemplates = async (config: any): Promise<void> => {
     return;
   }
 
-  const existing = (
-    await oystehr.fhir.search<DocumentReference>({
+  // Every page: this script claims to be idempotent, and a seeded template sitting past the first page
+  // would be invisible to the check below and seeded again on the next run.
+  const existing = await getAllFhirSearchPages<DocumentReference>(
+    {
       resourceType: 'DocumentReference',
       params: [{ name: 'category', value: FORM_TEMPLATE_CATEGORY_SEARCH_PARAM }],
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
   const alreadySeeded = new Set(
     existing.flatMap((docRef) =>
       (docRef.identifier ?? [])

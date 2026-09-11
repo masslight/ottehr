@@ -48,7 +48,9 @@ export const FormsCard: FC = () => {
   const forms = (data?.items ?? []).filter((form) => form.pdfPresignedUrl);
   // Readiness rides along with the in-flight state: both mean the controls should not act, and neither is
   // something the provider can do anything about from here.
-  const busy = !fillTemplate.isReady || !returnForm.isReady || !!pendingId || returning;
+  // `returning` covers the first leg only; answering a `needsSource` prompt files through the same
+  // mutation without setting it, which left the drop zone live during the write.
+  const busy = !fillTemplate.isReady || !returnForm.isReady || !!pendingId || returning || returnForm.isPending;
 
   const openForm = (templateId: string): void => {
     if (!appointment?.id || busy) return;

@@ -11,7 +11,7 @@ import {
 } from 'utils/lib/types/api/form-template.types';
 import { MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, requireAdminTierUser } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
@@ -26,6 +26,11 @@ let m2mToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedInput = validateRequestParameters(input);
+    // Published templates are what the chart lists, so this stays open to providers. Drafts are not:
+    // they carry presigned links to PDFs nobody has approved for use yet.
+    if (validatedInput.includeUnpublished) {
+      await requireAdminTierUser(validatedInput.userToken ?? '', validatedInput.secrets);
+    }
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 
@@ -44,7 +49,9 @@ const inputSchema: z.ZodType<ListFormTemplatesInput> = z.object({
   includeUnpublished: z.boolean().optional(),
 });
 
-export function validateRequestParameters(input: ZambdaInput): ListFormTemplatesInput & Pick<ZambdaInput, 'secrets'> {
+export function validateRequestParameters(
+  input: ZambdaInput
+): ListFormTemplatesInput & Pick<ZambdaInput, 'secrets'> & { userToken?: string } {
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
   // The chart calls this with no body at all, which is equivalent to published-only.
@@ -53,11 +60,13 @@ export function validateRequestParameters(input: ZambdaInput): ListFormTemplates
   return {
     ...parsed,
     secrets: input.secrets,
+    // Who is asking, as opposed to the machine identity that does the writing.
+    userToken: input.headers?.Authorization?.replace('Bearer ', ''),
   };
 }
 
 const performEffect = async (
-  validatedInput: ListFormTemplatesInput & Pick<ZambdaInput, 'secrets'>,
+  validatedInput: ListFormTemplatesInput & Pick<ZambdaInput, 'secrets'> & { userToken?: string },
   oystehr: Oystehr,
   token: string
 ): Promise<ListFormTemplatesOutput> => {

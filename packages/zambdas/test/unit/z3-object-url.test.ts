@@ -33,6 +33,14 @@ describe('makeZ3ObjectUrl', () => {
     }
   });
 
+  it('refuses a backslash, which the URL parser turns into a path separator', () => {
+    // Not a theoretical concern: `new URL(base + 'a\\..\\..\\secret.pdf')` resolves to the bucket root,
+    // outside the patient folder entirely. WHATWG normalises `\` to `/` for a special-scheme URL, so a
+    // name carrying one relocates the object it claims to name.
+    expect(() => url('a\\..\\..\\secret.pdf', 'patient-1')).toThrow(/Invalid Z3 object name/);
+    expect(() => url('a\\b.pdf', 'patient-1')).toThrow(/Invalid Z3 object name/);
+  });
+
   it('refuses percent-encoding, which would become a separator once decoded', () => {
     for (const bad of ['x%2fy', '%2e%2e%2fetc', 'a%00b']) {
       expect(() => url(bad, 'patient-1'), bad).toThrow(/Invalid Z3 object name/);
@@ -53,11 +61,13 @@ describe('makeZ3ObjectUrl', () => {
 describe('names this server generates', () => {
   // The check and the generators have to agree, or a legitimate upload is refused on its way back.
   it('accepts a template object name', () => {
+    // Includes a backslash: the sanitizer has to strip it, since the validator now refuses one.
     for (const fileName of [
       'w9.pdf',
       'DWC073 work status (rev 2).pdf',
       "o'brien+form!.pdf",
       'a\\b.pdf',
+      '..\\..\\x.pdf',
       '../../x.pdf',
     ]) {
       const objectName = makeFormTemplateObjectName(fileName);
