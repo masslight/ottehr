@@ -234,7 +234,7 @@ export function useNavigationQuickPicks(): void {
       label: 'Add Follow-up Visit',
       to: `/patient/${followUpPatientId}/followup/add`,
       icon: LocalHospitalIcon,
-      roles: VISIT_CREATION_ROLES,
+      roles: PRIMARY_EHR_STAFF_ROLES,
       keywords: ['follow-up', 'followup', 'follow up visit', 'recheck'],
       state: visitId
         ? { initialEncounterId: getInitialEncounterIdForFollowUp(encounter, followUpOriginEncounter) }

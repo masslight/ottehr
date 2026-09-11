@@ -41,7 +41,8 @@ export default defineConfig({
     execArgv: ['--max-old-space-size=1024'],
     server: {
       deps: {
-        inline: [/@sentry/, /utils/],
+        // `utils` is a workspace package consumed as TypeScript source, so it has to be transformed here.
+        inline: [/utils/],
       },
     },
     coverage: {
