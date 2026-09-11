@@ -17,6 +17,7 @@ const DOCUMENT_REFERENCE_PLACEHOLDER = 'urn:uuid:doc-ref';
 export interface AttachClaimDocumentResult {
   documentReferenceId?: string;
   uploadUrl: string;
+  objectPath: string;
 }
 
 export async function attachClaimDocument({
@@ -101,22 +102,26 @@ export async function attachClaimDocument({
 
   const result = await oystehr.fhir.transaction<Claim | DocumentReference>({ requests });
 
+  const objectPath = CLAIM_ATTACHMENT_OBJECT_PATH(claim.id, fileName);
   const presignedUrlResult = await oystehr.z3.getPresignedUrl({
     bucketName: BILLING_APP_BUCKET(secrets['PROJECT_ID']),
-    'objectPath+': CLAIM_ATTACHMENT_OBJECT_PATH(claim.id, fileName),
+    'objectPath+': objectPath,
     action: 'upload',
   });
   return {
     documentReferenceId: createdDocumentReferenceId(result),
     uploadUrl: presignedUrlResult.signedUrl,
+    objectPath,
   };
 }
 
 function createdDocumentReferenceId(result: Bundle<Claim | DocumentReference> | undefined): string | undefined {
   for (const entry of result?.entry ?? []) {
     if (entry.resource?.resourceType === 'DocumentReference' && entry.resource.id) return entry.resource.id;
-    const [resourceType, id] = entry.response?.location?.split('/') ?? [];
-    if (resourceType === 'DocumentReference' && id) return id;
+    const segments = entry.response?.location?.split('/') ?? [];
+    const typeIndex = segments.lastIndexOf('DocumentReference');
+    const id = typeIndex < 0 ? undefined : segments[typeIndex + 1];
+    if (id) return id;
   }
   return undefined;
 }

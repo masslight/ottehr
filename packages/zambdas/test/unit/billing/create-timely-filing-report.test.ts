@@ -401,9 +401,14 @@ describe('timelyFilingReportFileName', () => {
 describe('create-timely-filing-report performEffect', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  function makeClients(): { oystehr: Oystehr; eraReadClient: Oystehr; transaction: ReturnType<typeof vi.fn> } {
+  function makeClients(billingClaim: Claim = claim): {
+    oystehr: Oystehr;
+    eraReadClient: Oystehr;
+    transaction: ReturnType<typeof vi.fn>;
+    getPresignedUrl: ReturnType<typeof vi.fn>;
+  } {
     const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
-      if (resourceType === 'Claim') return Promise.resolve(pagedBundle([claim]));
+      if (resourceType === 'Claim') return Promise.resolve(pagedBundle([billingClaim]));
       if (resourceType === 'Provenance') {
         return Promise.resolve(pagedBundle([acknowledgmentProvenance(acknowledgment(), 'a')]));
       }
@@ -444,8 +449,70 @@ describe('create-timely-filing-report performEffect', () => {
       oystehr: client,
       eraReadClient: client,
       transaction,
+      getPresignedUrl,
     };
   }
+
+  // The upload path is sanitized inside attachClaimDocument. Rebuilding the download path from the
+  // raw file name signs a URL for an object that was never written.
+  it('signs the download for the same object it uploaded when the pcn needs sanitizing', async () => {
+    const { oystehr, eraReadClient, getPresignedUrl } = makeClients({
+      ...claim,
+      identifier: [
+        {
+          system: 'https://identifiers.fhir.oystehr.com/rcm-claim-patient-control-number',
+          value: 'Q7 8291#A',
+        },
+      ],
+    });
+
+    await performEffect({
+      oystehr,
+      eraReadClient,
+      params: {
+        claimId: CLAIM_ID,
+        secrets: {
+          PROJECT_API: 'https://project-api.zapehr.com/v1',
+          PROJECT_ID: 'project-id',
+        },
+      },
+    });
+
+    const [[upload], [download]] = getPresignedUrl.mock.calls;
+    expect(upload.action).toBe('upload');
+    expect(download.action).toBe('download');
+    expect(download['objectPath+']).toBe(upload['objectPath+']);
+    expect(upload['objectPath+']).toMatch(/^claim-attachments\/claim-1\/Timely_Filing_Report_Q7_8291_A_/);
+  });
+
+  // A transaction entry may report the write as an absolute location with no inline resource.
+  // Reading fixed positions out of it misses the id after the write has already committed.
+  it('reads the document id from an absolute location url', async () => {
+    const { oystehr, eraReadClient, transaction } = makeClients();
+    transaction.mockResolvedValue({
+      entry: [
+        {
+          response: {
+            location: 'https://fhir-api.zapehr.com/r4/DocumentReference/doc-9/_history/1',
+          },
+        },
+      ],
+    });
+
+    await expect(
+      performEffect({
+        oystehr,
+        eraReadClient,
+        params: {
+          claimId: CLAIM_ID,
+          secrets: {
+            PROJECT_API: 'https://project-api.zapehr.com/v1',
+            PROJECT_ID: 'project-id',
+          },
+        },
+      })
+    ).resolves.toMatchObject({ documentReferenceId: 'doc-9' });
+  });
 
   it('attaches the rendered report to the claim and hands back a download link', async () => {
     const { oystehr, eraReadClient, transaction } = makeClients();

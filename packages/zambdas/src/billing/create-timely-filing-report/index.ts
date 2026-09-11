@@ -14,7 +14,6 @@ import { fetchClaimResponsesByClaimIds } from '../claim-amounts';
 import { attachClaimDocument } from '../claim-attachments';
 import {
   BILLING_APP_BUCKET,
-  CLAIM_ATTACHMENT_OBJECT_PATH,
   createBillingClient,
   createEraReadClient,
   ERA_ICN_EXTENSION,
@@ -99,7 +98,7 @@ export async function performEffect({
   });
 
   const fileName = timelyFilingReportFileName(claim.id ?? claimId, getClaimPcn(claim));
-  const { documentReferenceId, uploadUrl } = await attachClaimDocument({
+  const { documentReferenceId, uploadUrl, objectPath } = await attachClaimDocument({
     oystehr,
     claim: {
       ...claim,
@@ -116,7 +115,7 @@ export async function performEffect({
 
   const download = await oystehr.z3.getPresignedUrl({
     bucketName: BILLING_APP_BUCKET(secrets['PROJECT_ID']),
-    'objectPath+': CLAIM_ATTACHMENT_OBJECT_PATH(claim.id ?? claimId, fileName),
+    'objectPath+': objectPath,
     action: 'download',
   });
 
