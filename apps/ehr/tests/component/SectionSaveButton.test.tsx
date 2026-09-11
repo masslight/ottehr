@@ -45,7 +45,10 @@ vi.mock('../../src/hooks/useGetPatient', () => ({
 }));
 
 import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
-import { SaveBlockedReasonProvider } from '../../src/features/visits/shared/components/patient/SaveBlockedReasonContext';
+import {
+  ConfirmSave,
+  SaveConfirmationProvider,
+} from '../../src/features/visits/shared/components/patient/SaveConfirmationContext';
 import { SectionSaveButton } from '../../src/features/visits/shared/components/patient/SectionSaveButton';
 
 // ============================================================================
@@ -93,7 +96,7 @@ interface HarnessProps {
   resolver?: Resolver<Record<string, unknown>>;
   patientId?: string;
   encounterId?: string;
-  blockedReason?: string;
+  confirmSave?: ConfirmSave;
 }
 
 const Harness: FC<HarnessProps> = ({
@@ -103,7 +106,7 @@ const Harness: FC<HarnessProps> = ({
   resolver,
   patientId,
   encounterId,
-  blockedReason,
+  confirmSave,
 }) => {
   const methods = useForm<Record<string, unknown>>({ defaultValues, mode: 'onChange', resolver });
   useEffect(() => {
@@ -112,11 +115,11 @@ const Harness: FC<HarnessProps> = ({
     });
   }, [dirtyKeys, defaultValues, methods]);
   return (
-    <SaveBlockedReasonProvider reason={blockedReason}>
+    <SaveConfirmationProvider confirmSave={confirmSave}>
       <FormProvider {...methods}>
         <SectionSaveButton fieldKeys={fieldKeys} patientId={patientId} encounterId={encounterId} />
       </FormProvider>
-    </SaveBlockedReasonProvider>
+    </SaveConfirmationProvider>
   );
 };
 
@@ -163,25 +166,59 @@ describe('SectionSaveButton', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument());
   });
 
-  it('disables Save and explains why when an outside condition blocks saving', async () => {
+  it('stays enabled and defers the write to the guard when one is installed', async () => {
     const user = userEvent.setup();
+    // Stands in for the visit page's consent reminder: the write waits until the guard runs it.
+    let release: (() => Promise<void>) | undefined;
+    const confirmSave: ConfirmSave = (proceed) =>
+      new Promise<void>((resolve) => {
+        release = async () => {
+          await proceed();
+          resolve();
+        };
+      });
+
     renderHarness({
       defaultValues: { 'patient-email': 'a@b.co' },
       dirtyKeys: ['patient-email'],
       fieldKeys: ['patient-email'],
       patientId: 'p1',
-      blockedReason: 'Consent has not been attested.',
+      confirmSave,
     });
 
     const btn = await screen.findByRole('button', { name: /save/i });
-    expect(btn).toBeDisabled();
+    // Nothing is disabled any more: the reminder happens on click, not by taking the button away.
+    expect(btn).toBeEnabled();
 
-    // The disabled button emits no pointer events, so the tooltip hangs off the wrapper span.
-    await user.hover(btn.parentElement as HTMLElement);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Consent has not been attested.');
+    await user.click(btn);
+    await waitFor(() => expect(release).toBeDefined());
+    expect(mutateAsyncMock).not.toHaveBeenCalled();
+
+    // Confirming runs the same write with the values the user had typed in.
+    await release!();
+    await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalledOnce());
   });
 
-  it('leaves Save enabled when nothing outside the form blocks saving', async () => {
+  it('never writes when the guard declines to run the save', async () => {
+    const user = userEvent.setup();
+    // Mirrors cancelling the reminder dialog: resolve without ever calling `proceed`.
+    const confirmSave: ConfirmSave = () => Promise.resolve();
+
+    renderHarness({
+      defaultValues: { 'patient-email': 'a@b.co' },
+      dirtyKeys: ['patient-email'],
+      fieldKeys: ['patient-email'],
+      patientId: 'p1',
+      confirmSave,
+    });
+
+    await user.click(await screen.findByRole('button', { name: /save/i }));
+    await waitFor(() => expect(mutateAsyncMock).not.toHaveBeenCalled());
+    // The section is still dirty, so its Save button is still there to try again.
+    expect(screen.getByRole('button', { name: /save/i })).toBeEnabled();
+  });
+
+  it('leaves Save enabled when no guard is installed', async () => {
     renderHarness({
       defaultValues: { 'patient-email': 'a@b.co' },
       dirtyKeys: ['patient-email'],

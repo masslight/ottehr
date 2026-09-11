@@ -1,5 +1,5 @@
 import { Save } from '@mui/icons-material';
-import { Button, CircularProgress, Tooltip } from '@mui/material';
+import { Button, CircularProgress } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Reference } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
@@ -18,7 +18,7 @@ import {
   buildVisitEmployerUpdate,
   OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY,
 } from '../../visitEmployer';
-import { useSaveBlockedReason } from './SaveBlockedReasonContext';
+import { useConfirmSave } from './SaveConfirmationContext';
 import { scrollToFirstInvalidField } from './scrollToFirstInvalidField';
 
 const questionnaire = PATIENT_RECORD_QUESTIONNAIRE();
@@ -75,9 +75,9 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
   const { oystehrZambda } = useApiClients();
   const { watch, formState, resetField, getValues, trigger, getFieldState } = useFormContext();
   const { dirtyFields } = formState;
-  // Set by the visit page, which requires the consent attestation before any of the patient record
-  // can be written. Undefined everywhere else, so the standalone patient-info page is unaffected.
-  const saveBlockedReason = useSaveBlockedReason();
+  // Set by the visit page, which reminds staff that consent is not signed before writing any of the
+  // patient record. A no-op everywhere else, so the standalone patient-info page is unaffected.
+  const confirmSave = useConfirmSave();
 
   const employerFieldDirty = Boolean(dirtyFields[OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY]);
   const saveEmployerViaVisitDetails = useUpdateVisitDetailsForEmployer && Boolean(appointmentId) && employerFieldDirty;
@@ -133,74 +133,79 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
       return;
     }
 
-    const allValues = getValues();
-    const sectionValues: Record<string, any> = {};
-    // Include the logical control fields this section's fields depend on so the
-    // backend's enableWhen filtering keeps the fields they gate (e.g. SSN). They are
-    // never dirty, so they are not added to sectionDirtyFields below.
-    [...fieldKeys, ...collectLogicalControlFields(fieldKeys)].forEach((key) => {
-      sectionValues[key] = allValues[key];
-    });
+    // Everything from here on is what the guard controls: on the visit page an unsigned
+    // consent opens a reminder dialog first and only writes once the user confirms. Validation
+    // stays outside it so field errors surface without a dialog getting in the way.
+    await confirmSave(async () => {
+      const allValues = getValues();
+      const sectionValues: Record<string, any> = {};
+      // Include the logical control fields this section's fields depend on so the
+      // backend's enableWhen filtering keeps the fields they gate (e.g. SSN). They are
+      // never dirty, so they are not added to sectionDirtyFields below.
+      [...fieldKeys, ...collectLogicalControlFields(fieldKeys)].forEach((key) => {
+        sectionValues[key] = allValues[key];
+      });
 
-    const sectionDirtyFields: Record<string, boolean> = {};
-    fieldKeys.forEach((key) => {
-      if (dirtyFields[key]) {
-        sectionDirtyFields[key] = true;
-      }
-    });
+      const sectionDirtyFields: Record<string, boolean> = {};
+      fieldKeys.forEach((key) => {
+        if (dirtyFields[key]) {
+          sectionDirtyFields[key] = true;
+        }
+      });
 
-    try {
-      if (saveEmployerViaVisitDetails && appointmentId) {
-        // Pre-op: visit-level employer is saved on the Encounter, not the patient Account.
-        const employerValue = allValues[OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY] as Reference | null | undefined;
-        await visitDetailsEmployerMutation.mutateAsync(buildVisitEmployerUpdate(appointmentId, employerValue));
+      try {
+        if (saveEmployerViaVisitDetails && appointmentId) {
+          // Pre-op: visit-level employer is saved on the Encounter, not the patient Account.
+          const employerValue = allValues[OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY] as Reference | null | undefined;
+          await visitDetailsEmployerMutation.mutateAsync(buildVisitEmployerUpdate(appointmentId, employerValue));
 
-        // Other dirty fields in this section still go through the usual QR path, employer excluded.
-        const remainingFieldKeys = fieldKeys.filter((key) => key !== OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY);
-        const remainingDirtyKeys = remainingFieldKeys.filter((key) => dirtyFields[key]);
+          // Other dirty fields in this section still go through the usual QR path, employer excluded.
+          const remainingFieldKeys = fieldKeys.filter((key) => key !== OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY);
+          const remainingDirtyKeys = remainingFieldKeys.filter((key) => dirtyFields[key]);
 
-        if (remainingDirtyKeys.length > 0) {
-          const remainingValues: Record<string, unknown> = {};
+          if (remainingDirtyKeys.length > 0) {
+            const remainingValues: Record<string, unknown> = {};
 
-          [...remainingFieldKeys, ...collectLogicalControlFields(remainingFieldKeys)].forEach((key) => {
-            remainingValues[key] = allValues[key];
-          });
+            [...remainingFieldKeys, ...collectLogicalControlFields(remainingFieldKeys)].forEach((key) => {
+              remainingValues[key] = allValues[key];
+            });
 
-          const remainingDirty: Record<string, boolean> = {};
+            const remainingDirty: Record<string, boolean> = {};
 
-          remainingDirtyKeys.forEach((key) => {
-            remainingDirty[key] = true;
-          });
+            remainingDirtyKeys.forEach((key) => {
+              remainingDirty[key] = true;
+            });
 
+            const qr = pruneEmptySections(
+              structureQuestionnaireResponse(questionnaire, remainingValues, patientId, remainingDirty)
+            );
+
+            if (encounterId) {
+              qr.encounter = { reference: `Encounter/${encounterId}` };
+            }
+
+            await submitQR.mutateAsync(qr);
+          }
+        } else {
           const qr = pruneEmptySections(
-            structureQuestionnaireResponse(questionnaire, remainingValues, patientId, remainingDirty)
+            structureQuestionnaireResponse(questionnaire, sectionValues, patientId, sectionDirtyFields)
           );
-
           if (encounterId) {
             qr.encounter = { reference: `Encounter/${encounterId}` };
           }
-
           await submitQR.mutateAsync(qr);
         }
-      } else {
-        const qr = pruneEmptySections(
-          structureQuestionnaireResponse(questionnaire, sectionValues, patientId, sectionDirtyFields)
-        );
-        if (encounterId) {
-          qr.encounter = { reference: `Encounter/${encounterId}` };
-        }
-        await submitQR.mutateAsync(qr);
+      } catch {
+        return;
       }
-    } catch {
-      return;
-    }
-    // Clear dirty state only for this section's fields so unsaved edits in other
-    // sections keep their dirty markers (and their Save buttons).
-    const currentValues = getValues();
-    fieldKeys.forEach((key) => {
-      resetField(key, { defaultValue: currentValues[key], keepError: false });
+      // Clear dirty state only for this section's fields so unsaved edits in other
+      // sections keep their dirty markers (and their Save buttons).
+      const currentValues = getValues();
+      fieldKeys.forEach((key) => {
+        resetField(key, { defaultValue: currentValues[key], keepError: false });
+      });
+      onSaveSuccess?.();
     });
-    onSaveSuccess?.();
   }, [
     patientId,
     encounterId,
@@ -215,29 +220,21 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
     onSaveSuccess,
     trigger,
     getFieldState,
+    confirmSave,
   ]);
 
   if (!isDirty) return null;
 
-  const saveButton = (
+  return (
     <Button
       variant="outlined"
       size="small"
       startIcon={isSaving ? <CircularProgress size={14} /> : <Save fontSize="small" />}
-      disabled={isSaving || Boolean(saveBlockedReason)}
+      disabled={isSaving}
       onClick={handleSave}
       sx={{ textTransform: 'none', fontSize: '13px', py: 0.25, px: 1.5 }}
     >
       Save
     </Button>
-  );
-
-  if (!saveBlockedReason) return saveButton;
-
-  return (
-    <Tooltip title={saveBlockedReason}>
-      {/* A disabled button emits no pointer events, so the tooltip needs an enabled wrapper. */}
-      <span>{saveButton}</span>
-    </Tooltip>
   );
 };
