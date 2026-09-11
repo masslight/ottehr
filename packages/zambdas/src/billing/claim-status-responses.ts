@@ -6,9 +6,10 @@ import { ClaimAcknowledgmentEvent } from 'utils/lib/types/data/billing/claim-his
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
 
-// Claim.MD sends its numeric identifiers quoted or unquoted.
+// Claim.MD sends numeric ids quoted or unquoted. JSON.parse has already rounded an unsafe integer
+// by the time this runs, so refuse it rather than cite a wrong id to a payer.
 const claimMdId = z
-  .union([z.string(), z.number()])
+  .union([z.string(), z.number().refine(Number.isSafeInteger, 'Claim.MD sent a number too large to read exactly')])
   .transform((id) => String(id))
   .optional();
 
@@ -17,7 +18,7 @@ export const ClaimStatusMessageSchema = z
     status: z.string().optional(),
     responseid: claimMdId,
     message: z.string().optional(),
-    mesgid: z.string().optional(),
+    mesgid: claimMdId,
     fields: z.string().optional(),
   })
   .passthrough();
@@ -27,8 +28,8 @@ export const ClaimStatusResponseSchema = z
     status: z.string().optional(),
     response_time: z.string().optional(),
     sender_name: z.string().optional(),
-    senderid: z.string().optional(),
-    sender_icn: z.string().optional(),
+    senderid: claimMdId,
+    sender_icn: claimMdId,
     batchid: claimMdId,
     claimmd_id: claimMdId,
     messages: z.array(ClaimStatusMessageSchema).optional(),

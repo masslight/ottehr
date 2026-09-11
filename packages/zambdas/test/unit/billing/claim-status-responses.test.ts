@@ -79,10 +79,13 @@ describe('parseClaimStatusResponse', () => {
         status: 'A',
         batchid: 987654321,
         claimmd_id: 48213765,
+        senderid: 62308,
+        sender_icn: 762839104822,
         messages: [
           {
             status: 'A',
             responseid: 9001,
+            mesgid: 19,
           },
         ],
       })
@@ -90,8 +93,24 @@ describe('parseClaimStatusResponse', () => {
     expect(parsed?.raw).toMatchObject({
       batchid: '987654321',
       claimmd_id: '48213765',
+      senderid: '62308',
+      // Feeds payerClaimControlNumber, so an unquoted value must not fail the whole response.
+      sender_icn: '762839104822',
     });
     expect(parsed?.raw.messages?.[0].responseid).toBe('9001');
+    expect(parsed?.raw.messages?.[0].mesgid).toBe('19');
+  });
+
+  it('refuses an unquoted identifier too large to have survived parsing', () => {
+    expect(() =>
+      parseClaimStatusResponse(
+        response({
+          status: 'A',
+          // Written as a string for the test's sake
+          batchid: Number('20260805123456789'),
+        })
+      )
+    ).toThrow(/invalid raw claim status response/);
   });
 
   it('preserves unrecognized fields rather than dropping them', () => {
