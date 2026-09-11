@@ -58,7 +58,7 @@ export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.E
             mimeType: uploadedAttachment.contentType,
           });
         } else if (documentReferenceId) {
-          await deletePhoto.mutateAsync({ documentRefId: documentReferenceId });
+          await deletePhoto.mutateAsync({ appointmentID, documentReferenceId });
         }
       }
       void queryClient.invalidateQueries({ queryKey: ['paperwork'] });

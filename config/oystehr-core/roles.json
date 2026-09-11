@@ -28,6 +28,7 @@
             "Zambda:Function:get-appointment-details",
             "Zambda:Function:patch-paperwork",
             "Zambda:Function:submit-paperwork",
+            "Zambda:Function:upload-patient-condition-photo",
             "Zambda:Function:payment-methods-list",
             "Zambda:Function:payment-methods-delete",
             "Zambda:Function:payment-methods-setup",
