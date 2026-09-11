@@ -31,7 +31,7 @@ import {
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { buildPayorReference, payerDisplay } from './shared';
 
-type OrganizationContact = NonNullable<Organization['contact']>[number];
+export type OrganizationContact = NonNullable<Organization['contact']>[number];
 
 // --- Type guards & readers ---
 
@@ -97,7 +97,8 @@ function toNioAddress(address: Address | undefined): NioAddress | undefined {
 }
 
 // Contact title lives in purpose.text — the same mapping the WC-employer paperwork harvest writes.
-function toFhirContact(contact: NioContact): OrganizationContact {
+// Exported: insurance-org.helpers.ts reuses this for the identically-shaped contacts field.
+export function toFhirContact(contact: NioContact): OrganizationContact {
   const telecom: ContactPoint[] = [];
   if (contact.phone) telecom.push({ system: 'phone', value: contact.phone });
   if (contact.email) telecom.push({ system: 'email', value: contact.email });
@@ -108,7 +109,7 @@ function toFhirContact(contact: NioContact): OrganizationContact {
   };
 }
 
-function toNioContact(contact: OrganizationContact): NioContact | undefined {
+export function toNioContact(contact: OrganizationContact): NioContact | undefined {
   const name = contact.name?.text;
   if (!name) return undefined;
   const phone = contact.telecom?.find((point) => point.system === 'phone')?.value;
