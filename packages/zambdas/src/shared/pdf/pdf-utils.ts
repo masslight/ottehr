@@ -93,8 +93,8 @@ export function splitLongStringToPageSize(
 export const rgbNormalized = (r: number, g: number, b: number): Color => rgb(r / 255, g / 255, b / 255);
 
 export const hexColor = (hex: string): Color => {
-  const value = hex.replace('#', '').slice(0, 6);
-  if (!/^[0-9a-f]{6}$/i.test(value)) throw new Error(`Cannot use '${hex}' as a PDF color`);
+  const value = hex.replace(/^#/, '');
+  if (!/^[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value)) throw new Error(`Cannot use '${hex}' as a PDF color`);
   const channel = (start: number): number => parseInt(value.slice(start, start + 2), 16);
   return rgbNormalized(channel(0), channel(2), channel(4));
 };

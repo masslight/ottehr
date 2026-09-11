@@ -22,4 +22,12 @@ describe('hexColor', () => {
     expect(() => hexColor('#FFF')).toThrow();
     expect(() => hexColor('')).toThrow();
   });
+
+  test('rejects a malformed value instead of reading the first six digits of it', () => {
+    expect(() => hexColor('#FFFFFF0')).toThrow();
+    expect(() => hexColor('#FFFFFFZZ')).toThrow();
+    expect(() => hexColor('#1C2536DEAD')).toThrow();
+    // The hash is only stripped from the front, so a stray one is not quietly removed.
+    expect(() => hexColor('00#0000')).toThrow();
+  });
 });
