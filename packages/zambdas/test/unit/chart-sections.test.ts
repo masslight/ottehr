@@ -248,10 +248,8 @@ describe('chart sections — golden fixture', () => {
         fhirSearches: fresh.recorded.reduce((n, r) => n + r.urls.length, 0),
         batchSizes: batches.map((b) => b.urls.length),
       }).toEqual({
-        // Before the sections, opening Review & Sign cost four chart reads, 13 batches and 33 searches
-        // (measured before the old endpoint was removed). The visit note is one call: the chart searches and
-        // the appointment count in six concurrent batches; the AI note's provider is one of the participants
-        // the same wave read, so there is no follow-up lookup.
+        // The visit note is one call: the chart searches and the appointment count in six concurrent batches;
+        // the AI note's provider is one of the participants the same wave read, so there is no follow-up lookup.
         fhirHttpRequests: 6,
         fhirSearches: 32,
         batchSizes: [6, 6, 6, 6, 6, 2],
