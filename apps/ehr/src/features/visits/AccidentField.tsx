@@ -22,7 +22,7 @@ interface FormData {
 }
 
 export const AccidentField: FC<Props> = ({ readOnly }) => {
-  const { data: chartDataFields, refetch, isLoading: isChartDataLoading } = useChartSection('encounterNotes');
+  const { data: chartDataFields, setSectionData, isLoading: isChartDataLoading } = useChartSection('encounterNotes');
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
 
@@ -70,9 +70,14 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
         }
         if (types.length === 0) {
           if (chartDataFields?.accident != null) {
-            deleteChartData({
-              accident: chartDataFields?.accident,
-            });
+            deleteChartData(
+              {
+                accident: chartDataFields?.accident,
+              },
+              {
+                onSuccess: () => setSectionData({ accident: undefined }),
+              }
+            );
           }
           return;
         }
@@ -105,13 +110,13 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
             },
           },
           {
-            onSuccess: () => void refetch(),
+            onSuccess: (data) => setSectionData({ accident: data.chartData.accident }),
           }
         );
       },
     });
     return () => callback();
-  }, [methods, chartDataFields, deleteChartData, saveChartData, refetch]);
+  }, [methods, chartDataFields, deleteChartData, saveChartData, setSectionData]);
 
   const disabled = isChartDataLoading || readOnly;
 
