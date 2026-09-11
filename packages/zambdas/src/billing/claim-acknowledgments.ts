@@ -19,6 +19,26 @@ import {
   ClaimStatusResponseSchema,
 } from './claim-status-responses';
 
+export interface StoredAcknowledgment {
+  event?: ClaimAcknowledgmentEvent;
+  error?: unknown;
+}
+
+export function parseStoredAcknowledgment(provenance: Provenance): StoredAcknowledgment {
+  const stored = provenance.extension?.find(
+    (extension) => extension.url === CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL
+  )?.valueString;
+  if (!stored) return {};
+  let json: unknown;
+  try {
+    json = JSON.parse(stored);
+  } catch (cause) {
+    return { error: cause };
+  }
+  const parsed = ClaimAcknowledgmentEventSchema.safeParse(json);
+  return parsed.success ? { event: parsed.data } : { error: parsed.error };
+}
+
 export async function fetchClaimAcknowledgmentEvents({
   oystehr,
   claimId,
@@ -44,18 +64,8 @@ export async function fetchClaimAcknowledgmentEvents({
         provenance.activity?.coding?.some((coding) => coding.code === CLAIM_PROVENANCE_ACTIVITY_CODES.acknowledgment)
     )
     .flatMap((provenance) => {
-      const stored = provenance.extension?.find(
-        (extension) => extension.url === CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL
-      )?.valueString;
-      if (!stored) return [];
-      // A record we cannot read is left out rather than failing the report; the history view
-      // reports the same anomaly to Sentry.
-      try {
-        const parsed = ClaimAcknowledgmentEventSchema.safeParse(JSON.parse(stored));
-        return parsed.success ? [parsed.data] : [];
-      } catch {
-        return [];
-      }
+      const { event } = parseStoredAcknowledgment(provenance);
+      return event ? [event] : [];
     })
     .sort((a, b) => instant(a.eventTime) - instant(b.eventTime));
 }

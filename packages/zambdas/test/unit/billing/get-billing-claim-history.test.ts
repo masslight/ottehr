@@ -354,7 +354,10 @@ describe('get-billing-claim-history performEffect', () => {
     expect(entries[0].message).toBeUndefined();
   });
 
-  it('still renders the history row when the stored acknowledgment is unreadable', async () => {
+  it.each([
+    ['the wrong shape', '{"entityName":"CIGNA"}'],
+    ['not json at all', 'not json'],
+  ])('still renders the history row when the stored acknowledgment is %s', async (_label, stored) => {
     const provenance: Provenance = {
       ...provenanceBase('prov1', '2026-08-06T12:47:00.000Z'),
       activity: {
@@ -377,7 +380,7 @@ describe('get-billing-claim-history performEffect', () => {
         ]),
         {
           url: CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
-          valueString: '{"entityName":"CIGNA"}',
+          valueString: stored,
         },
       ],
     };

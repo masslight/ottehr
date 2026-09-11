@@ -7,7 +7,6 @@ import { isPayerUrl } from 'utils/lib/helpers/helpers';
 import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   CLAIM_HISTORY_RESOURCE_LABELS,
-  CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
   CLAIM_PROVENANCE_ACTIVITY_CODES,
   CLAIM_PROVENANCE_AGENT_TYPE,
   CLAIM_PROVENANCE_AGENT_TYPE_SYSTEM,
@@ -25,7 +24,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { sendErrors } from '../../shared/errors';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { ClaimAcknowledgmentEventSchema } from '../claim-status-responses';
+import { parseStoredAcknowledgment } from '../claim-acknowledgments';
 import {
   copySourceId,
   createBillingClient,
@@ -118,23 +117,11 @@ function parseChanges(provenance: Provenance, environment: string): ClaimFieldCh
 }
 
 function parseAcknowledgment(provenance: Provenance, environment: string): ClaimAcknowledgmentEvent | undefined {
-  const stored = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL)
-    ?.valueString;
-  if (!stored) return undefined;
-  const parsed = ClaimAcknowledgmentEventSchema.safeParse(
-    ((): unknown => {
-      try {
-        return JSON.parse(stored);
-      } catch {
-        return undefined;
-      }
-    })()
-  );
-  if (!parsed.success) {
-    reportAnomaly(`Malformed acknowledgment on Provenance/${provenance.id}`, environment, parsed.error);
-    return undefined;
+  const { event, error } = parseStoredAcknowledgment(provenance);
+  if (error) {
+    reportAnomaly(`Malformed acknowledgment on Provenance/${provenance.id}`, environment, error);
   }
-  return parsed.data;
+  return event;
 }
 
 // The raw references behind reference-typed changes are stored as Provenance.entity entries tagged
