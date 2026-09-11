@@ -20,20 +20,52 @@ export interface AttachClaimDocumentResult {
   objectPath: string;
 }
 
-export async function attachClaimDocument({
+export interface ClaimAttachmentTarget {
+  fileName: string;
+  objectPath: string;
+  uploadUrl: string;
+}
+
+export async function claimAttachmentUploadTarget({
+  oystehr,
+  claimId,
+  name,
+  secrets,
+}: {
+  oystehr: Oystehr;
+  claimId: string;
+  name: string;
+  secrets: Secrets;
+}): Promise<ClaimAttachmentTarget> {
+  const fileName = sanitizeFileNameForZ3(name);
+  const objectPath = CLAIM_ATTACHMENT_OBJECT_PATH(claimId, fileName);
+  const presignedUrlResult = await oystehr.z3.getPresignedUrl({
+    bucketName: BILLING_APP_BUCKET(secrets['PROJECT_ID']),
+    'objectPath+': objectPath,
+    action: 'upload',
+  });
+  return {
+    fileName,
+    objectPath,
+    uploadUrl: presignedUrlResult.signedUrl,
+  };
+}
+
+export async function recordClaimAttachment({
   oystehr,
   claim,
   name,
+  fileName,
   reportTypeCode,
   secrets,
 }: {
   oystehr: Oystehr;
   claim: Claim & { id: string };
   name: string;
+  fileName: string;
   reportTypeCode?: string;
   secrets: Secrets;
-}): Promise<AttachClaimDocumentResult> {
-  const fileName = sanitizeFileNameForZ3(name);
+}): Promise<string | undefined> {
   const extension = fileName.split('.').pop() ?? '';
   const supportingInfo = claim.supportingInfo ?? [];
   const supportingInfoEntry: ClaimSupportingInfo = {
@@ -101,17 +133,40 @@ export async function attachClaimDocument({
   ];
 
   const result = await oystehr.fhir.transaction<Claim | DocumentReference>({ requests });
+  return createdDocumentReferenceId(result);
+}
 
-  const objectPath = CLAIM_ATTACHMENT_OBJECT_PATH(claim.id, fileName);
-  const presignedUrlResult = await oystehr.z3.getPresignedUrl({
-    bucketName: BILLING_APP_BUCKET(secrets['PROJECT_ID']),
-    'objectPath+': objectPath,
-    action: 'upload',
+export async function attachClaimDocument({
+  oystehr,
+  claim,
+  name,
+  reportTypeCode,
+  secrets,
+}: {
+  oystehr: Oystehr;
+  claim: Claim & { id: string };
+  name: string;
+  reportTypeCode?: string;
+  secrets: Secrets;
+}): Promise<AttachClaimDocumentResult> {
+  const target = await claimAttachmentUploadTarget({
+    oystehr,
+    claimId: claim.id,
+    name,
+    secrets,
+  });
+  const documentReferenceId = await recordClaimAttachment({
+    oystehr,
+    claim,
+    name,
+    fileName: target.fileName,
+    reportTypeCode,
+    secrets,
   });
   return {
-    documentReferenceId: createdDocumentReferenceId(result),
-    uploadUrl: presignedUrlResult.signedUrl,
-    objectPath,
+    documentReferenceId,
+    uploadUrl: target.uploadUrl,
+    objectPath: target.objectPath,
   };
 }
 

@@ -11,7 +11,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { uploadObjectToZ3 } from '../../shared/z3Utils';
 import { fetchClaimAcknowledgmentEvents, fetchClaimTransmitEvent } from '../claim-acknowledgments';
 import { fetchClaimResponsesByClaimIds } from '../claim-amounts';
-import { attachClaimDocument } from '../claim-attachments';
+import { claimAttachmentUploadTarget, recordClaimAttachment } from '../claim-attachments';
 import {
   BILLING_APP_BUCKET,
   createBillingClient,
@@ -98,24 +98,32 @@ export async function performEffect({
   });
 
   const fileName = timelyFilingReportFileName(claim.id ?? claimId, getClaimPcn(claim));
-  const { documentReferenceId, uploadUrl, objectPath } = await attachClaimDocument({
+  const target = await claimAttachmentUploadTarget({
+    oystehr,
+    claimId: claim.id ?? claimId,
+    name: fileName,
+    secrets,
+  });
+
+  await uploadObjectToZ3(await renderTimelyFilingReportPdf(data), target.uploadUrl);
+
+  const documentReferenceId = await recordClaimAttachment({
     oystehr,
     claim: {
       ...claim,
       id: claim.id ?? claimId,
     },
     name: fileName,
+    fileName: target.fileName,
     secrets,
   });
   if (!documentReferenceId) {
     throw INVALID_INPUT_ERROR(`Could not record the timely filing report against Claim/${claimId}`);
   }
 
-  await uploadObjectToZ3(await renderTimelyFilingReportPdf(data), uploadUrl);
-
   const download = await oystehr.z3.getPresignedUrl({
     bucketName: BILLING_APP_BUCKET(secrets['PROJECT_ID']),
-    'objectPath+': objectPath,
+    'objectPath+': target.objectPath,
     action: 'download',
   });
 
@@ -127,7 +135,7 @@ export async function performEffect({
 }
 
 export function timelyFilingReportFileName(claimId: string, pcn: string | undefined): string {
-  const stamp = DateTime.now().toFormat('yyyyMMdd_HHmm');
+  const stamp = DateTime.now().toFormat('yyyyMMdd_HHmmss');
   return `Timely_Filing_Report_${pcn || claimId}_${stamp}.pdf`;
 }
 

@@ -392,9 +392,9 @@ describe('fetchClaimTransmitEvent', () => {
 describe('timelyFilingReportFileName', () => {
   it('names the file after the patient control number, falling back to the claim', () => {
     expect(timelyFilingReportFileName(CLAIM_ID, 'Q78291-A')).toMatch(
-      /^Timely_Filing_Report_Q78291-A_\d{8}_\d{4}\.pdf$/
+      /^Timely_Filing_Report_Q78291-A_\d{8}_\d{6}\.pdf$/
     );
-    expect(timelyFilingReportFileName(CLAIM_ID, undefined)).toMatch(/^Timely_Filing_Report_claim-1_\d{8}_\d{4}\.pdf$/);
+    expect(timelyFilingReportFileName(CLAIM_ID, undefined)).toMatch(/^Timely_Filing_Report_claim-1_\d{8}_\d{6}\.pdf$/);
   });
 });
 
@@ -532,7 +532,7 @@ describe('create-timely-filing-report performEffect', () => {
     expect(result).toEqual({
       downloadUrl: 'https://z3/download',
       documentReferenceId: 'doc-1',
-      fileName: expect.stringMatching(/^Timely_Filing_Report_Q78291-A_\d{8}_\d{4}\.pdf$/),
+      fileName: expect.stringMatching(/^Timely_Filing_Report_Q78291-A_\d{8}_\d{6}\.pdf$/),
     });
     // The claim gains a supportingInfo entry pointing at the new DocumentReference.
     const [{ requests }] = transaction.mock.calls[0];
@@ -560,6 +560,44 @@ describe('create-timely-filing-report performEffect', () => {
         },
       })
     ).rejects.toThrow(/Could not record the timely filing report/);
-    expect(uploadObjectToZ3Mock).not.toHaveBeenCalled();
+    // The upload already happened, leaving an unreferenced object. That is the deliberate trade:
+    // the claim never gains an attachment row pointing at a file that is not there.
+    expect(uploadObjectToZ3Mock).toHaveBeenCalled();
+  });
+
+  it('uploads the rendered report before writing anything to the claim', async () => {
+    const { oystehr, eraReadClient, transaction } = makeClients();
+    const order: string[] = [];
+    uploadObjectToZ3Mock.mockImplementation(() => {
+      order.push('upload');
+      return Promise.resolve();
+    });
+    transaction.mockImplementation(() => {
+      order.push('transaction');
+      return Promise.resolve({
+        entry: [
+          {
+            resource: {
+              resourceType: 'DocumentReference',
+              id: 'doc-1',
+            },
+          },
+        ],
+      });
+    });
+
+    await performEffect({
+      oystehr,
+      eraReadClient,
+      params: {
+        claimId: CLAIM_ID,
+        secrets: {
+          PROJECT_API: 'https://project-api.zapehr.com/v1',
+          PROJECT_ID: 'project-id',
+        },
+      },
+    });
+
+    expect(order).toEqual(['upload', 'transaction']);
   });
 });
