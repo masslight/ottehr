@@ -48,7 +48,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     params,
   });
   console.groupEnd();
-  console.debug('performEffect success', response);
+  console.debug('performEffect success', {
+    documentReferenceId: response.documentReferenceId,
+    fileName: response.fileName,
+  });
 
   return {
     statusCode: 201,
