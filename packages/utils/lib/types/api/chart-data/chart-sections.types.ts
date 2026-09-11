@@ -152,7 +152,9 @@ export type ChartSectionParams<S extends ChartSection = ChartSection> = ChartSec
 export type GetChartSectionRequest<S extends ChartSection = ChartSection> = {
   encounterId: string;
   section: S;
-} & (ChartSectionParamsMap[S] extends undefined ? { params?: undefined } : { params: ChartSectionParamsMap[S] });
+} & (undefined extends ChartSectionParamsMap[S]
+  ? { params?: ChartSectionParamsMap[S] }
+  : { params: ChartSectionParamsMap[S] });
 
 export interface GetChartSectionResponse<S extends ChartSection = ChartSection> {
   section: S;
