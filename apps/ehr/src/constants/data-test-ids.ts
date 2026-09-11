@@ -499,6 +499,7 @@ export const dataTestIds = {
     vitalAccordion: (vital: string) => `vitals-alert-config-accordion-${vital}`,
     thresholdInput: (vital: string, rangeId: string, level: string) =>
       `vitals-alert-config-threshold-${vital}-${rangeId}-${level}`,
+    normalRangeCell: (vital: string, rangeId: string) => `vitals-alert-config-normal-range-${vital}-${rangeId}`,
   },
   visitDetailsPage: {
     cancelVisitButton: 'cancel-visit-button',

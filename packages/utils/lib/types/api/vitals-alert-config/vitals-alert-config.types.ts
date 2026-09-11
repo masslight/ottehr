@@ -28,6 +28,16 @@ export const VITAL_ALERT_UNITS: Record<VitalAlertType, string> = {
   'vital-oxygen-sat': '%',
 };
 
+export const VITAL_MEASUREMENT_STEP: Record<VitalAlertType, number> = {
+  'vital-weight': 0.1,
+  'vital-height': 0.1,
+  'vital-temperature': 0.1,
+  'vital-heartbeat': 1,
+  'vital-respiration-rate': 1,
+  'vital-blood-pressure': 1,
+  'vital-oxygen-sat': 1,
+};
+
 export const VITAL_ALERT_LABELS: Record<VitalAlertType, string> = {
   'vital-weight': 'Weight',
   'vital-height': 'Height',

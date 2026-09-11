@@ -115,6 +115,21 @@ describe('ProgressNoteAdminPage - vital alert levels', () => {
     expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.vitalAccordion('vital-oxygen-sat'))).toBeInTheDocument();
   });
 
+  it('shows a read-only normal range derived from the low and high levels', async () => {
+    await renderSection();
+    await expandVital('vital-heartbeat');
+
+    const cell = screen.getByTestId(dataTestIds.vitalsAlertConfig.normalRangeCell('vital-heartbeat', '18+y'));
+    expect(cell).toHaveTextContent('58 – 99');
+    expect(within(cell).queryByRole('spinbutton')).toBeNull();
+
+    fireEvent.change(heartRateAdultInput(), { target: { value: '95' } });
+    expect(cell).toHaveTextContent('58 – 94');
+
+    fireEvent.change(heartRateAdultInput(), { target: { value: '' } });
+    expect(cell).toHaveTextContent('58 and above');
+  });
+
   it('keeps Save disabled until something changes', async () => {
     await renderSection();
 

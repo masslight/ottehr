@@ -4,6 +4,7 @@ import { VitalsDef, VitalsSchema } from '../helpers/vitals/config-schema';
 import { VitalAlertCriticality } from '../types/api/chart-data/chart-data.constants';
 import {
   VITAL_ALERT_UNITS,
+  VITAL_MEASUREMENT_STEP,
   VitalAlertAgeRange,
   VitalAlertLevels,
   VitalAlertType,
@@ -246,6 +247,35 @@ export const formatVitalAlertAgeRange = (range: VitalAlertAgeRange): string => {
     return `${range.minAge.value}-${range.maxAge.value} ${minUnit}`;
   }
   return `${range.minAge.value} ${minUnit} - ${range.maxAge.value} ${maxUnit}`;
+};
+
+const decimalPlacesOf = (value: number): number => {
+  const [, decimals = ''] = String(value).split('.');
+  return decimals.length;
+};
+
+const withoutFloatNoise = (value: number): number => Math.round(value * 1e6) / 1e6;
+
+export const formatVitalNormalRange = (levels: VitalAlertLevels, vital: VitalAlertType): string => {
+  const { abnormalLow, abnormalHigh } = levels;
+  const precision = decimalPlacesOf(VITAL_MEASUREMENT_STEP[vital]);
+  const factor = 10 ** precision;
+  const firstNormalAbove = (value: number): number => (Math.floor(withoutFloatNoise(value * factor)) + 1) / factor;
+  const lastNormalBelow = (value: number): number => (Math.ceil(withoutFloatNoise(value * factor)) - 1) / factor;
+
+  if (abnormalLow !== undefined && abnormalHigh !== undefined) {
+    const low = firstNormalAbove(abnormalLow);
+    const high = lastNormalBelow(abnormalHigh);
+    if (low > high) return '—';
+    return `${low.toFixed(precision)} – ${high.toFixed(precision)}`;
+  }
+  if (abnormalLow !== undefined) {
+    return `${firstNormalAbove(abnormalLow).toFixed(precision)} and above`;
+  }
+  if (abnormalHigh !== undefined) {
+    return `${lastNormalBelow(abnormalHigh).toFixed(precision)} and below`;
+  }
+  return '—';
 };
 
 export const makeVitalAlertAgeRangeId = (): string =>

@@ -12,6 +12,7 @@ import {
 } from '../types/api/vitals-alert-config/vitals-alert-config.types';
 import {
   DEFAULT_VITALS_ALERT_CONFIG,
+  formatVitalNormalRange,
   getVitalsAlertConfigEngineError,
   parseVitalsAlertConfigOrDefault,
   vitalsAlertConfigToVitalsDef,
@@ -231,5 +232,61 @@ describe('parseVitalsAlertConfigOrDefault', () => {
   it('round-trips a valid stored config', () => {
     const stored = JSON.stringify(DEFAULT_VITALS_ALERT_CONFIG);
     expect(parseVitalsAlertConfigOrDefault(stored)).toEqual(DEFAULT_VITALS_ALERT_CONFIG);
+  });
+});
+
+describe('formatVitalNormalRange', () => {
+  it('steps one increment inside each alert level', () => {
+    expect(formatVitalNormalRange({ abnormalLow: 2.8, abnormalHigh: 7.1 }, 'vital-weight')).toBe('2.9 – 7.0');
+  });
+
+  it('uses the step of the vital, not the precision of the entered levels', () => {
+    expect(formatVitalNormalRange({ abnormalLow: 45, abnormalHigh: 93 }, 'vital-weight')).toBe('45.1 – 92.9');
+    expect(formatVitalNormalRange({ abnormalLow: 36, abnormalHigh: 38 }, 'vital-temperature')).toBe('36.1 – 37.9');
+  });
+
+  it('steps whole units for the vitals recorded as whole numbers', () => {
+    expect(formatVitalNormalRange({ abnormalLow: 57, abnormalHigh: 100 }, 'vital-heartbeat')).toBe('58 – 99');
+    expect(formatVitalNormalRange({ abnormalLow: 11, abnormalHigh: 21 }, 'vital-respiration-rate')).toBe('12 – 20');
+  });
+
+  it('snaps a level that falls between steps to the nearest value that is still normal', () => {
+    expect(formatVitalNormalRange({ abnormalLow: 36.05, abnormalHigh: 38.25 }, 'vital-temperature')).toBe(
+      '36.1 – 38.2'
+    );
+  });
+
+  it('is open ended when only one side alerts', () => {
+    expect(formatVitalNormalRange({ abnormalLow: 90 }, 'vital-oxygen-sat')).toBe('91 and above');
+    expect(formatVitalNormalRange({ abnormalHigh: 101 }, 'vital-oxygen-sat')).toBe('100 and below');
+  });
+
+  it('ignores the critical levels', () => {
+    expect(
+      formatVitalNormalRange(
+        { criticalLow: 2.4, abnormalLow: 2.8, abnormalHigh: 7.1, criticalHigh: 7.9 },
+        'vital-weight'
+      )
+    ).toBe('2.9 – 7.0');
+    expect(formatVitalNormalRange({ criticalLow: 35, criticalHigh: 39 }, 'vital-temperature')).toBe('—');
+  });
+
+  it('has no normal range when the levels leave no room between them', () => {
+    expect(formatVitalNormalRange({ abnormalLow: 95, abnormalHigh: 95 }, 'vital-oxygen-sat')).toBe('—');
+    expect(formatVitalNormalRange({ abnormalLow: 95, abnormalHigh: 96 }, 'vital-oxygen-sat')).toBe('—');
+  });
+
+  it('keeps a range that only a finer step can fit', () => {
+    expect(formatVitalNormalRange({ abnormalLow: 95, abnormalHigh: 96 }, 'vital-weight')).toBe('95.1 – 95.9');
+  });
+
+  it('has no normal range when neither level is set', () => {
+    expect(formatVitalNormalRange({}, 'vital-heartbeat')).toBe('—');
+  });
+
+  it('derives the range from a real vital in the default config', () => {
+    expect(
+      formatVitalNormalRange(DEFAULT_VITALS_ALERT_CONFIG.thresholds['vital-heartbeat']['18+y'], 'vital-heartbeat')
+    ).toBe('58 – 99');
   });
 });

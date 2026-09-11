@@ -32,6 +32,8 @@ import {
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils/lib/utils/progress-note-config';
 
+const FORM_MAX_WIDTH = 960;
+
 type ProgressNoteTextFieldName = Exclude<keyof ProgressNoteConfig, 'mdmRequired' | 'vitalsUnitInputOrder'>;
 
 interface ConfigTextAreaFieldProps {
@@ -135,7 +137,7 @@ export default function ProgressNoteAdminPage(): ReactElement {
         Settings for how providers complete and sign progress notes
       </Typography>
 
-      <Paper component="form" onSubmit={handleSave} sx={{ p: 3 }}>
+      <Paper component="form" onSubmit={handleSave} sx={{ p: 3, maxWidth: FORM_MAX_WIDTH }}>
         <Stack spacing={3}>
           {isPending ? (
             <Box display="flex" justifyContent="center" alignItems="center" py={3}>
