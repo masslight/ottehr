@@ -9,8 +9,8 @@ import { makePreferredPharmacies } from '../../shared/chart-data/preferred-pharm
 import { parseChartDataBundle } from '../../shared/chart-data/search-requests';
 import { makeEncounterLabResults } from '../lab/shared/labs';
 
-// The search-request builders live with the rest of the chart-data code now (they are shared with the
-// chart sections); re-exported here so existing imports keep working until this endpoint is removed.
+// The search-request builders are shared with the chart sections and live in shared/chart-data; re-exported
+// here for this endpoint's imports.
 export {
   createFindResourceRequest,
   createFindResourceRequestByEncounterField,
