@@ -55,10 +55,9 @@ export const useChartDataArrayValue = <
   const unscopedValues = ((chartData as ChartDataArrayValueType)?.[name] || []) as K & SaveableDTO[];
   const values = (customParams ? currentFieldData?.[name] || [] : unscopedValues) as K;
 
-  // Both caches are patched from the save/delete response instead of re-running the unscoped chart's
-  // many FHIR searches after every change. Each patch reads the cache's current value, so two responses
-  // that land before a re-render both apply. The unscoped query is marked stale (not refetched) so the
-  // next screen that mounts it still starts from the server.
+  // Both caches are patched from the save/delete response. Each patch reads the cache's current value, so
+  // two responses that land before a re-render both apply. The unscoped query is marked stale (not
+  // refetched) so the next screen that mounts it starts from the server.
   const patchCaches = (update: (current: SaveableDTO[]) => SaveableDTO[]): void => {
     if (customParams) {
       setQueryCache(
@@ -87,7 +86,8 @@ export const useChartDataArrayValue = <
         {
           onSuccess: (data) => {
             const saved = (data.chartData[name] ?? []) as unknown as SaveableDTO[];
-            patchCaches((current) => [...current, ...saved]);
+            // Items without a resourceId are a caller's optimistic placeholders; the saved items take their place.
+            patchCaches((current) => [...current.filter((item) => item.resourceId !== undefined), ...saved]);
             resolve(true);
           },
           onError: (error) => {

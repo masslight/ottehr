@@ -2,10 +2,7 @@ import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { AI_OBSERVATION_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ChartDataRequestedFields } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 
-/**
- * Narrow get-chart-data requests for the two AI polling loops. Both used to re-run the unscoped default
- * set (thirteen FHIR searches) on every tick; these cost two searches each.
- */
+/** Narrow get-chart-data requests for the two AI polling loops; each costs two FHIR searches. */
 
 /** The AI consult-note documents and the pending-recording marker. */
 export const AI_CHAT_REQUESTED_FIELDS: ChartDataRequestedFields = { aiChat: {} };

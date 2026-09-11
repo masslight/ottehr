@@ -10,7 +10,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChartFields } from './useChartFields';
 import { useInvalidateChartFieldsOnNavigate } from './useInvalidateChartFieldsOnNavigate';
 
-const route = vi.hoisted(() => ({ pathname: '/in-person/appointment-123/review-and-sign' }));
+const route = vi.hoisted(() => ({
+  pathname: '/in-person/appointment-123/review-and-sign',
+  encounterId: 'encounter-123',
+}));
 
 vi.mock('react-router-dom', () => ({
   useParams: vi.fn().mockReturnValue({ id: 'appointment-123' }),
@@ -30,9 +33,7 @@ vi.mock('./useGetAppointmentAccessibility', () => ({
 }));
 
 vi.mock('../stores/appointment/appointment.store', () => ({
-  useAppointmentData: vi.fn().mockReturnValue({
-    encounter: { id: 'encounter-123' },
-  }),
+  useAppointmentData: vi.fn(() => ({ encounter: { id: route.encounterId } })),
 }));
 
 vi.mock('utils/lib/frontend', async (importOriginal) => {
@@ -1111,23 +1112,28 @@ describe('useInvalidateChartFieldsOnNavigate', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     route.pathname = '/in-person/appointment-123/review-and-sign';
+    route.encounterId = 'encounter-123';
     const { useOystehrAPIClient } = await import('./useOystehrAPIClient');
     vi.mocked(useOystehrAPIClient).mockReturnValue(mockApiClient);
     mockApiClient.getChartData.mockResolvedValue(mockChartData);
+    // Earlier tests pin the encounter with mockReturnValue, which clearAllMocks keeps; read the route again.
+    const { useAppointmentData } = await import('../stores/appointment/appointment.store');
+    vi.mocked(useAppointmentData).mockReset();
+    vi.mocked(useAppointmentData).mockImplementation((() => ({ encounter: { id: route.encounterId } })) as any);
   });
 
+  /** A screen reading a field set; the next screen reads the same set through a fresh mount. */
+  const Screen: FC = () => {
+    useChartFields({ requestedFields: { episodeOfCare: {} } });
+    return null;
+  };
+  /** The layout around every screen, as InPersonLayout mounts the hook. */
+  const Layout: FC<{ screen: string }> = ({ screen }) => {
+    useInvalidateChartFieldsOnNavigate();
+    return <Screen key={screen} />;
+  };
+
   it('marks the chart fields stale before the next screen subscribes, so that screen re-reads them', async () => {
-    const requestedFields = { episodeOfCare: {} };
-    /** A screen reading a field set; the next screen reads the same set through a fresh mount. */
-    const Screen: FC = () => {
-      useChartFields({ requestedFields });
-      return null;
-    };
-    /** The layout around every screen, as InPersonLayout mounts the hook. */
-    const Layout: FC<{ screen: string }> = ({ screen }) => {
-      useInvalidateChartFieldsOnNavigate();
-      return <Screen key={screen} />;
-    };
     const Wrapper = createWrapper();
 
     const { rerender } = render(
@@ -1137,9 +1143,7 @@ describe('useInvalidateChartFieldsOnNavigate', () => {
     );
     await waitFor(() => expect(mockApiClient.getChartData).toHaveBeenCalledTimes(1));
 
-    // The data is fresh within staleTime; only the screen change makes the next screen read it again. The
-    // new screen's query subscribes in a passive effect that runs before the layout's, so the stale mark
-    // has to land in a layout effect to be seen.
+    // The data is fresh within staleTime; only the screen change makes the next screen read it again.
     route.pathname = '/in-person/appointment-123/hospitalization';
     rerender(
       <Wrapper>
@@ -1147,5 +1151,32 @@ describe('useInvalidateChartFieldsOnNavigate', () => {
       </Wrapper>
     );
     await waitFor(() => expect(mockApiClient.getChartData).toHaveBeenCalledTimes(2));
+  });
+
+  it("re-reads a returning encounter's chart fields when the encounter changes without a route change", async () => {
+    const Wrapper = createWrapper();
+    const { rerender } = render(
+      <Wrapper>
+        <Layout screen="a" />
+      </Wrapper>
+    );
+    await waitFor(() => expect(mockApiClient.getChartData).toHaveBeenCalledTimes(1));
+
+    route.encounterId = 'encounter-456';
+    rerender(
+      <Wrapper>
+        <Layout screen="b" />
+      </Wrapper>
+    );
+    await waitFor(() => expect(mockApiClient.getChartData).toHaveBeenCalledTimes(2));
+
+    // Back within staleTime: the first encounter's entry is still fresh, so only the switch makes it re-read.
+    route.encounterId = 'encounter-123';
+    rerender(
+      <Wrapper>
+        <Layout screen="c" />
+      </Wrapper>
+    );
+    await waitFor(() => expect(mockApiClient.getChartData).toHaveBeenCalledTimes(3));
   });
 });

@@ -306,8 +306,11 @@ export async function getChartData(
     ? encounter.subject.reference.replace('Patient/', '')
     : undefined;
   if (patientId === undefined) throw new Error(`Encounter  ${encounterId} must be associated with a patient... `);
-  // Present only when preferredPharmacies was requested.
+  // Searched only when preferredPharmacies was requested; then it has to be there.
   const patient = resources.find((resource): resource is Patient => resource.resourceType === 'Patient');
+  if (requestedFields?.preferredPharmacies && patient === undefined) {
+    throw new Error(`Patient ${patientId} of encounter ${encounterId} must exist... `);
+  }
   console.log(`Got encounter with id ${encounter.id} and patient with id ${patientId}`);
   // console.debug('result JSON\n\n==============\n\n', JSON.stringify(result));
 

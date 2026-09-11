@@ -163,11 +163,9 @@ describe('get-chart-data FHIR request budget', () => {
   });
 
   it('opening Review & Sign costs 4 calls, 33 FHIR searches (29 distinct) over 13 concurrent batches', async () => {
-    // Down from 13 calls, 71 searches (31 distinct, 40 redundant) and 27 round trips before the section
-    // summaries shared one query and the Patient stopped being fetched on every call. The remaining
-    // redundancy is the Encounter read each call still makes plus the hospitalizations the navigation
-    // context and the note both ask for. Round trips are now a latency choice rather than a cost: each
-    // call spreads its searches over concurrent batches (see CHART_DATA_BATCH_TARGET_CONCURRENCY).
+    // The redundancy is the Encounter read each call makes plus the hospitalizations the navigation context
+    // and the note both ask for. Round trips are a latency choice rather than a cost: each call spreads its
+    // searches over concurrent batches (see CHART_DATA_BATCH_TARGET_CONCURRENCY).
     const results = await runAll(REVIEW_AND_SIGN_SCENARIOS);
     expect(results).toHaveLength(4);
     expect(summarize(results)).toEqual({
@@ -191,7 +189,7 @@ describe('get-chart-data FHIR request budget', () => {
     expect(patientBatch?.urls.length).toBeGreaterThan(1);
   });
 
-  it('the progress-note request carries the fields the Review & Sign summaries used to fetch on their own', async () => {
+  it('the progress-note request carries the accident and the surgical-history note', async () => {
     const [progressNote] = await runAll(REVIEW_AND_SIGN_SCENARIOS.filter((s) => s.name.startsWith('03')));
     expect(progressNote.urls).toEqual(
       expect.arrayContaining([

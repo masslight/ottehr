@@ -178,7 +178,7 @@ describe('get-chart-data mapping layer — golden fixture', () => {
       expect(additionalChartData.diagnosis).toBeUndefined();
       expect(additionalChartData.observations).toBeUndefined();
 
-      // The fields the Review & Sign summaries used to request on their own now ride along.
+      // The progress-note field set carries the accident and the surgical-history note.
       expect(additionalChartData.accident).toMatchObject({ type: ['AA'], date: '2026-01-10', state: 'IL' });
       expect(additionalChartData.surgicalHistoryNote?.text).toBe('Uncomplicated recovery');
 

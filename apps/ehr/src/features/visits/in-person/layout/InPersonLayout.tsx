@@ -75,7 +75,7 @@ export const InPersonLayout: React.FC = () => {
   const aiDocumentCount = chartData?.aiChat?.documents?.length ?? 0;
   const hasPendingRecording = Boolean(chartData?.aiChat?.hasPendingRecording);
   // Each poll tick fetches only the AI chat documents; the unscoped chart, which the Ambient Scribe panel
-  // and the sidebar read aiChat from, is refetched once they change rather than on every tick.
+  // and the sidebar read aiChat from, is refetched once they change.
   const { refetch: refetchAiChat } = useChartFields({ requestedFields: AI_CHAT_REQUESTED_FIELDS, enabled: false });
   const refetchAiResources = useCallback(async (): Promise<void> => {
     const result = await refetchAiChat();
