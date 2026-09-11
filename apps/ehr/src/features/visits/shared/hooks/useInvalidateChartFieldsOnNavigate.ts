@@ -5,10 +5,11 @@ import { CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 
 /**
- * Marks every chart-fields query for the current encounter stale when the provider moves to another visit
- * screen or switches to another encounter of the visit. Nothing is refetched here: a stale query is
- * refetched when a component on the new screen mounts it, so each distinct field set costs one request per
- * screen visit.
+ * Marks every chart-fields query for the current encounter stale when the provider enters the visit, moves
+ * to another visit screen or switches to another encounter of the visit. Nothing is refetched here: a stale
+ * query is refetched when a component on the new screen mounts it or when the window regains focus, so each
+ * distinct field set costs one request per screen visit. Refetching the active queries instead would re-read
+ * the layout-level queries, which never remount, on every screen change.
  *
  * A layout effect on purpose: react-query decides whether to fetch on mount when a query subscribes, in a
  * passive effect, and the new screen's components (children of this layout) run their passive effects
@@ -20,7 +21,8 @@ export const useInvalidateChartFieldsOnNavigate = (): void => {
   const queryClient = useQueryClient();
   const { encounter } = useAppointmentData();
   const encounterId = encounter?.id;
-  const previous = useRef({ pathname, encounterId });
+  // Starts empty so that entering the visit counts as a transition too.
+  const previous = useRef<{ pathname?: string; encounterId?: string }>({});
 
   useLayoutEffect(() => {
     if (previous.current.pathname === pathname && previous.current.encounterId === encounterId) return;

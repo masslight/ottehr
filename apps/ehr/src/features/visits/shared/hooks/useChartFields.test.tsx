@@ -1153,6 +1153,25 @@ describe('useInvalidateChartFieldsOnNavigate', () => {
     await waitFor(() => expect(mockApiClient.getChartData).toHaveBeenCalledTimes(2));
   });
 
+  it('re-reads the chart fields when the visit is entered again within staleTime', async () => {
+    const Wrapper = createWrapper();
+    const first = render(
+      <Wrapper>
+        <Layout screen="review-and-sign" />
+      </Wrapper>
+    );
+    await waitFor(() => expect(mockApiClient.getChartData).toHaveBeenCalledTimes(1));
+    first.unmount();
+
+    // Leaving the visit unmounts the layout; coming back to the same screen re-reads its fields.
+    render(
+      <Wrapper>
+        <Layout screen="review-and-sign" />
+      </Wrapper>
+    );
+    await waitFor(() => expect(mockApiClient.getChartData).toHaveBeenCalledTimes(2));
+  });
+
   it("re-reads a returning encounter's chart fields when the encounter changes without a route change", async () => {
     const Wrapper = createWrapper();
     const { rerender } = render(
