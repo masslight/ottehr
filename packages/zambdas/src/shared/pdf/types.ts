@@ -121,6 +121,7 @@ export interface PdfClient {
   embedPdfFromBase64: (base64String: string) => Promise<void>;
   embedImageFromBase64: (base64String: string, imgType: SupportedObsImgAttachmentTypes) => Promise<void>;
   drawSeparatedLine: (lineStyle: LineStyle) => void;
+  drawFilledRectangle: (rectangle: { x: number; y: number; width: number; height: number; color: Color }) => void;
   getLeftBound: () => number;
   getRightBound: () => number;
   setLeftBound: (newBound: number) => void;

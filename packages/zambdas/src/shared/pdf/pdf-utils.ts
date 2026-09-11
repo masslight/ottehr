@@ -92,6 +92,13 @@ export function splitLongStringToPageSize(
 
 export const rgbNormalized = (r: number, g: number, b: number): Color => rgb(r / 255, g / 255, b / 255);
 
+export const hexColor = (hex: string): Color => {
+  const value = hex.replace(/^#/, '');
+  if (!/^[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value)) throw new Error(`Cannot use '${hex}' as a PDF color`);
+  const channel = (start: number): number => parseInt(value.slice(start, start + 2), 16);
+  return rgbNormalized(channel(0), channel(2), channel(4));
+};
+
 export async function createPdfClient(initialStyles: PdfClientStyles): Promise<PdfClient> {
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
@@ -737,6 +744,21 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     currYPos -= (lineStyle.margin?.top ?? 0) + lineStyle.thickness + (lineStyle.margin?.bottom ?? 0);
   };
 
+  // Paints a background block on the current page without moving the cursor, so the caller draws the
+  // text that sits on top afterwards. Used for table header bands and row striping.
+  const drawFilledRectangle = (rectangle: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    color: Color;
+  }): void => {
+    page.drawRectangle({
+      ...rectangle,
+      borderWidth: 0,
+    });
+  };
+
   const setPageStyles = (newStyles: PageStyles): void => {
     pageStyles = newStyles;
   };
@@ -884,6 +906,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     embedPdfFromBase64,
     embedImageFromBase64,
     drawSeparatedLine,
+    drawFilledRectangle,
     getLeftBound,
     getRightBound,
     setLeftBound,

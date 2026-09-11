@@ -61,7 +61,7 @@ import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import Dropzone, { DropzoneProps } from 'react-dropzone';
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
-import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES } from 'utils';
+import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
@@ -99,6 +99,7 @@ import {
   addClaimAttachment,
   createBillingCoverage,
   createBillingProvider,
+  createTimelyFilingReport,
   deleteClaimAttachment,
   downloadClaimAttachment,
   exportClaimX12,
@@ -182,6 +183,7 @@ export default function ClaimDetail(): ReactElement {
   const [tab, setTab] = useState('1');
   const [exportOpen, setExportOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [buildingReport, setBuildingReport] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
   const [editingHeader, setEditingHeader] = useState(false);
   const [savingHeader, setSavingHeader] = useState(false);
@@ -214,6 +216,28 @@ export default function ClaimDetail(): ReactElement {
   useEffect(() => {
     void fetchDetail();
   }, [fetchDetail]);
+
+  const onCreateTimelyFilingReport = useCallback(async () => {
+    if (!oystehrZambda || !id) return;
+    setBuildingReport(true);
+    try {
+      const { downloadUrl } = await createTimelyFilingReport(oystehrZambda, {
+        claimId: id,
+      });
+      window.open(downloadUrl, '_blank');
+      await fetchDetail();
+    } catch (err) {
+      enqueueSnackbar(
+        getApiError({
+          error: err,
+          defaultError: 'Failed to create the timely filing report',
+        }),
+        { variant: 'error' }
+      );
+    } finally {
+      setBuildingReport(false);
+    }
+  }, [oystehrZambda, id, fetchDetail]);
 
   useEffect(() => {
     setShowCoverageMap({
@@ -493,6 +517,16 @@ export default function ClaimDetail(): ReactElement {
           sx={{ mt: 0.5 }}
         >
           Export X12
+        </Button>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<DescriptionIcon />}
+          onClick={() => void onCreateTimelyFilingReport()}
+          disabled={buildingReport}
+          sx={{ mt: 0.5 }}
+        >
+          {buildingReport ? 'Building…' : 'Timely Filing Report'}
         </Button>
         <Button
           size="small"
@@ -1736,7 +1770,10 @@ function AttachmentsSection({
   };
 
   const openAddDialog = (): void => {
-    addReset({ name: '', reportTypeCode: 'OZ' });
+    addReset({
+      name: '',
+      reportTypeCode: DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE,
+    });
     setShowAddDialog(true);
   };
   const closeAddDialog = (): void => {
@@ -1848,10 +1885,11 @@ function AttachmentsSection({
                     <TableCell>{line.sequence}</TableCell>
                     <TableCell>{line.fileName}</TableCell>
                     <TableCell>
-                      {line.reportTypeCode ?? 'OZ'} &mdash;{' '}
+                      {line.reportTypeCode ?? DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE} &mdash;{' '}
                       {
-                        CLAIM_ATTACHMENT_REPORT_TYPE_CODES.find(({ code }) => code === (line.reportTypeCode ?? 'OZ'))
-                          ?.label
+                        CLAIM_ATTACHMENT_REPORT_TYPE_CODES.find(
+                          ({ code }) => code === (line.reportTypeCode ?? DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE)
+                        )?.label
                       }
                     </TableCell>
                     <TableCell>{formatDateTime(line.dateAdded)}</TableCell>

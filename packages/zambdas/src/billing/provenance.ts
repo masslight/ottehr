@@ -27,6 +27,7 @@ import { getCandidPlanTypeCodeFromCoverage } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
+  CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_AGENT_TYPE,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
@@ -36,6 +37,7 @@ import {
   CLAIM_RULES_ENGINE_DEVICE_NAME,
   CLAIM_SYSTEM_DEVICE_IDENTIFIER,
   CLAIM_SYSTEM_DEVICE_NAME,
+  ClaimAcknowledgmentEvent,
   ClaimFieldChange,
   ClaimHistoryRuleRef,
   ClaimProvenanceActivityKey,
@@ -428,6 +430,9 @@ export interface ClaimProvenanceArgs {
   extraChanges?: ClaimFieldChange[];
   ruleAttribution?: ReadonlyMap<string, ClaimHistoryRuleRef>;
   note?: string;
+  // An acknowledgment reported by the clearinghouse or payer, stored so the timely filing report and
+  // the history view can render it without re-parsing the originating ClaimResponse.
+  acknowledgment?: ClaimAcknowledgmentEvent;
 }
 
 // Multi-reference fields (the claim's coverage field) join their references with ', '.
@@ -477,8 +482,9 @@ function storedChange(change: ClaimFieldChange): ClaimFieldChange {
 
 /**
  * Build the POST request for a Provenance describing a single change. Returns null for an update
- * whose diff is empty (a no-op mutation gets no history entry); creates, deletes and notes always
- * produce a record. target[0] is the changed resource; the claim is appended as a second target.
+ * whose diff is empty (a no-op mutation gets no history entry); creates, deletes, notes and
+ * acknowledgments always produce a record. target[0] is the changed resource; the claim is appended
+ * as a second target.
  */
 export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPostRequest<Provenance> | null {
   const annotate = (change: ClaimFieldChange): ClaimFieldChange => {
@@ -486,7 +492,14 @@ export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPos
     return rule ? { ...change, rule } : change;
   };
   const changes = [...diffResources(args.before, args.after).map(annotate), ...(args.extraChanges ?? [])];
-  if (args.activity !== 'create' && args.activity !== 'delete' && !args.note && changes.length === 0) return null;
+  if (
+    args.activity !== 'create' &&
+    args.activity !== 'delete' &&
+    !args.note &&
+    !args.acknowledgment &&
+    changes.length === 0
+  )
+    return null;
 
   const target = [{ reference: args.targetReference }];
   if (args.claimReference !== args.targetReference) target.push({ reference: args.claimReference });
@@ -511,6 +524,14 @@ export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPos
           {
             url: CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
             valueString: args.note,
+          },
+        ]
+      : []),
+    ...(args.acknowledgment
+      ? [
+          {
+            url: CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
+            valueString: JSON.stringify(args.acknowledgment),
           },
         ]
       : []),
