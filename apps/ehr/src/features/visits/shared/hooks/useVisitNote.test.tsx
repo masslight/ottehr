@@ -4,6 +4,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
+import { progressNoteNoteTypes } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
 import { MedicationDTO, NOTE_TYPE, NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ChartSection } from 'utils/lib/types/api/chart-data/chart-sections.types';
 import { VisitNoteResponse } from 'utils/lib/types/api/chart-data/get-visit-note.types';
@@ -197,7 +198,7 @@ describe('the chart caches', () => {
     expect(apiClient.getVisitNote).toHaveBeenCalledTimes(1);
   });
 
-  it('writes a section from a screen into every reader of that section', async () => {
+  it("serves a notes list of fewer types from the visit note's list, and writes through to it", async () => {
     const { result } = renderHook(
       () => ({
         chart: useChartData(),
@@ -206,8 +207,9 @@ describe('the chart caches', () => {
       { wrapper: wrapperFor(queryClient) }
     );
     await waitFor(() => expect(result.current.intakeNotes.data).toBeDefined());
-    // The intake list is its own option set, read on its own once the visit note has landed.
-    expect(sectionCalls()).toEqual(['notes']);
+    // The intake type is one of the types the visit note reads: its rows come from that list, no read.
+    expect(result.current.intakeNotes.data?.notes).toEqual([intakeNote]);
+    expect(sectionCalls()).toEqual([]);
     const saved = { ...intakeNote, resourceId: 'note-intake-2', text: 'second' };
 
     act(() => {
@@ -216,10 +218,25 @@ describe('the chart caches', () => {
     await waitFor(() =>
       expect(result.current.intakeNotes.data?.notes.map((n) => n.resourceId)).toEqual(['note-intake-2', 'note-intake'])
     );
-    // The visit note's own notes variant is a different option set: it is re-read rather than guessed at.
-    await waitFor(() => expect(sectionCalls()).toEqual(['notes', 'notes']));
-    expect(apiClient.getChartSection.mock.calls[1][0].params.types).toContain(NOTE_TYPE.INTAKE);
-    expect(apiClient.getChartSection.mock.calls[1][0].params.types.length).toBeGreaterThan(1);
+    // The visit note's wider list shows the same rows: it takes the write instead of being re-read.
+    const noteVariant = queryClient.getQueryData<{ notes: { resourceId?: string }[] }>(
+      chartSectionQueryKey(ENCOUNTER_ID, 'notes', { types: progressNoteNoteTypes })
+    );
+    expect(noteVariant?.notes.map((n) => n.resourceId)).toEqual(['note-intake-2', 'note-intake']);
+    expect(sectionCalls()).toEqual([]);
+  });
+
+  it('reads a notes list of a type the visit note does not carry', async () => {
+    const { result } = renderHook(
+      () => ({
+        chart: useChartData(),
+        internalNotes: useChartSection('notes', { params: { types: [NOTE_TYPE.INTERNAL] } }),
+      }),
+      { wrapper: wrapperFor(queryClient) }
+    );
+    await waitFor(() => expect(result.current.internalNotes.data).toBeDefined());
+    expect(sectionCalls()).toEqual(['notes']);
+    expect(apiClient.getChartSection.mock.calls[0][0].params).toEqual({ types: [NOTE_TYPE.INTERNAL] });
   });
 
   it('re-reads the whole chart in one call when asked to', async () => {
