@@ -6,6 +6,14 @@
  * When the assembly switches to the visit-note builder, this snapshot must not change.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Pin the screening-questions config to the canonical base so project-specific overlays
+// don't change what fields appear in the snapshot.
+vi.mock('utils/lib/ottehr-config/screening-questions', async () => {
+  const { baseScreeningQuestionsConfig } = await import('utils/lib/types/data/screening-questions/config');
+  return { patientScreeningQuestionsConfig: baseScreeningQuestionsConfig };
+});
+
 import { composeProgressNoteData } from '../../src/shared/pdf/progress-note-pdf';
 import { ProgressNoteInput } from '../../src/shared/pdf/types';
 import {
