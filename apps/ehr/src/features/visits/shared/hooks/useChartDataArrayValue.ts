@@ -68,7 +68,13 @@ export const useChartDataArrayValue = <
             const saved = (response.chartData[name] ?? []) as unknown as SaveableDTO[];
             setSectionData(
               (previous) =>
-                ({ [name]: [...(previous[name] as unknown as SaveableDTO[]), ...saved] }) as Partial<HistorySectionData>
+                ({
+                  // Items without a resourceId are a caller's optimistic placeholders; the saved items take their place.
+                  [name]: [
+                    ...(previous[name] as unknown as SaveableDTO[]).filter((item) => item.resourceId !== undefined),
+                    ...saved,
+                  ],
+                }) as Partial<HistorySectionData>
             );
             resolve(true);
           },

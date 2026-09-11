@@ -37,8 +37,8 @@ export interface UseChartDataResult extends ChartDataState {
  * useVisitNote). Writes go to the section each field lives in; with `invalidateQueries` (the default) the
  * touched sections are then re-read where they are shown, one small call per section.
  *
- * Screens that show one section should read it with `useChartSection` instead; this hook stays for the
- * places that still read the chart as a whole.
+ * Screens that show one section should read it with `useChartSection` instead; this hook is for the places
+ * that read the chart as a whole.
  */
 export const useChartData = ({
   appointmentId,
@@ -70,7 +70,7 @@ export const useChartData = ({
     enabled,
     refetchInterval,
     // A screen change marks the note stale; a whole-chart reader lives off the section refreshes the
-    // screens make rather than re-reading the note on every screen.
+    // screens make.
     refetchOnMount: refetchOnMount ?? false,
   });
   const { encounterId, data: note } = visitNote;
@@ -85,7 +85,7 @@ export const useChartData = ({
   });
   useErrorQuery(visitNote.error, onError);
 
-  // Fires once per exam-section change (a read, a save, a patch), like the chart read's success used to.
+  // Fires once per exam-section change (a read, a save, a patch).
   const exam = note?.exam;
   useSuccessQuery(exam, (data) => {
     if (!data || !shouldUpdateExams) return;
