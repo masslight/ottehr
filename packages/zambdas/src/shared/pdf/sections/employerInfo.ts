@@ -1,5 +1,5 @@
 import { Identifier } from 'fhir/r4b';
-import { formatPhoneNumberDisplay, getPayerId } from 'utils/lib/helpers/helpers';
+import { formatPhoneNumberDisplay, formatZipcodeForDisplay, getPayerId } from 'utils/lib/helpers/helpers';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { EmployerDataInput, EmployerInfo, PdfSection } from '../types';
 
@@ -14,7 +14,7 @@ export const composeEmployerData: DataComposer<EmployerDataInput, EmployerInfo> 
   const addressLineOptional = address?.line?.[1] ?? '';
   const city = address?.city ?? '';
   const state = address?.state ?? '';
-  const zip = address?.postalCode ?? '';
+  const zip = formatZipcodeForDisplay(address?.postalCode ?? '');
 
   const contact = employer?.contact?.[0];
 
