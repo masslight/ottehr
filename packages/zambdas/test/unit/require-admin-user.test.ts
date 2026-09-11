@@ -4,7 +4,7 @@ import { Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getUser, requireAdminUser, requireUserWithRole } from '../../src/shared/auth';
+import { getUser, requireAdminTierUser, requireAdminUser, requireUserWithRole } from '../../src/shared/auth';
 
 vi.mock('utils/lib/auth/user-me.helper', async (importOriginal) => {
   const actual = await importOriginal<typeof import('utils/lib/auth/user-me.helper')>();
@@ -72,6 +72,27 @@ describe('requireAdminUser', () => {
     vi.mocked(userMe).mockResolvedValue(buildUser([]));
 
     await expect(requireAdminUser('user-token', secrets)).rejects.toEqual(NOT_AUTHORIZED);
+  });
+});
+
+describe('requireAdminTierUser', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // Pins the role set rather than the mechanism. The set is a decision — it has to match the roles the
+  // admin navigation admits, or an endpoint refuses users the UI invites in — and nothing else fails if
+  // it drifts.
+  it('admits every role the administration area is offered to', async () => {
+    for (const role of [adminRole, managerRole, customerSupportRole]) {
+      vi.mocked(userMe).mockResolvedValue(buildUser([role]));
+      await expect(requireAdminTierUser('token', secrets)).resolves.toBeUndefined();
+    }
+  });
+
+  it('refuses a purely clinical caller', async () => {
+    vi.mocked(userMe).mockResolvedValue(buildUser([staffRole]));
+    await expect(requireAdminTierUser('token', secrets)).rejects.toEqual(NOT_AUTHORIZED);
   });
 });
 

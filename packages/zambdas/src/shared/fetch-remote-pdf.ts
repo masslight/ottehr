@@ -1,0 +1,265 @@
+import dns from 'node:dns/promises';
+import net from 'node:net';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+
+/** Beyond this a template is not a form, and holding it in a lambda's memory is its own problem. */
+const MAX_BYTES = 25 * 1024 * 1024;
+const TIMEOUT_MS = 20_000;
+const MAX_REDIRECTS = 3;
+
+export type RemotePdfFailure = 'invalidUrl' | 'blockedAddress' | 'unreachable' | 'notFound' | 'tooLarge' | 'notAPdf';
+
+export class RemotePdfError extends Error {
+  constructor(
+    readonly reason: RemotePdfFailure,
+    message: string
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * Address ranges a form template is never legitimately served from, and that a server can reach when a
+ * browser cannot: loopback, link-local (which is where cloud instance metadata lives), private networks,
+ * and carrier-grade NAT space.
+ */
+const isBlockedAddress = (address: string): boolean => {
+  const version = net.isIP(address);
+
+  if (version === 4) {
+    const [a, b] = address.split('.').map(Number);
+    return (
+      a === 0 || // "this network"
+      a === 10 || // private
+      a === 127 || // loopback
+      (a === 169 && b === 254) || // link-local, including cloud metadata
+      (a === 172 && b >= 16 && b <= 31) || // private
+      (a === 192 && b === 168) || // private
+      (a === 100 && b >= 64 && b <= 127) // carrier-grade NAT
+    );
+  }
+
+  if (version === 6) {
+    const normalized = address.toLowerCase();
+    if (
+      normalized === '::1' || // loopback
+      // The unspecified address. Connecting to it reaches a service listening on this host, so it is
+      // loopback by another name — and `::`, `::0` and `0:0:0:0:0:0:0:0` all spell it.
+      /^[0:]+$/.test(normalized) ||
+      normalized.startsWith('fc') || // unique local
+      normalized.startsWith('fd') ||
+      // Link-local is fe80::/10, so the first group runs fe80 through febf. Tested on that group rather
+      // than as a prefix: `fe80` alone lets fe90::1 and febf::1 through, and they reach the same hosts.
+      /^fe[89ab][0-9a-f]$/.test(normalized.split(':')[0])
+    ) {
+      return true;
+    }
+
+    // An IPv4-mapped address reaches the same ranges through an IPv6 literal, and the URL parser rewrites
+    // the readable spelling into hex — `::ffff:169.254.169.254` arrives as `::ffff:a9fe:a9fe`. Both forms
+    // have to be unwrapped, or the check passes on an address that is about to connect to link-local.
+    if (normalized.startsWith('::ffff:')) {
+      return isBlockedAddress(toDottedQuad(normalized.slice('::ffff:'.length)));
+    }
+  }
+
+  return false;
+};
+
+/** The trailing part of an IPv4-mapped IPv6 address, as dotted quad, whichever way it was spelled. */
+const toDottedQuad = (mapped: string): string => {
+  if (mapped.includes('.')) return mapped;
+
+  const groups = mapped.split(':');
+  if (groups.length !== 2) return mapped;
+
+  const [high, low] = groups.map((group) => parseInt(group, 16));
+  if (!Number.isFinite(high) || !Number.isFinite(low)) return mapped;
+
+  return [high >> 8, high & 0xff, low >> 8, low & 0xff].join('.');
+};
+
+/**
+ * Hosts belonging to this deployment, derived from the addresses it is configured with so the set follows
+ * the environment instead of being a list someone has to maintain.
+ *
+ * The address checks above cannot cover these. Our own API and storage answer on public DNS at public
+ * addresses, so they are indistinguishable from any other host on the internet — and fetching one of them
+ * server-side is the case worth refusing outright, because the zambda reaches it holding a network
+ * position the caller does not have.
+ */
+const deploymentHosts = (secrets: Secrets | null): ReadonlySet<string> => {
+  const hosts = new Set<string>();
+  // PROJECT_API serves Z3 as well as the API, so refusing it covers stored files too.
+  const configured = [
+    SecretsKeys.PROJECT_API,
+    SecretsKeys.FHIR_API,
+    SecretsKeys.AUTH0_ENDPOINT,
+    SecretsKeys.WEBSITE_URL,
+  ];
+
+  for (const key of configured) {
+    try {
+      hosts.add(new URL(getSecret(key, secrets)).hostname);
+    } catch {
+      // Unset, or set to something that is not a URL. It contributes no host to refuse.
+    }
+  }
+  return hosts;
+};
+
+/** Matched on the label boundary, so `notfhir-api.example.com` is not caught by `fhir-api.example.com`. */
+export const isDeploymentHost = (host: string, ownHosts: ReadonlySet<string>): boolean =>
+  [...ownHosts].some((own) => host === own || host.endsWith(`.${own}`));
+
+/**
+ * Rejects a URL this server should not be made to fetch. Every path that fetches a user-supplied address
+ * has to come through here — the risk is not the PDF but the request, which leaves from inside our network
+ * and reaches hosts a browser could not.
+ *
+ * It cannot close DNS rebinding: the name is resolved here and resolved again by `fetch`, and nothing makes
+ * the two answers agree. That gap is tolerable because of two things, and stops being tolerable if either
+ * changes — only administrators can reach these endpoints, and only bytes that pass the `%PDF-` check are
+ * kept, so an internal service answering with JSON is discarded rather than handed back.
+ */
+const assertFetchable = async (raw: string, ownHosts: ReadonlySet<string>): Promise<URL> => {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new RemotePdfError('invalidUrl', 'That does not look like a web address.');
+  }
+
+  // Plain HTTP would let anything on the path between us and the host swap the document.
+  if (url.protocol !== 'https:') {
+    throw new RemotePdfError('invalidUrl', 'The address must start with https://.');
+  }
+
+  // `hostname` keeps the brackets around an IPv6 literal, which `net.isIP` does not accept — without
+  // stripping them every IPv6 address falls through to the DNS path and is never range-checked.
+  const host = url.hostname.replace(/^\[|\]$/g, '');
+
+  // Checked before the address ranges, since these resolve to ordinary public addresses and would
+  // otherwise pass. Applies to redirect targets too, this being called for every hop.
+  if (isDeploymentHost(host, ownHosts)) {
+    throw new RemotePdfError('blockedAddress', "A form template cannot be imported from this system's own address.");
+  }
+
+  const literal = net.isIP(host) ? host : undefined;
+  if (literal) {
+    if (isBlockedAddress(literal)) {
+      throw new RemotePdfError('blockedAddress', 'That address cannot be reached from here.');
+    }
+    return url;
+  }
+
+  let resolved;
+  try {
+    resolved = await dns.lookup(host, { all: true });
+  } catch {
+    throw new RemotePdfError('unreachable', `Could not find ${host}.`);
+  }
+
+  // Every answer, not just the first: a host resolving to one public and one private address would
+  // otherwise pass on the public one and connect to whichever the resolver hands `fetch`.
+  if (resolved.some((entry) => isBlockedAddress(entry.address))) {
+    throw new RemotePdfError('blockedAddress', 'That address cannot be reached from here.');
+  }
+
+  return url;
+};
+
+/**
+ * Downloads a PDF from a public URL, so a template can be imported by address instead of by file.
+ *
+ * Redirects are followed by hand rather than by `fetch`, because each hop is a new address that has to
+ * clear the same checks — a permitted URL that redirects to an internal one is the obvious way around a
+ * check applied only to what the user typed.
+ */
+export const fetchRemotePdf = async (
+  rawUrl: string,
+  secrets: Secrets | null
+): Promise<{ bytes: Uint8Array; finalUrl: string }> => {
+  const ownHosts = deploymentHosts(secrets);
+  let url = await assertFetchable(rawUrl, ownHosts);
+
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const response = await fetch(url, {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      headers: { Accept: 'application/pdf,*/*' },
+    }).catch(() => {
+      throw new RemotePdfError('unreachable', `Could not reach ${url.hostname}.`);
+    });
+
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (!location) {
+        throw new RemotePdfError('unreachable', 'The address redirected without saying where to.');
+      }
+      url = await assertFetchable(new URL(location, url).toString(), ownHosts);
+      continue;
+    }
+
+    if (!response.ok) {
+      throw new RemotePdfError('notFound', `The address returned ${response.status} ${response.statusText}.`);
+    }
+
+    return { bytes: await readCapped(response), finalUrl: url.toString() };
+  }
+
+  throw new RemotePdfError('unreachable', 'The address redirected too many times.');
+};
+
+/**
+ * Reads the body, refusing to buffer more than the cap.
+ *
+ * The declared `content-length` is checked first as a courtesy, then ignored: it is supplied by the same
+ * server the bytes are, so the running total is what actually enforces the limit.
+ */
+const readCapped = async (response: Response): Promise<Uint8Array> => {
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > MAX_BYTES) {
+    throw new RemotePdfError('tooLarge', 'That file is too large to import.');
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new RemotePdfError('unreachable', 'The address returned nothing.');
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > MAX_BYTES) {
+      await reader.cancel();
+      throw new RemotePdfError('tooLarge', 'That file is too large to import.');
+    }
+    chunks.push(value);
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  // Judged on the bytes rather than the declared content type, which is routinely wrong on the sites
+  // these forms are published from. Deeper triage — encrypted, XFA, no fields — is the analyser's job.
+  if (!startsWithPdfHeader(bytes)) {
+    throw new RemotePdfError('notAPdf', 'That address did not return a PDF.');
+  }
+
+  return bytes;
+};
+
+const startsWithPdfHeader = (bytes: Uint8Array): boolean =>
+  bytes.length >= 5 &&
+  bytes[0] === 0x25 && // %
+  bytes[1] === 0x50 && // P
+  bytes[2] === 0x44 && // D
+  bytes[3] === 0x46 && // F
+  bytes[4] === 0x2d; // -
