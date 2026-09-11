@@ -544,7 +544,7 @@ export const buildVitalsForTrackingBoard = (
   Object.entries(observationsByEncounter).forEach(([encounterId, observations]) => {
     if (!encounterId) return;
     const abnormal = getAbnormalVitals(
-      convertVitalsListToMap(parseVitalsObservationsToDTOs(observations, pools.practitioners))
+      convertVitalsListToMap(parseVitalsObservationsToDTOs(observations, pools.practitioners, undefined))
     );
     if (Object.keys(abnormal).length > 0) vitals[encounterId] = abnormal;
   });
