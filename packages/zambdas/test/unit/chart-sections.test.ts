@@ -3,9 +3,9 @@
  * server that interprets search URLs the way the real one does (fixtures/golden-fhir-server.ts).
  *
  * Three things are pinned here:
- *   1. Shape — one snapshot per section and one for the visit note: the new API contract.
- *   2. Parity — each section equals the corresponding fields of the two get-chart-data responses the golden
- *      mapping test pinned before the rewrite, and the visit note presented through the legacy adapter
+ *   1. Shape — one snapshot per section and one for the visit note: the API contract.
+ *   2. Parity — each section equals the corresponding fields of the two get-chart-data responses in the golden
+ *      mapping snapshot, and the visit note presented through the legacy adapter
  *      equals those responses whole, up to the differences listed inline.
  *   3. Boundary — every search a section issues is anchored to the encounter (or to its patient through
  *      _has:Encounter), the foreign patient's resources in the store never surface, the note types keep
@@ -60,7 +60,7 @@ const build = <S extends ChartSection>(server: GoldenFhirServer, section: S): Pr
 const byResourceId = (a: { resourceId?: string }, b: { resourceId?: string }): number =>
   (a.resourceId ?? '').localeCompare(b.resourceId ?? '');
 
-/** Notes come back grouped by scope now (this encounter's lists first); the note lists render per type. */
+/** Notes come back grouped by scope (this encounter's lists first); the note lists render per type. */
 const withSortedNotes = (data: GetChartDataResponse): GetChartDataResponse => ({
   ...data,
   notes: data.notes ? [...data.notes].sort(byResourceId) : data.notes,
@@ -361,9 +361,8 @@ describe('chart sections — golden fixture', () => {
         fhirSearches: fresh.recorded.reduce((n, r) => n + r.urls.length, 0),
         batchSizes: batches.map((b) => b.urls.length),
       }).toEqual({
-        // Before this change, opening Review & Sign cost 4 get-chart-data calls, 13 batches and 33 searches
-        // (see get-chart-data-request-budget.test.ts). The visit note is one call: the chart searches in six
-        // concurrent batches, the appointment count, and the AI note's provider lookup.
+        // The visit note is one call: the chart searches in six concurrent batches, the appointment count, and
+        // the AI note's provider lookup.
         fhirHttpRequests: 8,
         fhirSearches: 33,
         batchSizes: [6, 6, 6, 6, 6, 1, 1],
