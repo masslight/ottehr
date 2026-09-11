@@ -3,6 +3,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
   Dialog,
+  IconButton,
   InputAdornment,
   List,
   ListItemButton,
@@ -13,9 +14,20 @@ import {
 } from '@mui/material';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getInsertTarget } from '../helpers/insertTextAtCaret';
+import { shortcutLabel } from '../helpers/keyboardShortcut';
 import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-palette.store';
 
 const PATIENT_SEARCH_ITEM_ID = '__patient-search__';
+
+// Pinned group order: "Actions" first, "Phrases" directly below it; every other
+// group keeps its alphabetical order after those two.
+const CATEGORY_RANK: Record<string, number> = { Actions: 0, Phrases: 1 };
+const categoryRank = (category: string): number => CATEGORY_RANK[category] ?? Object.keys(CATEGORY_RANK).length;
+const compareCategories = (left: string, right: string): number =>
+  categoryRank(left) - categoryRank(right) || left.localeCompare(right);
+
+const weightOf = (item: CommandPaletteItem): number => item.sortWeight ?? 0;
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -73,8 +85,6 @@ const sortItems = (items: CommandPaletteItem[], query = ''): CommandPaletteItem[
     }
   }
 
-  const weightOf = (item: CommandPaletteItem): number => item.sortWeight ?? 0;
-
   return [...items].sort((left, right) => {
     if (normalizedQuery) {
       const categoryPriorityComparison =
@@ -82,11 +92,11 @@ const sortItems = (items: CommandPaletteItem[], query = ''): CommandPaletteItem[
       if (categoryPriorityComparison !== 0) return categoryPriorityComparison;
     } else {
       // Empty query: heavier items float their whole run above the weightless
-      // (alphabetical) categories and keep their author-declared order.
+      // (ranked/alphabetical) categories and keep their author-declared order.
       const weightComparison = weightOf(right) - weightOf(left);
       if (weightComparison !== 0) return weightComparison;
     }
-    const categoryComparison = left.category.localeCompare(right.category);
+    const categoryComparison = compareCategories(left.category, right.category);
     if (categoryComparison !== 0) return categoryComparison;
     const priorityComparison = matchPriority(left) - matchPriority(right);
     if (priorityComparison !== 0) return priorityComparison;
@@ -127,9 +137,10 @@ export const CommandPalette: FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const isOpen = useCommandPaletteStore((state) => state.isOpen);
+  const openWithInsertTarget = useCommandPaletteStore((state) => state.openWithInsertTarget);
   const close = useCommandPaletteStore((state) => state.close);
-  const toggle = useCommandPaletteStore((state) => state.toggle);
   const sources = useCommandPaletteStore((state) => state.sources);
+  const groupActions = useCommandPaletteStore((state) => state.groupActions);
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -174,6 +185,7 @@ export const CommandPalette: FC = () => {
         id: PATIENT_SEARCH_ITEM_ID,
         label: `Search patients for "${query.trim()}"`,
         category: 'Search',
+        icon: <PersonSearchIcon fontSize="small" sx={{ color: 'primary.main' }} />,
         onSelect: () => navigate(buildPatientSearchUrl(query)),
       },
     ];
@@ -188,8 +200,27 @@ export const CommandPalette: FC = () => {
       groups.set(item.category, existingItems);
     });
 
-    return [...groups.entries()];
-  }, [displayItems]);
+    if (query.trim()) {
+      return [...groups.entries()];
+    }
+
+    // With no query, a group that has a header action but no items still shows
+    // its header so the action stays reachable (e.g. creating the first phrase).
+    Object.keys(groupActions).forEach((category) => {
+      if (!groups.has(category)) groups.set(category, []);
+    });
+
+    // Header order must agree with sortItems, which floats weighted items (Recent
+    // Notes) above the ranked/alphabetical categories on an empty query. Sorting
+    // headers by compareCategories alone would file that group alphabetically
+    // while its rows sit on top, so fold each group's heaviest item in first.
+    // Header-only groups added above have no items and weigh 0.
+    const groupWeight = (items: CommandPaletteItem[]): number => Math.max(0, ...items.map(weightOf));
+    return [...groups.entries()].sort(
+      ([leftCategory, leftItems], [rightCategory, rightItems]) =>
+        groupWeight(rightItems) - groupWeight(leftItems) || compareCategories(leftCategory, rightCategory)
+    );
+  }, [displayItems, groupActions, query]);
 
   const orderedIds = useMemo(() => displayItems.map((item) => item.id), [displayItems]);
 
@@ -230,23 +261,19 @@ export const CommandPalette: FC = () => {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        if (!isOpen) {
-          const activeElement = document.activeElement;
-          if (activeElement instanceof HTMLElement) {
-            const tagName = activeElement.tagName;
-            if (tagName === 'INPUT' || tagName === 'TEXTAREA' || activeElement.isContentEditable) {
-              return;
-            }
-          }
-        }
         event.preventDefault();
-        toggle();
+        if (isOpen) {
+          close();
+          return;
+        }
+        // Opened from a text field: remember it so phrases can insert into it.
+        openWithInsertTarget(getInsertTarget(document.activeElement));
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, toggle]);
+  }, [close, isOpen, openWithInsertTarget]);
 
   const selectItem = useCallback(
     (item: CommandPaletteItem) => {
@@ -345,7 +372,7 @@ export const CommandPalette: FC = () => {
             endAdornment: (
               <InputAdornment position="end">
                 <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '11px' }}>
-                  {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘K' : 'Ctrl+K'}
+                  {shortcutLabel('K')}
                 </Typography>
               </InputAdornment>
             ),
@@ -364,7 +391,7 @@ export const CommandPalette: FC = () => {
         />
 
         <List ref={listRef} sx={{ maxHeight: 'calc(60vh - 72px)', overflow: 'auto', py: 1 }}>
-          {displayItems.length === 0 ? (
+          {groupedItems.length === 0 ? (
             <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
               <Typography color="text.secondary">Type to search actions and pages</Typography>
             </Box>
@@ -376,23 +403,49 @@ export const CommandPalette: FC = () => {
               // it would render indented under whatever item happened to sort
               // immediately above it, which is misleading.
               const visibleIdsInGroup = new Set(items.map((it) => it.id));
+              const groupAction = groupActions[category];
               return (
                 <Box key={category}>
-                  <Typography
-                    variant="caption"
+                  <Box
                     sx={{
-                      display: 'block',
-                      px: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 0.5,
+                      // Rows are inset mx:1 + ListItemButton px:2, so px:3 lines the "+" up with the row-action column.
+                      px: 3,
                       py: 0.5,
-                      color: 'text.secondary',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      fontSize: '11px',
-                      letterSpacing: '0.05em',
                     }}
                   >
-                    {category}
-                  </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'text.secondary',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        fontSize: '11px',
+                        letterSpacing: '0.05em',
+                      }}
+                    >
+                      {category}
+                    </Typography>
+                    {groupAction && (
+                      <IconButton
+                        size="small"
+                        // Keeps arrow keys/Enter on the rows: the button never takes focus.
+                        tabIndex={-1}
+                        aria-label={groupAction.label}
+                        title={groupAction.label}
+                        sx={{ color: 'text.secondary', '&:hover': { color: groupAction.color ?? 'primary.main' } }}
+                        onClick={() => {
+                          groupAction.onClick();
+                          close();
+                        }}
+                      >
+                        {groupAction.icon}
+                      </IconButton>
+                    )}
+                  </Box>
 
                   {items.map((item) => {
                     const isSelected = item.id === selectedId;
@@ -413,19 +466,50 @@ export const CommandPalette: FC = () => {
                           ...(isChild ? { pl: 4 } : undefined),
                         }}
                       >
-                        {isPatientSearchItem && (
-                          <ListItemIcon sx={{ minWidth: 36 }}>
-                            <PersonSearchIcon fontSize="small" sx={{ color: 'primary.main' }} />
-                          </ListItemIcon>
-                        )}
+                        {item.icon && <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>}
                         <ListItemText
-                          primary={item.label}
+                          primary={
+                            item.inlineDescription && item.description ? (
+                              <>
+                                {item.label}{' '}
+                                <Typography component="span" sx={{ color: 'text.secondary', fontSize: '13px' }}>
+                                  ({item.description})
+                                </Typography>
+                              </>
+                            ) : (
+                              item.label
+                            )
+                          }
+                          secondary={item.inlineDescription ? undefined : item.description}
+                          secondaryTypographyProps={{ noWrap: true, fontSize: '12px' }}
                           primaryTypographyProps={{
+                            noWrap: !!item.inlineDescription,
                             fontSize: isChild ? '13px' : '14px',
                             color: isChild ? 'text.secondary' : undefined,
                             ...(isPatientSearchItem ? { color: 'primary.main', fontWeight: 500 } : undefined),
                           }}
                         />
+                        {item.actions && item.actions.length > 0 && (
+                          <Box className="palette-row-actions" sx={{ display: 'flex', flexShrink: 0 }}>
+                            {item.actions.map((action) => (
+                              <IconButton
+                                key={action.id}
+                                size="small"
+                                aria-label={action.label}
+                                title={action.label}
+                                sx={{ color: 'text.secondary', '&:hover': { color: action.color ?? 'primary.main' } }}
+                                onClick={(event) => {
+                                  // Keep the row's selectItem from firing.
+                                  event.stopPropagation();
+                                  action.onClick();
+                                  close();
+                                }}
+                              >
+                                {action.icon}
+                              </IconButton>
+                            ))}
+                          </Box>
+                        )}
                       </ListItemButton>
                     );
                   })}
