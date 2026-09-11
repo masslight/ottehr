@@ -2,6 +2,7 @@ import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { Bundle, Encounter, FhirResource } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { createFindResourceRequestById, parseSearchsetEntry } from '../chart-data/search-requests';
+import { patientIdFromReference } from '../helpers';
 
 // A FHIR batch runs its entries one after another on the server, so one batch of N searches costs roughly
 // the sum of all N. Spreading them over concurrent batches turns that sum into a max.
@@ -67,9 +68,7 @@ export async function fetchChartResources<Owner extends string>(
   });
 
   if (encounter === undefined) throw new Error(`Encounter with ID ${encounterId} must exist... `);
-  const patientId = encounter.subject?.reference?.startsWith('Patient/')
-    ? encounter.subject.reference.replace('Patient/', '')
-    : undefined;
+  const patientId = patientIdFromReference(encounter.subject?.reference);
   if (patientId === undefined) throw new Error(`Encounter  ${encounterId} must be associated with a patient... `);
 
   return { encounter, patientId, byOwner };
