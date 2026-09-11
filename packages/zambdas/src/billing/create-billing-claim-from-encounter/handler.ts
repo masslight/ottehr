@@ -35,6 +35,7 @@ import { isAppointmentOccupationalMedicine } from 'utils/lib/fhir/appointments';
 import {
   claimNonInsurancePayerExtension,
   claimNonInsurancePayerTag,
+  getCptBillableUnitsFromCoding,
   getDefaultClaimSubmissionExtensions,
   setCoveragePlanType,
 } from 'utils/lib/fhir/billing';
@@ -1314,7 +1315,7 @@ function buildClaim(resources: ClaimResources): Claim {
               value: 0,
               currency: 'USD',
             },
-            quantity: { value: 1, unit: 'UN' },
+            quantity: { value: getCptBillableUnitsFromCoding(procedureCode.coding?.[0]) ?? 1, unit: 'UN' },
           };
         })
       : [],
