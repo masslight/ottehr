@@ -25,12 +25,11 @@ async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingPayersParams
 ): Promise<{ payers: BillingPayerOption[]; nextCursor?: string | null }> {
-  // Payers live in the Oystehr RCM service
+  // Payers live in the Oystehr RCM service. An ID lookup is a resolve, not a search — return
+  // whatever it finds (including nothing) rather than falling through to the directory listing below.
   if (params.payerId) {
     const result = await oystehr.rcm.getPayer({ id: params.payerId });
-    if (result) {
-      return { payers: [mapPayer(result)] };
-    }
+    return { payers: result ? [mapPayer(result)] : [] };
   }
   // No name given: this is a plain directory listing (e.g. the Insurance Organizations page), so
   // page straight through the RCM service's own cursor instead of the typeahead's name+id merge below.
