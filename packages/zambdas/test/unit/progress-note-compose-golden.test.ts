@@ -7,6 +7,13 @@
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { composeProgressNoteData } from '../../src/shared/pdf/progress-note-pdf';
+
+// Pin the canonical screening-questions config (which includes covid-symptoms) so this
+// characterization snapshot is independent of any per-instance overlay that might omit fields.
+vi.mock('utils/lib/ottehr-config/screening-questions', async () => {
+  const { baseScreeningQuestionsConfig } = await import('utils/lib/types/data/screening-questions/config');
+  return { patientScreeningQuestionsConfig: baseScreeningQuestionsConfig };
+});
 import { ProgressNoteInput } from '../../src/shared/pdf/types';
 import {
   buildGoldenChartData,
