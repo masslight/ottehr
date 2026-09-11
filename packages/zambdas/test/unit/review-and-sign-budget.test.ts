@@ -4,13 +4,8 @@
  * apps/ehr/src/features/visits/shared/hooks/reviewAndSignLoad.test.tsx for the client side of that
  * measurement). The read runs here through the real builders against the golden FHIR server.
  *
- * For comparison, measured the same way before this project: 13 chart reads, 27 FHIR round trips and 71
- * searches (40 of them repeats); after Phase 0: 4 reads, 13 round trips, 33 searches.
- *
- * The six round trips are six concurrent batches on purpose: a FHIR batch runs its entries one after another
- * on the server, so one batch of 32 searches would take roughly the sum of them all, while six batches run
- * side by side (CHART_BATCH_TARGET_CONCURRENCY in shared/chart-sections/fetch.ts). Set it to 1 to trade the
- * page's latency for a single round trip.
+ * The six round trips are the concurrent batches of the visit note's wave (CHART_BATCH_TARGET_CONCURRENCY in
+ * shared/chart-sections/fetch.ts); set it to 1 to trade the page's latency for a single round trip.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { CHART_BATCH_TARGET_CONCURRENCY } from '../../src/shared/chart-sections/fetch';
