@@ -103,148 +103,150 @@ export default function ProgressNoteAdminPage(): ReactElement {
         Settings for how providers complete and sign progress notes
       </Typography>
 
-      {isPending ? (
-        <Box display="flex" justifyContent="center" alignItems="center" py={3}>
-          <CircularProgress />
-        </Box>
-      ) : isError ? (
-        <Alert severity="error">Failed to load the current progress note settings.</Alert>
-      ) : (
-        <Paper component="form" onSubmit={handleSubmit(onSubmit)} sx={{ p: 3 }}>
-          <Stack spacing={3}>
-            <Box>
-              <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
-                Assessment
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Standard content used when Medical Decision Making is pre-filled for a new note.
-              </Typography>
-              <ConfigTextAreaField
-                control={control}
-                name="medicalDecisionDefaultText"
-                label="Default Medical Decision Making content"
-                minRows={4}
-              />
+      <Paper component="form" onSubmit={handleSubmit(onSubmit)} sx={{ p: 3 }}>
+        <Stack spacing={3}>
+          {isPending ? (
+            <Box display="flex" justifyContent="center" alignItems="center" py={3}>
+              <CircularProgress />
             </Box>
-
-            <Divider />
-
-            <Box>
-              <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
-                Disposition
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Default content displayed when a disposition option is selected
-              </Typography>
-              <Stack spacing={2}>
+          ) : isError ? (
+            <Alert severity="error">Failed to load the current progress note settings.</Alert>
+          ) : (
+            <>
+              <Box>
+                <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+                  Assessment
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Standard content used when Medical Decision Making is pre-filled for a new note.
+                </Typography>
                 <ConfigTextAreaField
                   control={control}
-                  name="pcpNoTypeDispositionDefaultText"
-                  label={mapDispositionTypeToLabel['pcp-no-type']}
+                  name="medicalDecisionDefaultText"
+                  label="Default Medical Decision Making content"
+                  minRows={4}
                 />
-                <ConfigTextAreaField
-                  control={control}
-                  name="anotherDispositionDefaultText"
-                  label={mapDispositionTypeToLabel.another}
-                />
-                <ConfigTextAreaField
-                  control={control}
-                  name="edDispositionDefaultText"
-                  label={mapDispositionTypeToLabel.ed}
-                />
-              </Stack>
-            </Box>
+              </Box>
 
-            <Divider />
+              <Divider />
 
-            <Box>
-              <Controller
-                name="mdmRequired"
-                control={control}
-                render={({ field: { value, onChange } }) => (
-                  <FormControlLabel
-                    control={<Switch checked={value} onChange={(_event, checked) => onChange(checked)} />}
-                    label="MDM required for sign and close"
-                  />
-                )}
-              />
-            </Box>
-
-            <Divider />
-
-            <Box>
-              <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
-                Vitals
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Order of the unit input fields when a vital is entered (e.g. weight, height, temperature)
-              </Typography>
-              <Controller
-                name="vitalsUnitInputOrder"
-                control={control}
-                render={({ field: { value, onChange } }) => (
-                  <FormControl fullWidth>
-                    <InputLabel id="vitals-unit-input-order-label">Vital measurement unit input order</InputLabel>
-                    <Select
-                      labelId="vitals-unit-input-order-label"
-                      label="Vital measurement unit input order"
-                      value={value}
-                      onChange={(event) => onChange(event.target.value)}
-                    >
-                      {VITALS_UNIT_INPUT_ORDERS.map((order) => (
-                        <MenuItem key={order} value={order}>
-                          {VITALS_UNIT_INPUT_ORDER_LABELS[order]}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-              />
-            </Box>
-
-            {/* Field is hidden for non-CustomerSupport users, but its value still round-trips unchanged:
-                react-hook-form submits values carried in defaultValues/reset even when the field is never rendered. */}
-            {isCustomerSupport && (
-              <>
-                <Divider />
-                <Box>
-                  <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
-                    Note review at signing
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Requirements checked against the note when a provider opens Review &amp; Sign. Anything not met is
-                    shown to the provider as an informational warning — it never blocks signing. Write it as
-                    instructions to a reviewer, e.g. &quot;Confirm at least 4 ROS systems are documented with at least
-                    one item each&quot;. Leave blank to turn the review off.
-                  </Typography>
+              <Box>
+                <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+                  Disposition
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Default content displayed when a disposition option is selected
+                </Typography>
+                <Stack spacing={2}>
                   <ConfigTextAreaField
                     control={control}
-                    name="signReviewPrompt"
-                    label="Note review requirements"
-                    minRows={4}
+                    name="pcpNoTypeDispositionDefaultText"
+                    label={mapDispositionTypeToLabel['pcp-no-type']}
                   />
-                </Box>
-              </>
-            )}
+                  <ConfigTextAreaField
+                    control={control}
+                    name="anotherDispositionDefaultText"
+                    label={mapDispositionTypeToLabel.another}
+                  />
+                  <ConfigTextAreaField
+                    control={control}
+                    name="edDispositionDefaultText"
+                    label={mapDispositionTypeToLabel.ed}
+                  />
+                </Stack>
+              </Box>
 
-            <Divider />
+              <Divider />
 
-            <Stack direction="row" spacing={1}>
-              <LoadingButton type="submit" variant="contained" loading={isSubmitting} disabled={!isDirty}>
-                Save
-              </LoadingButton>
-              <LoadingButton
-                type="button"
-                variant="outlined"
-                disabled={isSubmitting || !isDirty}
-                onClick={() => reset({ ...DEFAULT_PROGRESS_NOTE_CONFIG, ...data })}
-              >
-                Discard changes
-              </LoadingButton>
-            </Stack>
+              <Box>
+                <Controller
+                  name="mdmRequired"
+                  control={control}
+                  render={({ field: { value, onChange } }) => (
+                    <FormControlLabel
+                      control={<Switch checked={value} onChange={(_event, checked) => onChange(checked)} />}
+                      label="MDM required for sign and close"
+                    />
+                  )}
+                />
+              </Box>
+
+              <Divider />
+
+              <Box>
+                <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+                  Vitals
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Order of the unit input fields when a vital is entered (e.g. weight, height, temperature)
+                </Typography>
+                <Controller
+                  name="vitalsUnitInputOrder"
+                  control={control}
+                  render={({ field: { value, onChange } }) => (
+                    <FormControl fullWidth>
+                      <InputLabel id="vitals-unit-input-order-label">Vital measurement unit input order</InputLabel>
+                      <Select
+                        labelId="vitals-unit-input-order-label"
+                        label="Vital measurement unit input order"
+                        value={value}
+                        onChange={(event) => onChange(event.target.value)}
+                      >
+                        {VITALS_UNIT_INPUT_ORDERS.map((order) => (
+                          <MenuItem key={order} value={order}>
+                            {VITALS_UNIT_INPUT_ORDER_LABELS[order]}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )}
+                />
+              </Box>
+
+              {/* Field is hidden for non-CustomerSupport users, but its value still round-trips unchanged:
+                  react-hook-form submits values carried in defaultValues/reset even when the field is never rendered. */}
+              {isCustomerSupport && (
+                <>
+                  <Divider />
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+                      Note review at signing
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Requirements checked against the note when a provider opens Review &amp; Sign. Anything not met is
+                      shown to the provider as an informational warning — it never blocks signing. Write it as
+                      instructions to a reviewer, e.g. &quot;Confirm at least 4 ROS systems are documented with at least
+                      one item each&quot;. Leave blank to turn the review off.
+                    </Typography>
+                    <ConfigTextAreaField
+                      control={control}
+                      name="signReviewPrompt"
+                      label="Note review requirements"
+                      minRows={4}
+                    />
+                  </Box>
+                </>
+              )}
+            </>
+          )}
+
+          <Divider />
+
+          <Stack direction="row" spacing={1}>
+            <LoadingButton type="submit" variant="contained" loading={isSubmitting} disabled={!isDirty}>
+              Save
+            </LoadingButton>
+            <LoadingButton
+              type="button"
+              variant="outlined"
+              disabled={isSubmitting || !isDirty}
+              onClick={() => reset({ ...DEFAULT_PROGRESS_NOTE_CONFIG, ...data })}
+            >
+              Discard changes
+            </LoadingButton>
           </Stack>
-        </Paper>
-      )}
+        </Stack>
+      </Paper>
     </Box>
   );
 }
