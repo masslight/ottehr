@@ -1,4 +1,5 @@
 import { CodeableConcept, Observation, ObservationComponent, Practitioner, Reference } from 'fhir/r4b';
+import { VitalsSchema } from '../helpers/vitals/config-schema';
 import { getVitalObservationFhirComponentInterpretations } from '../helpers/vitals/utils';
 import {
   VitalBloodPressureObservationMethod,
@@ -241,7 +242,8 @@ export const getHeartbeatObservationMethodCodable = (
 
 export const getBloodPressureObservationComponents = (
   bloodPressureDTO: VitalsBloodPressureObservationDTO,
-  patientDOB?: string
+  patientDOB?: string,
+  vitalsAlertConfig?: VitalsSchema
 ): ObservationComponent[] => {
   const result: ObservationComponent[] = [];
 
@@ -250,6 +252,7 @@ export const getBloodPressureObservationComponents = (
         vitalsObservation: bloodPressureDTO,
         patientDOB,
         patientSex: undefined,
+        configOverride: vitalsAlertConfig,
       })
     : {};
 
@@ -940,7 +943,8 @@ export function toVitalOxygenSatObservationMethod(
 export function fillVitalObservationAttributes(
   baseResource: Observation,
   vitalDTO: VitalsObservationDTO,
-  patientDOB?: string
+  patientDOB?: string,
+  vitalsAlertConfig?: VitalsSchema
 ): Observation {
   if (isTemperatureVitalObservation(vitalDTO)) {
     const temperatureDTO = vitalDTO as VitalsTemperatureObservationDTO;
@@ -964,7 +968,7 @@ export function fillVitalObservationAttributes(
     const bloodPressureDTO = vitalDTO as VitalsBloodPressureObservationDTO;
     return {
       ...baseResource,
-      component: getBloodPressureObservationComponents(bloodPressureDTO, patientDOB),
+      component: getBloodPressureObservationComponents(bloodPressureDTO, patientDOB, vitalsAlertConfig),
       method: getBloodPressureObservationMethodCodable(bloodPressureDTO),
     };
   }

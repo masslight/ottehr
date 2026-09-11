@@ -114,5 +114,6 @@ export const resolveVitalAlertCriticality = (
     patientSex: context.patientSex,
     vitalsObservation: dto,
     configOverride: context.vitalsAlertConfig,
+    asOfDate: observation.effectiveDateTime ?? observation.effectivePeriod?.start,
   });
 };
