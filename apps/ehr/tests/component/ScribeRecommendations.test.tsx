@@ -223,10 +223,11 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.getByTestId(testIds.rail)).toBeVisible();
   });
 
-  it('lays the results out as three stages in order', async () => {
+  it('lays the results out as four stages in order', async () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
+    const narrative = screen.getByTestId(testIds.stage('narrative'));
     const template = screen.getByTestId(testIds.stage('template'));
     const observationsStage = screen.getByTestId(testIds.stage('observations'));
     const orders = screen.getByTestId(testIds.stage('orders'));
@@ -237,7 +238,8 @@ describe('ScribeRecommendationsDrawer', () => {
         .getAllByRole('region')
         .map((section) => section.getAttribute('data-testid'))
         .filter((id) => id?.startsWith('scribe-stage-'))
-    ).toEqual(['scribe-stage-template', 'scribe-stage-observations', 'scribe-stage-orders']);
+    ).toEqual(['scribe-stage-narrative', 'scribe-stage-template', 'scribe-stage-observations', 'scribe-stage-orders']);
+    expect(within(narrative).getByText(/what I heard in the visit/)).toBeVisible();
     expect(within(template).getByText(/template that looks like a good fit/)).toBeVisible();
     expect(within(observationsStage).getByText(/observations, which I read in the transcript/)).toBeVisible();
     expect(within(orders).getByText(/orders you might want to make/)).toBeVisible();
@@ -280,6 +282,50 @@ describe('ScribeRecommendationsDrawer', () => {
 
     await user.click(within(orders).getByTestId(testIds.orderButton('order-dexamethasone')));
     expect(mocks.navigate).toHaveBeenCalledWith('/in-person/appointment-1/in-house-medication/order/new');
+  });
+
+  it('opens a run of the narrative as its own row, ready to edit', async () => {
+    const user = userEvent.setup();
+    await openPanelWithRecommendations(user);
+
+    // the "why" is the hover itself: the same transcript evidence the row's "i" shows
+    await user.hover(screen.getByTestId(testIds.narrativeSpan('vital-weight')));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent("I'm about 170 pounds.");
+    await user.unhover(screen.getByTestId(testIds.narrativeSpan('vital-weight')));
+
+    await user.click(screen.getByTestId(testIds.narrativeSpan('allergy-fentanyl')));
+    const popover = screen.getByTestId(testIds.narrativePopover('allergy-fentanyl'));
+    expect(
+      within(within(popover).getByTestId(testIds.rowCheckbox('allergy-fentanyl'))).getByRole('checkbox')
+    ).toBeChecked();
+    // straight into the editor, with no pencil to press and no "i" of its own
+    expect(within(popover).getByTestId(testIds.rowEditInput('allergy-fentanyl'))).toHaveValue('Fentanyl');
+    expect(within(popover).queryByTestId(testIds.rowDetailButton('allergy-fentanyl'))).toBeNull();
+    expect(within(popover).queryByTestId(testIds.rowEditButton('allergy-fentanyl'))).toBeNull();
+
+    // leaving the editor closes the popover with it
+    await user.click(within(popover).getByTestId(testIds.rowEditCancelButton('allergy-fentanyl')));
+    await waitFor(() => expect(screen.queryByTestId(testIds.narrativePopover('allergy-fentanyl'))).toBeNull());
+  });
+
+  it('tells the story with the recommendations as they stand, so an edit shows in the sentence', async () => {
+    const user = userEvent.setup();
+    await openPanelWithRecommendations(user);
+
+    const span = screen.getByTestId(testIds.narrativeSpan('vital-weight'));
+    expect(span).toHaveTextContent('weighing 170 lbs (77.11 kg)');
+
+    await user.click(span);
+    const popover = screen.getByTestId(testIds.narrativePopover('vital-weight'));
+    const weightInput = within(popover).getByTestId(testIds.rowEditInput('vital-weight'));
+    await user.clear(weightInput);
+    await user.type(weightInput, '175');
+    await user.click(within(popover).getByTestId(testIds.rowEditSaveButton('vital-weight')));
+
+    await waitFor(() => expect(screen.queryByTestId(testIds.narrativePopover('vital-weight'))).toBeNull());
+    expect(screen.getByTestId(testIds.narrativeSpan('vital-weight'))).toHaveTextContent('weighing 175 lbs (79.38 kg)');
+    // and the list row tells the same story
+    expect(screen.getByText(/Weight 175 lbs/)).toBeVisible();
   });
 
   it('puts the primary diagnosis at the head of the assessment group', async () => {
@@ -383,7 +429,15 @@ describe('ScribeRecommendationsDrawer', () => {
     await user.clear(input);
     await user.type(input, 'Post-nasal drip and sinus pressure x 1 week, worse in the afternoons.');
     await user.click(screen.getByTestId(testIds.rowEditSaveButton('hpi-summary')));
-    expect(screen.getByText('Post-nasal drip and sinus pressure x 1 week, worse in the afternoons.')).toBeVisible();
+    // the row and, now that the AI's paraphrase is stale, the narrative both carry the new words
+    expect(
+      within(screen.getByTestId(testIds.row('hpi-summary'))).getByText(
+        'Post-nasal drip and sinus pressure x 1 week, worse in the afternoons.'
+      )
+    ).toBeVisible();
+    expect(screen.getByTestId(testIds.narrativeSpan('hpi-summary'))).toHaveTextContent(
+      'Post-nasal drip and sinus pressure x 1 week, worse in the afternoons.'
+    );
 
     await user.click(screen.getByTestId(testIds.rowEditButton('vital-weight')));
     const weightInput = screen.getByTestId(testIds.rowEditInput('vital-weight'));

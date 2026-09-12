@@ -33,6 +33,49 @@ Provider: Okay. This sounds like a sinus infection on top of the drip. Let's tak
 export const SAMPLE_TEMPLATE_NAME = 'Sinusitis';
 
 const SAMPLE_ANALYSIS: ScribeAnalysis = {
+  // Every recommendation and order below has a run in here. The age/sex placeholders are filled
+  // in from the visit's patient at render time, since the fixture doesn't know who is on screen;
+  // the {field} placeholders in linked runs are filled from the recommendation as it stands, so an
+  // edit in the panel shows up in the sentence too.
+  narrative: [
+    { text: 'The patient is a {age}-year-old {sex} ' },
+    { text: 'weighing {weightLbs} lbs ({kg} kg)', itemId: 'vital-weight' },
+    { text: ' with a known ' },
+    { text: 'allergy to {name}', itemId: 'allergy-fentanyl' },
+    { text: ', who presents with a ' },
+    { text: '1-week history of post-nasal drip and sinus pressure', itemId: 'hpi-summary' },
+    { text: ' (' },
+    { text: '{code}', itemId: 'dx-postnasal-drip' },
+    { text: '). The patient reports current symptoms of ' },
+    { text: 'sinus pain/pressure', itemId: 'ros-ent-sinus-pain' },
+    { text: ', ' },
+    { text: 'afternoon headaches', itemId: 'ros-neuro-headache' },
+    { text: ', ' },
+    { text: '{displayLower} upon standing ({code})', itemId: 'dx-dizziness' },
+    { text: ', and ' },
+    { text: 'morning eye discharge', itemId: 'ros-eyes-discharge' },
+    { text: '. A review of systems is negative for ' },
+    { text: 'fever', itemId: 'ros-constitutional-fever' },
+    { text: ', ' },
+    { text: 'ear pain', itemId: 'ros-ent-ear-pain' },
+    { text: ', and ' },
+    { text: 'sore throat', itemId: 'ros-ent-sore-throat' },
+    { text: ', and the patient ' },
+    { text: 'denies active post-nasal drip at this time', itemId: 'ros-ent-post-nasal-drip' },
+    { text: '. To manage symptoms, the patient has been taking ' },
+    { text: '{prn} {name}', itemId: 'medication-ibuprofen' },
+    { text: ' and ' },
+    { text: '{prn} {name}', itemId: 'medication-claritin' },
+    { text: ', both at unconfirmed doses. Based on the clinical presentation, the primary diagnosis is ' },
+    { text: '{displayLower} ({code})', itemId: 'dx-acute-sinusitis' },
+    { text: ', and the ' },
+    { text: '{templateName} template', itemId: 'template-sinusitis' },
+    { text: ' is a good fit for this visit. A single in-house dose of ' },
+    { text: 'dexamethasone', itemId: 'order-dexamethasone' },
+    { text: ' and ' },
+    { text: 'guaifenesin', itemId: 'order-guaifenesin' },
+    { text: ' may be considered.' },
+  ],
   recommendations: [
     {
       id: 'template-sinusitis',

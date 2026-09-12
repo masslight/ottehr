@@ -9,8 +9,9 @@ import { TemplatePreviewDialog } from '../templates/TemplatePreviewDialog';
 import { TemplateOption } from '../templates/useListTemplates';
 import { hasProvenance, ProvenanceContent, ProvenancePanel, ProvenanceToggle } from './Provenance';
 import { RecommendationEditor } from './RecommendationRow';
-import { RecommendationItemState } from './scribeRecommendations.store';
+import { RecommendationItemState, useScribeRecommendationsStore } from './scribeRecommendations.store';
 import { describeRecommendation } from './scribeSections';
+import { AI_SURFACE } from './ScribeStage';
 import { SectionRail } from './SectionRail';
 import { ScribeRecommendation, TemplateRecommendation } from './types';
 
@@ -43,6 +44,8 @@ export const TemplateStage: FC<TemplateStageProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const isHighlighted = useScribeRecommendationsStore((state) => state.hoveredItemId === recommendation.id);
+  const setHoveredItemId = useScribeRecommendationsStore((state) => state.setHoveredItemId);
   const { detail } = describeRecommendation(recommendation);
 
   const isApplied = itemState.status === 'applied';
@@ -62,7 +65,14 @@ export const TemplateStage: FC<TemplateStageProps> = ({
     <Paper
       variant="outlined"
       data-testid={testIds.row(recommendation.id)}
-      sx={{ display: 'flex', alignItems: 'stretch', overflow: 'hidden' }}
+      onMouseEnter={() => setHoveredItemId(recommendation.id)}
+      onMouseLeave={() => setHoveredItemId(undefined)}
+      sx={{
+        display: 'flex',
+        alignItems: 'stretch',
+        overflow: 'hidden',
+        backgroundColor: isHighlighted ? AI_SURFACE : undefined,
+      }}
     >
       <SectionRail section="template" />
 

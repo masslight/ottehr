@@ -22,6 +22,7 @@ import { AiDisclaimerTooltip } from '../AiSection';
 import { useListTemplates } from '../templates/useListTemplates';
 import { useSyncChartedRecommendations } from './chartedRecommendations';
 import { SAMPLE_TRANSCRIPT } from './fakeScribeAnalysis';
+import { NarrativeSummary } from './NarrativeSummary';
 import { OrderSuggestions } from './OrderSuggestions';
 import { RecommendationsList } from './RecommendationsList';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
@@ -141,6 +142,7 @@ const TranscriptStep: FC = () => {
 
 const ResultsStep: FC = () => {
   const transcript = useScribeRecommendationsStore((state) => state.transcript);
+  const narrative = useScribeRecommendationsStore((state) => state.narrative);
   const recommendations = useScribeRecommendationsStore((state) => state.recommendations);
   const itemState = useScribeRecommendationsStore((state) => state.itemState);
   const orderSuggestions = useScribeRecommendationsStore((state) => state.orderSuggestions);
@@ -180,6 +182,15 @@ const ResultsStep: FC = () => {
     .join(' · ');
 
   const stages: ReactNode[] = [];
+
+  // The story of the visit comes first; every stage below is a piece of it made actionable.
+  if (narrative.length > 0) {
+    stages.push(
+      <ScribeStage key="narrative" name="narrative" lead="Here’s what I heard in the visit.">
+        <NarrativeSummary templates={templates} onRetry={() => void applyObservations()} />
+      </ScribeStage>
+    );
+  }
 
   if (template) {
     stages.push(

@@ -25,8 +25,9 @@ import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.typ
 import { DiagnosesField } from '../assessment-tab/DiagnosesField';
 import { TemplateOption } from '../templates/useListTemplates';
 import { hasProvenance, ProvenanceContent, ProvenancePanel, ProvenanceToggle } from './Provenance';
-import { RecommendationItemState } from './scribeRecommendations.store';
+import { RecommendationItemState, useScribeRecommendationsStore } from './scribeRecommendations.store';
 import { describeRecommendation, rosFindingLabel } from './scribeSections';
+import { AI_SURFACE } from './ScribeStage';
 import { ScribeRecommendation } from './types';
 
 interface RecommendationRowProps {
@@ -40,6 +41,12 @@ interface RecommendationRowProps {
   onSelectedChange: (selected: boolean) => void;
   onEdit: (patch: Partial<ScribeRecommendation>) => void;
   onRetry: () => void;
+  /** Opens straight into the editor, as the narrative popover does, so no pencil is needed. */
+  startEditing?: boolean;
+  /** Fired once the editor is dismissed, saved or not, so a host popover can close with it. */
+  onEditingEnd?: () => void;
+  /** The host already shows the "why" (the narrative does, on hover), so the row needn't. */
+  hideProvenance?: boolean;
 }
 
 const testIds = dataTestIds.scribeRecommendations;
@@ -53,9 +60,14 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
   onSelectedChange,
   onEdit,
   onRetry,
+  startEditing,
+  onEditingEnd,
+  hideProvenance,
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(Boolean(startEditing));
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const isHighlighted = useScribeRecommendationsStore((state) => state.hoveredItemId === recommendation.id);
+  const setHoveredItemId = useScribeRecommendationsStore((state) => state.setHoveredItemId);
   const { primary, secondary, detail } = describeRecommendation(recommendation);
   const isApplied = itemState.status === 'applied';
   const isApplying = itemState.status === 'applying';
@@ -111,6 +123,8 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
   return (
     <Box
       data-testid={testIds.row(recommendation.id)}
+      onMouseEnter={() => setHoveredItemId(recommendation.id)}
+      onMouseLeave={() => setHoveredItemId(undefined)}
       sx={{
         display: 'flex',
         alignItems: 'flex-start',
@@ -118,6 +132,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
         px: 1,
         py: 0.75,
         opacity: !itemState.selected && !isDone ? 0.65 : 1,
+        backgroundColor: isHighlighted ? AI_SURFACE : undefined,
         '&:not(:last-of-type)': { borderBottom: '1px solid', borderColor: 'divider' },
       }}
     >
@@ -139,8 +154,12 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
             onSave={(patch) => {
               onEdit(patch);
               setIsEditing(false);
+              onEditingEnd?.();
             }}
-            onCancel={() => setIsEditing(false)}
+            onCancel={() => {
+              setIsEditing(false);
+              onEditingEnd?.();
+            }}
           />
         ) : (
           <>
@@ -209,7 +228,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
       </Box>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
-        {showProvenance && !isEditing && (
+        {showProvenance && !isEditing && !hideProvenance && (
           <ProvenanceToggle
             content={<ProvenanceContent {...provenance} />}
             isOpen={isDetailOpen}

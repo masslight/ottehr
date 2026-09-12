@@ -92,7 +92,14 @@ export interface OrderSuggestion {
   evidence?: string;
 }
 
+/** One run of the narrative summary. Runs tied to a recommendation (or order suggestion) are highlighted and linked to it. */
+export interface NarrativeSegment {
+  text: string;
+  itemId?: string;
+}
+
 export interface ScribeAnalysis {
+  narrative: NarrativeSegment[];
   recommendations: ScribeRecommendation[];
   orderSuggestions: OrderSuggestion[];
 }

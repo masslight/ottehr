@@ -6,6 +6,7 @@ import { sidebarMenuIcons } from '../sidebarMenuIcons';
 import { ProvenanceContent, ProvenancePanel, ProvenanceToggle } from './Provenance';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
 import { getVisitBasePath, IN_HOUSE_MEDICATION_ORDER_ROUTE } from './scribeSections';
+import { AI_SURFACE } from './ScribeStage';
 import { OrderSuggestion } from './types';
 
 const testIds = dataTestIds.scribeRecommendations;
@@ -15,18 +16,12 @@ const testIds = dataTestIds.scribeRecommendations;
  * written by the panel: it is a checklist the provider works through and ticks off by hand.
  */
 export const OrderSuggestions: FC = () => {
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
   const orderSuggestions = useScribeRecommendationsStore((state) => state.orderSuggestions);
   const ordersDone = useScribeRecommendationsStore((state) => state.ordersDone);
   const setOrderDone = useScribeRecommendationsStore((state) => state.setOrderDone);
+  const startOrder = useStartOrder();
 
   if (orderSuggestions.length === 0) return null;
-
-  const startOrder = (): void => {
-    const base = getVisitBasePath(pathname);
-    if (base) navigate(`${base}/${IN_HOUSE_MEDICATION_ORDER_ROUTE}`);
-  };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -48,27 +43,50 @@ export const OrderSuggestions: FC = () => {
   );
 };
 
+/** Takes the provider to the in-house medication order screen of the visit they are on. */
+export const useStartOrder = (): (() => void) => {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  return () => {
+    const base = getVisitBasePath(pathname);
+    if (base) navigate(`${base}/${IN_HOUSE_MEDICATION_ORDER_ROUTE}`);
+  };
+};
+
 interface OrderSuggestionRowProps {
   order: OrderSuggestion;
   done: boolean;
   onDoneChange: (done: boolean) => void;
   onStartOrder: () => void;
+  /** The host already shows the rationale (the narrative does, on hover), so the row needn't. */
+  hideProvenance?: boolean;
 }
 
-const OrderSuggestionRow: FC<OrderSuggestionRowProps> = ({ order, done, onDoneChange, onStartOrder }) => {
+export const OrderSuggestionRow: FC<OrderSuggestionRowProps> = ({
+  order,
+  done,
+  onDoneChange,
+  onStartOrder,
+  hideProvenance,
+}) => {
   const theme = useTheme();
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const isHighlighted = useScribeRecommendationsStore((state) => state.hoveredItemId === order.id);
+  const setHoveredItemId = useScribeRecommendationsStore((state) => state.setHoveredItemId);
   const provenance = { note: order.rationale, evidence: order.evidence };
 
   return (
     <Box
       data-testid={testIds.orderSuggestion(order.id)}
+      onMouseEnter={() => setHoveredItemId(order.id)}
+      onMouseLeave={() => setHoveredItemId(undefined)}
       sx={{
         display: 'flex',
         alignItems: 'flex-start',
         gap: 0.5,
         px: 1,
         py: 0.75,
+        backgroundColor: isHighlighted ? AI_SURFACE : undefined,
         '&:not(:last-of-type)': { borderBottom: '1px solid', borderColor: 'divider' },
       }}
     >
@@ -106,13 +124,15 @@ const OrderSuggestionRow: FC<OrderSuggestionRowProps> = ({ order, done, onDoneCh
         </Collapse>
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
-        <ProvenanceToggle
-          content={<ProvenanceContent {...provenance} />}
-          isOpen={isDetailOpen}
-          onToggle={() => setIsDetailOpen((open) => !open)}
-          subject={order.name}
-          dataTestId={testIds.orderDetailButton(order.id)}
-        />
+        {!hideProvenance && (
+          <ProvenanceToggle
+            content={<ProvenanceContent {...provenance} />}
+            isOpen={isDetailOpen}
+            onToggle={() => setIsDetailOpen((open) => !open)}
+            subject={order.name}
+            dataTestId={testIds.orderDetailButton(order.id)}
+          />
+        )}
         <Button
           size="small"
           variant="outlined"

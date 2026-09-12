@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { analyzeTranscript } from './fakeScribeAnalysis';
-import { OrderSuggestion, RecommendationApplyStatus, ScribeRecommendation } from './types';
+import { NarrativeSegment, OrderSuggestion, RecommendationApplyStatus, ScribeRecommendation } from './types';
 
 export const SCRIBE_PANEL_MIN_WIDTH = 340;
 export const SCRIBE_PANEL_DEFAULT_WIDTH = 440;
@@ -20,6 +20,8 @@ export interface RecommendationItemState {
   selected: boolean;
   status: RecommendationApplyStatus;
   error?: string;
+  /** The provider has changed it, so the AI's own wording of it is no longer to be trusted. */
+  edited?: boolean;
 }
 
 interface ScribeRecommendationsState {
@@ -31,6 +33,7 @@ interface ScribeRecommendationsState {
   transcript: string;
   phase: ScribePhase;
   analysisError?: string;
+  narrative: NarrativeSegment[];
   recommendations: ScribeRecommendation[];
   itemState: Record<string, RecommendationItemState>;
   orderSuggestions: OrderSuggestion[];
@@ -38,6 +41,8 @@ interface ScribeRecommendationsState {
   isApplying: boolean;
   /** Recommendations the chart already holds, derived from live chart data. */
   chartedIds: string[];
+  /** Item under the pointer, in the narrative or in its row, so the two can light up together. */
+  hoveredItemId?: string;
 
   open: () => void;
   close: () => void;
@@ -56,18 +61,21 @@ interface ScribeRecommendationsState {
   setIsApplying: (isApplying: boolean) => void;
   setOrderDone: (id: string, done: boolean) => void;
   setChartedIds: (ids: string[]) => void;
+  setHoveredItemId: (id: string | undefined) => void;
 }
 
 const SESSION_INITIAL = {
   transcript: '',
   phase: 'input' as ScribePhase,
   analysisError: undefined,
+  narrative: [] as NarrativeSegment[],
   recommendations: [] as ScribeRecommendation[],
   itemState: {} as Record<string, RecommendationItemState>,
   orderSuggestions: [] as OrderSuggestion[],
   ordersDone: {} as Record<string, boolean>,
   isApplying: false,
   chartedIds: [] as string[],
+  hoveredItemId: undefined,
 };
 
 export const useScribeRecommendationsStore = create<ScribeRecommendationsState>()(
@@ -100,6 +108,7 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
           analysis.recommendations.forEach((rec) => (itemState[rec.id] = { selected: true, status: 'idle' }));
           set({
             phase: 'ready',
+            narrative: analysis.narrative,
             recommendations: analysis.recommendations,
             itemState,
             orderSuggestions: analysis.orderSuggestions,
@@ -118,11 +127,13 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
         set({
           phase: 'input',
           analysisError: undefined,
+          narrative: [],
           recommendations: [],
           itemState: {},
           orderSuggestions: [],
           ordersDone: {},
           isApplying: false,
+          hoveredItemId: undefined,
         }),
 
       setSelected: (id, selected) =>
@@ -144,11 +155,15 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
           recommendations: state.recommendations.map((rec) =>
             rec.id === id ? ({ ...rec, ...patch } as ScribeRecommendation) : rec
           ),
-          // An edited recommendation that previously failed gets a fresh start.
-          itemState:
-            state.itemState[id]?.status === 'error'
-              ? { ...state.itemState, [id]: { ...state.itemState[id], status: 'idle', error: undefined } }
-              : state.itemState,
+          itemState: {
+            ...state.itemState,
+            [id]: {
+              ...(state.itemState[id] ?? { selected: true, status: 'idle' }),
+              edited: true,
+              // An edited recommendation that previously failed gets a fresh start.
+              ...(state.itemState[id]?.status === 'error' ? { status: 'idle', error: undefined } : {}),
+            },
+          },
         })),
       setItemStatus: (id, status, error) =>
         set((state) => ({
@@ -166,6 +181,7 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
             state.chartedIds.length === ids.length && state.chartedIds.every((id, index) => id === ids[index]);
           return unchanged ? {} : { chartedIds: ids };
         }),
+      setHoveredItemId: (hoveredItemId) => set({ hoveredItemId }),
     }),
     {
       name: 'ambient-scribe-recommendations-panel',
