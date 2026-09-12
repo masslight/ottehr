@@ -1161,6 +1161,11 @@ export const medicationApplianceRoutes: MedicationApplianceRoutes = {
     system: 'http://snomed.info/sct',
     display: 'Sublabial use',
   },
+  INHALATION: {
+    code: '999000051000001100',
+    system: 'http://snomed.info/sct',
+    display: 'Inhalation route',
+  },
 } as const;
 
 /**
