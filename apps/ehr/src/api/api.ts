@@ -64,6 +64,10 @@ import {
   UpdateInHouseMedicationInput,
 } from 'utils/lib/types/api/config/in-house-medications';
 import {
+  ConvertVisitToFollowUpInput,
+  ConvertVisitToFollowUpResponse,
+} from 'utils/lib/types/api/convert-visit-to-follow-up/convert-visit-to-follow-up.types';
+import {
   CreateDischargeSummaryInput,
   CreateDischargeSummaryResponse,
 } from 'utils/lib/types/api/create-discharge-summary/create-discharge-summary.types';
@@ -2272,6 +2276,21 @@ export const updatePatientVisitDetails = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const convertVisitToFollowUp = async (
+  oystehr: Oystehr,
+  parameters: ConvertVisitToFollowUpInput
+): Promise<ConvertVisitToFollowUpResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'convert-visit-to-follow-up',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
   }
 };
 

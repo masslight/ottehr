@@ -1,5 +1,7 @@
 import { otherColors } from '@ehrTheme/colors';
+import { ArrowDropDown } from '@mui/icons-material';
 import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
+import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
@@ -8,6 +10,8 @@ import {
   Button,
   Checkbox,
   Grid,
+  ListItemIcon,
+  Menu,
   MenuItem,
   Paper,
   Select,
@@ -62,6 +66,7 @@ import {
 import { FHIR_EXTENSION, ROOM_EXTENSION_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
   getVisitOccupationalMedicineEmployerFromEncounter,
+  isFollowupEncounter,
   isScheduledFollowupEncounter,
   SCHEDULED_FOLLOWUP_OTHER_REASON,
   SCHEDULED_FOLLOWUP_REASONS,
@@ -85,7 +90,7 @@ import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
 import { isApiError } from 'utils/lib/types/errors';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
-import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
+import { getInPersonVisitStatus, isVisitFinished } from 'utils/lib/utils/visitUtils';
 import AppointmentNotesHistory from '../components/AppointmentNotesHistory';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch from '../components/DateSearch';
@@ -251,6 +256,7 @@ export default function VisitDetailsPage(): ReactElement {
   const user = useEvolveUser();
 
   const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
+  const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
 
   const {
     data: visitDetailsData,
@@ -707,6 +713,16 @@ export default function VisitDetailsPage(): ReactElement {
     getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
   // For scheduled follow-ups, a saved reason outside the fixed list is a free-text "Other".
   const isScheduledFollowUp = !!encounter && isScheduledFollowupEncounter(encounter);
+
+  const actionsMenuOpen = Boolean(actionsMenuAnchor);
+  // A standalone visit can be retyped as a follow-up right up until its chart closes; after that
+  // the documentation is signed off against the visit as it stands.
+  const convertToFollowUpDisabledReason = ((): string | undefined => {
+    if (!appointment || !encounter || !patientId) return 'Loading the visit…';
+    if (isFollowupEncounter(encounter)) return 'This visit is already a follow-up';
+    if (isVisitFinished(appointment, encounter)) return 'This visit is finished and can no longer be converted';
+    return undefined;
+  })();
   const isOtherFollowUpReason =
     isScheduledFollowUp && !!maybeReasonForVisit && !SCHEDULED_FOLLOWUP_REASONS.includes(maybeReasonForVisit as never);
   const reasonForVisit = useMemo(() => {
@@ -850,6 +866,41 @@ export default function VisitDetailsPage(): ReactElement {
   const consentSaveBlockedReason =
     !hasConsentChanged && !consentAttested ? CONSENT_ATTESTATION_REQUIRED_MESSAGE : undefined;
 
+  const convertToFollowUpItem = (
+    <MenuItem
+      data-testid={dataTestIds.visitDetailsPage.convertToFollowUpMenuItem}
+      disabled={!!convertToFollowUpDisabledReason}
+      onClick={() => {
+        setActionsMenuAnchor(null);
+        navigate(`/patient/${patientId}/followup/add`, {
+          state: {
+            convertFrom: {
+              appointmentId: appointment?.id,
+              encounterId: encounter?.id,
+              reasonForVisit: maybeReasonForVisit,
+            },
+          },
+        });
+      }}
+      sx={{ color: 'primary.main', fontWeight: 500 }}
+    >
+      <ListItemIcon sx={{ color: 'primary.main' }}>
+        <CalendarMonthOutlinedIcon fontSize="small" />
+      </ListItemIcon>
+      Convert to Follow-up
+    </MenuItem>
+  );
+
+  // Only wrap when disabled: a Tooltip/Box wrapper stops MenuList from managing the item's
+  // keyboard focus, which matters for the actionable case but not for a disabled one.
+  const convertToFollowUpMenuItem = convertToFollowUpDisabledReason ? (
+    <Tooltip title={convertToFollowUpDisabledReason} placement="left">
+      <Box component="span">{convertToFollowUpItem}</Box>
+    </Tooltip>
+  ) : (
+    convertToFollowUpItem
+  );
+
   const consentAttestationSaveButton = (
     <LoadingButton
       data-testid={dataTestIds.visitDetailsPage.consentAttestationSaveButton}
@@ -965,6 +1016,29 @@ export default function VisitDetailsPage(): ReactElement {
                 >
                   Send Form
                 </Button>
+                <RoundedButton
+                  id="visit-actions-menu-button"
+                  data-testid={dataTestIds.visitDetailsPage.actionsMenuButton}
+                  variant="outlined"
+                  onClick={(event) => setActionsMenuAnchor(event.currentTarget)}
+                  aria-haspopup="true"
+                  aria-expanded={actionsMenuOpen ? 'true' : undefined}
+                  aria-controls={actionsMenuOpen ? 'visit-actions-menu' : undefined}
+                  endIcon={<ArrowDropDown />}
+                >
+                  Actions
+                </RoundedButton>
+                <Menu
+                  id="visit-actions-menu"
+                  anchorEl={actionsMenuAnchor}
+                  open={actionsMenuOpen}
+                  onClose={() => setActionsMenuAnchor(null)}
+                  MenuListProps={{ 'aria-labelledby': 'visit-actions-menu-button' }}
+                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                  transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                >
+                  {convertToFollowUpMenuItem}
+                </Menu>
               </Grid>
             </Grid>
             {/* page title row */}

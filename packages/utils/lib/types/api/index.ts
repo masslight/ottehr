@@ -10,6 +10,7 @@ export * from './cancel-telemed-appointment.types';
 export * from './change-in-person-visit-status';
 export * from './chart-data';
 export * from './check-in.types';
+export * from './convert-visit-to-follow-up';
 export * from './create-discharge-summary';
 export * from './create-user.types';
 export * from './delete-user.types';
