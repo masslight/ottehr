@@ -52,6 +52,46 @@ vi.mock('../src/shared/pdf', async (importOriginal) => {
   return { ...original, createPdfBytes: vi.fn() };
 });
 
+// Stable 2-form fixture so tests are independent of the per-instance consent-forms overlay.
+vi.mock('utils/lib/ottehr-config/consent-forms', () => {
+  const FIXED_HIPAA = {
+    id: 'hipaa-acknowledgement',
+    formTitle: 'HIPAA Notice of Privacy Practices',
+    resourceTitle: 'HIPAA forms',
+    assetPath: './assets/HIPAA.pdf',
+    publicUrl: '/HIPAA.pdf',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+      text: 'HIPAA Acknowledgement forms',
+    },
+    createsConsentResource: false,
+  };
+  const FIXED_CTT = {
+    id: 'consent-to-treat',
+    formTitle: 'Authorization for Treatment and Billing',
+    resourceTitle: 'Consent forms',
+    assetPath: './assets/Authorization_for_Treatment_Billing.pdf',
+    publicUrl: '/Authorization_for_Treatment_Billing.pdf',
+    type: {
+      coding: [
+        { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+        {
+          system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+          code: 'patient-registration',
+          display: 'Patient Registration Consent',
+        },
+      ],
+      text: 'Consent forms',
+    },
+    createsConsentResource: true,
+  };
+  const FIXED_CTT_IL = { ...FIXED_CTT, assetPath: './assets/Authorization_for_Treatment_Billing_IL.pdf' };
+  return {
+    getConsentFormsForLocation: (locationState?: string) =>
+      locationState === 'IL' ? [FIXED_HIPAA, FIXED_CTT_IL] : [FIXED_HIPAA, FIXED_CTT],
+  };
+});
+
 const mockCreateFilesDocumentReferences = vi.mocked(createFilesDocumentReferences);
 const mockCreateConsentResource = vi.mocked(createConsentResource);
 const mockGetConsentAndDocRefs = vi.mocked(getConsentAndRelatedDocRefsForAppointment);
