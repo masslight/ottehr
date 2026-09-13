@@ -3,6 +3,7 @@ import { Bundle, FhirResource, MedicationAdministration, Patient, Procedure, Res
 import {
   getCptCodesFromMA,
   getDosageFromMA,
+  getMedicationCptEntryFromMA,
   getMedicationFromMA,
   getNdcCodeFromMedication,
   MedicationCptCodeEntry,
@@ -281,7 +282,13 @@ export async function convertSearchResultsToResponse(
 
       const procedureBillingMap = new Map<
         string,
-        { ndcCode?: string; dose?: number; doseUnits?: string; cptEntries?: MedicationCptCodeEntry[] }
+        {
+          ndcCode?: string;
+          dose?: number;
+          doseUnits?: string;
+          cptEntries?: MedicationCptCodeEntry[];
+          medicationCode?: string;
+        }
       >();
       procedureMaIdMap.forEach((maId, procedureId) => {
         const ma = maMap.get(maId);
@@ -296,6 +303,7 @@ export async function convertSearchResultsToResponse(
             dose: dosage?.dose,
             doseUnits: dosage?.units,
             cptEntries,
+            medicationCode: getMedicationCptEntryFromMA(ma)?.code,
           });
         }
       });
@@ -305,10 +313,12 @@ export async function convertSearchResultsToResponse(
           const billing = cpt.resourceId ? procedureBillingMap.get(cpt.resourceId) : undefined;
           if (!billing) return cpt;
           const billableUnits = billing.cptEntries?.find((entry) => entry.code === cpt.code)?.billableUnits;
+          // NDC and dose belong only to the drug's own code, not the supporting/admin CPT codes on the same MA
+          const isDrugCode = billing.medicationCode == null || billing.medicationCode === cpt.code;
           return {
             ...cpt,
-            ...(billing.ndcCode != null && { ndcCode: billing.ndcCode }),
-            ...(billing.dose != null && { dose: billing.dose, doseUnits: billing.doseUnits }),
+            ...(isDrugCode && billing.ndcCode != null && { ndcCode: billing.ndcCode }),
+            ...(isDrugCode && billing.dose != null && { dose: billing.dose, doseUnits: billing.doseUnits }),
             ...(billableUnits != null && { billableUnits }),
           };
         });

@@ -410,6 +410,15 @@ export function getCptCodesFromMA(
   }
 }
 
+/** Returns the CPT entry designated as the drug itself; falls back to the first entry, matching UI behavior. */
+export function getMedicationCptEntryFromMA(
+  medicationAdministration: MedicationAdministration
+): MedicationCptCodeEntry | undefined {
+  const entries = getCptCodesFromMA(medicationAdministration);
+  if (!entries || entries.length === 0) return undefined;
+  return entries.find((entry) => entry.isMedication) ?? entries[0];
+}
+
 export function getNdcCodeFromMedication(medication: Medication): string | undefined {
   const medicationCoding = medication.code;
   return getCoding(medicationCoding, CODE_SYSTEM_NDC)?.code;
