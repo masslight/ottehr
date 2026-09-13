@@ -22,6 +22,8 @@ export interface RecommendationItemState {
   error?: string;
   /** The provider has changed it, so the AI's own wording of it is no longer to be trusted. */
   edited?: boolean;
+  /** When it landed in the chart, so the note can flash what has just arrived. */
+  appliedAt?: number;
 }
 
 interface ScribeRecommendationsState {
@@ -43,6 +45,12 @@ interface ScribeRecommendationsState {
   chartedIds: string[];
   /** Item under the pointer, in the narrative or in its row, so the two can light up together. */
   hoveredItemId?: string;
+  /**
+   * The one row whose editor is open. Held here rather than on the row so opening a second one
+   * closes — and so saves — the first. A recommendation can be on screen twice (in the list and
+   * in the narrative popover), so this is the row that is open, not the item it edits.
+   */
+  editingId?: string;
 
   open: () => void;
   close: () => void;
@@ -62,6 +70,7 @@ interface ScribeRecommendationsState {
   setOrderDone: (id: string, done: boolean) => void;
   setChartedIds: (ids: string[]) => void;
   setHoveredItemId: (id: string | undefined) => void;
+  setEditingId: (id: string | undefined) => void;
 }
 
 const SESSION_INITIAL = {
@@ -76,6 +85,7 @@ const SESSION_INITIAL = {
   isApplying: false,
   chartedIds: [] as string[],
   hoveredItemId: undefined,
+  editingId: undefined,
 };
 
 export const useScribeRecommendationsStore = create<ScribeRecommendationsState>()(
@@ -134,6 +144,7 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
           ordersDone: {},
           isApplying: false,
           hoveredItemId: undefined,
+          editingId: undefined,
         }),
 
       setSelected: (id, selected) =>
@@ -169,7 +180,12 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
         set((state) => ({
           itemState: {
             ...state.itemState,
-            [id]: { ...(state.itemState[id] ?? { selected: true }), status, error },
+            [id]: {
+              ...(state.itemState[id] ?? { selected: true }),
+              status,
+              error,
+              ...(status === 'applied' ? { appliedAt: Date.now() } : {}),
+            },
           },
         })),
       setIsApplying: (isApplying) => set({ isApplying }),
@@ -182,6 +198,7 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
           return unchanged ? {} : { chartedIds: ids };
         }),
       setHoveredItemId: (hoveredItemId) => set({ hoveredItemId }),
+      setEditingId: (editingId) => set({ editingId }),
     }),
     {
       name: 'ambient-scribe-recommendations-panel',
@@ -191,6 +208,19 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
     }
   )
 );
+
+/**
+ * Opens the editor named by `editingKey` — unless another line already holds one. That click is
+ * the click that closes the open editor (its click-away commits on the same event), and closing
+ * is all it should do: the provider hasn't asked for this line yet, and a second click will open
+ * it. Read straight from the store rather than from a subscription, because this runs in the same
+ * event as the click-away that is about to clear it.
+ */
+export const startEditingUnlessAnotherIsOpen = (editingKey: string): void => {
+  const { editingId, setEditingId } = useScribeRecommendationsStore.getState();
+  if (editingId !== undefined && editingId !== editingKey) return;
+  setEditingId(editingKey);
+};
 
 /** Horizontal space the scribe UI currently occupies on the right edge (rail or open panel). */
 export const useScribePanelOffset = (): number =>

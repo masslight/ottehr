@@ -16,7 +16,7 @@ interface ScribeSectionMeta {
 }
 
 // Distinguishable hues rather than a semantic scale: they say "different section", nothing more.
-// Kept clear of the red/green the Reports and Denies chips use on the other side of the row.
+// Kept clear of the red/green the R and D findings use on the other side of the row.
 export const SCRIBE_SECTIONS: Record<ScribeSectionKey, ScribeSectionMeta> = {
   template: {
     label: 'Template',
@@ -111,5 +111,5 @@ export const sortForReview = (recommendations: ScribeRecommendation[]): ScribeRe
   return [...recommendations].sort((a, b) => weight(a) - weight(b));
 };
 
-export const rosFindingLabel = (finding: RosFindingState): string =>
-  finding === RosFindingState.Reports ? 'Reports' : 'Denies';
+/** How the Review of Systems screen writes a finding: one letter, R for reports, D for denies. */
+export const rosFindingLetter = (finding: RosFindingState): string => (finding === RosFindingState.Reports ? 'R' : 'D');

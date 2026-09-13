@@ -1,9 +1,9 @@
-import { Box, Button, Checkbox, Collapse, Paper, Typography, useTheme } from '@mui/material';
-import { FC, useState } from 'react';
+import { Box, Button, Checkbox, Paper, Tooltip, Typography, useTheme } from '@mui/material';
+import { FC } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sidebarMenuIcons } from '../sidebarMenuIcons';
-import { ProvenanceContent, ProvenancePanel, ProvenanceToggle } from './Provenance';
+import { hasProvenance, ProvenanceContent } from './Provenance';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
 import { getVisitBasePath, IN_HOUSE_MEDICATION_ORDER_ROUTE } from './scribeSections';
 import { AI_SURFACE } from './ScribeStage';
@@ -70,12 +70,11 @@ export const OrderSuggestionRow: FC<OrderSuggestionRowProps> = ({
   hideProvenance,
 }) => {
   const theme = useTheme();
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const isHighlighted = useScribeRecommendationsStore((state) => state.hoveredItemId === order.id);
   const setHoveredItemId = useScribeRecommendationsStore((state) => state.setHoveredItemId);
   const provenance = { note: order.rationale, evidence: order.evidence };
 
-  return (
+  const row = (
     <Box
       data-testid={testIds.orderSuggestion(order.id)}
       onMouseEnter={() => setHoveredItemId(order.id)}
@@ -94,6 +93,8 @@ export const OrderSuggestionRow: FC<OrderSuggestionRowProps> = ({
         size="small"
         checked={done}
         onChange={(event) => onDoneChange(event.target.checked)}
+        // Green is how the panel says "this one is done" everywhere else in the list.
+        color={done ? 'success' : 'primary'}
         inputProps={{ 'aria-label': `Mark ${order.name} as done` }}
         data-testid={testIds.orderCheckbox(order.id)}
         sx={{ p: 0.5, mt: -0.25 }}
@@ -117,22 +118,8 @@ export const OrderSuggestionRow: FC<OrderSuggestionRowProps> = ({
             In-house medication
           </Typography>
         </Box>
-        <Collapse in={isDetailOpen} unmountOnExit>
-          <ProvenancePanel dataTestId={testIds.orderDetail(order.id)}>
-            <ProvenanceContent {...provenance} />
-          </ProvenancePanel>
-        </Collapse>
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
-        {!hideProvenance && (
-          <ProvenanceToggle
-            content={<ProvenanceContent {...provenance} />}
-            isOpen={isDetailOpen}
-            onToggle={() => setIsDetailOpen((open) => !open)}
-            subject={order.name}
-            dataTestId={testIds.orderDetailButton(order.id)}
-          />
-        )}
         <Button
           size="small"
           variant="outlined"
@@ -145,5 +132,13 @@ export const OrderSuggestionRow: FC<OrderSuggestionRowProps> = ({
         </Button>
       </Box>
     </Box>
+  );
+
+  // The rationale reads on hover, like everything else in the panel.
+  if (hideProvenance || !hasProvenance(provenance)) return row;
+  return (
+    <Tooltip title={<ProvenanceContent {...provenance} />} placement="left" enterDelay={300}>
+      {row}
+    </Tooltip>
   );
 };

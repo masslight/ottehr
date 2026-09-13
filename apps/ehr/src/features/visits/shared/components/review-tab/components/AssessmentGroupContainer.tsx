@@ -1,5 +1,5 @@
 import { Box, Stack, Typography, useTheme } from '@mui/material';
-import { FC } from 'react';
+import { FC, Fragment, ReactNode } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -8,13 +8,17 @@ import {
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { makeCptCodeDisplay } from 'utils/lib/fhir/helpers';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useChartFields } from '../../../hooks/useChartFields';
 import { useChartData } from '../../../stores/appointment/appointment.store';
+import { AiAddedMark } from '../../scribe-recommendations/AiAddedMark';
+import { findAiAddedFor, useAiAddedRecommendations } from '../../scribe-recommendations/aiAddedMarks';
 
 export const AssessmentGroupContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { chartData } = useChartData();
   const theme = useTheme();
+  const aiAdded = useAiAddedRecommendations();
 
   const { data: chartFields } = useChartFields({
     requestedFields: {
@@ -31,6 +35,16 @@ export const AssessmentGroupContainer: FC = () => {
   const emCode = chartData?.emCode;
   const cptCodes = chartData?.cptCodes;
 
+  const diagnosisLine = (diagnosis: DiagnosisDTO): ReactNode => {
+    const line = (
+      <Typography>
+        {diagnosis.display} {diagnosis.code}
+      </Typography>
+    );
+    const fromAi = findAiAddedFor(aiAdded, { kind: 'diagnosis', code: diagnosis.code });
+    return fromAi ? <AiAddedMark recommendation={fromAi}>{line}</AiAddedMark> : line;
+  };
+
   // Same split as the Assessment editor: diagnoses and decision making on the left,
   // billing codes on the right.
   const diagnosesSection = (
@@ -40,18 +54,14 @@ export const AssessmentGroupContainer: FC = () => {
       {primaryDiagnosis && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           <AssessmentTitle>Primary:</AssessmentTitle>
-          <Typography>
-            {primaryDiagnosis.display} {primaryDiagnosis.code}
-          </Typography>
+          {diagnosisLine(primaryDiagnosis)}
         </Box>
       )}
       {otherDiagnoses && otherDiagnoses.length > 0 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           <AssessmentTitle>Secondary:</AssessmentTitle>
           {otherDiagnoses.map((diagnosis) => (
-            <Typography key={diagnosis.resourceId}>
-              {diagnosis.display} {diagnosis.code}
-            </Typography>
+            <Fragment key={diagnosis.resourceId}>{diagnosisLine(diagnosis)}</Fragment>
           ))}
         </Box>
       )}

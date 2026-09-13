@@ -171,6 +171,7 @@ const resetStore = (): void => {
     orderSuggestions: [],
     ordersDone: {},
     isApplying: false,
+    editingId: undefined,
   });
 };
 
@@ -184,6 +185,32 @@ const openPanelWithRecommendations = async (user: ReturnType<typeof userEvent.se
 
 const rowCheckbox = (id: string): HTMLInputElement =>
   within(screen.getByTestId(testIds.rowCheckbox(id))).getByRole('checkbox') as HTMLInputElement;
+
+/** A row that has landed in the chart says so by turning its own checkbox green, and settling. */
+const expectCharted = (id: string): void => {
+  expect(rowCheckbox(id)).toBeChecked();
+  expect(rowCheckbox(id)).toBeDisabled();
+  expect(screen.getByTestId(testIds.rowCheckbox(id))).toHaveClass('MuiCheckbox-colorSuccess');
+};
+
+/** Nothing in the editor is confirmed: looking away is what closes it, and what saves it. */
+const lookAway = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => user.click(document.body);
+
+/**
+ * A pending row carries no box to tick — the tick lives in the editor — so unticking one means
+ * opening the line, unticking it there, and looking away again.
+ */
+const untick = async (user: ReturnType<typeof userEvent.setup>, id: string): Promise<void> => {
+  await user.click(screen.getByTestId(testIds.rowEditButton(id)));
+  await user.click(rowCheckbox(id));
+  await lookAway(user);
+};
+
+/** With no box on the line, a row that is not going in says so by striking itself through. */
+const expectUnticked = (id: string): void => {
+  expect(screen.queryByTestId(testIds.rowCheckbox(id))).toBeNull();
+  expect(screen.getByTestId(testIds.rowText(id))).toHaveStyle({ textDecoration: 'line-through' });
+};
 
 const observations = (): ScribeRecommendation[] =>
   useScribeRecommendationsStore.getState().recommendations.filter((rec) => rec.section !== 'template');
@@ -252,8 +279,9 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.queryByTestId(testIds.rowCheckbox(TEMPLATE_ID))).toBeNull();
     expect(screen.queryByTestId(testIds.group('template'))).toBeNull();
 
-    // stage two holds every observation, checked, grouped by the section it writes into
-    observations().forEach((rec) => expect(rowCheckbox(rec.id)).toBeChecked());
+    // stage two holds every observation, grouped by the section it writes into, and none of them
+    // carries a checkbox: they are all going in unless the provider says otherwise
+    expect(within(observationsStage).queryAllByRole('checkbox')).toEqual([]);
     ['hpi', 'assessment', 'ros', 'vitals', 'allergies', 'medications'].forEach((section) => {
       const group = within(observationsStage).getByTestId(testIds.group(section));
       expect(group).toBeVisible();
@@ -288,7 +316,7 @@ describe('ScribeRecommendationsDrawer', () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
-    // the "why" is the hover itself: the same transcript evidence the row's "i" shows
+    // the "why" is the hover itself: the same transcript evidence the row shows on hover
     await user.hover(screen.getByTestId(testIds.narrativeSpan('vital-weight')));
     expect(await screen.findByRole('tooltip')).toHaveTextContent("I'm about 170 pounds.");
     await user.unhover(screen.getByTestId(testIds.narrativeSpan('vital-weight')));
@@ -298,13 +326,13 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(
       within(within(popover).getByTestId(testIds.rowCheckbox('allergy-fentanyl'))).getByRole('checkbox')
     ).toBeChecked();
-    // straight into the editor, with no pencil to press and no "i" of its own
+    // straight into the editor, with no pencil to press and no hover of its own to duplicate the span's
     expect(within(popover).getByTestId(testIds.rowEditInput('allergy-fentanyl'))).toHaveValue('Fentanyl');
-    expect(within(popover).queryByTestId(testIds.rowDetailButton('allergy-fentanyl'))).toBeNull();
     expect(within(popover).queryByTestId(testIds.rowEditButton('allergy-fentanyl'))).toBeNull();
 
-    // leaving the editor closes the popover with it
-    await user.click(within(popover).getByTestId(testIds.rowEditCancelButton('allergy-fentanyl')));
+    // there is nothing to press to finish: looking away closes the popover, keeping the edit
+    expect(within(popover).queryByRole('button', { name: /save|cancel/i })).toBeNull();
+    await lookAway(user);
     await waitFor(() => expect(screen.queryByTestId(testIds.narrativePopover('allergy-fentanyl'))).toBeNull());
   });
 
@@ -320,12 +348,32 @@ describe('ScribeRecommendationsDrawer', () => {
     const weightInput = within(popover).getByTestId(testIds.rowEditInput('vital-weight'));
     await user.clear(weightInput);
     await user.type(weightInput, '175');
-    await user.click(within(popover).getByTestId(testIds.rowEditSaveButton('vital-weight')));
+    // Enter is enough on a single-line field; the popover closes on the same commit
+    await user.keyboard('{Enter}');
 
     await waitFor(() => expect(screen.queryByTestId(testIds.narrativePopover('vital-weight'))).toBeNull());
     expect(screen.getByTestId(testIds.narrativeSpan('vital-weight'))).toHaveTextContent('weighing 175 lbs (79.38 kg)');
     // and the list row tells the same story
     expect(screen.getByText(/Weight 175 lbs/)).toBeVisible();
+  });
+
+  it('rewrites a review-of-systems run when the finding is flipped', async () => {
+    const user = userEvent.setup();
+    await openPanelWithRecommendations(user);
+
+    const span = screen.getByTestId(testIds.narrativeSpan('ros-constitutional-fever'));
+    expect(span).toHaveTextContent('denies fever');
+
+    await user.click(span);
+    const popover = screen.getByTestId(testIds.narrativePopover('ros-constitutional-fever'));
+    await user.click(within(popover).getByRole('button', { name: 'Reports' }));
+    await lookAway(user);
+
+    await waitFor(() => expect(screen.queryByTestId(testIds.narrativePopover('ros-constitutional-fever'))).toBeNull());
+    // the sentence carries the verb inside the run, so the flip reads back in the story...
+    expect(screen.getByTestId(testIds.narrativeSpan('ros-constitutional-fever'))).toHaveTextContent('reports fever');
+    // ...and the row's letter says the same thing
+    expect(screen.getByTestId(testIds.rowFinding('ros-constitutional-fever'))).toHaveTextContent('R:');
   });
 
   it('puts the primary diagnosis at the head of the assessment group', async () => {
@@ -345,23 +393,16 @@ describe('ScribeRecommendationsDrawer', () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
-    const rosRows = within(screen.getByTestId(testIds.group('ros'))).getAllByText(/Reports|Denies/);
+    // the finding is the single letter the Review of Systems screen heads its columns with
+    const findings = within(screen.getByTestId(testIds.group('ros'))).getAllByTestId(/^scribe-row-finding-/);
     // positives carry the clinical weight, so they sit above the denials
-    expect(rosRows.map((chip) => chip.textContent)).toEqual([
-      'Reports',
-      'Reports',
-      'Reports',
-      'Denies',
-      'Denies',
-      'Denies',
-      'Denies',
-    ]);
+    expect(findings.map((letter) => letter.textContent)).toEqual(['R:', 'R:', 'R:', 'D:', 'D:', 'D:', 'D:']);
+    expect(screen.queryByText('Reports')).toBeNull();
+    expect(screen.queryByText('Denies')).toBeNull();
 
     // and the finding reads before the system, not after it
     const firstRow = screen.getByTestId(testIds.row('ros-eyes-discharge'));
-    expect(firstRow.textContent?.indexOf('Reports')).toBeLessThan(
-      firstRow.textContent?.indexOf('Eyes: Discharge') ?? -1
-    );
+    expect(firstRow.textContent?.indexOf('R:')).toBeLessThan(firstRow.textContent?.indexOf('Eyes: Discharge') ?? -1);
   });
 
   it('applies the template on its own, leaving the observations untouched', async () => {
@@ -388,9 +429,40 @@ describe('ScribeRecommendationsDrawer', () => {
     });
     expect(screen.queryByTestId('template-preview-dialog')).toBeNull();
     expect(screen.getByTestId(testIds.rowStatus(TEMPLATE_ID))).toHaveTextContent('Sinusitis applied');
+    // and settles into the same green tick a charted row shows
+    expectCharted(TEMPLATE_ID);
     // the observations are still waiting on their own button
-    observations().forEach((rec) => expect(rowCheckbox(rec.id)).toBeChecked());
+    expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(
+      `${observations().length} of ${observations().length} selected`
+    );
     expect(screen.getByTestId(testIds.applyObservationsButton)).toBeEnabled();
+  });
+
+  it('charts the whole review from one button: the template first, then the checked observations', async () => {
+    const user = userEvent.setup();
+    await openPanelWithRecommendations(user);
+    const total = observations().length;
+
+    expect(screen.getByTestId(testIds.chartSummary)).toHaveTextContent(
+      `Applies the template and ${total} selected observations`
+    );
+    await untick(user, 'medication-claritin');
+
+    await user.click(screen.getByTestId(testIds.chartButton));
+    await waitFor(() => expect(mocks.applyOne).toHaveBeenCalledTimes(total));
+
+    // the template goes straight through, without the section picker, on the panel's defaults
+    expect(screen.queryByTestId('template-preview-dialog')).toBeNull();
+    expect(appliedIds()[0]).toBe(TEMPLATE_ID);
+    expect(mocks.applyOne.mock.calls[0][0]).not.toHaveProperty('sectionActions');
+    expect(appliedIds()).not.toContain('medication-claritin');
+    expect(appliedIds()).not.toContain('order-dexamethasone');
+    expect(screen.getByTestId(testIds.rowStatus(TEMPLATE_ID))).toHaveTextContent('Sinusitis applied');
+    expectCharted('hpi-summary');
+
+    // nothing selected is left, so the button has nothing to do
+    expect(screen.getByTestId(testIds.chartSummary)).toHaveTextContent('Nothing is selected');
+    expect(screen.getByTestId(testIds.chartButton)).toBeDisabled();
   });
 
   it('adds only the checked observations, and never the template or the orders', async () => {
@@ -398,8 +470,8 @@ describe('ScribeRecommendationsDrawer', () => {
     await openPanelWithRecommendations(user);
     const total = observations().length;
 
-    await user.click(rowCheckbox('medication-claritin'));
-    expect(rowCheckbox('medication-claritin')).not.toBeChecked();
+    await untick(user, 'medication-claritin');
+    expectUnticked('medication-claritin');
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 1} of ${total} selected`);
 
     await user.click(screen.getByTestId(testIds.applyObservationsButton));
@@ -412,11 +484,12 @@ describe('ScribeRecommendationsDrawer', () => {
     // the preferred primary is written before the other diagnoses
     expect(appliedIds().filter((id) => id.startsWith('dx-'))[0]).toBe('dx-acute-sinusitis');
 
-    expect(screen.getByTestId(testIds.rowStatus('hpi-summary'))).toHaveAttribute('aria-label', 'Applied');
+    // applied rows are settled, and say so in the checkbox rather than in an icon beside it
+    expectCharted('hpi-summary');
+    // the one that was left out is still a live line, struck through and open to a second thought
     expect(screen.queryByTestId(testIds.rowStatus('medication-claritin'))).toBeNull();
-    expect(rowCheckbox('medication-claritin')).toBeEnabled();
-    // applied rows are settled
-    expect(rowCheckbox('hpi-summary')).toBeDisabled();
+    expectUnticked('medication-claritin');
+    expect(screen.getByTestId(testIds.rowEditButton('medication-claritin'))).toBeInTheDocument();
     expect(screen.getByTestId(testIds.templateApplyButton)).toBeEnabled();
   });
 
@@ -428,7 +501,8 @@ describe('ScribeRecommendationsDrawer', () => {
     const input = screen.getByTestId(testIds.rowEditInput('hpi-summary'));
     await user.clear(input);
     await user.type(input, 'Post-nasal drip and sinus pressure x 1 week, worse in the afternoons.');
-    await user.click(screen.getByTestId(testIds.rowEditSaveButton('hpi-summary')));
+    // Enter is a line break in the HPI box, so this one is committed by looking away
+    await lookAway(user);
     // the row and, now that the AI's paraphrase is stale, the narrative both carry the new words
     expect(
       within(screen.getByTestId(testIds.row('hpi-summary'))).getByText(
@@ -443,17 +517,17 @@ describe('ScribeRecommendationsDrawer', () => {
     const weightInput = screen.getByTestId(testIds.rowEditInput('vital-weight'));
     await user.clear(weightInput);
     await user.type(weightInput, '172');
-    await user.click(screen.getByTestId(testIds.rowEditSaveButton('vital-weight')));
+    await user.keyboard('{Enter}');
     expect(screen.getByText(/Weight 172 lbs/)).toBeVisible();
 
     await user.click(screen.getByTestId(testIds.rowEditButton('dx-postnasal-drip')));
     await user.click(screen.getByTestId('pick-diagnosis'));
-    await user.click(screen.getByTestId(testIds.rowEditSaveButton('dx-postnasal-drip')));
+    await lookAway(user);
     expect(screen.getByText('Acute maxillary sinusitis (J01.00)')).toBeVisible();
 
     await user.click(screen.getByTestId(testIds.applyObservationsButton));
     await waitFor(() =>
-      expect(screen.getByTestId(testIds.rowStatus('vital-weight'))).toHaveAttribute('aria-label', 'Applied')
+      expect(screen.getByTestId(testIds.rowCheckbox('vital-weight'))).toHaveClass('MuiCheckbox-colorSuccess')
     );
 
     const applied = mocks.applyOne.mock.calls.map(([rec]) => rec as ScribeRecommendation);
@@ -480,7 +554,7 @@ describe('ScribeRecommendationsDrawer', () => {
     await user.click(screen.getByTestId(testIds.rowEditButton(TEMPLATE_ID)));
     await user.click(screen.getByTestId(testIds.rowEditInput(TEMPLATE_ID)));
     await user.click(screen.getByRole('option', { name: 'Sinusitis: Wait See' }));
-    await user.click(screen.getByTestId(testIds.rowEditSaveButton(TEMPLATE_ID)));
+    await lookAway(user);
     // picking a different template clears the failure, so this is a fresh apply rather than a retry
     expect(screen.getByTestId(testIds.templateApplyButton)).toHaveTextContent('Apply template: Sinusitis: Wait See');
 
@@ -504,9 +578,9 @@ describe('ScribeRecommendationsDrawer', () => {
       .filter((rec) => rec.section === 'ros')
       .map((rec) => rec.id);
     for (const id of rosIds) {
-      await user.click(rowCheckbox(id));
+      await untick(user, id);
     }
-    rosIds.forEach((id) => expect(rowCheckbox(id)).not.toBeChecked());
+    rosIds.forEach((id) => expectUnticked(id));
 
     await user.click(screen.getByTestId(testIds.applyObservationsButton));
     await waitFor(() =>
@@ -522,9 +596,11 @@ describe('ScribeRecommendationsDrawer', () => {
     mocks.applyOne.mockClear();
     await user.click(screen.getByTestId(testIds.rowRetryButton('allergy-fentanyl')));
     await waitFor(() =>
-      expect(screen.getByTestId(testIds.rowStatus('allergy-fentanyl'))).toHaveAttribute('aria-label', 'Applied')
+      expect(screen.getByTestId(testIds.rowCheckbox('allergy-fentanyl'))).toHaveClass('MuiCheckbox-colorSuccess')
     );
     expect(appliedIds()).toEqual(['allergy-fentanyl']);
+    // pressing Retry was not an edit, however clickable the rest of the line is
+    expect(screen.queryByTestId(testIds.rowEditInput('allergy-fentanyl'))).toBeNull();
   });
 
   it('marks recommendations the chart already holds and leaves them out of the batch', async () => {
@@ -559,7 +635,7 @@ describe('ScribeRecommendationsDrawer', () => {
     await openPanelWithRecommendations(user);
 
     expect(within(screen.getByTestId(testIds.row('ros-neuro-headache'))).queryByText('Already charted')).toBeNull();
-    expect(rowCheckbox('ros-neuro-headache')).toBeEnabled();
+    expect(screen.queryByTestId(testIds.rowCheckbox('ros-neuro-headache'))).toBeNull();
     const before = observations().length;
 
     // the provider ticks Headache on the Review of Systems screen while the panel is open
@@ -570,12 +646,12 @@ describe('ScribeRecommendationsDrawer', () => {
     await waitFor(() =>
       expect(within(screen.getByTestId(testIds.row('ros-neuro-headache'))).getByText('Already charted')).toBeVisible()
     );
-    expect(rowCheckbox('ros-neuro-headache')).toBeDisabled();
+    expectCharted('ros-neuro-headache');
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent('1 already charted');
     expect(screen.getByTestId(testIds.applyObservationsButton)).toHaveTextContent(`Add ${before - 1} observations`);
   });
 
-  it('keeps the transcript evidence out of the row until it is asked for', async () => {
+  it('keeps the transcript evidence off the row until the pointer is on the line', async () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
@@ -583,37 +659,107 @@ describe('ScribeRecommendationsDrawer', () => {
     const caution = 'Patient-reported, not measured.';
     expect(screen.queryByText(quote)).toBeNull();
     expect(screen.queryByText(caution)).toBeNull();
-    expect(screen.queryByTestId(testIds.rowDetail('vital-weight'))).toBeNull();
 
-    // hovering reads it without committing to anything
-    await user.hover(screen.getByTestId(testIds.rowDetailButton('vital-weight')));
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(quote);
+    // hovering the line reads it: there is no "i" to press, and nothing to pin open
+    const row = screen.getByTestId(testIds.row('vital-weight'));
+    await user.hover(row);
+    const tooltip = await screen.findByRole('tooltip');
+    expect(within(tooltip).getByText(quote)).toBeVisible();
+    expect(within(tooltip).getByText(caution)).toBeVisible();
 
-    // clicking pins it open, then closes it again
-    await user.click(screen.getByTestId(testIds.rowDetailButton('vital-weight')));
-    const detail = screen.getByTestId(testIds.rowDetail('vital-weight'));
-    expect(within(detail).getByText(quote)).toBeVisible();
-    expect(within(detail).getByText(caution)).toBeVisible();
+    await user.unhover(row);
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
 
-    await user.click(screen.getByTestId(testIds.rowDetailButton('vital-weight')));
-    await waitFor(() => expect(screen.queryByTestId(testIds.rowDetail('vital-weight'))).toBeNull());
-
-    // rows the AI is confident about get the same affordance, unflagged
-    expect(screen.getByTestId(testIds.rowDetailButton('dx-acute-sinusitis'))).toBeVisible();
+    // the caution still flags the row without hovering; a row the AI is sure of carries no flag
+    expect(within(row).getByLabelText(caution)).toBeVisible();
+    expect(within(screen.getByTestId(testIds.row('dx-acute-sinusitis'))).queryByRole('img')).toBeNull();
   });
 
-  it('tracks suggested orders as a manual checklist, with their rationale on demand', async () => {
+  it('opens the editor from anywhere on the line, not just from the pencil', async () => {
+    const user = userEvent.setup();
+    await openPanelWithRecommendations(user);
+
+    const row = screen.getByTestId(testIds.row('allergy-fentanyl'));
+    await user.click(within(row).getByText('Fentanyl'));
+    // the same editor the narrative popover opens: the tick and the field, and nothing to press
+    expect(within(row).getByTestId(testIds.rowEditInput('allergy-fentanyl'))).toHaveValue('Fentanyl');
+    expect(rowCheckbox('allergy-fentanyl')).toBeChecked();
+    expect(within(row).queryByRole('button', { name: /save|cancel/i })).toBeNull();
+    // the pencil has done its job, and the hover is gone while the editor is up
+    expect(within(row).queryByTestId(testIds.rowEditButton('allergy-fentanyl'))).toBeNull();
+    // and the hover has nothing left to say: its popper empties out and goes
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+
+    // unticking it there is what takes it out of the batch, and the line says so in both places
+    await user.click(rowCheckbox('allergy-fentanyl'));
+    await lookAway(user);
+    expectUnticked('allergy-fentanyl');
+    expect(screen.getByTestId(testIds.narrativeSpan('allergy-fentanyl'))).toHaveStyle({
+      textDecoration: 'line-through',
+    });
+    expect(within(row).getByTestId(testIds.rowEditButton('allergy-fentanyl'))).toBeInTheDocument();
+
+    // and applying the template is not editing which template it is, though its own line is
+    // otherwise clickable the same way
+    await user.click(screen.getByTestId(testIds.templateApplyButton));
+    expect(screen.getByTestId('template-preview-dialog')).toBeVisible();
+    expect(screen.queryByTestId(testIds.rowEditInput(TEMPLATE_ID))).toBeNull();
+    await user.click(screen.getByTestId('preview-cancel'));
+
+    // the template row's body — everything but the rail — opens its picker wherever it is clicked
+    const templateBody = screen.getByTestId(testIds.row(TEMPLATE_ID)).lastElementChild as HTMLElement;
+    await user.click(templateBody);
+    expect(screen.getByTestId(testIds.rowEditInput(TEMPLATE_ID))).toBeVisible();
+  });
+
+  it('keeps one editor open at a time, and saves the one it closes', async () => {
+    const user = userEvent.setup();
+    await openPanelWithRecommendations(user);
+
+    await user.click(screen.getByTestId(testIds.rowEditButton('allergy-fentanyl')));
+    const input = screen.getByTestId(testIds.rowEditInput('allergy-fentanyl'));
+    await user.clear(input);
+    await user.type(input, 'Fentanyl patch');
+
+    // clicking another line puts the first one away, with what was typed in it kept — and that
+    // is all it does: the line clicked on stays closed until it is clicked on its own
+    await user.click(screen.getByTestId(testIds.rowText('medication-claritin')));
+    expect(screen.queryByTestId(testIds.rowEditInput('allergy-fentanyl'))).toBeNull();
+    expect(screen.queryByTestId(testIds.rowEditInput('medication-claritin'))).toBeNull();
+    expect(screen.getByTestId(testIds.rowText('allergy-fentanyl'))).toHaveTextContent('Fentanyl patch');
+
+    await user.click(screen.getByTestId(testIds.rowText('medication-claritin')));
+    expect(screen.getByTestId(testIds.rowEditInput('medication-claritin'))).toBeVisible();
+
+    // Escape is a way out like any other, so it keeps the edit rather than dropping it
+    const claritin = screen.getByTestId(testIds.rowEditInput('medication-claritin'));
+    await user.clear(claritin);
+    await user.type(claritin, 'Claritin 10mg{Escape}');
+    expect(screen.queryByTestId(testIds.rowEditInput('medication-claritin'))).toBeNull();
+    expect(screen.getByTestId(testIds.rowText('medication-claritin'))).toHaveTextContent('Claritin 10mg');
+
+    // and a line that was only looked at is not an edit: the narrative keeps the AI's own wording
+    await user.click(screen.getByTestId(testIds.rowEditButton('hpi-summary')));
+    await lookAway(user);
+    expect(useScribeRecommendationsStore.getState().itemState['hpi-summary'].edited).toBeUndefined();
+  });
+
+  it('tracks suggested orders as a manual checklist, with their rationale on hover', async () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
     const rationale = 'Thins secretions to relieve the post-nasal drip and sinus congestion.';
     expect(screen.queryByText(rationale)).toBeNull();
-    await user.click(screen.getByTestId(testIds.orderDetailButton('order-guaifenesin')));
-    expect(within(screen.getByTestId(testIds.orderDetail('order-guaifenesin'))).getByText(rationale)).toBeVisible();
+    const row = screen.getByTestId(testIds.orderSuggestion('order-guaifenesin'));
+    await user.hover(row);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(rationale);
+    await user.unhover(row);
 
     const checkbox = within(screen.getByTestId(testIds.orderCheckbox('order-guaifenesin'))).getByRole('checkbox');
     await user.click(checkbox);
     expect(checkbox).toBeChecked();
+    // done reads green here too
+    expect(screen.getByTestId(testIds.orderCheckbox('order-guaifenesin'))).toHaveClass('MuiCheckbox-colorSuccess');
     expect(screen.getByTestId(testIds.orderButton('order-guaifenesin'))).toBeDisabled();
     expect(mocks.applyOne).not.toHaveBeenCalled();
   });

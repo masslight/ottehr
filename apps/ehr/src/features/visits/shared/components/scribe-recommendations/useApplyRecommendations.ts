@@ -81,7 +81,11 @@ export const useApplyRecommendations = (): {
   const { mutateAsync: deleteChartData } = useDeleteChartData();
   const { refetch: refetchChartData, chartDataSetState, queryKey: chartDataQueryKey } = useChartData();
   // Same query the HPI editor reads, so the appended text shows up there without a refetch.
-  const { data: hpiFields, setQueryCache: setHpiQueryCache } = useChartFields({
+  const {
+    data: hpiFields,
+    setQueryCache: setHpiQueryCache,
+    refetch: refetchHpiFields,
+  } = useChartFields({
     requestedFields: { chiefComplaint: { _tag: 'chief-complaint' } },
   });
   const saveVitals = useSaveVitals({ encounterId: encounterId ?? '' });
@@ -129,13 +133,18 @@ export const useApplyRecommendations = (): {
     async (rec: HpiRecommendation): Promise<void> => {
       const addition = rec.text.trim();
       if (!addition) throw new Error('The HPI text is empty.');
-      const existing = hpiFields?.chiefComplaint;
+      // Read the HPI as it is now, not as it was when this callback was made: a template applied
+      // a moment earlier (the Chart button does exactly that) has written one since, and appending
+      // to the stale copy — without its resource id — creates a second chief complaint beside it
+      // rather than extending it, and the note only ever shows one.
+      const fresh = (await refetchHpiFields()).data as typeof hpiFields;
+      const existing = (fresh ?? hpiFields)?.chiefComplaint;
       const current = existing?.text?.trim() ?? '';
       const text = current ? `${current}\n${addition}` : addition;
       const result = await saveChartData({ chiefComplaint: { resourceId: existing?.resourceId, text } });
       setHpiQueryCache({ chiefComplaint: result.chartData.chiefComplaint });
     },
-    [hpiFields, saveChartData, setHpiQueryCache]
+    [hpiFields, refetchHpiFields, saveChartData, setHpiQueryCache]
   );
 
   const applyDiagnosis = useCallback(

@@ -172,6 +172,34 @@ const ResultsStep: FC = () => {
   const failedCount = observations.filter((rec) => itemState[rec.id]?.status === 'error').length;
   const allPendingSelected = pending.length > 0 && selectedPending.length === pending.length;
 
+  // The Chart button does the whole review in one go: the template first, without the section
+  // picker (the apply falls back to the panel's own defaults), then the checked observations.
+  const templatePending =
+    template !== undefined &&
+    itemState[template.id]?.selected !== false &&
+    itemState[template.id]?.status !== 'applied' &&
+    !charted.has(template.id);
+  const chartEverything = async (): Promise<void> => {
+    if (template && templatePending) {
+      await applyRecommendation(template.id);
+      // The observations are meant to land on top of the template; if it failed, they wait.
+      if (useScribeRecommendationsStore.getState().itemState[template.id]?.status === 'error') return;
+    }
+    if (selectedPending.length > 0) await applyObservations();
+  };
+  const observationsNoun = `${selectedPending.length} selected ${
+    selectedPending.length === 1 ? 'observation' : 'observations'
+  }`;
+  const chartSummary = templatePending
+    ? selectedPending.length > 0
+      ? `Applies the template and ${observationsNoun}`
+      : 'Applies the template'
+    : selectedPending.length > 0
+    ? `Applies ${observationsNoun}`
+    : pending.length > 0
+    ? 'Nothing is selected'
+    : 'Everything is charted';
+
   const summary = [
     pending.length > 0 ? `${selectedPending.length} of ${pending.length} selected` : undefined,
     appliedCount > 0 ? `${appliedCount} added` : undefined,
@@ -188,6 +216,20 @@ const ResultsStep: FC = () => {
     stages.push(
       <ScribeStage key="narrative" name="narrative" lead="Here’s what I heard in the visit.">
         <NarrativeSummary templates={templates} onRetry={() => void applyObservations()} />
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
+          <Typography variant="caption" color="text.secondary" data-testid={testIds.chartSummary}>
+            {chartSummary}
+          </Typography>
+          <RoundedButton
+            variant="contained"
+            onClick={() => void chartEverything()}
+            disabled={(!templatePending && selectedPending.length === 0) || isApplying}
+            loading={isApplying}
+            data-testid={testIds.chartButton}
+          >
+            Chart
+          </RoundedButton>
+        </Box>
       </ScribeStage>
     );
   }

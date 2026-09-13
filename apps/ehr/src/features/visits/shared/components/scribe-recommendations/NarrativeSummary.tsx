@@ -2,6 +2,7 @@ import { Box, Paper, Popover, Tooltip, Typography } from '@mui/material';
 import { Patient } from 'fhir/r4b';
 import { FC, Fragment, KeyboardEvent, useEffect, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { calculatePatientAge } from 'utils/lib/utils/dateUtils';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { TemplateOption } from '../templates/useListTemplates';
@@ -38,7 +39,12 @@ const runValues = (rec: ScribeRecommendation): Record<string, string> => {
     case 'template':
       return { templateName: rec.templateName };
     case 'ros':
-      return {};
+      // The finding is the verb of the sentence, so a flip of the R/D toggle rewrites the run
+      // rather than leaving it saying the opposite of what the row now says.
+      return {
+        finding: rec.finding === RosFindingState.Reports ? 'reports' : 'denies',
+        label: rec.label.charAt(0).toLowerCase() + rec.label.slice(1),
+      };
   }
 };
 
@@ -192,7 +198,12 @@ const NarrativeSpan: FC<NarrativeSpanProps> = ({ segment, itemId, templates, onR
       onMouseLeave={deactivate}
       onFocus={activate}
       onBlur={deactivate}
-      onClick={(event) => open(event.currentTarget)}
+      // A line elsewhere already has an editor open: this click is the one closing it (and
+      // saving it), so it does only that rather than also putting this run's popover up.
+      onClick={(event) => {
+        if (useScribeRecommendationsStore.getState().editingId !== undefined) return;
+        open(event.currentTarget);
+      }}
       onKeyDown={onKeyDown}
       sx={{
         borderRadius: '4px',
@@ -285,6 +296,9 @@ const NarrativeRecommendationRow: FC<NarrativeRecommendationRowProps> = ({
       }}
       // A settled item has nothing left to edit; it opens read-only instead.
       startEditing={!charted && itemState.status !== 'applied'}
+      // The list holds a row for this same recommendation, and only one editor is open at a time:
+      // this copy is the one being worked in, so it is named apart from the one in the list.
+      editingKey={`narrative-${id}`}
       onEditingEnd={onEditingEnd}
       hideProvenance
     />

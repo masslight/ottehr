@@ -36,7 +36,9 @@ const SAMPLE_ANALYSIS: ScribeAnalysis = {
   // Every recommendation and order below has a run in here. The age/sex placeholders are filled
   // in from the visit's patient at render time, since the fixture doesn't know who is on screen;
   // the {field} placeholders in linked runs are filled from the recommendation as it stands, so an
-  // edit in the panel shows up in the sentence too.
+  // edit in the panel shows up in the sentence too. A review-of-systems run carries its own verb
+  // in {finding}, and the words around it are written to read either way, so flipping R/D on the
+  // row rewrites the sentence instead of leaving it saying the opposite.
   narrative: [
     { text: 'The patient is a {age}-year-old {sex} ' },
     { text: 'weighing {weightLbs} lbs ({kg} kg)', itemId: 'vital-weight' },
@@ -46,22 +48,22 @@ const SAMPLE_ANALYSIS: ScribeAnalysis = {
     { text: '1-week history of post-nasal drip and sinus pressure', itemId: 'hpi-summary' },
     { text: ' (' },
     { text: '{code}', itemId: 'dx-postnasal-drip' },
-    { text: '). The patient reports current symptoms of ' },
-    { text: 'sinus pain/pressure', itemId: 'ros-ent-sinus-pain' },
+    { text: '). The patient ' },
+    { text: '{finding} sinus pain/pressure', itemId: 'ros-ent-sinus-pain' },
     { text: ', ' },
-    { text: 'afternoon headaches', itemId: 'ros-neuro-headache' },
+    { text: '{finding} afternoon headaches', itemId: 'ros-neuro-headache' },
     { text: ', ' },
     { text: '{displayLower} upon standing ({code})', itemId: 'dx-dizziness' },
     { text: ', and ' },
-    { text: 'morning eye discharge', itemId: 'ros-eyes-discharge' },
-    { text: '. A review of systems is negative for ' },
-    { text: 'fever', itemId: 'ros-constitutional-fever' },
+    { text: '{finding} morning eye discharge', itemId: 'ros-eyes-discharge' },
+    { text: '. On review of systems, the patient ' },
+    { text: '{finding} fever', itemId: 'ros-constitutional-fever' },
     { text: ', ' },
-    { text: 'ear pain', itemId: 'ros-ent-ear-pain' },
+    { text: '{finding} ear pain', itemId: 'ros-ent-ear-pain' },
+    { text: ', ' },
+    { text: '{finding} sore throat', itemId: 'ros-ent-sore-throat' },
     { text: ', and ' },
-    { text: 'sore throat', itemId: 'ros-ent-sore-throat' },
-    { text: ', and the patient ' },
-    { text: 'denies active post-nasal drip at this time', itemId: 'ros-ent-post-nasal-drip' },
+    { text: '{finding} active post-nasal drip at this time', itemId: 'ros-ent-post-nasal-drip' },
     { text: '. To manage symptoms, the patient has been taking ' },
     { text: '{prn} {name}', itemId: 'medication-ibuprofen' },
     { text: ' and ' },

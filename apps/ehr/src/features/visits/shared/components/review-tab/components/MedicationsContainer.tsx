@@ -1,5 +1,5 @@
 import { Box, Typography, useTheme } from '@mui/material';
-import { FC, useMemo } from 'react';
+import { FC, Fragment, useMemo } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   SectionHeading,
@@ -9,11 +9,14 @@ import { filterActiveMedications } from 'utils/lib/helpers/medications/current-m
 import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { AssessmentTitle } from '../../../../../../components/AssessmentTitle';
 import { useChartData } from '../../../stores/appointment/appointment.store';
+import { AiAddedMark } from '../../scribe-recommendations/AiAddedMark';
+import { findAiAddedFor, useAiAddedRecommendations } from '../../scribe-recommendations/aiAddedMarks';
 
 export const MedicationsContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { chartData } = useChartData();
   const theme = useTheme();
+  const aiAdded = useAiAddedRecommendations();
 
   const medications = useMemo(() => filterActiveMedications(chartData?.medications), [chartData?.medications]);
 
@@ -31,10 +34,18 @@ export const MedicationsContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
           ]
             .filter(Boolean)
             .join(' · ');
-          return (
-            <Typography key={medication.resourceId}>
+          const row = (
+            <Typography>
               {medication.name} {additionalInfo ? `(${additionalInfo})` : ''}
             </Typography>
+          );
+          const fromAi = findAiAddedFor(aiAdded, { kind: 'medication', name: medication.name });
+          return fromAi ? (
+            <AiAddedMark key={medication.resourceId} recommendation={fromAi}>
+              {row}
+            </AiAddedMark>
+          ) : (
+            <Fragment key={medication.resourceId}>{row}</Fragment>
           );
         })
       ) : (
