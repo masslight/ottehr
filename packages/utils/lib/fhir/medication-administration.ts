@@ -404,7 +404,8 @@ export function getCptCodesFromMA(
   const ext = medicationAdministration.extension?.find((e) => e.url === MEDICATION_CPT_CODES_EXTENSION_URL);
   if (!ext?.valueString) return undefined;
   try {
-    return JSON.parse(ext.valueString) as MedicationCptCodeEntry[];
+    const parsed = JSON.parse(ext.valueString);
+    return Array.isArray(parsed) ? (parsed as MedicationCptCodeEntry[]) : undefined;
   } catch {
     return undefined;
   }

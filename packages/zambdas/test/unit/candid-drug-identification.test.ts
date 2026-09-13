@@ -206,6 +206,18 @@ describe('buildDrugIdentification', () => {
     expect(buildDrugIdentification(makeProcedure('ma-1', 'J1200'), [ma])?.nationalDrugCode).toBe('12345-6789-01');
     expect(buildDrugIdentification(makeProcedure('ma-1', '96372'), [ma])).toBeUndefined();
   });
+
+  it('does not throw when the CPT codes extension holds valid JSON that is not an array', () => {
+    const ma: MedicationAdministration = {
+      ...makeMedicationAdministration({ id: 'ma-1', ndcCode: '12345-6789-01', dose: 2, doseUnit: 'ml' }),
+      extension: [{ url: 'https://fhir.ottehr.com/Extension/medication-cpt-codes', valueString: '{}' }],
+    };
+
+    const result = buildDrugIdentification(makeProcedure('ma-1'), [ma]);
+
+    // Malformed extension is ignored → legacy behavior: NDC attaches to the MA-linked line
+    expect(result?.nationalDrugCode).toBe('12345-6789-01');
+  });
 });
 
 // ── mapMedicationUnitToCandid ──────────────────────────────────────────────────
