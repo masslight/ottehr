@@ -30,6 +30,7 @@ import PatientsList from './pages/PatientsList';
 import PaymentsReport from './pages/PaymentsReport';
 import PipelineReport from './pages/PipelineReport';
 import ProductivityReport from './pages/ProductivityReport';
+import RemitDetail from './pages/RemitDetail';
 import { RenderingProviderDetail, RenderingProvidersList } from './pages/RenderingProviders';
 import Reports from './pages/Reports';
 import RuleDetail from './pages/RuleDetail';
@@ -103,6 +104,7 @@ export default function App(): ReactElement {
               <Route path="/eras" element={<ERAList />} />
               <Route path="/eras/:id" element={<ERADetail />} />
               <Route path="/eras/:eraId/claims/:claimId" element={<EraClaimDetail />} />
+              <Route path="/remits/new" element={<RemitDetail />} />
               <Route path="/tags" element={<Tags />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/reports/payments" element={<PaymentsReport />} />

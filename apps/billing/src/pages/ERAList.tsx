@@ -1,4 +1,11 @@
-import { Add as AddIcon, Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon,
+  Clear as ClearIcon,
+  EditNote as EditNoteIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  Search as SearchIcon,
+  UploadFile as UploadFileIcon,
+} from '@mui/icons-material';
 import {
   Alert,
   Autocomplete,
@@ -8,9 +15,13 @@ import {
   FormControl,
   InputAdornment,
   InputLabel,
+  ListItemIcon,
+  ListItemText,
+  Menu,
   MenuItem,
   Select,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
@@ -25,6 +36,7 @@ import { formatCurrency } from 'utils/lib/utils/convert';
 import { searchBillingEras, searchBillingPayers } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { DateRangeInput } from '../components/DateInput';
+import { EnterRemitDialog } from '../components/EnterRemitDialog';
 import { ImportEraDialog } from '../components/ImportEraDialog';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
@@ -45,6 +57,45 @@ interface Filters {
   patientId?: string;
 }
 
+const ERA_SOURCE_CHIPS: Record<string, { label: string; color: 'info' | 'default' }> = {
+  manual: { label: 'Manual', color: 'info' },
+  'imported-835': { label: 'Imported X12/835', color: 'info' },
+  'clearing-house': { label: 'Clearing House', color: 'default' },
+};
+
+// muted burgundy: noticeable without shouting
+const UNMATCHED_TEXT_COLOR = '#8E3B4A';
+
+// Prototype-only sample rows demonstrating the non-clearing-house sources; not real ERAs.
+const DEMO_SOURCE_ERAS: EraListItem[] = [
+  {
+    id: 'demo-manual-1',
+    checkNumber: 'CHK-10422',
+    payerName: 'Aetna (sample)',
+    billingProviderName: 'Brightside Pediatrics LLC',
+    paymentDate: '2026-09-10',
+    paymentAmount: 1245.5,
+    status: 'complete',
+    source: 'manual',
+    claimCount: 3,
+    matchedCount: 3,
+    unmatchedCount: 0,
+  },
+  {
+    id: 'demo-imported-1',
+    checkNumber: 'EFT-88213',
+    payerName: 'United Healthcare (sample)',
+    billingProviderName: 'Lakeview Urgent Care PA',
+    paymentDate: '2026-09-08',
+    paymentAmount: 2310.75,
+    status: 'complete',
+    source: 'imported-835',
+    claimCount: 5,
+    matchedCount: 4,
+    unmatchedCount: 1,
+  },
+];
+
 const columns: GridColDef[] = [
   { field: 'checkNumber', headerName: 'Check No.', width: 150 },
   { field: 'paymentDate', headerName: 'Check Date', width: 120 },
@@ -58,22 +109,52 @@ const columns: GridColDef[] = [
   },
   { field: 'payerName', headerName: 'Payer', flex: 1, minWidth: 200 },
   {
-    field: 'status',
-    headerName: 'Status',
-    width: 130,
-    renderCell: ({ value }) => (
-      <Chip
-        label={String(value ?? '')}
-        color={value === 'complete' ? 'success' : 'warning'}
-        variant="outlined"
-        size="small"
-        sx={{ borderRadius: '4px', fontSize: 12 }}
-      />
-    ),
+    field: 'billingProviderName',
+    headerName: 'Billing Provider',
+    flex: 1,
+    minWidth: 180,
+    valueFormatter: (params: { value?: string }) => params.value || '-',
   },
-  { field: 'claimCount', headerName: 'Claims', width: 80, align: 'right', headerAlign: 'right' },
-  { field: 'matchedCount', headerName: 'Matched', width: 90, align: 'right', headerAlign: 'right' },
-  { field: 'unmatchedCount', headerName: 'Unmatched', width: 100, align: 'right', headerAlign: 'right' },
+  {
+    field: 'source',
+    headerName: 'Source',
+    width: 160,
+    renderCell: ({ value }) => {
+      const chip = ERA_SOURCE_CHIPS[String(value)] ?? ERA_SOURCE_CHIPS['clearing-house'];
+      return (
+        <Chip
+          label={chip.label}
+          color={chip.color}
+          variant="outlined"
+          size="small"
+          sx={{ borderRadius: '4px', fontSize: 12 }}
+        />
+      );
+    },
+  },
+  {
+    // matched/total in one glance; orange when anything is unmatched
+    field: 'claimCount',
+    headerName: 'Claims',
+    width: 110,
+    align: 'center',
+    headerAlign: 'center',
+    sortable: false,
+    renderCell: ({ row }) => {
+      const { claimCount, matchedCount, unmatchedCount } = row as EraListItem;
+      return (
+        <Tooltip title={`${claimCount} claims: ${matchedCount} matched, ${unmatchedCount} unmatched`}>
+          <Typography
+            variant="body2"
+            component="span"
+            sx={{ color: unmatchedCount > 0 ? UNMATCHED_TEXT_COLOR : 'text.primary' }}
+          >
+            {matchedCount}/{claimCount} matched
+          </Typography>
+        </Tooltip>
+      );
+    },
+  },
 ];
 
 export default function ERAList(): ReactElement {
@@ -85,7 +166,9 @@ export default function ERAList(): ReactElement {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+  const [addMenuAnchor, setAddMenuAnchor] = useState<HTMLElement | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showEnterDialog, setShowEnterDialog] = useState(false);
 
   // ERA-level filters
   const [checkNumber, setCheckNumber] = useState('');
@@ -127,7 +210,9 @@ export default function ERAList(): ReactElement {
         if (filters.dosTo) params.dosTo = filters.dosTo;
         if (filters.patientId) params.patientId = filters.patientId;
         const data = await searchBillingEras(oystehrZambda, params);
-        setEras(data.eras ?? []);
+        // demo rows only on the first unfiltered page
+        const showDemos = pagination.page === 0 && Object.keys(filters).every((k) => !filters[k as keyof Filters]);
+        setEras(showDemos ? [...DEMO_SOURCE_ERAS, ...(data.eras ?? [])] : data.eras ?? []);
         setTotalRows(data.total ?? 0);
       } catch (err) {
         setError(getApiError({ error: err, defaultError: 'Failed to load ERAs' }));
@@ -244,9 +329,38 @@ export default function ERAList(): ReactElement {
         <Typography variant="h4" color="primary.dark" fontWeight={600}>
           ERAs
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setShowImportDialog(true)}>
-          Import ERA
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          endIcon={<KeyboardArrowDownIcon />}
+          onClick={(e) => setAddMenuAnchor(e.currentTarget)}
+        >
+          Add
         </Button>
+        <Menu anchorEl={addMenuAnchor} open={!!addMenuAnchor} onClose={() => setAddMenuAnchor(null)}>
+          <MenuItem
+            onClick={() => {
+              setAddMenuAnchor(null);
+              setShowImportDialog(true);
+            }}
+          >
+            <ListItemIcon>
+              <UploadFileIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary="Import 835" secondary="Paste an ERA in X12 format" />
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setAddMenuAnchor(null);
+              setShowEnterDialog(true);
+            }}
+          >
+            <ListItemIcon>
+              <EditNoteIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary="Enter Manually" secondary="Key in a paper or PDF remit" />
+          </MenuItem>
+        </Menu>
       </Box>
 
       <TextField
@@ -397,7 +511,10 @@ export default function ERAList(): ReactElement {
         paginationMode="server"
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationChange}
-        onRowClick={(params) => navigate(`/eras/${params.id}`)}
+        onRowClick={(params) => {
+          if (String(params.id).startsWith('demo-')) return;
+          navigate(`/eras/${params.id}`);
+        }}
         disableRowSelectionOnClick
         disableColumnMenu
         pageSizeOptions={[25, 50, 100]}
@@ -413,6 +530,7 @@ export default function ERAList(): ReactElement {
           }}
         />
       )}
+      {showEnterDialog && <EnterRemitDialog onClose={() => setShowEnterDialog(false)} />}
     </Box>
   );
 }

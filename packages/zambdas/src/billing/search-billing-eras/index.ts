@@ -8,6 +8,7 @@ import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { countEraClaims, fetchClaimEraLinks, fetchClaimResponsesByPaymentReconciliations } from '../claim-amounts';
+import { resolveEraPayee } from '../era-remits';
 import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
   createBillingClient,
@@ -276,6 +277,7 @@ function mapEra(
     id: pr.id ?? '',
     checkNumber,
     payerName: payerOrg?.name ?? pr.paymentIssuer?.display ?? '',
+    billingProviderName: resolveEraPayee(claimResponses)?.name ?? '',
     paymentDate: pr.paymentDate ?? pr.created ?? '',
     paymentAmount: pr.paymentAmount?.value ?? 0,
     status: pr.outcome ?? pr.status ?? '',

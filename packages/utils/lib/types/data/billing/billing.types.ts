@@ -163,9 +163,13 @@ export interface EraListItem {
   id: string;
   checkNumber: string;
   payerName: string;
+  // N1*PE payee name (the billing provider the check pays); '' when unresolvable
+  billingProviderName?: string;
   paymentDate: string;
   paymentAmount: number;
   status: string;
+  // how the remit got in; absent means clearing-house
+  source?: 'manual' | 'imported-835' | 'clearing-house';
   claimCount: number;
   matchedCount: number;
   unmatchedCount: number;
