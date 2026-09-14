@@ -9,7 +9,7 @@ describe('Quick Picks Button', () => {
   it('does not render when there are no quick picks', () => {
     render(<QuickPicksButton quickPicks={[]} getLabel={(item) => item} onSelect={vi.fn()} />);
 
-    expect(screen.queryByRole('button', { name: /quick picks/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /quick picks/i })).not.toBeInTheDocument();
   });
 
   it('renders the button and shows a loading row while quick picks are loading', async () => {
@@ -17,9 +17,9 @@ describe('Quick Picks Button', () => {
 
     render(<QuickPicksButton quickPicks={[]} getLabel={(item) => item} onSelect={vi.fn()} loading />);
 
-    expect(screen.getByRole('button', { name: /quick picks/i })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /quick picks/i })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /quick picks/i }));
+    await user.click(screen.getByRole('textbox', { name: /quick picks/i }));
 
     expect(screen.getByRole('menuitem', { name: 'Loading…' })).toBeInTheDocument();
   });
@@ -27,7 +27,7 @@ describe('Quick Picks Button', () => {
   it('renders when showAddOption is true even with no quick picks', () => {
     render(<QuickPicksButton quickPicks={[]} getLabel={(item) => item} onSelect={vi.fn()} showAddOption isAdmin />);
 
-    expect(screen.getByRole('button', { name: /quick picks/i })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /quick picks/i })).toBeInTheDocument();
   });
 
   it('renders quick pick options and calls onSelect when one is chosen', async () => {
@@ -36,7 +36,7 @@ describe('Quick Picks Button', () => {
 
     render(<QuickPicksButton quickPicks={QUICK_PICKS} getLabel={(item) => item} onSelect={onSelect} />);
 
-    await user.click(screen.getByRole('button', { name: /quick picks/i }));
+    await user.click(screen.getByRole('textbox', { name: /quick picks/i }));
 
     expect(screen.getByRole('menuitem', { name: 'Otitis media' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Viral URI' })).toBeInTheDocument();
@@ -54,7 +54,7 @@ describe('Quick Picks Button', () => {
 
     render(<QuickPicksButton quickPicks={QUICK_PICKS} getLabel={(item) => item} onSelect={vi.fn()} />);
 
-    await user.click(screen.getByRole('button', { name: /quick picks/i }));
+    await user.click(screen.getByRole('textbox', { name: /quick picks/i }));
     expect(screen.getByRole('menuitem', { name: 'Otitis media' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('menuitem', { name: 'Otitis media' }));
@@ -62,11 +62,44 @@ describe('Quick Picks Button', () => {
     expect(screen.queryByRole('menuitem', { name: 'Otitis media' })).not.toBeInTheDocument();
   });
 
+  it('opens the menu when Enter is pressed on the focused field', async () => {
+    const user = userEvent.setup();
+
+    render(<QuickPicksButton quickPicks={QUICK_PICKS} getLabel={(item) => item} onSelect={vi.fn()} />);
+
+    await user.tab();
+    expect(screen.getByRole('textbox', { name: /quick picks/i })).toHaveFocus();
+    await user.keyboard('{Enter}');
+
+    expect(screen.getByRole('menuitem', { name: 'Otitis media' })).toBeInTheDocument();
+  });
+
+  it('does not trigger the admin add option when Space is pressed on the focused field', async () => {
+    const user = userEvent.setup();
+    const onAddOrUpdate = vi.fn();
+
+    render(
+      <QuickPicksButton
+        quickPicks={QUICK_PICKS}
+        getLabel={(item) => item}
+        onSelect={vi.fn()}
+        showAddOption
+        isAdmin
+        onAddOrUpdate={onAddOrUpdate}
+      />
+    );
+
+    await user.tab();
+    await user.keyboard(' ');
+
+    expect(onAddOrUpdate).not.toHaveBeenCalled();
+  });
+
   describe('disabled prop', () => {
     it('renders a disabled button when disabled=true', () => {
       render(<QuickPicksButton quickPicks={QUICK_PICKS} getLabel={(item) => item} onSelect={vi.fn()} disabled />);
 
-      expect(screen.getByRole('button', { name: /quick picks/i })).toBeDisabled();
+      expect(screen.getByRole('textbox', { name: /quick picks/i })).toBeDisabled();
     });
 
     it('does not show any menu items since the disabled button cannot be opened', () => {
@@ -94,7 +127,7 @@ describe('Quick Picks Button', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /quick picks/i }));
+      await user.click(screen.getByRole('textbox', { name: /quick picks/i }));
 
       expect(screen.getByRole('menuitem', { name: /Add or Update Quick Pick/i })).toBeInTheDocument();
     });
@@ -114,7 +147,7 @@ describe('Quick Picks Button', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /quick picks/i }));
+      await user.click(screen.getByRole('textbox', { name: /quick picks/i }));
       await user.click(screen.getByRole('menuitem', { name: /Add or Update Quick Pick/i }));
 
       expect(onAddOrUpdate).toHaveBeenCalledTimes(1);
@@ -134,7 +167,7 @@ describe('Quick Picks Button', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /quick picks/i }));
+      await user.click(screen.getByRole('textbox', { name: /quick picks/i }));
 
       expect(screen.getByText(/Add Or Update Quick Pick Requires Admin Role/i)).toBeInTheDocument();
       // The "+" admin action item should not be present — only the disabled info message
@@ -148,7 +181,7 @@ describe('Quick Picks Button', () => {
 
       render(<QuickPicksButton quickPicks={QUICK_PICKS} getLabel={(item) => item} onSelect={vi.fn()} searchable />);
 
-      await user.click(screen.getByRole('button', { name: /quick picks/i }));
+      await user.click(screen.getByRole('textbox', { name: /quick picks/i }));
 
       expect(screen.getByPlaceholderText('Search...')).toBeInTheDocument();
     });
@@ -160,7 +193,7 @@ describe('Quick Picks Button', () => {
         <QuickPicksButton quickPicks={QUICK_PICKS} getLabel={(item) => item} onSelect={vi.fn()} searchable={false} />
       );
 
-      await user.click(screen.getByRole('button', { name: /quick picks/i }));
+      await user.click(screen.getByRole('textbox', { name: /quick picks/i }));
 
       expect(screen.queryByPlaceholderText('Search...')).not.toBeInTheDocument();
     });
@@ -170,7 +203,7 @@ describe('Quick Picks Button', () => {
 
       render(<QuickPicksButton quickPicks={QUICK_PICKS} getLabel={(item) => item} onSelect={vi.fn()} searchable />);
 
-      await user.click(screen.getByRole('button', { name: /quick picks/i }));
+      await user.click(screen.getByRole('textbox', { name: /quick picks/i }));
       await user.type(screen.getByPlaceholderText('Search...'), 'viral');
 
       expect(screen.getByRole('menuitem', { name: 'Viral URI' })).toBeInTheDocument();
@@ -183,7 +216,7 @@ describe('Quick Picks Button', () => {
 
       render(<QuickPicksButton quickPicks={QUICK_PICKS} getLabel={(item) => item} onSelect={vi.fn()} searchable />);
 
-      await user.click(screen.getByRole('button', { name: /quick picks/i }));
+      await user.click(screen.getByRole('textbox', { name: /quick picks/i }));
       await user.type(screen.getByPlaceholderText('Search...'), 'xyznotfound');
 
       expect(screen.getByText('No matches')).toBeInTheDocument();
@@ -194,7 +227,7 @@ describe('Quick Picks Button', () => {
 
       render(<QuickPicksButton quickPicks={QUICK_PICKS} getLabel={(item) => item} onSelect={vi.fn()} searchable />);
 
-      await user.click(screen.getByRole('button', { name: /quick picks/i }));
+      await user.click(screen.getByRole('textbox', { name: /quick picks/i }));
       await user.type(screen.getByPlaceholderText('Search...'), 'viral');
       expect(screen.queryByRole('menuitem', { name: 'Otitis media' })).not.toBeInTheDocument();
 
@@ -202,7 +235,7 @@ describe('Quick Picks Button', () => {
       await user.keyboard('{Escape}');
 
       // Reopen menu
-      await user.click(screen.getByRole('button', { name: /quick picks/i }));
+      await user.click(screen.getByRole('textbox', { name: /quick picks/i }));
       expect(screen.getByRole('menuitem', { name: 'Otitis media' })).toBeInTheDocument();
       expect(screen.getByRole('menuitem', { name: 'Viral URI' })).toBeInTheDocument();
     });
@@ -213,7 +246,7 @@ describe('Quick Picks Button', () => {
 
       render(<QuickPicksButton quickPicks={QUICK_PICKS} getLabel={(item) => item} onSelect={onSelect} searchable />);
 
-      await user.click(screen.getByRole('button', { name: /quick picks/i }));
+      await user.click(screen.getByRole('textbox', { name: /quick picks/i }));
       const searchInput = screen.getByPlaceholderText('Search...');
 
       // Navigate down twice to highlight second item
