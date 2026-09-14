@@ -44,7 +44,7 @@ describe('cleanupIntegrationTestDocumentReferences', () => {
   });
 
   it('deletes the stored object before the record that names it', async () => {
-    const url = `${Z3_BASE}form-instances/patient-1/form.pdf`;
+    const url = `${Z3_BASE}pdf-form-instances/patient-1/form.pdf`;
     const { client, transaction } = oystehrWith([docRef('doc-1', url)]);
 
     const order: string[] = [];
@@ -77,7 +77,7 @@ describe('cleanupIntegrationTestDocumentReferences', () => {
   });
 
   it('treats an object that is already gone as success', async () => {
-    const { client, transaction } = oystehrWith([docRef('doc-1', `${Z3_BASE}form-templates/x.pdf`)]);
+    const { client, transaction } = oystehrWith([docRef('doc-1', `${Z3_BASE}pdf-form-templates/x.pdf`)]);
     vi.mocked(fetch).mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' } as Response);
 
     await cleanupIntegrationTestDocumentReferences(client, 'tok', Z3_BASE);
@@ -86,7 +86,7 @@ describe('cleanupIntegrationTestDocumentReferences', () => {
   });
 
   it('still removes the records when an object delete fails outright', async () => {
-    const { client, transaction } = oystehrWith([docRef('doc-1', `${Z3_BASE}form-templates/x.pdf`)]);
+    const { client, transaction } = oystehrWith([docRef('doc-1', `${Z3_BASE}pdf-form-templates/x.pdf`)]);
     vi.mocked(fetch).mockRejectedValue(new Error('network down'));
 
     await expect(cleanupIntegrationTestDocumentReferences(client, 'tok', Z3_BASE)).resolves.toBeUndefined();

@@ -9,6 +9,7 @@ import {
   FORM_TEMPLATE_IDENTIFIER_SYSTEM,
   FormTemplateFillability,
 } from 'utils/lib/fhir/constants';
+import { readExtensionJson as readSharedExtensionJson } from 'utils/lib/fhir/extensions';
 import { FormFieldBinding, FormTemplateMapping, isBindingComplete } from 'utils/lib/form-tokens/mapping';
 import { findToken } from 'utils/lib/form-tokens/token-catalog';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
@@ -60,34 +61,18 @@ export const getFormTemplateIdentifier = (docRef: DocumentReference): string | u
   docRef.identifier?.find((id) => id.system === FORM_TEMPLATE_IDENTIFIER_SYSTEM)?.value;
 
 /**
- * Reads a JSON blob stored in an extension.
+ * The shared reader, bound to this service's error reporter.
  *
- * Returns undefined rather than throwing on malformed content: a template whose inventory somehow failed
- * to parse should still open in the admin UI so it can be re-analyzed or deleted, not become unreachable.
+ * The parse behaviour lives in `utils` so the schedule extension and anything else storing JSON this way
+ * can share it; only the reporting is service-specific, since `utils` is shared with the browser and has
+ * no Sentry client.
  */
-export const readExtensionJson = <T>(docRef: DocumentReference, url: string): T | undefined => {
-  const raw = docRef.extension?.find((ext) => ext.url === url)?.valueString;
-  if (!raw) return undefined;
-  try {
-    return JSON.parse(raw) as T;
-  } catch (error) {
-    console.warn(`Could not parse extension ${url} on DocumentReference/${docRef.id}`, error);
-    // Returning undefined keeps the admin screen reachable so the template can be repaired, but the
-    // stored JSON being malformed is a defect in whatever wrote it.
-    captureException(error, { extra: { extensionUrl: url, documentReferenceId: docRef.id } });
-    return undefined;
-  }
-};
+export const readExtensionJson = <T>(docRef: DocumentReference, url: string): T | undefined =>
+  readSharedExtensionJson<T>(docRef, url, (error) =>
+    captureException(error, { extra: { extensionUrl: url, documentReferenceId: docRef.id } })
+  );
 
-/** Replaces one JSON extension, leaving the others on the resource alone. */
-export const withExtensionJson = (
-  docRef: DocumentReference,
-  url: string,
-  value: unknown
-): DocumentReference['extension'] => [
-  ...(docRef.extension ?? []).filter((ext) => ext.url !== url),
-  { url, valueString: JSON.stringify(value) },
-];
+export { withExtensionJson } from 'utils/lib/fhir/extensions';
 
 export const isFillable = (docRef: DocumentReference): boolean =>
   (docRef.category ?? []).some((c) =>

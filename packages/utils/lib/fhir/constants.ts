@@ -767,9 +767,9 @@ export const BUCKET_NAMES = {
   PATIENT_EDUCATION: 'patient-education',
   PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
   /** Admin-authored fillable PDF form templates. Org-level: no patient path segment. */
-  FORM_TEMPLATES: 'form-templates',
+  FORM_TEMPLATES: 'pdf-form-templates',
   /** Prefilled copies of those templates, one per encounter. Patient-scoped, unlike the templates. */
-  FORM_INSTANCES: 'form-instances',
+  FORM_INSTANCES: 'pdf-form-instances',
   RADIOLOGY_REPORTS: 'radiology-reports',
   REPORTS: 'invoiceable-patients-reports',
   BILLING_CLAIM_EXPORTS: 'billing-claim-exports',

@@ -8,18 +8,18 @@ const SECRETS = {
 };
 
 const url = (objectName: string, patientID?: string): string =>
-  makeZ3ObjectUrl({ secrets: SECRETS, bucketName: 'form-instances', patientID, objectName });
+  makeZ3ObjectUrl({ secrets: SECRETS, bucketName: 'pdf-form-instances', patientID, objectName });
 
 describe('makeZ3ObjectUrl', () => {
   it('puts the object where the server decided, not where a caller asked', () => {
     expect(url('2026-09-10-1789-completed.pdf', 'patient-1')).toBe(
-      'https://project-api.zapehr.com/v1/z3/proj-1234-form-instances/patient-1/2026-09-10-1789-completed.pdf'
+      'https://project-api.zapehr.com/v1/z3/proj-1234-pdf-form-instances/patient-1/2026-09-10-1789-completed.pdf'
     );
   });
 
   it('omits the patient segment for an organisation-level bucket', () => {
     expect(url('2026-09-10-1789-abc-w9.pdf')).toBe(
-      'https://project-api.zapehr.com/v1/z3/proj-1234-form-instances/2026-09-10-1789-abc-w9.pdf'
+      'https://project-api.zapehr.com/v1/z3/proj-1234-pdf-form-instances/2026-09-10-1789-abc-w9.pdf'
     );
   });
 
@@ -72,7 +72,7 @@ describe('names this server generates', () => {
     ]) {
       const objectName = makeFormTemplateObjectName(fileName);
       expect(
-        () => makeZ3ObjectUrl({ secrets: SECRETS, bucketName: 'form-templates', objectName }),
+        () => makeZ3ObjectUrl({ secrets: SECRETS, bucketName: 'pdf-form-templates', objectName }),
         fileName
       ).not.toThrow();
     }
@@ -84,7 +84,7 @@ describe('names this server generates', () => {
     const objectName = makeFormTemplateObjectName(`${'a'.repeat(400)}.pdf`);
 
     expect(objectName.length).toBeLessThanOrEqual(200);
-    expect(() => makeZ3ObjectUrl({ secrets: SECRETS, bucketName: 'form-templates', objectName })).not.toThrow();
+    expect(() => makeZ3ObjectUrl({ secrets: SECRETS, bucketName: 'pdf-form-templates', objectName })).not.toThrow();
   });
 
   it('accepts a completed-form object name, however the browser named the file', () => {

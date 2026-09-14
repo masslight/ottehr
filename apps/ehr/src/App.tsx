@@ -256,9 +256,7 @@ function App(): ReactElement {
                   <Route path={`${OUTREACH_URL}/:outreachSubTab/:outreachDetailTab`} element={<AdminPage />} />
                   <Route path="/admin/:adminTab" element={<AdminPage />} />
                   <Route path="/admin/:adminTab/:subTab" element={<AdminPage />} />
-                  {FEATURE_FLAGS.FORMS_ENABLED && (
-                    <Route path="/admin/form-templates/:templateId" element={<FormTemplateDetailPage />} />
-                  )}
+                  <Route path="/admin/form-templates/:templateId" element={<FormTemplateDetailPage />} />
                   <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
                   <Route path="/admin/quick-picks/radiology/:quickPickId" element={<RadiologyQuickPickDetailPage />} />
                   <Route

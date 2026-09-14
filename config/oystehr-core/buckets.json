@@ -74,11 +74,11 @@
       "retainInEnvironments": ["production", "staging", "demo"]
     },
     "FORM_TEMPLATES": {
-      "name": "#{var/PROJECT_ID}-form-templates",
+      "name": "#{var/PROJECT_ID}-pdf-form-templates",
       "retainInEnvironments": ["production", "staging", "demo"]
     },
     "FORM_INSTANCES": {
-      "name": "#{var/PROJECT_ID}-form-instances",
+      "name": "#{var/PROJECT_ID}-pdf-form-instances",
       "retainInEnvironments": ["production", "staging", "demo"]
     },
     "RADIOLOGY_REPORTS": {
