@@ -31,17 +31,16 @@ import { ReviewOfSystemsContainer } from 'src/features/visits/shared/components/
 import { SurgicalHistoryContainer } from 'src/features/visits/shared/components/review-tab/components/SurgicalHistoryContainer';
 import { RosBody } from 'src/features/visits/shared/components/ros-tab/RosBody';
 import { RosReviewContainer } from 'src/features/visits/shared/components/ros-tab/RosReviewContainer';
-import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { usePatientInstructionsVisibility } from 'src/features/visits/shared/hooks/usePatientInstructionsVisibility';
+import { useProgressNoteChartFields } from 'src/features/visits/shared/hooks/useProgressNoteChartFields';
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useRosObservationsStore } from 'src/features/visits/shared/stores/appointment/ros-observations.store';
 import { useSignAppointmentMutation } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { isEligibleSupervisor } from 'src/helpers';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { INCOMPATIBLE_EXAM_VERSION_MESSAGE } from 'utils/lib/fhir/constants';
-import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
@@ -89,7 +88,7 @@ export const ProgressNoteDetails: FC = () => {
   const user = useEvolveUser();
   const navigate = useNavigate();
 
-  const { data: chartFields } = useChartFields({ requestedFields: progressNoteChartDataRequestedFields });
+  const { data: chartFields } = useProgressNoteChartFields();
   const { chartData } = useChartData();
   const { medications: inHouseMedications } = useMedicationAPI();
 
