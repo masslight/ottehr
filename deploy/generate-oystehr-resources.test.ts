@@ -43,7 +43,7 @@ interface SpecFile {
   roles?: Record<string, unknown>;
 }
 
-type VarsFile = Record<string, string>;
+type VarsFile = Record<string, unknown>;
 
 // Helper to create mock Dirent objects
 const createMockDirent = (
@@ -460,6 +460,22 @@ describe('generate-oystehr-resources', () => {
         const platformWebhookSecret =
           writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_PLATFORM_WEBHOOK_SECRET;
         expect(platformWebhookSecret.value).toBe('whsec_platform');
+      });
+
+      it('serializes webhook account entries into a string-valued Oystehr secret', async () => {
+        const entries = [
+          { name: 'Clinic "A"', accountId: 'acct_123', signingSecret: 'whsec_first' },
+          { accountId: 'acct_456', signingSecret: 'whsec_second' },
+          { name: 'Platform', signingSecret: 'whsec_platform' },
+        ];
+        setupMocks({ STRIPE_WEBHOOK_SECRET: entries });
+
+        await generateOystehrResources(createTestArgs());
+
+        const secret = writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_WEBHOOK_SECRET;
+        expect(secret.name).toBe('STRIPE_WEBHOOK_SECRET');
+        expect(typeof secret.value).toBe('string');
+        expect(JSON.parse(secret.value)).toEqual(entries);
       });
     });
 

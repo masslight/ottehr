@@ -178,6 +178,9 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   if (!isObject(vars)) {
     throw new Error(`Variable file ${varFile} is not a valid JSON map.`);
   }
+  if (Array.isArray(vars.STRIPE_WEBHOOK_SECRET)) {
+    vars.STRIPE_WEBHOOK_SECRET = JSON.stringify(vars.STRIPE_WEBHOOK_SECRET);
+  }
   const coreVars = { ...BILLING_VAR_DEFAULTS, ...vars };
   const billingVars = { ...BILLING_VAR_DEFAULTS, ...vars };
 
