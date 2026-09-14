@@ -1,5 +1,6 @@
-import { Encounter, Extension, PractitionerQualification } from 'fhir/r4b';
+import { Encounter, Extension, Practitioner, PractitionerQualification } from 'fhir/r4b';
 import { PractitionerLicense, ProviderTypeCode } from '../types/api/practitioner.types';
+import { PHRASES_EXTENSION_URL } from '../types/constants';
 import { PRACTITIONER_CODINGS } from '../types/data/appointments/appointments.types';
 import {
   PRACTITIONER_QUALIFICATION_CODE_SYSTEM,
@@ -126,3 +127,26 @@ export function getSuffixFromProviderTypeExtension(providerTypeExtension?: Exten
   const cc = ext.valueCodeableConcept;
   return [cc.text || cc.coding?.[0]?.display || cc.coding?.[0]?.code].filter(Boolean) as string[];
 }
+
+export interface Phrase {
+  key: string;
+  value: string;
+}
+
+/** Reads the per-user phrases stored on the Practitioner; missing or malformed extension → []. */
+export const getPhrasesForPractitioner = (practitioner?: Practitioner): Phrase[] => {
+  const raw = practitioner?.extension?.find((extension) => extension.url === PHRASES_EXTENSION_URL)?.valueString;
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (phrase): phrase is Phrase =>
+            typeof phrase?.key === 'string' && typeof phrase?.value === 'string' && phrase.key.length > 0
+        )
+      : [];
+  } catch (error) {
+    console.error('Failed to parse practitioner phrases', error);
+    return [];
+  }
+};

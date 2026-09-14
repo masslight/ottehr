@@ -83,6 +83,9 @@ export const AI_QUESTIONNAIRE_ID = 'aiInterviewQuestionnaire';
 export const REASON_FOR_VISIT_SEPARATOR = ' - ';
 
 export const USER_TIMEZONE_EXTENSION_URL = ottehrExtensionUrl('user-timezone');
+// Per-user phrases on the Practitioner: valueString is a JSON array of { key, value }.
+// A leading dot in the key (".hpi") is only a naming convention users may choose; nothing requires it.
+export const PHRASES_EXTENSION_URL = ottehrExtensionUrl('phrases');
 
 export const PATIENT_INFO_META_DATA_SYSTEM = 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-info-meta-data';
 export const PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE = 'returning-patient';

@@ -23,6 +23,7 @@ import { RoleType } from 'utils/lib/types/api/user.types';
 import Banner from './components/Banner';
 import { CommandPalette } from './components/CommandPalette';
 import { CommandPaletteCreateTask } from './components/CommandPaletteCreateTask';
+import { CommandPalettePhraseDialog } from './components/CommandPalettePhraseDialog';
 import { CommandPaletteRegistrations } from './components/CommandPaletteRegistrations';
 import LogoutWarning from './components/dialogs/LogoutWarning';
 import { LoadingScreen } from './components/LoadingScreen';
@@ -339,6 +340,7 @@ function App(): ReactElement {
         <CommandPaletteRegistrations />
         <CommandPalette />
         <CommandPaletteCreateTask />
+        <CommandPalettePhraseDialog />
         <SnackbarProvider maxSnack={5} autoHideDuration={6000} />
       </BrowserRouter>
     </CustomThemeProvider>

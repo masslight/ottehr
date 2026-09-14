@@ -230,7 +230,7 @@ const useSyncPractitioner = (_onSuccess: (data: SyncUserResponse) => void) => {
   */
 };
 
-const useUpdatePractitioner = (): UseMutationResult<void, Error, Operation[]> => {
+export const useUpdatePractitioner = (): UseMutationResult<void, Error, Operation[]> => {
   const user = useEvolveUserStore((state) => state.user);
   const { oystehr } = useApiClients();
 
