@@ -64,8 +64,6 @@ const homeAddress = (person: HasAddress | undefined): Address | undefined =>
 const contact = (telecom: ContactPoint[] | undefined, system: 'phone' | 'email' | 'fax'): string | undefined =>
   telecom?.find((t) => t.system === system)?.value;
 
-const employerAddress = (ctx: FormFillContext): Address | undefined => homeAddress(ctx.workersComp?.employer);
-
 /**
  * The whole address on one line, for forms that give it a single box.
  *
@@ -381,26 +379,6 @@ export const TOKEN_RESOLVERS: Record<FormTokenKey, FormTokenResolver> = {
   'vitals.bmi': (ctx) => latestVital(ctx, isBMIVitalObservation)?.value,
   // Stored as a date string that is empty rather than absent when nothing was recorded.
   'vitals.lastMenstrualPeriod': (ctx) => latestVital(ctx, isLastMenstrualPeriodVitalObservation)?.value || undefined,
-
-  // ── Workers comp ──────────────────────────────────────────────────────────
-  // The employer is the guarantor on the workers' compensation account, and the carrier the payer of the
-  // coverage attached to it — a different relationship from the patient's own insurance, hence a separate
-  // group rather than more `insurance.*` tokens.
-  'workersComp.employerName': (ctx) => ctx.workersComp?.employer?.name,
-  'workersComp.employerAddressLine1': (ctx) => employerAddress(ctx)?.line?.[0],
-  'workersComp.employerAddressLine2': (ctx) => employerAddress(ctx)?.line?.[1],
-  'workersComp.employerCity': (ctx) => employerAddress(ctx)?.city,
-  'workersComp.employerState': (ctx) => employerAddress(ctx)?.state,
-  'workersComp.employerPostalCode': (ctx) => employerAddress(ctx)?.postalCode,
-  'workersComp.employerAddressFull': (ctx) => oneLineAddress(employerAddress(ctx)),
-  'workersComp.employerPhone': (ctx) => contact(ctx.workersComp?.employer?.telecom, 'phone'),
-  'workersComp.employerFax': (ctx) => contact(ctx.workersComp?.employer?.telecom, 'fax'),
-  'workersComp.employerEmail': (ctx) => contact(ctx.workersComp?.employer?.telecom, 'email'),
-  // The named person at the employer, recorded as an organisation contact rather than a separate resource.
-  'workersComp.employerContactName': (ctx) => formatName(ctx.workersComp?.employer?.contact?.[0]?.name),
-  'workersComp.employerContactTitle': (ctx) => ctx.workersComp?.employer?.contact?.[0]?.purpose?.text,
-  'workersComp.carrierName': (ctx) => ctx.workersComp?.carrierName,
-  'workersComp.carrierMemberId': (ctx) => memberId(ctx.workersComp?.coverage),
 
   // ── Form ──────────────────────────────────────────────────────────────────
   // Resolved in the visit's own timezone, not the server's. A form completed at 9pm local would otherwise

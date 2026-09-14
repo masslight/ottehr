@@ -22,7 +22,6 @@ export type FormTokenGroup =
   | 'Insurance'
   | 'Vitals'
   | 'Clinical'
-  | 'Workers comp'
   | 'Form';
 
 export interface FormTokenDescriptor {

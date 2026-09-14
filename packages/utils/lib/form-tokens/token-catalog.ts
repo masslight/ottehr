@@ -301,42 +301,6 @@ const CATALOG = [
   { key: 'vitals.bmi', label: 'BMI', group: 'Vitals', type: 'number' },
   { key: 'vitals.lastMenstrualPeriod', label: 'Last menstrual period', group: 'Vitals', type: 'date' },
 
-  // ── Workers comp ──────────────────────────────────────────────────────────
-  // Filed against its own account, so the employer and carrier here are unrelated to the patient's own
-  // insurance above. The set is shaped by what the forms ask for: DWC073's fields 9 to 12 are the
-  // employer's name, the employer's fax or email, the insurance carrier, and the carrier's fax or email.
-  { key: 'workersComp.employerName', label: 'Employer name', group: 'Workers comp', type: 'string' },
-  { key: 'workersComp.employerAddressLine1', label: 'Employer street address', group: 'Workers comp', type: 'string' },
-  {
-    key: 'workersComp.employerAddressLine2',
-    label: 'Employer street address line 2',
-    group: 'Workers comp',
-    type: 'string',
-  },
-  { key: 'workersComp.employerCity', label: 'Employer city', group: 'Workers comp', type: 'string' },
-  { key: 'workersComp.employerState', label: 'Employer state', group: 'Workers comp', type: 'string' },
-  { key: 'workersComp.employerPostalCode', label: 'Employer ZIP code', group: 'Workers comp', type: 'string' },
-  {
-    key: 'workersComp.employerAddressFull',
-    label: 'Employer full address',
-    group: 'Workers comp',
-    type: 'string',
-    description: 'Street, city, state and ZIP on one line.',
-  },
-  { key: 'workersComp.employerPhone', label: 'Employer phone number', group: 'Workers comp', type: 'string' },
-  { key: 'workersComp.employerFax', label: 'Employer fax number', group: 'Workers comp', type: 'string' },
-  { key: 'workersComp.employerEmail', label: 'Employer email address', group: 'Workers comp', type: 'string' },
-  {
-    key: 'workersComp.employerContactName',
-    label: 'Employer contact name',
-    group: 'Workers comp',
-    type: 'string',
-    description: 'The named person at the employer, where one was recorded.',
-  },
-  { key: 'workersComp.employerContactTitle', label: 'Employer contact title', group: 'Workers comp', type: 'string' },
-  { key: 'workersComp.carrierName', label: 'Insurance carrier', group: 'Workers comp', type: 'string' },
-  { key: 'workersComp.carrierMemberId', label: 'Carrier claim or member ID', group: 'Workers comp', type: 'string' },
-
   // ── Form ──────────────────────────────────────────────────────────────────
   {
     key: 'form.currentDate',

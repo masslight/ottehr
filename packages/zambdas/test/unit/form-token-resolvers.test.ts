@@ -191,45 +191,6 @@ describe('patient tokens with logic behind them', () => {
   });
 });
 
-describe('workers compensation tokens', () => {
-  const ctx = contextWith(
-    {},
-    {
-      workersComp: {
-        employer: {
-          resourceType: 'Organization',
-          name: 'Acme Roofing',
-          address: [{ line: ['12 Ladder Lane'], city: 'Austin', state: 'TX', postalCode: '78702' }],
-          telecom: [
-            { system: 'phone', value: '512-555-0111' },
-            { system: 'fax', value: '512-555-0112' },
-          ],
-          // A named person at the employer, which FHIR carries as a single HumanName rather than a list.
-          contact: [{ name: { given: ['Wile'], family: 'Coyote' }, purpose: { text: 'Safety Officer' } }],
-        },
-        carrierName: 'State Fund',
-      },
-    }
-  );
-
-  it('resolves the employer and the person named there', () => {
-    expect(resolveToken('workersComp.employerName', ctx)).toBe('Acme Roofing');
-    expect(resolveToken('workersComp.employerFax', ctx)).toBe('512-555-0112');
-    expect(resolveToken('workersComp.employerAddressFull', ctx)).toBe('12 Ladder Lane, Austin, TX, 78702');
-    expect(resolveToken('workersComp.employerContactName', ctx)).toBe('Wile Coyote');
-    expect(resolveToken('workersComp.employerContactTitle', ctx)).toBe('Safety Officer');
-  });
-
-  it('resolves the carrier', () => {
-    // DWC073 asks for this by name in field 11.
-    expect(resolveToken('workersComp.carrierName', ctx)).toBe('State Fund');
-  });
-
-  it('resolves nothing for a visit with no workers compensation account', () => {
-    expect(resolveToken('workersComp.employerName', contextWith({}))).toBeUndefined();
-  });
-});
-
 describe('form tokens', () => {
   it('gives today as a plain date, in the visit’s timezone', () => {
     const ctx = contextWith({}, { appointmentPackage: { timezone: 'America/Chicago' } });
