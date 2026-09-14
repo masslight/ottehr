@@ -1,4 +1,5 @@
 import fontkit from '@pdf-lib/fontkit';
+import { captureException } from '@sentry/aws-serverless';
 import fs from 'fs';
 import { DateTime } from 'luxon';
 import {
@@ -136,6 +137,8 @@ const embedUnicodeFont = async (doc: PDFDocument): Promise<PDFFont | undefined> 
     return await doc.embedFont(new Uint8Array(fs.readFileSync('./assets/Rubik-Regular.otf')));
   } catch (error) {
     console.warn(`Could not embed a Unicode font for form fill; leaving appearances to the viewer: ${error}`);
+    // Non-Latin text may render as blanks or boxes in the produced PDF, which nothing downstream reports.
+    captureException(error, { extra: { context: 'form-prefill' } });
     return undefined;
   }
 };
@@ -247,6 +250,7 @@ export const fillFormTemplatePdf = async (input: {
       // A character the font cannot draw should not cost the provider the whole form; the values are
       // already written, and the viewer regenerates appearances because of `/NeedAppearances` below.
       console.warn(`Could not regenerate field appearances; leaving them to the viewer: ${error}`);
+      captureException(error, { extra: { context: 'form-prefill' } });
     }
   }
 

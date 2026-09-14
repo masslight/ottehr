@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { randomUUID } from 'crypto';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -71,6 +72,9 @@ export const readExtensionJson = <T>(docRef: DocumentReference, url: string): T 
     return JSON.parse(raw) as T;
   } catch (error) {
     console.warn(`Could not parse extension ${url} on DocumentReference/${docRef.id}`, error);
+    // Returning undefined keeps the admin screen reachable so the template can be repaired, but the
+    // stored JSON being malformed is a defect in whatever wrote it.
+    captureException(error, { extra: { extensionUrl: url, documentReferenceId: docRef.id } });
     return undefined;
   }
 };
@@ -218,6 +222,9 @@ export const toFormTemplateItem = async (docRef: DocumentReference, token: strin
     pdfPresignedUrl = await getPresignedURL(z3Url, token);
   } catch (error) {
     console.warn(`Could not presign the file for form template DocumentReference/${docRef.id} (${z3Url})`, error);
+    // The row still renders, which is what lets an administrator reach a broken template to delete it —
+    // but a template whose stored file cannot be presigned is broken and should be reported as such.
+    captureException(error, { extra: { documentReferenceId: docRef.id, z3Url } });
   }
 
   return {

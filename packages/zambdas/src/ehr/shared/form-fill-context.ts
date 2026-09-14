@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Account, Appointment, Coverage, Organization } from 'fhir/r4b';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getInsuranceRelatedRefsFromAppointmentExtension } from '../../shared/appointment/helpers';
@@ -115,6 +116,9 @@ const resolveEmployer = async (oystehr: Oystehr, account: Account): Promise<Orga
     return await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id });
   } catch (error) {
     console.warn(`${LOG_TAG} Could not read the employer organisation ${reference}: ${error}`);
+    // Every employer field on the form comes out blank, and the fill report calls it `noValue` — the same
+    // thing it says when the chart genuinely holds nothing. Indistinguishable without this.
+    captureException(error, { extra: { context: 'form-prefill', reference } });
     return undefined;
   }
 };
@@ -128,6 +132,7 @@ const resolveWorkersCompCoverage = async (oystehr: Oystehr, account: Account): P
     return await oystehr.fhir.get<Coverage>({ resourceType: 'Coverage', id });
   } catch (error) {
     console.warn(`${LOG_TAG} Could not read the workers' compensation coverage ${reference}: ${error}`);
+    captureException(error, { extra: { context: 'form-prefill', reference } });
     return undefined;
   }
 };
@@ -298,6 +303,7 @@ const resolvePayerNames = async (
     });
   } catch (error) {
     console.warn(`${LOG_TAG} Could not resolve payer organisations: ${error}`);
+    captureException(error, { extra: { context: 'form-prefill' } });
     return fromCoverage;
   }
 };

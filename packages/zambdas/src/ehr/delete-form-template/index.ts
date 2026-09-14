@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { replaceOperation } from 'utils/lib/helpers/operations';
@@ -89,6 +90,7 @@ const performEffect = async (
       await deleteZ3Object(z3Url, token);
     } catch (cleanupErr) {
       console.warn('Failed to delete Z3 object for form template', z3Url, cleanupErr);
+      captureException(cleanupErr, { extra: { zambda: ZAMBDA_NAME, documentReferenceId, z3Url } });
     }
   }
 

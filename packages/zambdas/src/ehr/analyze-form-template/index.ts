@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import {
@@ -94,6 +95,9 @@ const performEffect = async (
       await deleteZ3Object(z3Url, token);
     } catch (cleanupErr) {
       console.warn('Failed to remove the Z3 object for a rejected form template', z3Url, cleanupErr);
+      // Swallowed on purpose — the template is already deleted — but it leaves bytes nothing references,
+      // so it has to be visible somewhere other than a log nobody reads.
+      captureException(cleanupErr, { extra: { zambda: ZAMBDA_NAME, documentReferenceId, z3Url } });
     }
     return { documentReferenceId, status, fields: [] };
   }

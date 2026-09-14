@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { DocumentReference } from 'fhir/r4b';
@@ -282,6 +283,9 @@ const supersedePreviousInstances = async (
     );
   } catch (error) {
     console.warn(`Could not supersede earlier drafts of DocumentReference/${templateId}: ${error}`);
+    // The chart now shows several drafts of one form with nothing to say which is live, and the provider
+    // has no way to tell. Deliberately not fatal, but not something to discover from a support ticket.
+    captureException(error, { extra: { zambda: ZAMBDA_NAME, patientId, encounterId, templateId } });
   }
 };
 

@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import {
@@ -109,6 +110,7 @@ const performEffect = async (
       await deleteZ3Object(candidateUrl, token);
     } catch (cleanupErr) {
       console.warn('Failed to remove a rejected replacement PDF', candidateUrl, cleanupErr);
+      captureException(cleanupErr, { extra: { zambda: ZAMBDA_NAME, documentReferenceId, candidateUrl } });
     }
     return { documentReferenceId, status, fields: [], droppedBindings: [], returnedToDraft: false };
   }
@@ -173,6 +175,7 @@ const performEffect = async (
       await deleteZ3Object(previousUrl, token);
     } catch (cleanupErr) {
       console.warn('Failed to remove the superseded form template PDF', previousUrl, cleanupErr);
+      captureException(cleanupErr, { extra: { zambda: ZAMBDA_NAME, documentReferenceId, previousUrl } });
     }
   }
 

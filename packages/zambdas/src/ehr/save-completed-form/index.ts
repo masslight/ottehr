@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -251,6 +252,9 @@ const resolveTemplate = async (
       return await getFormTemplateOrThrow(oystehr, candidate);
     } catch (error) {
       console.warn(`${ZAMBDA_NAME}: could not read form template ${candidate}: ${error}`);
+      // A stamp naming a template nobody can load means the document gets filed unattributed, or not at
+      // all. Falling through is right; doing it silently is not.
+      captureException(error, { extra: { zambda: ZAMBDA_NAME, templateId: candidate } });
     }
   }
   return undefined;
@@ -273,6 +277,9 @@ const resolveAuthor = async (
     return [await resolveCallerPractitionerRef(userToken, secrets, oystehr)];
   } catch (error) {
     console.warn(`${ZAMBDA_NAME}: could not resolve the uploading practitioner: ${error}`);
+    // The document still reaches the chart, but with nothing in the "who added" column — which is the
+    // sort of gap that only gets noticed when someone needs to know who filed it.
+    captureException(error, { extra: { zambda: ZAMBDA_NAME } });
     return undefined;
   }
 };
@@ -307,5 +314,7 @@ const discardUpload = async (z3Url: string, token: string): Promise<void> => {
     await deleteZ3Object(z3Url, token);
   } catch (error) {
     console.warn(`${ZAMBDA_NAME}: could not remove the discarded upload at ${z3Url}: ${error}`);
+    // Bytes left in a patient-scoped bucket with no record pointing at them.
+    captureException(error, { extra: { zambda: ZAMBDA_NAME, z3Url } });
   }
 };
