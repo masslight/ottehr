@@ -143,9 +143,12 @@ const NarrativeSpan: FC<NarrativeSpanProps> = ({ segment, itemId, templates, onR
 
   // The popover's backdrop keeps the pointer off everything else, so the only thing that can
   // clear the hover while it is open is the row inside it; pin it so the list row stays lit too.
+  // Only ever from nothing, though: two popovers open at once would each keep re-pinning their
+  // own run over the other's and loop until React gave up.
+  const nothingHovered = useScribeRecommendationsStore((state) => state.hoveredItemId === undefined);
   useEffect(() => {
-    if (isOpen && !isHovered) setHoveredItemId(itemId);
-  }, [isOpen, isHovered, itemId, setHoveredItemId]);
+    if (isOpen && nothingHovered) setHoveredItemId(itemId);
+  }, [isOpen, nothingHovered, itemId, setHoveredItemId]);
 
   // A run the analysis has no item for reads as plain text rather than a dead link.
   if (!recommendation && !order) return <>{segment.text}</>;
