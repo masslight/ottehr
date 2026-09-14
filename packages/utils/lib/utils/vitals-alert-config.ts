@@ -3,6 +3,7 @@ import { VitalsAge } from '../config-helpers/vitals';
 import { VitalsDef, VitalsSchema } from '../helpers/vitals/config-schema';
 import { VitalAlertCriticality } from '../types/api/chart-data/chart-data.constants';
 import {
+  pickSupportedVitalAlertLevels,
   VITAL_ALERT_UNITS,
   VITAL_MEASUREMENT_STEP,
   VitalAlertAgeRange,
@@ -136,20 +137,20 @@ export const DEFAULT_VITALS_ALERT_CONFIG: VitalsAlertConfig = {
       '18+y': { criticalLow: 90, abnormalLow: 100, abnormalHigh: 130, criticalHigh: 180 },
     },
     'vital-oxygen-sat': {
-      '0-3mo': { criticalLow: 88, abnormalLow: 91, abnormalHigh: 101 },
-      '3-6mo': { criticalLow: 88, abnormalLow: 91, abnormalHigh: 101 },
-      '6-9mo': { criticalLow: 88, abnormalLow: 91, abnormalHigh: 101 },
-      '9-12mo': { criticalLow: 88, abnormalLow: 91, abnormalHigh: 101 },
-      '12-18mo': { criticalLow: 89, abnormalLow: 92, abnormalHigh: 101 },
-      '18-24mo': { criticalLow: 89, abnormalLow: 92, abnormalHigh: 101 },
-      '2-3y': { criticalLow: 89, abnormalLow: 92, abnormalHigh: 101 },
-      '3-4y': { criticalLow: 89, abnormalLow: 92, abnormalHigh: 101 },
-      '4-6y': { criticalLow: 89, abnormalLow: 92, abnormalHigh: 101 },
-      '6-8y': { criticalLow: 89, abnormalLow: 92, abnormalHigh: 101 },
-      '8-12y': { criticalLow: 89, abnormalLow: 92, abnormalHigh: 101 },
-      '12-15y': { criticalLow: 89, abnormalLow: 92, abnormalHigh: 101 },
-      '15-18y': { criticalLow: 89, abnormalLow: 92, abnormalHigh: 101 },
-      '18+y': { criticalLow: 90, abnormalLow: 95, abnormalHigh: 101 },
+      '0-3mo': { criticalLow: 88, abnormalLow: 91 },
+      '3-6mo': { criticalLow: 88, abnormalLow: 91 },
+      '6-9mo': { criticalLow: 88, abnormalLow: 91 },
+      '9-12mo': { criticalLow: 88, abnormalLow: 91 },
+      '12-18mo': { criticalLow: 89, abnormalLow: 92 },
+      '18-24mo': { criticalLow: 89, abnormalLow: 92 },
+      '2-3y': { criticalLow: 89, abnormalLow: 92 },
+      '3-4y': { criticalLow: 89, abnormalLow: 92 },
+      '4-6y': { criticalLow: 89, abnormalLow: 92 },
+      '6-8y': { criticalLow: 89, abnormalLow: 92 },
+      '8-12y': { criticalLow: 89, abnormalLow: 92 },
+      '12-15y': { criticalLow: 89, abnormalLow: 92 },
+      '15-18y': { criticalLow: 89, abnormalLow: 92 },
+      '18+y': { criticalLow: 90, abnormalLow: 95 },
     },
   },
 };
@@ -174,7 +175,8 @@ const levelsToRules = (levels: VitalAlertLevels, units: string): Record<string, 
 const alertThresholdsForVital = (config: VitalsAlertConfig, vital: VitalAlertType): Record<string, unknown>[] => {
   const units = VITAL_ALERT_UNITS[vital];
   return config.ageRanges.flatMap((range) => {
-    const rules = levelsToRules(config.thresholds[vital]?.[range.id] ?? {}, units);
+    const levels = pickSupportedVitalAlertLevels(config.thresholds[vital]?.[range.id] ?? {}, vital);
+    const rules = levelsToRules(levels, units);
     if (rules.length === 0) return [];
     return [
       {
@@ -257,7 +259,7 @@ const decimalPlacesOf = (value: number): number => {
 const withoutFloatNoise = (value: number): number => Math.round(value * 1e6) / 1e6;
 
 export const formatVitalNormalRange = (levels: VitalAlertLevels, vital: VitalAlertType): string => {
-  const { abnormalLow, abnormalHigh } = levels;
+  const { abnormalLow, abnormalHigh } = pickSupportedVitalAlertLevels(levels, vital);
   const precision = decimalPlacesOf(VITAL_MEASUREMENT_STEP[vital]);
   const factor = 10 ** precision;
   const firstNormalAbove = (value: number): number => (Math.floor(withoutFloatNoise(value * factor)) + 1) / factor;

@@ -58,6 +58,18 @@ export const VITAL_ALERT_LEVEL_LABELS: Record<VitalAlertLevel, string> = {
   criticalHigh: 'Critical High',
 };
 
+const PERCENTAGE_VITAL_ALERT_LEVELS: readonly VitalAlertLevel[] = ['criticalLow', 'abnormalLow'];
+
+export const VITAL_ALERT_LEVELS_BY_TYPE: Record<VitalAlertType, readonly VitalAlertLevel[]> = {
+  'vital-weight': VITAL_ALERT_LEVELS,
+  'vital-height': VITAL_ALERT_LEVELS,
+  'vital-temperature': VITAL_ALERT_LEVELS,
+  'vital-heartbeat': VITAL_ALERT_LEVELS,
+  'vital-respiration-rate': VITAL_ALERT_LEVELS,
+  'vital-blood-pressure': VITAL_ALERT_LEVELS,
+  'vital-oxygen-sat': PERCENTAGE_VITAL_ALERT_LEVELS,
+};
+
 export interface VitalAlertAgeRange {
   id: string;
   minAge: VitalsAge;
@@ -75,6 +87,18 @@ export interface VitalsAlertConfig {
   ageRanges: VitalAlertAgeRange[];
   thresholds: Record<VitalAlertType, Record<string, VitalAlertLevels>>;
 }
+
+export const pickSupportedVitalAlertLevels = (levels: VitalAlertLevels, vital: VitalAlertType): VitalAlertLevels => {
+  const supported = VITAL_ALERT_LEVELS_BY_TYPE[vital];
+  if (supported.length === VITAL_ALERT_LEVELS.length) return levels;
+  const picked: VitalAlertLevels = {};
+  supported.forEach((level) => {
+    if (levels[level] !== undefined) {
+      picked[level] = levels[level];
+    }
+  });
+  return picked;
+};
 
 export const vitalAlertAgeToMonths = (age: VitalsAge): number => {
   switch (age.unit) {
@@ -175,10 +199,36 @@ const AgeRangesSchema = z
     });
   });
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === 'object' && !Array.isArray(value);
+
+const dropUnsupportedLevels = (thresholds: unknown): unknown => {
+  if (!isRecord(thresholds)) return thresholds;
+  return Object.fromEntries(
+    Object.entries(thresholds).map(([vital, perRange]) => {
+      if (!VITAL_ALERT_LEVELS_BY_TYPE[vital as VitalAlertType] || !isRecord(perRange)) return [vital, perRange];
+      return [
+        vital,
+        Object.fromEntries(
+          Object.entries(perRange).map(([rangeId, levels]) => [
+            rangeId,
+            isRecord(levels)
+              ? pickSupportedVitalAlertLevels(levels as VitalAlertLevels, vital as VitalAlertType)
+              : levels,
+          ])
+        ),
+      ];
+    })
+  );
+};
+
 export const VitalsAlertConfigSchema = z
   .object({
     ageRanges: AgeRangesSchema,
-    thresholds: z.record(VitalAlertTypeSchema, z.record(z.string(), VitalAlertLevelsSchema)),
+    thresholds: z.preprocess(
+      dropUnsupportedLevels,
+      z.record(VitalAlertTypeSchema, z.record(z.string(), VitalAlertLevelsSchema))
+    ),
   })
   .superRefine((config, ctx) => {
     const rangeIds = new Set(config.ageRanges.map((range) => range.id));

@@ -6,7 +6,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   VITAL_ALERT_LABELS,
   VITAL_ALERT_LEVEL_LABELS,
-  VITAL_ALERT_LEVELS,
+  VITAL_ALERT_LEVELS_BY_TYPE,
   VITAL_ALERT_UNITS,
   VitalAlertAgeRange,
   VitalAlertType,
@@ -16,6 +16,10 @@ import { formatVitalAlertAgeRange, formatVitalNormalRange } from 'utils/lib/util
 import { parseNumberInput } from './helpers';
 
 const NORMAL_RANGE_AFTER_LEVEL = 'abnormalLow';
+
+const AGE_RANGE_COLUMN_MIN_WIDTH = 130;
+const LEVEL_COLUMN_MIN_WIDTH = 110;
+const NORMAL_RANGE_COLUMN_MIN_WIDTH = 120;
 
 interface NormalRangeCellProps {
   control: Control<VitalsAlertConfig>;
@@ -57,6 +61,9 @@ export const VitalAlertThresholdTable = ({
   }, [hasErrors]);
   const units = VITAL_ALERT_UNITS[vital];
   const label = units ? `${VITAL_ALERT_LABELS[vital]} (${units})` : VITAL_ALERT_LABELS[vital];
+  const levels = VITAL_ALERT_LEVELS_BY_TYPE[vital];
+  const tableMinWidth =
+    AGE_RANGE_COLUMN_MIN_WIDTH + levels.length * LEVEL_COLUMN_MIN_WIDTH + NORMAL_RANGE_COLUMN_MIN_WIDTH;
 
   return (
     <AccordionCard
@@ -66,15 +73,17 @@ export const VitalAlertThresholdTable = ({
       dataTestId={dataTestIds.vitalsAlertConfig.vitalAccordion(vital)}
     >
       <Box sx={{ p: 2, overflowX: 'auto' }}>
-        <Table size="small" sx={{ minWidth: 660 }}>
+        <Table size="small" sx={{ width: 'auto', minWidth: tableMinWidth }}>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ minWidth: 130 }}>Age range</TableCell>
-              {VITAL_ALERT_LEVELS.map((level) => (
+              <TableCell sx={{ minWidth: AGE_RANGE_COLUMN_MIN_WIDTH }}>Age range</TableCell>
+              {levels.map((level) => (
                 <Fragment key={level}>
-                  <TableCell align="center">{VITAL_ALERT_LEVEL_LABELS[level]}</TableCell>
+                  <TableCell align="center" sx={{ minWidth: LEVEL_COLUMN_MIN_WIDTH }}>
+                    {VITAL_ALERT_LEVEL_LABELS[level]}
+                  </TableCell>
                   {level === NORMAL_RANGE_AFTER_LEVEL && (
-                    <TableCell align="center" sx={{ minWidth: 120 }}>
+                    <TableCell align="center" sx={{ minWidth: NORMAL_RANGE_COLUMN_MIN_WIDTH }}>
                       Normal range
                     </TableCell>
                   )}
@@ -88,7 +97,7 @@ export const VitalAlertThresholdTable = ({
                 <TableCell>
                   <Typography variant="body2">{formatVitalAlertAgeRange(range)}</Typography>
                 </TableCell>
-                {VITAL_ALERT_LEVELS.map((level) => (
+                {levels.map((level) => (
                   <Fragment key={level}>
                     <TableCell align="center">
                       <Controller

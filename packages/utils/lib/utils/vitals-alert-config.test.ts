@@ -145,6 +145,63 @@ describe('VitalsAlertConfigSchema', () => {
   });
 });
 
+describe('a vital that only alerts low', () => {
+  const cloneDefault = (): VitalsAlertConfig => JSON.parse(JSON.stringify(DEFAULT_VITALS_ALERT_CONFIG));
+
+  it('configures no high levels for SpO2 by default', () => {
+    Object.values(DEFAULT_VITALS_ALERT_CONFIG.thresholds['vital-oxygen-sat']).forEach((levels) => {
+      expect(levels.abnormalHigh).toBeUndefined();
+      expect(levels.criticalHigh).toBeUndefined();
+    });
+  });
+
+  it('drops the high levels an SpO2 config carries, whatever they are', () => {
+    const config = cloneDefault();
+    config.thresholds['vital-oxygen-sat']['18+y'] = {
+      criticalLow: 90,
+      abnormalLow: 95,
+      abnormalHigh: 101,
+      criticalHigh: 105,
+    };
+    const result = VitalsAlertConfigSchema.safeParse(config);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.thresholds['vital-oxygen-sat']['18+y']).toEqual({ criticalLow: 90, abnormalLow: 95 });
+      expect(result.data.thresholds['vital-heartbeat']['18+y'].abnormalHigh).toBe(100);
+    }
+  });
+
+  it('does not reject an SpO2 high level that would be out of order', () => {
+    const config = cloneDefault();
+    config.thresholds['vital-oxygen-sat']['18+y'] = { criticalLow: 90, abnormalLow: 95, abnormalHigh: 80 };
+    expect(VitalsAlertConfigSchema.safeParse(config).success).toBe(true);
+  });
+
+  it('gives the engine no upper bound for SpO2, so a high reading raises no alert', () => {
+    const config = cloneDefault();
+    config.thresholds['vital-oxygen-sat']['18+y'] = { criticalLow: 90, abnormalLow: 95, abnormalHigh: 96 };
+    const engineConfig = vitalsAlertConfigToVitalsDef(config);
+
+    expect(
+      engineConfig['vital-oxygen-sat']?.alertThresholds?.some((threshold) =>
+        threshold.rules.some((rule) => rule.type === 'max')
+      )
+    ).toBe(false);
+
+    const adult = { patientDOB: dobForAgeInMonths(30 * 12), patientSex: 'female', configOverride: engineConfig };
+    const alertLevelAt = (value: number): string | undefined =>
+      getVitalObservationAlertLevel({
+        ...adult,
+        vitalsObservation: makeObservation(VitalFieldNames.VitalOxygenSaturation, value),
+      });
+
+    expect(alertLevelAt(99)).toBeUndefined();
+    expect(alertLevelAt(101)).toBeUndefined();
+    expect(alertLevelAt(93)).toBe('abnormal');
+    expect(alertLevelAt(88)).toBe('critical');
+  });
+});
+
 describe('gaps in age range coverage', () => {
   const cloneDefault = (): VitalsAlertConfig => JSON.parse(JSON.stringify(DEFAULT_VITALS_ALERT_CONFIG));
 
@@ -258,7 +315,7 @@ describe('formatVitalNormalRange', () => {
 
   it('is open ended when only one side alerts', () => {
     expect(formatVitalNormalRange({ abnormalLow: 90 }, 'vital-oxygen-sat')).toBe('91 and above');
-    expect(formatVitalNormalRange({ abnormalHigh: 101 }, 'vital-oxygen-sat')).toBe('100 and below');
+    expect(formatVitalNormalRange({ abnormalHigh: 101 }, 'vital-heartbeat')).toBe('100 and below');
   });
 
   it('ignores the critical levels', () => {
@@ -272,8 +329,17 @@ describe('formatVitalNormalRange', () => {
   });
 
   it('has no normal range when the levels leave no room between them', () => {
-    expect(formatVitalNormalRange({ abnormalLow: 95, abnormalHigh: 95 }, 'vital-oxygen-sat')).toBe('—');
-    expect(formatVitalNormalRange({ abnormalLow: 95, abnormalHigh: 96 }, 'vital-oxygen-sat')).toBe('—');
+    expect(formatVitalNormalRange({ abnormalLow: 95, abnormalHigh: 95 }, 'vital-heartbeat')).toBe('—');
+    expect(formatVitalNormalRange({ abnormalLow: 95, abnormalHigh: 96 }, 'vital-heartbeat')).toBe('—');
+  });
+
+  it('ignores a high level on a vital that has none, leaving the range open ended', () => {
+    expect(
+      formatVitalNormalRange(
+        { criticalLow: 90, abnormalLow: 95, abnormalHigh: 101, criticalHigh: 105 },
+        'vital-oxygen-sat'
+      )
+    ).toBe('96 and above');
   });
 
   it('keeps a range that only a finer step can fit', () => {

@@ -18,7 +18,7 @@ export const VitalsAlertConfigFields = ({ form }: VitalsAlertConfigFieldsProps):
   return (
     <Box data-testid={dataTestIds.vitalsAlertConfig.section}>
       <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
-        Vital 2 Level Alerts
+        Normal Ranges & Alerts
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Age-based thresholds that flag an entered vital as abnormal (orange) or critical (red). Changes apply to the

@@ -115,6 +115,47 @@ describe('ProgressNoteAdminPage - vital alert levels', () => {
     expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.vitalAccordion('vital-oxygen-sat'))).toBeInTheDocument();
   });
 
+  it('offers only the low levels for SpO2, which never alerts high', async () => {
+    await renderSection();
+    await expandVital('vital-oxygen-sat');
+
+    const inputAt = (level: string): HTMLElement | null =>
+      screen.queryByTestId(dataTestIds.vitalsAlertConfig.thresholdInput('vital-oxygen-sat', '18+y', level));
+    expect(inputAt('criticalLow')).toBeInTheDocument();
+    expect(inputAt('abnormalLow')).toBeInTheDocument();
+    expect(inputAt('abnormalHigh')).toBeNull();
+    expect(inputAt('criticalHigh')).toBeNull();
+
+    const spo2 = screen.getByTestId(dataTestIds.vitalsAlertConfig.vitalAccordion('vital-oxygen-sat'));
+    expect(within(spo2).queryByText('High')).toBeNull();
+    expect(within(spo2).queryByText('Critical High')).toBeNull();
+    expect(
+      screen.getByTestId(dataTestIds.vitalsAlertConfig.normalRangeCell('vital-oxygen-sat', '18+y'))
+    ).toHaveTextContent('96 and above');
+
+    await expandVital('vital-heartbeat');
+    expect(heartRateAdultInput()).toBeInTheDocument();
+  });
+
+  it('drops any high level an SpO2 config carries instead of saving it', async () => {
+    const config = cloneDefault();
+    config.thresholds['vital-oxygen-sat']['18+y'] = {
+      criticalLow: 90,
+      abnormalLow: 95,
+      abnormalHigh: 101,
+      criticalHigh: 105,
+    };
+    vi.mocked(getVitalsAlertConfig).mockResolvedValue(config);
+
+    await renderSection();
+    fireEvent.change(await openHeartRateAdultInput(), { target: { value: '99' } });
+    fireEvent.click(getSaveButton());
+
+    await waitFor(() => expect(adminUpdateVitalsAlertConfig).toHaveBeenCalled());
+    const [, payload] = vi.mocked(adminUpdateVitalsAlertConfig).mock.calls[0];
+    expect(payload.config.thresholds['vital-oxygen-sat']['18+y']).toEqual({ criticalLow: 90, abnormalLow: 95 });
+  });
+
   it('shows a read-only normal range derived from the low and high levels', async () => {
     await renderSection();
     await expandVital('vital-heartbeat');
@@ -175,7 +216,7 @@ describe('ProgressNoteAdminPage - vital alert levels', () => {
 
   it('surfaces a threshold error from a collapsed vital and opens that accordion', async () => {
     const config = cloneDefault();
-    config.thresholds['vital-oxygen-sat']['18+y'] = { abnormalLow: 95, abnormalHigh: 90 };
+    config.thresholds['vital-oxygen-sat']['18+y'] = { criticalLow: 95, abnormalLow: 90 };
     vi.mocked(getVitalsAlertConfig).mockResolvedValue(config);
 
     await renderSection();

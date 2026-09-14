@@ -1,7 +1,7 @@
 import { FieldErrors } from 'react-hook-form';
 import {
   VITAL_ALERT_LABELS,
-  VITAL_ALERT_LEVELS,
+  VITAL_ALERT_LEVELS_BY_TYPE,
   VITAL_ALERT_TYPES,
   VitalAlertAgeRange,
   VitalAlertType,
@@ -13,15 +13,19 @@ interface MessageNode {
   message?: string;
 }
 
-type AgeNodeErrors = MessageNode & { value?: MessageNode; unit?: MessageNode };
+type RootedNode = MessageNode & { root?: MessageNode };
+
+type AgeNodeErrors = RootedNode & { value?: MessageNode; unit?: MessageNode };
 
 type AgeRangeErrors =
-  | (MessageNode & Array<{ minAge?: AgeNodeErrors; maxAge?: AgeNodeErrors; id?: MessageNode }>)
+  | (RootedNode & Array<{ minAge?: AgeNodeErrors; maxAge?: AgeNodeErrors; id?: MessageNode }>)
   | undefined;
+
+const ownMessage = (node: RootedNode | undefined): string | undefined => node?.message ?? node?.root?.message;
 
 const ageNodeMessages = (node: AgeNodeErrors | undefined, label: string): string[] =>
   [
-    node?.message,
+    ownMessage(node),
     node?.value?.message ? `${label} age is required` : undefined,
     node?.unit?.message ? `${label} age unit is required` : undefined,
   ].filter((message): message is string => !!message);
@@ -31,8 +35,9 @@ const collectAgeRangeErrors = (errors: FieldErrors<VitalsAlertConfig>): string[]
   if (!ageRangeErrors) return [];
 
   const messages: string[] = [];
-  if (ageRangeErrors.message) {
-    messages.push(ageRangeErrors.message);
+  const arrayMessage = ownMessage(ageRangeErrors);
+  if (arrayMessage) {
+    messages.push(arrayMessage);
   }
   if (Array.isArray(ageRangeErrors)) {
     ageRangeErrors.forEach((rowError, index) => {
@@ -74,7 +79,7 @@ const collectThresholdErrors = (errors: FieldErrors<VitalsAlertConfig>, ageRange
     if (!perRange) return;
     Object.entries(perRange).forEach(([rangeId, levelErrors]) => {
       if (!levelErrors) return;
-      VITAL_ALERT_LEVELS.forEach((level) => {
+      VITAL_ALERT_LEVELS_BY_TYPE[vital].forEach((level) => {
         const message = levelErrors[level]?.message;
         if (message) {
           messages.push(`${VITAL_ALERT_LABELS[vital]}, ${rangeLabels.get(rangeId) ?? rangeId}: ${message}`);
