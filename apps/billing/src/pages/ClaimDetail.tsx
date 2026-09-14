@@ -11,6 +11,7 @@ import {
   EditOutlined as EditOutlinedIcon,
   FileDownloadOutlined as FileDownloadIcon,
   FileUpload as FileUploadIcon,
+  InfoOutlined as InfoOutlinedIcon,
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
   Save as SaveIcon,
@@ -56,7 +57,7 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import Dropzone, { DropzoneProps } from 'react-dropzone';
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -114,15 +115,14 @@ import {
   updateBillingProvider,
   updateBillingResource,
 } from '../api/api';
-import { CapsuleIcon } from '../components/claim/CapsuleIcon';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimNotesDrawer } from '../components/claim/ClaimNotesDrawer';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
-import { DoctorIcon } from '../components/claim/DoctorIcon';
 import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
 import { MedicationDetailDialog, ServiceLineDrug } from '../components/claim/MedicationDetailDialog';
 import { OrderingProviderDialog, ServiceLineOrderingProvider } from '../components/claim/OrderingProviderDialog';
+import { ServiceLineIndicators } from '../components/claim/ServiceLineIndicators';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CopyButton } from '../components/CopyButton';
@@ -1497,6 +1497,11 @@ function ServiceLinesSection({
           <Table size="small">
             <TableHead>
               <TableRow>
+                <TableCell sx={{ ...thSx, width: '1%', whiteSpace: 'nowrap', px: 0.5 }} align="center">
+                  <Tooltip title="Additional data">
+                    <InfoOutlinedIcon sx={{ fontSize: 16, verticalAlign: 'middle', color: 'text.secondary' }} />
+                  </Tooltip>
+                </TableCell>
                 <TableCell sx={thSx}>#</TableCell>
                 <TableCell sx={thSx}>Date of Service</TableCell>
                 <TableCell sx={thSx}>CPT Code</TableCell>
@@ -1511,65 +1516,50 @@ function ServiceLinesSection({
               </TableRow>
             </TableHead>
             <TableBody>
-              {claim.serviceLines.map((line, idx) => (
-                <TableRow key={line.sequence}>
-                  <TableCell>
-                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
-                      {line.sequence}
-                      {line.drug && (
-                        <Tooltip title={`NDC ${line.drug.ndc} · ${line.drug.quantity} ${line.drug.units}`}>
-                          <IconButton
-                            size="small"
-                            onClick={() => setDrugEditIndex(idx)}
-                            aria-label="Edit medication detail"
-                            sx={{ p: 0.25 }}
-                          >
-                            <CapsuleIcon sx={{ fontSize: 24, color: 'primary.main' }} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {line.orderingProvider && (
-                        <Tooltip
-                          title={`Ordering: ${line.orderingProvider.name}${
-                            line.orderingProvider.npi ? ` · NPI ${line.orderingProvider.npi}` : ''
-                          }`}
-                        >
-                          <IconButton
-                            size="small"
-                            onClick={() => setProviderEditIndex(idx)}
-                            aria-label="Edit ordering provider"
-                            sx={{ p: 0.25 }}
-                          >
-                            <DoctorIcon sx={{ fontSize: 24, color: 'primary.main' }} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </TableCell>
-                  <TableCell>{line.serviceDate}</TableCell>
-                  <TableCell>
-                    {line.cptCode}
-                    {line.drug && (
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        NDC {line.drug.ndc} · {line.drug.quantity} {line.drug.units}
-                      </Typography>
+              {claim.serviceLines.map((line, idx) => {
+                const hasExtras = Boolean(line.drug || line.orderingProvider);
+                return (
+                  <Fragment key={line.sequence}>
+                    <TableRow sx={hasExtras ? { '& > td': { borderBottom: 'none' } } : undefined}>
+                      <TableCell sx={{ width: '1%', whiteSpace: 'nowrap', px: 0.5 }} align="center">
+                        <ServiceLineIndicators
+                          drug={line.drug ?? null}
+                          orderingProvider={line.orderingProvider ?? null}
+                          onDrugClick={() => setDrugEditIndex(idx)}
+                          onProviderClick={() => setProviderEditIndex(idx)}
+                        />
+                      </TableCell>
+                      <TableCell>{line.sequence}</TableCell>
+                      <TableCell>{line.serviceDate}</TableCell>
+                      <TableCell>{line.cptCode}</TableCell>
+                      <TableCell>{line.modifiers.join(', ') || '-'}</TableCell>
+                      <TableCell>{line.diagnosisPointers.map(dxCode).join(', ') || '-'}</TableCell>
+                      <TableCell>{line.placeOfService || '-'}</TableCell>
+                      {claim.type === 'institutional' && <TableCell>{line.revenueCode || '-'}</TableCell>}
+                      <TableCell>{line.units} UN</TableCell>
+                      <TableCell align="right">{formatCurrency(line.charges)}</TableCell>
+                    </TableRow>
+                    {hasExtras && (
+                      <TableRow>
+                        <TableCell colSpan={claim.type === 'institutional' ? 11 : 10} sx={{ pt: 0 }}>
+                          {line.drug && (
+                            <Typography variant="caption" display="block" color="text.secondary">
+                              NDC {line.drug.ndc} · {line.drug.quantity} {line.drug.units}
+                            </Typography>
+                          )}
+                          {line.orderingProvider && (
+                            <Typography variant="caption" display="block" color="text.secondary">
+                              Ordering Provider: {line.orderingProvider.name}
+                              {line.orderingProvider.npi ? ` · NPI ${line.orderingProvider.npi}` : ''}
+                              {line.orderingProvider.taxonomy ? ` · ${line.orderingProvider.taxonomy}` : ''}
+                            </Typography>
+                          )}
+                        </TableCell>
+                      </TableRow>
                     )}
-                    {line.orderingProvider && (
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        Ordering: {line.orderingProvider.name}
-                        {line.orderingProvider.npi ? ` · NPI ${line.orderingProvider.npi}` : ''}
-                        {line.orderingProvider.taxonomy ? ` · ${line.orderingProvider.taxonomy}` : ''}
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>{line.modifiers.join(', ') || '-'}</TableCell>
-                  <TableCell>{line.diagnosisPointers.map(dxCode).join(', ') || '-'}</TableCell>
-                  <TableCell>{line.placeOfService || '-'}</TableCell>
-                  {claim.type === 'institutional' && <TableCell>{line.revenueCode || '-'}</TableCell>}
-                  <TableCell>{line.units} UN</TableCell>
-                  <TableCell align="right">{formatCurrency(line.charges)}</TableCell>
-                </TableRow>
-              ))}
+                  </Fragment>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
@@ -1578,44 +1568,61 @@ function ServiceLinesSection({
           No service lines
         </Typography>
       )}
-      {drugEditIndex !== null && claim.serviceLines[drugEditIndex]?.drug && (
+      {drugEditIndex !== null && (
         <MedicationDetailDialog
           open
-          value={{
-            ndc: claim.serviceLines[drugEditIndex].drug!.ndc,
-            quantity: String(claim.serviceLines[drugEditIndex].drug!.quantity),
-            units: claim.serviceLines[drugEditIndex].drug!.units as DrugUnitCode,
-          }}
+          value={
+            claim.serviceLines[drugEditIndex]?.drug
+              ? {
+                  ndc: claim.serviceLines[drugEditIndex].drug!.ndc,
+                  quantity: String(claim.serviceLines[drugEditIndex].drug!.quantity),
+                  units: claim.serviceLines[drugEditIndex].drug!.units as DrugUnitCode,
+                }
+              : null
+          }
           onSave={(drug) => {
             const idx = drugEditIndex;
             setDrugEditIndex(null);
             void saveLineExtras(idx, { drug });
           }}
-          onRemove={() => {
-            const idx = drugEditIndex;
-            setDrugEditIndex(null);
-            void saveLineExtras(idx, { drug: null });
-          }}
+          onRemove={
+            claim.serviceLines[drugEditIndex]?.drug
+              ? () => {
+                  const idx = drugEditIndex;
+                  setDrugEditIndex(null);
+                  void saveLineExtras(idx, { drug: null });
+                }
+              : undefined
+          }
           onClose={() => setDrugEditIndex(null)}
         />
       )}
-      {providerEditIndex !== null && claim.serviceLines[providerEditIndex]?.orderingProvider && (
+      {providerEditIndex !== null && (
         <OrderingProviderDialog
           open
-          value={{
-            ...claim.serviceLines[providerEditIndex].orderingProvider!,
-            kind: claim.serviceLines[providerEditIndex].orderingProvider!.kind as ServiceLineOrderingProvider['kind'],
-          }}
+          value={
+            claim.serviceLines[providerEditIndex]?.orderingProvider
+              ? {
+                  ...claim.serviceLines[providerEditIndex].orderingProvider!,
+                  kind: claim.serviceLines[providerEditIndex].orderingProvider!
+                    .kind as ServiceLineOrderingProvider['kind'],
+                }
+              : null
+          }
           onSave={(provider) => {
             const idx = providerEditIndex;
             setProviderEditIndex(null);
             void saveLineExtras(idx, { orderingProvider: provider });
           }}
-          onRemove={() => {
-            const idx = providerEditIndex;
-            setProviderEditIndex(null);
-            void saveLineExtras(idx, { orderingProvider: null });
-          }}
+          onRemove={
+            claim.serviceLines[providerEditIndex]?.orderingProvider
+              ? () => {
+                  const idx = providerEditIndex;
+                  setProviderEditIndex(null);
+                  void saveLineExtras(idx, { orderingProvider: null });
+                }
+              : undefined
+          }
           onClose={() => setProviderEditIndex(null)}
         />
       )}

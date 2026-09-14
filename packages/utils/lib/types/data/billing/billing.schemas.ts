@@ -233,15 +233,22 @@ const claimServiceLineSchema = z.object({
   orderingProvider: z
     .object({
       name: nonEmptyString,
-      npi: z
-        .string()
-        .trim()
-        .refine(isNPIValidWithChecksum, 'NPI must be 10 digits with a valid check digit')
-        .optional(),
+      npi: z.string().trim().optional(),
       taxonomy: z.string().trim().optional(),
       kind: z.enum(['individual', 'organization']).optional(),
       // FHIR id when picked from an existing billing provider
       providerId: z.string().optional(),
+    })
+    // Providers picked from the system (providerId set) are trusted as stored; only
+    // manually entered NPIs get checksum-validated.
+    .superRefine((provider, ctx) => {
+      if (provider.npi && !provider.providerId && !isNPIValidWithChecksum(provider.npi)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['npi'],
+          message: 'NPI must be 10 digits with a valid check digit',
+        });
+      }
     })
     .optional(),
 });

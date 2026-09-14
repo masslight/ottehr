@@ -1,13 +1,12 @@
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { DeleteOutline as DeleteOutlineIcon } from '@mui/icons-material';
 import { Autocomplete, Box, Button, IconButton, MenuItem, Select, TextField, Tooltip, Typography } from '@mui/material';
 import { ReactElement, useState } from 'react';
 import { CMS_PLACE_OF_SERVICE_CODES, CODE_SYSTEM_CLAIM_TYPE_CODES } from 'utils/lib/helpers/rcm/constants';
 import { DateInput } from '../DateInput';
 import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
-import { CapsuleIcon } from './CapsuleIcon';
-import { DoctorIcon } from './DoctorIcon';
 import { MedicationDetailDialog, ServiceLineDrug } from './MedicationDetailDialog';
 import { OrderingProviderDialog, ServiceLineOrderingProvider } from './OrderingProviderDialog';
+import { ServiceLineIndicators } from './ServiceLineIndicators';
 
 export interface ServiceLineRow {
   cptCode: string;
@@ -87,41 +86,15 @@ export function ServiceLinesEditor({
       {value.map((row, i) => (
         <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'nowrap' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', width: 76, flexShrink: 0 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 16 }}>
+            <ServiceLineIndicators
+              drug={row.drug}
+              orderingProvider={row.orderingProvider}
+              onDrugClick={() => setDrugIndex(i)}
+              onProviderClick={() => setProviderIndex(i)}
+            />
+            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 16, ml: 0.25 }}>
               {i + 1}
             </Typography>
-            <Tooltip
-              title={
-                row.drug ? `NDC ${row.drug.ndc} · ${row.drug.quantity} ${row.drug.units}` : 'Add medication detail'
-              }
-            >
-              <IconButton
-                size="small"
-                onClick={() => setDrugIndex(i)}
-                aria-label="Medication detail"
-                sx={{ p: 0.25, color: row.drug ? 'primary.main' : 'grey.500' }}
-              >
-                <CapsuleIcon sx={{ fontSize: 24 }} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip
-              title={
-                row.orderingProvider
-                  ? `Ordering: ${row.orderingProvider.name}${
-                      row.orderingProvider.npi ? ` · NPI ${row.orderingProvider.npi}` : ''
-                    }`
-                  : 'Add ordering provider'
-              }
-            >
-              <IconButton
-                size="small"
-                onClick={() => setProviderIndex(i)}
-                aria-label="Ordering provider"
-                sx={{ p: 0.25, color: row.orderingProvider ? 'primary.main' : 'grey.500' }}
-              >
-                <DoctorIcon sx={{ fontSize: 24 }} />
-              </IconButton>
-            </Tooltip>
           </Box>
           <ProcedureCodeAutocomplete value={row.cptCode} onChange={(code) => setRow(i, 'cptCode', code)} width={150} />
           <TextField
