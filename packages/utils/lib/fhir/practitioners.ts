@@ -150,3 +150,44 @@ export const getPhrasesForPractitioner = (practitioner?: Practitioner): Phrase[]
     return [];
   }
 };
+
+export type PhraseChange = { type: 'upsert'; phrase: Phrase; replacesKey?: string } | { type: 'delete'; key: string };
+
+export type PhraseChangeResult = { ok: true; phrases: Phrase[] } | { ok: false; reason: 'missing' | 'duplicate-key' };
+
+export const normalizePhraseKey = (key: string): string => key.trim().toLowerCase();
+
+export const applyPhraseChange = (phrases: Phrase[], change: PhraseChange): PhraseChangeResult => {
+  const indexOfKey = (key: string): number => {
+    const normalized = normalizePhraseKey(key);
+    return phrases.findIndex((phrase) => normalizePhraseKey(phrase.key) === normalized);
+  };
+
+  if (change.type === 'delete') {
+    const index = indexOfKey(change.key);
+    return { ok: true, phrases: index < 0 ? [...phrases] : phrases.filter((_phrase, i) => i !== index) };
+  }
+
+  const targetIndex = change.replacesKey === undefined ? indexOfKey(change.phrase.key) : indexOfKey(change.replacesKey);
+
+  if (change.replacesKey === undefined) {
+    return {
+      ok: true,
+      phrases:
+        targetIndex < 0
+          ? [...phrases, change.phrase]
+          : phrases.map((phrase, i) => (i === targetIndex ? change.phrase : phrase)),
+    };
+  }
+
+  if (targetIndex < 0) {
+    return { ok: false, reason: 'missing' };
+  }
+
+  const collisionIndex = indexOfKey(change.phrase.key);
+  if (collisionIndex >= 0 && collisionIndex !== targetIndex) {
+    return { ok: false, reason: 'duplicate-key' };
+  }
+
+  return { ok: true, phrases: phrases.map((phrase, i) => (i === targetIndex ? change.phrase : phrase)) };
+};
