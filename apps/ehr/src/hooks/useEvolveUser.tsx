@@ -102,7 +102,7 @@ export default function useEvolveUser(): EvolveUser | undefined {
         }
       }
 
-      void mutatePractitionerAsync(patchOps).catch(console.error);
+      void mutatePractitionerAsync({ operations: patchOps }).catch(console.error);
     }
   }, [oystehr, isPractitionerLastLoginBeingUpdated, mutatePractitionerAsync, profile, user]);
 
@@ -230,23 +230,36 @@ const useSyncPractitioner = (_onSuccess: (data: SyncUserResponse) => void) => {
   */
 };
 
-export const useUpdatePractitioner = (): UseMutationResult<void, Error, Operation[]> => {
+export interface UpdatePractitionerInput {
+  operations: Operation[];
+  optimisticLockingVersionId?: string;
+}
+
+export const isPreconditionFailed = (error: unknown): boolean =>
+  typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 412;
+
+export const useUpdatePractitioner = (): UseMutationResult<void, Error, UpdatePractitionerInput> => {
   const user = useEvolveUserStore((state) => state.user);
   const { oystehr } = useApiClients();
 
   return useMutation({
     mutationKey: ['update-practitioner'],
 
-    mutationFn: async (patchOps: Operation[]): Promise<void> => {
-      if (!oystehr || !user) return;
+    mutationFn: async ({ operations, optimisticLockingVersionId }: UpdatePractitionerInput): Promise<void> => {
+      if (!oystehr || !user) {
+        throw new Error('Cannot update the practitioner before the user profile has loaded.');
+      }
 
-      await oystehr.fhir.patch({
-        resourceType: 'Practitioner',
-        id: user.profile.replace('Practitioner/', ''),
-        operations: [...patchOps],
-      });
+      await oystehr.fhir.patch(
+        {
+          resourceType: 'Practitioner',
+          id: user.profile.replace('Practitioner/', ''),
+          operations: [...operations],
+        },
+        { optimisticLockingVersionId }
+      );
     },
 
-    retry: 3,
+    retry: (failureCount, error) => !isPreconditionFailed(error) && failureCount < 3,
   });
 };

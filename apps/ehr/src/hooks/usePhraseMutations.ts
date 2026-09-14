@@ -30,7 +30,7 @@ export function useSavePhrases(): UseMutationResult<void, Error, Phrase[]> {
       );
       if (!operation) return;
 
-      await updatePractitioner.mutateAsync([operation]);
+      await updatePractitioner.mutateAsync({ operations: [operation] });
     },
 
     onSuccess: () => {
