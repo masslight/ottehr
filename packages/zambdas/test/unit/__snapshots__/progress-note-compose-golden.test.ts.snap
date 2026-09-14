@@ -1,0 +1,396 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`composeProgressNoteData — golden chart data > matches the golden snapshot 1`] = `
+{
+  "allergies": {
+    "allergies": [
+      "Penicillin",
+    ],
+    "allergiesNotes": [
+      "allergy note text",
+    ],
+  },
+  "assessment": {
+    "primary": "Acute pharyngitis, unspecified",
+    "secondary": [
+      "Fever, unspecified",
+    ],
+  },
+  "chiefComplaint": {
+    "chiefComplaint": "Gradual onset, worse with swallowing",
+    "isInPerson": true,
+    "spentTime": "",
+  },
+  "cptCodes": {
+    "cptCodes": [
+      "99213 Office visit, established patient, low",
+      "12001 Simple repair of superficial wounds",
+    ],
+  },
+  "emCode": {
+    "emCode": "Office visit, established patient, moderate",
+  },
+  "encounter": {
+    "isFollowup": false,
+  },
+  "examination": {
+    "examination": {
+      "abdomen": {
+        "comment": undefined,
+        "groupLabel": "Abdomen",
+        "items": [],
+      },
+      "back": {
+        "comment": undefined,
+        "groupLabel": "Back",
+        "items": [],
+      },
+      "ears": {
+        "comment": undefined,
+        "groupLabel": "Ears",
+        "items": [],
+      },
+      "extremities": {
+        "comment": undefined,
+        "groupLabel": "Extremities",
+        "items": [],
+      },
+      "eyes": {
+        "comment": undefined,
+        "groupLabel": "Eyes",
+        "items": [],
+      },
+      "general": {
+        "comment": undefined,
+        "groupLabel": "General Appearance",
+        "items": [],
+      },
+      "gu-female": {
+        "comment": undefined,
+        "groupLabel": "GU (Female)",
+        "items": [],
+      },
+      "gu-male": {
+        "comment": undefined,
+        "groupLabel": "GU (Male)",
+        "items": [],
+      },
+      "head": {
+        "comment": undefined,
+        "groupLabel": "Head",
+        "items": [],
+      },
+      "heart": {
+        "comment": undefined,
+        "groupLabel": "Heart",
+        "items": [],
+      },
+      "lungs": {
+        "comment": undefined,
+        "groupLabel": "Lungs, Chest Wall",
+        "items": [],
+      },
+      "lymph": {
+        "comment": undefined,
+        "groupLabel": "Lymph Nodes",
+        "items": [],
+      },
+      "neck": {
+        "comment": undefined,
+        "groupLabel": "Neck",
+        "items": [],
+      },
+      "neurologic": {
+        "comment": undefined,
+        "groupLabel": "Neurologic",
+        "items": [],
+      },
+      "nose": {
+        "comment": undefined,
+        "groupLabel": "Nose",
+        "items": [],
+      },
+      "oral": {
+        "comment": undefined,
+        "groupLabel": "Oral Cavity",
+        "items": [],
+      },
+      "other-findings": {
+        "groupLabel": "Other findings",
+        "items": [
+          {
+            "abnormal": true,
+            "field": "normal-general",
+            "label": "General",
+          },
+        ],
+      },
+      "psychiatric": {
+        "comment": undefined,
+        "groupLabel": "Psychiatric",
+        "items": [],
+      },
+      "rectal": {
+        "comment": undefined,
+        "groupLabel": "Rectal",
+        "items": [],
+      },
+      "skin": {
+        "comment": undefined,
+        "groupLabel": "Skin, Hair, Nails",
+        "items": [],
+      },
+      "vascular": {
+        "comment": undefined,
+        "groupLabel": "Vascular",
+        "items": [],
+      },
+    },
+  },
+  "externalLabs": {
+    "externalLabOrders": [],
+    "externalLabResults": [],
+  },
+  "followupCompleted": {
+    "completedDateTime": "1/15/2026, 6:00 AM (CST)",
+  },
+  "historyOfPresentIllness": {
+    "historyOfPresentIllness": "Sore throat for 3 days",
+  },
+  "hospitalization": {
+    "hospitalization": [
+      "Pneumonia (2024)",
+    ],
+    "hospitalizationNotes": [
+      "hospitalization note text",
+    ],
+  },
+  "immunizationOrders": {
+    "immunizationOrders": [],
+  },
+  "inHouseLabs": {
+    "inHouseLabOrders": [],
+    "inHouseLabResults": [],
+  },
+  "inHouseMedications": {
+    "inHouseMedications": [],
+    "inHouseMedicationsNotes": [
+      "medication note text",
+    ],
+  },
+  "intakeNotes": {
+    "intakeNotes": [
+      "intake note text",
+    ],
+  },
+  "mechanismOfInjury": {
+    "mechanismOfInjury": "No injury",
+  },
+  "medicalConditions": {
+    "medicalConditions": [
+      "Unspecified asthma, uncomplicated J45.909",
+    ],
+    "medicalConditionsNotes": [
+      "medical-condition note text",
+    ],
+  },
+  "medicalDecision": {
+    "medicalDecision": "Viral pharyngitis, low complexity decision making",
+  },
+  "medications": {
+    "medications": [
+      "Albuterol inhaler (2 puffs)",
+    ],
+    "medicationsNotes": [
+      "intake-medication note text",
+    ],
+  },
+  "patient": {
+    "patientDOB": "06/01/2015",
+    "patientId": "",
+    "patientName": "Patient, Golden",
+    "patientPhone": "",
+    "personAccompanying": "",
+  },
+  "patientInstructions": {
+    "addendumNote": "Legacy single-string addendum",
+    "addendumNotes": [
+      {
+        "authorName": "Golden Provider",
+        "deleted": false,
+        "edited": false,
+        "text": "addendum note text",
+        "timestamp": "01/15/2026 06:00 AM",
+      },
+    ],
+    "disposition": {
+      "followUpIn": 3,
+      "header": "Disposition - Primary Care Physician",
+      "labService": "",
+      "nothingToEatOrDrink": undefined,
+      "reason": undefined,
+      "refusalOfEmsTransport": undefined,
+      "specialty": undefined,
+      "text": "Follow up with PCP in 3 days",
+      "virusTest": "",
+    },
+    "patientInstructions": [
+      "Rest, fluids, ibuprofen as needed",
+    ],
+    "subSpecialtyFollowup": [
+      "ENT ",
+    ],
+    "workSchoolExcuse": [
+      "There was a school note generated",
+    ],
+  },
+  "plan": {
+    "addendumNote": "Legacy single-string addendum",
+    "addendumNotes": [
+      {
+        "authorName": "Golden Provider",
+        "deleted": false,
+        "edited": false,
+        "text": "addendum note text",
+        "timestamp": "01/15/2026 06:00 AM",
+      },
+    ],
+    "disposition": {
+      "followUpIn": 3,
+      "header": "Disposition - Primary Care Physician",
+      "labService": "",
+      "nothingToEatOrDrink": undefined,
+      "reason": undefined,
+      "refusalOfEmsTransport": undefined,
+      "specialty": undefined,
+      "text": "Follow up with PCP in 3 days",
+      "virusTest": "",
+    },
+    "patientInstructions": [
+      "Rest, fluids, ibuprofen as needed",
+    ],
+    "subSpecialtyFollowup": [
+      "ENT ",
+    ],
+    "workSchoolExcuse": [
+      "There was a school note generated",
+    ],
+  },
+  "prescriptions": {
+    "pharmacyGroups": [
+      {
+        "pharmacy": undefined,
+        "prescriptions": [
+          "Cetirizine 10 mg tablet",
+        ],
+      },
+    ],
+  },
+  "procedures": {
+    "procedures": [
+      {
+        "bodySide": "left",
+        "bodySite": "arm",
+        "complications": undefined,
+        "cptCodes": [
+          "12001 Simple repair of superficial wounds",
+        ],
+        "diagnoses": [
+          "J02.9 Acute pharyngitis, unspecified",
+        ],
+        "documentedBy": undefined,
+        "medicationUsed": undefined,
+        "patientResponse": undefined,
+        "performerType": "provider",
+        "postInstructions": undefined,
+        "procedureDateTime": "01/15/2026, 05:00 AM",
+        "procedureDetails": undefined,
+        "procedureType": "laceration-repair",
+        "specimenSent": undefined,
+        "suppliesUsed": undefined,
+        "technique": [
+          "simple",
+        ],
+        "timeSpent": undefined,
+      },
+    ],
+  },
+  "radiology": {
+    "pendingRadiologyOrders": [],
+    "radiology": [
+      {
+        "name": "73030 — X-ray shoulder",
+        "performedBy": undefined,
+        "result": "No acute fracture.",
+      },
+    ],
+  },
+  "reviewOfSystems": {
+    "reviewOfSystems": "Negative except as noted",
+  },
+  "rosObservations": {
+    "rosObservations": {},
+  },
+  "screening": {
+    "additionalQuestions": {
+      "covid-symptoms": {
+        "field": "covid-symptoms",
+        "resourceId": "obs-screening-covid",
+        "value": true,
+      },
+      "travel-usa": {
+        "derivedFrom": undefined,
+        "field": "travel-usa",
+        "note": "Asked on intake",
+        "resourceId": "obs-screening-travel",
+        "value": "No recent travel",
+      },
+    },
+    "currentASQ": "",
+    "notes": [
+      "screening note text",
+    ],
+  },
+  "signature": {
+    "approvedBy": undefined,
+    "signedBy": "Signed electronically by Provider, Golden | MD on 1/15/2026, 6:00 AM (CST)",
+  },
+  "surgicalHistory": {
+    "surgicalHistory": [
+      "Tonsillectomy and adenoidectomy",
+    ],
+    "surgicalHistoryNotes": [
+      "surgical-history note text",
+    ],
+  },
+  "upcomingVisits": {
+    "rows": [],
+  },
+  "visit": {
+    "address": "",
+    "bookingType": undefined,
+    "dateOfService": "",
+    "insuranceCompany": undefined,
+    "insuranceSubscriberId": undefined,
+    "intakePerson": undefined,
+    "provider": "Provider, Golden | MD",
+    "reasonForVisit": "",
+    "serviceCategory": undefined,
+    "signedOn": "1/15/2026, 6:00 AM (CST)",
+    "type": "In Person",
+    "visitID": "44444444-4444-4444-8444-444444444444",
+    "visitState": "",
+    "visitType": "initial",
+  },
+  "vitals": {
+    "vitals": {
+      "notes": [
+        "vitals note text",
+      ],
+      "vital-temperature": [
+        "1/15/2026, 6:00 AM (CST) - 38.2 C ≈ 100.8 F ",
+      ],
+    },
+  },
+}
+`;
