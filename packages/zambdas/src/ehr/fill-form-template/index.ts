@@ -266,11 +266,17 @@ const supersedePreviousInstances = async (
 
     await Promise.all(
       previous.map((docRef) =>
-        oystehr.fhir.patch<DocumentReference>({
-          resourceType: 'DocumentReference',
-          id: docRef.id!,
-          operations: [{ op: 'replace', path: '/status', value: 'superseded' }],
-        })
+        oystehr.fhir.patch<DocumentReference>(
+          {
+            resourceType: 'DocumentReference',
+            id: docRef.id!,
+            operations: [{ op: 'replace', path: '/status', value: 'superseded' }],
+          },
+          // Version-locked against the copy the search returned. The `docStatus === 'preliminary'` filter
+          // above is what keeps a returned form from being hidden, and it was evaluated on that copy — so
+          // a form returned between the search and this patch would otherwise be superseded anyway.
+          { optimisticLockingVersionId: docRef.meta?.versionId }
+        )
       )
     );
   } catch (error) {

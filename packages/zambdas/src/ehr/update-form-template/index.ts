@@ -110,11 +110,12 @@ const performEffect = async (
   }
 
   if (operations.length > 0) {
-    await oystehr.fhir.patch<DocumentReference>({
-      resourceType: 'DocumentReference',
-      id: documentReferenceId,
-      operations,
-    });
+    await oystehr.fhir.patch<DocumentReference>(
+      { resourceType: 'DocumentReference', id: documentReferenceId, operations },
+      // Version-locked: the operations were chosen from `existing` — whether each field is an `add` or a
+      // `replace`, and whether publishing is allowed at all.
+      { optimisticLockingVersionId: existing.meta?.versionId }
+    );
   }
 
   return { documentReferenceId };

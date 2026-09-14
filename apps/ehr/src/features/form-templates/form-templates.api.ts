@@ -28,24 +28,12 @@ import {
   UpdateFormTemplateOutput,
 } from 'utils/lib/types/api/form-template.types';
 
-const ANALYZE_FORM_TEMPLATE_ZAMBDA_ID = 'analyze-form-template';
-const FILL_FORM_TEMPLATE_ZAMBDA_ID = 'fill-form-template';
-const CREATE_COMPLETED_FORM_UPLOAD_URL_ZAMBDA_ID = 'create-completed-form-upload-url';
-const SAVE_COMPLETED_FORM_ZAMBDA_ID = 'save-completed-form';
-const CREATE_FORM_TEMPLATE_UPLOAD_URL_ZAMBDA_ID = 'create-form-template-upload-url';
-const GET_FORM_TEMPLATE_DETAIL_ZAMBDA_ID = 'get-form-template-detail';
-const REPLACE_FORM_TEMPLATE_PDF_ZAMBDA_ID = 'replace-form-template-pdf';
-const SAVE_FORM_TEMPLATE_MAPPING_ZAMBDA_ID = 'save-form-template-mapping';
-const LIST_FORM_TEMPLATES_ZAMBDA_ID = 'list-form-templates';
-const UPDATE_FORM_TEMPLATE_ZAMBDA_ID = 'update-form-template';
-const DELETE_FORM_TEMPLATE_ZAMBDA_ID = 'delete-form-template';
-
 export const listFormTemplates = async (
   oystehr: Oystehr,
   parameters: ListFormTemplatesInput = {}
 ): Promise<ListFormTemplatesOutput> => {
   try {
-    const response = await oystehr.zambda.execute({ id: LIST_FORM_TEMPLATES_ZAMBDA_ID, ...parameters });
+    const response = await oystehr.zambda.execute({ id: 'list-form-templates', ...parameters });
     return chooseJson(response) as ListFormTemplatesOutput;
   } catch (error: unknown) {
     console.error(error);
@@ -59,7 +47,7 @@ export const fillFormTemplate = async (
   parameters: FillFormTemplateInput
 ): Promise<FillFormTemplateOutput> => {
   try {
-    const response = await oystehr.zambda.execute({ id: FILL_FORM_TEMPLATE_ZAMBDA_ID, ...parameters });
+    const response = await oystehr.zambda.execute({ id: 'fill-form-template', ...parameters });
     return chooseJson(response) as FillFormTemplateOutput;
   } catch (error: unknown) {
     console.error(error);
@@ -72,7 +60,7 @@ const createCompletedFormUploadUrl = async (
   parameters: CreateCompletedFormUploadUrlInput
 ): Promise<CreateCompletedFormUploadUrlOutput> => {
   try {
-    const response = await oystehr.zambda.execute({ id: CREATE_COMPLETED_FORM_UPLOAD_URL_ZAMBDA_ID, ...parameters });
+    const response = await oystehr.zambda.execute({ id: 'create-completed-form-upload-url', ...parameters });
     return chooseJson(response) as CreateCompletedFormUploadUrlOutput;
   } catch (error: unknown) {
     console.error(error);
@@ -85,7 +73,7 @@ const saveCompletedForm = async (
   parameters: SaveCompletedFormInput
 ): Promise<SaveCompletedFormOutput> => {
   try {
-    const response = await oystehr.zambda.execute({ id: SAVE_COMPLETED_FORM_ZAMBDA_ID, ...parameters });
+    const response = await oystehr.zambda.execute({ id: 'save-completed-form', ...parameters });
     return chooseJson(response) as SaveCompletedFormOutput;
   } catch (error: unknown) {
     console.error(error);
@@ -93,13 +81,6 @@ const saveCompletedForm = async (
   }
 };
 
-/**
- * Puts a completed form back on the chart.
- *
- * Three steps in a deliberate order: ask where to put it, put it there, then ask for it to be filed. The
- * chart record is created only by the third call, so abandoning the upload — or uploading a form belonging
- * to another patient — leaves nothing behind to tidy up.
- */
 /**
  * Turns a failed upload into an error worth reading.
  *
@@ -117,6 +98,13 @@ const uploadFailure = async (response: Response, subject: string): Promise<Error
   return new Error(`Failed to upload the ${subject} (${code ?? `${response.status} ${response.statusText}`})`);
 };
 
+/**
+ * Puts a completed form back on the chart.
+ *
+ * Three steps in a deliberate order: ask where to put it, put it there, then ask for it to be filed. The
+ * chart record is created only by the third call, so abandoning the upload — or uploading a form belonging
+ * to another patient — leaves nothing behind to tidy up.
+ */
 export const returnCompletedForm = async (
   oystehr: Oystehr,
   parameters: { appointmentId: string; file: File }
@@ -153,7 +141,7 @@ export const createFormTemplateUploadUrl = async (
   parameters: CreateFormTemplateUploadUrlInput
 ): Promise<CreateFormTemplateUploadUrlOutput> => {
   try {
-    const response = await oystehr.zambda.execute({ id: CREATE_FORM_TEMPLATE_UPLOAD_URL_ZAMBDA_ID, ...parameters });
+    const response = await oystehr.zambda.execute({ id: 'create-form-template-upload-url', ...parameters });
     return chooseJson(response) as CreateFormTemplateUploadUrlOutput;
   } catch (error: unknown) {
     console.error(error);
@@ -166,7 +154,7 @@ export const updateFormTemplate = async (
   parameters: UpdateFormTemplateInput
 ): Promise<UpdateFormTemplateOutput> => {
   try {
-    const response = await oystehr.zambda.execute({ id: UPDATE_FORM_TEMPLATE_ZAMBDA_ID, ...parameters });
+    const response = await oystehr.zambda.execute({ id: 'update-form-template', ...parameters });
     return chooseJson(response) as UpdateFormTemplateOutput;
   } catch (error: unknown) {
     console.error(error);
@@ -179,7 +167,7 @@ export const deleteFormTemplate = async (
   parameters: DeleteFormTemplateInput
 ): Promise<DeleteFormTemplateOutput> => {
   try {
-    const response = await oystehr.zambda.execute({ id: DELETE_FORM_TEMPLATE_ZAMBDA_ID, ...parameters });
+    const response = await oystehr.zambda.execute({ id: 'delete-form-template', ...parameters });
     return chooseJson(response) as DeleteFormTemplateOutput;
   } catch (error: unknown) {
     console.error(error);
@@ -192,7 +180,7 @@ export const getFormTemplateDetail = async (
   parameters: GetFormTemplateDetailInput
 ): Promise<GetFormTemplateDetailOutput> => {
   try {
-    const response = await oystehr.zambda.execute({ id: GET_FORM_TEMPLATE_DETAIL_ZAMBDA_ID, ...parameters });
+    const response = await oystehr.zambda.execute({ id: 'get-form-template-detail', ...parameters });
     return chooseJson(response) as GetFormTemplateDetailOutput;
   } catch (error: unknown) {
     console.error(error);
@@ -205,7 +193,7 @@ export const saveFormTemplateMapping = async (
   parameters: SaveFormTemplateMappingInput
 ): Promise<SaveFormTemplateMappingOutput> => {
   try {
-    const response = await oystehr.zambda.execute({ id: SAVE_FORM_TEMPLATE_MAPPING_ZAMBDA_ID, ...parameters });
+    const response = await oystehr.zambda.execute({ id: 'save-form-template-mapping', ...parameters });
     return chooseJson(response) as SaveFormTemplateMappingOutput;
   } catch (error: unknown) {
     console.error(error);
@@ -218,7 +206,7 @@ export const analyzeFormTemplate = async (
   parameters: AnalyzeFormTemplateInput
 ): Promise<AnalyzeFormTemplateOutput> => {
   try {
-    const response = await oystehr.zambda.execute({ id: ANALYZE_FORM_TEMPLATE_ZAMBDA_ID, ...parameters });
+    const response = await oystehr.zambda.execute({ id: 'analyze-form-template', ...parameters });
     return chooseJson(response) as AnalyzeFormTemplateOutput;
   } catch (error: unknown) {
     console.error(error);
@@ -231,7 +219,7 @@ const replaceFormTemplatePdf = async (
   parameters: ReplaceFormTemplatePdfInput
 ): Promise<ReplaceFormTemplatePdfOutput> => {
   try {
-    const response = await oystehr.zambda.execute({ id: REPLACE_FORM_TEMPLATE_PDF_ZAMBDA_ID, ...parameters });
+    const response = await oystehr.zambda.execute({ id: 'replace-form-template-pdf', ...parameters });
     return chooseJson(response) as ReplaceFormTemplatePdfOutput;
   } catch (error: unknown) {
     console.error(error);

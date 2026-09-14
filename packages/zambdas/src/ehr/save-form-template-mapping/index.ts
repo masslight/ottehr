@@ -117,17 +117,23 @@ const performEffect = async (
 
   // Replace only the mapping extension: the field inventory and analysis live alongside it and must
   // survive a mapping save untouched.
-  await oystehr.fhir.patch<DocumentReference>({
-    resourceType: 'DocumentReference',
-    id: documentReferenceId,
-    operations: [
-      {
-        op: docRef.extension ? 'replace' : 'add',
-        path: '/extension',
-        value: withExtensionJson(docRef, FORM_TEMPLATE_MAPPING_EXTENSION_URL, mapping),
-      },
-    ],
-  });
+  await oystehr.fhir.patch<DocumentReference>(
+    {
+      resourceType: 'DocumentReference',
+      id: documentReferenceId,
+      operations: [
+        {
+          op: docRef.extension ? 'replace' : 'add',
+          path: '/extension',
+          value: withExtensionJson(docRef, FORM_TEMPLATE_MAPPING_EXTENSION_URL, mapping),
+        },
+      ],
+    },
+    // Version-locked. `withExtensionJson` rebuilds the whole extension array from the copy read above, so
+    // without this a mapping save would silently discard a field inventory written by a concurrent
+    // analysis — the two endpoints an administrator is most likely to trigger close together.
+    { optimisticLockingVersionId: docRef.meta?.versionId }
+  );
 
   return { documentReferenceId };
 };

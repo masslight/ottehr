@@ -135,14 +135,19 @@ const performEffect = async (
     },
   ];
 
-  await oystehr.fhir.patch<DocumentReference>({
-    resourceType: 'DocumentReference',
-    id: documentReferenceId,
-    operations: [
-      { op: docRef.extension ? 'replace' : 'add', path: '/extension', value: extensions },
-      { op: 'replace', path: '/category', value: categories },
-    ],
-  });
+  await oystehr.fhir.patch<DocumentReference>(
+    {
+      resourceType: 'DocumentReference',
+      id: documentReferenceId,
+      operations: [
+        { op: docRef.extension ? 'replace' : 'add', path: '/extension', value: extensions },
+        { op: 'replace', path: '/category', value: categories },
+      ],
+    },
+    // Version-locked: every operation above was computed from the copy read at the top of this
+    // function, so a concurrent write between the two would be silently overwritten.
+    { optimisticLockingVersionId: docRef.meta?.versionId }
+  );
 
   return { documentReferenceId, status, fields };
 };

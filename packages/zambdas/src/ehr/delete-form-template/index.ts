@@ -71,11 +71,17 @@ const performEffect = async (
   if (!permanent) {
     // Soft delete. `status` is a FHIR modifier element, so marking the reference superseded takes the
     // template out of every list without destroying anything, and it is a searchable parameter.
-    await oystehr.fhir.patch<DocumentReference>({
-      resourceType: 'DocumentReference',
-      id: documentReferenceId,
-      operations: [replaceOperation('/status', 'superseded')],
-    });
+    await oystehr.fhir.patch<DocumentReference>(
+      {
+        resourceType: 'DocumentReference',
+        id: documentReferenceId,
+        operations: [replaceOperation('/status', 'superseded')],
+      },
+      // Version-locked even though the operation is a single scalar: the permanent branch below deletes
+      // the Z3 object named by the copy read above, so a replacement landing in between would leave the
+      // new file deleted and the old one orphaned.
+      { optimisticLockingVersionId: docRef.meta?.versionId }
+    );
     return { success: true };
   }
 

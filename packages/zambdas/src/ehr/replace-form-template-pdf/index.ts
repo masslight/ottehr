@@ -155,18 +155,23 @@ const performEffect = async (
   // otherwise keep opening a form that silently stopped filling in part of itself.
   const returnedToDraft = dropped.length > 0 && docRef.docStatus === FORM_TEMPLATE_DOC_STATUS.published;
 
-  await oystehr.fhir.patch<DocumentReference>({
-    resourceType: 'DocumentReference',
-    id: documentReferenceId,
-    operations: [
-      { op: 'replace', path: '/content/0/attachment/url', value: candidateUrl },
-      { op: docRef.extension ? 'replace' : 'add', path: '/extension', value: extensions },
-      { op: 'replace', path: '/category', value: categories },
-      ...(returnedToDraft
-        ? [{ op: 'replace' as const, path: '/docStatus', value: FORM_TEMPLATE_DOC_STATUS.draft }]
-        : []),
-    ],
-  });
+  await oystehr.fhir.patch<DocumentReference>(
+    {
+      resourceType: 'DocumentReference',
+      id: documentReferenceId,
+      operations: [
+        { op: 'replace', path: '/content/0/attachment/url', value: candidateUrl },
+        { op: docRef.extension ? 'replace' : 'add', path: '/extension', value: extensions },
+        { op: 'replace', path: '/category', value: categories },
+        ...(returnedToDraft
+          ? [{ op: 'replace' as const, path: '/docStatus', value: FORM_TEMPLATE_DOC_STATUS.draft }]
+          : []),
+      ],
+    },
+    // Version-locked. The reconciled mapping, the extensions and the draft decision were all derived from
+    // the copy read before the replacement was analysed, which is a long window.
+    { optimisticLockingVersionId: docRef.meta?.versionId }
+  );
 
   // Only now is the old file genuinely superseded. Failing here leaves an orphaned object rather than a
   // template pointing at nothing, which is the cheaper of the two failures.

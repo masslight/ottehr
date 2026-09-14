@@ -644,10 +644,20 @@ export const GroupAllLocationsCoding = {
  * Broad classification for admin-authored fillable PDF form templates.
  *
  * Set membership lives on `DocumentReference.category` (0..*) rather than `type` (0..1) so the single
- * `type` slot stays free for the document's actual kind. Patient education spent its `type` on a set
- * marker and can no longer use it for anything else.
+ * `type` slot stays free for the document's actual kind.
  */
 export const DOCUMENT_CATEGORY_SYSTEM = ottehrCodeSystemUrl('document-category');
+
+/**
+ * Every code this system defines, in one place.
+ *
+ * Each code is used twice below — once in the `Coding` written to a resource and once in the `system|code`
+ * string used to search for it — so naming it here is what stops the two drifting apart.
+ */
+export const DOCUMENT_CATEGORY_CODES = {
+  formTemplate: 'form-template',
+  formInstance: 'form-instance',
+} as const;
 
 /**
  * Typed as `Coding` deliberately: this object is written straight into a FHIR resource, and the server
@@ -656,12 +666,12 @@ export const DOCUMENT_CATEGORY_SYSTEM = ottehrCodeSystemUrl('document-category')
  */
 export const FORM_TEMPLATE_CATEGORY_CODING: Coding = {
   system: DOCUMENT_CATEGORY_SYSTEM,
-  code: 'form-template',
+  code: DOCUMENT_CATEGORY_CODES.formTemplate,
   display: 'Form Template',
 };
 
 /** `system|code` form, for `category=` searches. Never written to a resource. */
-export const FORM_TEMPLATE_CATEGORY_SEARCH_PARAM = `${DOCUMENT_CATEGORY_SYSTEM}|form-template`;
+export const FORM_TEMPLATE_CATEGORY_SEARCH_PARAM = `${DOCUMENT_CATEGORY_SYSTEM}|${DOCUMENT_CATEGORY_CODES.formTemplate}`;
 
 /**
  * Marks a document that should stay out of the patient's document list while it is still `preliminary`.
@@ -688,12 +698,12 @@ export const HIDE_WHILE_PRELIMINARY_TAG: Coding = {
  */
 export const FORM_INSTANCE_CATEGORY_CODING: Coding = {
   system: DOCUMENT_CATEGORY_SYSTEM,
-  code: 'form-instance',
+  code: DOCUMENT_CATEGORY_CODES.formInstance,
   display: 'Filled Form',
 };
 
 /** `system|code` form, for `category=` searches. Never written to a resource. */
-export const FORM_INSTANCE_CATEGORY_SEARCH_PARAM = `${DOCUMENT_CATEGORY_SYSTEM}|form-instance`;
+export const FORM_INSTANCE_CATEGORY_SEARCH_PARAM = `${DOCUMENT_CATEGORY_SYSTEM}|${DOCUMENT_CATEGORY_CODES.formInstance}`;
 
 /**
  * Whether a template's PDF has fillable fields, recorded as a second `category` coding.
