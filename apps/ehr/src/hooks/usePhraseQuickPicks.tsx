@@ -19,7 +19,7 @@ const PASTE_SHORTCUT = shortcutLabel('V');
  */
 export function usePhraseQuickPicks(): void {
   const phrases = usePhrases();
-  const insertTarget = useCommandPaletteStore((state) => state.insertTarget);
+  const insertContext = useCommandPaletteStore((state) => state.insertContext);
   const setPhraseDialog = useCommandPaletteStore((state) => state.setPhraseDialog);
   const registerGroupAction = useCommandPaletteStore((state) => state.registerGroupAction);
   const unregisterGroupAction = useCommandPaletteStore((state) => state.unregisterGroupAction);
@@ -47,8 +47,8 @@ export function usePhraseQuickPicks(): void {
         category: PHRASES_CATEGORY,
         keywords: [phrase.key, phrase.value],
         onSelect: () => {
-          if (insertTarget) {
-            insertTextAtCaret(insertTarget, phrase.value);
+          if (insertContext) {
+            insertTextAtCaret(insertContext, phrase.value);
             return;
           }
           if (!navigator.clipboard?.writeText) {
@@ -78,7 +78,7 @@ export function usePhraseQuickPicks(): void {
         ],
       })
     );
-  }, [insertTarget, phrases, setPhraseDialog]);
+  }, [insertContext, phrases, setPhraseDialog]);
 
   useCommandPaletteSource('phrases', items);
 }

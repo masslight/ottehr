@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { create } from 'zustand';
-import { InsertTarget } from '../helpers/insertTextAtCaret';
+import { InsertContext } from '../helpers/insertTextAtCaret';
 
 export interface CommandPaletteItemAction {
   id: string;
@@ -49,8 +49,7 @@ export interface PendingQuickPick {
 
 interface CommandPaletteState {
   isOpen: boolean;
-  /** The text field that had focus when the palette was opened (insert target for phrases). */
-  insertTarget: InsertTarget | null;
+  insertContext: InsertContext | null;
   sources: Record<string, CommandPaletteSource>;
   /** Header-row actions keyed by item category. */
   groupActions: Record<string, CommandPaletteGroupAction>;
@@ -58,8 +57,7 @@ interface CommandPaletteState {
   createTaskDialogOpen: boolean;
   phraseDialog: PhraseDialogState | null;
   open: () => void;
-  /** Opens the palette from a focused text field, remembering it as the insert target. */
-  openWithInsertTarget: (insertTarget: InsertTarget | null) => void;
+  openWithInsertContext: (insertContext: InsertContext | null) => void;
   close: () => void;
   toggle: () => void;
   registerSource: (sourceId: string, items: CommandPaletteItem[]) => void;
@@ -73,16 +71,16 @@ interface CommandPaletteState {
 
 export const useCommandPaletteStore = create<CommandPaletteState>()((set) => ({
   isOpen: false,
-  insertTarget: null,
+  insertContext: null,
   sources: {},
   groupActions: {},
   pendingQuickPick: null,
   createTaskDialogOpen: false,
   phraseDialog: null,
-  open: () => set({ isOpen: true, insertTarget: null }),
-  openWithInsertTarget: (insertTarget) => set({ isOpen: true, insertTarget }),
-  close: () => set({ isOpen: false, insertTarget: null }),
-  toggle: () => set((state) => ({ isOpen: !state.isOpen, insertTarget: null })),
+  open: () => set({ isOpen: true, insertContext: null }),
+  openWithInsertContext: (insertContext) => set({ isOpen: true, insertContext }),
+  close: () => set({ isOpen: false, insertContext: null }),
+  toggle: () => set((state) => ({ isOpen: !state.isOpen, insertContext: null })),
   registerSource: (sourceId, items) =>
     set((state) => {
       const existingSource = state.sources[sourceId];

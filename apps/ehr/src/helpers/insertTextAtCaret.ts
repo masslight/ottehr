@@ -1,6 +1,11 @@
 /** A focused element the command palette can insert text into. */
 export type InsertTarget = HTMLInputElement | HTMLTextAreaElement | HTMLElement;
 
+export interface InsertContext {
+  target: InsertTarget;
+  range: Range | null;
+}
+
 // Input types whose selectionStart/End are readable; others (checkbox, date, email…) throw or have no caret.
 const TEXT_INPUT_TYPES = new Set(['text', 'search', 'url', 'tel', 'password']);
 
@@ -14,6 +19,20 @@ export const getInsertTarget = (element: Element | null): InsertTarget | null =>
 
 const isFormField = (target: InsertTarget): target is HTMLInputElement | HTMLTextAreaElement =>
   target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+
+const rangeInTarget = (target: HTMLElement): Range | null => {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return null;
+  const range = selection.getRangeAt(0);
+  return target.contains(range.commonAncestorContainer) ? range : null;
+};
+
+export const captureInsertContext = (element: Element | null): InsertContext | null => {
+  const target = getInsertTarget(element);
+  if (!target) return null;
+  if (isFormField(target)) return { target, range: null };
+  return { target, range: rangeInTarget(target)?.cloneRange() ?? null };
+};
 
 const setNativeValue = (target: HTMLInputElement | HTMLTextAreaElement, value: string): void => {
   // Use the prototype setter so React's value tracker sees the change and the
@@ -31,27 +50,37 @@ const setNativeValue = (target: HTMLInputElement | HTMLTextAreaElement, value: s
 const withSeparator = (preceding: string | undefined, text: string): string =>
   preceding && !/\s/.test(preceding) && !/^\s/.test(text) ? ` ${text}` : text;
 
-const insertIntoContentEditable = (target: HTMLElement, text: string): void => {
+const insertIntoContentEditable = (target: HTMLElement, savedRange: Range | null, text: string): void => {
   target.focus();
   const selection = window.getSelection();
-  const hasRangeInTarget =
-    !!selection && selection.rangeCount > 0 && target.contains(selection.getRangeAt(0).commonAncestorContainer);
-  if (hasRangeInTarget) {
-    const { startContainer, startOffset } = selection.getRangeAt(0);
+  if (savedRange && selection && target.contains(savedRange.commonAncestorContainer)) {
+    selection.removeAllRanges();
+    selection.addRange(savedRange);
+  }
+
+  const caretRange = rangeInTarget(target);
+  if (caretRange) {
+    const { startContainer, startOffset } = caretRange;
     const preceding =
       startContainer.nodeType === Node.TEXT_NODE ? startContainer.textContent?.[startOffset - 1] : undefined;
     text = withSeparator(preceding, text);
   }
+
   // execCommand keeps editors (TipTap/ProseMirror, plain contentEditable) in sync with their own state.
-  if (document.execCommand('insertText', false, text)) return;
-  const range = hasRangeInTarget
-    ? selection.getRangeAt(0)
-    : (() => {
-        const endRange = document.createRange();
-        endRange.selectNodeContents(target);
-        endRange.collapse(false);
-        return endRange;
-      })();
+  try {
+    if (document.execCommand('insertText', false, text)) return;
+  } catch {
+    // fall through to the manual insert below
+  }
+
+  const range =
+    caretRange ??
+    (() => {
+      const endRange = document.createRange();
+      endRange.selectNodeContents(target);
+      endRange.collapse(false);
+      return endRange;
+    })();
   range.deleteContents();
   const textNode = document.createTextNode(text);
   range.insertNode(textNode);
@@ -84,17 +113,19 @@ const insertIntoFormField = (
 };
 
 /**
- * Inserts `text` at the caret of `target`, replacing any selection. A single space is prepended when
- * the caret directly follows a non-whitespace character (so "Plan:" + phrase becomes "Plan: phrase"),
- * unless the phrase itself starts with whitespace. Meant to be called right before the command palette
- * closes: the selection is captured synchronously (the palette may still hold focus), then the insert
- * runs on the next frame — after MUI Dialog has handed focus back to the target — via execCommand,
- * which makes it undoable through the browser's undo stack. Falls back to a direct value set when
- * execCommand is unavailable.
+ * Inserts `text` at the caret of `context.target`, replacing any selection. A single space is
+ * prepended when the caret directly follows a non-whitespace character (so "Plan:" + phrase becomes
+ * "Plan: phrase"), unless the phrase itself starts with whitespace. Meant to be called right before
+ * the command palette closes: the caret comes from `captureInsertContext` (or, for form fields, from
+ * the element itself), then the insert runs on the next frame — after MUI Dialog has handed focus
+ * back to the target — via execCommand, which makes it undoable through the browser's undo stack.
+ * Falls back to a direct value set when execCommand is unavailable.
  */
-export const insertTextAtCaret = (target: InsertTarget, text: string): void => {
+export const insertTextAtCaret = (context: InsertContext, text: string): void => {
+  const { target, range } = context;
+
   if (!isFormField(target)) {
-    window.requestAnimationFrame(() => insertIntoContentEditable(target, text));
+    window.requestAnimationFrame(() => insertIntoContentEditable(target, range, text));
     return;
   }
 

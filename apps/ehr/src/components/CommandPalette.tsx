@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getInsertTarget } from '../helpers/insertTextAtCaret';
+import { captureInsertContext } from '../helpers/insertTextAtCaret';
 import { shortcutLabel } from '../helpers/keyboardShortcut';
 import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-palette.store';
 
@@ -109,7 +109,7 @@ export const CommandPalette: FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const isOpen = useCommandPaletteStore((state) => state.isOpen);
-  const openWithInsertTarget = useCommandPaletteStore((state) => state.openWithInsertTarget);
+  const openWithInsertContext = useCommandPaletteStore((state) => state.openWithInsertContext);
   const close = useCommandPaletteStore((state) => state.close);
   const sources = useCommandPaletteStore((state) => state.sources);
   const groupActions = useCommandPaletteStore((state) => state.groupActions);
@@ -230,13 +230,13 @@ export const CommandPalette: FC = () => {
           return;
         }
         // Opened from a text field: remember it so phrases can insert into it.
-        openWithInsertTarget(getInsertTarget(document.activeElement));
+        openWithInsertContext(captureInsertContext(document.activeElement));
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [close, isOpen, openWithInsertTarget]);
+  }, [close, isOpen, openWithInsertContext]);
 
   const selectItem = useCallback(
     (item: CommandPaletteItem) => {
