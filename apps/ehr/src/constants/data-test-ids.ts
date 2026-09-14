@@ -495,6 +495,8 @@ export const dataTestIds = {
     cancelVisitDialogue: 'cancel-visit-dialogue',
     consentAttestationCheckbox: 'consent-attestation-checkbox',
     consentAttestationSaveButton: 'consent-attestation-save-button',
+    actionsMenuButton: 'visit-details-actions-menu-button',
+    convertToFollowUpMenuItem: 'convert-to-follow-up-menu-item',
   },
   patientRecordPage: {
     seeAllPatientInfoButton: 'see-all-patient-info-button',
