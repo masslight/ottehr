@@ -1,12 +1,12 @@
 import Stripe from 'stripe';
 import { getOptionalSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { StripeWebhookSigningSecretsSchema } from 'utils/lib/types/data/billing/stripe-webhook.schemas';
 import {
   INVALID_INPUT_ERROR,
   MISCONFIGURED_ENVIRONMENT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
 } from 'utils/lib/types/errors';
-import { stripeAccountIdRegex } from 'utils/lib/validation/regex';
 import { z } from 'zod';
 import { getStripeClient } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
@@ -17,21 +17,13 @@ export interface BillingStripeWebhookParams {
   secrets: Secrets;
 }
 
-const signingSecretsSchema = z.array(
-  z.object({
-    name: z.string().optional(),
-    accountId: z.string().trim().regex(stripeAccountIdRegex).optional(),
-    signingSecret: z.string().trim().min(1),
-  })
-);
-
-const parseSigningSecrets = (value: string | undefined): z.infer<typeof signingSecretsSchema> => {
+const parseSigningSecrets = (value: string | undefined): z.infer<typeof StripeWebhookSigningSecretsSchema> => {
   const raw = value?.trim();
   if (!raw) return [];
   if (!raw.startsWith('[')) return [{ signingSecret: raw }];
 
   try {
-    return signingSecretsSchema.parse(JSON.parse(raw));
+    return StripeWebhookSigningSecretsSchema.parse(JSON.parse(raw));
   } catch {
     throw MISCONFIGURED_ENVIRONMENT_ERROR(
       'Stripe webhook secrets must be a JSON array of entries with signingSecret and optional accountId and name.'

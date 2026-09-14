@@ -462,6 +462,13 @@ describe('generate-oystehr-resources', () => {
         expect(platformWebhookSecret.value).toBe('whsec_platform');
       });
 
+      it('rejects invalid webhook entries before generating resources', async () => {
+        setupMocks({ STRIPE_WEBHOOK_SECRET: [{ accountId: 'acct_123' }] });
+
+        await expect(generateOystehrResources(createTestArgs())).rejects.toThrow('signingSecret');
+        expect(fs.writeFile).not.toHaveBeenCalled();
+      });
+
       it('serializes webhook account entries into a string-valued Oystehr secret', async () => {
         const entries = [
           { name: 'Clinic "A"', accountId: 'acct_123', signingSecret: 'whsec_first' },
