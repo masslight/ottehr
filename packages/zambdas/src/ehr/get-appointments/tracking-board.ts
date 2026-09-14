@@ -46,10 +46,10 @@ import { mapMedicationAdministrationToImmunizationOrder } from '../immunization/
 import {
   fetchFinalAndPrelimAndCorrectedTasks,
   filterFinalAndPrelimAndCorrectedTasks,
-  isTaskPST,
   mapResourcesToLabOrderDTOs,
 } from '../lab/external/get-lab-orders/helpers';
 import { mapResourcesToInHouseOrderDTOs } from '../lab/in-house/get-in-house-orders/helpers';
+import { isTaskPST } from '../lab/shared/labs';
 import { parseResultsToOrder } from '../radiology/order-list';
 import { buildSearchUrl, executeBatchSearches, MAX_ENTRIES_PER_BATCH } from './batch-search';
 
