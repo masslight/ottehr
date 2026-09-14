@@ -75,3 +75,50 @@ Then add anything the narrative states that is still missing. Do NOT re-emit any
 CHART block lists — it is already done. Do NOT emit edit-note-text on this call: the note's free-text
 fields were written from this same narrative on the previous pass and must not be rewritten from a
 summary. Remove ONLY on a clear contradiction with what the provider said; when in doubt, leave it.`;
+
+/**
+ * Resolve the title the model put on an apply-template to one of the practice's templates.
+ *
+ * The model is told to use the EXACT listed titles and never to invent one, and mostly does; the
+ * tolerance below is for the residue — case, punctuation, a dropped word — not for guessing. Exact
+ * normalized match first, then a title that contains the whole query (or vice versa), then the title
+ * sharing the most words with the query and its searchTerms, and only when it shares at least half of
+ * them. Anything looser would hand the provider a template the model never named.
+ */
+export function resolveSuggestedTemplate<T extends { id: string; title: string }>(
+  templates: readonly T[],
+  action: { display?: string; searchTerms?: string[] }
+): T | undefined {
+  const norm = (text: string): string =>
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  // Spaces dropped too for the exact and containing checks, so "X-Ray" and "xray" are the same title.
+  const compact = (text: string): string => norm(text).replace(/ /g, '');
+  const query = norm(action.display ?? '');
+  if (!query) return undefined;
+  const queryCompact = compact(query);
+
+  const exact = templates.find((template) => compact(template.title) === queryCompact);
+  if (exact) return exact;
+
+  const containing = templates.filter((template) => {
+    const title = compact(template.title);
+    return title.includes(queryCompact) || queryCompact.includes(title);
+  });
+  if (containing.length > 0) return containing.sort((a, b) => a.title.length - b.title.length)[0];
+
+  const queryWords = new Set(
+    [query, ...(action.searchTerms ?? []).map(norm)].flatMap((text) => text.split(' ')).filter(Boolean)
+  );
+  let best: { template: T; score: number } | undefined;
+  for (const template of templates) {
+    const titleWords = norm(template.title).split(' ').filter(Boolean);
+    if (titleWords.length === 0) continue;
+    const shared = titleWords.filter((word) => queryWords.has(word)).length;
+    const score = shared / Math.max(titleWords.length, 1);
+    if (score >= 0.5 && (!best || score > best.score)) best = { template, score };
+  }
+  return best?.template;
+}

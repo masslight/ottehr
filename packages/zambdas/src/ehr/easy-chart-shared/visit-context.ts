@@ -116,17 +116,35 @@ export function describeChart(chartState?: string, examFindings?: string[]): str
  *
  * A failure here must not fail the plan: no titles is a degraded prompt, not a broken one.
  */
-export async function readTemplateTitles(
+export interface PracticeTemplate {
+  id: string;
+  title: string;
+}
+
+/** The practice's templates, id + title. Undefined when the list could not be read or is empty. */
+export async function readTemplates(
   oystehr: ReturnType<typeof createClinicalOystehrClient>,
   zambdaName: string
-): Promise<string[] | undefined> {
+): Promise<PracticeTemplate[] | undefined> {
   try {
     const { templates } = await listTemplates({ includeVersionData: false }, oystehr);
-    const titles = templates.map((template) => template.title).filter((title): title is string => !!title?.trim());
-    return titles.length > 0 ? titles : undefined;
+    const usable = templates
+      .filter(
+        (template): template is typeof template & { id: string; title: string } =>
+          !!template.id && !!template.title?.trim()
+      )
+      .map((template) => ({ id: template.id, title: template.title }));
+    return usable.length > 0 ? usable : undefined;
   } catch (error) {
     console.log(`[${zambdaName}] could not list templates; apply-template will be unavailable this call`);
     void error;
     return undefined;
   }
+}
+
+export async function readTemplateTitles(
+  oystehr: ReturnType<typeof createClinicalOystehrClient>,
+  zambdaName: string
+): Promise<string[] | undefined> {
+  return (await readTemplates(oystehr, zambdaName))?.map((template) => template.title);
 }

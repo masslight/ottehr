@@ -1,4 +1,4 @@
-// The Easy Chart action registry — ONE module from which the LLM response schemas, the prompt
+// The Easy Chart action registry — ONE module from which the LLM response schema, the prompt
 // sections, the runtime validation and the client dispatch table are all *derived*.
 //
 // Why it exists: in the first implementation this vocabulary was spelled out in six unconnected
@@ -8,14 +8,21 @@
 // immediately exposed five actions that existed in the schemas but were described in no prompt —
 // the model could never emit them, and nothing anywhere said so.
 //
+// The second retrofit (this file's `shape`) removed the last hand-written duplication: each action's
+// fields are ONE Zod object, in the style of ENCOUNTER_LAYERS. From it come the required list, the
+// allowed list, the wire schema branch, the numeric-coercion list, and the prompt's shape line plus its
+// per-field prose (`.describe()`). Before this, the shape line at the head of every promptDoc was typed
+// by hand and nothing checked it: add-ros-finding offered `finding` in the schema and never told the
+// model.
+//
 // Rules this file enforces (all pinned by registry.test.ts):
 //   - ACTION_KINDS and Action['kind'] are the same set, proven by type assertion.
 //   - Every kind has exactly one write target: a `chartField` on the save-chart-data contract, or
 //     an entry in NON_CHART_TARGETS naming the endpoint it uses instead.
-//   - Every `required` field is one the surface's schema actually declares — otherwise the model
-//     can never satisfy it and 100% of those actions are rejected at runtime.
+//   - Every field a kind declares is in ACTION_FIELDS (the wire property order).
 //   - Every action a surface offers appears in that surface's prompt.
 
+import { z } from 'zod';
 import { AllChartValues } from '../types/api/chart-data/chart-data.types';
 import {
   Action,
@@ -25,7 +32,6 @@ import {
   NOTE_TEXT_FIELDS,
   PLANNABLE_DISPOSITION_TYPES,
   PLANNABLE_VITAL_FIELDS,
-  PROCEDURE_UPDATE_FIELDS,
   RawAction,
   Surface,
 } from './actions';
@@ -39,16 +45,21 @@ export type ChartField = keyof AllChartValues;
 export interface Capability {
   surfaces: readonly Surface[];
   /**
-   * Fields without which the action cannot be executed. Checked at runtime on every surface by
-   * `hasRequiredFields`.
+   * The fields this action carries, as ONE Zod object. Required ≡ not `.optional()`; the prose the
+   * model reads about a field is its `.describe()`, so a field cannot exist without being described.
+   * The wire schema branch for the kind is serialized from this (schema.ts), and the runtime gate reads
+   * its required keys (`hasRequiredFields`).
    */
-  required: readonly ActionField[];
+  shape: z.ZodObject<z.ZodRawShape>;
   /**
    * Which chart-write property this action lands in. Absent for actions that go through a different
    * endpoint (labs, imaging, nursing orders, templates) or write nothing — see NON_CHART_TARGETS.
    */
   chartField?: ChartField | readonly ChartField[];
-  /** The prose the model is shown for this action. Assembled into the prompt per surface. */
+  /**
+   * The ACTION-LEVEL rules the model is shown for this action, assembled into the prompt per surface
+   * after the generated shape line and the per-field lines (see `promptBlockFor`).
+   */
   promptDoc: string;
   /**
    * Extra prose for the surfaces that AUTHOR a note, i.e. everything except `review`.
@@ -70,6 +81,70 @@ export interface Capability {
   authoringDoc?: string;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Field primitives. Every string is capped and every number travels as a string — see the three
+// traps documented at the top of schema.ts; the serializer there refuses anything else.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Per-field string caps, deliberately generous — roughly 4x the longest real value seen — so a cap can
+ * only ever bite a runaway repetition loop, never a legitimate value (schema.ts, trap 3).
+ */
+export const CAP = {
+  /** Catalogue display / search text: a long one is "Allergic contact dermatitis due to drugs…". */
+  display: 300,
+  /** A code, a field name, a unit, a dose form — all short tokens. */
+  token: 60,
+  /** One clinical sentence: a disposition, a provider note, an exam comment. */
+  sentence: 800,
+  /** A whole rewritten note field. An MDM runs to a few thousand characters. */
+  noteField: 8000,
+} as const;
+
+/** A required string: blank counts as absent, exactly as `hasRequiredFields` treats it. */
+const requiredText = (max: number): z.ZodString => z.string().trim().min(1).max(max);
+const optionalText = (max: number): z.ZodOptional<z.ZodString> => z.string().max(max).optional();
+
+const GUARDED_NUMERICS = new WeakSet<z.ZodTypeAny>();
+
+/**
+ * The digit-loop guard as a type (schema.ts, trap 1): a capped string on the wire, a finite number
+ * after `coerceNumericFields`. Every numeric field in the registry MUST be declared with this.
+ */
+export function guardedNumber(doc: string): z.ZodOptional<z.ZodEffects<z.ZodString, number | undefined, string>> {
+  const schema = z
+    .string()
+    .max(CAP.token)
+    .transform((v) => {
+      const n = v.trim() === '' ? NaN : Number(v);
+      return Number.isFinite(n) ? n : undefined;
+    })
+    .describe(doc)
+    .optional();
+  GUARDED_NUMERICS.add(schema);
+  return schema;
+}
+
+export function isGuardedNumber(schema: z.ZodTypeAny): boolean {
+  return GUARDED_NUMERICS.has(schema);
+}
+
+const F = {
+  display: (doc: string) => requiredText(CAP.display).describe(doc),
+  optionalDisplay: (doc: string) => optionalText(CAP.display).describe(doc),
+  searchTerms: (doc = 'Synonyms or alternate phrasings for the catalogue search (1–3).') =>
+    z.array(z.string().max(CAP.display)).optional().describe(doc),
+  code: (doc: string) => requiredText(CAP.token).describe(doc),
+  optionalCode: (doc: string) => optionalText(CAP.token).describe(doc),
+  token: (doc: string) => optionalText(CAP.token).describe(doc),
+  sentence: (doc: string) => requiredText(CAP.sentence).describe(doc),
+  optionalSentence: (doc: string) => optionalText(CAP.sentence).describe(doc),
+  noteField: (doc: string) => requiredText(CAP.noteField).describe(doc),
+  /** ROS polarity. Optional: the server derives it from the display verb when omitted. */
+  polarity: () =>
+    z.enum(['reports', 'denies']).optional().describe('Polarity; derived from the display verb when omitted.'),
+};
+
 const NOTE_FIELD_LIST = NOTE_TEXT_FIELDS.join(' | ');
 const VITAL_FIELD_LIST = PLANNABLE_VITAL_FIELDS.join(', ');
 const DISPOSITION_TYPE_LIST = PLANNABLE_DISPOSITION_TYPES.map((t) => `"${t}"`).join(', ');
@@ -77,10 +152,17 @@ const DISPOSITION_TYPE_LIST = PLANNABLE_DISPOSITION_TYPES.map((t) => `"${t}"`).j
 export const CAPABILITIES = {
   'apply-template': {
     surfaces: ['plan', 'template'],
-    required: ['display'],
-    promptDoc: `- apply-template: { kind, display, searchTerms } — match against the practice's saved templates by
+    shape: z.object({
+      display: F.display(
+        'The template title, as listed under AVAILABLE TEMPLATES. A suggestion — the provider applies it.'
+      ),
+      searchTerms: F.searchTerms('Alternate words from the title, for a fuzzy match.'),
+    }),
+    promptDoc: `match against the practice's saved templates by
   their EXACT listed titles; never invent a template name.
-  APPLY A TEMPLATE ONLY ON A STRONG, SPECIFIC MATCH — one that clearly corresponds to THIS visit's
+  THIS IS A SUGGESTION, NOT A WRITE. Nothing in this plan applies the template — the provider applies it
+  by hand, later, if they agree — so chart the visit completely whether or not you suggest one.
+  SUGGEST A TEMPLATE ONLY ON A STRONG, SPECIFIC MATCH — one that clearly corresponds to THIS visit's
   primary diagnosis or presentation. A mismatched template pollutes the note with the wrong exam and
   MDM scaffolding, so it is better to have NO template than the wrong one; when in doubt, omit it.
   Concrete do-NOTs: "Asthma" for a COPD exacerbation, "Bug Bite" for a cutaneous abscess,
@@ -93,16 +175,18 @@ export const CAPABILITIES = {
   side, an already-resolved finding, or a side that is normal on today's exam is HISTORY and must
   never set the laterality of the current diagnosis.
   The ONE allowed exception to the strong-match rule: a template that is genuinely the right CATEGORY
-  but more GENERIC than the specific diagnosis (a "Headache" template for a migraine) MAY be applied
-  for structure — and when you do, ALSO emit add-diagnosis for the specific diagnosis so the precise
-  primary code lands on the chart.`,
+  but more GENERIC than the specific diagnosis (a "Headache" template for a migraine) MAY be suggested
+  for structure; the specific diagnosis is charted by add-diagnosis as always.`,
   },
 
   'add-allergy': {
     surfaces: ['plan', 'history'],
-    required: ['display'],
+    shape: z.object({
+      display: F.display('The allergen ("Penicillin", "Peanuts").'),
+      searchTerms: F.searchTerms(),
+    }),
     chartField: 'allergies',
-    promptDoc: `- add-allergy: { kind, display, searchTerms } — an allergy the provider states the patient HAS, or
+    promptDoc: `an allergy the provider states the patient HAS, or
   directs to be added to the allergy list. REQUIRED whenever one is stated, and SEPARATE from any
   "allergic reaction" diagnosis: a new drug reaction this visit produces BOTH an add-diagnosis for the
   reaction AND an add-allergy for the culprit drug. Never bury a stated allergy in the MDM/HPI only.
@@ -112,18 +196,29 @@ export const CAPABILITIES = {
   ["sulfonamide antibiotic","sulfamethoxazole","sulfa antibiotic"] — NOT display "Sulfa".
   Prefer the specific agent or class for other drug allergies ("penicillin" → Penicillins).`,
   },
-  'remove-allergy': {
-    surfaces: ['plan', 'history'],
-    required: ['display'],
-    chartField: 'allergies',
-    promptDoc: `- remove-allergy: { kind, display, searchTerms } — remove an allergy already on the chart.`,
-  },
+  // DISABLED for now: removals belong to the review pass, and review does not offer this one yet. Uncomment
+  // and set surfaces: ['review'] to offer it there.
+  // 'remove-allergy': {
+  //   surfaces: ['plan', 'history'],
+  //   shape: z.object({
+  //     display: F.display('The charted item, EXACT wording from ALREADY ON THE CHART.'),
+  //     searchTerms: F.searchTerms(),
+  //   }),
+  //   chartField: 'allergies',
+  //   promptDoc: `remove an allergy already on the chart.`,
+  // },
 
   'add-condition': {
     surfaces: ['plan', 'history'],
-    required: ['display'],
+    shape: z.object({
+      display: F.display('The background condition ("Asthma", "Personal history of urinary calculus").'),
+      searchTerms: F.searchTerms(),
+      code: F.optionalCode(
+        'Best ICD-10 code. Z-codes for resolved or past history; F17.210 / Z87.891 for smoking status.'
+      ),
+    }),
     chartField: 'conditions',
-    promptDoc: `- add-condition: { kind, display, searchTerms, code } — the patient's BACKGROUND history, distinct
+    promptDoc: `the patient's BACKGROUND history, distinct
   from today's diagnoses. A chronic or pre-existing condition the patient is stated to carry ("known
   history of asthma", "h/o COPD", "PMH includes diabetes") MUST become an add-condition SEPARATE from
   today's visit diagnosis: "9yo with a known history of asthma here with an asthma exacerbation" →
@@ -134,21 +229,33 @@ export const CAPABILITIES = {
   SOCIAL HISTORY belongs here too and is often billing-relevant: "former smoker" → Z87.891,
   "current smoker" → F17.210.`,
   },
-  'remove-condition': {
-    surfaces: ['plan', 'history'],
-    required: ['display'],
-    chartField: 'conditions',
-    promptDoc: `- remove-condition: { kind, display, searchTerms } — remove a past-history condition already on the chart.`,
-  },
+  // DISABLED for now: removals belong to the review pass, and review does not offer this one yet. Uncomment
+  // and set surfaces: ['review'] to offer it there.
+  // 'remove-condition': {
+  //   surfaces: ['plan', 'history'],
+  //   shape: z.object({
+  //     display: F.display('The charted item, EXACT wording from ALREADY ON THE CHART.'),
+  //     searchTerms: F.searchTerms(),
+  //   }),
+  //   chartField: 'conditions',
+  //   promptDoc: `remove a past-history condition already on the chart.`,
+  // },
 
   'add-medication': {
     surfaces: ['plan', 'history'],
-    required: ['display'],
+    shape: z.object({
+      display: F.display('Drug name with strength and form as stated ("Amoxicillin 400 mg/5 mL suspension").'),
+      searchTerms: F.searchTerms('Ingredient or brand name ONLY ("Amoxicillin") — no strength or form.'),
+      strength: F.token('Exact dose+concentration as written ("400 mg/5 mL"); omit when none was stated.'),
+      doseForm: F.token('Dosage-form word ("Suspension", "Tablet", "Cream", "Drops"); omit when none was stated.'),
+    }),
     chartField: 'medications',
-    promptDoc: `- add-medication: { kind, display, searchTerms, strength, doseForm } — a medication the patient
-  already takes at home ("using her albuterol at home", "takes lisinopril daily") OR one you start,
-  give, or prescribe today. Both belong on the chart; do not drop the home meds just because a
-  treatment med is also present.
+    promptDoc: `a medication the patient
+  already takes at home ("using her albuterol at home", "takes lisinopril daily") OR one PRESCRIBED
+  today. Both belong on the chart; do not drop the home meds just because a prescription is also
+  present. A medication GIVEN in the clinic — an IM/IV/SC injection, a nebuliser treatment, a dose
+  administered here, a vaccine — is an ORDER, not a chart medication: do NOT add it; if it must not be
+  lost, mention it in a provider-note.
   Keep searchTerms focused on the ingredient/brand name ("Amoxicillin") — do NOT pack strength or form
   into them; they have their own fields so the client can rank catalogue results.
   strength: the exact dose+concentration as written ("400 mg/5 mL", "500 mg"). Include WHENEVER the
@@ -159,53 +266,75 @@ export const CAPABILITIES = {
   400 mg/5 mL suspension", searchTerms: ["Amoxicillin"], strength: "400 mg/5 mL", doseForm:
   "Suspension" }.
   An in-clinic medication administration ("Ketorolac IM", "ondansetron 4 mg IV given") is a MEDICATION,
-  not a procedure — but it still has billing consequences; see add-cpt.`,
+  not a procedure.`,
   },
   'remove-medication': {
-    surfaces: ['plan', 'review', 'history'],
-    required: ['display'],
+    // Removals are the REVIEW pass's tool: the planner writes a note, review corrects one.
+    surfaces: ['review'],
+    shape: z.object({
+      display: F.display('The charted item, EXACT wording from ALREADY ON THE CHART.'),
+      searchTerms: F.searchTerms(),
+    }),
     chartField: 'medications',
-    promptDoc: `- remove-medication: { kind, display, searchTerms } — remove a medication already on the chart.`,
+    promptDoc: `remove a medication already on the chart.`,
   },
 
   'add-surgical-history': {
     surfaces: ['plan', 'history'],
-    required: ['display'],
+    shape: z.object({
+      display: F.display('The past operation ("Appendectomy").'),
+      searchTerms: F.searchTerms(),
+    }),
     chartField: 'surgicalHistory',
-    promptDoc: `- add-surgical-history: { kind, display, searchTerms } — a past operation the narrative states.`,
+    promptDoc: `a past operation the narrative states.`,
   },
-  'remove-surgical-history': {
-    surfaces: ['plan', 'history'],
-    required: ['display'],
-    chartField: 'surgicalHistory',
-    promptDoc: `- remove-surgical-history: { kind, display, searchTerms } — remove a surgical-history item already on the chart.`,
-  },
+  // DISABLED for now: removals belong to the review pass, and review does not offer this one yet. Uncomment
+  // and set surfaces: ['review'] to offer it there.
+  // 'remove-surgical-history': {
+  //   surfaces: ['plan', 'history'],
+  //   shape: z.object({
+  //     display: F.display('The charted item, EXACT wording from ALREADY ON THE CHART.'),
+  //     searchTerms: F.searchTerms(),
+  //   }),
+  //   chartField: 'surgicalHistory',
+  //   promptDoc: `remove a surgical-history item already on the chart.`,
+  // },
 
   'add-hospitalization': {
     surfaces: ['plan', 'history'],
-    required: ['display'],
+    shape: z.object({
+      display: F.display('The past hospitalization, as stated.'),
+      searchTerms: F.searchTerms(),
+    }),
     chartField: 'episodeOfCare',
-    promptDoc: `- add-hospitalization: { kind, display, searchTerms } — a past hospitalization the narrative states.`,
+    promptDoc: `a past hospitalization the narrative states.`,
   },
-  'remove-hospitalization': {
-    surfaces: ['plan', 'history'],
-    required: ['display'],
-    chartField: 'episodeOfCare',
-    promptDoc: `- remove-hospitalization: { kind, display, searchTerms } — remove a hospitalization already on the chart.`,
-  },
+  // DISABLED for now: removals belong to the review pass, and review does not offer this one yet. Uncomment
+  // and set surfaces: ['review'] to offer it there.
+  // 'remove-hospitalization': {
+  //   surfaces: ['plan', 'history'],
+  //   shape: z.object({
+  //     display: F.display('The charted item, EXACT wording from ALREADY ON THE CHART.'),
+  //     searchTerms: F.searchTerms(),
+  //   }),
+  //   chartField: 'episodeOfCare',
+  //   promptDoc: `remove a hospitalization already on the chart.`,
+  // },
 
   'edit-note-text': {
     surfaces: ['plan', 'review', 'story', 'plan-text'],
-    required: ['field', 'newText'],
+    shape: z.object({
+      field: z.enum(NOTE_TEXT_FIELDS).describe('The note field to write.'),
+      newText: F.noteField('The FULL new content of the field, not a fragment.'),
+    }),
     chartField: ['chiefComplaint', 'historyOfPresentIllness', 'mechanismOfInjury', 'ros', 'medicalDecision'],
-    promptDoc: `- edit-note-text: { kind, field, newText } — field is one of: ${NOTE_FIELD_LIST}.
+    promptDoc: `field is one of: ${NOTE_FIELD_LIST}.
   newText is the FULL new content for that field. When existing text is shown in the context below and
   the narrative implies an edit in place, return the entire updated paragraph, not just the change.
   Review of Systems is NOT free text here — it is structured; use add-ros-finding, not
   edit-note-text on "ros".`,
-    authoringDoc: `  ALWAYS emit edit-note-text for historyOfPresentIllness AND medicalDecision on EVERY visit, even when
-  a template was applied — both are required for a complete, signable note, they are patient-specific,
-  and a template's defaults are generic boilerplate the patient-specific text must supersede.
+    authoringDoc: `  ALWAYS emit edit-note-text for historyOfPresentIllness AND medicalDecision on EVERY visit,
+    — all of them are required for a complete, signable note, they are patient-specific.
   chiefComplaint is CONDITIONAL: most providers leave it blank because the HPI's opening one-liner
   already states the reason for the visit. Emit it ONLY when it adds information that first line does
   not already carry, and then as a 2–6 word label ("Low back pain", "Cough x3 days"), never a
@@ -238,9 +367,14 @@ export const CAPABILITIES = {
 
   'set-vital': {
     surfaces: ['plan', 'findings'],
-    required: ['field', 'display'],
+    shape: z.object({
+      field: z.enum(PLANNABLE_VITAL_FIELDS).describe('Which vital the reading is.'),
+      display: F.display(
+        'The FULL reading exactly as stated, unit included ("98.9 F", "5\'8\\"", "130lb", "122/78", "98%").'
+      ),
+    }),
     chartField: 'vitalsObservations',
-    promptDoc: `- set-vital: { kind, field, display } — field is one of: ${VITAL_FIELD_LIST}.
+    promptDoc: `field is one of: ${VITAL_FIELD_LIST}.
   ALWAYS include "display" carrying the FULL reading exactly as stated, including its unit as written
   ("98.9 F", "1.73 m", "5'8\\"", "130lb", "122/78", "98%"). The server parses and converts it; a
   set-vital with no display cannot be charted.
@@ -254,9 +388,14 @@ export const CAPABILITIES = {
 
   'add-exam-finding': {
     surfaces: ['plan', 'findings'],
-    required: ['display'],
+    shape: z.object({
+      display: F.display(
+        'The abnormal finding with its modifiers ("Right TM erythematous and bulging"), matched against the exam-template leaf labels.'
+      ),
+      searchTerms: F.searchTerms(),
+    }),
     chartField: 'examObservations',
-    promptDoc: `- add-exam-finding: { kind, display, searchTerms } — matched against the practice's exam-template leaf
+    promptDoc: `matched against the practice's exam-template leaf
   labels. Exam findings are POSITIVE observations only: there is no "negative" exam observation.
   NEGATION GUARD — a finding the narrative explicitly negates ("no wheezing", "lungs clear",
   "non-tender", "without crackles", "no rash") is NOT abnormal. Do NOT emit an add-exam-finding for it,
@@ -269,26 +408,10 @@ export const CAPABILITIES = {
   A single anatomic observation with several modifiers is ONE step, not several: "Right TM erythematous
   and bulging with loss of light reflex" is one add-exam-finding retaining all the modifiers. Emit
   separate steps only for distinctly different anatomic sites or systems.
-  WHEN NO TEMPLATE WAS APPLIED the exam section starts EMPTY, so emit an add-exam-finding for every
+  The exam section starts EMPTY, so emit an add-exam-finding for every
   dictated finding INCLUDING the pertinent normals ("lungs clear bilaterally", "5/5 strength", "normal
-  gait") — anything you do not emit is simply absent from the note. WHEN A TEMPLATE WAS APPLIED it
-  already checked that section's default normals: emit only the ABNORMAL findings, plus any normal the
-  narrative specifically calls out that the template does not cover.
-  Never pad the exam with findings nobody addressed.`,
-  },
-  'remove-exam-finding': {
-    surfaces: ['plan', 'findings'],
-    required: ['display'],
-    chartField: 'examObservations',
-    promptDoc: `- remove-exam-finding: { kind, display, searchTerms } — an applied template fills in a FULL normal
-  physical exam. When the narrative states an ABNORMAL finding, the template's matching NORMAL finding
-  is now wrong and must be removed so the note is not self-contradictory. The display must be the
-  charted finding's exact wording, taken from the "already checked" list in the context below.
-  STRICT LIMITS — only remove a normal the narrative DIRECTLY contradicts, and only when the finding is
-  actually PRESENT (see the negation guard on add-exam-finding). Keep every normal the narrative is
-  silent about or consistent with: keep "Regular rate and rhythm with no murmur" even when the patient
-  is tachycardic (tachycardia is a vital, not a murmur). Do not remove a normal merely because its body
-  system was examined or mentioned.
+  gait") — anything you do not emit is simply absent from the note.
+  Never pad the exam with findings nobody addressed.
   MATCH STRUCTURE TO STRUCTURE — a finding about ONE structure does not contradict a normal about a
   DIFFERENT structure in the same system. An abnormal tympanic membrane does NOT contradict "Normal
   canals"; remove that only if the narrative describes the CANAL as abnormal.
@@ -298,16 +421,45 @@ export const CAPABILITIES = {
   remove "Oropharynx clear with no erythema, lesions, or exudate"; abdominal tenderness, distension or
   guarding → remove "Soft"/"Nontender"/"Nondistended" as applicable.`,
   },
+  // 'remove-exam-finding': {
+  //   surfaces: ['plan', 'findings'],
+  //   shape: z.object({
+  //     display: F.display('The charted normal, EXACT wording from the "already checked" list.'),
+  //     searchTerms: F.searchTerms(),
+  //   }),
+  //   chartField: 'examObservations',
+  //   promptDoc: `an applied template fills in a FULL normal
+  // physical exam. When the narrative states an ABNORMAL finding, the template's matching NORMAL finding
+  // is now wrong and must be removed so the note is not self-contradictory. The display must be the
+  // charted finding's exact wording, taken from the "already checked" list in the context below.
+  // STRICT LIMITS — only remove a normal the narrative DIRECTLY contradicts, and only when the finding is
+  // actually PRESENT (see the negation guard on add-exam-finding). Keep every normal the narrative is
+  // silent about or consistent with: keep "Regular rate and rhythm with no murmur" even when the patient
+  // is tachycardic (tachycardia is a vital, not a murmur). Do not remove a normal merely because its body
+  // system was examined or mentioned.
+  // MATCH STRUCTURE TO STRUCTURE — a finding about ONE structure does not contradict a normal about a
+  // DIFFERENT structure in the same system. An abnormal tympanic membrane does NOT contradict "Normal
+  // canals"; remove that only if the narrative describes the CANAL as abnormal.
+  // Common genuine contradictions: any described distress → remove "In no acute distress"; wheezing,
+  // rales, rhonchi, decreased air entry or a prolonged expiratory phase → remove "No signs of respiratory
+  // distress" and "Good air movement throughout lung fields"; pharyngeal erythema or tonsillar exudate →
+  // remove "Oropharynx clear with no erythema, lesions, or exudate"; abdominal tenderness, distension or
+  // guarding → remove "Soft"/"Nontender"/"Nondistended" as applicable.`,
+  // },
 
   'add-ros-finding': {
     surfaces: ['plan', 'review', 'findings'],
-    required: ['display'],
+    shape: z.object({
+      display: F.display('"Denies <symptom>" or "Reports <symptom>".'),
+      searchTerms: F.searchTerms('1–3 synonyms for the symptom, WITHOUT the word Denies/Reports.'),
+      finding: F.polarity(),
+    }),
     chartField: 'rosObservations',
     // The pertinent-positives line below stays in `promptDoc` — i.e. on EVERY surface, review
     // included — because review's uncharted-finding check IS "a symptom was stated and never reached
     // the chart". It was briefly deleted along with the volume guidance it sat next to, and on the
     // 191-case corpus review's ROS contribution fell from 12 matches to 7.
-    promptDoc: `- add-ros-finding: { kind, display, searchTerms } — a structured Review-of-Systems finding. The display
+    promptDoc: `a structured Review-of-Systems finding. The display
   MUST begin with "Denies" or "Reports" followed by the symptom name; searchTerms are 1–3 synonyms for
   the symptom and must NOT include the word Denies/Reports.
   UNLIKE exam findings, ROS records NEGATIVES too — this is the one place a denied symptom is a
@@ -316,9 +468,9 @@ export const CAPABILITIES = {
   headache") — positives outside the chief complaint are easy to lose.
   Never invent a negative nobody addressed, and never deny the chief complaint itself.
   Format example — "denies chest pain and shortness of breath; reports a headache":
-    {"kind":"add-ros-finding","display":"Denies chest pain","searchTerms":["chest pain"]}
-    {"kind":"add-ros-finding","display":"Denies shortness of breath","searchTerms":["shortness of breath","dyspnea"]}
-    {"kind":"add-ros-finding","display":"Reports headache","searchTerms":["headache","cephalgia"]}`,
+    {"kind":"add-ros-finding","display":"Denies chest pain","searchTerms":["chest pain"],"polarity":"denies"}
+    {"kind":"add-ros-finding","display":"Denies shortness of breath","searchTerms":["shortness of breath","dyspnea"],"polarity":"denies"}
+    {"kind":"add-ros-finding","display":"Reports headache","searchTerms":["headache","cephalgia"],"polarity":"reports"}`,
     // How much ROS to WRITE, which is an authoring decision and must not reach the audit.
     //
     // An earlier version of this guidance lived in `promptDoc`, so review saw it too. Measured on 40
@@ -339,26 +491,36 @@ export const CAPABILITIES = {
   the ROS is a separate structured section, not a summary of the narrative, and a symptom left out here
   is simply absent from it.`,
   },
-  'remove-ros-finding': {
-    surfaces: ['plan', 'findings'],
-    required: ['display'],
-    chartField: 'rosObservations',
-    promptDoc: `- remove-ros-finding: { kind, display, searchTerms } — remove a ROS symptom already on the chart. KEEP
-  the leading "Denies"/"Reports" verb in display ("Denies eye pain") so the right polarity is removed.
-  Use this for ROS symptoms only; remove-exam-finding is for physical-exam findings.`,
-  },
+  // DISABLED for now: removals belong to the review pass, and review does not offer this one yet. Uncomment
+  // and set surfaces: ['review'] to offer it there.
+  // 'remove-ros-finding': {
+  //   surfaces: ['plan', 'findings'],
+  //   shape: z.object({
+  //     display: F.display('The charted ROS item with its Denies/Reports verb ("Denies eye pain").'),
+  //     searchTerms: F.searchTerms(),
+  //     finding: F.polarity(),
+  //   }),
+  //   chartField: 'rosObservations',
+  //   promptDoc: `remove a ROS symptom already on the chart. KEEP
+  // the leading "Denies"/"Reports" verb in display ("Denies eye pain") so the right polarity is removed.
+  // Use this for ROS symptoms only.`,
+  // },
 
   'add-diagnosis': {
     surfaces: ['plan', 'review', 'diagnoses'],
-    required: ['display'],
+    shape: z.object({
+      display: F.display('Accurate, SPECIFIC diagnosis label; for S-/T-code injuries include site and laterality.'),
+      searchTerms: F.searchTerms(),
+      code: F.optionalCode(
+        'Best billable, fully specified ICD-10 code, ALWAYS supplied ("H66.91", "S39.012A"). Just the code.'
+      ),
+      isPrimary: z.boolean().optional().describe('true for exactly ONE diagnosis per visit, false for every other.'),
+    }),
     chartField: 'diagnosis',
-    promptDoc: `- add-diagnosis: { kind, display, searchTerms, code, isPrimary } — mark isPrimary=true for exactly ONE
+    promptDoc: `mark isPrimary=true for exactly ONE
   primary; every other diagnosis is isPrimary=false. Emit a SEPARATE add-diagnosis for EVERY distinct
   diagnosis made this visit — many encounters have two or three ("otitis media AND otitis externa") —
-  and do not collapse a multi-problem visit into one.
-  When a template was applied whose title matches the PRIMARY diagnosis, OMIT the add-diagnosis for
-  that one (the template already added it) but STILL emit every OTHER diagnosis: a template carries
-  only its own diagnosis, never the secondaries.
+  and do not collapse a multi-problem visit into one
   STATED DIAGNOSIS WINS — when the provider explicitly names the diagnosis, chart THAT as primary.
   Never substitute a more severe or more specific condition inferred from the findings (flank
   tenderness does not upgrade a stated UTI to pyelonephritis). An escalated condition may appear as a
@@ -386,62 +548,97 @@ export const CAPABILITIES = {
   Do not chart the same diagnosis twice, and never more than one primary.`,
   },
   'remove-diagnosis': {
-    surfaces: ['plan', 'review', 'diagnoses'],
-    required: ['display'],
+    // Removals are the REVIEW pass's tool: the planner writes a note, review corrects one.
+    surfaces: ['review'],
+    shape: z.object({
+      display: F.display('The charted item, EXACT wording from ALREADY ON THE CHART.'),
+      searchTerms: F.searchTerms(),
+    }),
     chartField: 'diagnosis',
-    promptDoc: `- remove-diagnosis: { kind, display, searchTerms } — remove a diagnosis already on the chart. When you
+    promptDoc: `remove a diagnosis already on the chart. When you
   remove a diagnosis because the note does not support it, pair it with an add-diagnosis for the
   diagnosis the note DOES support, restating the removed item's isPrimary status — swapping the primary
   without isPrimary:true leaves the note with no primary diagnosis, which is billing-invalid. Emit a
   bare removal only when the note supports no replacement at all.`,
   },
 
-  'add-in-house-lab': {
-    surfaces: ['plan', 'orders'],
-    required: ['display'],
-    promptDoc: `- add-in-house-lab: { kind, display, searchTerms } — an IN-OFFICE / point-of-care test ORDERED this
-  visit: rapid strep, rapid flu/COVID/RSV, urinalysis or urine dip, mono spot, fingerstick glucose,
-  urine hCG, wet prep. Use the test's common name as display ("Rapid Strep A").
-  Results already obtained are NOT orders: "urinalysis showed positive nitrites" is a result to enter
-  through the labs flow — emit a provider-note quoting the values instead.
-  Do NOT also emit add-cpt for a test you order this way; the lab order carries its own billing.`,
-  },
-  'add-external-lab': {
-    surfaces: ['plan', 'orders'],
-    required: ['display'],
-    promptDoc: `- add-external-lab: { kind, display, searchTerms } — a SEND-OUT / reference-lab test ORDERED this
-  visit: CBC, CMP/BMP, lipid panel, TSH, A1c, cultures, anything drawn and sent out. Same
-  results-are-not-orders and no-extra-CPT rules as add-in-house-lab.`,
-  },
-  'add-radiology': {
-    surfaces: ['plan', 'orders'],
-    required: ['display'],
-    promptDoc: `- add-radiology: { kind, display, searchTerms } — order an imaging study. display is the study name
-  including view count and body site ("3-view right ankle X-ray"); searchTerms are 1–3 alternates the
-  client matches against the radiology catalogue. The client links the primary diagnosis
-  automatically. Do NOT also emit add-cpt for imaging.`,
-  },
+  // DISABLED for now (orders and CPT are off the assistant): uncomment to re-enable.
+  // 'add-in-house-lab': {
+  //   surfaces: ['plan', 'orders'],
+  //   shape: z.object({
+  //     display: F.display('Common name of the point-of-care test ("Rapid Strep A").'),
+  //     searchTerms: F.searchTerms(),
+  //   }),
+  //   promptDoc: `an IN-OFFICE / point-of-care test ORDERED this
+  // visit: rapid strep, rapid flu/COVID/RSV, urinalysis or urine dip, mono spot, fingerstick glucose,
+  // urine hCG, wet prep. Use the test's common name as display ("Rapid Strep A").
+  // Results already obtained are NOT orders: "urinalysis showed positive nitrites" is a result to enter
+  // through the labs flow — emit a provider-note quoting the values instead.
+  // Do NOT also emit add-cpt for a test you order this way; the lab order carries its own billing.`,
+  // },
+  // DISABLED for now (orders and CPT are off the assistant): uncomment to re-enable.
+  // 'add-external-lab': {
+  //   surfaces: ['plan', 'orders'],
+  //   shape: z.object({
+  //     display: F.display('Name of the send-out test ("CBC", "Lipid panel").'),
+  //     searchTerms: F.searchTerms(),
+  //   }),
+  //   promptDoc: `a SEND-OUT / reference-lab test ORDERED this
+  // visit: CBC, CMP/BMP, lipid panel, TSH, A1c, cultures, anything drawn and sent out. Same
+  // results-are-not-orders and no-extra-CPT rules as add-in-house-lab.`,
+  // },
+  // DISABLED for now (orders and CPT are off the assistant): uncomment to re-enable.
+  // 'add-radiology': {
+  //   surfaces: ['plan', 'orders'],
+  //   shape: z.object({
+  //     display: F.display('Study name with view count and body site ("3-view right ankle X-ray").'),
+  //     searchTerms: F.searchTerms('1–3 alternates matched against the radiology catalogue.'),
+  //   }),
+  //   promptDoc: `order an imaging study. display is the study name
+  // including view count and body site ("3-view right ankle X-ray"); searchTerms are 1–3 alternates the
+  // client matches against the radiology catalogue. The client links the primary diagnosis
+  // automatically. Do NOT also emit add-cpt for imaging.`,
+  // },
 
-  'add-procedure': {
-    surfaces: ['plan', 'orders'],
-    required: ['display'],
-    chartField: 'procedures',
-    promptDoc: `- add-procedure: { kind, display, searchTerms } — matched against the practice's procedure quick picks.
-  Suturing, splinting, lavage, I&D, foreign-body removal, and the like.
-  An in-clinic medication administration is NOT a procedure — emit add-medication for it (plus the
-  administration CPT), even when the narrative groups it under "procedures".`,
-  },
-  'update-procedure': {
-    surfaces: ['plan', 'orders'],
-    required: ['updates'],
-    chartField: 'procedures',
-    promptDoc: `- update-procedure: { kind, updates: [{field, value}, …], procedureMatch } — set fields on a procedure
-  emitted earlier in this plan, referenced by name via procedureMatch.
-  Field names: ${PROCEDURE_UPDATE_FIELDS.join(', ')}.
-  bodySide values: left | right | bilateral | not-applicable. specimenSent / consentObtained: "true" |
-  "false". Common pitfall: words like "site", "side", "body", "to" are field-name synonyms in the
-  narrative, NOT values — never emit bodySide="side".`,
-  },
+  // DISABLED for now (orders and CPT are off the assistant): uncomment to re-enable.
+  // 'add-procedure': {
+  //   surfaces: ['plan', 'orders'],
+  //   shape: z.object({
+  //     display: F.display('The procedure, as the quick-pick names it ("Laceration repair").'),
+  //     searchTerms: F.searchTerms(),
+  //   }),
+  //   chartField: 'procedures',
+  //   promptDoc: `matched against the practice's procedure quick picks.
+  // Suturing, splinting, lavage, I&D, foreign-body removal, and the like.
+  // An in-clinic medication administration is NOT a procedure — emit add-medication for it (plus the
+  // administration CPT), even when the narrative groups it under "procedures".`,
+  // },
+  // 'update-procedure': {
+  //   surfaces: ['plan', 'orders'],
+  //   shape: z.object({
+  //     updates: z
+  //       .array(
+  //         z.object({
+  //           field: z.enum(PROCEDURE_UPDATE_FIELDS).describe('The procedure form field to set.'),
+  //           value: requiredText(CAP.sentence).describe(
+  //             'The value. bodySide: left | right | bilateral | not-applicable; specimenSent / consentObtained: "true" | "false".'
+  //           ),
+  //         })
+  //       )
+  //       .min(1)
+  //       .describe('One entry per field to set.'),
+  //     procedureMatch: F.optionalDisplay(
+  //       'Name of the procedure emitted earlier in this plan that these updates apply to.'
+  //     ),
+  //   }),
+  //   chartField: 'procedures',
+  //   promptDoc: `set fields on a procedure
+  // emitted earlier in this plan, referenced by name via procedureMatch.
+  // Field names: ${PROCEDURE_UPDATE_FIELDS.join(', ')}.
+  // bodySide values: left | right | bilateral | not-applicable. specimenSent / consentObtained: "true" |
+  // "false". Common pitfall: words like "site", "side", "body", "to" are field-name synonyms in the
+  // narrative, NOT values — never emit bodySide="side".`,
+  // },
 
   // THE LEVEL TIEBREAK IS NOT HERE. "When torn between two levels choose the LOWER" lives in the plan
   // and coding RULES instead (see prompt.ts), because it is a policy for AUTHORING a code and this
@@ -463,10 +660,12 @@ export const CAPABILITIES = {
   // `promptDoc` is prompt text. A note about the prompt goes above the string, never inside it.
   'set-em-code': {
     surfaces: ['plan', 'review', 'coding'],
-    required: ['code'],
+    shape: z.object({
+      code: F.code('The E&M code ("99213").'),
+      display: F.optionalDisplay('The code description (optional).'),
+    }),
     chartField: 'emCode',
-    promptDoc: `- set-em-code: { kind, code, display } — ALWAYS emit exactly one. Templates never carry an E&M code,
-  so you must always supply it.
+    promptDoc: `ALWAYS emit exactly one.
   Pick the code FAMILY from the PATIENT STATUS line in the per-visit context below, never from the
   narrative: NEW patient (no professional services in the past 3 years) → 99202-99205; ESTABLISHED
   patient → 99212-99215. When no patient-status line is present the status is UNKNOWN — do not guess;
@@ -477,50 +676,67 @@ export const CAPABILITIES = {
   acute illness needing a procedure, an injury needing imaging, or multiple problems commonly support.
   Reserve level 5 (99205/99215) for high complexity or high risk.`,
   },
-  'remove-em-code': {
-    surfaces: ['plan', 'coding'],
-    required: [],
-    chartField: 'emCode',
-    promptDoc: `- remove-em-code: { kind } or { kind, code } — clear the charted E&M level.`,
-  },
+  // DISABLED for now: removals belong to the review pass, and review does not offer this one yet. Uncomment
+  // and set surfaces: ['review'] to offer it there.
+  // 'remove-em-code': {
+  //   surfaces: ['plan', 'coding'],
+  //   shape: z.object({
+  //     code: F.optionalCode('The charted E&M code being cleared (optional).'),
+  //   }),
+  //   chartField: 'emCode',
+  //   promptDoc: `clear the charted E&M level.`,
+  // },
 
-  'add-cpt': {
-    surfaces: ['plan', 'review', 'coding'],
-    required: ['code'],
-    chartField: 'cptCodes',
-    promptDoc: `- add-cpt: { kind, code, display } — an additional CPT/HCPCS code for something actually PERFORMED
-  this visit. Not send-out labs (they bill through the lab order), not imaging orders, not
-  prescriptions, not planned or declined procedures, and not a code already charted.
-  Every CPT/HCPCS code is validated downstream and dropped if it is not real.`,
-    authoringDoc: `  INJECTION ADMINISTRATION BILLING is the one case where you should supply codes yourself, and only
-  when a medication was GIVEN IN CLINIC by an INJECTED/INFUSED route (IM, SC, IV). It does NOT apply to
-  oral meds, topical creams, otic/ophthalmic drops, inhalers/nebulisers, or anything sent to a
-  pharmacy. When the route IS injection, emit the add-medication for the drug AND an add-cpt for the
-  administration code AND an add-cpt for the drug's HCPCS supply code when it is in the table below.
-  These are deterministic standard codes; supplying them is not "making up a code".
-    Administration (pick the most specific that fits):
-      96372 — therapeutic/prophylactic/diagnostic injection, SC or IM (the usual IM/SC default)
-      96374 — IV push, single drug, initial
-      96365 — IV infusion, initial up to 1 hour
-    Common in-clinic drug HCPCS supply codes (emit alongside 96372 when the drug matches):
-      J1885 ketorolac per 15 mg · J1100 dexamethasone per 1 mg · J0696 ceftriaxone per 250 mg
-      J2550 promethazine per 25 mg · J2405 ondansetron per 1 mg · J1200 diphenhydramine per 50 mg
-      J3420 vitamin B-12 per 1000 mcg
-  If the drug is given in clinic but is not in the table, still emit the 96372 administration code and
-  omit the J-code rather than guess it.`,
-  },
-  'remove-cpt': {
-    surfaces: ['plan', 'review', 'coding'],
-    required: ['code'],
-    chartField: 'cptCodes',
-    promptDoc: `- remove-cpt: { kind, code } — remove a CPT code already on the chart.`,
-  },
+  // DISABLED for now (orders and CPT are off the assistant): uncomment to re-enable.
+  // 'add-cpt': {
+  //   surfaces: ['plan', 'review', 'coding'],
+  //   shape: z.object({
+  //     code: F.code('The CPT/HCPCS code ("96372", "J1885").'),
+  //     display: F.optionalDisplay('What the code is for (optional).'),
+  //   }),
+  //   chartField: 'cptCodes',
+  //   promptDoc: `an additional CPT/HCPCS code for something actually PERFORMED
+  // this visit. Not send-out labs (they bill through the lab order), not imaging orders, not
+  // prescriptions, not planned or declined procedures, and not a code already charted.
+  // Every CPT/HCPCS code is validated downstream and dropped if it is not real.`,
+  //   authoringDoc: `  INJECTION ADMINISTRATION BILLING is the one case where you should supply codes yourself, and only
+  // when a medication was GIVEN IN CLINIC by an INJECTED/INFUSED route (IM, SC, IV). It does NOT apply to
+  // oral meds, topical creams, otic/ophthalmic drops, inhalers/nebulisers, or anything sent to a
+  // pharmacy. When the route IS injection, emit the add-medication for the drug AND an add-cpt for the
+  // administration code AND an add-cpt for the drug's HCPCS supply code when it is in the table below.
+  // These are deterministic standard codes; supplying them is not "making up a code".
+  //   Administration (pick the most specific that fits):
+  //     96372 — therapeutic/prophylactic/diagnostic injection, SC or IM (the usual IM/SC default)
+  //     96374 — IV push, single drug, initial
+  //     96365 — IV infusion, initial up to 1 hour
+  //   Common in-clinic drug HCPCS supply codes (emit alongside 96372 when the drug matches):
+  //     J1885 ketorolac per 15 mg · J1100 dexamethasone per 1 mg · J0696 ceftriaxone per 250 mg
+  //     J2550 promethazine per 25 mg · J2405 ondansetron per 1 mg · J1200 diphenhydramine per 50 mg
+  //     J3420 vitamin B-12 per 1000 mcg
+  // If the drug is given in clinic but is not in the table, still emit the 96372 administration code and
+  // omit the J-code rather than guess it.`,
+  // },
+  // DISABLED for now (orders and CPT are off the assistant): uncomment to re-enable.
+  // 'remove-cpt': {
+  //   surfaces: ['plan', 'review', 'coding'],
+  //   shape: z.object({
+  //     code: F.code('The charted CPT code to remove.'),
+  //   }),
+  //   chartField: 'cptCodes',
+  //   promptDoc: `remove a CPT code already on the chart.`,
+  // },
 
   'set-disposition': {
     surfaces: ['plan', 'review', 'plan-text'],
-    required: ['dispositionType', 'text'],
+    shape: z.object({
+      dispositionType: z
+        .enum(PLANNABLE_DISPOSITION_TYPES)
+        .describe('Where the patient goes: pcp | specialty | ed | another | ip (see below).'),
+      text: F.sentence('The disposition as one clinical sentence.'),
+      followUpInDays: guardedNumber('Follow-up interval in DAYS when stated ("in 48–72 hours" → 3; "in 1 week" → 7).'),
+    }),
     chartField: 'disposition',
-    promptDoc: `- set-disposition: { kind, dispositionType, text, followUpInDays } — where the patient goes after this
+    promptDoc: `where the patient goes after this
   visit. dispositionType is one of ${DISPOSITION_TYPE_LIST}:
     "pcp"       → follow up with their primary care provider / "see your doctor"
     "specialty" → referral to a specialist (ortho, cardiology, ENT …), including "<specialist> or PCP"
@@ -537,9 +753,11 @@ export const CAPABILITIES = {
 
   'add-patient-instruction': {
     surfaces: ['plan', 'plan-text'],
-    required: ['text'],
+    shape: z.object({
+      text: F.sentence('The instruction, written as a directive TO THE PATIENT.'),
+    }),
     chartField: 'instructions',
-    promptDoc: `- add-patient-instruction: { kind, text } — patient-FACING guidance, written as a directive TO THE
+    promptDoc: `patient-FACING guidance, written as a directive TO THE
   PATIENT. REQUIRED, not optional: anything the patient must DO or WATCH FOR after the visit gets its
   own instruction. The MDM summarises the plan in clinician shorthand; that does NOT cover the patient.
   Emit ONE per distinct instruction, for each of these the narrative states:
@@ -552,18 +770,23 @@ export const CAPABILITIES = {
     • FOLLOW-UP logistics — "follow up with dermatology or your PCP in 1 week".`,
   },
 
-  'add-nursing-order': {
-    surfaces: ['plan', 'orders'],
-    required: ['text'],
-    promptDoc: `- add-nursing-order: { kind, text } — a task for nursing staff, phrased as a directive ("Apply a
-  posterior short-leg splint to the right ankle."). Triggered by "nursing order for wound care", "have
-  nursing do a straight cath".`,
-  },
+  // DISABLED for now (orders and CPT are off the assistant): uncomment to re-enable.
+  // 'add-nursing-order': {
+  //   surfaces: ['plan', 'orders'],
+  //   shape: z.object({
+  //     text: F.sentence('The task, as a directive to nursing staff.'),
+  //   }),
+  //   promptDoc: `a task for nursing staff, phrased as a directive ("Apply a
+  // posterior short-leg splint to the right ankle."). Triggered by "nursing order for wound care", "have
+  // nursing do a straight cath".`,
+  // },
 
   'provider-note': {
     surfaces: ['plan', 'review', 'story'],
-    required: ['text'],
-    promptDoc: `- provider-note: { kind, text } — a message for the PROVIDER, rendered in the chat and never written to
+    shape: z.object({
+      text: F.sentence('One or two sentences for the provider; never charted.'),
+    }),
+    promptDoc: `a message for the PROVIDER, rendered in the chat and never written to
   the chart, for something dictated that these actions CANNOT chart. Use it for results of tests
   already performed ("Enter the urinalysis result in the In-House Labs flow: positive nitrites, 2+
   leukocyte esterase"), prescriptions that must be transmitted by eRx, and any other dictated
@@ -589,8 +812,10 @@ export const CAPABILITIES = {
 
   reply: {
     surfaces: ['plan', 'story'],
-    required: ['text'],
-    promptDoc: `- reply: { kind, text } — the ANSWER to a question the provider asked. Writes nothing to the chart.
+    shape: z.object({
+      text: F.sentence("The answer to the provider's question."),
+    }),
+    promptDoc: `the ANSWER to a question the provider asked. Writes nothing to the chart.
   Use it when the message is a question about the note or the visit ("what's still missing before I can
   sign?", "what did you code the ear infection as?") rather than an instruction to chart something.
   A turn that is purely a question returns exactly one reply and no other actions.
@@ -600,18 +825,35 @@ export const CAPABILITIES = {
 
   unknown: {
     surfaces: ['plan', 'story'],
-    required: [],
-    promptDoc: `- unknown: { kind, message } — use sparingly; prefer omitting an action you cannot classify. If the
+    shape: z.object({
+      message: F.optionalSentence('What was said that could not be classified.'),
+    }),
+    promptDoc: `use sparingly; prefer omitting an action you cannot classify. If the
   message contains nothing chartable at all, return an empty actions array rather than guessing.`,
   },
-} as const satisfies Record<ActionKind, Capability>;
+} as const satisfies Partial<Record<ActionKind, Capability>>;
+
+/**
+ * The kinds THIS BUILD offers: every ACTION_KIND with a live CAPABILITIES entry. A kind whose entry is
+ * commented out is DISABLED — no schema branch, no prompt block, and `isActionKind` refuses it at the
+ * guard — while ACTION_KINDS, the Action union, the executor's handlers and the eval simulator keep
+ * knowing it, so re-enabling is uncommenting one entry. The disabled set is pinned by registry.test.ts
+ * so that disabling stays a conscious act.
+ */
+export const ENABLED_KINDS: readonly ActionKind[] = ACTION_KINDS.filter((kind) => kind in CAPABILITIES);
+export const DISABLED_KINDS: readonly ActionKind[] = ACTION_KINDS.filter((kind) => !(kind in CAPABILITIES));
+
+function capabilityIfEnabled(kind: ActionKind): Capability | undefined {
+  return (CAPABILITIES as Partial<Record<ActionKind, Capability>>)[kind];
+}
 
 /**
  * For every action with no `chartField`: which endpoint it uses instead, or that it writes nothing.
  * Every kind must have one or the other — enforced by registry.test.ts.
  */
 export const NON_CHART_TARGETS: Partial<Record<ActionKind, string>> = {
-  'apply-template': 'apply-template zambda',
+  'apply-template':
+    'none — a suggestion; the server resolves the title to a template id and the provider applies it by hand',
   'add-in-house-lab': 'in-house lab order endpoint',
   'add-external-lab': 'external lab order endpoint',
   'add-radiology': 'radiology create-order zambda',
@@ -638,7 +880,9 @@ export type UnionCoversKinds = AssertTrue<Extends<ActionKind, Action['kind']>>;
  * every consumer that reads it generically trips over. Read through this accessor instead.
  */
 export function capabilityOf(kind: ActionKind): Capability {
-  return CAPABILITIES[kind];
+  const capability = capabilityIfEnabled(kind);
+  if (!capability) throw new Error(`"${kind}" is disabled in this build — its CAPABILITIES entry is commented out`);
+  return capability;
 }
 
 /** Where this action's data lands: a chart-write property, or the endpoint named in NON_CHART_TARGETS. */
@@ -650,79 +894,55 @@ export function writeTargetOf(kind: ActionKind): { chartFields: ChartField[] } |
   return { endpoint: NON_CHART_TARGETS[kind] ?? 'unknown' };
 }
 
+/** True for a kind this build OFFERS. A disabled kind is "not an action this build knows" at the guard. */
 export function isActionKind(value: unknown): value is ActionKind {
-  return typeof value === 'string' && (ACTION_KINDS as readonly string[]).includes(value);
+  return typeof value === 'string' && (ENABLED_KINDS as readonly string[]).includes(value);
 }
 
 export function capabilitiesForSurface(surface: Surface): ActionKind[] {
-  return ACTION_KINDS.filter((kind) => (CAPABILITIES[kind].surfaces as readonly Surface[]).includes(surface));
+  return ENABLED_KINDS.filter((kind) => (capabilityOf(kind).surfaces as readonly Surface[]).includes(surface));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Everything below is DERIVED from `shape`. Nothing here is a second copy of the field list.
+// ---------------------------------------------------------------------------------------------
+
+/** A disabled kind has no shape: it declares nothing, requires nothing, and allows only kind + sourceText. */
+function shapeOf(kind: ActionKind): z.ZodRawShape {
+  return capabilityIfEnabled(kind)?.shape.shape ?? {};
+}
+
+/** The fields `kind` declares, in declaration order. */
+export function declaredFields(kind: ActionKind): ActionField[] {
+  return Object.keys(shapeOf(kind)) as ActionField[];
+}
+
+/** Fields without which the action cannot be executed: the shape's non-optional keys. */
+export function requiredFields(kind: ActionKind): ActionField[] {
+  const shape = shapeOf(kind);
+  return declaredFields(kind).filter((field) => !shape[field].isOptional());
 }
 
 /**
- * Every field any capability on this surface needs, plus the fields every action carries. The
- * response schema is generated from exactly this list, so a `required` field the schema does not
- * declare is impossible by construction (and pinned by a test besides).
- */
-export function fieldsForSurface(surface: Surface): ActionField[] {
-  const needed = new Set<ActionField>(['kind', 'sourceText']);
-  for (const kind of capabilitiesForSurface(surface)) {
-    for (const field of CAPABILITIES[kind].required) needed.add(field);
-    for (const field of OPTIONAL_FIELDS_BY_KIND[kind] ?? []) needed.add(field);
-  }
-  return [...needed];
-}
-
-/**
- * Fields an action may carry beyond its required ones. Kept next to the registry rather than
- * inferred from the TS union: the schema is data the model reads, and it must be legible here.
- */
-const OPTIONAL_FIELDS_BY_KIND: Partial<Record<ActionKind, readonly ActionField[]>> = {
-  'apply-template': ['searchTerms'],
-  'add-allergy': ['searchTerms'],
-  'remove-allergy': ['searchTerms'],
-  'add-condition': ['searchTerms', 'code'],
-  'remove-condition': ['searchTerms'],
-  'add-medication': ['searchTerms', 'strength', 'doseForm'],
-  'remove-medication': ['searchTerms'],
-  'add-surgical-history': ['searchTerms'],
-  'remove-surgical-history': ['searchTerms'],
-  'add-hospitalization': ['searchTerms'],
-  'remove-hospitalization': ['searchTerms'],
-  'add-exam-finding': ['searchTerms'],
-  'remove-exam-finding': ['searchTerms'],
-  'add-ros-finding': ['searchTerms', 'finding'],
-  'remove-ros-finding': ['searchTerms', 'finding'],
-  'add-diagnosis': ['searchTerms', 'code', 'isPrimary'],
-  'remove-diagnosis': ['searchTerms'],
-  'add-in-house-lab': ['searchTerms'],
-  'add-external-lab': ['searchTerms'],
-  'add-radiology': ['searchTerms'],
-  'add-procedure': ['searchTerms'],
-  'update-procedure': ['procedureMatch'],
-  'set-em-code': ['display'],
-  'remove-em-code': ['code'],
-  'add-cpt': ['display'],
-  'set-disposition': ['followUpInDays'],
-  unknown: ['message'],
-};
-
-/**
- * The fields `kind` is allowed to carry — its required ones, its optional ones, and the two every
- * action has. Anything else the model attached is a LEAK from another action's shape, and leaks are not
- * harmless: `strength` has arrived on a diagnosis (as `"true"`, apparently to fake primacy), and an
- * `updates: [{field:'code', …}]` array — `update-procedure`'s shape — has arrived on an add-diagnosis
- * carrying the code the model actually meant. Both silently change what gets charted.
+ * The fields `kind` is allowed to carry — its declared ones and the two every action has. Anything
+ * else the model attached is a LEAK from another action's shape, and leaks are not harmless: `strength`
+ * has arrived on a diagnosis (as `"true"`, apparently to fake primacy), and an `updates: [{field:'code',
+ * …}]` array — `update-procedure`'s shape — has arrived on an add-diagnosis carrying the code the model
+ * actually meant. Both silently change what gets charted.
  */
 export function allowedFields(kind: ActionKind): ActionField[] {
-  return [
-    ...new Set<ActionField>([
-      'kind',
-      'sourceText',
-      ...CAPABILITIES[kind].required,
-      ...(OPTIONAL_FIELDS_BY_KIND[kind] ?? []),
-    ]),
-  ];
+  return ['kind', 'sourceText', ...declaredFields(kind)];
 }
+
+/**
+ * Every field whose real contract is numeric but which travels as a string (schema.ts, trap 1).
+ * Derived from the `guardedNumber` declarations; restored right after parse by coerceNumericFields.
+ */
+export const NUMERIC_FIELDS: readonly ActionField[] = [
+  ...new Set(
+    ENABLED_KINDS.flatMap((kind) => declaredFields(kind).filter((field) => isGuardedNumber(shapeOf(kind)[field])))
+  ),
+];
 
 /**
  * THE single runtime gate between a raw model action and a typed one. A string counts only when
@@ -736,7 +956,7 @@ export function hasRequiredFields(kind: ActionKind, obj: Partial<RawAction>): bo
 
 /** The required fields of `kind` that are absent or blank, for an honest "skipped because…" reason. */
 export function missingRequiredFields(kind: ActionKind, obj: Partial<RawAction>): ActionField[] {
-  return CAPABILITIES[kind].required.filter((field) => !isPresent((obj as Record<string, unknown>)[field]));
+  return requiredFields(kind).filter((field) => !isPresent((obj as Record<string, unknown>)[field]));
 }
 
 function isPresent(value: unknown): boolean {
@@ -744,4 +964,51 @@ function isPresent(value: unknown): boolean {
   if (typeof value === 'string') return value.trim() !== '';
   if (Array.isArray(value)) return value.length > 0;
   return true;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Prompt: the shape line and the per-field prose, generated from the same object the schema is.
+// ---------------------------------------------------------------------------------------------
+
+/** Strip optional/nullable/default and transform wrappers, to the type the wire and the prose show. */
+export function unwrapForWire(schema: z.ZodTypeAny): z.ZodTypeAny {
+  let s = schema;
+  for (;;) {
+    if (s instanceof z.ZodOptional || s instanceof z.ZodNullable) s = s.unwrap();
+    else if (s instanceof z.ZodDefault) s = s._def.innerType;
+    // A transform's WIRE type is its input — that is how guardedNumber stays a string on the wire.
+    else if (s instanceof z.ZodEffects) s = s.innerType();
+    else return s;
+  }
+}
+
+function describeFieldType(schema: z.ZodTypeAny): string {
+  if (isGuardedNumber(schema)) return 'number';
+  const s = unwrapForWire(schema);
+  if (s instanceof z.ZodEnum) return `one of ${(s._def.values as string[]).map((v) => `"${v}"`).join(' | ')}`;
+  if (s instanceof z.ZodBoolean) return 'true | false';
+  if (s instanceof z.ZodArray) return `[${describeFieldType(s.element)}, …]`;
+  if (s instanceof z.ZodObject) return `{${Object.keys(s.shape).join(', ')}}`;
+  return 'string';
+}
+
+/** `- add-diagnosis: { kind, display, searchTerms, code, isPrimary }` — generated, so it cannot omit a field. */
+export function shapeLine(kind: ActionKind): string {
+  return `- ${kind}: { ${['kind', ...declaredFields(kind)].join(', ')} }`;
+}
+
+/**
+ * The whole block the prompt assembles for a kind: the shape line, one line per field (type,
+ * required/optional, its `.describe()`), then the action-level rules — plus `authoringDoc` on the
+ * surfaces that compose a note.
+ */
+export function promptBlockFor(kind: ActionKind, authoring: boolean): string {
+  const capability = capabilityOf(kind);
+  const required = new Set(requiredFields(kind));
+  const fieldLines = Object.entries(shapeOf(kind)).map(([field, schema]) => {
+    const tag = required.has(field as ActionField) ? 'required' : 'optional';
+    return `    ${field} (${describeFieldType(schema)}, ${tag}) — ${schema.description ?? ''}`.trimEnd();
+  });
+  const extra = authoring ? capability.authoringDoc : undefined;
+  return [shapeLine(kind), ...fieldLines, `  — ${capability.promptDoc}`, ...(extra ? [extra] : [])].join('\n');
 }

@@ -126,7 +126,10 @@ export interface ChartPlanRequest {
   chartState?: string;
   /** Exam findings already checked, so remove-exam-finding can name them exactly. */
   chartedExamFindings?: string[];
-  /** Practice template titles the model may apply. Ignored when `reconcileTemplate` is set. */
+  /**
+   * Practice template titles the model may SUGGEST via apply-template. A suggestion only: nothing in the
+   * plan applies a template — the provider does, by hand, from the template picker.
+   */
   templateTitles?: string[];
   /**
    * This call runs AFTER a template was applied, to reconcile what it charted against the narrative.
@@ -201,6 +204,13 @@ export interface PlannedAction extends RawAction {
   caution?: string;
   /** Set when a guard could not establish a value and the provider must supply it. */
   needsProvider?: boolean;
+  /**
+   * apply-template only. The id of the practice template the server resolved the model's title to, with
+   * `display` rewritten to that template's exact title. A suggestion for the UI: nothing applies it — the
+   * provider does, from the template picker. An apply-template whose title matched no template is
+   * REJECTED rather than returned without an id.
+   */
+  templateId?: string;
 }
 
 /** An action a guard rejected outright, reported so the step is never a silent no-op. */

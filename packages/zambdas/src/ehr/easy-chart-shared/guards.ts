@@ -94,10 +94,30 @@ export async function applyGuards(raw: RawAction[], context: GuardContext): Prom
   const actions: PlannedAction[] = [];
   const rejected: RejectedAction[] = [];
 
+  // A REPEATED READING IS A DUPLICATE WRITE, NOT A SECOND MEASUREMENT. The prompt asks for one set-vital
+  // per reading and a separate one for a genuine recheck, and the model complies — then repeats the same
+  // reading anyway: 17 of 66 set-vitals in one 396-case run were exact repeats, each of which the executor
+  // would chart as another observation. Two readings that differ (an initial temperature and a recheck)
+  // are both kept; only a reading identical after unit canonicalisation is dropped. Dropped silently with
+  // a log line rather than reported as a refusal: nothing the provider said was lost.
+  const seenVitals = new Set<string>();
   for (const item of raw) {
     const outcome = await guardOne(item, resolved);
-    if ('rejected' in outcome) rejected.push(outcome.rejected);
-    else actions.push(outcome.action);
+    if ('rejected' in outcome) {
+      rejected.push(outcome.rejected);
+      continue;
+    }
+    if (outcome.action.kind === 'set-vital') {
+      const key = vitalReadingKey(outcome.action);
+      if (seenVitals.has(key)) {
+        console.log(
+          `[${context.logPrefix}] dropped a repeated ${outcome.action.field} reading "${outcome.action.display}"`
+        );
+        continue;
+      }
+      seenVitals.add(key);
+    }
+    actions.push(outcome.action);
   }
 
   const deduped = enforceDiagnosisInvariants(actions, rejected, {
@@ -205,6 +225,14 @@ async function guardOne(input: RawAction, context: ResolvedGuardContext): Promis
 // ---------------------------------------------------------------------------------------------
 // 4.2 / 4.3 / 4.4 — units, value recovery, plausibility
 // ---------------------------------------------------------------------------------------------
+
+/** The canonical reading a guarded set-vital carries — field plus the parsed value in its converted unit. */
+function vitalReadingKey(action: PlannedAction): string {
+  if (action.systolic != null && action.diastolic != null) {
+    return `${action.field}|${action.systolic}/${action.diastolic}`;
+  }
+  return `${action.field}|${action.value}|${action.unit ?? ''}`;
+}
 
 function guardVital(action: PlannedAction, context: ResolvedGuardContext): GuardOutcome {
   if (!isVitalField(action.field)) {

@@ -4,6 +4,7 @@
 
 import { RawAction } from 'utils/lib/easy-chart/actions';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
+import { DISABLED_KINDS } from 'utils/lib/easy-chart/registry';
 import { describe, expect, it } from 'vitest';
 import { dropOrphanedRemovals, rosActionIsVerbatim, swapCancelsItself } from '../src/ehr/easy-chart-review/index';
 import { applyGuards, buildTriggerReports, GuardResult } from '../src/ehr/easy-chart-shared/guards';
@@ -138,36 +139,51 @@ describe('exam and ROS removals are checked against the chart', () => {
       logPrefix: 'test',
     });
 
-  it('rejects a ROS removal naming the OPPOSITE polarity to what is charted', async () => {
-    // The exact observed failure: chart holds "Denies fever", the stage asks to remove "Reports fever".
-    // Polarity-valid, so the old polarity-only check passed it through.
-    const { actions, rejected } = await guard({ kind: 'remove-ros-finding', display: 'Reports fever' });
-    expect(actions).toHaveLength(0);
-    expect(rejected[0].reason).toMatch(/is not on the chart/);
-  });
+  // remove-ros-finding is disabled in this build (removals are review's, and review does not offer it yet).
+  it.skipIf(DISABLED_KINDS.includes('remove-ros-finding'))(
+    'rejects a ROS removal naming the OPPOSITE polarity to what is charted',
+    async () => {
+      // The exact observed failure: chart holds "Denies fever", the stage asks to remove "Reports fever".
+      // Polarity-valid, so the old polarity-only check passed it through.
+      const { actions, rejected } = await guard({ kind: 'remove-ros-finding', display: 'Reports fever' });
+      expect(actions).toHaveLength(0);
+      expect(rejected[0].reason).toMatch(/is not on the chart/);
+    }
+  );
 
-  it('allows a ROS removal that names the charted entry', async () => {
-    const { actions, rejected } = await guard({ kind: 'remove-ros-finding', display: 'Denies fever' });
-    expect(rejected).toHaveLength(0);
-    expect(actions).toHaveLength(1);
-  });
+  // remove-ros-finding is disabled in this build (removals are review's, and review does not offer it yet).
+  it.skipIf(DISABLED_KINDS.includes('remove-ros-finding'))(
+    'allows a ROS removal that names the charted entry',
+    async () => {
+      const { actions, rejected } = await guard({ kind: 'remove-ros-finding', display: 'Denies fever' });
+      expect(rejected).toHaveLength(0);
+      expect(actions).toHaveLength(1);
+    }
+  );
 
   it('rejects an exam removal naming a normality phrase that is not a charted finding', async () => {
     const { actions } = await guard({ kind: 'remove-exam-finding', display: 'Nontender' });
     expect(actions).toHaveLength(0);
   });
 
-  it('allows an exam removal that names a charted abnormal finding', async () => {
-    const { actions, rejected } = await guard({ kind: 'remove-exam-finding', display: 'Cerumen impaction' });
-    expect(rejected).toHaveLength(0);
-    expect(actions).toHaveLength(1);
-  });
+  // remove-exam-finding is disabled in this build (its CAPABILITIES entry is commented out); these revive by themselves when it is re-enabled.
+  it.skipIf(DISABLED_KINDS.includes('remove-exam-finding'))(
+    'allows an exam removal that names a charted abnormal finding',
+    async () => {
+      const { actions, rejected } = await guard({ kind: 'remove-exam-finding', display: 'Cerumen impaction' });
+      expect(rejected).toHaveLength(0);
+      expect(actions).toHaveLength(1);
+    }
+  );
 
-  it('still rejects an exam removal whose display is a negative', async () => {
-    // The pre-existing polarity rule, which must survive the added chart check: "no cerumen impaction"
-    // AGREES with the normal and must not delete the abnormal finding.
-    const { actions, rejected } = await guard({ kind: 'remove-exam-finding', display: 'No cerumen impaction' });
-    expect(actions).toHaveLength(0);
-    expect(rejected[0].reason).toMatch(/is a negative/);
-  });
+  it.skipIf(DISABLED_KINDS.includes('remove-exam-finding'))(
+    'still rejects an exam removal whose display is a negative',
+    async () => {
+      // The pre-existing polarity rule, which must survive the added chart check: "no cerumen impaction"
+      // AGREES with the normal and must not delete the abnormal finding.
+      const { actions, rejected } = await guard({ kind: 'remove-exam-finding', display: 'No cerumen impaction' });
+      expect(actions).toHaveLength(0);
+      expect(rejected[0].reason).toMatch(/is a negative/);
+    }
+  );
 });

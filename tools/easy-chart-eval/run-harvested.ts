@@ -9,6 +9,7 @@
 //   npx tsx tools/easy-chart-eval/run-harvested.ts --token "$TOKEN"
 //   npx tsx tools/easy-chart-eval/run-harvested.ts --cases case001,case019      # subset / retries
 //   npx tsx tools/easy-chart-eval/run-harvested.ts --limit 5                    # smoke test
+//   npx tsx tools/easy-chart-eval/run-harvested.ts --quality OK                  # only screened-good cases
 //   npx tsx tools/easy-chart-eval/run-harvested.ts --rescore                    # no model calls
 //
 // A full 191-case run takes hours and burns real model tokens. Expect ~10% of cases to fail on
@@ -32,6 +33,7 @@ import {
   chartedExamFindingLabels,
 } from 'utils/lib/easy-chart/chart-state';
 import { overwritesWrittenNoteField } from 'utils/lib/easy-chart/note-fields';
+import { capabilitiesForSurface } from 'utils/lib/easy-chart/registry';
 import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { buildChartSnapshot } from '../../apps/ehr/src/features/easy-chart/executor/chartSnapshot';
 import { runPlan } from '../../apps/ehr/src/features/easy-chart/executor/runPlan';
@@ -93,6 +95,12 @@ interface Options {
   token: string;
   outDir: string;
   only?: string[];
+  /**
+   * Run only cases whose `quality.verdict` is one of these (case-quality.ts --stamp writes it).
+   * A corpus case whose transcript cannot support its note measures the corpus, not the model:
+   * a 39-character transcript against a 26-item gold scores noise whatever runs on it.
+   */
+  quality?: string[];
   limit?: number;
   rescore: boolean;
   /** Skip the second look — useful for isolating a planner change without paying for review. */
@@ -158,12 +166,17 @@ function parseArgs(argv: string[]): Options {
     ?.split(',')
     .map((id) => id.trim())
     .filter(Boolean);
+  const quality = get('--quality')
+    ?.split(',')
+    .map((v) => v.trim().toUpperCase())
+    .filter(Boolean);
   const limit = get('--limit') ? Number(get('--limit')) : undefined;
   return {
     url: get('--url') ?? process.env.EASY_CHART_EVAL_URL ?? 'http://localhost:3000',
     token,
     outDir: get('--out') ?? join(HERE, 'harvested-results'),
     only,
+    quality,
     limit,
     rescore,
     skipReview: argv.includes('--no-review'),
@@ -184,7 +197,23 @@ function loadCases(options: Options): HarvestedCase[] {
     .filter((name) => /^case\d+\.json$/.test(name))
     .sort();
   if (options.only) files = files.filter((name) => options.only!.includes(name.replace('.json', '')));
-  if (options.limit) files = files.slice(0, options.limit);
+  if (options.quality) {
+    const before = files.length;
+    files = files.filter((name) => {
+      const q = (JSON.parse(readFileSync(join(CASES_DIR, name), 'utf8')) as { quality?: { verdict?: string } }).quality;
+      // An unstamped case is NOT silently included: the filter is there to guarantee a known corpus,
+      // and quietly admitting cases of unknown quality would defeat the point.
+      return q?.verdict !== undefined && options.quality!.includes(q.verdict);
+    });
+    console.log(
+      `--quality ${options.quality.join(',')}: ${
+        files.length
+      } of ${before} cases (run case-quality.ts --stamp if this is 0)`
+    );
+  }
+  // `!== undefined`, not truthiness: `--limit 0` means "no cases", and reading it as "no limit"
+  // started a full run when the intent was to check a filter.
+  if (options.limit !== undefined) files = files.slice(0, options.limit);
   return files.map((name) => JSON.parse(readFileSync(join(CASES_DIR, name), 'utf8')) as HarvestedCase);
 }
 
@@ -364,11 +393,16 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
 
   // Full graph, or just the named stages on top of the monolith. Same code either way: the hybrid is
   // the graph with most of its groups removed, not a second mechanism.
-  const groupsToRun = options.stages
-    ? STAGE_GROUPS
-    : STAGE_GROUPS.map((group) => group.filter((stage) => options.addStages.includes(stage))).filter(
-        (group) => group.length > 0
-      );
+  // A stage whose whole vocabulary is disabled in this build (today: `orders`) is skipped rather than
+  // called — the zambda would answer an empty plan anyway, and a stage timing of 0 is not a measurement.
+  const offersActions = (stage: PlanStage): boolean => capabilitiesForSurface(stage).length > 0;
+  const groupsToRun = (
+    options.stages
+      ? STAGE_GROUPS
+      : STAGE_GROUPS.map((group) => group.filter((stage) => options.addStages.includes(stage)))
+  )
+    .map((group) => group.filter(offersActions))
+    .filter((group) => group.length > 0);
 
   if (groupsToRun.length > 0) {
     for (const group of groupsToRun) {
@@ -394,12 +428,6 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
               // spotted one.
               incremental: false,
               ...(patientStatus ? { patientStatus } : {}),
-              // What the `template` stage applied, so the later stages can tell a template's defaults
-              // apart from what the provider dictated — the chart state cannot, every row in it looks
-              // the same regardless of who put it there.
-              ...(state.templatesApplied.length > 0
-                ? { appliedTemplate: state.templatesApplied[state.templatesApplied.length - 1] }
-                : {}),
               ...chartBefore,
             });
             return { stage, stageResponse, ms: Date.now() - startedAt };
@@ -633,13 +661,34 @@ function escalationRecord(info: EscalationInfo | undefined): EvalTokenUsage['esc
   };
 }
 
-/** Rebuild the summary from score files already on disk — no model calls, so a failed batch can be
- * summarised without paying for it twice. */
+/**
+ * Re-score a run from what is on disk — no model calls, so a scorer change (a new section, a fixed rule)
+ * can be applied to an old run and a failed batch summarised without paying for it twice.
+ *
+ * The simulated chart is re-scored against the case's gold from the RESULT file; what only the live run
+ * knew — token usage, the escalation record, the disposition trigger, the patient status sent — is carried
+ * over from the existing score file. A case whose result or case file is missing keeps its old score.
+ */
 function loadScores(outDir: string): CaseScore[] {
   return readdirSync(outDir)
     .filter((name) => name.endsWith('.score.json'))
     .sort()
-    .map((name) => JSON.parse(readFileSync(join(outDir, name), 'utf8')) as CaseScore);
+    .map((name) => {
+      const previous = JSON.parse(readFileSync(join(outDir, name), 'utf8')) as CaseScore & Record<string, unknown>;
+      const resultPath = join(outDir, name.replace('.score.json', '.result.json'));
+      const casePath = join(CASES_DIR, `${previous.caseId}.json`);
+      if (!existsSync(resultPath) || !existsSync(casePath)) return previous;
+      const { state } = JSON.parse(readFileSync(resultPath, 'utf8')) as { state?: SimFinalState };
+      if (!state) return previous;
+      const { gold } = JSON.parse(readFileSync(casePath, 'utf8')) as HarvestedCase;
+      const rescored = {
+        ...scoreCase(previous.caseId, gold, state, previous.usage, previous.dispositionTrigger ?? undefined),
+        patientStatusSent: previous.patientStatusSent ?? null,
+        patientStatusSource: previous.patientStatusSource ?? 'none',
+      };
+      writeFileSync(join(outDir, name), JSON.stringify(rescored, null, 2));
+      return rescored;
+    });
 }
 
 async function main(): Promise<void> {

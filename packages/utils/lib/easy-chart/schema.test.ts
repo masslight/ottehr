@@ -1,18 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { buildResponseSchema, buildReviewResponseSchema, coerceNumericFields, findNumberTypedFields } from './schema';
+import { z } from 'zod';
+import {
+  actionBranchesOf,
+  buildResponseSchema,
+  buildReviewResponseSchema,
+  coerceNumericFields,
+  findNumberTypedFields,
+  toWire,
+} from './schema';
 
 describe('coerceNumericFields', () => {
   it('restores the numeric contract the digit-loop guard removed', () => {
-    const action: Record<string, unknown> = { value: '5.8', systolic: '122', diastolic: '78', followUpInDays: '7' };
+    const action: Record<string, unknown> = { followUpInDays: '7', display: 'x' };
     coerceNumericFields(action);
-    expect(action).toEqual({ value: 5.8, systolic: 122, diastolic: 78, followUpInDays: 7 });
+    expect(action).toEqual({ followUpInDays: 7, display: 'x' });
   });
 
   // A half-parsed value must behave exactly as if the model had omitted the field: deleting it makes
   // the required-fields gate reject the action honestly instead of charting NaN.
   it('deletes an empty or non-numeric value rather than charting NaN', () => {
     const action: Record<string, unknown> = { value: '', systolic: 'about 120', followUpInDays: 'a week' };
-    coerceNumericFields(action);
+    coerceNumericFields(action, ['value', 'systolic', 'followUpInDays']);
     expect(action).toEqual({});
   });
 
@@ -46,19 +54,54 @@ describe('review response schema', () => {
   it('carries its own actions[] on every suggestion, so accepting one needs no new charting logic', () => {
     const item = (buildReviewResponseSchema().properties as any).suggestions.items;
     expect(item.required).toContain('actions');
-    const plan = (buildResponseSchema('review').properties as any).actions;
-    // Same action shape as the surface's own schema, with one deliberate difference — see below.
-    expect(item.properties.actions.items.properties).toEqual(plan.items.properties);
+    expect(item.properties.actions).toEqual((buildResponseSchema('review').properties as any).actions);
   });
 
   // A diagnosis-swap card is a remove+add pair whose add must restate the removed diagnosis's primary
   // status, or the note ends with no primary at all. Leaving the boolean optional is what made the
-  // model express primacy in prose instead — the `(primary) (primary) …` string loop of trap 3.
-  it('REQUIRES isPrimary on every review action, so primacy is never expressed as prose', () => {
-    const actions = (buildReviewResponseSchema().properties as any).suggestions.items.properties.actions;
-    expect(actions.items.required).toEqual(['kind', 'isPrimary']);
+  // model express primacy in prose instead — the `(primary) (primary) …` string loop of trap 3. With
+  // one branch per kind the requirement lands on add-diagnosis alone, not on every review action.
+  it('REQUIRES isPrimary on the review add-diagnosis branch only', () => {
+    const review = actionBranchesOf(buildResponseSchema('review'));
+    expect(review['add-diagnosis'].required).toContain('isPrimary');
+    expect(review['remove-diagnosis'].required).toEqual(['kind', 'display']);
     // And the plan surface is untouched: there the whole-plan invariant handles a missing primary.
-    expect((buildResponseSchema('review').properties as any).actions.items.required).toEqual(['kind']);
+    expect(actionBranchesOf(buildResponseSchema('plan'))['add-diagnosis'].required).toEqual(['kind', 'display']);
+  });
+
+  it('never offers a kind a field it has no use for — the flat shape did, and trap 3 came from it', () => {
+    const review = actionBranchesOf(buildResponseSchema('review'));
+    expect(review['add-diagnosis'].properties.text).toBeUndefined();
+    expect(review['set-disposition'].properties.display).toBeUndefined();
+  });
+});
+
+describe('toWire refuses the constructs behind traps 1 and 3 at build time', () => {
+  it('refuses z.number()', () => {
+    expect(() => toWire(z.object({ value: z.number() }))).toThrow(/trap 1/);
+  });
+  it('refuses an uncapped string', () => {
+    expect(() => toWire(z.object({ text: z.string() }))).toThrow(/trap 3/);
+  });
+  it('serializes a guarded number as a capped string', () => {
+    expect(actionBranchesOf(buildResponseSchema('plan'))['set-disposition'].properties.followUpInDays).toEqual({
+      type: 'string',
+      maxLength: 60,
+    });
+  });
+  it('serializes a closed vocabulary as an enum', () => {
+    expect(actionBranchesOf(buildResponseSchema('plan'))['set-vital'].properties.field).toEqual({
+      type: 'string',
+      enum: [
+        'vital-temperature',
+        'vital-heartbeat',
+        'vital-respiration-rate',
+        'vital-oxygen-sat',
+        'vital-blood-pressure',
+        'vital-weight',
+        'vital-height',
+      ],
+    });
   });
 });
 

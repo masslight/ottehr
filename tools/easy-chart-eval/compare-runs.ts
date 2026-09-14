@@ -19,7 +19,20 @@ import { existsSync, readdirSync, readFileSync } from 'fs';
 import { basename, join } from 'path';
 
 type Scope = 'plannerOnly' | 'final';
-const SECTIONS = ['diagnoses', 'cpt', 'ros', 'exam', 'medsPrescribed', 'medsInHouse', 'immunizations'] as const;
+const SECTIONS = [
+  'diagnoses',
+  'cpt',
+  'ros',
+  'exam',
+  'medsPrescribed',
+  'medsInHouse',
+  'immunizations',
+  'vitals',
+  'allergies',
+  'conditions',
+  'surgicalHistory',
+  'hospitalizations',
+] as const;
 const FREETEXT = [
   'historyOfPresentIllness',
   'additionalInformation',

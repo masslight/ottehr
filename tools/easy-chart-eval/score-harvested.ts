@@ -76,6 +76,8 @@ export interface EvalTokenUsage {
   };
 }
 
+import { PLANNABLE_VITAL_FIELDS, PlannableVitalField } from 'utils/lib/easy-chart/actions';
+import { parseVitalDisplay } from 'utils/lib/easy-chart/vitals';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { DiagnosisItem, ExamItem, GoldData } from './gold-types';
 
@@ -247,6 +249,16 @@ export interface ScopeScores {
   medsPrescribed: SectionScore & { legacyVoiced: number; intentVoiced: number; intentCovered: number };
   medsInHouse: SectionScore;
   immunizations: SectionScore;
+  // CONTEXT sections. Their gold is the chart's intake / prior-history data (nurse-entered vitals,
+  // reconciled allergies and history), marked `context: true` by the harvester and carrying NO voicing
+  // tags. Recall is therefore measured against everything on the chart, most of which the provider
+  // never dictated; PRECISION is the figure to read — of what the model charted, how much the chart
+  // agrees with. Absent from score files written before 2026-09-14.
+  vitals: SectionScore;
+  allergies: SectionScore;
+  conditions: SectionScore;
+  surgicalHistory: SectionScore;
+  hospitalizations: SectionScore;
   // The three med sections share one predicted pool (planner meds are name-only), so precision
   // is only meaningful combined.
   medsCombined: {
@@ -680,7 +692,146 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
     precision: medsPrecDenom > 0 ? totalMedMatched / medsPrecDenom : null,
   };
 
-  return { diagnoses, primaryDx, em, cpt, ros, exam, medsPrescribed, medsInHouse, immunizations, medsCombined };
+  // --- context sections: vitals by field + value (gold units: °C, kg, cm), history by code or name ---
+  const vitals = scoreVitals(gold, state);
+  const allergies = scoreNamed(
+    gold.allergies.map((a) => ({ display: a.name })),
+    inScope(state.allergies, scope)
+  );
+  const conditions = scoreNamed(
+    gold.medicalHistory.map((h) => ({ display: h.display, codeNormalized: h.codeNormalized })),
+    inScope(state.conditions, scope)
+  );
+  const surgicalHistory = scoreNamed(gold.surgicalHistory, inScope(state.surgicalHistory, scope));
+  const hospitalizations = scoreNamed(gold.hospitalizations, inScope(state.hospitalizations, scope));
+
+  return {
+    diagnoses,
+    primaryDx,
+    em,
+    cpt,
+    ros,
+    exam,
+    medsPrescribed,
+    medsInHouse,
+    immunizations,
+    vitals,
+    allergies,
+    conditions,
+    surgicalHistory,
+    hospitalizations,
+    medsCombined,
+  };
+}
+
+/**
+ * The ICD-10 CATEGORY of a normalized code — "E849" → "E84" — or undefined when the code is not ICD-shaped.
+ * History is coarse: intake records "Cystic fibrosis, unspecified" (E84.9) and the provider dictates
+ * "cystic fibrosis with pulmonary manifestations" (E84.0). Same disease, different 4th character, and a
+ * strict code match would call it a miss.
+ */
+export function icdCategory(codeNormalized: string | undefined): string | undefined {
+  const m = /^([A-Z]\d{2})/.exec(codeNormalized ?? '');
+  return m ? m[1] : undefined;
+}
+
+/**
+ * History-style sections: a predicted item matches a gold item by normalized CODE when both carry one,
+ * else by ICD-10 CATEGORY when both codes are ICD-shaped, else by name containment (the rule the med
+ * sections use). Greedy, each gold item consumed once.
+ */
+function scoreNamed(goldItems: { display?: string; codeNormalized?: string }[], predicted: SimItem[]): SectionScore {
+  const used = new Set<number>();
+  let matched = 0;
+  for (const p of predicted) {
+    const idx = goldItems.findIndex((g, i) => !used.has(i) && historyMatches(p, g));
+    if (idx >= 0) {
+      used.add(idx);
+      matched++;
+    }
+  }
+  return mkSection(goldItems.length, predicted.length, matched);
+}
+
+/** The history-section match rule, shared with ground-predictions.ts: code, then ICD-10 category, then name. */
+export function historyMatches(
+  p: { display?: string; code?: string },
+  g: { display?: string; codeNormalized?: string }
+): boolean {
+  const code = normCode(p.code);
+  const category = icdCategory(code);
+  return (
+    (!!code && !!g.codeNormalized && code === g.codeNormalized) ||
+    (category !== undefined && category === icdCategory(g.codeNormalized)) ||
+    nameMatch(p.display, g.display)
+  );
+}
+
+/** Gold vitals are charted in °C, kg and cm; the model's display is whatever the provider said. */
+const VITAL_TOLERANCE: Record<string, number> = {
+  'vital-temperature': 0.3,
+  'vital-heartbeat': 1,
+  'vital-respiration-rate': 1,
+  'vital-oxygen-sat': 1,
+  'vital-weight': 0.5,
+  'vital-height': 1,
+};
+
+function toGoldUnits(field: PlannableVitalField, value: number, unit: string | undefined): number {
+  const u = (unit ?? '').toLowerCase();
+  if (field === 'vital-temperature') return u.startsWith('f') || (!u && value > 45) ? ((value - 32) * 5) / 9 : value;
+  if (field === 'vital-weight') return u === 'lb' ? value * 0.45359237 : value;
+  if (field === 'vital-height') return u === 'in' ? value * 2.54 : value;
+  return value;
+}
+
+/** The vitals match rule, shared with ground-predictions.ts: same field, value within tolerance in chart units. */
+export function vitalMatchesGold(field: PlannableVitalField, display: string, g: Record<string, unknown>): boolean {
+  if (g.field !== field) return false;
+  const parsed = parseVitalDisplay(field, display);
+  if (parsed.status === 'ok-bp') {
+    return Math.abs(Number(g.systolic) - parsed.systolic) <= 2 && Math.abs(Number(g.diastolic) - parsed.diastolic) <= 2;
+  }
+  if (parsed.status !== 'ok') return false;
+  const goldValue = Number(g.value);
+  if (!Number.isFinite(goldValue)) return false;
+  return Math.abs(goldValue - toGoldUnits(field, parsed.value, parsed.unit)) <= (VITAL_TOLERANCE[field] ?? 1);
+}
+
+/**
+ * Vitals: a set-vital matches a gold reading of the same field whose value is within tolerance after
+ * conversion to the chart's units. Scored the same in both scopes — only the planner sets vitals.
+ * Gold is limited to the fields the model may set; BMI is derived, LMP and vision are never dictated.
+ */
+function scoreVitals(gold: GoldData, state: SimFinalState): SectionScore {
+  const plannable = new Set<string>(PLANNABLE_VITAL_FIELDS);
+  const goldVitals = gold.vitals.filter((v) => plannable.has(String(v.field)));
+  // EXACT duplicates collapse first: the model repeats a reading ("98.9 F" twice) often enough to
+  // matter — 19 of 44 in one run — and a repeat of a correct reading is a duplicate-write defect, not a
+  // wrong vital. Counting it as a false positive here would charge precision for the wrong failure.
+  const unique = uniqueVitals(state.vitals).filter((v) => plannable.has(v.field));
+  const used = new Set<number>();
+  let matched = 0;
+  for (const v of unique) {
+    const field = v.field as PlannableVitalField;
+    const idx = goldVitals.findIndex((g, i) => !used.has(i) && vitalMatchesGold(field, v.display, g));
+    if (idx >= 0) {
+      used.add(idx);
+      matched++;
+    }
+  }
+  return mkSection(goldVitals.length, unique.length, matched);
+}
+
+/** Vitals with exact (field, display) repeats removed, first occurrence kept. Shared with ground-predictions.ts. */
+export function uniqueVitals<T extends { field: string; display: string }>(vitals: T[]): T[] {
+  const seen = new Set<string>();
+  return vitals.filter((v) => {
+    const key = `${v.field}|${v.display}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -873,7 +1024,20 @@ export interface AggregateSummary {
   escalation: { planner: EscalationAgg; review: EscalationAgg };
 }
 
-const SET_SECTIONS = ['diagnoses', 'cpt', 'ros', 'exam', 'medsPrescribed', 'medsInHouse', 'immunizations'] as const;
+const SET_SECTIONS = [
+  'diagnoses',
+  'cpt',
+  'ros',
+  'exam',
+  'medsPrescribed',
+  'medsInHouse',
+  'immunizations',
+  'vitals',
+  'allergies',
+  'conditions',
+  'surgicalHistory',
+  'hospitalizations',
+] as const;
 
 function aggregateScope(scores: CaseScore[], scope: Scope): AggScope {
   const sections: Record<string, AggSection> = {};
@@ -886,7 +1050,9 @@ function aggregateScope(scores: CaseScore[], scope: Scope): AggScope {
       unvoicedGold = 0,
       unvoicedMatched = 0;
     for (const s of scores) {
-      const sec = s.scopes[scope][name] as SectionScore;
+      // Score files written before a section existed simply lack it; they aggregate to zero there.
+      const sec = s.scopes[scope][name] as SectionScore | undefined;
+      if (!sec) continue;
       gold += sec.goldInScope;
       predicted += sec.predicted;
       matched += sec.matched;

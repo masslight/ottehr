@@ -16,7 +16,7 @@ import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { PlanStep } from '../../apps/ehr/src/features/easy-chart/executor/types';
 import { EvalWriterLog } from './harness';
-import { emptySimState, SimDiagnosis, SimExamObs, SimFinalState, SimSource } from './score-harvested';
+import { emptySimState, SimFinalState, SimSource } from './score-harvested';
 import { resolveTemplateByDisplay } from './template-catalog';
 
 /** The exam cards' free-text fields, so a comment write is never scored as a ticked checkbox. */
@@ -30,26 +30,14 @@ const NOTE_FIELDS: readonly string[] = NOTE_TEXT_FIELDS;
 
 /**
  * Extra bookkeeping the sim records about templates. Extra keys are ignored by the scorer, which reads
- * only the fields it knows — so these ride along in the result file and the run summary without changing
- * a single score, which is what makes them safe to add.
- */
-/**
- * A charted row that a TEMPLATE contributed, not the model.
+ * only the fields it knows — so this rides along in the result file without changing a score.
  *
- * Declared here rather than in the scorer because the scorer must stay a faithful port: it reads only
- * the fields it knows and ignores the rest, so provenance rides along in the result file without moving
- * a single score. What it buys is the ability to tell the two apart afterwards — a template contributes
- * ~28 default exam normals per application, so an exam precision figure that lumps them in with the
- * model's own choices is really reporting how many templates were applied.
+ * A template is only SUGGESTED by apply-template (the provider applies it by hand), so the sim charts
+ * nothing for it; `templatesApplied` — the scorer's field name — counts suggestions. What is still worth
+ * knowing is whether the suggested title EXISTS in the seed catalogue.
  */
-type TemplateSourced<T> = T & { templateName?: string };
-
 export type SimStateWithTemplateStats = SimFinalState & {
-  /** How many diagnoses templates actually contributed. */
-  templateDxApplied?: number;
-  /** How many default exam findings templates actually contributed. */
-  templateExamApplied?: number;
-  /** Titles the model asked for that the practice does not have. */
+  /** Suggested titles the practice does not have. */
   templateTitleUnmatched?: string[];
 };
 
@@ -223,73 +211,13 @@ export function foldStepsIntoState(steps: PlanStep[], source: SimSource, into?: 
         state.nursingOrders.push(typeof action.text === 'string' ? action.text : display);
         break;
       case 'apply-template': {
+        // A SUGGESTION: the provider applies the template by hand, so it charts nothing here and the
+        // model's own steps are scored on their own. Recorded: the title (the server rewrote it to the
+        // practice's exact one), and whether the seed catalogue knows it.
         state.templatesApplied.push(display);
-        // CHART THE TEMPLATE'S DIAGNOSES, mirroring the apply-template zambda's create loop.
-        //
-        // Without this the step recorded a TITLE and nothing else, so the most common way a diagnosis
-        // reaches a real chart was invisible to the score: the note the clinician signed held the
-        // template's dx, the simulated one did not, and the diagnoses section was marked down for a
-        // miss the planner never made. Templates fire on 28 of 40 cases, so this is not an edge.
-        //
-        // Diagnoses here, default exam findings further down. MDM and instructions live in the
-        // template's contained Communications and are still not simulated — see template-catalog.
         const stats = state as SimStateWithTemplateStats;
-        stats.templateDxApplied ??= 0;
         stats.templateTitleUnmatched ??= [];
-        const template = resolveTemplateByDisplay(display);
-        if (!template) {
-          // A name the practice does not have. Recorded rather than ignored: "the model invented a
-          // template" and "the template charted nothing" are different failures.
-          stats.templateTitleUnmatched.push(display);
-          break;
-        }
-        for (const dx of template.diagnoses) {
-          const active = state.diagnoses.filter((item) => !item.removed);
-          if (active.some((item) => (item.code ?? '').toUpperCase() === dx.code.toUpperCase())) {
-            state.skipped.push({
-              kind: action.kind,
-              display: `${dx.code} — ${dx.display}`,
-              reason: 'template dx already charted',
-            });
-            continue;
-          }
-          // Rank 1 is the template's primary, but a primary already on the chart is NEVER usurped —
-          // the same rule the zambda's append semantics apply.
-          const hasPrimary = active.some((item) => item.isPrimary);
-          const templateDx: TemplateSourced<SimDiagnosis> = {
-            display: dx.display,
-            code: dx.code,
-            ...(dx.rank === 1 && !hasPrimary ? { isPrimary: true } : {}),
-            source,
-            templateName: template.title,
-          };
-          state.diagnoses.push(templateDx);
-          stats.templateDxApplied += 1;
-        }
-
-        // AND ITS DEFAULT EXAM FINDINGS — ~28 per template, and the reason the exam section could not be
-        // measured. Until these were charted the scorer compared against a chart that pretended the
-        // template had ticked nothing, so every normal it had already charted read as a planner miss.
-        //
-        // Deduped by FIELD, which is the key the scorer compares on: a template normal for a finding the
-        // dictation already charted must not appear twice, and a later `remove-exam-finding` resolves
-        // against one row rather than picking arbitrarily between two.
-        stats.templateExamApplied ??= 0;
-        for (const finding of template.examFindings) {
-          if (state.examObservations.some((obs) => !obs.removed && obs.field === finding.field)) continue;
-          // `templateName` is provenance, not score: the scorer reads only the fields it knows, so this
-          // rides along harmlessly — but without it a template's ~28 default normals are indistinguishable
-          // from findings the model actually chose, and every exam precision figure silently becomes a
-          // statement about how many templates were applied. The diagnosis branch above already carries it.
-          const templateFinding: TemplateSourced<SimExamObs> = {
-            field: finding.field,
-            label: finding.label,
-            source,
-            templateName: template.title,
-          };
-          state.examObservations.push(templateFinding);
-          stats.templateExamApplied += 1;
-        }
+        if (!resolveTemplateByDisplay(display)) stats.templateTitleUnmatched.push(display);
         break;
       }
       case 'provider-note':

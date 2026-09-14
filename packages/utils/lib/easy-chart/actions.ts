@@ -218,8 +218,9 @@ export interface SearchableAction extends ActionProvenance {
 }
 
 export type Action = ActionProvenance &
-  (
-    | ({ kind: 'apply-template' } & SearchableAction)
+  // `templateId` is SERVER-set: the plan zambda resolves the model's title to a practice template and
+  // puts its id here, with `display` rewritten to the exact title. A suggestion the provider acts on.
+  (| ({ kind: 'apply-template'; templateId?: string } & SearchableAction)
     | ({ kind: 'add-allergy' } & SearchableAction)
     | ({ kind: 'remove-allergy' } & SearchableAction)
     | ({ kind: 'add-condition'; code?: string } & SearchableAction)

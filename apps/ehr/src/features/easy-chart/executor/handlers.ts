@@ -304,12 +304,21 @@ const chatOnly = <K extends 'reply' | 'provider-note'>(kind: K): Handler<K> =>
   }) as Handler<K>;
 
 export const HANDLERS = {
-  'apply-template': async (action, context) =>
-    addFromCatalogue(action, context, {
-      search: (q) => context.catalogue.templates(q),
-      noun: 'template',
-      write: (match) => context.writer.applyTemplate(match),
-    }),
+  // A SUGGESTION, never a write. The server resolved the model's title to a practice template and put its
+  // id and exact title on the action; the provider applies it by hand from the template picker. Nothing
+  // lands on the chart here, so the rest of the plan runs against the chart exactly as it was.
+  'apply-template': async (action, context) => {
+    if (!action.templateId) {
+      return skipped(
+        `the server did not resolve "${describeQuery(action.display)}" to a template — pick one yourself if you want it`
+      );
+    }
+    context.say(
+      `Suggested template: "${action.display}". Apply it from the template picker if you want it — nothing was applied.`,
+      'provider-note'
+    );
+    return applied([], { note: 'suggested only — not applied', matchedId: action.templateId });
+  },
 
   'add-allergy': async (action, context) =>
     addFromCatalogue(action, context, {

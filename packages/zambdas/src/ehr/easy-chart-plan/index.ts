@@ -28,14 +28,9 @@ import { ZambdaInput } from '../../shared/types/common';
 import { authorizeEasyChartRequest } from '../easy-chart-shared/authorize';
 import { applyGuards } from '../easy-chart-shared/guards';
 import { callModelForJson } from '../easy-chart-shared/model';
-import {
-  buildNoteContext,
-  describeChart,
-  readTemplateTitles,
-  readVisitContext,
-} from '../easy-chart-shared/visit-context';
+import { buildNoteContext, describeChart, readTemplates, readVisitContext } from '../easy-chart-shared/visit-context';
 import { getChartData } from '../get-chart-data';
-import { buildHistoryDigest, TEMPLATE_RECONCILE_INSTRUCTION } from './helpers';
+import { buildHistoryDigest, resolveSuggestedTemplate, TEMPLATE_RECONCILE_INSTRUCTION } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-plan';
@@ -75,14 +70,28 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // `orders`, which cannot apply a template at all: the largest block in the tail, eight times a visit,
   // on calls that could do nothing with it.
   const surface: Surface = params.stage ?? 'plan';
+  // A stage whose whole vocabulary is disabled (today: `orders`) has nothing to ask the model for, and an
+  // `anyOf` with no branches is not a schema Vertex accepts. Answer the empty plan it would have produced.
+  if (capabilitiesForSurface(surface).length === 0) {
+    console.log(`[${ZAMBDA_NAME}] stage "${surface}" offers no actions in this build — empty plan, no model call`);
+    const empty: ChartPlanResponse = {
+      actions: [],
+      rejected: [],
+      usage: [],
+      escalation: { attempts: 0, escalated: false, failures: [] },
+      triggers: [],
+    };
+    return { statusCode: 200, body: JSON.stringify(empty) };
+  }
   const templatesUsable = !params.reconcileTemplate && capabilitiesForSurface(surface).includes('apply-template');
   // Read ONCE, and only when something needs it — either to offer the list, or to check the applied title
   // against it. Reading it twice in separate branches added a serial round trip to exactly the stage
   // calls that withholding the list was meant to make cheaper.
-  const [chart, practiceTitles] = await Promise.all([
+  const [chart, practiceTemplates] = await Promise.all([
     encounterId ? readChart(oystehr, m2mToken, encounterId) : undefined,
-    templatesUsable || params.appliedTemplate ? readTemplateTitles(oystehr, ZAMBDA_NAME) : undefined,
+    templatesUsable || params.appliedTemplate ? readTemplates(oystehr, ZAMBDA_NAME) : undefined,
   ]);
+  const practiceTitles = practiceTemplates?.map((template) => template.title);
   const templateTitles = templatesUsable ? practiceTitles : undefined;
   // Named to the model only when the practice really has it: a caller-supplied string is not trusted into
   // the prompt, a title matched against the server's own list is.
@@ -131,7 +140,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   );
 
-  const { actions, rejected, triggers } = await applyGuards(parsed, {
+  const {
+    actions: guarded,
+    rejected,
+    triggers,
+  } = await applyGuards(parsed, {
     oystehr,
     narrative,
     chartedItems: [...(params.chartedExamFindings ?? []), ...splitChartState(params.chartState)],
@@ -146,6 +159,31 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // meant.
     promoteMissingPrimary: capabilitiesForSurface(surface).includes('add-diagnosis'),
   });
+
+  // A TEMPLATE IS SUGGESTED, NEVER APPLIED. The client used to resolve the model's title against the
+  // practice list and apply the template; now the provider applies one by hand, from the picker. What the
+  // UI needs for that is WHICH template — so the title is resolved HERE, against the list this zambda read,
+  // and the action carries the template's id and exact title. A title that matches nothing is a rejection
+  // with a reason, never a suggestion of something the practice does not have.
+  const actions: PlannedAction[] = [];
+  for (const action of guarded) {
+    if (action.kind !== 'apply-template') {
+      actions.push(action);
+      continue;
+    }
+    const template = practiceTemplates ? resolveSuggestedTemplate(practiceTemplates, action) : undefined;
+    if (!template) {
+      rejected.push({
+        kind: action.kind,
+        display: action.display,
+        reason: practiceTemplates
+          ? `no template in this practice is titled like "${action.display ?? ''}"`
+          : 'the practice template list could not be read, so no template could be suggested',
+      });
+      continue;
+    }
+    actions.push({ ...action, display: template.title, templateId: template.id });
+  }
 
   console.log(
     `[${ZAMBDA_NAME}] planned=${actions.length} rejected=${rejected.length} escalated=${escalation.escalated} ` +

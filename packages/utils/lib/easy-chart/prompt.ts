@@ -8,21 +8,21 @@
 //    lives in buildVariableTail() and nowhere else. Watch the cache-read figure in the token tally:
 //    a cache-read of zero across a session means this ordering broke.
 //
-// 2. THE PER-ACTION PROSE COMES FROM THE REGISTRY. Each capability owns its own promptDoc, so an
-//    action cannot exist in the schema while being described in no prompt — which is exactly how
+// 2. THE PER-ACTION PROSE COMES FROM THE REGISTRY. Each capability owns its own promptDoc, and its
+//    shape line + field lines are generated from its Zod shape, so an action (or a field) cannot exist
+//    in the schema while being described in no prompt — which is exactly how
 //    five actions became unreachable in the first implementation. The surrounding instructions are
 //    hand-tuned against eval runs and are deliberately NOT generated; generating the whole prompt
 //    trades measured quality for tidiness.
 
 import { Surface } from './actions';
-import { CAPABILITIES, capabilitiesForSurface, Capability } from './registry';
+import { capabilitiesForSurface, promptBlockFor } from './registry';
 
 export const FIXED_INSTRUCTIONS_END = '═══ END OF FIXED INSTRUCTIONS — act on the narrative + context below ═══';
 
 const PLAN_PREAMBLE = `You are an assistant helping a provider chart a clinical encounter. The provider's free-text
 NARRATIVE (everything they want done on the chart) appears at the END of this message, after the
-instructions, along with the per-visit context: the patient, the templates available in this
-practice, and what is ALREADY ON THE CHART.
+instructions, along with the per-visit context: the patient, the practice's available templates, and what is ALREADY ON THE CHART.
 
 Decompose that narrative into an ordered sequence of charting ACTIONS drawn from the vocabulary
 below. Deterministic code executes them one at a time and asks the provider to disambiguate when
@@ -37,9 +37,11 @@ the FINAL version. This applies to diagnoses, exam findings, and medications ali
 const PLAN_ORDERING = `ORDERING — follow this canonical note order, and emit nothing for things the narrative does not
 mention:
 
-  1. apply-template — FIRST step when one of the AVAILABLE TEMPLATES matches this visit's primary
-     presentation. Templates pre-fill CC/HPI structure, default normal exam findings, a default
-     diagnosis, default MDM and patient instructions.
+  1. apply-template — a SUGGESTION, listed first, when one of the AVAILABLE TEMPLATES matches this
+     visit's primary presentation. Nothing in this plan applies it: the provider applies a template by
+     hand, later, at their discretion. So NOTHING a template would bring — its default exam normals, its
+     diagnosis, its MDM scaffolding, its instructions — is on the chart, and the rest of this plan must
+     chart the visit COMPLETELY on its own. Never omit anything because a template "would carry it".
   2. Patient history — add-allergy, add-condition, add-medication, add-surgical-history,
      add-hospitalization. This is the patient's BACKGROUND, distinct from today's diagnoses and
      treatment. It is frequently stated and just as frequently forgotten, so extract it deliberately,
@@ -47,8 +49,7 @@ mention:
   3. Free-text fields, in note order: edit-note-text for chiefComplaint, historyOfPresentIllness,
      mechanismOfInjury, medicalDecision.
   4. Vitals — one set-vital per reading stated.
-  5. Exam findings — add-exam-finding, and remove-exam-finding to reconcile a template's normals that
-     the narrative directly contradicts.
+  5. Exam findings — add-exam-finding for each finding the provider describes
   6. ROS findings — add-ros-finding, both denied and reported symptoms.
   7. Diagnoses — add-diagnosis, exactly one isPrimary=true.
      STATED DIAGNOSIS WINS: when the provider explicitly names the diagnosis ("this is a urinary
@@ -56,11 +57,8 @@ mention:
      condition inferred from the findings. Flank tenderness does not upgrade a stated UTI to
      pyelonephritis. An escalated condition may appear as a SECONDARY only when the provider actually
      voiced it as suspected, never because the findings could support it.
-  8. Labs ordered this visit — add-in-house-lab / add-external-lab. Imaging — add-radiology.
-  9. Procedures — add-procedure, then update-procedure for any field values.
- 10. Disposition and patient-facing plan — set-disposition, add-patient-instruction,
-     add-nursing-order.
- 11. Billing — ALWAYS exactly one set-em-code, plus add-cpt for anything else performed.`;
+  8. Disposition and patient-facing plan — set-disposition, add-patient-instruction.
+  9. Billing — ALWAYS exactly one set-em-code.`;
 
 /**
  * The rules that are about READING A TRANSCRIPT rather than about which section to fill.
@@ -85,14 +83,6 @@ const SHARED_TRANSCRIPT_RULES = `- Each step is one self-contained action. "add 
   EXCEPTION — REVIEW OF SYSTEMS: a patient DENYING a symptom in the history IS a chartable ROS
   finding. See add-ros-finding.
 - NEVER INVENT NEGATIVES. Do not pad the exam or the ROS with findings nobody addressed.
-- A remove-* step may ONLY target an item explicitly listed in the ALREADY ON THE CHART block below,
-  and its "display" must be that line's wording, COPIED. If the chart is empty or the item is not
-  listed, there is nothing to remove and no remove-* step is valid.
-  A REPLACEMENT IS NOT ONE MOVE. Charting the right item and removing a wrong one are separate steps
-  and each stands on its own: when the thing you would replace is not on the chart, emit the add ALONE
-  and no removal. Naming what you are correcting rather than what is listed is the single most common
-  way a remove-* step ends up pointing at nothing — measured across a corpus, most misses shared not
-  one word with any line actually on the chart.
 - DEMOGRAPHIC, INSURANCE and CONTACT details (address, phone, email, race, ethnicity, language,
   carrier/member ID, PCP info, responsible party, emergency contacts) are NOT chart actions — omit
   them. They live on the Patient/Coverage resources via intake.
@@ -104,8 +94,7 @@ const SHARED_TRANSCRIPT_RULES = `- Each step is one self-contained action. "add 
   tied to THIS patient's visit, leave it out.
 - PROVENANCE — for EVERY action, set "sourceText" to the SHORT verbatim snippet from the narrative
   that justifies it: a few words to one sentence, copied EXACTLY, not paraphrased. If the action is
-  something you INFERRED rather than something the provider stated — a default-normal exam finding a
-  template implies, an E&M level you deduced, a code you filled in — set "sourceText" to an EMPTY
+  something you INFERRED rather than something the provider stated — an E&M level you deduced, a code you filled in — set "sourceText" to an EMPTY
   STRING. Never fabricate one. Each quote is checked against the narrative and dropped if it is not
   really there, and an empty sourceText is the signal that tells the provider to look closely, so
   guessing defeats the purpose.`;
@@ -147,11 +136,6 @@ Return a JSON object with an "actions" array.`;
 
 const FINDINGS_RULES = `RULES:
 ${SHARED_TRANSCRIPT_RULES}
-- RECONCILE THE TEMPLATE'S NORMALS. A template charts a screenful of default normal exam findings from
-  its own title, having never seen this narrative. Where the narrative directly CONTRADICTS one — the
-  chart says "Oropharynx clear" and the provider described an injected oropharynx — emit
-  remove-exam-finding for the normal as well as add-exam-finding for what they described. A narrative
-  that merely does not mention a normal does not contradict it: leave those alone.
 - ORDER DOES NOT MATTER on this call — there is only one section group, so chart findings as you meet
   them in the narrative rather than sorting them.`;
 
@@ -229,7 +213,7 @@ message: the medical decision making, the patient instructions and the dispositi
 
 ${STAGE_SCOPE_NOTE}
 
-Everything charted so far is below — the diagnoses, the exam, the orders. The MDM is the reasoning that
+Everything charted so far is below — the diagnoses, the exam. The MDM is the reasoning that
 connects them: what was considered, what was ruled out, what was done and why. Write it against what is
 actually on the chart, not against what you would have charted.
 
@@ -248,9 +232,8 @@ the provider's free-text NARRATIVE at the END of this message.
 ${STAGE_SCOPE_NOTE}
 
 You run LAST, and that is the point: the E&M level follows from the documented complexity — the history,
-the exam, the diagnoses, the orders and the medical decision making, all of which are now on the chart
-below. Read them before you choose. A CPT code follows from a procedure or a point-of-care test that was
-actually PERFORMED at this visit; if none was, emit none.
+the exam, the diagnoses and the medical decision making, all of which are now on the chart below. Read
+them before you choose.
 
 Return a JSON object with an "actions" array.`;
 
@@ -258,8 +241,6 @@ const CODING_RULES = `RULES:
 ${SHARED_TRANSCRIPT_RULES}
 - ALWAYS emit exactly one set-em-code. Every visit is coded; there is no visit that gets none, and
   there is no visit that gets two.
-- add-cpt for anything else PERFORMED. A code for a procedure or point-of-care test that did not happen
-  is a billing claim nobody can support.
 ${EM_LEVEL_TIEBREAK}`;
 
 const TEMPLATE_PREAMBLE = `You are deciding whether one of this practice's saved TEMPLATES fits this visit, from the provider's
@@ -267,14 +248,11 @@ free-text NARRATIVE at the END of this message.
 
 ${STAGE_SCOPE_NOTE}
 
-This is the FIRST call of the visit and the only one that may apply a template. THE CHART IS EMPTY and
-the narrative is all you have — there is no diagnosis to match against yet, because nothing has charted
-one. Match on the PRESENTATION the provider describes, in their words.
-
-Everything a template brings — its default exam findings, its diagnosis, its MDM scaffolding — lands on
-the chart before any other call runs, and every later call sees it and reconciles against it. That is
-why a wrong template here is expensive and a missing one is cheap: a later call can add what a missing
-template would have brought, but it cannot reliably tell a wrong template's defaults from the truth.
+This is the FIRST call of the visit and the only one that may SUGGEST a template. The suggestion is NOT
+applied here — the provider applies a template by hand, later, if they agree — so nothing it would bring
+is on the chart when the later calls run, and they chart the visit completely on their own. THE CHART IS
+EMPTY and the narrative is all you have — there is no diagnosis to match against yet, because nothing has
+charted one. Match on the PRESENTATION the provider describes, in their words.
 
 Emit ONE apply-template, or NOTHING. Never two.
 
@@ -297,11 +275,8 @@ escalated condition may appear as a SECONDARY only when the provider actually vo
 never because the findings could support it. The exam, the ROS and the vitals are below so you can see
 what was examined — not so you can diagnose from them.
 
-ANY DIAGNOSIS ALREADY ON THE CHART WAS PUT THERE BY THE TEMPLATE. No other call charts a diagnosis
-before this one, so there is nothing to work out: whatever is listed is the template's default, chosen
-from the template's own title without ever seeing this narrative. When it matches what the provider
-said, leave it. When it does not, emit remove-diagnosis for it AND add-diagnosis for the one the visit
-supports — never a bare removal that leaves the note with no diagnosis.
+A diagnosis ALREADY ON THE CHART stays and is not re-emitted. This call only ADDS: a charted diagnosis the
+narrative does not support is the review pass's business, not yours.
 
 Return a JSON object with an "actions" array.`;
 
@@ -398,19 +373,8 @@ const REVIEW_CHECKS = `THE TEN CHECKS:
    A CONDITIONAL follow-up ("if not improving") still counts — keep the condition in "text". STRICT:
    only a disposition the narrative actually voices, never one inferred from the visit type.
 
-8) "cpt" — a procedure or point-of-care test the narrative says was PERFORMED this visit has no
-   billing code: splinting, laceration repair, ear lavage / cerumen removal, foreign-body removal,
-   I&D, burn dressing, a rapid strep/flu/COVID/RSV or urinalysis run in the office ("the rapid strep
-   came back positive"), a nebuliser treatment given in clinic.
-   ACTION: one or more add-cpt — one card may carry several. Give your best CPT; it is validated
-   downstream and dropped if it is not real, so be confident even when unsure of the exact digits.
-   Bill only what was actually DONE this visit: not send-out labs (they bill through the lab order),
-   not imaging orders, not prescriptions, not planned/conditional procedures ("we'll splint it next
-   week if it's still swollen"), not procedures merely discussed or declined, and not a code already
-   charted — nor one carried by a procedure entry already in ALREADY ON THE CHART.
-
-9) "coherence" — a charted structured item the note's own content does not support. Cross-check every
-   charted diagnosis first and foremost, then medications and CPTs, against the HPI/MDM and the
+8) "coherence" — a charted structured item the note's own content does not support. Cross-check every
+   charted diagnosis first and foremost, then medications, against the HPI/MDM and the
    narrative. Flag an item ONLY when it names a condition, body system or clinical scenario the note
    clearly does not describe — e.g. the sole charted diagnosis is "Personal history of pneumonia" while
    the MDM and HPI describe folliculitis of the nasal vestibule.
@@ -422,20 +386,20 @@ const REVIEW_CHECKS = `THE TEN CHECKS:
    The swap belongs to THIS check — do not defer it to check 2. A live failure, reproduced twice: the
    chart coded acute vaginitis while the narrative described a candidal infection, and the review
    emitted a BARE removal, leaving the chart with no diagnosis at all.
-   For an unsupported medication: remove-medication. For an unsupported CPT: remove-cpt.
+   For an unsupported medication: remove-medication.
    REQUIRED: a "rationale" citing WHAT in the note contradicts the item.
    PRECISION OVER RECALL — a false alarm here erodes trust in every card. Flag only a clear mismatch a
    clinician would immediately object to. Do not flag plausible comorbidities, incidental findings, or
    items the narrative supports even when the note text omits them. A less-specific code of the RIGHT
    condition is check 2's job. When unsure, stay silent.
 
-10) "dropped-commitment" — the provider clearly COMMITTED to a prescription, order or referral in the
+9) "dropped-commitment" — the provider clearly COMMITTED to a prescription, order or referral in the
    narrative, and the commitment is represented NOWHERE on the chart: no matching medication, no
    provider note, no patient instruction, no disposition covering it. Voiced commitments frequently
    omit the drug name — that does not excuse dropping them. ACTION: one provider-note capturing what
    was promised, for what indication, plus any pharmacy or logistics stated. NEVER invent a drug, dose
    or strength that was not voiced.
-   Same precision bar as check 9: only clear commitments ("I'll send…", "let me get you on…", "we'll
+   Same precision bar as check 8: only clear commitments ("I'll send…", "let me get you on…", "we'll
    start…"), never musings ("we could try…") and never offers the patient declined. Skip anything
    ALREADY ON THE CHART covers in any form.`;
 
@@ -448,26 +412,30 @@ const REVIEW_RULES = `RULES:
   tenderness stays a UTI, not pyelonephritis, unless the provider voiced the escalation themselves.
 - Phrase "question" as a short question the provider reads on a card ("You wrote 'Ciner' — did you
   mean Cefdinir?", "Add the pertinent negatives you noted?").
-- Provide your best ICD-10/CPT code; every code is validated downstream and corrected or dropped, so
+- Provide your best ICD-10 code; every code is validated downstream and corrected or dropped, so
   be confident even when unsure of the exact digits.
 - One suggestion per check that applies. Do not merge unrelated gaps into one card and do not pad
   with marginal ones.
 - Be economical with the ROS. You need not re-list a chief-complaint symptom the note already
   carries, and a symptom the planner already charted is not a gap. Propose a ROS finding only for a
-  symptom the provider clearly stated that the chart does NOT have.`;
+  symptom the provider clearly stated that the chart does NOT have.
+- A remove-* step may ONLY target an item explicitly listed in the ALREADY ON THE CHART block below,
+  and its "display" must be that line's wording, COPIED. If the chart is empty or the item is not
+  listed, there is nothing to remove and no remove-* step is valid.
+  A REPLACEMENT IS NOT ONE MOVE. Charting the right item and removing a wrong one are separate steps
+  and each stands on its own: when the thing you would replace is not on the chart, emit the add ALONE
+  and no removal. Naming what you are correcting rather than what is listed is the single most common
+  way a remove-* step ends up pointing at nothing — measured across a corpus, most misses shared not
+  one word with any line actually on the chart.`;
 
 function actionShapesBlock(surface: Surface): string {
   // `authoringDoc` is for the surfaces that COMPOSE a note. Review corrects one that is already
   // written, so it gets the action's shape and the rules about what may be charted, and none of the
   // guidance about writing content from scratch — see the field's doc comment in registry.ts.
+  // The shape line and the per-field lines are generated from the kind's Zod shape, so an action
+  // cannot offer a field the prompt never mentions.
   const authoring = surface !== 'review';
-  const docs = capabilitiesForSurface(surface).map((kind) => {
-    // `CAPABILITIES` is `as const`, so an entry without `authoringDoc` has no such property in its
-    // literal type. Read through the interface, the same way `surfaces` is read elsewhere.
-    const capability: Capability = CAPABILITIES[kind];
-    const extra = authoring ? capability.authoringDoc : undefined;
-    return extra ? `${capability.promptDoc}\n${extra}` : capability.promptDoc;
-  });
+  const docs = capabilitiesForSurface(surface).map((kind) => promptBlockFor(kind, authoring));
   return `ACTION SHAPES — these are the ONLY action kinds that exist. Anything not listed here cannot be
 charted through this interface.\n\n${docs.join('\n\n')}`;
 }
@@ -534,7 +502,7 @@ export interface PromptTailInput {
   narrative: string;
   /** Practice template titles. Empty list is stated explicitly rather than omitted. */
   templateTitles?: string[];
-  /** Title of the template already applied to this visit, server-validated. See ChartPlanRequest. */
+  /** Title of the template the provider applied to this visit by hand, server-validated. See ChartPlanRequest. */
   appliedTemplate?: string;
   /**
    * Authoritative demographics, read from the chart — NEVER inferred from the narrative. Ambient
@@ -581,7 +549,7 @@ export function buildVariableTail(surface: Surface, input: PromptTailInput): str
     const titles = input.templateTitles ?? [];
     parts.push(
       titles.length
-        ? `AVAILABLE TEMPLATES in this practice (exact titles — match these when you apply-template; do NOT invent template names):\n${titles
+        ? `AVAILABLE TEMPLATES in this practice (exact titles — name one in apply-template to SUGGEST it; nothing here applies it; do NOT invent template names):\n${titles
             .map((t) => `- ${t}`)
             .join('\n')}`
         : 'AVAILABLE TEMPLATES in this practice: none. Do NOT emit apply-template.'

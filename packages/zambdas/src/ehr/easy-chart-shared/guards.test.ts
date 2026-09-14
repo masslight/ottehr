@@ -3,6 +3,7 @@
 
 import Oystehr from '@oystehr/sdk';
 import { RawAction } from 'utils/lib/easy-chart/actions';
+import { DISABLED_KINDS } from 'utils/lib/easy-chart/registry';
 import { describe, expect, it } from 'vitest';
 import { applyGuards, GuardContext } from './guards';
 
@@ -131,6 +132,23 @@ describe('vitals', () => {
     expect(actions[0]).toMatchObject({ value: 68, unit: 'in' });
   });
 
+  it('drops an exact repeat of a reading but keeps a genuine recheck', async () => {
+    const { actions, rejected } = await run(
+      [
+        { kind: 'set-vital', field: 'vital-temperature', display: '98.9 F' },
+        { kind: 'set-vital', field: 'vital-temperature', display: '98.9°F' },
+        { kind: 'set-vital', field: 'vital-temperature', display: '101.2 F' },
+        { kind: 'set-vital', field: 'vital-weight', display: '130lb' },
+        { kind: 'set-vital', field: 'vital-weight', display: '130 lbs' },
+        { kind: 'set-vital', field: 'vital-blood-pressure', display: '122/78' },
+        { kind: 'set-vital', field: 'vital-blood-pressure', display: '122 over 78' },
+      ],
+      'temp 98.9, recheck 101.2, weighs 130 lb, bp 122/78'
+    );
+    expect(rejected).toEqual([]);
+    expect(actions.map((a) => a.display)).toEqual(['98.9 F', '101.2 F', '130lb', '122/78']);
+  });
+
   // The model emits a set-vital with no display at all; the number is sitting in the message.
   it('recovers a reading the model dropped, for a non-blood-pressure vital', async () => {
     const { actions, rejected } = await run(
@@ -254,20 +272,25 @@ describe('diagnosis codes', () => {
 });
 
 describe('billing codes', () => {
-  it('confirms an E&M code and a HCPCS J-code against the terminology service', async () => {
-    const { actions, rejected } = await run(
-      [
-        { kind: 'set-em-code', code: '99214' },
-        { kind: 'add-cpt', code: 'J1885' },
-      ],
-      'gave a Toradol shot'
-    );
-    expect(rejected).toEqual([]);
-    expect(actions[0].display).toBe('Office visit, established patient, moderate');
-    expect(actions[1].display).toMatch(/ketorolac/);
-  });
+  // add-cpt is disabled in this build (CAPABILITIES entry commented out); revives when re-enabled.
+  it.skipIf(DISABLED_KINDS.includes('add-cpt'))(
+    'confirms an E&M code and a HCPCS J-code against the terminology service',
+    async () => {
+      const { actions, rejected } = await run(
+        [
+          { kind: 'set-em-code', code: '99214' },
+          { kind: 'add-cpt', code: 'J1885' },
+        ],
+        'gave a Toradol shot'
+      );
+      expect(rejected).toEqual([]);
+      expect(actions[0].display).toBe('Office visit, established patient, moderate');
+      expect(actions[1].display).toMatch(/ketorolac/);
+    }
+  );
 
-  it('drops a CPT that is not real', async () => {
+  // add-cpt is disabled in this build (CAPABILITIES entry commented out); revives when re-enabled.
+  it.skipIf(DISABLED_KINDS.includes('add-cpt'))('drops a CPT that is not real', async () => {
     const { rejected } = await run([{ kind: 'add-cpt', code: '11111' }], 'did a thing');
     expect(rejected[0].reason).toMatch(/not a real CPT/);
   });
@@ -281,14 +304,18 @@ describe('exam and ROS polarity', () => {
     expect(rejected[0].reason).toMatch(/positive observations only/);
   });
 
-  it('refuses to remove a normal on the strength of a negative that agrees with it', async () => {
-    const { rejected } = await run(
-      [{ kind: 'remove-exam-finding', display: 'no signs of respiratory distress' }],
-      'lungs clear, no respiratory distress',
-      ['No signs of respiratory distress']
-    );
-    expect(rejected[0].reason).toMatch(/agrees with the charted normal/);
-  });
+  // remove-exam-finding is disabled in this build (its CAPABILITIES entry is commented out); revives when re-enabled.
+  it.skipIf(DISABLED_KINDS.includes('remove-exam-finding'))(
+    'refuses to remove a normal on the strength of a negative that agrees with it',
+    async () => {
+      const { rejected } = await run(
+        [{ kind: 'remove-exam-finding', display: 'no signs of respiratory distress' }],
+        'lungs clear, no respiratory distress',
+        ['No signs of respiratory distress']
+      );
+      expect(rejected[0].reason).toMatch(/agrees with the charted normal/);
+    }
+  );
 
   it('keeps a genuine abnormality', async () => {
     const { actions } = await run(
@@ -486,16 +513,21 @@ describe('deterministic backstops', () => {
     expect(actions.filter((a) => a.kind === 'set-vital')).toHaveLength(1);
   });
 
-  it('converts an order for a test the narrative reports as already performed into a note', async () => {
-    const { actions } = await run(
-      [{ kind: 'add-in-house-lab', display: 'Rapid strep' }],
-      'The rapid strep test was performed in clinic and came back positive.'
-    );
-    expect(actions[0].kind).toBe('provider-note');
-    expect(actions[0].text).toMatch(/already performed/);
-  });
+  // add-in-house-lab is disabled in this build (CAPABILITIES entry commented out); revives when re-enabled.
+  it.skipIf(DISABLED_KINDS.includes('add-in-house-lab'))(
+    'converts an order for a test the narrative reports as already performed into a note',
+    async () => {
+      const { actions } = await run(
+        [{ kind: 'add-in-house-lab', display: 'Rapid strep' }],
+        'The rapid strep test was performed in clinic and came back positive.'
+      );
+      expect(actions[0].kind).toBe('provider-note');
+      expect(actions[0].text).toMatch(/already performed/);
+    }
+  );
 
-  it('leaves a genuine future order alone', async () => {
+  // add-in-house-lab is disabled in this build (CAPABILITIES entry commented out); revives when re-enabled.
+  it.skipIf(DISABLED_KINDS.includes('add-in-house-lab'))('leaves a genuine future order alone', async () => {
     const { actions } = await run(
       [{ kind: 'add-external-lab', display: 'Urine culture' }],
       'We will send the urine out for culture.'
@@ -558,14 +590,18 @@ describe('billing-code lookup failure modes', () => {
     expect(rejected[0].reason).toMatch(/not a real CPT code/);
   });
 
-  it('keeps an unreachable-service HCPCS code rather than losing the charge', async () => {
-    const { actions, rejected } = await applyGuards(
-      [{ kind: 'add-cpt', code: 'J1885', display: 'Ketorolac' }],
-      outageContext('ketorolac 30 mg IM given in clinic')
-    );
-    expect(rejected).toEqual([]);
-    expect(actions[0].code).toBe('J1885');
-  });
+  // add-cpt is disabled in this build (CAPABILITIES entry commented out); revives when re-enabled.
+  it.skipIf(DISABLED_KINDS.includes('add-cpt'))(
+    'keeps an unreachable-service HCPCS code rather than losing the charge',
+    async () => {
+      const { actions, rejected } = await applyGuards(
+        [{ kind: 'add-cpt', code: 'J1885', display: 'Ketorolac' }],
+        outageContext('ketorolac 30 mg IM given in clinic')
+      );
+      expect(rejected).toEqual([]);
+      expect(actions[0].code).toBe('J1885');
+    }
+  );
 });
 
 describe('field leaks between action kinds', () => {

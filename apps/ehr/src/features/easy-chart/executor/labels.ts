@@ -18,7 +18,7 @@ const VITAL_LABELS: Record<string, string> = {
 };
 
 const VERBS: Partial<Record<ActionKind, string>> = {
-  'apply-template': 'Applying template',
+  'apply-template': 'Suggesting template',
   'add-allergy': 'Adding allergy',
   'remove-allergy': 'Removing allergy',
   'add-condition': 'Adding past medical history',
