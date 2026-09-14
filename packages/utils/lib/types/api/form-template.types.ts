@@ -139,48 +139,6 @@ export interface FillFormTemplateOutput {
   report: FormFillReport;
 }
 
-/**
- * Importing a template by address instead of by file.
- *
- * A copy is fetched and stored rather than the address being referenced: the publisher of a government
- * form will move, revise, or withdraw it, and a template that resolves differently next year is a
- * template nobody can trust. The address is kept as provenance, not as the source of the bytes.
- */
-/** Import a published PDF as a new template. */
-export interface NewFormTemplateImport {
-  title: string;
-  description?: string;
-  /** Public https address of the PDF. Fetched once, server-side. */
-  sourceUrl: string;
-  documentReferenceId?: undefined;
-}
-
-/**
- * Import a published PDF to replace an existing template's file. No name or description — see
- * `ReplacementFormTemplateUpload`.
- *
- * The fetched file is stored at a candidate location and **nothing else changes** — the template is
- * repointed by `replace-form-template-pdf` once the replacement has been analysed, so a fetch that
- * succeeds but produces an unusable PDF leaves the working template working.
- */
-export interface ReplacementFormTemplateImport {
-  sourceUrl: string;
-  documentReferenceId: string;
-  title?: undefined;
-  description?: undefined;
-}
-
-export type ImportFormTemplateFromUrlInput = NewFormTemplateImport | ReplacementFormTemplateImport;
-
-export interface ImportFormTemplateFromUrlOutput {
-  /** Name of the object the fetched bytes were stored as. The candidate when replacing. */
-  objectName: string;
-  /** Where the bytes actually came from, after any redirects. */
-  resolvedFrom: string;
-  /** Absent when replacing: no record is created in that mode. */
-  documentReferenceId?: string;
-}
-
 /** Presign step for returning a completed form. Writes nothing — see `DocumentVerificationResult`. */
 export interface CreateCompletedFormUploadUrlInput {
   /** The visit the form belongs to. The patient is resolved from it server-side, never sent by the client. */
@@ -344,14 +302,6 @@ export interface ReplaceFormTemplatePdfInput {
    * patient it already knows, so neither is expressible here. See `makeZ3ObjectUrl`.
    */
   objectName: string;
-  /**
-   * Where the replacement was fetched from, when it came from a link.
-   *
-   * Recorded here rather than at fetch time so provenance changes at the same moment the PDF it describes
-   * is adopted. Omitted for a file upload, which also clears any address recorded previously — that
-   * address no longer describes the stored bytes.
-   */
-  sourceUrl?: string;
 }
 
 export interface ReplaceFormTemplatePdfOutput {

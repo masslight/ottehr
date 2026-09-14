@@ -7,8 +7,6 @@ import {
   DialogTitle,
   Stack,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -17,7 +15,7 @@ import { FC, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { createFormTemplateFromUrl, createFormTemplateWithPdf } from './form-templates.api';
+import { createFormTemplateWithPdf } from './form-templates.api';
 import { FORM_TEMPLATES_QUERY_KEY } from './useFormTemplates';
 
 type DialogProps = {
@@ -32,22 +30,12 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [source, setSource] = useState<'file' | 'link'>('file');
-  const [sourceUrl, setSourceUrl] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!oystehrZambda) throw new Error('API client not available');
-
-      if (source === 'link') {
-        return createFormTemplateFromUrl(oystehrZambda, {
-          title: title.trim(),
-          description: description.trim() || undefined,
-          sourceUrl: sourceUrl.trim(),
-        });
-      }
 
       if (!file) throw new Error('A PDF file is required');
       return createFormTemplateWithPdf(oystehrZambda, {
@@ -76,14 +64,12 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose }) => {
   const isBusy = saveMutation.isPending;
   const canSubmit = !isBusy && !!oystehrZambda;
   const titleError = submitAttempted && !title.trim() ? 'This field is required' : undefined;
-  const usingLink = source === 'link';
-  const fileError = submitAttempted && !usingLink && !file ? 'A PDF file is required' : undefined;
-  const urlError = submitAttempted && usingLink && !sourceUrl.trim() ? 'A link to the PDF is required' : undefined;
+  const fileError = submitAttempted && !file ? 'A PDF file is required' : undefined;
 
   const handleSubmit = (): void => {
     setSubmitAttempted(true);
     if (!title.trim()) return;
-    if (usingLink ? !sourceUrl.trim() : !file) return;
+    if (!file) return;
     saveMutation.mutate();
   };
 
@@ -112,49 +98,21 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose }) => {
             fullWidth
           />
 
-          <ToggleButtonGroup
-            value={source}
-            exclusive
-            size="small"
-            disabled={isBusy}
-            onChange={(_, next) => next && setSource(next as 'file' | 'link')}
-          >
-            <ToggleButton value="file">Upload a PDF</ToggleButton>
-            <ToggleButton value="link">Import from a link</ToggleButton>
-          </ToggleButtonGroup>
-
-          {usingLink ? (
-            <TextField
-              placeholder="https://example.gov/forms/dwc073.pdf"
-              value={sourceUrl}
-              onChange={(e) => setSourceUrl(e.target.value)}
-              disabled={isBusy}
-              error={!!urlError}
-              helperText={
-                urlError ??
-                'The PDF is downloaded and stored here, so the template keeps working if the publisher moves or revises it.'
-              }
-              label="Link to the PDF"
-              fullWidth
+          <RoundedButton component="label" variant="outlined" startIcon={<UploadFileIcon />} disabled={isBusy}>
+            {file ? file.name : 'Choose PDF'}
+            <input
+              type="file"
+              accept="application/pdf,.pdf"
+              hidden
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
-          ) : (
-            <>
-              <RoundedButton component="label" variant="outlined" startIcon={<UploadFileIcon />} disabled={isBusy}>
-                {file ? file.name : 'Choose PDF'}
-                <input
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  hidden
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                />
-              </RoundedButton>
-              {fileError && (
-                <Typography color="error" variant="body2">
-                  {fileError}
-                </Typography>
-              )}
-            </>
+          </RoundedButton>
+          {fileError && (
+            <Typography color="error" variant="body2">
+              {fileError}
+            </Typography>
           )}
+
           <Typography variant="body2" color="text.secondary">
             New templates are saved as drafts. Publish a template to make it available in the patient chart.
           </Typography>

@@ -6,7 +6,6 @@ import {
   FORM_TEMPLATE_CATEGORY_CODING,
   FORM_TEMPLATE_FILLABILITY_SYSTEM,
   FORM_TEMPLATE_IDENTIFIER_SYSTEM,
-  FORM_TEMPLATE_SOURCE_URL_EXTENSION_URL,
   FormTemplateFillability,
 } from 'utils/lib/fhir/constants';
 import { FormFieldBinding, FormTemplateMapping, isBindingComplete } from 'utils/lib/form-tokens/mapping';
@@ -134,10 +133,8 @@ export const createFormTemplateDraft = async (params: {
   title: string;
   description?: string;
   z3Url: string;
-  /** Recorded as provenance. Imported links only. */
-  sourceUrl?: string;
 }): Promise<string> => {
-  const { oystehr, title, description, z3Url, sourceUrl } = params;
+  const { oystehr, title, description, z3Url } = params;
 
   const created = await oystehr.fhir.create<DocumentReference>({
     resourceType: 'DocumentReference',
@@ -147,7 +144,6 @@ export const createFormTemplateDraft = async (params: {
     identifier: [{ system: FORM_TEMPLATE_IDENTIFIER_SYSTEM, value: randomUUID() }],
     date: DateTime.now().setZone('UTC').toISO() ?? '',
     description,
-    extension: sourceUrl ? [{ url: FORM_TEMPLATE_SOURCE_URL_EXTENSION_URL, valueUrl: sourceUrl }] : undefined,
     content: [{ attachment: { url: z3Url, contentType: 'application/pdf', title } }],
   });
 

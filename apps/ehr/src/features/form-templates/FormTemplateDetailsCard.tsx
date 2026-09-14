@@ -1,14 +1,5 @@
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import {
-  Card,
-  CardContent,
-  CircularProgress,
-  Stack,
-  TextField,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-} from '@mui/material';
+import { Card, CardContent, CircularProgress, Stack, TextField, Typography } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
@@ -16,7 +7,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { FormTemplateItem } from 'utils/lib/types/api/form-template.types';
-import { replaceFormTemplateFromUrl, replaceFormTemplateWithPdf, updateFormTemplate } from './form-templates.api';
+import { replaceFormTemplateWithPdf, updateFormTemplate } from './form-templates.api';
 import { clearMappingDraft } from './mapping-draft';
 import { FORM_TEMPLATES_QUERY_KEY } from './useFormTemplates';
 
@@ -27,12 +18,9 @@ export const FormTemplateDetailsCard: FC<{ item: FormTemplateItem }> = ({ item }
 
   const [title, setTitle] = useState(item.title);
   const [description, setDescription] = useState(item.description ?? '');
-  const [source, setSource] = useState<'file' | 'link'>('file');
   const [file, setFile] = useState<File | null>(null);
-  const [sourceUrl, setSourceUrl] = useState('');
 
-  const usingLink = source === 'link';
-  const replacement = usingLink ? sourceUrl.trim() : file;
+  const replacement = file;
   const metadataChanged = title.trim() !== item.title || description.trim() !== (item.description ?? '');
 
   const saveMutation = useMutation({
@@ -50,15 +38,10 @@ export const FormTemplateDetailsCard: FC<{ item: FormTemplateItem }> = ({ item }
       // Second, so a rejected replacement cannot also lose the metadata change just made.
       if (!replacement) return undefined;
 
-      const replaced = usingLink
-        ? await replaceFormTemplateFromUrl(oystehrZambda, {
-            documentReferenceId: item.documentReferenceId,
-            sourceUrl: sourceUrl.trim(),
-          })
-        : await replaceFormTemplateWithPdf(oystehrZambda, {
-            documentReferenceId: item.documentReferenceId,
-            file: file!,
-          });
+      const replaced = await replaceFormTemplateWithPdf(oystehrZambda, {
+        documentReferenceId: item.documentReferenceId,
+        file: file!,
+      });
 
       // A draft authored against the previous field inventory would otherwise be restored on the next
       // visit and quietly reinstate bindings the replacement just reconciled away.
@@ -81,7 +64,6 @@ export const FormTemplateDetailsCard: FC<{ item: FormTemplateItem }> = ({ item }
       }
 
       setFile(null);
-      setSourceUrl('');
       void queryClient.invalidateQueries({ queryKey: [FORM_TEMPLATES_QUERY_KEY] });
     },
     onError: (err) => {
@@ -129,43 +111,21 @@ export const FormTemplateDetailsCard: FC<{ item: FormTemplateItem }> = ({ item }
               at a field the new PDF does not contain is removed.
             </Typography>
 
-            <ToggleButtonGroup
-              value={source}
-              exclusive
-              size="small"
+            <RoundedButton
+              component="label"
+              variant="outlined"
+              startIcon={<UploadFileIcon />}
               disabled={isBusy}
-              onChange={(_, next) => next && setSource(next as 'file' | 'link')}
+              sx={{ alignSelf: 'flex-start' }}
             >
-              <ToggleButton value="file">Upload a PDF</ToggleButton>
-              <ToggleButton value="link">Replace from a link</ToggleButton>
-            </ToggleButtonGroup>
-
-            {usingLink ? (
-              <TextField
-                label="Link to the replacement PDF"
-                placeholder="https://example.gov/forms/dwc073.pdf"
-                value={sourceUrl}
-                onChange={(e) => setSourceUrl(e.target.value)}
-                disabled={isBusy}
-                fullWidth
+              {file ? file.name : 'Choose PDF'}
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                hidden
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
-            ) : (
-              <RoundedButton
-                component="label"
-                variant="outlined"
-                startIcon={<UploadFileIcon />}
-                disabled={isBusy}
-                sx={{ alignSelf: 'flex-start' }}
-              >
-                {file ? file.name : 'Choose PDF'}
-                <input
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  hidden
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                />
-              </RoundedButton>
-            )}
+            </RoundedButton>
           </Stack>
 
           <Stack direction="row" justifyContent="flex-end">

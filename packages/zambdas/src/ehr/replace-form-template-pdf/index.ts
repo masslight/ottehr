@@ -7,7 +7,6 @@ import {
   FORM_TEMPLATE_FIELD_INVENTORY_EXTENSION_URL,
   FORM_TEMPLATE_FILLABILITY_SYSTEM,
   FORM_TEMPLATE_MAPPING_EXTENSION_URL,
-  FORM_TEMPLATE_SOURCE_URL_EXTENSION_URL,
   FormTemplateFillability,
 } from 'utils/lib/fhir/constants';
 import { EMPTY_MAPPING, FormTemplateMapping } from 'utils/lib/form-tokens/mapping';
@@ -60,7 +59,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const inputSchema: z.ZodType<ReplaceFormTemplatePdfInput> = z.object({
   documentReferenceId: z.string().min(1, 'documentReferenceId is required'),
   objectName: z.string().min(1, 'objectName is required'),
-  sourceUrl: z.string().optional(),
 });
 
 export function validateRequestParameters(
@@ -90,7 +88,7 @@ const performEffect = async (
   oystehr: Oystehr,
   token: string
 ): Promise<ReplaceFormTemplatePdfOutput> => {
-  const { documentReferenceId, objectName, sourceUrl, secrets } = validatedInput;
+  const { documentReferenceId, objectName, secrets } = validatedInput;
 
   // Assembled from the bucket this server chose, not from anything the caller could name.
   const candidateUrl = makeZ3ObjectUrl({ secrets, bucketName: BUCKET_NAMES.FORM_TEMPLATES, objectName });
@@ -127,12 +125,8 @@ const performEffect = async (
       (ext) =>
         ext.url !== FORM_TEMPLATE_FIELD_INVENTORY_EXTENSION_URL &&
         ext.url !== FORM_TEMPLATE_ANALYSIS_EXTENSION_URL &&
-        ext.url !== FORM_TEMPLATE_MAPPING_EXTENSION_URL &&
-        // Dropped either way: replaced from a link it is rewritten below, replaced from a file the old
-        // address no longer describes what is stored.
-        ext.url !== FORM_TEMPLATE_SOURCE_URL_EXTENSION_URL
+        ext.url !== FORM_TEMPLATE_MAPPING_EXTENSION_URL
     ),
-    ...(sourceUrl ? [{ url: FORM_TEMPLATE_SOURCE_URL_EXTENSION_URL, valueUrl: sourceUrl }] : []),
     {
       url: FORM_TEMPLATE_ANALYSIS_EXTENSION_URL,
       valueString: JSON.stringify({ status, analyzedAt: new Date().toISOString() }),

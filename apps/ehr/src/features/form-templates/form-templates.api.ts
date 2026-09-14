@@ -15,8 +15,6 @@ import {
   FormTemplateRejection,
   GetFormTemplateDetailInput,
   GetFormTemplateDetailOutput,
-  ImportFormTemplateFromUrlInput,
-  ImportFormTemplateFromUrlOutput,
   ListFormTemplatesInput,
   ListFormTemplatesOutput,
   NewFormTemplateUpload,
@@ -34,7 +32,6 @@ const ANALYZE_FORM_TEMPLATE_ZAMBDA_ID = 'analyze-form-template';
 const FILL_FORM_TEMPLATE_ZAMBDA_ID = 'fill-form-template';
 const CREATE_COMPLETED_FORM_UPLOAD_URL_ZAMBDA_ID = 'create-completed-form-upload-url';
 const SAVE_COMPLETED_FORM_ZAMBDA_ID = 'save-completed-form';
-const IMPORT_FORM_TEMPLATE_FROM_URL_ZAMBDA_ID = 'import-form-template-from-url';
 const CREATE_FORM_TEMPLATE_UPLOAD_URL_ZAMBDA_ID = 'create-form-template-upload-url';
 const GET_FORM_TEMPLATE_DETAIL_ZAMBDA_ID = 'get-form-template-detail';
 const REPLACE_FORM_TEMPLATE_PDF_ZAMBDA_ID = 'replace-form-template-pdf';
@@ -297,73 +294,6 @@ export const REJECTION_MESSAGES: Record<FormTemplateRejection, string> = {
 /** Why this template cannot be accepted, or nothing when it can. */
 export const rejectionMessage = (status: FormTemplateAnalysisStatus): string | undefined =>
   status === 'fillable' || status === 'printable' ? undefined : REJECTION_MESSAGES[status];
-
-const importFormTemplateFromUrl = async (
-  oystehr: Oystehr,
-  parameters: ImportFormTemplateFromUrlInput
-): Promise<ImportFormTemplateFromUrlOutput> => {
-  try {
-    const response = await oystehr.zambda.execute({ id: IMPORT_FORM_TEMPLATE_FROM_URL_ZAMBDA_ID, ...parameters });
-    return chooseJson(response) as ImportFormTemplateFromUrlOutput;
-  } catch (error: unknown) {
-    console.error(error);
-    throw apiErrorToThrow(error);
-  }
-};
-
-/**
- * Creates a template from a published PDF at a public address.
- *
- * Two steps rather than the file path's three: the server fetches the bytes itself, so there is no browser
- * upload in the middle. Analysis is the same second step either way, and still deletes the record outright
- * if the PDF turns out to be unusable.
- */
-export const createFormTemplateFromUrl = async (
-  oystehr: Oystehr,
-  parameters: ImportFormTemplateFromUrlInput
-): Promise<{ created: ImportFormTemplateFromUrlOutput; analysis: AnalyzeFormTemplateOutput }> => {
-  const created = await importFormTemplateFromUrl(oystehr, parameters);
-  if (!created.documentReferenceId) {
-    throw new Error('The import did not create a form template');
-  }
-  const analysis = await analyzeFormTemplate(oystehr, { documentReferenceId: created.documentReferenceId });
-
-  const rejection = rejectionMessage(analysis.status);
-  if (rejection) {
-    throw new Error(rejection);
-  }
-
-  return { created, analysis };
-};
-
-/**
- * Swaps an existing template's PDF for one fetched from a link.
- *
- * The same two-phase swap the file path uses: the fetched bytes are parked at a candidate location and the
- * template is repointed only once they have been analysed, so a link that resolves to an unusable PDF
- * leaves the existing template untouched.
- */
-export const replaceFormTemplateFromUrl = async (
-  oystehr: Oystehr,
-  parameters: { documentReferenceId: string; sourceUrl: string }
-): Promise<ReplaceFormTemplatePdfOutput> => {
-  const { documentReferenceId, sourceUrl } = parameters;
-
-  const candidate = await importFormTemplateFromUrl(oystehr, { documentReferenceId, sourceUrl });
-
-  const result = await replaceFormTemplatePdf(oystehr, {
-    documentReferenceId,
-    objectName: candidate.objectName,
-    sourceUrl: candidate.resolvedFrom,
-  });
-
-  const rejection = rejectionMessage(result.status);
-  if (rejection) {
-    throw new Error(`${rejection} The existing PDF has been kept.`);
-  }
-
-  return result;
-};
 
 /**
  * Creates the template record, uploads its PDF, then analyzes it.

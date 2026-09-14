@@ -739,7 +739,6 @@ export const FORM_TEMPLATE_MAPPING_EXTENSION_URL = ottehrExtensionUrl('form-temp
  * Provenance only — the stored copy is the template. Kept so an admin can see where a form came from, and
  * so a future check for a newer published version has somewhere to look.
  */
-export const FORM_TEMPLATE_SOURCE_URL_EXTENSION_URL = ottehrExtensionUrl('form-template-source-url');
 
 export const BUCKET_NAMES = {
   VISIT_NOTES: 'visit-notes',
