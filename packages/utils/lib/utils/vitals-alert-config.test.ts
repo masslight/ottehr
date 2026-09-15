@@ -12,8 +12,10 @@ import {
 } from '../types/api/vitals-alert-config/vitals-alert-config.types';
 import {
   DEFAULT_VITALS_ALERT_CONFIG,
+  formatVitalAlertAgeRange,
   formatVitalNormalRange,
   getVitalsAlertConfigEngineError,
+  INCOMPLETE_VITAL_ALERT_AGE_RANGE_LABEL,
   parseVitalsAlertConfigOrDefault,
   vitalsAlertConfigToVitalsDef,
 } from './vitals-alert-config';
@@ -354,5 +356,63 @@ describe('formatVitalNormalRange', () => {
     expect(
       formatVitalNormalRange(DEFAULT_VITALS_ALERT_CONFIG.thresholds['vital-heartbeat']['18+y'], 'vital-heartbeat')
     ).toBe('58 – 99');
+  });
+});
+
+describe('formatVitalAlertAgeRange', () => {
+  it('compacts a range whose bounds share a unit', () => {
+    expect(
+      formatVitalAlertAgeRange({ id: 'a', minAge: { unit: 'months', value: 0 }, maxAge: { unit: 'months', value: 3 } })
+    ).toBe('0-3 mo');
+  });
+
+  it('spells out both bounds when the units differ', () => {
+    expect(
+      formatVitalAlertAgeRange({ id: 'a', minAge: { unit: 'days', value: 10 }, maxAge: { unit: 'months', value: 3 } })
+    ).toBe('10 d - 3 mo');
+  });
+
+  it('labels an open-ended range', () => {
+    expect(formatVitalAlertAgeRange({ id: 'a', minAge: { unit: 'years', value: 18 } })).toBe('18 yr and older');
+  });
+
+  it('labels a range whose bounds are not filled in yet', () => {
+    const range = {
+      id: 'a',
+      minAge: { unit: 'years', value: undefined },
+      maxAge: undefined,
+    } as unknown as VitalAlertAgeRange;
+
+    expect(formatVitalAlertAgeRange(range)).toBe(INCOMPLETE_VITAL_ALERT_AGE_RANGE_LABEL);
+  });
+
+  it('keeps the start age when only the end age was cleared', () => {
+    const range = {
+      id: 'a',
+      minAge: { unit: 'years', value: 2 },
+      maxAge: { unit: 'years', value: undefined },
+    } as unknown as VitalAlertAgeRange;
+
+    expect(formatVitalAlertAgeRange(range)).toBe('2 yr and older');
+  });
+
+  it('keeps the end age when only the start age was cleared', () => {
+    const range = {
+      id: 'a',
+      minAge: { unit: 'years', value: undefined },
+      maxAge: { unit: 'years', value: 2 },
+    } as unknown as VitalAlertAgeRange;
+
+    expect(formatVitalAlertAgeRange(range)).toBe('Up to 2 yr');
+  });
+
+  it('never renders an undefined bound', () => {
+    const range = {
+      id: 'a',
+      minAge: { unit: 'months', value: undefined },
+      maxAge: { unit: 'months', value: undefined },
+    } as unknown as VitalAlertAgeRange;
+
+    expect(formatVitalAlertAgeRange(range)).not.toContain('undefined');
   });
 });

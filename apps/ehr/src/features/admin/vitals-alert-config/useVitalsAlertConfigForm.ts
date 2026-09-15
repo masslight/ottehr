@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Control, FieldErrors, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useUpdateVitalsAlertConfig, useVitalsAlertConfig } from 'src/hooks/useVitalsAlertConfig';
 import {
@@ -8,11 +8,16 @@ import {
   VitalsAlertConfig,
   VitalsAlertConfigSchema,
 } from 'utils/lib/types/api/vitals-alert-config/vitals-alert-config.types';
-import { DEFAULT_VITALS_ALERT_CONFIG, makeVitalAlertAgeRangeId } from 'utils/lib/utils/vitals-alert-config';
+import {
+  DEFAULT_VITALS_ALERT_CONFIG,
+  getVitalsAlertConfigEngineError,
+  makeVitalAlertAgeRangeId,
+} from 'utils/lib/utils/vitals-alert-config';
 
 export interface VitalsAlertConfigForm {
   control: Control<VitalsAlertConfig>;
   errors: FieldErrors<VitalsAlertConfig>;
+  engineError?: string;
   ageRanges: VitalAlertAgeRange[];
   rowKeys: string[];
   isDirty: boolean;
@@ -44,6 +49,15 @@ export const useVitalsAlertConfigForm = (): VitalsAlertConfigForm => {
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'ageRanges', keyName: '_key' });
+
+  const [engineError, setEngineError] = useState<string | undefined>(undefined);
+
+  const checkEngineCompatibility = (): string | undefined => {
+    const parsed = VitalsAlertConfigSchema.safeParse(getValues());
+    const error = parsed.success ? getVitalsAlertConfigEngineError(parsed.data) : undefined;
+    setEngineError(error);
+    return error;
+  };
 
   const watchedRanges = useWatch({ control, name: 'ageRanges' });
   const ageRanges: VitalAlertAgeRange[] = fields.map((field, index) => ({
@@ -93,17 +107,22 @@ export const useVitalsAlertConfigForm = (): VitalsAlertConfigForm => {
   return {
     control,
     errors,
+    engineError,
     ageRanges,
     rowKeys: fields.map((field) => field._key),
     isDirty: Object.keys(dirtyFields).length > 0,
     isPending,
     isError,
     isSubmitting,
-    validate: () => trigger(),
+    validate: async () => {
+      const schemaValid = await trigger();
+      return !checkEngineCompatibility() && schemaValid;
+    },
     submit: () => {
       const values = getValues();
       const parsed = VitalsAlertConfigSchema.safeParse(values);
       if (!parsed.success) return;
+      if (checkEngineCompatibility()) return;
       mutate(
         { config: parsed.data },
         {
@@ -113,7 +132,10 @@ export const useVitalsAlertConfigForm = (): VitalsAlertConfigForm => {
         }
       );
     },
-    discard: () => reset(data ?? DEFAULT_VITALS_ALERT_CONFIG),
+    discard: () => {
+      setEngineError(undefined);
+      reset(data ?? DEFAULT_VITALS_ALERT_CONFIG);
+    },
     onAddAgeRange,
     onRemoveAgeRange,
     onMaxAgeValueEntered,

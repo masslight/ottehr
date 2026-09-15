@@ -13,6 +13,7 @@ import {
 } from 'fhir/r4b';
 import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { isVitalObservation } from 'utils/lib/fhir/vitals';
 import { addEmptyArrOperation } from 'utils/lib/helpers/operations';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -134,10 +135,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   //   getChartData(oystehr, encounterId),
   // ]);
 
+  const hasVitalObservations = [...(vitalsObservations ?? []), ...(observations ?? [])].some(isVitalObservation);
+
   const [allResources, currentPractitioner, vitalsAlertConfig] = await Promise.all([
     getEncounterAndRelatedResources(oystehr, encounterId),
     getUserPractitioner(oystehr, userToken, secrets),
-    getVitalsEngineConfig(oystehr),
+    hasVitalObservations ? getVitalsEngineConfig(oystehr) : undefined,
   ]);
 
   const encounter = allResources.filter((resource) => resource.resourceType === 'Encounter')[0] as Encounter;

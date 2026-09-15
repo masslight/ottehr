@@ -12,7 +12,10 @@ interface VitalsAlertConfigFieldsProps {
 }
 
 export const VitalsAlertConfigFields = ({ form }: VitalsAlertConfigFieldsProps): ReactElement => {
-  const errorMessages = collectVitalsAlertConfigErrors(form.errors, form.ageRanges);
+  const errorMessages = [
+    ...(form.engineError ? [form.engineError] : []),
+    ...collectVitalsAlertConfigErrors(form.errors, form.ageRanges),
+  ];
   const vitalsWithErrors = getVitalsWithThresholdErrors(form.errors);
 
   return (

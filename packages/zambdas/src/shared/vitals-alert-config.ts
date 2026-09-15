@@ -49,9 +49,24 @@ export async function getVitalsAlertConfigPayload(oystehr: Oystehr): Promise<Get
   return parseVitalsAlertConfigOrDefault(raw);
 }
 
+const updateVitalsAlertConfigBasic = async (oystehr: Oystehr, basic: Basic, existing: Basic): Promise<void> => {
+  await oystehr.fhir.update<Basic>(
+    {
+      ...basic,
+      id: existing.id!,
+    },
+    existing.meta?.versionId
+      ? {
+          optimisticLockingVersionId: existing.meta.versionId,
+        }
+      : undefined
+  );
+};
+
 export async function saveVitalsAlertConfig(oystehr: Oystehr, config: VitalsAlertConfig): Promise<void> {
   const existing = await findVitalsAlertConfigBasic(oystehr);
 
+  const serializedConfig = JSON.stringify(config);
   const basic: Basic = {
     resourceType: 'Basic',
     meta: {
@@ -63,25 +78,27 @@ export async function saveVitalsAlertConfig(oystehr: Oystehr, config: VitalsAler
     extension: [
       {
         url: VITALS_ALERT_CONFIG_JSON_EXTENSION_URL,
-        valueString: JSON.stringify(config),
+        valueString: serializedConfig,
       },
     ],
   };
 
   if (existing) {
-    await oystehr.fhir.update<Basic>(
+    await updateVitalsAlertConfigBasic(oystehr, basic, existing);
+    return;
+  }
+
+  const created = await oystehr.fhir.create<Basic>(basic, {
+    ifNoneExist: [
       {
-        ...basic,
-        id: existing.id!,
+        name: '_tag',
+        value: `${VITALS_ALERT_CONFIG_BASIC_TAG.system}|${VITALS_ALERT_CONFIG_BASIC_TAG.code}`,
       },
-      existing.meta?.versionId
-        ? {
-            optimisticLockingVersionId: existing.meta.versionId,
-          }
-        : undefined
-    );
-  } else {
-    await oystehr.fhir.create<Basic>(basic);
+    ],
+  });
+
+  if (getExtensionValue(created, VITALS_ALERT_CONFIG_JSON_EXTENSION_URL, 'valueString') !== serializedConfig) {
+    await updateVitalsAlertConfigBasic(oystehr, basic, created);
   }
 }
 

@@ -110,7 +110,12 @@ export const VitalAlertThresholdTable = ({
                             onChange={(event) => onChange(parseNumberInput(event.target.value))}
                             type="number"
                             size="small"
-                            inputProps={{ step: 'any', 'aria-label': `${VITAL_ALERT_LEVEL_LABELS[level]}` }}
+                            inputProps={{
+                              step: 'any',
+                              'aria-label': `${label}, ${VITAL_ALERT_LEVEL_LABELS[level]}, ${formatVitalAlertAgeRange(
+                                range
+                              )}`,
+                            }}
                             sx={{ width: 96 }}
                             error={!!fieldState.error}
                             helperText={fieldState.error?.message}

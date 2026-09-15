@@ -20,8 +20,9 @@ import {
 const makeOystehr = (overrides: {
   search?: Basic[];
   existing?: Basic;
+  createReturns?: Basic;
 }): { oystehr: Oystehr; create: any; update: any } => {
-  const create = vi.fn(async (resource: Basic) => resource);
+  const create = vi.fn(async (resource: Basic) => overrides.createReturns ?? resource);
   const update = vi.fn(async (resource: Basic) => resource);
   const results = overrides.existing ? [overrides.existing] : overrides.search ?? [];
   const oystehr = {
@@ -84,6 +85,47 @@ describe('vitals-alert-config shared read/write', () => {
     expect(persisted.extension).toEqual([
       { url: VITALS_ALERT_CONFIG_JSON_EXTENSION_URL, valueString: JSON.stringify(DEFAULT_VITALS_ALERT_CONFIG) },
     ]);
+  });
+
+  test('the first save is a conditional create, so a concurrent one cannot add a second Basic', async () => {
+    const { oystehr, create } = makeOystehr({ search: [] });
+    await saveVitalsAlertConfig(oystehr, DEFAULT_VITALS_ALERT_CONFIG);
+
+    expect(create.mock.calls[0][1]).toEqual({
+      ifNoneExist: [{ name: '_tag', value: 'vitals-alert-config|vitals-alert-config' }],
+    });
+  });
+
+  test('a first save that loses the race is applied to the winner rather than dropped', async () => {
+    const winner: Basic = {
+      resourceType: 'Basic',
+      id: 'vitals-alert-config-1',
+      code: {},
+      meta: { versionId: '1' },
+      extension: [
+        { url: VITALS_ALERT_CONFIG_JSON_EXTENSION_URL, valueString: JSON.stringify(DEFAULT_VITALS_ALERT_CONFIG) },
+      ],
+    };
+    const config = narrowedAdultHeartRateConfig();
+    const { oystehr, create, update } = makeOystehr({ search: [], createReturns: winner });
+
+    await saveVitalsAlertConfig(oystehr, config);
+
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update.mock.calls[0][0]).toMatchObject({ id: 'vitals-alert-config-1' });
+    expect(update.mock.calls[0][1]).toEqual({ optimisticLockingVersionId: '1' });
+    expect((update.mock.calls[0][0] as Basic).extension).toEqual([
+      { url: VITALS_ALERT_CONFIG_JSON_EXTENSION_URL, valueString: JSON.stringify(config) },
+    ]);
+  });
+
+  test('a first save that wins the race is not written twice', async () => {
+    const { oystehr, create, update } = makeOystehr({ search: [] });
+    await saveVitalsAlertConfig(oystehr, narrowedAdultHeartRateConfig());
+
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(update).not.toHaveBeenCalled();
   });
 
   test('save updates the existing Basic with optimistic locking instead of creating', async () => {

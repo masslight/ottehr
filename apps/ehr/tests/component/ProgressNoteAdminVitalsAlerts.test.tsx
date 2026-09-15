@@ -12,7 +12,10 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { VitalsAlertConfig } from 'utils/lib/types/api/vitals-alert-config/vitals-alert-config.types';
 import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils/lib/utils/progress-note-config';
-import { DEFAULT_VITALS_ALERT_CONFIG } from 'utils/lib/utils/vitals-alert-config';
+import {
+  DEFAULT_VITALS_ALERT_CONFIG,
+  INCOMPLETE_VITAL_ALERT_AGE_RANGE_LABEL,
+} from 'utils/lib/utils/vitals-alert-config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ProgressNoteAdminPage from '../../src/features/admin/ProgressNoteAdminPage';
 
@@ -291,6 +294,114 @@ describe('ProgressNoteAdminPage - vital alert levels', () => {
     const [, payload] = vi.mocked(adminUpdateVitalsAlertConfig).mock.calls[0];
     expect(payload.config.ageRanges).toHaveLength(rangeCountBefore + 1);
     expect(payload.config.thresholds['vital-weight'][payload.config.ageRanges[rangeCountBefore].id]).toEqual({});
+  });
+
+  it('labels a newly added age range instead of rendering its empty bounds', async () => {
+    await renderSection();
+
+    const rangeCountBefore = DEFAULT_VITALS_ALERT_CONFIG.ageRanges.length;
+    fireEvent.click(screen.getByTestId(dataTestIds.vitalsAlertConfig.addAgeRangeButton));
+    await waitFor(() =>
+      expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.ageRangeRow(rangeCountBefore))).toBeInTheDocument()
+    );
+
+    await expandVital('vital-heartbeat');
+
+    const accordion = screen.getByTestId(dataTestIds.vitalsAlertConfig.vitalAccordion('vital-heartbeat'));
+    const rows = within(accordion).getAllByRole('row');
+    expect(rows[rows.length - 1]).toHaveTextContent(INCOMPLETE_VITAL_ALERT_AGE_RANGE_LABEL);
+    expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.section)).not.toHaveTextContent(/undefined/);
+  });
+
+  it('blocks a save whose age ranges the alert engine cannot apply, before it reaches the API', async () => {
+    const config = cloneDefault();
+    config.ageRanges = [
+      { id: 'young', minAge: { unit: 'years', value: 0 }, maxAge: { unit: 'years', value: 10 } },
+      { id: 'older', minAge: { unit: 'years', value: 10 }, maxAge: { unit: 'months', value: 130 } },
+      { id: 'oldest', minAge: { unit: 'months', value: 130 } },
+    ] as typeof config.ageRanges;
+    config.thresholds = Object.fromEntries(
+      Object.keys(config.thresholds).map((vital) => [
+        vital,
+        {
+          young: { abnormalLow: 1, abnormalHigh: 2 },
+          older: { abnormalLow: 1, abnormalHigh: 2 },
+          oldest: { abnormalLow: 1, abnormalHigh: 2 },
+        },
+      ])
+    ) as unknown as typeof config.thresholds;
+    vi.mocked(getVitalsAlertConfig).mockResolvedValue(config);
+
+    await renderSection();
+
+    const row = screen.getByTestId(dataTestIds.vitalsAlertConfig.ageRangeRow(1));
+    fireEvent.change(within(row).getAllByRole('spinbutton')[1], { target: { value: '121' } });
+
+    fireEvent.click(getSaveButton());
+
+    await waitFor(() =>
+      expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.errorSummary)).toHaveTextContent(/cannot be applied/i)
+    );
+    expect(adminUpdateVitalsAlertConfig).not.toHaveBeenCalled();
+  });
+
+  it('saves once the age ranges the engine rejected are corrected', async () => {
+    const config = cloneDefault();
+    config.ageRanges = [
+      { id: 'young', minAge: { unit: 'years', value: 0 }, maxAge: { unit: 'years', value: 10 } },
+      { id: 'older', minAge: { unit: 'years', value: 10 }, maxAge: { unit: 'months', value: 130 } },
+      { id: 'oldest', minAge: { unit: 'months', value: 130 } },
+    ] as typeof config.ageRanges;
+    config.thresholds = Object.fromEntries(
+      Object.keys(config.thresholds).map((vital) => [
+        vital,
+        {
+          young: { abnormalLow: 1, abnormalHigh: 2 },
+          older: { abnormalLow: 1, abnormalHigh: 2 },
+          oldest: { abnormalLow: 1, abnormalHigh: 2 },
+        },
+      ])
+    ) as unknown as typeof config.thresholds;
+    vi.mocked(getVitalsAlertConfig).mockResolvedValue(config);
+
+    await renderSection();
+
+    const row = screen.getByTestId(dataTestIds.vitalsAlertConfig.ageRangeRow(1));
+    const endAge = within(row).getAllByRole('spinbutton')[1];
+
+    fireEvent.change(endAge, { target: { value: '121' } });
+    fireEvent.click(getSaveButton());
+    await waitFor(() =>
+      expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.errorSummary)).toHaveTextContent(/cannot be applied/i)
+    );
+    expect(adminUpdateVitalsAlertConfig).not.toHaveBeenCalled();
+
+    fireEvent.change(endAge, { target: { value: '125' } });
+    fireEvent.click(getSaveButton());
+
+    await waitFor(() => expect(adminUpdateVitalsAlertConfig).toHaveBeenCalled());
+    expect(screen.queryByTestId(dataTestIds.vitalsAlertConfig.errorSummary)).not.toBeInTheDocument();
+  });
+
+  it('gives every threshold input an accessible name that names its vital and age range', async () => {
+    await renderSection();
+    await expandVital('vital-heartbeat');
+
+    expect(
+      screen.getByRole('spinbutton', { name: 'Heart rate (bpm), Critical High, 18 yr and older' })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'Heart rate (bpm), Critical High, 0-3 mo' })).toBeInTheDocument();
+  });
+
+  it('names the age range each remove button will delete', async () => {
+    await renderSection();
+
+    expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.removeAgeRangeButton(0))).toHaveAccessibleName(
+      'Remove age range 0-3 mo'
+    );
+    expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.removeAgeRangeButton(13))).toHaveAccessibleName(
+      'Remove age range 18 yr and older'
+    );
   });
 
   it('removes the first age range, leaving a gap rather than pulling the next range down', async () => {

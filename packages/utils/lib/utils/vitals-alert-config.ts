@@ -239,16 +239,29 @@ const AGE_UNIT_ABBREVIATIONS: Record<VitalsAge['unit'], string> = {
   days: 'd',
 };
 
+export const INCOMPLETE_VITAL_ALERT_AGE_RANGE_LABEL = 'New age range';
+
+interface AgeBoundParts {
+  value: number;
+  unit: string;
+}
+
+const ageBoundParts = (age: VitalsAge | undefined): AgeBoundParts | undefined => {
+  if (age?.value === undefined) return undefined;
+  return { value: age.value, unit: AGE_UNIT_ABBREVIATIONS[age.unit] ?? '' };
+};
+
+const formatAgeBound = ({ value, unit }: AgeBoundParts): string => (unit ? `${value} ${unit}` : `${value}`);
+
 export const formatVitalAlertAgeRange = (range: VitalAlertAgeRange): string => {
-  const minUnit = AGE_UNIT_ABBREVIATIONS[range.minAge.unit];
-  if (!range.maxAge) {
-    return `${range.minAge.value} ${minUnit} and older`;
-  }
-  const maxUnit = AGE_UNIT_ABBREVIATIONS[range.maxAge.unit];
-  if (minUnit === maxUnit) {
-    return `${range.minAge.value}-${range.maxAge.value} ${minUnit}`;
-  }
-  return `${range.minAge.value} ${minUnit} - ${range.maxAge.value} ${maxUnit}`;
+  const min = ageBoundParts(range?.minAge);
+  const max = ageBoundParts(range?.maxAge);
+
+  if (!min && !max) return INCOMPLETE_VITAL_ALERT_AGE_RANGE_LABEL;
+  if (!min) return `Up to ${formatAgeBound(max!)}`;
+  if (!max) return `${formatAgeBound(min)} and older`;
+  if (min.unit === max.unit) return `${min.value}-${max.value} ${min.unit}`.trimEnd();
+  return `${formatAgeBound(min)} - ${formatAgeBound(max)}`;
 };
 
 const decimalPlacesOf = (value: number): number => {
