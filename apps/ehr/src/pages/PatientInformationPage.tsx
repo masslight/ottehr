@@ -34,7 +34,10 @@ import { createDynamicValidationResolver } from 'src/features/visits/shared/comp
 import { PharmacyContainer } from 'src/features/visits/shared/components/patient/PharmacyContainer';
 import { PrimaryCareContainer } from 'src/features/visits/shared/components/patient/PrimaryCareContainer';
 import { ResponsibleInformationContainer } from 'src/features/visits/shared/components/patient/ResponsibleInformationContainer';
-import { SaveBlockedReasonProvider } from 'src/features/visits/shared/components/patient/SaveBlockedReasonContext';
+import {
+  ConfirmSave,
+  SaveConfirmationProvider,
+} from 'src/features/visits/shared/components/patient/SaveConfirmationContext';
 import { scrollToFirstInvalidField } from 'src/features/visits/shared/components/patient/scrollToFirstInvalidField';
 import { WarningBanner } from 'src/features/visits/shared/components/patient/WarningBanner';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -399,11 +402,11 @@ interface PatientAccountComponentProps {
    */
   photoIdCardSlot?: ReactNode;
   /**
-   * When set, "Save All" and every per-section Save button are disabled and this text explains why
-   * on hover. Used by the visit page to require the consent attestation before any of the visit's
-   * details can be saved.
+   * When set, "Save All" and every per-section Save button route their save through this wrapper
+   * instead of writing straight away. Used by the visit page to remind staff that consent forms
+   * are not signed yet before the visit's details are saved.
    */
-  submitBlockedReason?: string;
+  confirmSave?: ConfirmSave;
 }
 
 export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
@@ -418,7 +421,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   appointmentId,
   renderInsuranceCardThumbnail,
   photoIdCardSlot,
-  submitBlockedReason,
+  confirmSave,
 }) => {
   const navigate = useNavigate();
 
@@ -566,6 +569,17 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     setIsAddingInsurance(false);
   };
 
+  // "Save All" runs the same guard as the per-section buttons, but only once react-hook-form has
+  // validated the whole form — a reminder dialog in front of a form with field errors would be
+  // asking the user to confirm a save that cannot happen.
+  const handleSaveFormWithConfirmation = async (values: any): Promise<void> => {
+    if (confirmSave) {
+      await confirmSave(() => handleSaveForm(values));
+      return;
+    }
+    await handleSaveForm(values);
+  };
+
   const handleRemoveCoverage = (coverageId: string): void => {
     if (patient?.id) {
       removeCoverage.mutate(
@@ -632,9 +646,9 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   return (
     <div>
       {isFetching && <LoadingScreen />}
-      {/* Gates the per-section Save buttons on the same condition as "Save All" below: both write
-          the same patient-record data, so gating only "Save All" would leave a way around it. */}
-      <SaveBlockedReasonProvider reason={submitBlockedReason}>
+      {/* Guards the per-section Save buttons the same way as "Save All" below: both write the same
+          patient-record data, so guarding only "Save All" would leave a way around the reminder. */}
+      <SaveConfirmationProvider confirmSave={confirmSave}>
         <FormProvider {...methods}>
           <Box>
             {renderHeader && <Header handleDiscard={handleBackClickWithConfirmation} id={id} />}
@@ -710,7 +724,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
             </Box>
             <ActionBar
               handleDiscard={handleBackClickWithConfirmation}
-              handleSave={handleSubmit(handleSaveForm, (validationErrors) => {
+              handleSave={handleSubmit(handleSaveFormWithConfirmation, (validationErrors) => {
                 enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
                 scrollToFirstInvalidField(Object.keys(validationErrors), (key) => Boolean(validationErrors[key]));
               })}
@@ -730,7 +744,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
             confirmText="Discard Changes"
           />
         </FormProvider>
-      </SaveBlockedReasonProvider>
+      </SaveConfirmationProvider>
     </div>
   );
 };

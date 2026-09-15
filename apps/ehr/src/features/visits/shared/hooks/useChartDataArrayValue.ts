@@ -2,7 +2,12 @@ import { enqueueSnackbar } from 'notistack';
 import { SearchParams } from 'utils/lib/fhir/uri';
 import { SaveableDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
-import { useChartData, useDeleteChartData, useSaveChartData } from '../stores/appointment/appointment.store';
+import {
+  ChartDataResponse,
+  useChartData,
+  useDeleteChartData,
+  useSaveChartData,
+} from '../stores/appointment/appointment.store';
 import { useChartFields } from './useChartFields';
 
 type ChartDataArrayValueType = Pick<
@@ -36,7 +41,7 @@ export const useChartDataArrayValue = <
 } => {
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
-  const { chartData, refetch } = useChartData();
+  const { chartData, chartDataSetState } = useChartData();
 
   const {
     isLoading: isChartDataLoading,
@@ -47,9 +52,30 @@ export const useChartDataArrayValue = <
     enabled: !!customParams,
   });
 
-  const values = (
-    customParams ? currentFieldData?.[name] || [] : (chartData as ChartDataArrayValueType)?.[name] || []
-  ) as K;
+  const unscopedValues = ((chartData as ChartDataArrayValueType)?.[name] || []) as K & SaveableDTO[];
+  const values = (customParams ? currentFieldData?.[name] || [] : unscopedValues) as K;
+
+  // Both caches are patched from the save/delete response. Each patch reads the cache's current value, so
+  // two responses that land before a re-render both apply. The unscoped query is marked stale (not
+  // refetched) so the next screen that mounts it starts from the server.
+  const patchCaches = (update: (current: SaveableDTO[]) => SaveableDTO[]): void => {
+    if (customParams) {
+      setQueryCache(
+        (state) =>
+          ({ [name]: update(((state as Record<string, unknown>)?.[name] ?? []) as SaveableDTO[]) }) as Partial<
+            typeof state
+          >
+      );
+    }
+    chartDataSetState(
+      (state) => {
+        const current = ((state.chartData as ChartDataArrayValueType | undefined)?.[name] ?? []) as SaveableDTO[];
+        const next = { [name]: update(current) } as Partial<ChartDataResponse>;
+        return { chartData: { ...state.chartData, patientId: state.chartData?.patientId || '', ...next } };
+      },
+      { invalidateQueries: false }
+    );
+  };
 
   const onSubmit = (data: ElementType<K>): Promise<boolean> => {
     return new Promise((resolve, reject) => {
@@ -58,14 +84,10 @@ export const useChartDataArrayValue = <
           [name]: [data],
         },
         {
-          onSuccess: async (data) => {
-            if (customParams) {
-              setQueryCache({
-                [name]: [...(currentFieldData?.[name] || []), ...(data.chartData[name] as K)],
-              });
-            }
-
-            await refetch();
+          onSuccess: (data) => {
+            const saved = (data.chartData[name] ?? []) as unknown as SaveableDTO[];
+            // Items without a resourceId are a caller's optimistic placeholders; the saved items take their place.
+            patchCaches((current) => [...current.filter((item) => item.resourceId !== undefined), ...saved]);
             resolve(true);
           },
           onError: (error) => {
@@ -89,16 +111,8 @@ export const useChartDataArrayValue = <
         [name]: newState,
       },
       {
-        onSuccess: async (_data) => {
-          if (customParams) {
-            setQueryCache({
-              [name]: ((currentFieldData?.[name] || []) as unknown as K & SaveableDTO[]).filter(
-                (value) => value.resourceId !== resourceId
-              ),
-            });
-          }
-
-          await refetch();
+        onSuccess: () => {
+          patchCaches((current) => current.filter((value) => value.resourceId !== resourceId));
           onRemoveCallback?.();
         },
         onError: () => {

@@ -92,7 +92,7 @@ import {
   copySourceRef,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
-  deriveClaimBillablePeriod,
+  deriveClaimBillablePeriodFromEncounter,
   determineRulesEngineForClaim,
   ensureClaimInsurance,
   ensureSystemManagedTags,
@@ -1241,6 +1241,14 @@ function buildClaim(resources: ClaimResources): Claim {
             },
             role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
           },
+          {
+            sequence: 2,
+            provider: {
+              ...uuidOrUrnReference('Practitioner', resources.renderingProvider.id),
+              display: resourceDisplayName(resources.renderingProvider),
+            },
+            role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '71' }] },
+          },
         ]
       : undefined,
     diagnosis: resources.diagnoses
@@ -1324,7 +1332,7 @@ function buildClaim(resources: ClaimResources): Claim {
     },
   };
 
-  claim.billablePeriod = deriveClaimBillablePeriod(claim.item);
+  claim.billablePeriod = deriveClaimBillablePeriodFromEncounter(resources.encounter);
 
   return claim;
 }

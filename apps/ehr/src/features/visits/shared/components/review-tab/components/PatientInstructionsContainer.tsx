@@ -20,15 +20,13 @@ import {
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_LABEL,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { useChartFields } from '../../../hooks/useChartFields';
 import { usePatientInstructionsVisibility } from '../../../hooks/usePatientInstructionsVisibility';
+import { useProgressNoteChartFields } from '../../../hooks/useProgressNoteChartFields';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 
 export const PatientInstructionsContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
-  const { data: chartFields } = useChartFields({
-    requestedFields: { disposition: {} },
-  });
+  const { data: chartFields } = useProgressNoteChartFields();
 
   const { chartData } = useChartData();
 
