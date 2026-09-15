@@ -293,12 +293,14 @@ exports[`composeProgressNoteData — golden chart data > matches the golden snap
         "bodySite": "arm",
         "complications": undefined,
         "cptCodes": [
-          "12001 Simple repair of superficial wounds",
+          "12001 — Simple repair of superficial wounds",
         ],
         "diagnoses": [
           "J02.9 Acute pharyngitis, unspecified",
         ],
         "documentedBy": undefined,
+        "infusionTime": undefined,
+        "lengthCm": undefined,
         "medicationUsed": undefined,
         "patientResponse": undefined,
         "performerType": "provider",
@@ -306,7 +308,9 @@ exports[`composeProgressNoteData — golden chart data > matches the golden snap
         "procedureDateTime": "01/15/2026, 05:00 AM",
         "procedureDetails": undefined,
         "procedureType": "laceration-repair",
+        "repairDepth": undefined,
         "specimenSent": undefined,
+        "structuredFacts": undefined,
         "suppliesUsed": undefined,
         "technique": [
           "simple",
