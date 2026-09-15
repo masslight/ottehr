@@ -26,6 +26,7 @@ import {
 import { TaskIndicator } from 'utils/lib/types/common';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { shouldUseCandid, shouldUseOttehrBilling } from '../../shared/candid';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -127,6 +128,9 @@ export const performEffect = async (
     const taskCreationResults = await Promise.all([visitNoteTaskPromise]);
     console.log('Follow-up task creation results ', taskCreationResults);
   } else {
+    const useCandid = shouldUseCandid(secrets);
+    const useOttehrBilling = shouldUseOttehrBilling(secrets);
+
     // For regular encounters: keep existing behavior
     if (currentStatus) {
       await changeStatusToCompleted(oystehr, user, visitResources, supervisorApprovalEnabled);
@@ -140,14 +144,18 @@ export const performEffect = async (
 
     const patientName = getFullestAvailableName(patient);
 
-    const tasks: Promise<Task>[] = [];
-    // Create Task that will kick off subscription to send the claim
-    const sendClaimTaskResource = getTaskResource(
-      TaskIndicator.sendClaim,
-      `Send claim to ${patientName}`,
-      appointmentId
-    );
-    tasks.push(oystehr.fhir.create(sendClaimTaskResource));
+    const tasks: Promise<unknown>[] = [];
+    if (useCandid) {
+      const sendClaimTaskResource = getTaskResource(
+        TaskIndicator.sendClaim,
+        `Send claim to ${patientName}`,
+        appointmentId
+      );
+      tasks.push(oystehr.fhir.create(sendClaimTaskResource));
+    }
+    if (useOttehrBilling) {
+      tasks.push(oystehr.zambda.execute({ id: 'create-billing-claim-task', encounterId }));
+    }
 
     // Determine whether this sign call is a supervisor approving a visit that was pending approval.
     // The encounter was read before the status patch above, so the `awaiting-supervisor-approval`
