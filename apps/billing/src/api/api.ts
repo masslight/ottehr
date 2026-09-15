@@ -10,6 +10,7 @@ import {
   CreateBillingPatientInputSchema,
   CreateBillingProviderInputSchema,
   CreateChargeItemDefinitionInputSchema,
+  CreateTimelyFilingReportInputSchema,
   DeleteBillingCoverageInputSchema,
   DeleteBillingProviderInputSchema,
   DeleteBillingTagInputSchema,
@@ -67,6 +68,7 @@ import {
   ClaimDetailResponse,
   CreatedClaimResponse,
   CreatedResourceResponse,
+  CreateTimelyFilingReportResponse,
   DeletedResponse,
   DownloadClaimAttachmentResponse,
   EraDetailResponse,
@@ -588,3 +590,9 @@ export const downloadClaimAttachment = (
   oystehr: Oystehr,
   parameters: z.input<typeof DownloadClaimAttachmentInputSchema>
 ): Promise<DownloadClaimAttachmentResponse> => executeBillingZambda(oystehr, 'download-claim-attachment', parameters);
+
+export const createTimelyFilingReport = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof CreateTimelyFilingReportInputSchema>
+): Promise<CreateTimelyFilingReportResponse> =>
+  executeBillingZambda(oystehr, 'create-timely-filing-report', parameters);

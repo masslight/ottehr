@@ -14,6 +14,7 @@ import {
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
+  ClaimAcknowledgmentEvent,
   ClaimFieldChange,
   ClaimHistoryEntry,
   ClaimHistoryLink,
@@ -23,6 +24,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { sendErrors } from '../../shared/errors';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { parseStoredAcknowledgment } from '../claim-acknowledgments';
 import {
   copySourceId,
   createBillingClient,
@@ -115,6 +117,14 @@ function parseChanges(provenance: Provenance, environment: string): ClaimFieldCh
   }
 }
 
+function parseAcknowledgment(provenance: Provenance, environment: string): ClaimAcknowledgmentEvent | undefined {
+  const { event, error } = parseStoredAcknowledgment(provenance);
+  if (error) {
+    reportAnomaly(`Malformed acknowledgment on Provenance/${provenance.id}`, environment, error);
+  }
+  return event;
+}
+
 // The raw references behind reference-typed changes are stored as Provenance.entity entries tagged
 // with the linking extension ('<field>|<previous|new>|<index>' — see provenance.ts), so a creating
 // transaction gets them rewritten from urn:uuid to the real ids. Reattach them onto the parsed
@@ -187,6 +197,7 @@ function toHistoryEntry(
 
   const resourceType = targetRef?.split('/')[0] ?? '';
   const message = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_NOTE_EXTENSION_URL)?.valueString;
+  const acknowledgment = parseAcknowledgment(provenance, environment);
   return {
     id: provenance.id ?? '',
     recorded: provenance.recorded ?? '',
@@ -197,6 +208,7 @@ function toHistoryEntry(
     },
     changes: parseChanges(provenance, environment),
     ...(message ? { message } : {}),
+    ...(acknowledgment ? { acknowledgment } : {}),
   };
 }
 
@@ -297,6 +309,8 @@ function activityDisplay(code: string, resourceType: string): string {
       return `Submit ${label}`;
     case CLAIM_PROVENANCE_ACTIVITY_CODES.note:
       return 'Note';
+    case CLAIM_PROVENANCE_ACTIVITY_CODES.acknowledgment:
+      return 'Acknowledgment';
     default:
       return label;
   }

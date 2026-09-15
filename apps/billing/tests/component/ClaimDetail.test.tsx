@@ -13,6 +13,7 @@ const {
   runBillingRulesEngineMock,
   getBillingClaimHistoryMock,
   addBillingClaimNoteMock,
+  createTimelyFilingReportMock,
   searchBillingNonInsuranceOrgsMock,
   updateBillingResourceMock,
   oystehrZambdaStub,
@@ -21,6 +22,7 @@ const {
   runBillingRulesEngineMock: vi.fn(),
   getBillingClaimHistoryMock: vi.fn(),
   addBillingClaimNoteMock: vi.fn(),
+  createTimelyFilingReportMock: vi.fn(),
   searchBillingNonInsuranceOrgsMock: vi.fn(),
   updateBillingResourceMock: vi.fn(),
   oystehrZambdaStub: {},
@@ -31,6 +33,7 @@ vi.mock('../../src/api/api', () => ({
   runBillingRulesEngine: runBillingRulesEngineMock,
   getBillingClaimHistory: getBillingClaimHistoryMock,
   addBillingClaimNote: addBillingClaimNoteMock,
+  createTimelyFilingReport: createTimelyFilingReportMock,
   getPatientCoverages: vi.fn(),
   searchBillingLocations: vi.fn(),
   searchBillingNonInsuranceOrgs: searchBillingNonInsuranceOrgsMock,
@@ -579,6 +582,56 @@ describe('ClaimDetail: notes drawer', () => {
     const historyTable = await screen.findByRole('table');
     expect(within(historyTable).getByText(noteMessage)).toBeInTheDocument();
     expect(within(historyTable).getByText('Note')).toBeInTheDocument();
+  });
+});
+
+describe('ClaimDetail: timely filing report', () => {
+  const downloadUrl = 'https://z3/timely-filing-report.pdf';
+
+  beforeEach(() => {
+    getBillingClaimDetailMock.mockReset();
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
+    createTimelyFilingReportMock.mockReset();
+    createTimelyFilingReportMock.mockResolvedValue({
+      downloadUrl,
+      documentReferenceId: 'doc-1',
+      fileName: 'Timely_Filing_Report_Q78291-A_20260806_1023.pdf',
+    });
+    enqueueSnackbarMock.mockReset();
+  });
+
+  it('opens the generated report and refreshes the claim so the attachment shows', async () => {
+    const user = userEvent.setup();
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: 'Timely Filing Report' }));
+
+    await waitFor(() =>
+      expect(createTimelyFilingReportMock).toHaveBeenCalledWith(oystehrZambdaStub, {
+        claimId: 'claim-1',
+      })
+    );
+    expect(open).toHaveBeenCalledWith(downloadUrl, '_blank');
+    // Once on load, once after the report is filed against the claim.
+    await waitFor(() => expect(getBillingClaimDetailMock).toHaveBeenCalledTimes(2));
+    expect(enqueueSnackbarMock).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+
+  it('reports a failure instead of opening a tab', async () => {
+    const user = userEvent.setup();
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    createTimelyFilingReportMock.mockRejectedValue(new Error('Claim has no acknowledgments'));
+    renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: 'Timely Filing Report' }));
+
+    await waitFor(() => expect(enqueueSnackbarMock).toHaveBeenCalled());
+    expect(open).not.toHaveBeenCalled();
+    // The button comes back so the biller can retry.
+    expect(await screen.findByRole('button', { name: 'Timely Filing Report' })).toBeEnabled();
+    open.mockRestore();
   });
 });
 

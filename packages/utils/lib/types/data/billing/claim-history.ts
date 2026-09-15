@@ -14,6 +14,7 @@ export const CLAIM_PROVENANCE_ACTIVITY_CODES = {
   tagChange: 'TAG CHANGE',
   submit: 'SUBMIT',
   note: 'NOTE',
+  acknowledgment: 'ACKNOWLEDGMENT',
 } as const;
 
 export type ClaimProvenanceActivityKey = keyof typeof CLAIM_PROVENANCE_ACTIVITY_CODES;
@@ -32,6 +33,7 @@ export const CLAIM_PROVENANCE_ACTIVITY: Record<ClaimProvenanceActivityKey, Codin
   tagChange: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.tagChange, 'Tag change'),
   submit: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.submit, 'Submit'),
   note: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.note, 'Note'),
+  acknowledgment: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.acknowledgment, 'Acknowledgment'),
 };
 
 // Distinguishes a human user from an automated software actor (e.g. the rules engine)
@@ -48,6 +50,9 @@ export const CLAIM_PROVENANCE_DIFF_EXTENSION_URL = ottehrExtensionUrl('claim-his
 
 export const CLAIM_PROVENANCE_NOTE_EXTENSION_URL = ottehrExtensionUrl('claim-history-note');
 export const CLAIM_NOTE_MAX_LENGTH = 2000;
+
+// Extension on the Provenance whose valueString holds a JSON-serialized ClaimAcknowledgmentEvent.
+export const CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL = ottehrExtensionUrl('claim-history-acknowledgment');
 
 // Extension on a Provenance.entity linking its Reference-typed `what` back to a change in the diff
 // JSON — see changeRefEntities in packages/zambdas/src/billing/provenance.ts.
@@ -111,6 +116,25 @@ export interface ClaimHistoryActor {
   type: 'user' | 'system';
 }
 
+// One acknowledgment of the claim by the clearinghouse or a payer, taken from a Claim.MD status
+// message the payer pipeline reported (see sub-claim-status-response). Billers cite these to prove a
+// claim was filed inside the timely-filing window, so every field here is reported by an outside
+// entity and never authored in Ottehr.
+export interface ClaimAcknowledgmentEvent {
+  source: 'claimmd';
+  entityName: string;
+  entityKind: 'clearinghouse' | 'payer';
+  message: string;
+  // Claim.MD's own message code (mesgid), e.g. 'ACK'.
+  messageId?: string;
+  // Identifies the message within its Claim.MD account; the de-duplication key across redeliveries.
+  responseId: string;
+  batchId?: string;
+  clearinghouseClaimId?: string;
+  payerClaimControlNumber?: string;
+  eventTime: string;
+}
+
 // One row in the claim history view, assembled by get-billing-claim-history.
 export interface ClaimHistoryEntry {
   id: string;
@@ -120,6 +144,9 @@ export interface ClaimHistoryEntry {
   actor: ClaimHistoryActor;
   changes: ClaimFieldChange[];
   message?: string;
+  // Set only on acknowledgment entries. `message` stays empty on those so the notes drawer, which
+  // filters on it, keeps listing user-authored notes only.
+  acknowledgment?: ClaimAcknowledgmentEvent;
 }
 
 export interface GetClaimHistoryResponse {
