@@ -1765,7 +1765,7 @@ const getAdditionalResultsForRelated = async (
   return configs;
 };
 
-const parseObservationForPDF = (
+export const parseObservationForPDF = (
   observation: Observation,
   oystehr: Oystehr
 ): {
@@ -1775,6 +1775,7 @@ const parseObservationForPDF = (
   base64PngAttachment?: string;
   base64JpgAttachment?: string;
 } => {
+  console.log('parsing observation for pdf', observation.id);
   const base64PdfAttachment = checkObsForAttachment(observation, OYSTEHR_OBS_CONTENT_TYPES.pdf);
   const base64PngAttachment = checkObsForAttachment(observation, OYSTEHR_OBS_CONTENT_TYPES.image, ['PNG']);
   const base64JpgAttachment = checkObsForAttachment(observation, OYSTEHR_OBS_CONTENT_TYPES.image, ['JPG', 'JPEG']);
@@ -1858,16 +1859,16 @@ const parseObservationForPDF = (
 
     // if the units are the same, we will consolidate them.
     // Otherwise we'll render the unit for both the numerator and denominator
-    const includeUnit = numerator?.code === denominator?.code;
+    const includeUnitOnEach = numerator?.code !== denominator?.code;
 
     // if the units are the same, can just grab one to consolidate
     // we consolidate the unit because otherwise you end up with "1 titer : 180 titer" which isn't correct
     const consolidatedUnit = numerator?.code;
 
-    value = `${formatRatioValue(numerator, includeUnit)}${separator ?? ' '}${formatRatioValue(
+    value = `${formatRatioValue(numerator, includeUnitOnEach)}${separator ?? ' '}${formatRatioValue(
       denominator,
-      includeUnit
-    )}${includeUnit && consolidatedUnit ? ` ${consolidatedUnit}` : ''}`;
+      includeUnitOnEach
+    )}${!includeUnitOnEach && consolidatedUnit ? ` ${consolidatedUnit}` : ''}`;
   } else if (!isObrNoteObs(observation)) {
     console.error(`Observation/${observation.id} has an unrecognized value type`);
   }
