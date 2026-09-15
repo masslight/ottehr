@@ -6,10 +6,10 @@ const CONSENT_FORMS_DATA: ConsentFormsConfig = {
   forms: [
     {
       id: 'hipaa-acknowledgement',
-      formTitle: 'HIPAA Acknowledgement',
+      formTitle: 'HIPAA Omnibus Notice of Privacy Practices',
       resourceTitle: 'HIPAA forms',
-      assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
-      publicUrl: '/hipaa_notice_template.pdf',
+      assetPath: './assets/hipaa.pdf',
+      publicUrl: '/hipaa.pdf',
       type: {
         coding: [
           {
@@ -24,15 +24,15 @@ const CONSENT_FORMS_DATA: ConsentFormsConfig = {
     },
     {
       id: 'consent-to-treat',
-      formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
+      formTitle: 'Office Policies and Procedures',
       resourceTitle: 'Consent forms',
       assetPath: {
-        default: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf',
+        default: './assets/office_policies_and_procedures.pdf',
         byState: {
           IL: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf',
         },
       },
-      publicUrl: '/consent_to_treat_template.pdf',
+      publicUrl: '/office_policies_and_procedures.pdf',
       type: {
         coding: [
           {
