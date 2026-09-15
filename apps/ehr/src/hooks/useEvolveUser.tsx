@@ -5,6 +5,7 @@ import { Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import { useCallback, useEffect, useMemo } from 'react';
 import { initialsFromName } from 'utils/lib/fhir/chat';
+import { isVersionConflictError } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName, getNPIIdentifier } from 'utils/lib/fhir/patient';
 import { getPatchOperationForNewMetaTag, getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch';
 import { useSuccessQuery } from 'utils/lib/frontend';
@@ -102,7 +103,7 @@ export default function useEvolveUser(): EvolveUser | undefined {
         }
       }
 
-      void mutatePractitionerAsync(patchOps).catch(console.error);
+      void mutatePractitionerAsync({ operations: patchOps }).catch(console.error);
     }
   }, [oystehr, isPractitionerLastLoginBeingUpdated, mutatePractitionerAsync, profile, user]);
 
@@ -230,23 +231,33 @@ const useSyncPractitioner = (_onSuccess: (data: SyncUserResponse) => void) => {
   */
 };
 
-const useUpdatePractitioner = (): UseMutationResult<void, Error, Operation[]> => {
+export interface UpdatePractitionerInput {
+  operations: Operation[];
+  optimisticLockingVersionId?: string;
+}
+
+export const useUpdatePractitioner = (): UseMutationResult<void, Error, UpdatePractitionerInput> => {
   const user = useEvolveUserStore((state) => state.user);
   const { oystehr } = useApiClients();
 
   return useMutation({
     mutationKey: ['update-practitioner'],
 
-    mutationFn: async (patchOps: Operation[]): Promise<void> => {
-      if (!oystehr || !user) return;
+    mutationFn: async ({ operations, optimisticLockingVersionId }: UpdatePractitionerInput): Promise<void> => {
+      if (!oystehr || !user) {
+        throw new Error('Cannot update the practitioner before the user profile has loaded.');
+      }
 
-      await oystehr.fhir.patch({
-        resourceType: 'Practitioner',
-        id: user.profile.replace('Practitioner/', ''),
-        operations: [...patchOps],
-      });
+      await oystehr.fhir.patch(
+        {
+          resourceType: 'Practitioner',
+          id: user.profile.replace('Practitioner/', ''),
+          operations: [...operations],
+        },
+        { optimisticLockingVersionId }
+      );
     },
 
-    retry: 3,
+    retry: (failureCount, error) => !isVersionConflictError(error) && failureCount < 3,
   });
 };
