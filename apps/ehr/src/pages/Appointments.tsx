@@ -119,7 +119,7 @@ export default function Appointments(): ReactElement {
               setEditingComment={setEditingComment}
             />
           </Box>
-          {FEATURE_FLAGS.DEMO_VISITS_ENABLED && <CreateDemoVisits />}
+          {FEATURE_FLAGS.DEMO_VISITS_ENABLED && <CreateDemoVisits selectedLocationIds={filters.locationIds} />}
         </>
       </PageContainer>
     </form>
