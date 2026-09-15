@@ -1,5 +1,5 @@
 import { getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
-import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { EmergencyContactDataInput, EmergencyContactInfo, PdfSection } from '../types';
 
@@ -11,7 +11,7 @@ export const composeEmergencyContactData: DataComposer<EmergencyContactDataInput
   const addressLineOptional = emergencyContactAddress?.line?.[1] ?? '';
   const city = emergencyContactAddress?.city ?? '';
   const state = emergencyContactAddress?.state ?? '';
-  const zip = emergencyContactAddress?.postalCode ?? '';
+  const zip = formatZipcodeForDisplay(emergencyContactAddress?.postalCode ?? '');
 
   const phone = formatPhoneNumberDisplay(
     emergencyContactResource?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? ''

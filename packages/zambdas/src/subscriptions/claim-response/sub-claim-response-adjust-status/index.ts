@@ -1,8 +1,9 @@
 import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, ClaimResponse } from 'fhir/r4b';
+import { Claim, ClaimResponse, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
+import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import {
@@ -10,6 +11,7 @@ import {
   SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
   SECONDARY_SUBMISSION_TAG_NAME,
 } from 'utils/lib/types/data/billing/system-tags';
+import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../../../billing/provenance';
 import { createBillingClient, ensureSystemManagedTags, getTag } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
@@ -31,7 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createBillingClient(m2mToken, secrets);
 
   console.group('complexValidation');
-  const validated = await complexValidation(oystehr, params.claimResponseId);
+  const validated = await complexValidation(oystehr, params.claimResponseId, secrets);
   console.groupEnd();
 
   console.group('performEffect');
@@ -49,9 +51,14 @@ export interface ComplexValidationOutput {
   claimResponseId: string;
   claimResponse: FhirResourceReturnValue<ClaimResponse>;
   claim: FhirResourceReturnValue<Claim>;
+  agent: ProvenanceAgent;
 }
 
-export async function complexValidation(oystehr: Oystehr, claimResponseId: string): Promise<ComplexValidationOutput> {
+export async function complexValidation(
+  oystehr: Oystehr,
+  claimResponseId: string,
+  secrets: Secrets
+): Promise<ComplexValidationOutput> {
   const claimResponse = await oystehr.fhir.get<ClaimResponse>({ resourceType: 'ClaimResponse', id: claimResponseId });
   if (!claimResponse.request?.reference) {
     throw new Error(`Subscription called for ClaimResponse without 'request'`);
@@ -61,10 +68,13 @@ export async function complexValidation(oystehr: Oystehr, claimResponseId: strin
     id: claimResponse.request.reference.replace('Claim/', ''),
   });
 
+  const agent = await resolveClaimActor('system', oystehr, undefined, secrets);
+
   return {
     claim,
     claimResponse,
     claimResponseId,
+    agent,
   };
 }
 
@@ -107,6 +117,19 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
     }),
     ...tagsToAdd.map((t) => getPatchOperationForNewMetaTag(claim, { system: CLAIM_TAG_SYSTEM, code: t })),
   ]);
+  const updatedClaim = await oystehr.fhir.get<Claim>({ resourceType: 'Claim', id: claim.id });
+  const provRequest = claimProvenanceRequest({
+    targetReference: `Claim/${claim.id}`,
+    claimReference: `Claim/${claim.id}`,
+    before: claim,
+    after: updatedClaim,
+    agent: validated.agent,
+    activity: 'update',
+    recorded: recordedNow(),
+  });
+  if (provRequest) {
+    await oystehr.fhir.create<Provenance>(provRequest.resource);
+  }
 }
 
 function claimWasForwarded(claimResponse: ClaimResponse): boolean {
