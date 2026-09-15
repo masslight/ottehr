@@ -12,7 +12,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
-import { DischargeAndPrintDialog } from './DischargeAndPrintDialog';
+import { DischargeDialog } from './DischargeDialog';
 
 export const createAndOpenDischargeSummary = async (
   oystehr: Oystehr,
@@ -111,7 +111,7 @@ export const DischargeButton: FC = () => {
           >
             Discharge
           </LoadingButton>
-          <Tooltip title="Discharge & Print">
+          <Tooltip title="Discharge & More">
             <Button variant="contained" size="small" onClick={() => setDialogOpen(true)} sx={{ borderRadius: '100px' }}>
               <ArrowDropDownIcon fontSize="small" />
             </Button>
@@ -119,13 +119,16 @@ export const DischargeButton: FC = () => {
         </ButtonGroup>
       </Box>
 
-      <DischargeAndPrintDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        encounterId={encounterId}
-        appointmentId={appointmentId}
-        patientId={patientId}
-      />
+      {/* Mounted only while open: the dialog subscribes to the chart queries and draft stores behind
+          useProgressNoteSigning, which the Review & Sign button on this same page already holds. */}
+      {dialogOpen && (
+        <DischargeDialog
+          onClose={() => setDialogOpen(false)}
+          encounterId={encounterId}
+          appointmentId={appointmentId}
+          patientId={patientId}
+        />
+      )}
     </>
   );
 };

@@ -17,35 +17,32 @@ export const usePendingSupervisorApproval = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  // Throws on every failure path. Callers treat a resolved promise as "the visit is now waiting for
+  // a supervisor" and report success to the user on the strength of it, so swallowing a failure here
+  // would tell a provider their note had been routed for approval when it had not.
   const updateVisitStatusToAwaitSupervisorApproval = useCallback(async (): Promise<void> => {
     if (!oystehrZambda) {
-      console.error('oystehrZambda is not defined');
-      return;
+      throw new Error('Oystehr Zambda client is not available when requesting supervisor approval');
     }
 
     if (!encounterId) {
-      console.error('encounterId is undefined — skipping update.');
-      return;
+      throw new Error('Encounter ID is required to request supervisor approval');
     }
 
     if (!practitionerId) {
-      console.error('practitionerId is undefined — skipping update.');
-      return;
+      throw new Error('Practitioner ID is required to request supervisor approval');
     }
 
     setLoading(true);
     setError(null);
 
     try {
-      try {
-        await pendingSupervisorApproval(oystehrZambda, { encounterId, practitionerId });
-      } catch (err) {
-        console.error('Error updating nursing order:', err);
-        setError(err instanceof Error ? err : new Error('Unknown error occurred'));
-      }
-    } catch (error) {
-      console.error('error with setting pending supervisor approval:', error);
-      setError(error instanceof Error ? error : new Error('Unknown error occurred'));
+      await pendingSupervisorApproval(oystehrZambda, { encounterId, practitionerId });
+    } catch (err) {
+      const failure = err instanceof Error ? err : new Error('Unknown error occurred');
+      console.error('error with setting pending supervisor approval:', failure);
+      setError(failure);
+      throw failure;
     } finally {
       setLoading(false);
     }
