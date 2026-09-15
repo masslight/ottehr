@@ -150,6 +150,12 @@ export default function BookableSelect({
   // don't cover the picked category.
   const [inventories, setInventories] = useState<LocationBookableInventory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // Distinct from `isLoading`: stays false until the first load settles, including
+  // the render before the load effect has even fired. The stale-selection guard
+  // below keys off this rather than `isLoading` — on mount that flag is still
+  // false, so the guard would see an empty target list and drop a parent-seeded
+  // selection (the follow-up flow's prefilled location) before the fetch starts.
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   // Capture the latest onLocationsLoaded callback in a ref so the load
   // effect doesn't need it in its dep array. Callers typically pass an
@@ -344,7 +350,10 @@ export default function BookableSelect({
       } catch (err) {
         console.error('error loading bookable targets', err);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+          setHasLoaded(true);
+        }
       }
     };
 
@@ -500,15 +509,14 @@ export default function BookableSelect({
   // user would be left with a `selected` that doesn't appear in the dropdown
   // and could still be submitted — making it possible to book a Location that
   // no longer offers the picked service. Targets are referentially stable so
-  // identity comparison is sufficient; if the load hasn't finished yet
-  // (filteredTargets empty + isLoading true) we leave the selection alone so
-  // an in-flight load doesn't clobber a parent-seeded value.
+  // identity comparison is sufficient; until the first load settles we leave the
+  // selection alone so an unloaded (or in-flight) target list doesn't clobber a
+  // parent-seeded value.
   useEffect(() => {
-    if (!selected) return;
-    if (isLoading && filteredTargets.length === 0) return;
+    if (!selected || !hasLoaded) return;
     const stillValid = filteredTargets.some((t) => targetsAreSame(t, selected));
     if (!stillValid) setSelected(undefined);
-  }, [filteredTargets, isLoading, selected, setSelected]);
+  }, [filteredTargets, hasLoaded, selected, setSelected]);
 
   const typeChip = (t: BookableTargetType): string =>
     t === 'Location' ? 'Location' : t === 'HealthcareService' ? 'Group' : 'Direct';

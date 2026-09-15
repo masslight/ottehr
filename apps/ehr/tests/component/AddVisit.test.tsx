@@ -3,18 +3,29 @@ import { render, screen, waitFor, waitForElementToBeRemoved, within } from '@tes
 import userEvent from '@testing-library/user-event';
 import { VisitType } from 'config-types';
 import { ReactNode } from 'react';
-import { BrowserRouter, useNavigate } from 'react-router-dom';
-import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
+import { BrowserRouter, MemoryRouter, useNavigate } from 'react-router-dom';
+import {
+  getReasonForVisitOptionsForServiceCategory,
+  serviceCategorySupportsContext,
+} from 'utils/lib/config-helpers/booking';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import AddPatient from '../../src/pages/AddPatient';
 
-const TestProviders = ({ children }: { children: ReactNode }): JSX.Element => {
+// `routerState` stands in for what ScheduledFollowupParentSelector passes through
+// `navigate(..., { state })`; MemoryRouter is the only way to seed it without
+// mocking useLocation out from under every other router-aware child.
+const TestProviders = ({ children, routerState }: { children: ReactNode; routerState?: unknown }): JSX.Element => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>{children}</BrowserRouter>
+      {routerState ? (
+        <MemoryRouter initialEntries={[{ pathname: '/visits/add', state: routerState }]}>{children}</MemoryRouter>
+      ) : (
+        <BrowserRouter>{children}</BrowserRouter>
+      )}
     </QueryClientProvider>
   );
 };
@@ -697,6 +708,148 @@ describe('AddVisit', () => {
       for (const option of BOOKING_CONFIG.ehrBookingOptions) {
         expect(within(listbox).getByText(option.label)).toBeInTheDocument();
       }
+    });
+  });
+  // OTR-3299: starting a scheduled follow-up carries the initial encounter's visit
+  // type, service, and location into this form so staff don't retype what the parent
+  // visit already recorded. Every prefilled control stays editable.
+  describe('Scheduled follow-up prefill (OTR-3299)', () => {
+    // Derive the pair from config rather than hardcoding it, so a project that
+    // swizzles BOOKING_CONFIG exercises its own categories.
+    const prefillCategory = BOOKING_CONFIG.serviceCategories.find((sc) =>
+      serviceCategorySupportsContext(
+        { ...sc, source: 'booking-config' },
+        ServiceMode['in-person'],
+        ServiceVisitType.prebook
+      )
+    );
+    const prefillVisitTypeLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.InPersonPreBook)
+      ?.label;
+
+    const followUpRouterState = {
+      followUpOptions: { parentEncounterId: 'parent-encounter-1' },
+      parentLocation: { ...mockLocation, walkinSchedule: mockSchedule },
+      patientId: 'test-patient-1',
+      patientInfo: {
+        id: 'test-patient-1',
+        newPatient: false,
+        firstName: 'Xiulan',
+        lastName: 'Rose',
+        dateOfBirth: '1990-01-01',
+        sex: 'female',
+      },
+      prefill: { visitType: VisitType.InPersonPreBook, serviceCategoryCode: prefillCategory?.category.code },
+    };
+
+    const renderFollowUp = (): void => {
+      render(
+        <TestProviders routerState={followUpRouterState}>
+          <AddPatient />
+        </TestProviders>
+      );
+    };
+
+    const comboboxIn = (testId: string): Element => {
+      const dropdown = screen.getByTestId(testId);
+      return dropdown.querySelector('[role="combobox"]')!;
+    };
+
+    it('opens with the parent visit type, service, and location already selected', async () => {
+      expect(prefillCategory).toBeDefined();
+      expect(prefillVisitTypeLabel).toBeDefined();
+
+      renderFollowUp();
+
+      expect(comboboxIn(dataTestIds.addPatientPage.visitTypeDropdown)).toHaveTextContent(prefillVisitTypeLabel!);
+      expect(comboboxIn(dataTestIds.addPatientPage.serviceCategoryDropdown)).toHaveTextContent(
+        prefillCategory!.category.display!
+      );
+
+      const locationInput = screen
+        .getByTestId(dataTestIds.addPatientPage.bookableSelect)
+        .querySelector('input') as HTMLInputElement;
+      await waitFor(() => expect(locationInput).toHaveValue(mockLocation.name));
+    });
+
+    it('leaves the prefilled controls editable', async () => {
+      const user = userEvent.setup();
+      const otherVisitType = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.InPersonWalkIn);
+      expect(otherVisitType).toBeDefined();
+
+      renderFollowUp();
+
+      // "Where to book" is gated on a visit type being set — the prefill must unlock it,
+      // otherwise the seeded location would be visible but unchangeable.
+      expect(screen.getByTestId(dataTestIds.addPatientPage.bookableSelect).querySelector('input')).toBeEnabled();
+
+      await user.click(comboboxIn(dataTestIds.addPatientPage.visitTypeDropdown));
+      await user.click(await screen.findByText(otherVisitType!.label));
+
+      expect(comboboxIn(dataTestIds.addPatientPage.visitTypeDropdown)).toHaveTextContent(otherVisitType!.label);
+    });
+
+    // The prefilled service can be an admin-created (FHIR-sourced) category, which is
+    // absent from the merged catalog until that query resolves. Without the
+    // isCatalogLoaded guard in AddPatient, the stale-selection cleanup fires on the
+    // first render and clears the seed permanently — nothing re-sets it afterwards.
+    describe('with an admin-created (FHIR-sourced) service prefilled', () => {
+      const fhirCategory = {
+        id: 'fhir-svc-prefill',
+        name: 'Crystal Therapy (Prefill Test)',
+        code: 'crystal-therapy-prefill',
+        active: true,
+        config: {
+          serviceModes: ['in-person'],
+          visitTypes: ['prebook'],
+          reasonsForVisit: [{ label: 'Consultation', value: 'consultation' }],
+        },
+      };
+
+      const mockOystehrZambda = {
+        zambda: {
+          execute: vi.fn(),
+          executePublic: vi.fn().mockResolvedValue({ output: null }),
+        },
+      };
+
+      beforeEach(() => {
+        mockOystehrZambda.zambda.execute.mockReset();
+        mockOystehrZambda.zambda.execute.mockResolvedValue({ output: { serviceCategories: [fhirCategory] } });
+        mockApiClients.oystehrZambda = mockOystehrZambda;
+      });
+
+      afterEach(() => {
+        mockApiClients.oystehrZambda = null;
+      });
+
+      it('keeps the prefilled service instead of clearing it while the catalog loads', async () => {
+        render(
+          <TestProviders
+            routerState={{
+              ...followUpRouterState,
+              prefill: { visitType: VisitType.InPersonPreBook, serviceCategoryCode: fhirCategory.code },
+            }}
+          >
+            <AddPatient />
+          </TestProviders>
+        );
+
+        await waitFor(() =>
+          expect(comboboxIn(dataTestIds.addPatientPage.serviceCategoryDropdown)).toHaveTextContent(fhirCategory.name)
+        );
+      });
+    });
+
+    it('leaves the visit type unset when there is no follow-up state', () => {
+      render(
+        <TestProviders>
+          <AddPatient />
+        </TestProviders>
+      );
+
+      // MUI's Select renders a zero-width space in the combobox when nothing is
+      // picked, so assert on the hidden input that carries the actual value.
+      expect(screen.getByTestId(dataTestIds.addPatientPage.visitTypeDropdown).querySelector('input')).toHaveValue('');
     });
   });
 });

@@ -1,9 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { VisitType } from 'config-types';
 import { Patient } from 'fhir/r4b';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ScheduledFollowupParentSelector from '../../src/features/visits/shared/components/patient/ScheduledFollowupParentSelector';
 
@@ -191,6 +194,57 @@ describe('ScheduledFollowupParentSelector', () => {
         parentEncounterId: 'enc-1',
         skipPatientDiagnosis: true,
       });
+    });
+  });
+  // OTR-3299: the Add Visit page seeds its Visit type / Service controls from whatever
+  // this selector hands over, so assert the derived payload rather than its mere presence.
+  describe('prefill derived from the parent visit (OTR-3299)', () => {
+    const parentWithAppointment = {
+      ...parentEncounterRow,
+      appointment: {
+        resourceType: 'Appointment',
+        id: 'appt-1',
+        status: 'fulfilled',
+        meta: { tag: [{ code: OTTEHR_MODULE.IP }] },
+        appointmentType: { text: 'prebook' },
+        serviceCategory: [{ coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: 'urgent-care' }] }],
+      },
+    };
+
+    beforeEach(() => {
+      getChartDataMock.mockResolvedValue({});
+    });
+
+    const continueToAddVisit = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+      const button = await screen.findByRole('button', { name: /Continue to Add Visit/i });
+      await waitFor(() => expect(button).toBeEnabled());
+      await user.click(button);
+      await waitFor(() => expect(navigateMock).toHaveBeenCalled());
+    };
+
+    it('carries the parent visit type and service into navigation state', async () => {
+      const user = userEvent.setup();
+      mockParentEncounters(parentWithAppointment);
+      renderWithProviders();
+
+      await continueToAddVisit(user);
+
+      const [, options] = navigateMock.mock.calls[0];
+      expect(options.state.prefill).toEqual({
+        visitType: VisitType.InPersonPreBook,
+        serviceCategoryCode: 'urgent-care',
+      });
+    });
+
+    it('sends an empty prefill when the parent encounter has no appointment', async () => {
+      const user = userEvent.setup();
+      mockParentEncounters(parentEncounterRow);
+      renderWithProviders();
+
+      await continueToAddVisit(user);
+
+      const [, options] = navigateMock.mock.calls[0];
+      expect(options.state.prefill).toEqual({});
     });
   });
 });
