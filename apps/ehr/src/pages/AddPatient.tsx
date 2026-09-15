@@ -256,7 +256,7 @@ export default function AddPatient(): JSX.Element {
   // FHIR-managed admin-created services so categories created in Admin →
   // Services (e.g., massage30/45/90) appear here too. BOOKING_CONFIG wins on
   // code collisions, matching the patient-side useServiceCategories merge.
-  const { data: fhirServiceCategories } = useQuery({
+  const { data: fhirServiceCategories, isFetched: isCatalogLoaded } = useQuery({
     queryKey: ['add-patient-service-categories'],
     queryFn: async () => {
       if (!oystehrZambda) return { serviceCategories: [] };
@@ -371,7 +371,6 @@ export default function AddPatient(): JSX.Element {
   // The merged catalog only speaks for itself once the FHIR half has settled. Before
   // that, an absent code means "not loaded yet", not "not offered" — which is why both
   // the empty-state message and the stale-selection cleanup below wait on it.
-  const isCatalogLoaded = fhirServiceCategories !== undefined || !oystehrZambda;
   const isPickerEmpty = mergedSourcedCategories.length === 0 && isCatalogLoaded;
 
   // When the merged catalog resolves to exactly one entry, force the pick to
@@ -773,6 +772,11 @@ export default function AddPatient(): JSX.Element {
                   resourceTypes={['Location']}
                   serviceCategoryCode={serviceCategory || undefined}
                   serviceCategoryFhirId={pickedCategoryFhirId}
+                  // Until the merged catalog resolves, an admin-created (FHIR) code has
+                  // no `pickedCategoryFhirId`, and without that id the resolver can't
+                  // admit the Group/PR tiers — a parent-seeded location would look
+                  // unsupported and be dropped before the id ever arrives.
+                  categoryFiltersReady={isCatalogLoaded}
                   onLocationsLoaded={() => {
                     // Side-load not strictly required by the new flow but kept
                     // so existing callers that consumed setLocations stay

@@ -822,6 +822,28 @@ describe('AddVisit', () => {
         mockApiClients.oystehrZambda = null;
       });
 
+      it('keeps the prefilled service while the zambda client is still unavailable', async () => {
+        mockApiClients.oystehrZambda = null;
+
+        render(
+          <TestProviders
+            routerState={{
+              ...followUpRouterState,
+              prefill: { visitType: VisitType.InPersonPreBook, serviceCategoryCode: fhirCategory.code },
+            }}
+          >
+            <AddPatient />
+          </TestProviders>
+        );
+
+        const valueInput = (): HTMLInputElement | null =>
+          screen.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown).querySelector('input');
+        await waitFor(() => expect(valueInput()).toHaveValue(fhirCategory.code));
+        // Give the cleanup effect every chance to fire before declaring the seed safe.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(valueInput()).toHaveValue(fhirCategory.code);
+      });
+
       it('keeps the prefilled service instead of clearing it while the catalog loads', async () => {
         render(
           <TestProviders

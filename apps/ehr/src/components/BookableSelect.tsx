@@ -111,6 +111,7 @@ interface BookableSelectProps {
    * Location-Schedule tier (the Group/PR opt-in check is unreachable).
    */
   serviceCategoryFhirId?: string;
+  categoryFiltersReady?: boolean;
   required?: boolean;
   disabled?: boolean;
   /** Optional — invoked once the picker has loaded its full list (used by AddPatient to keep a side list of Locations). */
@@ -134,6 +135,7 @@ export default function BookableSelect({
   resourceTypes,
   serviceCategoryCode,
   serviceCategoryFhirId,
+  categoryFiltersReady = true,
   required,
   disabled,
   onLocationsLoaded,
@@ -509,14 +511,14 @@ export default function BookableSelect({
   // user would be left with a `selected` that doesn't appear in the dropdown
   // and could still be submitted — making it possible to book a Location that
   // no longer offers the picked service. Targets are referentially stable so
-  // identity comparison is sufficient; until the first load settles we leave the
-  // selection alone so an unloaded (or in-flight) target list doesn't clobber a
-  // parent-seeded value.
+  // identity comparison is sufficient; until the first load settles AND the caller's
+  // category filters are final we leave the selection alone, so neither an unloaded
+  // target list nor a half-resolved category filter clobbers a caller-seeded value.
   useEffect(() => {
-    if (!selected || !hasLoaded) return;
+    if (!selected || !hasLoaded || !categoryFiltersReady) return;
     const stillValid = filteredTargets.some((t) => targetsAreSame(t, selected));
     if (!stillValid) setSelected(undefined);
-  }, [filteredTargets, hasLoaded, selected, setSelected]);
+  }, [filteredTargets, hasLoaded, categoryFiltersReady, selected, setSelected]);
 
   const typeChip = (t: BookableTargetType): string =>
     t === 'Location' ? 'Location' : t === 'HealthcareService' ? 'Group' : 'Direct';
