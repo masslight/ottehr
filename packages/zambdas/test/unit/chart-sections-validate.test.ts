@@ -81,7 +81,9 @@ describe('get-chart-section request validation', () => {
   });
 
   it('requires the notes section to name at least one known note type', () => {
-    expect(() => validateGetChartSection(input({ encounterId, section: 'notes' }))).toThrow('params');
+    // @ts-expect-error the typed request agrees with the schema: a notes request without its types matches no shape
+    const notesWithoutTypes: GetChartSectionRequest = { encounterId, section: 'notes' };
+    expect(() => validateGetChartSection(input(notesWithoutTypes))).toThrow('params');
     expect(() => validateGetChartSection(input({ encounterId, section: 'notes', params: { types: [] } }))).toThrow(
       'types'
     );
