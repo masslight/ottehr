@@ -5,7 +5,8 @@ import { FC } from 'react';
 import { Link } from 'react-router-dom';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 
-type ExcuseCardProps = {
+/** A row linking to one document that already exists, with an optional delete affordance. */
+type DocumentRowProps = {
   label: string;
   to: string;
   onDelete?: () => void;
@@ -13,7 +14,7 @@ type ExcuseCardProps = {
   'data-testid'?: string;
 };
 
-export const ExcuseLink: FC<ExcuseCardProps> = (props) => {
+export const DocumentRow: FC<DocumentRowProps> = (props) => {
   const { label, to, onDelete, disabled, 'data-testid': dataTestId } = props;
   const theme = useTheme();
 
