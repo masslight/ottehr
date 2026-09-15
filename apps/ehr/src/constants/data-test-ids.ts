@@ -489,6 +489,18 @@ export const dataTestIds = {
     pencilIconButton: 'EditOutlinedIcon',
     abnormalVitalIcon: 'WarningAmberOutlinedIcon',
   },
+  vitalsAlertConfig: {
+    section: 'vitals-alert-config-section',
+    errorSummary: 'vitals-alert-config-error-summary',
+    addAgeRangeButton: 'vitals-alert-config-add-age-range-button',
+    ageRangeRow: (index: number) => `vitals-alert-config-age-range-row-${index}`,
+    removeAgeRangeButton: (index: number) => `vitals-alert-config-remove-age-range-button-${index}`,
+    removeAgeRangeDescription: 'vitals-alert-config-remove-age-range-description',
+    vitalAccordion: (vital: string) => `vitals-alert-config-accordion-${vital}`,
+    thresholdInput: (vital: string, rangeId: string, level: string) =>
+      `vitals-alert-config-threshold-${vital}-${rangeId}-${level}`,
+    normalRangeCell: (vital: string, rangeId: string) => `vitals-alert-config-normal-range-${vital}-${rangeId}`,
+  },
   visitDetailsPage: {
     cancelVisitButton: 'cancel-visit-button',
     cancelationReasonDropdown: 'cancelation-reason-dropdown',

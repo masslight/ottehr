@@ -52,6 +52,15 @@ export enum RoleType {
   Staff = 'Staff',
 }
 
+export const ALL_EHR_STAFF_ROLES: RoleType[] = [
+  RoleType.Administrator,
+  RoleType.Manager,
+  RoleType.CustomerSupport,
+  RoleType.Staff,
+  RoleType.Provider,
+  RoleType.Clinician,
+];
+
 export interface AccessPolicy {
   rule: {
     action: string | string[];

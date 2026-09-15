@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { VitalsDef, VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { getVitalObservationAlertLevel } from 'utils/lib/helpers/vitals/utils';
-import { DefaultVitalsConfig, VitalsDef, VitalsSchema } from 'utils/lib/ottehr-config/vitals';
 import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
   VitalsBloodPressureObservationDTO,
@@ -13,6 +13,7 @@ import {
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
 import { assert, suite } from 'vitest';
+import DefaultTestVitals from './data/config-files/vitals-engine-spec';
 import InvalidAgeUnitsVitals from './data/config-files/vitals-invalid-age-units-spec';
 import InvalidAgeVitals from './data/config-files/vitals-invalid-ages-spec';
 import InvalidBloodPressureShapeVitals from './data/config-files/vitals-invalid-bp-shape-spec';
@@ -20,7 +21,11 @@ import InvalidMinMaxValVitals from './data/config-files/vitals-invalid-min-max-v
 import InvalidRuleTypeVitals from './data/config-files/vitals-invalid-rule-type-spec';
 import { makeTestPatient } from './helpers/testScheduleUtils';
 
+const makeTestVitalsConfig = (): VitalsSchema => VitalsDef(DefaultTestVitals);
+
 describe('testing vitals config validation', () => {
+  const testVitalsConfig = makeTestVitalsConfig();
+
   const makeTestPatientWithAge = (patientAge?: { units: 'years' | 'months'; value: number }): Patient => {
     const partialPatient: Partial<Patient> = {
       id: randomUUID(),
@@ -149,11 +154,6 @@ describe('testing vitals config validation', () => {
     );
   });
   suite('valid config files customize various behavior per expectations', () => {
-    beforeAll(() => {
-      const defaultVitalsDef = VitalsDef();
-      expect(defaultVitalsDef).toBeDefined();
-      assert(defaultVitalsDef);
-    });
     test.concurrent('setting critical alert thresholds and evaluating', async () => {
       const updatedChart = mutateVitals(
         [
@@ -194,7 +194,7 @@ describe('testing vitals config validation', () => {
             value: { value: 39, type: 'max', criticality: 'abnormal' },
           },
         ],
-        DefaultVitalsConfig
+        makeTestVitalsConfig()
       );
       const vitals = VitalsDef(updatedChart);
       expect(vitals).toBeDefined();
@@ -312,7 +312,7 @@ describe('testing vitals config validation', () => {
             },
           },
         ],
-        DefaultVitalsConfig
+        makeTestVitalsConfig()
       );
       const vitals = VitalsDef(updatedChart);
       expect(vitals).toBeDefined();
@@ -359,7 +359,7 @@ describe('testing vitals config validation', () => {
             },
           },
         ],
-        DefaultVitalsConfig
+        makeTestVitalsConfig()
       );
       const vitals2 = VitalsDef(updatedChart2);
       expect(vitals2).toBeDefined();
@@ -415,6 +415,7 @@ describe('testing vitals config validation', () => {
       patientDOB,
       vitalsObservation: tachyObservation,
       patientSex: teenPatient.gender,
+      configOverride: testVitalsConfig,
     });
 
     expect(criticality).toBe(VitalAlertCriticality.Abnormal);
@@ -435,6 +436,7 @@ describe('testing vitals config validation', () => {
       patientDOB,
       vitalsObservation: highRespObservation,
       patientSex: adultPatient.gender,
+      configOverride: testVitalsConfig,
     });
 
     expect(criticality).toBe(VitalAlertCriticality.Abnormal);
@@ -455,24 +457,29 @@ describe('testing vitals config validation', () => {
       patientDOB,
       vitalsObservation: lowWeightObservation,
       patientSex: adultPatient.gender,
+      configOverride: testVitalsConfig,
     });
 
     expect(criticality).toBe(VitalAlertCriticality.Abnormal);
   });
 
   suite('age boundary threshold selection', () => {
-    // These tests use respiration rate thresholds (not mutated by prior concurrent tests):
-    // 0–2 months: min 25, max 60
-    // 2–5 months: min 28, max 52
-    // 5–8 months: min 26, max 49
-    // At boundary points (e.g. exactly 2 months), only the older-age bracket should apply.
+    // These tests use the respiration rate thresholds, which no other test mutates.
+    // Abnormal (non-critical) bounds, by bracket:
+    //   0–3 months: low 30, high 60
+    //   3–6 months: low 28, high 52
+    //   6–9 months: low 26, high 49
+    // Brackets are half-open — minAge <= age < maxAge — so at a boundary age (exactly 3 or
+    // exactly 6 months) only the older bracket applies. Each boundary case below picks a value
+    // that alerts under the older bracket but not the younger one, so it can only pass if the
+    // older bracket won.
 
     test("patient in the middle of a threshold range gets that range's rules", () => {
       const patient = makeTestPatientWithAge({ units: 'months', value: 1 });
       const patientDOB = patient.birthDate;
       assert(patientDOB);
 
-      // 24 is below the 0–2 month min of 25, so it should alert
+      // 29 is at or below the 0–3 month low bound of 30, so it should alert
       const lowResp: VitalsRespirationRateObservationDTO = {
         patientId: patient.id,
         field: VitalFieldNames.VitalRespirationRate,
@@ -480,48 +487,63 @@ describe('testing vitals config validation', () => {
         resourceId: randomUUID(),
       };
       expect(
-        getVitalObservationAlertLevel({ patientDOB, vitalsObservation: lowResp, patientSex: patient.gender })
+        getVitalObservationAlertLevel({
+          patientDOB,
+          vitalsObservation: lowResp,
+          patientSex: patient.gender,
+          configOverride: testVitalsConfig,
+        })
       ).toBe(VitalAlertCriticality.Abnormal);
     });
 
     test('patient at exact boundary age gets the older-age-bracket threshold', () => {
-      // Patient is exactly 2 months old — sits on the boundary between 0–2 and 2–5
-      const patient = makeTestPatientWithAge({ units: 'months', value: 2 });
-      const patientDOB = patient.birthDate;
-      assert(patientDOB);
-
-      // 27 is below 2–5 month min (28) but above 0–2 month min (25).
-      // If the older bracket (2–5) applies, 27 SHOULD alert.
-      // If the younger bracket (0–2) applied instead, 27 would NOT alert (above 25).
-      const borderlineResp: VitalsRespirationRateObservationDTO = {
-        patientId: patient.id,
-        field: VitalFieldNames.VitalRespirationRate,
-        value: 27,
-        resourceId: randomUUID(),
-      };
-      expect(
-        getVitalObservationAlertLevel({ patientDOB, vitalsObservation: borderlineResp, patientSex: patient.gender })
-      ).toBe(VitalAlertCriticality.Abnormal);
-
-      // 29 is above the 2–5 month min (28) and below max (52), should NOT alert
-      const normalResp: VitalsRespirationRateObservationDTO = {
-        patientId: patient.id,
-        field: VitalFieldNames.VitalRespirationRate,
-        value: 31,
-        resourceId: randomUUID(),
-      };
-      expect(
-        getVitalObservationAlertLevel({ patientDOB, vitalsObservation: normalResp, patientSex: patient.gender })
-      ).toBeUndefined();
-    });
-
-    test('patient just past boundary gets the older-age-bracket threshold', () => {
-      // Patient is 3 months old — clearly in the 2–5 range
+      // Patient is exactly 3 months old — sits on the boundary between 0–3 and 3–6
       const patient = makeTestPatientWithAge({ units: 'months', value: 3 });
       const patientDOB = patient.birthDate;
       assert(patientDOB);
 
-      // 29 is above 2–5 month min (28), should NOT alert
+      // 55 is above the 3–6 month high bound (52) but below the 0–3 month one (60).
+      // If the older bracket (3–6) applies, 55 SHOULD alert.
+      // If the younger bracket (0–3) applied instead, 55 would NOT alert (below 60).
+      const borderlineResp: VitalsRespirationRateObservationDTO = {
+        patientId: patient.id,
+        field: VitalFieldNames.VitalRespirationRate,
+        value: 55,
+        resourceId: randomUUID(),
+      };
+      expect(
+        getVitalObservationAlertLevel({
+          patientDOB,
+          vitalsObservation: borderlineResp,
+          patientSex: patient.gender,
+          configOverride: testVitalsConfig,
+        })
+      ).toBe(VitalAlertCriticality.Abnormal);
+
+      // 40 sits inside the 3–6 month band (above low 28, below high 52), should NOT alert
+      const normalResp: VitalsRespirationRateObservationDTO = {
+        patientId: patient.id,
+        field: VitalFieldNames.VitalRespirationRate,
+        value: 40,
+        resourceId: randomUUID(),
+      };
+      expect(
+        getVitalObservationAlertLevel({
+          patientDOB,
+          vitalsObservation: normalResp,
+          patientSex: patient.gender,
+          configOverride: testVitalsConfig,
+        })
+      ).toBeUndefined();
+    });
+
+    test('patient just past boundary gets the older-age-bracket threshold', () => {
+      // Patient is 4 months old — clearly inside the 3–6 range
+      const patient = makeTestPatientWithAge({ units: 'months', value: 4 });
+      const patientDOB = patient.birthDate;
+      assert(patientDOB);
+
+      // 29 is above the 3–6 month low bound (28), should NOT alert
       const normalResp: VitalsRespirationRateObservationDTO = {
         patientId: patient.id,
         field: VitalFieldNames.VitalRespirationRate,
@@ -529,30 +551,40 @@ describe('testing vitals config validation', () => {
         resourceId: randomUUID(),
       };
       expect(
-        getVitalObservationAlertLevel({ patientDOB, vitalsObservation: normalResp, patientSex: patient.gender })
+        getVitalObservationAlertLevel({
+          patientDOB,
+          vitalsObservation: normalResp,
+          patientSex: patient.gender,
+          configOverride: testVitalsConfig,
+        })
       ).toBeUndefined();
     });
 
     test('second boundary also resolves to older-age bracket', () => {
-      // Patient is exactly 5 months — boundary between 2–5 (min 28, max 52) and 5–8 (min 26, max 49)
-      const patient = makeTestPatientWithAge({ units: 'months', value: 5 });
+      // Patient is exactly 6 months — boundary between 3–6 (low 28, high 52) and 6–9 (low 26, high 49)
+      const patient = makeTestPatientWithAge({ units: 'months', value: 6 });
       const patientDOB = patient.birthDate;
       assert(patientDOB);
 
-      // 50 is above 5–8 month max (49) but below 2–5 month max (52).
-      // If the older bracket (5–8) applies, 50 SHOULD alert.
-      // If the younger bracket (2–5) applied instead, 50 would NOT alert (below 52).
+      // 50 is above the 6–9 month high bound (49) but below the 3–6 month one (52).
+      // If the older bracket (6–9) applies, 50 SHOULD alert.
+      // If the younger bracket (3–6) applied instead, 50 would NOT alert (below 52).
       const borderlineHighResp: VitalsRespirationRateObservationDTO = {
         patientId: patient.id,
         field: VitalFieldNames.VitalRespirationRate,
-        value: 53,
+        value: 50,
         resourceId: randomUUID(),
       };
       expect(
-        getVitalObservationAlertLevel({ patientDOB, vitalsObservation: borderlineHighResp, patientSex: patient.gender })
+        getVitalObservationAlertLevel({
+          patientDOB,
+          vitalsObservation: borderlineHighResp,
+          patientSex: patient.gender,
+          configOverride: testVitalsConfig,
+        })
       ).toBe(VitalAlertCriticality.Abnormal);
 
-      // 48 is below 5–8 month max (49), should NOT alert
+      // 48 is below the 6–9 month high bound (49) and above its low bound (26), should NOT alert
       const normalResp: VitalsRespirationRateObservationDTO = {
         patientId: patient.id,
         field: VitalFieldNames.VitalRespirationRate,
@@ -560,12 +592,17 @@ describe('testing vitals config validation', () => {
         resourceId: randomUUID(),
       };
       expect(
-        getVitalObservationAlertLevel({ patientDOB, vitalsObservation: normalResp, patientSex: patient.gender })
+        getVitalObservationAlertLevel({
+          patientDOB,
+          vitalsObservation: normalResp,
+          patientSex: patient.gender,
+          configOverride: testVitalsConfig,
+        })
       ).toBeUndefined();
     });
 
     test('last open-ended threshold (no maxAge) still applies to older patients', () => {
-      // Respiration rate final threshold: minAge 215 months, no maxAge, min 11, max 21
+      // Respiration rate final threshold: minAge 18 years, no maxAge, low 11, high 21
       const patient = makeTestPatientWithAge({ units: 'years', value: 20 });
       const patientDOB = patient.birthDate;
       assert(patientDOB);
@@ -577,7 +614,12 @@ describe('testing vitals config validation', () => {
         resourceId: randomUUID(),
       };
       expect(
-        getVitalObservationAlertLevel({ patientDOB, vitalsObservation: highResp, patientSex: patient.gender })
+        getVitalObservationAlertLevel({
+          patientDOB,
+          vitalsObservation: highResp,
+          patientSex: patient.gender,
+          configOverride: testVitalsConfig,
+        })
       ).toBe(VitalAlertCriticality.Abnormal);
 
       const normalResp: VitalsRespirationRateObservationDTO = {
@@ -587,7 +629,12 @@ describe('testing vitals config validation', () => {
         resourceId: randomUUID(),
       };
       expect(
-        getVitalObservationAlertLevel({ patientDOB, vitalsObservation: normalResp, patientSex: patient.gender })
+        getVitalObservationAlertLevel({
+          patientDOB,
+          vitalsObservation: normalResp,
+          patientSex: patient.gender,
+          configOverride: testVitalsConfig,
+        })
       ).toBeUndefined();
     });
   });
