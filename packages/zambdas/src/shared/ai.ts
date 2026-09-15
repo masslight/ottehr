@@ -153,6 +153,12 @@ export async function invokeChatbotVertexAI(
 
   let resolved = false;
   let terminal = false; // a non-retryable status came back; further attempts would just resend the payload
+  // Promise.any cannot reject until every attempt has, so on its own a rejected terminal attempt left the
+  // caller waiting out the later attempts' backoff sleeps. Racing this against the ladder surfaces it now.
+  let failTerminally: (error: Error) => void = () => undefined;
+  const terminalFailure = new Promise<never>((_resolve, reject) => {
+    failTerminally = reject;
+  });
   const requests = backoffTimes.map(async (backoffTime) => {
     await new Promise((resolve) => setTimeout(resolve, backoffTime));
 
@@ -182,17 +188,49 @@ export async function invokeChatbotVertexAI(
         }
       );
 
-      if (!response.ok && shouldRetry(response.status)) {
-        // Carry Vertex's own message: if every attempt fails this is all the caller gets to go on.
-        throw new Error(`Retryable error: ${response.status} ${(await response.text()).slice(0, 500)}`);
+      if (!response.ok) {
+        const errorBody = await response.text();
+        if (shouldRetry(response.status)) {
+          // Carry Vertex's own message: if every attempt fails this is all the caller gets to go on.
+          throw new Error(`Retryable error: ${response.status} ${errorBody.slice(0, 500)}`);
+        }
+        terminal = true;
+        const failure = new Error(
+          `Vertex AI request failed: ${response.status} ${response.statusText} ${errorBody.slice(0, 1000)}`
+        );
+        failTerminally(failure);
+        throw failure;
       }
 
-      if (response.ok) {
-        resolved = true;
-      } else {
-        terminal = true;
+      const body = await response.text();
+      // Size only: on a transcription call the body is the transcript, which is PHI.
+      console.log(`Vertex AI responded with ${body.length} bytes`);
+
+      let parsed: any;
+      try {
+        parsed = JSON.parse(body);
+      } catch {
+        // A proxy's HTML error page or a truncated response would otherwise throw a bare SyntaxError.
+        throw new Error(`Vertex AI returned a non-JSON body: ${body.slice(0, 1000)}`);
       }
-      return response;
+
+      const candidate = parsed?.candidates?.[0];
+      const text = candidate?.content?.parts?.[0]?.text;
+      // Whitespace-only output satisfies every downstream caller's type but dies in the JSON parse or lands a
+      // blank transcript on the chart.
+      if (typeof text !== 'string' || text.trim().length === 0) {
+        // Everything outside `candidates` is metadata — quota, model build, response id, prompt feedback — and
+        // reporting it whole is what names the cause; hand-picking a field or two left `{}`. `candidates` is
+        // dropped wholesale because any of them can hold partial or whole transcript, which must not reach a
+        // log or Sentry. The cap bounds a gateway envelope that echoes the request back — on the transcription
+        // path, the base64 audio.
+        const { candidates: _candidates, ...metadata } = parsed ?? {};
+        const reason = JSON.stringify({ finishReason: candidate?.finishReason, ...metadata }).slice(0, 1000);
+        throw new Error(`Vertex AI returned no text: ${reason}`);
+      }
+
+      resolved = true;
+      return text;
     } catch (error) {
       // One attempt failing is not an incident — the ladder exists because Vertex sheds load with 429s and a
       // later attempt usually succeeds. Keep it in the log for the trace, but don't report it: reporting here
@@ -203,47 +241,18 @@ export async function invokeChatbotVertexAI(
     }
   });
 
-  let settled: Response;
   try {
-    settled = await Promise.any(requests);
+    return await Promise.race([Promise.any(requests), terminalFailure]);
   } catch (error) {
+    // Only Promise.any rejects with an AggregateError; anything else came from the terminal signal. Such a
+    // status is its own diagnosis, and wrapping it in the ladder's message would bury it and group it with
+    // exhausted ladders in Sentry.
+    if (!(error instanceof AggregateError)) throw error;
     // AggregateError's own message is just "All promises were rejected", so unpack the reasons — otherwise
     // the most common failure mode stays as opaque as the TypeError this used to throw.
-    const reasons =
-      error instanceof AggregateError
-        ? error.errors.map((reason) => (reason instanceof Error ? reason.message : String(reason)))
-        : [error instanceof Error ? error.message : String(error)];
+    const reasons = error.errors.map((reason) => (reason instanceof Error ? reason.message : String(reason)));
     throw new Error(`Vertex AI request failed after ${requests.length} attempts: ${reasons.join('; ')}`);
   }
-
-  const body = await settled.text();
-  // Unchecked, an error body fell through to `candidates[0]` and every Vertex failure surfaced as
-  // `TypeError: Cannot read properties of undefined` with an empty stack.
-  if (!settled.ok) {
-    throw new Error(`Vertex AI request failed: ${settled.status} ${settled.statusText} ${body.slice(0, 1000)}`);
-  }
-
-  // Size only: on a transcription call the body is the transcript, which is PHI.
-  console.log(`Vertex AI responded with ${body.length} bytes`);
-  let response: any;
-  try {
-    response = JSON.parse(body);
-  } catch {
-    // A proxy's HTML error page or a truncated response would otherwise throw a bare SyntaxError.
-    throw new Error(`Vertex AI returned a non-JSON body: ${body.slice(0, 1000)}`);
-  }
-  const text = response?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (typeof text !== 'string') {
-    // No candidate text means the model refused or was cut off (safety block, MAX_TOKENS finishReason).
-    // Report the reason, not the body — a cut-off candidate can still carry partial transcript.
-    const reason = JSON.stringify({
-      finishReason: response?.candidates?.[0]?.finishReason,
-      promptFeedback: response?.promptFeedback,
-      usageMetadata: response?.usageMetadata,
-    });
-    throw new Error(`Vertex AI returned no text: ${reason}`);
-  }
-  return text;
 }
 
 /**
