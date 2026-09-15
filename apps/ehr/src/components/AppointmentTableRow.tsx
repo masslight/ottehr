@@ -1,7 +1,7 @@
 import { progressNoteIcon } from '@ehrTheme/icons';
 import CallSplitIcon from '@mui/icons-material/CallSplit';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckIcon from '@mui/icons-material/Check';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
 import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
@@ -9,6 +9,7 @@ import { LoadingButton } from '@mui/lab';
 import {
   Badge,
   Box,
+  Button,
   capitalize,
   darken,
   Grid,
@@ -755,29 +756,33 @@ export default function AppointmentTableRow({
       user?.profileResource &&
       isEligibleSupervisor(user.profileResource!, appointment.attenderProviderType)
     ) {
-      return (
-        <GoToButton
-          text="Approve"
-          loading={approveButtonLoading || isSignLoading}
-          onClick={handleApprove}
-          dataTestId={dataTestIds.dashboard.approveButton}
-        >
-          <CheckCircleOutlineIcon />
-        </GoToButton>
+      return renderActionButton(
+        'Approve',
+        handleApprove,
+        dataTestIds.dashboard.approveButton,
+        approveButtonLoading || isSignLoading
       );
     } else if (appointment.status === 'completed' && appointment.approvalDate) {
       return (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            color: theme.palette.text.secondary,
-          }}
-        >
-          <Typography align="center">Approved</Typography>
-          <Typography align="center">{mdyStringFromISOString(appointment.approvalDate)}</Typography>
-        </Box>
+        <Tooltip title={`Approved ${mdyStringFromISOString(appointment.approvalDate)}`} placement="top">
+          <span>
+            <Button
+              disabled
+              variant="contained"
+              startIcon={<CheckIcon />}
+              sx={{
+                borderRadius: 8,
+                textTransform: 'none',
+                fontSize: '15px',
+                fontWeight: 500,
+                whiteSpace: 'nowrap',
+                px: 2.5,
+              }}
+            >
+              Approved
+            </Button>
+          </span>
+        </Tooltip>
       );
     }
     return undefined;
