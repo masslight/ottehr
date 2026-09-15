@@ -14,7 +14,7 @@ import { EMPTY_MAPPING, FormTemplateMapping } from 'utils/lib/form-tokens/mappin
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { ReplaceFormTemplatePdfInput, ReplaceFormTemplatePdfOutput } from 'utils/lib/types/api/form-template.types';
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { FORM_TEMPLATE_REJECTED_ERRORS, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken, requireAdminTierUser } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -105,14 +105,19 @@ const performEffect = async (
   const { status, fields, normalized } = await analyzeFormTemplatePdf(new Uint8Array(await response.arrayBuffer()));
 
   if (isRejectedAnalysis(status)) {
-    // Discard the candidate and leave the template exactly as it was.
+    // Discard the candidate first, then throw. The template is left exactly as it was, so the caller
+    // needs the reason rather than an output object describing a replacement that did not happen.
     try {
       await deleteZ3Object(candidateUrl, token);
     } catch (cleanupErr) {
       console.warn('Failed to remove a rejected replacement PDF', candidateUrl, cleanupErr);
       captureException(cleanupErr, { extra: { zambda: ZAMBDA_NAME, documentReferenceId, candidateUrl } });
     }
-    return { documentReferenceId, status, fields: [], droppedBindings: [], returnedToDraft: false };
+
+    // The reason, plus the one thing it does not know: this endpoint replaces rather than creates, so
+    // the administrator needs telling that the template they were editing is still intact.
+    const rejection = FORM_TEMPLATE_REJECTED_ERRORS[status];
+    throw { ...rejection, message: `${rejection.message} The existing PDF has been kept.` };
   }
 
   if (normalized?.changed) {

@@ -11,7 +11,7 @@ import {
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { AnalyzeFormTemplateInput, AnalyzeFormTemplateOutput } from 'utils/lib/types/api/form-template.types';
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { FORM_TEMPLATE_REJECTED_ERRORS, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken, requireAdminTierUser } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -88,8 +88,8 @@ const performEffect = async (
   const { status, fields, normalized } = await analyzeFormTemplatePdf(bytes);
 
   if (isRejectedAnalysis(status)) {
-    // Nothing about this upload is usable, so leave nothing behind. The template was only ever a draft,
-    // so no chart has seen it and no mapping can reference it.
+    // Cleanup first, then throw. Nothing about this upload is usable, so leave nothing behind — the
+    // template was only ever a draft, so no chart has seen it and no mapping can reference it.
     await oystehr.fhir.delete({ resourceType: 'DocumentReference', id: documentReferenceId });
     try {
       await deleteZ3Object(z3Url, token);
@@ -99,7 +99,10 @@ const performEffect = async (
       // so it has to be visible somewhere other than a log nobody reads.
       captureException(cleanupErr, { extra: { zambda: ZAMBDA_NAME, documentReferenceId, z3Url } });
     }
-    return { documentReferenceId, status, fields: [] };
+
+    // Thrown rather than returned: there is no template left to describe, so every other field of the
+    // output would be meaningless. `topLevelCatch` passes an `APIError` through to the caller intact.
+    throw FORM_TEMPLATE_REJECTED_ERRORS[status];
   }
 
   // Normalization rewrites the file (today only to drop a redundant XFA layer), so the stored object has

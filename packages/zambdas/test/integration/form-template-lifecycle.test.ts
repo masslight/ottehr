@@ -10,6 +10,7 @@ import {
   GetFormTemplateDetailOutput,
   ListFormTemplatesOutput,
 } from 'utils/lib/types/api/form-template.types';
+import { APIErrorCode, FORM_TEMPLATE_REJECTED_ERRORS } from 'utils/lib/types/errors';
 import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
@@ -224,6 +225,80 @@ describe('form template lifecycle integration', () => {
     expect(stored.content?.[0]?.attachment?.url).toContain(created.objectName);
     expect(stored.content?.[0]?.attachment?.url).not.toContain(replacement.objectName);
     expect(stored.docStatus).toBe('preliminary');
+  });
+
+  it('rejects an unusable PDF with a reason, and leaves nothing behind', async () => {
+    // The one path where the endpoint throws rather than returns. Worth an integration test specifically
+    // because both halves of it cross a boundary a unit test cannot: the reason has to survive the wire as
+    // a structured error rather than becoming a generic 500, and the draft record has to actually be gone.
+    const created = await presign({ title: 'Not really a PDF', fileName: 'broken.pdf' });
+    createdTemplateIds.push(created.documentReferenceId);
+    await tagForCleanup(created.documentReferenceId);
+    await putPdf(created.presignedUploadUrl, new TextEncoder().encode('this is not a pdf'));
+
+    let caught: any;
+    try {
+      await oystehrZambdas.zambda.execute({
+        id: 'analyze-form-template',
+        documentReferenceId: created.documentReferenceId,
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught, 'analysing bytes that are not a PDF should throw').toBeDefined();
+    // The SDK nests a zambda's error under `output`; either shape is acceptable, an unrecognisable one is not.
+    const apiError = caught?.output ?? caught;
+    expect(apiError.code).toBe(APIErrorCode.FORM_TEMPLATE_UNREADABLE);
+    expect(apiError.message).toBe(FORM_TEMPLATE_REJECTED_ERRORS.unreadable.message);
+
+    // Read by id rather than through the listing: this is a delete, and the listing is search-backed and
+    // would need polling to say anything trustworthy about one.
+    await expect(
+      oystehrAdmin.fhir.get<DocumentReference>({ resourceType: 'DocumentReference', id: created.documentReferenceId }),
+      'the draft should be deleted, not left as an orphan pointing at unusable bytes'
+    ).rejects.toBeDefined();
+  });
+
+  it('refuses an unusable replacement and leaves the template pointing at its working PDF', async () => {
+    const created = await presign({ title: 'Keeps its original', fileName: 'original.pdf' });
+    createdTemplateIds.push(created.documentReferenceId);
+    await tagForCleanup(created.documentReferenceId);
+    await putPdf(created.presignedUploadUrl, await acroFormPdf());
+    await oystehrZambdas.zambda.execute({
+      id: 'analyze-form-template',
+      documentReferenceId: created.documentReferenceId,
+    });
+
+    const candidate = await presign({
+      documentReferenceId: created.documentReferenceId,
+      fileName: 'broken.pdf',
+    });
+    await putPdf(candidate.presignedUploadUrl, new TextEncoder().encode('this is not a pdf'));
+
+    let caught: any;
+    try {
+      await oystehrZambdas.zambda.execute({
+        id: 'replace-form-template-pdf',
+        documentReferenceId: created.documentReferenceId,
+        objectName: candidate.objectName,
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught, 'replacing with bytes that are not a PDF should throw').toBeDefined();
+    const apiError = caught?.output ?? caught;
+    expect(apiError.code).toBe(APIErrorCode.FORM_TEMPLATE_UNREADABLE);
+    // Unlike analysis, a rejected replacement leaves something behind on purpose, and says so.
+    expect(apiError.message).toContain('The existing PDF has been kept.');
+
+    const stored = await oystehrAdmin.fhir.get<DocumentReference>({
+      resourceType: 'DocumentReference',
+      id: created.documentReferenceId,
+    });
+    expect(stored.content?.[0]?.attachment?.url).toContain(created.objectName);
+    expect(stored.content?.[0]?.attachment?.url).not.toContain(candidate.objectName);
   });
 
   describe('input shape', () => {

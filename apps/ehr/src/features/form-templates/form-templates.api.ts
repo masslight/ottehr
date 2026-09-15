@@ -11,8 +11,6 @@ import {
   DeleteFormTemplateOutput,
   FillFormTemplateInput,
   FillFormTemplateOutput,
-  FormTemplateAnalysisStatus,
-  FormTemplateRejection,
   GetFormTemplateDetailInput,
   GetFormTemplateDetailOutput,
   ListFormTemplatesInput,
@@ -251,37 +249,10 @@ export const replaceFormTemplateWithPdf = async (
     throw await uploadFailure(uploadResponse, 'PDF');
   }
 
-  const result = await replaceFormTemplatePdf(oystehr, { documentReferenceId, objectName: candidate.objectName });
-
-  const rejection = rejectionMessage(result.status);
-  if (rejection) {
-    throw new Error(`${rejection} The existing PDF has been kept.`);
-  }
-
-  return result;
+  // An unusable replacement comes back as a typed API error explaining why, and the template is left
+  // untouched — so there is nothing to check here beyond letting that error through.
+  return replaceFormTemplatePdf(oystehr, { documentReferenceId, objectName: candidate.objectName });
 };
-
-/**
- * Why a PDF could not be accepted, in terms an administrator can act on.
- *
- * Keyed by `FormTemplateRejection`, so a status added to the analysis union without a message here fails
- * the build instead of reading as an acceptance.
- */
-export const REJECTION_MESSAGES: Record<FormTemplateRejection, string> = {
-  encrypted:
-    'This PDF needs a password to open, so its fields cannot be read. Please upload a copy that opens without one.',
-  fillingNotPermitted:
-    'The publisher of this PDF has disallowed filling in its form fields, so it cannot be prefilled. Please use a copy that permits form filling.',
-  certified:
-    'This PDF carries a certifying signature, and prefilling it would invalidate that signature — recipients would see the form flagged as altered. Please use an unsigned copy of the form.',
-  dynamicXfa:
-    'This PDF uses Adobe’s dynamic XFA format, which browsers cannot display. Please upload a standard PDF version of the form.',
-  unreadable: 'This file could not be read as a PDF. Please check the file and try again.',
-};
-
-/** Why this template cannot be accepted, or nothing when it can. */
-export const rejectionMessage = (status: FormTemplateAnalysisStatus): string | undefined =>
-  status === 'fillable' || status === 'printable' ? undefined : REJECTION_MESSAGES[status];
 
 /**
  * Creates the template record, uploads its PDF, then analyzes it.
@@ -309,12 +280,9 @@ export const createFormTemplateWithPdf = async (
     throw await uploadFailure(uploadResponse, 'PDF');
   }
 
+  // Analysis deletes the record and throws a typed API error if the PDF cannot be used, so reaching the
+  // line below means the template exists and is usable.
   const analysis = await analyzeFormTemplate(oystehr, { documentReferenceId: created.documentReferenceId });
-
-  const rejection = rejectionMessage(analysis.status);
-  if (rejection) {
-    throw new Error(rejection);
-  }
 
   return { created, analysis };
 };

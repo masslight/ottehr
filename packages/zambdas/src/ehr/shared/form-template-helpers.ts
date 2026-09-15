@@ -99,7 +99,9 @@ const REJECTED_ANALYSIS: Record<FormTemplateRejection, true> = {
   unreadable: true,
 };
 
-export const isRejectedAnalysis = (status: FormTemplateAnalysisStatus): boolean => status in REJECTED_ANALYSIS;
+/** A type guard, so a caller inside the branch can index the rejection map without asserting. */
+export const isRejectedAnalysis = (status: FormTemplateAnalysisStatus): status is FormTemplateRejection =>
+  status in REJECTED_ANALYSIS;
 
 /**
  * Object name for a template's PDF. The UUID keeps two same-day uploads of one file name apart.

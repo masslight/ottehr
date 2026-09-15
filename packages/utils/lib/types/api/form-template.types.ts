@@ -252,6 +252,9 @@ export type FormTemplateAnalysisStatus =
  */
 export type FormTemplateRejection = Exclude<FormTemplateAnalysisStatus, 'fillable' | 'printable'>;
 
+/** The other half: what a template that was accepted can be. */
+export type FormTemplateAccepted = Exclude<FormTemplateAnalysisStatus, FormTemplateRejection>;
+
 export interface FormTemplateAnalysis {
   status: FormTemplateAnalysisStatus;
   fields: FormFieldInfo[];
@@ -261,8 +264,13 @@ export interface AnalyzeFormTemplateInput {
   documentReferenceId: string;
 }
 
-export interface AnalyzeFormTemplateOutput extends FormTemplateAnalysis {
+/**
+ * Narrower than the stored `FormTemplateAnalysis` it extends: a rejected analysis is thrown rather than
+ * returned, and the template is deleted, so this can only ever describe one that survived.
+ */
+export interface AnalyzeFormTemplateOutput extends Omit<FormTemplateAnalysis, 'status'> {
   documentReferenceId: string;
+  status: FormTemplateAccepted;
 }
 
 export interface GetFormTemplateDetailInput {
@@ -306,7 +314,8 @@ export interface ReplaceFormTemplatePdfInput {
 
 export interface ReplaceFormTemplatePdfOutput {
   documentReferenceId: string;
-  status: FormTemplateAnalysisStatus;
+  /** Only an accepted status: a rejected replacement throws and leaves the template untouched. */
+  status: FormTemplateAccepted;
   fields: FormFieldInfo[];
   /**
    * Fields the old mapping referred to that the new PDF does not contain. Their bindings are removed:
