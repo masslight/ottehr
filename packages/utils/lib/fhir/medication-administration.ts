@@ -404,10 +404,20 @@ export function getCptCodesFromMA(
   const ext = medicationAdministration.extension?.find((e) => e.url === MEDICATION_CPT_CODES_EXTENSION_URL);
   if (!ext?.valueString) return undefined;
   try {
-    return JSON.parse(ext.valueString) as MedicationCptCodeEntry[];
+    const parsed = JSON.parse(ext.valueString);
+    return Array.isArray(parsed) ? (parsed as MedicationCptCodeEntry[]) : undefined;
   } catch {
     return undefined;
   }
+}
+
+/** Returns the CPT entry designated as the drug itself; falls back to the first entry, matching UI behavior. */
+export function getMedicationCptEntryFromMA(
+  medicationAdministration: MedicationAdministration
+): MedicationCptCodeEntry | undefined {
+  const entries = getCptCodesFromMA(medicationAdministration);
+  if (!entries || entries.length === 0) return undefined;
+  return entries.find((entry) => entry.isMedication) ?? entries[0];
 }
 
 export function getNdcCodeFromMedication(medication: Medication): string | undefined {
