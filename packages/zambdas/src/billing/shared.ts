@@ -598,12 +598,24 @@ export function deriveClaimBillablePeriod(items: ClaimItem[] | undefined): Perio
 // Re-point careTeam sequence 1 (the rendering provider) at `provider`, preserving other members,
 // and point every service line at it. The one careTeam shape both the claim editor
 // (update-billing-claim) and the rules engine write.
+// Mark rendering provider as an attending provider.
 export function setClaimRenderingProviderCareTeam(claim: Claim, provider: Reference): void {
   claim.careTeam = [
     {
       sequence: 1,
       provider,
-      role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
+      role: {
+        coding: [
+          {
+            system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+            code: '82',
+          },
+          {
+            system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+            code: '71',
+          },
+        ],
+      },
     },
     ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
   ];

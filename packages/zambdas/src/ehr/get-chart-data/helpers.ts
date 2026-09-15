@@ -217,7 +217,9 @@ export async function convertSearchResultsToResponse(
     patientId,
     ...(fields
       ? {
-          ...Object.fromEntries(fields.map((field) => [field, []])),
+          ...Object.fromEntries(
+            fields.map((field) => [field, field === 'aiChat' ? { documents: [], providers: [] } : []])
+          ),
           practitioners: [],
         }
       : {
