@@ -117,7 +117,11 @@ export function getLatestTaskOutput(task: Task): { type: 'error' | 'success'; me
   return undefined;
 }
 
-export function getInvoiceTaskOutputs(task: Task): { invoiceId?: string; error?: string } {
+export function getInvoiceTaskOutputs(task: Task): {
+  invoiceId?: string;
+  error?: string;
+  stripeInvoiceStatus?: string;
+} {
   const outputs = task.output ?? [];
   const invoiceId = outputs
     .slice()
@@ -127,5 +131,9 @@ export function getInvoiceTaskOutputs(task: Task): { invoiceId?: string; error?:
     .slice()
     .reverse()
     .find((o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputError))?.valueString;
-  return { invoiceId, error };
+  const stripeInvoiceStatus = outputs
+    .slice()
+    .reverse()
+    .find((o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.stripeInvoiceStatus))?.valueString;
+  return { invoiceId, error, stripeInvoiceStatus };
 }

@@ -142,7 +142,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       type: RcmTaskCodings.sendInvoiceOutputInvoiceId,
       valueString: invoiceResponse.id,
     };
-    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), [invoiceEntry]);
+    const stripeStatusEntry: TaskOutput = {
+      type: RcmTaskCodings.stripeInvoiceStatus,
+      valueString: sendInvoiceResponse.status ?? 'open',
+    };
+    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), [
+      invoiceEntry,
+      stripeStatusEntry,
+    ]);
     console.log('Task status and output updated');
 
     // Trigger statement generation explicitly so it only runs on a real send, not on refreshes.
