@@ -1843,9 +1843,9 @@ const parseObservationForPDF = (
     // some labs like Quest send ratios this way. We could get a value like 1:180 for a titer, or something like 7/8.
     // check the extension for the separator
 
-    const formatRatioValue = (ratioVal: Quantity | undefined): string => {
+    const formatRatioValue = (ratioVal: Quantity | undefined, includeUnit: boolean): string => {
       if (!ratioVal) return '';
-      return ratioVal.value?.toString() ?? 'Unknown';
+      return `${ratioVal.value?.toString() ?? 'Unknown'}${includeUnit && ratioVal.code ? ` ${ratioVal.code}` : ''}`;
     };
 
     const separator = observation.valueRatio.extension?.find(
@@ -1856,12 +1856,18 @@ const parseObservationForPDF = (
     if (!numerator) console.warn(`Observation/${observation.id} had a missing valueRatio.numerator`);
     if (!denominator) console.warn(`Observation/${observation.id} had a missing valueRatio.denominator`);
 
-    // consolidate the unit, otherwise you end up with "1 titer : 180 titer" which isn't correct
-    const consolidatedUnit = numerator?.code === denominator?.code ? numerator?.code : undefined;
+    // if the units are the same, we will consolidate them.
+    // Otherwise we'll render the unit for both the numerator and denominator
+    const includeUnit = numerator?.code === denominator?.code;
 
-    value = `${formatRatioValue(numerator)}${separator ?? ' '}${formatRatioValue(denominator)}${
-      consolidatedUnit ? ` ${consolidatedUnit}` : ''
-    }`;
+    // if the units are the same, can just grab one to consolidate
+    // we consolidate the unit because otherwise you end up with "1 titer : 180 titer" which isn't correct
+    const consolidatedUnit = numerator?.code;
+
+    value = `${formatRatioValue(numerator, includeUnit)}${separator ?? ' '}${formatRatioValue(
+      denominator,
+      includeUnit
+    )}${includeUnit && consolidatedUnit ? ` ${consolidatedUnit}` : ''}`;
   } else if (!isObrNoteObs(observation)) {
     console.error(`Observation/${observation.id} has an unrecognized value type`);
   }
