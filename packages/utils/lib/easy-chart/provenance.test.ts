@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findingPolarity, quoteOccursInNarrative, rosPolarity, verifiedSourceText } from './provenance';
+import { findingPolarity, locateQuote, quoteOccursInNarrative, rosPolarity, verifiedSourceText } from './provenance';
 
 const NARRATIVE =
   'Seven-year-old male here with two days of sore throat and fever to 102. No cough, no runny nose. ' +
@@ -65,5 +65,44 @@ describe('rosPolarity', () => {
   it('falls back to the enum only when the text carries no verb', () => {
     expect(rosPolarity('chest pain', 'denies')).toBe('denies');
     expect(rosPolarity('chest pain')).toBeUndefined();
+  });
+});
+
+describe('locateQuote', () => {
+  const narrative =
+    'Provider: Any fever?\nPatient: “No fever.”  I checked, a couple of times.\nPatient: I’m about 170 pounds.';
+  const slice = (quote: string): string | undefined => {
+    const at = locateQuote(narrative, quote);
+    return at && narrative.slice(at.start, at.end);
+  };
+
+  it('returns offsets into the original text', () => {
+    expect(slice('No fever.')).toBe('No fever.');
+    expect(slice("I'm about 170 pounds")).toBe('I’m about 170 pounds');
+  });
+
+  it('ignores case, punctuation and whitespace, exactly as verification does', () => {
+    expect(slice('no fever')).toBe('No fever');
+    expect(slice('i checked a couple of times')).toBe('I checked, a couple of times');
+    // Wording is not noise: a quote that is not really there is not found.
+    expect(locateQuote(narrative, 'no fevers')).toBeUndefined();
+    expect(locateQuote(narrative, '')).toBeUndefined();
+  });
+
+  it('agrees with quoteOccursInNarrative on every quote', () => {
+    for (const quote of [
+      'No fever.',
+      'a couple of times',
+      'checked a couple',
+      'no fevers',
+      'about 170 pounds!',
+      'Patient: I’m',
+    ]) {
+      expect(locateQuote(narrative, quote) !== undefined, quote).toBe(quoteOccursInNarrative(quote, narrative));
+    }
+  });
+
+  it('finds a quote that crosses a line break', () => {
+    expect(slice('times. Patient: I’m')).toBe('times.\nPatient: I’m');
   });
 });

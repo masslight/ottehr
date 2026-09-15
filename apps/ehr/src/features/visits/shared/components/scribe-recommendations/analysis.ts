@@ -16,6 +16,7 @@ import { NOTE_FIELD_LABELS, overwritesWrittenNoteField } from 'utils/lib/easy-ch
 import { findingPolarity } from 'utils/lib/easy-chart/provenance';
 import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
+import { buildTranscriptNarrative } from './transcriptNarrative';
 import { RecommendationSource, ScribeAnalysis, ScribeRecommendation, ScribeSectionKey } from './types';
 
 export interface AnalysisContext {
@@ -27,6 +28,11 @@ export interface AnalysisContext {
   written: Record<string, string | undefined>;
   /** Defaults to the ROS config's own catalogue; injectable for tests. */
   rosCatalogue?: RosCatalogueEntry[];
+  /**
+   * The transcript the actions were read from. When given, the analysis carries a narrative: the transcript
+   * itself, with every recommendation's verbatim quote highlighted and linked to it.
+   */
+  transcript?: string;
 }
 
 /** Kinds that speak to the provider rather than to the chart. Never a recommendation: shown as a note. */
@@ -135,7 +141,7 @@ function resolveRosEntry(action: PlannedAction, catalogue: RosCatalogueEntry[]):
 }
 
 /** The second line of a generic row, for the kinds whose step label alone does not say what will be charted. */
-function secondaryOf(action: PlannedAction): string | undefined {
+export function actionSecondary(action: PlannedAction): string | undefined {
   switch (action.kind) {
     case 'set-disposition':
       return action.text;
@@ -240,7 +246,7 @@ function toRecommendation(
       break;
   }
 
-  return { ...base, kind: 'action', label: describeAction(action), secondary: secondaryOf(action) };
+  return { ...base, kind: 'action', label: describeAction(action), secondary: actionSecondary(action) };
 }
 
 const normalize = (value: string | undefined): string => (value ?? '').trim().toLowerCase();
@@ -336,7 +342,13 @@ export function buildAnalysis(
     rejected.push(...review.rejected);
   }
 
-  return { narrative: [], recommendations, orderSuggestions: [], rejected, notes };
+  return {
+    narrative: options.transcript ? buildTranscriptNarrative(options.transcript, recommendations) : [],
+    recommendations,
+    orderSuggestions: [],
+    rejected,
+    notes,
+  };
 }
 
 /**

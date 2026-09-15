@@ -1,10 +1,6 @@
 import { aiIcon } from '@ehrTheme/icons';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   Box,
   Button,
@@ -222,14 +218,12 @@ const ResultsStep: FC = () => {
 
   const stages: ReactNode[] = [];
 
-  // The story of the visit — or, until the model tells one, what it found in the transcript — comes
-  // first, with the one button that charts the whole review. Every stage below is a piece of it made
+  // The story of the visit comes first — the transcript, with the phrases the recommendations came from
+  // highlighted — with the one button that charts the whole review. Every stage below is a piece of it made
   // actionable. Whatever the assistant said rather than charted is read here too.
   const lead =
-    narrative.length > 0
-      ? 'Here’s what I heard in the visit.'
-      : recommendations.length > 0
-      ? 'Here’s what I found in the transcript.'
+    recommendations.length > 0
+      ? 'Here’s what I heard. The highlighted phrases are what the recommendations came from.'
       : 'I couldn’t find anything chartable in that transcript.';
   stages.push(
     <ScribeStage key="summary" name="summary" lead={lead}>
@@ -396,44 +390,25 @@ const RejectedList: FC<{ rejected: RejectedAction[] }> = ({ rejected }) => (
   </ScribeStage>
 );
 
+/** The transcript itself is read in the first stage below; up here is only how long it is and the way back to it. */
 const TranscriptSummary: FC<{ transcript: string }> = ({ transcript }) => {
   const resetAnalysis = useScribeRecommendationsStore((state) => state.resetAnalysis);
   const isApplying = useScribeRecommendationsStore((state) => state.isApplying);
 
   return (
-    <Accordion variant="outlined" disableGutters sx={{ '&:before': { display: 'none' } }}>
-      <AccordionSummary
-        expandIcon={<ExpandMoreIcon />}
-        sx={{ minHeight: 40, '& .MuiAccordionSummary-content': { my: 0.5 } }}
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
+      <Typography variant="caption" color="text.secondary">
+        Transcript · {transcript.trim().split(/\s+/).length} words
+      </Typography>
+      <Button
+        size="small"
+        onClick={resetAnalysis}
+        disabled={isApplying}
+        sx={{ textTransform: 'none', minWidth: 0, p: 0, fontSize: 12 }}
+        data-testid={testIds.editTranscriptButton}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, gap: 1 }}>
-          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-            Transcript
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {transcript.trim().split(/\s+/).length} words
-          </Typography>
-        </Box>
-      </AccordionSummary>
-      <AccordionDetails sx={{ pt: 0 }}>
-        <Typography
-          variant="body2"
-          sx={{ whiteSpace: 'pre-wrap', maxHeight: 220, overflowY: 'auto', color: 'text.secondary' }}
-        >
-          {transcript}
-        </Typography>
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-          <Button
-            size="small"
-            onClick={resetAnalysis}
-            disabled={isApplying}
-            sx={{ textTransform: 'none' }}
-            data-testid={testIds.editTranscriptButton}
-          >
-            Edit transcript &amp; run again
-          </Button>
-        </Box>
-      </AccordionDetails>
-    </Accordion>
+        Edit transcript &amp; run again
+      </Button>
+    </Box>
   );
 };

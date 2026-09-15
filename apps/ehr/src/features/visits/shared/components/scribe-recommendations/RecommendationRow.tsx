@@ -24,6 +24,7 @@ import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-pe
 import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
 import { DiagnosesField } from '../assessment-tab/DiagnosesField';
 import { TemplateOption } from '../templates/useListTemplates';
+import { actionEditPatch, editableActionText, withEditedText } from './actionEdits';
 import { hasProvenance, ProvenanceContent } from './Provenance';
 import {
   RecommendationItemState,
@@ -106,8 +107,13 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
   const isApplying = itemState.status === 'applying';
   // Settled either way: this panel wrote it, or it was there already.
   const isDone = isApplied || charted;
-  // A generic action row has no editor: it is applied as the executor's own step, or unticked.
-  const canEdit = !isDone && !isApplying && !locked && recommendation.kind !== 'action';
+  // A generic action row is edited by its wording, where the wording is what the executor acts on; a coded
+  // one (an E&M level, a coded history item) has nothing to edit and is applied as is, or unticked.
+  const canEdit =
+    !isDone &&
+    !isApplying &&
+    !locked &&
+    (recommendation.kind !== 'action' || editableActionText(recommendation.action) !== undefined);
 
   // A template the environment doesn't have can't be applied; say so before the provider tries.
   const templateMissing =
@@ -157,6 +163,9 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
   };
 
   const canStartEditing = canEdit && !isEditing;
+  // A pending row carries its box in the editor. A generic action row has no editor to carry it, so the box
+  // stays on the line — it is still the provider's to leave out.
+  const showCheckbox = isEditing || isDone || recommendation.kind === 'action';
 
   // Closing is saving: there is nothing to cancel, so an empty patch is simply an untouched row.
   const closeEditor = (patch?: Partial<ScribeRecommendation>): void => {
@@ -189,7 +198,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
       {/* A pending row carries no box to tick: it is read, and opened when it needs changing.
           The slot is held open so the green of a settled row doesn't shunt the line beside it. */}
       <Box sx={{ width: 28, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
-        {(isEditing || isDone) && (
+        {showCheckbox && (
           <Checkbox
             size="small"
             checked={isDone || itemState.selected}
@@ -398,6 +407,8 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
         return recommendation.name;
       case 'vital-weight':
         return String(recommendation.weightLbs);
+      case 'action':
+        return editableActionText(recommendation.action)?.value ?? '';
       default:
         return '';
     }
@@ -432,8 +443,11 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
         return diagnosis
           ? { code: diagnosis.code, display: diagnosis.display, transcriptTerm: recommendation.transcriptTerm }
           : {};
-      case 'action':
-        return {};
+      case 'action': {
+        // Unusable wording — a reading that does not parse — keeps the old one, like an emptied field does.
+        const edited = withEditedText(recommendation.action, text);
+        return edited ? actionEditPatch(edited) : {};
+      }
     }
   };
 
@@ -481,11 +495,16 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
     return () => document.removeEventListener('keydown', onEscape);
   }, []);
 
+  // The HPI box and a generic row's free text (an instruction, a disposition note) are paragraphs.
+  const isMultiline =
+    recommendation.kind === 'hpi' ||
+    (recommendation.kind === 'action' && editableActionText(recommendation.action)?.field === 'text');
+
   const onKeyDown = (event: KeyboardEvent): void => {
     // Escape leaves the editor like everything else does: by keeping what is in the fields.
     if (event.key === 'Escape') commit();
-    // Enter commits single-line edits; in the multiline HPI editor it inserts a line break.
-    if (event.key === 'Enter' && recommendation.kind !== 'hpi') {
+    // Enter commits single-line edits; in a multiline editor it inserts a line break.
+    if (event.key === 'Enter' && !isMultiline) {
       event.preventDefault();
       commit();
     }
@@ -604,13 +623,18 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
             />
           </Box>
         );
-      // Not reachable from the row, which never opens an editor for this kind; here for the type's sake.
-      case 'action':
-        return (
-          <Typography variant="body2" color="text.secondary">
-            This item can’t be edited here.
-          </Typography>
-        );
+      case 'action': {
+        const editable = editableActionText(recommendation.action);
+        // Not reachable from the row, which opens no editor for a coded kind; here for the type's sake.
+        if (!editable) {
+          return (
+            <Typography variant="body2" color="text.secondary">
+              This item can’t be edited here.
+            </Typography>
+          );
+        }
+        return textField(editable.label, { multiline: editable.field === 'text' });
+      }
     }
   };
 

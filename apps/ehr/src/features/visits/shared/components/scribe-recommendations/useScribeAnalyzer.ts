@@ -31,7 +31,9 @@ export const useScribeAnalyzer = (): ScribeAnalyzer => {
       if (!apiClient || !encounterId) throw new Error('The visit is still loading. Please try again.');
       // A transcript is the FIRST pass over the visit, never an addendum to a note already written.
       const plan = await apiClient.easyChartPlan({ narrative: transcript, encounterId, incremental: false });
-      return buildAnalysis(plan, undefined, { written: buildNoteContextFromChart(chartData) ?? {} });
+      // The transcript rides along so the analysis can tell the visit back: the transcript itself, with each
+      // recommendation's verified quote highlighted and linked to its row.
+      return buildAnalysis(plan, undefined, { written: buildNoteContextFromChart(chartData) ?? {}, transcript });
     },
     [apiClient, encounterId, chartData]
   );

@@ -42,6 +42,48 @@ export function verifiedSourceText(sourceText: string | undefined, narrative: st
   return quoteOccursInNarrative(quote, narrative) ? quote : undefined;
 }
 
+/** A character class the loose comparison keeps; everything else is a separator. Mirrors normalizeForQuoteMatch. */
+const QUOTE_MATCH_KEPT = /[\p{L}\p{N}'"/%.-]/u;
+
+/**
+ * Where `quote` occurs in `narrative`, as offsets into the ORIGINAL text.
+ *
+ * The same loose comparison as `quoteOccursInNarrative`, applied character by character so every normalized
+ * character remembers where it came from — which is what lets a quote the server verified be found again on
+ * the client and highlighted in the transcript exactly as the provider pasted it, curly quotes, line breaks
+ * and all. Undefined when the quote does not occur; `end` is exclusive.
+ */
+export function locateQuote(narrative: string, quote: string): { start: number; end: number } | undefined {
+  const target = normalizeForQuoteMatch(quote);
+  if (!target) return undefined;
+
+  let normalized = '';
+  const starts: number[] = [];
+  const ends: number[] = [];
+  let offset = 0;
+  for (const char of narrative) {
+    const from = offset;
+    offset += char.length;
+    const unified = char.replace(/[‘’]/g, "'").replace(/[“”]/g, '"');
+    if (QUOTE_MATCH_KEPT.test(unified)) {
+      // Lower-casing can lengthen a character; every piece of it points back at the same original one.
+      for (const lower of unified.toLowerCase()) {
+        normalized += lower;
+        starts.push(from);
+        ends.push(offset);
+      }
+    } else if (normalized.length > 0 && !normalized.endsWith(' ')) {
+      normalized += ' ';
+      starts.push(from);
+      ends.push(offset);
+    }
+  }
+
+  const at = normalized.indexOf(target);
+  if (at < 0) return undefined;
+  return { start: starts[at], end: ends[at + target.length - 1] };
+}
+
 /** Words that structurally negate a clinical finding. */
 export const NEGATION_TOKENS = new Set(['no', 'non', 'not', 'without', 'denies', 'denied', 'absent', 'negative']);
 

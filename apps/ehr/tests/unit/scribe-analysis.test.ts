@@ -260,6 +260,75 @@ describe('buildAnalysis', () => {
   });
 });
 
+describe('the narrative is the transcript, with the evidence highlighted', () => {
+  const transcript = `Provider: Any fever?\nPatient: No fever. I checked a couple of times.\nPatient: I'm about 170 pounds.`;
+
+  it('cuts the transcript into plain runs and cited runs carrying the ids of the recommendations they produced', () => {
+    const analysis = buildAnalysis(
+      plan([
+        {
+          kind: 'add-ros-finding',
+          display: 'denies fever',
+          finding: 'denies',
+          sourceText: 'No fever. I checked a couple of times.',
+        },
+        // The quote is matched the way the server matched it: punctuation is noise, so the trailing period stays plain.
+        {
+          kind: 'set-vital',
+          field: 'vital-weight',
+          display: '170 pounds',
+          value: 170,
+          unit: 'lb',
+          sourceText: "I'm about 170 pounds",
+        },
+        // Inferred, so it has no place in the story.
+        { kind: 'add-allergy', display: 'Latex' },
+      ]),
+      undefined,
+      { written: {}, transcript }
+    );
+    expect(analysis.narrative).toEqual([
+      { text: 'Provider: Any fever?\nPatient: ' },
+      { text: 'No fever. I checked a couple of times.', itemIds: ['plan:add-ros-finding:denies-fever'] },
+      { text: '\nPatient: ' },
+      { text: "I'm about 170 pounds", itemIds: ['plan:set-vital:vital-weight'] },
+      { text: '.' },
+    ]);
+  });
+
+  it('lets two recommendations share a phrase, cutting the sentence where their quotes overlap', () => {
+    const sentence = "Patient: I've had this post-nasal drip and pressure for a week.";
+    const analysis = buildAnalysis(
+      plan([
+        {
+          kind: 'edit-note-text',
+          field: 'historyOfPresentIllness',
+          newText: 'PND and sinus pressure x 1 week.',
+          sourceText: "I've had this post-nasal drip and pressure for a week.",
+        },
+        { kind: 'add-diagnosis', code: 'R09.82', display: 'Postnasal drip', sourceText: 'post-nasal drip' },
+      ]),
+      undefined,
+      { written: {}, transcript: sentence }
+    );
+    const hpi = 'plan:edit-note-text:historyOfPresentIllness';
+    expect(analysis.narrative).toEqual([
+      { text: 'Patient: ' },
+      { text: "I've had this ", itemIds: [hpi] },
+      { text: 'post-nasal drip', itemIds: [hpi, 'plan:add-diagnosis:R09-82'] },
+      { text: ' and pressure for a week.', itemIds: [hpi] },
+    ]);
+  });
+
+  it('has no narrative without a transcript, and a plain one when nothing was quoted', () => {
+    const actions: PlannedAction[] = [{ kind: 'add-allergy', display: 'Latex' }];
+    expect(buildAnalysis(plan(actions), undefined, { written: {} }).narrative).toEqual([]);
+    expect(
+      buildAnalysis(plan(actions), undefined, { written: {}, transcript: 'Allergic to latex.' }).narrative
+    ).toEqual([{ text: 'Allergic to latex.' }]);
+  });
+});
+
 describe('toPlannedAction', () => {
   it('lays the provider’s edit over the endpoint’s action, and drops search terms for a renamed item', () => {
     const [allergy] = analyse([

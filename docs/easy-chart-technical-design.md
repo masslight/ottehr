@@ -63,8 +63,13 @@ flowchart TD
 > the plan has been written, so it could only repeat the plan. It belongs after the provider applies the plan;
 > `analysis.ts` already folds review suggestions into the list, each carrying its question, for when that step
 > is wired. A template is applied on its own path (the apply-template endpoint with the section picker), never
-> by the executor. The narrative stage stays empty until the backend produces one. Sections 3.x below describe
-> the request and the executor, which are unchanged; read "the chat box" as the panel's transcript box.
+> by the executor. The narrative stage is the transcript itself: every action's server-verified `sourceText` is
+> located in it (`locateQuote`, the same loose comparison the guard uses) and highlighted as a run linked to its
+> row — hover lights the row up, a click opens its editor in place. Rows the panel has no editor of its own for
+> (exam findings, vitals other than weight, disposition, instructions, history) edit the wording the executor
+> acts on, with a vital reading re-parsed by `parseVitalDisplay`; coded rows (E&M, coded history) only tick or
+> untick. Sections 3.x below describe the request and the executor, which are unchanged; read "the chat box"
+> as the panel's transcript box.
 
 ---
 

@@ -145,10 +145,13 @@ export interface OrderSuggestion {
   evidence?: string;
 }
 
-/** One run of the narrative summary. Runs tied to a recommendation (or order suggestion) are highlighted and linked to it. */
+/**
+ * One run of the narrative: a piece of the transcript. A run that is the evidence behind one or more
+ * recommendations carries their ids and is highlighted and linked to them; plain runs carry none.
+ */
 export interface NarrativeSegment {
   text: string;
-  itemId?: string;
+  itemIds?: string[];
 }
 
 export interface ScribeAnalysis {
