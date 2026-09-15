@@ -12,11 +12,6 @@ const DESCRIPTION_MAX_LENGTH = 60;
 const PHRASES_CATEGORY = 'Phrases';
 const PASTE_SHORTCUT = shortcutLabel('V');
 
-/**
- * Registers the "Phrases" group: a "+" button on the group header plus one row per phrase.
- * Selecting a phrase inserts it when the palette was opened from a text field,
- * otherwise copies it to the clipboard; each phrase row also carries edit/delete actions.
- */
 export function usePhraseQuickPicks(): void {
   const phrases = usePhrases();
   const insertContext = useCommandPaletteStore((state) => state.insertContext);

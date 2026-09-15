@@ -7,17 +7,12 @@ import { usePhrases } from '../hooks/usePhrases';
 import { useCommandPaletteStore } from '../state/command-palette.store';
 import { CustomDialog } from './dialogs/CustomDialog';
 
-/**
- * Mounts the phrase new/edit/delete dialogs at App level so the command palette's
- * "Phrases" rows can open them from anywhere. Rendered only while a mode is set.
- */
 export const CommandPalettePhraseDialog: FC = () => {
   const phraseDialog = useCommandPaletteStore((state) => state.phraseDialog);
   const setPhraseDialog = useCommandPaletteStore((state) => state.setPhraseDialog);
   const phrases = usePhrases();
   const { mutateAsync: savePhrases, isPending } = useSavePhrases();
 
-  // The targeted phrase can disappear under an open edit/delete dialog (e.g. deleted from another tab).
   const targetIndex = phraseDialog && phraseDialog.mode !== 'new' ? phraseDialog.index : undefined;
   const phraseMissing = targetIndex !== undefined && phrases[targetIndex] === undefined;
 
@@ -52,7 +47,6 @@ export const CommandPalettePhraseDialog: FC = () => {
         confirmText="Delete"
         closeButtonText="Cancel"
         confirmLoading={isPending}
-        // useSavePhrases.onError already surfaced the error; this only prevents an unhandled rejection.
         handleConfirm={() => void handleDelete().catch(() => undefined)}
       />
     );
@@ -107,7 +101,6 @@ const PhraseFormDialog: FC<PhraseFormDialogProps> = ({ initialPhrase, otherKeys,
   const submit = (): void => {
     setShowErrors(true);
     if (keyError || valueError || saving) return;
-    // useSavePhrases.onError already surfaced the error; this only prevents an unhandled rejection.
     void onSave({ key: trimmedKey, value }).catch(() => undefined);
   };
 

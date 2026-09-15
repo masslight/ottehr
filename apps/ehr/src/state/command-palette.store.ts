@@ -7,7 +7,6 @@ export interface CommandPaletteItemAction {
   icon: ReactNode;
   label: string;
   onClick: () => void;
-  /** Hover color for the icon (MUI palette path or hex); icons are grey at rest. Defaults to primary.main. */
   color?: string;
 }
 
@@ -17,22 +16,17 @@ export interface CommandPaletteItem {
   category: string;
   onSelect: () => void;
   keywords?: string[];
-  /** Optional one-line secondary text rendered under the label. */
   description?: string;
-  /** Render `description` inline after the label, in parentheses, on the same line, instead of as a second line. */
   inlineDescription?: boolean;
   /** When set, marks this item as a child of another item with the matching id.
    *  The renderer indents children below their parent within the same group
    *  to communicate hierarchy (e.g. "Tracking Board" parent with sub-tab
    *  children). Children remain independently selectable. */
   parentId?: string;
-  /** Optional leading icon rendered before the label. */
   icon?: ReactNode;
-  /** Optional per-row buttons rendered at the end of the row; clicking one does not select the row. */
   actions?: CommandPaletteItemAction[];
 }
 
-/** A single icon button rendered on a group's header row (e.g. "+" on "Phrases"). */
 export type CommandPaletteGroupAction = Omit<CommandPaletteItemAction, 'id'>;
 
 export type PhraseDialogState = { mode: 'new' } | { mode: 'edit'; index: number } | { mode: 'delete'; index: number };
@@ -51,7 +45,6 @@ interface CommandPaletteState {
   isOpen: boolean;
   insertContext: InsertContext | null;
   sources: Record<string, CommandPaletteSource>;
-  /** Header-row actions keyed by item category. */
   groupActions: Record<string, CommandPaletteGroupAction>;
   pendingQuickPick: PendingQuickPick | null;
   createTaskDialogOpen: boolean;

@@ -20,8 +20,6 @@ import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-pal
 
 const PATIENT_SEARCH_ITEM_ID = '__patient-search__';
 
-// Pinned group order: "Actions" first, "Phrases" directly below it; every other
-// group keeps its alphabetical order after those two.
 const CATEGORY_RANK: Record<string, number> = { Actions: 0, Phrases: 1 };
 const categoryRank = (category: string): number => CATEGORY_RANK[category] ?? Object.keys(CATEGORY_RANK).length;
 const compareCategories = (left: string, right: string): number =>
@@ -176,8 +174,6 @@ export const CommandPalette: FC = () => {
       return [...groups.entries()];
     }
 
-    // With no query, a group that has a header action but no items still shows
-    // its header so the action stays reachable (e.g. creating the first phrase).
     Object.keys(groupActions).forEach((category) => {
       if (!groups.has(category)) groups.set(category, []);
     });
@@ -229,7 +225,6 @@ export const CommandPalette: FC = () => {
           close();
           return;
         }
-        // Opened from a text field: remember it so phrases can insert into it.
         openWithInsertContext(captureInsertContext(document.activeElement));
       }
     };
@@ -375,7 +370,6 @@ export const CommandPalette: FC = () => {
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       gap: 0.5,
-                      // Rows are inset mx:1 + ListItemButton px:2, so px:3 lines the "+" up with the row-action column.
                       px: 3,
                       py: 0.5,
                     }}
@@ -460,7 +454,6 @@ export const CommandPalette: FC = () => {
                                 title={action.label}
                                 sx={{ color: 'text.secondary', '&:hover': { color: action.color ?? 'primary.main' } }}
                                 onClick={(event) => {
-                                  // Keep the row's selectItem from firing.
                                   event.stopPropagation();
                                   action.onClick();
                                   close();

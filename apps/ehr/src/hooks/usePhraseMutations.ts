@@ -17,7 +17,6 @@ const DUPLICATE_KEY_MESSAGE = 'You already have a phrase with this key.';
 
 const REPORTED_MESSAGES = new Set([PROFILE_LOADING_MESSAGE, PHRASE_MISSING_MESSAGE, DUPLICATE_KEY_MESSAGE]);
 
-/** Applies one change to the logged-in user's phrases on their Practitioner, then refreshes the cached profile so usePhrases() re-derives. */
 export function useSavePhrases(): UseMutationResult<void, Error, PhraseChange> {
   const user = useEvolveUser();
   const { oystehr } = useApiClients();

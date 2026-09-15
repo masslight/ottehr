@@ -134,7 +134,6 @@ export interface Phrase {
   value: string;
 }
 
-/** Reads the per-user phrases stored on the Practitioner; missing or malformed extension → []. */
 export const getPhrasesForPractitioner = (practitioner?: Practitioner): Phrase[] => {
   const raw = practitioner?.extension?.find((extension) => extension.url === PHRASES_EXTENSION_URL)?.valueString;
   if (!raw) return [];
