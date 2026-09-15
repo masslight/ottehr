@@ -251,21 +251,27 @@ export const FormTemplateDetailPage = (): ReactElement => {
    * properties means the list follows the catalog as it grows, instead of needing a rule rewritten.
    */
   const { mappableFields, omittedCount } = useMemo(() => {
-    const writable = (data?.fields ?? []).filter((f) => f.mappable);
-    const bindable = writable.filter((field) =>
-      TOKEN_CATALOG.some((token) => checkCompatibility(token.type, field.type) !== 'incompatible')
+    const all = data?.fields ?? [];
+    const bindable = all.filter(
+      (field) =>
+        field.mappable && TOKEN_CATALOG.some((token) => checkCompatibility(token.type, field.type) !== 'incompatible')
     );
     return {
       mappableFields: bindable.slice().sort(byReadingOrder),
-      omittedCount: writable.length - bindable.length,
+      // Counted against every field rather than only the writable ones, because the count's job is to
+      // account for the difference between what the page shows and what the list offers. A form whose
+      // only widget is a signature has nothing writable at all, so a count taken from the writable
+      // subset would be zero — and would explain an empty mapping area by saying nothing.
+      omittedCount: all.length - bindable.length,
     };
   }, [data]);
 
   /**
    * Whether there is anything to map, which is not the same as whether there is anything to show.
    *
-   * False in two unrelated cases — a printable PDF with no form fields at all, and a fillable one whose
-   * every field is incompatible with the catalog — and the preview has to render in both.
+   * False in three unrelated cases — a printable PDF with no form fields at all, a fillable one whose
+   * every field is a signature, button or read-only, and one whose fields are writable but incompatible
+   * with every token — and the preview has to render in all of them.
    */
   const hasMappableFields = mappableFields.length > 0;
 
@@ -376,7 +382,8 @@ export const FormTemplateDetailPage = (): ReactElement => {
                 {omittedCount > 0 && (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     {omittedCount} field{omittedCount === 1 ? '' : 's'} on this form cannot be filled from chart data
-                    and are left for the provider to complete.
+                    {omittedCount === 1 ? ' and is' : ' and are'} left for the provider to complete. Signatures, buttons
+                    and read-only fields are never mappable.
                   </Typography>
                 )}
 
