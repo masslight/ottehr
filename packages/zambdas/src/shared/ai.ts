@@ -336,19 +336,31 @@ async function clearPendingRecordingMarker(
   });
 }
 
+const CHATBOT_TIMEOUT_MS = 10000;
+const CHATBOT_MAX_RETRIES = 1;
+
 export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets | null): Promise<AIMessageChunk> {
   process.env.ANTHROPIC_API_KEY = getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets);
   if (chatbot == null) {
     chatbot = new ChatAnthropic({
       model: 'claude-haiku-4-5-20251001',
       temperature: 0,
+      // Must stay top-level: LangChain forces the SDK client's maxRetries to 0, so clientOptions.maxRetries is ignored.
+      maxRetries: CHATBOT_MAX_RETRIES,
       clientOptions: {
-        timeout: 10000,
-        maxRetries: 1,
+        timeout: CHATBOT_TIMEOUT_MS,
       },
     });
   }
-  return chatbot.invoke(input);
+  const startedAt = Date.now();
+  try {
+    const response = await chatbot.invoke(input);
+    console.log(`chatbot responded in ${Date.now() - startedAt}ms`);
+    return response;
+  } catch (error) {
+    console.error(`chatbot call failed after ${Date.now() - startedAt}ms`, error);
+    throw error;
+  }
 }
 
 export async function createResourcesFromAiInterview(

@@ -1375,6 +1375,9 @@
             "valueString": "Injured Party"
           },
           {
+            "valueString": "Employee"
+          },
+          {
             "valueString": "Other"
           }
         ]
@@ -1993,6 +1996,9 @@
           },
           {
             "valueString": "Injured Party"
+          },
+          {
+            "valueString": "Employee"
           },
           {
             "valueString": "Other"

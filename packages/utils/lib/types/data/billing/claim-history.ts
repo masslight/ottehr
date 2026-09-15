@@ -130,6 +130,7 @@ export interface GetClaimHistoryResponse {
 // display string in the history view (e.g. 'Update Coverage', 'Update Service Facility').
 export const CLAIM_HISTORY_RESOURCE_LABELS: Record<string, string> = {
   Claim: 'Claim',
+  ClaimResponse: 'Payer Response',
   Patient: 'Patient',
   Coverage: 'Coverage',
   Practitioner: 'Provider',

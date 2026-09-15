@@ -71,7 +71,7 @@ export function InPersonModal<T = undefined>({
       <Typography>{description}</Typography>
       {showEntityPreview && entity !== undefined && (
         <Box mt={2} p={2} bgcolor="grey.100" borderRadius={1}>
-          <Typography variant="body1" color="text.main">
+          <Typography variant="body1" color="text.main" whiteSpace="pre-wrap">
             {getEntityPreviewText(entity)}
           </Typography>
         </Box>

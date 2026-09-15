@@ -1,3 +1,4 @@
+import { captureException } from '@sentry/react';
 import { useMutation, UseMutationResult, useQuery, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
 import { FhirResource, Patient, Person, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
@@ -88,7 +89,8 @@ export const useGetPatient = (
   useEffect(() => {
     async function getPatient(): Promise<void> {
       if (!oystehr) {
-        throw new Error('oystehr is not defined');
+        // Client not ready yet (or id undefined, so the queries stay disabled); the effect re-runs once oystehr exists.
+        return;
       }
 
       if (!patientResources || !otherPatientsWithSameNameResources) {
@@ -120,7 +122,10 @@ export const useGetPatient = (
       setLoading(false);
     }
 
-    getPatient().catch((error) => console.log(error));
+    getPatient().catch((error) => {
+      console.error(error);
+      captureException(error);
+    });
   }, [id, oystehr, patientResources, otherPatientsWithSameNameResources]);
 
   return {

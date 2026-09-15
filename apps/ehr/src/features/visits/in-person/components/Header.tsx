@@ -31,10 +31,11 @@ import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchB
 import { useSendFax } from 'src/features/fax/hooks/useSendFax';
 import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
 import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
-import { useGetPatientAccount } from 'src/hooks/useGetPatient';
+import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
 import { useFindApplicableFeeScheduleQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { formatLabelValue } from 'src/shared/utils/formatLabelValue';
+import { DEFAULT_TAB_TITLE, formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
 import {
   getAppointmentRoom,
   isAppointmentOccupationalMedicine,
@@ -48,11 +49,11 @@ import {
   getInitialEncounterIdForFollowUp,
   PaymentVariant,
 } from 'utils/lib/fhir/encounter';
-import { getCoding, getInsuranceNameFromCoverage } from 'utils/lib/fhir/helpers';
+import { getCoding } from 'utils/lib/fhir/helpers';
 import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
-import { extractPayerIdFromUrl } from 'utils/lib/helpers/helpers';
+import { extractPayerIdFromUrl, findOrgMatchingReference } from 'utils/lib/helpers/helpers';
 import { formatWeightKg } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
@@ -62,6 +63,7 @@ import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointm
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useApiClients } from '../../../../hooks/useAppClients';
+import { PatientNotesButton } from '../../../patient-notes/components/PatientNotesButton';
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
 import { useGetHistoricalVitals, useGetVitals } from '../../shared/components/vitals/hooks/useGetVitals';
 import { useChartFields } from '../../shared/hooks/useChartFields';
@@ -211,10 +213,7 @@ export const Header = (): JSX.Element => {
 
   const apiClient = useOystehrAPIClient();
 
-  const { data: insuranceData } = useGetPatientAccount({
-    apiClient,
-    patientId: patient?.id ?? null,
-  });
+  const { data: insuranceData } = useGetPatientCoverages({ apiClient, patientId: patient?.id ?? null });
 
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
@@ -294,7 +293,10 @@ export const Header = (): JSX.Element => {
   const isOccMed = appointment ? isAppointmentOccupationalMedicine(appointment) : false;
   const isPreOp = appointment ? isAppointmentPreOp(appointment) : false;
 
-  const primaryInsurancePayerRef = insuranceData?.coverages.primary?.payor.find((p) => !!p.reference)?.reference;
+  const primaryInsurancePayerRef =
+    insuranceData?.coverages.primary?.payor.find((p) => !!p.reference)?.reference ??
+    insuranceData?.coverages.secondary?.payor.find((p) => !!p.reference)?.reference ??
+    insuranceData?.coverages.workersComp?.payor.find((p) => !!p.reference)?.reference;
   const insuranceOrgId =
     extractPayerIdFromUrl(primaryInsurancePayerRef) ?? primaryInsurancePayerRef?.replace('Organization/', '');
   const dateOfService = appointment?.start?.split('T')[0];
@@ -318,14 +320,15 @@ export const Header = (): JSX.Element => {
   const isCaseRate =
     payerFeeSchedule?.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === CASE_RATE_CODE) ?? false;
 
-  const insuranceName =
-    (insuranceData?.coverages.primary && getInsuranceNameFromCoverage(insuranceData?.coverages.primary)) ??
-    (insuranceData?.coverages.secondary && getInsuranceNameFromCoverage(insuranceData?.coverages.secondary));
+  const insuranceName = findOrgMatchingReference(primaryInsurancePayerRef, insuranceData?.insuranceOrgs)?.name;
 
   const employerName =
     insuranceData?.occupationalMedicineEmployerOrganization?.name ?? insuranceData?.employerOrganization?.name;
 
+  const isPaymentUnset = !encounterPaymentVariant && !isPreOp;
+
   const paymentDisplayValue = (() => {
+    if (isPaymentUnset) return 'Not set';
     if (encounterPaymentVariant === PaymentVariant.selfPay) return 'Self-Pay';
     if (isOccMed && encounterPaymentVariant === PaymentVariant.employer) {
       return `${employerName ?? 'Employer'} (Occ-med)`;
@@ -336,6 +339,18 @@ export const Header = (): JSX.Element => {
     return `${insuranceName} (${isCaseRate ? 'Case Rate' : 'Fee for Service'})`;
   })();
   const patientName = formatLabelValue(mappedData?.patientName, 'Name');
+  const patientFirstLastName = [patient?.firstName, patient?.lastName].filter(Boolean).join(' ') || undefined;
+
+  useEffect(() => {
+    const tabTitle = formatPatientTabTitle(patientFirstLastName, room);
+    if (tabTitle) {
+      document.title = tabTitle;
+    }
+    return () => {
+      document.title = DEFAULT_TAB_TITLE;
+    };
+  }, [patientFirstLastName, room]);
+
   const pronouns = formatLabelValue(mappedData?.pronouns, 'Pronouns');
   const gender = formatLabelValue(mappedData?.gender, 'Gender');
   const language = formatLabelValue(mappedData?.preferredLanguage, 'Lang');
@@ -710,6 +725,7 @@ export const Header = (): JSX.Element => {
                       >
                         {patientName}
                       </PatientName>
+                      <PatientNotesButton patientId={userId} />
                       <PrintVisitLabelButton encounterId={effectiveEncounterId} />
                       <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata> |
                     </PatientInfoWrapper>
@@ -722,12 +738,15 @@ export const Header = (): JSX.Element => {
                       ) : null}
                       <PatientMetadata>{language}</PatientMetadata> |<PatientMetadata>{reasonForVisit}</PatientMetadata>
                       <PatientMetadata
+                        data-testid={dataTestIds.inPersonHeader.payment}
                         sx={{
                           marginLeft: 6,
                           maxWidth: 400,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
+                          color: isPaymentUnset ? theme.palette.warning.dark : undefined,
+                          fontWeight: isPaymentUnset ? 600 : undefined,
                         }}
                       >
                         Payment: {paymentDisplayValue}

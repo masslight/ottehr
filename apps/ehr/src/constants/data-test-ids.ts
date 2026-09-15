@@ -27,6 +27,7 @@ export const dataTestIds = {
     allergies: 'header-allergies',
     weight: 'header-weight',
     roomSelect: 'header-room-select',
+    payment: 'header-payment',
   },
   inPersonLayout: {
     selectProviderAlert: 'select-provider-alert',
@@ -494,6 +495,7 @@ export const dataTestIds = {
     cancelVisitDialogue: 'cancel-visit-dialogue',
     consentAttestationCheckbox: 'consent-attestation-checkbox',
     consentAttestationSaveButton: 'consent-attestation-save-button',
+    consentReminderDialog: 'consent-reminder-dialog',
     actionsMenuButton: 'visit-details-actions-menu-button',
     convertToFollowUpMenuItem: 'convert-to-follow-up-menu-item',
   },

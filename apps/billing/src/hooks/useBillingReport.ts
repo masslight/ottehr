@@ -6,7 +6,6 @@ import { useApiClients } from './useAppClients';
 
 // polling cadence while a refresh runs server-side
 const POLL_INTERVAL_MS = 4000;
-const MAX_POLLS = 200;
 
 interface ReportEnvelope {
   generatedAt: string;
@@ -71,14 +70,14 @@ export function useBillingReport<T extends ReportEnvelope>(options: {
         if (generation.current !== myGeneration) return;
         setReport(current);
         setLoading(false);
-        let polls = 0;
-        while (current.status?.state === 'running' && polls < MAX_POLLS) {
+        // no poll cap: chained refreshes legitimately run for hours, and the server flips a
+        // dead refresh to idle/error once its Task goes stale (>30 min untouched)
+        while (current.status?.state === 'running') {
           await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
           if (generation.current !== myGeneration) return;
           current = await resolveReport<T>(await fetch(oystehrZambda), current);
           if (generation.current !== myGeneration) return;
           setReport(current);
-          polls += 1;
         }
       } catch (err) {
         if (generation.current !== myGeneration) return;

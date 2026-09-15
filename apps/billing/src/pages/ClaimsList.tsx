@@ -96,6 +96,55 @@ function toSearchParams(filters: Filters): ExportBillingClaimsInput {
   return params;
 }
 
+const CLAIMS_LIST_FILTERS_STORAGE_KEY = 'billing.claimsListFilters';
+
+// Only the minimum needed to restore the patient filter and re-render the Autocomplete's closed
+// display — never persist the rest of BillingPatientOption (dob, address, gender, clinical IDs, etc.)
+// to browser storage.
+interface StoredPatientOption {
+  id: string | undefined;
+  name: string;
+}
+
+interface StoredClaimsListFilters {
+  searchText: string;
+  arStageFilter: string;
+  statusFilter: string;
+  tagFilter: string;
+  createdFrom: string;
+  createdTo: string;
+  serviceDateFrom: string;
+  serviceDateTo: string;
+  selectedPayer: BillingPayerOption | null;
+  selectedPatient: StoredPatientOption | null;
+  typeFilter: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | '';
+  selectedService: BillingService | null;
+  paginationModel: GridPaginationModel;
+}
+
+function loadStoredClaimsListFilters(): StoredClaimsListFilters | null {
+  try {
+    const raw = sessionStorage.getItem(CLAIMS_LIST_FILTERS_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as StoredClaimsListFilters) : null;
+  } catch {
+    return null;
+  }
+}
+
+function toBillingPatientOption(stored: StoredPatientOption): BillingPatientOption {
+  return {
+    id: stored.id,
+    name: stored.name,
+    firstName: '',
+    lastName: '',
+    dob: '',
+    gender: '',
+    address: '',
+    clinicalId: '',
+    clinicalFriendlyId: '',
+  };
+}
+
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
   field,
   headerName,
@@ -168,12 +217,16 @@ export default function ClaimsList(): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
+  const [storedFilters] = useState(() => loadStoredClaimsListFilters());
+
   const [claims, setClaims] = useState<BillingClaimItem[]>([]);
   const [totalRows, setTotalRows] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [incomplete, setIncomplete] = useState(false);
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>(
+    storedFilters?.paginationModel ?? { page: 0, pageSize: 25 }
+  );
   const [serviceOptions, setServiceOptions] = useState<BillingService[]>([]);
 
   const [selected, setSelected] = useState<GridRowSelectionModel>([]);
@@ -185,20 +238,24 @@ export default function ClaimsList(): ReactElement {
   const [nioOptions, setNioOptions] = useState<NonInsuranceOrganizationItem[]>([]);
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
-  const [searchText, setSearchText] = useState('');
-  const [arStageFilter, setArStageFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [tagFilter, setTagFilter] = useState('');
+  const [searchText, setSearchText] = useState(storedFilters?.searchText ?? '');
+  const [arStageFilter, setArStageFilter] = useState(storedFilters?.arStageFilter ?? '');
+  const [statusFilter, setStatusFilter] = useState(storedFilters?.statusFilter ?? '');
+  const [tagFilter, setTagFilter] = useState(storedFilters?.tagFilter ?? '');
   const [tagOptions, setTagOptions] = useState<{ id: string; name: string }[]>([]);
-  const [createdFrom, setCreatedFrom] = useState('');
-  const [createdTo, setCreatedTo] = useState('');
-  const [serviceDateFrom, setServiceDateFrom] = useState('');
-  const [serviceDateTo, setServiceDateTo] = useState('');
-  const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
+  const [createdFrom, setCreatedFrom] = useState(storedFilters?.createdFrom ?? '');
+  const [createdTo, setCreatedTo] = useState(storedFilters?.createdTo ?? '');
+  const [serviceDateFrom, setServiceDateFrom] = useState(storedFilters?.serviceDateFrom ?? '');
+  const [serviceDateTo, setServiceDateTo] = useState(storedFilters?.serviceDateTo ?? '');
+  const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(storedFilters?.selectedPayer ?? null);
   const [selectedNio, setSelectedNio] = useState<NonInsuranceOrganizationItem | null>(null);
-  const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
-  const [typeFilter, setTypeFilter] = useState<keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | ''>('');
-  const [selectedService, setSelectedService] = useState<BillingService | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(
+    storedFilters?.selectedPatient?.id ? toBillingPatientOption(storedFilters.selectedPatient) : null
+  );
+  const [typeFilter, setTypeFilter] = useState<keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | ''>(
+    storedFilters?.typeFilter ?? ''
+  );
+  const [selectedService, setSelectedService] = useState<BillingService | null>(storedFilters?.selectedService ?? null);
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const serviceDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -307,23 +364,6 @@ export default function ClaimsList(): ReactElement {
   );
   useEffect(() => searchPatients(''), [searchPatients]);
 
-  const initialLoadDone = useRef(false);
-  useEffect(() => {
-    if (!oystehrZambda || initialLoadDone.current) return;
-    initialLoadDone.current = true;
-    void fetchClaims({}, paginationModel);
-    const loadTags = async (): Promise<void> => {
-      try {
-        const res = await searchBillingTags(oystehrZambda);
-        setTagOptions(res.tags ?? []);
-      } catch (err) {
-        console.error('Failed to load tags:', err);
-        setTagOptions([]);
-      }
-    };
-    void loadTags();
-  }, [oystehrZambda, fetchClaims, paginationModel]);
-
   const currentFilters = useCallback(
     (overrides?: Filters): Filters => ({
       searchText: overrides?.searchText ?? searchText,
@@ -356,6 +396,65 @@ export default function ClaimsList(): ReactElement {
       selectedService,
     ]
   );
+
+  const initialLoadDone = useRef(false);
+  useEffect(() => {
+    if (!oystehrZambda || initialLoadDone.current) return;
+    initialLoadDone.current = true;
+    void fetchClaims(currentFilters(), paginationModel);
+    const loadTags = async (): Promise<void> => {
+      try {
+        const res = await searchBillingTags(oystehrZambda);
+        setTagOptions(res.tags ?? []);
+      } catch (err) {
+        console.error('Failed to load tags:', err);
+        setTagOptions([]);
+      }
+    };
+    void loadTags();
+  }, [oystehrZambda, fetchClaims, currentFilters, paginationModel]);
+
+  useEffect(() => {
+    const toStore: StoredClaimsListFilters = {
+      searchText,
+      arStageFilter,
+      statusFilter,
+      tagFilter,
+      createdFrom,
+      createdTo,
+      serviceDateFrom,
+      serviceDateTo,
+      selectedPayer,
+      selectedPatient: selectedPatient?.id ? { id: selectedPatient.id, name: selectedPatient.name } : null,
+      typeFilter,
+      selectedService,
+      paginationModel,
+    };
+
+    const timeout = window.setTimeout(() => {
+      try {
+        sessionStorage.setItem(CLAIMS_LIST_FILTERS_STORAGE_KEY, JSON.stringify(toStore));
+      } catch {
+        // ignore storage errors (e.g. private browsing / quota exceeded)
+      }
+    }, 200);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    searchText,
+    arStageFilter,
+    statusFilter,
+    tagFilter,
+    createdFrom,
+    createdTo,
+    serviceDateFrom,
+    serviceDateTo,
+    selectedPayer,
+    selectedPatient,
+    typeFilter,
+    selectedService,
+    paginationModel,
+  ]);
 
   const applyFilters = useCallback(
     (overrides?: Filters): void => {

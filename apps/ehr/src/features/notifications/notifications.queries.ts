@@ -59,7 +59,7 @@ export const useGetProviderNotifications = (
     },
 
     enabled: !!(oystehrZambda && user?.profile) && !isPhoneOnly,
-    refetchInterval: 10000,
+    refetchInterval: 60000,
     refetchIntervalInBackground: true,
   });
 

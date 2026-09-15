@@ -24,16 +24,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingPayersParams
-): Promise<{ payers: BillingPayerOption[] }> {
-  // Payers live in the Oystehr RCM service
+): Promise<{ payers: BillingPayerOption[]; nextCursor?: string | null }> {
+  // Payers live in the Oystehr RCM service. An ID lookup is a resolve, not a search — return
+  // whatever it finds (including nothing) rather than falling through to the directory listing below.
   if (params.payerId) {
     const result = await oystehr.rcm.getPayer({ id: params.payerId });
-    if (result) {
-      return { payers: [mapPayer(result)] };
-    }
+    return { payers: result ? [mapPayer(result)] : [] };
   }
-  const resultByName = await oystehr.rcm.listPayers({ ...(params.name ? { name: params.name } : {}), limit: 50 });
-  const resultById = await oystehr.rcm.listPayers({ ...(params.name ? { id: params.name } : {}), limit: 50 });
+  // No name given: this is a plain directory listing (e.g. the Insurance Organizations page), so
+  // page straight through the RCM service's own cursor instead of the typeahead's name+id merge below.
+  if (!params.name) {
+    const result = await oystehr.rcm.listPayers({
+      ...(params.cursor ? { cursor: params.cursor } : {}),
+      limit: params.limit ?? 50,
+      sort: 'name',
+      sortOrder: 'asc',
+    });
+    return { payers: result.data.map(mapPayer), nextCursor: result.metadata.nextCursor };
+  }
+  const resultByName = await oystehr.rcm.listPayers({ name: params.name, limit: 50 });
+  const resultById = await oystehr.rcm.listPayers({ id: params.name, limit: 50 });
   const payers = [...resultByName.data, ...resultById.data]
     .map((payer) => mapPayer(payer))
     .reduce((map, payer) => map.set(payer.id, payer), new Map<string, BillingPayerOption>())

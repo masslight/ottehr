@@ -10,6 +10,7 @@ import {
   CLAIM_STATUS_TAG_SYSTEMS,
   ClaimStatusValues,
   getClaimStatusValues,
+  hasReachedClaimStatus,
 } from 'utils/lib/types/data/billing/claim-status';
 import { fetchAllPages } from '../../shared/fhir';
 import {
@@ -134,8 +135,7 @@ async function buildPatientArClaimItems(oystehr: Oystehr, matches: PatientArMatc
 export function isInActivePatientArStage(statuses: ClaimStatusValues): boolean {
   if (statuses.arStage !== AR_STAGE.patient) return false;
   if (statuses.patientArStatus === 'finalized') return false;
-  if (statuses.insuranceArStatus === '') return statuses.patientArStatus === 'ready-to-invoice';
-  return statuses.insuranceArStatus === 'finalized';
+  return hasReachedClaimStatus('patientArStatus', statuses.patientArStatus, 'ready-to-invoice');
 }
 
 export function isActivePatientArClaim(statuses: ClaimStatusValues, payments: ClaimPaymentSummary): boolean {

@@ -25,5 +25,6 @@ export * from './payments';
 export * from './paymentRefunds';
 export * from './deduplicateUnbundledResources';
 export * from './getAllFhirSearchPages';
+export * from './responseSize';
 export * from './serviceCategoryResolution';
 export * from './outbound-delivery';

@@ -92,7 +92,7 @@ import {
   copySourceRef,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
-  deriveClaimBillablePeriod,
+  deriveClaimBillablePeriodFromEncounter,
   determineRulesEngineForClaim,
   ensureClaimInsurance,
   ensureSystemManagedTags,
@@ -1324,7 +1324,7 @@ function buildClaim(resources: ClaimResources): Claim {
     },
   };
 
-  claim.billablePeriod = deriveClaimBillablePeriod(claim.item);
+  claim.billablePeriod = deriveClaimBillablePeriodFromEncounter(resources.encounter);
 
   return claim;
 }

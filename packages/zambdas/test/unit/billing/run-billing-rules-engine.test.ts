@@ -132,9 +132,7 @@ describe('run-billing-rules-engine - complexValidation', () => {
     await expect(
       complexValidation(oystehr, { claimIds: ['claim-1', 'claim-2'], secrets: null, skipRules: false })
     ).rejects.toMatchObject({
-      message:
-        'No rules engine applies to claim(s): claim-2. ' +
-        'Set an AR Stage first — Patient AR claims must also be self-pay (no coverage).',
+      message: 'No rules engine applies to claim(s): claim-2. Set an AR Stage first.',
     });
   });
 });
