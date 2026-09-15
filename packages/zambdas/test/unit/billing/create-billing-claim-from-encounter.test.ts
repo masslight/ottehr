@@ -2401,6 +2401,18 @@ describe('create-billing-claim-from-encounter', () => {
                   },
                   sequence: 1,
                 },
+                {
+                  provider: { reference: 'urn:uuid:claim-rendering-provider' },
+                  role: {
+                    coding: [
+                      {
+                        code: '71',
+                        system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-referring-provider-type',
+                      },
+                    ],
+                  },
+                  sequence: 2,
+                },
               ],
               diagnosis: [
                 { sequence: 1, diagnosisCodeableConcept: clinicalResources.conditions[0].code },

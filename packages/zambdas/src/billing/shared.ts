@@ -629,7 +629,7 @@ export function setClaimRenderingProviderCareTeam(claim: Claim, provider: Refere
   ];
   claim.item = claim.item?.map((item) => ({
     ...item,
-    careTeamSequence: [1],
+    careTeamSequence: Array.from(new Set([1, 2, ...(item.careTeamSequence ?? [])])),
   }));
 }
 
