@@ -28,7 +28,11 @@ const CELL_PADDING_X = 6;
 const CELL_PADDING_Y = 6;
 const LINE_GAP = 2;
 const WRAP_SAFETY = 8;
-const SECTION_GAP = 14;
+const SECTION_GAP = 10;
+const BANNER_GAP = 16;
+const FIELD_ROW_GAP = 2;
+const TABLE_INSET = 18;
+const BORDER_WIDTH = 1;
 const DATE_COLUMN_RATIO = 0.22;
 const ENTITY_COLUMN_RATIO = 0.17;
 
@@ -80,9 +84,11 @@ const timelyFilingAssetPaths: AssetPaths = {
 const TEXT_COLOR = hexColor(palette.text.primary);
 const MUTED_COLOR = hexColor(palette.text.secondary);
 const BANNER_BACKGROUND = hexColor(palette.background.default);
-const HEADER_BACKGROUND = hexColor(palette.primary.dark);
+const HEADER_BACKGROUND = hexColor(palette.secondary.dark);
 const HEADER_TEXT_COLOR = hexColor(palette.primary.contrastText);
 const STRIPE_BACKGROUND = hexColor(otherColors.sidebarItemHover);
+const BORDER_COLOR = hexColor(palette.divider);
+const BANNER_BORDER_COLOR = hexColor(palette.text.primary);
 
 /**
  * Style keys are resolved by string at render time and are NOT type-checked, so this factory must
@@ -101,21 +107,21 @@ const createTimelyFilingStyles: StyleFactory = (assets) => ({
       fontSize: 22,
       font: assets.fonts.heavy,
       color: TEXT_COLOR,
-      spacing: 4,
+      spacing: -2,
       newLineAfter: true,
     },
     subtitle: {
       fontSize: 11,
       font: assets.fonts.regular,
       color: MUTED_COLOR,
-      spacing: 4,
+      spacing: 2,
       newLineAfter: true,
     },
     payerName: {
       fontSize: 14,
       font: assets.fonts.bold,
       color: TEXT_COLOR,
-      spacing: 4,
+      spacing: 2,
       newLineAfter: true,
     },
     sectionHeading: {
@@ -306,19 +312,16 @@ export function composeTimelyFilingReportData(input: ComposeTimelyFilingReportIn
   };
 }
 
-const fontMetrics = (style: TextStyle): { ascent: number; descent: number; lineHeight: number } => {
-  const full = style.font.heightAtSize(style.fontSize);
-  const ascent = style.font.heightAtSize(style.fontSize, { descender: false });
+const fontMetrics = (style: TextStyle): { ascent: number; lineHeight: number } => {
   return {
-    ascent,
-    descent: full - ascent,
-    lineHeight: full + LINE_GAP,
+    ascent: style.font.heightAtSize(style.fontSize, { descender: false }),
+    lineHeight: style.font.heightAtSize(style.fontSize) + LINE_GAP,
   };
 };
 
 const drawConfidentialityBanner = (pdfClient: PdfClient, styles: PdfStyles): void => {
   const style = styles.textStyles.banner;
-  const { ascent, descent, lineHeight } = fontMetrics(style);
+  const { ascent, lineHeight } = fontMetrics(style);
   const left = pdfClient.getLeftBound();
   const width = pdfClient.getRightBound() - left;
   const lines = splitLongStringToPageSize(
@@ -336,6 +339,8 @@ const drawConfidentialityBanner = (pdfClient: PdfClient, styles: PdfStyles): voi
     width,
     height,
     color: BANNER_BACKGROUND,
+    borderColor: BANNER_BORDER_COLOR,
+    borderWidth: BORDER_WIDTH,
   });
   lines.forEach((line, index) => {
     pdfClient.setY(top - CELL_PADDING_Y - ascent - index * lineHeight);
@@ -344,7 +349,11 @@ const drawConfidentialityBanner = (pdfClient: PdfClient, styles: PdfStyles): voi
       rightBound: left + width - CELL_PADDING_X,
     });
   });
-  pdfClient.setY(top - height - descent - SECTION_GAP);
+  pdfClient.setY(top - height);
+};
+
+const startTextBlock = (pdfClient: PdfClient, style: TextStyle, gap: number): void => {
+  pdfClient.setY(pdfClient.getY() - gap - fontMetrics(style).ascent);
 };
 
 const drawFieldGrid = (pdfClient: PdfClient, styles: PdfStyles, fields: TimelyFilingReportField[]): void => {
@@ -390,15 +399,15 @@ const drawFieldGrid = (pdfClient: PdfClient, styles: PdfStyles, fields: TimelyFi
         });
       });
     });
-    pdfClient.setY(top - usedLines * lineHeight - 4);
+    pdfClient.setY(top - usedLines * lineHeight - FIELD_ROW_GAP);
   }
 };
 
 const drawHistoryTable = (pdfClient: PdfClient, styles: PdfStyles, rows: TimelyFilingReportRow[]): void => {
   const headerStyle = styles.textStyles.tableHeader;
   const cellStyle = styles.textStyles.tableCell;
-  const left = pdfClient.getLeftBound();
-  const tableWidth = pdfClient.getRightBound() - left;
+  const left = pdfClient.getLeftBound() + TABLE_INSET;
+  const tableWidth = pdfClient.getRightBound() - TABLE_INSET - left;
   const widths = [
     tableWidth * DATE_COLUMN_RATIO,
     tableWidth * ENTITY_COLUMN_RATIO,
@@ -407,7 +416,7 @@ const drawHistoryTable = (pdfClient: PdfClient, styles: PdfStyles, rows: TimelyF
   const offsets = widths.map((_, index) => left + widths.slice(0, index).reduce((sum, width) => sum + width, 0));
   const bottomMargin = PDF_CLIENT_STYLES.initialPage.pageMargins.bottom ?? 0;
 
-  const headerCells = [`DATE / TIME (${REPORT_TIMEZONE_LABEL})`, 'ENTITY', 'EVENT'];
+  const headerCells = ['DATE / TIME', 'ENTITY', 'EVENT'];
 
   const drawRow = (cells: string[], style: TextStyle, background?: Color, isHeader = false): void => {
     const { ascent, lineHeight } = fontMetrics(style);
@@ -434,6 +443,16 @@ const drawHistoryTable = (pdfClient: PdfClient, styles: PdfStyles, rows: TimelyF
         color: background,
       });
     }
+    widths.forEach((width, column) => {
+      pdfClient.drawFilledRectangle({
+        x: offsets[column],
+        y: top - height,
+        width,
+        height,
+        borderColor: BORDER_COLOR,
+        borderWidth: BORDER_WIDTH,
+      });
+    });
     lineSets.forEach((lines, column) => {
       lines.forEach((line, index) => {
         pdfClient.setY(top - CELL_PADDING_Y - ascent - index * lineHeight);
@@ -465,15 +484,17 @@ export async function renderTimelyFilingReportPdf(data: TimelyFilingReportData):
 
   drawConfidentialityBanner(pdfClient, styles);
 
+  startTextBlock(pdfClient, styles.textStyles.title, BANNER_GAP);
   pdfClient.drawText('Timely Filing Report', styles.textStyles.title);
   pdfClient.drawText(`Report as of: ${data.reportGeneratedAt}`, styles.textStyles.subtitle);
   pdfClient.drawText(`Payer Name: ${data.payerName}`, styles.textStyles.payerName);
   pdfClient.drawSeparatedLine(styles.lineStyles.separator);
 
+  startTextBlock(pdfClient, styles.textStyles.fieldLabel, 0);
   drawFieldGrid(pdfClient, styles, data.fields);
   pdfClient.drawSeparatedLine(styles.lineStyles.separator);
 
-  pdfClient.newLine(SECTION_GAP);
+  startTextBlock(pdfClient, styles.textStyles.sectionHeading, 0);
   pdfClient.drawText('Claim History', styles.textStyles.sectionHeading);
   pdfClient.drawText(
     'Full filing and acknowledgment trail for this claim across the practice, clearinghouse, and payer systems.',

@@ -751,11 +751,13 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     y: number;
     width: number;
     height: number;
-    color: Color;
+    color?: Color;
+    borderColor?: Color;
+    borderWidth?: number;
   }): void => {
     page.drawRectangle({
       ...rectangle,
-      borderWidth: 0,
+      borderWidth: rectangle.borderWidth ?? 0,
     });
   };
 
