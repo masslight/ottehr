@@ -1,7 +1,7 @@
 import { Practitioner } from 'fhir/r4b';
 import { describe, expect, it, vi } from 'vitest';
 import { PHRASES_EXTENSION_URL } from '../types/constants';
-import { applyPhraseChange, getPhrasesForPractitioner, Phrase } from './practitioners';
+import { applyPhraseChange, getPhrasesForPractitioner, getPhrasesPatchOperation, Phrase } from './practitioners';
 
 const practitionerWithPhrases = (raw: string): Practitioner => ({
   resourceType: 'Practitioner',
@@ -42,6 +42,7 @@ describe('getPhrasesForPractitioner', () => {
     const raw = JSON.stringify([
       { key: '.hpi', value: 'kept' },
       { key: '', value: 'empty key' },
+      { key: '   ', value: 'whitespace-only key' },
       { key: '.novalue' },
       { value: 'no key' },
       null,
@@ -126,5 +127,57 @@ describe('applyPhraseChange', () => {
 
   it('matches keys ignoring case and surrounding whitespace', () => {
     expect(expectOk(applyPhraseChange(existing, { type: 'delete', key: '  .HPI  ' }))).toEqual([ros]);
+  });
+});
+
+describe('getPhrasesPatchOperation', () => {
+  const phrases: Phrase[] = [{ key: '.hpi', value: 'History of present illness:' }];
+  const phrasesExtension = { url: PHRASES_EXTENSION_URL, valueString: JSON.stringify(phrases) };
+  const otherExtension = { url: 'https://example.com/other-extension', valueString: 'untouched' };
+
+  it('adds the whole extension array when the practitioner has none', () => {
+    expect(getPhrasesPatchOperation({ resourceType: 'Practitioner' }, phrases)).toEqual({
+      op: 'add',
+      path: '/extension',
+      value: [phrasesExtension],
+    });
+  });
+
+  it('appends to the existing extensions without dropping them', () => {
+    expect(getPhrasesPatchOperation({ resourceType: 'Practitioner', extension: [otherExtension] }, phrases)).toEqual({
+      op: 'replace',
+      path: '/extension',
+      value: [otherExtension, phrasesExtension],
+    });
+  });
+
+  it('replaces the phrases extension in place, keeping the others', () => {
+    const practitioner: Practitioner = {
+      resourceType: 'Practitioner',
+      extension: [{ url: PHRASES_EXTENSION_URL, valueString: '[]' }, otherExtension],
+    };
+    expect(getPhrasesPatchOperation(practitioner, phrases)).toEqual({
+      op: 'replace',
+      path: '/extension',
+      value: [phrasesExtension, otherExtension],
+    });
+  });
+
+  it('replaces a phrases extension stored with an unexpected value type', () => {
+    const practitioner: Practitioner = {
+      resourceType: 'Practitioner',
+      extension: [{ url: PHRASES_EXTENSION_URL, valueBoolean: true }],
+    };
+    expect(getPhrasesPatchOperation(practitioner, phrases)).toEqual({
+      op: 'replace',
+      path: '/extension',
+      value: [phrasesExtension],
+    });
+  });
+
+  it('does not mutate the practitioner it is given', () => {
+    const practitioner: Practitioner = { resourceType: 'Practitioner', extension: [otherExtension] };
+    getPhrasesPatchOperation(practitioner, phrases);
+    expect(practitioner.extension).toEqual([otherExtension]);
   });
 });

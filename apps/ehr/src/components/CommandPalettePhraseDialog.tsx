@@ -36,7 +36,7 @@ export const CommandPalettePhraseDialog: FC = () => {
 
   if (phraseDialog.mode === 'delete') {
     const handleDelete = async (): Promise<void> => {
-      await savePhrases(phrases.filter((_phrase, index) => index !== phraseDialog.index));
+      await savePhrases({ type: 'delete', key: phrases[phraseDialog.index].key });
       close();
       enqueueSnackbar('Phrase deleted', { variant: 'success' });
     };
@@ -60,11 +60,11 @@ export const CommandPalettePhraseDialog: FC = () => {
 
   const editIndex = phraseDialog.mode === 'edit' ? phraseDialog.index : undefined;
   const handleSave = async (phrase: Phrase): Promise<void> => {
-    const nextPhrases =
-      editIndex === undefined
-        ? [...phrases, phrase]
-        : phrases.map((existing, index) => (index === editIndex ? phrase : existing));
-    await savePhrases(nextPhrases);
+    await savePhrases({
+      type: 'upsert',
+      phrase,
+      replacesKey: editIndex === undefined ? undefined : phrases[editIndex].key,
+    });
     close();
     enqueueSnackbar('Phrase saved', { variant: 'success' });
   };

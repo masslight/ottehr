@@ -11,8 +11,11 @@ const TEXT_INPUT_TYPES = new Set(['text', 'search', 'url', 'tel', 'password']);
 
 /** Returns `element` when it is a text-capable input/textarea/contentEditable, otherwise null. */
 export const getInsertTarget = (element: Element | null): InsertTarget | null => {
-  if (element instanceof HTMLTextAreaElement) return element;
-  if (element instanceof HTMLInputElement) return TEXT_INPUT_TYPES.has(element.type) ? element : null;
+  if (element instanceof HTMLTextAreaElement) return element.readOnly || element.disabled ? null : element;
+  if (element instanceof HTMLInputElement) {
+    if (element.readOnly || element.disabled) return null;
+    return TEXT_INPUT_TYPES.has(element.type) ? element : null;
+  }
   if (element instanceof HTMLElement && element.isContentEditable) return element;
   return null;
 };
@@ -88,6 +91,7 @@ const insertIntoContentEditable = (target: HTMLElement, savedRange: Range | null
   range.collapse(true);
   selection?.removeAllRanges();
   selection?.addRange(range);
+  target.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
 };
 
 const insertIntoFormField = (

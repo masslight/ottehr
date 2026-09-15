@@ -1,3 +1,4 @@
+import { Operation } from 'fast-json-patch';
 import { Encounter, Extension, Practitioner, PractitionerQualification } from 'fhir/r4b';
 import { PractitionerLicense, ProviderTypeCode } from '../types/api/practitioner.types';
 import { PHRASES_EXTENSION_URL } from '../types/constants';
@@ -142,7 +143,7 @@ export const getPhrasesForPractitioner = (practitioner?: Practitioner): Phrase[]
     return Array.isArray(parsed)
       ? parsed.filter(
           (phrase): phrase is Phrase =>
-            typeof phrase?.key === 'string' && typeof phrase?.value === 'string' && phrase.key.length > 0
+            typeof phrase?.key === 'string' && typeof phrase?.value === 'string' && phrase.key.trim().length > 0
         )
       : [];
   } catch (error) {
@@ -190,4 +191,24 @@ export const applyPhraseChange = (phrases: Phrase[], change: PhraseChange): Phra
   }
 
   return { ok: true, phrases: phrases.map((phrase, i) => (i === targetIndex ? change.phrase : phrase)) };
+};
+
+export const getPhrasesPatchOperation = (practitioner: Practitioner, phrases: Phrase[]): Operation => {
+  const phrasesExtension: Extension = { url: PHRASES_EXTENSION_URL, valueString: JSON.stringify(phrases) };
+  const existingExtensions = practitioner.extension;
+
+  if (!existingExtensions) {
+    return { op: 'add', path: '/extension', value: [phrasesExtension] };
+  }
+
+  const existingIndex = existingExtensions.findIndex((extension) => extension.url === PHRASES_EXTENSION_URL);
+
+  return {
+    op: 'replace',
+    path: '/extension',
+    value:
+      existingIndex < 0
+        ? [...existingExtensions, phrasesExtension]
+        : existingExtensions.map((extension, index) => (index === existingIndex ? phrasesExtension : extension)),
+  };
 };

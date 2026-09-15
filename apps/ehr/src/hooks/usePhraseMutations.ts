@@ -1,46 +1,64 @@
 import { useMutation, UseMutationResult, useQueryClient } from '@tanstack/react-query';
+import { Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { Phrase } from 'utils/lib/fhir/practitioners';
-import { getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch';
-import { PHRASES_EXTENSION_URL } from 'utils/lib/types/constants';
+import { withVersionConflictRetries } from 'utils/lib/fhir/helpers';
+import {
+  applyPhraseChange,
+  getPhrasesForPractitioner,
+  getPhrasesPatchOperation,
+  PhraseChange,
+} from 'utils/lib/fhir/practitioners';
+import { useApiClients } from './useAppClients';
 import useEvolveUser, { useUpdatePractitioner } from './useEvolveUser';
 
 const PROFILE_LOADING_MESSAGE = 'Your profile is still loading. Try again in a moment.';
+const PHRASE_MISSING_MESSAGE = 'That phrase no longer exists.';
+const DUPLICATE_KEY_MESSAGE = 'You already have a phrase with this key.';
 
-/** Replaces the logged-in user's phrases on their Practitioner, then refreshes the cached profile so usePhrases() re-derives. */
-export function useSavePhrases(): UseMutationResult<void, Error, Phrase[]> {
+const REPORTED_MESSAGES = new Set([PROFILE_LOADING_MESSAGE, PHRASE_MISSING_MESSAGE, DUPLICATE_KEY_MESSAGE]);
+
+/** Applies one change to the logged-in user's phrases on their Practitioner, then refreshes the cached profile so usePhrases() re-derives. */
+export function useSavePhrases(): UseMutationResult<void, Error, PhraseChange> {
   const user = useEvolveUser();
+  const { oystehr } = useApiClients();
   const updatePractitioner = useUpdatePractitioner();
   const queryClient = useQueryClient();
+
+  const profileId = user?.profileResource?.id;
 
   return useMutation({
     mutationKey: ['save-phrases'],
 
-    mutationFn: async (phrases: Phrase[]): Promise<void> => {
-      const profile = user?.profileResource;
-      if (!user || !profile) {
+    mutationFn: async (change: PhraseChange): Promise<void> => {
+      if (!oystehr || !profileId) {
         throw new Error(PROFILE_LOADING_MESSAGE);
       }
 
-      // getPatchOperationToUpdateExtension edits the extension array it is given; work on a copy so a
-      // failed save does not leave the cached profile claiming the new phrases.
-      const operation = getPatchOperationToUpdateExtension(
-        { extension: profile.extension && [...profile.extension] },
-        { url: PHRASES_EXTENSION_URL, valueString: JSON.stringify(phrases) }
-      );
-      if (!operation) return;
+      await withVersionConflictRetries(async () => {
+        const practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: profileId });
+        const result = applyPhraseChange(getPhrasesForPractitioner(practitioner), change);
 
-      await updatePractitioner.mutateAsync({ operations: [operation] });
+        if (!result.ok) {
+          throw new Error(result.reason === 'missing' ? PHRASE_MISSING_MESSAGE : DUPLICATE_KEY_MESSAGE);
+        }
+
+        await updatePractitioner.mutateAsync({
+          operations: [getPhrasesPatchOperation(practitioner, result.phrases)],
+          optimisticLockingVersionId: practitioner.meta?.versionId,
+        });
+      });
     },
 
     onSuccess: () => {
       void queryClient.refetchQueries({ queryKey: ['get-practitioner-profile'] });
     },
 
-    onError: (error) => {
-      const message =
-        error.message === PROFILE_LOADING_MESSAGE ? error.message : 'Could not save phrase. Please try again.';
-      enqueueSnackbar(message, { variant: 'error' });
+    onError: (error, change) => {
+      const fallback =
+        change.type === 'delete'
+          ? 'Could not delete phrase. Please try again.'
+          : 'Could not save phrase. Please try again.';
+      enqueueSnackbar(REPORTED_MESSAGES.has(error.message) ? error.message : fallback, { variant: 'error' });
     },
   });
 }

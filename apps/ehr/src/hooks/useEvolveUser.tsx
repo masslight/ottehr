@@ -5,6 +5,7 @@ import { Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import { useCallback, useEffect, useMemo } from 'react';
 import { initialsFromName } from 'utils/lib/fhir/chat';
+import { isVersionConflictError } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName, getNPIIdentifier } from 'utils/lib/fhir/patient';
 import { getPatchOperationForNewMetaTag, getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch';
 import { useSuccessQuery } from 'utils/lib/frontend';
@@ -235,9 +236,6 @@ export interface UpdatePractitionerInput {
   optimisticLockingVersionId?: string;
 }
 
-export const isPreconditionFailed = (error: unknown): boolean =>
-  typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 412;
-
 export const useUpdatePractitioner = (): UseMutationResult<void, Error, UpdatePractitionerInput> => {
   const user = useEvolveUserStore((state) => state.user);
   const { oystehr } = useApiClients();
@@ -260,6 +258,6 @@ export const useUpdatePractitioner = (): UseMutationResult<void, Error, UpdatePr
       );
     },
 
-    retry: (failureCount, error) => !isPreconditionFailed(error) && failureCount < 3,
+    retry: (failureCount, error) => !isVersionConflictError(error) && failureCount < 3,
   });
 };

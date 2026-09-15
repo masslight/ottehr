@@ -395,8 +395,6 @@ export const CommandPalette: FC = () => {
                     {groupAction && (
                       <IconButton
                         size="small"
-                        // Keeps arrow keys/Enter on the rows: the button never takes focus.
-                        tabIndex={-1}
                         aria-label={groupAction.label}
                         title={groupAction.label}
                         sx={{ color: 'text.secondary', '&:hover': { color: groupAction.color ?? 'primary.main' } }}
