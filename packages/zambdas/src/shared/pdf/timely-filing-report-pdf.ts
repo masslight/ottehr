@@ -31,7 +31,6 @@ const WRAP_SAFETY = 8;
 const SECTION_GAP = 10;
 const BANNER_GAP = 16;
 const FIELD_ROW_GAP = 2;
-const TABLE_INSET = 18;
 const BORDER_WIDTH = 1;
 const DATE_COLUMN_RATIO = 0.22;
 const ENTITY_COLUMN_RATIO = 0.17;
@@ -406,8 +405,8 @@ const drawFieldGrid = (pdfClient: PdfClient, styles: PdfStyles, fields: TimelyFi
 const drawHistoryTable = (pdfClient: PdfClient, styles: PdfStyles, rows: TimelyFilingReportRow[]): void => {
   const headerStyle = styles.textStyles.tableHeader;
   const cellStyle = styles.textStyles.tableCell;
-  const left = pdfClient.getLeftBound() + TABLE_INSET;
-  const tableWidth = pdfClient.getRightBound() - TABLE_INSET - left;
+  const left = pdfClient.getLeftBound();
+  const tableWidth = pdfClient.getRightBound() - left;
   const widths = [
     tableWidth * DATE_COLUMN_RATIO,
     tableWidth * ENTITY_COLUMN_RATIO,
