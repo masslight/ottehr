@@ -42,6 +42,7 @@ import {
   copyBillingPatientWithClinicalIds,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
+  deriveClaimBillablePeriod,
   determineRulesEngineForClaim,
   ensureClaimInsurance,
   findRef,
@@ -321,6 +322,8 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams, payerN
     }));
     claim.total = { value: params.serviceLines.reduce((sum, l) => sum + l.charges, 0), currency: 'USD' };
   }
+
+  claim.billablePeriod = deriveClaimBillablePeriod(claim.item);
 
   return claim;
 }

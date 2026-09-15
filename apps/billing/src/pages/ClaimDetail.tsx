@@ -1,10 +1,19 @@
 import {
   Add as AddIcon,
   ArrowBack as ArrowBackIcon,
+  Close as CloseIcon,
+  Delete as DeleteIcon,
+  DeleteForever as DeleteForeverIcon,
   DeleteOutline as DeleteOutlineIcon,
+  Description as DescriptionIcon,
+  Download as DownloadIcon,
   Edit as EditIcon,
+  EditOutlined as EditOutlinedIcon,
   FileDownloadOutlined as FileDownloadIcon,
+  FileUpload as FileUploadIcon,
+  MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
+  Save as SaveIcon,
   StickyNote2Outlined as StickyNote2Icon,
 } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
@@ -17,8 +26,21 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
   FormControlLabel,
+  FormHelperText,
+  Grid,
   IconButton,
+  InputLabel,
+  Link as MuiLink,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Menu,
   MenuItem,
   Select,
   Stack,
@@ -31,11 +53,15 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import Dropzone, { DropzoneProps } from 'react-dropzone';
+import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES } from 'utils';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
@@ -67,13 +93,18 @@ import {
 } from 'utils/lib/types/data/billing/claim-status';
 import { RULES_ENGINES, RulesEngineDef } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { formatCurrency } from 'utils/lib/utils/convert';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import z from 'zod';
 import {
+  addClaimAttachment,
   createBillingCoverage,
   createBillingProvider,
+  deleteClaimAttachment,
+  downloadClaimAttachment,
   exportClaimX12,
   getBillingClaimDetail,
   getPatientCoverages,
+  renameClaimAttachment,
   runBillingRulesEngine,
   saveBillingServiceFacility,
   searchBillingTags,
@@ -98,6 +129,7 @@ import {
   InstitutionalClaimAdditionalFields,
   InstitutionalClaimAdditionalFieldsData,
 } from '../components/InstitutionalClaimAdditionalFields';
+import { NioOption, NioSelect } from '../components/NioSelect';
 import { ProviderDetailForm } from '../components/ProviderDetailSection';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
@@ -118,20 +150,21 @@ import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
 import { otherColors } from '../themes/ottehr/colors';
-import { formatDate } from '../utils/format';
+import { formatDate, formatDateTime } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
 
 type UpdateFn = (
   resourceType: string,
   resourceId: string,
-  fields: z.input<typeof UpdateBillingResourceInputSchema>['fields']
+  fields: z.input<typeof UpdateBillingResourceInputSchema>['fields'],
+  refetchClaim?: boolean
 ) => Promise<string | null>;
 
 function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | undefined {
   const arStage = claim.statuses.arStage;
   if (arStage === AR_STAGE.insurancePayer) return RULES_ENGINES['claim-submission'];
   if (arStage === AR_STAGE.nonInsurancePayer) return RULES_ENGINES['non-insurance-payer-pre-invoice'];
-  if (arStage === AR_STAGE.patient && !claim.coverageFhirId) return RULES_ENGINES['patient-ar-pre-invoice'];
+  if (arStage === AR_STAGE.patient) return RULES_ENGINES['patient-ar-pre-invoice'];
   return undefined;
 }
 
@@ -195,7 +228,8 @@ export default function ClaimDetail(): ReactElement {
     async (
       resourceType: string,
       resourceId: string,
-      fields: z.input<typeof UpdateBillingResourceInputSchema>['fields']
+      fields: z.input<typeof UpdateBillingResourceInputSchema>['fields'],
+      refetchClaim: boolean = true
     ): Promise<string | null> => {
       if (!oystehrZambda || !id) return 'Client not ready';
       try {
@@ -208,7 +242,9 @@ export default function ClaimDetail(): ReactElement {
       } catch (err) {
         return getApiError({ error: err, defaultError: 'Failed to save changes' });
       }
-      await fetchDetail();
+      if (refetchClaim) {
+        await fetchDetail();
+      }
       return null;
     },
     [oystehrZambda, fetchDetail, id]
@@ -358,7 +394,7 @@ export default function ClaimDetail(): ReactElement {
               <Meta label="Date of Service" value={dos} />
               <Meta label="Claim ID" value={claim.id} copyable={true} />
               <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
-              <Meta label="PCN" value={claim.pcn} copyable={true} />
+              {claim.pcn && <Meta label="PCN" value={claim.pcn.toUpperCase()} copyable={true} />}
               <Meta label="Service" value={formatAntCaseString(claim.service)} />
               <Meta label="Patient DOB" value={claim.patientDob} />
             </Box>
@@ -389,7 +425,7 @@ export default function ClaimDetail(): ReactElement {
                     ))}
                   </Select>
                 </Box>
-                <Meta label="PCN" value={claim.pcn} />
+                {claim.pcn && <Meta label="PCN" value={claim.pcn.toUpperCase()} />}
                 <Box>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Service
@@ -552,9 +588,10 @@ export default function ClaimDetail(): ReactElement {
           >
             <Tab label="Claim Properties" value="1" />
             <Tab label="Dx, Service Lines & Remits" value="2" />
-            <Tab label="Write offs & Patient payments" value="3" />
-            <Tab label="Other claims" value="4" />
-            <Tab label="History" value="5" />
+            <Tab label="Attachments" value="3" />
+            <Tab label="Write offs & Patient payments" value="4" />
+            <Tab label="Other claims" value="5" />
+            <Tab label="History" value="6" />
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
@@ -624,9 +661,10 @@ export default function ClaimDetail(): ReactElement {
             ) : (
               <></>
             )}
-            <RenderingProviderSection claim={claim} updateResource={updateResource} />
-            <FacilitySection claim={claim} updateResource={updateResource} />
-            <BillingProviderSection claim={claim} updateResource={updateResource} />
+            <NonInsurancePayerSection claim={claim} updateResource={updateResource} />
+            <RenderingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
+            <FacilitySection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
+            <BillingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
             {claim.type === 'institutional' && (
               <InstitutionalClaimAdditionalFieldsSection claim={claim} updateResource={updateResource} />
             )}
@@ -640,15 +678,19 @@ export default function ClaimDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="3" sx={{ px: 0, pt: 2 }}>
+            <AttachmentsSection claim={claim} refetchClaim={fetchDetail} />
+          </TabPanel>
+
+          <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
             <ReadOnlySection title="Write offs">No write offs</ReadOnlySection>
             <PatientPaymentsSection payments={claim.patientPayments} />
           </TabPanel>
 
-          <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
+          <TabPanel value="5" sx={{ px: 0, pt: 2 }}>
             <OtherClaimsSection claims={claim.otherClaims} navigate={navigate} />
           </TabPanel>
 
-          <TabPanel value="5" sx={{ px: 0, pt: 2 }}>
+          <TabPanel value="6" sx={{ px: 0, pt: 2 }}>
             <ClaimHistory key={historyVersion} claimId={claim.id} />
           </TabPanel>
         </TabContext>
@@ -926,12 +968,138 @@ export function InsuranceSection({
   );
 }
 
-function RenderingProviderSection({
+export function NonInsurancePayerSection({
   claim,
   updateResource,
 }: {
   claim: ClaimDetailResponse;
   updateResource: UpdateFn;
+}): ReactElement {
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
+  const currentPayer = useMemo<NioOption | null>(
+    () =>
+      claim.nonInsurancePayerFhirId
+        ? {
+            id: claim.nonInsurancePayerFhirId,
+            name: claim.nonInsurancePayerName || claim.nonInsurancePayerFhirId,
+          }
+        : null,
+    [claim.nonInsurancePayerFhirId, claim.nonInsurancePayerName]
+  );
+  const [selectedId, setSelectedId] = useState<string>(currentPayer?.id ?? '');
+  useEffect(() => {
+    setSelectedId(currentPayer?.id ?? '');
+  }, [currentPayer]);
+
+  const handleSave = async (): Promise<string | null> => {
+    if (!selectedId) return 'Choose a non-insurance organization';
+    return updateResource('Claim', claim.id, { nonInsurancePayer: { id: selectedId } });
+  };
+
+  const handleRemove = async (): Promise<void> => {
+    setRemoving(true);
+    setRemoveError(null);
+    const err = await updateResource('Claim', claim.id, { nonInsurancePayer: null });
+    setRemoving(false);
+    setConfirmingRemove(false);
+    if (err) setRemoveError(err);
+  };
+
+  const hasPayer = Boolean(claim.nonInsurancePayerFhirId || claim.nonInsurancePayerName);
+
+  return (
+    <EditableSection
+      title="Non-insurance Payer"
+      onSave={handleSave}
+      onCancel={() => setSelectedId(currentPayer?.id ?? '')}
+      editForm={
+        <Box sx={{ maxWidth: 480 }}>
+          <NioSelect
+            multiple={false}
+            activeOnly
+            value={selectedId}
+            onChange={(v) => setSelectedId(typeof v === 'string' ? v : v[0] ?? '')}
+            label={hasPayer ? 'Payer' : 'Choose payer'}
+            initialOptions={currentPayer ? [currentPayer] : []}
+          />
+        </Box>
+      }
+    >
+      {hasPayer ? (
+        <Box sx={{ display: 'flex', py: 0.75 }}>
+          <Typography variant="body2" color="primary.dark" sx={{ width: 180, flexShrink: 0 }}>
+            Payer
+          </Typography>
+          {claim.nonInsurancePayerFhirId ? (
+            <MuiLink
+              component={RouterLink}
+              to={`/non-insurance-organizations/${claim.nonInsurancePayerFhirId}`}
+              variant="body2"
+              sx={{ fontWeight: 500 }}
+            >
+              {claim.nonInsurancePayerName || claim.nonInsurancePayerFhirId}
+            </MuiLink>
+          ) : (
+            <Typography variant="body2">{claim.nonInsurancePayerName}</Typography>
+          )}
+        </Box>
+      ) : (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
+          No non-insurance payer specified
+        </Typography>
+      )}
+      {hasPayer && (
+        <Box sx={{ mt: 1.5 }}>
+          {removeError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {removeError}
+            </Alert>
+          )}
+          {confirmingRemove ? (
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Remove payer?
+              </Typography>
+              <Button size="small" onClick={() => setConfirmingRemove(false)} disabled={removing}>
+                Cancel
+              </Button>
+              <Button
+                size="small"
+                color="error"
+                variant="contained"
+                onClick={() => void handleRemove()}
+                disabled={removing}
+              >
+                {removing ? 'Removing...' : 'Confirm'}
+              </Button>
+            </Box>
+          ) : (
+            <Button
+              size="small"
+              color="error"
+              startIcon={<DeleteOutlineIcon fontSize="small" />}
+              onClick={() => setConfirmingRemove(true)}
+            >
+              Remove payer
+            </Button>
+          )}
+        </Box>
+      )}
+    </EditableSection>
+  );
+}
+
+function RenderingProviderSection({
+  claim,
+  updateResource,
+  refetchClaim,
+}: {
+  claim: ClaimDetailResponse;
+  updateResource: UpdateFn;
+  refetchClaim: () => Promise<void>;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
 
@@ -970,15 +1138,24 @@ function RenderingProviderSection({
         'providerId' in payload && payload.providerId && !selectedProvider ? payload.providerId : undefined;
       if (!providerId) {
         if (selectedProvider?.id) {
-          const attachError = await updateResource('Claim', claim.id, {
-            renderingProvider: {
-              id: selectedProvider.id,
-              type: selectedProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
+          const attachError = await updateResource(
+            'Claim',
+            claim.id,
+            {
+              renderingProvider: {
+                id: selectedProvider.id,
+                type: selectedProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
+              },
             },
-          });
+            false
+          );
           if (attachError) return attachError;
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           providerId = updatedClaim.renderingProviderId;
+          await updateBillingProvider(oystehrZambda, { ...payload, providerId, claimId: claim.id });
+          await refetchClaim();
+          resetFields();
+          return null;
         } else {
           // No base selected, make a new one and attach it, returning early
           const result = await createBillingProvider(oystehrZambda, payload);
@@ -1002,6 +1179,7 @@ function RenderingProviderSection({
 
   return (
     <ProviderDetailForm
+      title="Rendering Provider"
       provider={selectedProvider ?? claimProvider}
       role="rendering"
       onSave={handleSave}
@@ -1020,9 +1198,11 @@ function RenderingProviderSection({
 function FacilitySection({
   claim,
   updateResource,
+  refetchClaim,
 }: {
   claim: ClaimDetailResponse;
   updateResource: UpdateFn;
+  refetchClaim: () => Promise<void>;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
 
@@ -1051,12 +1231,21 @@ function FacilitySection({
       let facilityId = payload.facilityId && !selected ? payload.facilityId : undefined;
       if (!facilityId) {
         if (selected?.id) {
-          const attachError = await updateResource('Claim', claim.id, {
-            facilityId: selected.id,
-          });
+          const attachError = await updateResource(
+            'Claim',
+            claim.id,
+            {
+              facilityId: selected.id,
+            },
+            false
+          );
           if (attachError) return attachError;
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           facilityId = updatedClaim.serviceFacilityId;
+          await saveBillingServiceFacility(oystehrZambda, { ...payload, facilityId, claimId: claim.id });
+          await refetchClaim();
+          resetFields();
+          return null;
         } else {
           // No base selected, make a new one and attach it, returning early
           const result = await saveBillingServiceFacility(oystehrZambda, payload);
@@ -1094,9 +1283,11 @@ function FacilitySection({
 function BillingProviderSection({
   claim,
   updateResource,
+  refetchClaim,
 }: {
   claim: ClaimDetailResponse;
   updateResource: UpdateFn;
+  refetchClaim: () => Promise<void>;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
 
@@ -1144,6 +1335,10 @@ function BillingProviderSection({
           if (attachError) return attachError;
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           providerId = updatedClaim.billingProviderFhirId;
+          await updateBillingProvider(oystehrZambda, { ...payload, providerId, claimId: claim.id });
+          await refetchClaim();
+          resetFields();
+          return null;
         } else {
           // No base selected, make a new one and attach it, returning early
           const result = await createBillingProvider(oystehrZambda, payload);
@@ -1167,6 +1362,7 @@ function BillingProviderSection({
 
   return (
     <ProviderDetailForm
+      title="Billing Provider"
       provider={selectedProvider ?? claimProvider}
       role="billing"
       onSave={handleSave}
@@ -1196,6 +1392,8 @@ function InstitutionalClaimAdditionalFieldsSection({
         patientDischargeStatusCode: data.patientDischargeStatusCode,
         admissionType: data.admissionType,
         admissionSource: data.admissionSource,
+        admissionDate: data.admissionDate,
+        dischargeDate: data.dischargeDate,
       });
       if (error) return error;
       return null;
@@ -1210,6 +1408,8 @@ function InstitutionalClaimAdditionalFieldsSection({
       patientDischargeStatusCode: claim.patientDischargeStatusCode,
       admissionType: claim.admissionType,
       admissionSource: claim.admissionSource,
+      admissionDate: claim.admissionDate,
+      dischargeDate: claim.dischargeDate,
     };
   }, [claim]);
 
@@ -1224,6 +1424,8 @@ function InstitutionalClaimAdditionalFieldsSection({
       <Row label="Patient Discharge Status Code" value={claim.patientDischargeStatusCode} />
       <Row label="Admission Type" value={claim.admissionType} />
       <Row label="Point of Origin / Admission Source" value={claim.admissionSource} />
+      <Row label="Admission Date" value={claim.admissionDate ? formatDateTime(claim.admissionDate) : ''} />
+      <Row label="Discharge Date" value={claim.dischargeDate ? formatDateTime(claim.dischargeDate) : ''} />
     </EditableSection>
   );
 }
@@ -1319,6 +1521,7 @@ function ServiceLinesSection({
     for (const row of rows) {
       if (!row.cptCode.trim()) return 'Each service line needs a CPT code';
       if (!row.serviceDate) return 'Each service line needs a date of service';
+      if (!row.placeOfService.trim()) return 'Each service line needs a place of service';
       if (!(Number(row.units) > 0)) return 'Units must be a positive number';
       if (row.charges.trim() === '' || !Number.isFinite(Number(row.charges))) return 'Charges must be a number';
     }
@@ -1333,7 +1536,7 @@ function ServiceLinesSection({
           units: Number(row.units),
           charges: Number(row.charges),
           serviceDate: row.serviceDate,
-          ...(row.placeOfService.trim() ? { placeOfService: row.placeOfService.trim() } : {}),
+          placeOfService: row.placeOfService.trim(),
           ...(modifiers.length ? { modifiers } : {}),
           ...(row.diagnosisPointers.length ? { diagnosisPointers: row.diagnosisPointers } : {}),
           revenueCode: row.revenueCode,
@@ -1398,6 +1601,495 @@ function ServiceLinesSection({
         </Typography>
       )}
     </EditableSection>
+  );
+}
+
+const DropzoneField = ({
+  name,
+  multiple,
+  required,
+  ...rest
+}: {
+  name: string;
+  multiple: boolean;
+  required?: boolean;
+} & Omit<DropzoneProps, 'multiple' | 'onDrop'>): ReactElement => {
+  const { control } = useFormContext();
+  return (
+    <Controller
+      name={name}
+      control={control}
+      rules={required ? { required: REQUIRED_FIELD_ERROR_MESSAGE } : undefined}
+      render={({ field: { value, onChange, onBlur }, fieldState: { error: fieldError } }) => (
+        <>
+          {!value ? (
+            <></>
+          ) : (
+            <ListItem disablePadding disableGutters>
+              <ListItemIcon sx={{ minWidth: 0, mr: 1.5 }}>
+                <DescriptionIcon />
+              </ListItemIcon>
+              <ListItemText primary={value.name} />
+            </ListItem>
+          )}
+          <Dropzone
+            onDrop={(acceptedFiles) => {
+              onChange(multiple ? acceptedFiles : acceptedFiles[0]);
+            }}
+            {...rest}
+          >
+            {({ getRootProps, getInputProps, isDragActive }) => {
+              return (
+                <Card
+                  variant="outlined"
+                  component="div"
+                  elevation={0}
+                  sx={{
+                    px: 4,
+                    backgroundColor: 'lightgrey',
+                  }}
+                  {...getRootProps()}
+                >
+                  <CardContent>
+                    <Box
+                      component="input"
+                      {...getInputProps({
+                        onBlur,
+                      })}
+                    />
+                    <Grid
+                      item
+                      container
+                      direction="column"
+                      justifyContent="center"
+                      alignItems="strech"
+                      rowGap={2}
+                      wrap="nowrap"
+                    >
+                      <Grid item xs={12}>
+                        <Stack direction="column" width="100%" justifyContent="center" alignItems="center" gap={1}>
+                          <FileUploadIcon />
+                          <Typography variant="body1" component="p" textAlign="center">
+                            {isDragActive ? 'Drop file here to upload' : 'Click here or drag file to upload'}
+                          </Typography>
+                          {fieldError ? (
+                            <FormHelperText id={`dropzone-helper-text`} error={true}>
+                              {fieldError?.message}
+                            </FormHelperText>
+                          ) : (
+                            <></>
+                          )}
+                        </Stack>
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+              );
+            }}
+          </Dropzone>
+        </>
+      )}
+    />
+  );
+};
+
+function AttachmentsSection({
+  claim,
+  refetchClaim,
+}: {
+  claim: ClaimDetailResponse;
+  refetchClaim: () => Promise<void>;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
+  const [renameDocRefId, setRenameDocRefId] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteDocRefId, setDeleteDocRefId] = useState<string | null>(null);
+  const [deleteFormIsSubmitting, setDeleteFormIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const addFormMethods = useForm<{ name: string; reportTypeCode: string; file: File }>({
+    defaultValues: { name: '', reportTypeCode: '' },
+  });
+  const {
+    control: addFormControl,
+    reset: addReset,
+    handleSubmit: addFormHandleSubmit,
+    formState: { isSubmitting: addFormIsSubmitting },
+  } = addFormMethods;
+  const renameFormMethods = useForm({ defaultValues: { name: '' } });
+  const {
+    control: renameFormControl,
+    reset: renameReset,
+    handleSubmit: renameFormHandleSubmit,
+    formState: { isSubmitting: renameFormIsSubmitting },
+  } = addFormMethods;
+  const [deleteFileName, setDeleteFileName] = useState('');
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [menuLineId, setMenuLineId] = useState<string | null>(null);
+  const openMenu = (event: React.MouseEvent<HTMLElement>, lineId: string): void => {
+    setAnchorEl(event.currentTarget);
+    setMenuLineId(lineId);
+  };
+  const closeMenu = (): void => {
+    setAnchorEl(null);
+  };
+
+  const openAddDialog = (): void => {
+    addReset({ name: '', reportTypeCode: 'OZ' });
+    setShowAddDialog(true);
+  };
+  const closeAddDialog = (): void => {
+    setShowAddDialog(false);
+    setSubmitError('');
+  };
+  const onAdd = async ({
+    name,
+    reportTypeCode,
+    file,
+  }: {
+    name: string;
+    reportTypeCode: string;
+    file: File;
+  }): Promise<string | null> => {
+    if (!oystehrZambda) return null;
+    try {
+      setSubmitError('');
+      const { uploadUrl } = await addClaimAttachment(oystehrZambda, {
+        claimId: claim.id,
+        name,
+        reportTypeCode: reportTypeCode ? reportTypeCode : undefined,
+      });
+      await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type,
+        },
+        body: file,
+      });
+      await refetchClaim();
+      closeAddDialog();
+      addReset();
+    } catch (err) {
+      const errorMessage = getApiError({ error: err, defaultError: 'Failed to add attachment' });
+      setSubmitError(errorMessage);
+      return errorMessage;
+    }
+    return null;
+  };
+  const closeRenameDialog = (): void => {
+    setShowRenameDialog(false);
+    setRenameDocRefId(null);
+    setSubmitError('');
+  };
+  const onRename = async ({ name }: { name: string }): Promise<string | null> => {
+    if (!oystehrZambda || !renameDocRefId) return null;
+    try {
+      setSubmitError('');
+      await renameClaimAttachment(oystehrZambda, { documentReferenceId: renameDocRefId, name });
+      await refetchClaim();
+      closeRenameDialog();
+    } catch (err) {
+      const errorMessage = getApiError({ error: err, defaultError: 'Failed to rename attachment' });
+      setSubmitError(errorMessage);
+      return errorMessage;
+    }
+    return null;
+  };
+  const closeDeleteDialog = (): void => {
+    setShowDeleteDialog(false);
+    setDeleteDocRefId(null);
+    setSubmitError('');
+  };
+  const onDelete = async (): Promise<string | null> => {
+    if (!oystehrZambda || !deleteDocRefId) return null;
+    setDeleteFormIsSubmitting(true);
+    try {
+      setSubmitError('');
+      await deleteClaimAttachment(oystehrZambda, { claimId: claim.id, documentReferenceId: deleteDocRefId });
+      await refetchClaim();
+      closeDeleteDialog();
+    } catch (err) {
+      const errorMessage = getApiError({ error: err, defaultError: 'Failed to delete attachment' });
+      setSubmitError(errorMessage);
+      return errorMessage;
+    } finally {
+      setDeleteFormIsSubmitting(false);
+    }
+    return null;
+  };
+  const onDownload = useCallback(
+    async (documentReferenceId: string) => {
+      if (!oystehrZambda) return;
+      const { downloadUrl } = await downloadClaimAttachment(oystehrZambda, { claimId: claim.id, documentReferenceId });
+      window.open(downloadUrl, '_blank');
+    },
+    [oystehrZambda, claim]
+  );
+
+  return (
+    <>
+      <ReadOnlySection title="Attachments" onAdd={() => openAddDialog()}>
+        {claim.attachments.length > 0 ? (
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={thSx}>#</TableCell>
+                  <TableCell sx={thSx}>File Name</TableCell>
+                  <TableCell sx={thSx}>Report Type Code</TableCell>
+                  <TableCell sx={thSx}>Date Added</TableCell>
+                  <TableCell sx={thSx}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {claim.attachments.map((line) => (
+                  <TableRow key={line.sequence}>
+                    <TableCell>{line.sequence}</TableCell>
+                    <TableCell>{line.fileName}</TableCell>
+                    <TableCell>
+                      {line.reportTypeCode ?? 'OZ'} &mdash;{' '}
+                      {
+                        CLAIM_ATTACHMENT_REPORT_TYPE_CODES.find(({ code }) => code === (line.reportTypeCode ?? 'OZ'))
+                          ?.label
+                      }
+                    </TableCell>
+                    <TableCell>{formatDateTime(line.dateAdded)}</TableCell>
+                    <TableCell>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          flexDirection: 'row',
+                        }}
+                      >
+                        <Tooltip title="Download">
+                          <IconButton size="small" onClick={() => onDownload(line.id)} aria-label="Download">
+                            <DownloadIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="More Actions">
+                          <IconButton aria-label="More actions" onClick={(e) => openMenu(e, line.id)}>
+                            <MoreVertIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Menu
+                          anchorEl={anchorEl}
+                          open={Boolean(anchorEl) && menuLineId === line.id}
+                          onClose={closeMenu}
+                        >
+                          <MenuItem
+                            onClick={() => {
+                              setShowRenameDialog(true);
+                              renameReset({ name: line.fileName });
+                              setRenameDocRefId(line.id);
+                              closeMenu();
+                            }}
+                          >
+                            <ListItemIcon>
+                              <EditOutlinedIcon fontSize="small" color="primary" />
+                            </ListItemIcon>
+                            <ListItemText>Rename document</ListItemText>
+                          </MenuItem>
+                          <MenuItem
+                            onClick={() => {
+                              setShowDeleteDialog(true);
+                              setDeleteFileName(line.fileName);
+                              setDeleteDocRefId(line.id);
+                              closeMenu();
+                            }}
+                          >
+                            <ListItemIcon>
+                              <DeleteIcon fontSize="small" color="error" />
+                            </ListItemIcon>
+                            <ListItemText>Delete document</ListItemText>
+                          </MenuItem>
+                        </Menu>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            No attachments
+          </Typography>
+        )}
+      </ReadOnlySection>
+
+      {/* Add Dialog */}
+      <Dialog open={showAddDialog} onClose={() => closeAddDialog()} maxWidth="sm" fullWidth>
+        <DialogTitle
+          sx={{ px: 3, pt: 3, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <Typography variant="h5">Add Attachment</Typography>
+          <IconButton size="small" onClick={() => closeAddDialog()} aria-label="Close">
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <FormProvider {...addFormMethods}>
+            <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
+              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                {submitError && (
+                  <Alert severity="error" sx={{ mb: 1 }}>
+                    {submitError}
+                  </Alert>
+                )}
+                <Controller
+                  name="name"
+                  control={addFormControl}
+                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                  render={({ field, fieldState: { error: fieldError } }) => (
+                    <TextField
+                      autoFocus
+                      fullWidth
+                      size="small"
+                      label="Name *"
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      error={!!fieldError}
+                      helperText={fieldError?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="reportTypeCode"
+                  control={addFormControl}
+                  render={({ field, fieldState: { error: fieldError } }) => (
+                    <FormControl size="small" fullWidth>
+                      <InputLabel id="report-type-code-select-label" error={!!fieldError}>
+                        Report Type Code
+                      </InputLabel>
+                      <Select
+                        aria-describedby={fieldError ? 'report-type-code-helper-text' : undefined}
+                        label="Report Type Code"
+                        labelId="report-type-code-select-label"
+                        size="small"
+                        fullWidth
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        error={!!fieldError}
+                      >
+                        {CLAIM_ATTACHMENT_REPORT_TYPE_CODES.map(({ code, label }) => (
+                          <MenuItem value={code}>
+                            {code} &mdash; {label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {fieldError ? (
+                        <FormHelperText id={`report-type-code-helper-text`} error={true}>
+                          {fieldError?.message}
+                        </FormHelperText>
+                      ) : (
+                        <></>
+                      )}
+                    </FormControl>
+                  )}
+                />
+                <DropzoneField name="file" multiple={false} required={true} />
+              </Box>
+            </Box>
+          </FormProvider>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => closeAddDialog()}>Cancel</Button>
+          <Button
+            variant="contained"
+            startIcon={addFormIsSubmitting ? <CircularProgress size={14} /> : <SaveIcon fontSize="small" />}
+            onClick={addFormHandleSubmit(onAdd)}
+            disabled={addFormIsSubmitting}
+          >
+            {addFormIsSubmitting ? 'Saving...' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Rename Dialog */}
+      <Dialog open={showRenameDialog} onClose={() => closeRenameDialog()} maxWidth="sm" fullWidth>
+        <DialogTitle
+          sx={{ px: 3, pt: 3, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <Typography variant="h5">Rename Attachment</Typography>
+          <IconButton size="small" onClick={() => closeRenameDialog()} aria-label="Close">
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <FormProvider {...renameFormMethods}>
+            <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
+              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                {submitError && (
+                  <Alert severity="error" sx={{ mb: 1 }}>
+                    {submitError}
+                  </Alert>
+                )}
+                <Controller
+                  name="name"
+                  control={renameFormControl}
+                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                  render={({ field, fieldState: { error: fieldError } }) => (
+                    <TextField
+                      autoFocus
+                      fullWidth
+                      size="small"
+                      label="Name *"
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      error={!!fieldError}
+                      helperText={fieldError?.message}
+                    />
+                  )}
+                />
+              </Box>
+            </Box>
+          </FormProvider>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => closeRenameDialog()}>Cancel</Button>
+          <Button
+            variant="contained"
+            startIcon={renameFormIsSubmitting ? <CircularProgress size={14} /> : <SaveIcon fontSize="small" />}
+            onClick={renameFormHandleSubmit(onRename)}
+            disabled={renameFormIsSubmitting}
+          >
+            {renameFormIsSubmitting ? 'Saving...' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Dialog */}
+      <Dialog open={showDeleteDialog} onClose={() => closeDeleteDialog()} maxWidth="sm" fullWidth>
+        <DialogTitle
+          sx={{ px: 3, pt: 3, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <Typography variant="h5">Delete Attachment</Typography>
+          <IconButton size="small" onClick={() => closeDeleteDialog()} aria-label="Close">
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {submitError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {submitError}
+            </Alert>
+          )}
+          Are you sure you want to delete "{deleteFileName}"? This cannot be undone.
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => closeDeleteDialog()}>Cancel</Button>
+          <Button
+            variant="contained"
+            startIcon={deleteFormIsSubmitting ? <CircularProgress size={14} /> : <DeleteForeverIcon fontSize="small" />}
+            onClick={onDelete}
+            disabled={deleteFormIsSubmitting}
+          >
+            {deleteFormIsSubmitting ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }
 

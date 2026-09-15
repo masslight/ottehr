@@ -13,8 +13,8 @@ import { useCallback, useEffect, useRef } from 'react';
 import { getPatientInstructionQuickPicks } from 'src/api/api';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { isErxPermissionDeniedError } from 'src/features/visits/shared/utils/erxErrors';
 import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetErxConfig';
-import { isPermissionDeniedError } from 'src/helpers/apiErrors';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
@@ -172,13 +172,13 @@ export const useGetMedicationsSearch = (
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
     // A role without eRx access will be denied every time — retrying just multiplies the 403s.
-    retry: (failureCount, error) => !isPermissionDeniedError(error) && failureCount < 3,
+    retry: (failureCount, error) => !isErxPermissionDeniedError(error) && failureCount < 3,
   });
 
   useEffect(() => {
     if (queryResult.error) {
       enqueueSnackbar(
-        isPermissionDeniedError(queryResult.error)
+        isErxPermissionDeniedError(queryResult.error)
           ? MEDICATION_DATABASE_FORBIDDEN_MESSAGE
           : 'An error occurred during the search. Please try again in a moment',
         {
@@ -208,13 +208,13 @@ export const useGetMedicationDetails = (medicationId: number): UseQueryResult<Er
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
     // A role without eRx access will be denied every time — retrying just multiplies the 403s.
-    retry: (failureCount, error) => !isPermissionDeniedError(error) && failureCount < 3,
+    retry: (failureCount, error) => !isErxPermissionDeniedError(error) && failureCount < 3,
   });
 
   useEffect(() => {
     if (queryResult.error) {
       enqueueSnackbar(
-        isPermissionDeniedError(queryResult.error)
+        isErxPermissionDeniedError(queryResult.error)
           ? MEDICATION_DATABASE_FORBIDDEN_MESSAGE
           : `An error occurred during looking up medication details: ${queryResult.error.message}`,
         {

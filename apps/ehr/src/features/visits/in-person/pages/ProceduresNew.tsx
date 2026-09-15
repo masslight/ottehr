@@ -50,6 +50,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { TRACKING_BOARD_QUERY_KEY } from 'src/hooks/useGetTrackingBoard';
 import { sortQuickPicks, useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
@@ -477,13 +478,14 @@ export default function ProceduresNew({
             documentedDateTime: DateTime.now().toUTC().toString(),
             performerType: state.performerType,
             medicationUsed: state.medicationUsed,
-            bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite?.trim(),
+            bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite?.trim() || OTHER,
             bodySide: state.bodySide,
             technique: state.technique,
             suppliesUsed: combineMultipleValuesForSave(state.suppliesUsed, state.otherSuppliesUsed),
             procedureDetails: state.procedureDetails,
             specimenSent: state.specimenSent,
-            complications: state.complications !== OTHER ? state.complications : state.otherComplications?.trim(),
+            complications:
+              state.complications !== OTHER ? state.complications : state.otherComplications?.trim() || OTHER,
             patientResponse: state.patientResponse,
             postInstructions: combineMultipleValuesForSave(state.postInstructions, state.otherPostInstructions),
             timeSpent: state.timeSpent,
@@ -519,7 +521,7 @@ export default function ProceduresNew({
       }
 
       void queryClient.invalidateQueries({
-        queryKey: ['procedures-for-tracking-board'],
+        queryKey: [TRACKING_BOARD_QUERY_KEY],
         refetchType: 'active',
       });
 
@@ -973,15 +975,21 @@ export default function ProceduresNew({
   }, [methods, procedure]);
 
   const onQuickPickSelect = (quickPick: ProcedureQuickPickData): void => {
-    updateState((state) => {
-      if (quickPick.procedureType) {
-        methods.reset({
-          ...formValues,
-          procedureType:
-            selectOptions?.procedureTypes.find((procedureType) => procedureType.code === quickPick.procedureType)
-              ?.name ?? quickPick.procedureType,
-        });
+    if (quickPick.procedureType) {
+      const resolvedProcedureType =
+        selectOptions?.procedureTypes.find((procedureType) => procedureType.code === quickPick.procedureType)?.name ??
+        quickPick.procedureType;
+      methods.reset({
+        ...formValues,
+        procedureType: resolvedProcedureType,
+      });
+      // methods.reset() above doesn't reliably notify the procedureType draft-sync subscription,
+      // so persist it directly here — same as every other quick-pick field going through updateState.
+      if (!procedureId && encounter.id) {
+        setDraft(encounter.id, { procedureType: resolvedProcedureType });
       }
+    }
+    updateState((state) => {
       QUICK_PICK_APPLY_KEYS.forEach((key) => {
         if (key === 'cptCodes') {
           state.cptCodes = mergeCptCodes(state.cptCodes, quickPick.cptCodes);

@@ -39,7 +39,7 @@ export function eraPatientAccountNumber(
 ): string {
   const echoed = claimResponses.map((cr) => getEraExtensionString(cr, ERA_PCN_EXTENSION)).find(Boolean);
   if (echoed) return echoed;
-  return matched && claim ? getClaimPcn(claim) : '';
+  return matched && claim ? getClaimPcn(claim) ?? '' : '';
 }
 
 // The member id the payer reported the insured under. In the 835 it rides on NM1*IL NM109 when

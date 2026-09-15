@@ -89,6 +89,7 @@ import {
   getCandidPlanTypeCodeFromCoverage,
   getPayerId,
   getPayerUrl,
+  isNioReferenceUrl,
 } from 'utils/lib/helpers/helpers';
 import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -96,6 +97,7 @@ import {
   CODE_SYSTEM_CPT_MODIFIER,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { Secrets } from 'utils/lib/secrets';
 import { EmCodeOption } from 'utils/lib/types/api/config/em-codes';
 import { TIMEZONES } from 'utils/lib/types/constants';
@@ -681,7 +683,13 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
   );
 
   let nonInsurancePayerId: string | undefined = undefined;
-  if (occupationalMedicineAccount) {
+  if (occupationalMedicineAccount && isNioReferenceUrl(occupationalMedicineAccount.owner?.reference)) {
+    // Billing-app NIO employers are never synced to Candid, so comparison claims go out without a
+    // non-insurance payer; the Ottehr billing claim is the one that carries the employer.
+    console.log(
+      `Occupational Medicine employer is a billing-app NIO (${occupationalMedicineAccount.owner?.reference}); sending the Candid claim without a non-insurance payer.`
+    );
+  } else if (occupationalMedicineAccount) {
     const ownerOrganizationId = occupationalMedicineAccount.owner?.reference?.split('/')[1];
     if (ownerOrganizationId) {
       const occupationalMedicineEmployerOrganization = await oystehr.fhir.get<Organization>({
@@ -1660,11 +1668,24 @@ export const getCptModifierCodeFromProcedure = (
 };
 
 export function shouldUseCandid(secrets: Secrets): boolean {
-  return (
+  const useCandid =
     ['candid', 'all'].includes(secrets.BILLING_INTEGRATION) ||
     // TODO: remove this once secrets migrated
-    !secrets.BILLING_INTEGRATION
-  );
+    !secrets.BILLING_INTEGRATION;
+  // NIO mode needs Ottehr billing as the system of record: Candid can't see billing-app NIOs, so
+  // candid-only routing would silently drop employer billing. 'all' is fine — Candid runs
+  // alongside for claim comparison. Terraform generation rejects the bad combination; this
+  // backstop catches secrets edited outside IaC.
+  if (useCandid && !shouldUseOttehrBilling(secrets) && FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled) {
+    throw new Error(
+      `BILLING_INTEGRATION is '${
+        secrets.BILLING_INTEGRATION || '(unset)'
+      }', which routes claims through Candid only, but the nonInsuranceOrganizationsEnabled feature flag is on. ` +
+        `Non-insurance organizations need Ottehr billing as the system of record: set BILLING_INTEGRATION to ` +
+        `'ottehr' (or 'all' to also send comparison claims to Candid), or turn off nonInsuranceOrganizationsEnabled.`
+    );
+  }
+  return useCandid;
 }
 
 export function shouldUseOttehrBilling(secrets: Secrets): boolean {

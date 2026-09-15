@@ -1,9 +1,23 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
 import { Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { invokeChatbotVertexAI } from '../../src/shared/ai';
+import { lambdaResponse } from '../../src/shared/lambda';
+import { wrapHandler } from '../../src/shared/sentry';
+import { ZambdaInput } from '../../src/shared/types/common';
 
-// Sentry is initialised at module scope in the lambda wrapper; captureException is all this path touches.
-vi.mock('@sentry/aws-serverless', () => ({ captureException: vi.fn() }));
+// Stands in for the SDK the real handler wrapper is built on: captureException is the only call whose
+// arguments matter here, the rest exist so `wrapHandler` runs its actual code instead of a stub.
+const captureException = vi.fn();
+vi.mock('@sentry/aws-serverless', () => ({
+  captureException: (...args: unknown[]) => captureException(...args),
+  captureMessage: vi.fn(),
+  init: vi.fn(),
+  isInitialized: vi.fn(() => true),
+  setTag: vi.fn(),
+  setTags: vi.fn(),
+  wrapHandler: (handler: unknown) => handler, // the real one only adds tracing
+}));
 
 // Keyed off SecretsKeys so the test breaks if the code starts reading a different secret.
 const secrets: Secrets = {
@@ -11,19 +25,40 @@ const secrets: Secrets = {
   [SecretsKeys.GOOGLE_CLOUD_API_KEY]: 'test-key',
 };
 
+// sendErrors drops events on 'local', so a deployed environment is what proves reporting still happens.
+const deployedSecrets: Secrets = { ...secrets, [SecretsKeys.ENVIRONMENT]: 'development' };
+
+const responseOf = (
+  status: number,
+  body: unknown
+): { ok: boolean; status: number; statusText: string; text: () => Promise<string> } => ({
+  ok: status >= 200 && status < 300,
+  status,
+  statusText: status === 400 ? 'Bad Request' : status === 429 ? 'Too Many Requests' : 'OK',
+  text: async () => JSON.stringify(body),
+});
+
 const respondWith = (status: number, body: unknown): void => {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => ({
-      ok: status >= 200 && status < 300,
-      status,
-      statusText: status === 400 ? 'Bad Request' : 'OK',
-      text: async () => JSON.stringify(body),
-    }))
+    vi.fn(async () => responseOf(status, body))
+  );
+};
+
+// One entry per attempt, for the retry paths; the last entry repeats if the ladder runs longer.
+const respondInSequence = (...responses: [number, unknown][]): void => {
+  let attempt = 0;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => {
+      const [status, body] = responses[Math.min(attempt++, responses.length - 1)];
+      return responseOf(status, body);
+    })
   );
 };
 
 beforeEach(() => {
+  captureException.mockClear();
   vi.useFakeTimers(); // the retry ladder sleeps up to ~6s between attempts
 });
 
@@ -43,6 +78,20 @@ const invoke = async (): Promise<string> => {
   const result = await outcome;
   if (!result.ok) throw result.error;
   return result.value;
+};
+
+// The same call as `invoke`, but through the wrapper every zambda is deployed behind — so the assertions
+// below are about what Sentry actually receives in production, not about a hand-rolled catch block.
+const invokeThroughHandler = async (): Promise<APIGatewayProxyResult> => {
+  const handler = wrapHandler('test-ai-zambda', async (input: ZambdaInput) => {
+    const text = await invokeChatbotVertexAI([{ text: 'hello' }], input.secrets);
+    return lambdaResponse(200, { text });
+  }) as unknown as (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
+
+  // The handler swallows the throw into a 500, so nothing here is ever an unhandled rejection.
+  const outcome = handler({ headers: null, body: null, secrets: deployedSecrets });
+  await vi.advanceTimersByTimeAsync(10_000);
+  return outcome;
 };
 
 describe('invokeChatbotVertexAI error handling', () => {
@@ -105,6 +154,26 @@ describe('invokeChatbotVertexAI error handling', () => {
     await expect(invoke()).rejects.toThrow(/Vertex AI returned a non-JSON body.*502 Bad Gateway/s);
   });
 
+  test('a 429 that a retry recovers from is not reported to Sentry', async () => {
+    // The production sequence: attempt 0 is shed by Vertex's shared quota, the next attempt succeeds and the
+    // caller never sees a failure. Reporting the shed attempt raised an alert for a self-healed retry.
+    respondInSequence(
+      [
+        429,
+        { error: { code: 429, message: 'Resource exhausted. Please try again later.', status: 'RESOURCE_EXHAUSTED' } },
+      ],
+      [200, { candidates: [{ content: { parts: [{ text: 'the transcript' }] } }] }]
+    );
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await expect(invoke()).resolves.toBe('the transcript');
+    expect(captureException).not.toHaveBeenCalled();
+    // Still in the log, so the retry is visible when reading a slow invocation's trace.
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Vertex AI attempt failed'), expect.anything());
+
+    warn.mockRestore();
+  });
+
   test('exhausting the retry ladder reports the statuses, not a bare AggregateError', async () => {
     respondWith(503, { error: { code: 503, message: 'The service is currently unavailable.' } });
 
@@ -116,6 +185,51 @@ describe('invokeChatbotVertexAI error handling', () => {
     expect(error?.message).toMatch(/Vertex AI request failed after 3 attempts/);
     expect(error?.message).toMatch(/503.*currently unavailable/s);
     expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+    // One failure, one Sentry event. Each attempt used to report itself, so a single exhausted ladder
+    // raised three — before the handler's topLevelCatch reported the thrown error as a fourth.
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  test('an exhausted retry ladder still reaches Sentry — exactly once — through the handler', async () => {
+    // The counterpart to the two assertions above: dropping captureException from the attempt only holds up
+    // if the failure a caller actually sees is still reported. It is, by the handler, once per invocation.
+    respondWith(503, { error: { code: 503, message: 'The service is currently unavailable.' } });
+
+    const response = await invokeThroughHandler();
+
+    expect(response.statusCode).toBe(500);
+    expect(captureException).toHaveBeenCalledOnce();
+    // And it carries the diagnosis, not a bare AggregateError, so the Sentry issue is actionable.
+    const reported = captureException.mock.calls[0][0] as Error;
+    expect(reported.message).toMatch(/Vertex AI request failed after 3 attempts/);
+    expect(reported.message).toMatch(/503.*currently unavailable/s);
+  });
+
+  test('a non-retryable failure reaches Sentry once, on its only attempt', async () => {
+    // With no retry there is no second attempt to report the error later, so this is the case where moving
+    // reporting to the handler could plausibly have lost the event altogether.
+    respondWith(400, {
+      error: { code: 400, message: 'Request contains an invalid argument.', status: 'INVALID_ARGUMENT' },
+    });
+
+    const response = await invokeThroughHandler();
+
+    expect(response.statusCode).toBe(500);
+    expect(captureException).toHaveBeenCalledOnce();
+    expect((captureException.mock.calls[0][0] as Error).message).toMatch(
+      /Vertex AI request failed: 400 Bad Request.*INVALID_ARGUMENT/s
+    );
+  });
+
+  test('a success reports nothing at all', async () => {
+    // Guards the other direction: a handler that reported on the happy path would satisfy every assertion
+    // above while re-creating the alert noise this change removed.
+    respondWith(200, { candidates: [{ content: { parts: [{ text: 'the transcript' }] } }] });
+
+    const response = await invokeThroughHandler();
+
+    expect(response.statusCode).toBe(200);
+    expect(captureException).not.toHaveBeenCalled();
   });
 
   test('a successful response returns the candidate text', async () => {

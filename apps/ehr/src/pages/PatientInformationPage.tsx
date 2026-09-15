@@ -39,6 +39,7 @@ import { scrollToFirstInvalidField } from 'src/features/visits/shared/components
 import { WarningBanner } from 'src/features/visits/shared/components/patient/WarningBanner';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import {
+  applyVisitEmployerToVisitDetailsCache,
   buildVisitEmployerUpdate,
   OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY,
 } from 'src/features/visits/shared/visitEmployer';
@@ -536,6 +537,13 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
             oystehrZambda,
             buildVisitEmployerUpdate(appointmentId, employerValue as Reference | null | undefined)
           );
+          // Write the saved employer into the cache before invalidating so form reseeds never
+          // flash the previous value while the refetch is in flight.
+          applyVisitEmployerToVisitDetailsCache(
+            queryClient,
+            appointmentId,
+            employerValue as Reference | null | undefined
+          );
           await queryClient.invalidateQueries({ queryKey: ['get-visit-details'] });
         } catch {
           enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
@@ -612,6 +620,15 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     />
   );
 
+  const isWorkersCompVisit = appointmentContext?.appointmentServiceCategory === 'workers-comp';
+  const workersCompSection = (
+    <EmployerInformationContainer
+      isLoading={isFetching || submitQR.isPending}
+      patientId={patient?.id}
+      encounterId={appointmentContext?.encounterId}
+    />
+  );
+
   return (
     <div>
       {isFetching && <LoadingScreen />}
@@ -655,17 +672,14 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                     />
                   </Box>
                   <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {isWorkersCompVisit && workersCompSection}
                     {insuranceSection}
                     <ResponsibleInformationContainer
                       isLoading={isFetching || submitQR.isPending}
                       patientId={patient?.id}
                       encounterId={appointmentContext?.encounterId}
                     />
-                    <EmployerInformationContainer
-                      isLoading={isFetching || submitQR.isPending}
-                      patientId={patient?.id}
-                      encounterId={appointmentContext?.encounterId}
-                    />
+                    {!isWorkersCompVisit && workersCompSection}
                     <OccupationalMedicineEmployerInformationContainer
                       isLoading={isFetching || submitQR.isPending}
                       patientId={patient?.id}

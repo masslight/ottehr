@@ -456,7 +456,12 @@ export const getOystehrTelemedAPI = (
 
   const getPatientCoverages = async (
     parameters: GetPatientAccountZambdaInput
-  ): Promise<{ coverages: OrderedCoveragesWithSubscribers; insuranceOrgs: Organization[] }> => {
+  ): Promise<{
+    coverages: OrderedCoveragesWithSubscribers;
+    insuranceOrgs: Organization[];
+    employerOrganization?: Organization;
+    occupationalMedicineEmployerOrganization?: Organization;
+  }> => {
     const response = await makeZapRequest<PatientAccountResponse, GetPatientAccountZambdaInput>(
       'get patient account',
       parameters
@@ -464,6 +469,8 @@ export const getOystehrTelemedAPI = (
     return {
       coverages: response.coverages,
       insuranceOrgs: response.insuranceOrgs,
+      employerOrganization: response.employerOrganization,
+      occupationalMedicineEmployerOrganization: response.occupationalMedicineEmployerOrganization,
     };
   };
 

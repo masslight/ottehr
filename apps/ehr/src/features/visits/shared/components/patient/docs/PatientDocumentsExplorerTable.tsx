@@ -290,9 +290,22 @@ const VisitCell: FC<{ visit?: PatientVisitOption }> = ({ visit }) => {
   );
 };
 
+/**
+ * Resolves a document's visit from either linkage: EHR uploads carry an encounter, intake paperwork
+ * only an appointment. Encounter is tried first — it is the more specific of the two.
+ */
+const resolveDocumentVisit = (
+  doc: PatientDocumentInfo,
+  visitsByEncounterId: Map<string, PatientVisitOption>,
+  visitsByAppointmentId: Map<string, PatientVisitOption>
+): PatientVisitOption | undefined =>
+  (doc.encounterId ? visitsByEncounterId.get(doc.encounterId) : undefined) ??
+  (doc.appointmentId ? visitsByAppointmentId.get(doc.appointmentId) : undefined);
+
 const configureTableColumns = (
   actions: DocumentTableActions,
-  visitsByEncounterId: Map<string, PatientVisitOption>
+  visitsByEncounterId: Map<string, PatientVisitOption>,
+  visitsByAppointmentId: Map<string, PatientVisitOption>
 ): GridColDef<PatientDocumentInfo>[] => {
   return [
     {
@@ -307,10 +320,10 @@ const configureTableColumns = (
       field: 'encounterId',
       headerName: 'Visit',
       width: 200,
-      // Sort by the visit's date/time rather than the raw encounter id, which is meaningless to order.
-      valueGetter: ({ row: { encounterId } }) => (encounterId && visitsByEncounterId.get(encounterId)?.dateTime) ?? '',
-      renderCell: ({ row: { encounterId } }) => (
-        <VisitCell visit={encounterId ? visitsByEncounterId.get(encounterId) : undefined} />
+      // Sort by the visit's date/time rather than a raw resource id, which is meaningless to order.
+      valueGetter: ({ row }) => resolveDocumentVisit(row, visitsByEncounterId, visitsByAppointmentId)?.dateTime ?? '',
+      renderCell: ({ row }) => (
+        <VisitCell visit={resolveDocumentVisit(row, visitsByEncounterId, visitsByAppointmentId)} />
       ),
     },
     {
@@ -354,13 +367,13 @@ export type PatientDocumentsExplorerTableProps = {
 export const PatientDocumentsExplorerTable: FC<PatientDocumentsExplorerTableProps> = (props) => {
   const { isLoadingDocs, documents, documentTableActions, patientId } = props;
 
-  const { visitsByEncounterId } = usePatientVisitOptions(patientId);
+  const { visitsByEncounterId, visitsByAppointmentId } = usePatientVisitOptions(patientId);
 
   const filteredDocs = documents ?? [];
 
   const tableColumns = useMemo(() => {
-    return configureTableColumns(documentTableActions, visitsByEncounterId);
-  }, [documentTableActions, visitsByEncounterId]);
+    return configureTableColumns(documentTableActions, visitsByEncounterId, visitsByAppointmentId);
+  }, [documentTableActions, visitsByEncounterId, visitsByAppointmentId]);
 
   return (
     <DataGridPro

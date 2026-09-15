@@ -283,7 +283,9 @@ export function makeMedicationResource(
   const dose = data.intakeInfo.dose?.trim();
   return {
     id: data.resourceId,
-    identifier: [{ value: data.id }],
+    // A medication with no dispensable drug id — typed by name rather than picked from the eRx
+    // catalog — has no identifier to carry, and an empty one fails FHIR validation outright.
+    ...(data.id ? { identifier: [{ value: data.id }] } : {}),
     resourceType: 'MedicationStatement',
     subject: { reference: `Patient/${patientId}` },
     context: { reference: `Encounter/${encounterId}` },
@@ -297,12 +299,11 @@ export function makeMedicationResource(
       note: [{ text: PATIENT_COULD_NOT_CONFIRM_DOSAGE_NOTE }],
     }),
     medicationCodeableConcept: {
+      // Without a code there is no code system to name, so the coding is the display name alone.
       coding: [
-        {
-          system: MEDICATION_DISPENSABLE_DRUG_ID,
-          code: data.id,
-          display: data.name,
-        },
+        data.id
+          ? { system: MEDICATION_DISPENSABLE_DRUG_ID, code: data.id, display: data.name }
+          : { display: data.name },
       ],
     },
     ...(data.isRenewal !== undefined && {

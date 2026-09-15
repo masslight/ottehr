@@ -1,5 +1,5 @@
 import { Box, Typography, useTheme } from '@mui/material';
-import { FC } from 'react';
+import { FC, Fragment } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   SectionHeading,
@@ -8,11 +8,14 @@ import {
 import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { AssessmentTitle } from '../../../../../../components/AssessmentTitle';
 import { useChartData } from '../../../stores/appointment/appointment.store';
+import { AiAddedMark } from '../../scribe-recommendations/AiAddedMark';
+import { findAiAddedFor, useAiAddedRecommendations } from '../../scribe-recommendations/aiAddedMarks';
 
 export const AllergiesContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { chartData } = useChartData();
   const theme = useTheme();
+  const aiAdded = useAiAddedRecommendations();
 
   const allergies = chartData?.allergies?.filter((allergy) => allergy.current === true);
 
@@ -23,7 +26,17 @@ export const AllergiesContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
     >
       {!titleInCardHeader && <SectionHeading>Allergies</SectionHeading>}
       {allergies?.length ? (
-        allergies.map((allergy) => <Typography key={allergy.resourceId}>{allergy.name}</Typography>)
+        allergies.map((allergy) => {
+          const row = <Typography>{allergy.name}</Typography>;
+          const fromAi = findAiAddedFor(aiAdded, { kind: 'allergy', name: allergy.name });
+          return fromAi ? (
+            <AiAddedMark key={allergy.resourceId} recommendation={fromAi}>
+              {row}
+            </AiAddedMark>
+          ) : (
+            <Fragment key={allergy.resourceId}>{row}</Fragment>
+          );
+        })
       ) : (
         <Typography color={theme.palette.text.secondary}>No known allergies</Typography>
       )}

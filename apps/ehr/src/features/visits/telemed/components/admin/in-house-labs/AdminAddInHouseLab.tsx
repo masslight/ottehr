@@ -1,5 +1,5 @@
 import { Grid, Paper } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { ReactElement, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
@@ -10,6 +10,8 @@ import { AdminInHouseLabItemDefinition } from 'utils/lib/types/data/in-house/in-
 import { APIError } from 'utils/lib/types/errors';
 import { useAdminAddInHouseLab } from '../admin.queries';
 import AdminInHouseLabform from './AdminInHouseLabForm';
+
+type OystehrSdkError = Oystehr.OystehrSdkError;
 
 export default function AdminAddInHouseLab(): ReactElement {
   const { mutateAsync: addInHouseLabMutateAsync, isPending: isSubmitting } = useAdminAddInHouseLab();

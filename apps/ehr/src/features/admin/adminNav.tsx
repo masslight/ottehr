@@ -178,12 +178,18 @@ export const adminNavGroups: AdminNavGroup[] = [
         icon: <PaidOutlinedIcon />,
         render: () => <ChargeItemList mode="charge-master" />,
       },
-      {
-        label: 'Employers',
-        path: '/admin/billing/employers',
-        icon: <BusinessCenterOutlinedIcon />,
-        render: () => <EmployersTab />,
-      },
+      // In NIO mode employers are managed in the billing app; the legacy tab hides so nothing new
+      // can be created or edited here (existing orgs stay for historical visits).
+      ...(FEATURE_FLAGS.NON_INSURANCE_ORGANIZATIONS_ENABLED
+        ? []
+        : [
+            {
+              label: 'Employers',
+              path: '/admin/billing/employers',
+              icon: <BusinessCenterOutlinedIcon />,
+              render: () => <EmployersTab />,
+            },
+          ]),
       {
         label: 'Invoicing',
         path: '/admin/billing/invoicing',

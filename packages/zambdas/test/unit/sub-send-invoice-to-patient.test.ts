@@ -8,6 +8,7 @@ import type { ZambdaInput } from '../../src/shared/types/common';
 
 const mockClinicalClient = {
   fhir: {
+    get: vi.fn(),
     search: vi.fn(),
     patch: vi.fn(),
     create: vi.fn(),
@@ -190,6 +191,12 @@ describe('sub-send-invoice-to-patient source guard', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
+    mockClinicalClient.fhir.get.mockResolvedValue({
+      resourceType: 'Task',
+      id: 'task-1',
+      status: 'in-progress',
+      intent: 'order',
+    });
     mockClinicalClient.fhir.search.mockResolvedValue({
       unbundle: () => [encounter, patient, account, appointment],
     });

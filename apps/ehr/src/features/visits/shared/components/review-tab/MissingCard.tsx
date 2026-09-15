@@ -1,7 +1,8 @@
 import { otherColors } from '@ehrTheme/colors';
 import { WarningAmber } from '@mui/icons-material';
-import { Avatar, Box, Link, Typography } from '@mui/material';
-import { FC, useEffect, useState } from 'react';
+import { Avatar, Box, CircularProgress, Link, Typography } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { LoadingScreen } from 'src/components/LoadingScreen';
@@ -19,6 +20,7 @@ import {
   getRadiologyOrderCreateUrl,
   getVitalsUrl,
 } from 'src/features/visits/in-person/routing/helpers';
+import { hashInput } from 'src/helpers/hash';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
 import {
   useCreateExternalLabStore,
@@ -30,14 +32,43 @@ import {
   useProcedureStore,
   useVitalsDraftStore,
 } from 'src/state/draft-data.store';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+import { AISuggestionNotes } from 'utils/lib/types/api/ai-suggestions-notes';
 import { useChartFields } from '../../hooks/useChartFields';
+import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
+import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useAiSuggestionNotes } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
+import {
+  useExamObservationsInitializationStore,
+  useExamObservationsStore,
+} from '../../stores/appointment/exam-observations.store';
+import { usePendingObservationFields } from '../../stores/appointment/pending-observation-fields.store';
+import {
+  useRosObservationsInitializationStore,
+  useRosObservationsStore,
+} from '../../stores/appointment/ros-observations.store';
+import { useGetVitals } from '../vitals/hooks/useGetVitals';
+
+const AiBadge: FC = () => (
+  <Avatar
+    sx={{
+      backgroundColor: '#DCF0FF',
+      color: '#2F79B2',
+      width: '18px',
+      height: '18px',
+      fontWeight: 'bold',
+      fontSize: '10px',
+    }}
+  >
+    AI
+  </Avatar>
+);
 
 export const MissingCard: FC = () => {
   const { id: appointmentIdFromUrl } = useParams();
   const { encounter } = useAppointmentData();
-  const { chartData } = useChartData();
+  const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { hasDraft: hasExternalLabDraft } = useCreateExternalLabStore();
   const { hasDraft: hasInHouseLabDraft } = useCreateInHouseLabStore();
   const { hasDraft: hasRadiologyDraft } = useCreateRadiologyOrderStore();
@@ -47,7 +78,11 @@ export const MissingCard: FC = () => {
   const { hasDraft: hasMedDraft } = useInHouseMedicationOrderStore();
   const { hasDraft: hasVitalsDraft } = useVitalsDraftStore();
 
-  const { data: chartFields, isFetching } = useChartFields({
+  const {
+    data: chartFields,
+    isFetching,
+    isFetched: isChartFieldsFetched,
+  } = useChartFields({
     requestedFields: {
       medicalDecision: {
         _tag: 'medical-decision',
@@ -97,6 +132,81 @@ export const MissingCard: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hpi]);
 
+  // Non-blocking, AI-generated note-review warnings driven by the practice-level sign-review prompt.
+  // The prompt and the note content both live server-side; this only names the visit to review.
+  const apiClient = useOystehrAPIClient();
+  const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
+  const rosState = useRosObservationsStore();
+  const examState = useExamObservationsStore();
+  const hasRosInitialData = useRosObservationsInitializationStore((state) => state.hasInitialData);
+  const hasExamInitialData = useExamObservationsInitializationStore((state) => state.hasInitialData);
+  const signReviewPrompt = progressNoteConfig?.signReviewPrompt?.trim();
+  // Vitals live outside chart data, and a prompt may well be about them (e.g. DOT color vision), so
+  // they have to take part in the cache key. PatientVitalsContainer on this same page already runs
+  // this query under the same key, so this shares its result rather than adding a request.
+  // isFetched rather than isSuccess: a vitals request that errors must not wedge the review off.
+  const { data: vitals, isFetched: isVitalsFetched } = useGetVitals(signReviewPrompt ? encounter?.id : undefined);
+  const { hasPendingFields } = usePendingObservationFields();
+  // Keyed on the note state this page already knows about, so the AI re-runs when the note changes
+  // and not on every mount. None of it is sent — the zambda assembles the note itself.
+  const noteStateHash = useMemo(
+    () => hashInput([chartData, chartFields, rosState, examState, vitals]),
+    [chartData, chartFields, rosState, examState, vitals]
+  );
+  // The prompt is an input to the AI call, so a prompt edit has to invalidate the cached review.
+  const promptHash = useMemo(() => hashInput(signReviewPrompt), [signReviewPrompt]);
+  // Only review state that has settled. Firing earlier means either reviewing a chart that is still
+  // undefined — several reviews per page load, and warnings that flicker in and out as each source
+  // resolves — or reviewing optimistic store state the server has not persisted yet, whose warnings
+  // staleTime: Infinity would then pin under a hash that never comes round again.
+  const isNoteStateSettled =
+    !isChartDataLoading &&
+    isChartFieldsFetched &&
+    isVitalsFetched &&
+    // The ROS and exam stores are hydrated from a parent effect. Waiting for both avoids firing a
+    // review against an empty chart and flashing a warning the note doesn't actually deserve.
+    hasRosInitialData &&
+    hasExamInitialData &&
+    !hasPendingFields;
+
+  const {
+    data: noteReview,
+    isLoading: isNoteReviewLoading,
+    isError: isNoteReviewError,
+    error: noteReviewError,
+  } = useQuery<AISuggestionNotes>({
+    queryKey: ['note-review-suggestions', encounter?.id, promptHash, noteStateHash],
+    queryFn: () =>
+      apiClient!.aiSuggestionNotes({
+        type: 'note-review',
+        appointmentId: appointmentIdFromUrl!,
+        encounterId: encounter!.id!,
+      }),
+    enabled:
+      !!apiClient &&
+      !!signReviewPrompt &&
+      !!appointmentIdFromUrl &&
+      !!encounter?.id &&
+      !isAppointmentReadOnly &&
+      isNoteStateSettled,
+    staleTime: Infinity,
+    retry: 0,
+  });
+
+  useEffect(() => {
+    if (isNoteReviewError) {
+      // Carry the query error as the cause: without it every failure class — Vertex 400, an
+      // unassemblable note, a network drop — is one indistinguishable message in Sentry.
+      safelyCaptureException(
+        new Error(`AI note review failed for encounter ${encounter?.id}`, { cause: noteReviewError })
+      );
+    }
+  }, [isNoteReviewError, noteReviewError, encounter?.id]);
+
+  // Defensive: these strings come from a model, and a bad shape must not take down Review & Sign.
+  const noteReviewSuggestions = Array.isArray(noteReview?.suggestions) ? noteReview.suggestions : [];
+  const showNoteReviewStatus = !!signReviewPrompt && (isNoteReviewLoading || isNoteReviewError);
+
   if (
     primaryDiagnosis &&
     (!mdmRequired || medicalDecision) &&
@@ -105,7 +215,11 @@ export const MissingCard: FC = () => {
     !suggestionNote &&
     !isPatientVerificationMissing &&
     !accidentMissingDate &&
-    !accidentMissingState
+    !accidentMissingState &&
+    noteReviewSuggestions.length === 0 &&
+    // Otherwise a complete note whose review failed renders nothing at all, and the provider signs
+    // believing the review passed.
+    !showNoteReviewStatus
   ) {
     return null;
   }
@@ -243,23 +357,31 @@ export const MissingCard: FC = () => {
           {suggestionNote && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <WarningAmber sx={{ fontSize: '18px', color: otherColors.orange700 }} />
-              <Avatar
-                sx={{
-                  backgroundColor: '#DCF0FF',
-                  color: '#2F79B2',
-                  width: '18px',
-                  height: '18px',
-                  fontWeight: 'bold',
-                  fontSize: '10px',
-                }}
-              >
-                AI
-              </Avatar>
+              <AiBadge />
               <Link component="button" sx={{ cursor: 'pointer' }} color="#000000" onClick={() => navigateTo('hpi')}>
                 {suggestionNote}
               </Link>
             </div>
           )}
+          {showNoteReviewStatus && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {isNoteReviewLoading ? (
+                <>
+                  <CircularProgress size={14} />
+                  <Typography color="text.secondary">Reviewing note…</Typography>
+                </>
+              ) : (
+                <Typography color="text.secondary">Note review unavailable</Typography>
+              )}
+            </Box>
+          )}
+          {noteReviewSuggestions.map((suggestion, index) => (
+            <Box key={`${index}-${suggestion}`} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <WarningAmber sx={{ fontSize: '18px', color: otherColors.orange700 }} />
+              <AiBadge />
+              <Typography>{suggestion}</Typography>
+            </Box>
+          ))}
           {encounter?.id && (
             <>
               {hasExternalLabDraft(encounter.id) && (

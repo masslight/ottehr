@@ -9,6 +9,12 @@ describe('formatCurrency', () => {
     expect(formatCurrency(12.345)).toBe('$12.35');
   });
 
+  it('groups thousands US-style', () => {
+    expect(formatCurrency(1234.5)).toBe('$1,234.50');
+    expect(formatCurrency(9876543.21)).toBe('$9,876,543.21');
+    expect(formatCurrency(-1234567)).toBe('-$1,234,567.00');
+  });
+
   it('puts the minus sign before the dollar sign for negative amounts', () => {
     expect(formatCurrency(-14.69)).toBe('-$14.69');
     expect(formatCurrency(-0.5)).toBe('-$0.50');

@@ -31,6 +31,11 @@ import { ReviewOfSystemsContainer } from 'src/features/visits/shared/components/
 import { SurgicalHistoryContainer } from 'src/features/visits/shared/components/review-tab/components/SurgicalHistoryContainer';
 import { RosBody } from 'src/features/visits/shared/components/ros-tab/RosBody';
 import { RosReviewContainer } from 'src/features/visits/shared/components/ros-tab/RosReviewContainer';
+import { AiAddedSectionChip } from 'src/features/visits/shared/components/scribe-recommendations/AiAddedMark';
+import {
+  findAiAddedFor,
+  useAiAddedRecommendations,
+} from 'src/features/visits/shared/components/scribe-recommendations/aiAddedMarks';
 import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -174,6 +179,11 @@ export const ProgressNoteDetails: FC = () => {
 
   const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
   const inlineEditEnabled = !isAppointmentReadOnly;
+  // A template fills whole sections at once, so those get a badge in the header rather than a
+  // mark on every line.
+  const appliedTemplate = findAiAddedFor(useAiAddedRecommendations(), { kind: 'template' });
+  const templateChip =
+    appliedTemplate?.kind === 'template' ? <AiAddedSectionChip templateName={appliedTemplate.templateName} /> : null;
   // The supervisor approval box reuses these sections as a read-only summary.
   const inlineEditDisabled = approvalStatus === 'waiting-for-approval';
 
@@ -348,6 +358,7 @@ export const ProgressNoteDetails: FC = () => {
       iconKey="Stethoscope"
       editLabel="Edit examination"
       editContent={<ExamBody />}
+      headerExtra={templateChip}
       disabled={displayExamMigrationWarning && hasIncompatibleExamConfig}
     >
       {/* If the exam version is flagged as incompatible, we cannot run the migration safely.
@@ -455,6 +466,7 @@ export const ProgressNoteDetails: FC = () => {
         iconKey="Prescription"
         editLabel="Edit assessment"
         editContent={<AssessmentBody />}
+        headerExtra={templateChip}
       >
         <AssessmentGroupContainer />
       </InlineEditSection>
@@ -467,6 +479,7 @@ export const ProgressNoteDetails: FC = () => {
         iconKey="Lab profile"
         editLabel="Edit plan"
         editContent={<PlanBody />}
+        headerExtra={templateChip}
       >
         {showPatientInstructions ? (
           <PatientInstructionsContainer />

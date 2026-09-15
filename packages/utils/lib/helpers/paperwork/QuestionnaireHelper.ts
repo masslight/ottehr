@@ -177,14 +177,6 @@ export class QuestionnaireHelper {
   }
 
   /**
-   * Checks if the patient condition page exists in the virtual questionnaire.
-   * This page may be hidden via hiddenFormSections config.
-   */
-  static hasVirtualPatientConditionPage(): boolean {
-    return QuestionnaireHelper.virtualQuestionnaireHasItem('patient-condition-page');
-  }
-
-  /**
    * Checks if an item with the given linkId is marked as required in the virtual questionnaire.
    *
    * @param linkId - The linkId of the item to check

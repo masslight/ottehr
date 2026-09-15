@@ -13,7 +13,11 @@ import { UpdateVisitDetailsInput } from 'utils/lib/types/api/update-visit-detail
 import { createQuestionnaireItemsMap } from 'utils/lib/types/data/paperwork/createQuestionnaireItemsMap';
 import { structureQuestionnaireResponse } from '../../../../../helpers/qr-structure';
 import { useUpdatePatientAccount } from '../../../../../hooks/useGetPatient';
-import { buildVisitEmployerUpdate, OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY } from '../../visitEmployer';
+import {
+  applyVisitEmployerToVisitDetailsCache,
+  buildVisitEmployerUpdate,
+  OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY,
+} from '../../visitEmployer';
 import { useSaveBlockedReason } from './SaveBlockedReasonContext';
 import { scrollToFirstInvalidField } from './scrollToFirstInvalidField';
 
@@ -92,7 +96,13 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
       }
       await updatePatientVisitDetails(oystehrZambda, input);
     },
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
+      // Writing to the cache prevents flickering the old value on save
+      applyVisitEmployerToVisitDetailsCache(
+        queryClient,
+        variables.appointmentId,
+        variables.bookingDetails?.visitOccupationalMedicineEmployer
+      );
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['get-visit-details'] }),
         queryClient.invalidateQueries({ queryKey: ['patient-account-get'] }),

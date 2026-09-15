@@ -32,8 +32,13 @@ async function performEffect(
       return { payers: [mapPayer(result)] };
     }
   }
-  const result = await oystehr.rcm.listPayers({ ...(params.name ? { name: params.name } : {}), limit: 50 });
-  const payers = result.data.map((payer) => mapPayer(payer));
+  const resultByName = await oystehr.rcm.listPayers({ ...(params.name ? { name: params.name } : {}), limit: 50 });
+  const resultById = await oystehr.rcm.listPayers({ ...(params.name ? { id: params.name } : {}), limit: 50 });
+  const payers = [...resultByName.data, ...resultById.data]
+    .map((payer) => mapPayer(payer))
+    .reduce((map, payer) => map.set(payer.id, payer), new Map<string, BillingPayerOption>())
+    .values()
+    .toArray();
   return { payers };
 }
 

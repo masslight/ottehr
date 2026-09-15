@@ -1,7 +1,7 @@
 import { ErxGetMedicationHistoryResponse, ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { isPermissionDeniedError } from 'src/helpers/apiErrors';
+import { isErxPermissionDeniedError } from 'src/features/visits/shared/utils/erxErrors';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ExtractObjectType } from '../stores/appointment/appointment.queries';
@@ -34,6 +34,18 @@ export interface UseExternalMedicationHistoryResult {
   /** True when the history is unavailable because the signed-in user's role cannot read eRx data. */
   isPermissionDenied: boolean;
 }
+
+/**
+ * The three outcomes a caller must be able to tell apart. Kept together here, next to the query that
+ * produces the state, the same way appointment.queries.ts exports MEDICATION_DATABASE_FORBIDDEN_MESSAGE.
+ *
+ * The distinction is the point: reporting a failed or forbidden request as "no medications found" tells
+ * the user something false about their patient.
+ */
+export const EXTERNAL_HISTORY_FORBIDDEN_MESSAGE =
+  'Not available — your role does not have access to external medication history.';
+export const EXTERNAL_HISTORY_FAILED_MESSAGE = "Not available — couldn't load external medication history.";
+export const EXTERNAL_HISTORY_EMPTY_MESSAGE = 'No external medications found, or all have been reconciled.';
 
 // Mock data for development/testing — remove when real eRx data is available
 const MOCK_EXTERNAL_HISTORY: ExternalHistoryItem[] = [
@@ -237,23 +249,29 @@ export const useExternalMedicationHistory = (
       try {
         const history = await oystehr.erx.getMedicationHistory({ patientId });
         if (history.length > 0) return history;
+        // The request succeeded and the patient genuinely has nothing on file. A *successful* call is
+        // the only path allowed to resolve rather than throw — which means empty in real environments,
+        // and the stub rows in sandbox so local dev has a populated panel to build against. Note that
+        // therefore the real empty state is not reachable in sandbox; see the catch below.
+        return IS_SANDBOX ? MOCK_EXTERNAL_HISTORY : [];
       } catch (error) {
-        // Surface a permission denial instead of swallowing it: the user's role simply cannot read eRx
-        // history, so it must not be reported as "history hasn't arrived yet" and polled forever.
-        if (isPermissionDeniedError(error)) throw error;
-        /* fall through to mock data in sandbox */
+        // Fail closed. The eRx SDK error does not reliably carry the HTTP status (see
+        // utils/erxErrors.ts), so we cannot tell a permission denial from a transient failure here —
+        // and resolving to [] would render "No external medications found" for both, making a broken
+        // backend indistinguishable from a patient with no medications. Let it reject so the caller
+        // reports the list as unavailable; isErxPermissionDeniedError then only picks the wording.
+        if (IS_SANDBOX && !isErxPermissionDeniedError(error)) return MOCK_EXTERNAL_HISTORY;
+        throw error;
       }
-      // In sandbox environments, fall back to stub data when no real data is available
-      if (IS_SANDBOX) return MOCK_EXTERNAL_HISTORY;
-      return [];
     },
     enabled: !!oystehr && !!patientId,
     staleTime: 5 * 60 * 1000,
-    retry: (failureCount, error) => !isPermissionDeniedError(error) && failureCount < 1,
-    // Poll every 10s while the eRx service is still populating history.
-    // Once data arrives — or once we know this user isn't allowed to read it — stop polling.
+    retry: (failureCount, error) => !isErxPermissionDeniedError(error) && failureCount < 1,
+    // Poll every 10s while the eRx service is still populating history — that is, only while the call
+    // is succeeding and returning nothing yet. Any error stops polling: a denial can never succeed on
+    // retry, and for other failures an undetected denial must not spin forever.
     refetchInterval: (query) => {
-      if (isPermissionDeniedError(query.state.error)) return false;
+      if (query.state.error) return false;
       const data = query.state.data;
       if (!data || data.length === 0) return 10_000;
       return false;
@@ -342,6 +360,6 @@ export const useExternalMedicationHistory = (
     isAvailable: !historyError,
     externalMedications,
     error: historyError ?? null,
-    isPermissionDenied: isPermissionDeniedError(historyError),
+    isPermissionDenied: isErxPermissionDeniedError(historyError),
   };
 };

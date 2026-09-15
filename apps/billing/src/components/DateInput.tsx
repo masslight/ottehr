@@ -1,10 +1,17 @@
 import { Box, Button, DialogActions, Divider, Popover, TextField, TextFieldProps } from '@mui/material';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { CalendarIcon, PickersActionBarProps } from '@mui/x-date-pickers-pro';
-import { DatePicker, DateRange, DateRangeCalendar, LocalizationProvider, RangePosition } from '@mui/x-date-pickers-pro';
+import {
+  DatePicker,
+  DateRange,
+  DateRangeCalendar,
+  DateTimePicker,
+  LocalizationProvider,
+  RangePosition,
+} from '@mui/x-date-pickers-pro';
 import { DateTime } from 'luxon';
-import { MouseEvent, ReactElement, useState } from 'react';
-import { DISPLAY_DATE_FORMAT } from 'utils/lib/utils';
+import { MouseEvent, ReactElement, ReactNode, useState } from 'react';
+import { DISPLAY_DATE_AND_TIME_FORMAT, DISPLAY_DATE_FORMAT } from 'utils/lib/utils';
 
 const RANGE_CALENDAR_SX = {
   '& .MuiPickersCalendarHeader-labelContainer': {
@@ -45,11 +52,16 @@ interface SharedWrapperProps {
   size?: 'small' | 'medium';
   fullWidth?: boolean;
   error?: boolean;
-  helperText?: string;
+  helperText?: ReactNode | string;
   dataTestId?: string;
 }
 
 interface DateInputProps extends SharedWrapperProps {
+  value: string;
+  onChange: (value: string) => void;
+}
+
+interface DateTimeInputProps extends SharedWrapperProps {
   value: string;
   onChange: (value: string) => void;
 }
@@ -254,4 +266,33 @@ export const DateInput = (props: DateInputProps): ReactElement => {
  */
 export const DateRangeInput = (props: DateRangeInputProps): ReactElement => {
   return <DateInputWrapper {...props} />;
+};
+
+/**
+ * Date-and-time input backed by an ISO-8601 datetime string.
+ */
+export const DateTimeInput = (props: DateTimeInputProps): ReactElement => {
+  const dateTimeValue = parseIsoDate(props.value);
+
+  return (
+    <LocalizationProvider dateAdapter={AdapterLuxon}>
+      <DateTimePicker
+        label={props.label}
+        onChange={(value) => props.onChange(value?.toISO() ?? '')}
+        format={DISPLAY_DATE_AND_TIME_FORMAT}
+        slotProps={{
+          textField: {
+            size: props.size ?? 'small',
+            sx: { minWidth: 160 },
+            'data-testid': props.dataTestId,
+            fullWidth: props.fullWidth,
+            error: props.error,
+            helperText: props.helperText,
+          } as TextFieldProps,
+        }}
+        closeOnSelect
+        value={dateTimeValue}
+      />
+    </LocalizationProvider>
+  );
 };

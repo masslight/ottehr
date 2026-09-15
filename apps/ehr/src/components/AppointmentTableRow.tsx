@@ -23,7 +23,6 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { Operation } from 'fast-json-patch';
 import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -37,9 +36,9 @@ import {
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
 import { otherColors } from 'src/themes/ottehr/colors';
+import { updateAppointmentRoom } from 'utils/lib/fhir/appointments';
 import { LOCATION_REVIEW_LINK_EXTENSION_URL, ROOM_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
-import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { getAbnormalVitals } from 'utils/lib/helpers/vitals/utils';
 import { VisitStatusHistoryEntry, VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
 import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
@@ -271,57 +270,7 @@ export default function AppointmentTableRow({
       id: appointment.id,
     });
 
-    let patchOp: Operation;
-
-    if (!room) {
-      const extension = (appointmentToUpdate.extension || []).filter((ext) => ext.url !== ROOM_EXTENSION_URL);
-
-      if (extension?.length === 0) {
-        patchOp = {
-          op: 'remove',
-          path: '/extension',
-        };
-      } else {
-        patchOp = {
-          op: 'replace',
-          path: '/extension',
-          value: extension,
-        };
-      }
-    } else {
-      if (appointmentToUpdate.extension?.find((ext) => ext.url === ROOM_EXTENSION_URL)) {
-        patchOp = {
-          op: 'replace',
-          path: '/extension',
-          value: appointmentToUpdate.extension.map((ext) => {
-            if (ext.url === ROOM_EXTENSION_URL) {
-              return { url: ROOM_EXTENSION_URL, valueString: room };
-            }
-            return ext;
-          }),
-        };
-      } else {
-        if ((appointmentToUpdate.extension || []).length === 0) {
-          patchOp = {
-            op: 'add',
-            path: '/extension',
-            value: [{ url: ROOM_EXTENSION_URL, valueString: room }],
-          };
-        } else {
-          patchOp = {
-            op: 'replace',
-            path: '/extension',
-            value: [...(appointmentToUpdate.extension || []), { url: ROOM_EXTENSION_URL, valueString: room }],
-          };
-        }
-      }
-    }
-
-    await oystehr.fhir.batch({
-      requests: [
-        getPatchBinary({ resourceId: appointment.id, resourceType: 'Appointment', patchOperations: [patchOp] }),
-      ],
-    });
+    await updateAppointmentRoom(appointmentToUpdate, room, oystehr);
 
     setRoomSaving(false);
   };

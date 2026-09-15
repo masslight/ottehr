@@ -24,6 +24,12 @@ import { allLicensesForPractitioner } from '../fhir/helpers';
 import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from '../fhir/insurance';
 import { OTTEHR_MODULE } from '../fhir/moduleIdentification';
 import { getFullName } from '../fhir/patient';
+import {
+  parsePaymentRefundsFromNotice,
+  parsePaymentVoidFromNotice,
+  settledRefundTotalInCents,
+} from '../fhir/paymentRefunds';
+import { getPaymentNoticeSubmitterRef } from '../fhir/payments';
 import { CONSENT_FORMS_CONFIG } from '../ottehr-config/consent-forms';
 import { patientScreeningQuestionsConfig } from '../ottehr-config/screening-questions';
 import { CashPaymentDTO } from '../types/api/patient-payment-types';
@@ -1643,11 +1649,21 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
     return undefined;
   }
 
+  const refunds = parsePaymentRefundsFromNotice(paymentNotice);
+  const voidInfo = parsePaymentVoidFromNotice(paymentNotice);
+  const voided = !!voidInfo || paymentNotice.status === 'cancelled';
+  const takenBy = getPaymentNoticeSubmitterRef(paymentNotice)?.display;
+
   return {
     paymentMethod: paymentMethod as 'cash' | 'check' | 'card-reader' | 'external-card-reader',
     amountInCents: Math.round(amount.value * 100),
     dateISO: created,
     fhirPaymentNotificationId: id,
+    ...(takenBy ? { takenBy } : {}),
+    ...(refunds ? { refunds, refundedAmountInCents: settledRefundTotalInCents(refunds) } : {}),
+    ...(voided
+      ? { voided: true, voidReason: voidInfo?.reason, voidNotes: voidInfo?.notes, voidedBy: voidInfo?.voidedBy }
+      : {}),
   };
 };
 
@@ -1718,6 +1734,28 @@ export function isPayerUrl(maybeUrl?: string): boolean {
 export function extractPayerIdFromUrl(maybeUrl?: string): string | undefined {
   if (!maybeUrl || !isPayerUrl(maybeUrl)) return undefined;
   return maybeUrl.replace('https://rcm-api.zapehr.com/v1/payer/', '');
+}
+
+// Non-insurance organizations (NIOs) are billing-app-owned FHIR resources. The clinical app never
+// stores or reads them as FHIR — a stored NIO reference uses this URL token so readers know to
+// resolve it through the billing app's zambda interface (list-non-insurance-organizations), the
+// same way payer URLs above mark payers as living in the Oystehr RCM payer list.
+export const BILLING_NIO_REFERENCE_BASE = 'https://fhir.ottehr.com/billing/non-insurance-organization';
+
+export function getNioReferenceUrl(nioId: string): string {
+  return `${BILLING_NIO_REFERENCE_BASE}/${nioId}`;
+}
+
+export function extractNioIdFromReferenceUrl(maybeUrl?: string): string | undefined {
+  if (!maybeUrl || !maybeUrl.startsWith(`${BILLING_NIO_REFERENCE_BASE}/`)) return undefined;
+  const nioId = maybeUrl.slice(BILLING_NIO_REFERENCE_BASE.length + 1);
+  // A token carries exactly one non-empty id segment; anything else is not an NIO reference.
+  if (nioId === '' || nioId.includes('/')) return undefined;
+  return nioId;
+}
+
+export function isNioReferenceUrl(maybeUrl?: string): boolean {
+  return extractNioIdFromReferenceUrl(maybeUrl) !== undefined;
 }
 
 export const getNameFromScheduleResource = (scheduleResource: ScheduleOwnerFhirResource): string | undefined => {

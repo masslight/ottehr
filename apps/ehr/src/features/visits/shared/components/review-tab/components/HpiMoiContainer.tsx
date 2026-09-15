@@ -8,6 +8,8 @@ import {
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { formatISODateToLocaleDate } from 'src/helpers/formatDateTime';
 import { useChartFields } from '../../../hooks/useChartFields';
+import { AiAddedMark } from '../../scribe-recommendations/AiAddedMark';
+import { findAiAddedFor, useAiAddedRecommendations } from '../../scribe-recommendations/aiAddedMarks';
 
 // Matches the checkbox labels on the HPI screen's "Patient's condition related to" card.
 const ACCIDENT_TYPE_LABELS: Record<string, string> = {
@@ -38,6 +40,8 @@ export const HpiMoiContainer: FC = () => {
   // chief-complaint tag.
   const historyOfPresentIllness = chartFields?.chiefComplaint?.text;
   const mechanismOfInjury = chartFields?.mechanismOfInjury?.text;
+  const hpiFromAi = findAiAddedFor(useAiAddedRecommendations(), { kind: 'hpi', text: historyOfPresentIllness });
+  const hpiText = <Typography sx={{ whiteSpace: 'pre-line' }}>{historyOfPresentIllness}</Typography>;
 
   const accident = chartFields?.accident;
   const accidentTypes = (accident?.type ?? []).map((type) => ACCIDENT_TYPE_LABELS[type] ?? type);
@@ -53,7 +57,11 @@ export const HpiMoiContainer: FC = () => {
     >
       <AssessmentTitle>History of Present Illness</AssessmentTitle>
       {historyOfPresentIllness ? (
-        <Typography sx={{ whiteSpace: 'pre-line' }}>{historyOfPresentIllness}</Typography>
+        hpiFromAi ? (
+          <AiAddedMark recommendation={hpiFromAi}>{hpiText}</AiAddedMark>
+        ) : (
+          hpiText
+        )
       ) : (
         <Typography color={theme.palette.text.secondary}>No history of present illness</Typography>
       )}

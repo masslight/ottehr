@@ -1,11 +1,16 @@
 import { Box, Stack, Typography } from '@mui/material';
-import { FC } from 'react';
+import { FC, Fragment } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   SectionHeading,
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
+import { AiAddedMark } from 'src/features/visits/shared/components/scribe-recommendations/AiAddedMark';
+import {
+  findAiAddedFor,
+  useAiAddedRecommendations,
+} from 'src/features/visits/shared/components/scribe-recommendations/aiAddedMarks';
 import VitalHistoryElement from 'src/features/visits/shared/components/vitals/components/VitalsHistoryEntry';
 import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
@@ -33,10 +38,12 @@ const VITAL_LABELS: [VitalFieldNames, string][] = [
 export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes, encounterId }) => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { data: encounterVitals } = useGetVitals(encounterId);
+  const aiAdded = useAiAddedRecommendations();
 
   const vitalGroups = VITAL_LABELS.map(([field, label]) => ({
     label,
     entries: encounterVitals?.[field] ?? [],
+    aiAdded: field === VitalFieldNames.VitalWeight ? findAiAddedFor(aiAdded, { kind: 'vital-weight' }) : undefined,
   })).filter((group) => group.entries.length > 0);
 
   const hasNotes = !!notes?.length;
@@ -50,13 +57,18 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes,
       {vitalGroups.map((group) => (
         <Box key={group.label} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           <AssessmentTitle>{group.label}</AssessmentTitle>
-          {group.entries.map((entry) => (
-            <VitalHistoryElement
-              dataTestId={dataTestIds.progressNotePage.vitalsItem}
-              historyEntry={entry}
-              key={entry.resourceId}
-            />
-          ))}
+          {group.entries.map((entry) => {
+            const row = (
+              <VitalHistoryElement dataTestId={dataTestIds.progressNotePage.vitalsItem} historyEntry={entry} />
+            );
+            return group.aiAdded ? (
+              <AiAddedMark key={entry.resourceId} recommendation={group.aiAdded}>
+                {row}
+              </AiAddedMark>
+            ) : (
+              <Fragment key={entry.resourceId}>{row}</Fragment>
+            );
+          })}
         </Box>
       ))}
 

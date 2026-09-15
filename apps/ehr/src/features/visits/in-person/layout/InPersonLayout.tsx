@@ -11,11 +11,14 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { CommandPaletteInPersonRegistrations } from 'src/components/CommandPaletteRegistrations';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { ThemeProvider } from 'styled-components';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getSelectors } from 'utils/lib/store';
 import { isVisitFinished } from 'utils/lib/utils/visitUtils';
+import { useScribePanelOffset } from '../../shared/components/scribe-recommendations/scribeRecommendations.store';
+import { ScribeRecommendationsDrawer } from '../../shared/components/scribe-recommendations/ScribeRecommendationsDrawer';
 import { Sidebar } from '../../shared/components/Sidebar';
 import { useAiResourcesPolling } from '../../shared/components/useAiResourcesPolling';
 import { useAiSuggestionsPolling } from '../../shared/hooks/useAiSuggestionsPolling';
@@ -96,6 +99,14 @@ export const InPersonLayout: React.FC = () => {
     : 'Select a provider in order to begin charting.';
   const virtual = isTelemedAppointment(appointment);
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
+  // Ambient Scribe recommendations sit beside the note (not over it) so the provider can review a
+  // suggestion and the section it lands in at the same time. Follow-up notes and finished visits
+  // have nothing to apply them to.
+  const showScribeRecommendations =
+    FEATURE_FLAGS.AMBIENT_SCRIBE_RECOMMENDATIONS_ENABLED && !isFollowup && !isAppointmentReadOnly && canChart;
+  const scribePanelOffset = useScribePanelOffset();
+  // The fixed-position recorder controls would otherwise sit on top of the panel.
+  const fixedControlsOffset = showScribeRecommendations ? scribePanelOffset : 0;
 
   return (
     <div style={layoutStyle}>
@@ -112,7 +123,7 @@ export const InPersonLayout: React.FC = () => {
                 color="primary"
                 aria-label=""
                 aria-describedby={recordingElementID}
-                sx={{ position: 'fixed', right: 8, bottom: virtual ? 130 : 8 }}
+                sx={{ position: 'fixed', right: 8 + fixedControlsOffset, bottom: virtual ? 130 : 8 }}
                 onClick={(event) =>
                   recordingOpen ? setRecordingAnchorElement(null) : setRecordingAnchorElement(event.currentTarget)
                 }
@@ -123,7 +134,7 @@ export const InPersonLayout: React.FC = () => {
                 <Paper
                   sx={{
                     position: 'fixed',
-                    right: '15px',
+                    right: `${15 + fixedControlsOffset}px`,
                     bottom: '75px',
                     zIndex: '10',
                     ...(!recordingOpen && { display: 'none' }),
@@ -161,6 +172,7 @@ export const InPersonLayout: React.FC = () => {
           </div>
           <BottomNavigation />
         </div>
+        {showScribeRecommendations && <ScribeRecommendationsDrawer />}
       </div>
       {virtual && <VirtualAppointmentFooter />}
       {virtual && meetingData && (

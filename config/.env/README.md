@@ -84,6 +84,7 @@ This directory contains per-environment configuration files for Ottehr. The file
 | `CANDID_CLIENT_ID` | OAuth client ID for the Candid Health billing API. Used to submit medical encounters for insurance claim processing. |
 | `CANDID_CLIENT_SECRET` | Client secret for Candid Health API authentication. **Keep this confidential.** |
 | `CANDID_ENV` | Candid Health environment to target (`SANDBOX` for testing, `PRODUCTION` for live billing). |
+| `BILLING_INTEGRATION` | Where claims are routed: `candid`, `ottehr`, or `all`. Defaults to `candid` when unset. Must be `ottehr` or `all` when the `nonInsuranceOrganizationsEnabled` feature flag is on — Ottehr billing is the system of record for non-insurance organizations, with `all` sending comparison claims to Candid (without the NIO employer); candid-only routing fails terraform generation. |
 | `PATIENT_BALANCE_SOURCE` | Data source for the visit details patient balance feature, `candid` or `ottehr`. Defaults to `candid` when unset. |
 
 ### Payments -- Stripe
