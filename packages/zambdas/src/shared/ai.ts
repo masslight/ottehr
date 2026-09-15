@@ -345,6 +345,7 @@ export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets |
     chatbot = new ChatAnthropic({
       model: 'claude-haiku-4-5-20251001',
       temperature: 0,
+      // Must stay top-level: LangChain forces the SDK client's maxRetries to 0, so clientOptions.maxRetries is ignored.
       maxRetries: CHATBOT_MAX_RETRIES,
       clientOptions: {
         timeout: CHATBOT_TIMEOUT_MS,

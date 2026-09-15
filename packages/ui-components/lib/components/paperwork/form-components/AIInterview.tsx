@@ -7,7 +7,7 @@ import { useParams } from 'react-router-dom';
 import { usePaperworkContext } from '../context';
 import { AiChatHistory } from './AiChatHistory';
 
-const ERROR_MESSAGE = 'Something went wrong. Please try again.';
+const ERROR_MESSAGE = 'Something went wrong. Please reload the page to try again.';
 
 interface AIInterviewProps {
   value?: boolean;
@@ -25,7 +25,7 @@ const AIInterview: FC<AIInterviewProps> = ({ value: medicalHistoryInterviewCompl
     QuestionnaireResponse | undefined
   >(undefined);
   const [answer, setAnswer] = useState<string>('');
-  const [unprocessedUserAnswer, setUnprocessedUserAnswer] = useState<string>('');
+  const [unprocessedUserAnswer, setUnprocessedUserAnswer] = useState<string | undefined>(undefined);
   const [errorOpen, setErrorOpen] = useState<boolean>(false);
   const startedRef = useRef<boolean>(false);
 
@@ -88,6 +88,7 @@ const AIInterview: FC<AIInterviewProps> = ({ value: medicalHistoryInterviewCompl
       setAnswer(trimmedAnswer);
       setErrorOpen(true);
     } finally {
+      setUnprocessedUserAnswer(undefined);
       setLoading(false);
     }
   };
@@ -108,6 +109,7 @@ const AIInterview: FC<AIInterviewProps> = ({ value: medicalHistoryInterviewCompl
       <Snackbar
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         open={errorOpen}
+        autoHideDuration={6000}
         onClose={() => setErrorOpen(false)}
       >
         <Alert onClose={() => setErrorOpen(false)} severity="error" variant="filled">

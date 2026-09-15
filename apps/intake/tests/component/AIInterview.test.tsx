@@ -68,7 +68,7 @@ describe('AI interview start', () => {
 
     renderInterview();
 
-    expect(await screen.findByText('Something went wrong. Please try again.')).toBeDefined();
+    expect(await screen.findByText('Something went wrong. Please reload the page to try again.')).toBeDefined();
     expect(mockAIInterviewStart).toHaveBeenCalledTimes(1);
   });
 });

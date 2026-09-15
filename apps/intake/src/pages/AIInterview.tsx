@@ -11,7 +11,7 @@ import api from '../api/ottehrApi';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 import { useVisitContext } from './ThankYou';
 
-const ERROR_MESSAGE = 'Something went wrong. Please try again.';
+const ERROR_MESSAGE = 'Something went wrong. Please reload the page to try again.';
 
 const AIInterview = (): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: false });
@@ -115,6 +115,7 @@ const AIInterview = (): JSX.Element => {
       <Snackbar
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         open={errorOpen}
+        autoHideDuration={6000}
         onClose={() => setErrorOpen(false)}
       >
         <Alert onClose={() => setErrorOpen(false)} severity="error" variant="filled">
