@@ -74,8 +74,11 @@ export interface HistorySectionData {
   surgicalHistory: CPTCodeDTO[];
   episodeOfCare: HospitalizationDTO[];
   birthHistory: BirthHistoryDTO[];
-  /** The practitioners the medication statements' informationSource references resolve to. */
-  practitioners: Practitioner[];
+  /**
+   * The Practitioners the medication statements' informationSource references point to, so the history can
+   * show who recorded each medication.
+   */
+  medicationsInformationSourcePractitioners: Practitioner[];
 }
 
 export interface ScreeningSectionData {
@@ -100,8 +103,8 @@ export interface PlanSectionData {
   schoolWorkNotes: SchoolWorkNoteExcuseDocFileDTO[];
   prescribedMedications: PrescribedMedicationDTO[];
   preferredPharmacies: PharmacyDTO[];
-  /** The practitioners the prescriptions' requester references resolve to. */
-  practitioners: Practitioner[];
+  /** The Practitioners the prescriptions' requester references point to. */
+  prescribedMedicationsRequesterPractitioners: Practitioner[];
 }
 
 export interface NotesSectionData {
@@ -149,12 +152,21 @@ export interface ChartSectionParamsMap {
 
 export type ChartSectionParams<S extends ChartSection = ChartSection> = ChartSectionParamsMap[S];
 
-export type GetChartSectionRequest<S extends ChartSection = ChartSection> = {
+type ChartSectionRequest<S extends ChartSection> = {
   encounterId: string;
   section: S;
 } & (undefined extends ChartSectionParamsMap[S]
   ? { params?: ChartSectionParamsMap[S] }
   : { params: ChartSectionParamsMap[S] });
+
+/**
+ * One request shape per section: `params` is required for `notes` and optional everywhere else. With the
+ * default `ChartSection` the type is the union of those shapes, so a request typed without a specific
+ * section still has to match one of them.
+ */
+export type GetChartSectionRequest<S extends ChartSection = ChartSection> = ChartSection extends S
+  ? { [K in ChartSection]: ChartSectionRequest<K> }[ChartSection]
+  : ChartSectionRequest<S>;
 
 export interface GetChartSectionResponse<S extends ChartSection = ChartSection> {
   section: S;

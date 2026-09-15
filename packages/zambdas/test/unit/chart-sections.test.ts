@@ -141,7 +141,7 @@ describe('chart sections — golden fixture', () => {
       ]);
       expect(history.birthHistory).toEqual([expect.objectContaining({ resourceId: 'obs-birth-weight', value: 3.4 })]);
       // MedicationStatement:source resolves to the practitioner who recorded the medication.
-      expect(history.practitioners).toEqual([fixture.practitioner]);
+      expect(history.medicationsInformationSourcePractitioners).toEqual([fixture.practitioner]);
     });
 
     it('screening and aiChat split the Observations the unscoped call returned as one list', async () => {
@@ -183,7 +183,7 @@ describe('chart sections — golden fixture', () => {
           { name: 'Walgreens #100', address: '1 Main St, Chicago, IL 60601', phone: '312-555-0100' },
         ],
         // MedicationRequest:requester resolves to the prescriber.
-        practitioners: [fixture.practitioner],
+        prescribedMedicationsRequesterPractitioners: [fixture.practitioner],
       });
     });
 

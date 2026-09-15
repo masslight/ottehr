@@ -37,7 +37,9 @@ export const planSection: ChartSectionDefinition<'plan'> = {
       schoolWorkNotes: mapped.schoolWorkNotes ?? [],
       prescribedMedications: mapped.prescribedMedications ?? [],
       preferredPharmacies: makePreferredPharmacies(patient, questionnaireResponse),
-      practitioners: resources.filter((r): r is Practitioner => r.resourceType === 'Practitioner'),
+      prescribedMedicationsRequesterPractitioners: resources.filter(
+        (r): r is Practitioner => r.resourceType === 'Practitioner'
+      ),
     };
   },
 };

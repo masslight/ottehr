@@ -44,7 +44,9 @@ export const historySection: ChartSectionDefinition<'history'> = {
       surgicalHistory: mapped.surgicalHistory ?? [],
       episodeOfCare: mapped.episodeOfCare ?? [],
       birthHistory: mapped.birthHistory ?? [],
-      practitioners: resources.filter((r): r is Practitioner => r.resourceType === 'Practitioner'),
+      medicationsInformationSourcePractitioners: resources.filter(
+        (r): r is Practitioner => r.resourceType === 'Practitioner'
+      ),
     };
   },
 };

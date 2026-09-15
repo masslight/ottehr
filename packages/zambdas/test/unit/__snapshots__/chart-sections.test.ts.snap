@@ -304,7 +304,7 @@ exports[`chart sections — golden fixture > history section > matches its snaps
       "type": "as-needed",
     },
   ],
-  "practitioners": [
+  "medicationsInformationSourcePractitioners": [
     {
       "id": "33333333-3333-4333-8333-333333333333",
       "name": [
@@ -487,23 +487,6 @@ exports[`chart sections — golden fixture > plan section > matches its snapshot
       "title": "Home care",
     },
   ],
-  "practitioners": [
-    {
-      "id": "33333333-3333-4333-8333-333333333333",
-      "name": [
-        {
-          "family": "Provider",
-          "given": [
-            "Golden",
-          ],
-          "suffix": [
-            "MD",
-          ],
-        },
-      ],
-      "resourceType": "Practitioner",
-    },
-  ],
   "preferredPharmacies": [
     {
       "address": "1 Main St, Chicago, IL 60601",
@@ -523,6 +506,23 @@ exports[`chart sections — golden fixture > plan section > matches its snapshot
       "provider": "33333333-3333-4333-8333-333333333333",
       "resourceId": "mr-erx",
       "status": "active",
+    },
+  ],
+  "prescribedMedicationsRequesterPractitioners": [
+    {
+      "id": "33333333-3333-4333-8333-333333333333",
+      "name": [
+        {
+          "family": "Provider",
+          "given": [
+            "Golden",
+          ],
+          "suffix": [
+            "MD",
+          ],
+        },
+      ],
+      "resourceType": "Practitioner",
     },
   ],
   "schoolWorkNotes": [
@@ -854,7 +854,7 @@ exports[`chart sections — golden fixture > visit note > matches its snapshot 1
         "type": "as-needed",
       },
     ],
-    "practitioners": [
+    "medicationsInformationSourcePractitioners": [
       {
         "id": "33333333-3333-4333-8333-333333333333",
         "name": [
@@ -1038,23 +1038,6 @@ exports[`chart sections — golden fixture > visit note > matches its snapshot 1
         "title": "Home care",
       },
     ],
-    "practitioners": [
-      {
-        "id": "33333333-3333-4333-8333-333333333333",
-        "name": [
-          {
-            "family": "Provider",
-            "given": [
-              "Golden",
-            ],
-            "suffix": [
-              "MD",
-            ],
-          },
-        ],
-        "resourceType": "Practitioner",
-      },
-    ],
     "preferredPharmacies": [
       {
         "address": "1 Main St, Chicago, IL 60601",
@@ -1074,6 +1057,23 @@ exports[`chart sections — golden fixture > visit note > matches its snapshot 1
         "provider": "33333333-3333-4333-8333-333333333333",
         "resourceId": "mr-erx",
         "status": "active",
+      },
+    ],
+    "prescribedMedicationsRequesterPractitioners": [
+      {
+        "id": "33333333-3333-4333-8333-333333333333",
+        "name": [
+          {
+            "family": "Provider",
+            "given": [
+              "Golden",
+            ],
+            "suffix": [
+              "MD",
+            ],
+          },
+        ],
+        "resourceType": "Practitioner",
       },
     ],
     "schoolWorkNotes": [

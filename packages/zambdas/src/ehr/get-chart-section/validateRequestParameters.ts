@@ -7,8 +7,8 @@ import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const encounterId = z.string().uuid();
 
-// Strict on purpose: the request names a section and, for two sections, a small enumerated option; the
-// FHIR searches behind a section are the server's and never come from the caller.
+// Strict: a request is an encounter id, a section name and, for history and notes, that section's option
+// object. Any other key is rejected.
 const GetChartSectionSchema = z.discriminatedUnion('section', [
   z.object({ encounterId, section: z.literal('encounterNotes') }).strict(),
   z
