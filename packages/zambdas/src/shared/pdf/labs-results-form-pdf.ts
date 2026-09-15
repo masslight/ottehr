@@ -11,6 +11,7 @@ import {
   Patient,
   Practitioner,
   Provenance,
+  Quantity,
   Reference,
   Schedule,
   ServiceRequest,
@@ -53,6 +54,7 @@ import {
   OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM,
   OYSTEHR_LABS_CLINICAL_INFO_EXT_URL,
   OYSTEHR_LABS_FASTING_STATUS_EXT_URL,
+  OYSTEHR_LABS_OBSERVATION_RATIO_SEPARATOR_EXT_URL,
   OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL,
   OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL,
   OYSTEHR_LABS_RESULT_SPECIMEN_COLLECTION_VOLUME_SYSTEM,
@@ -1810,6 +1812,10 @@ const parseObservationForPDF = (
         observation.valueQuantity?.code || ''
       }`;
     }
+
+    // Some labs like Quest send comparators for their quantity values, like >100
+    const comparator = observation.valueQuantity.comparator;
+    if (comparator) value = `${comparator}${value}`;
   } else if (observation.valueString) {
     value = observation.valueString;
   } else if (observation.valueCodeableConcept) {
@@ -1820,6 +1826,50 @@ const parseObservationForPDF = (
     } else {
       value = observation.valueCodeableConcept.coding?.map((coding) => coding.display).join(', ') || '';
     }
+  } else if (observation.valueRange) {
+    // some labs like Quest send values like "4-6" as a range
+    const formatRangeValue = (rangeVal: Quantity | undefined): string => {
+      if (!rangeVal) return '';
+      return `${rangeVal.value ?? ''}${rangeVal.code ? `${rangeVal.code}` : ''}`;
+    };
+
+    const rangeLow = observation.valueRange.low;
+    const rangeHigh = observation.valueRange.high;
+    if (!rangeLow) console.warn(`Observation/${observation.id} had a missing valueRange.low`);
+    if (!rangeHigh) console.warn(`Observation/${observation.id} had a missing valueRange.high`);
+
+    value = `${formatRangeValue(rangeLow)}-${formatRangeValue(rangeHigh)}`;
+  } else if (observation.valueRatio) {
+    // some labs like Quest send ratios this way. We could get a value like 1:180 for a titer, or something like 7/8.
+    // check the extension for the separator
+
+    const formatRatioValue = (ratioVal: Quantity | undefined, includeUnit: boolean): string => {
+      if (!ratioVal) return '';
+      return `${ratioVal.value?.toString() ?? 'Unknown'}${includeUnit && ratioVal.code ? ` ${ratioVal.code}` : ''}`;
+    };
+
+    const separator = observation.valueRatio.extension?.find(
+      (ext) => ext.url === OYSTEHR_LABS_OBSERVATION_RATIO_SEPARATOR_EXT_URL && ext.valueCode
+    )?.valueCode;
+    const numerator = observation.valueRatio.numerator;
+    const denominator = observation.valueRatio.denominator;
+    if (!numerator) console.warn(`Observation/${observation.id} had a missing valueRatio.numerator`);
+    if (!denominator) console.warn(`Observation/${observation.id} had a missing valueRatio.denominator`);
+
+    // if the units are the same, we will consolidate them.
+    // Otherwise we'll render the unit for both the numerator and denominator
+    const includeUnit = numerator?.code === denominator?.code;
+
+    // if the units are the same, can just grab one to consolidate
+    // we consolidate the unit because otherwise you end up with "1 titer : 180 titer" which isn't correct
+    const consolidatedUnit = numerator?.code;
+
+    value = `${formatRatioValue(numerator, includeUnit)}${separator ?? ' '}${formatRatioValue(
+      denominator,
+      includeUnit
+    )}${includeUnit && consolidatedUnit ? ` ${consolidatedUnit}` : ''}`;
+  } else if (!isObrNoteObs(observation)) {
+    console.error(`Observation/${observation.id} has an unrecognized value type`);
   }
 
   const referenceRangeText = observation.referenceRange
