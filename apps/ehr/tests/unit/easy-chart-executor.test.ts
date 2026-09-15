@@ -4,7 +4,7 @@
 
 import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { describe, expect, it, vi } from 'vitest';
-import { HANDLERS } from '../../src/features/easy-chart/executor/handlers';
+import { HANDLERS, toStoredVitalValue } from '../../src/features/easy-chart/executor/handlers';
 import { ProcedureQuickPickContext } from '../../src/features/easy-chart/executor/procedure-quick-pick';
 import { AMBIGUITY_RATIO, classifyMatches } from '../../src/features/easy-chart/executor/resolve';
 import { runPlan, summarisePlan } from '../../src/features/easy-chart/executor/runPlan';
@@ -255,10 +255,35 @@ describe('the CC↔HPI storage swap is applied exactly once', () => {
 });
 
 describe('vitals', () => {
-  it('writes the converted value the server produced', async () => {
+  it('writes the value the server produced when it is already in the stored unit', async () => {
     const h = harness();
     await runPlan([{ kind: 'set-vital', field: 'vital-height', display: '1.73 m', value: 173, unit: 'cm' }], h.context);
-    expect(h.saved[0]).toEqual({ vitalsObservations: [{ field: 'vital-height', value: 173, unit: 'cm' }] });
+    // The vitals DTO carries a bare number and no unit: the number has to be in the unit the chart stores.
+    expect(h.saved[0]).toEqual({ vitalsObservations: [{ field: 'vital-height', value: 173 }] });
+  });
+
+  // The server's guard names the unit the provider SAID ("lb", "in", "F"); the Vitals page stores kilograms,
+  // centimetres and Celsius. Writing the guard's number as-is charted "170 lb" as 170 kg.
+  it('converts a reading into the unit the chart stores before writing it', async () => {
+    const h = harness();
+    await runPlan(
+      [
+        { kind: 'set-vital', field: 'vital-weight', display: '170 lb', value: 170, unit: 'lb' },
+        { kind: 'set-vital', field: 'vital-height', display: `5'8"`, value: 68, unit: 'in' },
+        { kind: 'set-vital', field: 'vital-temperature', display: '100.4 F', value: 100.4, unit: 'F' },
+        { kind: 'set-vital', field: 'vital-weight', display: '77 kg', value: 77, unit: 'kg' },
+        { kind: 'set-vital', field: 'vital-heartbeat', display: '88 bpm', value: 88 },
+      ],
+      h.context
+    );
+    expect(h.saved.map((fields) => (fields.vitalsObservations as { field: string; value: number }[])[0])).toEqual([
+      { field: 'vital-weight', value: 77.11 },
+      { field: 'vital-height', value: 172.72 },
+      { field: 'vital-temperature', value: 38 },
+      { field: 'vital-weight', value: 77 },
+      { field: 'vital-heartbeat', value: 88 },
+    ]);
+    expect(toStoredVitalValue(100.4, 'F')).toBe(38);
   });
 
   it('writes both numbers for a blood pressure', async () => {
@@ -281,6 +306,104 @@ describe('vitals', () => {
     );
     expect(steps[0].outcome?.status).toBe('failed');
     expect(h.saved).toEqual([]);
+  });
+});
+
+describe('history rows are written as the DTOs the tabs write', () => {
+  // The server builds a MedicationStatement straight off the DTO and reads `intakeInfo.dose` unconditionally,
+  // so a row without `intakeInfo` threw before anything was saved. The eRx id is a number in the search
+  // response and a string identifier on the chart.
+  it('writes a medication with status, type, intake info and the eRx id as a string', async () => {
+    const h = harness({
+      matches: {
+        medications: [
+          { ...match('m1', 'Amoxicillin 500 mg oral capsule', 1), payload: { id: 12345, name: 'Amoxicillin' } },
+        ],
+      },
+    });
+    const { steps } = await runPlan(
+      [{ kind: 'add-medication', display: 'Amoxicillin', strength: '500 mg' }],
+      h.context
+    );
+    expect(steps[0].outcome?.status).toBe('applied');
+    expect(h.saved[0]).toEqual({
+      medications: [
+        {
+          name: 'Amoxicillin 500 mg oral capsule',
+          id: '12345',
+          type: 'scheduled',
+          status: 'active',
+          intakeInfo: { dose: '500 mg' },
+        },
+      ],
+    });
+  });
+
+  it('writes a medication with no eRx id as a name-only row', async () => {
+    const h = harness({ matches: { medications: [match('Motrin', 'Motrin', 1)] } });
+    await runPlan([{ kind: 'add-medication', display: 'Motrin' }], h.context);
+    expect(h.saved[0]).toEqual({
+      medications: [{ name: 'Motrin', type: 'scheduled', status: 'active', intakeInfo: {} }],
+    });
+  });
+
+  // Without `current: true` the note's allergy list — current allergies only — never showed what was charted.
+  it('writes an allergy as current, with the eRx id as a string', async () => {
+    const h = harness({
+      matches: { allergies: [{ ...match('a1', 'Penicillin', 1), payload: { id: 777, name: 'Penicillin' } }] },
+    });
+    await runPlan([{ kind: 'add-allergy', display: 'penicillin' }], h.context);
+    const saved = h.saved[0].allergies as Record<string, unknown>[];
+    expect(saved[0]).toMatchObject({ name: 'Penicillin', id: '777', current: true });
+    expect(typeof saved[0].lastUpdated).toBe('string');
+  });
+
+  // The server's ICD guard already confirmed {code, display} from one terminology row and rejects an
+  // add-condition without a code, so the client charts it directly — the same path add-diagnosis takes.
+  // Routing it through the (unavailable) conditions catalogue skipped every past-medical-history item.
+  it('charts a past medical history item from its validated code without a catalogue', async () => {
+    const h = harness();
+    const { steps } = await runPlan([{ kind: 'add-condition', display: 'Asthma', code: 'J45.909' }], h.context);
+    expect(steps[0].outcome).toMatchObject({ status: 'applied', matchedId: 'J45.909' });
+    const saved = h.saved[0].conditions as Record<string, unknown>[];
+    expect(saved[0]).toMatchObject({ code: 'J45.909', display: 'Asthma', current: true });
+  });
+
+  it('skips a past medical history item that is already on the chart, or has no code', async () => {
+    const h = harness({ chart: { conditions: [{ resourceId: 'c1', display: 'Asthma' }] } });
+    const { steps } = await runPlan(
+      [
+        { kind: 'add-condition', display: 'asthma', code: 'J45.909' },
+        { kind: 'add-condition', display: 'COPD' },
+      ],
+      h.context
+    );
+    expect(steps[0].outcome).toMatchObject({
+      status: 'skipped',
+      reason: expect.stringMatching(/already on the chart/),
+    });
+    expect(steps[1].outcome).toMatchObject({
+      status: 'skipped',
+      reason: expect.stringMatching(/confirmed ICD-10 code/),
+    });
+    expect(h.saved).toEqual([]);
+  });
+
+  it('writes a review-of-systems finding as the ROS table does: the polarity key, true, and the label', async () => {
+    const h = harness({
+      matches: {
+        rosFindings: [
+          {
+            ...match('ros-constitutional-fever', 'Constitutional: Fever', 1),
+            payload: { baseField: 'ros-constitutional-fever', label: 'Fever', systemLabel: 'Constitutional' },
+          },
+        ],
+      },
+    });
+    await runPlan([{ kind: 'add-ros-finding', display: 'denies fever', finding: 'denies' }], h.context);
+    expect(h.saved[0]).toEqual({
+      rosObservations: [{ field: 'ros-constitutional-fever-denies', value: true, label: 'Fever' }],
+    });
   });
 });
 

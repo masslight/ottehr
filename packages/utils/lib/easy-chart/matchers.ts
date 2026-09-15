@@ -13,6 +13,7 @@
 //   4. GENERIC-TOKEN DISCOUNTING — "pain", "swelling", "mild" can never carry a match alone.
 
 import { ExamLeaf } from '../config-helpers/exam-leaves';
+import { InPersonRosConfig } from '../ottehr-config/review-of-systems/in-person.config';
 import {
   EXAM_ANATOMY_SECTION_OF,
   EXAM_DESCRIPTOR_CLASS_OF,
@@ -165,6 +166,21 @@ export interface RosCatalogueEntry {
   baseField: string;
   label: string;
   systemLabel: string;
+}
+
+/**
+ * The ROS catalogue as the config defines it: one entry per symptom, keyed by its base field. Built here so
+ * the client catalogue, the eval harness and the recommendations panel resolve against the SAME entries — a
+ * harness that once built these with the wrong shape scored every ROS action as a miss.
+ */
+export function buildRosCatalogue(config: typeof InPersonRosConfig = InPersonRosConfig): RosCatalogueEntry[] {
+  return Object.values(config).flatMap((system) =>
+    Object.entries(system.items).map(([baseField, item]) => ({
+      baseField,
+      label: item.label,
+      systemLabel: system.label,
+    }))
+  );
 }
 
 /**

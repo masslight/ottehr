@@ -20,8 +20,12 @@ import {
 } from 'utils/lib/config-helpers/exam-leaves';
 import { ActionKind, NoteTextField } from 'utils/lib/easy-chart/actions';
 import { chartKeyForNoteField, NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
+import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import { fahrenheitToCelsius } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
+import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
+import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { ProcedureQuickPickContext } from './procedure-quick-pick';
 import { describeQuery, resolvePick } from './resolve';
 import {
@@ -168,6 +172,16 @@ async function removeCharted(
   return applied();
 }
 
+/**
+ * The eRx catalogue id off a medication or allergen match, as the STRING the chart stores. The eRx search
+ * returns it as a number, and a numeric identifier fails FHIR validation outright; a match with no id (a fake
+ * catalogue, an echo) simply carries none, which the server handles as a name-only row.
+ */
+function erxId(payload: unknown): string | undefined {
+  const id = (payload as { id?: unknown } | undefined)?.id;
+  return id === undefined || id === null || id === '' ? undefined : String(id);
+}
+
 /** Words that carry no anatomy, so a comment made only of these has nothing to file it under. */
 const COMMENT_FALLBACK_SECTION = 'general';
 
@@ -226,9 +240,29 @@ const noteText: Handler<'edit-note-text'> = async (action, context) => {
   return applied(created, { note: `${NOTE_FIELD_LABELS[field]} rewritten` });
 };
 
+/**
+ * The unit each vital is STORED in. The vitals DTO carries a bare number and no unit, so the number has to
+ * be in the unit the Vitals page itself saves: kilograms, centimetres, degrees Celsius. The server's guard
+ * canonicalises what the provider SAID into one of a few units it can name (`lb` or `kg`, `in` or `cm`,
+ * `F` or `C`) — it does not convert into storage, and writing its value as-is charted "170 lb" as 170 kg.
+ */
+export function toStoredVitalValue(value: number, unit: string | undefined): number {
+  switch (unit) {
+    case 'lb':
+      return roundNumberToDecimalPlaces(value / LBS_IN_KG, 2);
+    case 'in':
+      return HeightMeasurement.fromInches(value).getCm();
+    case 'F':
+      return fahrenheitToCelsius(value);
+    default:
+      // kg, cm, C, or a vital whose stored unit is fixed (bpm, %, breaths/min): the number is the reading.
+      return value;
+  }
+}
+
 const setVital: Handler<'set-vital'> = async (action, context) => {
-  // The server already parsed, converted and plausibility-checked the reading; an action that got
-  // this far carries numbers in a unit the write path provably handles. A set-vital with neither a
+  // The server already parsed and plausibility-checked the reading and named its unit; an action that got
+  // this far carries numbers in a unit `toStoredVitalValue` provably converts. A set-vital with neither a
   // value nor a blood-pressure pair means a guard let something through, so fail loudly.
   const hasBloodPressure = action.systolic != null && action.diastolic != null;
   if (action.value == null && !hasBloodPressure) {
@@ -238,7 +272,7 @@ const setVital: Handler<'set-vital'> = async (action, context) => {
     vitalsObservations: [
       hasBloodPressure
         ? { field: action.field, systolicPressure: action.systolic, diastolicPressure: action.diastolic }
-        : { field: action.field, value: action.value, unit: action.unit },
+        : { field: action.field, value: toStoredVitalValue(action.value as number, action.unit) },
     ],
   });
   return applied(created, { note: action.caution });
@@ -324,20 +358,42 @@ export const HANDLERS = {
     addFromCatalogue(action, context, {
       search: (q) => context.catalogue.allergies(q),
       noun: 'allergy',
-      write: (match) => context.writer.save({ allergies: [{ name: match.display, ...(match.payload as object) }] }),
+      // The SAME row the Allergies tab writes for an eRx pick. Spreading the raw eRx row in was wrong twice
+      // over: its numeric `id` failed FHIR validation as an identifier, and without `current: true` the note's
+      // allergy list — which shows current allergies only — never displayed what was just charted.
+      write: (match) =>
+        context.writer.save({
+          allergies: [
+            {
+              name: match.display,
+              ...(erxId(match.payload) ? { id: erxId(match.payload) } : {}),
+              current: true,
+              lastUpdated: new Date().toISOString(),
+            },
+          ],
+        }),
     }),
   'remove-allergy': async (action, context) =>
     removeCharted(action, context, { items: context.chart.allergies, field: 'allergies', noun: 'allergy' }),
 
-  'add-condition': async (action, context) =>
-    addFromCatalogue(action, context, {
-      search: (q) => context.catalogue.conditions(q),
-      noun: 'condition',
-      write: (match) =>
-        context.writer.save({
-          conditions: [{ display: match.display, code: action.code, ...(match.payload as object) }],
-        }),
-    }),
+  // NO CATALOGUE, the same path add-diagnosis takes. The server's ICD guard has already confirmed {code,
+  // display} against the terminology service from ONE row, and rejects an add-condition with no code — so
+  // there is nothing left for a client catalogue to do but disagree. Routing this through the (unavailable)
+  // conditions catalogue skipped EVERY past-medical-history item in the app with "cannot search conditions
+  // yet", while the eval harness, whose catalogue echoes, charted them all.
+  'add-condition': async (action, context) => {
+    if (!action.code)
+      return skipped(`"${describeQuery(action.display)}" reached the chart without a confirmed ICD-10 code`);
+    const display = (action.display ?? '').trim() || action.code;
+    const needle = display.toLowerCase();
+    const alreadyCharted = context.chart.conditions.some((item) => item.display.toLowerCase() === needle);
+    if (alreadyCharted) return skipped(`"${display}" is already on the chart`);
+    // The row the Medical Conditions tab writes: coded, current, stamped.
+    const created = await context.writer.save({
+      conditions: [{ code: action.code, display, current: true, lastUpdated: new Date().toISOString() }],
+    });
+    return applied(created, { matchedId: action.code });
+  },
   'remove-condition': async (action, context) =>
     removeCharted(action, context, { items: context.chart.conditions, field: 'conditions', noun: 'condition' }),
 
@@ -345,14 +401,20 @@ export const HANDLERS = {
     addFromCatalogue(action, context, {
       search: (q) => context.catalogue.medications(q),
       noun: 'medication',
+      // The SAME row the Medications tab (and the AI Suggestions card) writes for an eRx pick. The server
+      // builds a MedicationStatement straight off this DTO and reads `intakeInfo.dose` unconditionally, so a
+      // row without `intakeInfo` threw before anything was saved; `status` and `type` are required too. The
+      // dictated strength is the closest thing a dictation has to a dose, so it is recorded as one; the dose
+      // form is already part of the eRx product name ("... oral capsule") and has no field of its own.
       write: (match) =>
         context.writer.save({
           medications: [
             {
               name: match.display,
-              ...(action.strength ? { strength: action.strength } : {}),
-              ...(action.doseForm ? { doseForm: action.doseForm } : {}),
-              ...(match.payload as object),
+              ...(erxId(match.payload) ? { id: erxId(match.payload) } : {}),
+              type: 'scheduled',
+              status: 'active',
+              intakeInfo: { ...(action.strength ? { dose: action.strength } : {}) },
             },
           ],
         }),
@@ -421,9 +483,12 @@ export const HANDLERS = {
         // found none, so the signed note's ROS section was empty; Easy Chart's own snapshot keeps only
         // `value === true`, so a denial was invisible here too and could not be removed.
         const { deniesKey, reportsKey } = getRosFindingFieldKeys(match.id);
+        // The catalogue's payload is its own entry (baseField, systemLabel, …), not a DTO; the Review of
+        // Systems table writes `field`, `value` and the symptom's label, so that is what goes to the chart.
+        const label = (match.payload as { label?: string } | undefined)?.label;
         return context.writer.save({
           rosObservations: [
-            { field: action.finding === 'denies' ? deniesKey : reportsKey, value: true, ...(match.payload as object) },
+            { field: action.finding === 'denies' ? deniesKey : reportsKey, value: true, ...(label ? { label } : {}) },
           ],
         });
       },

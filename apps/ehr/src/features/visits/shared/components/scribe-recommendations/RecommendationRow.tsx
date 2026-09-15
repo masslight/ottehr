@@ -1,5 +1,6 @@
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import SkipNextIcon from '@mui/icons-material/SkipNext';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import {
   Autocomplete,
@@ -105,7 +106,8 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
   const isApplying = itemState.status === 'applying';
   // Settled either way: this panel wrote it, or it was there already.
   const isDone = isApplied || charted;
-  const canEdit = !isDone && !isApplying && !locked;
+  // A generic action row has no editor: it is applied as the executor's own step, or unticked.
+  const canEdit = !isDone && !isApplying && !locked && recommendation.kind !== 'action';
 
   // A template the environment doesn't have can't be applied; say so before the provider tries.
   const templateMissing =
@@ -127,6 +129,18 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
     }
     // Nothing is drawn once it lands: the checkbox itself goes green, which is the same news
     // in a place the eye is already on.
+    if (itemState.status === 'skipped') {
+      return (
+        <Tooltip title={itemState.reason ?? 'Nothing was written'}>
+          <SkipNextIcon
+            color="disabled"
+            sx={{ fontSize: 20 }}
+            data-testid={testIds.rowStatus(recommendation.id)}
+            aria-label="Skipped"
+          />
+        </Tooltip>
+      );
+    }
     if (itemState.status === 'error') {
       return (
         <Tooltip title={itemState.error ?? 'Could not apply'}>
@@ -262,10 +276,27 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
           </>
         )}
 
-        {itemState.status === 'error' && (
+        {/* An applied row that the executor has something to say about says it: charted as secondary
+            because a primary was already set, auto-picked from several near matches, filed as free text.
+            Amber when the pick or the inference is the executor's rather than the transcript's. */}
+        {isApplied && (itemState.note || itemState.lowConfidence) && (
+          <Typography
+            variant="caption"
+            color={itemState.lowConfidence ? 'warning.main' : 'text.secondary'}
+            data-testid={testIds.rowNote(recommendation.id)}
+          >
+            {itemState.note ?? 'Picked by the assistant from several near matches — verify.'}
+          </Typography>
+        )}
+
+        {/* A failed row says why in red; a skipped one says why nothing was written, in grey. Both
+            offer another go — the provider may have fixed the wording, or ticked it back on. */}
+        {(itemState.status === 'error' || itemState.status === 'skipped') && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="caption" color="error">
-              {itemState.error ?? 'Could not apply.'}
+            <Typography variant="caption" color={itemState.status === 'error' ? 'error' : 'text.secondary'}>
+              {itemState.status === 'error'
+                ? itemState.error ?? 'Could not apply.'
+                : itemState.reason ?? 'Nothing was written.'}
             </Typography>
             <Button
               size="small"
@@ -401,6 +432,8 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
         return diagnosis
           ? { code: diagnosis.code, display: diagnosis.display, transcriptTerm: recommendation.transcriptTerm }
           : {};
+      case 'action':
+        return {};
     }
   };
 
@@ -570,6 +603,13 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
               placeholder="Diagnosis"
             />
           </Box>
+        );
+      // Not reachable from the row, which never opens an editor for this kind; here for the type's sake.
+      case 'action':
+        return (
+          <Typography variant="body2" color="text.secondary">
+            This item can’t be edited here.
+          </Typography>
         );
     }
   };

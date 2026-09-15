@@ -1,3 +1,4 @@
+import { NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { ScribeRecommendation, ScribeSectionKey } from './types';
 
@@ -25,11 +26,16 @@ export const SCRIBE_SECTIONS: Record<ScribeSectionKey, ScribeSectionMeta> = {
     route: 'history-of-present-illness-and-templates',
   },
   hpi: { label: 'HPI', shortLabel: 'HPI', accent: '#2169F5', route: 'history-of-present-illness-and-templates' },
+  assessment: { label: 'Assessment', shortLabel: 'Assessment', accent: '#7B1FA2', route: 'assessment' },
   ros: { label: 'Review of Systems', shortLabel: 'ROS', accent: '#00897B', route: 'review-of-systems' },
+  exam: { label: 'Examination', shortLabel: 'Exam', accent: '#3949AB', route: 'examination' },
   vitals: { label: 'Vitals', shortLabel: 'Vitals', accent: '#546E7A', route: 'vitals' },
   allergies: { label: 'Allergies', shortLabel: 'Allergies', accent: '#EF6C00', route: 'allergies' },
   medications: { label: 'Medications', shortLabel: 'Meds', accent: '#AD1457', route: 'medications' },
-  assessment: { label: 'Assessment', shortLabel: 'Assessment', accent: '#7B1FA2', route: 'assessment' },
+  history: { label: 'Medical History', shortLabel: 'History', accent: '#795548', route: 'medical-conditions' },
+  plan: { label: 'Plan', shortLabel: 'Plan', accent: '#F57F17', route: 'plan' },
+  orders: { label: 'Orders', shortLabel: 'Orders', accent: '#00838F', route: 'in-house-lab-orders' },
+  procedures: { label: 'Procedures', shortLabel: 'Procedures', accent: '#5E35B1', route: 'procedures' },
 };
 
 /** Display order of the groups in the panel: broad strokes first, then the granular findings. */
@@ -38,9 +44,14 @@ export const SCRIBE_SECTION_ORDER: ScribeSectionKey[] = [
   'hpi',
   'assessment',
   'ros',
+  'exam',
   'vitals',
   'allergies',
   'medications',
+  'history',
+  'plan',
+  'orders',
+  'procedures',
 ];
 
 export const IN_HOUSE_MEDICATION_ORDER_ROUTE = 'in-house-medication/order/new';
@@ -62,36 +73,63 @@ export interface RecommendationText {
   detail?: string;
 }
 
+/** The detail line: whatever the kind has to say about itself, then the AI's own note on how it got here. */
+const detailOf = (rec: ScribeRecommendation, ...parts: (string | undefined)[]): string | undefined => {
+  const all = [...parts, rec.note].filter(Boolean);
+  return all.length > 0 ? all.join(' · ') : undefined;
+};
+
+const HPI_FIELD = 'historyOfPresentIllness';
+
 export const describeRecommendation = (rec: ScribeRecommendation): RecommendationText => {
   switch (rec.kind) {
     case 'template':
       return {
         primary: `Apply template “${rec.templateName}”`,
-        detail:
-          'Fills exam findings, MDM, patient instructions and codes; appends diagnoses. Leaves ROS and orders to the items below.',
+        detail: detailOf(
+          rec,
+          'Fills exam findings, MDM, patient instructions and codes; appends diagnoses. Leaves ROS and orders to the items below.'
+        ),
       };
-    case 'hpi':
-      return { primary: rec.text };
+    case 'hpi': {
+      const field = rec.field ?? HPI_FIELD;
+      // The group already says "HPI"; another field's paragraph names itself so it is not read as one.
+      return {
+        primary: rec.text,
+        secondary: field === HPI_FIELD ? undefined : NOTE_FIELD_LABELS[field],
+        detail: detailOf(rec),
+      };
+    }
     case 'ros':
-      return { primary: `${rec.systemLabel}: ${rec.label}` };
+      return { primary: `${rec.systemLabel}: ${rec.label}`, detail: detailOf(rec) };
     case 'vital-weight':
-      return { primary: `Weight ${rec.weightLbs} lbs (${kgFromLbs(rec.weightLbs)} kg)` };
+      return { primary: `Weight ${rec.weightLbs} lbs (${kgFromLbs(rec.weightLbs)} kg)`, detail: detailOf(rec) };
     case 'allergy':
-      return { primary: rec.name };
+      return { primary: rec.name, detail: detailOf(rec) };
     case 'medication': {
       const details = [
-        rec.type === 'as-needed' ? 'As needed' : 'Scheduled',
+        rec.type === 'as-needed' ? 'As needed' : rec.type === 'scheduled' ? 'Scheduled' : undefined,
+        rec.strength,
+        rec.doseForm,
         rec.patientCouldNotConfirmDosage ? 'Dose not confirmed' : undefined,
       ].filter(Boolean);
-      return { primary: rec.name, secondary: details.join(' · ') };
+      return {
+        primary: rec.name,
+        secondary: details.length > 0 ? details.join(' · ') : undefined,
+        detail: detailOf(rec),
+      };
     }
-    case 'diagnosis': {
-      const details = [
-        `Heard as “${rec.transcriptTerm}”`,
-        rec.isPrimary ? 'Set as primary if no diagnosis is charted yet' : undefined,
-      ].filter(Boolean);
-      return { primary: `${rec.display} (${rec.code})`, detail: details.join(' · ') };
-    }
+    case 'diagnosis':
+      return {
+        primary: `${rec.display} (${rec.code})`,
+        detail: detailOf(
+          rec,
+          rec.transcriptTerm ? `Heard as “${rec.transcriptTerm}”` : undefined,
+          rec.isPrimary ? 'Set as primary if no diagnosis is charted yet' : undefined
+        ),
+      };
+    case 'action':
+      return { primary: rec.label, secondary: rec.secondary, detail: detailOf(rec) };
   }
 };
 

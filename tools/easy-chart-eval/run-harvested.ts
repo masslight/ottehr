@@ -528,7 +528,7 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
       // MIRROR THE APP, or `final` measures a note nobody would ever have.
       //
       // A review `edit-note-text` aimed at a field that ALREADY HAS TEXT is not applied in the app — it
-      // becomes a card the provider confirms (see PendingNoteEdit in useChartAssistant). Applying it here
+      // starts unticked for the provider to confirm (see `confirm` in the recommendations panel's analysis.ts). Applying it here
       // would credit the harness with a rewrite the product does not perform. The written fields are
       // exactly the keys `reviewContext.noteContext` carries, since that builder drops empty ones.
       const written = reviewContext.noteContext ?? {};

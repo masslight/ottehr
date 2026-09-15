@@ -1,44 +1,30 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { applyTemplate } from 'src/api/api';
 import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
+import { buildChartSnapshot } from 'src/features/easy-chart/executor/chartSnapshot';
+import { runPlan } from 'src/features/easy-chart/executor/runPlan';
+import { ExecutionMode, HandlerContext } from 'src/features/easy-chart/executor/types';
+import { useCatalogue } from 'src/features/easy-chart/hooks/useCatalogue';
+import { useChartWriter } from 'src/features/easy-chart/hooks/useChartWriter';
+import { useEasyChartData } from 'src/features/easy-chart/hooks/useEasyChartData';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
-import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
-import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
-import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
-import { DiagnosisDTO, ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { TemplateSectionActions } from 'utils/lib/types/data/apply-template.types';
-import { invalidateChartFields, useChartFields } from '../../hooks/useChartFields';
+import { invalidateChartFields } from '../../hooks/useChartFields';
 import { GET_MEDICATION_ORDERS_QUERY_KEY } from '../../stores/appointment/appointment.queries';
-import {
-  ChartDataResponse,
-  useAppointmentData,
-  useChartData,
-  useDeleteChartData,
-  useSaveChartData,
-} from '../../stores/appointment/appointment.store';
+import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
-import {
-  useRosObservationsInitializationStore,
-  useRosObservationsStore,
-} from '../../stores/appointment/ros-observations.store';
 import { useListTemplates } from '../templates/useListTemplates';
-import { useSaveVitals } from '../vitals/hooks/useSaveVitals';
-import { applyRecommendations, pendingObservationIds } from './applyRecommendations';
-import { buildChartSnapshot, ChartSnapshot, isAlreadyCharted } from './chartedRecommendations';
+import { toPlannedAction } from './analysis';
 import {
-  AllergyRecommendation,
-  DiagnosisRecommendation,
-  HpiRecommendation,
-  MedicationRecommendation,
-  RosRecommendation,
-  ScribeRecommendation,
-  TemplateRecommendation,
-  WeightRecommendation,
-} from './types';
+  applyRecommendations,
+  errorMessage,
+  pendingObservationIds,
+  RecommendationRunner,
+} from './applyRecommendations';
+import { useScribeRecommendationsStore } from './scribeRecommendations.store';
+import { TemplateRecommendation } from './types';
 
 /**
  * Fallback for applying the recommended template. The provider normally picks the sections in the
@@ -63,9 +49,12 @@ export const SCRIBE_TEMPLATE_SECTION_ACTIONS: TemplateSectionActions = {
 };
 
 /**
- * Writes the selected recommendations into the chart with the same requests the section screens
- * use. Each `apply*` below mirrors what the corresponding screen does when a provider enters the
- * same thing by hand, including how it keeps the client-side caches in step.
+ * Writes the selected recommendations into the chart through the Easy Chart executor — the same
+ * catalogues, handlers and shared save mutation the charting assistant ran on. Every step settles as
+ * applied, skipped with a reason, or failed with a reason, and each verdict lands on its row.
+ *
+ * The template is the one exception: it writes whole sections through the apply-template endpoint, which
+ * the executor deliberately never calls, so it goes first on its own path and the rest run on top of it.
  */
 export const useApplyRecommendations = (): {
   /** Stage 2: everything still checked in the observations list. */
@@ -77,24 +66,23 @@ export const useApplyRecommendations = (): {
   const encounterId = encounter?.id;
   const queryClient = useQueryClient();
   const { oystehrZambda } = useApiClients();
-  const { mutateAsync: saveChartData } = useSaveChartData();
-  const { mutateAsync: deleteChartData } = useDeleteChartData();
-  const { refetch: refetchChartData, chartDataSetState, queryKey: chartDataQueryKey } = useChartData();
-  // Same query the HPI editor reads, so the appended text shows up there without a refetch.
-  const {
-    data: hpiFields,
-    setQueryCache: setHpiQueryCache,
-    refetch: refetchHpiFields,
-  } = useChartFields({
-    requestedFields: { chiefComplaint: { _tag: 'chief-complaint' } },
-  });
-  const saveVitals = useSaveVitals({ encounterId: encounterId ?? '' });
   const { templates } = useListTemplates();
 
-  const getChartData = useCallback(
-    (): ChartDataResponse | undefined => queryClient.getQueryData<ChartDataResponse>(chartDataQueryKey) ?? undefined,
-    [queryClient, chartDataQueryKey]
-  );
+  // The executor's view of the chart, its catalogues and its write layer — the same three the assistant used.
+  const { chartData, refetch: refetchChart } = useEasyChartData(encounterId);
+  const catalogue = useCatalogue({ encounterId });
+  const writer = useChartWriter({
+    encounterId: encounterId ?? '',
+    // For the procedure write: a quick-pick carries its own CPT codes and supporting diagnoses, and
+    // re-saving one already charted duplicates it on the note.
+    diagnoses: chartData?.diagnosis,
+    cptCodes: chartData?.cptCodes,
+    procedures: chartData?.procedures,
+    onOrdersChanged: () => void refetchChart(),
+  });
+  // Read inside the async run, so a chart refetched mid-run is not stale by the next step.
+  const chartRef = useRef(chartData);
+  chartRef.current = chartData;
 
   const applyTemplateRecommendation = useCallback(
     async (rec: TemplateRecommendation): Promise<void> => {
@@ -129,203 +117,104 @@ export const useApplyRecommendations = (): {
     [oystehrZambda, encounterId, templates, queryClient]
   );
 
-  const applyHpi = useCallback(
-    async (rec: HpiRecommendation): Promise<void> => {
-      const addition = rec.text.trim();
-      if (!addition) throw new Error('The HPI text is empty.');
-      // Read the HPI as it is now, not as it was when this callback was made: a template applied
-      // a moment earlier (the Chart button does exactly that) has written one since, and appending
-      // to the stale copy — without its resource id — creates a second chief complaint beside it
-      // rather than extending it, and the note only ever shows one.
-      const fresh = (await refetchHpiFields()).data as typeof hpiFields;
-      const existing = (fresh ?? hpiFields)?.chiefComplaint;
-      const current = existing?.text?.trim() ?? '';
-      const text = current ? `${current}\n${addition}` : addition;
-      const result = await saveChartData({ chiefComplaint: { resourceId: existing?.resourceId, text } });
-      setHpiQueryCache({ chiefComplaint: result.chartData.chiefComplaint });
-    },
-    [hpiFields, refetchHpiFields, saveChartData, setHpiQueryCache]
-  );
-
-  const applyDiagnosis = useCallback(
-    async (rec: DiagnosisRecommendation): Promise<void> => {
-      const diagnoses = getChartData()?.diagnosis ?? [];
-      const hasPrimary = diagnoses.some((d) => d.isPrimary);
-      const prepared: DiagnosisDTO = { code: rec.code, display: rec.display, isPrimary: !hasPrimary };
-      const result = await saveChartData({ diagnosis: [prepared] });
-      const saved = result.chartData.diagnosis ?? [prepared];
-      chartDataSetState(
-        (state) => ({
-          chartData: {
-            ...state.chartData!,
-            diagnosis: [...(state.chartData?.diagnosis ?? []).filter((d) => d.code !== rec.code), ...saved],
-          },
-        }),
-        { invalidateQueries: false }
-      );
-    },
-    [getChartData, saveChartData, chartDataSetState]
-  );
-
-  const applyAllergy = useCallback(
-    async (rec: AllergyRecommendation): Promise<void> => {
-      const name = rec.name.trim();
-      if (!name) throw new Error('The allergy name is empty.');
-      // No allergen catalog id: the transcript only gives us a name, which the chart stores as an
-      // "other" allergy, the same way a manually typed one is.
-      const result = await saveChartData({
-        allergies: [{ name, current: true, lastUpdated: new Date().toISOString() }],
-      });
-      const saved = result.chartData.allergies ?? [];
-      chartDataSetState(
-        (state) => ({
-          chartData: { ...state.chartData!, allergies: [...(state.chartData?.allergies ?? []), ...saved] },
-        }),
-        { invalidateQueries: false }
-      );
-    },
-    [saveChartData, chartDataSetState]
-  );
-
-  const applyWeight = useCallback(
-    async (rec: WeightRecommendation): Promise<void> => {
+  const run = useCallback<RecommendationRunner>(
+    async (recommendations, report, mode: ExecutionMode) => {
       if (!encounterId) throw new Error('The visit is still loading. Please try again.');
-      if (!Number.isFinite(rec.weightLbs) || rec.weightLbs <= 0) throw new Error('Enter a weight in pounds.');
-      const kg = Math.round((rec.weightLbs / LBS_IN_KG) * 100) / 100;
-      await saveVitals({ field: VitalFieldNames.VitalWeight, value: kg });
-      await queryClient.invalidateQueries({ queryKey: [`current-encounter-vitals-${encounterId}`] });
-      invalidateChartFields(queryClient, encounterId, ['vitalsObservations']);
-    },
-    [encounterId, saveVitals, queryClient]
-  );
 
-  const applyMedication = useCallback(
-    async (rec: MedicationRecommendation): Promise<void> => {
-      const name = rec.name.trim();
-      if (!name) throw new Error('The medication name is empty.');
-      await saveChartData({
-        medications: [
-          {
-            name,
-            type: rec.type,
-            status: 'active',
-            intakeInfo: { patientCouldNotConfirmDosage: rec.patientCouldNotConfirmDosage || undefined },
-          },
-        ],
+      const templateRecs = recommendations.filter((rec): rec is TemplateRecommendation => rec.kind === 'template');
+      const rest = recommendations.filter((rec) => rec.kind !== 'template');
+
+      let templateLanded = false;
+      for (const rec of templateRecs) {
+        report.start(rec.id);
+        try {
+          await applyTemplateRecommendation(rec);
+          report.settle(rec.id, { status: 'applied', createdResourceIds: [] });
+          templateLanded = true;
+        } catch (error) {
+          report.settle(rec.id, { status: 'failed', reason: errorMessage(error) });
+        }
+      }
+      if (rest.length === 0) return;
+
+      // A template that just landed changed the chart, and the executor's duplicate checks and its
+      // primary-diagnosis rule have to see what it wrote before anything lands on top of it.
+      const chart = templateLanded ? await refetchChart() : chartRef.current;
+      const store = useScribeRecommendationsStore.getState();
+      const context: HandlerContext = {
+        mode,
+        encounterId,
+        catalogue,
+        writer,
+        chart: buildChartSnapshot(chart),
+        ask: (request) => store.askPick(request),
+        // What a handler says instead of writing — a template it can only suggest, a request it could
+        // not classify — is kept for the panel to show.
+        say: (text) => store.addNote(text),
+      };
+      // One executor pass over the batch: the snapshot advances as steps apply, so a lab ordered after the
+      // diagnosis it needs sees that diagnosis, and a swap's removal frees the primary before the add.
+      await runPlan(rest.map(toPlannedAction), context, {
+        onStepStart: (step) => report.start(rest[step.index].id),
+        onStepSettled: (step) => {
+          if (step.outcome) report.settle(rest[step.index].id, step.outcome);
+        },
       });
-      // The Medications screen lists from its own chart-fields query; the note summary from chart data.
-      invalidateChartFields(queryClient, encounterId, ['medications']);
     },
-    [saveChartData, queryClient, encounterId]
+    [encounterId, applyTemplateRecommendation, refetchChart, catalogue, writer]
   );
 
-  const applyRos = useCallback(
-    async (rec: RosRecommendation): Promise<void> => {
-      const { deniesKey, reportsKey } = getRosFindingFieldKeys(rec.baseKey);
-      const targetKey = rec.finding === RosFindingState.Reports ? reportsKey : deniesKey;
-      const pairedKey = rec.finding === RosFindingState.Reports ? deniesKey : reportsKey;
-      const rosState = useRosObservationsStore.getState();
-      const existing = rosState[targetKey];
-      if (existing?.value !== true) {
-        const toSave: ExamObservationDTO = {
-          field: targetKey,
-          label: rec.label,
-          value: true,
-          resourceId: existing?.resourceId,
-        };
-        const result = await saveChartData({ rosObservations: [toSave] });
-        const returned = result.chartData.rosObservations ?? [];
-        useRosObservationsStore.setState(Object.fromEntries(returned.map((obs) => [obs.field, obs])));
-      }
-      // Reports and Denies are mutually exclusive for a finding, exactly as the ROS table enforces.
-      const paired = rosState[pairedKey];
-      if (paired?.value === true && paired.resourceId) {
-        await deleteChartData({ rosObservations: [{ ...paired, value: false }] });
-        useRosObservationsStore.setState({ [pairedKey]: { field: pairedKey, label: rec.label, value: false } });
-      }
-      useRosObservationsInitializationStore.setState({ hasInitialData: true });
-    },
-    [saveChartData, deleteChartData]
-  );
-
-  // Read fresh each time: a batch writes one item at a time, and each write changes what the
-  // next one would be duplicating.
-  const currentSnapshot = useCallback(
-    (): ChartSnapshot =>
-      buildChartSnapshot({
-        chartData: getChartData(),
-        rosObservations: useRosObservationsStore.getState(),
-        historyOfPresentIllness: hpiFields?.chiefComplaint?.text,
-        vitals: queryClient.getQueryData<GetVitalsResponseData>([`current-encounter-vitals-${encounterId}`]),
-      }),
-    [getChartData, hpiFields, queryClient, encounterId]
-  );
-
-  const applyOne = useCallback(
-    async (rec: ScribeRecommendation): Promise<void> => {
-      // Already in the chart — from a template, an earlier apply, or the provider's own typing.
-      // Nothing to write, and the row is marked done either way.
-      if (isAlreadyCharted(rec, currentSnapshot())) return;
-
-      switch (rec.kind) {
-        case 'template':
-          return applyTemplateRecommendation(rec);
-        case 'hpi':
-          return applyHpi(rec);
-        case 'diagnosis':
-          return applyDiagnosis(rec);
-        case 'allergy':
-          return applyAllergy(rec);
-        case 'vital-weight':
-          return applyWeight(rec);
-        case 'medication':
-          return applyMedication(rec);
-        case 'ros':
-          return applyRos(rec);
-      }
-    },
-    [
-      currentSnapshot,
-      applyTemplateRecommendation,
-      applyHpi,
-      applyDiagnosis,
-      applyAllergy,
-      applyWeight,
-      applyMedication,
-      applyRos,
-    ]
-  );
+  // Reconcile every summary on screen with what the server actually stored: the chart itself, the note
+  // fields and lists that have field-level caches of their own, the vitals, and any orders a template placed.
+  const reconcile = useCallback(async (): Promise<void> => {
+    await refetchChart();
+    invalidateChartFields(queryClient, encounterId, [
+      'chiefComplaint',
+      'historyOfPresentIllness',
+      'mechanismOfInjury',
+      'medicalDecision',
+      // The free-text ROS paragraph has a field cache of its own, apart from the ROS checkboxes.
+      'ros',
+      'medications',
+      'vitalsObservations',
+      'disposition',
+      'episodeOfCare',
+      'procedures',
+    ]);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: [`current-encounter-vitals-${encounterId}`] }),
+      queryClient.invalidateQueries({ queryKey: [GET_MEDICATION_ORDERS_QUERY_KEY] }),
+    ]);
+  }, [refetchChart, queryClient, encounterId]);
 
   const runApply = useCallback(
-    async (ids: string[]): Promise<{ applied: number; failed: number }> =>
-      applyRecommendations(ids, applyOne, {
-        // Reconcile every summary on screen with what the server actually stored. Allergies and
-        // diagnoses live on the chart-data query itself; the fields below have caches of their own.
-        reconcile: async () => {
-          await refetchChartData();
-          invalidateChartFields(queryClient, encounterId, ['chiefComplaint', 'medications', 'vitalsObservations']);
-        },
-      }),
-    [applyOne, refetchChartData, queryClient, encounterId]
+    (ids: string[], mode: ExecutionMode) => applyRecommendations(ids, run, { mode, reconcile }),
+    [run, reconcile]
   );
 
   const applyObservations = useCallback(async (): Promise<void> => {
-    const { applied, failed } = await runApply(pendingObservationIds());
-    if (applied === 0 && failed === 0) return;
+    // A whole batch auto-picks among near-equal matches; a provider will not click through a picker per item.
+    const { applied, failed, skipped } = await runApply(pendingObservationIds(), 'bulk');
+    if (applied + failed + skipped === 0) return;
 
     const noun = (count: number): string => `${count} observation${count === 1 ? '' : 's'}`;
-    if (failed === 0) {
+    if (failed === 0 && skipped === 0) {
       enqueueSnackbar(`Added ${noun(applied)} to the progress note.`, { variant: 'success' });
-    } else {
-      enqueueSnackbar(`Added ${noun(applied)}; ${failed} could not be applied. See the panel for details.`, {
-        variant: 'warning',
-      });
+      return;
     }
+    const rest = [
+      failed > 0 ? `${failed} could not be applied` : undefined,
+      skipped > 0 ? `${skipped} skipped` : undefined,
+    ]
+      .filter(Boolean)
+      .join(', ');
+    enqueueSnackbar(`Added ${noun(applied)}; ${rest}. See the panel for details.`, { variant: 'warning' });
   }, [runApply]);
 
   const applySingle = useCallback(
     async (id: string): Promise<void> => {
-      const { applied } = await runApply([id]);
+      // One row, with the provider watching: ambiguity asks rather than guesses.
+      const { applied } = await runApply([id], 'interactive');
       // A single row shows its own outcome, so only the happy path needs a word.
       if (applied > 0) enqueueSnackbar('Applied to the progress note.', { variant: 'success' });
     },

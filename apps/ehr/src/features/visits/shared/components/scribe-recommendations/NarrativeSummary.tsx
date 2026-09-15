@@ -45,6 +45,8 @@ const runValues = (rec: ScribeRecommendation): Record<string, string> => {
         finding: rec.finding === RosFindingState.Reports ? 'reports' : 'denies',
         label: rec.label.charAt(0).toLowerCase() + rec.label.slice(1),
       };
+    case 'action':
+      return { label: rec.label };
   }
 };
 

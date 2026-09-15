@@ -30,6 +30,7 @@ import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehr
 import { useApiClients } from 'src/hooks/useAppClients';
 import { buildExamLeafCatalogue } from 'utils/lib/config-helpers/exam-leaves';
 import {
+  buildRosCatalogue,
   filterUnsupportedQualifiers,
   findExamLeafMatches,
   findRosMatches,
@@ -68,13 +69,9 @@ export interface UseCatalogueOptions {
   encounterId?: string;
 }
 
-const ROS_ENTRIES: RosCatalogueEntry[] = Object.values(InPersonRosConfig).flatMap((system) =>
-  Object.entries(system.items).map(([baseField, item]) => ({
-    baseField,
-    label: item.label,
-    systemLabel: system.label,
-  }))
-);
+// The same entries the recommendations panel resolves against before a row is shown, so what it shows
+// as "Constitutional: Fever" is what this catalogue charts.
+const ROS_ENTRIES: RosCatalogueEntry[] = buildRosCatalogue(InPersonRosConfig);
 
 /** Not wired to the assistant yet — distinct from "searched and found nothing". */
 const UNAVAILABLE = async (): Promise<CatalogueResult> => catalogueUnavailable();

@@ -74,8 +74,11 @@ export const isAlreadyCharted = (recommendation: ScribeRecommendation, snapshot:
     case 'template':
       return false;
     case 'hpi':
+      // Only the HPI itself is in the snapshot; another field's paragraph is settled by the apply, not by a look.
       return (
-        recommendation.text.trim().length > 0 && snapshot.historyOfPresentIllness.includes(recommendation.text.trim())
+        (recommendation.field ?? 'historyOfPresentIllness') === 'historyOfPresentIllness' &&
+        recommendation.text.trim().length > 0 &&
+        snapshot.historyOfPresentIllness.includes(recommendation.text.trim())
       );
     case 'diagnosis':
       return snapshot.diagnosisCodes.has(recommendation.code);
@@ -90,6 +93,9 @@ export const isAlreadyCharted = (recommendation: ScribeRecommendation, snapshot:
       const { deniesKey, reportsKey } = getRosFindingFieldKeys(recommendation.baseKey);
       return snapshot.rosFields.has(recommendation.finding === RosFindingState.Reports ? reportsKey : deniesKey);
     }
+    // The executor checks its own duplicates as it runs and settles the step as skipped with the reason.
+    case 'action':
+      return false;
   }
 };
 

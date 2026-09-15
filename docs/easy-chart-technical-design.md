@@ -1,6 +1,6 @@
 # Easy Chart — Technical Design
 
-How a sentence a provider types in a chat box becomes rows in a FHIR chart. Written to be read
+How a transcript pasted into the AI Chart Recommendations panel becomes rows in a FHIR chart. Written to be read
 top-to-bottom by someone who has never opened the feature.
 
 Every claim here has a code reference. Where a design decision looks arbitrary, the reason is stated —
@@ -31,8 +31,8 @@ The vocabulary is 34 kinds on the planning surface and 10 on the review surface.
 
 ```mermaid
 flowchart TD
-    A["provider types into the chat box"] --> B["useChartAssistant.send"]
-    B --> C["apiClient.easyChartPlan<br/>narrative, encounterId, incremental, history"]
+    A["provider pastes a transcript into the AI Chart Recommendations panel"] --> B["useScribeAnalyzer"]
+    B --> C["apiClient.easyChartPlan<br/>narrative, encounterId, incremental: false"]
 
     C --> D["validateRequestParameters"]
     D --> E["authorizeEasyChartRequest<br/>role check + Encounter read check"]
@@ -46,31 +46,39 @@ flowchart TD
     J --> K["applyGuards<br/>about 15 checks plus backstops"]
     K --> L["response: actions, rejected, usage, escalation, triggers"]
 
-    L --> M["runPlan"]
+    L --> L2["analysis.ts<br/>plan + review actions -> recommendations in the drawer"]
+    L2 --> L3["provider reviews, edits, ticks; Chart / Add observations"]
+    L3 --> M["runPlan<br/>one pass over the ticked rows (toPlannedAction)"]
     M --> N["per action: HANDLERS by kind"]
     N --> O["catalogue lookup and resolvePick"]
     O --> P["useChartWriter<br/>save-chart-data or order zambdas"]
     P --> Q["advanceSnapshot<br/>the next step sees this one"]
-    Q --> R["refetchChart"]
-
-    R --> S["easy-chart-review<br/>second look, suggestion cards"]
-    S --> T["provider accepts a card<br/>its actions run through the SAME executor"]
+    Q --> R["each row settles: applied / skipped with reason / failed"]
+    R --> S["refetchChart"]
 ```
+
+> **Update (2026-09-15).** The chat widget is gone; the drawer under
+> `apps/ehr/src/features/visits/shared/components/scribe-recommendations/` is the UI. The review pass is NOT
+> called from the drawer yet: it reads the note back against the transcript, and at analyze time nothing from
+> the plan has been written, so it could only repeat the plan. It belongs after the provider applies the plan;
+> `analysis.ts` already folds review suggestions into the list, each carrying its question, for when that step
+> is wired. A template is applied on its own path (the apply-template endpoint with the section picker), never
+> by the executor. The narrative stage stays empty until the backend produces one. Sections 3.x below describe
+> the request and the executor, which are unchanged; read "the chat box" as the panel's transcript box.
 
 ---
 
 ## 3. The browser side: what happens on send
 
-Entry point: [`useChartAssistant.ts:75`](../apps/ehr/src/features/easy-chart/hooks/useChartAssistant.ts#L75).
+Entry point: [`useScribeAnalyzer.ts`](../apps/ehr/src/features/visits/shared/components/scribe-recommendations/useScribeAnalyzer.ts), then [`useApplyRecommendations.ts`](../apps/ehr/src/features/visits/shared/components/scribe-recommendations/useApplyRecommendations.ts) when rows are applied.
 
 ### 3.1 What is sent
 
 ```ts
 apiClient.easyChartPlan({
-  narrative: message, // what the provider typed, or a transcript
-  encounterId: options.encounterId,
-  incremental: history.current.length > 0, // every turn after the first
-  history: history.current.slice(-HISTORY_TURNS),
+  narrative: transcript, // the pasted transcript
+  encounterId,
+  incremental: false, // a transcript is the first pass over the visit, never an addendum
 });
 ```
 

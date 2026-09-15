@@ -28,7 +28,7 @@ import {
   mergeOtherFromQuickPick,
   OTHER,
 } from '../../visits/in-person/pages/procedureOtherFields';
-import { PROCEDURE_REVIEW_FIELDS } from '../components/procedure-fields';
+import { PROCEDURE_REVIEW_FIELDS } from './procedure-fields';
 
 /** Everything the write needs, resolved by the catalogue so the writer guesses at nothing. */
 export interface ProcedureQuickPickContext {

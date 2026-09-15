@@ -57,7 +57,12 @@ export const findAiAddedFor = (
       case 'vital-weight':
         return rec.kind === 'vital-weight';
       case 'hpi':
-        return rec.kind === 'hpi' && rec.text.trim().length > 0 && (target.text ?? '').includes(rec.text.trim());
+        return (
+          rec.kind === 'hpi' &&
+          (rec.field ?? 'historyOfPresentIllness') === 'historyOfPresentIllness' &&
+          rec.text.trim().length > 0 &&
+          (target.text ?? '').includes(rec.text.trim())
+        );
       case 'template':
         return rec.kind === 'template';
     }

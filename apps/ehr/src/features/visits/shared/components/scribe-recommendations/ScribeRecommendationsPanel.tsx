@@ -10,6 +10,7 @@ import {
   Button,
   IconButton,
   LinearProgress,
+  Paper,
   TextField,
   Tooltip,
   Typography,
@@ -18,18 +19,22 @@ import {
 import { FC, ReactNode } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { describeAction } from 'src/features/easy-chart/executor/labels';
+import { PlannedAction, RejectedAction } from 'utils/lib/easy-chart/api';
 import { AiDisclaimerTooltip } from '../AiSection';
 import { useListTemplates } from '../templates/useListTemplates';
 import { useSyncChartedRecommendations } from './chartedRecommendations';
-import { SAMPLE_TRANSCRIPT } from './fakeScribeAnalysis';
 import { NarrativeSummary } from './NarrativeSummary';
 import { OrderSuggestions } from './OrderSuggestions';
+import { PickerDialog } from './PickerDialog';
 import { RecommendationsList } from './RecommendationsList';
+import { SAMPLE_TRANSCRIPT } from './sampleTranscript';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
 import { ScribeStage } from './ScribeStage';
 import { TemplateStage } from './TemplateStage';
 import { TemplateRecommendation } from './types';
 import { useApplyRecommendations } from './useApplyRecommendations';
+import { useScribeAnalyzer } from './useScribeAnalyzer';
 
 interface ScribeRecommendationsPanelProps {
   onCollapse: () => void;
@@ -87,6 +92,8 @@ const TranscriptStep: FC = () => {
   const analysisError = useScribeRecommendationsStore((state) => state.analysisError);
   const setTranscript = useScribeRecommendationsStore((state) => state.setTranscript);
   const analyze = useScribeRecommendationsStore((state) => state.analyze);
+  // The plan and review endpoints, behind one function; the store only knows it gets an analysis back.
+  const analyzer = useScribeAnalyzer();
   const isAnalyzing = phase === 'analyzing';
 
   return (
@@ -119,7 +126,7 @@ const TranscriptStep: FC = () => {
         </Button>
         <RoundedButton
           variant="contained"
-          onClick={() => void analyze()}
+          onClick={() => void analyze(analyzer)}
           disabled={!transcript.trim() || isAnalyzing}
           loading={isAnalyzing}
           data-testid={testIds.analyzeButton}
@@ -146,6 +153,8 @@ const ResultsStep: FC = () => {
   const recommendations = useScribeRecommendationsStore((state) => state.recommendations);
   const itemState = useScribeRecommendationsStore((state) => state.itemState);
   const orderSuggestions = useScribeRecommendationsStore((state) => state.orderSuggestions);
+  const rejected = useScribeRecommendationsStore((state) => state.rejected);
+  const notes = useScribeRecommendationsStore((state) => state.notes);
   const isApplying = useScribeRecommendationsStore((state) => state.isApplying);
   const setManySelected = useScribeRecommendationsStore((state) => state.setManySelected);
   const updateRecommendation = useScribeRecommendationsStore((state) => state.updateRecommendation);
@@ -170,6 +179,7 @@ const ResultsStep: FC = () => {
   const pending = observations.filter((rec) => itemState[rec.id]?.status !== 'applied' && !charted.has(rec.id));
   const selectedPending = pending.filter((rec) => itemState[rec.id]?.selected);
   const failedCount = observations.filter((rec) => itemState[rec.id]?.status === 'error').length;
+  const skippedCount = observations.filter((rec) => itemState[rec.id]?.status === 'skipped').length;
   const allPendingSelected = pending.length > 0 && selectedPending.length === pending.length;
 
   // The Chart button does the whole review in one go: the template first, without the section
@@ -204,6 +214,7 @@ const ResultsStep: FC = () => {
     pending.length > 0 ? `${selectedPending.length} of ${pending.length} selected` : undefined,
     appliedCount > 0 ? `${appliedCount} added` : undefined,
     chartedCount > 0 ? `${chartedCount} already charted` : undefined,
+    skippedCount > 0 ? `${skippedCount} skipped` : undefined,
     failedCount > 0 ? `${failedCount} failed` : undefined,
   ]
     .filter(Boolean)
@@ -211,11 +222,20 @@ const ResultsStep: FC = () => {
 
   const stages: ReactNode[] = [];
 
-  // The story of the visit comes first; every stage below is a piece of it made actionable.
-  if (narrative.length > 0) {
-    stages.push(
-      <ScribeStage key="narrative" name="narrative" lead="Here’s what I heard in the visit.">
-        <NarrativeSummary templates={templates} onRetry={() => void applyObservations()} />
+  // The story of the visit — or, until the model tells one, what it found in the transcript — comes
+  // first, with the one button that charts the whole review. Every stage below is a piece of it made
+  // actionable. Whatever the assistant said rather than charted is read here too.
+  const lead =
+    narrative.length > 0
+      ? 'Here’s what I heard in the visit.'
+      : recommendations.length > 0
+      ? 'Here’s what I found in the transcript.'
+      : 'I couldn’t find anything chartable in that transcript.';
+  stages.push(
+    <ScribeStage key="summary" name="summary" lead={lead}>
+      {narrative.length > 0 && <NarrativeSummary templates={templates} onRetry={() => void applyObservations()} />}
+      <AssistantNotes notes={notes} />
+      {recommendations.length > 0 && (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
           <Typography variant="caption" color="text.secondary" data-testid={testIds.chartSummary}>
             {chartSummary}
@@ -230,9 +250,9 @@ const ResultsStep: FC = () => {
             Chart
           </RoundedButton>
         </Box>
-      </ScribeStage>
-    );
-  }
+      )}
+    </ScribeStage>
+  );
 
   if (template) {
     stages.push(
@@ -326,13 +346,55 @@ const ResultsStep: FC = () => {
     );
   }
 
+  if (rejected.length > 0) stages.push(<RejectedList key="rejected" rejected={rejected} />);
+
   return (
     <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
       <TranscriptSummary transcript={transcript} />
       {stages}
+      {/* The executor's question, when a batch of one meets several near-equal matches or a removal needs confirming. */}
+      <PickerDialog />
     </Box>
   );
 };
+
+/** What the assistant said rather than charted: a template it can only suggest, a request it could not classify. */
+const AssistantNotes: FC<{ notes: string[] }> = ({ notes }) => {
+  if (notes.length === 0) return null;
+  return (
+    <Box data-testid={testIds.notes} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      {notes.map((note, index) => (
+        <Alert key={index} severity="info" variant="outlined" sx={{ py: 0, '& .MuiAlert-message': { fontSize: 13 } }}>
+          {note}
+        </Alert>
+      ))}
+    </Box>
+  );
+};
+
+/**
+ * Actions the server refused, each with its reason. Listed rather than dropped, so something the transcript
+ * said is never simply gone: a reading with no unit, a template the practice does not have.
+ */
+const RejectedList: FC<{ rejected: RejectedAction[] }> = ({ rejected }) => (
+  <ScribeStage name="rejected" lead="These I couldn’t turn into chart entries; they need your hand.">
+    <Paper variant="outlined" data-testid={testIds.rejected}>
+      {rejected.map((item, index) => (
+        <Box
+          key={index}
+          sx={{ px: 1, py: 0.75, '&:not(:last-of-type)': { borderBottom: '1px solid', borderColor: 'divider' } }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            {describeAction({ kind: item.kind, display: item.display } as PlannedAction)}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {item.reason}
+          </Typography>
+        </Box>
+      ))}
+    </Paper>
+  </ScribeStage>
+);
 
 const TranscriptSummary: FC<{ transcript: string }> = ({ transcript }) => {
   const resetAnalysis = useScribeRecommendationsStore((state) => state.resetAnalysis);

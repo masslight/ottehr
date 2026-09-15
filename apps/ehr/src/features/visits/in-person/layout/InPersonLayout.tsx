@@ -13,7 +13,9 @@ import { CommandPaletteInPersonRegistrations } from 'src/components/CommandPalet
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useApiClients } from 'src/hooks/useAppClients';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import { ThemeProvider } from 'styled-components';
+import { EASY_CHART_ROLES } from 'utils/lib/easy-chart/access';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getSelectors } from 'utils/lib/store';
 import { isVisitFinished } from 'utils/lib/utils/visitUtils';
@@ -99,11 +101,19 @@ export const InPersonLayout: React.FC = () => {
     : 'Select a provider in order to begin charting.';
   const virtual = isTelemedAppointment(appointment);
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
-  // Ambient Scribe recommendations sit beside the note (not over it) so the provider can review a
+  // AI Chart Recommendations sit beside the note (not over it) so the provider can review a
   // suggestion and the section it lands in at the same time. Follow-up notes and finished visits
   // have nothing to apply them to.
+  //
+  // GATED TWICE, and both gates are the shared ones: the Easy Chart feature flag, and the SAME role set
+  // the plan and review endpoints check. A role that can open this can always use its API and vice versa.
+  const user = useEvolveUser();
   const showScribeRecommendations =
-    FEATURE_FLAGS.AMBIENT_SCRIBE_RECOMMENDATIONS_ENABLED && !isFollowup && !isAppointmentReadOnly && canChart;
+    FEATURE_FLAGS.EASY_CHART_ENABLED &&
+    Boolean(user?.hasRole([...EASY_CHART_ROLES])) &&
+    !isFollowup &&
+    !isAppointmentReadOnly &&
+    canChart;
   const scribePanelOffset = useScribePanelOffset();
   // The fixed-position recorder controls would otherwise sit on top of the panel.
   const fixedControlsOffset = showScribeRecommendations ? scribePanelOffset : 0;

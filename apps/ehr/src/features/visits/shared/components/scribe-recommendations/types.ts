@@ -1,11 +1,30 @@
+import { NoteTextField } from 'utils/lib/easy-chart/actions';
+import { PlannedAction, RejectedAction } from 'utils/lib/easy-chart/api';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { TemplatePreviewApplyOptions, TemplateSectionActions } from 'utils/lib/types/data/apply-template.types';
 
 /**
  * Chart sections a recommendation writes into. Drives the grouping in the panel and the
- * "go to section" links next to each group.
+ * "go to section" rail beside each group.
  */
-export type ScribeSectionKey = 'template' | 'hpi' | 'ros' | 'vitals' | 'allergies' | 'medications' | 'assessment';
+export type ScribeSectionKey =
+  | 'template'
+  | 'hpi'
+  | 'assessment'
+  | 'ros'
+  | 'exam'
+  | 'vitals'
+  | 'allergies'
+  | 'medications'
+  | 'history'
+  | 'plan'
+  | 'orders'
+  | 'procedures';
+
+/** Which pass proposed it. A review card carries the question the provider reads and the reasoning behind it. */
+export type RecommendationSource =
+  | { pass: 'plan' }
+  | { pass: 'review'; category: string; question: string; rationale?: string };
 
 interface ScribeRecommendationBase {
   id: string;
@@ -14,11 +33,28 @@ interface ScribeRecommendationBase {
   evidence?: string;
   /** Something the provider should double-check before applying (low confidence, a conflict, ...). */
   warning?: string;
+  /** How the AI got here, shown with the evidence on hover: inferred rather than quoted, or what the review asked. */
+  note?: string;
+  /**
+   * Starts unticked. Applying it replaces something the provider wrote — a note paragraph — so they opt in
+   * rather than out. The panel's form of the "proposed edit awaits your confirmation" the chat used to show.
+   */
+  confirm?: boolean;
+  /**
+   * The typed action the plan or review endpoint returned, as the executor will run it. `toPlannedAction`
+   * overlays whatever the provider edited in the panel onto it. Absent on a recommendation built by hand
+   * (fixtures, tests), in which case the typed fields alone describe the action.
+   */
+  action?: PlannedAction;
+  source?: RecommendationSource;
 }
 
+/** A free-text note paragraph. Named for the field it most often is; `field` says which one it really targets. */
 export interface HpiRecommendation extends ScribeRecommendationBase {
   kind: 'hpi';
   text: string;
+  /** The note field this text goes into. Absent means the History of Present Illness. */
+  field?: NoteTextField;
 }
 
 export interface AllergyRecommendation extends ScribeRecommendationBase {
@@ -35,8 +71,8 @@ export interface DiagnosisRecommendation extends ScribeRecommendationBase {
   kind: 'diagnosis';
   code: string;
   display: string;
-  /** How the condition was referred to in the conversation. */
-  transcriptTerm: string;
+  /** How the condition was referred to in the conversation, when the model quoted it. */
+  transcriptTerm?: string;
   /** Preferred primary diagnosis; only honored when the chart has no primary yet. */
   isPrimary?: boolean;
 }
@@ -44,7 +80,10 @@ export interface DiagnosisRecommendation extends ScribeRecommendationBase {
 export interface MedicationRecommendation extends ScribeRecommendationBase {
   kind: 'medication';
   name: string;
-  type: 'scheduled' | 'as-needed';
+  type?: 'scheduled' | 'as-needed';
+  /** Dictated strength ("500 mg"), recorded as the dose. */
+  strength?: string;
+  doseForm?: string;
   patientCouldNotConfirmDosage?: boolean;
 }
 
@@ -60,6 +99,8 @@ export interface RosRecommendation extends ScribeRecommendationBase {
 export interface TemplateRecommendation extends ScribeRecommendationBase {
   kind: 'template';
   templateName: string;
+  /** The practice template the server resolved the title to. */
+  templateId?: string;
   /**
    * What the provider chose in the apply-template dialog. Absent until they have been through it,
    * in which case the panel's own defaults apply.
@@ -69,6 +110,17 @@ export interface TemplateRecommendation extends ScribeRecommendationBase {
   applyOptions?: TemplatePreviewApplyOptions;
 }
 
+/**
+ * Anything else the executor can chart — an exam finding, a past surgery, a disposition, an E&M level, a
+ * removal. Shown by its step label and applied as the action it wraps; the panel has no editor for it.
+ */
+export interface ActionRecommendation extends ScribeRecommendationBase {
+  kind: 'action';
+  label: string;
+  secondary?: string;
+  action: PlannedAction;
+}
+
 export type ScribeRecommendation =
   | HpiRecommendation
   | AllergyRecommendation
@@ -76,7 +128,8 @@ export type ScribeRecommendation =
   | DiagnosisRecommendation
   | MedicationRecommendation
   | RosRecommendation
-  | TemplateRecommendation;
+  | TemplateRecommendation
+  | ActionRecommendation;
 
 export type ScribeRecommendationKind = ScribeRecommendation['kind'];
 
@@ -102,6 +155,10 @@ export interface ScribeAnalysis {
   narrative: NarrativeSegment[];
   recommendations: ScribeRecommendation[];
   orderSuggestions: OrderSuggestion[];
+  /** Actions the server refused, each with its reason — listed so nothing voiced disappears silently. */
+  rejected: RejectedAction[];
+  /** What the assistant said rather than charted: replies, notes for the provider, what it could not classify. */
+  notes: string[];
 }
 
-export type RecommendationApplyStatus = 'idle' | 'applying' | 'applied' | 'error';
+export type RecommendationApplyStatus = 'idle' | 'applying' | 'applied' | 'skipped' | 'error';

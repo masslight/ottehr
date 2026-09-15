@@ -7,7 +7,10 @@ export const FeatureFlagsConfigSchema = z.object({
   nursingOrdersEnabled: z.boolean(),
   supervisorApprovalEnabled: z.boolean(),
   demoVisitsEnabled: z.boolean(),
-  /** Easy Chart: the AI-assisted charting page. Gated by BOTH this flag and the charting role set. */
+  /**
+   * Easy Chart: the AI Chart Recommendations panel beside the in-person visit note, and the plan/review
+   * endpoints behind it. Gated by BOTH this flag and the charting role set (EASY_CHART_ROLES).
+   */
   easyChartEnabled: z.boolean(),
   globalTemplatesEnabled: z.boolean(),
   formsEnabled: z.boolean(),
@@ -33,10 +36,6 @@ export const FeatureFlagsConfigSchema = z.object({
   // Candid non-insurance payer sync — stays active. Per-deployment so customers
   // can migrate at different times.
   nonInsuranceOrganizationsEnabled: z.boolean().optional(),
-  // Prototype: side-by-side "Ambient Scribe" panel on the in-person visit screens that turns a
-  // pasted encounter transcript into reviewable charting recommendations. The analysis is faked
-  // in the EHR for now; the flag exists so the panel can be hidden per customer.
-  ambientScribeRecommendationsEnabled: z.boolean().optional(),
 });
 
 export type FeatureFlagsConfig = z.infer<typeof FeatureFlagsConfigSchema>;

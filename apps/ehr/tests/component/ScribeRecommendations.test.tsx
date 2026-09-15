@@ -2,15 +2,145 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import { ChartPlanResponse } from 'utils/lib/easy-chart/api';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { StepOutcome } from '../../src/features/easy-chart/executor/types';
+
+// ============================================================================
+// FIXTURES — what the plan endpoint answers for the sample transcript
+// ============================================================================
+
+const envelope = { usage: [], escalation: { attempts: 1, escalated: false, failures: [] }, triggers: [] };
+
+const PLAN: ChartPlanResponse = {
+  actions: [
+    {
+      kind: 'apply-template',
+      display: 'Sinusitis',
+      templateId: 't-1',
+      sourceText: 'This sounds like a sinus infection on top of the drip.',
+    },
+    {
+      kind: 'edit-note-text',
+      field: 'historyOfPresentIllness',
+      newText: 'Patient reports having post-nasal drip and sinus pressure for 1 week.',
+      sourceText: "I've had this post-nasal drip and pressure in my sinuses for about a week now.",
+    },
+    {
+      kind: 'add-ros-finding',
+      display: 'reports eye discharge',
+      finding: 'reports',
+      sourceText: 'Just some crust in the morning, a little watery.',
+    },
+    {
+      kind: 'add-ros-finding',
+      display: 'denies fever',
+      finding: 'denies',
+      sourceText: 'No fever. I checked a couple of times.',
+    },
+    { kind: 'add-ros-finding', display: 'denies ear pain', finding: 'denies', sourceText: 'No ear pain.' },
+    { kind: 'add-ros-finding', display: 'denies sore throat', finding: 'denies', sourceText: "My throat's fine too." },
+    {
+      kind: 'add-ros-finding',
+      display: 'reports headache',
+      finding: 'reports',
+      sourceText: "Yeah, headaches most afternoons. That's when it's the worst.",
+    },
+    {
+      kind: 'add-ros-finding',
+      display: 'denies post-nasal drip',
+      finding: 'denies',
+      sourceText: 'Not so much anymore, honestly. It was the first few days.',
+      caution: 'Possible conflict: the HPI records post-nasal drip as a presenting complaint.',
+    },
+    {
+      kind: 'add-ros-finding',
+      display: 'reports sinus pain/pressure',
+      finding: 'reports',
+      sourceText: "It's really the sinuses, right here across my cheeks and forehead.",
+    },
+    {
+      kind: 'set-vital',
+      field: 'vital-weight',
+      display: '170 pounds',
+      value: 170,
+      unit: 'lb',
+      sourceText: "I'm about 170 pounds.",
+      caution: 'Patient-reported, not measured.',
+    },
+    { kind: 'add-allergy', display: 'Fentanyl', sourceText: 'Fentanyl. I had a bad reaction after my knee surgery.' },
+    {
+      kind: 'add-medication',
+      display: 'Ibuprofen',
+      sourceText: "Ibuprofen when the headache gets bad. I don't remember the dose.",
+    },
+    {
+      kind: 'add-medication',
+      display: 'Claritin (loratadine)',
+      sourceText: 'And a sinus allergy med, Claritin or something like it, the one my wife takes.',
+      caution:
+        'Patient described "a sinus allergy med"; Claritin is a best guess. Confirm the product before applying.',
+    },
+    { kind: 'add-diagnosis', code: 'R09.82', display: 'Postnasal drip', sourceText: 'post-nasal drip' },
+    {
+      kind: 'add-diagnosis',
+      code: 'J01.90',
+      display: 'Acute sinusitis, unspecified',
+      isPrimary: true,
+      sourceText: 'sinus infection',
+    },
+    {
+      kind: 'add-diagnosis',
+      code: 'R42',
+      display: 'Dizziness and giddiness',
+      sourceText: 'I get a little dizzy when I stand up too fast.',
+    },
+    // Inferred — no quote — and with no editor of its own in the panel.
+    { kind: 'add-exam-finding', display: 'Sinus tenderness' },
+    {
+      kind: 'provider-note',
+      text: 'The patient mentioned a knee surgery; consider adding it to the surgical history.',
+    },
+  ],
+  rejected: [
+    {
+      kind: 'set-vital',
+      display: '5.8',
+      reason: '"5.8" has no unit — a bare height could be centimetres or inches, so it needs confirming',
+    },
+  ],
+  ...envelope,
+};
+
+/** The ids the mapping gives the fixture's recommendations: the pass, the action kind and what it names. */
+const ID = {
+  template: 'plan:apply-template:Sinusitis',
+  hpi: 'plan:edit-note-text:historyOfPresentIllness',
+  eyeDischarge: 'plan:add-ros-finding:reports-eye-discharge',
+  fever: 'plan:add-ros-finding:denies-fever',
+  headache: 'plan:add-ros-finding:reports-headache',
+  postNasalDrip: 'plan:add-ros-finding:denies-post-nasal-drip',
+  weight: 'plan:set-vital:vital-weight',
+  fentanyl: 'plan:add-allergy:Fentanyl',
+  ibuprofen: 'plan:add-medication:Ibuprofen',
+  claritin: 'plan:add-medication:Claritin-loratadine',
+  dxDrip: 'plan:add-diagnosis:R09-82',
+  dxSinusitis: 'plan:add-diagnosis:J01-90',
+  dxDizziness: 'plan:add-diagnosis:R42',
+  examTenderness: 'plan:add-exam-finding:Sinus-tenderness',
+};
 
 // ============================================================================
 // MOCKS
 // ============================================================================
 
 const mocks = vi.hoisted(() => ({
-  applyOne: vi.fn(async (_recommendation: unknown): Promise<void> => undefined),
+  /** Resolves to nothing for an applied row, to an outcome to settle it another way, or throws to fail it. */
+  applyOne: vi.fn(async (_recommendation: unknown): Promise<unknown> => undefined),
+  plan: vi.fn((): unknown => undefined),
+  /** Note fields already written on the chart, keyed by clinical name. */
+  written: {} as Record<string, string>,
   enqueueSnackbar: vi.fn(),
   navigate: vi.fn(),
   // What the chart already holds. The charted predicate itself is left real.
@@ -19,30 +149,38 @@ const mocks = vi.hoisted(() => ({
   vitals: undefined as Record<string, unknown> | undefined,
 }));
 
-// The fake model waits a bit to feel like a request; the tests don't need to.
-vi.mock(
-  '../../src/features/visits/shared/components/scribe-recommendations/fakeScribeAnalysis',
-  async (importOriginal) => {
-    const actual =
-      await importOriginal<
-        typeof import('../../src/features/visits/shared/components/scribe-recommendations/fakeScribeAnalysis')
-      >();
-    return {
-      ...actual,
-      analyzeTranscript: (transcript: string) => actual.analyzeTranscript(transcript, { delayMs: 0 }),
-    };
-  }
-);
+// The endpoint is replaced by a fixture; the mapping from its actions to recommendations is the real one.
+vi.mock('../../src/features/visits/shared/components/scribe-recommendations/useScribeAnalyzer', async () => {
+  const { buildAnalysis } = await import('../../src/features/visits/shared/components/scribe-recommendations/analysis');
+  return {
+    useScribeAnalyzer: () => async () =>
+      buildAnalysis(mocks.plan() as ChartPlanResponse, undefined, { written: mocks.written }),
+  };
+});
 
 // Keep the real orchestration (selection, ordering, statuses); stub only the chart writes.
 vi.mock('../../src/features/visits/shared/components/scribe-recommendations/useApplyRecommendations', async () => {
-  const { applyRecommendations, pendingObservationIds } = await import(
+  const { applyRecommendations, errorMessage, pendingObservationIds } = await import(
     '../../src/features/visits/shared/components/scribe-recommendations/applyRecommendations'
   );
+  const run = async (
+    recommendations: { id: string }[],
+    report: { start(id: string): void; settle(id: string, outcome: StepOutcome): void }
+  ): Promise<void> => {
+    for (const rec of recommendations) {
+      report.start(rec.id);
+      try {
+        const outcome = (await mocks.applyOne(rec)) as StepOutcome | undefined;
+        report.settle(rec.id, outcome ?? { status: 'applied', createdResourceIds: [] });
+      } catch (error) {
+        report.settle(rec.id, { status: 'failed', reason: errorMessage(error) });
+      }
+    }
+  };
   return {
     useApplyRecommendations: () => ({
-      applyObservations: () => applyRecommendations(pendingObservationIds(), mocks.applyOne),
-      applyRecommendation: (id: string) => applyRecommendations([id], mocks.applyOne),
+      applyObservations: () => applyRecommendations(pendingObservationIds(), run, { mode: 'bulk' }),
+      applyRecommendation: (id: string) => applyRecommendations([id], run, { mode: 'interactive' }),
     }),
   };
 });
@@ -128,12 +266,15 @@ vi.mock('react-router-dom', async () => {
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import {
   applyRecommendations,
+  errorMessage,
   pendingObservationIds,
+  RecommendationRunner,
 } from '../../src/features/visits/shared/components/scribe-recommendations/applyRecommendations';
 import {
   buildChartSnapshot,
   isAlreadyCharted,
 } from '../../src/features/visits/shared/components/scribe-recommendations/chartedRecommendations';
+import { PickerDialog } from '../../src/features/visits/shared/components/scribe-recommendations/PickerDialog';
 import {
   SCRIBE_PANEL_DEFAULT_WIDTH,
   useScribeRecommendationsStore,
@@ -147,7 +288,6 @@ import { useRosObservationsStore } from '../../src/features/visits/shared/stores
 // ============================================================================
 
 const testIds = dataTestIds.scribeRecommendations;
-const TEMPLATE_ID = 'template-sinusitis';
 
 const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
   <MemoryRouter initialEntries={['/in-person/appointment-1/review-and-sign']}>{children}</MemoryRouter>
@@ -157,6 +297,8 @@ const resetStore = (): void => {
   mocks.chartData = {};
   mocks.chartFields = {};
   mocks.vitals = undefined;
+  mocks.written = {};
+  mocks.plan.mockReturnValue(PLAN);
   useRosObservationsStore.setState({}, true);
   useScribeRecommendationsStore.setState({
     chartedIds: [],
@@ -166,12 +308,16 @@ const resetStore = (): void => {
     transcript: '',
     phase: 'input',
     analysisError: undefined,
+    narrative: [],
     recommendations: [],
     itemState: {},
     orderSuggestions: [],
     ordersDone: {},
+    rejected: [],
+    notes: [],
     isApplying: false,
     editingId: undefined,
+    pendingPick: null,
   });
 };
 
@@ -250,14 +396,13 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.getByTestId(testIds.rail)).toBeVisible();
   });
 
-  it('lays the results out as four stages in order', async () => {
+  it('lays the plan out as stages: what it found, the template, the observations, the refusals', async () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
-    const narrative = screen.getByTestId(testIds.stage('narrative'));
+    const summary = screen.getByTestId(testIds.stage('summary'));
     const template = screen.getByTestId(testIds.stage('template'));
     const observationsStage = screen.getByTestId(testIds.stage('observations'));
-    const orders = screen.getByTestId(testIds.stage('orders'));
 
     // the leads carry the sequence, so the stages need no numbering of their own
     expect(
@@ -265,24 +410,22 @@ describe('ScribeRecommendationsDrawer', () => {
         .getAllByRole('region')
         .map((section) => section.getAttribute('data-testid'))
         .filter((id) => id?.startsWith('scribe-stage-'))
-    ).toEqual(['scribe-stage-narrative', 'scribe-stage-template', 'scribe-stage-observations', 'scribe-stage-orders']);
-    expect(within(narrative).getByText(/what I heard in the visit/)).toBeVisible();
+    ).toEqual(['scribe-stage-summary', 'scribe-stage-template', 'scribe-stage-observations', 'scribe-stage-rejected']);
+    expect(within(summary).getByText(/what I found in the transcript/)).toBeVisible();
     expect(within(template).getByText(/template that looks like a good fit/)).toBeVisible();
     expect(within(observationsStage).getByText(/observations, which I read in the transcript/)).toBeVisible();
-    expect(within(orders).getByText(/orders you might want to make/)).toBeVisible();
 
-    // stage one is a single button naming the template, not a row in the list below
+    // stage one is a single button naming the template the server resolved, not a row in the list below
     expect(within(template).getByTestId(testIds.templateApplyButton)).toHaveTextContent('Apply template: Sinusitis');
     expect(within(template).getByTestId(testIds.templateApplyButton)).toBeEnabled();
-    // and it carries the same rail as the observation groups
     expect(within(template).getByTestId(testIds.goToSectionButton('template'))).toBeVisible();
-    expect(screen.queryByTestId(testIds.rowCheckbox(TEMPLATE_ID))).toBeNull();
+    expect(screen.queryByTestId(testIds.rowCheckbox(ID.template))).toBeNull();
     expect(screen.queryByTestId(testIds.group('template'))).toBeNull();
 
     // stage two holds every observation, grouped by the section it writes into, and none of them
     // carries a checkbox: they are all going in unless the provider says otherwise
     expect(within(observationsStage).queryAllByRole('checkbox')).toEqual([]);
-    ['hpi', 'assessment', 'ros', 'vitals', 'allergies', 'medications'].forEach((section) => {
+    ['hpi', 'assessment', 'ros', 'exam', 'vitals', 'allergies', 'medications'].forEach((section) => {
       const group = within(observationsStage).getByTestId(testIds.group(section));
       expect(group).toBeVisible();
       // the rail names the section and doubles as the link into that part of the note
@@ -293,6 +436,11 @@ describe('ScribeRecommendationsDrawer', () => {
     );
     expect(within(screen.getByTestId(testIds.group('medications'))).getByText('Meds')).toBeVisible();
     expect(within(observationsStage).getByText('Acute sinusitis, unspecified (J01.90)')).toBeVisible();
+    // an action the panel has no editor for is shown by the executor's own step label
+    expect(
+      within(screen.getByTestId(testIds.group('exam'))).getByText('Adding exam finding: Sinus tenderness')
+    ).toBeVisible();
+
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(
       `${observations().length} of ${observations().length} selected`
     );
@@ -300,91 +448,33 @@ describe('ScribeRecommendationsDrawer', () => {
       `Add ${observations().length} observations`
     );
 
-    // stage three is a to-do list, so nothing in it starts ticked
-    useScribeRecommendationsStore.getState().orderSuggestions.forEach((order) => {
-      expect(within(screen.getByTestId(testIds.orderCheckbox(order.id))).getByRole('checkbox')).not.toBeChecked();
-    });
-
     await user.click(within(observationsStage).getByTestId(testIds.goToSectionButton('ros')));
     expect(mocks.navigate).toHaveBeenCalledWith('/in-person/appointment-1/review-of-systems');
-
-    await user.click(within(orders).getByTestId(testIds.orderButton('order-dexamethasone')));
-    expect(mocks.navigate).toHaveBeenCalledWith('/in-person/appointment-1/in-house-medication/order/new');
   });
 
-  it('opens a run of the narrative as its own row, ready to edit', async () => {
+  it('lists what the server refused, with its reason, and what the assistant said rather than charted', async () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
-    // the "why" is the hover itself: the same transcript evidence the row shows on hover
-    await user.hover(screen.getByTestId(testIds.narrativeSpan('vital-weight')));
-    expect(await screen.findByRole('tooltip')).toHaveTextContent("I'm about 170 pounds.");
-    await user.unhover(screen.getByTestId(testIds.narrativeSpan('vital-weight')));
-
-    await user.click(screen.getByTestId(testIds.narrativeSpan('allergy-fentanyl')));
-    const popover = screen.getByTestId(testIds.narrativePopover('allergy-fentanyl'));
-    expect(
-      within(within(popover).getByTestId(testIds.rowCheckbox('allergy-fentanyl'))).getByRole('checkbox')
-    ).toBeChecked();
-    // straight into the editor, with no pencil to press and no hover of its own to duplicate the span's
-    expect(within(popover).getByTestId(testIds.rowEditInput('allergy-fentanyl'))).toHaveValue('Fentanyl');
-    expect(within(popover).queryByTestId(testIds.rowEditButton('allergy-fentanyl'))).toBeNull();
-
-    // there is nothing to press to finish: looking away closes the popover, keeping the edit
-    expect(within(popover).queryByRole('button', { name: /save|cancel/i })).toBeNull();
-    await lookAway(user);
-    await waitFor(() => expect(screen.queryByTestId(testIds.narrativePopover('allergy-fentanyl'))).toBeNull());
-  });
-
-  it('tells the story with the recommendations as they stand, so an edit shows in the sentence', async () => {
-    const user = userEvent.setup();
-    await openPanelWithRecommendations(user);
-
-    const span = screen.getByTestId(testIds.narrativeSpan('vital-weight'));
-    expect(span).toHaveTextContent('weighing 170 lbs (77.11 kg)');
-
-    await user.click(span);
-    const popover = screen.getByTestId(testIds.narrativePopover('vital-weight'));
-    const weightInput = within(popover).getByTestId(testIds.rowEditInput('vital-weight'));
-    await user.clear(weightInput);
-    await user.type(weightInput, '175');
-    // Enter is enough on a single-line field; the popover closes on the same commit
-    await user.keyboard('{Enter}');
-
-    await waitFor(() => expect(screen.queryByTestId(testIds.narrativePopover('vital-weight'))).toBeNull());
-    expect(screen.getByTestId(testIds.narrativeSpan('vital-weight'))).toHaveTextContent('weighing 175 lbs (79.38 kg)');
-    // and the list row tells the same story
-    expect(screen.getByText(/Weight 175 lbs/)).toBeVisible();
-  });
-
-  it('rewrites a review-of-systems run when the finding is flipped', async () => {
-    const user = userEvent.setup();
-    await openPanelWithRecommendations(user);
-
-    const span = screen.getByTestId(testIds.narrativeSpan('ros-constitutional-fever'));
-    expect(span).toHaveTextContent('denies fever');
-
-    await user.click(span);
-    const popover = screen.getByTestId(testIds.narrativePopover('ros-constitutional-fever'));
-    await user.click(within(popover).getByRole('button', { name: 'Reports' }));
-    await lookAway(user);
-
-    await waitFor(() => expect(screen.queryByTestId(testIds.narrativePopover('ros-constitutional-fever'))).toBeNull());
-    // the sentence carries the verb inside the run, so the flip reads back in the story...
-    expect(screen.getByTestId(testIds.narrativeSpan('ros-constitutional-fever'))).toHaveTextContent('reports fever');
-    // ...and the row's letter says the same thing
-    expect(screen.getByTestId(testIds.rowFinding('ros-constitutional-fever'))).toHaveTextContent('R:');
+    expect(screen.getByTestId(testIds.rejected)).toHaveTextContent(
+      '"5.8" has no unit — a bare height could be centimetres or inches, so it needs confirming'
+    );
+    expect(screen.getByTestId(testIds.notes)).toHaveTextContent(
+      'The patient mentioned a knee surgery; consider adding it to the surgical history.'
+    );
   });
 
   it('puts the primary diagnosis at the head of the assessment group', async () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
-    const rows = within(screen.getByTestId(testIds.group('assessment'))).getAllByTestId(/^scribe-row-dx-/);
+    const rows = within(screen.getByTestId(testIds.group('assessment'))).getAllByTestId(
+      /^scribe-row-plan:add-diagnosis/
+    );
     expect(rows.map((row) => row.getAttribute('data-testid'))).toEqual([
-      'scribe-row-dx-acute-sinusitis',
-      'scribe-row-dx-postnasal-drip',
-      'scribe-row-dx-dizziness',
+      testIds.row(ID.dxSinusitis),
+      testIds.row(ID.dxDrip),
+      testIds.row(ID.dxDizziness),
     ]);
     expect(within(rows[0]).getByText('Primary')).toBeVisible();
   });
@@ -401,7 +491,7 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.queryByText('Denies')).toBeNull();
 
     // and the finding reads before the system, not after it
-    const firstRow = screen.getByTestId(testIds.row('ros-eyes-discharge'));
+    const firstRow = screen.getByTestId(testIds.row(ID.eyeDischarge));
     expect(firstRow.textContent?.indexOf('R:')).toBeLessThan(firstRow.textContent?.indexOf('Eyes: Discharge') ?? -1);
   });
 
@@ -422,15 +512,15 @@ describe('ScribeRecommendationsDrawer', () => {
     await user.click(screen.getByTestId('preview-apply'));
     await waitFor(() => expect(screen.queryByTestId(testIds.templateApplyButton)).toBeNull());
 
-    expect(appliedIds()).toEqual([TEMPLATE_ID]);
+    expect(appliedIds()).toEqual([ID.template]);
     // and the sections chosen in the dialog ride along with it
     expect(mocks.applyOne.mock.calls[0][0]).toMatchObject({
       sectionActions: { hpi: 'append', ros: 'skip', mdm: 'overwrite' },
     });
     expect(screen.queryByTestId('template-preview-dialog')).toBeNull();
-    expect(screen.getByTestId(testIds.rowStatus(TEMPLATE_ID))).toHaveTextContent('Sinusitis applied');
+    expect(screen.getByTestId(testIds.rowStatus(ID.template))).toHaveTextContent('Sinusitis applied');
     // and settles into the same green tick a charted row shows
-    expectCharted(TEMPLATE_ID);
+    expectCharted(ID.template);
     // the observations are still waiting on their own button
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(
       `${observations().length} of ${observations().length} selected`
@@ -446,50 +536,48 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.getByTestId(testIds.chartSummary)).toHaveTextContent(
       `Applies the template and ${total} selected observations`
     );
-    await untick(user, 'medication-claritin');
+    await untick(user, ID.claritin);
 
     await user.click(screen.getByTestId(testIds.chartButton));
     await waitFor(() => expect(mocks.applyOne).toHaveBeenCalledTimes(total));
 
     // the template goes straight through, without the section picker, on the panel's defaults
     expect(screen.queryByTestId('template-preview-dialog')).toBeNull();
-    expect(appliedIds()[0]).toBe(TEMPLATE_ID);
+    expect(appliedIds()[0]).toBe(ID.template);
     expect(mocks.applyOne.mock.calls[0][0]).not.toHaveProperty('sectionActions');
-    expect(appliedIds()).not.toContain('medication-claritin');
-    expect(appliedIds()).not.toContain('order-dexamethasone');
-    expect(screen.getByTestId(testIds.rowStatus(TEMPLATE_ID))).toHaveTextContent('Sinusitis applied');
-    expectCharted('hpi-summary');
+    expect(appliedIds()).not.toContain(ID.claritin);
+    expect(screen.getByTestId(testIds.rowStatus(ID.template))).toHaveTextContent('Sinusitis applied');
+    expectCharted(ID.hpi);
 
     // nothing selected is left, so the button has nothing to do
     expect(screen.getByTestId(testIds.chartSummary)).toHaveTextContent('Nothing is selected');
     expect(screen.getByTestId(testIds.chartButton)).toBeDisabled();
   });
 
-  it('adds only the checked observations, and never the template or the orders', async () => {
+  it('adds only the checked observations, and never the template', async () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
     const total = observations().length;
 
-    await untick(user, 'medication-claritin');
-    expectUnticked('medication-claritin');
+    await untick(user, ID.claritin);
+    expectUnticked(ID.claritin);
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 1} of ${total} selected`);
 
     await user.click(screen.getByTestId(testIds.applyObservationsButton));
     await waitFor(() => expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 1} added`));
 
     expect(mocks.applyOne).toHaveBeenCalledTimes(total - 1);
-    expect(appliedIds()).not.toContain('medication-claritin');
-    expect(appliedIds()).not.toContain(TEMPLATE_ID);
-    expect(appliedIds()).not.toContain('order-dexamethasone');
+    expect(appliedIds()).not.toContain(ID.claritin);
+    expect(appliedIds()).not.toContain(ID.template);
     // the preferred primary is written before the other diagnoses
-    expect(appliedIds().filter((id) => id.startsWith('dx-'))[0]).toBe('dx-acute-sinusitis');
+    expect(appliedIds().filter((id) => id.includes(':add-diagnosis:'))[0]).toBe(ID.dxSinusitis);
 
     // applied rows are settled, and say so in the checkbox rather than in an icon beside it
-    expectCharted('hpi-summary');
+    expectCharted(ID.hpi);
     // the one that was left out is still a live line, struck through and open to a second thought
-    expect(screen.queryByTestId(testIds.rowStatus('medication-claritin'))).toBeNull();
-    expectUnticked('medication-claritin');
-    expect(screen.getByTestId(testIds.rowEditButton('medication-claritin'))).toBeInTheDocument();
+    expect(screen.queryByTestId(testIds.rowStatus(ID.claritin))).toBeNull();
+    expectUnticked(ID.claritin);
+    expect(screen.getByTestId(testIds.rowEditButton(ID.claritin))).toBeInTheDocument();
     expect(screen.getByTestId(testIds.templateApplyButton)).toBeEnabled();
   });
 
@@ -497,45 +585,41 @@ describe('ScribeRecommendationsDrawer', () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
-    await user.click(screen.getByTestId(testIds.rowEditButton('hpi-summary')));
-    const input = screen.getByTestId(testIds.rowEditInput('hpi-summary'));
+    await user.click(screen.getByTestId(testIds.rowEditButton(ID.hpi)));
+    const input = screen.getByTestId(testIds.rowEditInput(ID.hpi));
     await user.clear(input);
     await user.type(input, 'Post-nasal drip and sinus pressure x 1 week, worse in the afternoons.');
     // Enter is a line break in the HPI box, so this one is committed by looking away
     await lookAway(user);
-    // the row and, now that the AI's paraphrase is stale, the narrative both carry the new words
     expect(
-      within(screen.getByTestId(testIds.row('hpi-summary'))).getByText(
+      within(screen.getByTestId(testIds.row(ID.hpi))).getByText(
         'Post-nasal drip and sinus pressure x 1 week, worse in the afternoons.'
       )
     ).toBeVisible();
-    expect(screen.getByTestId(testIds.narrativeSpan('hpi-summary'))).toHaveTextContent(
-      'Post-nasal drip and sinus pressure x 1 week, worse in the afternoons.'
-    );
 
-    await user.click(screen.getByTestId(testIds.rowEditButton('vital-weight')));
-    const weightInput = screen.getByTestId(testIds.rowEditInput('vital-weight'));
+    await user.click(screen.getByTestId(testIds.rowEditButton(ID.weight)));
+    const weightInput = screen.getByTestId(testIds.rowEditInput(ID.weight));
     await user.clear(weightInput);
     await user.type(weightInput, '172');
     await user.keyboard('{Enter}');
     expect(screen.getByText(/Weight 172 lbs/)).toBeVisible();
 
-    await user.click(screen.getByTestId(testIds.rowEditButton('dx-postnasal-drip')));
+    await user.click(screen.getByTestId(testIds.rowEditButton(ID.dxDrip)));
     await user.click(screen.getByTestId('pick-diagnosis'));
     await lookAway(user);
     expect(screen.getByText('Acute maxillary sinusitis (J01.00)')).toBeVisible();
 
     await user.click(screen.getByTestId(testIds.applyObservationsButton));
     await waitFor(() =>
-      expect(screen.getByTestId(testIds.rowCheckbox('vital-weight'))).toHaveClass('MuiCheckbox-colorSuccess')
+      expect(screen.getByTestId(testIds.rowCheckbox(ID.weight))).toHaveClass('MuiCheckbox-colorSuccess')
     );
 
     const applied = mocks.applyOne.mock.calls.map(([rec]) => rec as ScribeRecommendation);
-    expect(applied.find((rec) => rec.id === 'hpi-summary')).toMatchObject({
+    expect(applied.find((rec) => rec.id === ID.hpi)).toMatchObject({
       text: 'Post-nasal drip and sinus pressure x 1 week, worse in the afternoons.',
     });
-    expect(applied.find((rec) => rec.id === 'vital-weight')).toMatchObject({ weightLbs: 172 });
-    expect(applied.find((rec) => rec.id === 'dx-postnasal-drip')).toMatchObject({ code: 'J01.00' });
+    expect(applied.find((rec) => rec.id === ID.weight)).toMatchObject({ weightLbs: 172 });
+    expect(applied.find((rec) => rec.id === ID.dxDrip)).toMatchObject({ code: 'J01.00' });
   });
 
   it('lets a failed template be swapped for another and applied again', async () => {
@@ -551,8 +635,8 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.getByTestId(testIds.templateApplyButton)).toHaveTextContent('Try again');
 
     // swap in a template this environment actually has
-    await user.click(screen.getByTestId(testIds.rowEditButton(TEMPLATE_ID)));
-    await user.click(screen.getByTestId(testIds.rowEditInput(TEMPLATE_ID)));
+    await user.click(screen.getByTestId(testIds.rowEditButton(ID.template)));
+    await user.click(screen.getByTestId(testIds.rowEditInput(ID.template)));
     await user.click(screen.getByRole('option', { name: 'Sinusitis: Wait See' }));
     await lookAway(user);
     // picking a different template clears the failure, so this is a fresh apply rather than a retry
@@ -562,14 +646,14 @@ describe('ScribeRecommendationsDrawer', () => {
     await user.click(screen.getByTestId(testIds.templateApplyButton));
     await user.click(screen.getByTestId('preview-apply'));
     await waitFor(() =>
-      expect(screen.getByTestId(testIds.rowStatus(TEMPLATE_ID))).toHaveTextContent('Sinusitis: Wait See applied')
+      expect(screen.getByTestId(testIds.rowStatus(ID.template))).toHaveTextContent('Sinusitis: Wait See applied')
     );
   });
 
   it('keeps failed observations unapplied with a retry, and skips whatever was unchecked', async () => {
     const user = userEvent.setup();
     mocks.applyOne.mockImplementation(async (rec) => {
-      if ((rec as ScribeRecommendation).id === 'allergy-fentanyl') throw new Error('Allergen service is down');
+      if ((rec as ScribeRecommendation).id === ID.fentanyl) throw new Error('Allergen service is down');
     });
     await openPanelWithRecommendations(user);
     const total = observations().length;
@@ -584,7 +668,7 @@ describe('ScribeRecommendationsDrawer', () => {
 
     await user.click(screen.getByTestId(testIds.applyObservationsButton));
     await waitFor(() =>
-      expect(screen.getByTestId(testIds.rowStatus('allergy-fentanyl'))).toHaveAttribute('aria-label', 'Failed')
+      expect(screen.getByTestId(testIds.rowStatus(ID.fentanyl))).toHaveAttribute('aria-label', 'Failed')
     );
     expect(screen.getByText('Allergen service is down')).toBeVisible();
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - rosIds.length - 1} added`);
@@ -594,13 +678,74 @@ describe('ScribeRecommendationsDrawer', () => {
     // retry re-runs just what is still selected: the failed allergy
     mocks.applyOne.mockResolvedValue(undefined);
     mocks.applyOne.mockClear();
-    await user.click(screen.getByTestId(testIds.rowRetryButton('allergy-fentanyl')));
+    await user.click(screen.getByTestId(testIds.rowRetryButton(ID.fentanyl)));
     await waitFor(() =>
-      expect(screen.getByTestId(testIds.rowCheckbox('allergy-fentanyl'))).toHaveClass('MuiCheckbox-colorSuccess')
+      expect(screen.getByTestId(testIds.rowCheckbox(ID.fentanyl))).toHaveClass('MuiCheckbox-colorSuccess')
     );
-    expect(appliedIds()).toEqual(['allergy-fentanyl']);
+    expect(appliedIds()).toEqual([ID.fentanyl]);
     // pressing Retry was not an edit, however clickable the rest of the line is
-    expect(screen.queryByTestId(testIds.rowEditInput('allergy-fentanyl'))).toBeNull();
+    expect(screen.queryByTestId(testIds.rowEditInput(ID.fentanyl))).toBeNull();
+  });
+
+  it('shows a step the executor skipped with its reason, and takes it out of the batch', async () => {
+    const user = userEvent.setup();
+    const reason = 'no exam finding in the catalogue matches "Sinus tenderness"';
+    mocks.applyOne.mockImplementation(async (rec) =>
+      (rec as ScribeRecommendation).id === ID.examTenderness ? { status: 'skipped', reason } : undefined
+    );
+    await openPanelWithRecommendations(user);
+    const total = observations().length;
+
+    await user.click(screen.getByTestId(testIds.applyObservationsButton));
+    await waitFor(() =>
+      expect(screen.getByTestId(testIds.rowStatus(ID.examTenderness))).toHaveAttribute('aria-label', 'Skipped')
+    );
+    // nothing was written, the row says why, and it is no longer going in unless the provider ticks it again
+    expect(screen.getByText(reason)).toBeVisible();
+    expectUnticked(ID.examTenderness);
+    expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 1} added`);
+    expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent('1 skipped');
+    expect(screen.getByTestId(testIds.rowRetryButton(ID.examTenderness))).toBeVisible();
+  });
+
+  it('reads the executor’s note on an applied row, amber when the pick was the assistant’s', async () => {
+    const user = userEvent.setup();
+    const pick = 'auto-picked from 3 near-equal matches — verify';
+    const demoted = 'a primary diagnosis was already set, so this was charted as secondary';
+    mocks.applyOne.mockImplementation(async (rec) => {
+      const { id } = rec as ScribeRecommendation;
+      if (id === ID.ibuprofen) return { status: 'applied', createdResourceIds: [], note: pick, lowConfidence: true };
+      if (id === ID.dxDizziness) return { status: 'applied', createdResourceIds: [], note: demoted };
+      return undefined;
+    });
+    await openPanelWithRecommendations(user);
+
+    await user.click(screen.getByTestId(testIds.applyObservationsButton));
+    await waitFor(() => expect(screen.getByTestId(testIds.rowNote(ID.ibuprofen))).toHaveTextContent(pick));
+    // settled and green like any applied row, with the executor's caution underneath
+    expectCharted(ID.ibuprofen);
+    expect(screen.getByTestId(testIds.rowNote(ID.dxDizziness))).toHaveTextContent(demoted);
+    // a row the executor had nothing to add about carries no note
+    expect(screen.queryByTestId(testIds.rowNote(ID.fentanyl))).toBeNull();
+  });
+
+  it('starts a rewrite of note text the provider already wrote unticked, flagged with what it replaces', async () => {
+    const user = userEvent.setup();
+    mocks.written = { historyOfPresentIllness: 'The HPI the provider typed before the transcript arrived.' };
+    await openPanelWithRecommendations(user);
+    const total = observations().length;
+
+    // it is on the list, but opted into rather than out of
+    expectUnticked(ID.hpi);
+    const row = screen.getByTestId(testIds.row(ID.hpi));
+    expect(
+      within(row).getByLabelText(/Replaces the History of Present Illness text already in the note/)
+    ).toBeVisible();
+    expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 1} of ${total} selected`);
+
+    await user.click(screen.getByTestId(testIds.applyObservationsButton));
+    await waitFor(() => expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 1} added`));
+    expect(appliedIds()).not.toContain(ID.hpi);
   });
 
   it('marks recommendations the chart already holds and leaves them out of the batch', async () => {
@@ -612,12 +757,12 @@ describe('ScribeRecommendationsDrawer', () => {
     };
     await openPanelWithRecommendations(user);
 
-    const chartedRow = screen.getByTestId(testIds.row('dx-dizziness'));
+    const chartedRow = screen.getByTestId(testIds.row(ID.dxDizziness));
     expect(within(chartedRow).getByText('Already charted')).toBeVisible();
-    expect(rowCheckbox('dx-dizziness')).toBeDisabled();
-    expect(within(screen.getByTestId(testIds.row('allergy-fentanyl'))).getByText('Already charted')).toBeVisible();
+    expect(rowCheckbox(ID.dxDizziness)).toBeDisabled();
+    expect(within(screen.getByTestId(testIds.row(ID.fentanyl))).getByText('Already charted')).toBeVisible();
     // there is nothing to edit about something that is already in the chart
-    expect(screen.queryByTestId(testIds.rowEditButton('dx-dizziness'))).toBeNull();
+    expect(screen.queryByTestId(testIds.rowEditButton(ID.dxDizziness))).toBeNull();
 
     const total = observations().length;
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 2} of ${total - 2} selected`);
@@ -626,16 +771,16 @@ describe('ScribeRecommendationsDrawer', () => {
 
     await user.click(screen.getByTestId(testIds.applyObservationsButton));
     await waitFor(() => expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 2} added`));
-    expect(appliedIds()).not.toContain('dx-dizziness');
-    expect(appliedIds()).not.toContain('allergy-fentanyl');
+    expect(appliedIds()).not.toContain(ID.dxDizziness);
+    expect(appliedIds()).not.toContain(ID.fentanyl);
   });
 
   it('marks a suggestion off as soon as it appears in the chart elsewhere', async () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
-    expect(within(screen.getByTestId(testIds.row('ros-neuro-headache'))).queryByText('Already charted')).toBeNull();
-    expect(screen.queryByTestId(testIds.rowCheckbox('ros-neuro-headache'))).toBeNull();
+    expect(within(screen.getByTestId(testIds.row(ID.headache))).queryByText('Already charted')).toBeNull();
+    expect(screen.queryByTestId(testIds.rowCheckbox(ID.headache))).toBeNull();
     const before = observations().length;
 
     // the provider ticks Headache on the Review of Systems screen while the panel is open
@@ -644,9 +789,9 @@ describe('ScribeRecommendationsDrawer', () => {
     });
 
     await waitFor(() =>
-      expect(within(screen.getByTestId(testIds.row('ros-neuro-headache'))).getByText('Already charted')).toBeVisible()
+      expect(within(screen.getByTestId(testIds.row(ID.headache))).getByText('Already charted')).toBeVisible()
     );
-    expectCharted('ros-neuro-headache');
+    expectCharted(ID.headache);
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent('1 already charted');
     expect(screen.getByTestId(testIds.applyObservationsButton)).toHaveTextContent(`Add ${before - 1} observations`);
   });
@@ -661,7 +806,7 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.queryByText(caution)).toBeNull();
 
     // hovering the line reads it: there is no "i" to press, and nothing to pin open
-    const row = screen.getByTestId(testIds.row('vital-weight'));
+    const row = screen.getByTestId(testIds.row(ID.weight));
     await user.hover(row);
     const tooltip = await screen.findByRole('tooltip');
     expect(within(tooltip).getByText(quote)).toBeVisible();
@@ -672,96 +817,95 @@ describe('ScribeRecommendationsDrawer', () => {
 
     // the caution still flags the row without hovering; a row the AI is sure of carries no flag
     expect(within(row).getByLabelText(caution)).toBeVisible();
-    expect(within(screen.getByTestId(testIds.row('dx-acute-sinusitis'))).queryByRole('img')).toBeNull();
+    expect(within(screen.getByTestId(testIds.row(ID.dxSinusitis))).queryByRole('img')).toBeNull();
+
+    // an item the model inferred rather than quoted says so on hover
+    await user.hover(screen.getByTestId(testIds.row(ID.examTenderness)));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Inferred by the assistant');
   });
 
   it('opens the editor from anywhere on the line, not just from the pencil', async () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
-    const row = screen.getByTestId(testIds.row('allergy-fentanyl'));
+    const row = screen.getByTestId(testIds.row(ID.fentanyl));
     await user.click(within(row).getByText('Fentanyl'));
     // the same editor the narrative popover opens: the tick and the field, and nothing to press
-    expect(within(row).getByTestId(testIds.rowEditInput('allergy-fentanyl'))).toHaveValue('Fentanyl');
-    expect(rowCheckbox('allergy-fentanyl')).toBeChecked();
+    expect(within(row).getByTestId(testIds.rowEditInput(ID.fentanyl))).toHaveValue('Fentanyl');
+    expect(rowCheckbox(ID.fentanyl)).toBeChecked();
     expect(within(row).queryByRole('button', { name: /save|cancel/i })).toBeNull();
     // the pencil has done its job, and the hover is gone while the editor is up
-    expect(within(row).queryByTestId(testIds.rowEditButton('allergy-fentanyl'))).toBeNull();
-    // and the hover has nothing left to say: its popper empties out and goes
+    expect(within(row).queryByTestId(testIds.rowEditButton(ID.fentanyl))).toBeNull();
     await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
 
-    // unticking it there is what takes it out of the batch, and the line says so in both places
-    await user.click(rowCheckbox('allergy-fentanyl'));
+    // unticking it there is what takes it out of the batch
+    await user.click(rowCheckbox(ID.fentanyl));
     await lookAway(user);
-    expectUnticked('allergy-fentanyl');
-    expect(screen.getByTestId(testIds.narrativeSpan('allergy-fentanyl'))).toHaveStyle({
-      textDecoration: 'line-through',
-    });
-    expect(within(row).getByTestId(testIds.rowEditButton('allergy-fentanyl'))).toBeInTheDocument();
+    expectUnticked(ID.fentanyl);
+    expect(within(row).getByTestId(testIds.rowEditButton(ID.fentanyl))).toBeInTheDocument();
+
+    // a generic action row has no editor: the executor applies it as its own step, or it is left out
+    const generic = screen.getByTestId(testIds.row(ID.examTenderness));
+    await user.click(within(generic).getByText('Adding exam finding: Sinus tenderness'));
+    expect(screen.queryByTestId(testIds.rowEditInput(ID.examTenderness))).toBeNull();
+    expect(within(generic).queryByTestId(testIds.rowEditButton(ID.examTenderness))).toBeNull();
 
     // and applying the template is not editing which template it is, though its own line is
     // otherwise clickable the same way
     await user.click(screen.getByTestId(testIds.templateApplyButton));
     expect(screen.getByTestId('template-preview-dialog')).toBeVisible();
-    expect(screen.queryByTestId(testIds.rowEditInput(TEMPLATE_ID))).toBeNull();
+    expect(screen.queryByTestId(testIds.rowEditInput(ID.template))).toBeNull();
     await user.click(screen.getByTestId('preview-cancel'));
 
     // the template row's body — everything but the rail — opens its picker wherever it is clicked
-    const templateBody = screen.getByTestId(testIds.row(TEMPLATE_ID)).lastElementChild as HTMLElement;
+    const templateBody = screen.getByTestId(testIds.row(ID.template)).lastElementChild as HTMLElement;
     await user.click(templateBody);
-    expect(screen.getByTestId(testIds.rowEditInput(TEMPLATE_ID))).toBeVisible();
+    expect(screen.getByTestId(testIds.rowEditInput(ID.template))).toBeVisible();
   });
 
   it('keeps one editor open at a time, and saves the one it closes', async () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
-    await user.click(screen.getByTestId(testIds.rowEditButton('allergy-fentanyl')));
-    const input = screen.getByTestId(testIds.rowEditInput('allergy-fentanyl'));
+    await user.click(screen.getByTestId(testIds.rowEditButton(ID.fentanyl)));
+    const input = screen.getByTestId(testIds.rowEditInput(ID.fentanyl));
     await user.clear(input);
     await user.type(input, 'Fentanyl patch');
 
     // clicking another line puts the first one away, with what was typed in it kept — and that
     // is all it does: the line clicked on stays closed until it is clicked on its own
-    await user.click(screen.getByTestId(testIds.rowText('medication-claritin')));
-    expect(screen.queryByTestId(testIds.rowEditInput('allergy-fentanyl'))).toBeNull();
-    expect(screen.queryByTestId(testIds.rowEditInput('medication-claritin'))).toBeNull();
-    expect(screen.getByTestId(testIds.rowText('allergy-fentanyl'))).toHaveTextContent('Fentanyl patch');
+    await user.click(screen.getByTestId(testIds.rowText(ID.claritin)));
+    expect(screen.queryByTestId(testIds.rowEditInput(ID.fentanyl))).toBeNull();
+    expect(screen.queryByTestId(testIds.rowEditInput(ID.claritin))).toBeNull();
+    expect(screen.getByTestId(testIds.rowText(ID.fentanyl))).toHaveTextContent('Fentanyl patch');
 
-    await user.click(screen.getByTestId(testIds.rowText('medication-claritin')));
-    expect(screen.getByTestId(testIds.rowEditInput('medication-claritin'))).toBeVisible();
+    await user.click(screen.getByTestId(testIds.rowText(ID.claritin)));
+    expect(screen.getByTestId(testIds.rowEditInput(ID.claritin))).toBeVisible();
 
     // Escape is a way out like any other, so it keeps the edit rather than dropping it
-    const claritin = screen.getByTestId(testIds.rowEditInput('medication-claritin'));
+    const claritin = screen.getByTestId(testIds.rowEditInput(ID.claritin));
     await user.clear(claritin);
     await user.type(claritin, 'Claritin 10mg{Escape}');
-    expect(screen.queryByTestId(testIds.rowEditInput('medication-claritin'))).toBeNull();
-    expect(screen.getByTestId(testIds.rowText('medication-claritin'))).toHaveTextContent('Claritin 10mg');
+    expect(screen.queryByTestId(testIds.rowEditInput(ID.claritin))).toBeNull();
+    expect(screen.getByTestId(testIds.rowText(ID.claritin))).toHaveTextContent('Claritin 10mg');
 
-    // and a line that was only looked at is not an edit: the narrative keeps the AI's own wording
-    await user.click(screen.getByTestId(testIds.rowEditButton('hpi-summary')));
+    // and a line that was only looked at is not an edit
+    await user.click(screen.getByTestId(testIds.rowEditButton(ID.hpi)));
     await lookAway(user);
-    expect(useScribeRecommendationsStore.getState().itemState['hpi-summary'].edited).toBeUndefined();
+    expect(useScribeRecommendationsStore.getState().itemState[ID.hpi].edited).toBeUndefined();
   });
 
-  it('tracks suggested orders as a manual checklist, with their rationale on hover', async () => {
+  it('says so when the transcript yields nothing chartable', async () => {
     const user = userEvent.setup();
-    await openPanelWithRecommendations(user);
+    mocks.plan.mockReturnValue({ actions: [], rejected: [], ...envelope });
+    render(<ScribeRecommendationsDrawer />, { wrapper: Wrapper });
+    await user.click(screen.getByTestId(testIds.openButton));
+    await user.click(screen.getByTestId(testIds.useSampleButton));
+    await user.click(screen.getByTestId(testIds.analyzeButton));
 
-    const rationale = 'Thins secretions to relieve the post-nasal drip and sinus congestion.';
-    expect(screen.queryByText(rationale)).toBeNull();
-    const row = screen.getByTestId(testIds.orderSuggestion('order-guaifenesin'));
-    await user.hover(row);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(rationale);
-    await user.unhover(row);
-
-    const checkbox = within(screen.getByTestId(testIds.orderCheckbox('order-guaifenesin'))).getByRole('checkbox');
-    await user.click(checkbox);
-    expect(checkbox).toBeChecked();
-    // done reads green here too
-    expect(screen.getByTestId(testIds.orderCheckbox('order-guaifenesin'))).toHaveClass('MuiCheckbox-colorSuccess');
-    expect(screen.getByTestId(testIds.orderButton('order-guaifenesin'))).toBeDisabled();
-    expect(mocks.applyOne).not.toHaveBeenCalled();
+    expect(await screen.findByText(/couldn’t find anything chartable/)).toBeVisible();
+    expect(screen.queryByTestId(testIds.chartButton)).toBeNull();
+    expect(screen.queryByTestId(testIds.stage('observations'))).toBeNull();
   });
 
   it('remembers the panel width and open state across mounts, but not the transcript', async () => {
@@ -811,7 +955,29 @@ describe('applyRecommendations', () => {
     },
     { id: 'tpl', kind: 'template', section: 'template', templateName: 'Sinusitis' },
     { id: 'hpi', kind: 'hpi', section: 'hpi', text: 'HPI' },
+    {
+      id: 'rm',
+      kind: 'action',
+      section: 'assessment',
+      label: 'Removing diagnosis: Viral URI',
+      action: { kind: 'remove-diagnosis', display: 'Viral URI' },
+    },
   ];
+
+  /** A runner that settles each row from `applyOne`: nothing back is applied, an outcome is that outcome, a throw fails it. */
+  const runnerFrom =
+    (applyOne: (rec: ScribeRecommendation) => Promise<StepOutcome | void>): RecommendationRunner =>
+    async (recs, report) => {
+      for (const rec of recs) {
+        report.start(rec.id);
+        try {
+          const outcome = await applyOne(rec);
+          report.settle(rec.id, outcome ?? { status: 'applied' });
+        } catch (error) {
+          report.settle(rec.id, { status: 'failed', reason: errorMessage(error) });
+        }
+      }
+    };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -824,80 +990,118 @@ describe('applyRecommendations', () => {
   });
 
   it('leaves the template out of the observations batch', () => {
-    expect(pendingObservationIds()).toEqual(['ros-1', 'dx-2', 'dx-1', 'hpi']);
+    expect(pendingObservationIds()).toEqual(['ros-1', 'dx-2', 'dx-1', 'hpi', 'rm']);
 
     useScribeRecommendationsStore.getState().setSelected('hpi', false);
     useScribeRecommendationsStore.getState().setItemStatus('dx-2', 'applied');
-    expect(pendingObservationIds()).toEqual(['ros-1', 'dx-1']);
+    expect(pendingObservationIds()).toEqual(['ros-1', 'dx-1', 'rm']);
   });
 
-  it('writes in a stable clinical order and skips rows that are already applied', async () => {
-    const applyOne = vi.fn().mockResolvedValue(undefined);
+  it('runs in a stable clinical order — template, removals, then the additions — and skips rows already applied', async () => {
+    const seen: string[] = [];
     useScribeRecommendationsStore.getState().setItemStatus('dx-2', 'applied');
 
-    const result = await applyRecommendations(['tpl', ...pendingObservationIds()], applyOne);
+    const result = await applyRecommendations(
+      ['tpl', ...pendingObservationIds()],
+      runnerFrom(async (rec) => {
+        seen.push(rec.id);
+      })
+    );
 
-    expect(result).toEqual({ applied: 4, failed: 0 });
-    expect(applyOne.mock.calls.map(([rec]) => rec.id)).toEqual(['tpl', 'hpi', 'dx-1', 'ros-1']);
+    expect(result).toEqual({ applied: 5, skipped: 0, failed: 0 });
+    // the removal frees the primary before the add that takes it over
+    expect(seen).toEqual(['tpl', 'rm', 'hpi', 'dx-1', 'ros-1']);
     const { itemState, isApplying } = useScribeRecommendationsStore.getState();
     expect(isApplying).toBe(false);
     expect(itemState['tpl'].status).toBe('applied');
   });
 
-  it('shows what the server actually refused, not a generic message', async () => {
-    // Zambda calls reject with a plain object rather than an Error instance.
-    const applyOne = vi.fn(async (rec: ScribeRecommendation) => {
-      if (rec.id === 'dx-1') throw { message: 'Encounter is locked' };
-      if (rec.id === 'ros-1') throw { output: { message: 'Medication is not valid', code: 400 } };
-      if (rec.id === 'hpi') throw new Error('');
-    });
-
-    await applyRecommendations(
-      recommendations.map((rec) => rec.id),
-      applyOne
-    );
-
-    const { itemState } = useScribeRecommendationsStore.getState();
-    expect(itemState['dx-1'].error).toBe('Encounter is locked');
-    expect(itemState['ros-1'].error).toBe('Medication is not valid');
-    // and something genuinely wordless still gets a human sentence
-    expect(itemState['hpi'].error).toBe('Something went wrong. Please try again.');
-  });
-
-  it('records a failure on the row, carries on with the rest, and still reconciles', async () => {
-    const applyOne = vi.fn(async (rec: ScribeRecommendation) => {
-      if (rec.id === 'dx-1') throw new Error('Duplicate code');
-    });
+  it('records each verdict on its row, carries on with the rest, and still reconciles', async () => {
     const reconcile = vi.fn().mockRejectedValue(new Error('offline'));
 
     const result = await applyRecommendations(
       recommendations.map((rec) => rec.id),
-      applyOne,
+      runnerFrom(async (rec) => {
+        // Zambda calls reject with a plain object rather than an Error instance.
+        if (rec.id === 'dx-1') throw { output: { message: 'Encounter is locked', code: 400 } };
+        if (rec.id === 'ros-1') return { status: 'skipped', reason: 'already on the chart' };
+        if (rec.id === 'hpi') throw new Error('');
+        if (rec.id === 'dx-2') return { status: 'applied', note: 'charted as secondary', lowConfidence: true };
+        return undefined;
+      }),
       { reconcile }
     );
 
-    expect(result).toEqual({ applied: 4, failed: 1 });
+    expect(result).toEqual({ applied: 3, skipped: 1, failed: 2 });
     expect(reconcile).toHaveBeenCalledTimes(1);
     const { itemState } = useScribeRecommendationsStore.getState();
-    expect(itemState['dx-1']).toEqual({ selected: true, status: 'error', error: 'Duplicate code' });
-    expect(itemState['dx-2'].status).toBe('applied');
+    // the server's own wording, and a human sentence where there was none
+    expect(itemState['dx-1']).toMatchObject({ selected: true, status: 'error', error: 'Encounter is locked' });
+    expect(itemState['hpi'].error).toBe('Something went wrong. Please try again.');
+    // a skipped row says why and comes out of the batch on its own
+    expect(itemState['ros-1']).toMatchObject({ selected: false, status: 'skipped', reason: 'already on the chart' });
+    // an applied row keeps what the executor had to say about it
+    expect(itemState['dx-2']).toMatchObject({ status: 'applied', note: 'charted as secondary', lowConfidence: true });
+    expect(itemState['tpl']).toMatchObject({ status: 'applied' });
+    expect(itemState['tpl'].note).toBeUndefined();
   });
 
-  it('uses the latest edit of a row rather than the copy from when apply started', async () => {
-    const seen: string[] = [];
-    const applyOne = vi.fn(async (rec: ScribeRecommendation) => {
-      if (rec.kind === 'hpi') seen.push(rec.text);
-      if (rec.kind === 'template') {
-        useScribeRecommendationsStore.getState().updateRecommendation('hpi', { text: 'Edited' });
-      }
+  it('tells every row when the run itself breaks rather than leaving them spinning', async () => {
+    const result = await applyRecommendations(pendingObservationIds(), async () => {
+      throw new Error('The visit is still loading. Please try again.');
     });
 
-    await applyRecommendations(
-      recommendations.map((rec) => rec.id),
-      applyOne
+    expect(result).toEqual({ applied: 0, skipped: 0, failed: 5 });
+    const { itemState, isApplying } = useScribeRecommendationsStore.getState();
+    expect(isApplying).toBe(false);
+    pendingObservationIds().forEach((id) =>
+      expect(itemState[id]).toMatchObject({ status: 'error', error: 'The visit is still loading. Please try again.' })
     );
+  });
 
-    expect(seen).toEqual(['Edited']);
+  it('settles a row the run never reported on as skipped', async () => {
+    const result = await applyRecommendations(['hpi', 'ros-1'], async (recs, report) => {
+      report.start(recs[0].id);
+      report.settle(recs[0].id, { status: 'applied' });
+    });
+    expect(result).toEqual({ applied: 1, skipped: 1, failed: 0 });
+    expect(useScribeRecommendationsStore.getState().itemState['ros-1']).toMatchObject({
+      status: 'skipped',
+      reason: 'The run ended before this was applied.',
+    });
+  });
+});
+
+describe('PickerDialog', () => {
+  beforeEach(() => resetStore());
+
+  it('asks the executor’s question, and answers it with the option picked or with nothing', async () => {
+    const user = userEvent.setup();
+    render(<PickerDialog />, { wrapper: Wrapper });
+    expect(screen.queryByTestId(testIds.pickerDialog)).toBeNull();
+
+    // The executor asks; the panel shows the options with what the transcript said.
+    const request = {
+      prompt: 'Which allergy did you mean?',
+      query: 'penicillin',
+      options: [
+        { id: 'a1', display: 'Penicillin G', score: 1 },
+        { id: 'a2', display: 'Penicillin V potassium', score: 0.9 },
+      ],
+    };
+    const answer = useScribeRecommendationsStore.getState().askPick(request);
+    expect(await screen.findByTestId(testIds.pickerDialog)).toHaveTextContent('Which allergy did you mean?');
+    expect(screen.getByTestId(testIds.pickerDialog)).toHaveTextContent('The transcript said “penicillin”.');
+
+    await user.click(screen.getByTestId(testIds.pickerOption('a2')));
+    await expect(answer).resolves.toMatchObject({ id: 'a2', display: 'Penicillin V potassium' });
+    await waitFor(() => expect(screen.queryByTestId(testIds.pickerDialog)).toBeNull());
+    expect(useScribeRecommendationsStore.getState().pendingPick).toBeNull();
+
+    // Skipping is an answer too: the step settles as skipped rather than hanging on the question.
+    const skipped = useScribeRecommendationsStore.getState().askPick(request);
+    await user.click(await screen.findByTestId(testIds.pickerSkip));
+    await expect(skipped).resolves.toBeUndefined();
   });
 });
 
@@ -946,10 +1150,18 @@ describe('isAlreadyCharted', () => {
     expect(charted({ kind: 'ros', baseKey: 'ros-ent-ear-pain', finding: RosFindingState.Denies })).toBe(false);
   });
 
-  it('matches HPI text already present in the note, and never claims a template is charted', () => {
+  it('matches HPI text already present in the note, and never claims a template or a generic action is charted', () => {
     expect(charted({ kind: 'hpi', text: 'post-nasal drip and sinus pressure for 1 week.' })).toBe(true);
     expect(charted({ kind: 'hpi', text: 'Patient denies fever.' })).toBe(false);
+    // another field's paragraph is not the HPI, however similar the words
+    expect(
+      charted({ kind: 'hpi', field: 'medicalDecision', text: 'post-nasal drip and sinus pressure for 1 week.' })
+    ).toBe(false);
     expect(charted({ kind: 'template', templateName: 'Sinusitis' })).toBe(false);
+    // the executor judges its own duplicates as it runs
+    expect(
+      charted({ kind: 'action', label: 'Adding exam finding: Sinus tenderness', action: { kind: 'add-exam-finding' } })
+    ).toBe(false);
   });
 
   it('treats any weight on the encounter as the weight suggestion being charted', () => {
