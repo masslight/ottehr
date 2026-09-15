@@ -249,7 +249,7 @@ describe('ScheduledFollowupParentSelector', () => {
     };
 
     beforeEach(() => {
-      getChartDataMock.mockResolvedValue({});
+      getVisitNoteMock.mockResolvedValue(emptyVisitNote());
     });
 
     const continueToAddVisit = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
