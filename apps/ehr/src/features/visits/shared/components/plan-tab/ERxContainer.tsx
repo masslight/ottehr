@@ -280,7 +280,9 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                       </TableCell>
                       <TableCell>
                         {getPractitionerName(
-                          chartFields.practitioners?.find((practitioner) => practitioner.id === row.provider)
+                          chartFields.prescribedMedicationsRequesterPractitioners?.find(
+                            (practitioner) => practitioner.id === row.provider
+                          )
                         )}
                       </TableCell>
                       <TableCell>

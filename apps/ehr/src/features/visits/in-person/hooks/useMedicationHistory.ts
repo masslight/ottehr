@@ -29,7 +29,7 @@ export const useMedicationHistory = ({
 
   // The section resolves MedicationStatement.informationSource to the Practitioners it references; the
   // history shows who recorded each medication, so swap the reference for the resolved Practitioner.
-  const practitioners = history?.practitioners ?? [];
+  const practitioners = history?.medicationsInformationSourcePractitioners ?? [];
   const withPractitioner = (medication: MedicationDTO): MedicationDTO => {
     const reference =
       medication.practitioner && 'reference' in medication.practitioner ? medication.practitioner.reference : undefined;

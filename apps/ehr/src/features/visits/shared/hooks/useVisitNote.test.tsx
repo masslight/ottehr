@@ -85,7 +85,7 @@ const goldenNote = (): VisitNoteResponse =>
       surgicalHistory: [],
       episodeOfCare: [],
       birthHistory: [],
-      practitioners: [],
+      medicationsInformationSourcePractitioners: [],
     },
     screening: { observations: [covid] },
     aiChat: { aiChat: { documents: [], providers: [] }, observations: [aiHpi] },
