@@ -21,6 +21,7 @@ import {
   Coverage,
   DocumentReference,
   DomainResource,
+  Encounter,
   FhirResource,
   Identifier,
   List,
@@ -104,6 +105,7 @@ import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { SYSTEM_MANAGED_TAGS, SystemManagedTag } from 'utils/lib/types/data/billing/system-tags';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { sendErrors } from '../shared/errors';
 import { fetchAllPages } from '../shared/fhir';
@@ -592,6 +594,21 @@ export function deriveClaimBillablePeriod(items: ClaimItem[] | undefined): Perio
     .filter((date): date is string => !!date)
     .sort((a, b) => millis(a) - millis(b))
     .at(-1);
+  return start ? { start, end } : undefined;
+}
+
+// A claim built from an encounter reflects the encounter's actual course of care rather than its
+// service lines: billablePeriod.start is when the visit first became billable (arrived, falling back
+// to intake, falling back to provider, in case an earlier status was never recorded), and
+// billablePeriod.end is when the visit was discharged. Uses the most recent occurrence of each status
+// since a visit's status can move backward and forward through the same status more than once.
+export function deriveClaimBillablePeriodFromEncounter(encounter: Encounter): Period | undefined {
+  const statusHistory = getVisitStatusHistory(encounter);
+  const start =
+    statusHistory.findLast((entry) => entry.status === 'arrived')?.period.start ??
+    statusHistory.findLast((entry) => entry.status === 'intake')?.period.start ??
+    statusHistory.findLast((entry) => entry.status === 'provider')?.period.start;
+  const end = statusHistory.findLast((entry) => entry.status === 'discharged')?.period.start;
   return start ? { start, end } : undefined;
 }
 
