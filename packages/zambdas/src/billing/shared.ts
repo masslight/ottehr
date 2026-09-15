@@ -610,6 +610,14 @@ export function setClaimRenderingProviderCareTeam(claim: Claim, provider: Refere
             system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
             code: '82',
           },
+        ],
+      },
+    },
+    {
+      sequence: 2,
+      provider,
+      role: {
+        coding: [
           {
             system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
             code: '71',
@@ -617,11 +625,11 @@ export function setClaimRenderingProviderCareTeam(claim: Claim, provider: Refere
         ],
       },
     },
-    ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
+    ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1 && member.sequence !== 2),
   ];
   claim.item = claim.item?.map((item) => ({
     ...item,
-    careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
+    careTeamSequence: [1],
   }));
 }
 

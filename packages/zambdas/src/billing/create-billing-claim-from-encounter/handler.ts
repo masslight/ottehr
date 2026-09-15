@@ -1241,6 +1241,14 @@ function buildClaim(resources: ClaimResources): Claim {
             },
             role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
           },
+          {
+            sequence: 2,
+            provider: {
+              ...uuidOrUrnReference('Practitioner', resources.renderingProvider.id),
+              display: resourceDisplayName(resources.renderingProvider),
+            },
+            role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '71' }] },
+          },
         ]
       : undefined,
     diagnosis: resources.diagnoses
