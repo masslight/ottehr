@@ -4,15 +4,21 @@ import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork';
 import { VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { expect, test } from 'vitest';
 import BookingQuestionnaire from './data/booking-questionnaire.json';
 import IntakePaperworkQuestionnaire from './data/intake-paperwork-questionnaire.json';
 import PatientRecordQuestionnaire from './data/patient-record-questionnaire.json';
 import VirtualIntakePaperworkQuestionnaire from './data/virtual-intake-paperwork-questionnaire.json';
 
+// These snapshot tests compare generated questionnaires against JSON fixtures that reflect
+// the standard Ottehr core value-sets. Projects that customize value-sets (e.g., removing
+// specific relationship-to-insured options) will produce different output and must skip.
+const valueSetMatchesCoreFixtures = VALUE_SETS.relationshipToInsuredOptions.some((opt) => opt.value === 'Employee');
+
 describe('testing Questionnaire generation from config objects', () => {
   test
-    .skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')
+    .skipIf(BRANDING_CONFIG.projectName !== 'Ottehr' || !valueSetMatchesCoreFixtures)
     .concurrent('patient record questionnaire config generates expected questionnaire items', async () => {
       const questionnaireItems = createQuestionnaireItemFromConfig(PATIENT_RECORD_CONFIG);
       expect(questionnaireItems).toBeDefined();
@@ -28,7 +34,7 @@ describe('testing Questionnaire generation from config objects', () => {
     });
 
   test
-    .skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')
+    .skipIf(BRANDING_CONFIG.projectName !== 'Ottehr' || !valueSetMatchesCoreFixtures)
     .concurrent('intake paperwork questionnaire generates expected questionnaire', async () => {
       const generatedQuestionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
       expect(generatedQuestionnaire).toBeDefined();
@@ -104,7 +110,7 @@ describe('testing Questionnaire generation from config objects', () => {
     });
 
   test
-    .skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')
+    .skipIf(BRANDING_CONFIG.projectName !== 'Ottehr' || !valueSetMatchesCoreFixtures)
     .concurrent('virtual intake paperwork questionnaire generates expected questionnaire', async () => {
       const generatedQuestionnaire = VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE();
       expect(generatedQuestionnaire).toBeDefined();
