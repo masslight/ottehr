@@ -316,16 +316,12 @@ export default function AiSuggestion({
     return null;
   }, [content]);
 
-  const { onSubmit: addMedication } = useChartDataArrayValue('medications', undefined, {
-    _sort: '-_lastUpdated',
-    _include: 'MedicationStatement:source',
-    status: { type: 'token', value: 'active' },
-  });
+  const { onSubmit: addMedication } = useChartDataArrayValue('medications');
 
   const { onSubmit: addAllergy } = useChartDataArrayValue('allergies');
   const { onSubmit: addCondition } = useChartDataArrayValue('conditions');
-  const { onSubmit: addSurgicalHistory } = useChartDataArrayValue('surgicalHistory', undefined, {});
-  const { onSubmit: addHospitalization } = useChartDataArrayValue('episodeOfCare', undefined, {});
+  const { onSubmit: addSurgicalHistory } = useChartDataArrayValue('surgicalHistory');
+  const { onSubmit: addHospitalization } = useChartDataArrayValue('episodeOfCare');
 
   // Stable callback for searching — passed to HighlightedText
   const handleSearch = useCallback(

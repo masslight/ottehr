@@ -7,23 +7,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import { MissingCard } from '../../src/features/visits/shared/components/review-tab/MissingCard';
 import { useGetVitals } from '../../src/features/visits/shared/components/vitals/hooks/useGetVitals';
-import { useChartFields } from '../../src/features/visits/shared/hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../src/features/visits/shared/hooks/useOystehrAPIClient';
+import { useVisitNote } from '../../src/features/visits/shared/hooks/useVisitNote';
 import { useAiSuggestionNotes } from '../../src/features/visits/shared/stores/appointment/appointment.queries';
-import {
-  useAppointmentData,
-  useChartData,
-} from '../../src/features/visits/shared/stores/appointment/appointment.store';
+import { useAppointmentData } from '../../src/features/visits/shared/stores/appointment/appointment.store';
 import { useExamObservationsInitializationStore } from '../../src/features/visits/shared/stores/appointment/exam-observations.store';
 import {
   holdPendingObservationFields,
   resetPendingObservationFields,
 } from '../../src/features/visits/shared/stores/appointment/pending-observation-fields.store';
 import { useRosObservationsInitializationStore } from '../../src/features/visits/shared/stores/appointment/ros-observations.store';
+import { emptyVisitNote } from './helpers/emptyVisitNote';
 
-vi.mock('../../src/features/visits/shared/hooks/useChartFields', () => ({
-  useChartFields: vi.fn(),
+vi.mock('../../src/features/visits/shared/hooks/useVisitNote', () => ({
+  useVisitNote: vi.fn(),
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/useOystehrAPIClient', () => ({
@@ -44,7 +42,6 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: vi.fn(),
-  useChartData: vi.fn(),
 }));
 
 vi.mock('src/hooks/useProgressNoteConfig', () => ({
@@ -61,8 +58,7 @@ vi.mock('react-router-dom', async () => {
 });
 
 const mockUseAppointmentData = vi.mocked(useAppointmentData);
-const mockUseChartData = vi.mocked(useChartData);
-const mockUseChartFields = vi.mocked(useChartFields);
+const mockUseVisitNote = vi.mocked(useVisitNote);
 const mockUseAiSuggestionNotes = vi.mocked(useAiSuggestionNotes);
 const mockUseNavigate = vi.mocked(useNavigate);
 const mockUseParams = vi.mocked(useParams);
@@ -72,6 +68,23 @@ const mockUseGetAppointmentAccessibility = vi.mocked(useGetAppointmentAccessibil
 const mockUseGetVitals = vi.mocked(useGetVitals);
 
 const aiSuggestionNotes = vi.fn();
+
+/** A visit note with a primary diagnosis and an E&M code; the encounter notes decide what is missing. */
+const noteWith = (
+  encounterNotes: Record<string, unknown>,
+  state: { isFetching: boolean; isFetched: boolean } = { isFetching: false, isFetched: true }
+): ReturnType<typeof useVisitNote> =>
+  ({
+    data: emptyVisitNote({
+      assessment: { diagnosis: [{ isPrimary: true }], emCode: '99213', cptCodes: [], procedures: [] },
+      encounterNotes,
+    } as any),
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+    encounterId: 'encounter-123',
+    ...state,
+  }) as unknown as ReturnType<typeof useVisitNote>;
 
 const createWrapper = (): (({ children }: { children: ReactNode }) => JSX.Element) => {
   const queryClient = new QueryClient({
@@ -104,22 +117,13 @@ describe('MissingCard', () => {
     } as any);
     mockUseParams.mockReturnValue({ id: 'appointment-123' } as any);
 
-    mockUseChartData.mockReturnValue({
-      chartData: {
-        diagnosis: [{ isPrimary: true }],
-        emCode: '99213',
-      },
-    } as any);
-
-    mockUseChartFields.mockReturnValue({
-      data: {
+    mockUseVisitNote.mockReturnValue(
+      noteWith({
         medicalDecision: { text: 'Medical decision' },
         chiefComplaint: { text: 'Chief complaint' },
         patientInfoConfirmed: { value: false },
-      },
-      isFetching: false,
-      isFetched: true,
-    } as any);
+      })
+    );
 
     mockUseAiSuggestionNotes.mockReturnValue({
       mutateAsync: vi.fn().mockResolvedValue({ suggestions: [] }),
@@ -146,15 +150,13 @@ describe('MissingCard', () => {
 
   /** Everything present, so the card is driven only by the note review. */
   const withCompleteNote = (): void => {
-    mockUseChartFields.mockReturnValue({
-      data: {
+    mockUseVisitNote.mockReturnValue(
+      noteWith({
         medicalDecision: { text: 'Medical decision' },
         chiefComplaint: { text: 'Chief complaint' },
         patientInfoConfirmed: { value: true },
-      },
-      isFetching: false,
-      isFetched: true,
-    } as any);
+      })
+    );
   };
 
   it('shows the patient verification link for in-person visits when verification is missing', () => {
@@ -181,15 +183,13 @@ describe('MissingCard', () => {
 
   it('shows the MDM link when MDM is missing and mdmRequired is true', () => {
     mockUseNavigate.mockReturnValue(vi.fn());
-    mockUseChartFields.mockReturnValue({
-      data: {
+    mockUseVisitNote.mockReturnValue(
+      noteWith({
         medicalDecision: undefined,
         chiefComplaint: { text: 'Chief complaint' },
         patientInfoConfirmed: { value: true },
-      },
-      isFetching: false,
-      isFetched: true,
-    } as any);
+      })
+    );
     mockUseProgressNoteConfig.mockReturnValue({ data: { mdmRequired: true } } as any);
 
     renderComponent();
@@ -199,15 +199,13 @@ describe('MissingCard', () => {
 
   it('hides the missing card when MDM is the only missing item and mdmRequired is false', () => {
     mockUseNavigate.mockReturnValue(vi.fn());
-    mockUseChartFields.mockReturnValue({
-      data: {
+    mockUseVisitNote.mockReturnValue(
+      noteWith({
         medicalDecision: undefined,
         chiefComplaint: { text: 'Chief complaint' },
         patientInfoConfirmed: { value: true },
-      },
-      isFetching: false,
-      isFetched: true,
-    } as any);
+      })
+    );
     mockUseProgressNoteConfig.mockReturnValue({ data: { mdmRequired: false } } as any);
 
     renderComponent();
@@ -340,7 +338,12 @@ describe('MissingCard', () => {
       mockUseNavigate.mockReturnValue(vi.fn());
       // First render of the page: the chart query has not resolved, so a review fired now would be
       // keyed on a hash of undefined chart data — and re-fired under a new key once it lands.
-      mockUseChartFields.mockReturnValue({ data: undefined, isFetching: true, isFetched: false } as any);
+      mockUseVisitNote.mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        isFetching: true,
+        isFetched: false,
+      } as any);
       mockUseProgressNoteConfig.mockReturnValue({
         data: { mdmRequired: true, signReviewPrompt: 'Check ROS and Exam' },
       } as any);
