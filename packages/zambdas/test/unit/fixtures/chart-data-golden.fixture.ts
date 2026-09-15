@@ -1,15 +1,13 @@
 /**
- * Golden chart fixture: one encounter carrying at least one of every chart field get-chart-data can
+ * Golden chart fixture: one encounter carrying at least one of every chart field the chart sections
  * return, built with the same `make*Resource` builders save-chart-data uses so the resources are
  * shaped exactly like production data.
  *
  * Tests that use it must freeze the clock first — several builders stamp `now` onto the resources:
  *   vi.useFakeTimers({ now: new Date(GOLDEN_NOW), toFake: ['Date'] });
  */
-import Oystehr from '@oystehr/sdk';
 import {
   Appointment,
-  Bundle,
   Communication,
   DiagnosticReport,
   DocumentReference,
@@ -29,7 +27,6 @@ import {
   PUBLIC_EXTENSION_BASE_URL,
 } from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
 import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
 import {
   AiObservationField,
@@ -39,20 +36,16 @@ import {
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   AI_OBSERVATION_META_SYSTEM,
-  IN_PERSON_NOTE_ID,
   NOTE_TYPE,
   ObservationBooleanFieldDTO,
   PATIENT_VITALS_META_SYSTEM,
   ProcedureDTO,
-  RequestedFields,
   VitalsTemperatureObservationDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { createCodeableConcept } from 'utils/lib/types/api/chart-data/exam-fields-map';
-import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { MEDICATION_DISPENSABLE_DRUG_ID } from 'utils/lib/types/api/medication-administration.constants';
 import { SCHOOL_WORK_NOTE, SCHOOL_WORK_NOTE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
-import { convertSearchResultsToResponse } from '../../../src/ehr/get-chart-data/helpers';
 import {
   createAccidentCondition,
   createDispositionServiceRequest,
@@ -89,39 +82,6 @@ export const FOREIGN_IDS = {
   encounterId: '55555555-5555-4555-8555-555555555555',
   patientId: '66666666-6666-4666-8666-666666666666',
 };
-
-/** Every key get-chart-data accepts in `requestedFields`. */
-export const ALL_REQUESTED_FIELDS: RequestedFields[] = [
-  'surgicalHistoryNote',
-  'chiefComplaint',
-  'historyOfPresentIllness',
-  'mechanismOfInjury',
-  'ros',
-  'episodeOfCare',
-  'prescribedMedications',
-  'disposition',
-  'notes',
-  'vitalsObservations',
-  'externalLabResults',
-  'inHouseLabResults',
-  'practitioners',
-  'medicalDecision',
-  'birthHistory',
-  'patientInfoConfirmed',
-  'addendumNote',
-  'medications',
-  'inhouseMedications',
-  'procedures',
-  'observations',
-  'preferredPharmacies',
-  'reasonForVisit',
-  'accident',
-  'patientHasPreviousVisits',
-  'radiologyOrders',
-  'aiChat',
-];
-
-export const PROGRESS_NOTE_FIELDS = Object.keys(progressNoteChartDataRequestedFields) as RequestedFields[];
 
 export interface GoldenChartResources {
   encounter: Encounter;
@@ -555,7 +515,7 @@ export function buildGoldenChartResources(): GoldenChartResources {
 
 /**
  * Resources belonging to a different patient, carrying the same chart tags. The DTO mapper matches on
- * tags rather than on patient, so these document what a search that leaked across patients would do.
+ * tags rather than on patient, so only the searches keep them out of the golden patient's chart.
  */
 export function buildForeignPatientResources(): FhirResource[] {
   const foreignNote = makeNoteResource(
@@ -588,131 +548,4 @@ export function buildForeignPatientResources(): FhirResource[] {
       'chief-complaint'
     ),
   ];
-}
-
-const tagCode = (resource: FhirResource): string | undefined => resource.meta?.tag?.[0]?.code;
-const referencesEncounter = (resource: FhirResource): boolean =>
-  JSON.stringify(resource).includes(`Encounter/${encounterId}`);
-
-/**
- * The subset of the golden resources that the unscoped get-chart-data searches actually return today:
- * Encounter; all the patient's AllergyIntolerance, Condition and Procedure resources; MedicationStatements
- * tagged current-medication or in-house-medication; every Observation, Communication and DocumentReference
- * on the encounter; completed ServiceRequests on the encounter.
- */
-export function resourcesReturnedByUnscopedSearches(resources: FhirResource[]): FhirResource[] {
-  return resources.filter((resource) => {
-    switch (resource.resourceType) {
-      case 'Encounter':
-      case 'AllergyIntolerance':
-      case 'Condition':
-      case 'Procedure':
-        return true;
-      case 'MedicationStatement':
-        return tagCode(resource) === 'current-medication' || tagCode(resource) === 'in-house-medication';
-      case 'Observation':
-      case 'Communication':
-      case 'DocumentReference':
-        return referencesEncounter(resource);
-      case 'ServiceRequest':
-        return referencesEncounter(resource) && resource.status === 'completed';
-      default:
-        return false;
-    }
-  });
-}
-
-/**
- * The subset the in-person progress-note request (`progressNoteChartDataRequestedFields`) returns today:
- * Encounter; the tagged free-text Conditions; EpisodeOfCare; MedicationRequests; disposition ServiceRequests;
- * notes of the requested types; tagged vitals Observations; the encounter's Practitioners; ClinicalImpression;
- * radiology ServiceRequests with their DiagnosticReports. (Lab resources are not part of the fixture.)
- */
-export function resourcesReturnedByProgressNoteSearches(resources: FhirResource[]): FhirResource[] {
-  const noteTypes = (progressNoteChartDataRequestedFields.notes?._tag as string)
-    .split(',')
-    .map((tag) => tag.split('|')[0].split('/').at(-1));
-  return resources.filter((resource) => {
-    switch (resource.resourceType) {
-      case 'Encounter':
-      case 'EpisodeOfCare':
-      case 'MedicationRequest':
-      case 'Practitioner':
-      case 'ClinicalImpression':
-      case 'DiagnosticReport':
-        return true;
-      case 'Condition':
-        return ['chief-complaint', 'history-of-present-illness', 'mechanism-of-injury', 'ros', 'accident'].includes(
-          tagCode(resource) ?? ''
-        );
-      case 'Procedure':
-        return tagCode(resource) === 'surgical-history-note';
-      case 'ServiceRequest':
-        return ['disposition-follow-up', 'sub-follow-up', 'radiology'].includes(tagCode(resource) ?? '');
-      case 'Communication':
-        return (
-          resource.meta?.tag?.some((tag) => tag.code === IN_PERSON_NOTE_ID) === true &&
-          noteTypes.includes(resource.meta?.tag?.[0]?.system?.split('/').at(-1))
-        );
-      case 'Observation':
-        return resource.meta?.tag?.[0]?.system === `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}`;
-      default:
-        return false;
-    }
-  });
-}
-
-/** Wraps resources the way `oystehr.fhir.batch` returns a search: one ok'd searchset entry. */
-export function toBatchResponseBundle(resources: FhirResource[]): Bundle<FhirResource> {
-  return {
-    resourceType: 'Bundle',
-    type: 'batch-response',
-    entry: [
-      {
-        response: { status: '200', outcome: { resourceType: 'OperationOutcome', id: 'ok' } },
-        resource: {
-          resourceType: 'Bundle',
-          type: 'searchset',
-          total: resources.length,
-          entry: resources.map((resource) => ({ resource })),
-        } as FhirResource,
-      },
-    ],
-  } as Bundle<FhirResource>;
-}
-
-/** An Oystehr client whose only reachable call, the MedicationAdministration lookup, finds nothing. */
-export const emptyOystehr = {
-  fhir: { search: async () => ({ unbundle: () => [] }) },
-} as unknown as Oystehr;
-
-export interface GoldenChartData {
-  /** What the layout-level unscoped `useChartData()` call returns. */
-  chartData: GetChartDataResponse;
-  /** What `useChartFields({ requestedFields: progressNoteChartDataRequestedFields })` returns. */
-  additionalChartData: GetChartDataResponse;
-}
-
-/** Runs the golden resources through the real mapping code in both modes the app uses. */
-export async function buildGoldenChartData(fixture: GoldenChartResources): Promise<GoldenChartData> {
-  const { patient, resources } = fixture;
-  const unscoped = await convertSearchResultsToResponse(
-    toBatchResponseBundle(resourcesReturnedByUnscopedSearches(resources)),
-    'token',
-    patientId,
-    encounterId,
-    undefined,
-    patient,
-    emptyOystehr
-  );
-  const progressNote = await convertSearchResultsToResponse(
-    toBatchResponseBundle(resourcesReturnedByProgressNoteSearches(resources)),
-    'token',
-    patientId,
-    encounterId,
-    PROGRESS_NOTE_FIELDS,
-    patient,
-    emptyOystehr
-  );
-  return { chartData: unscoped.chartData, additionalChartData: progressNote.chartData };
 }

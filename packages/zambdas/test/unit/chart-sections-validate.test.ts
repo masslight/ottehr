@@ -46,7 +46,7 @@ describe('get-chart-section request validation', () => {
     expect(() => validateGetChartSection(input({ encounterId }))).toThrow('section');
   });
 
-  it('rejects anything shaped like a get-chart-data request', () => {
+  it('rejects search parameters and every other extra key', () => {
     expect(() =>
       validateGetChartSection(input({ encounterId, section: 'history', requestedFields: { allergies: {} } }))
     ).toThrow('requestedFields');

@@ -50,11 +50,7 @@ export async function buildVisitNote(
     ),
     {
       owner: 'vitals',
-      request: encounterScopedSearch('Observation', encounterId, {
-        _count: vitalsObservationsRequest._count as number,
-        _sort: vitalsObservationsRequest._sort as string,
-        _tag: vitalsObservationsRequest._tag as string,
-      }),
+      request: encounterScopedSearch('Observation', encounterId, vitalsObservationsRequest),
     },
     ...configLabRequestsForGetChartData(encounterId).map((request) => ({ owner: 'labs' as const, request })),
     {
