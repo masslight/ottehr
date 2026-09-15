@@ -1,11 +1,13 @@
 import { Send } from '@mui/icons-material';
-import { Button, TextField } from '@mui/material';
+import { Alert, Button, Snackbar, TextField } from '@mui/material';
 import { Box } from '@mui/system';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { usePaperworkContext } from '../context';
 import { AiChatHistory } from './AiChatHistory';
+
+const ERROR_MESSAGE = 'Something went wrong. Please try again.';
 
 interface AIInterviewProps {
   value?: boolean;
@@ -24,14 +26,24 @@ const AIInterview: FC<AIInterviewProps> = ({ value: medicalHistoryInterviewCompl
   >(undefined);
   const [answer, setAnswer] = useState<string>('');
   const [unprocessedUserAnswer, setUnprocessedUserAnswer] = useState<string>('');
+  const [errorOpen, setErrorOpen] = useState<boolean>(false);
+  const startedRef = useRef<boolean>(false);
 
   useEffect(() => {
     const startInterview = async (appointmentId: string): Promise<void> => {
       if (!aIInterviewStart) return;
-      const questionnaireResponse = await aIInterviewStart({ appointmentId });
-      setAiInterviewQuestionnaireResponse(questionnaireResponse);
+      startedRef.current = true;
+      setLoading(true);
+      try {
+        setAiInterviewQuestionnaireResponse(await aIInterviewStart({ appointmentId }));
+      } catch (error) {
+        console.error('Failed to start the AI interview', error);
+        setErrorOpen(true);
+      } finally {
+        setLoading(false);
+      }
     };
-    if (aiInterviewQuestionnaireResponse == null && appointmentId != null) {
+    if (aiInterviewQuestionnaireResponse == null && appointmentId != null && !startedRef.current) {
       void startInterview(appointmentId);
     }
   }, [aiInterviewQuestionnaireResponse, setAiInterviewQuestionnaireResponse, aIInterviewStart, appointmentId]);
@@ -63,14 +75,21 @@ const AIInterview: FC<AIInterviewProps> = ({ value: medicalHistoryInterviewCompl
     setUnprocessedUserAnswer(trimmedAnswer);
     setAnswer('');
     setLoading(true);
-    setAiInterviewQuestionnaireResponse(
-      await aIInterviewHandleAnswer({
-        questionnaireResponseId: aiInterviewQuestionnaireResponse.id ?? '',
-        linkId: getLastQuestionLinkId(aiInterviewQuestionnaireResponse),
-        answer: trimmedAnswer,
-      })
-    );
-    setLoading(false);
+    try {
+      setAiInterviewQuestionnaireResponse(
+        await aIInterviewHandleAnswer({
+          questionnaireResponseId: aiInterviewQuestionnaireResponse.id ?? '',
+          linkId: getLastQuestionLinkId(aiInterviewQuestionnaireResponse),
+          answer: trimmedAnswer,
+        })
+      );
+    } catch (error) {
+      console.error('Failed to submit the AI interview answer', error);
+      setAnswer(trimmedAnswer);
+      setErrorOpen(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const userInputEnabled =
@@ -86,6 +105,15 @@ const AIInterview: FC<AIInterviewProps> = ({ value: medicalHistoryInterviewCompl
           scrollToBottomOnUpdate={true}
         />
       </Box>
+      <Snackbar
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        open={errorOpen}
+        onClose={() => setErrorOpen(false)}
+      >
+        <Alert onClose={() => setErrorOpen(false)} severity="error" variant="filled">
+          {ERROR_MESSAGE}
+        </Alert>
+      </Snackbar>
       {aiInterviewQuestionnaireResponse?.status !== 'completed' && (
         <Box
           style={{

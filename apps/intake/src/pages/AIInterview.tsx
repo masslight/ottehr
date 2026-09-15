@@ -1,15 +1,17 @@
 import { Send } from '@mui/icons-material';
 import ArrowBack from '@mui/icons-material/ArrowBack';
-import { Button, TextField, Typography } from '@mui/material';
+import { Alert, Button, Snackbar, TextField, Typography } from '@mui/material';
 import { Box, Stack } from '@mui/system';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageContainer } from 'src/components/CustomContainer';
 import { AiChatHistory } from 'ui-components/lib/components/paperwork/form-components/AiChatHistory';
 import api from '../api/ottehrApi';
-import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
+import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 import { useVisitContext } from './ThankYou';
+
+const ERROR_MESSAGE = 'Something went wrong. Please try again.';
 
 const AIInterview = (): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: false });
@@ -20,18 +22,27 @@ const AIInterview = (): JSX.Element => {
   const [questionnaireResponse, setQuestionnaireResponse] = useState<QuestionnaireResponse | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(false);
   const [answer, setAnswer] = useState<string>('');
-  const [unprocessedUserAnswer, setUnprocessedUserAnswer] = useState<string>('');
+  const [unprocessedUserAnswer, setUnprocessedUserAnswer] = useState<string | undefined>(undefined);
+  const [errorOpen, setErrorOpen] = useState<boolean>(false);
+  const startedRef = useRef<boolean>(false);
 
   useEffect(() => {
-    const startInterview = async (appointmentId: string): Promise<void> => {
-      if (zambdaClient == null) return;
-      const questionnaireResponse = await api.aIInterviewStart({ appointmentId }, zambdaClient);
-      setQuestionnaireResponse(questionnaireResponse);
+    const startInterview = async (appointmentId: string, zambdaClient: ZambdaClient): Promise<void> => {
+      setLoading(true);
+      try {
+        setQuestionnaireResponse(await api.aIInterviewStart({ appointmentId }, zambdaClient));
+      } catch (error) {
+        console.error('Failed to start the AI interview', error);
+        setErrorOpen(true);
+      } finally {
+        setLoading(false);
+      }
     };
-    if (questionnaireResponse == null && appointmentId != null) {
-      void startInterview(appointmentId);
+    if (questionnaireResponse == null && appointmentId != null && zambdaClient != null && !startedRef.current) {
+      startedRef.current = true;
+      void startInterview(appointmentId, zambdaClient);
     }
-  }, [questionnaireResponse, setQuestionnaireResponse, zambdaClient, appointmentId]);
+  }, [questionnaireResponse, zambdaClient, appointmentId]);
 
   const onSend = async (): Promise<void> => {
     const trimmedAnswer = answer.trim();
@@ -43,17 +54,25 @@ const AIInterview = (): JSX.Element => {
     setUnprocessedUserAnswer(trimmedAnswer);
     setAnswer('');
     setLoading(true);
-    setQuestionnaireResponse(
-      await api.aIInterviewHandleAnswer(
-        {
-          questionnaireResponseId: questionnaireResponse.id ?? '',
-          linkId: getLastQuestionLinkId(questionnaireResponse),
-          answer: trimmedAnswer,
-        },
-        zambdaClient
-      )
-    );
-    setLoading(false);
+    try {
+      setQuestionnaireResponse(
+        await api.aIInterviewHandleAnswer(
+          {
+            questionnaireResponseId: questionnaireResponse.id ?? '',
+            linkId: getLastQuestionLinkId(questionnaireResponse),
+            answer: trimmedAnswer,
+          },
+          zambdaClient
+        )
+      );
+    } catch (error) {
+      console.error('Failed to submit the AI interview answer', error);
+      setAnswer(trimmedAnswer);
+      setErrorOpen(true);
+    } finally {
+      setUnprocessedUserAnswer(undefined);
+      setLoading(false);
+    }
   };
 
   const goToVisit = (): void => {
@@ -93,6 +112,15 @@ const AIInterview = (): JSX.Element => {
           scrollToBottomOnUpdate={true}
         />
       </Box>
+      <Snackbar
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        open={errorOpen}
+        onClose={() => setErrorOpen(false)}
+      >
+        <Alert onClose={() => setErrorOpen(false)} severity="error" variant="filled">
+          {ERROR_MESSAGE}
+        </Alert>
+      </Snackbar>
       {questionnaireResponse?.status !== 'completed' ? (
         <Box
           style={{
