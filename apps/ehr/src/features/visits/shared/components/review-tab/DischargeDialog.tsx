@@ -42,25 +42,9 @@ const DEFAULT_SELECTIONS: DischargeSelections = {
   requireSupervisorApproval: true,
 };
 
-/** "Discharge" / "Discharge & Print" / "Discharge, Print & Sign" — whichever the selection implies. */
-const joinActionLabel = (parts: string[]): string =>
+/** ["a", "b", "c"] -> "a, b & c". Used for the action label and for naming documents in messages. */
+const joinWithAmpersand = (parts: string[]): string =>
   parts.length > 1 ? `${parts.slice(0, -1).join(', ')} & ${parts[parts.length - 1]}` : parts[0];
-
-/**
- * Opens an excuse note in a new tab, reporting rather than skipping when its presigned URL has not
- * arrived yet. Returns whether it actually opened, so a retry can pick up what was missed.
- */
-const openExcuse = (label: string, url: string | undefined): boolean => {
-  if (!url) {
-    enqueueSnackbar(`The ${label} is still being prepared — please try again in a moment.`, {
-      variant: 'warning',
-    });
-    return false;
-  }
-
-  window.open(url, '_blank');
-  return true;
-};
 
 const SelectionCheckbox: FC<{
   label: string;
@@ -68,7 +52,8 @@ const SelectionCheckbox: FC<{
   disabled: boolean;
   onChange: (checked: boolean) => void;
   dataTestId: string;
-}> = ({ label, checked, disabled, onChange, dataTestId }) => (
+  hint?: string;
+}> = ({ label, checked, disabled, onChange, dataTestId, hint }) => (
   <FormControlLabel
     control={
       <Checkbox
@@ -78,7 +63,16 @@ const SelectionCheckbox: FC<{
         data-testid={dataTestId}
       />
     }
-    label={<Typography color={disabled ? 'text.disabled' : 'text.primary'}>{label}</Typography>}
+    label={
+      <Typography component="span" color={disabled ? 'text.disabled' : 'text.primary'}>
+        {label}
+        {hint && (
+          <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+            {hint}
+          </Typography>
+        )}
+      </Typography>
+    }
   />
 );
 
@@ -146,6 +140,16 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
   const requireSupervisorApproval = signProgressNote && selections.requireSupervisorApproval;
   const isPrinting = printDischargeSummary || printWorkNote || printSchoolNote;
 
+  // A selected note whose presigned URL has not arrived yet cannot be opened. Discharging anyway
+  // would strand it: once the visit is discharged, DischargeButton drops the dropdown entirely, so
+  // this dialog can never be reopened to print it.
+  const pendingWorkNote = printWorkNote && !workNoteUrl;
+  const pendingSchoolNote = printSchoolNote && !schoolNoteUrl;
+  const pendingDocuments = useMemo(
+    () => [...(pendingWorkNote ? ['work note'] : []), ...(pendingSchoolNote ? ['school note'] : [])],
+    [pendingWorkNote, pendingSchoolNote]
+  );
+
   const isLoading = isDischarging || isSigning;
 
   // The workflow carries on after the dialog unmounts, so dismissing it mid-flight would hide a
@@ -163,6 +167,19 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
       return;
     }
 
+    // The confirm button is disabled on this same condition, so in practice this cannot be reached.
+    // Kept because the rule — never discharge past a document that was asked for and cannot be
+    // produced — belongs with the workflow rather than living only in a button's props.
+    if (pendingDocuments.length > 0) {
+      enqueueSnackbar(
+        `Still preparing the ${joinWithAmpersand(
+          pendingDocuments
+        )}. Wait a moment, or clear it to discharge without printing it.`,
+        { variant: 'warning' }
+      );
+      return;
+    }
+
     setIsDischarging(true);
 
     try {
@@ -177,14 +194,21 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
         );
       }
 
-      // Opened synchronously, before the first await, so the browser still attributes the new tabs
-      // to the click that started this and does not block them as popups.
-      if (printWorkNote && !completedSteps.current.workNote) {
-        completedSteps.current.workNote = openExcuse('work note', workNoteUrl);
+      const excusesToOpen: { key: 'workNote' | 'schoolNote'; url: string }[] = [];
+
+      if (printWorkNote && workNoteUrl && !completedSteps.current.workNote) {
+        excusesToOpen.push({ key: 'workNote', url: workNoteUrl });
       }
 
-      if (printSchoolNote && !completedSteps.current.schoolNote) {
-        completedSteps.current.schoolNote = openExcuse('school note', schoolNoteUrl);
+      if (printSchoolNote && schoolNoteUrl && !completedSteps.current.schoolNote) {
+        excusesToOpen.push({ key: 'schoolNote', url: schoolNoteUrl });
+      }
+
+      // Opened synchronously, before the first await, so the browser still attributes the new tabs
+      // to the click that started this and does not block them as popups.
+      for (const { key, url } of excusesToOpen) {
+        window.open(url, '_blank');
+        completedSteps.current[key] = true;
       }
 
       await Promise.all(printPromises);
@@ -218,6 +242,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
     workNoteUrl,
     printSchoolNote,
     schoolNoteUrl,
+    pendingDocuments,
     signProgressNote,
     requireSupervisorApproval,
     signNote,
@@ -226,7 +251,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
     onClose,
   ]);
 
-  const actionLabel = joinActionLabel([
+  const actionLabel = joinWithAmpersand([
     'Discharge',
     ...(isPrinting ? ['Print'] : []),
     ...(signProgressNote ? ['Sign'] : []),
@@ -258,6 +283,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
                 disabled={!hasWorkNote}
                 onChange={(checked) => select({ workNote: checked })}
                 dataTestId={dataTestIds.dischargeDialog.printWorkNoteCheckbox}
+                hint={pendingWorkNote ? 'Preparing…' : undefined}
               />
               <SelectionCheckbox
                 label="School Note"
@@ -265,6 +291,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
                 disabled={!hasSchoolNote}
                 onChange={(checked) => select({ schoolNote: checked })}
                 dataTestId={dataTestIds.dischargeDialog.printSchoolNoteCheckbox}
+                hint={pendingSchoolNote ? 'Preparing…' : undefined}
               />
             </FormGroup>
           </Box>
@@ -319,6 +346,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
           <LoadingButton
             onClick={handleConfirm}
             loading={isLoading}
+            disabled={pendingDocuments.length > 0}
             variant="contained"
             data-testid={dataTestIds.dischargeDialog.confirmButton}
             sx={{ borderRadius: 100, textTransform: 'none' }}

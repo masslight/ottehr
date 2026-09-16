@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { SCHOOL_NOTE_CODE, WORK_NOTE_CODE } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -250,19 +250,53 @@ describe('DischargeDialog', () => {
     expect(checkbox(dataTestIds.dischargeDialog.printSchoolNoteCheckbox)).toBeEnabled();
   });
 
-  it('reports a note whose URL is not ready instead of silently skipping it', async () => {
+  // Discharging without a selected note would strand it: DischargeButton drops the dropdown once the
+  // visit is discharged, so this dialog could never be reopened to print it.
+  it('will not discharge while a selected note is still being prepared', async () => {
+    presignedFiles = [{ type: SCHOOL_NOTE_CODE, presignedUrl: 'https://example.test/school-note' }];
+    const user = userEvent.setup();
+    const { rerender } = render(<DischargeDialog {...baseProps} />);
+
+    expect(confirmButton()).toBeDisabled();
+    expect(screen.getByText('Preparing…')).toBeInTheDocument();
+
+    // fireEvent rather than user.click: the button is genuinely disabled, so this asserts the click
+    // cannot get through at all rather than that the pointer-events guard stopped it.
+    fireEvent.click(confirmButton());
+    expect(handleDischarge).not.toHaveBeenCalled();
+    expect(window.open).not.toHaveBeenCalled();
+
+    presignedFiles = [
+      { type: WORK_NOTE_CODE, presignedUrl: 'https://example.test/work-note' },
+      { type: SCHOOL_NOTE_CODE, presignedUrl: 'https://example.test/school-note' },
+    ];
+    rerender(<DischargeDialog {...baseProps} />);
+
+    expect(confirmButton()).toBeEnabled();
+    await user.click(confirmButton());
+
+    await waitFor(() => expect(handleDischarge).toHaveBeenCalledTimes(1));
+    expect(window.open).toHaveBeenCalledWith('https://example.test/work-note', '_blank');
+    expect(window.open).toHaveBeenCalledWith('https://example.test/school-note', '_blank');
+  });
+
+  // The escape hatch when a note's URL never arrives: clearing it releases the confirm button, so a
+  // permanently failing presign cannot deadlock the dialog.
+  it('releases the confirm button when the unready note is cleared', async () => {
     presignedFiles = [{ type: SCHOOL_NOTE_CODE, presignedUrl: 'https://example.test/school-note' }];
     const user = userEvent.setup();
     render(<DischargeDialog {...baseProps} />);
 
+    expect(confirmButton()).toBeDisabled();
+
+    await user.click(checkbox(dataTestIds.dischargeDialog.printWorkNoteCheckbox));
+
+    expect(confirmButton()).toBeEnabled();
     await user.click(confirmButton());
 
     await waitFor(() => expect(handleDischarge).toHaveBeenCalledTimes(1));
-    expect(window.open).toHaveBeenCalledWith('https://example.test/school-note', '_blank');
     expect(window.open).toHaveBeenCalledTimes(1);
-    expect(enqueueSnackbar).toHaveBeenCalledWith(expect.stringContaining('work note is still being prepared'), {
-      variant: 'warning',
-    });
+    expect(window.open).toHaveBeenCalledWith('https://example.test/school-note', '_blank');
   });
 
   it('does not repeat print or discharge when a retry follows a signing failure', async () => {
