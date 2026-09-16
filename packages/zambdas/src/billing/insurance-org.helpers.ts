@@ -9,15 +9,15 @@ import {
   CustomInsuranceOrgType,
 } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import {
-  INSURANCE_ORG_ACCEPTED_CLAIM_FORM_EXTENSION_URL,
-  INSURANCE_ORG_ID_SYSTEM,
-  INSURANCE_ORG_KIND_CODE,
-  INSURANCE_ORG_NOTE_EXTENSION_URL,
-  INSURANCE_ORG_PORTAL_DETAILS_EXTENSION_URL,
-  INSURANCE_ORG_SUBMISSION_MECHANISM_EXTENSION_URL,
-  INSURANCE_ORG_TYPE_SYSTEM,
-  InsuranceOrganizationItem,
-  InsuranceOrgSubmissionDetails,
+  CUSTOM_INSURANCE_ORG_ACCEPTED_CLAIM_FORM_EXTENSION_URL,
+  CUSTOM_INSURANCE_ORG_ID_SYSTEM,
+  CUSTOM_INSURANCE_ORG_KIND_CODE,
+  CUSTOM_INSURANCE_ORG_NOTE_EXTENSION_URL,
+  CUSTOM_INSURANCE_ORG_PORTAL_DETAILS_EXTENSION_URL,
+  CUSTOM_INSURANCE_ORG_SUBMISSION_MECHANISM_EXTENSION_URL,
+  CUSTOM_INSURANCE_ORG_TYPE_SYSTEM,
+  CustomInsuranceOrgItem,
+  CustomInsuranceOrgSubmissionDetails,
 } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NioContact } from 'utils/lib/types/data/billing/non-insurance-org.schemas';
 import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
@@ -29,13 +29,13 @@ export function isInsuranceOrganization(org: Organization): boolean {
   return !!org.type?.some(
     (concept) =>
       concept.coding?.some(
-        (coding) => coding.system === NIO_ORGANIZATION_KIND_SYSTEM && coding.code === INSURANCE_ORG_KIND_CODE
+        (coding) => coding.system === NIO_ORGANIZATION_KIND_SYSTEM && coding.code === CUSTOM_INSURANCE_ORG_KIND_CODE
       )
   );
 }
 
 export function getInsuranceOrgBusinessId(org: Organization): string {
-  return org.identifier?.find((id) => id.system === INSURANCE_ORG_ID_SYSTEM)?.value ?? '';
+  return org.identifier?.find((id) => id.system === CUSTOM_INSURANCE_ORG_ID_SYSTEM)?.value ?? '';
 }
 
 // --- Address conversion ---
@@ -80,11 +80,11 @@ export function buildInsuranceOrganization(
   const contacts = (input.contacts ?? []).map(toFhirContact);
 
   const extension: Extension[] = [
-    { url: INSURANCE_ORG_SUBMISSION_MECHANISM_EXTENSION_URL, valueCode: input.submissionMechanism },
-    { url: INSURANCE_ORG_ACCEPTED_CLAIM_FORM_EXTENSION_URL, valueCode: input.acceptedClaimForm },
-    ...(input.note ? [{ url: INSURANCE_ORG_NOTE_EXTENSION_URL, valueString: input.note }] : []),
+    { url: CUSTOM_INSURANCE_ORG_SUBMISSION_MECHANISM_EXTENSION_URL, valueCode: input.submissionMechanism },
+    { url: CUSTOM_INSURANCE_ORG_ACCEPTED_CLAIM_FORM_EXTENSION_URL, valueCode: input.acceptedClaimForm },
+    ...(input.note ? [{ url: CUSTOM_INSURANCE_ORG_NOTE_EXTENSION_URL, valueString: input.note }] : []),
     ...(details?.portalDetails
-      ? [{ url: INSURANCE_ORG_PORTAL_DETAILS_EXTENSION_URL, valueString: details.portalDetails }]
+      ? [{ url: CUSTOM_INSURANCE_ORG_PORTAL_DETAILS_EXTENSION_URL, valueString: details.portalDetails }]
       : []),
   ];
 
@@ -93,10 +93,10 @@ export function buildInsuranceOrganization(
     ...(existing?.id ? { id: existing.id } : {}),
     active: true,
     name: input.name,
-    identifier: [{ system: INSURANCE_ORG_ID_SYSTEM, value: input.orgId }],
+    identifier: [{ system: CUSTOM_INSURANCE_ORG_ID_SYSTEM, value: input.orgId }],
     type: [
-      { coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: INSURANCE_ORG_KIND_CODE }] },
-      ...input.insuranceTypes.map((type) => ({ coding: [{ system: INSURANCE_ORG_TYPE_SYSTEM, code: type }] })),
+      { coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: CUSTOM_INSURANCE_ORG_KIND_CODE }] },
+      ...input.insuranceTypes.map((type) => ({ coding: [{ system: CUSTOM_INSURANCE_ORG_TYPE_SYSTEM, code: type }] })),
     ],
     extension,
     ...(telecom.length ? { telecom } : {}),
@@ -107,15 +107,15 @@ export function buildInsuranceOrganization(
 
 // --- FHIR → DTO mapping ---
 
-function mapSubmissionDetails(org: Organization): InsuranceOrgSubmissionDetails | undefined {
+function mapSubmissionDetails(org: Organization): CustomInsuranceOrgSubmissionDetails | undefined {
   const email = org.telecom?.find((point) => point.system === 'email')?.value;
   const faxNumber = org.telecom?.find((point) => point.system === 'fax')?.value;
   const portalUrl = org.telecom?.find((point) => point.system === 'url')?.value;
-  const portalDetails = org.extension?.find((ext) => ext.url === INSURANCE_ORG_PORTAL_DETAILS_EXTENSION_URL)
+  const portalDetails = org.extension?.find((ext) => ext.url === CUSTOM_INSURANCE_ORG_PORTAL_DETAILS_EXTENSION_URL)
     ?.valueString;
   const mailAddress = toInsuranceOrgAddress(org.address?.[0]);
 
-  const details: InsuranceOrgSubmissionDetails = {
+  const details: CustomInsuranceOrgSubmissionDetails = {
     ...(email ? { email } : {}),
     ...(faxNumber ? { faxNumber } : {}),
     ...(portalUrl ? { portalUrl } : {}),
@@ -125,20 +125,22 @@ function mapSubmissionDetails(org: Organization): InsuranceOrgSubmissionDetails 
   return Object.keys(details).length > 0 ? details : undefined;
 }
 
-export function mapInsuranceOrganization(org: Organization): InsuranceOrganizationItem {
+export function mapInsuranceOrganization(org: Organization): CustomInsuranceOrgItem {
   const insuranceTypes = (org.type ?? [])
     .flatMap((concept) => concept.coding ?? [])
-    .filter((coding) => coding.system === INSURANCE_ORG_TYPE_SYSTEM)
+    .filter((coding) => coding.system === CUSTOM_INSURANCE_ORG_TYPE_SYSTEM)
     .map((coding) => coding.code)
     .filter((code): code is CustomInsuranceOrgType =>
       (CUSTOM_INSURANCE_ORG_TYPES as readonly string[]).includes(code ?? '')
     );
 
-  const submissionMechanism = org.extension?.find((ext) => ext.url === INSURANCE_ORG_SUBMISSION_MECHANISM_EXTENSION_URL)
-    ?.valueCode as CustomInsuranceOrgSubmissionMechanism;
-  const acceptedClaimForm = org.extension?.find((ext) => ext.url === INSURANCE_ORG_ACCEPTED_CLAIM_FORM_EXTENSION_URL)
-    ?.valueCode as CustomInsuranceOrgClaimForm;
-  const note = org.extension?.find((ext) => ext.url === INSURANCE_ORG_NOTE_EXTENSION_URL)?.valueString;
+  const submissionMechanism = org.extension?.find(
+    (ext) => ext.url === CUSTOM_INSURANCE_ORG_SUBMISSION_MECHANISM_EXTENSION_URL
+  )?.valueCode as CustomInsuranceOrgSubmissionMechanism;
+  const acceptedClaimForm = org.extension?.find(
+    (ext) => ext.url === CUSTOM_INSURANCE_ORG_ACCEPTED_CLAIM_FORM_EXTENSION_URL
+  )?.valueCode as CustomInsuranceOrgClaimForm;
+  const note = org.extension?.find((ext) => ext.url === CUSTOM_INSURANCE_ORG_NOTE_EXTENSION_URL)?.valueString;
   const submissionDetails = mapSubmissionDetails(org);
   const contacts = (org.contact ?? [])
     .map(toNioContact)
@@ -168,8 +170,8 @@ export async function findInsuranceOrgByBusinessId(
   const bundle = await oystehr.fhir.search<Organization>({
     resourceType: 'Organization',
     params: [
-      { name: 'identifier', value: `${INSURANCE_ORG_ID_SYSTEM}|${orgId}` },
-      { name: 'type', value: `${NIO_ORGANIZATION_KIND_SYSTEM}|${INSURANCE_ORG_KIND_CODE}` },
+      { name: 'identifier', value: `${CUSTOM_INSURANCE_ORG_ID_SYSTEM}|${orgId}` },
+      { name: 'type', value: `${NIO_ORGANIZATION_KIND_SYSTEM}|${CUSTOM_INSURANCE_ORG_KIND_CODE}` },
     ],
   });
   return bundle.unbundle().find((org) => org.id !== excludeId);

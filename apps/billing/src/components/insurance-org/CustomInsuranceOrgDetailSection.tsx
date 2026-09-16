@@ -1,10 +1,10 @@
 import { ReactElement, useMemo } from 'react';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
-  INSURANCE_ORG_CLAIM_FORM_LABELS,
-  INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS,
-  INSURANCE_ORG_TYPE_LABELS,
-  InsuranceOrganizationItem,
+  CUSTOM_INSURANCE_ORG_CLAIM_FORM_LABELS,
+  CUSTOM_INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS,
+  CUSTOM_INSURANCE_ORG_TYPE_LABELS,
+  CustomInsuranceOrgItem,
 } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { updateBillingCustomInsuranceOrg } from '../../api/api';
 import {
@@ -22,7 +22,7 @@ export function CustomInsuranceOrgDetailSection({
   item,
   onSaved,
 }: {
-  item: InsuranceOrganizationItem;
+  item: CustomInsuranceOrgItem;
   onSaved: () => Promise<void>;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
@@ -42,7 +42,7 @@ export function CustomInsuranceOrgDetailSection({
     return null;
   };
 
-  const insuranceTypesSummary = item.insuranceTypes.map((type) => INSURANCE_ORG_TYPE_LABELS[type]).join(', ');
+  const insuranceTypesSummary = item.insuranceTypes.map((type) => CUSTOM_INSURANCE_ORG_TYPE_LABELS[type]).join(', ');
   const contactsSummary = item.contacts
     .map((contact) => [contact.name, contact.title].filter(Boolean).join(' — '))
     .join('; ');
@@ -57,7 +57,10 @@ export function CustomInsuranceOrgDetailSection({
       <Row label="Name" value={item.name} />
       <Row label="Id" value={item.orgId} />
       <Row label="Insurance Type" value={insuranceTypesSummary} />
-      <Row label="Submission Mechanism" value={INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS[item.submissionMechanism]} />
+      <Row
+        label="Submission Mechanism"
+        value={CUSTOM_INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS[item.submissionMechanism]}
+      />
       {item.submissionMechanism === 'email' && (
         <Row label="Email Address" value={item.submissionDetails?.email ?? ''} />
       )}
@@ -71,7 +74,7 @@ export function CustomInsuranceOrgDetailSection({
       {item.submissionMechanism === 'mail' && (
         <Row label="Mail Address" value={formatInsuranceOrgAddress(item.submissionDetails?.mailAddress)} />
       )}
-      <Row label="Accepted Claim Form" value={INSURANCE_ORG_CLAIM_FORM_LABELS[item.acceptedClaimForm]} />
+      <Row label="Accepted Claim Form" value={CUSTOM_INSURANCE_ORG_CLAIM_FORM_LABELS[item.acceptedClaimForm]} />
       <Row label="Note" value={item.note ?? ''} />
       <Row label="Contacts" value={contactsSummary} hideBorder />
     </EditableSection>

@@ -8,8 +8,8 @@ import {
 } from 'utils/lib/types/data/billing/billing.types';
 import { CreateCustomInsuranceOrgInput } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import {
-  INSURANCE_ORG_KIND_CODE,
-  SearchInsuranceOrgsResponse,
+  CUSTOM_INSURANCE_ORG_KIND_CODE,
+  SearchCustomInsuranceOrgsResponse,
 } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -26,9 +26,9 @@ describe('insurance-org CRUD', () => {
   let orgId: string;
   let insuranceOrgId: string;
 
-  const searchDetail = async (id: string): Promise<SearchInsuranceOrgsResponse> =>
+  const searchDetail = async (id: string): Promise<SearchCustomInsuranceOrgsResponse> =>
     (await oystehr.zambda.execute({ id: 'search-billing-custom-insurance-orgs', insuranceOrgId: id }))
-      .output as SearchInsuranceOrgsResponse;
+      .output as SearchCustomInsuranceOrgsResponse;
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('integration/insurance-org-crud.test.ts', M2MClientMockType.provider);
@@ -70,7 +70,8 @@ describe('insurance-org CRUD', () => {
     expect(org.active).toBe(true);
     expect(
       org.type?.some(
-        (t) => t.coding?.some((c) => c.system === NIO_ORGANIZATION_KIND_SYSTEM && c.code === INSURANCE_ORG_KIND_CODE)
+        (t) =>
+          t.coding?.some((c) => c.system === NIO_ORGANIZATION_KIND_SYSTEM && c.code === CUSTOM_INSURANCE_ORG_KIND_CODE)
       )
     ).toBe(true);
 
@@ -103,7 +104,7 @@ describe('insurance-org CRUD', () => {
 
   it('search-billing-custom-insurance-orgs lists the created org by name', async () => {
     const response = (await oystehr.zambda.execute({ id: 'search-billing-custom-insurance-orgs', name: orgName }))
-      .output as SearchInsuranceOrgsResponse;
+      .output as SearchCustomInsuranceOrgsResponse;
     expect(response.total).toBeGreaterThanOrEqual(1);
     expect(response.organizations.some((org) => org.id === insuranceOrgId)).toBe(true);
   }, 90_000);
@@ -145,7 +146,7 @@ describe('insurance-org CRUD', () => {
     expect(org.active).toBe(false);
 
     const list = (await oystehr.zambda.execute({ id: 'search-billing-custom-insurance-orgs', name: orgName }))
-      .output as SearchInsuranceOrgsResponse;
+      .output as SearchCustomInsuranceOrgsResponse;
     expect(list.organizations.some((o) => o.id === insuranceOrgId)).toBe(false);
 
     const byId = await searchDetail(insuranceOrgId);

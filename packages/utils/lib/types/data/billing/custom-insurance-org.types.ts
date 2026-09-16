@@ -9,40 +9,40 @@ import { NioContact } from './non-insurance-org.schemas';
 // --- FHIR systems & extensions (billing workspace) ---
 // Organization.type carries the shared "kind" coding from non-insurance-org.types.ts
 // (NIO_ORGANIZATION_KIND_SYSTEM) with this code, plus one coding per selected insurance type below.
-export const INSURANCE_ORG_KIND_CODE = 'insurance-organization';
+export const CUSTOM_INSURANCE_ORG_KIND_CODE = 'insurance-organization';
 
 // Organization.identifier.system for the user-entered "OTR-" business id.
-export const INSURANCE_ORG_ID_SYSTEM = 'https://fhir.ottehr.com/billing/insurance-organization-id';
+export const CUSTOM_INSURANCE_ORG_ID_SYSTEM = 'https://fhir.ottehr.com/billing/insurance-organization-id';
 
 // Organization.type coding system for the zero-or-more insurance-type checkboxes.
-export const INSURANCE_ORG_TYPE_SYSTEM = 'https://fhir.ottehr.com/billing/insurance-organization-type';
+export const CUSTOM_INSURANCE_ORG_TYPE_SYSTEM = 'https://fhir.ottehr.com/billing/insurance-organization-type';
 
-export const INSURANCE_ORG_SUBMISSION_MECHANISM_EXTENSION_URL =
+export const CUSTOM_INSURANCE_ORG_SUBMISSION_MECHANISM_EXTENSION_URL =
   'https://fhir.ottehr.com/billing/insurance-org-submission-mechanism';
-export const INSURANCE_ORG_ACCEPTED_CLAIM_FORM_EXTENSION_URL =
+export const CUSTOM_INSURANCE_ORG_ACCEPTED_CLAIM_FORM_EXTENSION_URL =
   'https://fhir.ottehr.com/billing/insurance-org-accepted-claim-form';
-export const INSURANCE_ORG_NOTE_EXTENSION_URL = 'https://fhir.ottehr.com/billing/insurance-org-note';
+export const CUSTOM_INSURANCE_ORG_NOTE_EXTENSION_URL = 'https://fhir.ottehr.com/billing/insurance-org-note';
 // Portal submission details free text; email/fax/portal URL live on Organization.telecom and the
 // mail address on Organization.address, so this is the only submission-detail field needing an
 // extension of its own.
-export const INSURANCE_ORG_PORTAL_DETAILS_EXTENSION_URL =
+export const CUSTOM_INSURANCE_ORG_PORTAL_DETAILS_EXTENSION_URL =
   'https://fhir.ottehr.com/billing/insurance-org-portal-details';
 
-export const INSURANCE_ORG_TYPE_LABELS: Record<CustomInsuranceOrgType, string> = {
+export const CUSTOM_INSURANCE_ORG_TYPE_LABELS: Record<CustomInsuranceOrgType, string> = {
   'workers-comp': 'Workers Comp',
   auto: 'Auto',
   medical: 'Medical',
   other: 'Other',
 };
 
-export const INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS: Record<CustomInsuranceOrgSubmissionMechanism, string> = {
+export const CUSTOM_INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS: Record<CustomInsuranceOrgSubmissionMechanism, string> = {
   email: 'Email',
   portal: 'Portal',
   fax: 'Fax',
   mail: 'Mail',
 };
 
-export const INSURANCE_ORG_CLAIM_FORM_LABELS: Record<CustomInsuranceOrgClaimForm, string> = {
+export const CUSTOM_INSURANCE_ORG_CLAIM_FORM_LABELS: Record<CustomInsuranceOrgClaimForm, string> = {
   'cms-1500': 'CMS-1500',
   'cms-1450': 'CMS-1450',
   other: 'Other',
@@ -50,7 +50,7 @@ export const INSURANCE_ORG_CLAIM_FORM_LABELS: Record<CustomInsuranceOrgClaimForm
 
 // --- Billing app DTO ---
 
-export interface InsuranceOrgSubmissionDetails {
+export interface CustomInsuranceOrgSubmissionDetails {
   email?: string;
   portalUrl?: string;
   portalDetails?: string;
@@ -58,7 +58,7 @@ export interface InsuranceOrgSubmissionDetails {
   mailAddress?: CustomInsuranceOrgAddress;
 }
 
-export interface InsuranceOrganizationItem {
+export interface CustomInsuranceOrgItem {
   id: string;
   // The user-entered "OTR-" business id.
   orgId: string;
@@ -67,14 +67,14 @@ export interface InsuranceOrganizationItem {
   insuranceTypes: CustomInsuranceOrgType[];
   submissionMechanism: CustomInsuranceOrgSubmissionMechanism;
   // Only the field(s) relevant to submissionMechanism are ever populated.
-  submissionDetails?: InsuranceOrgSubmissionDetails;
+  submissionDetails?: CustomInsuranceOrgSubmissionDetails;
   acceptedClaimForm: CustomInsuranceOrgClaimForm;
   note?: string;
   contacts: NioContact[];
 }
 
-export interface SearchInsuranceOrgsResponse {
-  organizations: InsuranceOrganizationItem[];
+export interface SearchCustomInsuranceOrgsResponse {
+  organizations: CustomInsuranceOrgItem[];
   total: number;
   offset: number;
   pageSize: number;

@@ -5,8 +5,8 @@ import {
   CustomInsuranceOrgType,
 } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import {
-  InsuranceOrganizationItem,
-  InsuranceOrgSubmissionDetails,
+  CustomInsuranceOrgItem,
+  CustomInsuranceOrgSubmissionDetails,
 } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NioContact } from 'utils/lib/types/data/billing/non-insurance-org.schemas';
 import { emptyNioAddressForm, formatNioAddress, NioAddressForm, NioContactForm } from './nonInsuranceOrg';
@@ -47,7 +47,9 @@ export function emptyInsuranceOrgForm(): CustomInsuranceOrgForm {
   };
 }
 
-function submissionDetailsToForm(details?: InsuranceOrgSubmissionDetails): CustomInsuranceOrgSubmissionDetailsForm {
+function submissionDetailsToForm(
+  details?: CustomInsuranceOrgSubmissionDetails
+): CustomInsuranceOrgSubmissionDetailsForm {
   return {
     email: details?.email ?? '',
     portalUrl: details?.portalUrl ?? '',
@@ -65,7 +67,7 @@ function submissionDetailsToForm(details?: InsuranceOrgSubmissionDetails): Custo
   };
 }
 
-export function insuranceOrgItemToFormValues(item?: InsuranceOrganizationItem | null): CustomInsuranceOrgForm {
+export function insuranceOrgItemToFormValues(item?: CustomInsuranceOrgItem | null): CustomInsuranceOrgForm {
   const form = emptyInsuranceOrgForm();
   if (!item) return form;
   form.orgId = item.orgId;
@@ -86,13 +88,13 @@ export function insuranceOrgItemToFormValues(item?: InsuranceOrganizationItem | 
 
 // Only the field(s) relevant to the selected mechanism are submitted, so switching mechanisms in
 // the form never leaves stale data from a previously-selected one behind.
-function submissionDetailsToInput(form: CustomInsuranceOrgForm): InsuranceOrgSubmissionDetails | undefined {
+function submissionDetailsToInput(form: CustomInsuranceOrgForm): CustomInsuranceOrgSubmissionDetails | undefined {
   const details = form.submissionDetails;
   if (form.submissionMechanism === 'email') {
     return details.email.trim() ? { email: details.email.trim() } : undefined;
   }
   if (form.submissionMechanism === 'portal') {
-    const result: InsuranceOrgSubmissionDetails = {
+    const result: CustomInsuranceOrgSubmissionDetails = {
       ...(details.portalUrl.trim() ? { portalUrl: details.portalUrl.trim() } : {}),
       ...(details.portalDetails.trim() ? { portalDetails: details.portalDetails.trim() } : {}),
     };
@@ -108,7 +110,7 @@ function submissionDetailsToInput(form: CustomInsuranceOrgForm): InsuranceOrgSub
   return undefined;
 }
 
-function addressToInput(address: NioAddressForm): InsuranceOrgSubmissionDetails['mailAddress'] {
+function addressToInput(address: NioAddressForm): CustomInsuranceOrgSubmissionDetails['mailAddress'] {
   const result = {
     ...(address.line1.trim() ? { line1: address.line1.trim() } : {}),
     ...(address.line2.trim() ? { line2: address.line2.trim() } : {}),
@@ -146,6 +148,6 @@ export function insuranceOrgFormToInput(form: CustomInsuranceOrgForm): CreateCus
   };
 }
 
-export function formatInsuranceOrgAddress(address?: InsuranceOrgSubmissionDetails['mailAddress']): string {
+export function formatInsuranceOrgAddress(address?: CustomInsuranceOrgSubmissionDetails['mailAddress']): string {
   return formatNioAddress(address);
 }

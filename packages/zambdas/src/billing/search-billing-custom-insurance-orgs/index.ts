@@ -2,8 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
 import {
-  INSURANCE_ORG_KIND_CODE,
-  SearchInsuranceOrgsResponse,
+  CUSTOM_INSURANCE_ORG_KIND_CODE,
+  SearchCustomInsuranceOrgsResponse,
 } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -41,12 +41,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 export async function performEffect(
   oystehr: Oystehr,
   params: SearchInsuranceOrgsParams
-): Promise<SearchInsuranceOrgsResponse> {
+): Promise<SearchCustomInsuranceOrgsResponse> {
   const pageSize = params.pageSize ?? 50;
   const offset = params.offset ?? 0;
 
   const searchParams: { name: string; value: string }[] = [
-    { name: 'type', value: `${NIO_ORGANIZATION_KIND_SYSTEM}|${INSURANCE_ORG_KIND_CODE}` },
+    { name: 'type', value: `${NIO_ORGANIZATION_KIND_SYSTEM}|${CUSTOM_INSURANCE_ORG_KIND_CODE}` },
     { name: '_sort', value: 'name' },
     { name: '_count', value: String(pageSize) },
     { name: '_offset', value: String(offset) },

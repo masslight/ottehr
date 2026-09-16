@@ -19,9 +19,9 @@ import {
   CUSTOM_INSURANCE_ORG_TYPES,
 } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import {
-  INSURANCE_ORG_CLAIM_FORM_LABELS,
-  INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS,
-  INSURANCE_ORG_TYPE_LABELS,
+  CUSTOM_INSURANCE_ORG_CLAIM_FORM_LABELS,
+  CUSTOM_INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS,
+  CUSTOM_INSURANCE_ORG_TYPE_LABELS,
 } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { CustomInsuranceOrgForm } from '../../constants/customInsuranceOrg';
@@ -85,7 +85,7 @@ export function CustomInsuranceOrgFormFields(): ReactElement {
               {CUSTOM_INSURANCE_ORG_TYPES.map((type) => (
                 <FormControlLabel
                   key={type}
-                  label={INSURANCE_ORG_TYPE_LABELS[type]}
+                  label={CUSTOM_INSURANCE_ORG_TYPE_LABELS[type]}
                   control={
                     <Checkbox
                       size="small"
@@ -116,7 +116,7 @@ export function CustomInsuranceOrgFormFields(): ReactElement {
                     key={mechanism}
                     value={mechanism}
                     control={<Radio size="small" />}
-                    label={INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS[mechanism]}
+                    label={CUSTOM_INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS[mechanism]}
                   />
                 ))}
               </RadioGroup>
@@ -211,7 +211,7 @@ export function CustomInsuranceOrgFormFields(): ReactElement {
                     key={claimForm}
                     value={claimForm}
                     control={<Radio size="small" />}
-                    label={INSURANCE_ORG_CLAIM_FORM_LABELS[claimForm]}
+                    label={CUSTOM_INSURANCE_ORG_CLAIM_FORM_LABELS[claimForm]}
                   />
                 ))}
               </RadioGroup>

@@ -2,8 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { Organization } from 'fhir/r4b';
 import { CreateCustomInsuranceOrgInput } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import {
-  INSURANCE_ORG_ID_SYSTEM,
-  INSURANCE_ORG_TYPE_SYSTEM,
+  CUSTOM_INSURANCE_ORG_ID_SYSTEM,
+  CUSTOM_INSURANCE_ORG_TYPE_SYSTEM,
 } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { describe, expect, it, vi } from 'vitest';
@@ -172,13 +172,13 @@ describe('insurance-org FHIR mapping', () => {
     const org = buildInsuranceOrganization({ ...fullInput, insuranceTypes: ['medical'] });
     expect(org.type).toEqual([
       { coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: 'insurance-organization' }] },
-      { coding: [{ system: INSURANCE_ORG_TYPE_SYSTEM, code: 'medical' }] },
+      { coding: [{ system: CUSTOM_INSURANCE_ORG_TYPE_SYSTEM, code: 'medical' }] },
     ]);
   });
 
   it('carries the business id as an identifier', () => {
     const org = buildInsuranceOrganization(fullInput);
-    expect(org.identifier).toEqual([{ system: INSURANCE_ORG_ID_SYSTEM, value: 'OTR-ACME' }]);
+    expect(org.identifier).toEqual([{ system: CUSTOM_INSURANCE_ORG_ID_SYSTEM, value: 'OTR-ACME' }]);
   });
 
   it('isInsuranceOrganization recognizes only orgs with the insurance-organization kind coding', () => {
@@ -196,7 +196,7 @@ describe('findInsuranceOrgByBusinessId', () => {
     expect(found).toEqual(orgResource);
     expect(search.mock.calls[0][0].params).toContainEqual({
       name: 'identifier',
-      value: `${INSURANCE_ORG_ID_SYSTEM}|OTR-ACME`,
+      value: `${CUSTOM_INSURANCE_ORG_ID_SYSTEM}|OTR-ACME`,
     });
 
     const excluded = await findInsuranceOrgByBusinessId(oystehr, 'OTR-ACME', ORG_ID);

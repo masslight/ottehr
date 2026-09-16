@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { InsuranceOrganizationItem } from 'utils/lib/types/data/billing/custom-insurance-org.types';
+import { CustomInsuranceOrgItem } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InsuranceOrganizationDetail, InsuranceOrganizationsList } from '../../src/pages/InsuranceOrganizations';
 
@@ -34,7 +34,7 @@ vi.mock('../../src/hooks/useAppClients', () => {
   return { useApiClients: () => clients };
 });
 
-const acmeCustomOrg: InsuranceOrganizationItem = {
+const acmeCustomOrg: CustomInsuranceOrgItem = {
   id: 'org-1',
   orgId: 'OTR-ACME',
   name: 'Acme Insurance',

@@ -5,7 +5,7 @@ import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { BillingPayerOption } from 'utils/lib/types/data/billing/billing.types';
-import { InsuranceOrganizationItem } from 'utils/lib/types/data/billing/custom-insurance-org.types';
+import { CustomInsuranceOrgItem } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { deleteBillingCustomInsuranceOrg, searchBillingCustomInsuranceOrgs, searchBillingPayers } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { CustomInsuranceOrgDetailSection } from '../components/insurance-org/CustomInsuranceOrgDetailSection';
@@ -31,7 +31,7 @@ function payerToRow(payer: BillingPayerOption): InsuranceOrgRow {
   };
 }
 
-function customOrgToRow(item: InsuranceOrganizationItem): InsuranceOrgRow {
+function customOrgToRow(item: CustomInsuranceOrgItem): InsuranceOrgRow {
   return {
     rowId: `custom-${item.id}`,
     id: item.id,
@@ -53,7 +53,7 @@ export function InsuranceOrganizationsList(): ReactElement {
 
   const [payers, setPayers] = useState<BillingPayerOption[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [customOrgs, setCustomOrgs] = useState<InsuranceOrganizationItem[]>([]);
+  const [customOrgs, setCustomOrgs] = useState<CustomInsuranceOrgItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -188,7 +188,7 @@ export function InsuranceOrganizationDetail(): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
-  const [item, setItem] = useState<InsuranceOrganizationItem | null>(null);
+  const [item, setItem] = useState<CustomInsuranceOrgItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

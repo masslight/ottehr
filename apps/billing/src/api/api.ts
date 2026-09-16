@@ -107,7 +107,7 @@ import {
   SearchCustomInsuranceOrgsInputSchema,
   UpdateCustomInsuranceOrgInputSchema,
 } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
-import { SearchInsuranceOrgsResponse } from 'utils/lib/types/data/billing/custom-insurance-org.types';
+import { SearchCustomInsuranceOrgsResponse } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import {
   CreateNonInsuranceOrgInputSchema,
   DeleteNonInsuranceOrgInputSchema,
@@ -369,7 +369,7 @@ export const updateBillingCustomInsuranceOrg = (
 export const searchBillingCustomInsuranceOrgs = (
   oystehr: Oystehr,
   parameters: z.input<typeof SearchCustomInsuranceOrgsInputSchema>
-): Promise<SearchInsuranceOrgsResponse> =>
+): Promise<SearchCustomInsuranceOrgsResponse> =>
   executeBillingZambda(oystehr, 'search-billing-custom-insurance-orgs', parameters);
 
 export const deleteBillingCustomInsuranceOrg = (
