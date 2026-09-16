@@ -131,6 +131,13 @@
       "src": "src/ehr/change-in-person-visit-status/index",
       "zip": ".dist/zips/change-in-person-visit-status.zip"
     },
+    "CONVERT-VISIT-TO-FOLLOW-UP": {
+      "name": "convert-visit-to-follow-up",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/convert-visit-to-follow-up/index",
+      "zip": ".dist/zips/convert-visit-to-follow-up.zip"
+    },
     "SIGN-APPOINTMENT": {
       "name": "sign-appointment",
       "type": "http_auth",

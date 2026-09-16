@@ -22,7 +22,9 @@ interface UseParentEncountersResult {
 
 export function useParentEncounters(
   patientId: string | undefined,
-  initialEncounterId?: string
+  initialEncounterId?: string,
+  /** Encounter to leave out of the options — a visit cannot be a follow-up of itself. */
+  excludeEncounterId?: string
 ): UseParentEncountersResult {
   const { oystehrZambda } = useApiClients();
   const [previousEncounters, setPreviousEncounters] = useState<EncounterRow[]>([]);
@@ -55,7 +57,9 @@ export function useParentEncounters(
         }));
 
         // Only show non-followup (top-level) encounters as parent options
-        const nonFollowupEncounters = encounters.filter((encounter) => !isFollowupEncounter(encounter));
+        const nonFollowupEncounters = encounters.filter(
+          (encounter) => !isFollowupEncounter(encounter) && encounter.id !== excludeEncounterId
+        );
 
         const encounterRows: EncounterRow[] = nonFollowupEncounters
           .map((encounter) => {
@@ -103,7 +107,7 @@ export function useParentEncounters(
     };
 
     void getPreviousEncounters();
-  }, [oystehrZambda, patientId, initialEncounterId]);
+  }, [oystehrZambda, patientId, initialEncounterId, excludeEncounterId]);
 
   return { previousEncounters, selectedParentEncounter, setSelectedParentEncounter };
 }

@@ -33,7 +33,7 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
-import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
+import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { getGroupAssignmentMode } from 'utils/lib/fhir/healthcareService';
 import { getCoding, getTaskResource } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
@@ -798,23 +798,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     ...(followUpDiagnosisEntries.length > 0 && { diagnosis: followUpDiagnosisEntries }),
     ...(parentEncounterId && {
       partOf: { reference: `Encounter/${parentEncounterId}` },
-      type: [
-        {
-          coding: [
-            {
-              system: FOLLOWUP_SYSTEMS.type.url,
-              code: FOLLOWUP_SYSTEMS.type.code,
-              display: 'Follow-up Encounter',
-            },
-            {
-              system: FOLLOWUP_SUBTYPE_SYSTEM,
-              code: 'scheduled',
-              display: 'scheduled',
-            },
-          ],
-          text: 'Follow-up Encounter',
-        },
-      ],
+      type: buildFollowupEncounterType('scheduled'),
     }),
   };
 
