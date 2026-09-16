@@ -18,10 +18,8 @@ import { makeArchiveFileName, nameAttachments } from './naming';
 import { resolveAttachmentSizes } from './sizes';
 import { MAX_SINGLE_PUT_BYTES, predictZipSize, streamZipToPresignedUrl, ZipEntry } from './zip-stream';
 
-// Each probe is a one-byte ranged GET, so this bounds wall clock without bounding memory.
 const SIZE_PROBE_CONCURRENCY = 20;
 
-// Below this, opening an upload only produces an archive abandoned part-written.
 const MIN_STREAMING_BUDGET_MS = 30_000;
 
 export interface RunExportInput {
@@ -29,7 +27,6 @@ export interface RunExportInput {
   token: string;
   secrets: Secrets | null;
   patientId: string;
-  /** Epoch ms the worker must be finished by; enforced as a wall clock, not between documents. */
   deadlineAt?: number;
   onProgress?: (processed: number, total: number) => Promise<void> | void;
 }
@@ -42,11 +39,6 @@ export interface RunExportResult {
   archiveBytes: number;
 }
 
-/**
- * Builds a patient's medical-record archive and files it in the chart. Runs in a subscription worker, not
- * the request path: the collection is thousands of round trips, far past the 27 s API Gateway ceiling on
- * an `http_auth` zambda.
- */
 export const runMedicalRecordExport = async ({
   oystehr,
   token,
@@ -72,8 +64,6 @@ export const runMedicalRecordExport = async ({
     ),
   ]);
 
-  // Excludes previously generated medical-record archives and sent fax packets. Besides preventing
-  // recursive exports, this keeps another recipient's cover-sheet details out of a downloaded record.
   const attachments = collectPatientRecordAttachments(documentReferences);
   console.log(
     `Found ${attachments.length} attachments to archive (of ${documentReferences.length} DocumentReferences)`
@@ -120,7 +110,6 @@ export const runMedicalRecordExport = async ({
       }),
   }));
 
-  // One timestamp for prediction and write, so the two cannot describe different archives.
   const mtime = new Date();
 
   const predicted = predictZipSize(zipEntries, mtime);
@@ -132,7 +121,6 @@ export const runMedicalRecordExport = async ({
     );
   }
 
-  // The whole budget goes to the streaming phase, the only part that holds anything open.
   const streamingBudgetMs = deadlineAt === undefined ? undefined : deadlineAt - Date.now();
   if (streamingBudgetMs !== undefined && streamingBudgetMs < MIN_STREAMING_BUDGET_MS) {
     throw new MedicalRecordExportUserError(
@@ -179,8 +167,6 @@ export const runMedicalRecordExport = async ({
       { name: 'subject', value: `Patient/${patientId}` },
       { name: 'type', value: MEDICAL_RECORD_EXPORT_CODE },
     ],
-    // The patient's folders; the helper files the export into the "Medical Records" folder
-    // (matched via FOLDERS_CONFIG by MEDICAL_RECORD_EXPORT_CODE), creating it if absent.
     listResources: folderLists,
   });
 

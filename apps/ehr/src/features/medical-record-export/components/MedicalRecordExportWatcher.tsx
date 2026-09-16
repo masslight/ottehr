@@ -34,14 +34,9 @@ const startDownload = (downloadUrl: string, fileName: string | undefined): void 
   anchor.remove();
 };
 
-/**
- * Polls every export in flight for as long as the app is open. Mounted once outside the router.
- * Renders nothing; its output is the progress snackbar and the finished message.
- */
 export const MedicalRecordExportWatcher = (): null => {
   const { oystehrZambda } = useApiClients();
   const exports = useMedicalRecordExportStore((state) => state.exports);
-  // Resolved exactly once per task, since a query can settle more than once.
   const handledRef = useRef<Set<string>>(new Set());
   const snackbarShownRef = useRef<Set<string>>(new Set());
 
@@ -63,7 +58,6 @@ export const MedicalRecordExportWatcher = (): null => {
 
         enqueueSnackbar(outcome.message, {
           variant: outcome.variant,
-          // An offered archive needs its message to stay up long enough to act on.
           persist: outcome.offerDownload,
           action:
             outcome.offerDownload && status.downloadUrl
@@ -94,7 +88,6 @@ export const MedicalRecordExportWatcher = (): null => {
   );
 
   const watched = Object.values(exports);
-  // Stable across renders that did not change which exports are being watched.
   const watchedKey = watched.map((job) => job.taskId).join('|');
 
   const results = useQueries({
@@ -106,7 +99,6 @@ export const MedicalRecordExportWatcher = (): null => {
         if (query.state.data && isTerminalMedicalRecordExportStatus(query.state.data.status)) return false;
         return nextExportPollInterval(Date.now() - job.startedAt);
       },
-      // Otherwise the poll stalls whenever the tab loses focus, which is most of this job's life.
       refetchIntervalInBackground: true,
       retry: POLL_RETRIES,
       gcTime: 0,
@@ -120,8 +112,6 @@ export const MedicalRecordExportWatcher = (): null => {
       })),
   });
 
-  // Once per job, including a resumed one. The snackbar reads progress from the store, so it keeps
-  // updating without this effect running again.
   useEffect(() => {
     for (const job of Object.values(useMedicalRecordExportStore.getState().exports)) {
       if (snackbarShownRef.current.has(job.taskId)) continue;
@@ -131,7 +121,6 @@ export const MedicalRecordExportWatcher = (): null => {
         key,
         persist: true,
         variant: 'medicalRecordExport',
-        // Hiding the readout does not stop the export, and the finished message still arrives.
         action: (
           <IconButton size="small" color="inherit" aria-label="Hide export progress" onClick={() => closeSnackbar(key)}>
             <CloseIcon fontSize="small" />
@@ -141,10 +130,6 @@ export const MedicalRecordExportWatcher = (): null => {
     }
   }, [watchedKey]);
 
-  // A timer rather than a check per poll: the schedule itself stops at the budget, so a job that never
-  // reports would take its last poll and never be looked at again. Jobs are read from the store rather
-  // than closed over, so that recording progress — which replaces `exports` on every tick — does not
-  // rebuild these timers.
   useEffect(() => {
     const timers = Object.values(useMedicalRecordExportStore.getState().exports).map((job) =>
       setTimeout(

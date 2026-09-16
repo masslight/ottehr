@@ -4,15 +4,10 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { formatExportProgress } from '../model/medicalRecordExportPolling';
 import { selectExportByTaskId, useMedicalRecordExportStore } from '../store/medicalRecordExport.store';
 
-/**
- * Its own store-subscribed component so the count advances without the snackbar being re-created:
- * notistack has no update-in-place API, and re-enqueueing per tick would flash it dozens of times.
- */
 export const ExportProgressMessage = ({ taskId }: { taskId: string }): ReactElement => {
   const job = useMedicalRecordExportStore(selectExportByTaskId(taskId));
   const processed = job?.processed;
   const total = job?.total;
-  // Indeterminate until the worker publishes a total; the size pass is still running before that.
   const percent = total && total > 0 ? Math.min(100, Math.round(((processed ?? 0) / total) * 100)) : undefined;
 
   return (

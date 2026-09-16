@@ -34,10 +34,6 @@ const { MEDICAL_RECORD_EXPORT_GENERIC_FAILURE } = await import(
   '../../src/features/medical-record-export/model/medicalRecordExportPolling'
 );
 
-/**
- * A page reload: the store's memory is gone but `sessionStorage` survives. Written this way rather than
- * seeding storage by hand so the test goes through the same persist round-trip the app does.
- */
 const simulateReload = async (): Promise<void> => {
   const persisted = window.sessionStorage.getItem(MEDICAL_RECORD_EXPORT_STORE_NAME);
   useMedicalRecordExportStore.setState({ exports: {} });
@@ -55,14 +51,8 @@ const completed = (overrides: Partial<GetPatientMedicalRecordOutput> = {}): GetP
   ...overrides,
 });
 
-/**
- * The watcher is mounted on its own, with no patient page anywhere in the tree — which is the situation
- * it exists for: the user clicked Download Archive and then navigated somewhere else.
- */
 const renderWatcher = (): ReturnType<typeof render> =>
   render(
-    // The watcher sets its own `retry`; only the backoff is flattened here, so the failure path does not
-    // spend seven real seconds backing off inside a test.
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retryDelay: 0 } } })}>
       {/* The variant is registered exactly as App.tsx does it, so these tests exercise the real wiring
           rather than a stand-in for it. */}
@@ -144,12 +134,9 @@ describe('medical record export watcher', () => {
 
   describe('the give-up backstop', () => {
     it('is not rebuilt on every store update while a job is watched', async () => {
-      // Only correct because the delay is computed from an absolute deadline; a timer rebuilt per tick
-      // would postpone the deadline forever the moment anyone simplified that to a flat budget.
       mockGetStatus.mockResolvedValue({ taskId: TASK_ID, status: 'in-progress', processed: 1, total: 50 });
       watchExport({ patientId: PATIENT_ID, taskId: TASK_ID });
 
-      // React Query schedules its own short timers; only the long ones are this backstop.
       const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
       const backstops = (): number =>
         setTimeoutSpy.mock.calls.filter((call) => ((call[1] as number) ?? 0) > 60_000).length;
@@ -199,7 +186,6 @@ describe('medical record export watcher', () => {
       await waitFor(() =>
         expect(screen.getByText(/3 of 10 documents could not be read and were left out/i)).toBeInTheDocument()
       );
-      // Still delivered: an incomplete record is more use than none, as long as it is labelled.
       expect(clickSpy).toHaveBeenCalledTimes(1);
     });
 
@@ -230,7 +216,6 @@ describe('medical record export watcher', () => {
     });
 
     it('reports an internal failure generically, the way outbound-fax does', async () => {
-      // The server sends no message for an internal error, so the cause never reaches the user.
       mockGetStatus.mockResolvedValue({ taskId: TASK_ID, status: 'failed' });
       watchExport({ patientId: PATIENT_ID, taskId: TASK_ID });
 

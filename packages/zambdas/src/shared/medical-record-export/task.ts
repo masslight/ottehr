@@ -17,16 +17,8 @@ import {
 
 export const ACTIVE_EXPORT_TASK_STATUSES: Task['status'][] = ['requested', 'received', 'accepted', 'in-progress'];
 
-/**
- * Past this, a `requested` Task probably means the Subscription never fired. Generous on purpose: too
- * tight duplicates the whole archive, too loose only delays a retry.
- */
 export const STUCK_REQUESTED_THRESHOLD_MS = 5 * 60_000;
 
-/**
- * Fallback for a Task that went `in-progress` and quiet without publishing a deadline. The zambda's own
- * ceiling is 900 s, so nothing is still running this long after its last sign of life.
- */
 export const STUCK_IN_PROGRESS_THRESHOLD_MS = 16 * 60_000;
 
 type TaskOutput = NonNullable<Task['output']>[number];
@@ -90,13 +82,6 @@ const millisSinceLastUpdate = (task: Task, now: DateTime): number | undefined =>
   return updated.isValid ? now.diff(updated).toMillis() : undefined;
 };
 
-/**
- * True for a Task in an active status that nothing is working on any more. Nothing else ever moves a Task
- * off `in-progress`, so without this a killed worker would make the chart un-exportable forever.
- *
- * The running case uses the deadline the worker publishes rather than a quiet-time guess: collection and
- * the size pass legitimately run for minutes without a progress write.
- */
 export const isAbandonedExportTask = (task: Task, now: DateTime = DateTime.now()): boolean => {
   if (task.status === 'requested') {
     const idleFor = millisSinceLastUpdate(task, now);
@@ -149,8 +134,6 @@ export const buildExportStatusResponse = async (
   };
 
   if (status === 'failed') {
-    // Only an authored message crosses this boundary; `statusReason` holds the raw cause and stays
-    // server-side, as in outbound-fax. With none, the front end supplies its own generic wording.
     return { ...base, error: readUserFacingFailure(task) };
   }
 
@@ -159,7 +142,6 @@ export const buildExportStatusResponse = async (
   }
 
   const objectUrl = readExportedFileUrl(task);
-  // A completed export of a chart with no documents legitimately has no file (see `total: 0`).
   if (!objectUrl) {
     return base;
   }
@@ -184,16 +166,11 @@ export interface ExportTaskSearchResult {
   abandoned: Task[];
 }
 
-/**
- * The export already queued or running for this patient, so a double-click or reload re-attaches instead
- * of building a second near-identical archive.
- */
 export const findActiveExportTask = async (oystehr: Oystehr, patientId: string): Promise<ExportTaskSearchResult> => {
   const bundle = await oystehr.fhir.search<Task>({
     resourceType: 'Task',
     params: [
       { name: 'code', value: `${MEDICAL_RECORD_EXPORT_TASK_SYSTEM}|${MEDICAL_RECORD_EXPORT_TASK_CODE}` },
-      // `patient` is R4's search param for `Task.for` pointing at a Patient.
       { name: 'patient', value: `Patient/${patientId}` },
       { name: 'status', value: ACTIVE_EXPORT_TASK_STATUSES.join(',') },
       { name: '_sort', value: '-_lastUpdated' },
@@ -209,15 +186,12 @@ export const findActiveExportTask = async (oystehr: Oystehr, patientId: string):
   };
 };
 
-/** How often progress may be written back. A 1000-file export becomes a handful of FHIR writes. */
 export const PROGRESS_PATCH_INTERVAL_MS = 2_000;
 
 export interface ExportTaskWriter {
-  /** The instant this worker gives up by, so a Task left `in-progress` by a kill can be spotted as dead. */
   recordDeadline: (deadline: DateTime) => Promise<void>;
   reportProgress: (progress: MedicalRecordExportProgress) => Promise<void>;
   recordUserFacingFailure: (message: string) => Promise<void>;
-  /** Writes the finished archive's location, along with final progress. Always writes through. */
   recordResult: (result: {
     fileUrl?: string;
     fileName: string;
@@ -225,22 +199,15 @@ export interface ExportTaskWriter {
   }) => Promise<void>;
 }
 
-/**
- * Owns the Task's `output` array for a job. `patchTaskStatus` only touches `/status` and `/statusReason`,
- * so what is written here survives completion; writes replace the whole array so repeated progress
- * reports cannot grow the Task without bound.
- */
 export const createExportTaskWriter = (
   oystehr: Oystehr,
   task: Task,
   now: () => number = () => Date.now()
 ): ExportTaskWriter => {
   let hasOutput = (task.output?.length ?? 0) > 0;
-  // Undefined rather than 0, so the first report always goes through and the poller learns the total.
   let lastWriteAt: number | undefined;
   let lastProgress: MedicalRecordExportProgress | undefined;
   let fileEntries: { code: string; valueString: string }[] = [];
-  // Kept out of `fileEntries` so `recordResult` replacing those cannot drop it.
   let deadlineEntry: { code: string; valueString: string } | undefined;
   let failureEntry: { code: string; valueString: string } | undefined;
 
@@ -270,20 +237,16 @@ export const createExportTaskWriter = (
       ],
     });
     hasOutput = true;
-    // Only a write carrying progress arms the throttle, or recording the deadline would hold the first
-    // real report back for a window.
     if (lastProgress) lastWriteAt = now();
   };
 
   return {
     recordDeadline: async (deadline) => {
       deadlineEntry = { code: MEDICAL_RECORD_EXPORT_DEADLINE_CODE, valueString: deadline.toUTC().toISO() ?? '' };
-      // A failure here costs staleness detection precision, not the export: the idle fallback still applies.
       await write().catch((error) => console.warn(`Could not publish the export deadline: ${String(error)}`));
     },
     recordUserFacingFailure: async (message) => {
       failureEntry = { code: MEDICAL_RECORD_EXPORT_FAILURE_CODE, valueString: message };
-      // Written before the handler rethrows, so it lands before the status flips to failed.
       await write();
     },
     reportProgress: async (progress) => {

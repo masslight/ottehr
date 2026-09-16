@@ -1,11 +1,9 @@
 import { mapWithConcurrency } from '../concurrency';
 import { NamedAttachment } from './naming';
 
-/** An archive entry whose byte length is known. */
 export interface SizedAttachment {
   name: string;
   size: number;
-  /** The Z3 url, not the presigned one used to measure it — signatures expire, and exports run for minutes. */
   url: string;
 }
 
@@ -27,10 +25,6 @@ export interface ResolveSizesInput {
   concurrency: number;
 }
 
-/**
- * The total object length out of `Content-Range: bytes 0-0/1234`. A ranged GET rather than a HEAD because
- * SigV4 signs the method, so a HEAD against a GET-signed url is not reliably accepted.
- */
 const parseTotalFromContentRange = (contentRange: string | null): number | undefined => {
   const total = contentRange?.split('/')[1]?.trim();
   if (!total) return undefined;
@@ -56,7 +50,6 @@ const resolveOneSize = async (
       headers: { Range: 'bytes=0-0', 'Cache-Control': 'no-cache' },
     });
 
-    // S3 answers a range request against a zero-length object with 416.
     if (response.status === 416) {
       return { name: attachment.name, size: 0, url: attachment.url };
     }
@@ -68,10 +61,8 @@ const resolveOneSize = async (
     let size: number | undefined;
     if (response.status === 206) {
       size = parseTotalFromContentRange(response.headers.get('content-range'));
-      // Drain rather than leave the socket half-read.
       await response.arrayBuffer().catch(() => undefined);
     } else {
-      // The range was ignored and the whole object came back; measuring it beats trusting a header.
       size = (await response.arrayBuffer()).byteLength;
     }
 
@@ -79,7 +70,6 @@ const resolveOneSize = async (
       return skip('size probe returned no usable length');
     }
 
-    // FHIR's recorded size is a cross-check only; the store's length is what Content-Length must match.
     if (attachment.size !== undefined && attachment.size !== size) {
       console.warn(
         `Attachment ${attachment.url} records size ${attachment.size} but the object is ${size} bytes; using ${size}`
@@ -94,14 +84,6 @@ const resolveOneSize = async (
 
 const isSkipped = (result: SizedAttachment | SkippedAttachment): result is SkippedAttachment => 'reason' in result;
 
-/**
- * Every attachment's exact byte length, resolved before any payload moves: the upload needs a
- * `Content-Length` up front, and knowing the total early means an oversized chart fails in seconds rather
- * than after hundreds of megabytes.
- *
- * An attachment whose length cannot be resolved is dropped here — the only phase where dropping is still
- * possible, since once the archive's length is committed a failure fails the whole export.
- */
 export const resolveAttachmentSizes = async ({
   attachments,
   presign,

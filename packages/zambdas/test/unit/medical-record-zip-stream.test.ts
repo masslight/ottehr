@@ -10,10 +10,8 @@ import {
   ZipEntry,
 } from '../../src/shared/medical-record-export/zip-stream';
 
-// Fixed so the archive is byte-identical run to run and a size assertion means something.
 const MTIME = new Date('2026-01-02T03:04:05.000Z');
 
-// @types/node's generic Uint8Array makes Buffer[] unassignable to Buffer.concat; cast as elsewhere here.
 const concat = (chunks: Buffer[]): Buffer => Buffer.concat(chunks as unknown as Uint8Array[]);
 
 interface Upload {
@@ -27,7 +25,6 @@ interface UploadTarget {
   url: string;
   uploads: Upload[];
   respondWith: number;
-  /** When false the body is counted but not retained, so multi-GB cases stay cheap. */
   keepBody: boolean;
   close: () => Promise<void>;
 }
@@ -83,7 +80,6 @@ const bufferEntry = (name: string, body: Buffer): ZipEntry => ({
   open: () => Promise.resolve(Readable.from([body])),
 });
 
-/** Generates `size` bytes without ever holding them, for the large-archive cases. */
 const syntheticEntry = (name: string, size: number, chunkSize = 64 * 1024): ZipEntry => ({
   name,
   size,
@@ -148,7 +144,6 @@ describe('medical record streamed archive', () => {
   });
 
   it('uploads exactly the number of bytes it declared in Content-Length', async () => {
-    // Empty, sub-chunk, multi-chunk, and a utf8 name — which changes the header lengths being predicted.
     const entries = [
       bufferEntry('empty.txt', Buffer.alloc(0)),
       bufferEntry('small.pdf', Buffer.from('a short document')),
@@ -223,7 +218,6 @@ describe('medical record streamed archive', () => {
   });
 
   it('aborts the export when the progress callback throws, rather than swallowing it', async () => {
-    // How the worker enforces its time budget; a discarded throw would leave the Task stuck in-progress.
     const entries = Array.from({ length: 10 }, (_, i) => bufferEntry(`doc-${i}.txt`, Buffer.from(`body ${i}`)));
 
     await expect(
@@ -257,8 +251,6 @@ describe('medical record streamed archive', () => {
     expect(seen).toEqual([1, 2, 3, 4, 5]);
   });
 
-  // Regression guard: yazl predicted 76 bytes more than it wrote once the central directory passed
-  // 64 KiB (~900 entries), so the upload could never satisfy its own Content-Length. Pinned past that.
   it('matches its declared length past the entry count where the central directory exceeds 64 KiB', async () => {
     const entries = Array.from({ length: 1100 }, (_, i) => bufferEntry(`récord ${i}.pdf`, Buffer.from(`body ${i}`)));
 
@@ -280,9 +272,6 @@ describe('medical record streamed archive', () => {
   }, 60_000);
 
   it('keeps memory flat while streaming an archive far larger than its memory window', async () => {
-    // 256 MiB generated on the fly and counted, not retained. Sampled while streaming rather than
-    // compared before/after: GC runs during the transfer, so end-state heap can even come out lower than
-    // it started and would hide a stage that buffered the archive and then released it.
     target.keepBody = false;
     const entryBytes = 1024 * 1024;
     const entries = Array.from({ length: 256 }, (_, i) => syntheticEntry(`big-${i}.bin`, entryBytes));
@@ -307,8 +296,6 @@ describe('medical record streamed archive', () => {
 
     expect(result.bytesUploaded).toBe(predicted);
     expect(target.uploads[0].bytes).toBe(predicted);
-    // Comfortably above the ~32 MiB window (8 × 4 MiB) and far below the 256 MiB that moved through, so
-    // this fails if any stage starts holding the archive rather than passing it along.
     expect(peak - baseline).toBeLessThan(96 * 1024 * 1024);
   }, 120_000);
 
@@ -326,13 +313,10 @@ describe('medical record streamed archive', () => {
   });
 
   it('stops the pump when the upload dies, instead of filling sinks nobody is draining', async () => {
-    // The deadlock case: with no consumer for yazl's output, backpressure stops the writer, the sinks
-    // fill and every worker blocks. Only wiring the upload's failure into the abort path returns here.
     const entries = Array.from({ length: 200 }, (_, i) => syntheticEntry(`doc-${i}.bin`, 512 * 1024));
 
     await expect(
       streamZipToPresignedUrl({
-        // Nothing is listening on port 1, so the PUT is refused while the pump is still working.
         entries,
         uploadUrl: 'http://127.0.0.1:1/upload',
         contentType: 'application/zip',
@@ -343,7 +327,6 @@ describe('medical record streamed archive', () => {
   }, 30_000);
 
   it('gives up on its own clock when the transfer stalls, rather than burning the whole invocation', async () => {
-    // An entry that opens and goes quiet completes nothing, so a per-entry budget check never fires.
     const stalled: ZipEntry = {
       name: 'stalled.bin',
       size: 4096,
@@ -427,7 +410,6 @@ describe('medical record streamed archive', () => {
   });
 
   it('cannot predict a size when compression is on or a size is missing', () => {
-    // Guards yazl's two conditions; if either regresses predictZipSize returns -1 and the upload refuses.
     expect(predictZipSize([{ name: 'a.txt', size: 5 }], MTIME)).toBeGreaterThan(0);
   });
 });

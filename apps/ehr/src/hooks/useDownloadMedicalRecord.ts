@@ -9,18 +9,10 @@ import {
 import { useApiClients } from './useAppClients';
 
 export type UseDownloadMedicalRecordReturn = {
-  /** Queues the export (or re-attaches to one already running for this patient). */
   downloadMedicalRecord: () => Promise<void>;
   isDownloading: boolean;
 };
 
-/**
- * Starts a background medical-record export and reports whether one is running.
- *
- * Deliberately thin: the polling, the progress readout and the finished message all belong to
- * `MedicalRecordExportWatcher`, which is mounted outside the router. Owning them here would tie them to
- * the patient page's lifetime, and the archive keeps building long after the user has moved on.
- */
 export const useDownloadMedicalRecord = (patientId: string | undefined): UseDownloadMedicalRecordReturn => {
   const { oystehrZambda } = useApiClients();
   const watched = useMedicalRecordExportStore(selectWatchedExport(patientId));
@@ -34,7 +26,7 @@ export const useDownloadMedicalRecord = (patientId: string | undefined): UseDown
       enqueueSnackbar('Missing patient id.', { variant: 'error' });
       return;
     }
-    if (watched) return; // Already running for this patient.
+    if (watched) return;
 
     try {
       const job = await startMedicalRecordExport(oystehrZambda, { patientId });

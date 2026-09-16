@@ -5,7 +5,6 @@ export const DOWNLOAD_ATTEMPTS = 3;
 const RETRY_BASE_DELAY_MS = 250;
 
 export interface OpenAttachmentInput {
-  /** Z3 url; signed per attempt, since a signature can expire mid-export. */
   url: string;
   name: string;
   presign: (url: string) => Promise<string>;
@@ -13,14 +12,6 @@ export interface OpenAttachmentInput {
   retryDelayMs?: (attempt: number) => number;
 }
 
-/**
- * Opens one document's bytes, retrying a failure to *start* the transfer.
- *
- * Only the start is retryable: nothing is written to the archive until the returned stream is piped, so a
- * failed presign or connect can be retried with the writer none the wiser. Once bytes have flowed the
- * entry is partly in the zip and its length is already committed, so a mid-transfer failure must fail the
- * whole export instead.
- */
 export const openAttachmentStream = async ({
   url,
   name,

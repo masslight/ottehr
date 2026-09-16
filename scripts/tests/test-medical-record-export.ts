@@ -1,17 +1,3 @@
-/**
- * Manual driver for the background medical-record export.
- *
- * Nothing fires FHIR subscriptions locally, so this stands in for the platform: it kicks the export
- * off, invokes the worker with the Task as its payload the way the Subscription would, then polls
- * until the Task reaches a terminal state and reports the download url.
- *
- * Requires the local zambda server:
- *   npm run zambdas:start
- *
- * Usage:
- *   npx tsx scripts/tests/test-medical-record-export.ts <patientId> [--env local] [--download]
- */
-
 import { Task } from 'fhir/r4b';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -33,10 +19,6 @@ const shouldDownload = process.argv.includes('--download');
 const envFilePath = path.resolve(__dirname, '../../packages/zambdas/.env', `zambda-secrets-${env}.json`);
 const envConfig = JSON.parse(fs.readFileSync(envFilePath, 'utf8'));
 
-/**
- * Subscription zambdas are registered locally as `execute-public` and take the triggering resource as
- * their raw body — which is what the platform posts.
- */
 async function invokeWorker(task: Task): Promise<void> {
   const response = await fetch(`${BASE_URL}/sub-export-medical-record/execute-public`, {
     method: 'POST',
@@ -55,7 +37,6 @@ async function main(): Promise<void> {
   console.log(`kicking off export for Patient/${patientId}`);
   const kickoffStarted = Date.now();
   const kickoff = await callZambda<GetPatientMedicalRecordOutput>('get-patient-medical-record', token, { patientId });
-  // The whole point of the refactor: this call must return in well under the 27 s gateway ceiling.
   console.log(`kickoff -> taskId=${kickoff.taskId} status=${kickoff.status} in ${Date.now() - kickoffStarted}ms`);
 
   const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: kickoff.taskId });
@@ -63,7 +44,6 @@ async function main(): Promise<void> {
     console.log(`Task is already ${task.status}; not re-invoking the worker.`);
   } else {
     console.log('invoking the worker the way the Subscription would...');
-    // Deliberately not awaited: polling should show progress advance while it runs.
     void invokeWorker(task).catch((error) => console.error(String(error)));
   }
 

@@ -8,8 +8,6 @@ import { wrapTaskHandler } from '../helpers';
 
 const ZAMBDA_NAME = 'sub-export-medical-record';
 
-// The zambda's own ceiling is 900 s. Stopping short of it turns "killed mid-upload, Task stuck
-// in-progress forever" into a Task that fails with a reason the user can act on.
 const EXPORT_BUDGET_MS = 13 * 60 * 1000;
 
 let cachedM2MToken: string | undefined;
@@ -29,8 +27,6 @@ export const index = wrapTaskHandler(
     const writer = createExportTaskWriter(oystehr, task);
     const deadlineAt = Date.now() + EXPORT_BUDGET_MS;
 
-    // Before any work starts: if this invocation is killed, nothing else moves the Task off `in-progress`,
-    // and this is what lets the next kickoff tell a dead job from a running one.
     await writer.recordDeadline(DateTime.fromMillis(deadlineAt));
 
     let result;

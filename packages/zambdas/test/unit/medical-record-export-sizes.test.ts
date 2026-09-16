@@ -8,7 +8,6 @@ const attachment = (name: string, url = `z3://bucket/${name}`, size?: number): N
   size,
 });
 
-/** A 206 the way S3 answers `Range: bytes=0-0`. */
 const rangeResponse = (total: number): Response =>
   new Response(new Uint8Array([0]), {
     status: 206,
@@ -52,7 +51,6 @@ describe('resolveAttachmentSizes', () => {
     ]);
     expect(result.totalBytes).toBe(1234 + 10 + 999_999);
     expect(result.skipped).toEqual([]);
-    // The Z3 url comes back, not the presigned one used to measure — a big export outlives a signature.
     expect(result.entries.map((entry) => entry.url)).toEqual([
       'z3://bucket/a.pdf',
       'z3://bucket/b.pdf',
@@ -84,7 +82,6 @@ describe('resolveAttachmentSizes', () => {
   });
 
   it('measures the delivered body when the range was ignored', async () => {
-    // A 200 means the whole object came back; what arrived is a better answer than any header.
     vi.stubGlobal(
       'fetch',
       vi.fn(() => Promise.resolve(new Response(new Uint8Array(7), { status: 200 })))
@@ -96,8 +93,6 @@ describe('resolveAttachmentSizes', () => {
   });
 
   it('drops an attachment it cannot measure, keeping the rest of the export', async () => {
-    // The only place a bad file can be dropped: once the archive length is committed, a failure has
-    // to fail the whole upload.
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string) =>
@@ -149,8 +144,6 @@ describe('resolveAttachmentSizes', () => {
   });
 
   it('prefers the object store over a disagreeing FHIR size, and says so', async () => {
-    // The store's length is what the archive's Content-Length must match, so it wins; the mismatch is
-    // still worth a log line because it means the DocumentReference is wrong.
     vi.stubGlobal(
       'fetch',
       vi.fn(() => Promise.resolve(rangeResponse(500)))

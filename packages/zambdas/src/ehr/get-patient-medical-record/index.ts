@@ -23,16 +23,6 @@ const ZAMBDA_NAME = 'get-patient-medical-record';
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-/**
- * Front door for the medical-record export. Both modes are deliberately cheap: the archive itself is
- * built by `sub-export-medical-record`, because collecting a large chart runs far past the 27 s
- * API Gateway ceiling that applies to every `http_auth` zambda.
- *
- * Note there is no role check, and the archive is assembled with the M2M token rather than the caller's,
- * so the caller's own FHIR access policy does not bound what an export returns. Deliberate — every EHR
- * staff role can already open these documents one by one — but adding `requireUserWithRole` here is the
- * only thing that would narrow it, and the button would need the same gate.
- */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
   const { secrets } = params;
@@ -44,8 +34,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if ('taskId' in params) {
     const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: params.taskId });
 
-    // A Task id is not a capability. Without both checks, any id at all would presign whatever archive
-    // it happens to point at — including another patient's record.
     if (!isMedicalRecordExportTask(task) || patientIdFromTask(task) !== params.patientId) {
       throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(
         `Task/${params.taskId} is not a medical record export for Patient/${params.patientId}`
@@ -63,8 +51,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return { statusCode: 200, body: JSON.stringify(response) };
   }
 
-  // Retired before a replacement is queued, so they stop blocking future kickoffs and any front end
-  // still polling one of them sees a terminal state rather than waiting out its own timeout.
   for (const task of abandoned) {
     console.log(`Cancelling abandoned export Task/${task.id} (status ${task.status}) for Patient/${params.patientId}`);
     await cancelAbandonedExportTask(oystehr, task);

@@ -18,33 +18,14 @@ export interface ZipAsset {
 /** Fixed so entry timestamps never make an otherwise identical zip differ. */
 export const ZIP_ENTRY_DATE = new Date('2025-01-01');
 
-/**
- * Also fixed for the checksum's sake: left unset, yazl stamps whatever the
- * source file's own permission bits happen to be, which vary with the umask of
- * whoever ran the build.
- */
 const ZIP_ENTRY_MODE = 0o100644;
 
-/** `@types/yazl` predates `compressionLevel`; `compress` only picks between off and zlib's default of 6. */
 interface EntryOptions extends Partial<yazl.Options> {
   compressionLevel: number;
 }
 
-/**
- * The bundles are megabytes of already-minified JS built for every Zambda on
- * every deploy, so the cheap compression level is the right trade.
- */
 const ENTRY_OPTIONS: EntryOptions = { mtime: ZIP_ENTRY_DATE, mode: ZIP_ENTRY_MODE, compressionLevel: 1 };
 
-/**
- * Entry order is the caller's, not the order the reads and deflates finish in:
- * yazl appends each entry to its queue synchronously and writes strictly the
- * first one not yet done, so a zip of the same inputs is byte-identical however
- * the async work interleaves. That determinism is the point — an implementation
- * that emits entries in read-completion order gives concurrent zips of identical
- * inputs differing hashes, and each distinct hash is a pointless re-upload.
- * index.js is added by path so the bundle is streamed rather than held in memory.
- */
 export const zipZambda = async (
   sourceFilePath: string,
   assetsPath: string,

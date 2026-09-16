@@ -8,9 +8,6 @@ import { z } from 'zod';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
 
-// Two modes on one zambda, the same shape as adhoc-report: `{ patientId }` starts (or re-attaches to)
-// an export, `{ taskId }` polls one. Keeping them on one endpoint avoids a second zambda name in the
-// roles/apps config for what is really one feature.
 const GetPatientMedicalRecordSchema = z.union([
   GetMedicalRecordExportStatusInputSchema,
   StartMedicalRecordExportInputSchema,

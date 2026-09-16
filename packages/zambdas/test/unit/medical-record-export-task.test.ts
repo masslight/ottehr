@@ -56,7 +56,6 @@ describe('medical record export Task encoding', () => {
       expect(toExportStatus('requested')).toBe('requested');
       expect(toExportStatus('received')).toBe('requested');
       expect(toExportStatus('accepted')).toBe('requested');
-      // Every terminal-but-unsuccessful status has to read as failed, or the poller spins forever.
       expect(toExportStatus('failed')).toBe('failed');
       expect(toExportStatus('cancelled')).toBe('failed');
       expect(toExportStatus('rejected')).toBe('failed');
@@ -251,8 +250,6 @@ describe('medical record export Task encoding', () => {
     });
 
     it('leaves a running task alone until the deadline it published has passed', () => {
-      // Quiet for ten minutes but with time left on the clock: the size pass publishes nothing, and
-      // reading that as death is what has a second tab archive the same chart again.
       const running = task({
         status: 'in-progress',
         meta: { lastUpdated: ago(10 * 60_000) },
@@ -428,7 +425,6 @@ describe('medical record export Task encoding', () => {
         progress: { processed: 3, total: 3 },
       });
 
-      // Two writes despite both landing at the same instant: the result must never be throttled away.
       expect(patch).toHaveBeenCalledTimes(2);
       const value = patch.mock.calls[1][0].operations[0].value;
       expect(value).toEqual([
@@ -454,8 +450,6 @@ describe('medical record export Task encoding', () => {
       const writer = createExportTaskWriter(oystehr, task(), () => 500_000);
 
       await writer.recordDeadline(DateTime.fromISO('2026-08-21T12:13:00Z', { zone: 'utc' }));
-      // Same instant as the deadline write: the first progress report must still go through, or the
-      // poller would not learn the total until a throttle window had passed.
       await writer.reportProgress({ processed: 0, total: 1000 });
 
       expect(patch).toHaveBeenCalledTimes(2);
@@ -494,7 +488,6 @@ describe('medical record export Task encoding', () => {
       await writer.reportProgress({ processed: 1, total: 9 });
       await writer.recordUserFacingFailure('This record is too large to export as one file.');
 
-      // Two writes at the same instant: a failure the user needs to read must never be throttled away.
       expect(patch).toHaveBeenCalledTimes(2);
       const codes = patch.mock.calls[1][0].operations[0].value.map(
         (entry: { type: { coding: { code: string }[] } }) => entry.type.coding[0].code
