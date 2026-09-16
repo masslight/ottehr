@@ -78,6 +78,48 @@ export async function fetchChartSection<S extends ChartSection>(
   return (await apiClient.getChartSection(request)).data;
 }
 
+/**
+ * If a visit-note read for the encounter is in flight, waits for it to finish: it seeds every section, so a
+ * section read started in the same render must not ask for its data a second time. The initial yield lets the
+ * rest of the render's observers subscribe first (children mount before their layout, so a section's fetch
+ * would otherwise start before the visit note's).
+ */
+async function waitForVisitNoteInFlight(queryClient: QueryClient, encounterId: string): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const cache = queryClient.getQueryCache();
+  const visitNote = cache.find({ queryKey: visitNoteQueryKey(encounterId), exact: true });
+  if (visitNote?.state.fetchStatus !== 'fetching') return;
+  await new Promise<void>((resolve) => {
+    const unsubscribe = cache.subscribe((event) => {
+      if (event.query === visitNote && visitNote.state.fetchStatus !== 'fetching') {
+        unsubscribe();
+        resolve();
+      }
+    });
+  });
+}
+
+/**
+ * Reads one section entry: the seed a visit-note read in flight leaves in it when there is one, otherwise
+ * get-chart-section. Every section observer reads through this, so a visit-note read and the section
+ * observers mounted around it cost one request between them.
+ */
+export async function readChartSection<S extends ChartSection>(
+  queryClient: QueryClient,
+  apiClient: OystehrTelemedAPIClient,
+  encounterId: string,
+  section: S,
+  params: ChartSectionParams<S>
+): Promise<ChartSectionData<S>> {
+  const queryKey = chartSectionQueryKey(encounterId, section, params);
+  // A visit-note read that lands while this read is starting seeds this very entry; take that seed.
+  const before = queryClient.getQueryState(queryKey)?.dataUpdatedAt ?? 0;
+  await waitForVisitNoteInFlight(queryClient, encounterId);
+  const seeded = queryClient.getQueryState<ChartSectionData<S>>(queryKey);
+  if (seeded?.data !== undefined && seeded.dataUpdatedAt > before) return seeded.data;
+  return fetchChartSection(apiClient, encounterId, section, params);
+}
+
 /** Writes each section of a freshly read visit note into its section entry, all stamped with the same time. */
 export function seedChartSectionsFromVisitNote(
   queryClient: QueryClient,

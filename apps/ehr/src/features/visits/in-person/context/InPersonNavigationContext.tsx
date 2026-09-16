@@ -4,6 +4,7 @@ import { filterActiveMedications } from 'utils/lib/helpers/medications/current-m
 import { sidebarMenuIcons } from '../../shared/components/Sidebar';
 import { useChartSection } from '../../shared/hooks/useChartSection';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
+import { useMarkChartStaleOnNavigate } from '../../shared/hooks/useMarkChartStaleOnNavigate';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { InPersonModal } from '../components/InPersonModal';
 import { ROUTER_PATH, routesInPerson } from '../routing/routesInPerson';
@@ -70,6 +71,7 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
   const { visitType } = useGetAppointmentAccessibility();
   const { encounter } = visitState;
 
+  useMarkChartStaleOnNavigate();
   const { chartData, isLoading } = useChartData();
 
   const { data: chartFields, isLoading: isFieldsLoading } = useChartSection('history');

@@ -1,11 +1,4 @@
-import {
-  hashKey,
-  QueryClient,
-  QueryObserverResult,
-  useIsFetching,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { hashKey, QueryObserverResult, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { QUERY_STALE_TIME } from 'src/constants';
@@ -17,7 +10,7 @@ import {
   ChartSectionParams,
 } from 'utils/lib/types/api/chart-data/chart-sections.types';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
-import { chartSectionQueryKey, chartSectionsQueryKey, fetchChartSection, visitNoteQueryKey } from './chartSectionCache';
+import { chartSectionQueryKey, chartSectionsQueryKey, readChartSection } from './chartSectionCache';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
 
 export type ChartSectionUpdater<S extends ChartSection> =
@@ -53,31 +46,9 @@ export interface UseChartSectionResult<S extends ChartSection> {
 }
 
 /**
- * If a visit-note read for the encounter is in flight, waits for it to finish: it seeds every section, so a
- * section mounted in the same render must not ask for its data a second time. The initial yield lets the
- * rest of the render's observers subscribe first (children mount before their layout, so a section's fetch
- * would otherwise start before the visit note's).
- */
-async function waitForVisitNoteInFlight(queryClient: QueryClient, encounterId: string): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  const cache = queryClient.getQueryCache();
-  const visitNote = cache.find({ queryKey: visitNoteQueryKey(encounterId), exact: true });
-  if (visitNote?.state.fetchStatus !== 'fetching') return;
-  await new Promise<void>((resolve) => {
-    const unsubscribe = cache.subscribe((event) => {
-      if (event.query === visitNote && visitNote.state.fetchStatus !== 'fetching') {
-        unsubscribe();
-        resolve();
-      }
-    });
-  });
-}
-
-/**
  * One chart section of a visit (get-chart-section). Fresh within a screen for everything that mounts the
- * same section; a screen change marks it stale, so the next screen that shows it re-reads it once.
- *
- * While a visit-note read for the encounter is in flight the section waits for it (waitForVisitNoteInFlight).
+ * same section; a screen change marks it stale, so the next screen that shows it re-reads it once. A read
+ * that starts while a visit-note read is in flight takes that read's seed instead (readChartSection).
  */
 export function useChartSection<S extends ChartSection>(
   section: S,
@@ -95,20 +66,14 @@ export function useChartSection<S extends ChartSection>(
   const ready = !!apiClient && !!encounterId && !!user && enabled;
 
   const queryKey = chartSectionQueryKey(encounterId, section, params);
-  const visitNoteInFlight = useIsFetching({ queryKey: visitNoteQueryKey(encounterId) }) > 0;
 
   const query = useQuery({
     queryKey,
     queryFn: async (): Promise<ChartSectionData<S>> => {
       if (!apiClient || !encounterId) throw new Error('API client not defined or encounterId not provided');
-      // A visit-note read that lands while this fetch is starting seeds this very entry; take that seed.
-      const before = queryClient.getQueryState(queryKey)?.dataUpdatedAt ?? 0;
-      await waitForVisitNoteInFlight(queryClient, encounterId);
-      const seeded = queryClient.getQueryState<ChartSectionData<S>>(queryKey);
-      if (seeded?.data !== undefined && seeded.dataUpdatedAt > before) return seeded.data;
-      return fetchChartSection(apiClient, encounterId, section, params as ChartSectionParams<S>);
+      return readChartSection(queryClient, apiClient, encounterId, section, params as ChartSectionParams<S>);
     },
-    enabled: ready && !visitNoteInFlight,
+    enabled: ready,
     staleTime: QUERY_STALE_TIME,
     refetchInterval: refetchInterval || false,
   });

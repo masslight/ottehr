@@ -8,7 +8,7 @@ import { VisitNoteResponse } from 'utils/lib/types/api/chart-data/get-visit-note
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 import {
   chartSectionQueryKey,
-  fetchChartSection,
+  readChartSection,
   seedChartSectionsFromVisitNote,
   visitNoteQueryKey,
   visitNoteSectionParams,
@@ -58,9 +58,9 @@ const useShallowMemo = <T>(factory: () => T, deps: readonly unknown[]): T => {
  * The whole chart of a visit: one get-visit-note read that seeds every section's cache entry, plus live
  * observers on those entries, so a save that patches or refetches a section shows up here too.
  *
- * The section observers wait while a visit-note read is in flight and never refetch on mount by
- * themselves: the visit-note read is what refreshes them on page entry, and a screen that shows one
- * section refreshes that section through `useChartSection`.
+ * The section observers read through readChartSection, so one that loads alongside a visit-note read takes
+ * that read's seed, and they never refetch on mount by themselves: the visit-note read is what refreshes
+ * them on page entry, and a screen that shows one section refreshes that section through `useChartSection`.
  */
 export const useVisitNote = (options: UseVisitNoteOptions = {}): UseVisitNoteResult => {
   const { appointmentId, enabled = true, refetchInterval, refetchOnMount = true } = options;
@@ -79,8 +79,8 @@ export const useVisitNote = (options: UseVisitNoteOptions = {}): UseVisitNoteRes
     queryFn: async (): Promise<VisitNoteResponse> => {
       if (!apiClient || !encounterId) throw new Error('API client not defined or encounterId not provided');
       const response = await apiClient.getVisitNote({ encounterId });
-      // Seeded before the note lands in its own entry, so the section observers below find fresh data
-      // the moment they are enabled again and never fetch on their own.
+      // Seeded before the note lands in its own entry, so a section observer waiting on this read finds
+      // its data in place.
       seedChartSectionsFromVisitNote(queryClient, encounterId, response);
       return response;
     },
@@ -95,9 +95,9 @@ export const useVisitNote = (options: UseVisitNoteOptions = {}): UseVisitNoteRes
       queryKey: chartSectionQueryKey(encounterId, section, visitNoteSectionParams(section)),
       queryFn: async (): Promise<ChartSectionData> => {
         if (!apiClient || !encounterId) throw new Error('API client not defined or encounterId not provided');
-        return fetchChartSection(apiClient, encounterId, section, visitNoteSectionParams(section));
+        return readChartSection(queryClient, apiClient, encounterId, section, visitNoteSectionParams(section));
       },
-      enabled: ready && !note.isFetching,
+      enabled: ready,
       staleTime: QUERY_STALE_TIME,
       refetchOnMount: false as const,
     })),
