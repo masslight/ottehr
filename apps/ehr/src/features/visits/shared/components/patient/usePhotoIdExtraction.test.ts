@@ -100,8 +100,10 @@ describe('photoIdBelongsToPatient', () => {
 });
 
 describe('withoutPhotoIdName', () => {
-  it('drops only the name, leaving address and the rest suggestible', () => {
-    expect(withoutPhotoIdName(makeFields())).toEqual(makeFields({ firstName: null, middleName: null, lastName: null }));
+  it('drops the whole name, suffix included, leaving address and the rest suggestible', () => {
+    expect(withoutPhotoIdName(makeFields())).toEqual(
+      makeFields({ firstName: null, middleName: null, lastName: null, suffix: null })
+    );
   });
 
   it('passes null through', () => {

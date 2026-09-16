@@ -204,6 +204,7 @@ describe('AboutPatientContainer photo-ID suggestions', () => {
           firstName: 'JOHN',
           middleName: 'Q',
           lastName: 'PUBLIC',
+          suffix: 'SR',
           dateOfBirth: '1990-01-02',
           sex: 'Male',
         })
@@ -215,6 +216,7 @@ describe('AboutPatientContainer photo-ID suggestions', () => {
     expect(screen.queryByTestId(rowTestId('patient-first-name'))).not.toBeInTheDocument();
     expect(screen.queryByTestId(rowTestId('patient-middle-name'))).not.toBeInTheDocument();
     expect(screen.queryByTestId(rowTestId('patient-last-name'))).not.toBeInTheDocument();
+    expect(screen.queryByTestId(rowTestId('patient-name-suffix'))).not.toBeInTheDocument();
     expect(screen.getByTestId(rowTestId('patient-birthdate'))).toBeInTheDocument();
     expect(screen.getByTestId(rowTestId('patient-birth-sex'))).toBeInTheDocument();
   });

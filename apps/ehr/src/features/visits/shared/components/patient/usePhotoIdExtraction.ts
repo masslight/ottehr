@@ -4,6 +4,7 @@ import { DocumentReference, QuestionnaireResponse } from 'fhir/r4b';
 import { useEffect, useRef } from 'react';
 import { extractPhotoId } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { INTAKE_PAPERWORK_QR_TAG } from 'utils/lib/fhir/constants';
 import { LOINC_SYSTEM } from 'utils/lib/fhir/vitals';
 import {
   DocumentType,
@@ -69,22 +70,35 @@ export const photoIdBelongsToPatient = (relationship: string | undefined): boole
   !relationship || normalizeForComparison(relationship) === SELF_RELATIONSHIP;
 
 export const withoutPhotoIdName = (fields: PhotoIdExtractionFields | null): PhotoIdExtractionFields | null =>
-  fields ? { ...fields, firstName: null, middleName: null, lastName: null } : null;
+  fields ? { ...fields, firstName: null, middleName: null, lastName: null, suffix: null } : null;
 
 const hasName = (fields: PhotoIdExtractionFields | null): boolean =>
-  Boolean(fields && (fields.firstName || fields.middleName || fields.lastName));
+  Boolean(fields && (fields.firstName || fields.middleName || fields.lastName || fields.suffix));
+
+const searchNewestResponses = async (
+  oystehr: Oystehr,
+  patientId: string,
+  intakePaperworkOnly: boolean
+): Promise<QuestionnaireResponse[]> => {
+  const bundle = await oystehr.fhir.search<QuestionnaireResponse>({
+    resourceType: 'QuestionnaireResponse',
+    params: [
+      { name: 'subject', value: `Patient/${patientId}` },
+      ...(intakePaperworkOnly
+        ? [{ name: '_tag', value: `${INTAKE_PAPERWORK_QR_TAG.system}|${INTAKE_PAPERWORK_QR_TAG.code}` }]
+        : []),
+      { name: '_sort', value: '-_lastUpdated' },
+      { name: '_count', value: `${CONSENT_SIGNER_PAPERWORK_PAGE_SIZE}` },
+    ],
+  });
+  return bundle.unbundle();
+};
 
 const resolvePhotoIdBelongsToPatient = async (oystehr: Oystehr, patientId: string): Promise<boolean> => {
   try {
-    const bundle = await oystehr.fhir.search<QuestionnaireResponse>({
-      resourceType: 'QuestionnaireResponse',
-      params: [
-        { name: 'subject', value: `Patient/${patientId}` },
-        { name: '_sort', value: '-_lastUpdated' },
-        { name: '_count', value: `${CONSENT_SIGNER_PAPERWORK_PAGE_SIZE}` },
-      ],
-    });
-    return photoIdBelongsToPatient(readConsentSignerRelationship(bundle.unbundle()));
+    const tagged = await searchNewestResponses(oystehr, patientId, true);
+    const responses = tagged.length ? tagged : await searchNewestResponses(oystehr, patientId, false);
+    return photoIdBelongsToPatient(readConsentSignerRelationship(responses));
   } catch (error) {
     console.error(`Failed to read the consent signer relationship for Patient/${patientId}:`, error);
     return false;
