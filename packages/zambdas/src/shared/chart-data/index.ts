@@ -40,7 +40,11 @@ import {
   PROCEDURE_TYPE_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { OTHER_SPECIALTY_TRANSFER_OPTION } from 'utils/lib/fhir/disposition';
-import { createFilesDocumentReferences, getBooleanExtensionValue } from 'utils/lib/fhir/helpers';
+import {
+  createFilesDocumentReferences,
+  getBooleanExtensionValue,
+  sanitizeStringForFhirCode,
+} from 'utils/lib/fhir/helpers';
 import { fillVitalObservationAttributes, isVitalObservation, makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
 import {
   addEmptyArrOperation,
@@ -2000,11 +2004,21 @@ export const readProcedureFormFieldsFromServiceRequest = (sr: ServiceRequest): P
   consentObtained: getExtension(sr, FHIR_EXTENSION.ServiceRequest.consentObtained.url)?.valueBoolean,
 });
 
+const toFhirCode = (value: string | undefined): string | undefined => {
+  if (value == null) {
+    return undefined;
+  }
+  return sanitizeStringForFhirCode(value) || undefined;
+};
+
 export const createProcedureServiceRequest = (
   procedure: ProcedureDTO,
   encounterId: string,
   patientId: string
 ): BatchInputPutRequest<ServiceRequest> | BatchInputPostRequest<ServiceRequest> => {
+  const procedureTypeCode = toFhirCode(procedure.procedureType);
+  const performerTypeCode = toFhirCode(procedure.performerType);
+  const bodySiteCode = toFhirCode(procedure.bodySite);
   const extensions: Extension[] = [
     {
       url: FHIR_EXTENSION.ServiceRequest.medicationUsed.url,
@@ -2079,13 +2093,13 @@ export const createProcedureServiceRequest = (
     status: 'completed',
     intent: 'original-order',
     category:
-      procedure.procedureType != null
+      procedureTypeCode != null
         ? [
             {
               coding: [
                 {
                   system: PROCEDURE_TYPE_SYSTEM,
-                  code: procedure.procedureType,
+                  code: procedureTypeCode,
                 },
               ],
             },
@@ -2094,24 +2108,24 @@ export const createProcedureServiceRequest = (
     occurrenceDateTime: procedure.procedureDateTime,
     authoredOn: procedure.documentedDateTime,
     performerType:
-      procedure.performerType != null
+      performerTypeCode != null
         ? {
             coding: [
               {
                 system: PERFORMER_TYPE_SYSTEM,
-                code: procedure.performerType,
+                code: performerTypeCode,
               },
             ],
           }
         : undefined,
     bodySite:
-      procedure.bodySite != null
+      bodySiteCode != null
         ? [
             {
               coding: [
                 {
                   system: BODY_SITE_SYSTEM,
-                  code: procedure.bodySite,
+                  code: bodySiteCode,
                 },
               ],
             },
