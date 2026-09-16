@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { CustomInsuranceOrgItem } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { InsuranceOrganizationDetail, InsuranceOrganizationsList } from '../../src/pages/InsuranceOrganizations';
+import { CustomInsuranceOrganizationDetail, InsuranceOrganizationsList } from '../../src/pages/InsuranceOrganizations';
 
 const {
   searchBillingPayersMock,
@@ -194,7 +194,7 @@ describe('InsuranceOrganizationsList', () => {
   });
 });
 
-describe('InsuranceOrganizationDetail', () => {
+describe('CustomInsuranceOrganizationDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     searchBillingCustomInsuranceOrgsMock.mockResolvedValue({
@@ -209,7 +209,7 @@ describe('InsuranceOrganizationDetail', () => {
     render(
       <MemoryRouter initialEntries={['/insurance-organizations/org-1']}>
         <Routes>
-          <Route path="/insurance-organizations/:id" element={<InsuranceOrganizationDetail />} />
+          <Route path="/insurance-organizations/:id" element={<CustomInsuranceOrganizationDetail />} />
         </Routes>
       </MemoryRouter>
     );

@@ -34,7 +34,7 @@ function emptySubmissionDetailsForm(): CustomInsuranceOrgSubmissionDetailsForm {
   return { email: '', portalUrl: '', portalDetails: '', faxNumber: '', mailAddress: emptyNioAddressForm() };
 }
 
-export function emptyInsuranceOrgForm(): CustomInsuranceOrgForm {
+export function emptyCustomInsuranceOrgForm(): CustomInsuranceOrgForm {
   return {
     orgId: '',
     name: '',
@@ -67,8 +67,8 @@ function submissionDetailsToForm(
   };
 }
 
-export function insuranceOrgItemToFormValues(item?: CustomInsuranceOrgItem | null): CustomInsuranceOrgForm {
-  const form = emptyInsuranceOrgForm();
+export function customInsuranceOrgItemToFormValues(item?: CustomInsuranceOrgItem | null): CustomInsuranceOrgForm {
+  const form = emptyCustomInsuranceOrgForm();
   if (!item) return form;
   form.orgId = item.orgId;
   form.name = item.name;
@@ -133,7 +133,7 @@ function contactsToInput(contacts: NioContactForm[]): NioContact[] | undefined {
   return result.length ? result : undefined;
 }
 
-export function insuranceOrgFormToInput(form: CustomInsuranceOrgForm): CreateCustomInsuranceOrgInput {
+export function customInsuranceOrgFormToInput(form: CustomInsuranceOrgForm): CreateCustomInsuranceOrgInput {
   const submissionDetails = submissionDetailsToInput(form);
   const contacts = contactsToInput(form.contacts);
   return {

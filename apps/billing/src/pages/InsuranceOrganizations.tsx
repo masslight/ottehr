@@ -183,7 +183,7 @@ export function InsuranceOrganizationsList(): ReactElement {
   );
 }
 
-export function InsuranceOrganizationDetail(): ReactElement {
+export function CustomInsuranceOrganizationDetail(): ReactElement {
   const { id } = useParams();
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();

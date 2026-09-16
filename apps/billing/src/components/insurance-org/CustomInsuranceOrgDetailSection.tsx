@@ -9,9 +9,9 @@ import {
 import { updateBillingCustomInsuranceOrg } from '../../api/api';
 import {
   CustomInsuranceOrgForm,
+  customInsuranceOrgFormToInput,
+  customInsuranceOrgItemToFormValues,
   formatInsuranceOrgAddress,
-  insuranceOrgFormToInput,
-  insuranceOrgItemToFormValues,
 } from '../../constants/customInsuranceOrg';
 import { useApiClients } from '../../hooks/useAppClients';
 import { EditableSection } from '../claim/EditableSection';
@@ -26,13 +26,13 @@ export function CustomInsuranceOrgDetailSection({
   onSaved: () => Promise<void>;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const defaultValues = useMemo(() => insuranceOrgItemToFormValues(item), [item]);
+  const defaultValues = useMemo(() => customInsuranceOrgItemToFormValues(item), [item]);
 
   const handleSave = async (data: CustomInsuranceOrgForm): Promise<string | null> => {
     if (!oystehrZambda) return 'Client not ready';
     try {
       await updateBillingCustomInsuranceOrg(oystehrZambda, {
-        ...insuranceOrgFormToInput(data),
+        ...customInsuranceOrgFormToInput(data),
         insuranceOrgId: item.id,
       });
     } catch (err) {

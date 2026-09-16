@@ -16,8 +16,8 @@ import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { createBillingCustomInsuranceOrg } from '../../api/api';
 import {
   CustomInsuranceOrgForm,
-  emptyInsuranceOrgForm,
-  insuranceOrgFormToInput,
+  customInsuranceOrgFormToInput,
+  emptyCustomInsuranceOrgForm,
 } from '../../constants/customInsuranceOrg';
 import { useApiClients } from '../../hooks/useAppClients';
 import { CustomInsuranceOrgFormFields } from './CustomInsuranceOrgFormFields';
@@ -30,7 +30,7 @@ interface CustomInsuranceOrgDialogProps {
 
 export function CustomInsuranceOrgDialog({ open, onClose, onCreated }: CustomInsuranceOrgDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const methods = useForm<CustomInsuranceOrgForm>({ defaultValues: emptyInsuranceOrgForm() });
+  const methods = useForm<CustomInsuranceOrgForm>({ defaultValues: emptyCustomInsuranceOrgForm() });
   const {
     handleSubmit,
     reset,
@@ -42,14 +42,14 @@ export function CustomInsuranceOrgDialog({ open, onClose, onCreated }: CustomIns
   useEffect(() => {
     if (!open) return;
     setError(null);
-    reset(emptyInsuranceOrgForm());
+    reset(emptyCustomInsuranceOrgForm());
   }, [open, reset]);
 
   const handleSave = async (data: CustomInsuranceOrgForm): Promise<void> => {
     if (!oystehrZambda) return;
     setError(null);
     try {
-      const result = await createBillingCustomInsuranceOrg(oystehrZambda, insuranceOrgFormToInput(data));
+      const result = await createBillingCustomInsuranceOrg(oystehrZambda, customInsuranceOrgFormToInput(data));
       if (!result.id) throw new Error('Insurance organization was not created');
       onCreated();
       onClose();
