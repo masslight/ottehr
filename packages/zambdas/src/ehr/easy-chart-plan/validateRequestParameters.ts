@@ -1,5 +1,6 @@
 import { ChartPlanRequest, ConversationTurn, PLAN_STAGES, PlanStage } from 'utils/lib/easy-chart/api';
 import { pickNoteContext } from 'utils/lib/easy-chart/note-fields';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../../shared/types/common';
 
 /**
@@ -13,23 +14,24 @@ export const MAX_NARRATIVE_CHARS = 120_000;
 
 export function validateRequestParameters(input: ZambdaInput): ChartPlanRequest & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw INVALID_INPUT_ERROR('No request body provided');
   }
 
   const body = JSON.parse(input.body) as Partial<ChartPlanRequest>;
 
   if (typeof body.narrative !== 'string' || !body.narrative.trim()) {
-    throw new Error('"narrative" is required');
+    throw INVALID_INPUT_ERROR('"narrative" is required');
   }
   if (body.narrative.length > MAX_NARRATIVE_CHARS) {
-    throw new Error(`"narrative" exceeds ${MAX_NARRATIVE_CHARS} characters`);
+    throw INVALID_INPUT_ERROR(`"narrative" exceeds ${MAX_NARRATIVE_CHARS} characters`);
   }
   if (body.encounterId !== undefined && typeof body.encounterId !== 'string') {
-    throw new Error('"encounterId" must be a string');
+    throw INVALID_INPUT_ERROR('"encounterId" must be a string');
   }
 
   return {
     narrative: body.narrative,
+    providerEdits: asProviderEdits(body.providerEdits),
     noteContext: pickNoteContext(body.noteContext),
     chartState: typeof body.chartState === 'string' ? body.chartState : undefined,
     chartedExamFindings: asStringArray(body.chartedExamFindings),
@@ -50,6 +52,29 @@ export function validateRequestParameters(input: ZambdaInput): ChartPlanRequest 
     history: capHistory(body.history),
     secrets: input.secrets,
   };
+}
+
+/** Both texts under the same ceiling as the narrative. Either one blank counts as no edits at all. */
+function asProviderEdits(value: unknown): ChartPlanRequest['providerEdits'] {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'object') {
+    throw INVALID_INPUT_ERROR('"providerEdits" must be an object');
+  }
+  const { draft, edited } = value as Record<string, unknown>;
+  for (const [name, text] of [
+    ['draft', draft],
+    ['edited', edited],
+  ] as const) {
+    if (typeof text !== 'string') {
+      throw INVALID_INPUT_ERROR(`"providerEdits.${name}" must be a string`);
+    }
+    if (text.length > MAX_NARRATIVE_CHARS) {
+      throw INVALID_INPUT_ERROR(`"providerEdits.${name}" exceeds ${MAX_NARRATIVE_CHARS} characters`);
+    }
+  }
+  return (draft as string).trim() && (edited as string).trim()
+    ? { draft: draft as string, edited: edited as string }
+    : undefined;
 }
 
 function asStringArray(value: unknown): string[] | undefined {

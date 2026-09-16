@@ -26,6 +26,11 @@ import { createTerminologyIcdSearch } from './icd-search';
 export interface GuardContext {
   oystehr: Oystehr;
   narrative: string;
+  /**
+   * The provider's edited read-back, when they sent corrections. A quote is verified against the narrative
+   * FIRST and against this only when the narrative does not contain it. See ChartPlanRequest.providerEdits.
+   */
+  editedNarrative?: string;
   /** Display strings of items already on the chart. A remove-* may only target one of these. */
   chartedItems: string[];
   logPrefix: string;
@@ -126,6 +131,18 @@ export async function applyGuards(raw: RawAction[], context: GuardContext): Prom
     chartedItems: context.chartedItems,
   });
   const complete = applyBackstops(deduped, resolved);
+  // Where the quotes landed — counts only. The corrections cover only what the provider changed, so a run
+  // whose quotes are mostly edited-narrative-origin is the model reading the wrong text.
+  const provenance = complete.reduce(
+    (counts, action) => {
+      counts[action.sourceOrigin ?? 'none'] += 1;
+      return counts;
+    },
+    { narrative: 0, 'edited-narrative': 0, none: 0 }
+  );
+  console.log(
+    `[${context.logPrefix}] provenance: narrative=${provenance.narrative} edited-narrative=${provenance['edited-narrative']} inferred=${provenance.none}`
+  );
   return { actions: complete, rejected, triggers: buildTriggerReports(context.narrative, complete) };
 }
 
@@ -165,10 +182,19 @@ async function guardOne(input: RawAction, context: ResolvedGuardContext): Promis
   }
   for (const field of leaked) delete bag[field];
 
-  // Provenance: verify the quote actually occurs in the narrative. A quote that is not real is
-  // dropped, and the item is then honestly marked inferred rather than carrying a fabricated
-  // citation. Do this before anything else so every later rejection reason is quote-free.
-  action.sourceText = verifiedSourceText(action.sourceText, context.narrative);
+  // Provenance: verify the quote actually occurs in the narrative, or failing that in the provider's edited
+  // read-back when one was sent, and tag which. A quote that is in neither is dropped, and the item is then
+  // honestly marked inferred rather than carrying a fabricated citation. Do this before anything else so
+  // every later rejection reason is quote-free.
+  const fromNarrative = verifiedSourceText(action.sourceText, context.narrative);
+  const fromEdited =
+    fromNarrative === undefined && context.editedNarrative
+      ? verifiedSourceText(action.sourceText, context.editedNarrative)
+      : undefined;
+  action.sourceText = fromNarrative ?? fromEdited;
+  if (fromNarrative !== undefined) action.sourceOrigin = 'narrative';
+  else if (fromEdited !== undefined) action.sourceOrigin = 'edited-narrative';
+  else delete action.sourceOrigin;
 
   const missing = missingRequiredFields(kind, action);
   if (missing.length > 0 && kind !== 'set-vital') {
@@ -642,6 +668,7 @@ function applyBackstops(actions: PlannedAction[], context: ResolvedGuardContext)
       ...(sniffed.value != null ? { value: sniffed.value } : {}),
       ...(sniffed.unit ? { unit: sniffed.unit } : {}),
       sourceText: sniffed.sourceText,
+      sourceOrigin: 'narrative',
       caution: 'recovered from the dictation — the plan did not include this reading',
     } as PlannedAction);
   }
@@ -673,6 +700,7 @@ function applyBackstops(actions: PlannedAction[], context: ResolvedGuardContext)
     converted.kind = 'provider-note';
     converted.text = `The ${label} was already performed — enter its result through the labs flow. Dictated: ${sentence.trim()}`;
     converted.sourceText = sentence.trim();
+    converted.sourceOrigin = 'narrative';
     delete (converted as { display?: string }).display;
     delete (converted as { searchTerms?: string[] }).searchTerms;
   }
@@ -691,6 +719,7 @@ function applyBackstops(actions: PlannedAction[], context: ResolvedGuardContext)
       kind: 'provider-note',
       text: 'Send the prescription via eRx — the medication was charted, but easy-chart does not transmit prescriptions.',
       sourceText: sending[0],
+      sourceOrigin: 'narrative',
     } as PlannedAction);
   }
 

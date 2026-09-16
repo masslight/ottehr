@@ -11,6 +11,8 @@ interface ScribeStageProps {
 
 /** The tint every Oystehr AI surface in the EHR uses, so the panel speaks in the same voice. */
 export const AI_SURFACE = '#E1F5FECC';
+/** The same tint one step stronger: the narrative run under the pointer, the transcript snippet behind it. */
+export const AI_SURFACE_ACTIVE = '#B3E5FC';
 
 /**
  * One step of the review, introduced by the scribe itself. The lead is set as a message from the

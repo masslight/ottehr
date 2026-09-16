@@ -191,6 +191,20 @@ export interface ChartPlanRequest {
   history?: ConversationTurn[];
   /** See CallerPatientStatus. Used only when the chart lookup yields nothing. */
   patientStatus?: CallerPatientStatus;
+  /**
+   * The provider's corrections to an AI-written read-back of the narrative, sent ONLY when they made some.
+   *
+   * The scribe panel shows the provider a generated narrative of the transcript to review; `narrative` above
+   * stays the transcript, so an unedited read-back changes nothing about this call. When the provider edited
+   * it, both versions come along so the differences are visible without anything computing them, and the
+   * prompt says those differences are the provider's corrections and win over the transcript.
+   */
+  providerEdits?: {
+    /** The read-back as the assistant wrote it. */
+    draft: string;
+    /** The read-back as the provider left it. */
+    edited: string;
+  };
 }
 
 /** An action after every server guard has run. */
@@ -200,6 +214,11 @@ export interface PlannedAction extends RawAction {
    * narrative. Absent means the model inferred it, and the UI marks it so.
    */
   sourceText?: string;
+  /**
+   * Which text `sourceText` was verified against: `narrative` (checked first) or the provider's edited
+   * read-back (`providerEdits.edited`, checked only when one was sent). Absent whenever `sourceText` is.
+   */
+  sourceOrigin?: 'narrative' | 'edited-narrative';
   /** Set when a guard accepted the action but the provider should look at it. */
   caution?: string;
   /** Set when a guard could not establish a value and the provider must supply it. */
@@ -268,3 +287,32 @@ export interface ChartReviewResponse {
 }
 
 export const EASY_CHART_SURFACES: readonly Surface[] = ['plan', 'review'];
+
+/**
+ * One line of a generated narrative: a provider-voice sentence and the verbatim transcript snippets it
+ * was drawn from. `sources` holds ONLY snippets the server verified against the transcript; an empty
+ * array means the generator inferred the line, and the UI marks it so — the same contract as
+ * `PlannedAction.sourceText`, one level up.
+ */
+export interface NarrativeLine {
+  text: string;
+  sources: string[];
+}
+
+export interface ChartNarrativeRequest {
+  /** The raw transcript — an ambient recording, the intake chat, or a paste. */
+  transcript: string;
+  /** Used to verify the caller may touch this encounter. Optional for the eval harness. */
+  encounterId?: string;
+  /**
+   * The transcript DocumentReference this transcript came from, so the server can store the narrative on it
+   * and the next session reads it instead of generating again. Omitted for pasted text.
+   */
+  documentId?: string;
+}
+
+export interface ChartNarrativeResponse {
+  lines: NarrativeLine[];
+  usage: ModelUsage[];
+  escalation: EscalationInfo;
+}

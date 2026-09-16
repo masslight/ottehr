@@ -17,33 +17,38 @@ const VITAL_LABELS: Record<string, string> = {
   'vital-height': 'height',
 };
 
+// An addition names what it is and nothing more: "Exam finding: Sinus tenderness". The "Adding" said
+// nothing the panel had not already said — every suggestion in a list of suggestions is something being
+// added — and it pushed the thing itself, which is what the provider is checking, a word further right.
+// Verbs that carry meaning stay: a removal, an order and a template are each doing something other than
+// adding an entry, and the row has to say which.
 const VERBS: Partial<Record<ActionKind, string>> = {
   'apply-template': 'Suggesting template',
-  'add-allergy': 'Adding allergy',
+  'add-allergy': 'Allergy',
   'remove-allergy': 'Removing allergy',
-  'add-condition': 'Adding past medical history',
+  'add-condition': 'Past medical history',
   'remove-condition': 'Removing past medical history',
-  'add-medication': 'Adding medication',
+  'add-medication': 'Medication',
   'remove-medication': 'Removing medication',
-  'add-surgical-history': 'Adding surgical history',
+  'add-surgical-history': 'Surgical history',
   'remove-surgical-history': 'Removing surgical history',
-  'add-hospitalization': 'Adding hospitalization',
+  'add-hospitalization': 'Hospitalization',
   'remove-hospitalization': 'Removing hospitalization',
-  'add-exam-finding': 'Adding exam finding',
+  'add-exam-finding': 'Exam finding',
   'remove-exam-finding': 'Removing exam finding',
-  'add-ros-finding': 'Adding review of systems',
+  'add-ros-finding': 'Review of systems',
   'remove-ros-finding': 'Removing review of systems',
-  'add-diagnosis': 'Adding diagnosis',
+  'add-diagnosis': 'Diagnosis',
   'remove-diagnosis': 'Removing diagnosis',
   'add-in-house-lab': 'Ordering in-house lab',
   'add-external-lab': 'Ordering lab',
   'add-radiology': 'Ordering imaging',
-  'add-procedure': 'Adding procedure',
+  'add-procedure': 'Procedure',
   'update-procedure': 'Updating procedure',
-  'add-cpt': 'Adding CPT code',
+  'add-cpt': 'CPT code',
   'remove-cpt': 'Removing CPT code',
-  'add-nursing-order': 'Adding nursing order',
-  'add-patient-instruction': 'Adding patient instruction',
+  'add-nursing-order': 'Nursing order',
+  'add-patient-instruction': 'Patient instruction',
 };
 
 export function describeAction(action: PlannedAction): string {

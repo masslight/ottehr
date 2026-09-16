@@ -8,7 +8,7 @@ export const FeatureFlagsConfigSchema = z.object({
   supervisorApprovalEnabled: z.boolean(),
   demoVisitsEnabled: z.boolean(),
   /**
-   * Easy Chart: the AI Chart Recommendations panel beside the in-person visit note, and the plan/review
+   * Easy Chart: the Autochart panel beside the in-person visit note, and the plan/review
    * endpoints behind it. Gated by BOTH this flag and the charting role set (EASY_CHART_ROLES).
    */
   easyChartEnabled: z.boolean(),

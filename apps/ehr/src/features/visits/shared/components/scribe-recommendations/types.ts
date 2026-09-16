@@ -1,5 +1,5 @@
 import { NoteTextField } from 'utils/lib/easy-chart/actions';
-import { PlannedAction, RejectedAction } from 'utils/lib/easy-chart/api';
+import { NarrativeLine, PlannedAction, RejectedAction } from 'utils/lib/easy-chart/api';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { TemplatePreviewApplyOptions, TemplateSectionActions } from 'utils/lib/types/data/apply-template.types';
 
@@ -26,11 +26,28 @@ export type RecommendationSource =
   | { pass: 'plan' }
   | { pass: 'review'; category: string; question: string; rationale?: string };
 
+/**
+ * Where a recommendation's evidence ultimately came from, one hop further back than the quote itself.
+ * The quote is a phrase of the NARRATIVE; the narrative line it sits in was either read out of the
+ * transcript (`backed`), said by the generator on its own (`unbacked`), or written or changed by the
+ * provider (`provider`). Or the quote is not a phrase of the narrative at all: the planner read the
+ * TRANSCRIPT and quoted it (`transcript`), shown as the transcript's words directly.
+ */
+export type EvidenceOrigin = 'backed' | 'unbacked' | 'provider' | 'transcript';
+
 interface ScribeRecommendationBase {
   id: string;
   section: ScribeSectionKey;
-  /** Transcript excerpt the recommendation was derived from, shown so the provider can judge it. */
+  /** Narrative excerpt the recommendation was derived from, shown so the provider can judge it. */
   evidence?: string;
+  /**
+   * The transcript snippets behind the narrative line(s) the evidence sits in — the second hop of the
+   * provenance, action → narrative line → transcript — or, for a quote the planner took from the
+   * transcript rather than the narrative (`evidenceOrigin: 'transcript'`), the quote itself. Absent when
+   * the recommendation has no quote at all or its quote could not be found in the narrative.
+   */
+  transcriptSources?: string[];
+  evidenceOrigin?: EvidenceOrigin;
   /** Something the provider should double-check before applying (low confidence, a conflict, ...). */
   warning?: string;
   /** How the AI got here, shown with the evidence on hover: inferred rather than quoted, or what the review asked. */
@@ -146,16 +163,29 @@ export interface OrderSuggestion {
 }
 
 /**
- * One run of the narrative: a piece of the transcript. A run that is the evidence behind one or more
- * recommendations carries their ids and is highlighted and linked to them; plain runs carry none.
+ * One run of the narrative as told back on the results screen. A run that is the evidence behind one or
+ * more recommendations carries their ids and is highlighted and linked to them; plain runs carry none.
  */
 export interface NarrativeSegment {
   text: string;
   itemIds?: string[];
 }
 
+/**
+ * One of the generator's sentences, found again in the narrative the provider is editing: `[start, end)`
+ * is where its exact text sits in the draft, and `original` carries the transcript snippets it was
+ * written from. A sentence the provider has changed or removed has no located line, and whatever the
+ * draft holds outside every located line is the provider's own.
+ */
+export interface LocatedLine {
+  text: string;
+  original: NarrativeLine;
+  start: number;
+  end: number;
+}
+
 export interface ScribeAnalysis {
-  narrative: NarrativeSegment[];
+  narrativeRuns: NarrativeSegment[];
   recommendations: ScribeRecommendation[];
   orderSuggestions: OrderSuggestion[];
   /** Actions the server refused, each with its reason — listed so nothing voiced disappears silently. */

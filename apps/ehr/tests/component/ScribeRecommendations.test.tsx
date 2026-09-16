@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
@@ -9,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StepOutcome } from '../../src/features/easy-chart/executor/types';
 
 // ============================================================================
-// FIXTURES — what the plan endpoint answers for the sample transcript
+// FIXTURES — what the plan endpoint answers for the narrative under test
 // ============================================================================
 
 const envelope = { usage: [], escalation: { attempts: 1, escalated: false, failures: [] }, triggers: [] };
@@ -157,8 +158,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../src/features/visits/shared/components/scribe-recommendations/useScribeAnalyzer', async () => {
   const { buildAnalysis } = await import('../../src/features/visits/shared/components/scribe-recommendations/analysis');
   return {
-    useScribeAnalyzer: () => async (transcript: string) =>
-      buildAnalysis(mocks.plan() as ChartPlanResponse, undefined, { written: mocks.written, transcript }),
+    useScribeAnalyzer: () => async (narrative: string) =>
+      buildAnalysis(mocks.plan() as ChartPlanResponse, undefined, { written: mocks.written, narrative }),
   };
 });
 
@@ -298,8 +299,13 @@ import { useRosObservationsStore } from '../../src/features/visits/shared/stores
 
 const testIds = dataTestIds.scribeRecommendations;
 
+// The app always renders under a QueryClientProvider; the narrative generator reaches for the query client
+// to refresh chart data after a document is stamped, so the drawer needs one here too.
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
-  <MemoryRouter initialEntries={['/in-person/appointment-1/review-and-sign']}>{children}</MemoryRouter>
+  <QueryClientProvider client={queryClient}>
+    <MemoryRouter initialEntries={['/in-person/appointment-1/review-and-sign']}>{children}</MemoryRouter>
+  </QueryClientProvider>
 );
 
 const resetStore = (): void => {
@@ -315,9 +321,15 @@ const resetStore = (): void => {
     width: SCRIBE_PANEL_DEFAULT_WIDTH,
     encounterId: undefined,
     transcript: '',
+    transcriptSource: 'none',
+    sourceDocumentId: undefined,
+    narrativeGenerated: [],
+    narrativeDraft: '',
+    narrativeStatus: 'idle',
+    narrativeError: undefined,
     phase: 'input',
     analysisError: undefined,
-    narrative: [],
+    narrativeRuns: [],
     recommendations: [],
     itemState: {},
     orderSuggestions: [],
@@ -330,10 +342,22 @@ const resetStore = (): void => {
   });
 };
 
+/**
+ * The narrative the plan is read from. There is no way to type a transcript into the panel — transcripts are
+ * read-only documents the visit already holds — so a test that wants a narrative to plan puts one in the
+ * store, exactly as picking a transcript chip or typing into the editor would leave it.
+ */
+const NARRATIVE =
+  'Patient reports post-nasal drip and sinus pressure for about a week, with afternoon headaches and ' +
+  'morning eye crusting. Denies fever, ear pain and sore throat. Taking ibuprofen and an antihistamine.';
+
+const seedNarrative = (text: string = NARRATIVE): void =>
+  useScribeRecommendationsStore.setState({ narrativeDraft: text, narrativeStatus: 'ready' });
+
 const openPanelWithRecommendations = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
   render(<ScribeRecommendationsDrawer />, { wrapper: Wrapper });
   await user.click(screen.getByTestId(testIds.openButton));
-  await user.click(screen.getByTestId(testIds.useSampleButton));
+  seedNarrative();
   await user.click(screen.getByTestId(testIds.analyzeButton));
   await screen.findByTestId(testIds.applyObservationsButton);
 };
@@ -384,21 +408,24 @@ describe('ScribeRecommendationsDrawer', () => {
     mocks.applyOne.mockResolvedValue(undefined);
   });
 
-  it('starts as a rail and opens into the transcript step', async () => {
+  it('starts as a rail and opens onto the visit’s transcripts and an empty narrative', async () => {
     const user = userEvent.setup();
     render(<ScribeRecommendationsDrawer />, { wrapper: Wrapper });
 
     expect(screen.getByTestId(testIds.rail)).toBeVisible();
     expect(screen.queryByTestId(testIds.panel)).toBeNull();
+    expect(screen.getByTestId(testIds.openButton)).toHaveAccessibleName('Open Autochart');
 
     await user.click(screen.getByTestId(testIds.openButton));
     expect(screen.getByTestId(testIds.panel)).toBeVisible();
-    expect(screen.getByTestId(testIds.transcriptInput)).toHaveValue('');
+    // a visit with no recording says so, and there is nowhere to type a transcript: the narrative box
+    // is the provider's own way in
+    expect(screen.getByText('No transcripts on this visit yet.')).toBeVisible();
+    expect(screen.getByTestId(testIds.narrativeInput)).toHaveValue('');
     // nothing to analyze yet
     expect(screen.getByTestId(testIds.analyzeButton)).toBeDisabled();
 
-    await user.click(screen.getByTestId(testIds.useSampleButton));
-    expect((screen.getByTestId(testIds.transcriptInput) as HTMLTextAreaElement).value).toContain('post-nasal drip');
+    await user.type(screen.getByTestId(testIds.narrativeInput), 'Sinus pressure for a week.');
     expect(screen.getByTestId(testIds.analyzeButton)).toBeEnabled();
 
     await user.click(screen.getByTestId(testIds.collapseButton));
@@ -409,20 +436,19 @@ describe('ScribeRecommendationsDrawer', () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
-    const summary = screen.getByTestId(testIds.stage('summary'));
     const template = screen.getByTestId(testIds.stage('template'));
     const observationsStage = screen.getByTestId(testIds.stage('observations'));
 
-    // the leads carry the sequence, so the stages need no numbering of their own
+    // the leads carry the sequence, so the stages need no numbering of their own. The narrative is not one
+    // of them: it stays above, in the editor the plan was run from.
     expect(
       screen
         .getAllByRole('region')
         .map((section) => section.getAttribute('data-testid'))
         .filter((id) => id?.startsWith('scribe-stage-'))
-    ).toEqual(['scribe-stage-summary', 'scribe-stage-template', 'scribe-stage-observations', 'scribe-stage-rejected']);
-    expect(within(summary).getByText(/Here’s what I heard/)).toBeVisible();
+    ).toEqual(['scribe-stage-template', 'scribe-stage-observations', 'scribe-stage-rejected']);
     expect(within(template).getByText(/template that looks like a good fit/)).toBeVisible();
-    expect(within(observationsStage).getByText(/observations, which I read in the transcript/)).toBeVisible();
+    expect(within(observationsStage).getByText(/observations, which I read in the narrative/)).toBeVisible();
 
     // stage one is a single button naming the template the server resolved, not a row in the list below
     expect(within(template).getByTestId(testIds.templateApplyButton)).toHaveTextContent('Apply template: Sinusitis');
@@ -446,60 +472,15 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(within(screen.getByTestId(testIds.group('medications'))).getByText('Meds')).toBeVisible();
     expect(within(observationsStage).getByText('Acute sinusitis, unspecified (J01.90)')).toBeVisible();
     // an action the panel has no editor for is shown by the executor's own step label
-    expect(
-      within(screen.getByTestId(testIds.group('exam'))).getByText('Adding exam finding: Sinus tenderness')
-    ).toBeVisible();
+    expect(within(screen.getByTestId(testIds.group('exam'))).getByText('Exam finding: Sinus tenderness')).toBeVisible();
 
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(
       `${observations().length} of ${observations().length} selected`
     );
-    expect(screen.getByTestId(testIds.applyObservationsButton)).toHaveTextContent(
-      `Add ${observations().length} observations`
-    );
+    expect(screen.getByTestId(testIds.applyObservationsButton)).toHaveTextContent('Chart note');
 
     await user.click(within(observationsStage).getByTestId(testIds.goToSectionButton('ros')));
     expect(mocks.navigate).toHaveBeenCalledWith('/in-person/appointment-1/review-of-systems');
-  });
-
-  it('tells the visit back in the transcript’s own words, with the evidence behind each item highlighted', async () => {
-    const user = userEvent.setup();
-    await openPanelWithRecommendations(user);
-
-    // the story is the transcript as pasted, in the first stage
-    const narrative = within(screen.getByTestId(testIds.stage('summary'))).getByTestId(testIds.narrative);
-    expect(narrative).toHaveTextContent('Provider: Good morning. What brings you in today?');
-
-    // the phrase an item came from is a run linked to it: hovering it lights the row up
-    const span = screen.getByTestId(testIds.narrativeSpan(ID.fentanyl));
-    expect(span).toHaveTextContent('Fentanyl. I had a bad reaction after my knee surgery.');
-    await user.hover(span);
-    expect(useScribeRecommendationsStore.getState().hoveredItemId).toBe(ID.fentanyl);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Fentanyl');
-    await user.unhover(span);
-
-    // clicking it opens the row right there, straight into its editor, with nothing to press to finish
-    await user.click(span);
-    const popover = screen.getByTestId(testIds.narrativePopover(ID.fentanyl));
-    expect(within(popover).getByTestId(testIds.rowEditInput(ID.fentanyl))).toHaveValue('Fentanyl');
-    expect(within(popover).queryByRole('button', { name: /save|cancel/i })).toBeNull();
-    await lookAway(user);
-    await waitFor(() => expect(screen.queryByTestId(testIds.narrativePopover(ID.fentanyl))).toBeNull());
-
-    // a phrase two items came from — the HPI's sentence and the diagnosis quoted from inside it — opens both
-    const shared = screen.getByTestId(testIds.narrativeSpan(`${ID.hpi}+${ID.dxDrip}`));
-    expect(shared).toHaveTextContent('post-nasal drip');
-    await user.click(shared);
-    const sharedPopover = screen.getByTestId(testIds.narrativePopover(`${ID.hpi}+${ID.dxDrip}`));
-    expect(within(sharedPopover).getByTestId(testIds.row(ID.hpi))).toBeVisible();
-    expect(within(sharedPopover).getByTestId(testIds.row(ID.dxDrip))).toBeVisible();
-    // with two to choose from, neither opens itself
-    expect(within(sharedPopover).queryByTestId(testIds.rowEditInput(ID.hpi))).toBeNull();
-    await user.keyboard('{Escape}');
-    await waitFor(() => expect(screen.queryByTestId(testIds.narrativePopover(`${ID.hpi}+${ID.dxDrip}`))).toBeNull());
-
-    // an item left out is struck out in the story too
-    await untick(user, ID.fentanyl);
-    expect(screen.getByTestId(testIds.narrativeSpan(ID.fentanyl))).toHaveStyle({ textDecoration: 'line-through' });
   });
 
   it('lists what the server refused, with its reason, and what the assistant said rather than charted', async () => {
@@ -578,32 +559,6 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.getByTestId(testIds.applyObservationsButton)).toBeEnabled();
   });
 
-  it('charts the whole review from one button: the template first, then the checked observations', async () => {
-    const user = userEvent.setup();
-    await openPanelWithRecommendations(user);
-    const total = observations().length;
-
-    expect(screen.getByTestId(testIds.chartSummary)).toHaveTextContent(
-      `Applies the template and ${total} selected observations`
-    );
-    await untick(user, ID.claritin);
-
-    await user.click(screen.getByTestId(testIds.chartButton));
-    await waitFor(() => expect(mocks.applyOne).toHaveBeenCalledTimes(total));
-
-    // the template goes straight through, without the section picker, on the panel's defaults
-    expect(screen.queryByTestId('template-preview-dialog')).toBeNull();
-    expect(appliedIds()[0]).toBe(ID.template);
-    expect(mocks.applyOne.mock.calls[0][0]).not.toHaveProperty('sectionActions');
-    expect(appliedIds()).not.toContain(ID.claritin);
-    expect(screen.getByTestId(testIds.rowStatus(ID.template))).toHaveTextContent('Sinusitis applied');
-    expectCharted(ID.hpi);
-
-    // nothing selected is left, so the button has nothing to do
-    expect(screen.getByTestId(testIds.chartSummary)).toHaveTextContent('Nothing is selected');
-    expect(screen.getByTestId(testIds.chartButton)).toBeDisabled();
-  });
-
   it('adds only the checked observations, and never the template', async () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
@@ -659,7 +614,7 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.getByTestId(testIds.rowText(ID.examTenderness))).not.toHaveStyle({ textDecoration: 'line-through' });
   });
 
-  it('opens a coded row, which has no wording to edit, onto its tick alone', async () => {
+  it('opens a coded row, which has no wording to edit, onto its tick beside its own words', async () => {
     const user = userEvent.setup();
     mocks.plan.mockReturnValue({
       ...PLAN,
@@ -674,7 +629,9 @@ describe('ScribeRecommendationsDrawer', () => {
     const row = screen.getByTestId(testIds.row(id));
     expect(screen.queryByTestId(testIds.rowCheckbox(id))).toBeNull();
     await user.click(within(row).getByText('Setting E&M level: 99213'));
-    expect(within(row).getByText('This item can’t be edited here.')).toBeVisible();
+    // The editor repeats the row's own text — no "can't be edited" notice, and nothing to type into.
+    expect(within(row).getByText('Setting E&M level: 99213')).toBeVisible();
+    expect(within(row).getByText('Office visit, established patient, low complexity')).toBeVisible();
     expect(screen.queryByTestId(testIds.rowEditInput(id))).toBeNull();
     expect(rowCheckbox(id)).toBeChecked();
 
@@ -693,7 +650,7 @@ describe('ScribeRecommendationsDrawer', () => {
     await user.clear(wording);
     await user.type(wording, 'Maxillary sinus tenderness{Enter}');
     expect(screen.getByTestId(testIds.rowText(ID.examTenderness))).toHaveTextContent(
-      'Adding exam finding: Maxillary sinus tenderness'
+      'Exam finding: Maxillary sinus tenderness'
     );
 
     // a reading is parsed again as the server parsed it, so the number the chart gets follows the words
@@ -912,7 +869,7 @@ describe('ScribeRecommendationsDrawer', () => {
     const total = observations().length;
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 2} of ${total - 2} selected`);
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent('2 already charted');
-    expect(screen.getByTestId(testIds.applyObservationsButton)).toHaveTextContent(`Add ${total - 2} observations`);
+    expect(screen.getByTestId(testIds.applyObservationsButton)).toBeEnabled();
 
     await user.click(screen.getByTestId(testIds.applyObservationsButton));
     await waitFor(() => expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 2} added`));
@@ -938,7 +895,7 @@ describe('ScribeRecommendationsDrawer', () => {
     );
     expectCharted(ID.headache);
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent('1 already charted');
-    expect(screen.getByTestId(testIds.applyObservationsButton)).toHaveTextContent(`Add ${before - 1} observations`);
+    expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${before - 1} of ${before - 1} selected`);
   });
 
   it('keeps the transcript evidence off the row until the pointer is on the line', async () => {
@@ -993,7 +950,7 @@ describe('ScribeRecommendationsDrawer', () => {
     // a generic action row carries no box either, and opens onto the wording the executor will act on
     const generic = screen.getByTestId(testIds.row(ID.examTenderness));
     expect(screen.queryByTestId(testIds.rowCheckbox(ID.examTenderness))).toBeNull();
-    await user.click(within(generic).getByText('Adding exam finding: Sinus tenderness'));
+    await user.click(within(generic).getByText('Exam finding: Sinus tenderness'));
     expect(screen.getByTestId(testIds.rowEditInput(ID.examTenderness))).toHaveValue('Sinus tenderness');
     expect(rowCheckbox(ID.examTenderness)).toBeChecked();
     await lookAway(user);
@@ -1009,32 +966,6 @@ describe('ScribeRecommendationsDrawer', () => {
     const templateBody = screen.getByTestId(testIds.row(ID.template)).lastElementChild as HTMLElement;
     await user.click(templateBody);
     expect(screen.getByTestId(testIds.rowEditInput(ID.template))).toBeVisible();
-  });
-
-  it('opens an action row from the narrative straight into its editor, as the list does', async () => {
-    const user = userEvent.setup();
-    const quote = "It's mostly the pressure at this point.";
-    mocks.plan.mockReturnValue({
-      ...PLAN,
-      actions: PLAN.actions.map((action) =>
-        action.kind === 'add-exam-finding' ? { ...action, sourceText: quote } : action
-      ),
-    });
-    await openPanelWithRecommendations(user);
-
-    await user.click(screen.getByTestId(testIds.narrativeSpan(ID.examTenderness)));
-    const popover = screen.getByTestId(testIds.narrativePopover(ID.examTenderness));
-    const wording = within(popover).getByTestId(testIds.rowEditInput(ID.examTenderness));
-    expect(wording).toHaveValue('Sinus tenderness');
-    expect(within(popover).getByRole('checkbox')).toBeChecked();
-
-    // the wording changed there is the wording the list row shows
-    await user.clear(wording);
-    await user.type(wording, 'Frontal sinus tenderness{Enter}');
-    await waitFor(() => expect(screen.queryByTestId(testIds.narrativePopover(ID.examTenderness))).toBeNull());
-    expect(screen.getByTestId(testIds.rowText(ID.examTenderness))).toHaveTextContent(
-      'Adding exam finding: Frontal sinus tenderness'
-    );
   });
 
   it('labels the note editor by the field it writes', async () => {
@@ -1089,24 +1020,23 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(useScribeRecommendationsStore.getState().itemState[ID.hpi].edited).toBeUndefined();
   });
 
-  it('says so when the transcript yields nothing chartable', async () => {
+  it('says so when the narrative yields nothing chartable', async () => {
     const user = userEvent.setup();
     mocks.plan.mockReturnValue({ actions: [], rejected: [], ...envelope });
     render(<ScribeRecommendationsDrawer />, { wrapper: Wrapper });
     await user.click(screen.getByTestId(testIds.openButton));
-    await user.click(screen.getByTestId(testIds.useSampleButton));
+    seedNarrative();
     await user.click(screen.getByTestId(testIds.analyzeButton));
 
     expect(await screen.findByText(/couldn’t find anything chartable/)).toBeVisible();
-    expect(screen.queryByTestId(testIds.chartButton)).toBeNull();
     expect(screen.queryByTestId(testIds.stage('observations'))).toBeNull();
   });
 
-  it('remembers the panel width and open state across mounts, but not the transcript', async () => {
+  it('remembers the panel width and open state across mounts, but not the narrative', async () => {
     const user = userEvent.setup();
     const { unmount } = render(<ScribeRecommendationsDrawer />, { wrapper: Wrapper });
     await user.click(screen.getByTestId(testIds.openButton));
-    await user.click(screen.getByTestId(testIds.useSampleButton));
+    seedNarrative();
 
     const handle = screen.getByTestId(testIds.resizeHandle);
     handle.focus();
@@ -1396,7 +1326,7 @@ describe('isAlreadyCharted', () => {
     expect(charted({ kind: 'template', templateName: 'Sinusitis' })).toBe(false);
     // the executor judges its own duplicates as it runs
     expect(
-      charted({ kind: 'action', label: 'Adding exam finding: Sinus tenderness', action: { kind: 'add-exam-finding' } })
+      charted({ kind: 'action', label: 'Exam finding: Sinus tenderness', action: { kind: 'add-exam-finding' } })
     ).toBe(false);
   });
 

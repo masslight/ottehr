@@ -34,6 +34,7 @@ import {
 } from './scribeRecommendations.store';
 import { describeRecommendation, HPI_FIELD, rosFindingLetter } from './scribeSections';
 import { AI_SURFACE } from './ScribeStage';
+import { scaled } from './scribeTheme';
 import { ScribeRecommendation } from './types';
 
 interface RecommendationRowProps {
@@ -123,12 +124,20 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
   // Once the item is in the chart the caution has been acted on, so it stops flagging the row.
   const warning = isDone ? undefined : rawWarning;
 
-  const provenance = { warning, note: detail, evidence: recommendation.evidence };
+  const provenance = {
+    warning,
+    note: detail,
+    evidence: recommendation.evidence,
+    transcriptSources: recommendation.transcriptSources,
+    evidenceOrigin: recommendation.evidenceOrigin,
+  };
   const showProvenance = hasProvenance(provenance);
 
   const renderStatus = (): JSX.Element | null => {
     if (isApplying) {
-      return <CircularProgress size={18} data-testid={testIds.rowStatus(recommendation.id)} aria-label="Applying" />;
+      return (
+        <CircularProgress size={scaled(18)} data-testid={testIds.rowStatus(recommendation.id)} aria-label="Applying" />
+      );
     }
     // Nothing is drawn once it lands: the checkbox itself goes green, which is the same news
     // in a place the eye is already on.
@@ -137,7 +146,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
         <Tooltip title={itemState.reason ?? 'Nothing was written'}>
           <SkipNextIcon
             color="disabled"
-            sx={{ fontSize: 20 }}
+            sx={{ fontSize: scaled(20) }}
             data-testid={testIds.rowStatus(recommendation.id)}
             aria-label="Skipped"
           />
@@ -149,7 +158,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
         <Tooltip title={itemState.error ?? 'Could not apply'}>
           <ErrorOutlineIcon
             color="error"
-            sx={{ fontSize: 20 }}
+            sx={{ fontSize: scaled(20) }}
             data-testid={testIds.rowStatus(recommendation.id)}
             aria-label="Failed"
           />
@@ -193,7 +202,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
     >
       {/* A pending row carries no box to tick: it is read, and opened when it needs changing.
           The slot is held open so the green of a settled row doesn't shunt the line beside it. */}
-      <Box sx={{ width: 28, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+      <Box sx={{ width: scaled(28), flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
         {showCheckbox && (
           <Checkbox
             size="small"
@@ -236,7 +245,12 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
                 <Typography
                   variant="body2"
                   data-testid={testIds.rowFinding(recommendation.id)}
-                  sx={{ flexShrink: 0, width: 16, fontWeight: 600, color: ROS_FINDING_COLOR[recommendation.finding] }}
+                  sx={{
+                    flexShrink: 0,
+                    width: scaled(16),
+                    fontWeight: 600,
+                    color: ROS_FINDING_COLOR[recommendation.finding],
+                  }}
                 >
                   {`${rosFindingLetter(recommendation.finding)}:`}
                 </Typography>
@@ -263,12 +277,17 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
                     label="Primary"
                     color="primary"
                     variant="outlined"
-                    sx={{ height: 20, fontSize: 11 }}
+                    sx={{ height: scaled(20), fontSize: scaled(11) }}
                   />
                 )}
                 {charted && !isApplied && (
                   <Tooltip title="Already in the chart, so it won't be added again">
-                    <Chip size="small" label="Already charted" variant="outlined" sx={{ height: 20, fontSize: 11 }} />
+                    <Chip
+                      size="small"
+                      label="Already charted"
+                      variant="outlined"
+                      sx={{ height: scaled(20), fontSize: scaled(11) }}
+                    />
                   </Tooltip>
                 )}
               </Box>
@@ -310,7 +329,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
                 onRetry();
               }}
               disabled={locked}
-              sx={{ textTransform: 'none', minWidth: 0, p: 0, fontSize: 12 }}
+              sx={{ textTransform: 'none', minWidth: 0, p: 0, fontSize: scaled(12) }}
               data-testid={testIds.rowRetryButton(recommendation.id)}
             >
               Retry
@@ -327,7 +346,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
             role="img"
             aria-hidden={false}
             aria-label={warning}
-            sx={{ fontSize: 16, color: 'warning.main' }}
+            sx={{ fontSize: scaled(16), color: 'warning.main' }}
           />
         )}
         {renderStatus()}
@@ -343,7 +362,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
             // Hidden until the line is under the pointer (or holds focus, for the keyboard).
             sx={{ p: 0.5, ...HOVER_ONLY }}
           >
-            <EditOutlinedIcon sx={{ fontSize: 18 }} />
+            <EditOutlinedIcon sx={{ fontSize: scaled(18) }} />
           </IconButton>
         )}
       </Box>
@@ -621,12 +640,22 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
         );
       case 'action': {
         const editable = editableActionText(recommendation.action);
-        // A coded kind has no wording to edit: the editor is the tick and a word to say so.
+        // A coded kind (an E&M level, a CPT, a coded history item) has no wording to edit: the editor is
+        // the tick beside the same words the row shows, so the provider can leave it out without being
+        // told there is nothing to type.
         if (!editable) {
+          const { primary, secondary } = describeRecommendation(recommendation);
           return (
-            <Typography variant="body2" color="text.secondary">
-              This item can’t be edited here.
-            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
+              <Typography variant="body2" sx={{ fontWeight: 500, overflowWrap: 'anywhere' }}>
+                {primary}
+              </Typography>
+              {secondary && (
+                <Typography variant="caption" color="text.secondary">
+                  {secondary}
+                </Typography>
+              )}
+            </Box>
           );
         }
         return textField(editable.label, { multiline: editable.field === 'text' });

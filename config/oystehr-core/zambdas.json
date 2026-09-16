@@ -1266,6 +1266,13 @@
       "src": "src/ehr/easy-chart-review/index",
       "zip": ".dist/zips/easy-chart-review.zip"
     },
+    "EASY-CHART-NARRATIVE": {
+      "name": "easy-chart-narrative",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/easy-chart-narrative/index",
+      "zip": ".dist/zips/easy-chart-narrative.zip"
+    },
     "RECOMMEND-BILLING-SUGGESTIONS": {
       "name": "recommend-billing-suggestions",
       "type": "http_auth",

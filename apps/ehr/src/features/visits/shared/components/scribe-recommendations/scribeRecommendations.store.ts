@@ -1,8 +1,11 @@
+import { DocumentReference } from 'fhir/r4b';
 import { PickerRequest, PickerResponse } from 'src/features/easy-chart/executor/types';
-import { RejectedAction } from 'utils/lib/easy-chart/api';
+import { NarrativeLine, RejectedAction } from 'utils/lib/easy-chart/api';
+import { storedNarrativeOf, transcriptTextOf } from 'utils/lib/easy-chart/narrative';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { draftFromNarrative, narrativeText } from './narrativeLines';
 import {
   NarrativeSegment,
   OrderSuggestion,
@@ -24,8 +27,35 @@ export const clampScribePanelWidth = (width: number, viewportWidth: number = win
 
 export type ScribePhase = 'input' | 'analyzing' | 'ready';
 
-/** Reads the transcript and answers with recommendations: the plan and review endpoints, behind one function. */
-export type ScribeAnalyzer = (transcript: string) => Promise<ScribeAnalysis>;
+/**
+ * Reads the visit and answers with recommendations: the plan and review endpoints, behind one function.
+ * The transcript is what the planner is sent, when there is one; the narrative text and the generated lines
+ * it was edited from go along only as the provider's corrections, and only when the two differ. Without a
+ * transcript the narrative text is the dictation itself.
+ */
+export type ScribeAnalyzer = (
+  narrative: string,
+  generated: NarrativeLine[],
+  transcript: string
+) => Promise<ScribeAnalysis>;
+
+/**
+ * Writes the narrative from a transcript: the narrative endpoint, behind one function. `documentId` names the
+ * transcript document the text came from, so the server can store the narrative on it.
+ */
+export type NarrativeGenerator = (transcript: string, documentId?: string) => Promise<NarrativeLine[]>;
+
+/**
+ * Where the transcript came from: a transcript document already on the visit (an ambient recording, the
+ * intake chat), or nothing yet. A transcript is read-only data the visit already holds — there is no way to
+ * type one here; the narrative is what the provider writes and edits, and the only thing the planner receives.
+ */
+export type TranscriptSource = 'document' | 'none';
+
+export type NarrativeStatus = 'idle' | 'generating' | 'ready' | 'error';
+
+/** The key a row opened from the narrative popover holds the editor under — see `editingId`. */
+export const narrativeEditingKey = (id: string): string => `narrative-${id}`;
 
 export interface RecommendationItemState {
   selected: boolean;
@@ -56,10 +86,23 @@ interface ScribeRecommendationsState {
 
   /** Encounter the transcript and recommendations belong to; switching visits resets them. */
   encounterId?: string;
+  /** The selected document's decoded text. Read-only evidence; sent to the planner as such. */
   transcript: string;
+  transcriptSource: TranscriptSource;
+  sourceDocumentId?: string;
+  /**
+   * The narrative as the generator wrote it — from the server, or stored on the transcript document — kept
+   * so its sentences can be found again in the draft and traced to their transcript snippets.
+   */
+  narrativeGenerated: NarrativeLine[];
+  /** The narrative as the provider edits it: one paragraph, the only thing the planner is sent. */
+  narrativeDraft: string;
+  narrativeStatus: NarrativeStatus;
+  narrativeError?: string;
   phase: ScribePhase;
   analysisError?: string;
-  narrative: NarrativeSegment[];
+  /** The narrative told back on the results screen, cut into runs around each recommendation's quote. */
+  narrativeRuns: NarrativeSegment[];
   recommendations: ScribeRecommendation[];
   itemState: Record<string, RecommendationItemState>;
   orderSuggestions: OrderSuggestion[];
@@ -86,10 +129,14 @@ interface ScribeRecommendationsState {
   setWidth: (width: number) => void;
 
   startSession: (encounterId: string | undefined) => void;
-  setTranscript: (transcript: string) => void;
+  /**
+   * Takes a transcript document as the source: its narrative, if the pipeline already stored one on it,
+   * or a freshly generated one. Selecting the document already selected is a no-op, so edits survive.
+   */
+  selectTranscriptDocument: (doc: DocumentReference, generate: NarrativeGenerator) => Promise<void>;
+  generateNarrative: (generate: NarrativeGenerator) => Promise<void>;
+  setNarrativeDraft: (text: string) => void;
   analyze: (analyzer: ScribeAnalyzer) => Promise<void>;
-  /** Back to the transcript step, keeping the transcript text. */
-  resetAnalysis: () => void;
 
   setSelected: (id: string, selected: boolean) => void;
   setManySelected: (ids: string[], selected: boolean) => void;
@@ -112,11 +159,11 @@ interface ScribeRecommendationsState {
   answerPick: (response: PickerResponse) => void;
 }
 
-const SESSION_INITIAL = {
-  transcript: '',
+/** The results of an analysis, cleared on a new visit. Planning again replaces them rather than clearing them. */
+const RESULTS_CLEARED = {
   phase: 'input' as ScribePhase,
   analysisError: undefined,
-  narrative: [] as NarrativeSegment[],
+  narrativeRuns: [] as NarrativeSegment[],
   recommendations: [] as ScribeRecommendation[],
   itemState: {} as Record<string, RecommendationItemState>,
   orderSuggestions: [] as OrderSuggestion[],
@@ -124,10 +171,26 @@ const SESSION_INITIAL = {
   rejected: [] as RejectedAction[],
   notes: [] as string[],
   isApplying: false,
-  chartedIds: [] as string[],
   hoveredItemId: undefined,
   editingId: undefined,
   pendingPick: null,
+};
+
+/** Nothing yet: no narrative, generated or drafted, and nothing to trace one to. */
+const NARRATIVE_CLEARED = {
+  narrativeGenerated: [] as NarrativeLine[],
+  narrativeDraft: '',
+  narrativeStatus: 'idle' as NarrativeStatus,
+};
+
+const SESSION_INITIAL = {
+  ...RESULTS_CLEARED,
+  transcript: '',
+  transcriptSource: 'none' as TranscriptSource,
+  sourceDocumentId: undefined,
+  ...NARRATIVE_CLEARED,
+  narrativeError: undefined,
+  chartedIds: [] as string[],
 };
 
 export const useScribeRecommendationsStore = create<ScribeRecommendationsState>()(
@@ -146,13 +209,53 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
         if (get().encounterId === encounterId) return;
         set({ encounterId, ...SESSION_INITIAL });
       },
-      setTranscript: (transcript) => set({ transcript, analysisError: undefined }),
+
+      selectTranscriptDocument: async (doc, generate) => {
+        const transcript = transcriptTextOf(doc);
+        if (transcript === undefined || get().sourceDocumentId === doc.id) return;
+        set({
+          transcript,
+          transcriptSource: 'document',
+          sourceDocumentId: doc.id,
+          analysisError: undefined,
+          narrativeError: undefined,
+        });
+        // The recording pipeline writes the narrative onto the document as it transcribes, so most of the
+        // time there is nothing to wait for.
+        const stored = storedNarrativeOf(doc);
+        if (stored) {
+          set({ narrativeGenerated: stored, narrativeDraft: draftFromNarrative(stored), narrativeStatus: 'ready' });
+          return;
+        }
+        await get().generateNarrative(generate);
+      },
+
+      generateNarrative: async (generate) => {
+        const { transcript, encounterId, sourceDocumentId } = get();
+        set({ narrativeStatus: 'generating', narrativeError: undefined });
+        try {
+          const lines = await generate(transcript, sourceDocumentId);
+          // The visit or the transcript may have changed while the model was writing.
+          if (get().encounterId !== encounterId || get().transcript !== transcript) return;
+          // Regenerating replaces the draft: whatever the provider had typed over the old one goes with it.
+          set({ narrativeGenerated: lines, narrativeDraft: draftFromNarrative(lines), narrativeStatus: 'ready' });
+        } catch (error) {
+          console.error('Narrative generation failed', error);
+          if (get().encounterId !== encounterId || get().transcript !== transcript) return;
+          set({
+            narrativeStatus: 'error',
+            // Zambda calls reject with a plain APIError object rather than an Error instance; keep the server's wording.
+            narrativeError: getApiError({ error, defaultError: 'Could not write the narrative.' }),
+          });
+        }
+      },
+      setNarrativeDraft: (narrativeDraft) => set({ narrativeDraft }),
 
       analyze: async (analyzer) => {
-        const { transcript, encounterId } = get();
+        const { narrativeDraft, narrativeGenerated, transcript, encounterId } = get();
         set({ phase: 'analyzing', analysisError: undefined });
         try {
-          const analysis = await analyzer(transcript);
+          const analysis = await analyzer(narrativeText(narrativeDraft), narrativeGenerated, transcript);
           // The visit may have changed while the model was thinking.
           if (get().encounterId !== encounterId) return;
           const itemState: Record<string, RecommendationItemState> = {};
@@ -161,7 +264,7 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
           analysis.recommendations.forEach((rec) => (itemState[rec.id] = { selected: !rec.confirm, status: 'idle' }));
           set({
             phase: 'ready',
-            narrative: analysis.narrative,
+            narrativeRuns: analysis.narrativeRuns,
             recommendations: analysis.recommendations,
             itemState,
             orderSuggestions: analysis.orderSuggestions,
@@ -175,27 +278,10 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
           set({
             phase: 'input',
             // Zambda calls reject with a plain APIError object rather than an Error instance; keep the server's wording.
-            analysisError: getApiError({ error, defaultError: 'Could not analyze the transcript.' }),
+            analysisError: getApiError({ error, defaultError: 'Could not analyze the narrative.' }),
           });
         }
       },
-
-      resetAnalysis: () =>
-        set({
-          phase: 'input',
-          analysisError: undefined,
-          narrative: [],
-          recommendations: [],
-          itemState: {},
-          orderSuggestions: [],
-          ordersDone: {},
-          rejected: [],
-          notes: [],
-          isApplying: false,
-          hoveredItemId: undefined,
-          editingId: undefined,
-          pendingPick: null,
-        }),
 
       setSelected: (id, selected) =>
         set((state) => ({
@@ -269,7 +355,7 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
     {
       name: 'ambient-scribe-recommendations-panel',
       storage: createJSONStorage(() => localStorage),
-      // Only the layout preference survives a reload; a transcript belongs to one sitting.
+      // Only the layout preference survives a reload; a transcript and its narrative belong to one sitting.
       partialize: (state) => ({ isOpen: state.isOpen, width: state.width }),
     }
   )
@@ -286,6 +372,22 @@ export const startEditingUnlessAnotherIsOpen = (editingKey: string): void => {
   const { editingId, setEditingId } = useScribeRecommendationsStore.getState();
   if (editingId !== undefined && editingId !== editingKey) return;
   setEditingId(editingKey);
+};
+
+/**
+ * The recommendation the provider is attending to: the one whose editor is open if any (in the list, or
+ * in the narrative popover under its own key), else the one under the pointer. The transcript evidence
+ * highlights this one's snippets.
+ */
+export const activeRecommendationId = (state: ScribeRecommendationsState): string | undefined => {
+  const { editingId } = state;
+  if (editingId !== undefined) {
+    const editing = state.recommendations.find(
+      (rec) => rec.id === editingId || narrativeEditingKey(rec.id) === editingId
+    );
+    if (editing) return editing.id;
+  }
+  return state.hoveredItemId;
 };
 
 /** Horizontal space the scribe UI currently occupies on the right edge (rail or open panel). */

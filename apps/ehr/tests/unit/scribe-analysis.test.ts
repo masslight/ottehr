@@ -105,7 +105,7 @@ describe('buildAnalysis', () => {
       ['action', 'assessment'],
       ['action', 'vitals'],
     ]);
-    expect(recs[0]).toMatchObject({ label: 'Adding exam finding: Sinus tenderness' });
+    expect(recs[0]).toMatchObject({ label: 'Exam finding: Sinus tenderness' });
     expect(recs[1]).toMatchObject({ label: 'Setting disposition: pcp', secondary: 'Follow up with PCP in one week.' });
     expect(recs[2]).toMatchObject({ label: 'Setting E&M level: 99213', secondary: 'Office visit, established, low' });
     // The wrapped action is returned untouched.
@@ -247,7 +247,7 @@ describe('buildAnalysis', () => {
   it('leaves a review-of-systems wording that matches several symptoms as a generic row', () => {
     // "pain" is in a dozen labels across as many systems; guessing one would chart the wrong finding.
     const [rec] = analyse([{ kind: 'add-ros-finding', display: 'reports pain', finding: 'reports' }]);
-    expect(rec).toMatchObject({ kind: 'action', section: 'ros', label: 'Adding review of systems: reports pain' });
+    expect(rec).toMatchObject({ kind: 'action', section: 'ros', label: 'Review of systems: reports pain' });
   });
 
   it('files each action kind under the section its page charts', () => {
@@ -285,9 +285,9 @@ describe('the narrative is the transcript, with the evidence highlighted', () =>
         { kind: 'add-allergy', display: 'Latex' },
       ]),
       undefined,
-      { written: {}, transcript }
+      { written: {}, narrative: transcript }
     );
-    expect(analysis.narrative).toEqual([
+    expect(analysis.narrativeRuns).toEqual([
       { text: 'Provider: Any fever?\nPatient: ' },
       { text: 'No fever. I checked a couple of times.', itemIds: ['plan:add-ros-finding:denies-fever'] },
       { text: '\nPatient: ' },
@@ -309,10 +309,10 @@ describe('the narrative is the transcript, with the evidence highlighted', () =>
         { kind: 'add-diagnosis', code: 'R09.82', display: 'Postnasal drip', sourceText: 'post-nasal drip' },
       ]),
       undefined,
-      { written: {}, transcript: sentence }
+      { written: {}, narrative: sentence }
     );
     const hpi = 'plan:edit-note-text:historyOfPresentIllness';
-    expect(analysis.narrative).toEqual([
+    expect(analysis.narrativeRuns).toEqual([
       { text: 'Patient: ' },
       { text: "I've had this ", itemIds: [hpi] },
       { text: 'post-nasal drip', itemIds: [hpi, 'plan:add-diagnosis:R09-82'] },
@@ -322,9 +322,9 @@ describe('the narrative is the transcript, with the evidence highlighted', () =>
 
   it('has no narrative without a transcript, and a plain one when nothing was quoted', () => {
     const actions: PlannedAction[] = [{ kind: 'add-allergy', display: 'Latex' }];
-    expect(buildAnalysis(plan(actions), undefined, { written: {} }).narrative).toEqual([]);
+    expect(buildAnalysis(plan(actions), undefined, { written: {} }).narrativeRuns).toEqual([]);
     expect(
-      buildAnalysis(plan(actions), undefined, { written: {}, transcript: 'Allergic to latex.' }).narrative
+      buildAnalysis(plan(actions), undefined, { written: {}, narrative: 'Allergic to latex.' }).narrativeRuns
     ).toEqual([{ text: 'Allergic to latex.' }]);
   });
 });

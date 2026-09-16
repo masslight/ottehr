@@ -1,14 +1,20 @@
 import { useCallback } from 'react';
 import { useEasyChartData } from 'src/features/easy-chart/hooks/useEasyChartData';
+import { NarrativeLine } from 'utils/lib/easy-chart/api';
 import { buildNoteContextFromChart } from 'utils/lib/easy-chart/chart-state';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { buildAnalysis } from './analysis';
+import { draftFromNarrative, narrativeText } from './narrativeLines';
 import { ScribeAnalyzer } from './scribeRecommendations.store';
 
 /**
- * The analysis behind the "Get charting recommendations" button: the Easy Chart plan endpoint reads the
- * transcript into typed actions, and those become the panel's recommendations.
+ * The analysis behind the "Plan note" button: the Easy Chart plan endpoint reads the
+ * TRANSCRIPT into typed actions, and those become the panel's recommendations. The narrative step only
+ * supplies the provider's corrections: when they edited the generated read-back, the draft and their version
+ * go along as `providerEdits`, and the planner follows the differences over the transcript. Unedited, the
+ * call is the plain transcript call. Without a transcript (the provider typed the narrative by hand), the
+ * narrative itself is what the planner reads.
  *
  * The chart is NOT sent. The endpoint reads it by encounterId — the same pair of get-chart-data calls the
  * visit-note PDF makes — so the model sees every section, not just the ones this page happens to fetch.
@@ -27,13 +33,30 @@ export const useScribeAnalyzer = (): ScribeAnalyzer => {
   const { chartData } = useEasyChartData(encounterId);
 
   return useCallback(
-    async (transcript: string) => {
+    async (narrative: string, narrativeGenerated: NarrativeLine[], transcript: string) => {
       if (!apiClient || !encounterId) throw new Error('The visit is still loading. Please try again.');
-      // A transcript is the FIRST pass over the visit, never an addendum to a note already written.
-      const plan = await apiClient.easyChartPlan({ narrative: transcript, encounterId, incremental: false });
-      // The transcript rides along so the analysis can tell the visit back: the transcript itself, with each
-      // recommendation's verified quote highlighted and linked to its row.
-      return buildAnalysis(plan, undefined, { written: buildNoteContextFromChart(chartData) ?? {}, transcript });
+      const edited = narrativeText(narrative);
+      const draftText = draftFromNarrative(narrativeGenerated);
+      const hasTranscript = transcript.trim() !== '';
+      // The draft is only worth sending when the provider changed it; unedited, the read-back changes nothing.
+      const providerEdits =
+        hasTranscript && draftText && edited.trim() !== draftText.trim() ? { draft: draftText, edited } : undefined;
+      // A narrative is the FIRST pass over the visit, never an addendum to a note already written.
+      const plan = await apiClient.easyChartPlan({
+        narrative: hasTranscript ? transcript : edited,
+        encounterId,
+        incremental: false,
+        ...(providerEdits ? { providerEdits } : {}),
+      });
+      // The narrative rides along so the analysis can tell the visit back — the narrative itself, with each
+      // recommendation's verified quote highlighted and linked to its row — and the generated sentences so
+      // each quote can be traced one hop further, to the transcript snippets behind the sentence it sits in.
+      return buildAnalysis(plan, undefined, {
+        written: buildNoteContextFromChart(chartData) ?? {},
+        narrative: edited,
+        narrativeGenerated,
+        narrativeIsTranscript: hasTranscript,
+      });
     },
     [apiClient, encounterId, chartData]
   );

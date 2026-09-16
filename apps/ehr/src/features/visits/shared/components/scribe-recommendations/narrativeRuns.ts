@@ -2,23 +2,21 @@ import { locateQuote } from 'utils/lib/easy-chart/provenance';
 import { NarrativeSegment, ScribeRecommendation } from './types';
 
 /**
- * The transcript cut into runs: plain text, and the phrases the recommendations were drawn from, each run
+ * The narrative cut into runs: plain text, and the phrases the recommendations were drawn from, each run
  * carrying the ids of every recommendation that cites it.
  *
- * This is the "narrative" the panel tells the visit back with. The model does not write one; it writes a
- * verbatim `sourceText` on each action, which the server has already checked against the transcript. So the
- * story is the transcript itself, and the highlights are the evidence — the provider reads what was said and
- * finds the item it produced, or reads an item and sees the words behind it, from either end.
+ * This is how the panel tells the visit back on the results screen. The planner does not write a story; it
+ * writes a verbatim `sourceText` on each action, which the server has already checked against the narrative
+ * it was given. So the story is the narrative itself, and the highlights are the evidence — the provider
+ * reads what was written and finds the item it produced, or reads an item and sees the words behind it,
+ * from either end. (The transcript behind the narrative is shown separately, as evidence for the lines.)
  *
  * Two citations can overlap (the HPI quotes a sentence, the diagnosis quotes a phrase inside it), so the text
  * is cut at every citation boundary and each piece carries every id whose quote covers it; neighbouring
  * pieces with the same ids are joined back so one highlight is one span.
  */
-export function buildTranscriptNarrative(
-  transcript: string,
-  recommendations: ScribeRecommendation[]
-): NarrativeSegment[] {
-  const text = transcript ?? '';
+export function buildNarrativeRuns(narrative: string, recommendations: ScribeRecommendation[]): NarrativeSegment[] {
+  const text = narrative ?? '';
   if (!text.trim()) return [];
 
   const ranges: { start: number; end: number; id: string }[] = [];
@@ -27,6 +25,14 @@ export function buildTranscriptNarrative(
     const at = locateQuote(text, rec.evidence);
     if (at && at.end > at.start) ranges.push({ ...at, id: rec.id });
   }
+  return cutRuns(text, ranges);
+}
+
+/**
+ * `text` cut at every range boundary, each piece carrying the ids of the ranges that cover it. Shared with
+ * the transcript evidence, which cuts the transcript the same way around an item's source snippets.
+ */
+export function cutRuns(text: string, ranges: { start: number; end: number; id: string }[]): NarrativeSegment[] {
   if (ranges.length === 0) return [{ text }];
 
   const bounds = [...new Set([0, text.length, ...ranges.flatMap((range) => [range.start, range.end])])].sort(

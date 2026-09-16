@@ -1,6 +1,6 @@
 import { aiIcon } from '@ehrTheme/icons';
-import { Badge, Box, IconButton, Tooltip, useTheme } from '@mui/material';
-import { FC, KeyboardEvent, PointerEvent, useEffect, useState } from 'react';
+import { Badge, Box, IconButton, ThemeProvider, Tooltip, useTheme } from '@mui/material';
+import { FC, KeyboardEvent, PointerEvent, useEffect, useMemo, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import {
@@ -10,6 +10,7 @@ import {
   useScribeRecommendationsStore,
 } from './scribeRecommendations.store';
 import { ScribeRecommendationsPanel } from './ScribeRecommendationsPanel';
+import { scaleScribeTheme } from './scribeTheme';
 
 const testIds = dataTestIds.scribeRecommendations;
 const KEYBOARD_RESIZE_STEP = 24;
@@ -19,6 +20,17 @@ const KEYBOARD_RESIZE_STEP = 24;
  * works in both at once), collapses to a thin rail, and can be dragged wider or narrower.
  */
 export const ScribeRecommendationsDrawer: FC = () => {
+  // Its type one step larger than the note's; the popovers and dialogs opened from it inherit this too.
+  const theme = useTheme();
+  const scaledTheme = useMemo(() => scaleScribeTheme(theme), [theme]);
+  return (
+    <ThemeProvider theme={scaledTheme}>
+      <DrawerBody />
+    </ThemeProvider>
+  );
+};
+
+const DrawerBody: FC = () => {
   const theme = useTheme();
   const { encounter } = useAppointmentData();
   const isOpen = useScribeRecommendationsStore((state) => state.isOpen);
@@ -98,8 +110,8 @@ export const ScribeRecommendationsDrawer: FC = () => {
           backgroundColor: theme.palette.background.paper,
         }}
       >
-        <Tooltip title="AI Chart Recommendations" placement="left">
-          <IconButton onClick={open} aria-label="Open AI Chart Recommendations" data-testid={testIds.openButton}>
+        <Tooltip title="Autochart" placement="left">
+          <IconButton onClick={open} aria-label="Open Autochart" data-testid={testIds.openButton}>
             <Badge badgeContent={pendingCount} color="primary" max={99}>
               <img src={aiIcon} alt="" aria-hidden style={{ width: 22 }} />
             </Badge>

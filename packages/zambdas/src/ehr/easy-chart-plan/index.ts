@@ -102,6 +102,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const tail: PromptTailInput = {
     narrative,
+    // Present only when the provider corrected the read-back; the prompt renders it just before the narrative.
+    providerEdits: params.providerEdits,
     // The caller-supplied fallback is dropped wherever the list is withheld, or the client could put back
     // exactly what the server just decided not to send.
     templateTitles: templatesUsable ? templateTitles ?? params.templateTitles : undefined,
@@ -126,7 +128,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // The stage IS the surface: the vocabulary, the response schema and the action-shape prose all come
   // from the registry keyed on it, so a stage costs a preamble and its own rules and nothing else.
   const prompt = buildPrompt(surface, tail);
-  console.log(`[${ZAMBDA_NAME}] prompt ${prompt.length} chars, narrative ${narrative.length} chars`);
+  console.log(
+    `[${ZAMBDA_NAME}] prompt ${prompt.length} chars, narrative ${narrative.length} chars, draft ${
+      params.providerEdits?.draft.length ?? 0
+    } chars, edited ${params.providerEdits?.edited.length ?? 0} chars`
+  );
 
   const { parsed, usage, escalation } = await callModelForJson(
     prompt,
@@ -147,6 +153,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } = await applyGuards(parsed, {
     oystehr,
     narrative,
+    // Second text a quote may verify against, after the narrative. See GuardContext.editedNarrative.
+    editedNarrative: params.providerEdits?.edited,
     chartedItems: [...(params.chartedExamFindings ?? []), ...splitChartState(params.chartState)],
     logPrefix: ZAMBDA_NAME,
     // Read by the primary-diagnosis invariant: on an addendum, an existing primary must not be usurped.

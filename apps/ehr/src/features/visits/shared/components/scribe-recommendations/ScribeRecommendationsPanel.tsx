@@ -4,32 +4,45 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   IconButton,
   LinearProgress,
   Paper,
-  TextField,
   Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
-import { FC, ReactNode } from 'react';
+import { DocumentReference } from 'fhir/r4b';
+import { FC, ReactNode, useMemo, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { describeAction } from 'src/features/easy-chart/executor/labels';
+import { useApiClients } from 'src/hooks/useAppClients';
 import { PlannedAction, RejectedAction } from 'utils/lib/easy-chart/api';
+import { isTranscriptDocument } from 'utils/lib/easy-chart/narrative';
+import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 import { AiDisclaimerTooltip } from '../AiSection';
+import { getDocumentReferenceSource, getSource } from '../OttehrAi';
 import { useListTemplates } from '../templates/useListTemplates';
 import { useSyncChartedRecommendations } from './chartedRecommendations';
-import { NarrativeSummary } from './NarrativeSummary';
+import { NarrativeEditor } from './NarrativeEditor';
+import { narrativeText } from './narrativeLines';
 import { OrderSuggestions } from './OrderSuggestions';
 import { PickerDialog } from './PickerDialog';
 import { RecommendationsList } from './RecommendationsList';
-import { SAMPLE_TRANSCRIPT } from './sampleTranscript';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
 import { ScribeStage } from './ScribeStage';
+import { roundedButtonSx, scaled } from './scribeTheme';
 import { TemplateStage } from './TemplateStage';
+import { TranscriptEvidence } from './TranscriptEvidence';
 import { TemplateRecommendation } from './types';
 import { useApplyRecommendations } from './useApplyRecommendations';
+import { useNarrativeGenerator } from './useNarrativeGenerator';
 import { useScribeAnalyzer } from './useScribeAnalyzer';
 
 interface ScribeRecommendationsPanelProps {
@@ -47,7 +60,7 @@ export const ScribeRecommendationsPanel: FC<ScribeRecommendationsPanelProps> = (
       data-testid={testIds.panel}
       sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
       role="complementary"
-      aria-label="AI Chart Recommendations"
+      aria-label="Autochart"
     >
       <Box
         sx={{
@@ -61,8 +74,8 @@ export const ScribeRecommendationsPanel: FC<ScribeRecommendationsPanelProps> = (
         }}
       >
         <img src={aiIcon} alt="" aria-hidden style={{ width: 22 }} />
-        <Typography variant="subtitle2" sx={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 13 }}>
-          AI Chart Recommendations
+        <Typography variant="subtitle2" sx={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: scaled(13) }}>
+          Autochart
         </Typography>
         <AiDisclaimerTooltip />
         <Tooltip title="Collapse panel">
@@ -77,64 +90,171 @@ export const ScribeRecommendationsPanel: FC<ScribeRecommendationsPanelProps> = (
         </Tooltip>
       </Box>
 
-      {phase === 'ready' ? <ResultsStep /> : <TranscriptStep />}
+      {/*
+        One screen, whether or not a plan has been read. The transcript and the narrative stay exactly
+        where they were put — same chips, same editor, same button — and the suggestions arrive
+        UNDERNEATH them rather than replacing them. Planning again is then the same button in the same
+        place, so there is no way back to find; and the narrative a suggestion is questioned against is
+        still on screen to read it against.
+      */}
+      <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <NarrativeStep />
+        {/* A plan read from the previous narrative, still on screen while the next one is being read,
+            would be answering a narrative nobody is looking at. */}
+        {phase === 'ready' && <ResultsStep />}
+      </Box>
     </Box>
   );
 };
 
-const TranscriptStep: FC = () => {
+/**
+ * The input, in two parts, and the one button that reads it. First the TRANSCRIPT — picked from the
+ * recordings and chats already on the visit, which is raw dialogue, read-only, and never edited or typed
+ * here. Then the NARRATIVE written from it: one provider-voice paragraph the provider corrects, and the only
+ * thing the planner is sent. The split is what makes the recommendations checkable: every one quotes the
+ * narrative, and every generated sentence of the narrative is traceable to the transcript words it came
+ * from — or is called out as coming from none.
+ *
+ * A visit with no transcript is not a dead end: the narrative editor is the provider's own box to type or
+ * dictate into, and the planner reads that just the same.
+ *
+ * This stays on screen after the plan comes back, with the suggestions below it, so it is also how the
+ * provider plans again: fix the narrative, press the button, confirm that the suggestions go.
+ */
+const NarrativeStep: FC = () => {
   const transcript = useScribeRecommendationsStore((state) => state.transcript);
+  const sourceDocumentId = useScribeRecommendationsStore((state) => state.sourceDocumentId);
+  const narrativeDraft = useScribeRecommendationsStore((state) => state.narrativeDraft);
+  const narrativeStatus = useScribeRecommendationsStore((state) => state.narrativeStatus);
   const phase = useScribeRecommendationsStore((state) => state.phase);
   const analysisError = useScribeRecommendationsStore((state) => state.analysisError);
-  const setTranscript = useScribeRecommendationsStore((state) => state.setTranscript);
+  // Suggestions being written into the chart are mid-flight; replacing them under the run would leave
+  // the rows the executor is still reporting on belonging to a plan nobody asked for.
+  const isApplying = useScribeRecommendationsStore((state) => state.isApplying);
+  const selectTranscriptDocument = useScribeRecommendationsStore((state) => state.selectTranscriptDocument);
+  const generateNarrative = useScribeRecommendationsStore((state) => state.generateNarrative);
   const analyze = useScribeRecommendationsStore((state) => state.analyze);
-  // The plan and review endpoints, behind one function; the store only knows it gets an analysis back.
+  // The narrative and plan endpoints, each behind one function; the store only knows what it gets back.
+  const generate = useNarrativeGenerator();
   const analyzer = useScribeAnalyzer();
+
+  // The transcripts already on the visit ride along with the UNSCOPED chart-data call — the only one that
+  // returns `aiChat` — which lands on the same react-query entry the analyzer's read does; the providers
+  // come with them, for naming who recorded each one.
+  const { encounter } = useAppointmentData();
+  const { chartData } = useChartData({ encounterId: encounter?.id, enabled: Boolean(encounter?.id) });
+  const { oystehr } = useApiClients();
+  const documents = useMemo(
+    () =>
+      (chartData?.aiChat?.documents ?? [])
+        .filter(isTranscriptDocument)
+        .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? '')),
+    [chartData?.aiChat?.documents]
+  );
+  const hasPendingRecording = Boolean(chartData?.aiChat?.hasPendingRecording);
+
   const isAnalyzing = phase === 'analyzing';
+  const isGenerating = narrativeStatus === 'generating';
+  const isBusy = isAnalyzing || isGenerating;
+  const narrative = narrativeText(narrativeDraft);
+
+  const pick = (doc: DocumentReference): void => {
+    void selectTranscriptDocument(doc, generate);
+  };
+
+  // Planning again throws the standing suggestions away, and with them every tick and correction the
+  // provider has made to them that hasn't been charted yet, so it is asked about first. A MUI dialog
+  // rather than `window.confirm`: a browser dialog blocks the page, and nothing can drive it.
+  const [replanOpen, setReplanOpen] = useState(false);
+  const runAnalysis = (): void => {
+    setReplanOpen(false);
+    void analyze(analyzer);
+  };
 
   return (
-    <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       <Typography variant="body2" color="text.secondary">
-        Paste the transcript of the encounter. You’ll get a list of suggested chart updates to review, edit and apply to
-        the progress note. Nothing is written until you apply it.
+        Select a transcript or type/dictate a narrative.
       </Typography>
-      <TextField
-        value={transcript}
-        onChange={(event) => setTranscript(event.target.value)}
-        multiline
-        minRows={10}
-        maxRows={22}
-        fullWidth
-        label="Encounter transcript"
-        placeholder="Provider: What brings you in today?&#10;Patient: …"
-        disabled={isAnalyzing}
-        inputProps={{ 'data-testid': testIds.transcriptInput }}
-      />
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
-        <Button
-          size="small"
-          onClick={() => setTranscript(SAMPLE_TRANSCRIPT)}
-          disabled={isAnalyzing}
-          sx={{ textTransform: 'none' }}
-          data-testid={testIds.useSampleButton}
-        >
-          Use sample transcript
-        </Button>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+        <Typography variant="subtitle2" sx={{ fontSize: scaled(13) }}>
+          Transcripts on this visit
+        </Typography>
+        {documents.length === 0 && !hasPendingRecording ? (
+          <Typography variant="caption" color="text.secondary">
+            No transcripts on this visit yet.
+          </Typography>
+        ) : (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+            {documents.map((doc) => {
+              const source = getDocumentReferenceSource(doc);
+              const selected = doc.id === sourceDocumentId;
+              return (
+                <Chip
+                  key={doc.id}
+                  label={`${source === 'audio' ? '🎤' : '💬'} ${getSource(doc, oystehr, chartData?.aiChat?.providers)}`}
+                  variant={selected ? 'filled' : 'outlined'}
+                  color={selected ? 'primary' : 'default'}
+                  onClick={() => pick(doc)}
+                  disabled={isBusy}
+                  data-testid={testIds.transcriptChip(doc.id ?? '')}
+                />
+              );
+            })}
+            {hasPendingRecording && (
+              <Chip label="Transcribing…" variant="outlined" disabled data-testid={testIds.transcriptPendingChip} />
+            )}
+          </Box>
+        )}
+      </Box>
+
+      {/* The picked document's dialogue, read-only and folded away: evidence to check the narrative against,
+          not something to work in. */}
+      {transcript && <TranscriptEvidence transcript={transcript} defaultExpanded={false} />}
+
+      <NarrativeEditor disabled={isBusy} onRegenerate={() => void generateNarrative(generate)} />
+
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
         <RoundedButton
           variant="contained"
-          onClick={() => void analyze(analyzer)}
-          disabled={!transcript.trim() || isAnalyzing}
+          onClick={() => (phase === 'ready' ? setReplanOpen(true) : runAnalysis())}
+          disabled={!narrative || isBusy || isApplying}
           loading={isAnalyzing}
+          sx={roundedButtonSx}
           data-testid={testIds.analyzeButton}
         >
-          Get charting recommendations
+          Plan note
         </RoundedButton>
       </Box>
+      <Dialog open={replanOpen} onClose={() => setReplanOpen(false)} data-testid={testIds.replanDialog}>
+        <DialogTitle>Replace the suggestions?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>Anything you’ve ticked or edited but not yet applied will be lost.</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setReplanOpen(false)}
+            sx={{ textTransform: 'none' }}
+            data-testid={testIds.replanCancelButton}
+          >
+            Cancel
+          </Button>
+          <RoundedButton
+            variant="contained"
+            onClick={runAnalysis}
+            sx={roundedButtonSx}
+            data-testid={testIds.replanConfirmButton}
+          >
+            Replace
+          </RoundedButton>
+        </DialogActions>
+      </Dialog>
       {isAnalyzing && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           <LinearProgress />
           <Typography variant="caption" color="text.secondary">
-            Reading the transcript and drafting recommendations…
+            Reading the narrative and drafting recommendations…
           </Typography>
         </Box>
       )}
@@ -143,9 +263,12 @@ const TranscriptStep: FC = () => {
   );
 };
 
+/**
+ * What the planner made of the narrative, under the narrative it read: the template it would apply, the
+ * observations it would add, the orders it would suggest, and what it refused. The narrative itself is not
+ * repeated here — it is a few lines up, in the editor, and one copy of it is the one being corrected.
+ */
 const ResultsStep: FC = () => {
-  const transcript = useScribeRecommendationsStore((state) => state.transcript);
-  const narrative = useScribeRecommendationsStore((state) => state.narrative);
   const recommendations = useScribeRecommendationsStore((state) => state.recommendations);
   const itemState = useScribeRecommendationsStore((state) => state.itemState);
   const orderSuggestions = useScribeRecommendationsStore((state) => state.orderSuggestions);
@@ -178,34 +301,6 @@ const ResultsStep: FC = () => {
   const skippedCount = observations.filter((rec) => itemState[rec.id]?.status === 'skipped').length;
   const allPendingSelected = pending.length > 0 && selectedPending.length === pending.length;
 
-  // The Chart button does the whole review in one go: the template first, without the section
-  // picker (the apply falls back to the panel's own defaults), then the checked observations.
-  const templatePending =
-    template !== undefined &&
-    itemState[template.id]?.selected !== false &&
-    itemState[template.id]?.status !== 'applied' &&
-    !charted.has(template.id);
-  const chartEverything = async (): Promise<void> => {
-    if (template && templatePending) {
-      await applyRecommendation(template.id);
-      // The observations are meant to land on top of the template; if it failed, they wait.
-      if (useScribeRecommendationsStore.getState().itemState[template.id]?.status === 'error') return;
-    }
-    if (selectedPending.length > 0) await applyObservations();
-  };
-  const observationsNoun = `${selectedPending.length} selected ${
-    selectedPending.length === 1 ? 'observation' : 'observations'
-  }`;
-  const chartSummary = templatePending
-    ? selectedPending.length > 0
-      ? `Applies the template and ${observationsNoun}`
-      : 'Applies the template'
-    : selectedPending.length > 0
-    ? `Applies ${observationsNoun}`
-    : pending.length > 0
-    ? 'Nothing is selected'
-    : 'Everything is charted';
-
   const summary = [
     pending.length > 0 ? `${selectedPending.length} of ${pending.length} selected` : undefined,
     appliedCount > 0 ? `${appliedCount} added` : undefined,
@@ -218,35 +313,18 @@ const ResultsStep: FC = () => {
 
   const stages: ReactNode[] = [];
 
-  // The story of the visit comes first — the transcript, with the phrases the recommendations came from
-  // highlighted — with the one button that charts the whole review. Every stage below is a piece of it made
-  // actionable. Whatever the assistant said rather than charted is read here too.
-  const lead =
-    recommendations.length > 0
-      ? 'Here’s what I heard. The highlighted phrases are what the recommendations came from.'
-      : 'I couldn’t find anything chartable in that transcript.';
-  stages.push(
-    <ScribeStage key="summary" name="summary" lead={lead}>
-      {narrative.length > 0 && <NarrativeSummary templates={templates} onRetry={() => void applyObservations()} />}
-      <AssistantNotes notes={notes} />
-      {recommendations.length > 0 && (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
-          <Typography variant="caption" color="text.secondary" data-testid={testIds.chartSummary}>
-            {chartSummary}
-          </Typography>
-          <RoundedButton
-            variant="contained"
-            onClick={() => void chartEverything()}
-            disabled={(!templatePending && selectedPending.length === 0) || isApplying}
-            loading={isApplying}
-            data-testid={testIds.chartButton}
-          >
-            Chart
-          </RoundedButton>
-        </Box>
-      )}
-    </ScribeStage>
-  );
+  // A plan that found nothing is still an answer, and has to be given as one rather than as an empty panel.
+  // When it found something, the stages themselves say what it found, so there is nothing to introduce them
+  // with; whatever the assistant said rather than charted is read on its own, above them.
+  if (recommendations.length === 0) {
+    stages.push(
+      <ScribeStage key="summary" name="summary" lead="I couldn’t find anything chartable in that narrative.">
+        <AssistantNotes notes={notes} />
+      </ScribeStage>
+    );
+  } else if (notes.length > 0) {
+    stages.push(<AssistantNotes key="notes" notes={notes} />);
+  }
 
   if (template) {
     stages.push(
@@ -276,7 +354,7 @@ const ResultsStep: FC = () => {
       <ScribeStage
         key="observations"
         name="observations"
-        lead="Then add these observations, which I read in the transcript."
+        lead="Then add these observations, which I read in the narrative."
       >
         <RecommendationsList
           recommendations={observations}
@@ -306,7 +384,7 @@ const ResultsStep: FC = () => {
                   )
                 }
                 disabled={isApplying}
-                sx={{ textTransform: 'none', alignSelf: 'flex-start', minWidth: 0, p: 0, fontSize: 12 }}
+                sx={{ textTransform: 'none', alignSelf: 'flex-start', minWidth: 0, p: 0, fontSize: scaled(12) }}
                 data-testid={testIds.toggleAllButton}
               >
                 {allPendingSelected ? 'Deselect all' : 'Select all'}
@@ -320,11 +398,10 @@ const ResultsStep: FC = () => {
               onClick={() => void applyObservations()}
               disabled={selectedPending.length === 0 || isApplying}
               loading={isApplying}
+              sx={roundedButtonSx}
               data-testid={testIds.applyObservationsButton}
             >
-              {selectedPending.length === 0
-                ? 'Add observations'
-                : `Add ${selectedPending.length} ${selectedPending.length === 1 ? 'observation' : 'observations'}`}
+              Chart note
             </RoundedButton>
           )}
         </Box>
@@ -343,8 +420,7 @@ const ResultsStep: FC = () => {
   if (rejected.length > 0) stages.push(<RejectedList key="rejected" rejected={rejected} />);
 
   return (
-    <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <TranscriptSummary transcript={transcript} />
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {stages}
       {/* The executor's question, when a batch of one meets several near-equal matches or a removal needs confirming. */}
       <PickerDialog />
@@ -358,7 +434,12 @@ const AssistantNotes: FC<{ notes: string[] }> = ({ notes }) => {
   return (
     <Box data-testid={testIds.notes} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       {notes.map((note, index) => (
-        <Alert key={index} severity="info" variant="outlined" sx={{ py: 0, '& .MuiAlert-message': { fontSize: 13 } }}>
+        <Alert
+          key={index}
+          severity="info"
+          variant="outlined"
+          sx={{ py: 0, '& .MuiAlert-message': { fontSize: scaled(13) } }}
+        >
           {note}
         </Alert>
       ))}
@@ -371,7 +452,7 @@ const AssistantNotes: FC<{ notes: string[] }> = ({ notes }) => {
  * said is never simply gone: a reading with no unit, a template the practice does not have.
  */
 const RejectedList: FC<{ rejected: RejectedAction[] }> = ({ rejected }) => (
-  <ScribeStage name="rejected" lead="These I couldn’t turn into chart entries; they need your hand.">
+  <ScribeStage name="rejected" lead="Consider adding manually">
     <Paper variant="outlined" data-testid={testIds.rejected}>
       {rejected.map((item, index) => (
         <Box
@@ -389,26 +470,3 @@ const RejectedList: FC<{ rejected: RejectedAction[] }> = ({ rejected }) => (
     </Paper>
   </ScribeStage>
 );
-
-/** The transcript itself is read in the first stage below; up here is only how long it is and the way back to it. */
-const TranscriptSummary: FC<{ transcript: string }> = ({ transcript }) => {
-  const resetAnalysis = useScribeRecommendationsStore((state) => state.resetAnalysis);
-  const isApplying = useScribeRecommendationsStore((state) => state.isApplying);
-
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
-      <Typography variant="caption" color="text.secondary">
-        Transcript · {transcript.trim().split(/\s+/).length} words
-      </Typography>
-      <Button
-        size="small"
-        onClick={resetAnalysis}
-        disabled={isApplying}
-        sx={{ textTransform: 'none', minWidth: 0, p: 0, fontSize: 12 }}
-        data-testid={testIds.editTranscriptButton}
-      >
-        Edit transcript &amp; run again
-      </Button>
-    </Box>
-  );
-};

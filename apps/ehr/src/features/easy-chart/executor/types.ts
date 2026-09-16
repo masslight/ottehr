@@ -284,7 +284,7 @@ export type HandlerTable = { [K in ActionKind]: Handler<K> };
 export interface PlanStep {
   index: number;
   action: PlannedAction;
-  /** Short human label for the step card ("Adding diagnosis: Acute sinusitis"). */
+  /** Short human label for the step card ("Diagnosis: Acute sinusitis"). */
   label: string;
   outcome?: StepOutcome;
 }

@@ -3,6 +3,7 @@ import { FC } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { getVisitBasePath, SCRIBE_SECTIONS } from './scribeSections';
+import { scaled } from './scribeTheme';
 import { ScribeSectionKey } from './types';
 
 /** Wide enough for the rotated label to stay legible, narrow enough not to squeeze the rows. */
@@ -47,7 +48,7 @@ export const SectionRail: FC<{ section: ScribeSectionKey }> = ({ section }) => {
               writingMode: 'vertical-rl',
               transform: 'rotate(180deg)',
               whiteSpace: 'nowrap',
-              fontSize: 9.5,
+              fontSize: scaled(9.5),
               fontWeight: 700,
               letterSpacing: '0.4px',
               textTransform: 'uppercase',

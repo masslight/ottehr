@@ -93,7 +93,7 @@ describe('withEditedText', () => {
     const edited = withEditedText(finding, 'Frontal sinus tenderness');
     expect(actionEditPatch(edited!)).toEqual({
       action: edited,
-      label: 'Adding exam finding: Frontal sinus tenderness',
+      label: 'Exam finding: Frontal sinus tenderness',
       secondary: undefined,
     });
     const disposition = withEditedText(

@@ -95,9 +95,10 @@ const SHARED_TRANSCRIPT_RULES = `- Each step is one self-contained action. "add 
 - PROVENANCE — for EVERY action, set "sourceText" to the SHORT verbatim snippet from the narrative
   that justifies it: a few words to one sentence, copied EXACTLY, not paraphrased. If the action is
   something you INFERRED rather than something the provider stated — an E&M level you deduced, a code you filled in — set "sourceText" to an EMPTY
-  STRING. Never fabricate one. Each quote is checked against the narrative and dropped if it is not
-  really there, and an empty sourceText is the signal that tells the provider to look closely, so
-  guessing defeats the purpose.`;
+  STRING. Never fabricate one. Each quote is checked against the narrative and, when the provider's
+  corrections are given, against their edited text, and dropped if it is not really there, and an
+  empty sourceText is the signal that tells the provider to look closely, so guessing defeats the
+  purpose.`;
 
 /** What the full planner adds on top: ordering, which only exists when a plan has several sections. */
 /**
@@ -500,6 +501,8 @@ export function buildStaticInstructions(surface: Surface): string {
 export interface PromptTailInput {
   /** The provider's dictation, paste, or typed request. Always last. */
   narrative: string;
+  /** The provider's corrections to the AI read-back, rendered only when the two differ. See ChartPlanRequest. */
+  providerEdits?: { draft: string; edited: string };
   /** Practice template titles. Empty list is stated explicitly rather than omitted. */
   templateTitles?: string[];
   /** Title of the template the provider applied to this visit by hand, server-validated. See ChartPlanRequest. */
@@ -608,6 +611,15 @@ export function buildVariableTail(surface: Surface, input: PromptTailInput): str
   if (input.historyDigest) {
     parts.push(
       `CONVERSATION SO FAR (for reference only — the chart state above is the truth about what exists; chart only what is new):\n${input.historyDigest}`
+    );
+  }
+
+  // Only when the provider actually changed something: an unedited read-back adds nothing to the transcript.
+  const draft = input.providerEdits?.draft.trim();
+  const edited = input.providerEdits?.edited.trim();
+  if (draft && edited && draft !== edited) {
+    parts.push(
+      `THE PROVIDER'S CORRECTIONS. The provider reviewed an AI-written narrative of this transcript and edited it. Where the edited version differs from the draft, that is the provider's correction: follow it over the transcript. Where they are the same, it adds nothing.\nDraft:\n"""\n${draft}\n"""\nEdited by the provider:\n"""\n${edited}\n"""`
     );
   }
 

@@ -11,14 +11,28 @@ import { describeAction } from 'src/features/easy-chart/executor/labels';
 import { classifyMatches } from 'src/features/easy-chart/executor/resolve';
 import { ChartSnapshot } from 'src/features/easy-chart/executor/types';
 import { ActionKind, NoteTextField } from 'utils/lib/easy-chart/actions';
-import { ChartPlanResponse, ChartReviewResponse, PlannedAction, RejectedAction } from 'utils/lib/easy-chart/api';
+import {
+  ChartPlanResponse,
+  ChartReviewResponse,
+  NarrativeLine,
+  PlannedAction,
+  RejectedAction,
+} from 'utils/lib/easy-chart/api';
 import { buildRosCatalogue, findRosMatches, RosCatalogueEntry } from 'utils/lib/easy-chart/matchers';
 import { chartKeyForNoteField, NOTE_FIELD_LABELS, overwritesWrittenNoteField } from 'utils/lib/easy-chart/note-fields';
-import { findingPolarity } from 'utils/lib/easy-chart/provenance';
+import { findingPolarity, locateQuote } from 'utils/lib/easy-chart/provenance';
 import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
-import { buildTranscriptNarrative } from './transcriptNarrative';
-import { RecommendationSource, ScribeAnalysis, ScribeRecommendation, ScribeSectionKey } from './types';
+import { locateGeneratedLines } from './narrativeLines';
+import { buildNarrativeRuns } from './narrativeRuns';
+import {
+  EvidenceOrigin,
+  LocatedLine,
+  RecommendationSource,
+  ScribeAnalysis,
+  ScribeRecommendation,
+  ScribeSectionKey,
+} from './types';
 
 export interface AnalysisContext {
   /**
@@ -30,17 +44,31 @@ export interface AnalysisContext {
   /** Defaults to the ROS config's own catalogue; injectable for tests. */
   rosCatalogue?: RosCatalogueEntry[];
   /**
-   * The transcript the actions were read from. When given, the analysis carries a narrative: the transcript
-   * itself, with every recommendation's verbatim quote highlighted and linked to it.
+   * The narrative the actions were read from — the text the planner was sent, so the text its quotes were
+   * verified against. When given, the analysis carries the runs: the narrative itself, cut so that every
+   * recommendation's verbatim quote is highlighted and linked to it.
    */
-  transcript?: string;
+  narrative?: string;
+  /**
+   * The narrative as the generator wrote it, before the provider edited it, for the second hop of the
+   * provenance: the generated sentence a quote sits in says which transcript snippets back it, or that
+   * nothing does; a quote in no generated sentence is in something the provider wrote.
+   */
+  narrativeGenerated?: NarrativeLine[];
+  /**
+   * True when the planner was sent the TRANSCRIPT as its narrative, with the provider's edited narrative
+   * along only as corrections. A quote verified against the planner's narrative is then a transcript
+   * snippet, not a phrase of the narrative box, and is shown as such rather than highlighted.
+   */
+  narrativeIsTranscript?: boolean;
 }
 
 /** Kinds that speak to the provider rather than to the chart. Never a recommendation: shown as a note. */
+
 const CHAT_ONLY: ReadonlySet<string> = new Set<ActionKind>(['provider-note', 'reply', 'unknown']);
 
 const HPI_FIELD: NoteTextField = 'historyOfPresentIllness';
-export const INFERRED_NOTE = 'Inferred by the assistant — not quoted from the transcript.';
+export const INFERRED_NOTE = 'Inferred by the assistant — not quoted from the narrative.';
 export const NEEDS_PROVIDER_WARNING = 'The assistant could not establish a value here; check it before applying.';
 
 let defaultRosCatalogue: RosCatalogueEntry[] | undefined;
@@ -104,19 +132,35 @@ const joinWarnings = (...parts: (string | undefined)[]): string | undefined => {
   return all.length > 0 ? all.join(' ') : undefined;
 };
 
-/** The transcript quote, the guard's caution, and how the AI got here, as the row shows them on hover. */
+/** The narrative quote, the guard's caution, and how the AI got here, as the row shows them on hover. */
 function provenanceOf(
   action: PlannedAction,
-  source: RecommendationSource
-): { evidence?: string; warning?: string; note?: string } {
+  source: RecommendationSource,
+  narrativeIsTranscript: boolean
+): {
+  evidence?: string;
+  warning?: string;
+  note?: string;
+  transcriptSources?: string[];
+  evidenceOrigin?: EvidenceOrigin;
+} {
   const notes: string[] = [];
   if (source.pass === 'review') {
     notes.push(`Note review asked: ${source.question}${source.rationale ? ` ${source.rationale}` : ''}`);
   }
-  // No verified quote means the model inferred it — the signal that tells a provider to look closely.
-  if (!action.sourceText) notes.push(INFERRED_NOTE);
+  const { sourceText } = action;
+  // No verified quote at all means the model inferred it — the signal that tells a provider to look closely.
+  if (!sourceText) notes.push(INFERRED_NOTE);
+  // A quote verified against the provider's edited narrative is a phrase of the narrative box, highlighted
+  // there and traced a hop further by `transcriptProvenance`. One verified against the planner's `narrative`
+  // is the same when that narrative was typed by hand, but when it was the transcript the quote is the
+  // transcript's own words: shown as a snippet, and no narrative run is cut for it. Absent origin is an
+  // older server, which only ever verified against the narrative.
+  const quotesTranscript = narrativeIsTranscript && action.sourceOrigin !== 'edited-narrative';
   return {
-    evidence: action.sourceText,
+    ...(sourceText && quotesTranscript
+      ? { transcriptSources: [sourceText], evidenceOrigin: 'transcript' as const }
+      : { evidence: sourceText }),
     warning: joinWarnings(action.caution, action.needsProvider ? NEEDS_PROVIDER_WARNING : undefined),
     note: notes.length > 0 ? notes.join(' ') : undefined,
   };
@@ -161,7 +205,13 @@ function toRecommendation(
   id: string,
   options: AnalysisContext
 ): ScribeRecommendation {
-  const base = { id, section: sectionForAction(action), action, source, ...provenanceOf(action, source) };
+  const base = {
+    id,
+    section: sectionForAction(action),
+    action,
+    source,
+    ...provenanceOf(action, source, options.narrativeIsTranscript === true),
+  };
 
   switch (action.kind) {
     case 'apply-template':
@@ -300,8 +350,32 @@ function recommendationId(pass: RecommendationSource['pass'], action: PlannedAct
 }
 
 /**
+ * The second hop of a recommendation's provenance: its quote is located in the narrative, and the generated
+ * sentence(s) that stretch of text overlaps say where the words came from. A quote can straddle two
+ * sentences, so the sources of every one it touches are pooled: any source at all and the evidence is
+ * backed; a sentence but no source and the generator said it on its own; no sentence at all and the quote
+ * is in text the provider wrote or changed. Nothing is set for an inferred recommendation (no quote), a
+ * quote taken from the transcript rather than the narrative (no `evidence`; already traced), or a quote
+ * the narrative cannot be found to contain.
+ */
+function transcriptProvenance(
+  rec: ScribeRecommendation,
+  narrative: string,
+  located: LocatedLine[]
+): { transcriptSources?: string[]; evidenceOrigin?: EvidenceOrigin } {
+  if (!rec.evidence) return {};
+  const at = locateQuote(narrative, rec.evidence);
+  if (!at) return {};
+  const overlapping = located.filter((line) => line.start < at.end && line.end > at.start);
+  const transcriptSources = [...new Set(overlapping.flatMap((line) => line.original.sources))];
+  const evidenceOrigin: EvidenceOrigin =
+    transcriptSources.length > 0 ? 'backed' : overlapping.length > 0 ? 'unbacked' : 'provider';
+  return { transcriptSources, evidenceOrigin };
+}
+
+/**
  * The plan's actions, then the review's, as one list of recommendations. The review is a second look at
- * the same transcript, so whatever it repeats from the plan is dropped; what it adds carries its question.
+ * the same narrative, so whatever it repeats from the plan is dropped; what it adds carries its question.
  * Chat-only actions become notes, and the servers' refusals are carried through so nothing voiced
  * disappears silently.
  */
@@ -343,9 +417,17 @@ export function buildAnalysis(
     rejected.push(...review.rejected);
   }
 
+  const { narrative, narrativeGenerated } = options;
+  let traced = recommendations;
+  if (narrative && narrativeGenerated) {
+    // Found in the same string the quotes are located in, so the two sets of offsets agree.
+    const located = locateGeneratedLines(narrative, narrativeGenerated);
+    traced = recommendations.map((rec) => ({ ...rec, ...transcriptProvenance(rec, narrative, located) }));
+  }
+
   return {
-    narrative: options.transcript ? buildTranscriptNarrative(options.transcript, recommendations) : [],
-    recommendations,
+    narrativeRuns: narrative ? buildNarrativeRuns(narrative, traced) : [],
+    recommendations: traced,
     orderSuggestions: [],
     rejected,
     notes,

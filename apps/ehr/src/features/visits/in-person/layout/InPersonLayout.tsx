@@ -101,7 +101,7 @@ export const InPersonLayout: React.FC = () => {
     : 'Select a provider in order to begin charting.';
   const virtual = isTelemedAppointment(appointment);
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
-  // AI Chart Recommendations sit beside the note (not over it) so the provider can review a
+  // Autochart sits beside the note (not over it) so the provider can review a
   // suggestion and the section it lands in at the same time. Follow-up notes and finished visits
   // have nothing to apply them to.
   //

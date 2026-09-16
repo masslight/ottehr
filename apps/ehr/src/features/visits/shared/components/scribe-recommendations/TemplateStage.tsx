@@ -16,6 +16,7 @@ import {
 } from './scribeRecommendations.store';
 import { describeRecommendation } from './scribeSections';
 import { AI_SURFACE } from './ScribeStage';
+import { roundedButtonSx, scaled } from './scribeTheme';
 import { SectionRail } from './SectionRail';
 import { ScribeRecommendation, TemplateRecommendation } from './types';
 
@@ -140,7 +141,7 @@ export const TemplateStage: FC<TemplateStageProps> = ({
                   // The name belongs in the button: there is one thing to do here, and this says
                   // exactly what it will do. It hugs its label, and a long template name wraps
                   // inside it rather than overflowing the panel.
-                  sx={{ whiteSpace: 'normal' }}
+                  sx={{ ...roundedButtonSx, whiteSpace: 'normal' }}
                 >
                   {`${itemState.status === 'error' ? 'Try again' : 'Apply template'}: ${recommendation.templateName}`}
                 </RoundedButton>
@@ -153,7 +154,7 @@ export const TemplateStage: FC<TemplateStageProps> = ({
                     role="img"
                     aria-hidden={false}
                     aria-label={warning}
-                    sx={{ fontSize: 16, color: 'warning.main' }}
+                    sx={{ fontSize: scaled(16), color: 'warning.main' }}
                   />
                 )}
                 {canStartEditing && (
@@ -167,7 +168,7 @@ export const TemplateStage: FC<TemplateStageProps> = ({
                     data-testid={testIds.rowEditButton(recommendation.id)}
                     sx={{ p: 0.5, ...HOVER_ONLY }}
                   >
-                    <EditOutlinedIcon sx={{ fontSize: 18 }} />
+                    <EditOutlinedIcon sx={{ fontSize: scaled(18) }} />
                   </IconButton>
                 )}
               </Box>

@@ -40,7 +40,7 @@ export const AiAddedMark: FC<AiAddedMarkProps> = ({ recommendation, inline, chil
       enterDelay={300}
       title={
         <ProvenanceContent
-          note="Added from the transcript by AI Chart Recommendations"
+          note="Added from the transcript by Autochart"
           evidence={recommendation.evidence}
           warning={recommendation.warning}
         />
@@ -79,7 +79,7 @@ export const AiAddedMark: FC<AiAddedMarkProps> = ({ recommendation, inline, chil
 export const AiAddedSectionChip: FC<{ templateName: string }> = ({ templateName }) => (
   // Stops the click from reaching the card header, which would open the editor.
   <Box onClick={(event) => event.stopPropagation()} sx={{ display: 'flex', flexShrink: 0, cursor: 'default' }}>
-    <Tooltip title="Filled by the template applied from AI Chart Recommendations" placement="left" enterDelay={300}>
+    <Tooltip title="Filled by the template applied from Autochart" placement="left" enterDelay={300}>
       <Chip
         size="small"
         data-testid={dataTestIds.scribeRecommendations.aiAddedSectionChip}
