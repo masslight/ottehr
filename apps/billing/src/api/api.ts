@@ -359,22 +359,23 @@ export const deleteBillingNonInsuranceOrg = (
 export const createBillingCustomInsuranceOrg = (
   oystehr: Oystehr,
   parameters: z.input<typeof CreateCustomInsuranceOrgInputSchema>
-): Promise<CreatedResourceResponse> => executeBillingZambda(oystehr, 'create-billing-insurance-org', parameters);
+): Promise<CreatedResourceResponse> => executeBillingZambda(oystehr, 'create-billing-custom-insurance-org', parameters);
 
 export const updateBillingCustomInsuranceOrg = (
   oystehr: Oystehr,
   parameters: z.input<typeof UpdateCustomInsuranceOrgInputSchema>
-): Promise<SavedResourceResponse> => executeBillingZambda(oystehr, 'update-billing-insurance-org', parameters);
+): Promise<SavedResourceResponse> => executeBillingZambda(oystehr, 'update-billing-custom-insurance-org', parameters);
 
 export const searchBillingCustomInsuranceOrgs = (
   oystehr: Oystehr,
   parameters: z.input<typeof SearchCustomInsuranceOrgsInputSchema>
-): Promise<SearchInsuranceOrgsResponse> => executeBillingZambda(oystehr, 'search-billing-insurance-orgs', parameters);
+): Promise<SearchInsuranceOrgsResponse> =>
+  executeBillingZambda(oystehr, 'search-billing-custom-insurance-orgs', parameters);
 
 export const deleteBillingCustomInsuranceOrg = (
   oystehr: Oystehr,
   parameters: z.input<typeof DeleteCustomInsuranceOrgInputSchema>
-): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-insurance-org', parameters);
+): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-custom-insurance-org', parameters);
 
 // --- Terminology ---
 

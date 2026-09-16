@@ -2,21 +2,17 @@ import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Organization } from 'fhir/r4b';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
-import { SavedResourceResponse } from 'utils/lib/types/data/billing/billing.types';
+import { DeletedResponse } from 'utils/lib/types/data/billing/billing.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import {
-  buildInsuranceOrganization,
-  findInsuranceOrgByBusinessId,
-  isInsuranceOrganization,
-} from '../insurance-org.helpers';
+import { isInsuranceOrganization } from '../insurance-org.helpers';
 import { createBillingClient, fetchById } from '../shared';
-import { UpdateInsuranceOrgParams, validateRequestParameters } from './validateRequestParameters';
+import { DeleteInsuranceOrgParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-const ZAMBDA_NAME = 'update-billing-insurance-org';
+const ZAMBDA_NAME = 'delete-billing-custom-insurance-org';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
@@ -34,7 +30,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('complexValidation success');
 
   console.group('performEffect');
-  const response = await performEffect(oystehr, params, existing);
+  const response = await performEffect(oystehr, existing);
   console.groupEnd();
   console.debug('performEffect success', response);
 
@@ -44,31 +40,24 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function complexValidation(oystehr: Oystehr, params: UpdateInsuranceOrgParams): Promise<Organization> {
+async function complexValidation(oystehr: Oystehr, params: DeleteInsuranceOrgParams): Promise<Organization> {
   const existing = await fetchById<Organization>(oystehr, 'Organization', params.insuranceOrgId);
   if (!isInsuranceOrganization(existing)) {
     throw INVALID_INPUT_ERROR(`Organization ${params.insuranceOrgId} is not an insurance organization`);
   }
-  const duplicate = await findInsuranceOrgByBusinessId(oystehr, params.orgId, params.insuranceOrgId);
-  if (duplicate) {
-    throw INVALID_INPUT_ERROR(`Insurance organization id "${params.orgId}" is already in use`);
-  }
   return existing;
 }
 
-export async function performEffect(
-  oystehr: Oystehr,
-  params: UpdateInsuranceOrgParams,
-  existing: Organization
-): Promise<SavedResourceResponse> {
+// Soft delete: active=false, so stored references stay resolvable.
+export async function performEffect(oystehr: Oystehr, existing: Organization): Promise<DeletedResponse> {
   const requests: BatchInputRequest<FhirResource>[] = [
     {
       method: 'PUT',
       url: `Organization/${existing.id}`,
-      resource: buildInsuranceOrganization(params, existing),
+      resource: { ...existing, active: false },
       ifMatch: makeOptimisticLockIfMatchHeader(existing),
     },
   ];
   await oystehr.fhir.transaction<FhirResource>({ requests });
-  return { id: existing.id };
+  return { deleted: true };
 }

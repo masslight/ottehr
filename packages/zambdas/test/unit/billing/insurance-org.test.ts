@@ -7,16 +7,16 @@ import {
 } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { describe, expect, it, vi } from 'vitest';
-import { performEffect as createInsuranceOrg } from '../../../src/billing/create-billing-insurance-org';
-import { performEffect as deleteInsuranceOrg } from '../../../src/billing/delete-billing-insurance-org';
+import { performEffect as createInsuranceOrg } from '../../../src/billing/create-billing-custom-insurance-org';
+import { performEffect as deleteInsuranceOrg } from '../../../src/billing/delete-billing-custom-insurance-org';
 import {
   buildInsuranceOrganization,
   findInsuranceOrgByBusinessId,
   isInsuranceOrganization,
   mapInsuranceOrganization,
 } from '../../../src/billing/insurance-org.helpers';
-import { performEffect as searchInsuranceOrgs } from '../../../src/billing/search-billing-insurance-orgs';
-import { performEffect as updateInsuranceOrg } from '../../../src/billing/update-billing-insurance-org';
+import { performEffect as searchInsuranceOrgs } from '../../../src/billing/search-billing-custom-insurance-orgs';
+import { performEffect as updateInsuranceOrg } from '../../../src/billing/update-billing-custom-insurance-org';
 
 const ORG_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -204,7 +204,7 @@ describe('findInsuranceOrgByBusinessId', () => {
   });
 });
 
-describe('create-billing-insurance-org', () => {
+describe('create-billing-custom-insurance-org', () => {
   it('creates the Organization resource', async () => {
     const { oystehr, create } = makeOystehr();
     create.mockResolvedValue({ ...orgResource });
@@ -217,7 +217,7 @@ describe('create-billing-insurance-org', () => {
   });
 });
 
-describe('update-billing-insurance-org', () => {
+describe('update-billing-custom-insurance-org', () => {
   it('rewrites the org with an optimistic lock', async () => {
     const { oystehr, transaction } = makeOystehr();
 
@@ -235,7 +235,7 @@ describe('update-billing-insurance-org', () => {
   });
 });
 
-describe('delete-billing-insurance-org', () => {
+describe('delete-billing-custom-insurance-org', () => {
   it('soft-deletes with an optimistic lock', async () => {
     const { oystehr, transaction } = makeOystehr();
 
@@ -249,7 +249,7 @@ describe('delete-billing-insurance-org', () => {
   });
 });
 
-describe('search-billing-insurance-orgs', () => {
+describe('search-billing-custom-insurance-orgs', () => {
   it('maps a page of orgs and searches by the insurance-organization kind coding', async () => {
     const { oystehr, search } = makeOystehr();
     search.mockResolvedValue({ unbundle: () => [orgResource], total: 1 });

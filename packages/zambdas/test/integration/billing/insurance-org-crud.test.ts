@@ -27,7 +27,7 @@ describe('insurance-org CRUD', () => {
   let insuranceOrgId: string;
 
   const searchDetail = async (id: string): Promise<SearchInsuranceOrgsResponse> =>
-    (await oystehr.zambda.execute({ id: 'search-billing-insurance-orgs', insuranceOrgId: id }))
+    (await oystehr.zambda.execute({ id: 'search-billing-custom-insurance-orgs', insuranceOrgId: id }))
       .output as SearchInsuranceOrgsResponse;
 
   beforeAll(async () => {
@@ -50,7 +50,7 @@ describe('insurance-org CRUD', () => {
     await cleanup();
   }, 90_000);
 
-  it('create-billing-insurance-org creates the org', async () => {
+  it('create-billing-custom-insurance-org creates the org', async () => {
     const input: CreateCustomInsuranceOrgInput = {
       orgId,
       name: orgName,
@@ -61,7 +61,7 @@ describe('insurance-org CRUD', () => {
       note: 'Prefers electronic submission',
       contacts: [{ name: 'Jane Smith', title: 'Claims Manager', phone: '555-123-4567', email: 'jane@acme.com' }],
     };
-    const { id } = (await oystehr.zambda.execute({ id: 'create-billing-insurance-org', ...input }))
+    const { id } = (await oystehr.zambda.execute({ id: 'create-billing-custom-insurance-org', ...input }))
       .output as CreatedResourceResponse;
     expect(id).toBeTruthy();
     insuranceOrgId = id;
@@ -92,7 +92,7 @@ describe('insurance-org CRUD', () => {
   it('rejects creating a second org with the same orgId', async () => {
     await expect(
       oystehr.zambda.execute({
-        id: 'create-billing-insurance-org',
+        id: 'create-billing-custom-insurance-org',
         orgId,
         name: 'Duplicate',
         submissionMechanism: 'email',
@@ -101,17 +101,17 @@ describe('insurance-org CRUD', () => {
     ).rejects.toBeTruthy();
   }, 90_000);
 
-  it('search-billing-insurance-orgs lists the created org by name', async () => {
-    const response = (await oystehr.zambda.execute({ id: 'search-billing-insurance-orgs', name: orgName }))
+  it('search-billing-custom-insurance-orgs lists the created org by name', async () => {
+    const response = (await oystehr.zambda.execute({ id: 'search-billing-custom-insurance-orgs', name: orgName }))
       .output as SearchInsuranceOrgsResponse;
     expect(response.total).toBeGreaterThanOrEqual(1);
     expect(response.organizations.some((org) => org.id === insuranceOrgId)).toBe(true);
   }, 90_000);
 
-  it('update-billing-insurance-org rewrites the org fields (full replace), swapping the contact', async () => {
+  it('update-billing-custom-insurance-org rewrites the org fields (full replace), swapping the contact', async () => {
     const updated = (
       await oystehr.zambda.execute({
-        id: 'update-billing-insurance-org',
+        id: 'update-billing-custom-insurance-org',
         insuranceOrgId,
         orgId,
         name: `${orgName} Updated`,
@@ -136,15 +136,15 @@ describe('insurance-org CRUD', () => {
     expect(detail.note).toBeUndefined();
   }, 90_000);
 
-  it('delete-billing-insurance-org soft-deletes but keeps the org resolvable by id', async () => {
-    const result = (await oystehr.zambda.execute({ id: 'delete-billing-insurance-org', insuranceOrgId }))
+  it('delete-billing-custom-insurance-org soft-deletes but keeps the org resolvable by id', async () => {
+    const result = (await oystehr.zambda.execute({ id: 'delete-billing-custom-insurance-org', insuranceOrgId }))
       .output as DeletedResponse;
     expect(result.deleted).toBe(true);
 
     const org = await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: insuranceOrgId });
     expect(org.active).toBe(false);
 
-    const list = (await oystehr.zambda.execute({ id: 'search-billing-insurance-orgs', name: orgName }))
+    const list = (await oystehr.zambda.execute({ id: 'search-billing-custom-insurance-orgs', name: orgName }))
       .output as SearchInsuranceOrgsResponse;
     expect(list.organizations.some((o) => o.id === insuranceOrgId)).toBe(false);
 

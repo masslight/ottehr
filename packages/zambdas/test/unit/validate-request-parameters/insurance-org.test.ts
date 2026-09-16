@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import { validateRequestParameters as validateCreate } from '../../../src/billing/create-billing-insurance-org/validateRequestParameters';
-import { validateRequestParameters as validateDelete } from '../../../src/billing/delete-billing-insurance-org/validateRequestParameters';
-import { validateRequestParameters as validateSearch } from '../../../src/billing/search-billing-insurance-orgs/validateRequestParameters';
-import { validateRequestParameters as validateUpdate } from '../../../src/billing/update-billing-insurance-org/validateRequestParameters';
+import { validateRequestParameters as validateCreate } from '../../../src/billing/create-billing-custom-insurance-org/validateRequestParameters';
+import { validateRequestParameters as validateDelete } from '../../../src/billing/delete-billing-custom-insurance-org/validateRequestParameters';
+import { validateRequestParameters as validateSearch } from '../../../src/billing/search-billing-custom-insurance-orgs/validateRequestParameters';
+import { validateRequestParameters as validateUpdate } from '../../../src/billing/update-billing-custom-insurance-org/validateRequestParameters';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
 
 const ORG_ID = '11111111-1111-4111-8111-111111111111';

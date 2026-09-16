@@ -11,7 +11,7 @@ import { createBillingClient } from '../shared';
 import { CreateInsuranceOrgParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-const ZAMBDA_NAME = 'create-billing-insurance-org';
+const ZAMBDA_NAME = 'create-billing-custom-insurance-org';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
