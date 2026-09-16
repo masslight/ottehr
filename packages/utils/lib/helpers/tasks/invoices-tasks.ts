@@ -126,17 +126,13 @@ export function getInvoiceTaskOutputs(task: Task): {
   stripeInvoiceStatus?: string;
 } {
   const outputs = task.output ?? [];
-  const invoiceId = outputs
-    .slice()
-    .reverse()
-    .find((o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputInvoiceId))?.valueString;
-  const error = outputs
-    .slice()
-    .reverse()
-    .find((o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputError))?.valueString;
-  const stripeInvoiceStatus = outputs
-    .slice()
-    .reverse()
-    .find((o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.stripeInvoiceStatus))?.valueString;
+  const reversed = outputs.slice().reverse();
+  const invoiceId = reversed.find((o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputInvoiceId))
+    ?.valueString;
+  const error = reversed.find((o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputError))
+    ?.valueString;
+  const stripeInvoiceStatus = reversed.find(
+    (o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.stripeInvoiceStatus)
+  )?.valueString;
   return { invoiceId, error, stripeInvoiceStatus };
 }
