@@ -1,6 +1,19 @@
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { LoadingButton } from '@mui/lab';
-import { Box, Button, Checkbox, FormControlLabel, FormGroup, Stack, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Checkbox,
+  dialogActionsClasses,
+  dialogContentClasses,
+  dialogTitleClasses,
+  FormControlLabel,
+  FormGroup,
+  iconButtonClasses,
+  Stack,
+  svgIconClasses,
+  Typography,
+} from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { makePatientInstructionsPdf, makeProgressNotePdf } from 'src/api/api';
@@ -307,13 +320,31 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
       handleClose={handleClose}
       closeButton={!isLoading}
       title="Discharge"
+      maxWidth="xs"
+      fullWidth
+      // CustomDialog owns its own title/content/actions spacing, which double-insets each row on top
+      // of the paper's padding and leaves the title no larger than the headings inside it. Restyled
+      // from the outside via MUI's exported class constants rather than hand-written
+      // ".MuiDialogContent-root" strings, so a MUI rename breaks the build instead of the layout.
+      // Scoped to this dialog: the other fourteen CustomDialog callers are untouched.
+      sx={(theme) => ({
+        [`& .${dialogTitleClasses.root}`]: { px: 1, fontSize: theme.typography.h4.fontSize },
+        [`& .${dialogContentClasses.root}`]: { pt: 0, px: 1 },
+        [`& .${dialogActionsClasses.root}`]: { justifyContent: 'space-between', px: 1 },
+        // Close button: MUI's default 'medium' is a ~40px target. `subtitle1` is 20px, which is what
+        // MUI's own fontSizeSmall resolves to. Keyed off the title so content icons are unaffected.
+        [`& .${dialogTitleClasses.root} .${iconButtonClasses.root}`]: {
+          p: 0.5,
+          [`& .${svgIconClasses.root}`]: { fontSize: theme.typography.subtitle1.fontSize },
+        },
+      })}
       description={
-        <Stack spacing={2}>
+        <Stack spacing={1}>
           <Box>
-            <Typography variant="subtitle1" color="primary.dark" fontWeight={600}>
+            <Typography variant="h6" color="primary.dark">
               Print documents
             </Typography>
-            <FormGroup>
+            <FormGroup sx={{ pl: 0.5 }}>
               <SelectionCheckbox
                 label="Discharge Summary"
                 checked={printDischargeSummary}
@@ -355,10 +386,10 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
           </Box>
 
           <Box>
-            <Typography variant="subtitle1" color="primary.dark" fontWeight={600}>
+            <Typography variant="h6" color="primary.dark">
               Review &amp; Sign
             </Typography>
-            <FormGroup>
+            <FormGroup sx={{ pl: 0.5 }}>
               <SelectionCheckbox
                 label="Sign the Progress Note"
                 checked={signProgressNote}
