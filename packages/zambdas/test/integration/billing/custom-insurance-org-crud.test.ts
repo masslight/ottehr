@@ -17,7 +17,7 @@ import { setupIntegrationTest } from '../../helpers/integration-test-seed-data-s
 
 // Happy-path custom Insurance Organization CRUD: create -> search/detail -> update -> soft delete,
 // plus the orgId-uniqueness guard. Exercises all four zambdas in sequence.
-describe('insurance-org CRUD', () => {
+describe('custom-insurance-org CRUD', () => {
   let oystehr: Oystehr;
   let cleanup: () => Promise<void>;
   let processId: string;

@@ -6,7 +6,7 @@ import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { buildInsuranceOrganization, findInsuranceOrgByBusinessId } from '../insurance-org.helpers';
+import { buildCustomInsuranceOrganization, findCustomInsuranceOrgByBusinessId } from '../custom-insurance-org.helpers';
 import { createBillingClient } from '../shared';
 import { CreateInsuranceOrgParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -40,7 +40,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function complexValidation(oystehr: Oystehr, params: CreateInsuranceOrgParams): Promise<void> {
-  const duplicate = await findInsuranceOrgByBusinessId(oystehr, params.orgId);
+  const duplicate = await findCustomInsuranceOrgByBusinessId(oystehr, params.orgId);
   if (duplicate) {
     throw INVALID_INPUT_ERROR(`Insurance organization id "${params.orgId}" is already in use`);
   }
@@ -50,7 +50,7 @@ export async function performEffect(
   oystehr: Oystehr,
   params: CreateInsuranceOrgParams
 ): Promise<CreatedResourceResponse> {
-  const created = await oystehr.fhir.create(buildInsuranceOrganization(params));
+  const created = await oystehr.fhir.create(buildCustomInsuranceOrganization(params));
   if (!created.id) throw InternalError;
   return { id: created.id };
 }

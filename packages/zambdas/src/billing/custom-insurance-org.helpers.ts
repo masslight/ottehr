@@ -25,7 +25,7 @@ import { toFhirContact, toNioContact } from './non-insurance-org.helpers';
 
 // --- Type guard ---
 
-export function isInsuranceOrganization(org: Organization): boolean {
+export function isCustomInsuranceOrganization(org: Organization): boolean {
   return !!org.type?.some(
     (concept) =>
       concept.coding?.some(
@@ -34,7 +34,7 @@ export function isInsuranceOrganization(org: Organization): boolean {
   );
 }
 
-export function getInsuranceOrgBusinessId(org: Organization): string {
+export function getCustomInsuranceOrgBusinessId(org: Organization): string {
   return org.identifier?.find((id) => id.system === CUSTOM_INSURANCE_ORG_ID_SYSTEM)?.value ?? '';
 }
 
@@ -52,7 +52,7 @@ function toFhirAddress(address: CustomInsuranceOrgAddress | undefined): Address 
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
-function toInsuranceOrgAddress(address: Address | undefined): CustomInsuranceOrgAddress | undefined {
+function toCustomInsuranceOrgAddress(address: Address | undefined): CustomInsuranceOrgAddress | undefined {
   if (!address) return undefined;
   const result: CustomInsuranceOrgAddress = {
     ...(address.line?.[0] ? { line1: address.line[0] } : {}),
@@ -66,7 +66,7 @@ function toInsuranceOrgAddress(address: Address | undefined): CustomInsuranceOrg
 
 // --- Resource builder (full replace: owns every field it writes) ---
 
-export function buildInsuranceOrganization(
+export function buildCustomInsuranceOrganization(
   input: CreateCustomInsuranceOrgInput,
   existing?: Organization
 ): Organization {
@@ -113,7 +113,7 @@ function mapSubmissionDetails(org: Organization): CustomInsuranceOrgSubmissionDe
   const portalUrl = org.telecom?.find((point) => point.system === 'url')?.value;
   const portalDetails = org.extension?.find((ext) => ext.url === CUSTOM_INSURANCE_ORG_PORTAL_DETAILS_EXTENSION_URL)
     ?.valueString;
-  const mailAddress = toInsuranceOrgAddress(org.address?.[0]);
+  const mailAddress = toCustomInsuranceOrgAddress(org.address?.[0]);
 
   const details: CustomInsuranceOrgSubmissionDetails = {
     ...(email ? { email } : {}),
@@ -125,7 +125,7 @@ function mapSubmissionDetails(org: Organization): CustomInsuranceOrgSubmissionDe
   return Object.keys(details).length > 0 ? details : undefined;
 }
 
-export function mapInsuranceOrganization(org: Organization): CustomInsuranceOrgItem {
+export function mapCustomInsuranceOrganization(org: Organization): CustomInsuranceOrgItem {
   const insuranceTypes = (org.type ?? [])
     .flatMap((concept) => concept.coding ?? [])
     .filter((coding) => coding.system === CUSTOM_INSURANCE_ORG_TYPE_SYSTEM)
@@ -148,7 +148,7 @@ export function mapInsuranceOrganization(org: Organization): CustomInsuranceOrgI
 
   return {
     id: org.id ?? '',
-    orgId: getInsuranceOrgBusinessId(org),
+    orgId: getCustomInsuranceOrgBusinessId(org),
     name: org.name ?? '',
     active: org.active !== false,
     insuranceTypes,
@@ -162,7 +162,7 @@ export function mapInsuranceOrganization(org: Organization): CustomInsuranceOrgI
 
 // --- Business-id uniqueness lookup ---
 
-export async function findInsuranceOrgByBusinessId(
+export async function findCustomInsuranceOrgByBusinessId(
   oystehr: Oystehr,
   orgId: string,
   excludeId?: string

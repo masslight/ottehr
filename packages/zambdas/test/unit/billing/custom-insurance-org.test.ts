@@ -8,13 +8,13 @@ import {
 import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect as createInsuranceOrg } from '../../../src/billing/create-billing-custom-insurance-org';
-import { performEffect as deleteInsuranceOrg } from '../../../src/billing/delete-billing-custom-insurance-org';
 import {
-  buildInsuranceOrganization,
-  findInsuranceOrgByBusinessId,
-  isInsuranceOrganization,
-  mapInsuranceOrganization,
-} from '../../../src/billing/insurance-org.helpers';
+  buildCustomInsuranceOrganization,
+  findCustomInsuranceOrgByBusinessId,
+  isCustomInsuranceOrganization,
+  mapCustomInsuranceOrganization,
+} from '../../../src/billing/custom-insurance-org.helpers';
+import { performEffect as deleteInsuranceOrg } from '../../../src/billing/delete-billing-custom-insurance-org';
 import { performEffect as searchInsuranceOrgs } from '../../../src/billing/search-billing-custom-insurance-orgs';
 import { performEffect as updateInsuranceOrg } from '../../../src/billing/update-billing-custom-insurance-org';
 
@@ -30,7 +30,11 @@ const fullInput: CreateCustomInsuranceOrgInput = {
   note: 'Prefers electronic submission',
 };
 
-const orgResource: Organization = { ...buildInsuranceOrganization(fullInput), id: ORG_ID, meta: { versionId: '2' } };
+const orgResource: Organization = {
+  ...buildCustomInsuranceOrganization(fullInput),
+  id: ORG_ID,
+  meta: { versionId: '2' },
+};
 
 interface MockOystehr {
   oystehr: Oystehr;
@@ -59,8 +63,8 @@ describe('insurance-org FHIR mapping', () => {
       ...fullInput,
       contacts: [{ name: 'Jane Smith', title: 'Claims Manager', phone: '555-123-4567', email: 'jane@acme.com' }],
     };
-    const org = { ...buildInsuranceOrganization(input), id: ORG_ID };
-    const item = mapInsuranceOrganization(org);
+    const org = { ...buildCustomInsuranceOrganization(input), id: ORG_ID };
+    const item = mapCustomInsuranceOrganization(org);
     expect(item).toEqual({
       id: ORG_ID,
       orgId: 'OTR-ACME',
@@ -76,13 +80,13 @@ describe('insurance-org FHIR mapping', () => {
   });
 
   it('defaults contacts to an empty array when none are provided', () => {
-    const org = buildInsuranceOrganization({ ...fullInput, contacts: undefined });
+    const org = buildCustomInsuranceOrganization({ ...fullInput, contacts: undefined });
     expect(org.contact).toBeUndefined();
-    expect(mapInsuranceOrganization(org).contacts).toEqual([]);
+    expect(mapCustomInsuranceOrganization(org).contacts).toEqual([]);
   });
 
   it('writes multiple contacts to Organization.contact and maps them back', () => {
-    const org = buildInsuranceOrganization({
+    const org = buildCustomInsuranceOrganization({
       ...fullInput,
       contacts: [
         { name: 'Jane Smith', title: 'Claims Manager', phone: '555-123-4567', email: 'jane@acme.com' },
@@ -100,37 +104,37 @@ describe('insurance-org FHIR mapping', () => {
       },
       { name: { text: 'John Doe' } },
     ]);
-    expect(mapInsuranceOrganization(org).contacts).toEqual([
+    expect(mapCustomInsuranceOrganization(org).contacts).toEqual([
       { name: 'Jane Smith', title: 'Claims Manager', phone: '555-123-4567', email: 'jane@acme.com' },
       { name: 'John Doe' },
     ]);
   });
 
   it('omits note when not provided', () => {
-    const org = buildInsuranceOrganization({ ...fullInput, note: undefined });
+    const org = buildCustomInsuranceOrganization({ ...fullInput, note: undefined });
     expect(org.extension?.some((ext) => ext.valueString === 'Prefers electronic submission')).toBe(false);
-    expect(mapInsuranceOrganization(org).note).toBeUndefined();
+    expect(mapCustomInsuranceOrganization(org).note).toBeUndefined();
   });
 
   it('omits submissionDetails when none are provided', () => {
-    const org = buildInsuranceOrganization({ ...fullInput, submissionDetails: undefined });
+    const org = buildCustomInsuranceOrganization({ ...fullInput, submissionDetails: undefined });
     expect(org.telecom).toBeUndefined();
     expect(org.address).toBeUndefined();
-    expect(mapInsuranceOrganization(org).submissionDetails).toBeUndefined();
+    expect(mapCustomInsuranceOrganization(org).submissionDetails).toBeUndefined();
   });
 
   it('writes email to telecom for the email mechanism', () => {
-    const org = buildInsuranceOrganization({
+    const org = buildCustomInsuranceOrganization({
       ...fullInput,
       submissionMechanism: 'email',
       submissionDetails: { email: 'claims@acme.com' },
     });
     expect(org.telecom).toEqual([{ system: 'email', value: 'claims@acme.com' }]);
-    expect(mapInsuranceOrganization(org).submissionDetails).toEqual({ email: 'claims@acme.com' });
+    expect(mapCustomInsuranceOrganization(org).submissionDetails).toEqual({ email: 'claims@acme.com' });
   });
 
   it('writes portal url to telecom (system: url) and portal details to an extension', () => {
-    const org = buildInsuranceOrganization({
+    const org = buildCustomInsuranceOrganization({
       ...fullInput,
       submissionMechanism: 'portal',
       submissionDetails: { portalUrl: 'https://portal.acme.com', portalDetails: 'Use the claims tab' },
@@ -140,36 +144,36 @@ describe('insurance-org FHIR mapping', () => {
       url: 'https://fhir.ottehr.com/billing/insurance-org-portal-details',
       valueString: 'Use the claims tab',
     });
-    expect(mapInsuranceOrganization(org).submissionDetails).toEqual({
+    expect(mapCustomInsuranceOrganization(org).submissionDetails).toEqual({
       portalUrl: 'https://portal.acme.com',
       portalDetails: 'Use the claims tab',
     });
   });
 
   it('writes fax number to telecom for the fax mechanism', () => {
-    const org = buildInsuranceOrganization({
+    const org = buildCustomInsuranceOrganization({
       ...fullInput,
       submissionMechanism: 'fax',
       submissionDetails: { faxNumber: '555-123-4567' },
     });
     expect(org.telecom).toEqual([{ system: 'fax', value: '555-123-4567' }]);
-    expect(mapInsuranceOrganization(org).submissionDetails).toEqual({ faxNumber: '555-123-4567' });
+    expect(mapCustomInsuranceOrganization(org).submissionDetails).toEqual({ faxNumber: '555-123-4567' });
   });
 
   it('writes the mail address for the mail mechanism', () => {
-    const org = buildInsuranceOrganization({
+    const org = buildCustomInsuranceOrganization({
       ...fullInput,
       submissionMechanism: 'mail',
       submissionDetails: { mailAddress: { line1: '1 Main St', city: 'Springfield', state: 'CA', zip: '90210' } },
     });
     expect(org.address).toEqual([{ line: ['1 Main St'], city: 'Springfield', state: 'CA', postalCode: '90210' }]);
-    expect(mapInsuranceOrganization(org).submissionDetails).toEqual({
+    expect(mapCustomInsuranceOrganization(org).submissionDetails).toEqual({
       mailAddress: { line1: '1 Main St', city: 'Springfield', state: 'CA', zip: '90210' },
     });
   });
 
   it('writes one type coding per selected insurance type plus the kind coding', () => {
-    const org = buildInsuranceOrganization({ ...fullInput, insuranceTypes: ['medical'] });
+    const org = buildCustomInsuranceOrganization({ ...fullInput, insuranceTypes: ['medical'] });
     expect(org.type).toEqual([
       { coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: 'insurance-organization' }] },
       { coding: [{ system: CUSTOM_INSURANCE_ORG_TYPE_SYSTEM, code: 'medical' }] },
@@ -177,29 +181,29 @@ describe('insurance-org FHIR mapping', () => {
   });
 
   it('carries the business id as an identifier', () => {
-    const org = buildInsuranceOrganization(fullInput);
+    const org = buildCustomInsuranceOrganization(fullInput);
     expect(org.identifier).toEqual([{ system: CUSTOM_INSURANCE_ORG_ID_SYSTEM, value: 'OTR-ACME' }]);
   });
 
-  it('isInsuranceOrganization recognizes only orgs with the insurance-organization kind coding', () => {
-    expect(isInsuranceOrganization(buildInsuranceOrganization(fullInput))).toBe(true);
-    expect(isInsuranceOrganization({ resourceType: 'Organization' })).toBe(false);
+  it('isCustomInsuranceOrganization recognizes only orgs with the insurance-organization kind coding', () => {
+    expect(isCustomInsuranceOrganization(buildCustomInsuranceOrganization(fullInput))).toBe(true);
+    expect(isCustomInsuranceOrganization({ resourceType: 'Organization' })).toBe(false);
   });
 });
 
-describe('findInsuranceOrgByBusinessId', () => {
+describe('findCustomInsuranceOrgByBusinessId', () => {
   it('searches by identifier + kind and excludes the given id', async () => {
     const { oystehr, search } = makeOystehr();
     search.mockResolvedValue({ unbundle: () => [orgResource] });
 
-    const found = await findInsuranceOrgByBusinessId(oystehr, 'OTR-ACME');
+    const found = await findCustomInsuranceOrgByBusinessId(oystehr, 'OTR-ACME');
     expect(found).toEqual(orgResource);
     expect(search.mock.calls[0][0].params).toContainEqual({
       name: 'identifier',
       value: `${CUSTOM_INSURANCE_ORG_ID_SYSTEM}|OTR-ACME`,
     });
 
-    const excluded = await findInsuranceOrgByBusinessId(oystehr, 'OTR-ACME', ORG_ID);
+    const excluded = await findCustomInsuranceOrgByBusinessId(oystehr, 'OTR-ACME', ORG_ID);
     expect(excluded).toBeUndefined();
   });
 });
@@ -257,7 +261,7 @@ describe('search-billing-custom-insurance-orgs', () => {
     const result = await searchInsuranceOrgs(oystehr, { secrets: null });
 
     expect(result.total).toBe(1);
-    expect(result.organizations).toEqual([mapInsuranceOrganization(orgResource)]);
+    expect(result.organizations).toEqual([mapCustomInsuranceOrganization(orgResource)]);
     const params = search.mock.calls[0][0].params;
     expect(params).toContainEqual({
       name: 'type',

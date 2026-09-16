@@ -7,7 +7,7 @@ import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { isInsuranceOrganization } from '../insurance-org.helpers';
+import { isCustomInsuranceOrganization } from '../custom-insurance-org.helpers';
 import { createBillingClient, fetchById } from '../shared';
 import { DeleteInsuranceOrgParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -42,7 +42,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function complexValidation(oystehr: Oystehr, params: DeleteInsuranceOrgParams): Promise<Organization> {
   const existing = await fetchById<Organization>(oystehr, 'Organization', params.insuranceOrgId);
-  if (!isInsuranceOrganization(existing)) {
+  if (!isCustomInsuranceOrganization(existing)) {
     throw INVALID_INPUT_ERROR(`Organization ${params.insuranceOrgId} is not an insurance organization`);
   }
   return existing;

@@ -8,10 +8,10 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import {
-  buildInsuranceOrganization,
-  findInsuranceOrgByBusinessId,
-  isInsuranceOrganization,
-} from '../insurance-org.helpers';
+  buildCustomInsuranceOrganization,
+  findCustomInsuranceOrgByBusinessId,
+  isCustomInsuranceOrganization,
+} from '../custom-insurance-org.helpers';
 import { createBillingClient, fetchById } from '../shared';
 import { UpdateInsuranceOrgParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -46,10 +46,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function complexValidation(oystehr: Oystehr, params: UpdateInsuranceOrgParams): Promise<Organization> {
   const existing = await fetchById<Organization>(oystehr, 'Organization', params.insuranceOrgId);
-  if (!isInsuranceOrganization(existing)) {
+  if (!isCustomInsuranceOrganization(existing)) {
     throw INVALID_INPUT_ERROR(`Organization ${params.insuranceOrgId} is not an insurance organization`);
   }
-  const duplicate = await findInsuranceOrgByBusinessId(oystehr, params.orgId, params.insuranceOrgId);
+  const duplicate = await findCustomInsuranceOrgByBusinessId(oystehr, params.orgId, params.insuranceOrgId);
   if (duplicate) {
     throw INVALID_INPUT_ERROR(`Insurance organization id "${params.orgId}" is already in use`);
   }
@@ -65,7 +65,7 @@ export async function performEffect(
     {
       method: 'PUT',
       url: `Organization/${existing.id}`,
-      resource: buildInsuranceOrganization(params, existing),
+      resource: buildCustomInsuranceOrganization(params, existing),
       ifMatch: makeOptimisticLockIfMatchHeader(existing),
     },
   ];

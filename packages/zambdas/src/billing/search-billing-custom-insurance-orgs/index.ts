@@ -9,7 +9,7 @@ import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-i
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { mapInsuranceOrganization } from '../insurance-org.helpers';
+import { mapCustomInsuranceOrganization } from '../custom-insurance-org.helpers';
 import { createBillingClient } from '../shared';
 import { SearchInsuranceOrgsParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -66,7 +66,7 @@ export async function performEffect(
     params: searchParams,
   });
 
-  const organizations = bundle.unbundle().map(mapInsuranceOrganization);
+  const organizations = bundle.unbundle().map(mapCustomInsuranceOrganization);
 
   return {
     organizations,
