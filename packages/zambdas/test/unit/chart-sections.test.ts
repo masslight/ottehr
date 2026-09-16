@@ -135,9 +135,9 @@ describe('chart sections — golden fixture', () => {
       const followUps = fresh.recorded.filter((r) => r.kind === 'search').flatMap((r) => r.urls);
       expect(batched.length).toBeGreaterThan(40);
       expect(batched.filter((url) => !ANCHORS.some((anchor) => url.includes(anchor)))).toEqual([]);
-      expect(followUps.filter((url) => !/^\/(Practitioner|MedicationAdministration)\?_id=[^&]+$/.test(url))).toEqual(
-        []
-      );
+      // The only follow-up read is the standalone aiChat section's provider lookup; the visit note resolves
+      // the provider from the participants it read in the same wave.
+      expect(followUps).toEqual([`/Practitioner?_id=${practitionerId}`]);
     });
 
     it('never surfaces the other patient, whose resources carry the same chart tags', async () => {
@@ -237,7 +237,7 @@ describe('chart sections — golden fixture', () => {
   });
 
   describe('request budget', () => {
-    it('reads the whole visit note in one wave of concurrent batches plus two follow-up reads', async () => {
+    it('reads the whole visit note in one wave of concurrent batches and nothing else', async () => {
       const fresh = createGoldenFhirServer([...fixture.resources, fixture.patient, fixture.appointment]);
       await buildVisitNote(client(fresh), encounterId);
 
@@ -248,14 +248,14 @@ describe('chart sections — golden fixture', () => {
         fhirSearches: fresh.recorded.reduce((n, r) => n + r.urls.length, 0),
         batchSizes: batches.map((b) => b.urls.length),
       }).toEqual({
-        // The visit note is one call: the chart searches in six concurrent batches, the appointment count, and
-        // the AI note's provider lookup.
-        fhirHttpRequests: 8,
-        fhirSearches: 33,
-        batchSizes: [6, 6, 6, 6, 6, 1, 1],
+        // The visit note is one call: the chart searches and the appointment count in six concurrent batches;
+        // the AI note's provider is one of the participants the same wave read, so there is no follow-up lookup.
+        fhirHttpRequests: 6,
+        fhirSearches: 32,
+        batchSizes: [6, 6, 6, 6, 6, 2],
       });
       expect(Math.max(...batches.map((b) => b.urls.length))).toBeLessThanOrEqual(CHART_BATCH_TARGET_CONCURRENCY);
-      expect(searches.map((s) => s.urls[0])).toEqual([`/Practitioner?_id=${practitionerId}`]);
+      expect(searches).toEqual([]);
     });
 
     it('reads a single section in one batch plus the Encounter', async () => {
