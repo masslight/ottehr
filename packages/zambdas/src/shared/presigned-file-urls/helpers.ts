@@ -8,6 +8,14 @@ type Z3UrlAudioInput = {
   fileName: string;
 };
 
+/**
+ * `stableKey` drops the timestamp from the object path.
+ *
+ * Every other caller wants the timestamp: their objects are filed against a DocumentReference and
+ * each version has to survive alongside the last. Print-only documents have no DocumentReference,
+ * so a fresh key per render would leave an unreachable PDF in the patient's bucket on every print.
+ * A stable key gives each patient one slot per document that the next print overwrites.
+ */
 type Z3UrlInput =
   | {
       secrets: Secrets | null;
@@ -16,6 +24,7 @@ type Z3UrlInput =
       fileType: string;
       fileFormat: string;
       folderName?: string;
+      stableKey?: boolean;
     }
   | {
       secrets: Secrets | null;
@@ -23,6 +32,7 @@ type Z3UrlInput =
       patientID: string;
       fileName: string;
       folderName?: string;
+      stableKey?: boolean;
     };
 
 /**
@@ -91,7 +101,7 @@ export const makeZ3Url = (input: Z3UrlInput): string => {
     throw new Error(`Invalid folderName for Z3 path: ${JSON.stringify(folderName)}`);
   }
   const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
-  const dateTimeNow = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
+  const keyPrefix = input.stableKey ? '' : `${z3ObjectNameDatePrefix()}-`;
   let resolvedFileName: string;
   if ('fileName' in input) {
     resolvedFileName = input.fileName;
@@ -102,7 +112,7 @@ export const makeZ3Url = (input: Z3UrlInput): string => {
   const fileURL = `${getSecret(
     SecretsKeys.PROJECT_API,
     secrets
-  )}/z3/${projectId}-${bucketName}/${folderSegment}${patientID}/${dateTimeNow}-${resolvedFileName}`;
+  )}/z3/${projectId}-${bucketName}/${folderSegment}${patientID}/${keyPrefix}${resolvedFileName}`;
   console.log('created z3 url: ', fileURL);
   return fileURL;
 };

@@ -241,7 +241,13 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
           createAndOpenDischargeSummary(oystehrZambda, appointmentId, downloadDocument, {
             skipRelated: true,
           }).then((created) => {
-            completedSteps.current.dischargeSummary = created;
+            // createAndOpenDischargeSummary reports its own failure and resolves, so the rejection
+            // has to be raised here. Without it the workflow carries on and discharges the patient
+            // without the summary they asked for — and the dropdown is gone once discharged.
+            if (!created) {
+              throw new Error('The discharge summary could not be created');
+            }
+            completedSteps.current.dischargeSummary = true;
           })
         );
       }

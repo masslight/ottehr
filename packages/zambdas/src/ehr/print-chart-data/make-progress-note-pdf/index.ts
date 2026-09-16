@@ -53,7 +53,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const pdfInfo = await uploadPdfToStorage(
     bytes,
-    { patientId: patient.id, fileName: 'ProgressNote.pdf', bucketName: BUCKET_NAMES.VISIT_NOTES },
+    {
+      patientId: patient.id,
+      fileName: 'ProgressNote.pdf',
+      bucketName: BUCKET_NAMES.VISIT_NOTES,
+      // Nothing references this object, so a fresh key per print would strand the previous one in
+      // the patient's bucket with no way to reach or remove it from the chart. One slot per patient,
+      // overwritten by the next print, which is always re-rendered from current chart data anyway.
+      stableKey: true,
+    },
     secrets,
     m2mToken
   );

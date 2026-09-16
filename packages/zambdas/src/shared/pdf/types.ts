@@ -876,6 +876,8 @@ export interface UploadMetadata {
   patientId: string;
   fileName: string;
   bucketName: string;
+  /** Reuse one object per patient instead of writing a new timestamped one. See `makeZ3Url`. */
+  stableKey?: boolean;
 }
 
 export type PdfResult = {
