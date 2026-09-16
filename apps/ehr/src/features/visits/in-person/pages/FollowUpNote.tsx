@@ -18,12 +18,13 @@ export const FollowUpNote: React.FC<FollowUpNoteProps> = () => {
   const {
     patient,
     resources: { appointment },
+    encounter,
     isAppointmentLoading,
     appointmentError,
     refetch,
   } = useAppointmentData();
 
-  useTrackRecentlyViewed({ appointment, patient, isAppointmentLoading });
+  useTrackRecentlyViewed({ appointment, patient, encounter, isAppointmentLoading });
 
   const { isChartDataLoading, chartDataError } = useChartData();
   const isLoading = isAppointmentLoading || isChartDataLoading;

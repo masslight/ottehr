@@ -1,4 +1,4 @@
-import { Patient } from 'fhir/r4b';
+import { Encounter, Patient } from 'fhir/r4b';
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AppointmentValues } from '../features/visits/shared/stores/appointment/parser/types';
@@ -8,6 +8,7 @@ import { useRecentlyViewedStore } from '../state/recently-viewed.store';
 interface TrackRecentlyViewedInput {
   appointment: AppointmentValues | undefined;
   patient: Patient | undefined;
+  encounter: Encounter | undefined;
   isAppointmentLoading: boolean;
 }
 
@@ -20,7 +21,12 @@ interface TrackRecentlyViewedInput {
  * selected-encounter transition after mount re-records the same path, which the
  * store dedupes, rather than adding a separate parent-visit entry.
  */
-export function useTrackRecentlyViewed({ appointment, patient, isAppointmentLoading }: TrackRecentlyViewedInput): void {
+export function useTrackRecentlyViewed({
+  appointment,
+  patient,
+  encounter,
+  isAppointmentLoading,
+}: TrackRecentlyViewedInput): void {
   const location = useLocation();
   const addRecentNote = useRecentlyViewedStore((state) => state.addRecentNote);
 
@@ -28,7 +34,7 @@ export function useTrackRecentlyViewed({ appointment, patient, isAppointmentLoad
   const patientName = getPatientName(patient?.name).firstLastName ?? 'Unknown patient';
   const appointmentId = appointment?.id;
   const dob = patient?.birthDate;
-  const visitDate = appointment?.start;
+  const visitDate = encounter?.period?.start ?? appointment?.start;
 
   useEffect(() => {
     if (isAppointmentLoading || !appointmentId) {
