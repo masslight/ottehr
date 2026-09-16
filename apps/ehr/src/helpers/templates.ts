@@ -1,7 +1,15 @@
+import { formatInfusionTimeRange, repairDepthDisplayLabel } from 'utils';
+import { formatStructuredFacts } from 'utils/lib/procedure-coding/format';
 import { TemplateCptCodeInfo, TemplateProcedurePlan } from 'utils/lib/types/data/admin-template.types';
 
 export const formatCptCodeAndModifiersForDisplay = (info: TemplateCptCodeInfo): string => {
-  return `${info.code}${info.modifiers.length ? `-${info.modifiers.map((mod) => mod.display).join(',-')}` : ''}`;
+  // Quantity is part of the saved billing line, the same way the chart renders it: a template that
+  // stores an add-on repair line billed twice must preview as "13133 × 2", not as a single unit.
+  const quantity = info.billableUnits === undefined ? '' : ` × ${info.billableUnits}`;
+
+  return `${info.code}${
+    info.modifiers.length ? `-${info.modifiers.map((mod) => mod.display).join(',-')}` : ''
+  }${quantity}`;
 };
 
 export interface ProcedureDisplayField {
@@ -21,6 +29,14 @@ export const getProcedureDisplayFields = (plan: TemplateProcedurePlan): Procedur
     { label: 'Performer type', value: plan.performerType ?? '' },
     { label: 'Body site', value: plan.bodySite ?? '' },
     { label: 'Body side', value: plan.bodySide ?? '' },
+    {
+      label: 'Procedure findings',
+      value: formatStructuredFacts(plan.structuredFacts, plan.procedureType),
+      multiline: true,
+    },
+    { label: 'Wound/lesion size', value: plan.lengthCm != null ? `${plan.lengthCm} cm` : '' },
+    { label: 'Repair depth', value: plan.repairDepth != null ? repairDepthDisplayLabel(plan.repairDepth) : '' },
+    { label: 'Infusion time', value: formatInfusionTimeRange(plan.infusionStartTime, plan.infusionStopTime) ?? '' },
     { label: 'Technique', value: plan.technique.join(', ') },
     { label: 'Medication used', value: plan.medicationUsed ?? '' },
     { label: 'Supplies used', value: plan.suppliesUsed ?? '' },
