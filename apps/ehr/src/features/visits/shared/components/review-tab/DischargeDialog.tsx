@@ -3,6 +3,7 @@ import { LoadingButton } from '@mui/lab';
 import { Box, Button, Checkbox, FormControlLabel, FormGroup, Stack, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { makePatientInstructionsPdf, makeProgressNotePdf } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -29,15 +30,21 @@ interface DischargeSelections {
   dischargeSummary: boolean;
   workNote: boolean;
   schoolNote: boolean;
+  patientInstructions: boolean;
+  progressNote: boolean;
   signProgressNote: boolean;
   requireSupervisorApproval: boolean;
 }
 
-// Printing is opt-out and signing is opt-in, matching what a discharge most often needs.
+// The documents a discharge nearly always needs are opt-out; the rest, and signing, are opt-in.
+// Patient instructions are already carried inside the discharge summary, so the standalone sheet is
+// an extra a provider asks for rather than something to print by default.
 const DEFAULT_SELECTIONS: DischargeSelections = {
   dischargeSummary: true,
   workNote: true,
   schoolNote: true,
+  patientInstructions: false,
+  progressNote: false,
   signProgressNote: false,
   requireSupervisorApproval: true,
 };
@@ -45,6 +52,15 @@ const DEFAULT_SELECTIONS: DischargeSelections = {
 /** ["a", "b", "c"] -> "a, b & c". Used for the action label and for naming documents in messages. */
 const joinWithAmpersand = (parts: string[]): string =>
   parts.length > 1 ? `${parts.slice(0, -1).join(', ')} & ${parts[parts.length - 1]}` : parts[0];
+
+/**
+ * Awaits a print-time PDF render and opens it. Rejects on failure so the caller aborts before
+ * discharging — a document the provider asked for must not be quietly dropped.
+ */
+const openGeneratedPdf = async (render: () => Promise<{ presignedURL: string }>): Promise<void> => {
+  const { presignedURL } = await render();
+  window.open(presignedURL, '_blank');
+};
 
 const SelectionCheckbox: FC<{
   label: string;
@@ -103,7 +119,10 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
   const hasSchoolNote = schoolWorkNotes.some((note) => note.type === SCHOOL_NOTE_CODE);
   const workNoteUrl = presignedFiles.find((file) => file.type === WORK_NOTE_CODE)?.presignedUrl;
   const schoolNoteUrl = presignedFiles.find((file) => file.type === SCHOOL_NOTE_CODE)?.presignedUrl;
-  const hasDischargeSummary = Boolean(appointmentId);
+  // Every appointment-scoped document is rendered on demand from the visit, so the appointment is
+  // the only thing they need to exist.
+  const hasAppointment = Boolean(appointmentId);
+  const hasPatientInstructions = (chartData?.instructions?.length ?? 0) > 0;
 
   const [selections, setSelections] = useState<DischargeSelections>(DEFAULT_SELECTIONS);
   const [isDischarging, setIsDischarging] = useState(false);
@@ -112,7 +131,14 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
   // response is to press the button again. Without this, that retry would regenerate the discharge
   // summary, reopen tabs and re-issue a discharge that already succeeded. Keyed per document so
   // newly ticked boxes still print on the second attempt.
-  const completedSteps = useRef({ dischargeSummary: false, workNote: false, schoolNote: false, discharged: false });
+  const completedSteps = useRef({
+    dischargeSummary: false,
+    workNote: false,
+    schoolNote: false,
+    patientInstructions: false,
+    progressNote: false,
+    discharged: false,
+  });
 
   const select = useCallback((patch: Partial<DischargeSelections>): void => {
     setSelections((current) => ({ ...current, ...patch }));
@@ -133,12 +159,15 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
     }
   }, [canSign]);
 
-  const printDischargeSummary = selections.dischargeSummary && hasDischargeSummary;
+  const printDischargeSummary = selections.dischargeSummary && hasAppointment;
   const printWorkNote = selections.workNote && hasWorkNote;
   const printSchoolNote = selections.schoolNote && hasSchoolNote;
+  const printPatientInstructions = selections.patientInstructions && hasAppointment && hasPatientInstructions;
+  const printProgressNote = selections.progressNote && hasAppointment;
   const signProgressNote = selections.signProgressNote && canSign;
   const requireSupervisorApproval = signProgressNote && selections.requireSupervisorApproval;
-  const isPrinting = printDischargeSummary || printWorkNote || printSchoolNote;
+  const isPrinting =
+    printDischargeSummary || printWorkNote || printSchoolNote || printPatientInstructions || printProgressNote;
 
   // A selected note whose presigned URL has not arrived yet cannot be opened. Discharging anyway
   // would strand it: once the visit is discharged, DischargeButton drops the dropdown entirely, so
@@ -204,6 +233,19 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
         excusesToOpen.push({ key: 'schoolNote', url: schoolNoteUrl });
       }
 
+      // Rendered on demand and handed back as a presigned URL, so unlike the excuse notes these
+      // cannot be opened until the round trip completes. A failure rejects, which aborts before the
+      // discharge — the same rule the unready excuse notes follow.
+      if (printPatientInstructions && appointmentId && !completedSteps.current.patientInstructions) {
+        completedSteps.current.patientInstructions = true;
+        printPromises.push(openGeneratedPdf(() => makePatientInstructionsPdf(oystehrZambda, { appointmentId })));
+      }
+
+      if (printProgressNote && appointmentId && !completedSteps.current.progressNote) {
+        completedSteps.current.progressNote = true;
+        printPromises.push(openGeneratedPdf(() => makeProgressNotePdf(oystehrZambda, { appointmentId })));
+      }
+
       // Opened synchronously, before the first await, so the browser still attributes the new tabs
       // to the click that started this and does not block them as popups.
       for (const { key, url } of excusesToOpen) {
@@ -242,6 +284,8 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
     workNoteUrl,
     printSchoolNote,
     schoolNoteUrl,
+    printPatientInstructions,
+    printProgressNote,
     pendingDocuments,
     signProgressNote,
     requireSupervisorApproval,
@@ -271,9 +315,9 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
             </Typography>
             <FormGroup>
               <SelectionCheckbox
-                label="Discharge Summary + Patient Instructions"
+                label="Discharge Summary"
                 checked={printDischargeSummary}
-                disabled={!hasDischargeSummary}
+                disabled={!hasAppointment}
                 onChange={(checked) => select({ dischargeSummary: checked })}
                 dataTestId={dataTestIds.dischargeDialog.printDischargeSummaryCheckbox}
               />
@@ -292,6 +336,20 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
                 onChange={(checked) => select({ schoolNote: checked })}
                 dataTestId={dataTestIds.dischargeDialog.printSchoolNoteCheckbox}
                 hint={pendingSchoolNote ? 'Preparing…' : undefined}
+              />
+              <SelectionCheckbox
+                label="Patient Instructions"
+                checked={printPatientInstructions}
+                disabled={!hasAppointment || !hasPatientInstructions}
+                onChange={(checked) => select({ patientInstructions: checked })}
+                dataTestId={dataTestIds.dischargeDialog.printPatientInstructionsCheckbox}
+              />
+              <SelectionCheckbox
+                label="Progress Note"
+                checked={printProgressNote}
+                disabled={!hasAppointment}
+                onChange={(checked) => select({ progressNote: checked })}
+                dataTestId={dataTestIds.dischargeDialog.printProgressNoteCheckbox}
               />
             </FormGroup>
           </Box>

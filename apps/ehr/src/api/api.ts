@@ -132,6 +132,12 @@ import {
   CreateSlotParams,
 } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 import {
+  MakePatientInstructionsPdfZambdaInput,
+  MakePatientInstructionsPdfZambdaOutput,
+  MakeProgressNotePdfZambdaInput,
+  MakeProgressNotePdfZambdaOutput,
+} from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
+import {
   GetProgressNoteConfigInput,
   GetProgressNoteConfigOutput,
   UpdateProgressNoteConfigInput,
@@ -477,6 +483,8 @@ const UPLOAD_AUDIO_RECORDING_ZAMBDA_ID = 'upload-audio-recording';
 const CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID = 'create-resources-from-audio-recording';
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
 const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
+const MAKE_PATIENT_INSTRUCTIONS_PDF = 'make-patient-instructions-pdf';
+const MAKE_PROGRESS_NOTE_PDF = 'make-progress-note-pdf';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 const VISIT_DETAILS_TO_PDF_ZAMBDA_ID = 'visit-details-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
@@ -1997,6 +2005,50 @@ export const createDischargeSummary = async (
   try {
     const response = await oystehr.zambda.execute({
       id: CREATE_DISCHARGE_SUMMARY,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+/**
+ * Renders the visit's patient instructions as a standalone sheet for printing.
+ *
+ * Returns a presigned URL rather than a document id: nothing is filed on the chart, because the
+ * instructions already live there and are carried in the discharge summary too.
+ */
+export const makePatientInstructionsPdf = async (
+  oystehr: Oystehr,
+  parameters: MakePatientInstructionsPdfZambdaInput
+): Promise<MakePatientInstructionsPdfZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: MAKE_PATIENT_INSTRUCTIONS_PDF,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+/**
+ * Renders the visit's progress note for printing, before it has been signed.
+ *
+ * Returns a presigned URL and files nothing, so this can never be confused with the canonical signed
+ * note the visit-note subscription creates.
+ */
+export const makeProgressNotePdf = async (
+  oystehr: Oystehr,
+  parameters: MakeProgressNotePdfZambdaInput
+): Promise<MakeProgressNotePdfZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: MAKE_PROGRESS_NOTE_PDF,
       ...parameters,
     });
     return chooseJson(response);

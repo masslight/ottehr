@@ -14,6 +14,13 @@ const downloadDocument = vi.fn().mockResolvedValue(undefined);
 const createAndOpenDischargeSummary = vi.fn().mockResolvedValue(undefined);
 const handleDischarge = vi.fn().mockResolvedValue(undefined);
 const enqueueSnackbar = vi.fn();
+const makePatientInstructionsPdf = vi.fn().mockResolvedValue({ presignedURL: 'https://example.test/instructions' });
+const makeProgressNotePdf = vi.fn().mockResolvedValue({ presignedURL: 'https://example.test/progress-note' });
+
+vi.mock('src/api/api', () => ({
+  makePatientInstructionsPdf: (...args: unknown[]) => makePatientInstructionsPdf(...args),
+  makeProgressNotePdf: (...args: unknown[]) => makeProgressNotePdf(...args),
+}));
 
 vi.mock('notistack', () => ({
   enqueueSnackbar: (...args: unknown[]) => enqueueSnackbar(...args),
@@ -30,6 +37,7 @@ let signing = {
 
 // Which notes the visit has comes from the chart; their presigned URLs arrive separately and later.
 let schoolWorkNotes: { type: string; url: string }[] = [];
+let instructions: { text: string }[] = [];
 let presignedFiles: { type: string; presignedUrl: string }[] = [];
 
 vi.mock('src/features/visits/shared/hooks/useProgressNoteSigning', () => ({
@@ -38,7 +46,7 @@ vi.mock('src/features/visits/shared/hooks/useProgressNoteSigning', () => ({
 
 vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ appointmentRefetch }),
-  useChartData: () => ({ chartData: { schoolWorkNotes } }),
+  useChartData: () => ({ chartData: { schoolWorkNotes, instructions } }),
 }));
 
 vi.mock('src/hooks/useAppClients', () => ({
@@ -83,6 +91,7 @@ describe('DischargeDialog', () => {
       isSigning: false,
       signNote,
     };
+    instructions = [{ text: 'Rest and hydrate' }];
     schoolWorkNotes = [
       { type: WORK_NOTE_CODE, url: 'z3://work-note' },
       { type: SCHOOL_NOTE_CODE, url: 'z3://school-note' },
@@ -225,6 +234,51 @@ describe('DischargeDialog', () => {
 
     await waitFor(() => expect(signNote).toHaveBeenCalledTimes(1));
     expect(handleDischarge).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(enqueueSnackbar).toHaveBeenCalledWith('An error occurred. Please try again.', { variant: 'error' });
+  });
+
+  it('renders each printable the visit offers on demand', async () => {
+    const user = userEvent.setup();
+    render(<DischargeDialog {...baseProps} />);
+
+    // Both are opt-in: patient instructions already appear inside the discharge summary, and the
+    // progress note is not part of a routine discharge packet.
+    expect(checkbox(dataTestIds.dischargeDialog.printPatientInstructionsCheckbox)).not.toBeChecked();
+    expect(checkbox(dataTestIds.dischargeDialog.printProgressNoteCheckbox)).not.toBeChecked();
+
+    await user.click(checkbox(dataTestIds.dischargeDialog.printPatientInstructionsCheckbox));
+    await user.click(checkbox(dataTestIds.dischargeDialog.printProgressNoteCheckbox));
+    await user.click(confirmButton());
+
+    await waitFor(() => expect(handleDischarge).toHaveBeenCalledTimes(1));
+    expect(makePatientInstructionsPdf).toHaveBeenCalledWith({}, { appointmentId: 'appointment-1' });
+    expect(makeProgressNotePdf).toHaveBeenCalledWith({}, { appointmentId: 'appointment-1' });
+    expect(window.open).toHaveBeenCalledWith('https://example.test/instructions', '_blank');
+    expect(window.open).toHaveBeenCalledWith('https://example.test/progress-note', '_blank');
+  });
+
+  it('offers patient instructions only when the visit has some', () => {
+    instructions = [];
+    render(<DischargeDialog {...baseProps} />);
+
+    expect(checkbox(dataTestIds.dischargeDialog.printPatientInstructionsCheckbox)).toBeDisabled();
+    expect(checkbox(dataTestIds.dischargeDialog.printProgressNoteCheckbox)).toBeEnabled();
+  });
+
+  // A rendered document that fails must not be quietly dropped — the visit stays undischarged so the
+  // provider can retry, because the dropdown disappears once the discharge goes through.
+  it('does not discharge when a rendered document fails', async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    makeProgressNotePdf.mockRejectedValueOnce(new Error('render failed'));
+    render(<DischargeDialog {...baseProps} onClose={onClose} />);
+
+    await user.click(checkbox(dataTestIds.dischargeDialog.printProgressNoteCheckbox));
+    await user.click(confirmButton());
+
+    await waitFor(() => expect(makeProgressNotePdf).toHaveBeenCalledTimes(1));
+    expect(handleDischarge).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(enqueueSnackbar).toHaveBeenCalledWith('An error occurred. Please try again.', { variant: 'error' });
   });

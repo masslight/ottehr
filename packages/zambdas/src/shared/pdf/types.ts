@@ -909,6 +909,12 @@ export interface PatientInstructionsData extends PdfData {
   instructions: string[];
 }
 
+export interface PatientInstructionsPdfData extends PdfData {
+  patient: PatientInfoForDischargeSummary;
+  visit: VisitInfo;
+  patientInstructions?: PatientInstructionsData;
+}
+
 export interface EducationDocumentsData extends PdfData {
   documents: { title: string }[];
 }
@@ -1088,6 +1094,12 @@ export interface ProgressNoteData extends PdfData {
   followupCompleted: FollowupCompleted;
   upcomingVisits: UpcomingVisitsData;
   signature: SignatureData;
+}
+
+export interface PatientInstructionsPdfInput {
+  allChartData: AllChartData;
+  appointmentPackage: FullAppointmentResourcePackage;
+  serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
 export interface DischargeSummaryInput {
