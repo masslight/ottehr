@@ -98,14 +98,14 @@ const sortItems = (items: CommandPaletteItem[], query = ''): CommandPaletteItem[
     if (categoryComparison !== 0) return categoryComparison;
     const priorityComparison = matchPriority(left) - matchPriority(right);
     if (priorityComparison !== 0) return priorityComparison;
+    const weightTiebreak = weightOf(right) - weightOf(left);
+    if (weightTiebreak !== 0) return weightTiebreak;
     const lk = sortKeyFor(left);
     const rk = sortKeyFor(right);
     const primaryComparison = lk.primary.localeCompare(rk.primary);
     if (primaryComparison !== 0) return primaryComparison;
     // Same parent label: parent first, then children in author-declared order.
     if (lk.isChild !== rk.isChild) return lk.isChild ? 1 : -1;
-    const weightTiebreak = weightOf(right) - weightOf(left);
-    if (weightTiebreak !== 0) return weightTiebreak;
     return lk.secondary - rk.secondary;
   });
 };
