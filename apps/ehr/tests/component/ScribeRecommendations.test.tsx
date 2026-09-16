@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { DocumentReference } from 'fhir/r4b';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import { ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
 import { ChartPlanResponse, NarrativeLine } from 'utils/lib/easy-chart/api';
 import { narrativeExtension, TRANSCRIPT_ATTACHMENT_TITLE } from 'utils/lib/easy-chart/narrative';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
@@ -316,6 +317,7 @@ import {
 } from '../../src/features/visits/shared/components/scribe-recommendations/scribeRecommendations.store';
 import { ScribeRecommendationsDrawer } from '../../src/features/visits/shared/components/scribe-recommendations/ScribeRecommendationsDrawer';
 import { ScribeRecommendation } from '../../src/features/visits/shared/components/scribe-recommendations/types';
+import { useExamObservationsStore } from '../../src/features/visits/shared/stores/appointment/exam-observations.store';
 import { useRosObservationsStore } from '../../src/features/visits/shared/stores/appointment/ros-observations.store';
 
 // ============================================================================
@@ -340,6 +342,7 @@ const resetStore = (): void => {
   mocks.written = {};
   mocks.plan.mockReturnValue(PLAN);
   useRosObservationsStore.setState({}, true);
+  useExamObservationsStore.setState({}, true);
   useScribeRecommendationsStore.setState({
     chartedIds: [],
     isOpen: false,
@@ -505,7 +508,7 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(within(screen.getByTestId(testIds.group('medications'))).getByText('Meds')).toBeVisible();
     expect(within(observationsStage).getByText('Acute sinusitis, unspecified (J01.90)')).toBeVisible();
     // an action the panel has no editor for is shown by the executor's own step label
-    expect(within(screen.getByTestId(testIds.group('exam'))).getByText('Exam finding: Sinus tenderness')).toBeVisible();
+    expect(within(screen.getByTestId(testIds.group('exam'))).getByText('Sinus tenderness')).toBeVisible();
 
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(
       `${observations().length} of ${observations().length} selected`
@@ -677,13 +680,16 @@ describe('ScribeRecommendationsDrawer', () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
-    // the exam finding is a search term: the words are what the executor looks up
+    // the exam finding's words are what gets looked up, and the new words are looked up again on save:
+    // the box changes with them, here from the plain sinus box to its maxillary option
+    expect(screen.getByTestId(testIds.examLeaf(ID.examTenderness))).toHaveTextContent('→ Nose: Sinus tenderness');
     await user.click(screen.getByTestId(testIds.rowEditButton(ID.examTenderness)));
     const wording = screen.getByTestId(testIds.rowEditInput(ID.examTenderness));
     await user.clear(wording);
     await user.type(wording, 'Maxillary sinus tenderness{Enter}');
-    expect(screen.getByTestId(testIds.rowText(ID.examTenderness))).toHaveTextContent(
-      'Exam finding: Maxillary sinus tenderness'
+    expect(screen.getByTestId(testIds.rowText(ID.examTenderness))).toHaveTextContent('Maxillary sinus tenderness');
+    expect(screen.getByTestId(testIds.examLeaf(ID.examTenderness))).toHaveTextContent(
+      '→ Nose: Sinus tenderness: Sinus Tenderness: Maxillary: Right'
     );
 
     // a reading is parsed again as the server parsed it, so the number the chart gets follows the words
@@ -708,9 +714,14 @@ describe('ScribeRecommendationsDrawer', () => {
       expect(screen.getByTestId(testIds.rowCheckbox(ID.temperature))).toHaveClass('MuiCheckbox-colorSuccess')
     );
     const applied = mocks.applyOne.mock.calls.map(([rec]) => rec as ScribeRecommendation);
-    expect(applied.find((rec) => rec.id === ID.examTenderness)).toMatchObject({
-      action: { kind: 'add-exam-finding', display: 'Maxillary sinus tenderness' },
+    // The reworded finding goes to the executor with the box the new words resolved to, so it ticks that
+    // one rather than searching the words a second time.
+    expect(appliedAction(ID.examTenderness)).toMatchObject({
+      kind: 'add-exam-finding',
+      display: 'Maxillary sinus tenderness',
+      resolvedLeaf: { field: 'sinus-tenderness', sectionLabel: 'Nose' },
     });
+    expect(appliedAction(ID.examTenderness)).not.toHaveProperty('searchTerms');
     expect(applied.find((rec) => rec.id === ID.temperature)).toMatchObject({
       action: { kind: 'set-vital', display: '38.2 C', value: 38.2, unit: 'C' },
     });
@@ -1010,6 +1021,117 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${before - 1} of ${before - 1} selected`);
   });
 
+  // An exam finding is looked up in the exam's checkboxes when the list is built, so the row says which box it
+  // will tick, lets the provider choose among near-equal ones, or says where a miss goes — all before apply.
+  describe('exam findings', () => {
+    const TM_BULGING = 'plan:add-exam-finding:TM-bulging';
+    const HOMAN = 'plan:add-exam-finding:Positive-Homan-sign';
+    const withExamFindings = (): void => {
+      mocks.plan.mockReturnValue({
+        ...PLAN,
+        actions: [
+          ...PLAN.actions,
+          // Left and right TM bulging fit these words equally in the default exam config.
+          { kind: 'add-exam-finding', display: 'TM bulging', sourceText: 'the eardrum is bulging' },
+          // No box for it anywhere, and no anatomy word to place it: the general card's comment.
+          { kind: 'add-exam-finding', display: 'Positive Homan sign' },
+        ],
+      });
+    };
+
+    it('shows the box a clear match will tick, and applies with that box rather than a second search', async () => {
+      const user = userEvent.setup();
+      await openPanelWithRecommendations(user);
+
+      expect(screen.getByTestId(testIds.rowText(ID.examTenderness))).toHaveTextContent('Sinus tenderness');
+      expect(screen.getByTestId(testIds.examLeaf(ID.examTenderness))).toHaveTextContent('→ Nose: Sinus tenderness');
+
+      await user.click(screen.getByTestId(testIds.applyObservationsButton));
+      await waitFor(() => expectCharted(ID.examTenderness));
+      expect(appliedAction(ID.examTenderness)).toMatchObject({
+        kind: 'add-exam-finding',
+        display: 'Sinus tenderness',
+        resolvedLeaf: { field: 'sinus-tenderness', label: 'Sinus tenderness', sectionLabel: 'Nose' },
+      });
+    });
+
+    it('offers the near-equal boxes in the editor, and applies with the one chosen', async () => {
+      const user = userEvent.setup();
+      withExamFindings();
+      await openPanelWithRecommendations(user);
+
+      const row = screen.getByTestId(testIds.row(TM_BULGING));
+      expect(screen.getByTestId(testIds.examLeaf(TM_BULGING))).toHaveTextContent(
+        '→ Left ear: TM bulging, erythematous · 2 possible — choose'
+      );
+      expect(screen.queryByTestId(testIds.examLeafChooser(TM_BULGING))).toBeNull();
+
+      await user.click(screen.getByTestId(testIds.rowEditButton(TM_BULGING)));
+      expect(screen.getByTestId(testIds.rowEditInput(TM_BULGING))).toHaveValue('TM bulging');
+      const chooser = screen.getByTestId(testIds.examLeafChooser(TM_BULGING));
+      expect(within(chooser).getAllByRole('radio')).toHaveLength(2);
+      expect(within(chooser).getByText('Ears: Right ear: TM bulging, erythematous')).toBeVisible();
+      await user.click(
+        within(screen.getByTestId(testIds.examLeafOption(TM_BULGING, 'right-ear-tm-bulging-erythematous'))).getByRole(
+          'radio'
+        )
+      );
+      await lookAway(user);
+
+      // The choice is on the row now, and it is what goes to the chart: no picker, no auto-pick.
+      expect(within(row).getByTestId(testIds.examLeaf(TM_BULGING))).toHaveTextContent(
+        '→ Ears: Right ear: TM bulging, erythematous'
+      );
+      await user.click(screen.getByTestId(testIds.applyObservationsButton));
+      await waitFor(() => expectCharted(TM_BULGING));
+      expect(appliedAction(TM_BULGING)).toMatchObject({
+        kind: 'add-exam-finding',
+        display: 'TM bulging',
+        resolvedLeaf: { field: 'right-ear-tm-bulging-erythematous' },
+      });
+      expect(screen.queryByTestId(testIds.pickerDialog)).toBeNull();
+    });
+
+    it('says which card’s comment will take words no box fits, and leaves the executor to note them', async () => {
+      const user = userEvent.setup();
+      withExamFindings();
+      await openPanelWithRecommendations(user);
+
+      expect(screen.getByTestId(testIds.rowText(HOMAN))).toHaveTextContent('Positive Homan sign');
+      expect(screen.getByTestId(testIds.examLeaf(HOMAN))).toHaveTextContent(
+        'No checkbox matched — will be noted in General Appearance comments'
+      );
+
+      await user.click(screen.getByTestId(testIds.applyObservationsButton));
+      await waitFor(() => expectCharted(HOMAN));
+      expect(appliedAction(HOMAN)).toMatchObject({ kind: 'add-exam-finding', display: 'Positive Homan sign' });
+      expect(appliedAction(HOMAN)).not.toHaveProperty('resolvedLeaf');
+    });
+
+    it('marks a finding whose box is ticked, or whose words are in the card’s comment, as already charted', async () => {
+      const user = userEvent.setup();
+      withExamFindings();
+      // The provider ticked the sinus box and typed the Homan sign into the general comment already.
+      useExamObservationsStore.setState({
+        'sinus-tenderness': { field: 'sinus-tenderness', value: true },
+        'general-comment': { field: 'general-comment', note: 'Appears comfortable; positive Homan sign' },
+      });
+      await openPanelWithRecommendations(user);
+
+      expect(within(screen.getByTestId(testIds.row(ID.examTenderness))).getByText('Already charted')).toBeVisible();
+      expect(within(screen.getByTestId(testIds.row(HOMAN))).getByText('Already charted')).toBeVisible();
+      expect(screen.queryByTestId(testIds.rowEditButton(ID.examTenderness))).toBeNull();
+      // An ambiguity nobody has chosen on names no box, so it is not claimed as charted.
+      expect(within(screen.getByTestId(testIds.row(TM_BULGING))).queryByText('Already charted')).toBeNull();
+      expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent('2 already charted');
+
+      await user.click(screen.getByTestId(testIds.applyObservationsButton));
+      await waitFor(() => expectCharted(TM_BULGING));
+      expect(appliedIds()).not.toContain(ID.examTenderness);
+      expect(appliedIds()).not.toContain(HOMAN);
+    });
+  });
+
   it('keeps the transcript evidence off the row until the pointer is on the line', async () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
@@ -1059,10 +1181,10 @@ describe('ScribeRecommendationsDrawer', () => {
     expectUnticked(ID.fentanyl);
     expect(within(row).getByTestId(testIds.rowEditButton(ID.fentanyl))).toBeInTheDocument();
 
-    // a generic action row carries no box either, and opens onto the wording the executor will act on
+    // an exam row carries no box either, and opens onto the wording that is looked up
     const generic = screen.getByTestId(testIds.row(ID.examTenderness));
     expect(screen.queryByTestId(testIds.rowCheckbox(ID.examTenderness))).toBeNull();
-    await user.click(within(generic).getByText('Exam finding: Sinus tenderness'));
+    await user.click(within(generic).getByText('Sinus tenderness'));
     expect(screen.getByTestId(testIds.rowEditInput(ID.examTenderness))).toHaveValue('Sinus tenderness');
     expect(rowCheckbox(ID.examTenderness)).toBeChecked();
     await lookAway(user);
@@ -1558,12 +1680,60 @@ describe('isAlreadyCharted', () => {
       'ros-neuro-headache-reports': { field: 'ros-neuro-headache-reports', value: true },
       'ros-ent-ear-pain-denies': { field: 'ros-ent-ear-pain-denies', value: false },
     },
+    examObservations: {
+      wheezing: { field: 'wheezing', value: true },
+      rales: { field: 'rales', value: false },
+      'lungs-comment': { field: 'lungs-comment', note: 'Decreased breath sounds; positive Homan sign.' },
+    },
     historyOfPresentIllness: 'Patient reports having post-nasal drip and sinus pressure for 1 week.',
     vitals: undefined,
   });
 
   const charted = (rec: Partial<ScribeRecommendation>): boolean =>
     isAlreadyCharted(rec as ScribeRecommendation, snapshot);
+
+  const leaf = (field: string): ExamLeaf => ({
+    field,
+    leafLabel: field,
+    label: field,
+    sectionKey: 'lungs',
+    sectionLabel: 'Lungs',
+    polarity: 'abnormal' as const,
+    path: [],
+  });
+
+  it('matches an exam finding on the box it will tick, or on the words already in the card’s comment', () => {
+    expect(
+      charted({ kind: 'exam', display: 'wheezing', resolution: { kind: 'confident', leaf: leaf('wheezing') } })
+    ).toBe(true);
+    // recorded as false is the same as not ticked
+    expect(charted({ kind: 'exam', display: 'rales', resolution: { kind: 'confident', leaf: leaf('rales') } })).toBe(
+      false
+    );
+    // a chosen box counts as the box; an unchosen ambiguity names none yet
+    const alternatives = [leaf('wheezing'), leaf('rales')];
+    expect(
+      charted({
+        kind: 'exam',
+        display: 'wheeze',
+        resolution: { kind: 'ambiguous', leaf: alternatives[0], alternatives, chosen: alternatives[0] },
+      })
+    ).toBe(true);
+    expect(
+      charted({
+        kind: 'exam',
+        display: 'wheeze',
+        resolution: { kind: 'ambiguous', leaf: alternatives[0], alternatives },
+      })
+    ).toBe(false);
+    // the words are in that card's comment, up to case and punctuation — the executor's own dedupe rule
+    const noted = { kind: 'none' as const, sectionKey: 'lungs', sectionLabel: 'Lungs', commentField: 'lungs-comment' };
+    expect(charted({ kind: 'exam', display: 'Positive Homan sign', resolution: noted })).toBe(true);
+    expect(
+      charted({ kind: 'exam', display: 'Positive Homan sign', resolution: { ...noted, commentField: 'ears-comment' } })
+    ).toBe(false);
+    expect(charted({ kind: 'exam', display: 'Crackles', resolution: noted })).toBe(false);
+  });
 
   it('matches a diagnosis on its code', () => {
     expect(charted({ kind: 'diagnosis', code: 'J01.90' })).toBe(true);
@@ -1604,6 +1774,7 @@ describe('isAlreadyCharted', () => {
     const withWeight = buildChartSnapshot({
       chartData: {},
       rosObservations: {},
+      examObservations: {},
       historyOfPresentIllness: undefined,
       vitals: { 'vital-weight': [{ field: 'vital-weight', value: 77 }] } as never,
     });

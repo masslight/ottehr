@@ -6,6 +6,7 @@
 // deterministic.
 
 import { Encounter } from 'fhir/r4b';
+import { ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
 import { Action, ActionKind, ActionOfKind } from 'utils/lib/easy-chart/actions';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { NoteChartKey } from 'utils/lib/easy-chart/note-fields';
@@ -261,6 +262,17 @@ export type PickerResponse = CatalogueMatch | undefined;
  * `interactive` — the provider typed one request and is watching. Ambiguity asks.
  */
 export type ExecutionMode = 'bulk' | 'interactive';
+
+/**
+ * An `add-exam-finding` the recommendations panel resolved BEFORE apply: the provider saw the leaf on
+ * the row (or chose it among near-equal matches) and confirmed that one, so the handler ticks it
+ * without searching again — a second search could land on a different leaf than the one they read.
+ * Client-side only: the wire `PlannedAction` never carries it and the server never sees it. Absent, the
+ * handler resolves as it always has.
+ */
+export interface ResolvedExamFindingAction {
+  resolvedLeaf?: ExamLeaf;
+}
 
 export interface HandlerContext {
   mode: ExecutionMode;

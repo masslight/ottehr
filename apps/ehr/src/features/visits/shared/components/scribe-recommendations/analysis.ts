@@ -3,13 +3,15 @@
 // The plan and review endpoints return PlannedAction[] — the executor's input. The panel shows, edits and
 // ticks recommendations. This module is the seam between the two: it turns each action into the
 // recommendation kind the panel has an editor for (a diagnosis, an allergy, a weight, a review-of-systems
-// finding, a note paragraph, a medication, a template), wraps everything else as a generic action row, and
-// turns an edited recommendation back into the action the executor runs. Pure, so the seam is testable
-// without a model, a network or a page.
+// finding, an exam finding, a note paragraph, a medication, a template), wraps everything else as a generic
+// action row, and turns an edited recommendation back into the action the executor runs. Pure, so the seam
+// is testable without a model, a network or a page.
 
+import { examCommentTarget } from 'src/features/easy-chart/executor/examComment';
 import { describeAction } from 'src/features/easy-chart/executor/labels';
 import { classifyMatches } from 'src/features/easy-chart/executor/resolve';
-import { ChartSnapshot } from 'src/features/easy-chart/executor/types';
+import { ChartSnapshot, ResolvedExamFindingAction } from 'src/features/easy-chart/executor/types';
+import { buildExamLeafCatalogue, ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
 import { ActionKind, NoteTextField } from 'utils/lib/easy-chart/actions';
 import {
   ChartPlanResponse,
@@ -18,16 +20,23 @@ import {
   PlannedAction,
   RejectedAction,
 } from 'utils/lib/easy-chart/api';
-import { buildRosCatalogue, findRosMatches, RosCatalogueEntry } from 'utils/lib/easy-chart/matchers';
+import {
+  buildRosCatalogue,
+  findExamLeafMatches,
+  findRosMatches,
+  RosCatalogueEntry,
+} from 'utils/lib/easy-chart/matchers';
 import { chartKeyForNoteField, NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
 import { findingPolarity, locateQuote } from 'utils/lib/easy-chart/provenance';
 import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { locateGeneratedLines } from './narrativeLines';
 import { buildNarrativeRuns } from './narrativeRuns';
-import { wordCount } from './scribeSections';
+import { resolvedExamLeaf, wordCount } from './scribeSections';
 import {
   EvidenceOrigin,
+  ExamResolution,
   LocatedLine,
   NoteMode,
   RecommendationSource,
@@ -45,6 +54,8 @@ export interface AnalysisContext {
   written: Record<string, string | undefined>;
   /** Defaults to the ROS config's own catalogue; injectable for tests. */
   rosCatalogue?: RosCatalogueEntry[];
+  /** Defaults to the leaves of the default exam config — the catalogue the executor searches; injectable for tests. */
+  examCatalogue?: ExamLeaf[];
   /**
    * The narrative the actions were read from — the text the planner was sent, so the text its quotes were
    * verified against. When given, the analysis carries the runs: the narrative itself, cut so that every
@@ -75,6 +86,8 @@ export const NEEDS_PROVIDER_WARNING = 'The assistant could not establish a value
 
 let defaultRosCatalogue: RosCatalogueEntry[] | undefined;
 const rosCatalogue = (): RosCatalogueEntry[] => (defaultRosCatalogue ??= buildRosCatalogue());
+let defaultExamCatalogue: ExamLeaf[] | undefined;
+const examCatalogue = (): ExamLeaf[] => (defaultExamCatalogue ??= buildExamLeafCatalogue(DefaultExamComponentsConfig));
 
 /** The chart section an action writes into — which group the panel shows it in, and which page its rail opens. */
 export function sectionForAction(action: PlannedAction): ScribeSectionKey {
@@ -192,6 +205,33 @@ function resolveRosEntry(action: PlannedAction, catalogue: RosCatalogueEntry[]):
   return resolution.kind === 'confident' ? (resolution.match.payload as RosCatalogueEntry) : undefined;
 }
 
+/**
+ * What an exam finding's wording resolves to in the exam's checkboxes: the SAME matcher, over the same
+ * leaves, with the same ambiguity rule the executor applies at apply time, so the box a row names is the
+ * box that gets ticked. A miss names the card whose comment will take the words instead — the card
+ * `writeExamComment` would pick, read from the same helper. Run when the list is built, and again on the
+ * new words when the provider rewords a row.
+ */
+export function resolveExamFinding(
+  display: string,
+  searchTerms: string[] | undefined,
+  leaves: ExamLeaf[] = examCatalogue()
+): ExamResolution {
+  const resolution = classifyMatches(findExamLeafMatches(display, leaves, { searchTerms }));
+  if (resolution.kind === 'confident') return { kind: 'confident', leaf: resolution.match.payload as ExamLeaf };
+  if (resolution.kind === 'ambiguous') {
+    return {
+      kind: 'ambiguous',
+      leaf: resolution.match.payload as ExamLeaf,
+      alternatives: resolution.alternatives.map((match) => match.payload as ExamLeaf),
+    };
+  }
+  const target = examCommentTarget(display, searchTerms, leaves);
+  return target
+    ? { kind: 'none', sectionKey: target.sectionKey, sectionLabel: target.sectionLabel, commentField: target.field }
+    : { kind: 'none' };
+}
+
 /** The second line of a generic row, for the kinds whose step label alone does not say what will be charted. */
 export function actionSecondary(action: PlannedAction): string | undefined {
   switch (action.kind) {
@@ -293,6 +333,20 @@ function toRecommendation(
       }
       break;
     }
+    case 'add-exam-finding':
+      // Resolved here rather than at apply time, so the row can show the box, offer the choice and say
+      // where a miss goes before anything is written. A removal stays a generic row: it is matched
+      // against what is on the chart, not against the catalogue.
+      if (action.display) {
+        return {
+          ...base,
+          kind: 'exam',
+          display: action.display,
+          ...(action.searchTerms ? { searchTerms: action.searchTerms } : {}),
+          resolution: resolveExamFinding(action.display, action.searchTerms, options.examCatalogue ?? examCatalogue()),
+        };
+      }
+      break;
     default:
       break;
   }
@@ -325,6 +379,10 @@ export function recommendationKey(rec: ScribeRecommendation): string {
     case 'ros':
       // One finding per symptom, whichever way it goes: the transcript cannot both report and deny it.
       return `ros:${rec.baseKey}`;
+    case 'exam':
+      // A confident row proposes its box, so two wordings for one box are one proposal; a row still to be
+      // chosen or noted as text proposes its words.
+      return `exam:${rec.resolution.kind === 'confident' ? rec.resolution.leaf.field : normalize(rec.display)}`;
     case 'action': {
       const { kind, code, field, display, text } = rec.action;
       return `${kind}:${normalize(String(code ?? field ?? display ?? text ?? ''))}`;
@@ -501,6 +559,21 @@ export function toPlannedAction(rec: ScribeRecommendation): PlannedAction {
         ...(original?.searchTerms ? { searchTerms: original.searchTerms } : {}),
         finding: rec.finding === RosFindingState.Denies ? 'denies' : 'reports',
       };
+    case 'exam': {
+      // The row's own terms rather than `named`: they are the model's, kept while the wording is the model's
+      // and cleared by the editor with the rewording. A leaf the provider read or chose rides along so the
+      // executor ticks THAT box rather than searching a second time; an unchosen ambiguity and a miss carry
+      // none and are settled at apply time as before (picker or auto-pick; the card's comment).
+      const leaf = resolvedExamLeaf(rec);
+      const action: PlannedAction & ResolvedExamFindingAction = {
+        ...baseWithoutTerms,
+        kind: 'add-exam-finding',
+        display: rec.display,
+        ...(rec.searchTerms ? { searchTerms: rec.searchTerms } : {}),
+        ...(leaf ? { resolvedLeaf: leaf } : {}),
+      };
+      return action;
+    }
     case 'action':
       return rec.action;
   }

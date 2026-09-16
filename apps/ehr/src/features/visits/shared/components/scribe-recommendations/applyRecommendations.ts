@@ -13,6 +13,7 @@ const APPLY_ORDER: Record<Exclude<ScribeRecommendation['kind'], 'action'>, numbe
   'vital-weight': 5,
   medication: 6,
   ros: 7,
+  exam: 8,
 };
 
 /**
@@ -21,7 +22,7 @@ const APPLY_ORDER: Record<Exclude<ScribeRecommendation['kind'], 'action'>, numbe
  * last, after the rows the panel has editors for.
  */
 const applyOrder = (rec: ScribeRecommendation): number => {
-  if (rec.kind === 'action') return rec.action.kind.startsWith('remove-') ? 1 : 8;
+  if (rec.kind === 'action') return rec.action.kind.startsWith('remove-') ? 1 : 9;
   return APPLY_ORDER[rec.kind];
 };
 

@@ -1,3 +1,4 @@
+import { ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
 import { NoteTextField } from 'utils/lib/easy-chart/actions';
 import { NarrativeLine, PlannedAction, RejectedAction } from 'utils/lib/easy-chart/api';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
@@ -125,6 +126,33 @@ export interface RosRecommendation extends ScribeRecommendationBase {
   systemLabel: string;
 }
 
+/**
+ * What an exam finding's wording resolved to in the exam's checkbox catalogue — the SAME lookup, with the
+ * same ambiguity rule, the executor runs at apply time, run when the list is built so the row can say
+ * which box it will tick before the provider applies it.
+ *
+ *   confident  — one clear leaf; applied by ticking it, no second search.
+ *   ambiguous  — several near-equal leaves, best first in `alternatives` (the top one repeated in `leaf`).
+ *                The provider may pick one in the editor, and `chosen` then holds it; unpicked, the executor
+ *                decides as it always did (asks when one row applies on its own, auto-picks in a batch).
+ *   none       — no box for these words; they will be noted in the card's free text, the card given here,
+ *                or in nothing at all when the exam has no comment fields.
+ */
+export type ExamResolution =
+  | { kind: 'confident'; leaf: ExamLeaf }
+  | { kind: 'ambiguous'; leaf: ExamLeaf; alternatives: ExamLeaf[]; chosen?: ExamLeaf }
+  | { kind: 'none'; sectionKey?: string; sectionLabel?: string; commentField?: string };
+
+/** An exam finding, resolved against the exam's checkboxes ahead of apply. */
+export interface ExamRecommendation extends ScribeRecommendationBase {
+  kind: 'exam';
+  /** The finding as worded — the model's, or the provider's once edited. What gets looked up. */
+  display: string;
+  /** The model's synonyms for the wording; dropped when the provider rewords it, as they described the old words. */
+  searchTerms?: string[];
+  resolution: ExamResolution;
+}
+
 export interface TemplateRecommendation extends ScribeRecommendationBase {
   kind: 'template';
   templateName: string;
@@ -140,8 +168,8 @@ export interface TemplateRecommendation extends ScribeRecommendationBase {
 }
 
 /**
- * Anything else the executor can chart — an exam finding, a past surgery, a disposition, an E&M level, a
- * removal. Shown by its step label and applied as the action it wraps; the panel has no editor for it.
+ * Anything else the executor can chart — a past surgery, a disposition, an E&M level, a removal. Shown by
+ * its step label and applied as the action it wraps; the panel has no editor for it.
  */
 export interface ActionRecommendation extends ScribeRecommendationBase {
   kind: 'action';
@@ -157,6 +185,7 @@ export type ScribeRecommendation =
   | DiagnosisRecommendation
   | MedicationRecommendation
   | RosRecommendation
+  | ExamRecommendation
   | TemplateRecommendation
   | ActionRecommendation;
 

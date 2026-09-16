@@ -2,6 +2,7 @@
 // behaviour is deterministic. That is the payoff of the "LLM returns typed actions" architecture, so
 // these tests exercise it directly.
 
+import { ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { describe, expect, it, vi } from 'vitest';
 import { HANDLERS, toStoredVitalValue } from '../../src/features/easy-chart/executor/handlers';
@@ -15,6 +16,7 @@ import {
   HandlerContext,
   PickerRequest,
   PickerResponse,
+  ResolvedExamFindingAction,
 } from '../../src/features/easy-chart/executor/types';
 
 const emptyChart = (): ChartSnapshot => ({
@@ -518,6 +520,39 @@ describe('ambiguity', () => {
     const { steps } = await runPlan([{ kind: 'add-exam-finding', display: 'something' }], h.context);
     expect(steps[0].outcome).toMatchObject({ status: 'skipped' });
     expect(h.saved).toEqual([]);
+  });
+
+  // The recommendations panel resolves an exam finding before apply, and the provider reads or chooses the
+  // box there. Searching again here could land on a different one than they confirmed, so a resolved leaf
+  // is ticked as it comes — no catalogue, no picker, however many matches the words would have had.
+  it('ticks the box the provider already confirmed instead of searching again', async () => {
+    const h = harness({
+      mode: 'interactive',
+      matches: { examFindings: [match('e1', 'Erythematous pharynx', 1), match('e2', 'Erythematous tonsils', 0.95)] },
+      answer: () => {
+        throw new Error('the picker must not be asked');
+      },
+    });
+    const resolvedLeaf: ExamLeaf = {
+      field: 'wheezing',
+      leafLabel: 'Wheezing',
+      label: 'Wheezing',
+      sectionKey: 'lungs',
+      sectionLabel: 'Lungs, Chest Wall',
+      polarity: 'abnormal',
+      path: [],
+    };
+    const action: PlannedAction & ResolvedExamFindingAction = {
+      kind: 'add-exam-finding',
+      display: 'throat injected',
+      resolvedLeaf,
+    };
+    const { steps } = await runPlan([action], h.context);
+    expect(steps[0].outcome).toMatchObject({ status: 'applied', matchedId: 'wheezing' });
+    expect(steps[0].outcome?.lowConfidence).toBeFalsy();
+    expect(h.asks).toEqual([]);
+    // The same row the catalogue path writes: the leaf's own fields, ticked.
+    expect(h.saved).toEqual([{ examObservations: [{ ...resolvedLeaf, value: true }] }]);
   });
 });
 

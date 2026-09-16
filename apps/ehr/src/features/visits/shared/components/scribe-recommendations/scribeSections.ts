@@ -1,6 +1,7 @@
+import { ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
 import { NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
-import { ScribeRecommendation, ScribeSectionKey } from './types';
+import { ExamRecommendation, ScribeRecommendation, ScribeSectionKey } from './types';
 
 interface ScribeSectionMeta {
   label: string;
@@ -84,6 +85,33 @@ const detailOf = (rec: ScribeRecommendation, ...parts: (string | undefined)[]): 
 /** The note field an `hpi` recommendation targets when it names none. */
 export const HPI_FIELD = 'historyOfPresentIllness';
 
+/**
+ * The one leaf an exam row will tick, when there is one: a confident match, or the provider's pick among
+ * several. An ambiguous row nobody has chosen on has none — the executor settles it at apply time.
+ */
+export const resolvedExamLeaf = (rec: ExamRecommendation): ExamLeaf | undefined => {
+  const { resolution } = rec;
+  if (resolution.kind === 'confident') return resolution.leaf;
+  if (resolution.kind === 'ambiguous') return resolution.chosen;
+  return undefined;
+};
+
+/** A leaf as the exam tab would have the provider find it: the card, then the path down to the box. */
+export const examLeafLabel = (leaf: ExamLeaf): string => `${leaf.sectionLabel}: ${leaf.label}`;
+
+/** The second line of an exam row: which box the words will tick, which to choose among, or where a miss goes. */
+export const describeExamResolution = (rec: ExamRecommendation): string => {
+  const { resolution } = rec;
+  const leaf = resolvedExamLeaf(rec);
+  if (leaf) return `→ ${examLeafLabel(leaf)}`;
+  if (resolution.kind === 'ambiguous') {
+    return `→ ${resolution.leaf.label} · ${resolution.alternatives.length} possible — choose`;
+  }
+  return resolution.kind === 'none' && resolution.sectionLabel
+    ? `No checkbox matched — will be noted in ${resolution.sectionLabel} comments`
+    : 'No checkbox matched, and this exam has no comment field to note it in';
+};
+
 export const describeRecommendation = (rec: ScribeRecommendation): RecommendationText => {
   switch (rec.kind) {
     case 'template':
@@ -105,6 +133,9 @@ export const describeRecommendation = (rec: ScribeRecommendation): Recommendatio
     }
     case 'ros':
       return { primary: `${rec.systemLabel}: ${rec.label}`, detail: detailOf(rec) };
+    case 'exam':
+      // The words lead, as they are what the provider said; the box they tick is the qualifier.
+      return { primary: rec.display, secondary: describeExamResolution(rec), detail: detailOf(rec) };
     case 'vital-weight':
       return { primary: `Weight ${rec.weightLbs} lbs (${kgFromLbs(rec.weightLbs)} kg)`, detail: detailOf(rec) };
     case 'allergy':

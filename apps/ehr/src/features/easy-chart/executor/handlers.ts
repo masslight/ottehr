@@ -13,11 +13,7 @@
 //   - A skip carries a REASON written for a provider to read.
 //   - Nothing is written on a guess. If the catalogue does not resolve, skip and say why.
 
-import {
-  buildExamCommentFields,
-  buildExamLeafCatalogue,
-  inferExamSectionKey,
-} from 'utils/lib/config-helpers/exam-leaves';
+import { buildExamLeafCatalogue, ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
 import { ActionKind, NoteTextField } from 'utils/lib/easy-chart/actions';
 import { chartKeyForNoteField, NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
@@ -26,6 +22,7 @@ import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
+import { examCommentTarget, normalizeExamComment } from './examComment';
 import { ProcedureQuickPickContext } from './procedure-quick-pick';
 import { describeQuery, resolvePick } from './resolve';
 import {
@@ -39,6 +36,7 @@ import {
   HandlerContext,
   HandlerTable,
   isCatalogueList,
+  ResolvedExamFindingAction,
   skipped,
   StepOutcome,
 } from './types';
@@ -182,37 +180,28 @@ function erxId(payload: unknown): string | undefined {
   return id === undefined || id === null || id === '' ? undefined : String(id);
 }
 
-/** Words that carry no anatomy, so a comment made only of these has nothing to file it under. */
-const COMMENT_FALLBACK_SECTION = 'general';
-
 /**
  * Append a dictated exam finding to the free-text note of the card it most likely belongs to.
  *
  * The last resort for `add-exam-finding`, reached only when the checkbox catalogue matched nothing.
  * Appends rather than overwrites — the provider may have typed in that box, and the plan and the
  * review pass can both route a finding here — and dedupes, because "Positive Homan's sign; Positive
- * Homan's sign" is what appending twice looks like.
+ * Homan's sign" is what appending twice looks like. The card and the dedupe rule live in
+ * `examComment.ts`, shared with the recommendations panel, which promises this card before apply.
  */
-async function writeExamComment(action: { display?: string }, context: HandlerContext): Promise<StepOutcome> {
+async function writeExamComment(
+  action: { display?: string; searchTerms?: string[] },
+  context: HandlerContext
+): Promise<StepOutcome> {
   const text = (action.display ?? '').trim();
   if (!text) return skipped('no exam finding was named, so nothing was charted');
 
-  const leaves = buildExamLeafCatalogue(DefaultExamComponentsConfig);
-  const commentFields = buildExamCommentFields(DefaultExamComponentsConfig);
-  const sectionKey = inferExamSectionKey(
-    `${text} ${(action as { searchTerms?: string[] }).searchTerms?.join(' ') ?? ''}`,
-    leaves
-  );
-  const field = commentFields[sectionKey ?? ''] ?? commentFields[COMMENT_FALLBACK_SECTION];
-  if (!field) return skipped(`"${text}" matched no exam finding, and this exam has no comment field to note it in`);
+  const target = examCommentTarget(text, action.searchTerms, buildExamLeafCatalogue(DefaultExamComponentsConfig));
+  if (!target) return skipped(`"${text}" matched no exam finding, and this exam has no comment field to note it in`);
+  const { field } = target;
 
   const existing = context.chart.examComments.find((comment) => comment.field === field);
-  const normalize = (value: string): string =>
-    value
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, ' ')
-      .trim();
-  if (existing && normalize(existing.note).includes(normalize(text))) {
+  if (existing && normalizeExamComment(existing.note).includes(normalizeExamComment(text))) {
     return skipped(`"${text}" is already in that exam section's note`);
   }
   const note = existing?.note ? `${existing.note}; ${text}` : text;
@@ -459,12 +448,22 @@ export const HANDLERS = {
   'set-vital': setVital,
 
   'add-exam-finding': async (action, context) => {
+    // The row the exam tab saves is the leaf's own fields with the tick on it. The real catalogue's payload
+    // is the leaf; a fake's may be nothing, so the field is always named on its own. One write whether the
+    // leaf was matched here or handed in already resolved.
+    const tick = (field: string, leaf: ExamLeaf | undefined): Promise<string[]> =>
+      context.writer.save({ examObservations: [{ ...leaf, field, value: true }] });
+    // Resolved on the recommendations panel, where the provider read (or chose) this leaf: tick that
+    // one. Searching again could land elsewhere than what they confirmed.
+    const { resolvedLeaf } = action as ResolvedExamFindingAction;
+    if (resolvedLeaf) {
+      return applied(await tick(resolvedLeaf.field, resolvedLeaf), { matchedId: resolvedLeaf.field });
+    }
     // NO CHECKBOX FOR IT IS NOT NOTHING TO CHART — see onNoMatch.
     return addFromCatalogue(action, context, {
       search: (q) => context.catalogue.examFindings(q),
       noun: 'exam finding',
-      write: (match) =>
-        context.writer.save({ examObservations: [{ field: match.id, value: true, ...(match.payload as object) }] }),
+      write: (match) => tick(match.id, match.payload as ExamLeaf | undefined),
       onNoMatch: () => writeExamComment(action, context),
     });
   },

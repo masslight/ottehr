@@ -1,6 +1,7 @@
 // The seam between the Easy Chart endpoints and the recommendations panel: typed actions in, recommendations
 // the panel can show and edit out, and the edited recommendation back into the action the executor runs.
 
+import { ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
 import { ChartPlanResponse, ChartReviewResponse, PlannedAction, ReviewSuggestion } from 'utils/lib/easy-chart/api';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
@@ -11,10 +12,15 @@ import {
   buildAnalysis,
   INFERRED_NOTE,
   recommendationKey,
+  resolveExamFinding,
   sectionForAction,
   toPlannedAction,
 } from '../../src/features/visits/shared/components/scribe-recommendations/analysis';
-import { ScribeRecommendation } from '../../src/features/visits/shared/components/scribe-recommendations/types';
+import {
+  ExamRecommendation,
+  ExamResolution,
+  ScribeRecommendation,
+} from '../../src/features/visits/shared/components/scribe-recommendations/types';
 
 const envelope = { usage: [], escalation: { attempts: 1, escalated: false, failures: [] }, triggers: [] };
 const plan = (actions: PlannedAction[], rejected: ChartPlanResponse['rejected'] = []): ChartPlanResponse => ({
@@ -96,7 +102,8 @@ describe('buildAnalysis', () => {
 
   it('wraps everything else as a generic row carrying the step label the executor would show', () => {
     const recs = analyse([
-      { kind: 'add-exam-finding', display: 'Sinus tenderness', sourceText: 'tender over the sinuses' },
+      // A removal is matched against the chart, not the catalogue, so it stays generic.
+      { kind: 'remove-exam-finding', display: 'Sinus tenderness', sourceText: 'sinuses are not tender' },
       { kind: 'set-disposition', dispositionType: 'pcp', text: 'Follow up with PCP in one week.' },
       { kind: 'set-em-code', code: '99213', display: 'Office visit, established, low' },
       // Another vital has no editor of its own.
@@ -108,7 +115,7 @@ describe('buildAnalysis', () => {
       ['action', 'assessment'],
       ['action', 'vitals'],
     ]);
-    expect(recs[0]).toMatchObject({ label: 'Exam finding: Sinus tenderness' });
+    expect(recs[0]).toMatchObject({ label: 'Removing exam finding: Sinus tenderness' });
     expect(recs[1]).toMatchObject({ label: 'Setting disposition: pcp', secondary: 'Follow up with PCP in one week.' });
     expect(recs[2]).toMatchObject({ label: 'Setting E&M level: 99213', secondary: 'Office visit, established, low' });
     // The wrapped action is returned untouched.
@@ -213,13 +220,14 @@ describe('buildAnalysis', () => {
       { kind: 'add-ros-finding', display: 'denies fever', finding: 'denies' },
       // The transcript cannot both report and deny it: the first reading wins.
       { kind: 'add-ros-finding', display: 'reports fever', finding: 'reports' },
+      // Both resolve to the same box in the default exam config, so they are one proposal.
       { kind: 'add-exam-finding', display: 'Sinus tenderness' },
       { kind: 'add-exam-finding', display: 'sinus tenderness' },
     ]);
     expect(recs.map(recommendationKey)).toEqual([
       'allergy:penicillin',
       'ros:ros-constitutional-fever',
-      'add-exam-finding:sinus tenderness',
+      'exam:sinus-tenderness',
     ]);
   });
 
@@ -348,6 +356,123 @@ describe('the narrative is the transcript, with the evidence highlighted', () =>
     expect(
       buildAnalysis(plan(actions), undefined, { written: {}, narrative: 'Allergic to latex.' }).narrativeRuns
     ).toEqual([{ text: 'Allergic to latex.' }]);
+  });
+});
+
+// An exam finding is resolved against the exam's checkboxes when the list is built — the same lookup the
+// executor runs at apply time — so the row can name the box, offer the choice, or say where a miss goes.
+describe('exam findings', () => {
+  // A catalogue small enough to reason about: one box that matches on its own, two that tie, and nothing
+  // for a finding the exam has no box for.
+  const leaf = (field: string, leafLabel: string, extra: Partial<ExamLeaf> = {}): ExamLeaf => ({
+    field,
+    leafLabel,
+    label: [...(extra.path ?? []), leafLabel].join(': '),
+    sectionKey: 'lungs',
+    sectionLabel: 'Lungs, Chest Wall',
+    polarity: 'abnormal',
+    path: [],
+    ...extra,
+  });
+  const wheezing = leaf('wheezing', 'Wheezing');
+  const rightTm = leaf('right-ear-tm-bulging', 'TM bulging', {
+    sectionKey: 'ears',
+    sectionLabel: 'Ears',
+    path: ['Right ear'],
+  });
+  const leftTm = leaf('left-ear-tm-bulging', 'TM bulging', {
+    sectionKey: 'ears',
+    sectionLabel: 'Ears',
+    path: ['Left ear'],
+  });
+  const examCatalogue = [wheezing, rightTm, leftTm];
+  const analyseExam = (actions: PlannedAction[]): ScribeRecommendation[] =>
+    buildAnalysis(plan(actions), undefined, { written: {}, examCatalogue }).recommendations;
+
+  it('names the one box a clear match will tick', () => {
+    const [rec] = analyseExam([
+      { kind: 'add-exam-finding', display: 'expiratory wheezing', searchTerms: ['wheeze'], sourceText: 'wheezing' },
+    ]);
+    expect(rec).toMatchObject({
+      kind: 'exam',
+      section: 'exam',
+      display: 'expiratory wheezing',
+      searchTerms: ['wheeze'],
+      resolution: { kind: 'confident', leaf: wheezing },
+      evidence: 'wheezing',
+    });
+  });
+
+  it('offers the near-equal boxes, best first, and leaves the choice to the provider', () => {
+    const [rec] = analyseExam([{ kind: 'add-exam-finding', display: 'TM bulging' }]);
+    expect(rec).toMatchObject({ kind: 'exam', resolution: { kind: 'ambiguous' } });
+    const resolution = (rec as ExamRecommendation).resolution as Extract<ExamResolution, { kind: 'ambiguous' }>;
+    expect(resolution.alternatives.map((alternative) => alternative.field).sort()).toEqual([
+      'left-ear-tm-bulging',
+      'right-ear-tm-bulging',
+    ]);
+    expect(resolution.alternatives).toContainEqual(resolution.leaf);
+    expect(resolution.chosen).toBeUndefined();
+  });
+
+  it('says which card’s comment will take the words when no box fits them', () => {
+    const [placed, unplaced] = analyseExam([
+      // "tragus" names the Ears card and no box, exactly as `writeExamComment` would place it.
+      { kind: 'add-exam-finding', display: 'Tenderness over the tragus' },
+      { kind: 'add-exam-finding', display: 'Positive Homan sign' },
+    ]);
+    expect(placed).toMatchObject({
+      resolution: { kind: 'none', sectionKey: 'ears', sectionLabel: 'Ears', commentField: 'ears-comment' },
+    });
+    expect(unplaced).toMatchObject({
+      resolution: {
+        kind: 'none',
+        sectionKey: 'general',
+        sectionLabel: 'General Appearance',
+        commentField: 'general-comment',
+      },
+    });
+  });
+
+  it('hands the executor the box the provider read or chose, and nothing to search for otherwise', () => {
+    const [clear, tied, missed] = analyseExam([
+      { kind: 'add-exam-finding', display: 'wheezing', searchTerms: ['wheeze'], sourceText: 'wheezing' },
+      { kind: 'add-exam-finding', display: 'TM bulging' },
+      { kind: 'add-exam-finding', display: 'Positive Homan sign' },
+    ]);
+    expect(toPlannedAction(clear)).toEqual({
+      kind: 'add-exam-finding',
+      display: 'wheezing',
+      searchTerms: ['wheeze'],
+      sourceText: 'wheezing',
+      resolvedLeaf: wheezing,
+    });
+    // Unchosen, the executor resolves it as it always did: the picker, or the batch's auto-pick.
+    expect(toPlannedAction(tied)).toEqual({ kind: 'add-exam-finding', display: 'TM bulging' });
+    const chosen = {
+      ...tied,
+      resolution: { ...(tied as ExamRecommendation).resolution, chosen: rightTm },
+    } as ScribeRecommendation;
+    expect(toPlannedAction(chosen)).toEqual({ kind: 'add-exam-finding', display: 'TM bulging', resolvedLeaf: rightTm });
+    // A miss is the executor's to note in the card's comment.
+    expect(toPlannedAction(missed)).toEqual({ kind: 'add-exam-finding', display: 'Positive Homan sign' });
+  });
+
+  it('looks reworded text up afresh, without the synonyms that described the old words', () => {
+    const [rec] = analyseExam([{ kind: 'add-exam-finding', display: 'TM bulging', searchTerms: ['tympanic'] }]);
+    // What the editor does on save: the new words alone, through the same lookup.
+    const reworded = {
+      ...rec,
+      display: 'wheezing',
+      searchTerms: undefined,
+      resolution: resolveExamFinding('wheezing', undefined, examCatalogue),
+    } as ScribeRecommendation;
+    expect(reworded).toMatchObject({ resolution: { kind: 'confident', leaf: wheezing } });
+    expect(toPlannedAction(reworded)).toEqual({
+      kind: 'add-exam-finding',
+      display: 'wheezing',
+      resolvedLeaf: wheezing,
+    });
   });
 });
 

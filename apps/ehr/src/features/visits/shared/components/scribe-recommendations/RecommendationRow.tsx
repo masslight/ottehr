@@ -10,8 +10,11 @@ import {
   Chip,
   CircularProgress,
   ClickAwayListener,
+  FormControlLabel,
   IconButton,
   InputAdornment,
+  Radio,
+  RadioGroup,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
@@ -26,6 +29,7 @@ import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.typ
 import { DiagnosesField } from '../assessment-tab/DiagnosesField';
 import { TemplateOption } from '../templates/useListTemplates';
 import { actionEditPatch, editableActionText, withEditedText } from './actionEdits';
+import { resolveExamFinding } from './analysis';
 import { NOTE_MODE_MENU_CLASS, NoteModeChip } from './NoteModeChip';
 import { hasProvenance, ProvenanceContent } from './Provenance';
 import {
@@ -33,10 +37,17 @@ import {
   startEditingUnlessAnotherIsOpen,
   useScribeRecommendationsStore,
 } from './scribeRecommendations.store';
-import { describeRecommendation, HPI_FIELD, rosFindingLetter } from './scribeSections';
+import {
+  describeExamResolution,
+  describeRecommendation,
+  examLeafLabel,
+  HPI_FIELD,
+  resolvedExamLeaf,
+  rosFindingLetter,
+} from './scribeSections';
 import { AI_SURFACE } from './ScribeStage';
 import { scaled } from './scribeTheme';
-import { ScribeRecommendation } from './types';
+import { ExamRecommendation, ScribeRecommendation } from './types';
 
 interface RecommendationRowProps {
   recommendation: ScribeRecommendation;
@@ -305,7 +316,12 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
               </Box>
             </Box>
             {secondary && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                // An exam row's second line is the box it will tick, or where a miss goes: named for tests.
+                data-testid={recommendation.kind === 'exam' ? testIds.examLeaf(recommendation.id) : undefined}
+              >
                 {secondary}
               </Typography>
             )}
@@ -439,6 +455,8 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
         return recommendation.name;
       case 'vital-weight':
         return String(recommendation.weightLbs);
+      case 'exam':
+        return recommendation.display;
       case 'action':
         return editableActionText(recommendation.action)?.value ?? '';
       default:
@@ -447,6 +465,10 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
   });
   const [finding, setFinding] = useState<RosFindingState>(
     recommendation.kind === 'ros' ? recommendation.finding : RosFindingState.Reports
+  );
+  // The box the provider picks among an exam row's near-equal matches, by its field; '' while unpicked.
+  const [chosenField, setChosenField] = useState<string>(
+    recommendation.kind === 'exam' ? resolvedExamLeaf(recommendation)?.field ?? '' : ''
   );
   const [template, setTemplate] = useState<TemplateOption | null>(() =>
     recommendation.kind === 'template'
@@ -469,6 +491,8 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
       }
       case 'ros':
         return { finding };
+      case 'exam':
+        return examEdit(recommendation);
       case 'template':
         return { templateName: template?.label ?? recommendation.templateName };
       case 'diagnosis':
@@ -481,6 +505,23 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
         return edited ? actionEditPatch(edited) : {};
       }
     }
+  };
+
+  /**
+   * An exam row's patch. Reworded, the new words are looked up again exactly as the analysis looked the
+   * old ones up, and the model's synonyms go with the old words; a pick that belonged to the old wording
+   * goes too, since the new words may resolve elsewhere. Unchanged words with a new pick keep the
+   * resolution and record the pick on it. Only what changed is in the patch: a fresh resolution object
+   * would otherwise always read as an edit.
+   */
+  const examEdit = (rec: ExamRecommendation): Partial<ExamRecommendation> => {
+    const next = text.trim();
+    if (next && next !== rec.display) {
+      return { display: next, searchTerms: undefined, resolution: resolveExamFinding(next, undefined) };
+    }
+    if (rec.resolution.kind !== 'ambiguous' || chosenField === (rec.resolution.chosen?.field ?? '')) return {};
+    const chosen = rec.resolution.alternatives.find((leaf) => leaf.field === chosenField);
+    return chosen ? { resolution: { ...rec.resolution, chosen } } : {};
   };
 
   const hasCommitted = useRef(false);
@@ -627,6 +668,44 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
             </ToggleButtonGroup>
           </Box>
         );
+      case 'exam': {
+        const { resolution } = recommendation;
+        return (
+          <>
+            {textField('Exam finding')}
+            {/* Several boxes fit the words about equally: the provider picks the one they meant here,
+                rather than in the executor's dialog at apply time. The labels are the ones the picker
+                would show — the card, then the path to the box. Retyping the words drops the pick, as
+                the new words are looked up afresh when the editor closes. */}
+            {resolution.kind === 'ambiguous' && text.trim() === recommendation.display ? (
+              <RadioGroup
+                value={chosenField}
+                onChange={(_event, value) => setChosenField(value)}
+                aria-label="Which exam finding did you mean?"
+                data-testid={testIds.examLeafChooser(id)}
+              >
+                {resolution.alternatives.map((leaf) => (
+                  <FormControlLabel
+                    key={leaf.field}
+                    value={leaf.field}
+                    control={
+                      <Radio size="small" sx={{ py: 0.25 }} data-testid={testIds.examLeafOption(id, leaf.field)} />
+                    }
+                    label={examLeafLabel(leaf)}
+                    slotProps={{ typography: { variant: 'body2' } }}
+                  />
+                ))}
+              </RadioGroup>
+            ) : (
+              <Typography variant="caption" color="text.secondary">
+                {text.trim() === recommendation.display
+                  ? describeExamResolution(recommendation)
+                  : 'The new wording is looked up when you leave the editor.'}
+              </Typography>
+            )}
+          </>
+        );
+      }
       case 'template':
         return (
           <Autocomplete

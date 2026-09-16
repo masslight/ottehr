@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { normalizeExamComment } from 'src/features/easy-chart/executor/examComment';
 import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
@@ -7,9 +8,11 @@ import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-d
 import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
+import { useExamObservationsStore } from '../../stores/appointment/exam-observations.store';
 import { useRosObservationsStore } from '../../stores/appointment/ros-observations.store';
 import { useGetVitals } from '../vitals/hooks/useGetVitals';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
+import { resolvedExamLeaf } from './scribeSections';
 import { ScribeRecommendation } from './types';
 
 /**
@@ -32,6 +35,10 @@ export interface ChartSnapshot {
   medicationNames: Set<string>;
   /** ROS fields recorded as true, keyed the way the ROS table keys them. */
   rosFields: Set<string>;
+  /** Exam checkboxes ticked, by field — the leaf ids the exam catalogue resolves to. */
+  examFields: Set<string>;
+  /** Each exam card's free-text comment, by its field, where a finding with no checkbox is noted. */
+  examComments: Map<string, string>;
   historyOfPresentIllness: string;
   hasWeight: boolean;
 }
@@ -41,11 +48,13 @@ type ChartDataForSnapshot = Pick<GetChartDataResponse, 'diagnosis' | 'allergies'
 export const buildChartSnapshot = ({
   chartData,
   rosObservations,
+  examObservations,
   historyOfPresentIllness,
   vitals,
 }: {
   chartData: Partial<ChartDataForSnapshot> | undefined;
   rosObservations: Record<string, ExamObservationDTO>;
+  examObservations: Record<string, ExamObservationDTO>;
   historyOfPresentIllness: string | undefined;
   vitals: GetVitalsResponseData | undefined;
 }): ChartSnapshot => ({
@@ -62,6 +71,17 @@ export const buildChartSnapshot = ({
     Object.values(rosObservations)
       .filter((observation) => observation.value === true)
       .map((observation) => observation.field)
+  ),
+  examFields: new Set(
+    Object.values(examObservations)
+      .filter((observation) => observation.value === true)
+      .map((observation) => observation.field)
+  ),
+  // The exam store holds the comment rows beside the ticks: an observation carrying `note` and no value.
+  examComments: new Map(
+    Object.values(examObservations)
+      .filter((observation) => typeof observation.note === 'string' && observation.note.trim().length > 0)
+      .map((observation) => [observation.field, (observation.note ?? '').trim()])
   ),
   historyOfPresentIllness: (historyOfPresentIllness ?? '').trim(),
   hasWeight: (vitals?.[VitalFieldNames.VitalWeight]?.length ?? 0) > 0,
@@ -93,6 +113,17 @@ export const isAlreadyCharted = (recommendation: ScribeRecommendation, snapshot:
       const { deniesKey, reportsKey } = getRosFindingFieldKeys(recommendation.baseKey);
       return snapshot.rosFields.has(recommendation.finding === RosFindingState.Reports ? reportsKey : deniesKey);
     }
+    case 'exam': {
+      // The box it will tick is on the chart, or the words it will note are already in that card's comment
+      // — the same containment rule `writeExamComment` dedupes by. An ambiguity nobody has chosen on names
+      // no box yet, so it is the executor's to judge.
+      const leaf = resolvedExamLeaf(recommendation);
+      if (leaf) return snapshot.examFields.has(leaf.field);
+      const { resolution } = recommendation;
+      if (resolution.kind !== 'none' || !resolution.commentField) return false;
+      const note = snapshot.examComments.get(resolution.commentField);
+      return note !== undefined && normalizeExamComment(note).includes(normalizeExamComment(recommendation.display));
+    }
     // The executor checks its own duplicates as it runs and settles the step as skipped with the reason.
     case 'action':
       return false;
@@ -103,9 +134,10 @@ export const isAlreadyCharted = (recommendation: ScribeRecommendation, snapshot:
 export const useChartSnapshot = (): ChartSnapshot => {
   const { chartData } = useChartData();
   const { encounter } = useAppointmentData();
-  // Subscribing to the whole ROS store is the point: ticking a box on the Review of Systems
-  // screen has to show up here immediately.
+  // Subscribing to the whole ROS and exam stores is the point: ticking a box on the Review of Systems
+  // or Examination screen has to show up here immediately.
   const rosObservations = useRosObservationsStore();
+  const examObservations = useExamObservationsStore();
   const { data: hpiFields } = useChartFields({ requestedFields: { chiefComplaint: { _tag: 'chief-complaint' } } });
   const { data: vitals } = useGetVitals(encounter?.id);
 
@@ -114,10 +146,11 @@ export const useChartSnapshot = (): ChartSnapshot => {
       buildChartSnapshot({
         chartData,
         rosObservations,
+        examObservations,
         historyOfPresentIllness: hpiFields?.chiefComplaint?.text,
         vitals,
       }),
-    [chartData, rosObservations, hpiFields, vitals]
+    [chartData, rosObservations, examObservations, hpiFields, vitals]
   );
 };
 
