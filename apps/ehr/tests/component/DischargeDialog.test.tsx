@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const signNote = vi.fn().mockResolvedValue(undefined);
 const appointmentRefetch = vi.fn().mockResolvedValue(undefined);
 const downloadDocument = vi.fn().mockResolvedValue(undefined);
-const createAndOpenDischargeSummary = vi.fn().mockResolvedValue(undefined);
+const createAndOpenDischargeSummary = vi.fn().mockResolvedValue(true);
 const handleDischarge = vi.fn().mockResolvedValue(undefined);
 const enqueueSnackbar = vi.fn();
 const makePatientInstructionsPdf = vi.fn().mockResolvedValue({ presignedURL: 'https://example.test/instructions' });
@@ -38,6 +38,8 @@ let signing = {
 // Which notes the visit has comes from the chart; their presigned URLs arrive separately and later.
 let schoolWorkNotes: { type: string; url: string }[] = [];
 let instructions: { text: string }[] = [];
+type FakeTab = { location: { href: string }; close: ReturnType<typeof vi.fn> };
+let openedTabs: FakeTab[] = [];
 let presignedFiles: { type: string; presignedUrl: string }[] = [];
 
 vi.mock('src/features/visits/shared/hooks/useProgressNoteSigning', () => ({
@@ -100,7 +102,15 @@ describe('DischargeDialog', () => {
       { type: WORK_NOTE_CODE, presignedUrl: 'https://example.test/work-note' },
       { type: SCHOOL_NOTE_CODE, presignedUrl: 'https://example.test/school-note' },
     ];
-    vi.stubGlobal('open', vi.fn());
+    openedTabs = [];
+    vi.stubGlobal(
+      'open',
+      vi.fn(() => {
+        const tab = { location: { href: '' }, close: vi.fn() };
+        openedTabs.push(tab);
+        return tab;
+      })
+    );
   });
 
   it('labels the action for the current selection', async () => {
@@ -254,8 +264,44 @@ describe('DischargeDialog', () => {
     await waitFor(() => expect(handleDischarge).toHaveBeenCalledTimes(1));
     expect(makePatientInstructionsPdf).toHaveBeenCalledWith({}, { appointmentId: 'appointment-1' });
     expect(makeProgressNotePdf).toHaveBeenCalledWith({}, { appointmentId: 'appointment-1' });
-    expect(window.open).toHaveBeenCalledWith('https://example.test/instructions', '_blank');
-    expect(window.open).toHaveBeenCalledWith('https://example.test/progress-note', '_blank');
+
+    // Opened blank inside the click, then navigated once the URL arrives — awaiting the render
+    // before window.open would put it outside user activation and get it blocked as a popup.
+    expect(window.open).toHaveBeenCalledWith('', '_blank');
+    const hrefs = openedTabs.map((tab) => tab.location.href);
+    expect(hrefs).toContain('https://example.test/instructions');
+    expect(hrefs).toContain('https://example.test/progress-note');
+  });
+
+  it('closes the blank tab when a rendered document fails', async () => {
+    const user = userEvent.setup();
+    makeProgressNotePdf.mockRejectedValueOnce(new Error('render failed'));
+    render(<DischargeDialog {...baseProps} />);
+
+    await user.click(checkbox(dataTestIds.dischargeDialog.printProgressNoteCheckbox));
+    await user.click(confirmButton());
+
+    await waitFor(() => expect(makeProgressNotePdf).toHaveBeenCalledTimes(1));
+    // The tab reserved for the progress note must not be left sitting there blank.
+    await waitFor(() => expect(openedTabs.some((tab) => tab.close.mock.calls.length > 0)).toBe(true));
+    expect(handleDischarge).not.toHaveBeenCalled();
+  });
+
+  it('retries a document whose render failed instead of skipping it', async () => {
+    const user = userEvent.setup();
+    makeProgressNotePdf.mockRejectedValueOnce(new Error('render failed'));
+    render(<DischargeDialog {...baseProps} />);
+
+    await user.click(checkbox(dataTestIds.dischargeDialog.printProgressNoteCheckbox));
+    await user.click(confirmButton());
+    await waitFor(() => expect(makeProgressNotePdf).toHaveBeenCalledTimes(1));
+    expect(handleDischarge).not.toHaveBeenCalled();
+
+    await user.click(confirmButton());
+
+    // A failed step is not "completed": the retry renders it again rather than discharging without.
+    await waitFor(() => expect(makeProgressNotePdf).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(handleDischarge).toHaveBeenCalledTimes(1));
   });
 
   it('offers patient instructions only when the visit has some', () => {

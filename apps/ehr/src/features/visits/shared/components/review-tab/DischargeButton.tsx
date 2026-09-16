@@ -19,7 +19,7 @@ export const createAndOpenDischargeSummary = async (
   appointmentId: string,
   downloadDocument: (id: string, options?: { skipRelated?: boolean }) => Promise<void>,
   options?: { skipRelated?: boolean }
-): Promise<void> => {
+): Promise<boolean> => {
   try {
     const response = await createDischargeSummary(oystehr, { appointmentId });
     const documentId = response?.documentId;
@@ -31,9 +31,11 @@ export const createAndOpenDischargeSummary = async (
         { variant: 'info' }
       );
     }
+    return true;
   } catch (error) {
     console.error('Error creating Discharge Summary:', error);
     enqueueSnackbar('Error creating Discharge Summary.', { variant: 'error' });
+    return false;
   }
 };
 

@@ -70,9 +70,18 @@ const joinWithAmpersand = (parts: string[]): string =>
  * Awaits a print-time PDF render and opens it. Rejects on failure so the caller aborts before
  * discharging — a document the provider asked for must not be quietly dropped.
  */
-const openGeneratedPdf = async (render: () => Promise<{ presignedURL: string }>): Promise<void> => {
-  const { presignedURL } = await render();
-  window.open(presignedURL, '_blank');
+const openGeneratedPdf = async (tab: Window | null, render: () => Promise<{ presignedURL: string }>): Promise<void> => {
+  try {
+    const { presignedURL } = await render();
+    if (tab) {
+      tab.location.href = presignedURL;
+    } else {
+      window.open(presignedURL, '_blank');
+    }
+  } catch (error) {
+    tab?.close();
+    throw error;
+  }
 };
 
 const SelectionCheckbox: FC<{
@@ -135,7 +144,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
   // Every appointment-scoped document is rendered on demand from the visit, so the appointment is
   // the only thing they need to exist.
   const hasAppointment = Boolean(appointmentId);
-  const hasPatientInstructions = (chartData?.instructions?.length ?? 0) > 0;
+  const hasPatientInstructions = chartData?.instructions?.some((instruction) => instruction.text) ?? false;
 
   const [selections, setSelections] = useState<DischargeSelections>(DEFAULT_SELECTIONS);
   const [isDischarging, setIsDischarging] = useState(false);
@@ -228,11 +237,12 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
       const printPromises: Promise<void>[] = [];
 
       if (printDischargeSummary && appointmentId && !completedSteps.current.dischargeSummary) {
-        // Marked before awaiting: createAndOpenDischargeSummary reports its own failures and never
-        // rejects, so a retry re-running it would only supersede the document it just filed.
-        completedSteps.current.dischargeSummary = true;
         printPromises.push(
-          createAndOpenDischargeSummary(oystehrZambda, appointmentId, downloadDocument, { skipRelated: true })
+          createAndOpenDischargeSummary(oystehrZambda, appointmentId, downloadDocument, {
+            skipRelated: true,
+          }).then((created) => {
+            completedSteps.current.dischargeSummary = created;
+          })
         );
       }
 
@@ -250,13 +260,21 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
       // cannot be opened until the round trip completes. A failure rejects, which aborts before the
       // discharge — the same rule the unready excuse notes follow.
       if (printPatientInstructions && appointmentId && !completedSteps.current.patientInstructions) {
-        completedSteps.current.patientInstructions = true;
-        printPromises.push(openGeneratedPdf(() => makePatientInstructionsPdf(oystehrZambda, { appointmentId })));
+        const tab = window.open('', '_blank');
+        printPromises.push(
+          openGeneratedPdf(tab, () => makePatientInstructionsPdf(oystehrZambda, { appointmentId })).then(() => {
+            completedSteps.current.patientInstructions = true;
+          })
+        );
       }
 
       if (printProgressNote && appointmentId && !completedSteps.current.progressNote) {
-        completedSteps.current.progressNote = true;
-        printPromises.push(openGeneratedPdf(() => makeProgressNotePdf(oystehrZambda, { appointmentId })));
+        const tab = window.open('', '_blank');
+        printPromises.push(
+          openGeneratedPdf(tab, () => makeProgressNotePdf(oystehrZambda, { appointmentId })).then(() => {
+            completedSteps.current.progressNote = true;
+          })
+        );
       }
 
       // Opened synchronously, before the first await, so the browser still attributes the new tabs
