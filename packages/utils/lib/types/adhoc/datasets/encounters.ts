@@ -189,6 +189,20 @@ export const ENCOUNTER_LAYERS = {
           z.object({
             name: z.string().describe('Drug display with strength, same value as in medications[].'),
             source: z.enum(['eRx', 'in-house']).describe('Prescribed (eRx) or given in the clinic (in-house).'),
+            status: z
+              .enum([
+                'administered',
+                'partially-administered',
+                'not-administered',
+                'pending',
+                'cancelled',
+                'prescribed',
+              ])
+              .describe(
+                'In-house order status: administered / partially-administered = the drug WAS given; ' +
+                  'not-administered, pending, cancelled = nothing was given. eRx rows are always "prescribed". ' +
+                  'For "administered to patients" keep administered + partially-administered only.'
+              ),
             dose: z.number().nullable().describe('Amount given. Null for eRx.'),
             units: z.string().nullable().describe('Unit of dose, e.g. "mg"/"mL". Null for eRx.'),
             route: z.string().nullable().describe('Route code of administration. Null for eRx.'),
@@ -204,16 +218,29 @@ export const ENCOUNTER_LAYERS = {
               .nullable()
               .describe(
                 'Full ISO instant the drug was given — NOT the visit date. Format via new Date(administeredAt); ' +
-                  'do NOT slice the ISO string. Null for eRx.'
+                  'do NOT slice the ISO string. Null for eRx and when nothing was given.'
               ),
+            administeredBy: z
+              .string()
+              .nullable()
+              .describe('Staff member who administered the drug (full name). Null for eRx / not given.'),
+            orderedBy: z
+              .string()
+              .nullable()
+              .describe('Ordering / prescribing provider (full name). Null when unknown.'),
+            cptCodes: z
+              .array(z.string())
+              .describe('CPT/HCPCS codes billed for THIS drug (e.g. J-codes). Empty for eRx.'),
+            icdCode: z.string().nullable().describe('ICD-10 diagnosis the drug was given for. Null when none linked.'),
+            icdDisplay: z.string().nullable().describe('Description of icdCode. Null when none linked.'),
           })
         )
         .describe(
-          'One record per drug, with the detail a recall or an audit needs: lot number, NDC, manufacturer, ' +
-            'expiry, dose and the time it was given. Lot, NDC, manufacturer and expiry are recorded ONLY for ' +
-            'in-house administration, and only when staff entered them; they are always null for eRx. They are ' +
-            'also absent when the order was marked as not administered — nothing was given, so no vial is tied ' +
-            'to the patient. Empty when no drugs on the visit.'
+          'One record per drug, with the detail a recall or an audit needs: status, lot number, NDC, manufacturer, ' +
+            'expiry, dose, route, the time it was given, who gave it, who ordered it, and the CPT / ICD-10 tied to ' +
+            'it. Lot, NDC, manufacturer and expiry are recorded ONLY for in-house administration, and only when ' +
+            'staff entered them; they are always null for eRx. They are also absent when status is ' +
+            'not-administered — nothing was given, so no vial is tied to the patient. Empty when no drugs on the visit.'
         ),
     }),
   },
@@ -291,7 +318,10 @@ export const ENCOUNTER_LAYERS = {
   },
   labs: {
     label: 'Lab orders',
-    description: 'Lab tests ordered on the visit (names + counts).',
+    description:
+      'Lab tests ordered on the visit (names + counts). The physical test kit / reagent is NOT recorded ' +
+      'anywhere — no kit lot number, expiration, manufacturer or NDC; a drug lot in the medications layer is ' +
+      'NOT a substitute.',
     schema: z.object({
       labOrders: z.array(z.string()).describe('Lab tests ordered (names; excl. cancelled).'),
       labOrderCount: z.number().describe('Number of lab tests ordered. 0 when none.'),
@@ -334,11 +364,37 @@ export const ENCOUNTER_LAYERS = {
               .string()
               .nullable()
               .describe('Expiry of the vial used (yyyy-MM-dd). Null when not recorded or for history.'),
+            ndc: z.string().nullable().describe('NDC code of the vial used. Null when not recorded or for history.'),
+            cvx: z.string().nullable().describe('CVX vaccine code. Null when not recorded or for history.'),
+            manufacturer: z.string().nullable().describe('Manufacturer name. Null when not recorded or for history.'),
+            dose: z.number().nullable().describe('Amount given. Null when not recorded or for history.'),
+            units: z.string().nullable().describe('Unit of dose, e.g. "mL". Null when not recorded or for history.'),
+            route: z
+              .string()
+              .nullable()
+              .describe('Route code of administration. Null when not recorded or for history.'),
+            administeredAt: z
+              .string()
+              .nullable()
+              .describe(
+                'Full ISO instant the vaccine was given. Format via new Date(administeredAt); do NOT slice the ' +
+                  'ISO string. Null for history.'
+              ),
+            administeredBy: z
+              .string()
+              .nullable()
+              .describe('Staff member who administered the vaccine (full name). Null when unknown or for history.'),
+            orderedBy: z
+              .string()
+              .nullable()
+              .describe('Ordering provider (full name). Null when unknown or for history.'),
+            cptCodes: z.array(z.string()).describe('CPT codes billed for THIS vaccine. Empty for history.'),
           })
         )
         .describe(
-          'One record per vaccine on the visit. Count vaccines GIVEN with status !== "recorded"; ' +
-            'the VIS gap is status !== "recorded" && visDate === null. Empty when none.'
+          'One record per vaccine on the visit with the detail a recall or an audit needs: lot, expiry, NDC, CVX, ' +
+            'manufacturer, dose, time given, who gave it, who ordered it. Count vaccines GIVEN with ' +
+            'status !== "recorded"; the VIS gap is status !== "recorded" && visDate === null. Empty when none.'
         ),
     }),
   },

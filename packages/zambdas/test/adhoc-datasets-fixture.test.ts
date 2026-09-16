@@ -6,12 +6,14 @@ import {
   FhirResource,
   Location,
   MedicationAdministration,
+  MedicationStatement,
   Observation,
   Patient,
   PaymentNotice,
   Practitioner,
 } from 'fhir/r4b';
 import { FHIR_EXTENSION, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { MEDICATION_CPT_CODES_EXTENSION_URL } from 'utils/lib/fhir/medication-administration';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { AdHocBillingOutputSchema } from 'utils/lib/types/adhoc/datasets/billing';
@@ -19,8 +21,11 @@ import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/enco
 import { AdHocPatientsOutputSchema } from 'utils/lib/types/adhoc/datasets/patients';
 import {
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
+  PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils/lib/types/api/medication-administration.constants';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
@@ -219,7 +224,12 @@ const vaccineAdmin = (
 
 // In-house administration. The recall attributes live on the CONTAINED Medication copy, and an order
 // marked as not administered carries no batch at all — nothing was given, so no vial is tied to the
-// patient. `withVial: false` reproduces that.
+// patient. `withVial: false` reproduces that. MedicationAdministration.effectiveDateTime is the ORDER
+// CREATION time; the instant the drug was given is on the MedicationStatement (partOf → MA) below.
+const performer = (code: string): NonNullable<MedicationAdministration['performer']>[number] => ({
+  actor: { reference: 'Practitioner/prac-1' },
+  function: { coding: [{ system: MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM, code }] },
+});
 const inHouseAdmin = (
   id: string,
   name: string,
@@ -234,6 +244,17 @@ const inHouseAdmin = (
   context: { reference: 'Encounter/enc-1' },
   subject: { reference: 'Patient/pat-1' },
   effectiveDateTime,
+  reasonReference: [{ reference: 'Condition/cond-1' }],
+  extension: [
+    {
+      url: MEDICATION_CPT_CODES_EXTENSION_URL,
+      valueString: JSON.stringify([{ code: 'J0696', display: 'Ceftriaxone' }]),
+    },
+  ],
+  performer: [
+    performer(PRACTITIONER_ORDERED_BY_MEDICATION_CODE),
+    ...(withVial ? [performer(PRACTITIONER_ADMINISTERED_MEDICATION_CODE)] : []),
+  ],
   dosage: {
     dose: { value: dose, unit: 'mg', system: 'http://unitsofmeasure.org' },
     route: { coding: [{ system: MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM, code: 'IM' }] },
@@ -255,13 +276,24 @@ const inHouseAdmin = (
   ],
 });
 
+const administeredStatement: MedicationStatement = {
+  resourceType: 'MedicationStatement',
+  id: 'ms-3',
+  status: 'active',
+  meta: { tag: [{ code: 'in-house-medication' }] },
+  // No encounter context on the real resource — it is reachable only via partOf → MA.
+  partOf: [{ reference: 'MedicationAdministration/ma-3' }],
+  subject: { reference: 'Patient/pat-1' },
+  effectiveDateTime: '2026-07-01T15:30:00.000Z',
+};
+
 const medicationAdministrations: FhirResource[] = [
   vaccineAdmin('ma-1', 'Influenza', 'completed', '2026-07-01', {
     lotNumber: 'FLU-2026-A',
     expirationDate: '2027-01-31',
   }),
   vaccineAdmin('ma-2', 'MMR', 'on-hold'),
-  inHouseAdmin('ma-3', 'Ceftriaxone 1 g', 1000, '2026-07-01T15:30:00.000Z', true),
+  inHouseAdmin('ma-3', 'Ceftriaxone 1 g', 1000, '2026-07-01T15:00:00.000Z', true),
   inHouseAdmin('ma-4', 'Ceftriaxone 500 mg', 500, '2026-07-01T16:00:00.000Z', false),
 ];
 
@@ -292,7 +324,8 @@ const scopedByType: Record<string, FhirResource[]> = {
   Practitioner: [practitioner],
   Condition: [condition],
   Observation: observations,
-  MedicationAdministration: medicationAdministrations,
+  // The administration statement arrives as a revinclude of the MA search, never by its own context.
+  MedicationAdministration: [...medicationAdministrations, administeredStatement],
   PaymentNotice: paymentNotices,
 };
 const resourcesFor = (resourceType: string): FhirResource[] =>
@@ -413,6 +446,18 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     const row = rows[0];
 
     expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
+    const noDetail = {
+      ndc: null,
+      cvx: null,
+      manufacturer: null,
+      dose: null,
+      units: null,
+      route: null,
+      administeredAt: '2026-07-01T14:15:00.000Z',
+      administeredBy: null,
+      orderedBy: null,
+      cptCodes: [],
+    };
     expect(row.vaccines).toEqual([
       {
         name: 'Influenza',
@@ -420,8 +465,16 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
         visDate: '2026-07-01',
         lotNumber: 'FLU-2026-A',
         expirationDate: '2027-01-31',
+        ...noDetail,
       },
-      { name: 'MMR', status: 'partially-administered', visDate: null, lotNumber: null, expirationDate: null },
+      {
+        name: 'MMR',
+        status: 'partially-administered',
+        visDate: null,
+        lotNumber: null,
+        expirationDate: null,
+        ...noDetail,
+      },
     ]);
   });
 
@@ -437,6 +490,7 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(given).toEqual({
       name: 'Ceftriaxone 1 g',
       source: 'in-house',
+      status: 'administered',
       dose: 1000,
       units: 'mg',
       route: 'IM',
@@ -445,12 +499,20 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
       // Kept as the calendar date that was entered — a zone conversion would report the 30th.
       expirationDate: '2027-03-31',
       manufacturer: 'Acme Pharma',
-      // The time the drug was given, NOT the visit date.
+      // The time the drug was given (MedicationStatement), NOT the order creation time on the MA.
       administeredAt: '2026-07-01T15:30:00.000Z',
+      administeredBy: 'Greg House',
+      orderedBy: 'Greg House',
+      cptCodes: ['J0696'],
+      icdCode: 'H66.90',
+      icdDisplay: 'Otitis media, unspecified',
     });
 
     // Marked as not administered: no vial is tied to the patient, so no lot, expiry or manufacturer.
     const notGiven = row.drugs?.find((d) => d.name === 'Ceftriaxone 500 mg');
+    expect(notGiven?.status).toBe('not-administered');
+    expect(notGiven?.administeredAt).toBeNull();
+    expect(notGiven?.administeredBy).toBeNull();
     expect(notGiven?.lotNumber).toBeNull();
     expect(notGiven?.expirationDate).toBeNull();
     expect(notGiven?.manufacturer).toBeNull();
