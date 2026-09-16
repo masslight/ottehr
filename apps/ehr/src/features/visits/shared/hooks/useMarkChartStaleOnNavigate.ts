@@ -6,7 +6,8 @@ import { markChartStale } from './chartSectionCache';
 
 /**
  * Marks the current encounter's chart stale when the provider enters the visit or moves to another visit
- * screen. Nothing is
+ * screen. Mounted at the root of the in-person visit (InPersonNavigationProvider), which renders before the
+ * first chart read, so the mark on entry flags only what an earlier visit left in the cache. Nothing is
  * refetched here: a stale section is re-read once by the screen that shows it, and the stale visit note by
  * the visit-note pages on entry, so flows that change chart data through other endpoints (an in-house lab
  * being collected, say) are picked up on the next screen at the cost of one small read per section shown.

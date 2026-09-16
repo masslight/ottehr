@@ -61,20 +61,25 @@ const sectionCalls = (): [ChartSection, unknown][] =>
 
 // ── The composition of the in-person visit screens, hook for hook ────────────────────────────────────
 
+/**
+ * InPersonNavigationProvider and InPersonRouting: the root of the visit reads the chart for the
+ * intake-confirmation button labels and marks it stale on entry and on every screen change; the router shows
+ * a loader in place of the layout until that read has landed.
+ */
+const VisitRoot: FC<{ children: ReactNode }> = ({ children }) => {
+  useMarkChartStaleOnNavigate(); // InPersonNavigationContext
+  const { isChartDataLoading } = useChartData(); // InPersonNavigationContext
+  useChartSection('history'); // InPersonNavigationContext
+  if (isChartDataLoading) return null; // InPersonRouting
+  return <>{children}</>;
+};
+
 /** InPersonLayout, Header and Sidebar: the whole-chart readers around every screen. */
-const Layout: FC<{ children: ReactNode }> = ({ children }) => {
+const Layout: FC<{ children?: ReactNode }> = ({ children }) => {
   useChartData({ shouldUpdateExams: true }); // InPersonLayout
-  useMarkChartStaleOnNavigate(); // InPersonLayout
   useChartSection('aiChat', { enabled: false }); // InPersonLayout: the AI recording poll's refetch handle
   useChartData(); // Header
   useChartData(); // Sidebar
-  return <NavigationContext>{children}</NavigationContext>;
-};
-
-/** InPersonNavigationContext: the intake-confirmation button labels. */
-const NavigationContext: FC<{ children: ReactNode }> = ({ children }) => {
-  useChartData();
-  useChartSection('history');
   return <>{children}</>;
 };
 
@@ -117,8 +122,16 @@ const Allergies: FC = () => {
   return null;
 };
 
-const App: FC<{ screen: 'review-and-sign' | 'allergies' }> = ({ screen }) => (
-  <Layout>{screen === 'review-and-sign' ? <ReviewAndSign /> : <Allergies />}</Layout>
+type Screen = 'review-and-sign' | 'allergies' | 'no-provider';
+
+/** With no provider assigned the layout shows an alert in place of the screen. */
+const App: FC<{ screen: Screen }> = ({ screen }) => (
+  <VisitRoot>
+    <Layout>
+      {screen === 'review-and-sign' && <ReviewAndSign />}
+      {screen === 'allergies' && <Allergies />}
+    </Layout>
+  </VisitRoot>
 );
 
 describe('Review & Sign load', () => {
@@ -146,12 +159,21 @@ describe('Review & Sign load', () => {
     await waitFor(() => expect(queryClient.isFetching()).toBe(0));
   };
 
-  const renderApp = (screen: 'review-and-sign' | 'allergies'): ReturnType<typeof render> =>
+  const renderApp = (screen: Screen): ReturnType<typeof render> =>
     render(
       <QueryClientProvider client={queryClient}>
         <App screen={screen} />
       </QueryClientProvider>
     );
+
+  it('opening the visit before a provider is assigned costs the visit-note read alone', async () => {
+    renderApp('no-provider');
+    await waitFor(() => expect(apiClient.getVisitNote).toHaveBeenCalledTimes(1));
+    await settle();
+
+    expect(apiClient.getVisitNote).toHaveBeenCalledTimes(1);
+    expect(sectionCalls()).toEqual([]);
+  });
 
   it('opening the visit on Review & Sign costs one visit-note read and one read for the addendum list', async () => {
     renderApp('review-and-sign');

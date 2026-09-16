@@ -22,7 +22,6 @@ import { useAiSuggestionsPolling } from '../../shared/hooks/useAiSuggestionsPoll
 import { useAssignedProvider } from '../../shared/hooks/useAssignedProvider';
 import { useChartSection } from '../../shared/hooks/useChartSection';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
-import { useMarkChartStaleOnNavigate } from '../../shared/hooks/useMarkChartStaleOnNavigate';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
 import { useStopAmbientScribeOnLeave } from '../../shared/hooks/useStopAmbientScribeOnLeave';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
@@ -68,7 +67,6 @@ export const InPersonLayout: React.FC = () => {
   // Keep the Ambient Scribe recording alive across rotation; stop & save it on leaving the visit.
   useStopAmbientScribeOnLeave({ hostKey: encounter.id ?? '' });
   const { chartData } = useChartData({ shouldUpdateExams: true });
-  useMarkChartStaleOnNavigate();
   const { oystehr } = useApiClients();
   const aiDocumentCount = chartData?.aiChat?.documents?.length ?? 0;
   const hasPendingRecording = Boolean(chartData?.aiChat?.hasPendingRecording);
