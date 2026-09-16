@@ -153,8 +153,6 @@ export async function invokeChatbotVertexAI(
 
   let resolved = false;
   let terminal = false; // a non-retryable status came back; further attempts would just resend the payload
-  // Promise.any cannot reject until every attempt has, so on its own a rejected terminal attempt left the
-  // caller waiting out the later attempts' backoff sleeps. Racing this against the ladder surfaces it now.
   let failTerminally: (error: Error) => void = () => undefined;
   const terminalFailure = new Promise<never>((_resolve, reject) => {
     failTerminally = reject;
@@ -216,14 +214,7 @@ export async function invokeChatbotVertexAI(
 
       const candidate = parsed?.candidates?.[0];
       const text = candidate?.content?.parts?.[0]?.text;
-      // Whitespace-only output satisfies every downstream caller's type but dies in the JSON parse or lands a
-      // blank transcript on the chart.
       if (typeof text !== 'string' || text.trim().length === 0) {
-        // Everything outside `candidates` is metadata — quota, model build, response id, prompt feedback — and
-        // reporting it whole is what names the cause; hand-picking a field or two left `{}`. `candidates` is
-        // dropped wholesale because any of them can hold partial or whole transcript, which must not reach a
-        // log or Sentry. The cap bounds a gateway envelope that echoes the request back — on the transcription
-        // path, the base64 audio.
         const { candidates: _candidates, ...metadata } = parsed ?? {};
         const reason = JSON.stringify({ finishReason: candidate?.finishReason, ...metadata }).slice(0, 1000);
         throw new Error(`Vertex AI returned no text: ${reason}`);
@@ -244,9 +235,6 @@ export async function invokeChatbotVertexAI(
   try {
     return await Promise.race([Promise.any(requests), terminalFailure]);
   } catch (error) {
-    // Only Promise.any rejects with an AggregateError; anything else came from the terminal signal. Such a
-    // status is its own diagnosis, and wrapping it in the ladder's message would bury it and group it with
-    // exhausted ladders in Sentry.
     if (!(error instanceof AggregateError)) throw error;
     // AggregateError's own message is just "All promises were rejected", so unpack the reasons — otherwise
     // the most common failure mode stays as opaque as the TypeError this used to throw.
