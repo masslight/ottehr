@@ -139,6 +139,21 @@ export async function invokeChatbotVertexAI(
   model: string = VERTEX_AI_MODEL,
   options: VertexAIRequestOptions = {}
 ): Promise<string> {
+  return (await invokeChatbotVertexAIWithFinishReason(input, secrets, responseSchema, model, options)).text;
+}
+
+/**
+ * Same call as invokeChatbotVertexAI, but also surfaces Vertex's finishReason (e.g. "STOP" vs
+ * "MAX_TOKENS") so a caller that goes on to JSON.parse the text can tell a truncated response
+ * apart from a well-formed-but-malformed one when parsing fails.
+ */
+export async function invokeChatbotVertexAIWithFinishReason(
+  input: MessageContentComplex[],
+  secrets: Secrets | null,
+  responseSchema?: object,
+  model: string = VERTEX_AI_MODEL,
+  options: VertexAIRequestOptions = {}
+): Promise<{ text: string; finishReason: string | undefined; promptFeedback: unknown; usageMetadata: unknown }> {
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
   const RETRY_COUNT = 3;
@@ -253,17 +268,19 @@ export async function invokeChatbotVertexAI(
     throw new Error(`Vertex AI returned a non-JSON body: ${body.slice(0, 1000)}`);
   }
   const text = response?.candidates?.[0]?.content?.parts?.[0]?.text;
+  // Same shape whether text came back or not, so a caller whose downstream JSON.parse fails on a
+  // present-but-truncated text can report the same diagnostic as the no-text case below.
+  const reason = {
+    finishReason: response?.candidates?.[0]?.finishReason,
+    promptFeedback: response?.promptFeedback,
+    usageMetadata: response?.usageMetadata,
+  };
   if (typeof text !== 'string') {
     // No candidate text means the model refused or was cut off (safety block, MAX_TOKENS finishReason).
     // Report the reason, not the body — a cut-off candidate can still carry partial transcript.
-    const reason = JSON.stringify({
-      finishReason: response?.candidates?.[0]?.finishReason,
-      promptFeedback: response?.promptFeedback,
-      usageMetadata: response?.usageMetadata,
-    });
-    throw new Error(`Vertex AI returned no text: ${reason}`);
+    throw new Error(`Vertex AI returned no text: ${JSON.stringify(reason)}`);
   }
-  return text;
+  return { text, ...reason };
 }
 
 /**
@@ -453,7 +470,12 @@ export async function createResourcesFromAiInterview(
     fields = 'labs, erx, procedures, ' + fields;
   }
 
-  const aiResponseString = await invokeChatbotVertexAI(
+  const {
+    text: aiResponseString,
+    finishReason,
+    promptFeedback,
+    usageMetadata,
+  } = await invokeChatbotVertexAIWithFinishReason(
     [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
     secrets
   );
@@ -462,8 +484,19 @@ export async function createResourcesFromAiInterview(
   try {
     aiResponse = JSON.parse(aiResponseString);
   } catch (error) {
-    console.warn('Failed to parse AI response, attempting to fix JSON format:', error);
-    aiResponse = fixAndParseJsonObjectFromString(aiResponseString);
+    // Same diagnostic shape as invokeChatbotVertexAIWithFinishReason's own "no text" error, so a
+    // MAX_TOKENS cutoff reads the same whether the candidate text came back empty or truncated.
+    const reason = JSON.stringify({ finishReason, promptFeedback, usageMetadata });
+    console.warn(`Failed to parse AI response (${reason}), attempting to fix JSON format:`, error);
+    try {
+      aiResponse = fixAndParseJsonObjectFromString(aiResponseString);
+    } catch (fixError) {
+      throw new Error(
+        `Failed to parse AI response as JSON (${reason}): ${
+          fixError instanceof Error ? fixError.message : String(fixError)
+        }`
+      );
+    }
   }
 
   if (!encounter) {
