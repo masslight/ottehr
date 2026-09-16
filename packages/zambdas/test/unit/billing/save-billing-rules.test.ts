@@ -108,6 +108,7 @@ describe('save-billing-rules complexValidation (applied tags must exist)', () =>
 
   const tagBasic = (name: string): Basic => ({
     resourceType: 'Basic',
+    id: `tag-${name.toLowerCase()}`,
     code: { text: name, coding: [{ system: 'https://fhir.ottehr.com/billing/tag', code: 'tag' }] },
   });
 

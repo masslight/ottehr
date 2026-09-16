@@ -10,7 +10,7 @@ import {
 } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/search-billing-tags';
-import { TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../../../src/billing/shared';
+import { fetchDefinedTagNames, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../../../src/billing/shared';
 
 const search = vi.fn();
 const batch = vi.fn();
@@ -139,5 +139,52 @@ describe('search-billing-tags', () => {
       SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
       'auto-accident',
     ]);
+  });
+});
+
+describe('fetchDefinedTagNames', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  // A searchset page as the server returns it: match-mode entries plus the full result total,
+  // which is what getAllFhirSearchPages pages against.
+  const page = (basics: Basic[], total: number): unknown => ({
+    entry: basics.map((resource) => ({
+      resource,
+      search: { mode: 'match' },
+    })),
+    total,
+    unbundle: () => basics,
+  });
+
+  // Regression: this search was a single capped page, so once a project had more tag definitions
+  // than the cap, the oldest ones silently vanished from validation and became unusable in rules.
+  it('collects tag names from every page, not just the first', async () => {
+    const firstPage = [userTag('tag-1', 'VIP'), userTag('tag-2', 'Audit')];
+    const secondPage = [userTag('tag-3', 'Legacy'), userTag('tag-4', 'Oldest')];
+    search.mockImplementation(
+      async ({
+        params,
+      }: {
+        params: {
+          name: string;
+          value: string;
+        }[];
+      }) => {
+        const offset = Number(params.find((p) => p.name === '_offset')?.value ?? 0);
+        return page(offset === 0 ? firstPage : secondPage, 4);
+      }
+    );
+
+    const names = await fetchDefinedTagNames(oystehr);
+
+    expect([...names].sort()).toEqual(['Audit', 'Legacy', 'Oldest', 'VIP']);
+    expect(search).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops after a page the server returns empty', async () => {
+    search.mockResolvedValue(page([], 0));
+
+    await expect(fetchDefinedTagNames(oystehr)).resolves.toEqual(new Set());
+    expect(search).toHaveBeenCalledTimes(1);
   });
 });

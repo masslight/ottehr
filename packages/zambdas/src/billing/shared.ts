@@ -54,6 +54,7 @@ import {
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils/lib/fhir/constants';
 import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   buildCoverageSubscriberRelatedPerson,
   createCoverageMemberIdentifier,
@@ -538,15 +539,16 @@ export function isSystemTag(tag: Basic): boolean {
 // first. The one search behind both the Tags page (search-billing-tags) and the tag-existence
 // validations, so the two can't diverge.
 export async function searchTagBasics(oystehr: Oystehr): Promise<Basic[]> {
-  const bundle = await oystehr.fhir.search<Basic>({
-    resourceType: 'Basic',
-    params: [
-      { name: 'code', value: `${TAG_CODE_SYSTEM}|tag` },
-      { name: '_sort', value: '-_lastUpdated' },
-      { name: '_count', value: '200' },
-    ],
-  });
-  return bundle.unbundle();
+  return getAllFhirSearchPages<Basic>(
+    {
+      resourceType: 'Basic',
+      params: [
+        { name: 'code', value: `${TAG_CODE_SYSTEM}|tag` },
+        { name: '_sort', value: '-_lastUpdated' },
+      ],
+    },
+    oystehr
+  );
 }
 
 // Names of the defined tags — used to validate tag references before they are written onto claims
