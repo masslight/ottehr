@@ -1,7 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { MakePatientInstructionsPdfZambdaOutput } from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
-import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { CHART_DOCUMENT_ROLES } from 'utils/lib/types/api/user.types';
+import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { callerHasRole, checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { createPatientInstructionsPdf } from '../../../shared/pdf/patient-instructions-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
@@ -22,6 +24,11 @@ const ZAMBDA_NAME = 'make-patient-instructions-pdf';
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { appointmentId, secrets } = validateRequestParameters(input);
+
+  // Renders PHI for whatever appointment id it is handed, and patients hold project tokens too.
+  if (!(await callerHasRole(input.headers?.Authorization, secrets, CHART_DOCUMENT_ROLES))) {
+    throw NOT_AUTHORIZED;
+  }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);

@@ -32,6 +32,9 @@ import { createAndOpenDischargeSummary, handleDischarge } from './DischargeButto
 const MISSING_INFORMATION_MESSAGE =
   'Signing is disabled because you have missing required information on the Progress Note. Please check the Review & Sign tab / Missing & Warning section for more details.';
 
+const POPUP_BLOCKED_MESSAGE =
+  'Your browser blocked the document windows, so nothing was printed and the patient has not been discharged. Allow pop-ups for this site and try again.';
+
 interface DischargeDialogProps {
   onClose: () => void;
   encounterId: string;
@@ -67,19 +70,19 @@ const joinWithAmpersand = (parts: string[]): string =>
   parts.length > 1 ? `${parts.slice(0, -1).join(', ')} & ${parts[parts.length - 1]}` : parts[0];
 
 /**
- * Awaits a print-time PDF render and opens it. Rejects on failure so the caller aborts before
- * discharging — a document the provider asked for must not be quietly dropped.
+ * Renders a print-time PDF into a tab the click already opened.
+ *
+ * The tab has to be reserved synchronously in the click handler: awaiting the render first would put
+ * `window.open` outside the user-activation window and browsers block it as a popup. Closes the tab
+ * and rejects if the render fails, so the caller aborts before discharging — a document the provider
+ * asked for must not be quietly dropped.
  */
-const openGeneratedPdf = async (tab: Window | null, render: () => Promise<{ presignedURL: string }>): Promise<void> => {
+const openGeneratedPdf = async (tab: Window, render: () => Promise<{ presignedURL: string }>): Promise<void> => {
   try {
     const { presignedURL } = await render();
-    if (tab) {
-      tab.location.href = presignedURL;
-    } else {
-      window.open(presignedURL, '_blank');
-    }
+    tab.location.href = presignedURL;
   } catch (error) {
-    tab?.close();
+    tab.close();
     throw error;
   }
 };
@@ -139,8 +142,15 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
   // has no work note at all, which is how a note ends up silently unprinted.
   const hasWorkNote = schoolWorkNotes.some((note) => note.type === WORK_NOTE_CODE);
   const hasSchoolNote = schoolWorkNotes.some((note) => note.type === SCHOOL_NOTE_CODE);
-  const workNoteUrl = presignedFiles.find((file) => file.type === WORK_NOTE_CODE)?.presignedUrl;
-  const schoolNoteUrl = presignedFiles.find((file) => file.type === SCHOOL_NOTE_CODE)?.presignedUrl;
+  // An entry appears once presigning has settled for that note, with no `presignedUrl` if it failed.
+  // That separates "the URL has not arrived yet" from "it never will" — without it, a failed presign
+  // would leave the row waiting and the confirm button disabled forever.
+  const workNoteFile = presignedFiles.find((file) => file.type === WORK_NOTE_CODE);
+  const schoolNoteFile = presignedFiles.find((file) => file.type === SCHOOL_NOTE_CODE);
+  const workNoteUrl = workNoteFile?.presignedUrl;
+  const schoolNoteUrl = schoolNoteFile?.presignedUrl;
+  const workNoteUnavailable = Boolean(workNoteFile && !workNoteUrl);
+  const schoolNoteUnavailable = Boolean(schoolNoteFile && !schoolNoteUrl);
   // Every appointment-scoped document is rendered on demand from the visit, so the appointment is
   // the only thing they need to exist.
   const hasAppointment = Boolean(appointmentId);
@@ -182,8 +192,8 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
   }, [canSign]);
 
   const printDischargeSummary = selections.dischargeSummary && hasAppointment;
-  const printWorkNote = selections.workNote && hasWorkNote;
-  const printSchoolNote = selections.schoolNote && hasSchoolNote;
+  const printWorkNote = selections.workNote && hasWorkNote && !workNoteUnavailable;
+  const printSchoolNote = selections.schoolNote && hasSchoolNote && !schoolNoteUnavailable;
   const printPatientInstructions = selections.patientInstructions && hasAppointment && hasPatientInstructions;
   const printProgressNote = selections.progressNote && hasAppointment;
   const signProgressNote = selections.signProgressNote && canSign;
@@ -194,8 +204,8 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
   // A selected note whose presigned URL has not arrived yet cannot be opened. Discharging anyway
   // would strand it: once the visit is discharged, DischargeButton drops the dropdown entirely, so
   // this dialog can never be reopened to print it.
-  const pendingWorkNote = printWorkNote && !workNoteUrl;
-  const pendingSchoolNote = printSchoolNote && !schoolNoteUrl;
+  const pendingWorkNote = printWorkNote && !workNoteUrl && !workNoteUnavailable;
+  const pendingSchoolNote = printSchoolNote && !schoolNoteUrl && !schoolNoteUnavailable;
   const pendingDocuments = useMemo(
     () => [...(pendingWorkNote ? ['work note'] : []), ...(pendingSchoolNote ? ['school note'] : [])],
     [pendingWorkNote, pendingSchoolNote]
@@ -231,6 +241,45 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
       return;
     }
 
+    // Every tab is reserved here, synchronously, while the click still counts as user activation —
+    // and before anything is filed or discharged. A blocked popup means a document the provider
+    // asked for would never reach them, so the whole workflow stops with nothing done rather than
+    // recording it as printed and discharging past it.
+    const reservedTabs: Window[] = [];
+    const reserveTab = (url: string): Window | null => {
+      const tab = window.open(url, '_blank');
+      if (tab) {
+        reservedTabs.push(tab);
+      }
+      return tab;
+    };
+
+    const excusesToOpen: { key: 'workNote' | 'schoolNote'; tab: Window | null }[] = [];
+    if (printWorkNote && workNoteUrl && !completedSteps.current.workNote) {
+      excusesToOpen.push({ key: 'workNote', tab: reserveTab(workNoteUrl) });
+    }
+    if (printSchoolNote && schoolNoteUrl && !completedSteps.current.schoolNote) {
+      excusesToOpen.push({ key: 'schoolNote', tab: reserveTab(schoolNoteUrl) });
+    }
+
+    const instructionsTab =
+      printPatientInstructions && appointmentId && !completedSteps.current.patientInstructions
+        ? reserveTab('')
+        : undefined;
+    const progressNoteTab =
+      printProgressNote && appointmentId && !completedSteps.current.progressNote ? reserveTab('') : undefined;
+
+    const blocked = excusesToOpen.some(({ tab }) => !tab) || instructionsTab === null || progressNoteTab === null;
+    if (blocked) {
+      reservedTabs.forEach((tab) => tab.close());
+      enqueueSnackbar(POPUP_BLOCKED_MESSAGE, { variant: 'error' });
+      return;
+    }
+
+    for (const { key } of excusesToOpen) {
+      completedSteps.current[key] = true;
+    }
+
     setIsDischarging(true);
 
     try {
@@ -252,42 +301,24 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
         );
       }
 
-      const excusesToOpen: { key: 'workNote' | 'schoolNote'; url: string }[] = [];
-
-      if (printWorkNote && workNoteUrl && !completedSteps.current.workNote) {
-        excusesToOpen.push({ key: 'workNote', url: workNoteUrl });
-      }
-
-      if (printSchoolNote && schoolNoteUrl && !completedSteps.current.schoolNote) {
-        excusesToOpen.push({ key: 'schoolNote', url: schoolNoteUrl });
-      }
-
-      // Rendered on demand and handed back as a presigned URL, so unlike the excuse notes these
-      // cannot be opened until the round trip completes. A failure rejects, which aborts before the
-      // discharge — the same rule the unready excuse notes follow.
-      if (printPatientInstructions && appointmentId && !completedSteps.current.patientInstructions) {
-        const tab = window.open('', '_blank');
+      // These are rendered on demand, so unlike the excuse notes their tab stays blank until the
+      // round trip finishes. A failure rejects, aborting before the discharge.
+      if (instructionsTab && appointmentId) {
         printPromises.push(
-          openGeneratedPdf(tab, () => makePatientInstructionsPdf(oystehrZambda, { appointmentId })).then(() => {
-            completedSteps.current.patientInstructions = true;
-          })
+          openGeneratedPdf(instructionsTab, () => makePatientInstructionsPdf(oystehrZambda, { appointmentId })).then(
+            () => {
+              completedSteps.current.patientInstructions = true;
+            }
+          )
         );
       }
 
-      if (printProgressNote && appointmentId && !completedSteps.current.progressNote) {
-        const tab = window.open('', '_blank');
+      if (progressNoteTab && appointmentId) {
         printPromises.push(
-          openGeneratedPdf(tab, () => makeProgressNotePdf(oystehrZambda, { appointmentId })).then(() => {
+          openGeneratedPdf(progressNoteTab, () => makeProgressNotePdf(oystehrZambda, { appointmentId })).then(() => {
             completedSteps.current.progressNote = true;
           })
         );
-      }
-
-      // Opened synchronously, before the first await, so the browser still attributes the new tabs
-      // to the click that started this and does not block them as popups.
-      for (const { key, url } of excusesToOpen) {
-        window.open(url, '_blank');
-        completedSteps.current[key] = true;
       }
 
       await Promise.all(printPromises);
@@ -379,18 +410,30 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
               <SelectionCheckbox
                 label="Work Note"
                 checked={printWorkNote}
-                disabled={!hasWorkNote}
+                disabled={!hasWorkNote || workNoteUnavailable}
                 onChange={(checked) => select({ workNote: checked })}
                 dataTestId={dataTestIds.dischargeDialog.printWorkNoteCheckbox}
-                hint={pendingWorkNote ? 'Preparing…' : undefined}
+                hint={
+                  workNoteUnavailable
+                    ? 'Unavailable — print from the chart'
+                    : pendingWorkNote
+                    ? 'Preparing…'
+                    : undefined
+                }
               />
               <SelectionCheckbox
                 label="School Note"
                 checked={printSchoolNote}
-                disabled={!hasSchoolNote}
+                disabled={!hasSchoolNote || schoolNoteUnavailable}
                 onChange={(checked) => select({ schoolNote: checked })}
                 dataTestId={dataTestIds.dischargeDialog.printSchoolNoteCheckbox}
-                hint={pendingSchoolNote ? 'Preparing…' : undefined}
+                hint={
+                  schoolNoteUnavailable
+                    ? 'Unavailable — print from the chart'
+                    : pendingSchoolNote
+                    ? 'Preparing…'
+                    : undefined
+                }
               />
               <SelectionCheckbox
                 label="Patient Instructions"

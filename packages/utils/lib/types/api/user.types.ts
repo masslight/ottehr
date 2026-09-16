@@ -53,6 +53,20 @@ export enum RoleType {
 }
 
 /**
+ * Roles allowed to pull a patient's clinical documents out of the EHR for printing.
+ *
+ * Every chart-printing endpoint returns PHI for whatever visit id it is handed, so the caller has to
+ * be clinical staff rather than merely a holder of a valid project token — patients hold those too.
+ */
+export const CHART_DOCUMENT_ROLES: RoleType[] = [
+  RoleType.Administrator,
+  RoleType.Manager,
+  RoleType.Provider,
+  RoleType.Clinician,
+  RoleType.Staff,
+];
+
+/**
  * Roles allowed into the administration area.
  *
  * Shared so the navigation and the endpoints behind it cannot disagree: a page the UI offers but the

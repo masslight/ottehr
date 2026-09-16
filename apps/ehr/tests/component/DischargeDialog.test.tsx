@@ -40,7 +40,7 @@ let schoolWorkNotes: { type: string; url: string }[] = [];
 let instructions: { text: string }[] = [];
 type FakeTab = { location: { href: string }; close: ReturnType<typeof vi.fn> };
 let openedTabs: FakeTab[] = [];
-let presignedFiles: { type: string; presignedUrl: string }[] = [];
+let presignedFiles: { type: string; presignedUrl?: string }[] = [];
 
 vi.mock('src/features/visits/shared/hooks/useProgressNoteSigning', () => ({
   useProgressNoteSigning: () => signing,
@@ -479,6 +479,66 @@ describe('DischargeDialog', () => {
     await user.click(confirmButton());
     await waitFor(() => expect(handleDischarge).toHaveBeenCalledTimes(1));
     expect(signNote).not.toHaveBeenCalled();
+  });
+
+  // A blocked popup means a document the provider asked for never reaches them. Recording it as
+  // printed and discharging anyway would strand it — the dropdown is gone once discharged.
+  it('prints and discharges nothing when the browser blocks a popup', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('open', vi.fn().mockReturnValue(null));
+    render(<DischargeDialog {...baseProps} />);
+
+    await user.click(confirmButton());
+
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith(expect.stringContaining('blocked the document windows'), {
+        variant: 'error',
+      })
+    );
+    expect(handleDischarge).not.toHaveBeenCalled();
+    expect(createAndOpenDischargeSummary).not.toHaveBeenCalled();
+    expect(confirmButton()).toBeEnabled();
+  });
+
+  it('closes the tabs it already reserved when a later popup is blocked', async () => {
+    const user = userEvent.setup();
+    let call = 0;
+    vi.stubGlobal(
+      'open',
+      vi.fn(() => {
+        call += 1;
+        if (call > 1) {
+          return null;
+        }
+        const tab = { location: { href: '' }, close: vi.fn() };
+        openedTabs.push(tab);
+        return tab;
+      })
+    );
+    render(<DischargeDialog {...baseProps} />);
+
+    await user.click(confirmButton());
+
+    await waitFor(() => expect(openedTabs[0]?.close).toHaveBeenCalled());
+    expect(handleDischarge).not.toHaveBeenCalled();
+  });
+
+  // A presign that fails never resolves into a URL. Treating that as "still preparing" left the row
+  // waiting and the confirm button disabled with no way forward.
+  it('marks a note whose presigning failed as unavailable rather than pending', async () => {
+    schoolWorkNotes = [{ type: WORK_NOTE_CODE, url: 'z3://work-note' }];
+    presignedFiles = [{ type: WORK_NOTE_CODE } as (typeof presignedFiles)[number]];
+    const user = userEvent.setup();
+    render(<DischargeDialog {...baseProps} />);
+
+    expect(checkbox(dataTestIds.dischargeDialog.printWorkNoteCheckbox)).toBeDisabled();
+    expect(screen.getByText(/Unavailable/)).toBeInTheDocument();
+    expect(screen.queryByText('Preparing…')).not.toBeInTheDocument();
+
+    // The dialog stays usable: the discharge proceeds without the note it cannot produce.
+    expect(confirmButton()).toBeEnabled();
+    await user.click(confirmButton());
+    await waitFor(() => expect(handleDischarge).toHaveBeenCalledTimes(1));
   });
 
   // DischargeButton mounts the dialog only while it is open, so closing and reopening is a remount.

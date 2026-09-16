@@ -20,23 +20,38 @@ export const createAndOpenDischargeSummary = async (
   downloadDocument: (id: string, options?: { skipRelated?: boolean }) => Promise<void>,
   options?: { skipRelated?: boolean }
 ): Promise<boolean> => {
+  let documentId: string | undefined;
+
   try {
-    const response = await createDischargeSummary(oystehr, { appointmentId });
-    const documentId = response?.documentId;
-    if (documentId) {
-      await downloadDocument(documentId, options);
-    } else {
-      enqueueSnackbar(
-        'Discharge summary created, but document is not accessible right now. You can find it later in the Patient Record > Review Docs.',
-        { variant: 'info' }
-      );
-    }
-    return true;
+    documentId = (await createDischargeSummary(oystehr, { appointmentId }))?.documentId;
   } catch (error) {
     console.error('Error creating Discharge Summary:', error);
     enqueueSnackbar('Error creating Discharge Summary.', { variant: 'error' });
     return false;
   }
+
+  // Past this point the document is filed, and only opening it can still fail. A caller that
+  // retried on that would file a second copy and supersede the one just created, so these paths
+  // report success and say where to find the document instead.
+  if (!documentId) {
+    enqueueSnackbar(
+      'Discharge summary created, but document is not accessible right now. You can find it later in the Patient Record > Review Docs.',
+      { variant: 'info' }
+    );
+    return true;
+  }
+
+  try {
+    await downloadDocument(documentId, options);
+  } catch (error) {
+    console.error('Error opening Discharge Summary:', error);
+    enqueueSnackbar(
+      'Discharge summary created, but it could not be opened. You can find it in the Patient Record > Review Docs.',
+      { variant: 'warning' }
+    );
+  }
+
+  return true;
 };
 
 export const handleDischarge = async (encounterId: string, oystehr?: Oystehr): Promise<void> => {

@@ -62,10 +62,11 @@ export const createPatientInstructionsPdf = async (
     patientInstructionsRenderConfig,
     {
       patientId: input.appointmentPackage.patient!.id!,
-      fileName: 'PatientInstructions.pdf',
+      // Keyed by appointment: print-only, so nothing references it and a timestamped key would leave
+      // an unreachable PDF behind on every print — but a patient-wide key would hand a returning
+      // patient the instructions from a different visit. One slot per visit. See make-progress-note-pdf.
+      fileName: `PatientInstructions-${input.appointmentPackage.appointment.id}.pdf`,
       bucketName: BUCKET_NAMES.VISIT_NOTES,
-      // Print-only, so no DocumentReference points at it. See make-progress-note-pdf: one reusable
-      // slot per patient rather than an unreachable PDF left behind by every print.
       stableKey: true,
     },
     secrets,
