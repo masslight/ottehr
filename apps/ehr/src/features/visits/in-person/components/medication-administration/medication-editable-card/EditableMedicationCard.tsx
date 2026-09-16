@@ -778,10 +778,20 @@ export const EditableMedicationCard: React.FC<{
         icon={null}
         color="error.main"
         open={isModalOpen}
-        handleClose={() => setIsModalOpen(false)}
+        handleClose={() => {
+          setIsModalOpen(false);
+          setShowErrors(false);
+          setFieldErrors({});
+          typeRef.current = typeFromProps;
+        }}
         title="Missing Required Fields"
         description={`Please fill in the following required fields: ${missingFields.join(', ')}`}
-        handleConfirm={() => setIsModalOpen(false)}
+        handleConfirm={() => {
+          setIsModalOpen(false);
+          setShowErrors(false);
+          setFieldErrors({});
+          typeRef.current = typeFromProps;
+        }}
         confirmText="OK"
         closeButtonText="Close"
       />
