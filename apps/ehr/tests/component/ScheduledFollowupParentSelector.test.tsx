@@ -410,5 +410,23 @@ describe('ScheduledFollowupParentSelector', () => {
       expect(navigateMock).not.toHaveBeenCalled();
       expect(copyChartDataMock).not.toHaveBeenCalled();
     });
+
+    it("stays usable when the converted visit's own chart data fails to load", async () => {
+      const user = userEvent.setup();
+      getChartDataMock.mockImplementation((params: { encounterId: string; requestedFields?: unknown }) => {
+        if (params.encounterId === 'enc-target') return Promise.reject(new Error('get-chart-data blew up'));
+        return Promise.resolve(params.requestedFields ? POPULATED_PARENT.scoped : POPULATED_PARENT.unscoped);
+      });
+      renderWithProviders({ convertFrom: CONVERT_FROM });
+
+      // The spinner clears and the parent's copyable fields still render.
+      const cc = await screen.findByRole('checkbox', { name: 'Chief Complaint' });
+      expect(cc).toBeEnabled();
+      expect(screen.queryByText(/Checking the initial visit/i)).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /Convert to Follow-up/i }));
+
+      await waitFor(() => expect(convertVisitToFollowUpMock).toHaveBeenCalled());
+    });
   });
 });

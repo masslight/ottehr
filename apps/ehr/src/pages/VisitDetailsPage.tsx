@@ -474,7 +474,8 @@ export default function VisitDetailsPage(): ReactElement {
   const encounter = visitDetailsData?.encounter;
   const qrId = visitDetailsData?.qrId;
 
-  const { data: ownFollowUpCount } = useQuery({
+  const ownFollowUpsQueryEnabled = Boolean(oystehr) && Boolean(encounter?.id);
+  const { data: ownFollowUpCount, isPending: isOwnFollowUpCountPending } = useQuery({
     queryKey: ['visit-details-own-follow-ups', encounter?.id],
     queryFn: async (): Promise<number> =>
       (
@@ -486,9 +487,10 @@ export default function VisitDetailsPage(): ReactElement {
           ],
         })
       ).unbundle().length,
-    enabled: Boolean(oystehr) && Boolean(encounter?.id),
+    enabled: ownFollowUpsQueryEnabled,
   });
   const hasOwnFollowUps = (ownFollowUpCount ?? 0) > 0;
+  const isOwnFollowUpsUnresolved = ownFollowUpsQueryEnabled && isOwnFollowUpCountPending;
 
   const {
     data: paymentData,
@@ -839,7 +841,7 @@ export default function VisitDetailsPage(): ReactElement {
       : undefined;
 
   const convertToFollowUpDisabledReason = ((): string | undefined => {
-    if (!appointment || !encounter || !patientId) return 'Loading the visit…';
+    if (!appointment || !encounter || !patientId || isOwnFollowUpsUnresolved) return 'Loading the visit…';
     if (isFollowupEncounter(encounter)) return 'This visit is already a follow-up';
     if (hasOwnFollowUps) return 'This visit already has its own follow-ups';
     return undefined;

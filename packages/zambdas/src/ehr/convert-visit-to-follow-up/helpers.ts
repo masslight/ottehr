@@ -1,10 +1,9 @@
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { Operation } from 'fast-json-patch';
-import { Appointment, Condition, Encounter } from 'fhir/r4b';
+import { Appointment, Condition, Encounter, FhirResource } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
-import { getAppointmentMetaTagOpForFollowUpConversion } from 'utils/lib/fhir/helpers';
+import { getAppointmentMetaTagOpForFollowUpConversion, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { User } from 'utils/lib/types/api/user.types';
 import { CONCURRENT_UPDATE_WITH_MESSAGE, errorHasStatusCode } from 'utils/lib/types/errors';
@@ -123,37 +122,27 @@ export const convertVisitToScheduledFollowUp = async (
   // The whole point of converting in place: the encounter keeps its identity, so every
   // Condition, Observation, ServiceRequest and QuestionnaireResponse already pointing at it
   // stays attached. Only its classification changes.
-  const encounterOps: Operation[] = [
-    {
-      op: encounter.partOf ? 'replace' : 'add',
-      path: '/partOf',
-      value: { reference: `Encounter/${parentEncounter.id}` },
-    },
-    {
-      op: encounter.type ? 'replace' : 'add',
-      path: '/type',
-      value: buildFollowupEncounterType('scheduled'),
-    },
-  ];
-
-  if (diagnosisEntries.length > 0) {
-    encounterOps.push({
-      op: encounter.diagnosis ? 'replace' : 'add',
-      path: '/diagnosis',
-      value: [...(encounter.diagnosis ?? []), ...diagnosisEntries],
-    });
-  }
+  const updatedEncounter: Encounter = {
+    ...encounter,
+    partOf: { reference: `Encounter/${parentEncounter.id}` },
+    type: buildFollowupEncounterType('scheduled'),
+    ...(diagnosisEntries.length > 0 && {
+      diagnosis: [...(encounter.diagnosis ?? []), ...diagnosisEntries],
+    }),
+  };
 
   const appointmentOps = getAppointmentMetaTagOpForFollowUpConversion(appointment, parentEncounter.id!, { user });
 
-  const requests = [
+  const encounterUpdateRequest: BatchInputPutRequest<Encounter> = {
+    method: 'PUT',
+    url: `/Encounter/${encounter.id!}`,
+    resource: updatedEncounter,
+    ifMatch: makeOptimisticLockIfMatchHeader(encounter),
+  };
+
+  const requests: BatchInputRequest<FhirResource>[] = [
     ...diagnosisRequests,
-    getPatchBinary({
-      resourceType: 'Encounter',
-      resourceId: encounter.id!,
-      patchOperations: encounterOps,
-      ifMatch: encounter.meta?.versionId ? `W/"${encounter.meta.versionId}"` : undefined,
-    }),
+    encounterUpdateRequest,
     ...(appointmentOps.length > 0
       ? [
           getPatchBinary({

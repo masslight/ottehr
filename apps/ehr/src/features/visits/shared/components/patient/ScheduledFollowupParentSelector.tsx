@@ -80,7 +80,11 @@ export default function ScheduledFollowupParentSelector({
 
   const targetEncounterId = convertFrom?.encounterId;
   const targetQueryEnabled = Boolean(apiClient) && Boolean(targetEncounterId);
-  const { data: targetChartData, isFetching: isTargetFetching } = useQuery({
+  const {
+    data: targetChartData,
+    isFetching: isTargetFetching,
+    isError: isTargetChartDataError,
+  } = useQuery({
     queryKey: ['followup-copy-chart-data', targetEncounterId],
     queryFn: () => fetchCopySourceChartData(apiClient!, targetEncounterId!),
     enabled: targetQueryEnabled,
@@ -91,7 +95,7 @@ export default function ScheduledFollowupParentSelector({
     isFetching ||
     (queryEnabled && parentChartData === undefined && !isChartDataError) ||
     isTargetFetching ||
-    (targetQueryEnabled && targetChartData === undefined);
+    (targetQueryEnabled && targetChartData === undefined && !isTargetChartDataError);
 
   const disabledReasonFor = (field: (typeof COPYABLE_FOLLOWUP_FIELDS)[number]): string | undefined =>
     !parentChartData || field.isEmpty(parentChartData) ? `No ${field.label} available to copy` : undefined;
