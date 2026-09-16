@@ -44,7 +44,7 @@ export function CustomInsuranceOrgDetailSection({
 
   const insuranceTypesSummary = item.insuranceTypes.map((type) => CUSTOM_INSURANCE_ORG_TYPE_LABELS[type]).join(', ');
   const contactsSummary = item.contacts
-    .map((contact) => [contact.name, contact.title, contact.email, contact.phone].filter(Boolean).join(' — '))
+    .map((contact) => [contact.title, contact.name, contact.email, contact.phone].filter(Boolean).join(' - '))
     .join('; ');
 
   return (

@@ -44,7 +44,7 @@ function customOrgToRow(item: CustomInsuranceOrgItem): InsuranceOrgRow {
 
 const columns: GridColDef<InsuranceOrgRow>[] = [
   { field: 'name', headerName: 'Name', flex: 1, minWidth: 240 },
-  { field: 'payerId', headerName: 'Payer Id', width: 160 },
+  { field: 'payerId', headerName: 'Payer ID', width: 160 },
 ];
 
 export function InsuranceOrganizationsList(): ReactElement {
