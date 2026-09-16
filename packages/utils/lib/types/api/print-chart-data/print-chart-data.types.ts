@@ -43,18 +43,9 @@ export type PrintablePdfZambdaOutput = {
   title: string;
 };
 
-export const MakePatientInstructionsPdfInputSchema = z.object({
+/** Every print endpoint is addressed the same way: the visit whose document to render. */
+export const PrintablePdfInputSchema = z.object({
   appointmentId: z.string().uuid(),
 });
 
-export type MakePatientInstructionsPdfZambdaInput = z.infer<typeof MakePatientInstructionsPdfInputSchema>;
-
-export type MakePatientInstructionsPdfZambdaOutput = PrintablePdfZambdaOutput;
-
-export const MakeProgressNotePdfInputSchema = z.object({
-  appointmentId: z.string().uuid(),
-});
-
-export type MakeProgressNotePdfZambdaInput = z.infer<typeof MakeProgressNotePdfInputSchema>;
-
-export type MakeProgressNotePdfZambdaOutput = PrintablePdfZambdaOutput;
+export type PrintablePdfZambdaInput = z.infer<typeof PrintablePdfInputSchema>;

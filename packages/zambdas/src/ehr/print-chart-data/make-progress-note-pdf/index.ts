@@ -2,7 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
-import { MakeProgressNotePdfZambdaOutput } from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
+import { PrintablePdfZambdaOutput } from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
 import { CHART_DOCUMENT_ROLES } from 'utils/lib/types/api/user.types';
 import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
@@ -89,7 +89,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken
   );
 
-  const response: MakeProgressNotePdfZambdaOutput = {
+  const response: PrintablePdfZambdaOutput = {
     presignedURL: await getPresignedURL(pdfInfo.uploadURL, m2mToken),
     title: pdfInfo.title,
   };

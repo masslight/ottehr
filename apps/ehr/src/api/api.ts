@@ -132,10 +132,8 @@ import {
   CreateSlotParams,
 } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 import {
-  MakePatientInstructionsPdfZambdaInput,
-  MakePatientInstructionsPdfZambdaOutput,
-  MakeProgressNotePdfZambdaInput,
-  MakeProgressNotePdfZambdaOutput,
+  PrintablePdfZambdaInput,
+  PrintablePdfZambdaOutput,
 } from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
 import {
   GetProgressNoteConfigInput,
@@ -2022,8 +2020,8 @@ export const createDischargeSummary = async (
  */
 export const makePatientInstructionsPdf = async (
   oystehr: Oystehr,
-  parameters: MakePatientInstructionsPdfZambdaInput
-): Promise<MakePatientInstructionsPdfZambdaOutput> => {
+  parameters: PrintablePdfZambdaInput
+): Promise<PrintablePdfZambdaOutput> => {
   try {
     const response = await oystehr.zambda.execute({
       id: MAKE_PATIENT_INSTRUCTIONS_PDF,
@@ -2044,8 +2042,8 @@ export const makePatientInstructionsPdf = async (
  */
 export const makeProgressNotePdf = async (
   oystehr: Oystehr,
-  parameters: MakeProgressNotePdfZambdaInput
-): Promise<MakeProgressNotePdfZambdaOutput> => {
+  parameters: PrintablePdfZambdaInput
+): Promise<PrintablePdfZambdaOutput> => {
   try {
     const response = await oystehr.zambda.execute({
       id: MAKE_PROGRESS_NOTE_PDF,

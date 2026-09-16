@@ -32,6 +32,10 @@ import { createAndOpenDischargeSummary, handleDischarge } from './DischargeButto
 const MISSING_INFORMATION_MESSAGE =
   'Signing is disabled because you have missing required information on the Progress Note. Please check the Review & Sign tab / Missing & Warning section for more details.';
 
+// Row hints. Both notes use the same two, so they live here rather than being retyped per row.
+const UNAVAILABLE_HINT = 'Unavailable — print from the chart';
+const PREPARING_HINT = 'Preparing…';
+
 const POPUP_BLOCKED_MESSAGE =
   'Your browser blocked the document windows, so nothing was printed and the patient has not been discharged. Allow pop-ups for this site and try again.';
 
@@ -413,13 +417,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
                 disabled={!hasWorkNote || workNoteUnavailable}
                 onChange={(checked) => select({ workNote: checked })}
                 dataTestId={dataTestIds.dischargeDialog.printWorkNoteCheckbox}
-                hint={
-                  workNoteUnavailable
-                    ? 'Unavailable — print from the chart'
-                    : pendingWorkNote
-                    ? 'Preparing…'
-                    : undefined
-                }
+                hint={workNoteUnavailable ? UNAVAILABLE_HINT : pendingWorkNote ? PREPARING_HINT : undefined}
               />
               <SelectionCheckbox
                 label="School Note"
@@ -427,13 +425,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
                 disabled={!hasSchoolNote || schoolNoteUnavailable}
                 onChange={(checked) => select({ schoolNote: checked })}
                 dataTestId={dataTestIds.dischargeDialog.printSchoolNoteCheckbox}
-                hint={
-                  schoolNoteUnavailable
-                    ? 'Unavailable — print from the chart'
-                    : pendingSchoolNote
-                    ? 'Preparing…'
-                    : undefined
-                }
+                hint={schoolNoteUnavailable ? UNAVAILABLE_HINT : pendingSchoolNote ? PREPARING_HINT : undefined}
               />
               <SelectionCheckbox
                 label="Patient Instructions"

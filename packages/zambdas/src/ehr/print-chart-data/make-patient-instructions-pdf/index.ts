@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
-import { MakePatientInstructionsPdfZambdaOutput } from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
+import { PrintablePdfZambdaOutput } from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
 import { CHART_DOCUMENT_ROLES } from 'utils/lib/types/api/user.types';
 import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { callerHasRole, checkOrCreateM2MClientToken } from '../../../shared/auth';
@@ -38,8 +38,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
   }
 
-  const { encounter } = visitResources;
-  const chartData = (await getChartData(oystehr, m2mToken, encounter.id!)).response;
+  // Guarded here rather than left to the non-null assertions in the PDF layer, which would surface
+  // an opaque TypeError instead of saying which visit is unusable.
+  const { encounter, patient } = visitResources;
+  if (!patient?.id) {
+    throw new Error(`No patient has been found for appointment ${appointmentId}`);
+  }
+  if (!encounter?.id) {
+    throw new Error(`No encounter has been found for appointment ${appointmentId}`);
+  }
+
+  const chartData = (await getChartData(oystehr, m2mToken, encounter.id)).response;
 
   const { pdfInfo } = await createPatientInstructionsPdf(
     { allChartData: { chartData }, appointmentPackage: visitResources },
@@ -47,7 +56,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken
   );
 
-  const response: MakePatientInstructionsPdfZambdaOutput = {
+  const response: PrintablePdfZambdaOutput = {
     presignedURL: await getPresignedURL(pdfInfo.uploadURL, m2mToken),
     title: pdfInfo.title,
   };
