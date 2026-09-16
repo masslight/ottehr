@@ -42,13 +42,18 @@ import { getCoding } from './helpers';
 const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // formerly used by Ottehr clinical in-house meds
 
 export type MedicationUnitOptions = 'mg' | 'ml' | 'g' | 'cc' | 'unit' | 'application' | 'Puff(s)';
-export const UNIT_OPTIONS: { value: MedicationUnitOptions; label: string }[] = [
+
+export const BASE_UNIT_OPTIONS: { value: MedicationUnitOptions; label: string }[] = [
   { value: 'mg', label: 'mg' },
   { value: 'ml', label: 'mL' },
   { value: 'g', label: 'g' },
   { value: 'cc', label: 'cc' },
   { value: 'unit', label: 'unit' },
   { value: 'application', label: 'application' },
+];
+
+export const IN_HOUSE_MEDICATION_UNIT_OPTIONS: { value: MedicationUnitOptions; label: string }[] = [
+  ...BASE_UNIT_OPTIONS,
   { value: 'Puff(s)', label: 'Puff(s)' },
 ];
 
