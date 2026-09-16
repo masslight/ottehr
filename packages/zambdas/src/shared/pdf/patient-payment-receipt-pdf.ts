@@ -22,7 +22,7 @@ import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { createFilesDocumentReferences, getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getFullName, getPatientAddress, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { formatZipcodeForDisplay, removePrefix } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { CashOrCardPayment } from 'utils/lib/types/api/patient-payment-types';
 import { FhirAppointmentType } from 'utils/lib/types/common';
@@ -238,7 +238,7 @@ async function getReceiptData(input: {
       street2: patientAddress.addressLine2,
       city: patientAddress.city ?? '??',
       state: patientAddress.state ?? '??',
-      zip: patientAddress.postalCode ?? '??',
+      zip: formatZipcodeForDisplay(patientAddress.postalCode ?? '??'),
       phone: patientPhone,
     },
   };
@@ -349,7 +349,7 @@ export function buildOrganizationReceiptBlock(
         street2: locationAddress!.line?.[1],
         city: locationAddress!.city ?? '??',
         state: locationAddress!.state ?? '??',
-        zip: locationAddress!.postalCode ?? '??',
+        zip: formatZipcodeForDisplay(locationAddress!.postalCode ?? '??'),
         phone: locationPhone ?? orgPhone,
       }
     : {
@@ -358,7 +358,7 @@ export function buildOrganizationReceiptBlock(
         street2: organizationAddress?.line?.[1],
         city: organizationAddress?.city ?? '??',
         state: organizationAddress?.state ?? '??',
-        zip: organizationAddress?.postalCode ?? '??',
+        zip: formatZipcodeForDisplay(organizationAddress?.postalCode ?? '??'),
         phone: orgPhone,
       };
 }

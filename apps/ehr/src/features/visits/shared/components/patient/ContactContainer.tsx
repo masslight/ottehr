@@ -2,6 +2,7 @@ import { Box } from '@mui/material';
 import { FC, ReactElement, useEffect, useMemo } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { Row } from 'src/components/layout/Row';
+import { normalizeZipcode } from 'utils/lib/helpers/helpers';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import { InsuranceCardAiSuggestionRow } from './InsuranceCardAiSuggestionRow';
 import PatientRecordFormField from './PatientRecordFormField';
@@ -49,7 +50,7 @@ export const ContactContainer: FC<ContactContainerProps> = ({ isLoading, patient
     // OCR text is transcribed as printed (often "12345-6789") — write/compare digits-only so it
     // matches what the masked input settles to instead of racing its own normalization.
     if (photoIdFields.addressZip) {
-      const zipDigits = photoIdFields.addressZip.replace(/[^0-9]/g, '');
+      const zipDigits = normalizeZipcode(photoIdFields.addressZip);
       if (zipDigits) {
         suggestions[contactSection.items.zip.key] = {
           display: photoIdFields.addressZip,

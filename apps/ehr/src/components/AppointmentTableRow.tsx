@@ -1,7 +1,7 @@
 import { progressNoteIcon } from '@ehrTheme/icons';
 import CallSplitIcon from '@mui/icons-material/CallSplit';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckIcon from '@mui/icons-material/Check';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
 import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
@@ -9,6 +9,7 @@ import { LoadingButton } from '@mui/lab';
 import {
   Badge,
   Box,
+  Button,
   capitalize,
   darken,
   Grid,
@@ -205,7 +206,6 @@ export default function AppointmentTableRow({
   const user = useEvolveUser();
 
   const [primaryActionButtonLoading, setPrimaryActionButtonLoading] = useState(false);
-  const [progressNoteButtonLoading, setProgressNoteButtonLoading] = useState(false);
   const [approveButtonLoading, setApproveButtonLoading] = useState(false);
   const [reviewAndSignButtonLoading, setReviewAndSignButtonLoading] = useState(false);
 
@@ -523,6 +523,7 @@ export default function AppointmentTableRow({
   }
   const encounterId: string = encounter.id;
   const primaryAction = getTrackingBoardPrimaryAction(appointment.status, { isVirtualVisit: isVirtual(appointment) });
+  const progressNoteUrl = getInPersonUrlByAppointmentType(appointment, ROUTER_PATH.REVIEW_AND_SIGN);
   const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
   const assignedProviderId = getAttendingPractitionerId(encounter);
   // Read-only display (Discharged/Cancelled tabs) uses the names resolved on the appointment's
@@ -664,22 +665,6 @@ export default function AppointmentTableRow({
     return renderActionButton(primaryAction.label, handlePrimaryActionButton, primaryAction.dataTestId);
   };
 
-  const navigateToReviewAndSign = async (setLoading: (loading: boolean) => void): Promise<void> => {
-    setLoading(true);
-    try {
-      navigate(getInPersonUrlByAppointmentType(appointment, ROUTER_PATH.REVIEW_AND_SIGN));
-    } catch (error) {
-      console.error(error);
-      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleProgressNoteButton = async (): Promise<void> => {
-    await navigateToReviewAndSign(setProgressNoteButtonLoading);
-  };
-
   const renderProgressNoteButton = (): ReactElement | undefined => {
     if (
       appointment.status === 'intake' ||
@@ -693,12 +678,7 @@ export default function AppointmentTableRow({
       appointment.status === 'ready'
     ) {
       return (
-        <GoToButton
-          text="Progress Note"
-          loading={progressNoteButtonLoading}
-          onClick={handleProgressNoteButton}
-          dataTestId={dataTestIds.dashboard.progressNoteButton}
-        >
+        <GoToButton text="Progress Note" to={progressNoteUrl} dataTestId={dataTestIds.dashboard.progressNoteButton}>
           <img src={progressNoteIcon} />
         </GoToButton>
       );
@@ -707,7 +687,15 @@ export default function AppointmentTableRow({
   };
 
   const handleReviewAndSignButton = async (): Promise<void> => {
-    await navigateToReviewAndSign(setReviewAndSignButtonLoading);
+    setReviewAndSignButtonLoading(true);
+    try {
+      navigate(progressNoteUrl);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    } finally {
+      setReviewAndSignButtonLoading(false);
+    }
   };
 
   const renderReviewAndSignButton = (): ReactElement | undefined => {
@@ -755,29 +743,33 @@ export default function AppointmentTableRow({
       user?.profileResource &&
       isEligibleSupervisor(user.profileResource!, appointment.attenderProviderType)
     ) {
-      return (
-        <GoToButton
-          text="Approve"
-          loading={approveButtonLoading || isSignLoading}
-          onClick={handleApprove}
-          dataTestId={dataTestIds.dashboard.approveButton}
-        >
-          <CheckCircleOutlineIcon />
-        </GoToButton>
+      return renderActionButton(
+        'Approve',
+        handleApprove,
+        dataTestIds.dashboard.approveButton,
+        approveButtonLoading || isSignLoading
       );
     } else if (appointment.status === 'completed' && appointment.approvalDate) {
       return (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            color: theme.palette.text.secondary,
-          }}
-        >
-          <Typography align="center">Approved</Typography>
-          <Typography align="center">{mdyStringFromISOString(appointment.approvalDate)}</Typography>
-        </Box>
+        <Tooltip title={`Approved ${mdyStringFromISOString(appointment.approvalDate)}`} placement="top">
+          <span>
+            <Button
+              disabled
+              variant="contained"
+              startIcon={<CheckIcon />}
+              sx={{
+                borderRadius: 8,
+                textTransform: 'none',
+                fontSize: '15px',
+                fontWeight: 500,
+                whiteSpace: 'nowrap',
+                px: 2.5,
+              }}
+            >
+              Approved
+            </Button>
+          </span>
+        </Tooltip>
       );
     }
     return undefined;
@@ -1101,7 +1093,7 @@ export default function AppointmentTableRow({
         <Stack direction={'row'} spacing={1} alignItems="center" justifyContent="center" sx={{ width: '100%' }}>
           <GoToButton
             text="Visit Details"
-            onClick={() => navigate(getInPersonVisitDetailsUrl(appointment.id))}
+            to={getInPersonVisitDetailsUrl(appointment.id)}
             dataTestId={dataTestIds.dashboard.visitDetailsButton}
           >
             <MedicalInformationIcon />

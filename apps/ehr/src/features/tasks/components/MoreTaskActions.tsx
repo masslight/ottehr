@@ -68,44 +68,45 @@ export const MoreTaskActions: React.FC<MoreTaskActionsProps> = ({ task, currentU
                 </ListItemButton>
               </ListItem>
             ) : (
-              <>
-                <ListItem disablePadding>
-                  <ListItemButton
-                    onClick={async () => {
-                      if (currentUserProviderId && currentUser?.name) {
-                        await assignTask({
-                          taskId: moreActionsPopoverData.task.id,
-                          assignee: {
-                            id: currentUserProviderId,
-                            name: currentUser.userName,
-                          },
-                        });
-                        closeMoreActionsPopover();
-                        if (refetchData) refetchData();
-                      }
-                    }}
-                  >
-                    <ListItemIcon>
-                      <HowToRegOutlinedIcon color="primary" />
-                    </ListItemIcon>
-                    <ListItemText primary="Assign me" />
-                  </ListItemButton>
-                </ListItem>
-                <ListItem disablePadding>
-                  <ListItemButton
-                    onClick={() => {
-                      setTaskToAssign(moreActionsPopoverData.task);
+              <ListItem disablePadding>
+                <ListItemButton
+                  onClick={async () => {
+                    if (currentUserProviderId && currentUser?.name) {
+                      await assignTask({
+                        taskId: moreActionsPopoverData.task.id,
+                        assignee: {
+                          id: currentUserProviderId,
+                          name: currentUser.userName,
+                        },
+                      });
                       closeMoreActionsPopover();
-                    }}
-                  >
-                    <ListItemIcon>
-                      <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
-                    </ListItemIcon>
-                    <ListItemText primary="Assign to someone else" />
-                  </ListItemButton>
-                </ListItem>
-              </>
+                      if (refetchData) refetchData();
+                    }
+                  }}
+                >
+                  <ListItemIcon>
+                    <HowToRegOutlinedIcon color="primary" />
+                  </ListItemIcon>
+                  <ListItemText primary="Assign me" />
+                </ListItemButton>
+              </ListItem>
             )}
+            {!moreActionsPopoverData.task?.assignee?.id ||
+            moreActionsPopoverData.task.assignee.id === currentUserProviderId ? (
+              <ListItem disablePadding>
+                <ListItemButton
+                  onClick={() => {
+                    setTaskToAssign(moreActionsPopoverData.task);
+                    closeMoreActionsPopover();
+                  }}
+                >
+                  <ListItemIcon>
+                    <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
+                  </ListItemIcon>
+                  <ListItemText primary="Assign to someone else" />
+                </ListItemButton>
+              </ListItem>
+            ) : null}
           </List>
         </Popover>
       ) : null}
