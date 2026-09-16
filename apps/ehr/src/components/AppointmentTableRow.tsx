@@ -212,6 +212,10 @@ export default function AppointmentTableRow({
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'end', PRACTITIONER_CODINGS.Admitter);
 
+  useEffect(() => {
+    setRoom(appointment.room || '');
+  }, [appointment.room]);
+
   const rooms = useMemo(() => {
     return appointment.location?.extension
       ?.filter((ext) => ext.url === ROOM_EXTENSION_URL)
@@ -264,15 +268,20 @@ export default function AppointmentTableRow({
       throw new Error('error getting appointment id');
     }
     setRoomSaving(true);
-
-    const appointmentToUpdate = await oystehr.fhir.get<Appointment>({
-      resourceType: 'Appointment',
-      id: appointment.id,
-    });
-
-    await updateAppointmentRoom(appointmentToUpdate, room, oystehr);
-
-    setRoomSaving(false);
+    try {
+      const appointmentToUpdate = await oystehr.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: appointment.id,
+      });
+      await updateAppointmentRoom(appointmentToUpdate, room || undefined, oystehr);
+      updateAppointments();
+    } catch (error) {
+      console.error('error updating room', error);
+      setRoom(appointment.room || '');
+      enqueueSnackbar('An error occurred trying to update the room. Please try again.', { variant: 'error' });
+    } finally {
+      setRoomSaving(false);
+    }
   };
 
   const recentStatus = appointment?.visitStatusHistory[appointment.visitStatusHistory.length - 1];
