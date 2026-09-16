@@ -28,6 +28,7 @@ import {
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import type { ConvertFromVisit } from './AddPatientFollowup';
 import { COPYABLE_FOLLOWUP_FIELDS, fetchCopySourceChartData } from './copyFollowupFields';
+import { getFollowupPrefill } from './followupPrefill';
 import { useCopyChartDataToFollowup } from './useCopyChartDataToFollowup';
 import { useParentEncounters } from './useParentEncounters';
 
@@ -174,6 +175,7 @@ export default function ScheduledFollowupParentSelector({
       state: {
         followUpOptions,
         parentLocation: selectedParentEncounter.location,
+        prefill: getFollowupPrefill(selectedParentEncounter.appointment),
         patientId: patientId,
         clientCopyFields: copyableFieldKeys(),
         patientInfo: {
