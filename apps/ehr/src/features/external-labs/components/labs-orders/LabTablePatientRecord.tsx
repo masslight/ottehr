@@ -14,6 +14,7 @@ import { LabsAutocompleteForPatient } from '../LabsAutocompleteForPatient';
 import { LabOrderLoading } from './LabOrderLoading';
 import { LabsTable } from './LabsTable';
 import { UnsolicitedLabsTable } from './UnsolicitedLabsTable';
+import { useLabOrderRowNavigation } from './useLabOrderRowNavigation';
 import { usePatientLabOrders } from './usePatientLabOrders';
 
 interface LabsTablePatientRecordProps {
@@ -50,6 +51,8 @@ export const LabsTablePatientRecord = ({
     () => buildFollowUpAppointmentLookup(visitHistory?.visits),
     [visitHistory?.visits]
   );
+
+  const { openOrder, openDrDrivenResult } = useLabOrderRowNavigation(followUpAppointmentLookup);
 
   const submitFilterByDate = (date?: DateTime | null): void => {
     const dateToSet = date || tempDateFilter;
@@ -151,7 +154,8 @@ export const LabsTablePatientRecord = ({
                   allowDelete={false}
                   showDeleteLabOrderDialog={showDeleteLabOrderDialog}
                   dataTestId={dataTestIds.externalLabs.labsTable.patientRecordExternalLabsPage}
-                  followUpAppointmentLookup={followUpAppointmentLookup}
+                  onRowClick={openOrder}
+                  onDrDrivenRowClick={openDrDrivenResult}
                 />
               )}
 

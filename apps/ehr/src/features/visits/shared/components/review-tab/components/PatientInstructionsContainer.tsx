@@ -1,9 +1,12 @@
-import { Box, Link, Typography } from '@mui/material';
-import { FC } from 'react';
+import { Box, Link, Stack, Typography } from '@mui/material';
+import { FC, Fragment } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { SectionList } from 'src/features/visits/shared/components/SectionList';
+import {
+  SectionHeading,
+  useNoteSectionTitleInCardHeader,
+} from 'src/features/visits/shared/components/NoteSectionHeading';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
 import {
   dispositionCheckboxOptions,
@@ -17,14 +20,13 @@ import {
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_LABEL,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { useChartFields } from '../../../hooks/useChartFields';
 import { usePatientInstructionsVisibility } from '../../../hooks/usePatientInstructionsVisibility';
+import { useProgressNoteChartFields } from '../../../hooks/useProgressNoteChartFields';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 
 export const PatientInstructionsContainer: FC = () => {
-  const { data: chartFields } = useChartFields({
-    requestedFields: { disposition: {} },
-  });
+  const titleInCardHeader = useNoteSectionTitleInCardHeader();
+  const { data: chartFields } = useProgressNoteChartFields();
 
   const { chartData } = useChartData();
 
@@ -115,11 +117,13 @@ export const PatientInstructionsContainer: FC = () => {
 
   return (
     <Box data-testid={dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer}>
-      <Typography variant="h5" color="primary.dark">
-        Plan
-      </Typography>
+      {!titleInCardHeader && <SectionHeading>Plan</SectionHeading>}
 
-      <SectionList sections={sections} sx={{ width: '100%' }} />
+      <Stack spacing={1} sx={{ width: '100%' }}>
+        {sections.map((section, index) => (
+          <Fragment key={index}>{section}</Fragment>
+        ))}
+      </Stack>
     </Box>
   );
 };

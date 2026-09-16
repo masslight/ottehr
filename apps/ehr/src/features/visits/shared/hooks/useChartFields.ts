@@ -1,7 +1,7 @@
 import { QueryObserverResult, RefetchOptions, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { CHART_FIELDS_QUERY_KEY } from 'src/constants';
+import { CHART_FIELDS_QUERY_KEY, QUERY_STALE_TIME } from 'src/constants';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { SearchParams } from 'utils/lib/fhir/uri';
 import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
@@ -46,6 +46,41 @@ const createSearchParamsKey = (searchParams: ChartDataRequestedFields): string =
 
 const searchParamsMatch = (params1: SearchParams, params2: SearchParams): boolean => {
   return JSON.stringify(params1, Object.keys(params1).sort()) === JSON.stringify(params2, Object.keys(params2).sort());
+};
+
+/**
+ * Invalidates only the chart-fields queries for `encounterId` that actually ask for one of
+ * `fields`.
+ *
+ * Every field set gets its own cache entry, so a blanket invalidate of the
+ * `CHART_FIELDS_QUERY_KEY` prefix refetches every chart query mounted on the page — a dozen
+ * or more on Review & Sign — when a section changed one of them.
+ */
+export const invalidateChartFields = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  encounterId: string | undefined,
+  fields: RequestedFields[]
+): void => {
+  if (!encounterId || fields.length === 0) return;
+
+  queryClient
+    .getQueryCache()
+    .getAll()
+    .forEach((query) => {
+      const [base, encId, searchParamsKey] = query.queryKey;
+      if (base !== CHART_FIELDS_QUERY_KEY || encId !== encounterId) return;
+
+      let requested: Record<string, unknown>;
+      try {
+        requested = JSON.parse((searchParamsKey as string) || '{}');
+      } catch {
+        return;
+      }
+
+      if (fields.some((field) => field in requested)) {
+        void queryClient.invalidateQueries({ queryKey: query.queryKey, exact: true });
+      }
+    });
 };
 
 /**
@@ -132,7 +167,11 @@ export function useChartFields<T extends ChartDataRequestedFields>({
       return result as Pick<GetChartDataResponse, keyof ChartDataRequestedFields>;
     },
     enabled: !!apiClient && !!encounterId && !!user && enabled,
-    staleTime: 0, // TODO: add QUERY_STALE_TIME; set to 0 for now since not all api calls update cache (e.g., in-house order status changes to "collected")
+    // Fresh data within a screen is shared by every component that mounts the same field set. Moving to
+    // another visit screen marks every chart-fields query stale (useInvalidateChartFieldsOnNavigate), so
+    // flows that change chart data through other endpoints, such as an in-house lab order being
+    // collected, are picked up on the next screen; flows that stay on one screen invalidate explicitly.
+    staleTime: QUERY_STALE_TIME,
     refetchInterval: refetchInterval || false,
   });
 

@@ -1,7 +1,11 @@
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import React, { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import {
+  SectionHeading,
+  useNoteSectionTitleInCardHeader,
+} from 'src/features/visits/shared/components/NoteSectionHeading';
 import {
   formatScreeningQuestionWithNote,
   shouldDisplayScreeningQuestion,
@@ -14,10 +18,13 @@ import { useChartData } from '../../../stores/appointment/appointment.store';
 
 type AdditionalQuestionsContainerProps = {
   notes?: NoteDTO[];
+  emptyMessage?: string;
 };
 
-export const AdditionalQuestionsContainer: FC<AdditionalQuestionsContainerProps> = ({ notes }) => {
+export const AdditionalQuestionsContainer: FC<AdditionalQuestionsContainerProps> = ({ notes, emptyMessage }) => {
+  const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { chartData } = useChartData();
+  const theme = useTheme();
 
   const getObservationByField = (field: string): any => {
     return chartData?.observations?.find((obs) => obs.field === field);
@@ -44,9 +51,11 @@ export const AdditionalQuestionsContainer: FC<AdditionalQuestionsContainerProps>
       sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
       data-testid={dataTestIds.progressNotePage.additionalQuestions}
     >
-      <Typography variant="h5" color="primary.dark">
-        Additional questions
-      </Typography>
+      {!titleInCardHeader && <SectionHeading>Screening questions</SectionHeading>}
+
+      {emptyMessage && !chartData?.observations?.length && !notes?.length && (
+        <Typography color={theme.palette.text.secondary}>{emptyMessage}</Typography>
+      )}
 
       {/* Render all fields from config */}
       {patientScreeningQuestionsConfig.fields.map((field) => renderFieldValue(field))}

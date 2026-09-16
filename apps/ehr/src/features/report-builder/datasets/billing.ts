@@ -7,13 +7,12 @@ import {
   BillingBaseRowSchema,
 } from 'utils/lib/types/adhoc/datasets/billing';
 import { layerOptions } from 'utils/lib/types/adhoc/datasets/dataset';
+import { AdHocLayer } from 'utils/lib/types/adhoc/query/layers';
 import { ADHOC_QUERY_STALE_MS, runAdHocReport, toLocalYmd } from '../query/dataset-query';
 import { buildLlmDatasetSchema } from './schema';
-import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
+import { AdHocDataset, AdHocRow, FetchContext } from './types';
 
-// One row per encounter, billing-focused. Base = visit/patient/location identity; opt-in layers add
-// financial/insurance subsets. Checkboxes derive from the Zod layer map (id/label/description).
-export const ADHOC_BILLING_OPTIONS: AdHocDatasetOption[] = layerOptions(BILLING_LAYERS);
+export const ADHOC_BILLING_OPTIONS: AdHocLayer[] = layerOptions(BILLING_LAYERS);
 
 async function fetchAdHocBilling({
   oystehrZambda,
@@ -50,6 +49,9 @@ export const billingDataset: AdHocDataset = {
     'One row per encounter, focused on billing & revenue; optional patient-payment, insurance-coverage, ' +
     'charges/fee-schedule, and billing-code layers.',
   options: ADHOC_BILLING_OPTIONS,
+  layers: BILLING_LAYERS,
+  baseSchema: BillingBaseRowSchema,
+  internalFields: BILLING_INTERNAL_FIELDS,
   fetch: fetchAdHocBilling,
   buildSchema: (rows, options) => {
     const opts = options ?? {};

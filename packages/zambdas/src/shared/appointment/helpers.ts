@@ -511,7 +511,7 @@ export function creatingPatientCreateRequest(
 }
 
 export async function generatePatientRelatedRequests(
-  user: User,
+  user: User | undefined,
   patient: PatientInfo,
   oystehr: Oystehr
 ): Promise<{

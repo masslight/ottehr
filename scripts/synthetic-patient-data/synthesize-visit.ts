@@ -126,6 +126,7 @@ import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import * as path from 'path';
 import { resolve } from 'path';
+import { createQuestionnaireItemsMap } from 'utils';
 import { finalizeInHouseLabs, finalizeRadiology, LAB_NAME_ALIASES, normalizeLabName } from './finalize-visit-orders';
 import { type History as ScenarioHistory, type VisitScenario, VisitScenarioSchema } from './schema';
 import { arg } from './shared/cli';
@@ -984,6 +985,13 @@ async function phase1_5_intakePaperwork(ctx: SynthesisContext): Promise<void> {
       stringAnswer('patient-number', phone),
       stringAnswer('patient-preferred-communication-method', p.preferredCommunication ?? 'Cell Phone'),
       boolAnswer('mobile-opt-in', p.mobileOptIn ?? true),
+      // Photo ID front/back live on THIS page in the intake QR — there is NO
+      // standalone photo-id-page (unlike insurance, which is on payment-option-page).
+      // Submitting them under a nonexistent page silently drops them, so the photo
+      // IDs must go here. Title MUST match a DocumentType enum value (see the
+      // insurance-card section below for the rationale).
+      ...(idFront ? [attachmentAnswer('photo-id-front', idFront.z3Url, idFront.contentType, 'photo-id-front')] : []),
+      ...(idBack ? [attachmentAnswer('photo-id-back', idBack.z3Url, idBack.contentType, 'photo-id-back')] : []),
     ],
   });
 
@@ -1147,21 +1155,6 @@ async function phase1_5_intakePaperwork(ctx: SynthesisContext): Promise<void> {
     });
   }
 
-  // Photo ID page — uploaded photos go through Z3 + the documents harvest
-  // handler, which creates a DocumentReference and adds it to the patient's
-  // List for "Photo ID cards".
-  if (idFront || idBack) {
-    pages.push({
-      linkId: 'photo-id-page',
-      item: [
-        // Title MUST match a DocumentType enum value (see insurance-card
-        // section above for rationale).
-        attachmentAnswer('photo-id-front', idFront?.z3Url, idFront?.contentType, 'photo-id-front'),
-        attachmentAnswer('photo-id-back', idBack?.z3Url, idBack?.contentType, 'photo-id-back'),
-      ],
-    });
-  }
-
   // Consent forms page — MUST be last; patch-paperwork on this page also
   // flips the QR to status=completed and fires sub-intake-harvest.
   const c = p.consents;
@@ -1180,6 +1173,11 @@ async function phase1_5_intakePaperwork(ctx: SynthesisContext): Promise<void> {
       stringAnswer('consent-form-signer-relationship', c?.signerRelationship ?? 'Self'),
     ],
   });
+
+  // Fail loud on questionnaire drift BEFORE submitting: if a page/item linkId we're
+  // about to answer no longer exists in the live Questionnaire, patch-paperwork would
+  // silently drop it (as happened when photo-id moved into contact-information-page).
+  await assertSubmittedLinkIdsExist(ctx, pages);
 
   for (const page of pages) {
     const body = {
@@ -1212,6 +1210,78 @@ async function phase1_5_intakePaperwork(ctx: SynthesisContext): Promise<void> {
   if (ctx.mode === 'execute') {
     logNote('QR auto-completed via consent-forms-page; sub-intake-harvest will run async');
   }
+}
+
+/**
+ * Guard against silent intake-form drift. The intake Questionnaire is customized
+ * per-env (secrets overlays) and evolves over time — fields get moved between pages,
+ * renamed, or removed. patch-paperwork SILENTLY DROPS any answer submitted under a
+ * page/item linkId that doesn't exist in the live Questionnaire (this is exactly how
+ * photo-id uploads vanished when the field moved into contact-information-page).
+ *
+ * Fetch the live Questionnaire the QR points at, collect every linkId in its item
+ * tree, and hard-fail if any page we submit — or any item we actually set an answer
+ * on — is not present. Only a genuine MISMATCH throws; if the Questionnaire can't be
+ * resolved we warn and skip (inability to validate is not a mismatch). Unanswered
+ * placeholder items are ignored: a missing optional field we don't fill loses no data.
+ */
+async function assertSubmittedLinkIdsExist(
+  ctx: SynthesisContext,
+  pages: Array<{ linkId: string; item: unknown[] }>
+): Promise<void> {
+  if (ctx.mode !== 'execute' || !ctx.oystehr || !ctx.questionnaireResponseId) return;
+
+  const qr = (await withRetry('QR get (linkId validation)', 3, () =>
+    ctx.oystehr!.fhir.get({ resourceType: 'QuestionnaireResponse', id: ctx.questionnaireResponseId! })
+  )) as { questionnaire?: string };
+  const canonical = qr.questionnaire;
+  if (!canonical) {
+    logWarn('skipping paperwork linkId validation — QR has no questionnaire canonical');
+    return;
+  }
+  const [url, version] = canonical.split('|');
+  const found = (
+    await withRetry('Questionnaire search (linkId validation)', 3, () =>
+      ctx.oystehr!.fhir.search({
+        resourceType: 'Questionnaire',
+        params: [{ name: 'url', value: url }, ...(version ? [{ name: 'version', value: version }] : [])],
+      })
+    )
+  ).unbundle() as Array<{ item?: Array<{ linkId?: string; item?: unknown[] }> }>;
+  const qDef = found[0];
+  if (!qDef) {
+    logWarn(`skipping paperwork linkId validation — Questionnaire ${canonical} not found`);
+    return;
+  }
+
+  // Reuse the project's linkId→item map builder (recurses the whole item tree) so
+  // this stays in sync with how the rest of the codebase resolves questionnaire items.
+  const itemsMap = createQuestionnaireItemsMap((qDef.item ?? []) as Parameters<typeof createQuestionnaireItemsMap>[0]);
+
+  const missing: string[] = [];
+  const walkAnswers = (pageLinkId: string, items?: unknown[]): void => {
+    for (const raw of items ?? []) {
+      const it = raw as { linkId?: string; answer?: unknown[]; item?: unknown[] };
+      // Only items we actually answer matter — an unanswered placeholder that no
+      // longer exists loses no data, so tolerate that benign drift.
+      const answered = Array.isArray(it.answer) && it.answer.length > 0;
+      if (answered && it.linkId && !itemsMap.has(it.linkId)) missing.push(`"${pageLinkId}" > "${it.linkId}"`);
+      walkAnswers(pageLinkId, it.item);
+    }
+  };
+  for (const page of pages) {
+    if (!itemsMap.has(page.linkId)) missing.push(`page "${page.linkId}"`);
+    walkAnswers(page.linkId, page.item);
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      `intake questionnaire structure mismatch — these submitted linkId(s) do not exist in the live ` +
+        `Questionnaire (${url}${version ? `|${version}` : ''}): ${missing.join(', ')}. The intake form was ` +
+        `likely reorganized; update the page/item linkIds in phase1_5_intakePaperwork to match.`
+    );
+  }
+  logNote(`validated ${pages.length} paperwork page(s) against Questionnaire ${url}`);
 }
 
 async function runLocalHarvest(ctx: SynthesisContext, pageLinkId: string): Promise<void> {

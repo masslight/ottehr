@@ -12,7 +12,7 @@ automatic trigger, and its own on-success effect:
 | --- | --- | --- |
 | Claim Submission Rules (`claim-submission`) | when an Insurance Payer AR claim is submitted | the claim is submitted to the payer |
 | Non-Insurance Payer Pre-Invoice Rules (`non-insurance-payer-pre-invoice`) | when a claim is created in Non-insurance Payer AR | the Non-insurance AR Status moves to Ready to invoice |
-| Patient AR Pre-Invoice Rules (`patient-ar-pre-invoice`) | when a self-pay claim is created in Patient AR | the Patient AR Status moves to Ready to invoice |
+| Patient AR Pre-Invoice Rules (`patient-ar-pre-invoice`) | when a claim is created in Patient AR | the Patient AR Status moves to Ready to invoice |
 
 Each set of rules runs automatically only when a claim is created in its AR stage, and on demand
 from the claim detail page. All of the sets share the same rule shape and the semantics below —
@@ -31,7 +31,7 @@ is performed.
 
 This reference lists every supported condition property, operator, and action. It is generated from
 the same catalog that drives the rule builder and the rule runs, so it always matches what the rules
-actually support (68 properties, 58 of them settable).
+actually support (117 properties, 104 of them settable).
 
 ## Conditions
 
@@ -72,6 +72,7 @@ Which operators a property supports depends on its type (see the property tables
 | Property | ID | Type | Operators | Settable | Description |
 | --- | --- | --- | --- | --- | --- |
 | Payer ID | `payerId` | payer ID | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The primary payer's ID. Setting it re-points the primary coverage's payer and the claim's insurer. Cannot be cleared — setting it requires a value. |
+| Non-insurance organization | `nonInsurancePayerId` | non-insurance organization ID | equals, does not equal, is one of, is not one of, is present, is empty | yes | The claim's non-insurance payer: a non-insurance organization from the Non-Insurance Organizations page (e.g. the visit's occupational-medicine employer). Setting it stamps the payer on the claim (shown on the claim screens, filterable on the claims list); setting an empty value clears it. |
 | Claim type | `type` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The claim type (professional or institutional). Allowed values: `professional` (Professional), `institutional` (Institutional). Cannot be cleared — setting it requires a value. |
 | Service category | `service` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The service category code on the claim (e.g. urgent-care, workers-comp). Categories are configurable, so the value is free text. |
 | Service date | `serviceDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The date of service (read from the first service line). Setting it applies the one date to every service line, matching the claim editor. Cannot be cleared — setting it requires a value. |
@@ -83,6 +84,10 @@ Which operators a property supports depends on its type (see the property tables
 | Duplicate CPT codes | `duplicateCptCodes` | list of codes | contains, does not contain, matches pattern, does not match pattern, is present, is empty | no | The CPT/HCPCS codes that appear on more than one service line (empty when every line has a distinct code). "Is present" detects any duplicate billing; "contains" detects duplicates of a specific code. |
 | Place of service codes | `placeOfServiceCodes` | list of codes | contains, does not contain, matches pattern, does not match pattern, is present, is empty | no | The list of CMS place-of-service codes across the service lines. Change per-line codes with the "Update service lines" action; the service facility place of service applies to future claims. |
 | Service line count | `serviceLineCount` | number | equals, does not equal, is greater than, is at least, is less than, is at most | no | The number of service lines on the claim (0 when there are none). |
+| Bill Type | `billType` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Bill Type code on the claim |
+| Patient Discharge Status Code | `patientDischargeStatusCode` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Patient Discharge Status Code on the claim |
+| Admission Type | `admissionType` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Admission Type code on the claim |
+| Point of Origin / Admission Source | `admissionSource` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Point of Origin / Admission Source code on the claim |
 
 ### Claim status
 
@@ -117,11 +122,12 @@ Which operators a property supports depends on its type (see the property tables
 | Property | ID | Type | Operators | Settable | Description |
 | --- | --- | --- | --- | --- | --- |
 | Coverage (from patient) | `insurance.coverageFromPatient` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | Which of the patient's coverages the claim uses as its primary coverage, looked up on the claim patient's reference record via the patient's billing accounts. Conditions compare against the coverage the claim's current primary coverage was copied from; setting it creates a fresh working copy of the chosen coverage (and its policy holder) and re-points the claim — later rules read and edit the new copy. If the patient has no active coverage of the chosen type, the rule fails and the claim is held. Allowed values: `primary` (Primary), `secondary` (Secondary), `tertiary` (Tertiary), `quaternary` (Quaternary), `workersComp` (Workers Comp). Cannot be cleared — setting it requires a value. |
+| Payer ID | `insurance.payerId` | payer ID | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The primary payer's ID. Setting it re-points the primary coverage's payer. Cannot be cleared — setting it requires a value. |
 | Member ID | `insurance.memberId` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The primary coverage's member/subscriber ID. |
 | Plan type | `insurance.planType` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The primary coverage's plan type (X12 insurance type code). Allowed values: `09` (09 - Self Pay), `11` (11 - Other Non-Federal Programs), `12` (12 - PPO), `13` (13 - POS), `14` (14 - EPO), `15` (15 - Indemnity Insurance), `16` (16 - HMO Medicare Risk), `17` (17 - DMO), `AM` (AM - Auto), `BL` (BL - BlueCross BlueShield), `CH` (CH - Champus), `CI` (CI - Commercial Insurance Co), `DS` (DS - Disability), `FI` (FI - Federal Employees), `HM` (HM - HMO), `LM` (LM - Liability), `MA` (MA - Medicare Part A), `MB` (MB - Medicare Part B), `MC` (MC - Medicaid), `OF` (OF - Other Federal Program), `TV` (TV - Title V), `VA` (VA - Veterans Affairs Plan), `WC` (WC - Workers Comp Health Claim), `ZZ` (ZZ - Mutually Defined). Cannot be cleared — setting it requires a value. |
-| Relationship to subscriber | `insurance.relationship` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | no | The patient's relationship to the primary policy holder. Read-only: changing it restructures the policy-holder record, which rules cannot do — edit the claim's insurance instead. Allowed values: `Self`, `Child`, `Parent`, `Spouse`, `Common Law Spouse`, `Injured Party`, `Other`. |
+| Relationship to subscriber | `insurance.relationship` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | no | The patient's relationship to the primary policy holder. Read-only: changing it restructures the policy-holder record, which rules cannot do — edit the claim's insurance instead. Allowed values: `Self`, `Child`, `Parent`, `Spouse`, `Common Law Spouse`, `Injured Party`, `Employee`, `Other`. |
 
-### Policy holder
+### Primary insurance policy holder
 
 | Property | ID | Type | Operators | Settable | Description |
 | --- | --- | --- | --- | --- | --- |
@@ -140,8 +146,76 @@ Which operators a property supports depends on its type (see the property tables
 
 | Property | ID | Type | Operators | Settable | Description |
 | --- | --- | --- | --- | --- | --- |
-| Secondary payer ID | `secondaryInsurance.payerId` | payer ID | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The secondary payer's ID. Setting it re-points the secondary coverage's payer. Cannot be cleared — setting it requires a value. |
-| Secondary member ID | `secondaryInsurance.memberId` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The secondary coverage's member/subscriber ID. |
+| Coverage (from patient) | `secondaryInsurance.coverageFromPatient` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | Which of the patient's coverages the claim uses as its secondary coverage, looked up on the claim patient's reference record via the patient's billing accounts. Conditions compare against the coverage the claim's current secondary coverage was copied from; setting it creates a fresh working copy of the chosen coverage (and its policy holder) and re-points the claim — later rules read and edit the new copy. If the patient has no active coverage of the chosen type, the rule fails and the claim is held. Allowed values: `primary` (Primary), `secondary` (Secondary), `tertiary` (Tertiary), `quaternary` (Quaternary), `workersComp` (Workers Comp). Cannot be cleared — setting it requires a value. |
+| Payer ID | `secondaryInsurance.payerId` | payer ID | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The secondary payer's ID. Setting it re-points the secondary coverage's payer. Cannot be cleared — setting it requires a value. |
+| Member ID | `secondaryInsurance.memberId` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The secondary coverage's member/subscriber ID. |
+| Plan type | `secondaryInsurance.planType` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The secondary coverage's plan type (X12 insurance type code). Allowed values: `09` (09 - Self Pay), `11` (11 - Other Non-Federal Programs), `12` (12 - PPO), `13` (13 - POS), `14` (14 - EPO), `15` (15 - Indemnity Insurance), `16` (16 - HMO Medicare Risk), `17` (17 - DMO), `AM` (AM - Auto), `BL` (BL - BlueCross BlueShield), `CH` (CH - Champus), `CI` (CI - Commercial Insurance Co), `DS` (DS - Disability), `FI` (FI - Federal Employees), `HM` (HM - HMO), `LM` (LM - Liability), `MA` (MA - Medicare Part A), `MB` (MB - Medicare Part B), `MC` (MC - Medicaid), `OF` (OF - Other Federal Program), `TV` (TV - Title V), `VA` (VA - Veterans Affairs Plan), `WC` (WC - Workers Comp Health Claim), `ZZ` (ZZ - Mutually Defined). Cannot be cleared — setting it requires a value. |
+| Relationship to subscriber | `secondaryInsurance.relationship` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | no | The patient's relationship to the secondary policy holder. Read-only: changing it restructures the policy-holder record, which rules cannot do — edit the claim's insurance instead. Allowed values: `Self`, `Child`, `Parent`, `Spouse`, `Common Law Spouse`, `Injured Party`, `Employee`, `Other`. |
+
+### Secondary insurance policy holder
+
+| Property | ID | Type | Operators | Settable | Description |
+| --- | --- | --- | --- | --- | --- |
+| First name | `secondaryPolicyHolder.firstName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The secondary policy holder's first (given) name. |
+| Middle name | `secondaryPolicyHolder.middleName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The secondary policy holder's middle name (second given name). |
+| Last name | `secondaryPolicyHolder.lastName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The secondary policy holder's last (family) name. |
+| Date of birth | `secondaryPolicyHolder.birthDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The secondary policy holder's date of birth (YYYY-MM-DD). |
+| Gender | `secondaryPolicyHolder.gender` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The secondary policy holder's administrative gender. Allowed values: `male` (Male), `female` (Female), `other` (Other), `unknown` (Unknown). |
+| Address line 1 | `secondaryPolicyHolder.addressLine1` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The first street line of the secondary policy holder's address. |
+| Address line 2 | `secondaryPolicyHolder.addressLine2` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The second street line of the secondary policy holder's address. |
+| City | `secondaryPolicyHolder.city` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The city of the secondary policy holder's address. |
+| State | `secondaryPolicyHolder.state` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The state of the secondary policy holder's address (two-letter code, e.g. CA). Allowed values: any two-letter US state/territory code. |
+| ZIP code | `secondaryPolicyHolder.zip` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The postal code of the secondary policy holder's address. Format: 5 digits, optionally with a 4-digit extension. |
+
+### Tertiary insurance
+
+| Property | ID | Type | Operators | Settable | Description |
+| --- | --- | --- | --- | --- | --- |
+| Coverage (from patient) | `tertiaryInsurance.coverageFromPatient` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | Which of the patient's coverages the claim uses as its tertiary coverage, looked up on the claim patient's reference record via the patient's billing accounts. Conditions compare against the coverage the claim's current tertiary coverage was copied from; setting it creates a fresh working copy of the chosen coverage (and its policy holder) and re-points the claim — later rules read and edit the new copy. If the patient has no active coverage of the chosen type, the rule fails and the claim is held. Allowed values: `primary` (Primary), `secondary` (Secondary), `tertiary` (Tertiary), `quaternary` (Quaternary), `workersComp` (Workers Comp). Cannot be cleared — setting it requires a value. |
+| Payer ID | `tertiaryInsurance.payerId` | payer ID | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The tertiary payer's ID. Setting it re-points the tertiary coverage's payer. Cannot be cleared — setting it requires a value. |
+| Member ID | `tertiaryInsurance.memberId` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The tertiary coverage's member/subscriber ID. |
+| Plan type | `tertiaryInsurance.planType` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The tertiary coverage's plan type (X12 insurance type code). Allowed values: `09` (09 - Self Pay), `11` (11 - Other Non-Federal Programs), `12` (12 - PPO), `13` (13 - POS), `14` (14 - EPO), `15` (15 - Indemnity Insurance), `16` (16 - HMO Medicare Risk), `17` (17 - DMO), `AM` (AM - Auto), `BL` (BL - BlueCross BlueShield), `CH` (CH - Champus), `CI` (CI - Commercial Insurance Co), `DS` (DS - Disability), `FI` (FI - Federal Employees), `HM` (HM - HMO), `LM` (LM - Liability), `MA` (MA - Medicare Part A), `MB` (MB - Medicare Part B), `MC` (MC - Medicaid), `OF` (OF - Other Federal Program), `TV` (TV - Title V), `VA` (VA - Veterans Affairs Plan), `WC` (WC - Workers Comp Health Claim), `ZZ` (ZZ - Mutually Defined). Cannot be cleared — setting it requires a value. |
+| Relationship to subscriber | `tertiaryInsurance.relationship` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | no | The patient's relationship to the tertiary policy holder. Read-only: changing it restructures the policy-holder record, which rules cannot do — edit the claim's insurance instead. Allowed values: `Self`, `Child`, `Parent`, `Spouse`, `Common Law Spouse`, `Injured Party`, `Employee`, `Other`. |
+
+### Tertiary insurance policy holder
+
+| Property | ID | Type | Operators | Settable | Description |
+| --- | --- | --- | --- | --- | --- |
+| First name | `tertiaryPolicyHolder.firstName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The tertiary policy holder's first (given) name. |
+| Middle name | `tertiaryPolicyHolder.middleName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The tertiary policy holder's middle name (second given name). |
+| Last name | `tertiaryPolicyHolder.lastName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The tertiary policy holder's last (family) name. |
+| Date of birth | `tertiaryPolicyHolder.birthDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The tertiary policy holder's date of birth (YYYY-MM-DD). |
+| Gender | `tertiaryPolicyHolder.gender` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The tertiary policy holder's administrative gender. Allowed values: `male` (Male), `female` (Female), `other` (Other), `unknown` (Unknown). |
+| Address line 1 | `tertiaryPolicyHolder.addressLine1` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The first street line of the tertiary policy holder's address. |
+| Address line 2 | `tertiaryPolicyHolder.addressLine2` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The second street line of the tertiary policy holder's address. |
+| City | `tertiaryPolicyHolder.city` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The city of the tertiary policy holder's address. |
+| State | `tertiaryPolicyHolder.state` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The state of the tertiary policy holder's address (two-letter code, e.g. CA). Allowed values: any two-letter US state/territory code. |
+| ZIP code | `tertiaryPolicyHolder.zip` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The postal code of the tertiary policy holder's address. Format: 5 digits, optionally with a 4-digit extension. |
+
+### Quaternary insurance
+
+| Property | ID | Type | Operators | Settable | Description |
+| --- | --- | --- | --- | --- | --- |
+| Coverage (from patient) | `quaternaryInsurance.coverageFromPatient` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | Which of the patient's coverages the claim uses as its quaternary coverage, looked up on the claim patient's reference record via the patient's billing accounts. Conditions compare against the coverage the claim's current quaternary coverage was copied from; setting it creates a fresh working copy of the chosen coverage (and its policy holder) and re-points the claim — later rules read and edit the new copy. If the patient has no active coverage of the chosen type, the rule fails and the claim is held. Allowed values: `primary` (Primary), `secondary` (Secondary), `tertiary` (Tertiary), `quaternary` (Quaternary), `workersComp` (Workers Comp). Cannot be cleared — setting it requires a value. |
+| Payer ID | `quaternaryInsurance.payerId` | payer ID | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The quaternary payer's ID. Setting it re-points the quaternary coverage's payer. Cannot be cleared — setting it requires a value. |
+| Member ID | `quaternaryInsurance.memberId` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The quaternary coverage's member/subscriber ID. |
+| Plan type | `quaternaryInsurance.planType` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The quaternary coverage's plan type (X12 insurance type code). Allowed values: `09` (09 - Self Pay), `11` (11 - Other Non-Federal Programs), `12` (12 - PPO), `13` (13 - POS), `14` (14 - EPO), `15` (15 - Indemnity Insurance), `16` (16 - HMO Medicare Risk), `17` (17 - DMO), `AM` (AM - Auto), `BL` (BL - BlueCross BlueShield), `CH` (CH - Champus), `CI` (CI - Commercial Insurance Co), `DS` (DS - Disability), `FI` (FI - Federal Employees), `HM` (HM - HMO), `LM` (LM - Liability), `MA` (MA - Medicare Part A), `MB` (MB - Medicare Part B), `MC` (MC - Medicaid), `OF` (OF - Other Federal Program), `TV` (TV - Title V), `VA` (VA - Veterans Affairs Plan), `WC` (WC - Workers Comp Health Claim), `ZZ` (ZZ - Mutually Defined). Cannot be cleared — setting it requires a value. |
+| Relationship to subscriber | `quaternaryInsurance.relationship` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | no | The patient's relationship to the quaternary policy holder. Read-only: changing it restructures the policy-holder record, which rules cannot do — edit the claim's insurance instead. Allowed values: `Self`, `Child`, `Parent`, `Spouse`, `Common Law Spouse`, `Injured Party`, `Employee`, `Other`. |
+
+### Quaternary insurance policy holder
+
+| Property | ID | Type | Operators | Settable | Description |
+| --- | --- | --- | --- | --- | --- |
+| First name | `quaternaryPolicyHolder.firstName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The quaternary policy holder's first (given) name. |
+| Middle name | `quaternaryPolicyHolder.middleName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The quaternary policy holder's middle name (second given name). |
+| Last name | `quaternaryPolicyHolder.lastName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The quaternary policy holder's last (family) name. |
+| Date of birth | `quaternaryPolicyHolder.birthDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The quaternary policy holder's date of birth (YYYY-MM-DD). |
+| Gender | `quaternaryPolicyHolder.gender` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The quaternary policy holder's administrative gender. Allowed values: `male` (Male), `female` (Female), `other` (Other), `unknown` (Unknown). |
+| Address line 1 | `quaternaryPolicyHolder.addressLine1` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The first street line of the quaternary policy holder's address. |
+| Address line 2 | `quaternaryPolicyHolder.addressLine2` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The second street line of the quaternary policy holder's address. |
+| City | `quaternaryPolicyHolder.city` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The city of the quaternary policy holder's address. |
+| State | `quaternaryPolicyHolder.state` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The state of the quaternary policy holder's address (two-letter code, e.g. CA). Allowed values: any two-letter US state/territory code. |
+| ZIP code | `quaternaryPolicyHolder.zip` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The postal code of the quaternary policy holder's address. Format: 5 digits, optionally with a 4-digit extension. |
 
 ### Rendering provider
 
@@ -202,7 +276,8 @@ touches.
 | Units | `units` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | yes | The line's unit count. Setting it requires a positive number. |
 | Charges | `charges` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | yes | The line's charge amount in dollars. Setting it requires a non-negative number; the claim's billed total is recomputed. |
 | Place of service code | `placeOfService` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The line's CMS place-of-service code. Setting an empty value clears it. Allowed values: any CMS place-of-service code. |
-| Service date | `serviceDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The line's date of service (YYYY-MM-DD). |
+| Service date | `serviceDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The line's date of service (YYYY-MM-DD). When updating, the new value can be a literal date or derived from the claim (see Service date sources) — matching still compares against a literal date only. |
+| Rev Code | `revenueCode` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Revenue code of the procedure. |
 
 ## Actions
 
@@ -212,8 +287,8 @@ A matched branch's outcome is a list of actions, applied in order:
 | --- | --- |
 | Set a property (`setField`) | Sets one of the settable claim properties above to a new value. Setting an empty value clears the property. The change is written to the claim's working-copy resources and recorded in the claim history, attributed to the specific rule that made it (linked from the history view). If the property cannot be set (unknown or read-only property, invalid value, or the target resource is missing from the claim), the rule fails and the claim is held. |
 | Apply a tag (`applyTag`) | Adds a tag to the claim (no-op if the claim already carries it). Applying the **Hold** tag holds the claim: the run stops and the on-success effect does not happen. |
-| Add a service line (`addServiceLine`) | Appends a new service line built from the fields below and recomputes the claim's billed total. Blank optional fields use the claim editor's defaults, and the new line is tied to the claim's rendering provider when one is set. An invalid field value fails the rule and holds the claim. |
-| Update service lines (`updateServiceLines`) | Applies one change (an updatable service line property + value; for modifiers, a set/add/remove operation) to every line matching the action's line predicate. Zero matching lines is a no-op, not a failure — pair the action with a condition when a match must exist. An invalid value or an operation that doesn't apply to the property fails the rule and holds the claim. Changing charges recomputes the claim's billed total. |
+| Add a service line (`addServiceLine`) | Appends a new service line built from the fields below and recomputes the claim's billed total. Blank optional fields use the claim editor's defaults, and the new line is tied to the claim's rendering provider when one is set. The service date can be a literal date or one of the derived sources below. An invalid field value fails the rule and holds the claim. |
+| Update service lines (`updateServiceLines`) | Applies one change (an updatable service line property + value; for modifiers, a set/add/remove operation) to every line matching the action's line predicate. When updating the service date, the value can be a literal date or one of the derived sources below; when updating the place of service, the value can be a literal CMS code or copied from the claim's facility (see Place of service sources). Zero matching lines is a no-op, not a failure — pair the action with a condition when a match must exist. An invalid value or an operation that doesn't apply to the property fails the rule and holds the claim. Changing charges recomputes the claim's billed total. |
 | Remove service lines (`removeServiceLines`) | Removes every line matching the action's line predicate (all lines when the predicate is "all service lines"). Surviving lines are re-sequenced and the claim's billed total is recomputed. Zero matching lines is a no-op. |
 | Apply charge master prices (`applyChargeMasterPrices`) | Re-prices every line matching the action's line predicate from the best applicable charge master: the active charge master designated as the default for the claim's billing type (insurance when the claim carries a real coverage, self-pay otherwise) whose effective date is the most recent on or before the claim's date of service. Each matched line's charges are set from the entry for its CPT code — an entry with a matching modifier for lines with modifiers, a modifier-less entry otherwise. A matched line the charge master has no entry for (or that has no CPT code) keeps its existing charges. The claim's billed total is recomputed when any line was re-priced. Zero matching lines is a no-op. This action never fails the rule or holds the claim — when no charge master applies (or the claim has no date of service to select one by), no lines are changed. Add a separate rule to hold claims whose lines are missing a price. |
 | Do nothing (`noop`) | Explicitly does nothing. Useful as an else branch that intentionally takes no action. |
@@ -228,6 +303,34 @@ A matched branch's outcome is a list of actions, applied in order:
 | Modifiers (comma-separated) (`modifiers`) | text | no | no modifiers |
 | Place of service code (`placeOfService`) | text | no | none |
 | Service date (`serviceDate`) | date | no | inherited from the claim's first service line; the action fails if the claim has no lines |
-| Diagnosis pointers (comma-separated) (`diagnosisPointers`) | text | no | points at the first diagnosis (1) |
+| Diagnoses (`diagnosisMode`) | one of the listed values | no | uses the claim's primary diagnosis |
+| Diagnosis pointers (comma-separated) (`diagnosisPointers`) | text | yes | — |
+| Revenue code (`revenueCode`) | text | no | — |
+
+### Service date sources
+
+The service date on "Add a service line", and on "Update service lines" when updating the
+`serviceDate` property, can come from one of:
+
+| Source | Description |
+| --- | --- |
+| Exact date | A literal date entered on the rule. |
+| First service line's date | The claim's first service line's date of service — the same value a blank serviceDate has always inherited on "Add a service line". |
+
+"Exact date" is the default. On "Add a service line", leaving it blank is equivalent to "First
+service line's date" (kept for rules saved before this option existed). Service line **matching**
+always compares against a literal date.
+
+### Place of service sources
+
+The place of service on "Update service lines", when updating the `placeOfService` property, can
+come from one of:
+
+| Source | Description |
+| --- | --- |
+| Exact code | A literal CMS place-of-service code entered on the rule. |
+| Claim's facility place of service | The CMS place-of-service code configured on the claim's service facility. |
+
+"Exact code" is the default. Service line **matching** always compares against a literal code.
 
 Actions after a failed action or after the **Hold** tag do not run.

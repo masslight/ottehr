@@ -88,7 +88,7 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({ field }): JSX
   };
 
   return (
-    <Box sx={{ mt: 3 }}>
+    <Box>
       <AccordionCard
         label={`HR (/min) ${latestHeartbeatValue ?? ''}`}
         collapsed={isCollapsed}

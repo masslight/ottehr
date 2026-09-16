@@ -54,7 +54,7 @@ test.describe('Review of Systems page', () => {
     await test.step('ROS-1.2 confirm ROS section is empty on progress note page', async () => {
       const progressNotePage = await sideMenu.clickReviewAndSign();
       await progressNotePage.expectLoaded();
-      await progressNotePage.verifyRosReviewSectionHidden();
+      await progressNotePage.verifyRosReviewSectionEmpty();
     });
   });
 

@@ -44,8 +44,8 @@ const errMessage = (err: unknown, fallback: string): string =>
  *  - Provider → createPractitionerRole (mints the connective PR + a blank Schedule).
  *  - Location → createSchedule for an EXISTING Location (Location creation itself
  *    stays in the Locations admin).
- * Launched cold (`/admin/schedule/add`) it asks which; launched with
- * `?provider=<userId>` it pre-selects that provider and skips the owner-type step.
+ * Launched cold (`/admin/schedule/add`) it asks which; launched with `?provider=<userId>` or
+ * `?location=<locationId>` it pre-selects that owner and skips the owner-type step.
  * Either way it creates a blank schedule and lands on that schedule's page to set hours.
  */
 export default function CreateSchedulePage(): ReactElement {
@@ -56,10 +56,13 @@ export default function CreateSchedulePage(): ReactElement {
   // Practitioner id (from the Employee page's schedule list) — we resolve it
   // against either once the provider list loads.
   const preselectedProvider = searchParams.get('provider') ?? undefined;
+  // Set by the "create a schedule" prompt on the location page, which knows the Location already.
+  const preselectedLocation = searchParams.get('location') ?? undefined;
 
   // Defaults to the provider path (the common case); the owner-type step lets a
-  // cold launch switch to a Location schedule.
-  const [ownerType, setOwnerType] = useState<OwnerType>('provider');
+  // cold launch switch to a Location schedule. Arriving with ?location= means the
+  // owner is already decided.
+  const [ownerType, setOwnerType] = useState<OwnerType>(preselectedLocation ? 'location' : 'provider');
 
   // Provider path
   const [providerUserId, setProviderUserId] = useState<string | null>(null);
@@ -71,7 +74,7 @@ export default function CreateSchedulePage(): ReactElement {
   const [providerTimezone, setProviderTimezone] = useState<string>(TIMEZONES[0]);
 
   // Location path
-  const [ownerLocationId, setOwnerLocationId] = useState<string | null>(null);
+  const [ownerLocationId, setOwnerLocationId] = useState<string | null>(preselectedLocation ?? null);
   const [locationTimezone, setLocationTimezone] = useState<string>(TIMEZONES[0]);
 
   const [submitting, setSubmitting] = useState(false);
@@ -112,6 +115,20 @@ export default function CreateSchedulePage(): ReactElement {
         .map((i) => ({ id: i.owner.id, name: i.owner.name })),
     [locationsData]
   );
+  // The picker lists only schedule-less locations, which normally already covers anything linked
+  // here. An INACTIVE one is the exception: it is excluded from that list but can still reach this
+  // page from its own config page, and a preselected id that isn't an option renders as blank. Add
+  // it back — but only when it genuinely has no schedule, so a stale link can't be used to slip past
+  // the one-schedule-per-location rule the list is there to enforce.
+  const locationOptions = useMemo(() => {
+    if (!preselectedLocation || scheduleLessLocations.some((l) => l.id === preselectedLocation)) {
+      return scheduleLessLocations;
+    }
+    const hit = (locationsData?.list ?? []).find((i) => i.owner.id === preselectedLocation);
+    if (!hit || hit.schedules.length > 0) return scheduleLessLocations;
+    return [...scheduleLessLocations, { id: hit.owner.id, name: hit.owner.name }];
+  }, [scheduleLessLocations, preselectedLocation, locationsData]);
+
   const categoryOptions = (categoriesData?.serviceCategories ?? []).filter((c: any) => c.id);
 
   // Resolve the pre-select param (a User id OR a Practitioner id) to the
@@ -193,7 +210,7 @@ export default function CreateSchedulePage(): ReactElement {
           </Typography>
 
           {/* Owner-type step — hidden when launched pre-filled for a provider. */}
-          {!preselectedProvider && (
+          {!preselectedProvider && !preselectedLocation && (
             <FormControl sx={{ mb: 3 }}>
               <FormLabel>What owns this schedule?</FormLabel>
               <RadioGroup row value={ownerType} onChange={(e) => setOwnerType(e.target.value as OwnerType)}>
@@ -306,8 +323,8 @@ export default function CreateSchedulePage(): ReactElement {
               sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 520 }}
             >
               <Autocomplete
-                options={scheduleLessLocations.map((l) => l.id)}
-                getOptionLabel={(id) => scheduleLessLocations.find((l) => l.id === id)?.name ?? id}
+                options={locationOptions.map((l) => l.id)}
+                getOptionLabel={(id) => locationOptions.find((l) => l.id === id)?.name ?? id}
                 value={ownerLocationId}
                 onChange={(_e, v) => setOwnerLocationId(v)}
                 isOptionEqualToValue={(a, b) => a === b}

@@ -19,6 +19,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { userMe } from 'utils/lib/auth/user-me.helper';
+import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
 import { getNPI, getTaxID, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
@@ -127,6 +128,12 @@ function projectClaim(claim: Claim): FieldProjection[] {
     { field: 'renderingProvider', label: 'Rendering Provider', value: refValue(rendering), ref: rendering?.reference },
     { field: 'facility', label: 'Service Facility', value: refValue(claim.facility), ref: claim.facility?.reference },
     { field: 'payer', label: 'Payer', value: refValue(claim.insurer), ref: claim.insurer?.reference },
+    {
+      field: 'nonInsurancePayer',
+      label: 'Non-insurance Payer',
+      value: refValue(getClaimNonInsurancePayer(claim)),
+      ref: getClaimNonInsurancePayer(claim)?.reference,
+    },
     {
       field: 'coverage',
       label: 'Coverage',
@@ -410,11 +417,12 @@ export interface ClaimProvenanceArgs {
   claimReference: string;
   before?: Resource;
   after?: Resource;
-  agent: ProvenanceAgent;
+  agent: ProvenanceAgent | ProvenanceAgent[];
   activity: ClaimProvenanceActivityKey;
   recorded: string;
   // Versioned reference of the prior version (e.g. Coverage/abc/_history/3), when known.
   priorVersionReference?: string;
+  sourceReference?: string;
   // Additional change entries the projection diff can't see (e.g. policy-holder edits folded into
   // the owning Coverage's record).
   extraChanges?: ClaimFieldChange[];
@@ -484,6 +492,9 @@ export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPos
   if (args.claimReference !== args.targetReference) target.push({ reference: args.claimReference });
 
   const entity: ProvenanceEntity[] = [
+    ...(args.sourceReference
+      ? [{ role: 'source', what: { reference: args.sourceReference } } as ProvenanceEntity]
+      : []),
     ...(args.priorVersionReference
       ? [{ role: 'revision', what: { reference: args.priorVersionReference } } as ProvenanceEntity]
       : []),
@@ -512,7 +523,7 @@ export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPos
     activity: {
       coding: [CLAIM_PROVENANCE_ACTIVITY[args.activity]],
     },
-    agent: [args.agent],
+    agent: Array.isArray(args.agent) ? args.agent : [args.agent],
     ...(entity.length > 0 ? { entity } : {}),
     extension,
   };
@@ -547,7 +558,7 @@ export interface ClaimResourceChange {
   resource: FhirResource;
   // Snapshot fetched before mutating; omit only when the write is a create.
   before?: FhirResource;
-  agent: ProvenanceAgent;
+  agent: ProvenanceAgent | ProvenanceAgent[];
   claimReference: string;
   // Defaults to 'update'.
   activity?: ClaimProvenanceActivityKey;
@@ -612,12 +623,25 @@ export async function commitClaimMetaTagsWithProvenance(
   claim: Claim,
   updatedTags: Coding[],
   activity: Extract<ClaimProvenanceActivityKey, 'statusChange' | 'tagChange'>,
-  agent: ProvenanceAgent
+  agent: ProvenanceAgent | ProvenanceAgent[]
 ): Promise<void> {
+  const requests = claimMetaTagsWithProvenanceRequests(claim, updatedTags, activity, agent);
+  await oystehr.fhir.transaction<FhirResource>({ requests });
+}
+
+// Build the same patch and history requests for callers composing a larger transaction.
+export function claimMetaTagsWithProvenanceRequests(
+  claim: Claim,
+  updatedTags: Coding[],
+  activity: Extract<ClaimProvenanceActivityKey, 'statusChange' | 'tagChange'>,
+  agent: ProvenanceAgent | ProvenanceAgent[],
+  details: Pick<ClaimProvenanceArgs, 'extraChanges' | 'sourceReference'> = {}
+): BatchInputRequest<FhirResource>[] {
   const claimReference = `Claim/${claim.id}`;
   const afterClaim: Claim = { ...claim, meta: { ...claim.meta, tag: updatedTags } };
   const recorded = recordedNow();
   const provenance = claimProvenanceRequest({
+    ...details,
     targetReference: claimReference,
     claimReference,
     before: claim,
@@ -648,8 +672,7 @@ export async function commitClaimMetaTagsWithProvenance(
     patchOperations,
     ifMatch: makeOptimisticLockIfMatchHeader(claim),
   });
-  const requests: BatchInputRequest<FhirResource>[] = [patch, ...(provenance ? [provenance] : [])];
-  await oystehr.fhir.transaction<FhirResource>({ requests });
+  return [patch, ...(provenance ? [provenance] : [])];
 }
 
 /**
@@ -681,7 +704,7 @@ export async function addErrorProvenanceForClaimSubmission(
   oystehr: Oystehr,
   claim: Claim,
   error: Error,
-  agent: ProvenanceAgent,
+  agent: ProvenanceAgent[],
   rule?: ClaimHistoryRuleRef
 ): Promise<void> {
   const claimReference = `Claim/${claim.id}`;
@@ -733,7 +756,7 @@ export async function applyClaimStatusFieldClearingHold(
   claim: Claim,
   field: ClaimStatusFieldKey,
   value: string,
-  agent: ProvenanceAgent
+  agent: ProvenanceAgent | ProvenanceAgent[]
 ): Promise<void> {
   const updatedTags = buildUpdatedClaimStatusTags(claim, field, value).filter(
     (t) => !(t.system === CLAIM_TAG_SYSTEM && t.code === HOLD_TAG_NAME)

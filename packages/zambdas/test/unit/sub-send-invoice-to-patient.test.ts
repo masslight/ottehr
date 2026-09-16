@@ -8,6 +8,7 @@ import type { ZambdaInput } from '../../src/shared/types/common';
 
 const mockClinicalClient = {
   fhir: {
+    get: vi.fn(),
     search: vi.fn(),
     patch: vi.fn(),
     create: vi.fn(),
@@ -190,6 +191,12 @@ describe('sub-send-invoice-to-patient source guard', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
+    mockClinicalClient.fhir.get.mockResolvedValue({
+      resourceType: 'Task',
+      id: 'task-1',
+      status: 'in-progress',
+      intent: 'order',
+    });
     mockClinicalClient.fhir.search.mockResolvedValue({
       unbundle: () => [encounter, patient, account, appointment],
     });
@@ -292,6 +299,26 @@ describe('sub-send-invoice-to-patient source guard', () => {
 
     await expect(runHandler(pastTask)).rejects.toThrow('Due date should be in the future');
     expect(mockStripe.invoices.create).not.toHaveBeenCalled();
+
+    const patchArg = mockClinicalClient.fhir.patch.mock.calls[0][0] as {
+      operations: { op: string; path: string; value: unknown }[];
+    };
+    expect(patchArg.operations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: '/status', value: 'failed' }),
+        expect.objectContaining({
+          path: '/output',
+          value: expect.arrayContaining([
+            expect.objectContaining({
+              type: expect.objectContaining({
+                coding: expect.arrayContaining([expect.objectContaining({ code: 'send-invoice-output-error' })]),
+              }),
+              valueString: 'Due date should be in the future',
+            }),
+          ]),
+        }),
+      ])
+    );
   });
 
   it('rejects a task whose dueDate has an invalid format without calling Stripe', async () => {
@@ -305,5 +332,24 @@ describe('sub-send-invoice-to-patient source guard', () => {
 
     await expect(runHandler(badFormatTask)).rejects.toThrow();
     expect(mockStripe.invoices.create).not.toHaveBeenCalled();
+
+    const patchArg = mockClinicalClient.fhir.patch.mock.calls[0][0] as {
+      operations: { op: string; path: string; value: unknown }[];
+    };
+    expect(patchArg.operations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: '/status', value: 'failed' }),
+        expect.objectContaining({
+          path: '/output',
+          value: expect.arrayContaining([
+            expect.objectContaining({
+              type: expect.objectContaining({
+                coding: expect.arrayContaining([expect.objectContaining({ code: 'send-invoice-output-error' })]),
+              }),
+            }),
+          ]),
+        }),
+      ])
+    );
   });
 });

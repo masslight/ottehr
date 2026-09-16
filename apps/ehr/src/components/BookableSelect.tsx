@@ -6,7 +6,7 @@ import { isBookingConfigServiceCategoryCode } from 'utils/lib/config-helpers/boo
 import { SCHEDULE_DISPLAY_NAME_EXTENSION_URL, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getSlugForBookableResource } from 'utils/lib/fhir/helpers';
-import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
+import { isLocationInPerson, isLocationVirtual, LOCATION_BOOKABLE_SEARCH_PARAM } from 'utils/lib/fhir/location';
 import { useApiClients } from '../hooks/useAppClients';
 import {
   buildLocationInventories,
@@ -111,6 +111,7 @@ interface BookableSelectProps {
    * Location-Schedule tier (the Group/PR opt-in check is unreachable).
    */
   serviceCategoryFhirId?: string;
+  categoryFiltersReady?: boolean;
   required?: boolean;
   disabled?: boolean;
   /** Optional — invoked once the picker has loaded its full list (used by AddPatient to keep a side list of Locations). */
@@ -134,6 +135,7 @@ export default function BookableSelect({
   resourceTypes,
   serviceCategoryCode,
   serviceCategoryFhirId,
+  categoryFiltersReady = true,
   required,
   disabled,
   onLocationsLoaded,
@@ -150,6 +152,12 @@ export default function BookableSelect({
   // don't cover the picked category.
   const [inventories, setInventories] = useState<LocationBookableInventory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // Distinct from `isLoading`: stays false until the first load settles, including
+  // the render before the load effect has even fired. The stale-selection guard
+  // below keys off this rather than `isLoading` — on mount that flag is still
+  // false, so the guard would see an empty target list and drop a parent-seeded
+  // selection (the follow-up flow's prefilled location) before the fetch starts.
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   // Capture the latest onLocationsLoaded callback in a ref so the load
   // effect doesn't need it in its dep array. Callers typically pass an
@@ -171,10 +179,11 @@ export default function BookableSelect({
         // Run the three queries in parallel. Each returns a resource set we
         // narrow down into the BookableTarget union.
         const [locationsWithSchedules, healthcareServices, practitionerRolesWithPractitioners] = await Promise.all([
+          // Deactivating a Location must remove it from every booking flow, staff-facing included.
           getAllFhirSearchPages<Location | Schedule>(
             {
               resourceType: 'Location',
-              params: [{ name: '_revinclude', value: 'Schedule:actor:Location' }],
+              params: [LOCATION_BOOKABLE_SEARCH_PARAM, { name: '_revinclude', value: 'Schedule:actor:Location' }],
             },
             oystehr
           ),
@@ -343,7 +352,10 @@ export default function BookableSelect({
       } catch (err) {
         console.error('error loading bookable targets', err);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+          setHasLoaded(true);
+        }
       }
     };
 
@@ -499,15 +511,36 @@ export default function BookableSelect({
   // user would be left with a `selected` that doesn't appear in the dropdown
   // and could still be submitted — making it possible to book a Location that
   // no longer offers the picked service. Targets are referentially stable so
-  // identity comparison is sufficient; if the load hasn't finished yet
-  // (filteredTargets empty + isLoading true) we leave the selection alone so
-  // an in-flight load doesn't clobber a parent-seeded value.
+  // identity comparison is sufficient; until the first load settles AND the caller's
+  // category filters are final we leave the selection alone, so neither an unloaded
+  // target list nor a half-resolved category filter clobbers a caller-seeded value.
+  //
+  // A caller-seeded Location is the one case where "not in the list" doesn't mean
+  // "no longer bookable". Callers seed the physical Location (it's what a parent
+  // encounter records), but the resolver answers with whichever tier actually vends
+  // the picked service there — for an admin-created service that is usually a Group
+  // or PR surface, never a Location-tier entry. When exactly one option resolves at
+  // that same Location, adopt it: that is already the resolver's silent-pick contract
+  // (a lone passing target is labeled with the bare Location name), so the user sees
+  // the location they expect and the slot loader gets the surface it needs. Two or
+  // more means a genuine choice, so clear and let the user disambiguate.
   useEffect(() => {
-    if (!selected) return;
-    if (isLoading && filteredTargets.length === 0) return;
+    if (!selected || !hasLoaded || !categoryFiltersReady) return;
     const stillValid = filteredTargets.some((t) => targetsAreSame(t, selected));
-    if (!stillValid) setSelected(undefined);
-  }, [filteredTargets, isLoading, selected, setSelected]);
+    if (stillValid) return;
+    if (selected.resourceType === 'Location') {
+      // Options this picker surfaced for the same physical location: a Location-tier
+      // entry is its own origin, Group / PR sub-options carry it in atLocationSlug.
+      const resolvedHere = filteredTargets.filter(
+        (t) => (t.resourceType === 'Location' ? t.slug : t.atLocationSlug) === selected.slug
+      );
+      if (resolvedHere.length === 1) {
+        setSelected(resolvedHere[0]);
+        return;
+      }
+    }
+    setSelected(undefined);
+  }, [filteredTargets, hasLoaded, categoryFiltersReady, selected, setSelected]);
 
   const typeChip = (t: BookableTargetType): string =>
     t === 'Location' ? 'Location' : t === 'HealthcareService' ? 'Group' : 'Direct';

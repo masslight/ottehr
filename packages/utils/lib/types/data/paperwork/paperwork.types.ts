@@ -158,10 +158,17 @@ export interface QAndQRResponse {
   questionnaireTitle?: string;
 }
 
+export interface PatientConditionPhoto {
+  documentReferenceId?: string;
+  url: string;
+  title?: string;
+}
+
 export interface UCGetPaperworkResponse extends QAndQRResponse {
   appointment: AppointmentSummary;
   patient: PaperworkPatient;
   updateTimestamp: number | undefined;
+  patientConditionPhotos?: PatientConditionPhoto[];
 }
 export interface IntakeQuestionnaireItem
   extends QuestionnaireItemExtension,

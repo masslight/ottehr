@@ -1,23 +1,25 @@
-// The LLM-facing schema and its derivation from the Zod row schemas.
-//
-// Each endpoint's Zod schema is the single source of truth: it validates the response, derives the
-// TS row type, and is serialized here for the generation prompt. The model sees field names, types,
-// descriptions, and — as a field's `values` — either a closed vocabulary (z.enum members) OR, for a
-// small whitelist of code/label fields, the distinct values present in the fetched rows (see
-// sampleDomains). That per-field opt-in domain is the only path by which real values reach the
-// model; no field outside the whitelist is sampled, and full rows never leave the client.
 import { z } from 'zod';
 
-/** One serialized field as the model sees it. `values` is a closed vocabulary (z.enum members) or a
- *  whitelisted, sampled code/label domain — see the module header and sampleDomains. */
+/** A field of an 'object[]' element. One level only, so related values (a vaccine and its VIS date)
+ *  stay in one record without the shape nesting arbitrarily deep. */
+export const LlmObjectFieldSchema = z.object({
+  name: z.string(),
+  type: z.enum(['string', 'number', 'boolean', 'string[]', 'number[]']),
+  description: z.string(),
+  nullable: z.boolean().optional(),
+  values: z.array(z.string()).optional(),
+});
+export type LlmObjectFieldSchema = z.infer<typeof LlmObjectFieldSchema>;
+
 export const LlmFieldSchema = z.object({
   name: z.string(),
-  type: z.enum(['string', 'number', 'boolean', 'string[]']),
+  type: z.enum(['string', 'number', 'boolean', 'string[]', 'number[]', 'object[]']),
   description: z.string(),
   /** True when the value may be null for some rows. */
   nullable: z.boolean().optional(),
   /** Closed vocabulary (z.enum members); for 'string[]' — the allowed element values. */
   values: z.array(z.string()).optional(),
+  fields: z.array(LlmObjectFieldSchema).optional(),
 });
 export type LlmFieldSchema = z.infer<typeof LlmFieldSchema>;
 
@@ -91,6 +93,16 @@ const toLlmField = (name: string, schema: z.ZodTypeAny, domains: Record<string, 
   if (inner instanceof z.ZodEnum) return { ...base, type: 'string', values: enumValues(inner) };
   if (inner instanceof z.ZodArray) {
     const element = unwrap(inner.element as z.ZodTypeAny).inner;
+    if (element instanceof z.ZodNumber) return { ...base, type: 'number[]' };
+    if (element instanceof z.ZodObject) {
+      const fields = llmFieldsFromZodObject(element, [], domains).map((field) => {
+        if (field.type === 'object[]') {
+          throw new Error(`llm-schema: nested object[] is not supported (field "${name}.${field.name}")`);
+        }
+        return field as LlmObjectFieldSchema;
+      });
+      return { ...base, type: 'object[]', fields };
+    }
     const values = enumValues(element) ?? sampled;
     return { ...base, type: 'string[]', ...(values ? { values } : {}) };
   }

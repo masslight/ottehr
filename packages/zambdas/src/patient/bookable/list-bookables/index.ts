@@ -4,7 +4,7 @@ import { HealthcareService, Location } from 'fhir/r4b';
 import { ServiceModeCoding } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getSlugForBookableResource, serviceModeForHealthcareService } from 'utils/lib/fhir/helpers';
-import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
+import { isLocationBookable, isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
@@ -141,10 +141,9 @@ async function getPhysicalLocations(oystehr: Oystehr): Promise<BookableItem[]> {
 const makeBookableVirtualLocation = (location: Location): BookableItem | undefined => {
   const stateCode = location.address?.state || '';
   const stateFullName = stateCodeToFullName[location.address?.state || ''] ?? '';
-  const isActive = location.status === 'active';
   const slug = getSlugForBookableResource(location);
 
-  if (!slug || !location.id || !isActive) {
+  if (!slug || !location.id || !isLocationBookable(location)) {
     return undefined;
   }
 
@@ -161,11 +160,10 @@ const makeBookableVirtualLocation = (location: Location): BookableItem | undefin
 };
 
 const makeBookablePhysicalLocation = (location: Location): BookableItem | undefined => {
-  const isActive = location.status === 'active';
   const slug = getSlugForBookableResource(location);
   const stateFullName = stateCodeToFullName[location.address?.state || ''] ?? '';
 
-  if (!slug || !location.id || !isActive) {
+  if (!slug || !location.id || !isLocationBookable(location)) {
     return undefined;
   }
 

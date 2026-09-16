@@ -311,7 +311,7 @@ describe('useGetPatientDocs — visit filter', () => {
   it('narrows the document search to the visit', async () => {
     setupVisitSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)]);
 
-    renderHook(() => useGetPatientDocs(PATIENT_ID, { encounterId: ENCOUNTER_ID }), { wrapper });
+    renderHook(() => useGetPatientDocs(PATIENT_ID, { visit: { encounterId: ENCOUNTER_ID } }), { wrapper });
 
     await waitFor(() => {
       const mainSearch = mockFhirSearch.mock.calls.find(
@@ -328,7 +328,9 @@ describe('useGetPatientDocs — visit filter', () => {
   it('reports the visit each returned document belongs to', async () => {
     setupVisitSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)]);
 
-    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID, { encounterId: ENCOUNTER_ID }), { wrapper });
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID, { visit: { encounterId: ENCOUNTER_ID } }), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.documents?.length).toBe(VISIT_DOC_IDS.length));
     expect(result.current.documents?.every((doc) => doc.encounterId === ENCOUNTER_ID)).toBe(true);
@@ -338,7 +340,9 @@ describe('useGetPatientDocs — visit filter', () => {
     // The folder holds three documents patient-wide, two of which belong to this visit.
     setupVisitSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)]);
 
-    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID, { encounterId: ENCOUNTER_ID }), { wrapper });
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID, { visit: { encounterId: ENCOUNTER_ID } }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       const folder = result.current.documentsFolders.find((f) => f.internalName === PROTECTED_FOLDER.title);
@@ -376,7 +380,9 @@ describe('useGetPatientDocs — visit filter', () => {
       return stubBundle([...FIRST_PAGE, ...SECOND_PAGE].map(docRef) as any);
     });
 
-    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID, { encounterId: ENCOUNTER_ID }), { wrapper });
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID, { visit: { encounterId: ENCOUNTER_ID } }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       const folder = result.current.documentsFolders.find((f) => f.internalName === PROTECTED_FOLDER.title);
@@ -504,5 +510,119 @@ describe('useGetPatientDocs — visit filter', () => {
       (req?.params ?? []).some((p: any) => p.name === '_elements')
     );
     expect(idsQueries).toHaveLength(0);
+  });
+});
+
+describe('useGetPatientDocs — intake documents linked by appointment', () => {
+  const ENCOUNTER_ID = 'encounter-1';
+  const APPOINTMENT_ID = 'appointment-1';
+
+  // Intake paperwork (photo IDs, insurance cards, condition photos, consents) records the visit as
+  // an Appointment in context.related and never sets context.encounter.
+  const intakeDocRef = (id: string): any => ({
+    resourceType: 'DocumentReference',
+    id,
+    status: 'current',
+    date: '2026-07-28T12:00:00.000Z',
+    content: [{ attachment: { title: `${id}.pdf`, url: `https://z3/${id}.pdf` } }],
+    context: { related: [{ reference: `Appointment/${APPOINTMENT_ID}` }] },
+  });
+
+  // A document whose `related` holds something that is not a visit at all — update-visit-files
+  // writes a Patient there, radiology a ServiceRequest.
+  const nonVisitRelatedDocRef = (id: string): any => ({
+    resourceType: 'DocumentReference',
+    id,
+    status: 'current',
+    date: '2026-07-28T12:00:00.000Z',
+    content: [{ attachment: { title: `${id}.pdf`, url: `https://z3/${id}.pdf` } }],
+    context: { related: [{ reference: `Patient/${PATIENT_ID}` }, { reference: 'ServiceRequest/sr-1' }] },
+  });
+
+  const setupIntakeSearch = (docsByLinkage: { encounter: any[]; related: any[] }): void => {
+    mockFhirSearch.mockImplementation(async (req: any) => {
+      const params: { name: string; value: string }[] = req?.params ?? [];
+
+      if (req?.resourceType === 'List') {
+        const isCatalogSearch = params.some(
+          (p) => p.name === 'identifier' && p.value === CUSTOM_FOLDERS_CATALOG_IDENTIFIER
+        );
+        return stubBundle(isCatalogSearch ? [] : []);
+      }
+
+      // Serve whichever linkage this request queried.
+      if (params.some((p) => p.name === 'encounter')) return stubBundle(docsByLinkage.encounter);
+      if (params.some((p) => p.name === 'related')) return stubBundle(docsByLinkage.related);
+      return stubBundle([...docsByLinkage.encounter, ...docsByLinkage.related]);
+    });
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('queries both the encounter and the related-appointment linkage', async () => {
+    setupIntakeSearch({ encounter: [], related: [intakeDocRef('intake-a')] });
+
+    renderHook(
+      () => useGetPatientDocs(PATIENT_ID, { visit: { encounterId: ENCOUNTER_ID, appointmentId: APPOINTMENT_ID } }),
+      {
+        wrapper,
+      }
+    );
+
+    await waitFor(() => {
+      const docQueries = mockFhirSearch.mock.calls.filter(([req]: any[]) => req?.resourceType === 'DocumentReference');
+      expect(docQueries.some(([r]: any[]) => r.params.some((p: any) => p.name === 'encounter'))).toBe(true);
+      expect(
+        docQueries.some(([r]: any[]) =>
+          r.params.some((p: any) => p.name === 'related' && p.value === `Appointment/${APPOINTMENT_ID}`)
+        )
+      ).toBe(true);
+    });
+  });
+
+  it('surfaces intake documents that only carry an appointment, and reports that appointment', async () => {
+    setupIntakeSearch({ encounter: [], related: [intakeDocRef('intake-a'), intakeDocRef('intake-b')] });
+
+    const { result } = renderHook(
+      () => useGetPatientDocs(PATIENT_ID, { visit: { encounterId: ENCOUNTER_ID, appointmentId: APPOINTMENT_ID } }),
+      { wrapper }
+    );
+
+    await waitFor(() => expect(result.current.documents?.length).toBe(2));
+    expect(result.current.documents?.every((doc) => doc.appointmentId === APPOINTMENT_ID)).toBe(true);
+    // These carry no encounter at all; that is the whole point.
+    expect(result.current.documents?.every((doc) => doc.encounterId === undefined)).toBe(true);
+  });
+
+  it('unions the two linkages without double-counting a document linked both ways', async () => {
+    const both = {
+      ...intakeDocRef('linked-both'),
+      context: {
+        encounter: [{ reference: `Encounter/${ENCOUNTER_ID}` }],
+        related: [{ reference: `Appointment/${APPOINTMENT_ID}` }],
+      },
+    };
+    // The same resource comes back from both searches, as the server would return it.
+    setupIntakeSearch({ encounter: [both], related: [both] });
+
+    const { result } = renderHook(
+      () => useGetPatientDocs(PATIENT_ID, { visit: { encounterId: ENCOUNTER_ID, appointmentId: APPOINTMENT_ID } }),
+      { wrapper }
+    );
+
+    await waitFor(() => expect(result.current.documents?.length).toBe(1));
+    expect(result.current.documents?.[0].id).toBe('linked-both');
+  });
+
+  it('ignores related references that are not appointments', async () => {
+    setupIntakeSearch({ encounter: [], related: [nonVisitRelatedDocRef('doc-with-patient-related')] });
+
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID), { wrapper });
+
+    await waitFor(() => expect(result.current.documents?.length).toBe(1));
+    // A Patient or ServiceRequest in `related` must not be mistaken for the visit.
+    expect(result.current.documents?.[0].appointmentId).toBeUndefined();
   });
 });

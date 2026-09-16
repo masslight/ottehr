@@ -240,6 +240,15 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
       row.paymentMethods = methods;
       // RAW ISO instant of the latest payment (client-side becomes the viewer-local day).
       row.lastPaymentDate = dates.length ? dates[dates.length - 1] : null;
+      // Same raw ISO instants as lastPaymentDate — one format for every date in this layer.
+      row.payments = notices
+        .filter((n) => n.created)
+        .map((n) => ({
+          date: n.created!,
+          amount: round2(n.amount?.value ?? 0),
+          method: n.extension?.find((e) => e.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString ?? '',
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date));
     }
 
     if (includeCoverage) {

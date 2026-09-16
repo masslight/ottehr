@@ -9,8 +9,6 @@ import { ActionBar } from '../../src/features/visits/shared/components/patient/A
 // HARNESS
 // ============================================================================
 
-const BLOCKED_REASON = 'Please check "I verify that patient consent has been obtained." before saving.';
-
 const renderActionBar = (
   overrides: Partial<ComponentProps<typeof ActionBar>> = {}
 ): { handleSave: ReturnType<typeof vi.fn> } => {
@@ -28,7 +26,7 @@ const saveButton = (): HTMLElement => screen.getByTestId(dataTestIds.patientInfo
 // ============================================================================
 
 describe('ActionBar', () => {
-  it('enables Save All when nothing blocks the submit', async () => {
+  it('saves when the form has unsaved changes', async () => {
     const { handleSave } = renderActionBar();
 
     expect(saveButton()).toBeEnabled();
@@ -36,19 +34,11 @@ describe('ActionBar', () => {
     expect(handleSave).toHaveBeenCalledOnce();
   });
 
-  it('disables Save All while a blocking reason is present, even when the form is dirty', async () => {
-    const { handleSave } = renderActionBar({ submitBlockedReason: BLOCKED_REASON });
+  // An unsigned consent no longer blocks the save - the visit page raises a reminder dialog around
+  // it instead - so "nothing to save" is the only thing left that disables the button.
+  it('disables Save All when the form has nothing to save', () => {
+    renderActionBar({ submitDisabled: true });
 
     expect(saveButton()).toBeDisabled();
-    // Click the wrapper: the disabled button itself swallows pointer events.
-    await userEvent.click(saveButton().parentElement!);
-    expect(handleSave).not.toHaveBeenCalled();
-  });
-
-  it('explains the blocked submit on hover', async () => {
-    renderActionBar({ submitBlockedReason: BLOCKED_REASON });
-
-    await userEvent.hover(saveButton().parentElement!);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(BLOCKED_REASON);
   });
 });

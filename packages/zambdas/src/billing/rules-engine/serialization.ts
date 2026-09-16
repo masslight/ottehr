@@ -1,4 +1,4 @@
-import { Basic, Extension, List, Task } from 'fhir/r4b';
+import { Basic, Extension, List, Reference, Task } from 'fhir/r4b';
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
 import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
@@ -113,13 +113,19 @@ export function isRulesEngineList(engine: RulesEngineType, list: Pick<List, 'met
 // The Task whose creation kicks off an engine for a claim. A Subscription per engine matches
 // `status=requested` + the engine's code and invokes the sub-rules-engine zambda,
 // which marks the Task completed/failed.
-export function buildRulesEngineKickoffTask(engine: RulesEngineType, claimId: string, skipRules: boolean): Task {
+export function buildRulesEngineKickoffTask(
+  engine: RulesEngineType,
+  claimId: string,
+  skipRules: boolean,
+  requester: Reference
+): Task {
   return {
     resourceType: 'Task',
     status: 'requested',
     intent: 'order',
     code: { coding: [{ system: RULES_ENGINE_TASK_SYSTEM, code: RULES_ENGINE_FHIR[engine].taskCode }] },
     focus: { reference: `Claim/${claimId}` },
+    requester,
     ...(skipRules
       ? {
           input: [

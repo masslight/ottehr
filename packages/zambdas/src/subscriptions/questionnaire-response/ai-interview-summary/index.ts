@@ -36,6 +36,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     undefined,
     null,
     null,
+    undefined,
     secrets
   );
 

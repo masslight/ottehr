@@ -1,7 +1,7 @@
 import { AnthropicMessagesModelId, ChatAnthropic } from '@langchain/anthropic';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { AIMessageChunk, BaseMessageLike, MessageContentComplex } from '@langchain/core/messages';
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { Appointment, Condition, DocumentReference, Encounter, Observation, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -22,11 +22,15 @@ import { MIME_TYPES } from 'utils/lib/utils/file';
 import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 import { makeObservationResource } from './chart-data/index';
 import { assertDefined } from './helpers';
-import { parseCreatedResourcesBundle, saveResourceRequest } from './resources.helpers';
+import { parseCreatedResourcesBundle, saveResourceRequest, updateResourceRequest } from './resources.helpers';
 import { createPresignedUrl } from './z3Utils';
 
+export const NO_SPEECH_DETECTED = 'NO_SPEECH_DETECTED';
+
 export const TRANSCRIPT_PROMPT =
-  'give a transcript of this file, include only the transcript without other input, include who the speaker is with labels for the provider and the patient';
+  'Give a transcript of this file, include only the transcript without other input, include who the speaker is ' +
+  'with labels for the provider and the patient. If the audio contains just silence or background noise, ' +
+  `respond with "${NO_SPEECH_DETECTED}"`;
 
 export class ClaudeClient {
   chatbot: ChatAnthropic;
@@ -123,11 +127,17 @@ const AI_RESPONSE_KEY_TO_FIELD = {
 
 export const VERTEX_AI_MODEL = 'gemini-3.1-flash-lite';
 
+interface VertexAIRequestOptions {
+  /** Sequential retries wait for an error; hedged requests overlap to reduce latency. */
+  retryMode?: 'sequential' | 'hedged';
+}
+
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
   responseSchema?: object,
-  model: string = VERTEX_AI_MODEL
+  model: string = VERTEX_AI_MODEL,
+  options: VertexAIRequestOptions = {}
 ): Promise<string> {
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
@@ -149,7 +159,7 @@ export async function invokeChatbotVertexAI(
 
   let resolved = false;
   let terminal = false; // a non-retryable status came back; further attempts would just resend the payload
-  const requests = backoffTimes.map(async (backoffTime) => {
+  const request = async (backoffTime: number): Promise<Response> => {
     await new Promise((resolve) => setTimeout(resolve, backoffTime));
 
     // Reject rather than resolve, so a skipped attempt can never become Promise.any's winning value.
@@ -190,15 +200,32 @@ export async function invokeChatbotVertexAI(
       }
       return response;
     } catch (error) {
-      console.error('Error invoking Vertex AI:', error);
-      captureException(error);
+      // One attempt failing is not an incident — the ladder exists because Vertex sheds load with 429s and a
+      // later attempt usually succeeds. Keep it in the log for the trace, but don't report it: reporting here
+      // raised a Sentry alert for every self-healed retry, and double-reported the ones that did fail, since
+      // whatever this function finally throws reaches Sentry once via the handler's topLevelCatch.
+      console.warn('Vertex AI attempt failed:', error);
       throw error;
     }
-  });
+  };
+
+  const requestSequentially = async (): Promise<Response> => {
+    const errors: unknown[] = [];
+    for (const backoffTime of backoffTimes) {
+      try {
+        return await request(backoffTime);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    throw new AggregateError(errors, 'All Vertex AI attempts failed');
+  };
 
   let settled: Response;
   try {
-    settled = await Promise.any(requests);
+    settled = await (options.retryMode === 'sequential'
+      ? requestSequentially()
+      : Promise.any(backoffTimes.map(request)));
   } catch (error) {
     // AggregateError's own message is just "All promises were rejected", so unpack the reasons — otherwise
     // the most common failure mode stays as opaque as the TypeError this used to throw.
@@ -206,7 +233,7 @@ export async function invokeChatbotVertexAI(
       error instanceof AggregateError
         ? error.errors.map((reason) => (reason instanceof Error ? reason.message : String(reason)))
         : [error instanceof Error ? error.message : String(error)];
-    throw new Error(`Vertex AI request failed after ${requests.length} attempts: ${reasons.join('; ')}`);
+    throw new Error(`Vertex AI request failed after ${backoffTimes.length} attempts: ${reasons.join('; ')}`);
   }
 
   const body = await settled.text();
@@ -248,7 +275,13 @@ export async function invokeChatbotVertexAI(
 export async function transcribeAndCreateResourcesFromZ3Audio(
   oystehr: Oystehr,
   m2mToken: string,
-  args: { encounterID: string; z3URL: string; duration?: number; providerUserProfile: string | null },
+  args: {
+    encounterID: string;
+    z3URL: string;
+    duration?: number;
+    providerUserProfile: string | null;
+    existingDocumentReference?: DocumentReference;
+  },
   secrets: Secrets | null
 ): Promise<string> {
   const presignedFileDownloadUrl = await createPresignedUrl(m2mToken, args.z3URL, 'download');
@@ -277,6 +310,22 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
     secrets
   );
 
+  // Trim: Vertex commonly wraps the sentinel in trailing whitespace/newline, and an untrimmed compare would
+  // fall through and build chart resources out of the sentinel string itself.
+  if (transcript.trim() === NO_SPEECH_DETECTED) {
+    console.log(
+      `[transcribeAndCreateResourcesFromZ3Audio] No speech detected in recording z3URL=${args.z3URL}; skipping AI resource creation`
+    );
+    // The in-person ambient scribe marks its recording with AMBIENT_SCRIBE_RECORDING_PENDING_CODING and the EHR
+    // keeps the scribe in "Loading" (and keeps polling) until something replaces that coding — normally
+    // createResourcesFromAiInterview, which we are skipping here. Clear the pending marker ourselves so the
+    // recording settles as a played-back-only document instead of loading forever.
+    if (args.existingDocumentReference) {
+      await clearPendingRecordingMarker(oystehr, args.existingDocumentReference);
+    }
+    return 'no speech detected; skipped AI resource creation';
+  }
+
   return createResourcesFromAiInterview(
     oystehr,
     args.encounterID,
@@ -285,9 +334,30 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
     args.duration,
     mimeType,
     args.providerUserProfile,
+    args.existingDocumentReference,
     secrets
   );
 }
+
+/**
+ * Swaps a pending ambient-scribe recording's type coding for the regular consult-note coding, without adding a
+ * transcript or AI observations. Used when the recording turns out to be silent: the audio stays listed and
+ * playable, but the EHR stops treating it as a recording still awaiting transcription.
+ */
+async function clearPendingRecordingMarker(
+  oystehr: Oystehr,
+  existingDocumentReference: DocumentReference
+): Promise<void> {
+  await oystehr.fhir.update<DocumentReference>({
+    ...existingDocumentReference,
+    type: {
+      coding: [VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE],
+    },
+  });
+}
+
+const CHATBOT_TIMEOUT_MS = 10000;
+const CHATBOT_MAX_RETRIES = 1;
 
 export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets | null): Promise<AIMessageChunk> {
   process.env.ANTHROPIC_API_KEY = getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets);
@@ -295,13 +365,22 @@ export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets |
     chatbot = new ChatAnthropic({
       model: 'claude-haiku-4-5-20251001',
       temperature: 0,
+      // Must stay top-level: LangChain forces the SDK client's maxRetries to 0, so clientOptions.maxRetries is ignored.
+      maxRetries: CHATBOT_MAX_RETRIES,
       clientOptions: {
-        timeout: 10000,
-        maxRetries: 1,
+        timeout: CHATBOT_TIMEOUT_MS,
       },
     });
   }
-  return chatbot.invoke(input);
+  const startedAt = Date.now();
+  try {
+    const response = await chatbot.invoke(input);
+    console.log(`chatbot responded in ${Date.now() - startedAt}ms`);
+    return response;
+  } catch (error) {
+    console.error(`chatbot call failed after ${Date.now() - startedAt}ms`, error);
+    throw error;
+  }
 }
 
 export async function createResourcesFromAiInterview(
@@ -312,6 +391,7 @@ export async function createResourcesFromAiInterview(
   duration: number | undefined,
   mimeType: string | null,
   providerUserProfile: string | null,
+  existingDocumentReference: DocumentReference | undefined,
   secrets: Secrets | null
 ): Promise<string> {
   let fields =
@@ -392,19 +472,23 @@ export async function createResourcesFromAiInterview(
 
   const encounterId = assertDefined(encounter.id, 'encounter.id');
   const patientId = assertDefined(encounter.subject?.reference?.split('/')[1], 'patientId');
-  const requests: BatchInputPostRequest<DocumentReference | Observation | Condition>[] = [];
-  const documentReferenceCreateUrl = `urn:uuid:${uuid()}`;
+  const requests: BatchInputRequest<DocumentReference | Observation | Condition>[] = [];
+  const documentReferenceCreateUrl = existingDocumentReference?.id
+    ? `DocumentReference/${existingDocumentReference.id}`
+    : `urn:uuid:${uuid()}`;
   requests.push(
-    createDocumentReference(
-      encounterID,
-      patientId,
-      providerUserProfile,
-      documentReferenceCreateUrl,
-      z3URL,
-      chatTranscript,
-      duration,
-      mimeType
-    )
+    existingDocumentReference
+      ? updateDocumentReference(existingDocumentReference, chatTranscript)
+      : createDocumentReference(
+          encounterID,
+          patientId,
+          providerUserProfile,
+          documentReferenceCreateUrl,
+          z3URL,
+          chatTranscript,
+          duration,
+          mimeType
+        )
   );
   requests.push(...createObservations(aiResponse, documentReferenceCreateUrl, encounterId, patientId));
   console.log('Transaction requests: ' + JSON.stringify(requests, null, 2));
@@ -489,6 +573,32 @@ function createDocumentReference(
       : [],
   };
   return saveResourceRequest(documentReference, documentReferenceCreateUrl);
+}
+
+function updateDocumentReference(
+  existingDocumentReference: DocumentReference,
+  transcript: string
+): BatchInputPutRequest<DocumentReference> {
+  const existingAttachment = existingDocumentReference.content?.[0]?.attachment;
+  const documentReference: DocumentReference = {
+    ...existingDocumentReference,
+    type: {
+      coding: [VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE],
+    },
+    content: [
+      ...(existingAttachment
+        ? [{ attachment: { ...existingAttachment, contentType: existingAttachment.contentType } }]
+        : []),
+      {
+        attachment: {
+          contentType: MIME_TYPES.TXT,
+          title: 'Transcript',
+          data: btoa(unescape(encodeURIComponent(transcript))),
+        },
+      },
+    ],
+  };
+  return updateResourceRequest(documentReference);
 }
 
 const FIELDS_WITH_ITEMS = new Set([

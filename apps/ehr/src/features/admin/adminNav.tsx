@@ -5,6 +5,7 @@ import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import BookmarkBorderOutlinedIcon from '@mui/icons-material/BookmarkBorderOutlined';
 import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import FolderCopyOutlinedIcon from '@mui/icons-material/FolderCopyOutlined';
@@ -29,6 +30,7 @@ import { InsuranceIcon } from 'src/features/admin/icons/InsuranceIcon';
 import { ProgressNoteIcon } from 'src/features/admin/icons/ProgressNoteIcon';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
 import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
+import { FormTemplatesAdminPage } from 'src/features/form-templates/FormTemplatesAdminPage';
 import LocationsListPage from 'src/features/locations/LocationsListPage';
 import ChargeItemList from 'src/features/visits/telemed/components/admin/ChargeItemList';
 import EMCodesAdminPage from 'src/features/visits/telemed/components/admin/EMCodesAdminPage';
@@ -50,7 +52,7 @@ import ServiceCategoriesAdminPage from 'src/pages/ServiceCategoriesAdminPage';
 import Invoicing from 'src/rcm/features/invoicing/Invoicing';
 import ScheduledPatientOutreach from 'src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach';
 import { GLOBAL_ACTION_LOG_VIEWER_ROLES } from 'utils/lib/types/api/action-logs.types';
-import { RoleType } from 'utils/lib/types/api/user.types';
+import { ADMIN_TIER_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import PaperworkFlowsAdminPage from '../visits/telemed/components/admin/paperwork-flows/PaperworkFlowsAdminPage';
 import QuestionnaireAdminPage from '../visits/telemed/components/admin/questionnaires/QuestionnaireAdminPage';
 
@@ -132,6 +134,12 @@ export const adminNavGroups: AdminNavGroup[] = [
         render: () => <GlobalTemplatesAdminPage />,
       },
       {
+        label: 'Form Templates',
+        path: '/admin/form-templates',
+        icon: <DescriptionOutlinedIcon />,
+        render: () => <FormTemplatesAdminPage />,
+      },
+      {
         label: 'Quick Picks',
         path: '/admin/quick-picks',
         icon: <BookmarkBorderOutlinedIcon />,
@@ -178,12 +186,18 @@ export const adminNavGroups: AdminNavGroup[] = [
         icon: <PaidOutlinedIcon />,
         render: () => <ChargeItemList mode="charge-master" />,
       },
-      {
-        label: 'Employers',
-        path: '/admin/billing/employers',
-        icon: <BusinessCenterOutlinedIcon />,
-        render: () => <EmployersTab />,
-      },
+      // In NIO mode employers are managed in the billing app; the legacy tab hides so nothing new
+      // can be created or edited here (existing orgs stay for historical visits).
+      ...(FEATURE_FLAGS.NON_INSURANCE_ORGANIZATIONS_ENABLED
+        ? []
+        : [
+            {
+              label: 'Employers',
+              path: '/admin/billing/employers',
+              icon: <BusinessCenterOutlinedIcon />,
+              render: () => <EmployersTab />,
+            },
+          ]),
       {
         label: 'Invoicing',
         path: '/admin/billing/invoicing',
@@ -299,7 +313,7 @@ export const allAdminNavItems: AdminNavItem[] = adminNavGroups.flatMap((group) =
 export const DEFAULT_ADMIN_PATH = allAdminNavItems[0].path;
 
 /** Roles with access to every admin page unless an item supplies a narrower explicit policy. */
-export const ADMIN_TIER_ROLES: RoleType[] = [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport];
+export { ADMIN_TIER_ROLES };
 
 /** Nav groups the given user may see, dropping groups left with no accessible items. */
 export function resolveAccessibleAdminNavGroups(hasRole: (roles: RoleType[]) => boolean): AdminNavGroup[] {

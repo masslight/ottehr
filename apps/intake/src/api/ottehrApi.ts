@@ -498,7 +498,7 @@ class API {
       const jsonToUse = chooseJson(response);
       return jsonToUse as QuestionnaireResponse;
     } catch (error: unknown) {
-      throw apiErrorToThrow(error);
+      throw apiErrorToThrow(error, false);
     }
   }
 
@@ -511,7 +511,7 @@ class API {
       const jsonToUse = chooseJson(response);
       return jsonToUse as QuestionnaireResponse;
     } catch (error: unknown) {
-      throw apiErrorToThrow(error);
+      throw apiErrorToThrow(error, false);
     }
   }
 

@@ -5,7 +5,11 @@ import { useMedicationManagement } from '../../../hooks/useMedicationManagement'
 import { EditableMedicationCard } from '../medication-editable-card/EditableMedicationCard';
 import { MedicationWarnings } from './MedicationWarnings';
 
-export const MedicationList: React.FC = () => {
+interface MedicationListProps {
+  onNavigateToMar?: () => void;
+}
+
+export const MedicationList: React.FC<MedicationListProps> = ({ onNavigateToMar }) => {
   const { medications } = useMedicationManagement();
   // const selectsOptions = useFieldsSelectsOptions();
   const [searchParams] = useSearchParams();
@@ -43,7 +47,7 @@ export const MedicationList: React.FC = () => {
           key={medication.id}
           id={`medication-${medication.id}`}
         >
-          <EditableMedicationCard medication={medication} type="dispense" />
+          <EditableMedicationCard medication={medication} type="dispense" onNavigateToMar={onNavigateToMar} />
         </Box>
       ))}
     </Box>

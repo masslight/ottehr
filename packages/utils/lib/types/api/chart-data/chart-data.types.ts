@@ -16,6 +16,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import z from 'zod';
+import type { StructuredFacts } from '../../../procedure-coding/structured-fields';
 import { ObservationDTO } from '../../data/screening-questions/types';
 import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 import { RadiologyDTO } from '../radiology';
@@ -35,6 +36,7 @@ import { GetChartDataResponse } from './get-chart-data.types';
 export interface AIChatDetails {
   documents: DocumentReference[];
   providers: Practitioner[];
+  hasPendingRecording?: boolean;
 }
 
 // todo: need to refactor and simplify types; there are different sets of fields for useChartData and useChartFields, but this types contains all possible values and not very useful
@@ -101,7 +103,8 @@ export type RequestedFields =
   | 'reasonForVisit'
   | 'accident'
   | 'patientHasPreviousVisits'
-  | 'radiologyOrders';
+  | 'radiologyOrders'
+  | 'aiChat';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 
@@ -590,6 +593,11 @@ export interface ProcedureDTO extends SaveableDTO {
   technique?: string[];
   suppliesUsed?: string;
   procedureDetails?: string;
+  structuredFacts?: StructuredFacts;
+  lengthCm?: number;
+  repairDepth?: string;
+  infusionStartTime?: string;
+  infusionStopTime?: string;
   specimenSent?: boolean;
   complications?: string;
   patientResponse?: string;

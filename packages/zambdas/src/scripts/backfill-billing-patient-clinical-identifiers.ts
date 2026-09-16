@@ -9,12 +9,21 @@ async function backfill(config: Secrets): Promise<void> {
   if (!token) throw new Error('Failed to fetch auth token.');
   const oystehr = createBillingClient(token, config);
   const dryRun = process.argv.includes('--dry-run');
-  const stats = await backfillBillingPatientClinicalIdentifiers(oystehr, dryRun);
-  const patchedLabel = dryRun ? 'would be patched' : 'patched';
+  const pruneStale = process.argv.includes('--prune-stale');
+  const stats = await backfillBillingPatientClinicalIdentifiers({
+    oystehr,
+    dryRun,
+    pruneStale,
+  });
   console.log(
     `Billing patient clinical identifier backfill ${dryRun ? 'dry run ' : ''}complete: ${stats.examined} examined, ` +
-      `${stats.patched} ${patchedLabel}, ${stats.alreadyIndexed} already indexed, ${stats.skipped} skipped, ` +
-      `${stats.failed} failed`
+      `${stats.changed} ${dryRun ? 'would change' : 'changed'}, ${stats.alreadyIndexed} already indexed, ` +
+      `${stats.skipped} skipped, ${stats.failed} failed ` +
+      `(${stats.patientsGainingIdentifiers} patients gaining identifiers, ` +
+      `${stats.patientsDroppingStaleIdentifiers} patients dropping stale identifiers; ` +
+      `of the skipped, ${stats.skippedWithNothingToIndex} with nothing to index, ` +
+      `${stats.skippedWithPrunableIdentifiers} needing --prune-stale, ` +
+      `${stats.skippedNeedingReview} needing review)`
   );
   if (stats.failed) throw new Error(`Billing patient clinical identifier backfill failed for ${stats.failed} Patients`);
 }

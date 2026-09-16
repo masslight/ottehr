@@ -4,7 +4,7 @@ import { ACCOUNT_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import { describe, expect, it, vi } from 'vitest';
 import {
-  attachPrimaryCoverageToClaim,
+  attachCoverageToClaim,
   BILLING_WORKING_COPY_TAG,
   buildClaimCoverageCopies,
   buildNoCoverageStub,
@@ -214,7 +214,7 @@ describe('buildClaimCoverageCopies', () => {
   });
 });
 
-describe('attachPrimaryCoverageToClaim', () => {
+describe('attachCoverageToClaim', () => {
   // No `as Claim` assertion: annotating the return type checks the literal against Claim, so a
   // missing required element (created, here) fails the build instead of being cast away.
   const makeClaim = (insurance: Claim['insurance']): Claim => ({
@@ -236,9 +236,10 @@ describe('attachPrimaryCoverageToClaim', () => {
       { sequence: 2, focal: false, coverage: { reference: 'Coverage/keep-secondary' } },
     ]);
 
-    attachPrimaryCoverageToClaim({
+    attachCoverageToClaim({
       claim,
       coverageReference: 'Coverage/new-primary',
+      type: 'primary',
       display: 'Prime Health (111222)',
       payerReference: getPayerUrl('111222'),
     });
@@ -257,7 +258,12 @@ describe('attachPrimaryCoverageToClaim', () => {
   it('drops the no-coverage stub when a real coverage is attached to a self-pay claim', () => {
     const claim = makeClaim([buildNoCoverageStub()]);
 
-    attachPrimaryCoverageToClaim({ claim, coverageReference: 'Coverage/new-primary', display: 'Prime Health' });
+    attachCoverageToClaim({
+      claim,
+      coverageReference: 'Coverage/new-primary',
+      type: 'primary',
+      display: 'Prime Health',
+    });
 
     expect(claim.insurance).toHaveLength(1);
     expect(claim.insurance?.[0]?.coverage?.reference).toBe('Coverage/new-primary');

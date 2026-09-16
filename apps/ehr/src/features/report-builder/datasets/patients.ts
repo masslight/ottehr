@@ -7,14 +7,12 @@ import {
   PATIENT_LAYERS,
   PatientBaseRowSchema,
 } from 'utils/lib/types/adhoc/datasets/patients';
+import { AdHocLayer } from 'utils/lib/types/adhoc/query/layers';
 import { ADHOC_QUERY_STALE_MS, runAdHocReport, toLocalYmd } from '../query/dataset-query';
 import { buildLlmDatasetSchema } from './schema';
-import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
+import { AdHocDataset, AdHocRow, FetchContext } from './types';
 
-// One row per patient seen in the date range — patient-centric counterpart to the Encounters
-// dataset. Demographics + visit summary come back on every fetch; patient-bound clinical layers are
-// opt-in checkboxes, derived from the Zod layer map (id/label/description).
-export const ADHOC_PATIENTS_OPTIONS: AdHocDatasetOption[] = layerOptions(PATIENT_LAYERS);
+export const ADHOC_PATIENTS_OPTIONS: AdHocLayer[] = layerOptions(PATIENT_LAYERS);
 
 async function fetchAdHocPatients({
   oystehrZambda,
@@ -51,6 +49,9 @@ export const patientsDataset: AdHocDataset = {
     'One row per patient seen in the date range, with demographics and a summary of their visits; ' +
     'optional allergy, problem-list, and current-medication layers.',
   options: ADHOC_PATIENTS_OPTIONS,
+  layers: PATIENT_LAYERS,
+  baseSchema: PatientBaseRowSchema,
+  internalFields: PATIENT_INTERNAL_FIELDS,
   fetch: fetchAdHocPatients,
   buildSchema: (rows, options) => {
     const opts = options ?? {};

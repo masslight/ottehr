@@ -74,9 +74,13 @@ interface Input extends StartInterviewInput {
 
 const ZAMBDA_NAME = 'ai-interview-start';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
+  const startedAt = Date.now();
+  const logStep = (step: string): void => console.log(`[${ZAMBDA_NAME}] ${step} done at ${Date.now() - startedAt}ms`);
+
   const { appointmentId, secrets } = validateInput(input);
+  console.log(`[${ZAMBDA_NAME}] start appointmentId=${appointmentId}`);
   const oystehr = await createOystehr(secrets);
+  logStep('oystehr client setup');
 
   const resources = (
     await oystehr.fhir.search<Encounter | Appointment | Patient>({
@@ -97,6 +101,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ],
     })
   ).unbundle();
+  logStep('Encounter search');
   const encounter = resources.find((resource) => resource.resourceType === 'Encounter');
   const encounterId = encounter?.id;
   if (encounter == null || encounterId == null) {
@@ -111,6 +116,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const patient = resources.find((resource) => resource.resourceType === 'Patient');
   let questionnaireResponse: QuestionnaireResponse;
   const existingQuestionnaireResponse = await findAIInterviewQuestionnaireResponse(encounterId, oystehr);
+  logStep('QuestionnaireResponse search');
   const patientInfoDetails = [];
   if (patient) {
     if (patient.name && patient.name.length > 0) {
@@ -147,6 +153,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     questionnaireResponse = existingQuestionnaireResponse;
   } else {
     questionnaireResponse = await createQuestionnaireResponse(encounterId, prompt, oystehr, secrets);
+    logStep('chatbot call and QuestionnaireResponse create');
   }
   return {
     statusCode: 200,

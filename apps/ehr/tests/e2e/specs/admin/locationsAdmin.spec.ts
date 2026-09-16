@@ -1,6 +1,6 @@
 import { BrowserContext, Page, test } from '@playwright/test';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
-import locationsSpec from '../../../../../../config/runtime-seed/locations-and-schedules.json' assert { type: 'json' };
+import locationsSpec from '../../../../../../config/runtime-seed/locations-and-schedules.json';
 import {
   expectLocationDetailPage,
   expectLocationsAdminPage,

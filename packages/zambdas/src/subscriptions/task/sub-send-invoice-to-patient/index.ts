@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Operation } from 'fast-json-patch';
 import { Account, Appointment, Encounter, Location, Patient, Schedule, Task, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
@@ -29,6 +28,7 @@ import { wrapHandler } from '../../../shared/sentry';
 import { ensureStripeCustomerId, getStripeClient, stripeEncounterMetadata } from '../../../shared/stripeIntegration';
 import { resolveTemplatePlaceholders } from '../../../shared/template-placeholders';
 import { ZambdaInput } from '../../../shared/types/common';
+import { addErrorToInvoicingTaskOutput, getTaskAndSecretsFromInput, updateTaskStatusAndOutput } from '../../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -36,16 +36,18 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'sub-send-invoice-to-patient';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedParams = validateRequestParameters(input);
-  const { secrets, encounterId, invoiceTaskInput, task } = validatedParams;
-  const { amountCents, dueDate, memo, smsTextMessage } = invoiceTaskInput;
-  console.log('Input task id: ', task.id);
-
+  const { task, secrets } = getTaskAndSecretsFromInput(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-  const stripe = getStripeClient(secrets);
 
   try {
+    const validatedParams = validateRequestParameters(task);
+    const { encounterId, invoiceTaskInput } = validatedParams;
+    const { amountCents, dueDate, memo, smsTextMessage } = invoiceTaskInput;
+    console.log('Input task id: ', task.id);
+
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+    const stripe = getStripeClient(secrets);
+
     console.log('Fetching fhir resources');
     const fhirResources = await getFhirResources(oystehr, encounterId);
     const { patient, encounter, account, appointment, location, schedule, stripeAccountId } = fhirResources;
@@ -136,8 +138,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Sms sent to patient');
 
     console.log('Setting task status to completed');
-    const taskCopy = addInvoiceIdToTaskOutput(task, invoiceResponse.id);
-    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), taskCopy.output);
+    const invoiceEntry: TaskOutput = {
+      type: RcmTaskCodings.sendInvoiceOutputInvoiceId,
+      valueString: invoiceResponse.id,
+    };
+    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), [invoiceEntry]);
     console.log('Task status and output updated');
 
     // Trigger statement generation explicitly so it only runs on a real send, not on refreshes.
@@ -178,8 +183,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error) {
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     console.log('updating task status to failed and output');
-    const taskCopy = addErrorToTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
-    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);
+    const errorEntry = addErrorToInvoicingTaskOutput(error instanceof Error ? error.message : 'Unknown error');
+    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), [errorEntry]);
     if (isInvalidEmailError(error)) {
       console.warn('Invoice not sent due to invalid patient email; task updated but error suppressed from Sentry');
       return { statusCode: 200, body: JSON.stringify({ message: 'Invoice skipped: invalid patient email' }) };
@@ -351,63 +356,6 @@ async function getFhirResources(
     schedule,
     stripeAccountId: stripeAccount,
   };
-}
-
-async function updateTaskStatusAndOutput(
-  oystehr: Oystehr,
-  task: Task,
-  status: Task['status'],
-  newOutput?: TaskOutput[]
-): Promise<void> {
-  const patchOperations: Operation[] = [
-    {
-      op: 'replace',
-      path: '/status',
-      value: status,
-    },
-  ];
-  if (newOutput) {
-    patchOperations.push({
-      op: task.output ? 'replace' : 'add',
-      path: '/output',
-      value: newOutput,
-    });
-  }
-  await oystehr.fhir.patch({
-    resourceType: 'Task',
-    id: task.id!,
-    operations: patchOperations,
-  });
-}
-
-function addInvoiceIdToTaskOutput(task: Task, invoiceId: string): Task {
-  const taskCopy = { ...task };
-  if (!taskCopy.output) taskCopy.output = [];
-  const invoiceIdCoding = RcmTaskCodings.sendInvoiceOutputInvoiceId;
-
-  const existingInvoiceId = taskCopy.output.find((output) => output.valueString === invoiceId);
-  if (existingInvoiceId) {
-    return taskCopy;
-  } else {
-    const newInvoiceId: TaskOutput = {
-      type: invoiceIdCoding,
-      valueString: invoiceId,
-    };
-    taskCopy.output?.push(newInvoiceId);
-    return taskCopy;
-  }
-}
-
-function addErrorToTaskOutput(task: Task, error: string): Task {
-  const taskCopy = { ...task };
-  if (!taskCopy.output) taskCopy.output = [];
-  const taskError = RcmTaskCodings.sendInvoiceOutputError;
-
-  taskCopy.output?.push({
-    type: taskError,
-    valueString: error,
-  });
-  return taskCopy;
 }
 
 function isInvalidEmailError(error: unknown): boolean {

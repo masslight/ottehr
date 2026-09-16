@@ -27,6 +27,12 @@ export const HOLD_TAG_NAME = 'Hold';
 // accident.
 export const AUTO_ACCIDENT_TAG_NAME = 'Auto Accident';
 
+// Applied by sub-claim-response-adjust-status when a claim has more than one payer
+export const SECONDARY_SUBMISSION_TAG_NAME = 'secondary-submission';
+
+// Applied by sub-claim-response-adjust-status when a claim has more than one payer
+export const SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME = 'waiting-for-non-primary-ERA';
+
 export const HOLD_SYSTEM_TAG: SystemManagedTag = {
   name: HOLD_TAG_NAME,
   description: 'Claim was placed on hold either by a user or by a rule and requires review before it can proceed.',
@@ -37,7 +43,22 @@ export const AUTO_ACCIDENT_SYSTEM_TAG: SystemManagedTag = {
   description: 'Claim is for a clinical encounter resulting from an auto accident',
 };
 
-export const SYSTEM_MANAGED_TAGS: readonly SystemManagedTag[] = [HOLD_SYSTEM_TAG, AUTO_ACCIDENT_SYSTEM_TAG];
+export const SECONDARY_SUBMISSION_SYSTEM_TAG: SystemManagedTag = {
+  name: SECONDARY_SUBMISSION_TAG_NAME,
+  description: 'Claim has more than one insurer and has been submitted to primary insurer',
+};
+
+export const SECONDARY_SUBMISSION_CROSSOVER_SYSTEM_TAG: SystemManagedTag = {
+  name: SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
+  description: 'Claim has has been submitted to secondary insurer by primary insurer',
+};
+
+export const SYSTEM_MANAGED_TAGS: readonly SystemManagedTag[] = [
+  HOLD_SYSTEM_TAG,
+  AUTO_ACCIDENT_SYSTEM_TAG,
+  SECONDARY_SUBMISSION_SYSTEM_TAG,
+  SECONDARY_SUBMISSION_CROSSOVER_SYSTEM_TAG,
+];
 
 export function isSystemManagedTagName(name: string | undefined): boolean {
   return !!name && SYSTEM_MANAGED_TAGS.some((tag) => tag.name === name);

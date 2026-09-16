@@ -64,6 +64,10 @@ import {
   UpdateInHouseMedicationInput,
 } from 'utils/lib/types/api/config/in-house-medications';
 import {
+  ConvertVisitToFollowUpInput,
+  ConvertVisitToFollowUpResponse,
+} from 'utils/lib/types/api/convert-visit-to-follow-up/convert-visit-to-follow-up.types';
+import {
   CreateDischargeSummaryInput,
   CreateDischargeSummaryResponse,
 } from 'utils/lib/types/api/create-discharge-summary/create-discharge-summary.types';
@@ -97,6 +101,8 @@ import {
   DeleteLocationParams,
   DeleteLocationResponse,
   GetLocationParams,
+  GetLocationResponse,
+  ListActiveLocationsOutput,
   ToggleLocationActiveParams,
   UpdateLocationParams,
 } from 'utils/lib/types/api/locations';
@@ -111,6 +117,16 @@ import {
   UpdatePatientLoginPhoneNumbersInput,
 } from 'utils/lib/types/api/patient-login-phone-numbers.types';
 import {
+  CreatePatientNoteInput,
+  DeletePatientNoteInput,
+  GetPatientNotesCountOutput,
+  GetPatientNotesInput,
+  GetPatientNotesOutput,
+  PatientNoteDTO,
+  SavePatientNoteOutput,
+  UpdatePatientNoteInput,
+} from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import {
   PracticeKpisReportZambdaInput,
   PracticeKpisReportZambdaOutput,
 } from 'utils/lib/types/api/practice-kpis-report.types';
@@ -124,6 +140,13 @@ import {
   GetProgressNoteConfigOutput,
   UpdateProgressNoteConfigInput,
 } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
+import {
+  GetProviderNotificationsOutput,
+  MarkProviderNotificationsReadInput,
+  MarkProviderNotificationsReadOutput,
+  UpdateProviderNotificationSettingsInput,
+  UpdateProviderNotificationSettingsOutput,
+} from 'utils/lib/types/api/provider-notifications';
 import {
   AllergyQuickPickData,
   CreateAllergyQuickPickInput,
@@ -428,6 +451,10 @@ const LIST_PROVIDER_GROUPS_ZAMBDA_ID = 'list-provider-groups';
 const CREATE_SCHEDULE_ZAMBDA_ID = 'create-schedule';
 const CREATE_LOCATION_ZAMBDA_ID = 'create-location';
 const GET_LOCATION_ZAMBDA_ID = 'get-location';
+const LIST_ACTIVE_LOCATIONS_ZAMBDA_ID = 'list-active-locations';
+const GET_PROVIDER_NOTIFICATIONS_ZAMBDA_ID = 'get-provider-notifications';
+const MARK_PROVIDER_NOTIFICATIONS_READ_ZAMBDA_ID = 'mark-provider-notifications-read';
+const UPDATE_PROVIDER_NOTIFICATION_SETTINGS_ZAMBDA_ID = 'update-provider-notification-settings';
 const UPDATE_LOCATION_ZAMBDA_ID = 'update-location';
 const TOGGLE_LOCATION_ACTIVE_ZAMBDA_ID = 'toggle-location-active';
 const DELETE_LOCATION_ZAMBDA_ID = 'delete-location';
@@ -1251,8 +1278,38 @@ export const createLocation = async (params: CreateLocationParams, oystehr: Oyst
   return chooseJson(response);
 };
 
-export const getLocation = async (params: GetLocationParams, oystehr: Oystehr): Promise<Location> => {
+export const getLocation = async (params: GetLocationParams, oystehr: Oystehr): Promise<GetLocationResponse> => {
   const response = await oystehr.zambda.execute({ id: GET_LOCATION_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const listActiveLocations = async (oystehr: Oystehr): Promise<ListActiveLocationsOutput> => {
+  const response = await oystehr.zambda.execute({ id: LIST_ACTIVE_LOCATIONS_ZAMBDA_ID });
+  return chooseJson(response);
+};
+
+/**
+ * The signed-in practitioner's notification bell. Takes no parameters — the recipient is the caller's
+ * token, which is also what scopes the read.
+ */
+export const getProviderNotifications = async (oystehr: Oystehr): Promise<GetProviderNotificationsOutput> => {
+  const response = await oystehr.zambda.execute({ id: GET_PROVIDER_NOTIFICATIONS_ZAMBDA_ID });
+  return chooseJson(response);
+};
+
+export const markProviderNotificationsRead = async (
+  params: MarkProviderNotificationsReadInput,
+  oystehr: Oystehr
+): Promise<MarkProviderNotificationsReadOutput> => {
+  const response = await oystehr.zambda.execute({ id: MARK_PROVIDER_NOTIFICATIONS_READ_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const updateProviderNotificationSettings = async (
+  params: UpdateProviderNotificationSettingsInput,
+  oystehr: Oystehr
+): Promise<UpdateProviderNotificationSettingsOutput> => {
+  const response = await oystehr.zambda.execute({ id: UPDATE_PROVIDER_NOTIFICATION_SETTINGS_ZAMBDA_ID, ...params });
   return chooseJson(response);
 };
 
@@ -2246,6 +2303,21 @@ export const updatePatientVisitDetails = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const convertVisitToFollowUp = async (
+  oystehr: Oystehr,
+  parameters: ConvertVisitToFollowUpInput
+): Promise<ConvertVisitToFollowUpResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'convert-visit-to-follow-up',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
   }
 };
 
@@ -3700,3 +3772,67 @@ export const deleteInboundFax = async (oystehr: Oystehr, parameters: DeleteInbou
     throw apiErrorToThrow(error);
   }
 };
+
+export const getPatientNotes = async (
+  oystehr: Oystehr,
+  parameters: GetPatientNotesInput
+): Promise<GetPatientNotesOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'get-patient-notes', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getPatientNotesCount = async (
+  oystehr: Oystehr,
+  parameters: { patientId: string }
+): Promise<GetPatientNotesCountOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'get-patient-notes-count', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const createPatientNote = async (
+  oystehr: Oystehr,
+  parameters: CreatePatientNoteInput
+): Promise<SavePatientNoteOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'create-patient-note', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const updatePatientNote = async (
+  oystehr: Oystehr,
+  parameters: UpdatePatientNoteInput
+): Promise<SavePatientNoteOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'update-patient-note', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const deletePatientNote = async (oystehr: Oystehr, parameters: DeletePatientNoteInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({ id: 'delete-patient-note', ...parameters });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+// Re-export for convenience in callers that import from this module
+export type { PatientNoteDTO };

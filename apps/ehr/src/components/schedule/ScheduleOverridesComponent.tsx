@@ -80,8 +80,21 @@ export function ScheduleOverridesComponent({
   const handleOverridesSave = (event: any): void => {
     event.preventDefault();
 
+    // validate overrides; an override is keyed by its date, so a row with no date picked (or a
+    // partially typed one) is keyed by a placeholder that never matches a day and would be saved
+    // as dead data
+    if (Object.keys(overrides ?? {}).some((date) => !DateTime.fromFormat(date, OVERRIDE_DATE_FORMAT).isValid)) {
+      setToastWarning('Please select a date for each schedule override');
+      return;
+    }
+
     // validate closures
     if (closures) {
+      if (closures.some((closure) => !closure.start)) {
+        setToastWarning('Please select a start date for each closed date');
+        return;
+      }
+
       const startDates = closures.map((closure) => closure.start);
       const startDatesSet = new Set(startDates);
       if (startDates.length !== startDatesSet.size) {

@@ -88,7 +88,7 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({ field }): JSX
   };
 
   return (
-    <Box sx={{ mt: 3 }}>
+    <Box>
       <AccordionCard
         label={`Oxygen sat (%) ${latestOxySatValue ?? ''}`}
         collapsed={isCollapsed}

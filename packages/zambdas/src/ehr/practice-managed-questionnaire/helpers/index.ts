@@ -3,6 +3,7 @@ import { Questionnaire } from 'fhir/r4b';
 import { PAPERWORK_FLOW_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
 import { PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { MANAGED_QUESTIONNAIRE_ERROR } from 'utils/lib/types/errors';
+import { compareVersions } from '../../../shared/fhir';
 import {
   getCanonicalUrlFromQ,
   PAPERWORK_FLOW_BASE_VERSION,
@@ -27,18 +28,6 @@ export function isLatestVersion(candidate: FhirQuestionnaireSubset, current: Fhi
   const currentLastUpdated = current.meta?.lastUpdated;
 
   return new Date(candidateLastUpdated ?? '') >= new Date(currentLastUpdated ?? '');
-}
-
-function compareVersions(versionA: string, versionB: string): number {
-  const a = versionA.split('.').map(Number);
-  const b = versionB.split('.').map(Number);
-
-  for (let i = 0; i < 3; i++) {
-    if (a[i] > b[i]) return 1;
-    if (a[i] < b[i]) return -1;
-  }
-
-  return 0;
 }
 
 export const patchQuestionnaireVersion = (version: string): string => {

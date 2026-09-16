@@ -12,7 +12,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BillingProviderDataObject } from 'utils/lib/fhir/billing';
-import { createFhirHumanName } from 'utils/lib/fhir/helpers';
+import { createFhirHumanName, getSubscriberRelationshipCodeableConcept } from 'utils/lib/fhir/helpers';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { INSURANCE_COVERAGE_CODING } from 'utils/lib/telemed/constants';
@@ -281,15 +281,7 @@ const makeCoverage = (input: CoverageInput): Coverage => {
         reference: getPayerUrl(payor.id!),
       },
     ],
-    relationship: {
-      coding: [
-        {
-          system: 'http://terminology.hl7.org/CodeSystem/subscriber-relationship',
-          code: relationship?.toLowerCase(),
-          display: relationship,
-        },
-      ],
-    },
+    relationship: relationship ? getSubscriberRelationshipCodeableConcept(relationship) : undefined,
     status: 'active',
     class: coverageClass ? [coverageClass] : [],
     type: { coding: [INSURANCE_COVERAGE_CODING] },

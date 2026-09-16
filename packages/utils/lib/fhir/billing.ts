@@ -1,5 +1,6 @@
 import {
   Address,
+  Claim,
   Coding,
   Coverage,
   CoverageEligibilityResponse,
@@ -7,6 +8,7 @@ import {
   Location,
   Organization,
   Practitioner,
+  Reference,
 } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CPT_MODIFIER,
@@ -19,6 +21,10 @@ import {
 } from '../helpers/rcm/constants';
 import { ELIGIBILITY_BENEFIT_CODES, INSURANCE_PLAN_ID_CODING } from '../telemed/constants';
 import { CoverageCheckCoverageDetails } from '../types/api/patient-account';
+import {
+  CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+  CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
+} from '../types/data/billing/non-insurance-org.types';
 import { InsuranceEligibilityCheckStatus } from '../types/data/paperwork/paperwork.types';
 import {
   BillingProviderData,
@@ -30,6 +36,7 @@ import {
   PatientPaymentBenefit,
 } from '../types/data/telemed/eligibility.types';
 import { APIErrorCode } from '../types/errors';
+import { CPT_BILLABLE_UNITS_EXTENSION_URL } from './constants';
 import { getNPI, getTaxID } from './helpers';
 import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from './insurance';
 
@@ -434,6 +441,11 @@ export const extractCptCodeModifiersFromCoding = (coding: Coding): { code: strin
   return modifiers;
 };
 
+export const getCptBillableUnitsFromCoding = (coding: Coding | undefined): number | undefined => {
+  const billableUnits = coding?.extension?.find((ext) => ext.url === CPT_BILLABLE_UNITS_EXTENSION_URL)?.valueDecimal;
+  return billableUnits != null && Number.isFinite(billableUnits) && billableUnits > 0 ? billableUnits : undefined;
+};
+
 // Maps the claim.md insurance type code returned by the eligibility check (key)
 // to the candid/availity insurance plan type code used by the insurance form dropdown (value).
 export const INSURANCE_TYPE_CODE_TO_CANDID_CODE: Record<string, string> = {
@@ -483,6 +495,28 @@ export const mapInsuranceTypeCodeToCandidCode = (insuranceTypeCode: string | und
   return INSURANCE_TYPE_CODE_TO_CANDID_CODE[insuranceTypeCode];
 };
 
+// The claim's non-insurance payer (e.g. the visit's occupational-medicine employer): a reference to
+// the NIO Organization in the billing workspace. Distinct from claim.insurer, which is reserved for
+// insurance payer URLs.
+export const getClaimNonInsurancePayer = (claim?: Claim): Reference | undefined =>
+  claim?.extension?.find((ext) => ext.url === CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL)?.valueReference;
+
+export const claimNonInsurancePayerExtension = (payer: Reference): Extension => ({
+  url: CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+  valueReference: payer,
+});
+
+export const claimNonInsurancePayerTag = (nioId: string): Coding => ({
+  system: CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
+  code: nioId,
+});
+
+export const applyClaimNonInsurancePayerTag = (claim: Claim, nioId: string | null): void => {
+  const tags = (claim.meta?.tag ?? []).filter((tag) => tag.system !== CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM);
+  if (nioId) tags.push(claimNonInsurancePayerTag(nioId));
+  claim.meta = { ...claim.meta, tag: tags };
+};
+
 export const getDefaultClaimSubmissionExtensions = (): Extension[] => [
   { url: EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR, valueBoolean: true },
   { url: EXTENSION_CLAIM_ASSIGNMENT_OR_PLAN_PARTICIPATION_CODE, valueString: 'A' },
@@ -527,3 +561,67 @@ export function commaFormattedName(resource?: { firstName: string; lastName: str
   if (!resource) return '';
   return `${resource.lastName}, ${resource.firstName}`.trim();
 }
+
+export const CLAIM_ATTACHMENT_REPORT_TYPE_CODES = [
+  { code: 'OZ', label: 'Support Data for Claim' },
+  { code: '03', label: 'Report Justifying Treatment Beyond Utilization Guidelines' },
+  { code: '04', label: 'Drugs Administered' },
+  { code: '05', label: 'Treatment Diagnosis' },
+  { code: '06', label: 'Initial Assessment' },
+  { code: '07', label: 'Functional Goals' },
+  { code: '08', label: 'Plan of Treatment' },
+  { code: '09', label: 'Progress Report' },
+  { code: '10', label: 'Continued Treatment' },
+  { code: '11', label: 'Chemical Analysis' },
+  { code: '13', label: 'Certified Test Report' },
+  { code: '15', label: 'Justification for Admission' },
+  { code: '21', label: 'Recovery Plan' },
+  { code: 'A3', label: 'Allergies/Sensitivities Document' },
+  { code: 'A4', label: 'Autopsy Report' },
+  { code: 'AM', label: 'Ambulance Certification' },
+  { code: 'AS', label: 'Admission Summary' },
+  { code: 'B2', label: 'Prescription' },
+  { code: 'B3', label: 'Physician Order' },
+  { code: 'B4', label: 'Referral Form' },
+  { code: 'BR', label: 'Benchmark Testing Results' },
+  { code: 'BS', label: 'Baseline' },
+  { code: 'BT', label: 'Blanket Test Results' },
+  { code: 'CB', label: 'Chiropractic Justification' },
+  { code: 'CK', label: 'Consent Form(s)' },
+  { code: 'CT', label: 'Certification' },
+  { code: 'D2', label: 'Drug Profile Document' },
+  { code: 'DA', label: 'Dental Models' },
+  { code: 'DB', label: 'Durable Medical Equipment Prescription' },
+  { code: 'DG', label: 'Diagnostic Report' },
+  { code: 'DJ', label: 'Discharge Monitoring Report' },
+  { code: 'DS', label: 'Discharge Summary' },
+  { code: 'EB', label: 'Explanation of Benefits (Coordination of Benefits or Medicare Secondary Payor)' },
+  { code: 'HC', label: 'Health Certificate' },
+  { code: 'HR', label: 'Health Clinic Records' },
+  { code: 'I5', label: 'Immunization Record' },
+  { code: 'IR', label: 'State School Immunization Records' },
+  { code: 'LA', label: 'Laboratory Results' },
+  { code: 'M1', label: 'Medical Record Attachment' },
+  { code: 'MT', label: 'Models' },
+  { code: 'NN', label: 'Nursing Notes' },
+  { code: 'OB', label: 'Operative Note' },
+  { code: 'OC', label: 'Oxygen Content Averaging Report' },
+  { code: 'OD', label: 'Orders and Treatments Document' },
+  { code: 'OE', label: 'Objective Physical Examination (including vital signs) Document' },
+  { code: 'OX', label: 'Oxygen Therapy Certification' },
+  { code: 'P4', label: 'Pathology Report' },
+  { code: 'P5', label: 'Patient Medical History Document' },
+  { code: 'PE', label: 'Parenteral or Enteral Certification' },
+  { code: 'PN', label: 'Physical Therapy Notes' },
+  { code: 'PO', label: 'Prosthetics or Orthotic Certification' },
+  { code: 'PQ', label: 'Paramedical Results' },
+  { code: 'PY', label: "Physician's Report" },
+  { code: 'PZ', label: 'Physical Therapy Certification' },
+  { code: 'RB', label: 'Radiology Films' },
+  { code: 'RR', label: 'Radiology Reports' },
+  { code: 'RT', label: 'Report of Tests and Analysis Report' },
+  { code: 'RX', label: 'Renewable Oxygen Content Averaging Report' },
+  { code: 'SG', label: 'Symptoms Document' },
+  { code: 'V5', label: 'Death Notification' },
+  { code: 'XP', label: 'Photographs' },
+];

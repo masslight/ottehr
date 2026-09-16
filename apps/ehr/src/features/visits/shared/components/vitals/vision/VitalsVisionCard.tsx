@@ -90,7 +90,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({ field, historyEleme
   };
 
   return (
-    <Box sx={{ mt: 3 }}>
+    <Box>
       <AccordionCard
         label={`Vision ${latestVisionValueLabel ?? ''}`}
         collapsed={isCollapsed}

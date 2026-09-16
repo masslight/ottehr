@@ -20,6 +20,7 @@ import {
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
   Reference,
+  Resource,
   Schedule,
   ServiceRequest,
   Slot,
@@ -195,6 +196,7 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
   const diagnosticReports: DiagnosticReport[] = [];
   const observations: Observation[] = [];
   const schedules: Schedule[] = [];
+  const serviceRequests: ServiceRequest[] = [];
 
   resourceSearch.forEach((resource) => {
     if (resource.resourceType === 'Patient') patients.push(resource);
@@ -223,7 +225,6 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
   const diagnosticReport = diagnosticReports[0];
   const schedule = schedules.length ? schedules[0] : undefined;
 
-  const serviceRequests: ServiceRequest[] = [];
   if (type === 'unsolicited') {
     serviceRequests.push(
       ...resourceSearch.filter(
@@ -1643,4 +1644,108 @@ export const accountIsWorkersComp = (account: Account): boolean => {
     (coding) => coding.system === workersCompSystem && coding.code === workersCompCode
   );
   return !!isWorkersComp;
+};
+
+export const isTaskPST = (task: Task): boolean => {
+  return (
+    task.code?.coding?.some(
+      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.preSubmission
+    ) || false
+  );
+};
+
+export const isTaskFinal = (task: Task): boolean => {
+  return (
+    task.code?.coding?.some(
+      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.reviewFinalResult
+    ) || false
+  );
+};
+
+export const isTaskPrelim = (task: Task): boolean => {
+  return (
+    task.code?.coding?.some(
+      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.reviewPreliminaryResult
+    ) || false
+  );
+};
+
+export const isTaskCorrected = (task: Task): boolean => {
+  return (
+    task.code?.coding?.some(
+      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.reviewCorrectedResult
+    ) || false
+  );
+};
+
+export const isTaskCancelledResult = (task: Task): boolean => {
+  return (
+    task.code?.coding?.some(
+      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.reviewCancelledResult
+    ) || false
+  );
+};
+
+export const parseTaskPST = (tasks: Task[], serviceRequestId: string): Task | null => {
+  const relatedTasks = filterResourcesBasedOnServiceRequest(tasks, serviceRequestId);
+
+  for (const task of relatedTasks) {
+    if (isTaskPST(task)) {
+      return task;
+    }
+  }
+
+  return null;
+};
+
+export const filterResourcesBasedOnTargetResource = <T extends Resource & { basedOn?: Reference[] }>({
+  resources,
+  targetResourceId,
+  targetResourceType,
+}: {
+  resources: T[];
+  targetResourceId: string;
+  targetResourceType: string;
+}): T[] => {
+  return resources.filter(
+    (resource) => resource.basedOn?.some((basedOn) => basedOn.reference === `${targetResourceType}/${targetResourceId}`)
+  );
+};
+
+export const filterResourcesBasedOnServiceRequest = <T extends Resource & { basedOn?: Reference[] }>(
+  resources: T[],
+  serviceRequestId: string
+): T[] => {
+  return filterResourcesBasedOnTargetResource({
+    resources,
+    targetResourceId: serviceRequestId,
+    targetResourceType: 'ServiceRequest',
+  });
+};
+
+export const filterResourcesBasedOnDiagnosticReports = <T extends Resource & { basedOn?: Reference[] }>(
+  resources: T[],
+  results: DiagnosticReport[]
+): T[] => {
+  const resultsIds: string[] = results
+    .map((result) => result.id)
+    .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+  if (!resultsIds.length) {
+    return [];
+  }
+
+  const result: T[] = [];
+
+  for (const resultId of resultsIds) {
+    const relatedResources = filterResourcesBasedOnTargetResource<T>({
+      resources,
+      targetResourceId: resultId,
+      targetResourceType: 'DiagnosticReport',
+    });
+
+    result.push(...relatedResources);
+  }
+
+  return result;
 };

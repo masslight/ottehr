@@ -9,6 +9,7 @@ import {
   CreateLocationParams,
   DeleteLocationParams,
   DeleteLocationResponse,
+  GetLocationResponse,
   LocationFieldsInput,
   ToggleLocationActiveParams,
 } from 'utils/lib/types/api/locations';
@@ -37,7 +38,14 @@ export const useLocationsListQuery = (): UseQueryResult<Location[], Error> => {
   });
 };
 
-export const useLocationQuery = (locationId: string | undefined): UseQueryResult<Location, Error> => {
+/**
+ * A Location plus the Schedules it actors.
+ *
+ * Both arrive from `get-location` in one call. The schedule list is part of this response rather
+ * than a query of its own so the two can't be separately stale — and so the existing invalidation on
+ * save and status-toggle keeps the booking links honest without extra wiring.
+ */
+export const useLocationQuery = (locationId: string | undefined): UseQueryResult<GetLocationResponse, Error> => {
   const { oystehrZambda } = useApiClients();
   return useQuery({
     queryKey: [LOCATION_KEY, locationId],

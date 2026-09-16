@@ -1,8 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic, Bundle, List, Organization, Resource } from 'fhir/r4b';
+import { NIO_KIND_CODE, NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { DEFAULT_RULES_ENGINE, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { BillingRuleInput } from 'utils/lib/types/data/billing/rules-engine.schemas';
-import { AUTO_ACCIDENT_TAG_NAME, HOLD_TAG_NAME, SYSTEM_MANAGED_TAGS } from 'utils/lib/types/data/billing/system-tags';
+import {
+  AUTO_ACCIDENT_TAG_NAME,
+  HOLD_TAG_NAME,
+  SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
+  SECONDARY_SUBMISSION_TAG_NAME,
+  SYSTEM_MANAGED_TAGS,
+} from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from '../../../src/billing/rules-engine/constants';
 import { complexValidation, performEffect } from '../../../src/billing/save-billing-rules';
@@ -77,7 +84,11 @@ describe('save-billing-rules performEffect', () => {
     await performEffect(oystehr, params([rule('First rule')]), undefined, 'test');
 
     const seededTags = create.mock.calls.map(([r]) => r).filter((r): r is Basic => r.resourceType === 'Basic');
-    expect(seededTags.map((tag) => tag.code?.text)).toEqual([AUTO_ACCIDENT_TAG_NAME]);
+    expect(seededTags.map((tag) => tag.code?.text)).toEqual([
+      AUTO_ACCIDENT_TAG_NAME,
+      SECONDARY_SUBMISSION_TAG_NAME,
+      SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
+    ]);
   });
 
   it('does not re-seed system-managed tags that already exist', async () => {
@@ -246,6 +257,70 @@ describe('save-billing-rules complexValidation (provider/facility refs must exis
 
   it('skips the lookup entirely when no rule sets a provider or facility', async () => {
     await expect(complexValidation(oystehr, params([rule('Plain')]))).resolves.toBeUndefined();
+    expect(batch).not.toHaveBeenCalled();
+  });
+});
+
+describe('save-billing-rules complexValidation (non-insurance organizations must exist)', () => {
+  const nioRule = (name: string, id: string): BillingRuleInput => ({
+    name,
+    description: '',
+    enabled: true,
+    conditional: {
+      branches: [
+        {
+          condition: { type: 'all' },
+          outcome: { type: 'actions', actions: [{ type: 'setField', field: 'nonInsurancePayerId', value: id }] },
+        },
+      ],
+    },
+  });
+
+  // The shape getResourcesFromBatchInlineRequests parses: a batch-response of searchset bundles.
+  const batchResponse = (resources: Resource[]): Bundle => ({
+    resourceType: 'Bundle',
+    type: 'batch-response',
+    entry: resources.map((resource) => ({
+      response: { status: '200', outcome: { resourceType: 'OperationOutcome' as const, id: 'ok', issue: [] } },
+      resource: { resourceType: 'Bundle', type: 'searchset', entry: [{ resource }] } as Bundle,
+    })),
+  });
+
+  const nioOrg = (id: string): Organization => ({
+    resourceType: 'Organization',
+    id,
+    name: `NIO ${id}`,
+    type: [{ coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: NIO_KIND_CODE }] }],
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    search.mockResolvedValue({ unbundle: () => [] });
+  });
+
+  it('passes when the assigned organization exists and is a non-insurance organization', async () => {
+    batch.mockResolvedValue(batchResponse([nioOrg('nio-1')]));
+    await expect(complexValidation(oystehr, params([nioRule('Stamp employer', 'nio-1')]))).resolves.toBeUndefined();
+    expect(batch).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an organization that does not exist, naming the rule and field', async () => {
+    batch.mockResolvedValue(batchResponse([]));
+    await expect(complexValidation(oystehr, params([nioRule('Stamp employer', 'nio-gone')]))).rejects.toThrow(
+      /rule "Stamp employer" sets "nonInsurancePayerId" to nio-gone — no such organization exists/
+    );
+  });
+
+  it('rejects an organization that is not a non-insurance organization', async () => {
+    const plainOrg: Organization = { resourceType: 'Organization', id: 'org-1', name: 'A payer' };
+    batch.mockResolvedValue(batchResponse([plainOrg]));
+    await expect(complexValidation(oystehr, params([nioRule('Stamp employer', 'org-1')]))).rejects.toThrow(
+      /it is not a non-insurance organization/
+    );
+  });
+
+  it('skips the lookup for clearing actions and rules that set nothing', async () => {
+    await expect(complexValidation(oystehr, params([nioRule('Clear it', ''), rule('Plain')]))).resolves.toBeUndefined();
     expect(batch).not.toHaveBeenCalled();
   });
 });

@@ -1,0 +1,227 @@
+import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
+import { randomUUID } from 'crypto';
+import { DocumentReference } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import {
+  FORM_TEMPLATE_CATEGORY_CODING,
+  FORM_TEMPLATE_FILLABILITY_SYSTEM,
+  FORM_TEMPLATE_IDENTIFIER_SYSTEM,
+  FormTemplateFillability,
+} from 'utils/lib/fhir/constants';
+import { readExtensionJson as readSharedExtensionJson } from 'utils/lib/fhir/extensions';
+import { FormFieldBinding, FormTemplateMapping, isBindingComplete } from 'utils/lib/form-tokens/mapping';
+import { findToken } from 'utils/lib/form-tokens/token-catalog';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import {
+  FormFieldInfo,
+  FormTemplateAnalysisStatus,
+  FormTemplateItem,
+  FormTemplateRejection,
+} from 'utils/lib/types/api/form-template.types';
+import { sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
+import { Z3_OBJECT_NAME_MAX_LENGTH, z3ObjectNameDatePrefix } from '../../shared/presigned-file-urls/helpers';
+
+/**
+ * `docStatus` marks a template as a draft (`preliminary`) or published (`final`). This mirrors the
+ * `PdfDocumentReferencePublishedStatuses` convention already used for generated PDFs.
+ */
+export const FORM_TEMPLATE_DOC_STATUS = {
+  draft: 'preliminary',
+  published: 'final',
+} as const;
+
+/**
+ * Fields a template listing needs. Requested explicitly so the search never drags back `extension`,
+ * which is where the (potentially large) field-to-context mapping lives. Listing twenty templates
+ * should not transfer twenty mappings nobody asked for.
+ */
+export const FORM_TEMPLATE_LIST_ELEMENTS = [
+  'id',
+  'identifier',
+  // Carries the fillability flag, so listings can tell a fillable template from a printable one.
+  'category',
+  'description',
+  'docStatus',
+  'status',
+  'content',
+  'meta',
+];
+
+/** Guards against acting on a DocumentReference that belongs to some other feature. */
+export const isFormTemplate = (docRef: DocumentReference): boolean =>
+  (docRef.category ?? []).some((c) =>
+    (c.coding ?? []).some(
+      (coding) =>
+        coding.system === FORM_TEMPLATE_CATEGORY_CODING.system && coding.code === FORM_TEMPLATE_CATEGORY_CODING.code
+    )
+  );
+
+export const getFormTemplateIdentifier = (docRef: DocumentReference): string | undefined =>
+  docRef.identifier?.find((id) => id.system === FORM_TEMPLATE_IDENTIFIER_SYSTEM)?.value;
+
+/**
+ * The shared reader, bound to this service's error reporter.
+ *
+ * The parse behaviour lives in `utils` so the schedule extension and anything else storing JSON this way
+ * can share it; only the reporting is service-specific, since `utils` is shared with the browser and has
+ * no Sentry client.
+ */
+export const readExtensionJson = <T>(docRef: DocumentReference, url: string): T | undefined =>
+  readSharedExtensionJson<T>(docRef, url, (error) =>
+    captureException(error, { extra: { extensionUrl: url, documentReferenceId: docRef.id } })
+  );
+
+export { withExtensionJson } from 'utils/lib/fhir/extensions';
+
+export const isFillable = (docRef: DocumentReference): boolean =>
+  (docRef.category ?? []).some((c) =>
+    (c.coding ?? []).some(
+      (coding) => coding.system === FORM_TEMPLATE_FILLABILITY_SYSTEM && coding.code === FormTemplateFillability.fillable
+    )
+  );
+
+export const isPublished = (docRef: DocumentReference): boolean =>
+  docRef.docStatus === FORM_TEMPLATE_DOC_STATUS.published;
+
+/**
+ * Statuses under which an analysed PDF cannot be used as a template.
+ *
+ * A complete map of `FormTemplateRejection` rather than a set of strings, so adding a rejection status to
+ * the analysis union fails to compile here instead of quietly falling through as an acceptable template —
+ * which is how `fillingNotPermitted` and `certified` came to be treated as printable.
+ */
+const REJECTED_ANALYSIS: Record<FormTemplateRejection, true> = {
+  encrypted: true,
+  fillingNotPermitted: true,
+  certified: true,
+  dynamicXfa: true,
+  unreadable: true,
+};
+
+/** A type guard, so a caller inside the branch can index the rejection map without asserting. */
+export const isRejectedAnalysis = (status: FormTemplateAnalysisStatus): status is FormTemplateRejection =>
+  status in REJECTED_ANALYSIS;
+
+/**
+ * Object name for a template's PDF. The UUID keeps two same-day uploads of one file name apart.
+ *
+ * The date and UUID take about 62 characters of the budget, and the name is trimmed to what is left
+ * rather than allowed to overrun it — an untrimmed name simply failed validation later, so a template
+ * with a long file name could not be uploaded at all.
+ */
+export const makeFormTemplateObjectName = (fileName: string): string => {
+  const prefix = `${z3ObjectNameDatePrefix()}-${randomUUID()}-`;
+  return `${prefix}${sanitizeFileNameForZ3(fileName).slice(0, Z3_OBJECT_NAME_MAX_LENGTH - prefix.length)}`;
+};
+
+/**
+ * Creates the record for a new template. Always a draft: nothing has read the PDF at this point, and
+ * `analyze-form-template` is what decides whether it is usable at all.
+ */
+export const createFormTemplateDraft = async (params: {
+  oystehr: Oystehr;
+  title: string;
+  description?: string;
+  z3Url: string;
+}): Promise<string> => {
+  const { oystehr, title, description, z3Url } = params;
+
+  const created = await oystehr.fhir.create<DocumentReference>({
+    resourceType: 'DocumentReference',
+    status: 'current',
+    docStatus: FORM_TEMPLATE_DOC_STATUS.draft,
+    category: [{ coding: [FORM_TEMPLATE_CATEGORY_CODING] }],
+    identifier: [{ system: FORM_TEMPLATE_IDENTIFIER_SYSTEM, value: randomUUID() }],
+    date: DateTime.now().setZone('UTC').toISO() ?? '',
+    description,
+    content: [{ attachment: { url: z3Url, contentType: 'application/pdf', title } }],
+  });
+
+  if (!created.id) {
+    throw new Error('Failed to create the DocumentReference for the form template');
+  }
+  return created.id;
+};
+
+/**
+ * Fetches a template by id, refusing anything that is not one. Callers mutate templates by id supplied
+ * from the client, so this is the check that stops an arbitrary DocumentReference being edited or
+ * deleted through the form-template endpoints.
+ */
+export const getFormTemplateOrThrow = async (oystehr: Oystehr, id: string): Promise<DocumentReference> => {
+  const docRef = await oystehr.fhir.get<DocumentReference>({ resourceType: 'DocumentReference', id });
+  if (!isFormTemplate(docRef)) {
+    throw new Error(`DocumentReference/${id} is not a form template`);
+  }
+  return docRef;
+};
+
+/**
+ * Removes bindings that name fields the PDF no longer contains, and reports which went.
+ *
+ * Dropping rather than keeping is deliberate. A binding pointing at a field that does not exist fills
+ * nothing, produces no error, and gets written back on the next save — so it looks like configured
+ * behaviour while doing nothing at all. Removing it is destructive but visible, and the caller reports
+ * exactly what was lost.
+ */
+export const reconcileMappingWithFields = (
+  mapping: FormTemplateMapping,
+  fields: FormFieldInfo[]
+): { mapping: FormTemplateMapping; dropped: string[] } => {
+  const byName = new Map(fields.map((field) => [field.name, field]));
+
+  const kept: FormFieldBinding[] = [];
+  const dropped: string[] = [];
+
+  for (const binding of mapping.bindings) {
+    const field = byName.get(binding.fieldName);
+    const token = findToken(binding.tokenKey);
+
+    // Name alone is not enough. A replacement PDF that keeps a field's name but changes it from text to
+    // checkbox leaves a binding that still points somewhere real and now writes the wrong kind of value —
+    // which fills silently rather than failing. `isBindingComplete` is the same check the editor applies,
+    // so a binding surviving here is one the editor would let an administrator create today.
+    // `mappable` too, not just the type. A replacement that keeps a field's name and type but makes it
+    // read-only leaves a binding the filler will try to write, and a write to a read-only field can take
+    // the whole prefill down rather than skipping one field.
+    if (field?.mappable && token && isBindingComplete(binding, token.type, field.type)) {
+      kept.push(binding);
+    } else {
+      dropped.push(binding.fieldName);
+    }
+  }
+
+  return { mapping: { ...mapping, bindings: kept }, dropped };
+};
+
+export const toFormTemplateItem = async (docRef: DocumentReference, token: string): Promise<FormTemplateItem> => {
+  const z3Url = docRef.content?.[0]?.attachment?.url;
+  if (!z3Url) {
+    throw new Error(`Form template DocumentReference/${docRef.id} has no attachment URL`);
+  }
+
+  // A template whose stored file has gone missing must not take the whole listing down with it. Left
+  // empty, the row still renders — which is the only way an administrator can reach the broken entry to
+  // delete it. Failing the request instead would hide every template behind one bad one.
+  let pdfPresignedUrl = '';
+  try {
+    pdfPresignedUrl = await getPresignedURL(z3Url, token);
+  } catch (error) {
+    console.warn(`Could not presign the file for form template DocumentReference/${docRef.id} (${z3Url})`, error);
+    // The row still renders, which is what lets an administrator reach a broken template to delete it —
+    // but a template whose stored file cannot be presigned is broken and should be reported as such.
+    captureException(error, { extra: { documentReferenceId: docRef.id, z3Url } });
+  }
+
+  return {
+    documentReferenceId: docRef.id!,
+    identifier: getFormTemplateIdentifier(docRef) ?? '',
+    title: docRef.content?.[0]?.attachment?.title ?? '',
+    description: docRef.description,
+    published: isPublished(docRef),
+    fillable: isFillable(docRef),
+    pdfPresignedUrl,
+    lastUpdated: docRef.meta?.lastUpdated,
+  };
+};

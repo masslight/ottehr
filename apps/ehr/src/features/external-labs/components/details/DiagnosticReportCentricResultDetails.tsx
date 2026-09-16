@@ -51,6 +51,7 @@ export const DiagnosticReportCentricResultDetails: FC<DiagnosticReportCentricRes
           labOrder={results}
           markTaskAsReviewed={markAsReviewed}
           loading={loadingOrders || markingAsReviewed}
+          onBack={() => navigate(-1)}
         />
       </LabBreadcrumbs>
     </DetailPageContainer>

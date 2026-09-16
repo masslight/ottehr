@@ -1,7 +1,6 @@
-import { DateTime } from 'luxon';
+import { getAppointmentSearchDateRangeError } from 'utils/lib/helpers/appointment-search';
 import { AppointmentTypeOptions } from 'utils/lib/types/api/appointment.types';
 import { ServiceMode } from 'utils/lib/types/common';
-import { MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils/lib/types/constants';
 import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { ZambdaInput } from '../../shared/types/common';
@@ -24,27 +23,9 @@ const GetAppointmentsBodySchema = z
     supervisorApprovalEnabled: z.boolean().default(false),
   })
   .superRefine((data, ctx) => {
-    if (data.searchDateFrom > data.searchDateTo) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['searchDateTo'],
-        message: '"searchDateFrom" must be on or before "searchDateTo"',
-      });
-      return;
-    }
-
-    // Parse in a fixed zone so every day is exactly 24h; otherwise DST transitions in the process
-    // local zone produce fractional-day diffs that make the limit nondeterministic at the boundary.
-    const rangeInDays = DateTime.fromISO(data.searchDateTo, { zone: 'utc' }).diff(
-      DateTime.fromISO(data.searchDateFrom, { zone: 'utc' }),
-      'days'
-    ).days;
-    if (rangeInDays > MAX_APPOINTMENT_SEARCH_RANGE_DAYS) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['searchDateTo'],
-        message: `The date range must not exceed ${MAX_APPOINTMENT_SEARCH_RANGE_DAYS} days`,
-      });
+    const rangeError = getAppointmentSearchDateRangeError(data.searchDateFrom, data.searchDateTo);
+    if (rangeError) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['searchDateTo'], message: rangeError });
     }
   })
   .refine((data) => data.locationIds || data.providerIds || data.serviceCategories, {

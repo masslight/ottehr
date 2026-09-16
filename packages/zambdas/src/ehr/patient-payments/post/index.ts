@@ -28,6 +28,7 @@ import { makeBusinessIdentifierForCandidPayment } from '../../../shared/candid';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
+import { practitionerRefForUser } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
 import {
   getStripeClient,
@@ -57,9 +58,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
   const user = await getUser(authorization.replace('Bearer ', ''), secrets);
 
-  const userProfile = user.profile;
-
-  if (!userProfile) {
+  if (!user.profile) {
     throw NOT_AUTHORIZED;
   }
 
@@ -90,11 +89,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
 
+  const submitterRef = await practitionerRefForUser(user, oystehrClient);
+
   const effectInput: ComplexValidationOutput = await complexValidation(
     {
       ...validatedParameters,
       ...requiredSecrets,
-      userProfile,
+      submitterRef,
     },
     oystehrClient
   );
@@ -127,7 +128,7 @@ const performEffect = async (
   oystehrClient: Oystehr,
   requiredSecrets: RequiredSecrets
 ): Promise<{ notice: PaymentNotice; paymentIntent?: Stripe.PaymentIntent }> => {
-  const { encounterId, patientId, paymentDetails, organizationId, userProfile, stripeAccount } = input;
+  const { encounterId, patientId, paymentDetails, organizationId, submitterRef, stripeAccount } = input;
   const { paymentMethod, amountInCents, description, idempotencyKey } = paymentDetails;
   const dateTimeIso = DateTime.now().toISO() || '';
   let paymentIntent: Stripe.Response<Stripe.PaymentIntent> | undefined;
@@ -149,7 +150,7 @@ const performEffect = async (
   const paymentNoticeInput: PaymentNoticeInput = {
     encounterId,
     paymentDetails,
-    submitterRef: { reference: userProfile },
+    submitterRef,
     dateTimeIso,
     recipientId: organizationId,
     idempotencyKey,
@@ -369,7 +370,7 @@ const validateEnvironmentParameters = (input: ZambdaInput, isCardPayment: boolea
   return { organizationId, stripeKey, secrets };
 };
 
-type ComplexValidationInput = PostPatientPaymentInput & RequiredSecrets & { userProfile: string };
+type ComplexValidationInput = PostPatientPaymentInput & RequiredSecrets & { submitterRef: Reference };
 interface ComplexValidationOutput extends ComplexValidationInput {
   cardInput?: {
     stripeCustomerId: string;

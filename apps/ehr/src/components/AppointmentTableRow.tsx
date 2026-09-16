@@ -1,7 +1,7 @@
 import { progressNoteIcon } from '@ehrTheme/icons';
 import CallSplitIcon from '@mui/icons-material/CallSplit';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckIcon from '@mui/icons-material/Check';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
 import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
@@ -9,6 +9,7 @@ import { LoadingButton } from '@mui/lab';
 import {
   Badge,
   Box,
+  Button,
   capitalize,
   darken,
   Grid,
@@ -23,7 +24,6 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { Operation } from 'fast-json-patch';
 import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -37,9 +37,9 @@ import {
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
 import { otherColors } from 'src/themes/ottehr/colors';
+import { updateAppointmentRoom } from 'utils/lib/fhir/appointments';
 import { LOCATION_REVIEW_LINK_EXTENSION_URL, ROOM_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
-import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { getAbnormalVitals } from 'utils/lib/helpers/vitals/utils';
 import { VisitStatusHistoryEntry, VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
 import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
@@ -206,7 +206,6 @@ export default function AppointmentTableRow({
   const user = useEvolveUser();
 
   const [primaryActionButtonLoading, setPrimaryActionButtonLoading] = useState(false);
-  const [progressNoteButtonLoading, setProgressNoteButtonLoading] = useState(false);
   const [approveButtonLoading, setApproveButtonLoading] = useState(false);
   const [reviewAndSignButtonLoading, setReviewAndSignButtonLoading] = useState(false);
 
@@ -271,57 +270,7 @@ export default function AppointmentTableRow({
       id: appointment.id,
     });
 
-    let patchOp: Operation;
-
-    if (!room) {
-      const extension = (appointmentToUpdate.extension || []).filter((ext) => ext.url !== ROOM_EXTENSION_URL);
-
-      if (extension?.length === 0) {
-        patchOp = {
-          op: 'remove',
-          path: '/extension',
-        };
-      } else {
-        patchOp = {
-          op: 'replace',
-          path: '/extension',
-          value: extension,
-        };
-      }
-    } else {
-      if (appointmentToUpdate.extension?.find((ext) => ext.url === ROOM_EXTENSION_URL)) {
-        patchOp = {
-          op: 'replace',
-          path: '/extension',
-          value: appointmentToUpdate.extension.map((ext) => {
-            if (ext.url === ROOM_EXTENSION_URL) {
-              return { url: ROOM_EXTENSION_URL, valueString: room };
-            }
-            return ext;
-          }),
-        };
-      } else {
-        if ((appointmentToUpdate.extension || []).length === 0) {
-          patchOp = {
-            op: 'add',
-            path: '/extension',
-            value: [{ url: ROOM_EXTENSION_URL, valueString: room }],
-          };
-        } else {
-          patchOp = {
-            op: 'replace',
-            path: '/extension',
-            value: [...(appointmentToUpdate.extension || []), { url: ROOM_EXTENSION_URL, valueString: room }],
-          };
-        }
-      }
-    }
-
-    await oystehr.fhir.batch({
-      requests: [
-        getPatchBinary({ resourceId: appointment.id, resourceType: 'Appointment', patchOperations: [patchOp] }),
-      ],
-    });
+    await updateAppointmentRoom(appointmentToUpdate, room, oystehr);
 
     setRoomSaving(false);
   };
@@ -574,6 +523,7 @@ export default function AppointmentTableRow({
   }
   const encounterId: string = encounter.id;
   const primaryAction = getTrackingBoardPrimaryAction(appointment.status, { isVirtualVisit: isVirtual(appointment) });
+  const progressNoteUrl = getInPersonUrlByAppointmentType(appointment, ROUTER_PATH.REVIEW_AND_SIGN);
   const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
   const assignedProviderId = getAttendingPractitionerId(encounter);
   // Read-only display (Discharged/Cancelled tabs) uses the names resolved on the appointment's
@@ -715,22 +665,6 @@ export default function AppointmentTableRow({
     return renderActionButton(primaryAction.label, handlePrimaryActionButton, primaryAction.dataTestId);
   };
 
-  const navigateToReviewAndSign = async (setLoading: (loading: boolean) => void): Promise<void> => {
-    setLoading(true);
-    try {
-      navigate(getInPersonUrlByAppointmentType(appointment, ROUTER_PATH.REVIEW_AND_SIGN));
-    } catch (error) {
-      console.error(error);
-      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleProgressNoteButton = async (): Promise<void> => {
-    await navigateToReviewAndSign(setProgressNoteButtonLoading);
-  };
-
   const renderProgressNoteButton = (): ReactElement | undefined => {
     if (
       appointment.status === 'intake' ||
@@ -744,12 +678,7 @@ export default function AppointmentTableRow({
       appointment.status === 'ready'
     ) {
       return (
-        <GoToButton
-          text="Progress Note"
-          loading={progressNoteButtonLoading}
-          onClick={handleProgressNoteButton}
-          dataTestId={dataTestIds.dashboard.progressNoteButton}
-        >
+        <GoToButton text="Progress Note" to={progressNoteUrl} dataTestId={dataTestIds.dashboard.progressNoteButton}>
           <img src={progressNoteIcon} />
         </GoToButton>
       );
@@ -758,7 +687,15 @@ export default function AppointmentTableRow({
   };
 
   const handleReviewAndSignButton = async (): Promise<void> => {
-    await navigateToReviewAndSign(setReviewAndSignButtonLoading);
+    setReviewAndSignButtonLoading(true);
+    try {
+      navigate(progressNoteUrl);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    } finally {
+      setReviewAndSignButtonLoading(false);
+    }
   };
 
   const renderReviewAndSignButton = (): ReactElement | undefined => {
@@ -806,29 +743,33 @@ export default function AppointmentTableRow({
       user?.profileResource &&
       isEligibleSupervisor(user.profileResource!, appointment.attenderProviderType)
     ) {
-      return (
-        <GoToButton
-          text="Approve"
-          loading={approveButtonLoading || isSignLoading}
-          onClick={handleApprove}
-          dataTestId={dataTestIds.dashboard.approveButton}
-        >
-          <CheckCircleOutlineIcon />
-        </GoToButton>
+      return renderActionButton(
+        'Approve',
+        handleApprove,
+        dataTestIds.dashboard.approveButton,
+        approveButtonLoading || isSignLoading
       );
     } else if (appointment.status === 'completed' && appointment.approvalDate) {
       return (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            color: theme.palette.text.secondary,
-          }}
-        >
-          <Typography align="center">Approved</Typography>
-          <Typography align="center">{mdyStringFromISOString(appointment.approvalDate)}</Typography>
-        </Box>
+        <Tooltip title={`Approved ${mdyStringFromISOString(appointment.approvalDate)}`} placement="top">
+          <span>
+            <Button
+              disabled
+              variant="contained"
+              startIcon={<CheckIcon />}
+              sx={{
+                borderRadius: 8,
+                textTransform: 'none',
+                fontSize: '15px',
+                fontWeight: 500,
+                whiteSpace: 'nowrap',
+                px: 2.5,
+              }}
+            >
+              Approved
+            </Button>
+          </span>
+        </Tooltip>
       );
     }
     return undefined;
@@ -1152,7 +1093,7 @@ export default function AppointmentTableRow({
         <Stack direction={'row'} spacing={1} alignItems="center" justifyContent="center" sx={{ width: '100%' }}>
           <GoToButton
             text="Visit Details"
-            onClick={() => navigate(getInPersonVisitDetailsUrl(appointment.id))}
+            to={getInPersonVisitDetailsUrl(appointment.id)}
             dataTestId={dataTestIds.dashboard.visitDetailsButton}
           >
             <MedicalInformationIcon />

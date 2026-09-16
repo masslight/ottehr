@@ -4,9 +4,10 @@ import { FC, useState } from 'react';
 type InfoAlertProps = {
   text: string;
   persistent?: boolean;
+  dataTestId?: string;
 };
 
-export const InfoAlert: FC<InfoAlertProps> = ({ text, persistent }) => {
+export const InfoAlert: FC<InfoAlertProps> = ({ text, persistent, dataTestId }) => {
   const [open, setOpen] = useState(true);
 
   if (!open) {
@@ -16,6 +17,7 @@ export const InfoAlert: FC<InfoAlertProps> = ({ text, persistent }) => {
   return (
     <Alert
       severity="info"
+      data-testid={dataTestId}
       onClose={persistent ? undefined : () => setOpen(false)}
       sx={{
         backgroundColor: '#e6f3fa',

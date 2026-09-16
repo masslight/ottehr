@@ -433,7 +433,7 @@ interface FollowUpContext {
   appointments: Appointment[];
 }
 
-const followUpVisitHistoryRowFromEncounter = (
+export const followUpVisitHistoryRowFromEncounter = (
   encounter: Encounter,
   context: FollowUpContext
 ): FollowUpVisitHistoryRow | undefined => {
@@ -463,12 +463,22 @@ const followUpVisitHistoryRowFromEncounter = (
   // For scheduled follow-ups, fall back to appointment data for date and reason
   const ownAppointment = ownAppointmentId ? appointments.find((a) => a.id === ownAppointmentId) : undefined;
 
+  // A scheduled follow-up books its own Slot, so its Appointment carries the
+  // service category picked when the follow-up was created — which can differ
+  // from the parent visit's. Prefer it, and fall back to the parent's category
+  // only when the follow-up has none of its own (annotation follow-ups have no
+  // Appointment at all, so they always inherit).
+  const ownServiceCategory = ownAppointment
+    ? getCoding(ownAppointment.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code ??
+      getCoding(ownAppointment.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.display
+    : undefined;
+
   return {
     encounterId: encounter.id,
     dateTime: encounter.period?.start || ownAppointment?.start,
     timezone: getLocationTimezone(location),
     type: followUpType,
-    serviceCategory,
+    serviceCategory: ownServiceCategory ?? serviceCategory,
     visitReason: encounter.reasonCode?.[0]?.text || ownAppointment?.description,
     provider: getProviderFromEncounter(encounter, practitioners),
     office,

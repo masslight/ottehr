@@ -1,6 +1,6 @@
 import { Jimp, JimpMime } from 'jimp';
 import { PageSizes, PDFDocument, PDFFont, rgb, StandardFonts } from 'pdf-lib';
-import { MIME_TYPES } from 'utils/lib/utils/file';
+import { detectMimeTypeFromBytes, MIME_TYPES } from 'utils/lib/utils/file';
 import { getImageOrientation } from 'utils/lib/utils/image-orientation';
 import { createPresignedUrl } from '../z3Utils';
 
@@ -33,7 +33,7 @@ export async function downloadFileBytes(z3Url: string, token: string): Promise<U
  * incomplete packet.
  */
 export async function normalizeFileToPdf(bytes: Uint8Array, contentType?: string): Promise<Uint8Array> {
-  const detectedType = detectFileType(bytes);
+  const detectedType = detectMimeTypeFromBytes(bytes);
   if (detectedType === MIME_TYPES.PDF) return bytes;
 
   const pdf = await PDFDocument.create();
@@ -159,33 +159,6 @@ const normalizeJpegOrientation = async (bytes: Uint8Array): Promise<Uint8Array> 
     // metadata or a Jimp decoding failure cannot reject an otherwise faxable image.
     return bytes;
   }
-};
-
-const detectFileType = (bytes: Uint8Array): string | undefined => {
-  // The PDF header may legally appear after a short binary preamble, but must be within the first 1024 bytes.
-  const pdfHeaderEnd = Math.min(bytes.length - 3, 1024);
-  for (let index = 0; index < pdfHeaderEnd; index++) {
-    if (bytes[index] === 0x25 && bytes[index + 1] === 0x50 && bytes[index + 2] === 0x44 && bytes[index + 3] === 0x46) {
-      return MIME_TYPES.PDF;
-    }
-  }
-  if (
-    bytes.length >= 8 &&
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47 &&
-    bytes[4] === 0x0d &&
-    bytes[5] === 0x0a &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0x0a
-  ) {
-    return MIME_TYPES.PNG;
-  }
-  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
-    return MIME_TYPES.JPEG;
-  }
-  return undefined;
 };
 
 /**

@@ -23,7 +23,12 @@ import { DateTime } from 'luxon';
 import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
 import { DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO, DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT } from 'utils/lib/fhir/constants';
 import { dispositionCheckboxOptions } from 'utils/lib/fhir/disposition';
-import { getMedicationFromMA, getMedicationName } from 'utils/lib/fhir/medication-administration';
+import {
+  getDosageUnitsAndRouteOfMedication,
+  getMedicationFromMA,
+  getMedicationName,
+  getNdcCodeFromMedication,
+} from 'utils/lib/fhir/medication-administration';
 import {
   getEmailForIndividual,
   getPatientFirstName,
@@ -32,10 +37,14 @@ import {
   mapGenderToLabel,
 } from 'utils/lib/fhir/patient';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
+import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
+import { celsiusToFahrenheit, roundTemperatureValue } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
 import { AdHocEncounterRow, AdHocEncountersInput } from 'utils/lib/types/adhoc/datasets/encounters';
+import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
+  VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils/lib/types/api/medication-administration.constants';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
@@ -49,9 +58,6 @@ import {
 } from '../adhoc-report';
 import { followUpTypeFromPerformerType } from '../chart-data';
 
-// Registrar full names, keyed by lowercase staff login email. Built once per warm container from the
-// IAM user list (email -> Practitioner profile -> name) — the same mapping the admin Employees page
-// uses. Cached because it's stable and the lookup (user.list + Practitioner names) is not free.
 let staffNameByEmail: Map<string, string> | undefined;
 
 async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string>> {
@@ -88,13 +94,8 @@ async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string
       const nm = nameById.get(pid);
       if (nm) map.set(email, nm);
     }
-    // Cache ONLY on success. A transient user.list/Practitioner failure must not poison every
-    // subsequent warm invocation with an empty map (which would silently fall registrar names back
-    // to raw emails until a cold start) — leaving it uncached lets the next call retry.
     staffNameByEmail = map;
   } catch (e) {
-    // Designed degradation (rows fall back to the raw registrar email), but the failure itself is
-    // still worth surfacing so a persistent IAM/Practitioner problem doesn't go unnoticed.
     console.warn('adhoc-encounters: registrar name resolution failed, falling back to email', e);
     captureException(e);
   }
@@ -107,9 +108,6 @@ const minutesBetween = (start?: string, end?: string): number | null => {
   return Number.isFinite(m) ? m : null;
 };
 
-// Normalize a prescribed-drug display to its base ingredient by dropping the strength/form tail
-// (everything from the first digit on): "Amoxicillin 500 mg tablet" -> "Amoxicillin". Lets a report
-// count "each drug" at ingredient grain instead of splitting one drug across strengths/forms.
 const normalizeDrugName = (display: string): string => {
   const base = display
     .split(/\s+\d/)[0]
@@ -119,24 +117,35 @@ const normalizeDrugName = (display: string): string => {
 };
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
-// Component codes used for blood-pressure (SNOMED + LOINC variants).
+
+// Medication.batch.expirationDate is a FHIR dateTime and the app writes a full instant with the
+// entry device's offset. An expiry is a calendar date, so take the date AS WRITTEN — converting the
+// zone would move "2026-07-29T00:00:00.000+04:00" back to the 28th and report a wrong expiry.
+const expiryDate = (value?: string): string | null => value?.slice(0, 10) ?? null;
 const SYSTOLIC_CODES = ['271649006', '8480-6'];
 const DIASTOLIC_CODES = ['271650006', '8462-4'];
 
+const VITAL_ALERT_FIELDS: Record<string, string> = {
+  [VitalFieldNames.VitalTemperature]: 'temperatureF',
+  [VitalFieldNames.VitalHeartbeat]: 'heartRate',
+  [VitalFieldNames.VitalRespirationRate]: 'respirationRate',
+  [VitalFieldNames.VitalOxygenSaturation]: 'oxygenSaturation',
+  [VitalFieldNames.VitalBloodPressure]: 'bloodPressure',
+  [VitalFieldNames.VitalWeight]: 'weightKg',
+  [VitalFieldNames.VitalHeight]: 'heightCm',
+};
+
 const isActiveOrder = (sr: ServiceRequest): boolean => sr.status !== 'revoked' && sr.status !== 'entered-in-error';
-// A lab order: carries an Oystehr lab local code, an in-house lab test code, or a lab order-type tag.
+
 const isLabOrder = (sr: ServiceRequest): boolean =>
   Boolean(sr.code?.coding?.some((c) => c.system?.includes('oystehr-lab-local-codes'))) ||
   isInHouseLabServiceRequest(sr) ||
   Boolean(sr.meta?.tag?.some((t) => t.code === 'generic-lab-order' || t.code === 'in-house-lab' || t.code === 'lab'));
-// A radiology/imaging order: tagged radiology.
+
 const isImagingOrder = (sr: ServiceRequest): boolean => Boolean(sr.meta?.tag?.some((t) => t.code === 'radiology'));
 const orderDisplay = (sr: ServiceRequest): string =>
   sr.code?.text || sr.code?.coding?.find((c) => c.display)?.display || sr.code?.coding?.[0]?.code || '';
 
-// The full fetch+map pipeline, separated from auth/transport so fixture tests can run it against a
-// stubbed Oystehr client and assert the mapped rows parse with the endpoint's Zod schema — the same
-// schema the runtime output validation uses.
 export async function fetchAdHocEncounterRows(
   oystehr: Oystehr,
   params: AdHocEncountersInput
@@ -213,7 +222,7 @@ export async function fetchAdHocEncounterRows(
   // the encounter ids from the main pass, each as its own async-bulk job (no response-size cap).
   const encIds = Array.from(encounterById.keys());
   const encRefs = encIds.map((id) => `Encounter/${id}`);
-  // Per-encounter layer resources are fetched via the shared async-bulk scoped helper.
+
   const fetchScoped = <T extends FhirResource>(
     resourceType: T['resourceType'],
     paramName: string,
@@ -247,7 +256,6 @@ export async function fetchAdHocEncounterRows(
       );
     }
     if (includeAi || includeDocuments) {
-      // Trim the attachment payload — we only need type/description/tag/context, never the file bytes.
       indexByEncounter(
         await fetchScoped<DocumentReference>('DocumentReference', 'encounter', encRefs, [
           { name: '_elements', value: 'type,description,meta,context' },
@@ -316,9 +324,8 @@ export async function fetchAdHocEncounterRows(
     resolveEncounterAppointment(encounter, appointmentMap, encounterById);
 
   const staffNames = await getStaffNameByEmail(oystehr);
-  // Memoized per location: getTimezone logs (and falls back) when a Location is missing its
-  // timezone extension, and we don't want that once per row.
   const tzByLocationId = new Map<string, string>();
+
   const timezoneForLocation = (loc: Location): string => {
     const key = loc.id ?? '';
     let tz = tzByLocationId.get(key);
@@ -329,9 +336,7 @@ export async function fetchAdHocEncounterRows(
     return tz;
   };
   const rows: AdHocEncounterRow[] = [];
-  // Iterate the id-deduped map, not the raw filter array: an encounter revincluded via both
-  // Encounter:appointment and Encounter:part-of appears twice in `encounters` and would emit
-  // duplicate rows.
+
   for (const encounter of encounterById.values()) {
     const appointment = resolveAppointment(encounter);
     if (!appointment) continue;
@@ -350,25 +355,22 @@ export async function fetchAdHocEncounterRows(
       start,
     } = buildEncounterRowContext(encounter, appointment, { encounterById, patientMap, locationMap, practitionerMap });
 
-    // Hours the clinic is open on this visit's weekday (Location.hoursOfOperation). The weekday is
-    // resolved in the LOCATION'S OWN timezone — hours-of-operation are clinic-local, so the clinic's
-    // zone (not the server's, and not any fixed practice zone) decides which day the visit fell on.
     let clinicOpenHours: number | null = null;
+
     const weekday =
       start && location
         ? DateTime.fromISO(start).setZone(timezoneForLocation(location)).toFormat('ccc').toLowerCase()
         : '';
+
     for (const h of location?.hoursOfOperation ?? []) {
       if (!weekday || !h.daysOfWeek?.includes(weekday as never) || !h.openingTime || !h.closingTime) continue;
       const hrs = DateTime.fromFormat(h.closingTime, 'HH:mm:ss').diff(
         DateTime.fromFormat(h.openingTime, 'HH:mm:ss'),
         'hours'
       ).hours;
-      // Skip malformed/overnight spans (close before open) so they don't corrupt the sum.
       if (Number.isFinite(hrs) && hrs > 0) clinicOpenHours = (clinicOpenHours ?? 0) + hrs;
     }
 
-    // Registration channel + registrar from the appointment's created-by tag.
     const createdBy = appointment.meta?.tag?.find((t) => t.system === CREATED_BY_SYSTEM)?.display ?? '';
     const registrationChannel = createdBy.startsWith('Staff')
       ? 'Staff'
@@ -399,6 +401,11 @@ export async function fetchAdHocEncounterRows(
       appointmentType: appointmentTypeForAppointment(appointment),
       serviceCategory,
       visitStatus,
+      statusHistory: getVisitStatusHistory(encounter).map((entry) => ({
+        status: entry.status,
+        start: entry.period.start ?? null,
+        end: entry.period.end ?? null,
+      })),
       encounterType,
       reason: encounter.reasonCode?.[0]?.text || appointment.appointmentType?.text || '',
       scheduledSlotMinutes: minutesBetween(appointment.start, appointment.end),
@@ -490,7 +497,7 @@ export async function fetchAdHocEncounterRows(
       row.intakeToProviderMinutes = minutesBetween(intake, provider);
       row.providerToDischargedMinutes = minutesBetween(provider, discharged);
       row.totalCycleMinutes = minutesBetween(arrived, discharged);
-      // On-time only meaningful for pre-booked visits: arrived at/ before the scheduled start.
+
       row.onTime =
         appointmentTypeForAppointment(appointment) === 'pre-booked' && arrived && appointment.start
           ? DateTime.fromISO(arrived) <= DateTime.fromISO(appointment.start)
@@ -516,15 +523,32 @@ export async function fetchAdHocEncounterRows(
       const medicationIngredients: string[] = [];
       const medicationSources: ('eRx' | 'in-house')[] = [];
       const medicationCodes: string[] = [];
-      const addMed = (display: string, source: 'eRx' | 'in-house', code?: string): void => {
+      const drugs: NonNullable<AdHocEncounterRow['drugs']> = [];
+      const addMed = (
+        display: string,
+        source: 'eRx' | 'in-house',
+        code?: string,
+        detail?: Omit<NonNullable<AdHocEncounterRow['drugs']>[number], 'name' | 'source'>
+      ): void => {
         if (!display) return;
         medications.push(display);
         medicationIngredients.push(normalizeDrugName(display));
         medicationSources.push(source);
         if (code) medicationCodes.push(code);
+        drugs.push({
+          name: display,
+          source,
+          dose: detail?.dose ?? null,
+          units: detail?.units ?? null,
+          route: detail?.route ?? null,
+          ndc: detail?.ndc ?? null,
+          lotNumber: detail?.lotNumber ?? null,
+          expirationDate: detail?.expirationDate ?? null,
+          manufacturer: detail?.manufacturer ?? null,
+          administeredAt: detail?.administeredAt ?? null,
+        });
       };
-      // eRx prescriptions (MedicationRequest, drug on medicationCodeableConcept). All statuses except
-      // entered-in-error (FHIR's "this record was a mistake" tombstone).
+
       for (const req of encounter.id ? medRequestsByEncounterId.get(encounter.id) ?? [] : []) {
         if (req.status === 'entered-in-error') continue;
         const coding = (req.medicationCodeableConcept?.coding ?? []).find(
@@ -532,59 +556,99 @@ export async function fetchAdHocEncounterRows(
         );
         addMed(coding?.display || req.medicationCodeableConcept?.text || '', 'eRx', coding?.code);
       }
-      // In-house administered meds (MedicationAdministration / MAR; drug on a contained Medication).
-      // Only the in-house-medication tag — vaccines (immunization tag) belong to the immunizations layer.
+
       for (const ma of encounter.id ? medAdminsByEncounterId.get(encounter.id) ?? [] : []) {
         if (ma.status === 'entered-in-error') continue;
         if (!hasChartTag(ma, MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE)) continue;
+        const medication = getMedicationFromMA(ma);
         const name =
-          getMedicationName(getMedicationFromMA(ma)) ||
+          getMedicationName(medication) ||
           ma.medicationCodeableConcept?.coding?.[0]?.display ||
           ma.medicationCodeableConcept?.text ||
           '';
-        addMed(name, 'in-house');
+        const dosage = getDosageUnitsAndRouteOfMedication(ma);
+        addMed(name, 'in-house', undefined, {
+          dose: dosage.dose ?? null,
+          units: dosage.units ?? null,
+          route: dosage.route ?? null,
+          ndc: (medication ? getNdcCodeFromMedication(medication) : undefined) ?? null,
+          lotNumber: medication?.batch?.lotNumber ?? null,
+          expirationDate: expiryDate(medication?.batch?.expirationDate),
+          manufacturer: medication?.manufacturer?.display ?? null,
+          administeredAt: ma.effectiveDateTime ?? null,
+        });
       }
       row.medications = medications;
       row.medicationIngredients = medicationIngredients;
       row.medicationSources = medicationSources;
       row.medicationCodes = medicationCodes;
       row.medicationCount = medications.length;
+      row.drugs = drugs;
     }
 
     if (includeVitals) {
       const obs = encounter.id ? observationsByEncounterId.get(encounter.id) ?? [] : [];
-      // Last charted value wins per vital field. FHIR search order is not chronological, so sort by
-      // effectiveDateTime (set to the charting instant by makeObservationResource) before taking the last.
       const fieldCode = (o: Observation): string => o.meta?.tag?.find((t) => t.code?.startsWith('vital-'))?.code ?? '';
       const effectiveMillis = (o: Observation): number => {
         const ms = o.effectiveDateTime ? DateTime.fromISO(o.effectiveDateTime).toMillis() : NaN;
         return Number.isFinite(ms) ? ms : 0;
       };
-      const latest = (field: string): Observation | undefined =>
-        obs
-          .filter((o) => fieldCode(o) === field)
-          .sort((a, b) => effectiveMillis(a) - effectiveMillis(b))
-          .at(-1);
+
+      const chronological = (field: string): Observation[] =>
+        obs.filter((o) => fieldCode(o) === field).sort((a, b) => effectiveMillis(a) - effectiveMillis(b));
+
+      const latest = (field: string): Observation | undefined => chronological(field).at(-1);
+
       const qty = (o?: Observation): number | null =>
         typeof o?.valueQuantity?.value === 'number' ? o.valueQuantity.value : null;
 
-      const tempObs = latest('vital-temperature');
-      const tempVal = qty(tempObs);
-      const tempUnit = (tempObs?.valueQuantity?.unit || tempObs?.valueQuantity?.code || '').toUpperCase();
-      row.temperatureF =
-        tempVal == null ? null : tempUnit.startsWith('F') ? round1(tempVal) : round1((tempVal * 9) / 5 + 32);
+      const toF = (o?: Observation): number | null => {
+        const val = qty(o);
+        if (val == null) return null;
+        const unit = (o?.valueQuantity?.unit || o?.valueQuantity?.code || '').toUpperCase();
+        return roundTemperatureValue(unit.startsWith('F') ? val : celsiusToFahrenheit(val));
+      };
+
+      row.temperatureF = toF(latest('vital-temperature'));
 
       row.heartRate = qty(latest('vital-heartbeat'));
       row.respirationRate = qty(latest('vital-respiration-rate'));
       row.oxygenSaturation = qty(latest('vital-oxygen-sat'));
 
-      const bp = latest('vital-blood-pressure');
-      const bpComp = (codes: string[]): number | null => {
-        const c = bp?.component?.find((cm) => cm.code?.coding?.some((cd) => cd.code && codes.includes(cd.code)));
+      const bpComp = (bpObs: Observation | undefined, codes: string[]): number | null => {
+        const c = bpObs?.component?.find((cm) => cm.code?.coding?.some((cd) => cd.code && codes.includes(cd.code)));
         return typeof c?.valueQuantity?.value === 'number' ? c.valueQuantity.value : null;
       };
-      row.systolicBP = bpComp(SYSTOLIC_CODES);
-      row.diastolicBP = bpComp(DIASTOLIC_CODES);
+      const bp = latest('vital-blood-pressure');
+      row.systolicBP = bpComp(bp, SYSTOLIC_CODES);
+      row.diastolicBP = bpComp(bp, DIASTOLIC_CODES);
+
+      const numbers = (values: (number | null)[]): number[] => values.filter((v): v is number => v != null);
+      row.temperatureFReadings = numbers(chronological('vital-temperature').map(toF));
+      row.heartRateReadings = numbers(chronological('vital-heartbeat').map(qty));
+      row.respirationRateReadings = numbers(chronological('vital-respiration-rate').map(qty));
+      row.oxygenSaturationReadings = numbers(chronological('vital-oxygen-sat').map(qty));
+
+      const bpPairs = chronological('vital-blood-pressure')
+        .map((o) => ({ systolic: bpComp(o, SYSTOLIC_CODES), diastolic: bpComp(o, DIASTOLIC_CODES) }))
+        .filter((pair): pair is { systolic: number; diastolic: number } => {
+          return pair.systolic != null && pair.diastolic != null;
+        });
+
+      row.systolicBPReadings = bpPairs.map((pair) => pair.systolic);
+      row.diastolicBPReadings = bpPairs.map((pair) => pair.diastolic);
+
+      const abnormalVitals: string[] = [];
+      const criticalVitals: string[] = [];
+
+      for (const [field, name] of Object.entries(VITAL_ALERT_FIELDS)) {
+        const levels = chronological(field).map((o) => getVitalDTOCriticalityFromObservation(o));
+        if (levels.some((level) => level != null)) abnormalVitals.push(name);
+        if (levels.includes(VitalAlertCriticality.Critical)) criticalVitals.push(name);
+      }
+
+      row.abnormalVitals = abnormalVitals;
+      row.criticalVitals = criticalVitals;
 
       const weightObs = latest('vital-weight');
       const weightVal = qty(weightObs);
@@ -623,11 +687,6 @@ export async function fetchAdHocEncounterRows(
         row.nursingOrderCount = nursingOrders.length;
       }
       if (includeDisposition) {
-        // The 'disposition-follow-up' SR only carries the generic "Follow-up visit (procedure)" code.
-        // The actual follow-up items are separate SRs tagged 'sub-follow-up' whose type is encoded in
-        // performerType (see save-chart-data): a SNOMED coding for the coded types, text-only for
-        // 'other'/'lurie-ct'. Reverse-map via followUpTypeFromPerformerType, then render the same human
-        // label the disposition UI uses (dispositionCheckboxOptions).
         const followUpTypes = srs
           .filter((sr) => hasChartTag(sr, 'sub-follow-up'))
           .map((sr) => {
@@ -646,18 +705,43 @@ export async function fetchAdHocEncounterRows(
     }
 
     if (includeImmunizations) {
-      const immunizations: string[] = [];
+      type VaccineRecord = {
+        name: string;
+        status: 'administered' | 'partially-administered' | 'recorded';
+        visDate: string | null;
+        lotNumber: string | null;
+        expirationDate: string | null;
+      };
+
+      const vaccines: VaccineRecord[] = [];
+
       for (const ma of encounter.id ? medAdminsByEncounterId.get(encounter.id) ?? [] : []) {
-        // Only vaccines actually given. Per mapFhirToOrderStatus (utils/lib/fhir/medication-administration.ts):
-        // completed=administered, on-hold=partially administered (still given), while in-progress=pending order,
-        // not-done=refused/not administered, stopped=cancelled — none of those belong in "vaccines given".
-        if ((ma.status !== 'completed' && ma.status !== 'on-hold') || !hasChartTag(ma, 'immunization')) continue;
+        if (!hasChartTag(ma, 'immunization')) continue;
+
+        const status =
+          ma.status === 'completed' ? 'administered' : ma.status === 'on-hold' ? 'partially-administered' : undefined;
+
+        if (!status) continue;
+
+        const medication = getMedicationFromMA(ma);
+
         const name =
-          getMedicationName(getMedicationFromMA(ma)) ||
+          getMedicationName(medication) ||
           ma.medicationCodeableConcept?.coding?.[0]?.display ||
           ma.medicationCodeableConcept?.text ||
           '';
-        if (name) immunizations.push(name);
+        if (!name) continue;
+
+        const visDate = medication?.extension?.find((e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL)
+          ?.valueDate;
+
+        vaccines.push({
+          name,
+          status,
+          visDate: visDate ?? null,
+          lotNumber: medication?.batch?.lotNumber ?? null,
+          expirationDate: expiryDate(medication?.batch?.expirationDate),
+        });
       }
       for (const ms of encounter.id ? medStatementsByEncounterId.get(encounter.id) ?? [] : []) {
         if (ms.status === 'entered-in-error' || !hasChartTag(ms, 'immunization')) continue;
@@ -667,10 +751,10 @@ export async function fetchAdHocEncounterRows(
           ms.medicationCodeableConcept?.text ||
           getMedicationName(containedMed) ||
           '';
-        if (name) immunizations.push(name);
+        // Charted history, not an administration on this visit: no VIS and no vial of ours.
+        if (name) vaccines.push({ name, status: 'recorded', visDate: null, lotNumber: null, expirationDate: null });
       }
-      row.immunizations = immunizations;
-      row.immunizationCount = immunizations.length;
+      row.vaccines = vaccines;
     }
 
     if (includeExamRos) {

@@ -11,9 +11,15 @@ import {
   Practitioner,
   RelatedPerson,
 } from 'fhir/r4b';
-import { getCoveragePlanType, setCoveragePlanType } from 'utils/lib/fhir/billing';
+import {
+  applyClaimNonInsurancePayerTag,
+  claimNonInsurancePayerExtension,
+  getClaimNonInsurancePayer,
+  getCoveragePlanType,
+  setCoveragePlanType,
+} from 'utils/lib/fhir/billing';
 import { SUBSCRIBER_RELATIONSHIP_CODE_MAP } from 'utils/lib/fhir/constants';
-import { getNPI, getTaxID, setNpi } from 'utils/lib/fhir/helpers';
+import { codeableConcept, getCoding, getExtension, getNPI, getTaxID, setNpi } from 'utils/lib/fhir/helpers';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from 'utils/lib/fhir/insurance';
 import { extractPayerIdFromUrl, getPayerUrl, isCLIAValid, isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
 import {
@@ -28,7 +34,7 @@ import {
 import { STATE_CODES } from 'utils/lib/types/common';
 import { CLAIM_TAG_SYSTEM, PERSON_GENDER_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
-import { BILLING_INSURANCE_TYPE_OPTIONS } from 'utils/lib/types/data/billing/billing.types';
+import { BILLING_INSURANCE_TYPE_OPTIONS, ClaimCoverageType } from 'utils/lib/types/data/billing/billing.types';
 import {
   CLAIM_STATUS_FIELD_KEYS,
   CLAIM_STATUS_FIELDS_BY_KEY,
@@ -36,15 +42,24 @@ import {
   getClaimStatusFieldValue,
   isValidClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
+import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
-import { ServiceLineSetOperation } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { ServiceLineSetOperation, ServiceLineSetValue } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
+import { updateExtension } from '../../shared/helpers';
 import { getCLIA, getPlaceOfServiceCode } from '../service-facility.helpers';
 import {
-  attachPrimaryCoverageToClaim,
+  attachCoverageToClaim,
   buildClaimCoverageCopies,
   buildUpdatedClaimStatusTags,
   claimHasRealCoverage,
+  CODE_SYSTEM_NUBC_REVENUE,
+  copySourceRef,
+  EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+  EXTENSION_CLAIM_FREQUENCY_CODE,
+  EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+  EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   getClaimService,
   getClaimType,
   getClaimTypeCoding,
@@ -55,7 +70,6 @@ import {
   setClia,
   setTaxId,
   setTaxonomy,
-  SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 
 // The rules' view of a claim: the working-copy Claim plus the working-copy resources its rules can
@@ -87,6 +101,11 @@ export interface RulesEngineClaimModel {
   // references the "Coverage (from patient)" field. Read-only reference data like
   // referenceResources: the writer copies out of it, never mutates or persists it.
   patientCoverageContext?: PatientCoverageContext;
+  // The non-insurance organizations named by the rule set's "set non-insurance organization"
+  // actions, keyed by id, prefetched by the engine so the synchronous writer can stamp the claim
+  // with the payer's name. Read-only reference data like referenceResources — claims reference
+  // these masters directly, so no working copy is made.
+  nioOrganizations?: Map<string, Organization>;
   // Local placeholder ids of working copies minted by writers during this run. persistModel
   // POSTs them (fullUrl urn:uuid:<id>) in the same transaction as the claim's update; the
   // server resolves the claim's temporary urn references to the created ids, and the model
@@ -109,28 +128,28 @@ export interface PatientCoverageContext {
 
 const primaryCoverage = (m: RulesEngineClaimModel): Coverage | undefined => m.coverages[0];
 const secondaryCoverage = (m: RulesEngineClaimModel): Coverage | undefined => m.coverages[1];
+const tertiaryCoverage = (m: RulesEngineClaimModel): Coverage | undefined => m.coverages[2];
+const quaternaryCoverage = (m: RulesEngineClaimModel): Coverage | undefined => m.coverages[3];
 
-// The primary policy holder: the primary coverage's subscriber when it is a standalone
+// The policy holder: the coverage's subscriber when it is a standalone
 // RelatedPerson (i.e. the relationship is not Self). A subscriber copy minted by this run's
 // writers is referenced by its urn:uuid placeholder until persisted, so resolve that form too.
-const primaryPolicyHolder = (m: RulesEngineClaimModel): RelatedPerson | undefined => {
-  const ref = primaryCoverage(m)?.subscriber?.reference;
-  const id = ref?.startsWith('RelatedPerson/')
-    ? ref.slice('RelatedPerson/'.length)
-    : ref?.startsWith('urn:uuid:')
-    ? ref.slice('urn:uuid:'.length)
-    : undefined;
-  return id ? m.subscribers.find((s) => s.id === id) : undefined;
+const policyHolder = (
+  resolveCoverage: (m: RulesEngineClaimModel) => Coverage | undefined
+): ((m: RulesEngineClaimModel) => RelatedPerson | undefined) => {
+  return (m: RulesEngineClaimModel): RelatedPerson | undefined => {
+    const ref = resolveCoverage(m)?.subscriber?.reference;
+    const id = ref?.startsWith('RelatedPerson/')
+      ? ref.slice('RelatedPerson/'.length)
+      : ref?.startsWith('urn:uuid:')
+      ? ref.slice('urn:uuid:'.length)
+      : undefined;
+    return id ? m.subscribers.find((s) => s.id === id) : undefined;
+  };
 };
 
 type Provider = Practitioner | Organization;
 type NamedResource = Patient | RelatedPerson | Practitioner;
-
-// The "ResourceType/id" of the reference resource a working copy was copied from (the
-// source-resource extension prepareWorkingCopy stamps). Copies made before the extension existed
-// read as absent.
-const sourceRef = (resource: Practitioner | Organization | Location | Coverage | undefined): string | undefined =>
-  resource?.extension?.find((ext) => ext.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference;
 
 const getProviderFamily = (p?: Provider): string | undefined => {
   if (!p) return undefined;
@@ -175,6 +194,7 @@ const SERVICE_LINE_READERS: Record<string, ServiceLineReader> = {
   charges: (line) => (line.net?.value != null ? String(line.net.value) : undefined),
   placeOfService: (line) => line.locationCodeableConcept?.coding?.[0]?.code,
   serviceDate: (line) => line.servicedPeriod?.start ?? line.servicedDate,
+  revenueCode: (line) => getCoding(line.revenue, CODE_SYSTEM_NUBC_REVENUE)?.code,
 };
 
 export const readServiceLineProperty = (line: ClaimServiceLine, propertyId: string): string | string[] | undefined =>
@@ -235,6 +255,11 @@ const SERVICE_LINE_WRITERS: Record<string, ServiceLineWriter> = {
     line.servicedPeriod = { ...line.servicedPeriod, start: value };
     return true;
   },
+  revenueCode: (line, value) => {
+    if (!value) return false;
+    line.revenue = codeableConcept(value, CODE_SYSTEM_NUBC_REVENUE);
+    return true;
+  },
 };
 
 // Property ids the engine can read/write per line; used by the catalog-pairing test.
@@ -254,6 +279,53 @@ export const writeServiceLineProperty = (
   if (!writer) return false;
   if (operation !== 'set' && getServiceLinePropertyDef(propertyId)?.valueType !== 'list') return false;
   return writer(line, value, operation);
+};
+
+export type DateValueResolution = { value: string } | { error: string };
+
+const resolveFirstServiceLineDate = (model: RulesEngineClaimModel): DateValueResolution => {
+  const first = model.claim.item?.[0];
+  const date = first?.servicedPeriod?.start ?? first?.servicedDate;
+  return date
+    ? { value: date }
+    : { error: 'no service date could be resolved — the claim has no existing service lines to inherit one from' };
+};
+
+// Resolve a serviceDate-shaped rule value to a concrete date string. A literal string is returned
+// as-is (unvalidated — the writer's isoDateRegex check produces the usual "invalid service date"
+// error for a bad literal). Blank/omitted, and the explicit firstServiceLineDate source, both fall
+// back to the claim's first service line's date — addServiceLine's long-standing implicit behavior,
+// now this resolver's single definition of it.
+//
+// Takes ServiceLineSetValue (not the narrower DateValue) because updateServiceLines' set.value is
+// shared across every settable property — the caller only reaches here once it knows the target
+// property is date-typed, but the value's static type still carries the other derived-source shapes,
+// which fall through to the "Unknown date source" error below like any other bad source.
+export const resolveDateValue = (
+  value: ServiceLineSetValue | undefined,
+  model: RulesEngineClaimModel
+): DateValueResolution => {
+  if (value != null && typeof value === 'object') {
+    return value.source === 'firstServiceLineDate'
+      ? resolveFirstServiceLineDate(model)
+      : { error: 'Unknown date source' };
+  }
+  const literal = value?.trim();
+  return literal ? { value: literal } : resolveFirstServiceLineDate(model);
+};
+
+// Resolve the facilityPlaceOfService derived source: the CMS place-of-service code configured on the
+// claim's service facility (model.serviceFacility, prefetched from Claim.facility). Unlike
+// resolveDateValue there is no blank-fallback — a claim without a service facility, or a facility
+// without a place-of-service code set, is a rule failure rather than a silent no-op.
+export const resolveFacilityPlaceOfService = (model: RulesEngineClaimModel): { value: string } | { error: string } => {
+  if (!model.serviceFacility) {
+    return {
+      error: 'The claim has no service facility set',
+    };
+  }
+  const code = getPlaceOfServiceCode(model.serviceFacility);
+  return code ? { value: code } : { error: "Claim's facility has no place-of-service code configured" };
 };
 
 // The claim's billed total is the sum of line charges (the invariant the claim editor maintains);
@@ -293,6 +365,21 @@ const personReaders = (
   [`${prefix}.zip`]: (m) => resolve(m)?.address?.[0]?.postalCode,
 });
 
+// Readers for insurance coverages
+const coverageReaders = (
+  prefix: string,
+  resolve: (m: RulesEngineClaimModel) => Coverage | undefined
+): Record<string, FieldReader> => ({
+  [`${prefix}.coverageFromPatient`]: (m) => {
+    const source = copySourceRef(resolve(m));
+    return source ? m.patientCoverageContext?.typeByCoverageRef.get(source) : undefined;
+  },
+  [`${prefix}.payerId`]: (m) => extractPayerIdFromUrl(resolve(m)?.payor?.[0]?.reference),
+  [`${prefix}.memberId`]: (m) => resolve(m)?.subscriberId,
+  [`${prefix}.planType`]: (m) => getCoveragePlanType(resolve(m)),
+  [`${prefix}.relationship`]: (m) => readRelationship(resolve(m)),
+});
+
 // Readers for a provider (rendering or billing): Practitioner or Organization working copy.
 // "lastName" doubles as the organization name; "firstName" only exists on individuals.
 const providerReaders = (
@@ -327,6 +414,7 @@ const READERS: Record<string, FieldReader> = {
   // The payer is the payor reference on the working-copy Coverage — always an Oystehr payer URL
   // encoding the id in the billing workspace.
   payerId: (m) => extractPayerIdFromUrl(primaryCoverage(m)?.payor?.[0]?.reference),
+  nonInsurancePayerId: (m) => getClaimNonInsurancePayer(m.claim)?.reference?.replace('Organization/', ''),
   type: (m) => getClaimType(m.claim),
   service: (m) => getClaimService(m.claim),
   serviceDate: (m) => m.claim.item?.[0]?.servicedPeriod?.start ?? m.claim.item?.[0]?.servicedDate,
@@ -342,33 +430,38 @@ const READERS: Record<string, FieldReader> = {
   placeOfServiceCodes: (m) =>
     (m.claim.item ?? []).map((item) => item.locationCodeableConcept?.coding?.[0]?.code).filter((c): c is string => !!c),
   serviceLineCount: (m) => String(m.claim.item?.length ?? 0),
+  billType: (m) => {
+    const facilityTypeCode = getExtension(m.claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
+    const frequencyCode = getExtension(m.claim, EXTENSION_CLAIM_FREQUENCY_CODE)?.valueString ?? '1';
+    return facilityTypeCode ? `0${facilityTypeCode}${frequencyCode}` : '';
+  },
+  patientDischargeStatusCode: (m) => getExtension(m.claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS)?.valueString ?? '',
+  admissionType: (m) => getExtension(m.claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE)?.valueString ?? '',
+  admissionSource: (m) => getExtension(m.claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',
 
   ...statusFieldReaders(),
 
   ...personReaders('patient', (m) => m.patient),
 
-  // The slot the claim's current primary coverage was copied from, when its source still occupies
-  // a slot on the reference patient (context prefetched by the engine when a rule uses the field).
-  'insurance.coverageFromPatient': (m) => {
-    const source = sourceRef(primaryCoverage(m));
-    return source ? m.patientCoverageContext?.typeByCoverageRef.get(source) : undefined;
-  },
-  'insurance.memberId': (m) => primaryCoverage(m)?.subscriberId,
-  'insurance.planType': (m) => getCoveragePlanType(primaryCoverage(m)),
-  'insurance.relationship': (m) => readRelationship(primaryCoverage(m)),
+  ...coverageReaders('insurance', primaryCoverage),
+  ...personReaders('policyHolder', policyHolder(primaryCoverage)),
 
-  ...personReaders('policyHolder', primaryPolicyHolder),
+  ...coverageReaders('secondaryInsurance', secondaryCoverage),
+  ...personReaders('secondaryPolicyHolder', policyHolder(secondaryCoverage)),
 
-  'secondaryInsurance.payerId': (m) => extractPayerIdFromUrl(secondaryCoverage(m)?.payor?.[0]?.reference),
-  'secondaryInsurance.memberId': (m) => secondaryCoverage(m)?.subscriberId,
+  ...coverageReaders('tertiaryInsurance', tertiaryCoverage),
+  ...personReaders('tertiaryPolicyHolder', policyHolder(tertiaryCoverage)),
 
-  'renderingProvider.ref': (m) => sourceRef(m.renderingProvider),
+  ...coverageReaders('quaternaryInsurance', quaternaryCoverage),
+  ...personReaders('quaternaryPolicyHolder', policyHolder(quaternaryCoverage)),
+
+  'renderingProvider.ref': (m) => copySourceRef(m.renderingProvider),
   ...providerReaders('renderingProvider', (m) => m.renderingProvider),
-  'billingProvider.ref': (m) => sourceRef(m.billingProvider),
+  'billingProvider.ref': (m) => copySourceRef(m.billingProvider),
   ...providerReaders('billingProvider', (m) => m.billingProvider),
   'billingProvider.taxId': (m) => (m.billingProvider ? getTaxID(m.billingProvider) : undefined),
 
-  'serviceFacility.ref': (m) => sourceRef(m.serviceFacility),
+  'serviceFacility.ref': (m) => copySourceRef(m.serviceFacility),
   'serviceFacility.name': (m) => m.serviceFacility?.name,
   'serviceFacility.npi': (m) => (m.serviceFacility ? getNPI(m.serviceFacility) : undefined),
   'serviceFacility.clia': (m) => (m.serviceFacility ? getCLIA(m.serviceFacility) : undefined),
@@ -467,14 +560,6 @@ const setPayerId = (model: RulesEngineClaimModel, value: string | null): boolean
   return true;
 };
 
-const setSecondaryPayerId = (model: RulesEngineClaimModel, value: string | null): boolean => {
-  if (!value) return false;
-  const coverage = secondaryCoverage(model);
-  if (!coverage) return false;
-  coverage.payor = [{ reference: getPayerUrl(value) }];
-  return true;
-};
-
 // Register a writer-minted working copy: give it a local placeholder id (persistModel POSTs it
 // under fullUrl urn:uuid:<id> and the server resolves the claim's urn references to the created
 // id), and drop a pending copy it supersedes (a second swap of the same slot in one run) so the
@@ -548,7 +633,12 @@ const coveragePayerDisplay = (coverage: Coverage): string | undefined => {
 // without a working-copy patient fails the rule. The model's primary slot (and its policy holder)
 // is replaced so later rules read and edit the new copies, which persistModel POSTs alongside the
 // claim's update.
-const setPrimaryCoverageFromPatient = (model: RulesEngineClaimModel, value: string | null): boolean => {
+const setCoverageFromPatient = (
+  model: RulesEngineClaimModel,
+  value: string | null,
+  coverageType: ClaimCoverageType,
+  resolve: (m: RulesEngineClaimModel) => Coverage | undefined
+): boolean => {
   const slot = BILLING_INSURANCE_TYPE_OPTIONS.find((option) => option.value === value)?.value;
   const entry = slot ? model.patientCoverageContext?.byType[slot] : undefined;
   const patientRef = model.claim.patient?.reference;
@@ -558,8 +648,8 @@ const setPrimaryCoverageFromPatient = (model: RulesEngineClaimModel, value: stri
   const holdsRelatedPerson = entry.coverage.subscriber?.reference?.startsWith('RelatedPerson/') ?? false;
   if (holdsRelatedPerson && !entry.subscriber?.id) return false;
 
-  const replacedPrimary = primaryCoverage(model);
-  const replacedSubscriber = primaryPolicyHolder(model);
+  const replacedPrimary = resolve(model);
+  const replacedSubscriber = policyHolder(resolve)(model);
   // The swapped-out primary's policy-holder copy leaves the model with it: pending edits to it are
   // discarded (as with a swapped-out provider), and a subscriber copy minted earlier in this run is
   // never POSTed as an orphan.
@@ -585,9 +675,10 @@ const setPrimaryCoverageFromPatient = (model: RulesEngineClaimModel, value: stri
 
   const payorRef = copy.payor?.[0]?.reference;
   const payerLabel = coveragePayerDisplay(copy) ?? extractPayerIdFromUrl(payorRef);
-  attachPrimaryCoverageToClaim({
+  attachCoverageToClaim({
     claim: model.claim,
     coverageReference: reference,
+    type: coverageType,
     // The display must always be present: claim-history diffs fall back to the raw reference when
     // it is missing, and this entry's reference is a transient urn that must never be recorded.
     // The stable source coverage reference is the fallback of last resort.
@@ -641,6 +732,46 @@ const setServiceDate = (claim: Claim, value: string | null): boolean => {
   return true;
 };
 
+const setBillType = (claim: Claim, value: string | null): boolean => {
+  if (!value || value.length !== 4) return false;
+  updateExtension(claim, {
+    url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+    valueString: value.substring(1, 3),
+  });
+  updateExtension(claim, {
+    url: EXTENSION_CLAIM_FREQUENCY_CODE,
+    valueString: value.substring(3, 4),
+  });
+  return true;
+};
+
+const setPatientDischargeStatusCode = (claim: Claim, value: string | null): boolean => {
+  if (!value) return false;
+  updateExtension(claim, {
+    url: EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+    valueString: value,
+  });
+  return true;
+};
+
+const setAdmissionType = (claim: Claim, value: string | null): boolean => {
+  if (!value) return false;
+  updateExtension(claim, {
+    url: EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+    valueString: value,
+  });
+  return true;
+};
+
+const setAdmissionSource = (claim: Claim, value: string | null): boolean => {
+  if (!value) return false;
+  updateExtension(claim, {
+    url: EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+    valueString: value,
+  });
+  return true;
+};
+
 const writeStatusField = (claim: Claim, key: ClaimStatusFieldKey, value: string | null): boolean => {
   const code = value ?? '';
   if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[key], code)) return false;
@@ -649,8 +780,12 @@ const writeStatusField = (claim: Claim, key: ClaimStatusFieldKey, value: string 
   return true;
 };
 
-const writePlanType = (model: RulesEngineClaimModel, value: string | null): boolean => {
-  const coverage = primaryCoverage(model);
+const writePlanType = (
+  model: RulesEngineClaimModel,
+  value: string | null,
+  resolve: (m: RulesEngineClaimModel) => Coverage | undefined
+): boolean => {
+  const coverage = resolve(model);
   if (!coverage || !value || !INSURANCE_CANDID_PLAN_TYPE_CODES.includes(value)) return false;
   // setCoveragePlanType returns an updated copy; swap it into the model (same resource id, so the
   // engine's snapshot/dirty check still pairs it with the original).
@@ -706,6 +841,34 @@ const personWriters = (
     }),
   };
 };
+
+// Writers for insurance coverage
+const coverageWriters = (
+  prefix: string,
+  coverageType: ClaimCoverageType,
+  resolve: (m: RulesEngineClaimModel) => Coverage | undefined
+): Record<string, FieldWriter> => ({
+  [`${prefix}.coverageFromPatient`]: (m, v) => setCoverageFromPatient(m, v, coverageType, resolve),
+  [`${prefix}.payerId`]: (m, v) => {
+    if (!v) return false;
+    const coverage = resolve(m);
+    if (!coverage) return false;
+    const payerUrl = getPayerUrl(v);
+    coverage.payor = [{ reference: payerUrl }];
+    if (m.claim.insurance.find((ins) => ins.coverage.reference?.replace('Coverage/', '') === coverage.id)?.focal) {
+      m.claim.insurer = { reference: payerUrl };
+    }
+    return true;
+  },
+  [`${prefix}.memberId`]: (m, v) => {
+    const coverage = resolve(m);
+    if (!coverage) return false;
+    coverage.subscriberId = v || undefined;
+    return true;
+  },
+  [`${prefix}.planType`]: (m, v) => writePlanType(m, v, resolve),
+  // [`${prefix}.relationship`]: (m) => readRelationship(resolve(m)),
+});
 
 // Writers for a provider (rendering or billing), paired with providerReaders.
 const providerWriters = (
@@ -771,34 +934,54 @@ const setFacilityPosCode = (facility: Location, value: string | null): void => {
   if (facility.extension.length === 0) facility.extension = undefined;
 };
 
+// Stamp or clear the claim's non-insurance payer — the same extension + searchable meta.tag pair
+// update-billing-claim writes. The claim references the NIO master directly (no working copy), so
+// setting only needs the prefetched organization for its name; an id missing from the prefetch
+// (deleted, or not a non-insurance organization) fails the rule.
+const setNonInsurancePayer = (model: RulesEngineClaimModel, value: string | null): boolean => {
+  const id = value?.trim();
+  const rest = (model.claim.extension ?? []).filter((ext) => ext.url !== CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL);
+  if (!id) {
+    model.claim.extension = rest.length ? rest : undefined;
+    applyClaimNonInsurancePayerTag(model.claim, null);
+    return true;
+  }
+  const org = model.nioOrganizations?.get(id);
+  if (!org?.id) return false;
+  model.claim.extension = [
+    ...rest,
+    claimNonInsurancePayerExtension({ reference: `Organization/${org.id}`, display: org.name }),
+  ];
+  applyClaimNonInsurancePayerTag(model.claim, org.id);
+  return true;
+};
+
 const WRITERS: Record<string, FieldWriter> = {
   payerId: (m, v) => setPayerId(m, v),
+  nonInsurancePayerId: (m, v) => setNonInsurancePayer(m, v),
   type: (m, v) => setClaimType(m.claim, v),
   service: (m, v) => setClaimService(m.claim, v),
   serviceDate: (m, v) => setServiceDate(m.claim, v),
+  billType: (m, v) => setBillType(m.claim, v),
+  patientDischargeStatusCode: (m, v) => setPatientDischargeStatusCode(m.claim, v),
+  admissionType: (m, v) => setAdmissionType(m.claim, v),
+  admissionSource: (m, v) => setAdmissionSource(m.claim, v),
 
   ...statusFieldWriters(),
 
   ...personWriters('patient', (m) => m.patient),
 
-  'insurance.coverageFromPatient': (m, v) => setPrimaryCoverageFromPatient(m, v),
-  'insurance.memberId': (m, v) => {
-    const coverage = primaryCoverage(m);
-    if (!coverage) return false;
-    coverage.subscriberId = v || undefined;
-    return true;
-  },
-  'insurance.planType': (m, v) => writePlanType(m, v),
+  ...coverageWriters('insurance', 'primary', primaryCoverage),
+  ...personWriters('policyHolder', policyHolder(primaryCoverage)),
 
-  ...personWriters('policyHolder', primaryPolicyHolder),
+  ...coverageWriters('secondaryInsurance', 'secondary', secondaryCoverage),
+  ...personWriters('secondaryPolicyHolder', policyHolder(secondaryCoverage)),
 
-  'secondaryInsurance.payerId': (m, v) => setSecondaryPayerId(m, v),
-  'secondaryInsurance.memberId': (m, v) => {
-    const coverage = secondaryCoverage(m);
-    if (!coverage) return false;
-    coverage.subscriberId = v || undefined;
-    return true;
-  },
+  ...coverageWriters('tertiaryInsurance', 'tertiary', secondaryCoverage),
+  ...personWriters('tertiaryPolicyHolder', policyHolder(tertiaryCoverage)),
+
+  ...coverageWriters('quaternaryInsurance', 'quaternary', quaternaryCoverage),
+  ...personWriters('quaternaryPolicyHolder', policyHolder(quaternaryCoverage)),
 
   'renderingProvider.ref': (m, v) => setClaimResourceRef(m, 'renderingProvider', v),
   ...providerWriters('renderingProvider', (m) => m.renderingProvider),

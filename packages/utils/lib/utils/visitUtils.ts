@@ -112,6 +112,31 @@ export const getInPersonVisitStatus = (
   return 'unknown';
 };
 
+/**
+ * Visit statuses past the point of charting — the visit is a record to read, not work in progress.
+ *
+ * Deliberately separate from the appointment lock meta tag (`isAppointmentLocked`): that tag is only
+ * written by sign-appointment, so visits signed before locking was introduced carry none, and a
+ * visit awaiting supervisor approval is never tagged at all. Anything gating the chart on "still
+ * being worked" has to consult the status too, or it retroactively hides finished visits.
+ */
+export const FINISHED_VISIT_STATUSES: readonly VisitStatusLabel[] = [
+  'completed',
+  'awaiting supervisor approval',
+  'cancelled',
+  'no show',
+];
+
+/** True when the visit has reached a status past charting. See {@link FINISHED_VISIT_STATUSES}. */
+export const isVisitFinished = (appointment?: Appointment, encounter?: Encounter): boolean => {
+  if (!appointment || !encounter) {
+    return false;
+  }
+  // Supervisor approval resolved as enabled so the awaiting-approval status surfaces; with it off
+  // that same visit reports 'completed', and both are finished for this purpose.
+  return FINISHED_VISIT_STATUSES.includes(getInPersonVisitStatus(appointment, encounter, true));
+};
+
 export const getVisitStatusHistory = (encounter: Encounter): VisitStatusHistoryEntry[] => {
   const visitHistory: VisitStatusHistoryEntry[] = [];
 

@@ -1,5 +1,11 @@
 import { deepStrictEqual } from 'node:assert';
-import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, OystehrConfig, SearchParam } from '@oystehr/sdk';
+import Oystehr, {
+  BatchInputPostRequest,
+  BatchInputPutRequest,
+  FhirResourceReturnValue,
+  OystehrConfig,
+  SearchParam,
+} from '@oystehr/sdk';
 import {
   Account,
   Address,
@@ -7,10 +13,15 @@ import {
   ChargeItemDefinition,
   ChargeItemDefinitionPropertyGroup,
   Claim,
+  ClaimItem,
   ClaimResponse,
   ClaimResponseItem,
+  ClaimSupportingInfo,
   Coding,
   Coverage,
+  DocumentReference,
+  DomainResource,
+  Encounter,
   FhirResource,
   Identifier,
   List,
@@ -19,6 +30,7 @@ import {
   Patient,
   PaymentNotice,
   PaymentReconciliation,
+  Period,
   Person,
   Practitioner,
   Provenance,
@@ -27,6 +39,7 @@ import {
   Resource,
   Task,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { setCoveragePlanType } from 'utils/lib/fhir/billing';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
@@ -48,7 +61,6 @@ import {
   getResourcesFromBatchInlineRequests,
   getSubscriberRelationshipCodeableConcept,
   getTaxID,
-  patchWithOptimisticLock,
 } from 'utils/lib/fhir/helpers';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -74,6 +86,7 @@ import {
   BillingProviderOption,
   ChargeItemDefinitionDefault,
   ChargeItemDefinitionType,
+  ClaimCoverageType,
 } from 'utils/lib/types/data/billing/billing.types';
 import {
   AR_STAGE,
@@ -92,6 +105,7 @@ import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { SYSTEM_MANAGED_TAGS, SystemManagedTag } from 'utils/lib/types/data/billing/system-tags';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { sendErrors } from '../shared/errors';
 import { fetchAllPages } from '../shared/fhir';
@@ -238,6 +252,9 @@ export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/bi
 
 const CLINICAL_ID_SCAN_PAGE_SIZE = 200;
 
+// A working copy can itself be copied, so a copy is not always one hop from its main Patient
+const MAX_COPY_CHAIN_HOPS = 10;
+
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const SOURCE_FRIENDLY_PATIENT_ID_EXTENSION =
   'https://extensions.fhir.ottehr.com/billing/source-friendly-patient-id';
@@ -254,6 +271,14 @@ export const ERA_ICN_EXTENSION = 'https://extensions.fhir.oystehr.com/era-icn';
 // remit itself carries.
 export const ERA_ITEM_PROCEDURE_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-procedure-code';
 export const ERA_ITEM_UNITS_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-units';
+export const EXTENSION_CLAIM_ADMISSION_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-admission-type-code';
+export const EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE =
+  'https://extensions.fhir.oystehr.com/rcm-claim-point-of-origin-code';
+export const EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS =
+  'https://extensions.fhir.oystehr.com/rcm-claim-patient-discharge-status';
+export const EXTENSION_CLAIM_FACILITY_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-facility-type-code';
+export const EXTENSION_CLAIM_FREQUENCY_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-frequency-code';
+export const CODE_SYSTEM_NUBC_REVENUE = 'https://www.nubc.org/CodeSystem/RevenueCodes';
 
 export function getEraExtensionString(
   resource: Pick<ClaimResponse, 'extension'> | Pick<ClaimResponseItem, 'extension'>,
@@ -271,10 +296,14 @@ export function isEraProcessingProvenance(provenance: Pick<Provenance, 'activity
   return provenance.activity?.coding?.some((coding) => coding.code === ERA_PROCESSING_ACTIVITY_CODE) ?? false;
 }
 
-export function clinicalPatientIdOfCopy(patient: Patient): string | undefined {
-  return patient.extension
-    ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
-    ?.valueReference?.reference?.replace('Patient/', '');
+export function copySourceRef(resource?: DomainResource): string | undefined {
+  return resource?.extension?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference;
+}
+
+export function copySourceId(resource?: DomainResource): string | undefined {
+  const ref = copySourceRef(resource);
+  if (!ref) return undefined;
+  return ref.includes('/') ? ref.slice(ref.lastIndexOf('/') + 1) : ref;
 }
 
 export function clinicalFriendlyIdOfCopy(patient: Patient): string | undefined {
@@ -351,45 +380,70 @@ export async function searchPatientsByClinicalIds({
   return searchOnClinicalIDs(oystehr, baseSearchParams, offset, pageSize, uuid, friendlyId);
 }
 
-export function hasIdentifier(patient: Patient, identifier: Identifier): boolean {
-  return !!patient.identifier?.some((i) => i.system === identifier.system && i.value === identifier.value);
+export interface ClinicalPatientIds {
+  clinicalId?: string;
+  clinicalFriendlyId?: string;
+  workingCopyParentId?: string;
 }
 
-export function missingClinicalPatientIdentifiers(patient: Patient, clinicalPatientId: string): Identifier[] {
-  const friendlyId = clinicalFriendlyIdOfCopy(patient);
-  const wanted = [
-    clinicalPatientIdentifier(clinicalPatientId),
-    ...(friendlyId ? [clinicalFriendlyIdIdentifier(friendlyId)] : []),
-  ];
-  return wanted.filter((identifier) => !hasIdentifier(patient, identifier));
-}
-
-export async function addClinicalPatientIdentifiers({
+export async function resolveClinicalPatientIds({
   oystehr,
   patient,
-  clinicalPatientId,
+  fetchBillingPatient = (id) => findById<Patient>(oystehr, 'Patient', id),
 }: {
   oystehr: Oystehr;
   patient: Patient;
-  clinicalPatientId: string;
-}): Promise<void> {
-  await patchWithOptimisticLock(oystehr, { ...patient, id: patient.id! }, (current) => {
-    const missing = missingClinicalPatientIdentifiers(current, clinicalPatientId);
-    if (missing.length === 0) return [];
-    return current.identifier?.length
-      ? missing.map((identifier) => ({
-          op: 'add' as const,
-          path: '/identifier/-',
-          value: identifier,
-        }))
-      : [
-          {
-            op: 'add' as const,
-            path: '/identifier',
-            value: missing,
-          },
-        ];
+  fetchBillingPatient?: (id: string) => Promise<Patient | undefined>;
+}): Promise<ClinicalPatientIds> {
+  const sourceId = copySourceId(patient);
+  if (!isWorkingCopy(patient)) {
+    return {
+      clinicalId: sourceId,
+      clinicalFriendlyId: clinicalFriendlyIdOfCopy(patient),
+    };
+  }
+  const main = await findMainPatientOfWorkingCopy({
+    patient,
+    sourceId,
+    fetchBillingPatient,
   });
+  return {
+    clinicalId: main ? copySourceId(main) : undefined,
+    clinicalFriendlyId: (main ? clinicalFriendlyIdOfCopy(main) : undefined) ?? clinicalFriendlyIdOfCopy(patient),
+    workingCopyParentId: sourceId,
+  };
+}
+
+async function findMainPatientOfWorkingCopy({
+  patient,
+  sourceId,
+  fetchBillingPatient,
+}: {
+  patient: Patient;
+  sourceId?: string;
+  fetchBillingPatient: (id: string) => Promise<Patient | undefined>;
+}): Promise<Patient | undefined> {
+  const visited = new Set<string>(patient.id ? [patient.id] : []);
+  let ancestorId = sourceId;
+  if (!ancestorId) return noMainPatient(patient, 'it has no source reference');
+  for (let hop = 0; hop < MAX_COPY_CHAIN_HOPS; hop++) {
+    if (visited.has(ancestorId)) return noMainPatient(patient, `the chain cycles back to Patient/${ancestorId}`);
+    visited.add(ancestorId);
+    const ancestor = await fetchBillingPatient(ancestorId);
+    if (!ancestor) return noMainPatient(patient, `Patient/${ancestorId} in the chain no longer exists`);
+    if (!isWorkingCopy(ancestor)) return ancestor;
+    const nextAncestorId = copySourceId(ancestor);
+    if (!nextAncestorId) return noMainPatient(patient, `Patient/${ancestorId} in the chain has no source reference`);
+    ancestorId = nextAncestorId;
+  }
+  return noMainPatient(patient, `the chain is deeper than ${MAX_COPY_CHAIN_HOPS} hops`);
+}
+
+// A copy that resolves no main patient is written with no clinical identifiers, which nothing
+// downstream can tell apart from a copy that never had a clinical patient, so say which chain broke.
+function noMainPatient(patient: Patient, reason: string): undefined {
+  console.warn(`No main billing Patient resolved for working copy Patient/${patient.id}: ${reason}`);
+  return undefined;
 }
 
 export async function searchOnClinicalIDs(
@@ -421,8 +475,7 @@ export async function searchOnClinicalIDs(
   }, CLINICAL_ID_SCAN_PAGE_SIZE);
   if (uuid || friendlyId) {
     results = results.filter(
-      (p) =>
-        (!!uuid && clinicalPatientIdOfCopy(p) === uuid) || (!!friendlyId && clinicalFriendlyIdOfCopy(p) === friendlyId)
+      (p) => (!!uuid && copySourceId(p) === uuid) || (!!friendlyId && clinicalFriendlyIdOfCopy(p) === friendlyId)
     );
   }
   const total = results.length;
@@ -453,27 +506,20 @@ export function getEraCheckNumber(
   return pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? pr.paymentIdentifier?.value;
 }
 
-export const CLAIM_PCN_IDENTIFIER_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-claim-patient-control-number';
-
-export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string {
-  return (
-    claim.identifier?.find((id) => id.system === CLAIM_PCN_IDENTIFIER_SYSTEM)?.value ??
-    claim.id?.replaceAll('-', '') ??
-    ''
-  );
+export function eraCheckNumberMatches(
+  pr: Pick<PaymentReconciliation, 'identifier' | 'paymentIdentifier'>,
+  checkNumber: string
+): boolean {
+  const normalizedCheckNumber = checkNumber.trim().toLowerCase();
+  if (!normalizedCheckNumber) return false;
+  const stored = getEraCheckNumber(pr)?.trim().toLowerCase();
+  return !!stored && stored === normalizedCheckNumber;
 }
 
-export function claimIdFromPcn(pcn: string): string | undefined {
-  const minified = pcn.toLowerCase();
-  if (!/^[0-9a-f]{32}$/.test(minified)) return undefined;
-  const claimId = [
-    minified.slice(0, 8),
-    minified.slice(8, 12),
-    minified.slice(12, 16),
-    minified.slice(16, 20),
-    minified.slice(20),
-  ].join('-');
-  return isValidUUID(claimId) ? claimId : undefined;
+export const CLAIM_PCN_IDENTIFIER_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-claim-patient-control-number';
+
+export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string | undefined {
+  return claim.identifier?.find((id) => id.system === CLAIM_PCN_IDENTIFIER_SYSTEM)?.value;
 }
 
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
@@ -533,21 +579,74 @@ export async function fetchDefinedTagNames(oystehr: Oystehr): Promise<Set<string
   return new Set(basics.map((tag) => tag.code?.text).filter((name): name is string => !!name));
 }
 
+// A claim's billable period spans its service lines: the earliest service start and the latest
+// service end across all items. Used at claim creation so UB-04 admission/discharge dates default
+// to the actual span of care rather than being left blank.
+export function deriveClaimBillablePeriod(items: ClaimItem[] | undefined): Period | undefined {
+  const millis = (date: string): number => DateTime.fromISO(date).toMillis();
+  const start = (items ?? [])
+    .map((item) => item.servicedPeriod?.start ?? item.servicedDate)
+    .filter((date): date is string => !!date)
+    .sort((a, b) => millis(a) - millis(b))
+    .at(0);
+  const end = (items ?? [])
+    .map((item) => item.servicedPeriod?.end ?? item.servicedDate)
+    .filter((date): date is string => !!date)
+    .sort((a, b) => millis(a) - millis(b))
+    .at(-1);
+  return start ? { start, end } : undefined;
+}
+
+// A claim built from an encounter reflects the encounter's actual course of care rather than its
+// service lines: billablePeriod.start is when the visit first became billable (arrived, falling back
+// to intake, falling back to provider, in case an earlier status was never recorded), and
+// billablePeriod.end is when the visit was discharged. Uses the most recent occurrence of each status
+// since a visit's status can move backward and forward through the same status more than once.
+export function deriveClaimBillablePeriodFromEncounter(encounter: Encounter): Period | undefined {
+  const statusHistory = getVisitStatusHistory(encounter);
+  const start =
+    statusHistory.findLast((entry) => entry.status === 'arrived')?.period.start ??
+    statusHistory.findLast((entry) => entry.status === 'intake')?.period.start ??
+    statusHistory.findLast((entry) => entry.status === 'provider')?.period.start;
+  const end = statusHistory.findLast((entry) => entry.status === 'discharged')?.period.start;
+  return start ? { start, end } : undefined;
+}
+
 // Re-point careTeam sequence 1 (the rendering provider) at `provider`, preserving other members,
 // and point every service line at it. The one careTeam shape both the claim editor
 // (update-billing-claim) and the rules engine write.
+// Mark rendering provider as an attending provider.
 export function setClaimRenderingProviderCareTeam(claim: Claim, provider: Reference): void {
   claim.careTeam = [
     {
       sequence: 1,
       provider,
-      role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
+      role: {
+        coding: [
+          {
+            system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+            code: '82',
+          },
+        ],
+      },
     },
-    ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
+    {
+      sequence: 2,
+      provider,
+      role: {
+        coding: [
+          {
+            system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+            code: '71',
+          },
+        ],
+      },
+    },
+    ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1 && member.sequence !== 2),
   ];
   claim.item = claim.item?.map((item) => ({
     ...item,
-    careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
+    careTeamSequence: Array.from(new Set([1, 2, ...(item.careTeamSequence ?? [])])),
   }));
 }
 
@@ -597,13 +696,29 @@ export function createEraReadClient(token: string, secrets: Secrets | null): Oys
   });
 }
 
+export async function findById<T extends FhirResource>(
+  oystehr: Oystehr,
+  resourceType: T['resourceType'],
+  id: string
+): Promise<FhirResourceReturnValue<T> | undefined> {
+  const result = await oystehr.fhir.search<T>({
+    resourceType,
+    params: [
+      {
+        name: '_id',
+        value: id,
+      },
+    ],
+  });
+  return result.unbundle()[0] as FhirResourceReturnValue<T>;
+}
+
 export async function fetchById<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
   id: string
-): Promise<T> {
-  const result = await oystehr.fhir.search<T>({ resourceType, params: [{ name: '_id', value: id }] });
-  const resource = result.unbundle()[0];
+): Promise<FhirResourceReturnValue<T>> {
+  const resource = await findById<T>(oystehr, resourceType, id);
   if (!resource) throw FHIR_RESOURCE_NOT_FOUND(resourceType);
   return resource;
 }
@@ -632,8 +747,8 @@ export async function listToRulesReportingMalformed(list: List, env: string): Pr
  * The rules engine responsible for a claim, decided by its AR Stage:
  * - Insurance Payer AR -> Claim Submission Rules
  * - Non-insurance Payer AR -> Non-Insurance Payer Pre-Invoice Rules
- * - Patient AR, self-pay only (no real coverage on the claim) -> Patient AR Pre-Invoice Rules
- * Undefined when no engine applies (no AR Stage, or Patient AR with insurance coverage).
+ * - Patient AR -> Patient AR Pre-Invoice Rules
+ * Undefined when no engine applies (no AR Stage).
  *
  * An engine runs automatically only when a claim is created in its stage. Changing an existing
  * claim's AR Stage never runs an engine — set-billing-claim-status holds the claim instead, and the
@@ -643,7 +758,7 @@ export function determineRulesEngineForClaim(claim: Claim): RulesEngineType | un
   const arStage = getClaimStatusFieldValue(claim, CLAIM_STATUS_FIELDS_BY_KEY.arStage);
   if (arStage === AR_STAGE.insurancePayer) return 'claim-submission';
   if (arStage === AR_STAGE.nonInsurancePayer) return 'non-insurance-payer-pre-invoice';
-  if (arStage === AR_STAGE.patient && !claimHasRealCoverage(claim.insurance)) return 'patient-ar-pre-invoice';
+  if (arStage === AR_STAGE.patient) return 'patient-ar-pre-invoice';
   return undefined;
 }
 
@@ -655,12 +770,13 @@ export async function kickOffRulesEngine(
   oystehr: Oystehr,
   engine: RulesEngineType,
   claimId: string,
+  requester: Reference,
   secrets: Secrets | null
 ): Promise<void> {
   // Resolved before the try so the best-effort catch cannot itself throw on a missing secret.
   const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   try {
-    await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(engine, claimId, false));
+    await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(engine, claimId, false, requester));
   } catch (error) {
     console.error(`Failed to enqueue ${engine} rules-engine Task for Claim/${claimId}:`, error);
     await sendErrors(error, env, { claimId, engine });
@@ -679,6 +795,8 @@ export interface ClaimGraph {
   renderingProvider?: Practitioner | Organization;
   // Working-copy subscriber RelatedPersons of the fetched coverages.
   subscribers: RelatedPerson[];
+  // Attachments
+  documentReferences: DocumentReference[];
 }
 
 export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promise<ClaimGraph> {
@@ -714,6 +832,24 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
     const [type, id] = renderingRef.split('/');
     queries.push(`/${type}?_id=${id}`);
   }
+
+  // Any DocumentReference resources referenced in supportingInfo entries cannot be _include'd
+  queries.push(
+    ...(claim.supportingInfo ?? [])
+      .filter(
+        (
+          supportingInfo
+        ): supportingInfo is Omit<ClaimSupportingInfo, 'valueReferrence'> & { valueReference: Reference } =>
+          !!supportingInfo.valueReference && !!supportingInfo.valueReference.reference
+      )
+      .map(
+        (supportingInfo) =>
+          `/${supportingInfo.valueReference.reference?.split(
+            '/'
+          )[0]}?_id=${supportingInfo.valueReference.reference?.split('/')[1]}`
+      )
+  );
+
   const followUp = queries.length ? await getResourcesFromBatchInlineRequests(oystehr, queries) : [];
 
   const coverages = coverageRefs
@@ -726,8 +862,18 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
       ) as Practitioner | Organization | undefined)
     : undefined;
   const subscribers = followUp.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson');
+  const documentReferences = followUp.filter((r): r is DocumentReference => r.resourceType === 'DocumentReference');
 
-  return { claim, patient, billingProvider, serviceFacility, coverages, renderingProvider, subscribers };
+  return {
+    claim,
+    patient,
+    billingProvider,
+    serviceFacility,
+    coverages,
+    renderingProvider,
+    subscribers,
+    documentReferences,
+  };
 }
 
 export function getTag(resource: Resource, system: string): string | undefined {
@@ -895,6 +1041,60 @@ export function prepareWorkingCopy<T extends CopyableBillingResource>(resource: 
   return copy;
 }
 
+export function copyBillingPatient({
+  patient,
+  workingCopy,
+  clinicalId,
+  clinicalFriendlyId,
+}: {
+  patient: Patient;
+  workingCopy?: boolean;
+  clinicalId?: string;
+  clinicalFriendlyId?: string;
+}): Patient {
+  const copy = workingCopy
+    ? prepareWorkingCopy<Patient>(patient, patient.id!)
+    : prepareCopy<Patient>(patient, patient.id!);
+  if (!clinicalId && !clinicalFriendlyId) return copy;
+  copy.identifier ??= [];
+  if (clinicalId) {
+    // Source reference in extension is managed by prepareCopy
+    copy.identifier.push(clinicalPatientIdentifier(clinicalId));
+  }
+  if (clinicalFriendlyId) {
+    copy.extension = [
+      ...(copy.extension ?? []),
+      {
+        url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
+        valueString: clinicalFriendlyId,
+      },
+    ];
+    copy.identifier.push(clinicalFriendlyIdIdentifier(clinicalFriendlyId));
+  }
+  return copy;
+}
+
+export async function copyBillingPatientWithClinicalIds({
+  oystehr,
+  patient,
+  workingCopy,
+}: {
+  oystehr: Oystehr;
+  patient: Patient;
+  workingCopy?: boolean;
+}): Promise<Patient> {
+  const { clinicalId, clinicalFriendlyId } = await resolveClinicalPatientIds({
+    oystehr,
+    patient,
+  });
+  return copyBillingPatient({
+    patient,
+    workingCopy,
+    clinicalId,
+    clinicalFriendlyId,
+  });
+}
+
 /**
  * Clone a billing resource into a working copy: strips id, tags it, adds source identifier.
  */
@@ -1035,7 +1235,7 @@ export function getClaimService(claim: Claim): string | undefined {
 // aligned. The one intentional difference: the subscriber RelatedPerson is persisted standalone here
 // (so it can be searched), whereas harvest contains it on the Coverage.
 
-function buildPayorReference(payerOrg: Organization): string {
+export function buildPayorReference(payerOrg: Organization): string {
   const payerId = getPayerId(payerOrg);
   if (isValidUUID(payerOrg.id ?? '')) return `Organization/${payerOrg.id}`;
   if (!payerId) throw new Error('payerId unexpectedly missing from payer organization');
@@ -1124,26 +1324,13 @@ export function buildClaimCoverageCopies(params: {
   return { coverage, subscriber };
 }
 
-// Point the claim's primary (focal) coverage slot at `coverageReference` and its insurer at the
+// Point the claim's coverage slot at `coverageReference` and its insurer at the
 // coverage's payer, keeping any other insurance entries (re-sequenced after the new primary).
 // ensureClaimInsurance drops the no-coverage stub now that a real focal coverage is attached.
-export function attachPrimaryCoverageToClaim(params: {
-  claim: Claim;
-  coverageReference: string;
-  display?: string;
-  payerReference?: string;
-}): void {
-  const { claim, coverageReference, display, payerReference } = params;
-  claim.insurance = ensureClaimInsurance([
-    { sequence: 1, focal: true, coverage: { reference: coverageReference, display } },
-    ...(claim.insurance ?? []).filter((i) => i.sequence !== 1),
-  ]);
-  if (payerReference) claim.insurer = { reference: payerReference, display };
-}
 export function attachCoverageToClaim(params: {
   claim: Claim;
   coverageReference: string;
-  type: 'primary' | 'secondary' | 'tertiary' | 'quaternary';
+  type: ClaimCoverageType;
   display?: string;
   payerReference?: string;
 }): void {
@@ -1491,13 +1678,7 @@ export const patientSearchParam = (patientIds: string[]): ClaimSearchParam => ({
 });
 
 export function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
-  let workingCopyReferenceResourceId: string | undefined;
-  if (isWorkingCopy(resource)) {
-    workingCopyReferenceResourceId = resource.extension
-      ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
-      ?.valueReference?.reference?.replace('Practitioner/', '')
-      ?.replace('Organization/', '');
-  }
+  const workingCopyReferenceResourceId = isWorkingCopy(resource) ? copySourceId(resource) : undefined;
   const addr = resource.address?.[0];
   const common = {
     id: resource.id ?? '',
@@ -1533,4 +1714,26 @@ export function mapProvider(resource: Practitioner | Organization): BillingProvi
     name: resource.name ?? '',
     stripeAccountId: resource.identifier?.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)?.value ?? '',
   };
+}
+export const CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-attachment-report-type-code';
+export const BILLING_APP_BUCKET = (projectId: string): string => {
+  return `${projectId}-billing-app`;
+};
+export const CLAIM_ATTACHMENT_OBJECT_PATH = (claimId: string, fileName: string): string => {
+  return `claim-attachments/${claimId}/${fileName}`;
+};
+
+export function getClaimAttachmentBucketAndPathFromZ3Url(projectApi: string, z3Url: string): [string, string] {
+  const [bucket, ...pathParts] = z3Url.replace(`${projectApi}/z3/`, '').split('/');
+  return [bucket, pathParts.join('/')];
+}
+
+export function getClaimAttachmentUrl(
+  projectApi: string,
+  projectId: string,
+  claimId: string,
+  fileName: string
+): string {
+  return `${projectApi}/z3/${BILLING_APP_BUCKET(projectId)}/${CLAIM_ATTACHMENT_OBJECT_PATH(claimId, fileName)}`;
 }

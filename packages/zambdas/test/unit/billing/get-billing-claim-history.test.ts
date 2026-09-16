@@ -276,6 +276,24 @@ describe('get-billing-claim-history performEffect', () => {
     const reported = captureExceptionMock.mock.calls[0][0] as Error;
     expect(reported.message).toContain('missing');
   });
+
+  it('human agent has higher priority', async () => {
+    const provenance: Provenance = {
+      ...provenanceBase('provenance', '2026-06-15T10:00:00Z'),
+      activity: { coding: [CLAIM_PROVENANCE_ACTIVITY.statusChange] },
+      agent: [
+        { type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.system] }, who: { reference: 'Device/d1' } },
+        { type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.human] }, who: { reference: 'Practitioner/u1' } },
+      ],
+      extension: [
+        diffExtension([{ field: 'status.arStage', label: 'AR Stage', previousValue: null, newValue: 'Patient AR' }]),
+      ],
+    };
+    const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], [practitionerU1]) });
+
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    expect(entries[0].actor.display).toContain('Doe');
+  });
 });
 
 // Records written since the refs moved out of the diff JSON carry them as Provenance.entity entries

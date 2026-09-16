@@ -13,7 +13,7 @@ import {
   useGetMedicationDetails,
   useGetMedicationsSearch,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import { isPermissionDeniedError } from 'src/helpers/apiErrors';
+import { isErxPermissionDeniedError } from 'src/features/visits/shared/utils/erxErrors';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
 import { getMedicationName } from 'utils/lib/fhir/medication-administration';
@@ -168,7 +168,7 @@ export default function UpdateMedicationPage(): ReactElement {
   // remap field can't be shown, and submitting the form would clear the stored interactions Medispan ID — so
   // explain why and block the update rather than rendering a spinner forever (the old behaviour).
   const medicationDatabaseError = medicationDetailsError ?? interactionsDetailsError;
-  const blockingNotice = isPermissionDeniedError(medicationDatabaseError)
+  const blockingNotice = isErxPermissionDeniedError(medicationDatabaseError)
     ? `${MEDICATION_DATABASE_FORBIDDEN_MESSAGE} Medication details cannot be loaded, so this medication cannot be updated.`
     : medicationDatabaseError
     ? 'The medication database could not be reached, so this medication cannot be updated right now. Please try again in a few moments.'

@@ -1,4 +1,4 @@
-import { Alert, Grid, Stack, Typography } from '@mui/material';
+import { Alert, Button, Grid, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PageTitleStyled } from 'src/features/visits/shared/components/PageTitle';
@@ -10,7 +10,8 @@ import { OrderCollection } from '../OrderCollection';
 
 export const DetailsWithoutResults: React.FC<{
   labOrder: LabOrderDetailedPageDTO;
-}> = ({ labOrder }) => {
+  onBack: () => void;
+}> = ({ labOrder, onBack }) => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   return (
@@ -50,7 +51,18 @@ export const DetailsWithoutResults: React.FC<{
         labOrder={labOrder}
         showOrderInfo={labOrder.orderStatus.includes('sent') || labOrder.orderStatus === 'ready'}
         showActionButtons={!isReadOnly}
+        onBack={onBack}
       />
+      {/* OrderCollection hides its own Back button along with the rest of the action row */}
+      {isReadOnly && (
+        <Button
+          variant="outlined"
+          sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600, alignSelf: 'flex-start' }}
+          onClick={onBack}
+        >
+          Back
+        </Button>
+      )}
     </Stack>
   );
 };

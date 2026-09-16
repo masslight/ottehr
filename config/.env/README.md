@@ -84,6 +84,7 @@ This directory contains per-environment configuration files for Ottehr. The file
 | `CANDID_CLIENT_ID` | OAuth client ID for the Candid Health billing API. Used to submit medical encounters for insurance claim processing. |
 | `CANDID_CLIENT_SECRET` | Client secret for Candid Health API authentication. **Keep this confidential.** |
 | `CANDID_ENV` | Candid Health environment to target (`SANDBOX` for testing, `PRODUCTION` for live billing). |
+| `BILLING_INTEGRATION` | Where claims are routed: `candid`, `ottehr`, or `all`. Defaults to `candid` when unset. Must be `ottehr` or `all` when the `nonInsuranceOrganizationsEnabled` feature flag is on — Ottehr billing is the system of record for non-insurance organizations, with `all` sending comparison claims to Candid (without the NIO employer); candid-only routing fails terraform generation. |
 | `PATIENT_BALANCE_SOURCE` | Data source for the visit details patient balance feature, `candid` or `ottehr`. Defaults to `candid` when unset. |
 
 ### Payments -- Stripe
@@ -93,8 +94,26 @@ This directory contains per-environment configuration files for Ottehr. The file
 | `STRIPE_PUBLIC_KEY` | Stripe publishable (public) API key. Used client-side to initialize Stripe.js for payment UIs. |
 | `STRIPE_SECRET_KEY` | Stripe secret API key. Used server-side to create payment intents, charge invoices, and manage customers. **Keep this confidential.** |
 | `STRIPE_PAYMENT_METHOD_TYPES` | Comma-separated list of payment method types accepted by your Stripe account (e.g., `card`). |
-| `STRIPE_WEBHOOK_SECRET` | Optional signing secret of the Stripe connected-accounts webhook destination (`whsec_...`). Used by the billing app webhook to verify incoming Stripe events. **Keep this confidential.** |
-| `STRIPE_PLATFORM_WEBHOOK_SECRET` | Optional signing secret of the Stripe platform-account webhook destination (`whsec_...`). Configure this when the environment accepts payments on the platform account as well as connected accounts. **Keep this confidential.** |
+| `STRIPE_WEBHOOK_SECRET` | Webhook signing secret or array of signing-secret/account-ID entries, as shown below. A single signing secret remains supported. **Keep this confidential.** |
+| `STRIPE_PLATFORM_WEBHOOK_SECRET` | Optional additional signing secret for the platform-account webhook destination. Existing configurations remain supported alongside `STRIPE_WEBHOOK_SECRET`. **Keep this confidential.** |
+
+In `config/.env/<env>.json`:
+
+```json
+{
+  "STRIPE_WEBHOOK_SECRET": [
+    { "name": "Clinic A", "accountId": "acct_123", "signingSecret": "whsec_first" },
+    { "name": "Clinic B", "accountId": "acct_456", "signingSecret": "whsec_second" },
+    { "name": "Platform", "signingSecret": "whsec_platform" }
+  ]
+}
+```
+
+The generator stores the array as a JSON string in Oystehr. Any number of accounts can use the same
+project webhook URL. `name` is an optional label; `accountId` is used when the event has no `account`
+field. Omit `accountId` for platform or Connect destinations.
+If both the entry and event specify an account, they must match. A signing secret must have the same
+account mapping everywhere it appears, including `STRIPE_PLATFORM_WEBHOOK_SECRET`.
 
 ### Radiology / PACS -- Advapacs
 

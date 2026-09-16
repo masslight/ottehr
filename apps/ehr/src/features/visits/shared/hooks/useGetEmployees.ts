@@ -56,7 +56,10 @@ export const useGetEmployees = (options?: {
 
 export const useGetEmployeesWithDetails = (options?: {
   enabled?: boolean;
-}): UseQueryResult<{ providers: EmployeeDetails[]; nonProviders: EmployeeDetails[] } | null, Error> => {
+}): UseQueryResult<
+  { providers: EmployeeDetails[]; nonProviders: EmployeeDetails[]; all: EmployeeDetails[] } | null,
+  Error
+> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
@@ -77,6 +80,11 @@ export const useGetEmployeesWithDetails = (options?: {
       return {
         providers: formattedProviders,
         nonProviders: formattedNonProviders,
+        // Deliberately unfiltered — this is the list to look a single employee up in when the
+        // question is "what roles does this person hold?" rather than "who can I assign?".
+        // Dropping Deactivated users here would make a deactivated provider indistinguishable
+        // from an unknown one, and callers that fail open on "unknown" would answer wrongly.
+        all: getEmployeesRes.employees,
       };
     },
     enabled: !!oystehrZambda && (options?.enabled ?? true),

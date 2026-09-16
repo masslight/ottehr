@@ -1,4 +1,4 @@
-import { Box } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import type { ExamItemConfig } from 'config-types';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -48,27 +48,30 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
       abnormal: true,
     }));
 
+  const groups = Object.entries(examConfig)
+    .map(([sectionKey, section]) => {
+      const { normalItems, abnormalItems } = getSectionObservations(sectionKey);
+      const items = [...normalItems, ...abnormalItems];
+      const comment = Object.keys(section.components.comment)
+        .map((key) => examObservations[key]?.note)
+        .filter((note) => note !== undefined)
+        .join(' ');
+
+      return { sectionKey, label: section.label, items, comment };
+    })
+    .filter((group) => group.items.length > 0 || group.comment);
+
   return (
     <Box
       sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
       data-testid={dataTestIds.telemedEhrFlow.reviewTabExaminationsContainer}
     >
-      {Object.entries(examConfig)
-        .map(([sectionKey, section]) => {
-          const { normalItems, abnormalItems } = getSectionObservations(sectionKey);
-          const allItems = [...normalItems, ...abnormalItems];
-          const comment = Object.keys(section.components.comment)
-            .map((key) => examObservations[key]?.note)
-            .filter((note) => note !== undefined)
-            .join(' ');
-
-          if (allItems.length === 0 && !comment) {
-            return null;
-          }
-
-          return <ExamReviewGroup key={sectionKey} label={section.label} items={allItems} comment={comment} />;
-        })
-        .filter(Boolean)}
+      {groups.length === 0 && unmatchedItems.length === 0 && (
+        <Typography color="text.secondary">No exam findings</Typography>
+      )}
+      {groups.map((group) => (
+        <ExamReviewGroup key={group.sectionKey} label={group.label} items={group.items} comment={group.comment} />
+      ))}
       {unmatchedItems.length > 0 && <ExamReviewGroup label="Other findings" items={unmatchedItems} />}
     </Box>
   );

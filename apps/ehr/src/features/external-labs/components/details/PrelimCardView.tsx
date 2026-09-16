@@ -1,9 +1,11 @@
-import { Box, Button, Paper, Typography } from '@mui/material';
-import { FC } from 'react';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import { Box, Button, Menu, MenuItem, Paper, Typography } from '@mui/material';
+import { FC, useId, useState } from 'react';
 import { formatDateForLabs } from 'utils/lib/utils/dateUtils';
 
 interface PrelimCardViewProps {
   resultPdfUrl: string | null;
+  labGeneratedResultUrls?: string[];
   receivedDate: string | null;
   reviewedDate: string | null;
   onPrelimView: () => void;
@@ -12,11 +14,18 @@ interface PrelimCardViewProps {
 
 export const PrelimCardView: FC<PrelimCardViewProps> = ({
   resultPdfUrl,
+  labGeneratedResultUrls,
   receivedDate,
   reviewedDate,
   onPrelimView,
   timezone,
 }) => {
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const menuOpen = Boolean(anchorEl);
+  const hasLabGeneratedResults = !!labGeneratedResultUrls?.length;
+  const menuButtonId = useId();
+  const menuId = useId();
+
   const getDateEvent = (): { event: 'received' | 'reviewed'; date: string } => {
     return receivedDate
       ? { event: 'received', date: formatDateForLabs(receivedDate, timezone) }
@@ -29,6 +38,13 @@ export const PrelimCardView: FC<PrelimCardViewProps> = ({
       // the final results resources are marked as reviewed by clicking on "mark as reviewed" and we show it in the UI
       onPrelimView();
       window.open(resultPdfUrl, '_blank');
+    }
+  };
+
+  const openLabGeneratedResults = (): void => {
+    if (labGeneratedResultUrls?.length) {
+      onPrelimView();
+      labGeneratedResultUrls.forEach((url) => window.open(url, '_blank'));
     }
   };
 
@@ -53,15 +69,58 @@ export const PrelimCardView: FC<PrelimCardViewProps> = ({
         </Typography>
       </Box>
 
-      <Button
-        disabled={!resultPdfUrl}
-        onClick={openPdf}
-        variant="text"
-        color="primary"
-        sx={{ fontWeight: 700, textTransform: 'none' }}
-      >
-        View
-      </Button>
+      {hasLabGeneratedResults ? (
+        <>
+          <Button
+            id={menuButtonId}
+            onClick={(clickEvent) => setAnchorEl(clickEvent.currentTarget)}
+            variant="text"
+            color="primary"
+            endIcon={<ArrowDropDownIcon />}
+            aria-haspopup="true"
+            aria-controls={menuOpen ? menuId : undefined}
+            aria-expanded={menuOpen ? 'true' : undefined}
+            sx={{ fontWeight: 700, textTransform: 'none' }}
+          >
+            View
+          </Button>
+          <Menu
+            id={menuId}
+            anchorEl={anchorEl}
+            open={menuOpen}
+            onClose={() => setAnchorEl(null)}
+            MenuListProps={{ 'aria-labelledby': menuButtonId }}
+          >
+            <MenuItem
+              disabled={!resultPdfUrl}
+              onClick={() => {
+                setAnchorEl(null);
+                openPdf();
+              }}
+            >
+              View Results
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setAnchorEl(null);
+                openLabGeneratedResults();
+              }}
+            >
+              View Lab Generated Results
+            </MenuItem>
+          </Menu>
+        </>
+      ) : (
+        <Button
+          disabled={!resultPdfUrl}
+          onClick={openPdf}
+          variant="text"
+          color="primary"
+          sx={{ fontWeight: 700, textTransform: 'none' }}
+        >
+          View
+        </Button>
+      )}
     </Paper>
   );
 };

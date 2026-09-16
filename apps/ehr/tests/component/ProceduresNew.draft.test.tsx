@@ -29,9 +29,19 @@ vi.mock('../../src/hooks/usePendingQuickPick', () => ({
   usePendingQuickPick: vi.fn(),
 }));
 
+const TEST_QUICK_PICK = {
+  id: 'qp-1',
+  name: 'Test Quick Pick',
+  procedureType: 'laceration-repair',
+  procedureDetails: 'Quick pick procedure details',
+  cptCodes: [{ code: '12042', display: 'Intermediate repair' }],
+  lengthCm: 3.2,
+  repairDepth: 'subcutaneous-layered',
+};
+
 vi.mock('../../src/hooks/useMergedQuickPicks', () => ({
   sortQuickPicks: vi.fn(),
-  useMergedProcedureQuickPicks: () => ({ quickPicks: [], loading: false, refetch: vi.fn() }),
+  useMergedProcedureQuickPicks: () => ({ quickPicks: [TEST_QUICK_PICK], loading: false, refetch: vi.fn() }),
 }));
 
 vi.mock('../../src/shared/hooks/useDebounce', () => ({
@@ -42,17 +52,20 @@ vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility',
   useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: false }),
 }));
 
+const { mockSaveChartData, mockDeleteChartData } = vi.hoisted(() => ({
+  mockSaveChartData: vi.fn().mockResolvedValue({ chartData: { procedures: [{ resourceId: 'saved-proc-1' }] } }),
+  mockDeleteChartData: vi.fn().mockResolvedValue({}),
+}));
+
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ encounter: { id: 'enc-procedure-test' } }),
   useChartData: () => ({ chartData: {}, setPartialChartData: vi.fn() }),
-  useSaveChartData: () => ({ mutateAsync: vi.fn().mockResolvedValue({}) }),
-  useDeleteChartData: () => ({ mutateAsync: vi.fn().mockResolvedValue({}) }),
+  useSaveChartData: () => ({ mutateAsync: mockSaveChartData }),
+  useDeleteChartData: () => ({ mutateAsync: mockDeleteChartData }),
 }));
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetCPTHCPCSSearch: () => ({ isFetching: false, data: { codes: [] } }),
-  useRecommendBillingCodes: () => ({ mutateAsync: vi.fn() }),
-  useAiSuggestionNotes: () => ({ mutateAsync: vi.fn() }),
 }));
 
 vi.mock('../../src/components/AccordionCard', () => ({
@@ -68,7 +81,11 @@ vi.mock('../../src/components/DeleteIconButton', () => ({
 }));
 
 vi.mock('../../src/components/RoundedButton', () => ({
-  RoundedButton: ({ children, onClick }: any) => <button onClick={onClick}>{children}</button>,
+  RoundedButton: ({ children, onClick, disabled, 'data-testid': dataTestId }: any) => (
+    <button onClick={onClick} disabled={disabled} data-testid={dataTestId}>
+      {children}
+    </button>
+  ),
 }));
 
 vi.mock('../../src/components/input/AutocompleteInput', () => ({
@@ -85,7 +102,9 @@ vi.mock('../../src/features/visits/shared/components/PageTitle', () => ({
 }));
 
 vi.mock('../../src/features/visits/shared/components/QuickPicksButton', () => ({
-  QuickPicksButton: () => <div />,
+  QuickPicksButton: ({ quickPicks, onSelect }: any) => (
+    <button onClick={() => onSelect(quickPicks[0])}>Select Quick Pick</button>
+  ),
 }));
 
 vi.mock('../../src/features/visits/shared/components/assessment-tab/DiagnosesField', () => ({
@@ -94,10 +113,6 @@ vi.mock('../../src/features/visits/shared/components/assessment-tab/DiagnosesFie
 
 vi.mock('../../src/features/visits/in-person/components/InfoAlert', () => ({
   InfoAlert: () => <div />,
-}));
-
-vi.mock('../../src/features/visits/shared/components/AiSection', () => ({
-  AiSectionContainer: () => <div />,
 }));
 
 vi.mock('../../src/api/api', () => ({
@@ -113,6 +128,8 @@ import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { dataTestIds } from '../../src/constants/data-test-ids';
+import { OTHER } from '../../src/features/visits/in-person/pages/procedureOtherFields';
 import ProceduresNew from '../../src/features/visits/in-person/pages/ProceduresNew';
 import { useProcedureStore } from '../../src/state/draft-data.store';
 
@@ -127,7 +144,7 @@ const createWrapper = (): ((props: { children: ReactNode }) => JSX.Element) => {
   });
   return ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>{children}</BrowserRouter>
+      <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>{children}</BrowserRouter>
     </QueryClientProvider>
   );
 };
@@ -218,5 +235,82 @@ describe('ProceduresNew — draft store', () => {
     await waitFor(() => {
       expect(screen.getByRole('textbox', { name: /procedure details/i })).toHaveValue('');
     });
+  });
+
+  // --- Quick Picks persist to the draft ---
+
+  it('selecting a quick pick persists its procedureType to the draft', async () => {
+    const user = userEvent.setup();
+    renderComponent();
+    await user.click(screen.getByRole('button', { name: /select quick pick/i }));
+    await waitFor(() => {
+      expect(useProcedureStore.getState().getDraft(ENCOUNTER_ID).procedureType).toBe(TEST_QUICK_PICK.procedureType);
+    });
+  });
+
+  it('selecting a quick pick persists its other fields to the draft', async () => {
+    const user = userEvent.setup();
+    renderComponent();
+    await user.click(screen.getByRole('button', { name: /select quick pick/i }));
+    await waitFor(() => {
+      expect(useProcedureStore.getState().getDraft(ENCOUNTER_ID).procedureDetails).toBe(
+        TEST_QUICK_PICK.procedureDetails
+      );
+      expect(useProcedureStore.getState().getDraft(ENCOUNTER_ID).lengthCm).toBe(TEST_QUICK_PICK.lengthCm);
+      expect(useProcedureStore.getState().getDraft(ENCOUNTER_ID).repairDepth).toBe(TEST_QUICK_PICK.repairDepth);
+    });
+  });
+});
+
+describe('ProceduresNew — Other field fallback on save', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
+    // Stub fetch so the PDF-check useEffect does not trigger the no-network guard.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, headers: { get: () => '' } }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const saveDraftAndSubmit = async (draft: Record<string, unknown>): Promise<void> => {
+    const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, draft);
+    renderComponent();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => {
+      expect(mockSaveChartData).toHaveBeenCalledTimes(2);
+    });
+  };
+
+  it('falls back to "Other" for bodySite when otherBodySite is blank, instead of sending an empty string', async () => {
+    await saveDraftAndSubmit({ bodySite: OTHER, otherBodySite: undefined });
+    const procedurePayload = mockSaveChartData.mock.calls[1][0].procedures[0];
+    expect(procedurePayload.bodySite).toBe(OTHER);
+  });
+
+  it('falls back to "Other" for bodySite when otherBodySite is only whitespace', async () => {
+    await saveDraftAndSubmit({ bodySite: OTHER, otherBodySite: '   ' });
+    const procedurePayload = mockSaveChartData.mock.calls[1][0].procedures[0];
+    expect(procedurePayload.bodySite).toBe(OTHER);
+  });
+
+  it('uses the trimmed otherBodySite text when it is non-blank', async () => {
+    await saveDraftAndSubmit({ bodySite: OTHER, otherBodySite: '  Left elbow  ' });
+    const procedurePayload = mockSaveChartData.mock.calls[1][0].procedures[0];
+    expect(procedurePayload.bodySite).toBe('Left elbow');
+  });
+
+  it('falls back to "Other" for complications when otherComplications is blank, instead of sending an empty string', async () => {
+    await saveDraftAndSubmit({ complications: OTHER, otherComplications: undefined });
+    const procedurePayload = mockSaveChartData.mock.calls[1][0].procedures[0];
+    expect(procedurePayload.complications).toBe(OTHER);
+  });
+
+  it('uses the trimmed otherComplications text when it is non-blank', async () => {
+    await saveDraftAndSubmit({ complications: OTHER, otherComplications: '  Minor bleeding  ' });
+    const procedurePayload = mockSaveChartData.mock.calls[1][0].procedures[0];
+    expect(procedurePayload.complications).toBe('Minor bleeding');
   });
 });

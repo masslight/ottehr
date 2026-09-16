@@ -1,4 +1,5 @@
 import { FhirResource } from 'fhir/r4b';
+import { FormTemplateRejection } from '../api/form-template.types';
 
 export enum APIErrorCode {
   // 40xx
@@ -32,6 +33,7 @@ export enum APIErrorCode {
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
   FHIR_RESOURCE_IS_GONE = 4102,
+  FHIR_RESOURCE_VALIDATION_ERROR = 4103,
   PRECONDITION_FAILED = 4120,
   // 42xx
   MISSING_REQUEST_BODY = 4200,
@@ -54,6 +56,7 @@ export enum APIErrorCode {
   APPOINTMENT_ALREADY_EXISTS = 4341,
   PRACTITIONER_SCHEDULE_CONFLICT = 4342,
   APPOINTMENT_SEARCH_TOO_BROAD = 4343,
+  CLAIM_SEARCH_TOO_BROAD = 4344,
   // 44xx
   EXTERNAL_LAB_GENERAL = 4400,
   MISSING_NLM_API_KEY_ERROR = 4401,
@@ -65,6 +68,15 @@ export enum APIErrorCode {
   MANAGED_QUESTIONNAIRE_GENERAL = 4407,
   INSURANCE_CARD_IMAGE_GENERAL = 4408,
   PAPERWORK_FLOW_GENERAL = 4409,
+  UNSOLICITED_RESULTS_ALREADY_MATCHED = 4410,
+  FILE_STORAGE_REQUEST_REJECTED = 4411,
+  // A PDF offered as a form template that cannot be used as one. The analysis itself succeeded; these
+  // say what it found, and each names a different thing the administrator has to go and fix.
+  FORM_TEMPLATE_ENCRYPTED = 4412,
+  FORM_TEMPLATE_FILLING_NOT_PERMITTED = 4413,
+  FORM_TEMPLATE_CERTIFIED = 4414,
+  FORM_TEMPLATE_DYNAMIC_XFA = 4415,
+  FORM_TEMPLATE_UNREADABLE = 4416,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -75,6 +87,8 @@ export enum APIErrorCode {
 
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
+  REPORT_CACHE_WRITE_FAILED = 5001,
+  REPORT_REFRESH_QUEUE_FAILED = 5002,
 }
 
 export interface APIError {
@@ -82,6 +96,48 @@ export interface APIError {
   message: string;
   statusCode?: number;
 }
+
+/**
+ * Why a PDF cannot be used as a form template, keyed by what the analysis found.
+ *
+ * Server-side because the server is what knows: the client would otherwise receive `certified` and have to
+ * carry its own dictionary of what each status means, which makes the wording a product decision living in
+ * whichever app happens to call the endpoint.
+ *
+ * Thrown rather than returned. `topLevelCatch` recognises an `APIError` and returns it to the caller
+ * without paging anyone, so these reach the administrator as an explanation while staying out of Sentry —
+ * which is the distinction that matters, since an unusable PDF is a fact about the upload rather than a
+ * fault in the service.
+ *
+ * Keyed by `FormTemplateRejection`, so a rejection status added to the analysis union without a message
+ * here fails to compile.
+ */
+export const FORM_TEMPLATE_REJECTED_ERRORS: Record<FormTemplateRejection, APIError> = {
+  encrypted: {
+    code: APIErrorCode.FORM_TEMPLATE_ENCRYPTED,
+    message:
+      'This PDF needs a password to open, so its fields cannot be read. Please upload a copy that opens without one.',
+  },
+  fillingNotPermitted: {
+    code: APIErrorCode.FORM_TEMPLATE_FILLING_NOT_PERMITTED,
+    message:
+      'The publisher of this PDF has disallowed filling in its form fields, so it cannot be prefilled. Please use a copy that permits form filling.',
+  },
+  certified: {
+    code: APIErrorCode.FORM_TEMPLATE_CERTIFIED,
+    message:
+      'This PDF carries a certifying signature, and prefilling it would invalidate that signature — recipients would see the form flagged as altered. Please use an unsigned copy of the form.',
+  },
+  dynamicXfa: {
+    code: APIErrorCode.FORM_TEMPLATE_DYNAMIC_XFA,
+    message:
+      'This PDF uses Adobe’s dynamic XFA format, which browsers cannot display. Please upload a standard PDF version of the form.',
+  },
+  unreadable: {
+    code: APIErrorCode.FORM_TEMPLATE_UNREADABLE,
+    message: 'This file could not be read as a PDF. Please check the file and try again.',
+  },
+};
 
 export const isApiError = (errorObject: unknown | undefined): boolean => {
   if (!errorObject) {
@@ -121,6 +177,9 @@ export const isApiError = (errorObject: unknown | undefined): boolean => {
 
   return false;
 };
+
+export const errorHasStatusCode = (error: any, statusCode: number): boolean =>
+  error?.code === statusCode || error?.statusCode === statusCode || error?.message?.includes(`${statusCode}`);
 
 export const NOT_AUTHORIZED: APIError = {
   code: APIErrorCode.NOT_AUTHORIZED,
@@ -287,6 +346,12 @@ export const APPOINTMENT_SEARCH_TOO_BROAD_ERROR: APIError = {
     'This search returned too much data to load. Please narrow the date range or select fewer locations/providers and try again.',
 };
 
+export const CLAIM_SEARCH_TOO_BROAD_ERROR: APIError = {
+  code: APIErrorCode.CLAIM_SEARCH_TOO_BROAD,
+  message:
+    'This search returned too much data to load. Please lower the rows per page, or narrow the date range or other filters, and try again.',
+};
+
 export const APPOINTMENT_CANT_BE_IN_PAST_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_IN_PAST,
   message: "An appointment can't be scheduled for a date in the past",
@@ -326,6 +391,12 @@ export const FHIR_RESOURCE_IS_GONE = (): APIError => ({
   code: APIErrorCode.FHIR_RESOURCE_IS_GONE,
   statusCode: 410,
   message: `The requested resource is gone`,
+});
+
+export const FHIR_RESOURCE_VALIDATION_ERROR = (message: string): APIError => ({
+  code: APIErrorCode.FHIR_RESOURCE_VALIDATION_ERROR,
+  statusCode: 422,
+  message,
 });
 
 export const CLAIM_NOT_READY_FOR_X12_EXPORT: APIError = {
@@ -388,6 +459,20 @@ export const INVALID_INPUT_ERROR = (message: string): APIError => {
   };
 };
 
+export const REPORT_CACHE_WRITE_FAILED_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.REPORT_CACHE_WRITE_FAILED,
+    message,
+  };
+};
+
+export const REPORT_REFRESH_QUEUE_FAILED_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.REPORT_REFRESH_QUEUE_FAILED,
+    message,
+  };
+};
+
 export const ERA_IMPORT_FAILED_ERROR = (message: string, statusCode?: number): APIError => {
   return {
     code: APIErrorCode.ERA_IMPORT_FAILED,
@@ -424,6 +509,13 @@ export const EXTERNAL_LAB_ERROR = (message: string): APIError => {
   };
 };
 
+export const EXTERNAL_LAB_UNSOLICITED_RESULTS_ALREADY_MATCHED = (message: string): APIError => {
+  return {
+    code: APIErrorCode.UNSOLICITED_RESULTS_ALREADY_MATCHED,
+    message,
+  };
+};
+
 export const EXTERNAL_LAB_ERROR_MISSING_WC_INFO = (message: string): APIError => {
   return {
     code: APIErrorCode.MISSING_WC_INFO_FOR_LABS,
@@ -436,6 +528,14 @@ export const IN_HOUSE_LAB_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.IN_HOUSE_LAB_GENERAL,
     message,
+  };
+};
+
+export const FILE_STORAGE_REQUEST_REJECTED_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.FILE_STORAGE_REQUEST_REJECTED,
+    message,
+    statusCode: 400,
   };
 };
 

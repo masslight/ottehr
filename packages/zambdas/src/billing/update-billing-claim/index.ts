@@ -12,7 +12,8 @@ import {
   ProvenanceAgent,
   RelatedPerson,
 } from 'fhir/r4b';
-import { setNpi } from 'utils/lib/fhir/helpers';
+import { applyClaimNonInsurancePayerTag, claimNonInsurancePayerExtension } from 'utils/lib/fhir/billing';
+import { codeableConcept, setNpi } from 'utils/lib/fhir/helpers';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import {
   CODE_SYSTEM_CLAIM_TYPE,
@@ -23,10 +24,13 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
 } from 'utils/lib/helpers/rcm/constants';
 import { BillingPolicyHolderInput, BillingSubscriberRelationship } from 'utils/lib/types/data/billing/billing.schemas';
-import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { removeExtension, updateExtension } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { isNonInsuranceOrganization } from '../non-insurance-org.helpers';
 import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../provenance';
 import {
   attachCoverageToClaim,
@@ -35,8 +39,14 @@ import {
   buildDiagnosisSequence,
   buildSubscriberRelatedPerson,
   claimHasRealCoverage,
+  CODE_SYSTEM_NUBC_REVENUE,
   createBillingClient,
   ensureClaimInsurance,
+  EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+  EXTENSION_CLAIM_FREQUENCY_CODE,
+  EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+  EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fetchById,
   getClaimTypeCoding,
   payerDisplay,
@@ -326,6 +336,7 @@ async function attachClaimResources(
         : undefined,
       net: { value: line.charges, currency: 'USD' },
       quantity: { value: line.units, unit: 'UN' },
+      revenue: line.revenueCode ? codeableConcept(line.revenueCode, CODE_SYSTEM_NUBC_REVENUE) : undefined,
     }));
     claim.total = { value: fields.serviceLines.reduce((sum, l) => sum + l.charges, 0), currency: 'USD' };
   } else if (fields.diagnoses) {
@@ -354,6 +365,75 @@ async function attachClaimResources(
     const display = fields.payerId ? payerDisplay(await oystehr.rcm.getPayer({ id: fields.payerId })) : undefined;
     // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
     if (payerUrl && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl, display };
+  }
+
+  if (fields.nonInsurancePayer !== undefined) {
+    if (fields.nonInsurancePayer) {
+      const org = await fetchById<Organization>(oystehr, 'Organization', fields.nonInsurancePayer.id);
+      if (!isNonInsuranceOrganization(org)) {
+        throw INVALID_INPUT_ERROR('nonInsurancePayer must reference a non-insurance organization');
+      }
+      updateExtension(
+        claim,
+        claimNonInsurancePayerExtension({ reference: `Organization/${org.id}`, display: org.name })
+      );
+      applyClaimNonInsurancePayerTag(claim, fields.nonInsurancePayer.id);
+    } else {
+      removeExtension(claim, CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL);
+      applyClaimNonInsurancePayerTag(claim, null);
+    }
+  }
+
+  if (fields.billType != null) {
+    if (fields.billType) {
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+        valueString: fields.billType.substring(1, 3),
+      });
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_FREQUENCY_CODE,
+        valueString: fields.billType.substring(3, 4),
+      });
+    } else {
+      removeExtension(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE);
+    }
+  }
+
+  if (fields.admissionType != null) {
+    if (fields.admissionType) {
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+        valueString: fields.admissionType,
+      });
+    } else {
+      removeExtension(claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE);
+    }
+  }
+
+  if (fields.admissionSource != null) {
+    if (fields.admissionSource) {
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+        valueString: fields.admissionSource,
+      });
+    } else {
+      removeExtension(claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE);
+    }
+  }
+
+  if (fields.patientDischargeStatusCode != null) {
+    if (fields.patientDischargeStatusCode) {
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+        valueString: fields.patientDischargeStatusCode,
+      });
+    } else {
+      removeExtension(claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS);
+    }
+  }
+
+  if (fields.admissionDate && fields.dischargeDate) {
+    claim.billablePeriod = { start: fields.admissionDate, end: fields.dischargeDate };
   }
 
   return commitClaimResourceChange(oystehr, {

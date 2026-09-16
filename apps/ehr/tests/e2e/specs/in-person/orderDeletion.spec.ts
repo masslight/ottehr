@@ -21,12 +21,13 @@ import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import { UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { radiologyStudiesConfig } from 'utils/lib/ottehr-config/radiology';
+import { formatProcedureCptCode } from 'utils/lib/procedure-coding/format';
 import {
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
 import { medicationApplianceRoutes } from 'utils/lib/types/api/medication-administration.types';
-import procedureType from '../../../../../../config/oystehr/procedure-type.json' assert { type: 'json' };
+import procedureType from '../../../../../../config/oystehr/procedure-type.json';
 
 const PROCESS_ID = `orderCancellation.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID);
@@ -41,34 +42,15 @@ if (!procedureTypeKey) {
 
 const PROCEDURE_TYPE_CODINGS =
   procedureType.fhirResources[procedureTypeKey as keyof typeof procedureType.fhirResources].resource.expansion.contains;
-const CONFIG_PROCEDURES = PROCEDURE_TYPE_CODINGS.map((procedure: any) => {
-  const dropDownChoice = procedure.display;
-  const codeableConcept = procedure.extension?.[0].valueCodeableConcept.coding[0];
-  if (!codeableConcept) {
-    return { dropDownChoice };
-  }
-  return {
-    dropDownChoice,
-    display: codeableConcept.code + '-' + codeableConcept.display, // Use dash as separator, matching UI format
-    cptCode: codeableConcept.code,
-    cptName: codeableConcept.display,
-  };
-});
-
-// Find a procedure with a valid CPT code
-const SELECTED_PROCEDURE = CONFIG_PROCEDURES.find((proc) => proc.cptCode) || CONFIG_PROCEDURES[0];
-if (!SELECTED_PROCEDURE.cptCode || !SELECTED_PROCEDURE.display) {
-  throw new Error('No procedure with CPT code and display found in configuration');
-}
 
 // Test data constants
 // cSpell:disable-next inversus
 const DIAGNOSIS = 'Situs inversus';
 
-// Procedures from config
-const PROCEDURE_TYPE = SELECTED_PROCEDURE.dropDownChoice;
-const PROCEDURE_CPT_CODE = SELECTED_PROCEDURE.cptCode;
-const PROCEDURE_CPT_DISPLAY = SELECTED_PROCEDURE.display;
+const PROCEDURE_TYPE = PROCEDURE_TYPE_CODINGS[0].display;
+const PROCEDURE_CPT_CODE = '73000';
+const PROCEDURE_CPT_NAME = 'X-ray of collar bone';
+const PROCEDURE_CPT_DISPLAY = formatProcedureCptCode({ code: PROCEDURE_CPT_CODE, display: PROCEDURE_CPT_NAME });
 
 // Medications from FHIR and utils
 // Optional — instances without registered in-house medications skip the

@@ -1,6 +1,15 @@
 import { otherColors } from '@ehrTheme/colors';
+import { ArrowDropDown } from '@mui/icons-material';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
-import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
+import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
+import CollectionsOutlinedIcon from '@mui/icons-material/CollectionsOutlined';
+import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
+import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
+import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
+import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
+import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
+import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import {
@@ -8,11 +17,12 @@ import {
   Button,
   Checkbox,
   Grid,
+  ListItemIcon,
+  Menu,
   MenuItem,
   Paper,
   Select,
   Skeleton,
-  Stack,
   TextField,
   Tooltip,
   Typography,
@@ -21,10 +31,10 @@ import {
 import Alert, { AlertColor } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Appointment, Flag, Organization } from 'fhir/r4b';
+import { Appointment, Encounter, Flag, Organization } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { ReactElement, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   generatePaperworkPdf,
@@ -46,6 +56,8 @@ import PatientBalances from 'src/components/PatientBalances';
 import { QuestionnaireResponseViewer } from 'src/components/QuestionnaireResponseViewer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
+import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
+import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { PatientDocumentsExplorer } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -53,21 +65,25 @@ import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPa
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
+import { DEFAULT_TAB_TITLE, formatPatientTabTitle } from 'src/shared/utils';
 import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import {
   getCancellationReasonDisplay,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
 } from 'utils/lib/fhir/appointments';
-import { FHIR_EXTENSION, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { FHIR_EXTENSION, ROOM_EXTENSION_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
+  getFollowUpProgressNotePathSegment,
+  getFollowupSubtype,
   getVisitOccupationalMedicineEmployerFromEncounter,
+  isFollowupEncounter,
   isScheduledFollowupEncounter,
   SCHEDULED_FOLLOWUP_OTHER_REASON,
   SCHEDULED_FOLLOWUP_REASONS,
 } from 'utils/lib/fhir/encounter';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
-import { getFormattedPatientFullName } from 'utils/lib/fhir/patient';
+import { getFormattedPatientFullName, getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { resolveServiceCategoryAbbreviation } from 'utils/lib/helpers/helpers';
 import { BOOKING_CONFIG, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
@@ -96,6 +112,8 @@ import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
 import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
+import { PatientNotesButton } from '../features/patient-notes/components/PatientNotesButton';
+import { ConfirmSave } from '../features/visits/shared/components/patient/SaveConfirmationContext';
 import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
 import { formatLastModifiedTag } from '../helpers';
 import {
@@ -115,16 +133,21 @@ import { PatientAccountComponent } from './PatientInformationPage';
 
 const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
 
-// The bottom "Save All" button and the "Completed consent forms" block's own Save button are gated on
-// the staff member attesting that consent was obtained. The inline pencil-icon dialogs (DOB, reason
-// for visit, service category, non-legal guardians) are intentionally not gated.
+const MENU_ITEM_SX = { color: 'primary.main', fontWeight: 500 };
+const DESTRUCTIVE_MENU_ITEM_SX = { color: 'error.main', fontWeight: 500 };
+const MENU_ITEM_ICON_SX = { color: 'inherit' };
+
+// The "About this patient" saves - the bottom "Save All" button and each section's own Save button
+// alike - are reminders, not gates: with the attestation checkbox unchecked they still save, but
+// only after the staff member acknowledges this dialog. The "Booking details" pencil-icon dialogs
+// (DOB, reason for visit, service category, non-legal guardians) and the payments, notes and
+// document blocks carry no reminder at all.
 //
-// The Save All gate reads the *persisted* attestation, not the local checkbox, so it has to spell out
-// that the checkbox must be committed via the consent block's Save button first.
-const CONSENT_ATTESTATION_NOT_SAVED_MESSAGE =
-  'Please check "I verify that patient consent has been obtained." and click Save in the "Completed consent forms" block before saving.';
-const CONSENT_ATTESTATION_REQUIRED_MESSAGE =
-  'Please check "I verify that patient consent has been obtained." before saving.';
+// The reminder reads the *checkbox*, not the persisted attestation, so checking the box quiets it
+// immediately - the separate Save in the "Completed consent forms" block is what persists it.
+const CONSENT_REMINDER_TITLE = 'Reminder: consent not signed';
+const CONSENT_REMINDER_MESSAGE =
+  "Consent forms are not yet signed for this encounter. Please verify consent and check the 'I verify that patient consent has been obtained.' checkbox before the patient is marked 'Ready'.";
 
 interface EditDOBParams {
   dob?: DateTime | null;
@@ -234,6 +257,14 @@ export default function VisitDetailsPage(): ReactElement {
   const [visitDetailsPdfLoading, setVisitDetailsPdfLoading] = React.useState<boolean>(false);
 
   const [consentAttested, setConsentAttested] = useState<boolean | null>(null);
+  // A save waiting on the consent reminder dialog. Held in an object so `setPendingSave` is never
+  // handed a bare function (React would run it as a state updater instead of storing it).
+  const [pendingSave, setPendingSave] = useState<{ proceed: () => Promise<void>; cancel: () => void } | null>(null);
+  const [pendingSaveIsRunning, setPendingSaveIsRunning] = useState(false);
+  // Mirrors `pendingSave` for the check-and-set in the guard below, which has to be synchronous:
+  // reading the state there would see a value one render stale, and doing the check inside a
+  // `setPendingSave` updater would run it twice under StrictMode and drop a resolver.
+  const pendingSaveExists = useRef(false);
 
   const [editDialogConfig, setEditDialogConfig] = useState<EditDialogConfig>(CLOSED_EDIT_DIALOG);
 
@@ -247,6 +278,8 @@ export default function VisitDetailsPage(): ReactElement {
   const user = useEvolveUser();
 
   const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
+  const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
+  const [docsMenuAnchor, setDocsMenuAnchor] = useState<HTMLElement | null>(null);
 
   const {
     data: visitDetailsData,
@@ -293,6 +326,10 @@ export default function VisitDetailsPage(): ReactElement {
     handleOpenScanner,
     handleScanComplete,
   } = useVisitCards({ appointmentId: appointmentID, patientId });
+
+  // Consent the patient signed in their paperwork. Same signal the "Completed consent forms" block
+  // renders its Signed/Not signed status from, so the checkbox and the status can never disagree.
+  const patientSignedConsent = consentPdfUrls.length > 0;
 
   const { data: faxData, isLoading: faxLoading } = useQuery({
     queryKey: ['get-visit-fax-history', appointmentID],
@@ -346,16 +383,85 @@ export default function VisitDetailsPage(): ReactElement {
     setConsentAttested((previous) => (previous === null ? previous : null));
   }, [appointmentID]);
 
+  // Consent the patient completed in their paperwork already is obtained consent, so a signed
+  // consent form counts as attested even when no staff attestation was ever recorded.
+  const consentAttestedOrSigned = serverConsentAttested || patientSignedConsent;
+
   useEffect(() => {
-    // Seed the checkbox from the server only once the visit details have actually loaded. Seeding it
-    // from the `?? false` default on the first render would latch an already-attested visit to
-    // unchecked, since this only ever runs while the local value is still null.
-    if (visitDetailsData && consentAttested === null) {
-      setConsentAttested(serverConsentAttested);
+    // Seed the checkbox from the server only once the visit details and the consent files have
+    // actually loaded. Seeding it from the `?? false` defaults on the first render would latch an
+    // already-attested visit to unchecked, since this only ever runs while the local value is null.
+    // A signed consent starts the box checked, which leaves the consent block's own Save enabled so
+    // the attestation can still be persisted.
+    if (visitDetailsData && !imagesLoading && consentAttested === null) {
+      setConsentAttested(consentAttestedOrSigned);
     }
-  }, [visitDetailsData, serverConsentAttested, consentAttested]);
+  }, [visitDetailsData, imagesLoading, consentAttestedOrSigned, consentAttested]);
 
   const hasConsentChanged = consentAttested !== serverConsentAttested;
+
+  // What the reminder below keys off. The checkbox once it has been seeded; until then the value the
+  // seed is going to use, so a save landing in the loading window (the files query can still be in
+  // flight after the account form is editable) is judged on the server's answer rather than on
+  // `null` reading as unattested.
+  const consentVerified = consentAttested ?? consentAttestedOrSigned;
+
+  // Saving the patient record with the attestation unchecked is allowed, but the staff member is
+  // reminded first and the write only happens once they confirm. Passed down to every Save button
+  // in the "About this patient" section.
+  const confirmSaveWithConsentReminder = useCallback<ConfirmSave>(
+    async (proceed) => {
+      if (consentVerified) {
+        await proceed();
+        return;
+      }
+      if (pendingSaveExists.current) {
+        // A reminder is already up for an earlier save. The dialog is modal, so reaching this needs
+        // two saves to race inside the same tick (each Save button validates before it gets here).
+        // Abandon this one - overwriting `pendingSave` would strand the earlier caller's resolver.
+        return;
+      }
+      pendingSaveExists.current = true;
+      // Resolve either way so the caller's await never dangles: on confirm once the write settles,
+      // on cancel as soon as the dialog closes.
+      await new Promise<void>((resolve) => {
+        setPendingSave({
+          proceed: async () => {
+            try {
+              await proceed();
+            } finally {
+              resolve();
+            }
+          },
+          cancel: resolve,
+        });
+      });
+    },
+    [consentVerified]
+  );
+
+  const handleCancelPendingSave = useCallback((): void => {
+    if (pendingSaveIsRunning) return;
+    pendingSave?.cancel();
+    pendingSaveExists.current = false;
+    setPendingSave(null);
+  }, [pendingSave, pendingSaveIsRunning]);
+
+  const handleConfirmPendingSave = useCallback(async (): Promise<void> => {
+    if (!pendingSave) return;
+    setPendingSaveIsRunning(true);
+    try {
+      await pendingSave.proceed();
+    } catch (error) {
+      // The save's own mutation hooks already report failures as a snackbar; the dialog just
+      // closes so the still-dirty section can be retried.
+      console.error('Error saving after the consent reminder:', error);
+    } finally {
+      setPendingSaveIsRunning(false);
+      pendingSaveExists.current = false;
+      setPendingSave(null);
+    }
+  }, [pendingSave]);
 
   const paperworkModifiedFlag = useMemo(
     () =>
@@ -368,6 +474,24 @@ export default function VisitDetailsPage(): ReactElement {
 
   const encounter = visitDetailsData?.encounter;
   const qrId = visitDetailsData?.qrId;
+
+  const ownFollowUpsQueryEnabled = Boolean(oystehr) && Boolean(encounter?.id);
+  const { data: ownFollowUpCount, isPending: isOwnFollowUpCountPending } = useQuery({
+    queryKey: ['visit-details-own-follow-ups', encounter?.id],
+    queryFn: async (): Promise<number> =>
+      (
+        await oystehr!.fhir.search<Encounter>({
+          resourceType: 'Encounter',
+          params: [
+            { name: 'part-of', value: `Encounter/${encounter!.id}` },
+            { name: '_count', value: '1' },
+          ],
+        })
+      ).unbundle().length,
+    enabled: ownFollowUpsQueryEnabled,
+  });
+  const hasOwnFollowUps = (ownFollowUpCount ?? 0) > 0;
+  const isOwnFollowUpsUnresolved = ownFollowUpsQueryEnabled && isOwnFollowUpCountPending;
 
   const {
     data: paymentData,
@@ -390,6 +514,18 @@ export default function VisitDetailsPage(): ReactElement {
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patientId ?? '');
 
   const fullName = (patient && getFormattedPatientFullName(patient)) ?? '';
+
+  const room = appointment?.extension?.find((ext) => ext.url === ROOM_EXTENSION_URL)?.valueString;
+
+  useEffect(() => {
+    const tabTitle = patient && formatPatientTabTitle(getFullestAvailableName(patient), room);
+    if (tabTitle) {
+      document.title = tabTitle;
+    }
+    return () => {
+      document.title = DEFAULT_TAB_TITLE;
+    };
+  }, [patient, room]);
 
   const isInPerson = isInPersonAppointment(appointment);
 
@@ -691,6 +827,26 @@ export default function VisitDetailsPage(): ReactElement {
     getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
   // For scheduled follow-ups, a saved reason outside the fixed list is a free-text "Other".
   const isScheduledFollowUp = !!encounter && isScheduledFollowupEncounter(encounter);
+
+  const actionsMenuOpen = Boolean(actionsMenuAnchor);
+  const docsMenuOpen = Boolean(docsMenuAnchor);
+
+  const progressNoteUrl =
+    appointment?.id && encounter?.id
+      ? getInPersonUrlByAppointmentType(
+          { id: appointment.id, encounterId: encounter.id, isFollowUp: !!encounter.partOf },
+          isFollowupEncounter(encounter)
+            ? getFollowUpProgressNotePathSegment(getFollowupSubtype(encounter))
+            : ROUTER_PATH.REVIEW_AND_SIGN
+        )
+      : undefined;
+
+  const convertToFollowUpDisabledReason = ((): string | undefined => {
+    if (!appointment || !encounter || !patientId || isOwnFollowUpsUnresolved) return 'Loading the visit…';
+    if (isFollowupEncounter(encounter)) return 'This visit is already a follow-up';
+    if (hasOwnFollowUps) return 'This visit already has its own follow-ups';
+    return undefined;
+  })();
   const isOtherFollowUpReason =
     isScheduledFollowUp && !!maybeReasonForVisit && !SCHEDULED_FOLLOWUP_REASONS.includes(maybeReasonForVisit as never);
   const reasonForVisit = useMemo(() => {
@@ -827,12 +983,38 @@ export default function VisitDetailsPage(): ReactElement {
     />
   );
 
-  // The consent block's own Save commits the checkbox. It stays disabled until the checkbox differs
-  // from what's persisted, so when nothing has been attested yet the tooltip has to spell out that
-  // the box must be checked first. No reason means no Tooltip at all: an empty title would still
-  // wrap the button in a listener-bearing anchor that never shows anything.
-  const consentSaveBlockedReason =
-    !hasConsentChanged && !consentAttested ? CONSENT_ATTESTATION_REQUIRED_MESSAGE : undefined;
+  // The consent block's own Save commits the checkbox, and is the "save again" step after consent
+  // has been obtained. It stays disabled while the checkbox matches what's already persisted.
+  const convertToFollowUpItem = (
+    <MenuItem
+      data-testid={dataTestIds.visitDetailsPage.convertToFollowUpMenuItem}
+      disabled={!!convertToFollowUpDisabledReason}
+      onClick={() => {
+        setActionsMenuAnchor(null);
+        navigate(`/patient/${patientId}/followup/add`, {
+          state: {
+            convertFrom: { appointmentId: appointment?.id, encounterId: encounter?.id },
+          },
+        });
+      }}
+      sx={MENU_ITEM_SX}
+    >
+      <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+        <SubdirectoryArrowRightIcon fontSize="small" />
+      </ListItemIcon>
+      Convert to Follow-up
+    </MenuItem>
+  );
+
+  // Only wrap when disabled: a Tooltip/Box wrapper stops MenuList from managing the item's
+  // keyboard focus, which matters for the actionable case but not for a disabled one.
+  const convertToFollowUpMenuItem = convertToFollowUpDisabledReason ? (
+    <Tooltip title={convertToFollowUpDisabledReason} placement="left">
+      <Box component="span">{convertToFollowUpItem}</Box>
+    </Tooltip>
+  ) : (
+    convertToFollowUpItem
+  );
 
   const consentAttestationSaveButton = (
     <LoadingButton
@@ -875,14 +1057,7 @@ export default function VisitDetailsPage(): ReactElement {
         }}
       />
       <Typography>I verify that patient consent has been obtained.</Typography>
-      {consentSaveBlockedReason ? (
-        <Tooltip title={consentSaveBlockedReason}>
-          {/* A disabled button emits no pointer events, so the tooltip needs an enabled wrapper. */}
-          <span>{consentAttestationSaveButton}</span>
-        </Tooltip>
-      ) : (
-        consentAttestationSaveButton
-      )}
+      {consentAttestationSaveButton}
     </Box>
   );
 
@@ -903,52 +1078,185 @@ export default function VisitDetailsPage(): ReactElement {
                 />
               </Grid>
               <Grid item container xs={6} justifyContent="flex-end" gap={1}>
-                <LoadingButton
+                <RoundedButton
+                  id="visit-docs-menu-button"
+                  data-testid={dataTestIds.visitDetailsPage.docsAndDataMenuButton}
                   variant="outlined"
-                  sx={{
-                    borderRadius: '20px',
-                    textTransform: 'none',
-                  }}
-                  loading={visitDetailsPdfLoading}
-                  color="primary"
-                  disabled={isLoadingDocuments || !encounter?.id}
-                  onClick={downloadVisitDetailsPdf}
+                  onClick={(event) => setDocsMenuAnchor(event.currentTarget)}
+                  aria-haspopup="true"
+                  aria-expanded={docsMenuOpen ? 'true' : undefined}
+                  aria-controls={docsMenuOpen ? 'visit-docs-menu' : undefined}
+                  endIcon={<ArrowDropDown />}
                 >
-                  Visit Details PDF
-                </LoadingButton>
-                {FEATURE_FLAGS.LEGACY_DATA_ENABLED && (
-                  <Button
-                    variant="outlined"
-                    sx={{ borderRadius: '20px', textTransform: 'none' }}
-                    disabled={!patient}
-                    onClick={() => {
-                      const patientLastName = patient?.name?.[0]?.family ?? '';
-                      const patientFirstName = patient?.name?.[0]?.given?.[0] ?? '';
-                      const rawDob = patient?.birthDate ?? '';
-                      // Convert YYYY-MM-DD to MM-DD-YYYY to match Z3 key format
-                      const dob = rawDob ? rawDob.split('-').slice(1).concat(rawDob.split('-')[0]).join('-') : '';
-                      const params = new URLSearchParams({
-                        lastName: patientLastName,
-                        firstName: patientFirstName,
-                        dob,
-                      });
-                      navigate(`/legacy-data?${params.toString()}`);
-                    }}
-                  >
-                    Legacy Data
-                  </Button>
-                )}
-                <RoundedButton to={`/patient/${patientId}/docs`} startIcon={<FolderOutlinedIcon></FolderOutlinedIcon>}>
-                  See All Patient Docs
+                  Docs & Data
                 </RoundedButton>
-                <Button
-                  variant="outlined"
-                  sx={{ borderRadius: '20px', textTransform: 'none' }}
-                  disabled={!appointment?.id}
-                  onClick={() => setSendFormDialogOpen(true)}
+                <Menu
+                  id="visit-docs-menu"
+                  anchorEl={docsMenuAnchor}
+                  open={docsMenuOpen}
+                  onClose={() => setDocsMenuAnchor(null)}
+                  MenuListProps={{ 'aria-labelledby': 'visit-docs-menu-button' }}
+                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                  transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                 >
-                  Send Form
-                </Button>
+                  <MenuItem
+                    data-testid={dataTestIds.visitDetailsPage.visitDetailsPdfMenuItem}
+                    disabled={isLoadingDocuments || !encounter?.id || visitDetailsPdfLoading}
+                    onClick={() => {
+                      setDocsMenuAnchor(null);
+                      void downloadVisitDetailsPdf();
+                    }}
+                    sx={MENU_ITEM_SX}
+                  >
+                    <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                      <PictureAsPdfOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    Visit Details PDF
+                  </MenuItem>
+                  <MenuItem
+                    data-testid={dataTestIds.visitDetailsPage.patientPaperworkPdfMenuItem}
+                    disabled={isLoadingDocuments || !patientId || paperworkPdfLoading}
+                    onClick={() => {
+                      setDocsMenuAnchor(null);
+                      void downloadPaperworkPdf();
+                    }}
+                    sx={MENU_ITEM_SX}
+                  >
+                    <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                      <PictureAsPdfOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    Patient Paperwork PDF
+                  </MenuItem>
+                  <MenuItem
+                    data-testid={dataTestIds.visitDetailsPage.allPatientDocsMenuItem}
+                    disabled={!patientId}
+                    onClick={() => {
+                      setDocsMenuAnchor(null);
+                      navigate(`/patient/${patientId}/docs`);
+                    }}
+                    sx={MENU_ITEM_SX}
+                  >
+                    <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                      <CollectionsOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    All Patient Docs
+                  </MenuItem>
+                  {FEATURE_FLAGS.LEGACY_DATA_ENABLED && (
+                    <MenuItem
+                      data-testid={dataTestIds.visitDetailsPage.legacyDataMenuItem}
+                      disabled={!patient}
+                      onClick={() => {
+                        setDocsMenuAnchor(null);
+                        const patientLastName = patient?.name?.[0]?.family ?? '';
+                        const patientFirstName = patient?.name?.[0]?.given?.[0] ?? '';
+                        const rawDob = patient?.birthDate ?? '';
+                        // Convert YYYY-MM-DD to MM-DD-YYYY to match Z3 key format
+                        const dob = rawDob ? rawDob.split('-').slice(1).concat(rawDob.split('-')[0]).join('-') : '';
+                        const params = new URLSearchParams({
+                          lastName: patientLastName,
+                          firstName: patientFirstName,
+                          dob,
+                        });
+                        navigate(`/legacy-data?${params.toString()}`);
+                      }}
+                      sx={MENU_ITEM_SX}
+                    >
+                      <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                        <ContactPageOutlinedIcon fontSize="small" />
+                      </ListItemIcon>
+                      Legacy Data
+                    </MenuItem>
+                  )}
+                  <MenuItem
+                    data-testid={dataTestIds.visitDetailsPage.accessAndChangeLogMenuItem}
+                    disabled={activityLogsLoading}
+                    onClick={() => {
+                      setDocsMenuAnchor(null);
+                      setActivityLogDialogOpen(true);
+                    }}
+                    sx={MENU_ITEM_SX}
+                  >
+                    <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                      <HistoryOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    Access & Change Log
+                  </MenuItem>
+                </Menu>
+                <RoundedButton
+                  id="visit-actions-menu-button"
+                  data-testid={dataTestIds.visitDetailsPage.actionsMenuButton}
+                  variant="outlined"
+                  onClick={(event) => setActionsMenuAnchor(event.currentTarget)}
+                  aria-haspopup="true"
+                  aria-expanded={actionsMenuOpen ? 'true' : undefined}
+                  aria-controls={actionsMenuOpen ? 'visit-actions-menu' : undefined}
+                  endIcon={<ArrowDropDown />}
+                >
+                  Actions
+                </RoundedButton>
+                <Menu
+                  id="visit-actions-menu"
+                  anchorEl={actionsMenuAnchor}
+                  open={actionsMenuOpen}
+                  onClose={() => setActionsMenuAnchor(null)}
+                  MenuListProps={{ 'aria-labelledby': 'visit-actions-menu-button' }}
+                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                  transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                >
+                  <MenuItem
+                    data-testid={dataTestIds.visitDetailsPage.sendFormMenuItem}
+                    disabled={!appointment?.id}
+                    onClick={() => {
+                      setActionsMenuAnchor(null);
+                      setSendFormDialogOpen(true);
+                    }}
+                    sx={MENU_ITEM_SX}
+                  >
+                    <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                      <AssignmentOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    Send Form
+                  </MenuItem>
+                  {convertToFollowUpMenuItem}
+                  <MenuItem
+                    data-testid={dataTestIds.visitDetailsPage.reportIssueMenuItem}
+                    disabled={loading}
+                    onClick={() => {
+                      setActionsMenuAnchor(null);
+                      setIssueDialogOpen(true);
+                    }}
+                    sx={DESTRUCTIVE_MENU_ITEM_SX}
+                  >
+                    <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                      <ErrorOutlineOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    Report Issue
+                  </MenuItem>
+                  {appointment && encounter && appointment.status !== 'cancelled' && (
+                    <MenuItem
+                      data-testid={dataTestIds.visitDetailsPage.cancelVisitButton}
+                      onClick={() => {
+                        setActionsMenuAnchor(null);
+                        handleCancelDialogOpen();
+                      }}
+                      sx={DESTRUCTIVE_MENU_ITEM_SX}
+                    >
+                      <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                        <EventBusyOutlinedIcon fontSize="small" />
+                      </ListItemIcon>
+                      Cancel Visit
+                    </MenuItem>
+                  )}
+                </Menu>
+                <RoundedButton
+                  variant="contained"
+                  data-testid={dataTestIds.visitDetailsPage.progressNoteButton}
+                  disabled={!progressNoteUrl}
+                  onClick={() => progressNoteUrl && navigate(progressNoteUrl)}
+                  startIcon={<ArrowForwardIcon />}
+                >
+                  Progress Note
+                </RoundedButton>
               </Grid>
             </Grid>
             {/* page title row */}
@@ -956,20 +1264,23 @@ export default function VisitDetailsPage(): ReactElement {
               {loading || activityLogsLoading || !patient ? (
                 <Skeleton aria-busy="true" width={200} height="" />
               ) : (
-                <Box
-                  onClick={() => navigate(`/patient/${patientId}/info`)}
-                  sx={{ cursor: 'pointer', display: 'flex', gap: 1 }}
-                >
-                  <AssignmentIndOutlinedIcon
-                    sx={{ width: '27px', height: '27px', color: 'primary.light', alignSelf: 'center' }}
-                  ></AssignmentIndOutlinedIcon>
-                  <Typography
-                    variant="h2"
-                    color="primary.dark"
-                    data-testid={dataTestIds.appointmentPage.patientFullName}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box
+                    onClick={() => navigate(`/patient/${patientId}/info`)}
+                    sx={{ cursor: 'pointer', display: 'flex', gap: 1 }}
                   >
-                    {fullName}
-                  </Typography>
+                    <AssignmentIndOutlinedIcon
+                      sx={{ width: '27px', height: '27px', color: 'primary.light', alignSelf: 'center' }}
+                    ></AssignmentIndOutlinedIcon>
+                    <Typography
+                      variant="h2"
+                      color="primary.dark"
+                      data-testid={dataTestIds.appointmentPage.patientFullName}
+                    >
+                      {fullName}
+                    </Typography>
+                  </Box>
+                  <PatientNotesButton patientId={patientId} />
                 </Box>
               )}
 
@@ -1016,33 +1327,16 @@ export default function VisitDetailsPage(): ReactElement {
                 </>
               )}
               {appointment && encounter && appointment?.status !== 'cancelled' ? (
-                <>
-                  <Button
-                    data-testid={dataTestIds.visitDetailsPage.cancelVisitButton}
-                    variant="outlined"
-                    sx={{
-                      alignSelf: 'center',
-                      marginLeft: 'auto',
-                      // marginRight: 2,
-                      borderRadius: '20px',
-                      textTransform: 'none',
-                    }}
-                    color="error"
-                    onClick={handleCancelDialogOpen}
-                  >
-                    Cancel visit
-                  </Button>
-                  <CancellationReasonDialog
-                    handleClose={handleCancelDialogClose}
-                    refetchData={async () => {
-                      refetchVisitDetails().catch((error) => console.error('error refetching visit details', error));
-                    }}
-                    appointment={appointment}
-                    encounter={encounter}
-                    open={cancelDialogOpen}
-                    getAndSetResources={getAndSetHistoricResources}
-                  />
-                </>
+                <CancellationReasonDialog
+                  handleClose={handleCancelDialogClose}
+                  refetchData={async () => {
+                    refetchVisitDetails().catch((error) => console.error('error refetching visit details', error));
+                  }}
+                  appointment={appointment}
+                  encounter={encounter}
+                  open={cancelDialogOpen}
+                  getAndSetResources={getAndSetHistoricResources}
+                />
               ) : null}
               {status === 'arrived' ? (
                 <>
@@ -1050,7 +1344,7 @@ export default function VisitDetailsPage(): ReactElement {
                     variant="outlined"
                     sx={{
                       alignSelf: 'center',
-                      marginLeft: 1,
+                      marginLeft: 'auto',
                       borderRadius: '20px',
                       textTransform: 'none',
                     }}
@@ -1304,7 +1598,7 @@ export default function VisitDetailsPage(): ReactElement {
                 appointmentId={appointmentID}
                 renderInsuranceCardThumbnail={renderInsuranceCardThumbnail}
                 photoIdCardSlot={photoIdCardSlot}
-                submitBlockedReason={serverConsentAttested ? undefined : CONSENT_ATTESTATION_NOT_SAVED_MESSAGE}
+                confirmSave={confirmSaveWithConsentReminder}
               />
             </Grid>
           </Grid>
@@ -1316,55 +1610,16 @@ export default function VisitDetailsPage(): ReactElement {
                 Visit Documents
               </Typography>
               <Paper sx={{ padding: 3 }}>
-                <PatientDocumentsExplorer patientId={patientId} encounterId={encounter.id} />
+                <PatientDocumentsExplorer
+                  patientId={patientId}
+                  // Both linkages: EHR uploads link by encounter, while consent forms, condition
+                  // photos and school/work notes from intake link by appointment.
+                  visit={{ encounterId: encounter.id, appointmentId: appointmentID }}
+                />
               </Paper>
             </Grid>
           </Grid>
         )}
-        <Grid container direction="row">
-          <Grid item sx={{ marginLeft: { xs: 0, sm: 8 }, marginTop: 2, marginBottom: 50 }}>
-            <Stack direction="row" spacing={1} useFlexGap>
-              <LoadingButton
-                variant="outlined"
-                sx={{
-                  borderRadius: '20px',
-                  textTransform: 'none',
-                }}
-                loading={paperworkPdfLoading}
-                color="primary"
-                disabled={isLoadingDocuments || !patientId}
-                onClick={downloadPaperworkPdf}
-              >
-                Patient Paperwork PDF
-              </LoadingButton>
-              <LoadingButton
-                loading={activityLogsLoading}
-                variant="outlined"
-                sx={{
-                  borderRadius: '20px',
-                  textTransform: 'none',
-                }}
-                size="medium"
-                color="primary"
-                onClick={() => setActivityLogDialogOpen(true)}
-              >
-                View activity logs
-              </LoadingButton>
-              <LoadingButton
-                loading={loading}
-                variant="outlined"
-                sx={{
-                  borderRadius: '20px',
-                  textTransform: 'none',
-                }}
-                color="error"
-                onClick={() => setIssueDialogOpen(true)}
-              >
-                Report Issue
-              </LoadingButton>
-            </Stack>
-          </Grid>
-        </Grid>
         {/* Update details modal */}
         <EditPatientInfoDialog
           title={dialogTitleFromType(editDialogConfig.type)}
@@ -1586,6 +1841,39 @@ export default function VisitDetailsPage(): ReactElement {
           onClose={() => setScannerModalOpen(false)}
           outputFormat="png"
           onScanComplete={handleScanComplete}
+        />
+        <CustomDialog
+          open={Boolean(pendingSave)}
+          handleClose={handleCancelPendingSave}
+          title={CONSENT_REMINDER_TITLE}
+          description={
+            <Typography variant="body2" data-testid={dataTestIds.dialog.message}>
+              {CONSENT_REMINDER_MESSAGE}
+            </Typography>
+          }
+          dataTestId={dataTestIds.visitDetailsPage.consentReminderDialog}
+          maxWidth="xs"
+          fullWidth
+          actions={
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+              <Button
+                variant="outlined"
+                onClick={handleCancelPendingSave}
+                disabled={pendingSaveIsRunning}
+                data-testid={dataTestIds.dialog.cancelButton}
+              >
+                Cancel
+              </Button>
+              <LoadingButton
+                variant="contained"
+                onClick={handleConfirmPendingSave}
+                loading={pendingSaveIsRunning}
+                data-testid={dataTestIds.dialog.proceedButton}
+              >
+                Save
+              </LoadingButton>
+            </Box>
+          }
         />
         {appointmentID && (
           <SendFormDialog

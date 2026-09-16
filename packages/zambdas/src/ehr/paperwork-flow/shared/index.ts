@@ -22,6 +22,7 @@ import { CanonicalUrl, ServiceMode } from 'utils/lib/types/common';
 import { FlowForm, FlowService } from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
 import { PAPERWORK_FLOW_ERROR } from 'utils/lib/types/errors';
 import { sendErrors } from '../../../shared/errors';
+import { compareVersions } from '../../../shared/fhir';
 
 export const healthcareServiceExtensionUrlMap = {
   [ServiceMode['in-person']]: PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
@@ -98,9 +99,21 @@ const makeQuestionnaireSearchRequest = async (
     })
   ).unbundle();
 
+  // consent only questionnaires are all active - they are managed via tf and are bumped via our resource bump script
+  // which doesn't retire resources, so multiple active versions can be returned; take the highest version
+  if (url === CONSENT_ONLY_QUESTIONNAIRE_URL && qSearch.length > 1) {
+    const highest = qSearch.reduce((latest, q) =>
+      compareVersions(q.version ?? PAPERWORK_FLOW_BASE_VERSION, latest.version ?? PAPERWORK_FLOW_BASE_VERSION) > 0
+        ? q
+        : latest
+    );
+    console.log('returning the highest version of consent only: ', highest.version);
+    return highest;
+  }
+
   if (qSearch.length !== 1) {
     const returned = qSearch.map((q) => `Questionnaire/${q.id}`);
-    console.log('questionnaires returned', returned);
+    console.log('Unexpected number of questionnaires returned', returned);
     const errorMessage = `Unexpected number of questionnaires returned for ${url}|${version}: ${returned.length}`;
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
     // no need to error and fail the call but this would be odd so alerting

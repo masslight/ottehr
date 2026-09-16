@@ -39,7 +39,7 @@ describe('create-appointment - validateCreateAppointmentParams', () => {
 
   test('should return validated params for a valid patient-user request', () => {
     const input = createMockZambdaInput({ slotId: VALID_SLOT_ID, patient: validPatientBody }, { secrets });
-    const result = validateCreateAppointmentParams(input, mockPatientUser);
+    const result = validateCreateAppointmentParams(input, mockPatientUser, false);
     expect(result.slotId).toBe(VALID_SLOT_ID);
     expect(result.secrets).toEqual(secrets);
     expect(result.isEHRUser).toBe(false);
@@ -49,7 +49,7 @@ describe('create-appointment - validateCreateAppointmentParams', () => {
     const patientNoEmail = { ...validPatientBody };
     delete (patientNoEmail as any).email;
     const input = createMockZambdaInput({ slotId: VALID_SLOT_ID, patient: patientNoEmail }, { secrets });
-    const result = validateCreateAppointmentParams(input, mockEHRUser);
+    const result = validateCreateAppointmentParams(input, mockEHRUser, false);
     expect(result.slotId).toBe(VALID_SLOT_ID);
     expect(result.isEHRUser).toBe(true);
   });
@@ -59,7 +59,7 @@ describe('create-appointment - validateCreateAppointmentParams', () => {
       { slotId: VALID_SLOT_ID, patient: validPatientBody, language: 'en' },
       { secrets }
     );
-    const result = validateCreateAppointmentParams(input, mockPatientUser);
+    const result = validateCreateAppointmentParams(input, mockPatientUser, false);
     expect(result.language).toBe('en');
   });
 
@@ -68,58 +68,58 @@ describe('create-appointment - validateCreateAppointmentParams', () => {
       { slotId: VALID_SLOT_ID, patient: validPatientBody, language: 'es' },
       { secrets }
     );
-    const result = validateCreateAppointmentParams(input, mockPatientUser);
+    const result = validateCreateAppointmentParams(input, mockPatientUser, false);
     expect(result.language).toBe('es');
   });
 
   test('should throw when body is missing', () => {
     const input = createMockZambdaInput(null, { secrets });
-    expect(() => validateCreateAppointmentParams(input, mockPatientUser)).toThrow();
+    expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow();
   });
 
   test('should throw when slotId is missing', () => {
     const input = createMockZambdaInput({ patient: validPatientBody }, { secrets });
-    expect(() => validateCreateAppointmentParams(input, mockPatientUser)).toThrow();
+    expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow();
   });
 
   test('should throw when patient is missing', () => {
     const input = createMockZambdaInput({ slotId: VALID_SLOT_ID }, { secrets });
-    expect(() => validateCreateAppointmentParams(input, mockPatientUser)).toThrow();
+    expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow();
   });
 
   test('should throw when slotId is not a valid UUID', () => {
     const input = createMockZambdaInput({ slotId: 'not-a-uuid', patient: validPatientBody }, { secrets });
-    expect(() => validateCreateAppointmentParams(input, mockPatientUser)).toThrow();
+    expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow();
   });
 
   test('should throw when patient.firstName is missing', () => {
     const { firstName: _removed, ...patientWithout } = validPatientBody as any;
     const input = createMockZambdaInput({ slotId: VALID_SLOT_ID, patient: patientWithout }, { secrets });
-    expect(() => validateCreateAppointmentParams(input, mockPatientUser)).toThrow();
+    expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow();
   });
 
   test('should throw when patient.lastName is missing', () => {
     const { lastName: _removed, ...patientWithout } = validPatientBody as any;
     const input = createMockZambdaInput({ slotId: VALID_SLOT_ID, patient: patientWithout }, { secrets });
-    expect(() => validateCreateAppointmentParams(input, mockPatientUser)).toThrow();
+    expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow();
   });
 
   test('should throw when patient.dateOfBirth is missing', () => {
     const { dateOfBirth: _removed, ...patientWithout } = validPatientBody as any;
     const input = createMockZambdaInput({ slotId: VALID_SLOT_ID, patient: patientWithout }, { secrets });
-    expect(() => validateCreateAppointmentParams(input, mockPatientUser)).toThrow();
+    expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow();
   });
 
   test('should throw when patient.sex is missing', () => {
     const { sex: _removed, ...patientWithout } = validPatientBody as any;
     const input = createMockZambdaInput({ slotId: VALID_SLOT_ID, patient: patientWithout }, { secrets });
-    expect(() => validateCreateAppointmentParams(input, mockPatientUser)).toThrow();
+    expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow();
   });
 
   test('should throw when patient.email is missing for patient user', () => {
     const { email: _removed, ...patientWithout } = validPatientBody as any;
     const input = createMockZambdaInput({ slotId: VALID_SLOT_ID, patient: patientWithout }, { secrets });
-    expect(() => validateCreateAppointmentParams(input, mockPatientUser)).toThrow();
+    expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow();
   });
 
   test('should throw when patient.dateOfBirth is an invalid date', () => {
@@ -127,7 +127,7 @@ describe('create-appointment - validateCreateAppointmentParams', () => {
       { slotId: VALID_SLOT_ID, patient: { ...validPatientBody, dateOfBirth: 'not-a-date' } },
       { secrets }
     );
-    expect(() => validateCreateAppointmentParams(input, mockPatientUser)).toThrow();
+    expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow();
   });
 
   test('should throw when patient.sex is an invalid enum value', () => {
@@ -135,7 +135,7 @@ describe('create-appointment - validateCreateAppointmentParams', () => {
       { slotId: VALID_SLOT_ID, patient: { ...validPatientBody, sex: 'invalid-sex' } },
       { secrets }
     );
-    expect(() => validateCreateAppointmentParams(input, mockPatientUser)).toThrow();
+    expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow();
   });
 
   test('should throw when language is not "en" or "es"', () => {
@@ -143,6 +143,6 @@ describe('create-appointment - validateCreateAppointmentParams', () => {
       { slotId: VALID_SLOT_ID, patient: validPatientBody, language: 'fr' },
       { secrets }
     );
-    expect(() => validateCreateAppointmentParams(input, mockPatientUser)).toThrow();
+    expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow();
   });
 });

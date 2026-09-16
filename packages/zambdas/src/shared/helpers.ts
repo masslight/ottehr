@@ -4,7 +4,9 @@ import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   Attachment,
+  DomainResource,
   Encounter,
+  Extension,
   FhirResource,
   Location,
   Meta,
@@ -15,6 +17,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BILLING_RESOURCE_TAG, PRIVATE_EXTENSION_BASE_URL, PUBLIC_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { undefinedIfEmptyArray } from 'utils/lib/fhir/helpers';
 import { pickFirstValueFromAnswerItem } from 'utils/lib/helpers/paperwork/paperwork';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { TELEMED_VIDEO_ROOM_CODE, TIMEZONES } from 'utils/lib/types/constants';
@@ -219,6 +222,14 @@ export function validateJsonBody(input: ZambdaInput): any {
   }
 }
 
+/**
+ * The id of the Patient a FHIR reference points at, whether the reference is relative
+ * (`Patient/<id>`) or absolute (`https://fhir-api.zapehr.com/r4/Patient/<id>`). Undefined when the
+ * reference is missing or points at another resource type.
+ */
+export const patientIdFromReference = (reference: string | undefined): string | undefined =>
+  reference?.match(/(?:^|\/)Patient\/([^/]+)$/)?.[1];
+
 export function getParticipantFromAppointment(appointment: Appointment, participant: string): string {
   const participantTemp = appointment.participant
     .find((currentParticipant: any) => currentParticipant.actor?.reference?.startsWith(participant))
@@ -292,4 +303,12 @@ export function resolveTimezone(schedule?: Schedule, location?: Location, fallba
     return getTimezone(location);
   }
   return fallback;
+}
+
+export function updateExtension(resource: DomainResource, extension: Extension): void {
+  resource.extension = [...(resource.extension ?? []).filter((ext) => ext.url !== extension.url), extension];
+}
+
+export function removeExtension(resource: DomainResource, url: string): void {
+  resource.extension = undefinedIfEmptyArray((resource.extension ?? []).filter((ext) => ext.url !== url));
 }

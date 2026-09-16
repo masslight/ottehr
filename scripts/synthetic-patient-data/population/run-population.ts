@@ -24,6 +24,7 @@ import {
   SYNTH_POPULATION_SEQ_PREFIX,
   SYNTH_POPULATION_SYSTEM,
 } from '../shared/constants';
+import { absolutizeFixtures } from '../shared/fixtures';
 import { type HarnessCommand, prepareHarnessCommand } from '../shared/harness-bundle';
 import { createOystehrFromEnv, searchAllPages } from '../shared/oystehr-client';
 import { withRetry } from '../shared/retry';
@@ -274,6 +275,10 @@ function materializeScenario(v: PlannedVisit): string {
     targetStatus: 'completed',
   };
   base.signOff = { ...(base.signOff ?? {}), complete: true };
+
+  // Fixtures (ID/insurance card images) are relative to the example file; this temp
+  // scenario lives in a deeper dir, so absolutize them or the harness skips uploads.
+  absolutizeFixtures(base, EXAMPLES);
 
   if (!existsSync(SCEN_DIR)) mkdirSync(SCEN_DIR, { recursive: true });
   const file = resolve(SCEN_DIR, `seq-${String(v.seq).padStart(5, '0')}.json`);
