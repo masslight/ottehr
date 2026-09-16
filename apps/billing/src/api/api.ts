@@ -102,6 +102,13 @@ import {
 } from 'utils/lib/types/data/billing/billing.types';
 import { GetClaimHistoryResponse } from 'utils/lib/types/data/billing/claim-history';
 import {
+  CreateInsuranceOrgInputSchema,
+  DeleteInsuranceOrgInputSchema,
+  SearchInsuranceOrgsInputSchema,
+  UpdateInsuranceOrgInputSchema,
+} from 'utils/lib/types/data/billing/insurance-org.schemas';
+import { SearchInsuranceOrgsResponse } from 'utils/lib/types/data/billing/insurance-org.types';
+import {
   CreateNonInsuranceOrgInputSchema,
   DeleteNonInsuranceOrgInputSchema,
   SearchNonInsuranceOrgsInputSchema,
@@ -346,6 +353,28 @@ export const deleteBillingNonInsuranceOrg = (
   oystehr: Oystehr,
   parameters: z.input<typeof DeleteNonInsuranceOrgInputSchema>
 ): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-non-insurance-org', parameters);
+
+// --- Insurance Organizations (custom) ---
+
+export const createBillingInsuranceOrg = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof CreateInsuranceOrgInputSchema>
+): Promise<CreatedResourceResponse> => executeBillingZambda(oystehr, 'create-billing-insurance-org', parameters);
+
+export const updateBillingInsuranceOrg = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof UpdateInsuranceOrgInputSchema>
+): Promise<SavedResourceResponse> => executeBillingZambda(oystehr, 'update-billing-insurance-org', parameters);
+
+export const searchBillingInsuranceOrgs = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SearchInsuranceOrgsInputSchema>
+): Promise<SearchInsuranceOrgsResponse> => executeBillingZambda(oystehr, 'search-billing-insurance-orgs', parameters);
+
+export const deleteBillingInsuranceOrg = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DeleteInsuranceOrgInputSchema>
+): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-insurance-org', parameters);
 
 // --- Terminology ---
 

@@ -1,0 +1,262 @@
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { InsuranceOrganizationItem } from 'utils/lib/types/data/billing/insurance-org.types';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { InsuranceOrganizationDetail, InsuranceOrganizationsList } from '../../src/pages/InsuranceOrganizations';
+
+const {
+  searchBillingPayersMock,
+  searchBillingInsuranceOrgsMock,
+  createBillingInsuranceOrgMock,
+  updateBillingInsuranceOrgMock,
+  deleteBillingInsuranceOrgMock,
+} = vi.hoisted(() => ({
+  searchBillingPayersMock: vi.fn(),
+  searchBillingInsuranceOrgsMock: vi.fn(),
+  createBillingInsuranceOrgMock: vi.fn(),
+  updateBillingInsuranceOrgMock: vi.fn(),
+  deleteBillingInsuranceOrgMock: vi.fn(),
+}));
+
+vi.mock('../../src/api/api', () => ({
+  searchBillingPayers: searchBillingPayersMock,
+  searchBillingInsuranceOrgs: searchBillingInsuranceOrgsMock,
+  createBillingInsuranceOrg: createBillingInsuranceOrgMock,
+  updateBillingInsuranceOrg: updateBillingInsuranceOrgMock,
+  deleteBillingInsuranceOrg: deleteBillingInsuranceOrgMock,
+}));
+
+// A stable client object: the pages' fetch callbacks depend on oystehrZambda's identity, so a
+// fresh object per render would refire their effects forever.
+vi.mock('../../src/hooks/useAppClients', () => {
+  const clients = { oystehrZambda: {} };
+  return { useApiClients: () => clients };
+});
+
+const acmeCustomOrg: InsuranceOrganizationItem = {
+  id: 'org-1',
+  orgId: 'OTR-ACME',
+  name: 'Acme Insurance',
+  active: true,
+  insuranceTypes: ['workers-comp', 'auto'],
+  submissionMechanism: 'portal',
+  submissionDetails: { portalUrl: 'https://portal.acme.com', portalDetails: 'Use the claims tab' },
+  acceptedClaimForm: 'cms-1500',
+  note: 'Prefers electronic submission',
+  contacts: [{ name: 'Jane Smith', title: 'Claims Manager' }],
+};
+
+function renderList(): void {
+  render(
+    <MemoryRouter initialEntries={['/insurance-organizations']}>
+      <InsuranceOrganizationsList />
+    </MemoryRouter>
+  );
+}
+
+describe('InsuranceOrganizationsList', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    searchBillingPayersMock.mockResolvedValue({ payers: [{ id: 'payer-1', name: 'RCM Payer Co', payerId: 'PAYER1' }] });
+    searchBillingInsuranceOrgsMock.mockResolvedValue({
+      organizations: [acmeCustomOrg],
+      total: 1,
+      offset: 0,
+      pageSize: 100,
+    });
+  });
+
+  it('merges custom and RCM rows into one grid, showing only Name and Payer Id', async () => {
+    renderList();
+
+    expect(await screen.findByText('Acme Insurance')).toBeInTheDocument();
+    expect(screen.getByText('RCM Payer Co')).toBeInTheDocument();
+    // A custom org has no RCM payer id — its "OTR-" org id fills the Payer Id column instead.
+    expect(screen.getByText('OTR-ACME')).toBeInTheDocument();
+    expect(screen.getByText('PAYER1')).toBeInTheDocument();
+    expect(screen.queryByText('Insurance Type')).not.toBeInTheDocument();
+    expect(screen.queryByText('Submission')).not.toBeInTheDocument();
+  });
+
+  it('rejects an org id that does not start with "OTR-"', async () => {
+    const user = userEvent.setup();
+    renderList();
+    await screen.findByText('Acme Insurance');
+
+    await user.click(screen.getByRole('button', { name: /add organization/i }));
+    const dialog = within(screen.getByRole('dialog'));
+
+    await user.type(dialog.getByLabelText('Organization Name *'), 'Beta Insurance');
+    await user.type(dialog.getByLabelText('Id *'), 'BETA-1');
+    await user.click(dialog.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(dialog.getByText('Id must start with "OTR-"')).toBeInTheDocument());
+    expect(createBillingInsuranceOrgMock).not.toHaveBeenCalled();
+  });
+
+  it('defaults Submission Mechanism to Email and Accepted Claim Form to CMS-1500', async () => {
+    const user = userEvent.setup();
+    renderList();
+    await screen.findByText('Acme Insurance');
+
+    await user.click(screen.getByRole('button', { name: /add organization/i }));
+    const dialog = within(screen.getByRole('dialog'));
+
+    expect(dialog.getByRole('radio', { name: 'Email' })).toBeChecked();
+    expect(dialog.getByRole('radio', { name: 'CMS-1500' })).toBeChecked();
+  });
+
+  it('creates a custom org and refreshes the list', async () => {
+    const user = userEvent.setup();
+    createBillingInsuranceOrgMock.mockResolvedValue({ id: 'org-2' });
+    renderList();
+    await screen.findByText('Acme Insurance');
+
+    await user.click(screen.getByRole('button', { name: /add organization/i }));
+    const dialog = within(screen.getByRole('dialog'));
+
+    await user.type(dialog.getByLabelText('Organization Name *'), 'Beta Insurance');
+    await user.type(dialog.getByLabelText('Id *'), 'OTR-BETA');
+    await user.click(dialog.getByRole('checkbox', { name: 'Medical' }));
+
+    // Submission Mechanism and Accepted Claim Form keep their Email / CMS-1500 defaults.
+    await user.type(dialog.getByLabelText('Email Address'), 'claims@beta.com');
+    await user.click(dialog.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(createBillingInsuranceOrgMock).toHaveBeenCalledTimes(1));
+    expect(createBillingInsuranceOrgMock).toHaveBeenCalledWith(expect.anything(), {
+      orgId: 'OTR-BETA',
+      name: 'Beta Insurance',
+      insuranceTypes: ['medical'],
+      submissionMechanism: 'email',
+      submissionDetails: { email: 'claims@beta.com' },
+      acceptedClaimForm: 'cms-1500',
+    });
+    // Initial load + refresh after create.
+    await waitFor(() => expect(searchBillingInsuranceOrgsMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('swaps the submission-detail field(s) shown as the mechanism radio changes', async () => {
+    const user = userEvent.setup();
+    renderList();
+    await screen.findByText('Acme Insurance');
+
+    await user.click(screen.getByRole('button', { name: /add organization/i }));
+    const dialog = within(screen.getByRole('dialog'));
+
+    // Email is the default.
+    expect(dialog.getByLabelText('Email Address')).toBeInTheDocument();
+    expect(dialog.queryByLabelText('Portal URL')).not.toBeInTheDocument();
+
+    await user.click(dialog.getByRole('radio', { name: 'Portal' }));
+    expect(dialog.queryByLabelText('Email Address')).not.toBeInTheDocument();
+    expect(dialog.getByLabelText('Portal URL')).toBeInTheDocument();
+    expect(dialog.getByLabelText('Portal Details')).toBeInTheDocument();
+
+    await user.click(dialog.getByRole('radio', { name: 'Fax' }));
+    expect(dialog.queryByLabelText('Portal URL')).not.toBeInTheDocument();
+    expect(dialog.getByLabelText('Fax Number')).toBeInTheDocument();
+
+    await user.click(dialog.getByRole('radio', { name: 'Mail' }));
+    expect(dialog.queryByLabelText('Fax Number')).not.toBeInTheDocument();
+    expect(dialog.getByLabelText('Address Line 1')).toBeInTheDocument();
+  });
+
+  it('adds and removes contacts in the dialog, and creates the org with them', async () => {
+    const user = userEvent.setup();
+    createBillingInsuranceOrgMock.mockResolvedValue({ id: 'org-2' });
+    renderList();
+    await screen.findByText('Acme Insurance');
+
+    await user.click(screen.getByRole('button', { name: /add organization/i }));
+    const dialog = within(screen.getByRole('dialog'));
+
+    expect(dialog.getByText('No contacts added yet.')).toBeInTheDocument();
+    await user.click(dialog.getByRole('button', { name: /add contact/i }));
+    await user.click(dialog.getByRole('button', { name: /add contact/i }));
+    expect(dialog.getByText('Contact 1')).toBeInTheDocument();
+    expect(dialog.getByText('Contact 2')).toBeInTheDocument();
+    await user.click(dialog.getByRole('button', { name: 'Remove contact 2' }));
+    expect(dialog.queryByText('Contact 2')).not.toBeInTheDocument();
+
+    await user.type(dialog.getByLabelText('Name *'), 'Jane Smith');
+    await user.type(dialog.getByLabelText('Title'), 'Claims Manager');
+
+    await user.type(dialog.getByLabelText('Organization Name *'), 'Beta Insurance');
+    await user.type(dialog.getByLabelText('Id *'), 'OTR-BETA');
+    await user.type(dialog.getByLabelText('Email Address'), 'claims@beta.com');
+    await user.click(dialog.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(createBillingInsuranceOrgMock).toHaveBeenCalledTimes(1));
+    const [, payload] = createBillingInsuranceOrgMock.mock.calls[0];
+    expect(payload.contacts).toEqual([{ name: 'Jane Smith', title: 'Claims Manager' }]);
+  });
+});
+
+describe('InsuranceOrganizationDetail', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    searchBillingInsuranceOrgsMock.mockResolvedValue({
+      organizations: [acmeCustomOrg],
+      total: 1,
+      offset: 0,
+      pageSize: 50,
+    });
+  });
+
+  function renderDetail(): void {
+    render(
+      <MemoryRouter initialEntries={['/insurance-organizations/org-1']}>
+        <Routes>
+          <Route path="/insurance-organizations/:id" element={<InsuranceOrganizationDetail />} />
+        </Routes>
+      </MemoryRouter>
+    );
+  }
+
+  it('renders the read-only summary, including the portal submission details', async () => {
+    renderDetail();
+
+    expect(await screen.findByText('Organization Details')).toBeInTheDocument();
+    expect(screen.getByText('OTR-ACME')).toBeInTheDocument();
+    expect(screen.getByText('Workers Comp, Auto')).toBeInTheDocument();
+    expect(screen.getByText('https://portal.acme.com')).toBeInTheDocument();
+    // Portal Details is a multiline field, so its collapsed (hidden) edit-form textarea also
+    // renders the value as text, matching twice.
+    expect(screen.getAllByText('Use the claims tab').length).toBeGreaterThan(0);
+    // The collapsed (hidden) edit form's Select also renders the current value as text, so these
+    // match twice — once in the read-only row, once in the not-yet-visible Select.
+    expect(screen.getAllByText('Portal').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('CMS-1500').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Prefers electronic submission').length).toBeGreaterThan(0);
+    expect(screen.getByText('Jane Smith — Claims Manager')).toBeInTheDocument();
+  });
+
+  it('edits and saves with the stored insuranceOrgId, then refetches', async () => {
+    const user = userEvent.setup();
+    updateBillingInsuranceOrgMock.mockResolvedValue({ id: 'org-1' });
+    renderDetail();
+    await screen.findByText('Organization Details');
+
+    await user.click(screen.getByRole('button', { name: /edit/i }));
+    const nameField = await screen.findByLabelText('Organization Name *');
+    await user.clear(nameField);
+    await user.type(nameField, 'Acme Insurance Co');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(updateBillingInsuranceOrgMock).toHaveBeenCalledTimes(1));
+    const [, payload] = updateBillingInsuranceOrgMock.mock.calls[0];
+    expect(payload.insuranceOrgId).toBe('org-1');
+    expect(payload.name).toBe('Acme Insurance Co');
+    expect(payload.orgId).toBe('OTR-ACME');
+    // The stored portal details round-trip through the edit form unchanged.
+    expect(payload.submissionDetails).toEqual({
+      portalUrl: 'https://portal.acme.com',
+      portalDetails: 'Use the claims tab',
+    });
+    // The stored contact round-trips through the edit form unchanged.
+    expect(payload.contacts).toEqual([{ name: 'Jane Smith', title: 'Claims Manager' }]);
+    await waitFor(() => expect(searchBillingInsuranceOrgsMock).toHaveBeenCalledTimes(2));
+  });
+});

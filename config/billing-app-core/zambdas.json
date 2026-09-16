@@ -432,6 +432,34 @@
       "src": "src/billing/list-non-insurance-organizations/index",
       "zip": ".dist/zips/list-non-insurance-organizations.zip"
     },
+    "CREATE-BILLING-INSURANCE-ORG": {
+      "name": "create-billing-insurance-org",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-billing-insurance-org/index",
+      "zip": ".dist/zips/create-billing-insurance-org.zip"
+    },
+    "UPDATE-BILLING-INSURANCE-ORG": {
+      "name": "update-billing-insurance-org",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/update-billing-insurance-org/index",
+      "zip": ".dist/zips/update-billing-insurance-org.zip"
+    },
+    "SEARCH-BILLING-INSURANCE-ORGS": {
+      "name": "search-billing-insurance-orgs",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-insurance-orgs/index",
+      "zip": ".dist/zips/search-billing-insurance-orgs.zip"
+    },
+    "DELETE-BILLING-INSURANCE-ORG": {
+      "name": "delete-billing-insurance-org",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-billing-insurance-org/index",
+      "zip": ".dist/zips/delete-billing-insurance-org.zip"
+    },
     "SUB-RULES-ENGINE": {
       "name": "sub-rules-engine",
       "type": "subscription",
