@@ -58,7 +58,9 @@ export const VITAL_ALERT_LEVEL_LABELS: Record<VitalAlertLevel, string> = {
   criticalHigh: 'Critical High',
 };
 
-const PERCENTAGE_VITAL_ALERT_LEVELS: readonly VitalAlertLevel[] = ['criticalLow', 'abnormalLow'];
+export const PERCENTAGE_VITAL_ALERT_LEVELS: readonly VitalAlertLevel[] = ['criticalLow', 'abnormalLow'];
+
+export const MAX_PERCENTAGE_VITAL_VALUE = 100;
 
 export const VITAL_ALERT_LEVELS_BY_TYPE: Record<VitalAlertType, readonly VitalAlertLevel[]> = {
   'vital-weight': VITAL_ALERT_LEVELS,
@@ -87,6 +89,9 @@ export interface VitalsAlertConfig {
   ageRanges: VitalAlertAgeRange[];
   thresholds: Record<VitalAlertType, Record<string, VitalAlertLevels>>;
 }
+
+export const isPercentageVital = (vital: VitalAlertType): boolean =>
+  VITAL_ALERT_LEVELS_BY_TYPE[vital] === PERCENTAGE_VITAL_ALERT_LEVELS;
 
 export const pickSupportedVitalAlertLevels = (levels: VitalAlertLevels, vital: VitalAlertType): VitalAlertLevels => {
   const supported = VITAL_ALERT_LEVELS_BY_TYPE[vital];
@@ -250,6 +255,17 @@ export const VitalsAlertConfigSchema = z
             message: 'Thresholds reference an age range that does not exist',
           });
         }
+        if (!isPercentageVital(vital)) return;
+        VITAL_ALERT_LEVELS_BY_TYPE[vital].forEach((level) => {
+          const value = perRange[rangeId]?.[level];
+          if (value !== undefined && value > MAX_PERCENTAGE_VITAL_VALUE) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ['thresholds', vital, rangeId, level],
+              message: `${VITAL_ALERT_LEVEL_LABELS[level]} must be ${MAX_PERCENTAGE_VITAL_VALUE} or less`,
+            });
+          }
+        });
       });
     });
   })

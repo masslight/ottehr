@@ -308,6 +308,24 @@ describe('resolveVitalAlertCriticality', () => {
     ).toBe(VitalAlertCriticality.Critical);
   });
 
+  test('flags an SpO2 reading above 100 as abnormal, though no high level is configurable', async () => {
+    const { oystehr } = makeOystehr({ search: [] });
+    const vitalsAlertConfig = await getVitalsEngineConfig(oystehr);
+
+    const oxygenSatDTO = (value: number): VitalsObservationDTO =>
+      ({ field: VitalFieldNames.VitalOxygenSaturation, value }) as VitalsObservationDTO;
+    const criticalityAt = (value: number): VitalAlertCriticality | undefined =>
+      resolveVitalAlertCriticality(observation(), oxygenSatDTO(value), {
+        patientDOB: adultDOB,
+        patientSex: 'female',
+        vitalsAlertConfig,
+      });
+
+    expect(criticalityAt(100)).toBeUndefined();
+    expect(criticalityAt(101)).toBe(VitalAlertCriticality.Abnormal);
+    expect(criticalityAt(88)).toBe(VitalAlertCriticality.Critical);
+  });
+
   test('falls back to the stored interpretation when the patient has no birth date', async () => {
     const { oystehr } = makeOystehr({ search: [] });
     const vitalsAlertConfig = await getVitalsEngineConfig(oystehr);

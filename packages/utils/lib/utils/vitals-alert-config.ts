@@ -3,6 +3,8 @@ import { VitalsAge } from '../config-helpers/vitals';
 import { VitalsDef, VitalsSchema } from '../helpers/vitals/config-schema';
 import { VitalAlertCriticality } from '../types/api/chart-data/chart-data.constants';
 import {
+  isPercentageVital,
+  MAX_PERCENTAGE_VITAL_VALUE,
   pickSupportedVitalAlertLevels,
   VITAL_ALERT_UNITS,
   VITAL_MEASUREMENT_STEP,
@@ -172,11 +174,18 @@ const levelsToRules = (levels: VitalAlertLevels, units: string): Record<string, 
   return rules;
 };
 
+const outOfRangeHighValue = (vital: VitalAlertType): number | undefined =>
+  isPercentageVital(vital) ? MAX_PERCENTAGE_VITAL_VALUE + VITAL_MEASUREMENT_STEP[vital] : undefined;
+
 const alertThresholdsForVital = (config: VitalsAlertConfig, vital: VitalAlertType): Record<string, unknown>[] => {
   const units = VITAL_ALERT_UNITS[vital];
+  const outOfRangeHigh = outOfRangeHighValue(vital);
   return config.ageRanges.flatMap((range) => {
     const levels = pickSupportedVitalAlertLevels(config.thresholds[vital]?.[range.id] ?? {}, vital);
     const rules = levelsToRules(levels, units);
+    if (outOfRangeHigh !== undefined && rules.every((rule) => (rule.value as number) <= outOfRangeHigh)) {
+      rules.push({ type: 'max', units, value: outOfRangeHigh, criticality: VitalAlertCriticality.Abnormal });
+    }
     if (rules.length === 0) return [];
     return [
       {

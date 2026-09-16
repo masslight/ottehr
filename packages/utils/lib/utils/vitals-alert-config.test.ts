@@ -179,16 +179,36 @@ describe('a vital that only alerts low', () => {
     expect(VitalsAlertConfigSchema.safeParse(config).success).toBe(true);
   });
 
-  it('gives the engine no upper bound for SpO2, so a high reading raises no alert', () => {
+  it('rejects a configured SpO2 threshold above the percentage ceiling', () => {
+    const config = cloneDefault();
+    config.thresholds['vital-oxygen-sat']['18+y'] = { criticalLow: 90, abnormalLow: 105 };
+    const result = VitalsAlertConfigSchema.safeParse(config);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (candidate) => candidate.path.join('.') === 'thresholds.vital-oxygen-sat.18+y.abnormalLow'
+      );
+      expect(issue?.message).toBe('Low must be 100 or less');
+    }
+  });
+
+  it('allows a threshold above 100 for a vital that is not a percentage', () => {
+    const config = cloneDefault();
+    config.thresholds['vital-heartbeat']['18+y'] = { criticalLow: 40, abnormalLow: 57, abnormalHigh: 105 };
+    expect(VitalsAlertConfigSchema.safeParse(config).success).toBe(true);
+  });
+
+  it('flags an impossible SpO2 reading as abnormal without an admin-set high level', () => {
     const config = cloneDefault();
     config.thresholds['vital-oxygen-sat']['18+y'] = { criticalLow: 90, abnormalLow: 95, abnormalHigh: 96 };
     const engineConfig = vitalsAlertConfigToVitalsDef(config);
 
-    expect(
-      engineConfig['vital-oxygen-sat']?.alertThresholds?.some((threshold) =>
-        threshold.rules.some((rule) => rule.type === 'max')
-      )
-    ).toBe(false);
+    engineConfig['vital-oxygen-sat']?.alertThresholds?.forEach((threshold) => {
+      expect(threshold.rules.filter((rule) => rule.type === 'max')).toEqual([
+        { type: 'max', units: '%', value: 101, criticality: 'abnormal' },
+      ]);
+    });
 
     const adult = { patientDOB: dobForAgeInMonths(30 * 12), patientSex: 'female', configOverride: engineConfig };
     const alertLevelAt = (value: number): string | undefined =>
@@ -198,9 +218,30 @@ describe('a vital that only alerts low', () => {
       });
 
     expect(alertLevelAt(99)).toBeUndefined();
-    expect(alertLevelAt(101)).toBeUndefined();
+    expect(alertLevelAt(100)).toBeUndefined();
+    expect(alertLevelAt(101)).toBe('abnormal');
+    expect(alertLevelAt(105)).toBe('abnormal');
     expect(alertLevelAt(93)).toBe('abnormal');
     expect(alertLevelAt(88)).toBe('critical');
+  });
+
+  it('guards an age range that has no SpO2 levels configured', () => {
+    const config = cloneDefault();
+    config.thresholds['vital-oxygen-sat']['18+y'] = {};
+    const engineConfig = vitalsAlertConfigToVitalsDef(config);
+    const openEnded = engineConfig['vital-oxygen-sat']?.alertThresholds?.find((threshold) => !threshold.maxAge);
+
+    expect(openEnded?.rules).toEqual([{ type: 'max', units: '%', value: 101, criticality: 'abnormal' }]);
+  });
+
+  it('drops the ceiling rather than break the engine when a stored SpO2 threshold exceeds it', () => {
+    const config = cloneDefault();
+    config.thresholds['vital-oxygen-sat']['18+y'] = { criticalLow: 90, abnormalLow: 105 };
+    const engineConfig = vitalsAlertConfigToVitalsDef(config);
+    const openEnded = engineConfig['vital-oxygen-sat']?.alertThresholds?.find((threshold) => !threshold.maxAge);
+
+    expect(openEnded?.rules.some((rule) => rule.type === 'max')).toBe(false);
+    expect(getVitalsAlertConfigEngineError(config)).toBeUndefined();
   });
 });
 

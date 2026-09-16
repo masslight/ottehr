@@ -236,6 +236,21 @@ describe('ProgressNoteAdminPage - vital alert levels', () => {
     await waitFor(() => expect(within(spo2).getByRole('table')).toBeInTheDocument());
   });
 
+  it('will not let an admin configure an SpO2 threshold above 100, since a percentage cannot exceed it', async () => {
+    const config = cloneDefault();
+    config.thresholds['vital-oxygen-sat']['18+y'] = { criticalLow: 90, abnormalLow: 105 };
+    vi.mocked(getVitalsAlertConfig).mockResolvedValue(config);
+
+    await renderSection();
+
+    fireEvent.change(await openHeartRateAdultInput(), { target: { value: '99' } });
+    fireEvent.click(getSaveButton());
+
+    const summary = await waitFor(() => screen.getByTestId(dataTestIds.vitalsAlertConfig.errorSummary));
+    expect(summary).toHaveTextContent('SpO2, 18 yr and older: Low must be 100 or less');
+    expect(adminUpdateVitalsAlertConfig).not.toHaveBeenCalled();
+  });
+
   it('shows the end-age unit that will actually be saved for an open-ended range', async () => {
     const config = cloneDefault();
     config.ageRanges = [{ id: 'only', minAge: { unit: 'months', value: 0 } }] as typeof config.ageRanges;
