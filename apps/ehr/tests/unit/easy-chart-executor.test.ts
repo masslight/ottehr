@@ -767,7 +767,7 @@ describe('exam finding with no checkbox', () => {
 
   it('falls back to the general card when the wording names no body system', async () => {
     const h = harness({ matches: { examFindings: [] } });
-    const { steps } = await runPlan([{ kind: 'add-exam-finding', display: 'Positive Homan sign' }], h.context);
+    const { steps } = await runPlan([{ kind: 'add-exam-finding', display: 'Diaphoretic and pale' }], h.context);
 
     expect(steps[0].outcome?.status).toBe('applied');
     const saved = h.saved.find((s) => 'examObservations' in s) as { examObservations: { field: string }[] };
@@ -779,21 +779,21 @@ describe('exam finding with no checkbox', () => {
       matches: { examFindings: [] },
       chart: { examComments: [{ resourceId: 'obs-1', field: 'general-comment', note: 'Appears comfortable' }] },
     });
-    await runPlan([{ kind: 'add-exam-finding', display: 'Positive Homan sign' }], h.context);
+    await runPlan([{ kind: 'add-exam-finding', display: 'Diaphoretic and pale' }], h.context);
 
     const saved = h.saved.find((s) => 'examObservations' in s) as {
       examObservations: { resourceId?: string; note: string }[];
     };
-    expect(saved.examObservations[0].note).toBe('Appears comfortable; Positive Homan sign');
+    expect(saved.examObservations[0].note).toBe('Appears comfortable; Diaphoretic and pale');
     expect(saved.examObservations[0].resourceId).toBe('obs-1');
   });
 
   it('does not duplicate a finding the note already carries', async () => {
     const h = harness({
       matches: { examFindings: [] },
-      chart: { examComments: [{ field: 'general-comment', note: 'Positive Homan sign' }] },
+      chart: { examComments: [{ field: 'general-comment', note: 'Diaphoretic and pale' }] },
     });
-    const { steps } = await runPlan([{ kind: 'add-exam-finding', display: 'Positive Homan sign' }], h.context);
+    const { steps } = await runPlan([{ kind: 'add-exam-finding', display: 'Diaphoretic and pale' }], h.context);
 
     expect(steps[0].outcome?.status).toBe('skipped');
     expect(h.saved.some((s) => 'examObservations' in s)).toBe(false);

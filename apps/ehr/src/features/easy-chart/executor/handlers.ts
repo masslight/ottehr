@@ -212,7 +212,7 @@ async function writeExamComment(
   // finding filed one section away is exactly what a reader needs flagged.
   return applied(created, {
     lowConfidence: true,
-    note: `no checkbox matched — noted in the exam section's free text`,
+    note: `no checkbox matched — noted in ${target.sectionLabel} comments`,
     // The chart field actually written. Anything reading a plan afterwards — the provenance layer, the
     // eval harness — needs to tell a comment write from a ticked checkbox, and the field is what says
     // so: every comment field is one of `buildExamCommentFields`' values, which is a membership test

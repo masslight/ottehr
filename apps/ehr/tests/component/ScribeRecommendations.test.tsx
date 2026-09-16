@@ -1025,7 +1025,7 @@ describe('ScribeRecommendationsDrawer', () => {
   // will tick, lets the provider choose among near-equal ones, or says where a miss goes — all before apply.
   describe('exam findings', () => {
     const TM_BULGING = 'plan:add-exam-finding:TM-bulging';
-    const HOMAN = 'plan:add-exam-finding:Positive-Homan-sign';
+    const HOMAN = 'plan:add-exam-finding:Malodorous';
     const withExamFindings = (): void => {
       mocks.plan.mockReturnValue({
         ...PLAN,
@@ -1034,7 +1034,7 @@ describe('ScribeRecommendationsDrawer', () => {
           // Left and right TM bulging fit these words equally in the default exam config.
           { kind: 'add-exam-finding', display: 'TM bulging', sourceText: 'the eardrum is bulging' },
           // No box for it anywhere, and no anatomy word to place it: the general card's comment.
-          { kind: 'add-exam-finding', display: 'Positive Homan sign' },
+          { kind: 'add-exam-finding', display: 'Malodorous' },
         ],
       });
     };
@@ -1097,24 +1097,24 @@ describe('ScribeRecommendationsDrawer', () => {
       withExamFindings();
       await openPanelWithRecommendations(user);
 
-      expect(screen.getByTestId(testIds.rowText(HOMAN))).toHaveTextContent('Positive Homan sign');
+      expect(screen.getByTestId(testIds.rowText(HOMAN))).toHaveTextContent('Malodorous');
       expect(screen.getByTestId(testIds.examLeaf(HOMAN))).toHaveTextContent(
         'No checkbox matched — will be noted in General Appearance comments'
       );
 
       await user.click(screen.getByTestId(testIds.applyObservationsButton));
       await waitFor(() => expectCharted(HOMAN));
-      expect(appliedAction(HOMAN)).toMatchObject({ kind: 'add-exam-finding', display: 'Positive Homan sign' });
+      expect(appliedAction(HOMAN)).toMatchObject({ kind: 'add-exam-finding', display: 'Malodorous' });
       expect(appliedAction(HOMAN)).not.toHaveProperty('resolvedLeaf');
     });
 
     it('marks a finding whose box is ticked, or whose words are in the card’s comment, as already charted', async () => {
       const user = userEvent.setup();
       withExamFindings();
-      // The provider ticked the sinus box and typed the Homan sign into the general comment already.
+      // The provider ticked the sinus box and typed the malodour into the general comment already.
       useExamObservationsStore.setState({
         'sinus-tenderness': { field: 'sinus-tenderness', value: true },
-        'general-comment': { field: 'general-comment', note: 'Appears comfortable; positive Homan sign' },
+        'general-comment': { field: 'general-comment', note: 'Appears comfortable; malodorous' },
       });
       await openPanelWithRecommendations(user);
 
@@ -1683,7 +1683,7 @@ describe('isAlreadyCharted', () => {
     examObservations: {
       wheezing: { field: 'wheezing', value: true },
       rales: { field: 'rales', value: false },
-      'lungs-comment': { field: 'lungs-comment', note: 'Decreased breath sounds; positive Homan sign.' },
+      'lungs-comment': { field: 'lungs-comment', note: 'Decreased breath sounds; malodorous.' },
     },
     historyOfPresentIllness: 'Patient reports having post-nasal drip and sinus pressure for 1 week.',
     vitals: undefined,
@@ -1728,9 +1728,9 @@ describe('isAlreadyCharted', () => {
     ).toBe(false);
     // the words are in that card's comment, up to case and punctuation — the executor's own dedupe rule
     const noted = { kind: 'none' as const, sectionKey: 'lungs', sectionLabel: 'Lungs', commentField: 'lungs-comment' };
-    expect(charted({ kind: 'exam', display: 'Positive Homan sign', resolution: noted })).toBe(true);
+    expect(charted({ kind: 'exam', display: 'Malodorous', resolution: noted })).toBe(true);
     expect(
-      charted({ kind: 'exam', display: 'Positive Homan sign', resolution: { ...noted, commentField: 'ears-comment' } })
+      charted({ kind: 'exam', display: 'Malodorous', resolution: { ...noted, commentField: 'ears-comment' } })
     ).toBe(false);
     expect(charted({ kind: 'exam', display: 'Crackles', resolution: noted })).toBe(false);
   });

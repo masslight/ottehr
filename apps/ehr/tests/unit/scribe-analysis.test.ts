@@ -419,7 +419,7 @@ describe('exam findings', () => {
     const [placed, unplaced] = analyseExam([
       // "tragus" names the Ears card and no box, exactly as `writeExamComment` would place it.
       { kind: 'add-exam-finding', display: 'Tenderness over the tragus' },
-      { kind: 'add-exam-finding', display: 'Positive Homan sign' },
+      { kind: 'add-exam-finding', display: 'Diaphoretic and pale' },
     ]);
     expect(placed).toMatchObject({
       resolution: { kind: 'none', sectionKey: 'ears', sectionLabel: 'Ears', commentField: 'ears-comment' },
@@ -438,7 +438,7 @@ describe('exam findings', () => {
     const [clear, tied, missed] = analyseExam([
       { kind: 'add-exam-finding', display: 'wheezing', searchTerms: ['wheeze'], sourceText: 'wheezing' },
       { kind: 'add-exam-finding', display: 'TM bulging' },
-      { kind: 'add-exam-finding', display: 'Positive Homan sign' },
+      { kind: 'add-exam-finding', display: 'Diaphoretic and pale' },
     ]);
     expect(toPlannedAction(clear)).toEqual({
       kind: 'add-exam-finding',
@@ -455,7 +455,7 @@ describe('exam findings', () => {
     } as ScribeRecommendation;
     expect(toPlannedAction(chosen)).toEqual({ kind: 'add-exam-finding', display: 'TM bulging', resolvedLeaf: rightTm });
     // A miss is the executor's to note in the card's comment.
-    expect(toPlannedAction(missed)).toEqual({ kind: 'add-exam-finding', display: 'Positive Homan sign' });
+    expect(toPlannedAction(missed)).toEqual({ kind: 'add-exam-finding', display: 'Diaphoretic and pale' });
   });
 
   it('looks reworded text up afresh, without the synonyms that described the old words', () => {

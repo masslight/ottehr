@@ -315,7 +315,9 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
                 )}
               </Box>
             </Box>
-            {secondary && (
+            {/* An exam row's secondary is its PREDICTION of where the finding will land; once applied, the
+                executor's own note below says where it did, and showing both reads as a duplicate. */}
+            {secondary && !(recommendation.kind === 'exam' && isApplied) && (
               <Typography
                 variant="caption"
                 color="text.secondary"
