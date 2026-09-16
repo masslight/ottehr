@@ -70,6 +70,61 @@ describe('convert-visit-to-follow-up integration', () => {
         convert({ encounterId: base.encounter.id, parentEncounterId: otherBase.encounter.id })
       ).rejects.toThrow();
     });
+
+    it('rejects a visit that already has its own follow-ups', async () => {
+      const visit = await insertInPersonAppointmentBase(oystehrAdmin, processId);
+      const parent = await oystehrAdmin.fhir.create<Encounter>(
+        addProcessIdMetaTagToResource(
+          {
+            resourceType: 'Encounter',
+            status: 'finished',
+            class: { system: 'http://hl7.org/fhir/R4/v3/ActEncounterCode/vs.html', code: 'ACUTE' },
+            subject: { reference: `Patient/${visit.patient.id}` },
+          } as Encounter,
+          processId
+        ) as Encounter
+      );
+      // Hang a follow-up off the visit, making it a parent itself.
+      await oystehrAdmin.fhir.create<Encounter>(
+        addProcessIdMetaTagToResource(
+          {
+            resourceType: 'Encounter',
+            status: 'in-progress',
+            class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'VR' },
+            subject: { reference: `Patient/${visit.patient.id}` },
+            partOf: { reference: `Encounter/${visit.encounter.id}` },
+          } as Encounter,
+          processId
+        ) as Encounter
+      );
+
+      await expect(convert({ encounterId: visit.encounter.id, parentEncounterId: parent.id })).rejects.toThrow();
+    }, 90_000);
+
+    it('allows conversion regardless of visit status', async () => {
+      const visit = await insertInPersonAppointmentBase(oystehrAdmin, processId);
+      const parent = await oystehrAdmin.fhir.create<Encounter>(
+        addProcessIdMetaTagToResource(
+          {
+            resourceType: 'Encounter',
+            status: 'finished',
+            class: { system: 'http://hl7.org/fhir/R4/v3/ActEncounterCode/vs.html', code: 'ACUTE' },
+            subject: { reference: `Patient/${visit.patient.id}` },
+          } as Encounter,
+          processId
+        ) as Encounter
+      );
+      // Push the visit past charting — a finished visit is still convertible.
+      await oystehrAdmin.fhir.patch<Encounter>({
+        resourceType: 'Encounter',
+        id: visit.encounter.id!,
+        operations: [{ op: 'replace', path: '/status', value: 'finished' }],
+      });
+
+      await expect(
+        convert({ encounterId: visit.encounter.id, parentEncounterId: parent.id, skipPatientDiagnosis: true })
+      ).resolves.toBeDefined();
+    }, 90_000);
   });
 
   describe('happy path', () => {

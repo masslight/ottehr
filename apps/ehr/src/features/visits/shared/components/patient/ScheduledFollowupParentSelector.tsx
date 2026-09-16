@@ -5,13 +5,9 @@ import {
   Button,
   Checkbox,
   CircularProgress,
-  FormControl,
   FormControlLabel,
   FormGroup,
   Grid,
-  InputLabel,
-  MenuItem,
-  Select,
   TextField,
   Tooltip,
   Typography,
@@ -21,10 +17,9 @@ import { Patient, Person } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { convertVisitToFollowUp, updatePatientVisitDetails } from 'src/api/api';
+import { convertVisitToFollowUp } from 'src/api/api';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { SCHEDULED_FOLLOWUP_OTHER_REASON, SCHEDULED_FOLLOWUP_REASONS } from 'utils/lib/fhir/encounter';
 import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
 import {
   CopyableFollowupField,
@@ -69,17 +64,6 @@ export default function ScheduledFollowupParentSelector({
   const [error, setError] = useState<string>();
   const [checkedFields, setCheckedFields] = useState<Record<CopyableFollowupField, boolean>>(ALL_FIELDS_CHECKED);
 
-  // Reason for visit is only offered when converting; a new booking collects it on the Add Visit
-  // page instead. Pre-filled from the visit's existing reason, and a no-op if left alone.
-  const existingReason = convertFrom?.reasonForVisit;
-  const existingReasonIsOnList = !!existingReason && SCHEDULED_FOLLOWUP_REASONS.includes(existingReason as never);
-  const [reasonForVisit, setReasonForVisit] = useState<string>(
-    existingReason ? (existingReasonIsOnList ? existingReason : SCHEDULED_FOLLOWUP_OTHER_REASON) : ''
-  );
-  const [otherReason, setOtherReason] = useState<string>(
-    existingReason && !existingReasonIsOnList ? existingReason : ''
-  );
-
   const parentEncounterId = selectedParentEncounter?.encounter.id;
   const queryEnabled = Boolean(apiClient) && Boolean(parentEncounterId);
 
@@ -93,9 +77,6 @@ export default function ScheduledFollowupParentSelector({
     enabled: queryEnabled,
   });
 
-  // When converting, the target encounter may already carry documentation. Copying is additive —
-  // save-chart-data POSTs fresh resources — so a field already filled in here must not be copied
-  // over, or the visit ends up with two chief complaints.
   const targetEncounterId = convertFrom?.encounterId;
   const targetQueryEnabled = Boolean(apiClient) && Boolean(targetEncounterId);
   const { data: targetChartData, isFetching: isTargetFetching } = useQuery({
@@ -111,14 +92,11 @@ export default function ScheduledFollowupParentSelector({
     isTargetFetching ||
     (targetQueryEnabled && targetChartData === undefined);
 
-  /** Why a field can't be pulled over, or undefined when it can. */
-  const disabledReasonFor = (field: (typeof COPYABLE_FOLLOWUP_FIELDS)[number]): string | undefined => {
-    if (!parentChartData || field.isEmpty(parentChartData)) return `No ${field.label} available to copy`;
-    if (targetChartData && !field.isEmpty(targetChartData)) {
-      return `This visit already has ${field.label}; it will be kept as-is`;
-    }
-    return undefined;
-  };
+  const disabledReasonFor = (field: (typeof COPYABLE_FOLLOWUP_FIELDS)[number]): string | undefined =>
+    !parentChartData || field.isEmpty(parentChartData) ? `No ${field.label} available to copy` : undefined;
+
+  const alreadyPresentOnTarget = (field: (typeof COPYABLE_FOLLOWUP_FIELDS)[number]): boolean =>
+    !!targetChartData && !field.isEmpty(targetChartData);
 
   const copyableFieldKeys = (): CopyableFollowupField[] =>
     COPYABLE_FOLLOWUP_FIELDS.filter(
@@ -156,18 +134,6 @@ export default function ScheduledFollowupParentSelector({
         } catch (e) {
           console.error('Failed to copy chart data to the converted visit:', e);
           copyFailed = true;
-        }
-      }
-
-      const resolvedReason = reasonForVisit === SCHEDULED_FOLLOWUP_OTHER_REASON ? otherReason.trim() : reasonForVisit;
-      if (resolvedReason && resolvedReason !== existingReason) {
-        try {
-          await updatePatientVisitDetails(oystehrZambda, {
-            appointmentId: convertFrom.appointmentId,
-            bookingDetails: { reasonForVisit: resolvedReason },
-          });
-        } catch (e) {
-          console.error('Failed to update the reason for visit after converting:', e);
         }
       }
 
@@ -266,41 +232,6 @@ export default function ScheduledFollowupParentSelector({
         />
       </Grid>
 
-      {convertFrom && (
-        <>
-          <Grid item xs={10}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="followup-reason-label">Reason for visit</InputLabel>
-              <Select
-                labelId="followup-reason-label"
-                label="Reason for visit"
-                name="followupReasonForVisit"
-                value={reasonForVisit}
-                onChange={(e) => setReasonForVisit(e.target.value)}
-              >
-                {SCHEDULED_FOLLOWUP_REASONS.map((reason) => (
-                  <MenuItem key={reason} value={reason}>
-                    {reason}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          {reasonForVisit === SCHEDULED_FOLLOWUP_OTHER_REASON && (
-            <Grid item xs={10}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Reason for visit (other)"
-                name="followupOtherReason"
-                value={otherReason}
-                onChange={(e) => setOtherReason(e.target.value)}
-              />
-            </Grid>
-          )}
-        </>
-      )}
-
       {selectedParentEncounter && (
         <Grid item xs={10}>
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
@@ -317,6 +248,7 @@ export default function ScheduledFollowupParentSelector({
             <FormGroup>
               {COPYABLE_FOLLOWUP_FIELDS.map((field) => {
                 const disabledReason = disabledReasonFor(field);
+                const alreadyPresent = alreadyPresentOnTarget(field);
                 const checkbox = (
                   <FormControlLabel
                     key={field.key}
@@ -328,7 +260,18 @@ export default function ScheduledFollowupParentSelector({
                         onChange={(e) => setCheckedFields((prev) => ({ ...prev, [field.key]: e.target.checked }))}
                       />
                     }
-                    label={field.label}
+                    label={
+                      alreadyPresent ? (
+                        <>
+                          {field.label}{' '}
+                          <Typography component="span" variant="body2" color="text.secondary">
+                            (this visit already has {field.label})
+                          </Typography>
+                        </>
+                      ) : (
+                        field.label
+                      )
+                    }
                   />
                 );
                 if (!disabledReason) return checkbox;

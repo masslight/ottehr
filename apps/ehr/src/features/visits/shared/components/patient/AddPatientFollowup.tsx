@@ -13,8 +13,6 @@ import ScheduledFollowupParentSelector from './ScheduledFollowupParentSelector';
 export interface ConvertFromVisit {
   appointmentId: string;
   encounterId: string;
-  /** The visit's current booking reason, used to pre-fill the follow-up reason picker. */
-  reasonForVisit?: string;
 }
 
 const ANNOTATION_DISABLED_MESSAGE = 'A visit can only be converted to a scheduled follow-up';

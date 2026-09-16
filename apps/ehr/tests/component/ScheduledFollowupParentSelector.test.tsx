@@ -279,7 +279,7 @@ describe('ScheduledFollowupParentSelector', () => {
       await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/visit/appt-9'));
     });
 
-    it('disables fields the visit already documents and leaves them out of the copy', async () => {
+    it('keeps fields the visit already documents copyable, flagging them instead of disabling', async () => {
       const user = userEvent.setup();
       chartDataByEncounter({
         'enc-1': POPULATED_PARENT,
@@ -291,18 +291,20 @@ describe('ScheduledFollowupParentSelector', () => {
       });
       renderWithProviders({ convertFrom: CONVERT_FROM });
 
-      const cc = await screen.findByRole('checkbox', { name: 'Chief Complaint' });
-      await waitFor(() => expect(cc).toBeDisabled());
-      expect(await screen.findByRole('checkbox', { name: 'HPI' })).toBeEnabled();
+      const cc = await screen.findByRole('checkbox', { name: /Chief Complaint/ });
+      await waitFor(() => expect(cc).toBeEnabled());
+      expect(cc).toBeChecked();
+      // The collision is surfaced on the label rather than blocking the copy.
+      expect(screen.getByText('(this visit already has Chief Complaint)')).toBeVisible();
 
       await user.click(screen.getByRole('button', { name: /Convert to Follow-up/i }));
 
       await waitFor(() => expect(copyChartDataMock).toHaveBeenCalled());
-      expect(copyChartDataMock.mock.calls[0][0].fields).not.toContain('chiefComplaint');
+      expect(copyChartDataMock.mock.calls[0][0].fields).toContain('chiefComplaint');
       expect(copyChartDataMock.mock.calls[0][0].fields).toContain('historyOfPresentIllness');
     });
 
-    it('skips diagnosis carry-over when the visit already has a diagnosis', async () => {
+    it('still carries diagnosis over when the visit already has one', async () => {
       const user = userEvent.setup();
       chartDataByEncounter({
         'enc-1': POPULATED_PARENT,
@@ -310,41 +312,22 @@ describe('ScheduledFollowupParentSelector', () => {
       });
       renderWithProviders({ convertFrom: CONVERT_FROM });
 
-      await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Diagnosis' })).toBeDisabled());
+      await waitFor(() => expect(screen.getByRole('checkbox', { name: /Diagnosis/ })).toBeEnabled());
       await user.click(screen.getByRole('button', { name: /Convert to Follow-up/i }));
 
       await waitFor(() => expect(convertVisitToFollowUpMock).toHaveBeenCalled());
-      expect(convertVisitToFollowUpMock.mock.calls[0][1]).toMatchObject({ skipPatientDiagnosis: true });
+      expect(convertVisitToFollowUpMock.mock.calls[0][1]).not.toHaveProperty('skipPatientDiagnosis');
     });
 
-    it('pre-fills an off-list reason as "Other" free text and leaves it untouched by default', async () => {
+    it('never touches the reason for visit', async () => {
       const user = userEvent.setup();
       chartDataByEncounter({ 'enc-1': POPULATED_PARENT });
-      renderWithProviders({ convertFrom: { ...CONVERT_FROM, reasonForVisit: 'Sore throat' } });
+      renderWithProviders({ convertFrom: CONVERT_FROM });
 
-      expect(await screen.findByDisplayValue('Sore throat')).toBeVisible();
-
-      await user.click(screen.getByRole('button', { name: /Convert to Follow-up/i }));
+      await user.click(await screen.findByRole('button', { name: /Convert to Follow-up/i }));
 
       await waitFor(() => expect(convertVisitToFollowUpMock).toHaveBeenCalled());
-      // Unchanged reason must not trigger a write.
       expect(updatePatientVisitDetailsMock).not.toHaveBeenCalled();
-    });
-
-    it('persists the reason through update-visit-details when it is changed', async () => {
-      const user = userEvent.setup();
-      chartDataByEncounter({ 'enc-1': POPULATED_PARENT });
-      renderWithProviders({ convertFrom: { ...CONVERT_FROM, reasonForVisit: 'Sore throat' } });
-
-      await user.click(await screen.findByRole('combobox', { name: /Reason for visit/i }));
-      await user.click(await screen.findByRole('option', { name: 'Dressing Change' }));
-      await user.click(screen.getByRole('button', { name: /Convert to Follow-up/i }));
-
-      await waitFor(() => expect(updatePatientVisitDetailsMock).toHaveBeenCalled());
-      expect(updatePatientVisitDetailsMock).toHaveBeenCalledWith(oystehrZambda, {
-        appointmentId: 'appt-9',
-        bookingDetails: { reasonForVisit: 'Dressing Change' },
-      });
     });
 
     it('still lands on the converted visit when the copy fails', async () => {

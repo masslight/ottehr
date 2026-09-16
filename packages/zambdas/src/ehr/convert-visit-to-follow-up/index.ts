@@ -10,7 +10,6 @@ import {
 } from 'utils/lib/types/api/convert-visit-to-follow-up/convert-visit-to-follow-up.types';
 import { User } from 'utils/lib/types/api/user.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { isVisitFinished } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
@@ -76,8 +75,17 @@ export const complexValidation = async (
     throw INVALID_INPUT_ERROR('This visit is already a follow-up');
   }
 
-  if (isVisitFinished(appointment, encounter)) {
-    throw INVALID_INPUT_ERROR('This visit can no longer be converted because it is already finished');
+  const ownFollowUps = (
+    await oystehr.fhir.search<Encounter>({
+      resourceType: 'Encounter',
+      params: [
+        { name: 'part-of', value: `Encounter/${encounterId}` },
+        { name: '_count', value: '1' },
+      ],
+    })
+  ).unbundle();
+  if (ownFollowUps.length > 0) {
+    throw INVALID_INPUT_ERROR('This visit already has its own follow-ups and cannot become a follow-up itself');
   }
 
   const patientRef = encounter.subject?.reference ?? (patient?.id ? `Patient/${patient.id}` : undefined);
