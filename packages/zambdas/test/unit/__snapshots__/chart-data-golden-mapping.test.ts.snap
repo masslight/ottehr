@@ -95,6 +95,7 @@ exports[`get-chart-data mapping layer — golden fixture > every requestable fie
     "virusTest": [],
   },
   "emCode": {
+    "billableUnits": undefined,
     "code": "99214",
     "display": "Office visit, established patient, moderate",
     "modifier": undefined,
@@ -380,6 +381,7 @@ exports[`get-chart-data mapping layer — golden fixture > every requestable fie
       "consentObtained": true,
       "cptCodes": [
         {
+          "billableUnits": undefined,
           "code": "12001",
           "display": "Simple repair of superficial wounds",
           "modifier": undefined,
@@ -398,6 +400,9 @@ exports[`get-chart-data mapping layer — golden fixture > every requestable fie
       "documentedBy": undefined,
       "documentedDateTime": "2026-01-15T11:30:00.000Z",
       "encounterId": "11111111-1111-4111-8111-111111111111",
+      "infusionStartTime": undefined,
+      "infusionStopTime": undefined,
+      "lengthCm": undefined,
       "medicationUsed": undefined,
       "patientResponse": undefined,
       "performerType": "provider",
@@ -405,8 +410,10 @@ exports[`get-chart-data mapping layer — golden fixture > every requestable fie
       "procedureDateTime": "2026-01-15T11:00:00.000Z",
       "procedureDetails": undefined,
       "procedureType": "laceration-repair",
+      "repairDepth": undefined,
       "resourceId": "sr-procedure",
       "specimenSent": undefined,
+      "structuredFacts": undefined,
       "suppliesUsed": undefined,
       "technique": [
         "simple",
@@ -829,12 +836,14 @@ exports[`get-chart-data mapping layer — golden fixture > unscoped mode (the la
   ],
   "cptCodes": [
     {
+      "billableUnits": undefined,
       "code": "99213",
       "display": "Office visit, established patient, low",
       "modifier": undefined,
       "resourceId": "proc-cpt-99213",
     },
     {
+      "billableUnits": undefined,
       "code": "12001",
       "display": "Simple repair of superficial wounds",
       "modifier": undefined,
@@ -859,6 +868,7 @@ exports[`get-chart-data mapping layer — golden fixture > unscoped mode (the la
   ],
   "disposition": undefined,
   "emCode": {
+    "billableUnits": undefined,
     "code": "99214",
     "display": "Office visit, established patient, moderate",
     "modifier": undefined,
@@ -941,6 +951,7 @@ exports[`get-chart-data mapping layer — golden fixture > unscoped mode (the la
       "consentObtained": true,
       "cptCodes": [
         {
+          "billableUnits": undefined,
           "code": "12001",
           "display": "Simple repair of superficial wounds",
           "modifier": undefined,
@@ -959,6 +970,9 @@ exports[`get-chart-data mapping layer — golden fixture > unscoped mode (the la
       "documentedBy": undefined,
       "documentedDateTime": "2026-01-15T11:30:00.000Z",
       "encounterId": "11111111-1111-4111-8111-111111111111",
+      "infusionStartTime": undefined,
+      "infusionStopTime": undefined,
+      "lengthCm": undefined,
       "medicationUsed": undefined,
       "patientResponse": undefined,
       "performerType": "provider",
@@ -966,8 +980,10 @@ exports[`get-chart-data mapping layer — golden fixture > unscoped mode (the la
       "procedureDateTime": "2026-01-15T11:00:00.000Z",
       "procedureDetails": undefined,
       "procedureType": "laceration-repair",
+      "repairDepth": undefined,
       "resourceId": "sr-procedure",
       "specimenSent": undefined,
+      "structuredFacts": undefined,
       "suppliesUsed": undefined,
       "technique": [
         "simple",
@@ -1000,6 +1016,7 @@ exports[`get-chart-data mapping layer — golden fixture > unscoped mode (the la
   ],
   "surgicalHistory": [
     {
+      "billableUnits": undefined,
       "code": "42820",
       "display": "Tonsillectomy and adenoidectomy",
       "modifier": undefined,

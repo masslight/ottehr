@@ -6,6 +6,8 @@ import {
   SectionHeading,
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
+import { formatInfusionTimeRange, repairDepthDisplayLabel } from 'utils/lib/procedure-coding/format';
+import { formatProcedureCptCode, formatStructuredFacts } from 'utils/lib/procedure-coding/format';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 
 export const ProceduresContainer: FC = () => {
@@ -15,11 +17,11 @@ export const ProceduresContainer: FC = () => {
   const procedures = chartData?.procedures;
 
   const renderProperty = (label: string, value: string | undefined): ReactElement | undefined => {
-    if (value == null) {
+    if (value == null || value === '') {
       return undefined;
     }
     return (
-      <Box>
+      <Box sx={{ whiteSpace: 'pre-wrap' }}>
         <Typography display="inline" sx={{ fontWeight: '500' }}>
           {label}:
         </Typography>{' '}
@@ -38,7 +40,7 @@ export const ProceduresContainer: FC = () => {
             {renderProperty(
               'CPT',
               procedure.cptCodes != null && procedure.cptCodes.length > 0
-                ? procedure.cptCodes.map((cptCode) => cptCode.code + ' ' + cptCode.display).join('; ')
+                ? procedure.cptCodes.map(formatProcedureCptCode).join('; ')
                 : undefined
             )}
             {renderProperty(
@@ -57,6 +59,19 @@ export const ProceduresContainer: FC = () => {
             {renderProperty('Anaesthesia / medication used', procedure.medicationUsed)}
             {renderProperty('Site/location', procedure.bodySite)}
             {renderProperty('Side of body', procedure.bodySide)}
+            {renderProperty(
+              'Procedure findings',
+              formatStructuredFacts(procedure.structuredFacts, procedure.procedureType)
+            )}
+            {renderProperty('Wound/lesion size', procedure.lengthCm != null ? `${procedure.lengthCm} cm` : undefined)}
+            {renderProperty(
+              'Repair depth',
+              procedure.repairDepth != null ? repairDepthDisplayLabel(procedure.repairDepth) : undefined
+            )}
+            {renderProperty(
+              'Infusion time',
+              formatInfusionTimeRange(procedure.infusionStartTime, procedure.infusionStopTime)
+            )}
             {renderProperty('Technique', procedure.technique ? procedure.technique.join(', ') : undefined)}
             {renderProperty('Instruments / supplies used', procedure.suppliesUsed)}
             {renderProperty('Procedure details', procedure.procedureDetails)}

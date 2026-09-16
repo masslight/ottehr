@@ -16,6 +16,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import z from 'zod';
+import type { StructuredFacts } from '../../../procedure-coding/structured-fields';
 import { ObservationDTO } from '../../data/screening-questions/types';
 import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 import { RadiologyDTO } from '../radiology';
@@ -592,6 +593,11 @@ export interface ProcedureDTO extends SaveableDTO {
   technique?: string[];
   suppliesUsed?: string;
   procedureDetails?: string;
+  structuredFacts?: StructuredFacts;
+  lengthCm?: number;
+  repairDepth?: string;
+  infusionStartTime?: string;
+  infusionStopTime?: string;
   specimenSent?: boolean;
   complications?: string;
   patientResponse?: string;

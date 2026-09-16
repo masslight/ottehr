@@ -1,6 +1,15 @@
 import { otherColors } from '@ehrTheme/colors';
+import { ArrowDropDown } from '@mui/icons-material';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
-import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
+import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
+import CollectionsOutlinedIcon from '@mui/icons-material/CollectionsOutlined';
+import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
+import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
+import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
+import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
+import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
+import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import {
@@ -8,19 +17,21 @@ import {
   Button,
   Checkbox,
   Grid,
+  ListItemIcon,
+  Menu,
   MenuItem,
   Paper,
   Select,
   Skeleton,
-  Stack,
   TextField,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
 import Alert, { AlertColor } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Appointment, Flag, Organization } from 'fhir/r4b';
+import { Appointment, Encounter, Flag, Organization } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -45,6 +56,8 @@ import PatientBalances from 'src/components/PatientBalances';
 import { QuestionnaireResponseViewer } from 'src/components/QuestionnaireResponseViewer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
+import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
+import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { PatientDocumentsExplorer } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -60,7 +73,10 @@ import {
 } from 'utils/lib/fhir/appointments';
 import { FHIR_EXTENSION, ROOM_EXTENSION_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
+  getFollowUpProgressNotePathSegment,
+  getFollowupSubtype,
   getVisitOccupationalMedicineEmployerFromEncounter,
+  isFollowupEncounter,
   isScheduledFollowupEncounter,
   SCHEDULED_FOLLOWUP_OTHER_REASON,
   SCHEDULED_FOLLOWUP_REASONS,
@@ -116,6 +132,10 @@ import PageContainer from '../layout/PageContainer';
 import { PatientAccountComponent } from './PatientInformationPage';
 
 const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
+
+const MENU_ITEM_SX = { color: 'primary.main', fontWeight: 500 };
+const DESTRUCTIVE_MENU_ITEM_SX = { color: 'error.main', fontWeight: 500 };
+const MENU_ITEM_ICON_SX = { color: 'inherit' };
 
 // The "About this patient" saves - the bottom "Save All" button and each section's own Save button
 // alike - are reminders, not gates: with the attestation checkbox unchecked they still save, but
@@ -258,6 +278,8 @@ export default function VisitDetailsPage(): ReactElement {
   const user = useEvolveUser();
 
   const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
+  const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
+  const [docsMenuAnchor, setDocsMenuAnchor] = useState<HTMLElement | null>(null);
 
   const {
     data: visitDetailsData,
@@ -452,6 +474,24 @@ export default function VisitDetailsPage(): ReactElement {
 
   const encounter = visitDetailsData?.encounter;
   const qrId = visitDetailsData?.qrId;
+
+  const ownFollowUpsQueryEnabled = Boolean(oystehr) && Boolean(encounter?.id);
+  const { data: ownFollowUpCount, isPending: isOwnFollowUpCountPending } = useQuery({
+    queryKey: ['visit-details-own-follow-ups', encounter?.id],
+    queryFn: async (): Promise<number> =>
+      (
+        await oystehr!.fhir.search<Encounter>({
+          resourceType: 'Encounter',
+          params: [
+            { name: 'part-of', value: `Encounter/${encounter!.id}` },
+            { name: '_count', value: '1' },
+          ],
+        })
+      ).unbundle().length,
+    enabled: ownFollowUpsQueryEnabled,
+  });
+  const hasOwnFollowUps = (ownFollowUpCount ?? 0) > 0;
+  const isOwnFollowUpsUnresolved = ownFollowUpsQueryEnabled && isOwnFollowUpCountPending;
 
   const {
     data: paymentData,
@@ -787,6 +827,26 @@ export default function VisitDetailsPage(): ReactElement {
     getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
   // For scheduled follow-ups, a saved reason outside the fixed list is a free-text "Other".
   const isScheduledFollowUp = !!encounter && isScheduledFollowupEncounter(encounter);
+
+  const actionsMenuOpen = Boolean(actionsMenuAnchor);
+  const docsMenuOpen = Boolean(docsMenuAnchor);
+
+  const progressNoteUrl =
+    appointment?.id && encounter?.id
+      ? getInPersonUrlByAppointmentType(
+          { id: appointment.id, encounterId: encounter.id, isFollowUp: !!encounter.partOf },
+          isFollowupEncounter(encounter)
+            ? getFollowUpProgressNotePathSegment(getFollowupSubtype(encounter))
+            : ROUTER_PATH.REVIEW_AND_SIGN
+        )
+      : undefined;
+
+  const convertToFollowUpDisabledReason = ((): string | undefined => {
+    if (!appointment || !encounter || !patientId || isOwnFollowUpsUnresolved) return 'Loading the visit…';
+    if (isFollowupEncounter(encounter)) return 'This visit is already a follow-up';
+    if (hasOwnFollowUps) return 'This visit already has its own follow-ups';
+    return undefined;
+  })();
   const isOtherFollowUpReason =
     isScheduledFollowUp && !!maybeReasonForVisit && !SCHEDULED_FOLLOWUP_REASONS.includes(maybeReasonForVisit as never);
   const reasonForVisit = useMemo(() => {
@@ -925,6 +985,37 @@ export default function VisitDetailsPage(): ReactElement {
 
   // The consent block's own Save commits the checkbox, and is the "save again" step after consent
   // has been obtained. It stays disabled while the checkbox matches what's already persisted.
+  const convertToFollowUpItem = (
+    <MenuItem
+      data-testid={dataTestIds.visitDetailsPage.convertToFollowUpMenuItem}
+      disabled={!!convertToFollowUpDisabledReason}
+      onClick={() => {
+        setActionsMenuAnchor(null);
+        navigate(`/patient/${patientId}/followup/add`, {
+          state: {
+            convertFrom: { appointmentId: appointment?.id, encounterId: encounter?.id },
+          },
+        });
+      }}
+      sx={MENU_ITEM_SX}
+    >
+      <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+        <SubdirectoryArrowRightIcon fontSize="small" />
+      </ListItemIcon>
+      Convert to Follow-up
+    </MenuItem>
+  );
+
+  // Only wrap when disabled: a Tooltip/Box wrapper stops MenuList from managing the item's
+  // keyboard focus, which matters for the actionable case but not for a disabled one.
+  const convertToFollowUpMenuItem = convertToFollowUpDisabledReason ? (
+    <Tooltip title={convertToFollowUpDisabledReason} placement="left">
+      <Box component="span">{convertToFollowUpItem}</Box>
+    </Tooltip>
+  ) : (
+    convertToFollowUpItem
+  );
+
   const consentAttestationSaveButton = (
     <LoadingButton
       data-testid={dataTestIds.visitDetailsPage.consentAttestationSaveButton}
@@ -987,52 +1078,185 @@ export default function VisitDetailsPage(): ReactElement {
                 />
               </Grid>
               <Grid item container xs={6} justifyContent="flex-end" gap={1}>
-                <LoadingButton
+                <RoundedButton
+                  id="visit-docs-menu-button"
+                  data-testid={dataTestIds.visitDetailsPage.docsAndDataMenuButton}
                   variant="outlined"
-                  sx={{
-                    borderRadius: '20px',
-                    textTransform: 'none',
-                  }}
-                  loading={visitDetailsPdfLoading}
-                  color="primary"
-                  disabled={isLoadingDocuments || !encounter?.id}
-                  onClick={downloadVisitDetailsPdf}
+                  onClick={(event) => setDocsMenuAnchor(event.currentTarget)}
+                  aria-haspopup="true"
+                  aria-expanded={docsMenuOpen ? 'true' : undefined}
+                  aria-controls={docsMenuOpen ? 'visit-docs-menu' : undefined}
+                  endIcon={<ArrowDropDown />}
                 >
-                  Visit Details PDF
-                </LoadingButton>
-                {FEATURE_FLAGS.LEGACY_DATA_ENABLED && (
-                  <Button
-                    variant="outlined"
-                    sx={{ borderRadius: '20px', textTransform: 'none' }}
-                    disabled={!patient}
-                    onClick={() => {
-                      const patientLastName = patient?.name?.[0]?.family ?? '';
-                      const patientFirstName = patient?.name?.[0]?.given?.[0] ?? '';
-                      const rawDob = patient?.birthDate ?? '';
-                      // Convert YYYY-MM-DD to MM-DD-YYYY to match Z3 key format
-                      const dob = rawDob ? rawDob.split('-').slice(1).concat(rawDob.split('-')[0]).join('-') : '';
-                      const params = new URLSearchParams({
-                        lastName: patientLastName,
-                        firstName: patientFirstName,
-                        dob,
-                      });
-                      navigate(`/legacy-data?${params.toString()}`);
-                    }}
-                  >
-                    Legacy Data
-                  </Button>
-                )}
-                <RoundedButton to={`/patient/${patientId}/docs`} startIcon={<FolderOutlinedIcon></FolderOutlinedIcon>}>
-                  See All Patient Docs
+                  Docs & Data
                 </RoundedButton>
-                <Button
-                  variant="outlined"
-                  sx={{ borderRadius: '20px', textTransform: 'none' }}
-                  disabled={!appointment?.id}
-                  onClick={() => setSendFormDialogOpen(true)}
+                <Menu
+                  id="visit-docs-menu"
+                  anchorEl={docsMenuAnchor}
+                  open={docsMenuOpen}
+                  onClose={() => setDocsMenuAnchor(null)}
+                  MenuListProps={{ 'aria-labelledby': 'visit-docs-menu-button' }}
+                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                  transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                 >
-                  Send Form
-                </Button>
+                  <MenuItem
+                    data-testid={dataTestIds.visitDetailsPage.visitDetailsPdfMenuItem}
+                    disabled={isLoadingDocuments || !encounter?.id || visitDetailsPdfLoading}
+                    onClick={() => {
+                      setDocsMenuAnchor(null);
+                      void downloadVisitDetailsPdf();
+                    }}
+                    sx={MENU_ITEM_SX}
+                  >
+                    <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                      <PictureAsPdfOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    Visit Details PDF
+                  </MenuItem>
+                  <MenuItem
+                    data-testid={dataTestIds.visitDetailsPage.patientPaperworkPdfMenuItem}
+                    disabled={isLoadingDocuments || !patientId || paperworkPdfLoading}
+                    onClick={() => {
+                      setDocsMenuAnchor(null);
+                      void downloadPaperworkPdf();
+                    }}
+                    sx={MENU_ITEM_SX}
+                  >
+                    <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                      <PictureAsPdfOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    Patient Paperwork PDF
+                  </MenuItem>
+                  <MenuItem
+                    data-testid={dataTestIds.visitDetailsPage.allPatientDocsMenuItem}
+                    disabled={!patientId}
+                    onClick={() => {
+                      setDocsMenuAnchor(null);
+                      navigate(`/patient/${patientId}/docs`);
+                    }}
+                    sx={MENU_ITEM_SX}
+                  >
+                    <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                      <CollectionsOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    All Patient Docs
+                  </MenuItem>
+                  {FEATURE_FLAGS.LEGACY_DATA_ENABLED && (
+                    <MenuItem
+                      data-testid={dataTestIds.visitDetailsPage.legacyDataMenuItem}
+                      disabled={!patient}
+                      onClick={() => {
+                        setDocsMenuAnchor(null);
+                        const patientLastName = patient?.name?.[0]?.family ?? '';
+                        const patientFirstName = patient?.name?.[0]?.given?.[0] ?? '';
+                        const rawDob = patient?.birthDate ?? '';
+                        // Convert YYYY-MM-DD to MM-DD-YYYY to match Z3 key format
+                        const dob = rawDob ? rawDob.split('-').slice(1).concat(rawDob.split('-')[0]).join('-') : '';
+                        const params = new URLSearchParams({
+                          lastName: patientLastName,
+                          firstName: patientFirstName,
+                          dob,
+                        });
+                        navigate(`/legacy-data?${params.toString()}`);
+                      }}
+                      sx={MENU_ITEM_SX}
+                    >
+                      <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                        <ContactPageOutlinedIcon fontSize="small" />
+                      </ListItemIcon>
+                      Legacy Data
+                    </MenuItem>
+                  )}
+                  <MenuItem
+                    data-testid={dataTestIds.visitDetailsPage.accessAndChangeLogMenuItem}
+                    disabled={activityLogsLoading}
+                    onClick={() => {
+                      setDocsMenuAnchor(null);
+                      setActivityLogDialogOpen(true);
+                    }}
+                    sx={MENU_ITEM_SX}
+                  >
+                    <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                      <HistoryOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    Access & Change Log
+                  </MenuItem>
+                </Menu>
+                <RoundedButton
+                  id="visit-actions-menu-button"
+                  data-testid={dataTestIds.visitDetailsPage.actionsMenuButton}
+                  variant="outlined"
+                  onClick={(event) => setActionsMenuAnchor(event.currentTarget)}
+                  aria-haspopup="true"
+                  aria-expanded={actionsMenuOpen ? 'true' : undefined}
+                  aria-controls={actionsMenuOpen ? 'visit-actions-menu' : undefined}
+                  endIcon={<ArrowDropDown />}
+                >
+                  Actions
+                </RoundedButton>
+                <Menu
+                  id="visit-actions-menu"
+                  anchorEl={actionsMenuAnchor}
+                  open={actionsMenuOpen}
+                  onClose={() => setActionsMenuAnchor(null)}
+                  MenuListProps={{ 'aria-labelledby': 'visit-actions-menu-button' }}
+                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                  transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                >
+                  <MenuItem
+                    data-testid={dataTestIds.visitDetailsPage.sendFormMenuItem}
+                    disabled={!appointment?.id}
+                    onClick={() => {
+                      setActionsMenuAnchor(null);
+                      setSendFormDialogOpen(true);
+                    }}
+                    sx={MENU_ITEM_SX}
+                  >
+                    <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                      <AssignmentOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    Send Form
+                  </MenuItem>
+                  {convertToFollowUpMenuItem}
+                  <MenuItem
+                    data-testid={dataTestIds.visitDetailsPage.reportIssueMenuItem}
+                    disabled={loading}
+                    onClick={() => {
+                      setActionsMenuAnchor(null);
+                      setIssueDialogOpen(true);
+                    }}
+                    sx={DESTRUCTIVE_MENU_ITEM_SX}
+                  >
+                    <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                      <ErrorOutlineOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    Report Issue
+                  </MenuItem>
+                  {appointment && encounter && appointment.status !== 'cancelled' && (
+                    <MenuItem
+                      data-testid={dataTestIds.visitDetailsPage.cancelVisitButton}
+                      onClick={() => {
+                        setActionsMenuAnchor(null);
+                        handleCancelDialogOpen();
+                      }}
+                      sx={DESTRUCTIVE_MENU_ITEM_SX}
+                    >
+                      <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                        <EventBusyOutlinedIcon fontSize="small" />
+                      </ListItemIcon>
+                      Cancel Visit
+                    </MenuItem>
+                  )}
+                </Menu>
+                <RoundedButton
+                  variant="contained"
+                  data-testid={dataTestIds.visitDetailsPage.progressNoteButton}
+                  disabled={!progressNoteUrl}
+                  onClick={() => progressNoteUrl && navigate(progressNoteUrl)}
+                  startIcon={<ArrowForwardIcon />}
+                >
+                  Progress Note
+                </RoundedButton>
               </Grid>
             </Grid>
             {/* page title row */}
@@ -1103,33 +1327,16 @@ export default function VisitDetailsPage(): ReactElement {
                 </>
               )}
               {appointment && encounter && appointment?.status !== 'cancelled' ? (
-                <>
-                  <Button
-                    data-testid={dataTestIds.visitDetailsPage.cancelVisitButton}
-                    variant="outlined"
-                    sx={{
-                      alignSelf: 'center',
-                      marginLeft: 'auto',
-                      // marginRight: 2,
-                      borderRadius: '20px',
-                      textTransform: 'none',
-                    }}
-                    color="error"
-                    onClick={handleCancelDialogOpen}
-                  >
-                    Cancel visit
-                  </Button>
-                  <CancellationReasonDialog
-                    handleClose={handleCancelDialogClose}
-                    refetchData={async () => {
-                      refetchVisitDetails().catch((error) => console.error('error refetching visit details', error));
-                    }}
-                    appointment={appointment}
-                    encounter={encounter}
-                    open={cancelDialogOpen}
-                    getAndSetResources={getAndSetHistoricResources}
-                  />
-                </>
+                <CancellationReasonDialog
+                  handleClose={handleCancelDialogClose}
+                  refetchData={async () => {
+                    refetchVisitDetails().catch((error) => console.error('error refetching visit details', error));
+                  }}
+                  appointment={appointment}
+                  encounter={encounter}
+                  open={cancelDialogOpen}
+                  getAndSetResources={getAndSetHistoricResources}
+                />
               ) : null}
               {status === 'arrived' ? (
                 <>
@@ -1137,7 +1344,7 @@ export default function VisitDetailsPage(): ReactElement {
                     variant="outlined"
                     sx={{
                       alignSelf: 'center',
-                      marginLeft: 1,
+                      marginLeft: 'auto',
                       borderRadius: '20px',
                       textTransform: 'none',
                     }}
@@ -1413,50 +1620,6 @@ export default function VisitDetailsPage(): ReactElement {
             </Grid>
           </Grid>
         )}
-        <Grid container direction="row">
-          <Grid item sx={{ marginLeft: { xs: 0, sm: 8 }, marginTop: 2, marginBottom: 50 }}>
-            <Stack direction="row" spacing={1} useFlexGap>
-              <LoadingButton
-                variant="outlined"
-                sx={{
-                  borderRadius: '20px',
-                  textTransform: 'none',
-                }}
-                loading={paperworkPdfLoading}
-                color="primary"
-                disabled={isLoadingDocuments || !patientId}
-                onClick={downloadPaperworkPdf}
-              >
-                Patient Paperwork PDF
-              </LoadingButton>
-              <LoadingButton
-                loading={activityLogsLoading}
-                variant="outlined"
-                sx={{
-                  borderRadius: '20px',
-                  textTransform: 'none',
-                }}
-                size="medium"
-                color="primary"
-                onClick={() => setActivityLogDialogOpen(true)}
-              >
-                View activity logs
-              </LoadingButton>
-              <LoadingButton
-                loading={loading}
-                variant="outlined"
-                sx={{
-                  borderRadius: '20px',
-                  textTransform: 'none',
-                }}
-                color="error"
-                onClick={() => setIssueDialogOpen(true)}
-              >
-                Report Issue
-              </LoadingButton>
-            </Stack>
-          </Grid>
-        </Grid>
         {/* Update details modal */}
         <EditPatientInfoDialog
           title={dialogTitleFromType(editDialogConfig.type)}

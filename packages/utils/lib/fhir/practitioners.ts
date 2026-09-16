@@ -1,5 +1,7 @@
-import { Encounter, Extension, PractitionerQualification } from 'fhir/r4b';
+import { Operation } from 'fast-json-patch';
+import { Encounter, Extension, Practitioner, PractitionerQualification } from 'fhir/r4b';
 import { PractitionerLicense, ProviderTypeCode } from '../types/api/practitioner.types';
+import { PHRASES_EXTENSION_URL } from '../types/constants';
 import { PRACTITIONER_CODINGS } from '../types/data/appointments/appointments.types';
 import {
   PRACTITIONER_QUALIFICATION_CODE_SYSTEM,
@@ -126,3 +128,86 @@ export function getSuffixFromProviderTypeExtension(providerTypeExtension?: Exten
   const cc = ext.valueCodeableConcept;
   return [cc.text || cc.coding?.[0]?.display || cc.coding?.[0]?.code].filter(Boolean) as string[];
 }
+
+export interface Phrase {
+  key: string;
+  value: string;
+}
+
+export const getPhrasesForPractitioner = (practitioner?: Practitioner): Phrase[] => {
+  const raw = practitioner?.extension?.find((extension) => extension.url === PHRASES_EXTENSION_URL)?.valueString;
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (phrase): phrase is Phrase =>
+            typeof phrase?.key === 'string' && typeof phrase?.value === 'string' && phrase.key.trim().length > 0
+        )
+      : [];
+  } catch (error) {
+    console.error('Failed to parse practitioner phrases', error);
+    return [];
+  }
+};
+
+export type PhraseChange = { type: 'upsert'; phrase: Phrase; replacesKey?: string } | { type: 'delete'; key: string };
+
+export type PhraseChangeResult = { ok: true; phrases: Phrase[] } | { ok: false; reason: 'missing' | 'duplicate-key' };
+
+export const normalizePhraseKey = (key: string): string => key.trim().toLowerCase();
+
+export const applyPhraseChange = (phrases: Phrase[], change: PhraseChange): PhraseChangeResult => {
+  const indexOfKey = (key: string): number => {
+    const normalized = normalizePhraseKey(key);
+    return phrases.findIndex((phrase) => normalizePhraseKey(phrase.key) === normalized);
+  };
+
+  if (change.type === 'delete') {
+    const index = indexOfKey(change.key);
+    return { ok: true, phrases: index < 0 ? [...phrases] : phrases.filter((_phrase, i) => i !== index) };
+  }
+
+  const targetIndex = change.replacesKey === undefined ? indexOfKey(change.phrase.key) : indexOfKey(change.replacesKey);
+
+  if (change.replacesKey === undefined) {
+    return {
+      ok: true,
+      phrases:
+        targetIndex < 0
+          ? [...phrases, change.phrase]
+          : phrases.map((phrase, i) => (i === targetIndex ? change.phrase : phrase)),
+    };
+  }
+
+  if (targetIndex < 0) {
+    return { ok: false, reason: 'missing' };
+  }
+
+  const collisionIndex = indexOfKey(change.phrase.key);
+  if (collisionIndex >= 0 && collisionIndex !== targetIndex) {
+    return { ok: false, reason: 'duplicate-key' };
+  }
+
+  return { ok: true, phrases: phrases.map((phrase, i) => (i === targetIndex ? change.phrase : phrase)) };
+};
+
+export const getPhrasesPatchOperation = (practitioner: Practitioner, phrases: Phrase[]): Operation => {
+  const phrasesExtension: Extension = { url: PHRASES_EXTENSION_URL, valueString: JSON.stringify(phrases) };
+  const existingExtensions = practitioner.extension;
+
+  if (!existingExtensions) {
+    return { op: 'add', path: '/extension', value: [phrasesExtension] };
+  }
+
+  const existingIndex = existingExtensions.findIndex((extension) => extension.url === PHRASES_EXTENSION_URL);
+
+  return {
+    op: 'replace',
+    path: '/extension',
+    value:
+      existingIndex < 0
+        ? [...existingExtensions, phrasesExtension]
+        : existingExtensions.map((extension, index) => (index === existingIndex ? phrasesExtension : extension)),
+  };
+};

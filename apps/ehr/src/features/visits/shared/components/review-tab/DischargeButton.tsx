@@ -129,7 +129,13 @@ export const DischargeButton: FC = () => {
             Discharge
           </LoadingButton>
           <Tooltip title="Discharge & More">
-            <Button variant="contained" size="small" onClick={() => setDialogOpen(true)} sx={{ borderRadius: '100px' }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setDialogOpen(true)}
+              data-testid={dataTestIds.dischargeDialog.openButton}
+              sx={{ borderRadius: '100px' }}
+            >
               <ArrowDropDownIcon fontSize="small" />
             </Button>
           </Tooltip>
