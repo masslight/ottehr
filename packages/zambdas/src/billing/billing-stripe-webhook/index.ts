@@ -47,7 +47,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { event, stripeAccount } = params;
   console.log('Verified Stripe event:', event.id, event.type, 'connected account:', stripeAccount ?? 'none');
 
-  // Acknowledge with 200 so Stripe doesn't retry or disable the endpoint.
+  // Invoice task Stripe-status updates run for all billing integrations because
+  // sub-send-invoice-to-patient creates Stripe invoices for both Candid and Ottehr Billing tasks.
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
+  await updateInvoiceTaskStripeStatusFromEvent(event, params.secrets);
+
   if (!shouldUseOttehrBilling(params.secrets)) {
     console.log('BILLING_INTEGRATION does not include ottehr; acknowledging event without processing');
     return {
@@ -56,7 +60,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   }
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
   await performEffect(oystehr, params);
@@ -94,40 +97,33 @@ export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebho
     case 'invoice.paid': {
       const invoice = event.data.object as Stripe.Invoice;
       console.log(`Invoice paid event for ${invoice.id}, charge: ${invoice.charge ?? 'none'}`);
-      const paidEncounterId = encounterIdFromStripeMetadata(invoice.metadata);
-      if (paidEncounterId) {
-        m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-        const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
-        await updateInvoiceTaskStripeStatus(clinicalOystehr, invoice.id, 'paid', paidEncounterId);
-      }
       await upsertPaymentNoticeForChargelessInvoice(oystehr, invoice, stripeAccount, secrets);
-      break;
-    }
-    case 'invoice.voided': {
-      const invoice = event.data.object as Stripe.Invoice;
-      console.log(`Invoice voided event for ${invoice.id}`);
-      const voidedEncounterId = encounterIdFromStripeMetadata(invoice.metadata);
-      if (voidedEncounterId) {
-        m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-        const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
-        await updateInvoiceTaskStripeStatus(clinicalOystehr, invoice.id, 'void', voidedEncounterId);
-      }
-      break;
-    }
-    case 'invoice.marked_uncollectible': {
-      const invoice = event.data.object as Stripe.Invoice;
-      console.log(`Invoice marked uncollectible event for ${invoice.id}`);
-      const uncollectibleEncounterId = encounterIdFromStripeMetadata(invoice.metadata);
-      if (uncollectibleEncounterId) {
-        m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-        const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
-        await updateInvoiceTaskStripeStatus(clinicalOystehr, invoice.id, 'uncollectible', uncollectibleEncounterId);
-      }
       break;
     }
     default:
       console.log('Ignoring unhandled event type:', event.type);
   }
+};
+
+const INVOICE_EVENT_STATUS_MAP: Partial<Record<Stripe.Event['type'], string>> = {
+  'invoice.paid': 'paid',
+  'invoice.voided': 'void',
+  'invoice.marked_uncollectible': 'uncollectible',
+};
+
+const updateInvoiceTaskStripeStatusFromEvent = async (
+  event: Stripe.Event,
+  secrets: ZambdaInput['secrets']
+): Promise<void> => {
+  const stripeStatus = INVOICE_EVENT_STATUS_MAP[event.type];
+  if (!stripeStatus) return;
+
+  const invoice = event.data.object as Stripe.Invoice;
+  const encounterId = encounterIdFromStripeMetadata(invoice.metadata);
+  if (!encounterId) return;
+
+  const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
+  await updateInvoiceTaskStripeStatus(clinicalOystehr, invoice.id, stripeStatus, encounterId);
 };
 
 const updateInvoiceTaskStripeStatus = async (
