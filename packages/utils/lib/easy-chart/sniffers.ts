@@ -84,6 +84,15 @@ export const DISPOSITION_LANGUAGE_PATTERNS: ReadonlyArray<{ label: string; re: R
     label: 'return-to-clinic',
     re: /\b(?:return|come\s+back)\s+(?:to\s+(?:the\s+)?(?:clinic|office|urgent\s+care)|to\s+see\s+us\b|here\b|in\s+(?:\d|a\b|one|two|three)|tomorrow\b|if\b|should\b|as\s+needed\b)/i,
   },
+  // The participle: "returning if worse" / "returning when the fever is gone". Condition-anchored like
+  // return-to-clinic above, so "returning to work" and "the pain keeps returning" have nothing to fire on.
+  { label: 'returning-if', re: /\breturning\s+(?:if|when)\b/i },
+  // "back here" with a time: "back here same day if worse", "back here tomorrow", "back here in 3 days".
+  // The place AND the time are both required — "the hives came back" has neither.
+  {
+    label: 'back-here',
+    re: /\bback\s+here\s+(?:same\s+day\b|today\b|tomorrow\b|in\s+(?:\d|a\b|an\b|one|two|three|four|five|six|a\s+few))/i,
+  },
   { label: 'return-precautions', re: /\breturn\s+precautions\b/i },
   // Forward forms only — "was referred to us by her PCP" describes how they got HERE.
   { label: 'referral', re: /\breferral\b|\brefer(?:ring)?\s+(?:you|her|him|them|the\s+patient)\b/i },

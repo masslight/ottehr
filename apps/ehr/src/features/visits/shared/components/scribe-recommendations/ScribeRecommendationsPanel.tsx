@@ -165,8 +165,10 @@ const NarrativeStep: FC = () => {
   const isBusy = isAnalyzing || isGenerating;
   const narrative = narrativeText(narrativeDraft);
 
+  // The analyzer goes along with the pick: once the narrative is ready the store reads the plan ahead of the
+  // button, so the click has less to wait for. Nothing shows until the click.
   const pick = (doc: DocumentReference): void => {
-    void selectTranscriptDocument(doc, generate);
+    void selectTranscriptDocument(doc, generate, analyzer);
   };
 
   // Planning again throws the standing suggestions away, and with them every tick and correction the
@@ -220,7 +222,7 @@ const NarrativeStep: FC = () => {
           not something to work in. */}
       {transcript && <TranscriptEvidence transcript={transcript} defaultExpanded={false} />}
 
-      <NarrativeEditor disabled={isBusy} onRegenerate={() => void generateNarrative(generate)} />
+      <NarrativeEditor disabled={isBusy} onRegenerate={() => void generateNarrative(generate, analyzer)} />
 
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
         <RoundedButton

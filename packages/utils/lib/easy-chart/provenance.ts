@@ -32,14 +32,38 @@ export function quoteOccursInNarrative(quote: string | undefined, narrative: str
 }
 
 /**
+ * A quote longer than this is cut down. Asked for "a few words to one sentence", the model sometimes quotes a
+ * whole paragraph, and a paragraph highlighted in the narrative and repeated in a tooltip points at nothing.
+ */
+const QUOTE_CLAMP_CHARS = 200;
+
+/**
  * Return the action's `sourceText` when it is genuinely present in the narrative, otherwise
  * undefined — which the UI renders as *inferred*. Never returns a quote the narrative does not
  * contain.
+ *
+ * An over-long quote is clamped: cut at the first sentence end after the limit, or at the limit on a word
+ * boundary when the rest is one long sentence, and re-verified — a cut is a new quote, and the loose
+ * comparison is not guaranteed to accept a prefix of what it accepted whole. The full quote stands when the
+ * cut one fails.
  */
 export function verifiedSourceText(sourceText: string | undefined, narrative: string): string | undefined {
   const quote = sourceText?.trim();
   if (!quote) return undefined;
-  return quoteOccursInNarrative(quote, narrative) ? quote : undefined;
+  if (!quoteOccursInNarrative(quote, narrative)) return undefined;
+  if (quote.length <= QUOTE_CLAMP_CHARS) return quote;
+  const clamped = clampQuote(quote);
+  return clamped !== quote && quoteOccursInNarrative(clamped, narrative) ? clamped : quote;
+}
+
+/** The first sentence end at or after the limit, else the last word boundary before it. */
+function clampQuote(quote: string): string {
+  const sentenceEnd = /[.!?](?=\s|$)/g;
+  sentenceEnd.lastIndex = QUOTE_CLAMP_CHARS;
+  const end = sentenceEnd.exec(quote);
+  if (end) return quote.slice(0, end.index + 1).trim();
+  const space = quote.lastIndexOf(' ', QUOTE_CLAMP_CHARS);
+  return (space > 0 ? quote.slice(0, space) : quote.slice(0, QUOTE_CLAMP_CHARS)).trim();
 }
 
 /** A character class the loose comparison keeps; everything else is a separator. Mirrors normalizeForQuoteMatch. */

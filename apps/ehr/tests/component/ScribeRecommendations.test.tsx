@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { DocumentReference } from 'fhir/r4b';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { ChartPlanResponse } from 'utils/lib/easy-chart/api';
+import { ChartPlanResponse, NarrativeLine } from 'utils/lib/easy-chart/api';
+import { narrativeExtension, TRANSCRIPT_ATTACHMENT_TITLE } from 'utils/lib/easy-chart/narrative';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -161,8 +163,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../src/features/visits/shared/components/scribe-recommendations/useScribeAnalyzer', async () => {
   const { buildAnalysis } = await import('../../src/features/visits/shared/components/scribe-recommendations/analysis');
   return {
-    useScribeAnalyzer: () => async (narrative: string) =>
-      buildAnalysis(mocks.plan() as ChartPlanResponse, undefined, { written: mocks.written, narrative }),
+    useScribeAnalyzer: () => ({
+      plan: async () => mocks.plan() as ChartPlanResponse,
+      analysisOf: (plan: ChartPlanResponse, narrative: string) =>
+        buildAnalysis(plan, undefined, { written: mocks.written, narrative }),
+    }),
   };
 });
 
@@ -289,6 +294,7 @@ import { dataTestIds } from '../../src/constants/data-test-ids';
 import { buildChartSnapshot as buildExecutorSnapshot } from '../../src/features/easy-chart/executor/chartSnapshot';
 import {
   appendToNoteField,
+  buildAnalysis,
   toPlannedAction,
 } from '../../src/features/visits/shared/components/scribe-recommendations/analysis';
 import {
@@ -304,6 +310,8 @@ import {
 import { PickerDialog } from '../../src/features/visits/shared/components/scribe-recommendations/PickerDialog';
 import {
   SCRIBE_PANEL_DEFAULT_WIDTH,
+  ScribeAnalyzer,
+  SpeculativePlan,
   useScribeRecommendationsStore,
 } from '../../src/features/visits/shared/components/scribe-recommendations/scribeRecommendations.store';
 import { ScribeRecommendationsDrawer } from '../../src/features/visits/shared/components/scribe-recommendations/ScribeRecommendationsDrawer';
@@ -344,6 +352,7 @@ const resetStore = (): void => {
     narrativeDraft: '',
     narrativeStatus: 'idle',
     narrativeError: undefined,
+    speculativePlans: {},
     phase: 'input',
     analysisError: undefined,
     narrativeRuns: [],
@@ -1164,6 +1173,150 @@ describe('ScribeRecommendationsDrawer', () => {
 
     const persisted = JSON.parse(localStorage.getItem('ambient-scribe-recommendations-panel') ?? '{}');
     expect(persisted.state).toEqual({ isOpen: true, width: SCRIBE_PANEL_DEFAULT_WIDTH + 24 });
+  });
+});
+
+describe('plans read ahead of the click', () => {
+  // The store's own rules, driven directly: picking a transcript reads its plan in the background, the
+  // first edit to the narrative drops it, and "Plan note" reuses it when the text is still what it was read
+  // for. The endpoint is a counting fake, so every rule is a statement about how many calls were made.
+  const transcriptDocument = (id: string, transcript: string, narrative?: NarrativeLine[]): DocumentReference => ({
+    resourceType: 'DocumentReference',
+    id,
+    status: 'current',
+    content: [
+      { attachment: { title: TRANSCRIPT_ATTACHMENT_TITLE, data: btoa(unescape(encodeURIComponent(transcript))) } },
+    ],
+    ...(narrative ? { extension: [narrativeExtension(narrative)] } : {}),
+  });
+  const LINES_A: NarrativeLine[] = [
+    { text: 'Patient reports sinus pressure for a week.', sources: ['pressure in my sinuses for about a week'] },
+    { text: 'Denies fever.', sources: ['No fever.'] },
+  ];
+  const LINES_B: NarrativeLine[] = [{ text: 'Patient reports a sore throat since yesterday.', sources: [] }];
+  const DOC_A = transcriptDocument('doc-a', 'Provider: What brings you in?\nPatient: Sinus pressure.', LINES_A);
+  const DOC_B = transcriptDocument('doc-b', 'Provider: What brings you in?\nPatient: Sore throat.', LINES_B);
+  const TEXT_A = 'Patient reports sinus pressure for a week. Denies fever.';
+
+  /** An analyzer whose endpoint answers the fixture, and counts. `respond` swaps in another answer per call. */
+  const fakeAnalyzer = (
+    respond: () => Promise<ChartPlanResponse> = async () => PLAN
+  ): ScribeAnalyzer & { calls: ReturnType<typeof vi.fn> } => {
+    const calls = vi.fn((_narrative: string, _generated: NarrativeLine[], _transcript: string) => respond());
+    return {
+      calls,
+      plan: (narrative, generated, transcript) => calls(narrative, generated, transcript),
+      analysisOf: (plan, narrative) => buildAnalysis(plan, undefined, { written: {}, narrative }),
+    };
+  };
+  const generate = vi.fn(async (): Promise<NarrativeLine[]> => LINES_B);
+  const store = (): ReturnType<typeof useScribeRecommendationsStore.getState> =>
+    useScribeRecommendationsStore.getState();
+  const heldPlanFor = (id: string): SpeculativePlan | undefined => store().speculativePlans[id];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetStore();
+    useScribeRecommendationsStore.setState({ encounterId: 'encounter-1' });
+  });
+
+  it('reads the plan when a transcript with a stored narrative is picked, once per document', async () => {
+    const analyzer = fakeAnalyzer();
+    await store().selectTranscriptDocument(DOC_A, generate, analyzer);
+    expect(analyzer.calls).toHaveBeenCalledTimes(1);
+    // the same call the button would make for the unedited narrative: the draft text, its lines, the transcript
+    expect(analyzer.calls).toHaveBeenCalledWith(TEXT_A, LINES_A, store().transcript);
+    await waitFor(() => expect(heldPlanFor('doc-a')).toMatchObject({ narrative: TEXT_A, plan: PLAN }));
+    // nothing is shown for it
+    expect(store().phase).toBe('input');
+    expect(store().recommendations).toEqual([]);
+
+    // another document gets its own read; coming back to the first costs nothing
+    await store().selectTranscriptDocument(DOC_B, generate, analyzer);
+    expect(analyzer.calls).toHaveBeenCalledTimes(2);
+    await store().selectTranscriptDocument(DOC_A, generate, analyzer);
+    expect(analyzer.calls).toHaveBeenCalledTimes(2);
+    expect(heldPlanFor('doc-a')).toMatchObject({ narrative: TEXT_A });
+    expect(heldPlanFor('doc-b')).toMatchObject({ narrative: LINES_B[0].text });
+  });
+
+  it('drops the plan on the first change to the narrative text, and not before', async () => {
+    const analyzer = fakeAnalyzer();
+    await store().selectTranscriptDocument(DOC_A, generate, analyzer);
+    // the editor opening writes the draft back unchanged
+    store().setNarrativeDraft(TEXT_A);
+    expect(heldPlanFor('doc-a')).toBeDefined();
+    store().setNarrativeDraft(`${TEXT_A} Also reports headache.`);
+    expect(heldPlanFor('doc-a')).toBeUndefined();
+    // a late answer to the dropped call lands nowhere
+    await analyzer.calls.mock.results[0].value;
+    expect(heldPlanFor('doc-a')).toBeUndefined();
+    store().setNarrativeDraft(`${TEXT_A} Also reports headache and cough.`);
+    expect(analyzer.calls).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the plan it read ahead on "Plan note", waiting for it when it is still in flight', async () => {
+    let answer: (plan: ChartPlanResponse) => void = () => undefined;
+    const analyzer = fakeAnalyzer(() => new Promise((resolve) => (answer = resolve)));
+    await store().selectTranscriptDocument(DOC_A, generate, analyzer);
+    expect(heldPlanFor('doc-a')).toMatchObject({ narrative: TEXT_A });
+    expect(heldPlanFor('doc-a')?.plan).toBeUndefined();
+
+    const clicked = store().analyze(analyzer);
+    expect(store().phase).toBe('analyzing');
+    answer(PLAN);
+    await clicked;
+    expect(analyzer.calls).toHaveBeenCalledTimes(1);
+    expect(store().phase).toBe('ready');
+    expect(store().recommendations.map((rec) => rec.id)).toContain(ID.dxSinusitis);
+    // the narrative told back is the draft, as on the live path
+    expect(
+      store()
+        .narrativeRuns.map((run) => run.text)
+        .join('')
+    ).toBe(TEXT_A);
+  });
+
+  it('plans live when the narrative was edited, and after a read-ahead that failed', async () => {
+    const analyzer = fakeAnalyzer();
+    await store().selectTranscriptDocument(DOC_A, generate, analyzer);
+    const edited = `${TEXT_A} Also reports headache.`;
+    store().setNarrativeDraft(edited);
+    await store().analyze(analyzer);
+    expect(analyzer.calls).toHaveBeenCalledTimes(2);
+    expect(analyzer.calls).toHaveBeenLastCalledWith(edited, LINES_A, store().transcript);
+    expect(store().phase).toBe('ready');
+
+    // a read-ahead that fails is dropped without a word to the provider; the click then plans live
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const flaky = fakeAnalyzer(async () => {
+      if (flaky.calls.mock.calls.length === 1) throw new Error('model timed out');
+      return PLAN;
+    });
+    await store().selectTranscriptDocument(DOC_B, generate, flaky);
+    await waitFor(() => expect(heldPlanFor('doc-b')).toBeUndefined());
+    expect(store().analysisError).toBeUndefined();
+    await store().analyze(flaky);
+    expect(flaky.calls).toHaveBeenCalledTimes(2);
+    expect(store().phase).toBe('ready');
+    consoleError.mockRestore();
+  });
+
+  it('reads ahead for a generated narrative, and again for a regenerated one', async () => {
+    const analyzer = fakeAnalyzer();
+    const unstamped = transcriptDocument('doc-c', 'Provider: What brings you in?\nPatient: Sore throat.');
+    await store().selectTranscriptDocument(unstamped, generate, analyzer);
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(analyzer.calls).toHaveBeenCalledTimes(1);
+    expect(analyzer.calls).toHaveBeenLastCalledWith(LINES_B[0].text, LINES_B, store().transcript);
+    await waitFor(() => expect(heldPlanFor('doc-c')).toMatchObject({ plan: PLAN }));
+
+    const rewritten: NarrativeLine[] = [{ text: 'Patient reports a sore throat for two days.', sources: [] }];
+    generate.mockResolvedValueOnce(rewritten);
+    await store().generateNarrative(generate, analyzer);
+    expect(analyzer.calls).toHaveBeenCalledTimes(2);
+    expect(analyzer.calls).toHaveBeenLastCalledWith(rewritten[0].text, rewritten, store().transcript);
+    expect(heldPlanFor('doc-c')).toMatchObject({ narrative: rewritten[0].text });
   });
 });
 

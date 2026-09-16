@@ -31,9 +31,10 @@ export type RecommendationSource =
  * The quote is a phrase of the NARRATIVE; the narrative line it sits in was either read out of the
  * transcript (`backed`), said by the generator on its own (`unbacked`), or written or changed by the
  * provider (`provider`). Or the quote is not a phrase of the narrative at all: the planner read the
- * TRANSCRIPT and quoted it (`transcript`), shown as the transcript's words directly.
+ * TRANSCRIPT and quoted it (`transcript`), shown as the transcript's words directly; or it read the CHART
+ * — a resulted test behind a diagnosis — and quoted a line of it (`chart`), shown as the chart's words.
  */
-export type EvidenceOrigin = 'backed' | 'unbacked' | 'provider' | 'transcript';
+export type EvidenceOrigin = 'backed' | 'unbacked' | 'provider' | 'transcript' | 'chart';
 
 interface ScribeRecommendationBase {
   id: string;
@@ -47,6 +48,11 @@ interface ScribeRecommendationBase {
    * the recommendation has no quote at all or its quote could not be found in the narrative.
    */
   transcriptSources?: string[];
+  /**
+   * The chart line the planner quoted, for a recommendation the chart rather than the narrative justifies
+   * (`evidenceOrigin: 'chart'`): a resulted lab or a radiology report. Nothing in the narrative to highlight.
+   */
+  chartSources?: string[];
   evidenceOrigin?: EvidenceOrigin;
   /** Something the provider should double-check before applying (low confidence, a conflict, ...). */
   warning?: string;

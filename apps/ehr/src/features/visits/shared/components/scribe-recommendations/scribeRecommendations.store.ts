@@ -1,6 +1,6 @@
 import { DocumentReference } from 'fhir/r4b';
 import { PickerRequest, PickerResponse } from 'src/features/easy-chart/executor/types';
-import { NarrativeLine, RejectedAction } from 'utils/lib/easy-chart/api';
+import { ChartPlanResponse, NarrativeLine, RejectedAction } from 'utils/lib/easy-chart/api';
 import { storedNarrativeOf, transcriptTextOf } from 'utils/lib/easy-chart/narrative';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { create } from 'zustand';
@@ -29,16 +29,37 @@ export const clampScribePanelWidth = (width: number, viewportWidth: number = win
 export type ScribePhase = 'input' | 'analyzing' | 'ready';
 
 /**
- * Reads the visit and answers with recommendations: the plan and review endpoints, behind one function.
+ * Reads the visit and answers with recommendations: the plan endpoint, behind one function, and the mapping
+ * of its answer to what the panel shows behind another. Two rather than one because the plan is read AHEAD
+ * of the click when a transcript is picked (see `planAhead`) and mapped only when the click comes.
+ *
  * The transcript is what the planner is sent, when there is one; the narrative text and the generated lines
  * it was edited from go along only as the provider's corrections, and only when the two differ. Without a
  * transcript the narrative text is the dictation itself.
  */
-export type ScribeAnalyzer = (
-  narrative: string,
-  generated: NarrativeLine[],
-  transcript: string
-) => Promise<ScribeAnalysis>;
+export interface ScribeAnalyzer {
+  plan: (narrative: string, generated: NarrativeLine[], transcript: string) => Promise<ChartPlanResponse>;
+  /** Pure: the same plan and narrative give the same analysis, whichever path the plan came by. */
+  analysisOf: (
+    plan: ChartPlanResponse,
+    narrative: string,
+    generated: NarrativeLine[],
+    transcript: string
+  ) => ScribeAnalysis;
+}
+
+/**
+ * A plan read ahead of the "Plan note" click, for one transcript document. Kept in memory for the sitting:
+ * the click reuses it when the narrative is still the text it was read for, and does a live call otherwise.
+ * Nothing is shown until the click — the plan appears when it is asked for, not when it arrives.
+ */
+export interface SpeculativePlan {
+  /** The narrative text the plan was read for. A draft that differs is a different narrative, and the entry goes. */
+  narrative: string;
+  plan?: ChartPlanResponse;
+  /** Still in flight. Resolves to the plan; a rejection drops the entry, and the click then plans live. */
+  promise?: Promise<ChartPlanResponse>;
+}
 
 /**
  * Writes the narrative from a transcript: the narrative endpoint, behind one function. `documentId` names the
@@ -106,6 +127,12 @@ interface ScribeRecommendationsState {
   narrativeDraft: string;
   narrativeStatus: NarrativeStatus;
   narrativeError?: string;
+  /**
+   * Plans read ahead of the click, by transcript document id. Each document keeps its own, so switching
+   * between transcripts costs nothing the second time; the first edit to a document's narrative drops its
+   * entry. In memory only — a plan belongs to one sitting, like the transcript it was read from.
+   */
+  speculativePlans: Record<string, SpeculativePlan>;
   phase: ScribePhase;
   analysisError?: string;
   /** The narrative told back on the results screen, cut into runs around each recommendation's quote. */
@@ -139,10 +166,21 @@ interface ScribeRecommendationsState {
   /**
    * Takes a transcript document as the source: its narrative, if the pipeline already stored one on it,
    * or a freshly generated one. Selecting the document already selected is a no-op, so edits survive.
+   * Once the narrative is ready the plan is read ahead with `analyzer`, so the click has less to wait for.
    */
-  selectTranscriptDocument: (doc: DocumentReference, generate: NarrativeGenerator) => Promise<void>;
-  generateNarrative: (generate: NarrativeGenerator) => Promise<void>;
+  selectTranscriptDocument: (
+    doc: DocumentReference,
+    generate: NarrativeGenerator,
+    analyzer: ScribeAnalyzer
+  ) => Promise<void>;
+  /** Writes the narrative again; the plan read ahead for the old text goes, and one for the new text starts. */
+  generateNarrative: (generate: NarrativeGenerator, analyzer: ScribeAnalyzer) => Promise<void>;
   setNarrativeDraft: (text: string) => void;
+  /**
+   * Reads the plan for the selected document's narrative as it stands, in the background, unless one for
+   * that exact text is already held or in flight. Nothing is rendered; `analyze` picks it up on the click.
+   */
+  planAhead: (analyzer: ScribeAnalyzer) => void;
   analyze: (analyzer: ScribeAnalyzer) => Promise<void>;
 
   setSelected: (id: string, selected: boolean) => void;
@@ -199,7 +237,17 @@ const SESSION_INITIAL = {
   sourceDocumentId: undefined,
   ...NARRATIVE_CLEARED,
   narrativeError: undefined,
+  speculativePlans: {} as Record<string, SpeculativePlan>,
   chartedIds: [] as string[],
+};
+
+/** The plans held, less the one for `documentId`. */
+const withoutSpeculativePlan = (
+  plans: Record<string, SpeculativePlan>,
+  documentId: string
+): Record<string, SpeculativePlan> => {
+  const { [documentId]: _dropped, ...rest } = plans;
+  return rest;
 };
 
 export const useScribeRecommendationsStore = create<ScribeRecommendationsState>()(
@@ -219,7 +267,7 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
         set({ encounterId, ...SESSION_INITIAL });
       },
 
-      selectTranscriptDocument: async (doc, generate) => {
+      selectTranscriptDocument: async (doc, generate, analyzer) => {
         const transcript = transcriptTextOf(doc);
         if (transcript === undefined || get().sourceDocumentId === doc.id) return;
         set({
@@ -234,20 +282,30 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
         const stored = storedNarrativeOf(doc);
         if (stored) {
           set({ narrativeGenerated: stored, narrativeDraft: draftFromNarrative(stored), narrativeStatus: 'ready' });
+          get().planAhead(analyzer);
           return;
         }
-        await get().generateNarrative(generate);
+        await get().generateNarrative(generate, analyzer);
       },
 
-      generateNarrative: async (generate) => {
+      generateNarrative: async (generate, analyzer) => {
         const { transcript, encounterId, sourceDocumentId } = get();
         set({ narrativeStatus: 'generating', narrativeError: undefined });
         try {
           const lines = await generate(transcript, sourceDocumentId);
           // The visit or the transcript may have changed while the model was writing.
           if (get().encounterId !== encounterId || get().transcript !== transcript) return;
-          // Regenerating replaces the draft: whatever the provider had typed over the old one goes with it.
-          set({ narrativeGenerated: lines, narrativeDraft: draftFromNarrative(lines), narrativeStatus: 'ready' });
+          // Regenerating replaces the draft: whatever the provider had typed over the old one goes with it —
+          // and so does the plan read ahead for the old text, in flight or not; one for the new text starts.
+          set((state) => ({
+            narrativeGenerated: lines,
+            narrativeDraft: draftFromNarrative(lines),
+            narrativeStatus: 'ready',
+            ...(sourceDocumentId
+              ? { speculativePlans: withoutSpeculativePlan(state.speculativePlans, sourceDocumentId) }
+              : {}),
+          }));
+          get().planAhead(analyzer);
         } catch (error) {
           console.error('Narrative generation failed', error);
           if (get().encounterId !== encounterId || get().transcript !== transcript) return;
@@ -258,15 +316,66 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
           });
         }
       },
-      setNarrativeDraft: (narrativeDraft) => set({ narrativeDraft }),
+      setNarrativeDraft: (narrativeDraft) =>
+        set((state) => {
+          if (narrativeDraft === state.narrativeDraft) return {};
+          // The first real change to the text drops the plan read ahead for it, finished or in flight: it
+          // answered a narrative that no longer exists. Opening the editor changes nothing and drops nothing.
+          const { sourceDocumentId } = state;
+          return sourceDocumentId && state.speculativePlans[sourceDocumentId]
+            ? { narrativeDraft, speculativePlans: withoutSpeculativePlan(state.speculativePlans, sourceDocumentId) }
+            : { narrativeDraft };
+        }),
+
+      planAhead: (analyzer) => {
+        const { sourceDocumentId, narrativeStatus, narrativeDraft, narrativeGenerated, transcript, encounterId } =
+          get();
+        if (!sourceDocumentId || narrativeStatus !== 'ready') return;
+        const narrative = narrativeText(narrativeDraft);
+        if (!narrative) return;
+        // Already held, or already on its way, for this very text: picking the same transcript twice costs one call.
+        if (get().speculativePlans[sourceDocumentId]?.narrative === narrative) return;
+        // The same call the button makes for an unedited narrative — the draft IS the generated text here, so
+        // the analyzer sends no corrections.
+        const promise = analyzer.plan(narrative, narrativeGenerated, transcript);
+        const entry: SpeculativePlan = { narrative, promise };
+        set((state) => ({ speculativePlans: { ...state.speculativePlans, [sourceDocumentId]: entry } }));
+        // Only this entry, on this visit: an answer to a call an edit has since discarded belongs to nothing.
+        const stillCurrent = (): boolean =>
+          get().encounterId === encounterId && get().speculativePlans[sourceDocumentId] === entry;
+        promise.then(
+          (plan) => {
+            if (!stillCurrent()) return;
+            set((state) => ({
+              speculativePlans: { ...state.speculativePlans, [sourceDocumentId]: { narrative, plan } },
+            }));
+          },
+          (error) => {
+            // Dropped, not surfaced: nothing was asked for yet, and the click plans live. Envelope only.
+            console.error('Read-ahead plan failed:', getApiError({ error, defaultError: 'unknown error' }));
+            if (!stillCurrent()) return;
+            set((state) => ({ speculativePlans: withoutSpeculativePlan(state.speculativePlans, sourceDocumentId) }));
+          }
+        );
+      },
 
       analyze: async (analyzer) => {
-        const { narrativeDraft, narrativeGenerated, transcript, encounterId } = get();
+        const { narrativeDraft, narrativeGenerated, transcript, encounterId, sourceDocumentId } = get();
+        const narrative = narrativeText(narrativeDraft);
         set({ phase: 'analyzing', analysisError: undefined });
         try {
-          const analysis = await analyzer(narrativeText(narrativeDraft), narrativeGenerated, transcript);
+          // The plan read ahead, when there is one for this exact text; a live call otherwise, or when the
+          // read-ahead failed — its failure dropped the entry, and one that fails while awaited here is
+          // treated the same way rather than reported for a call nobody pressed the button for.
+          const ahead = sourceDocumentId ? get().speculativePlans[sourceDocumentId] : undefined;
+          const reusable = ahead?.narrative === narrative ? ahead : undefined;
+          const plan =
+            reusable?.plan ??
+            (await reusable?.promise?.catch(() => undefined)) ??
+            (await analyzer.plan(narrative, narrativeGenerated, transcript));
           // The visit may have changed while the model was thinking.
           if (get().encounterId !== encounterId) return;
+          const analysis = analyzer.analysisOf(plan, narrative, narrativeGenerated, transcript);
           const itemState: Record<string, RecommendationItemState> = {};
           // Every recommendation starts checked and the provider unchecks what they don't want. A note row
           // starts as an addition — after whatever its field already says — never as a rewrite of it.

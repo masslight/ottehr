@@ -15,11 +15,12 @@ import { LocatedLine } from './types';
 
 /**
  * What the row's hover says for evidence drawn from a sentence the generator said on its own, the provider
- * wrote, or — for a quote the planner took from the transcript itself — the transcript's own words.
+ * wrote, or — for a quote the planner took from the transcript itself, or from the chart — those words.
  */
 export const UNBACKED_LINE_NOTE = 'Not found in the transcript — the narrative said this on its own.';
 export const PROVIDER_EVIDENCE_NOTE = 'From your edit to the narrative.';
 export const TRANSCRIPT_QUOTE_NOTE = 'From the transcript.';
+export const CHART_QUOTE_NOTE = 'From the chart.';
 
 /** The generator's sentences as one paragraph: the draft as it starts, before the provider edits it. */
 export const draftFromNarrative = (lines: NarrativeLine[]): string =>

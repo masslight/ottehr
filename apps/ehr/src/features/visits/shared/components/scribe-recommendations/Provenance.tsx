@@ -1,9 +1,10 @@
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import MicNoneOutlinedIcon from '@mui/icons-material/MicNoneOutlined';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
-import { PROVIDER_EVIDENCE_NOTE, TRANSCRIPT_QUOTE_NOTE, UNBACKED_LINE_NOTE } from './narrativeLines';
+import { CHART_QUOTE_NOTE, PROVIDER_EVIDENCE_NOTE, TRANSCRIPT_QUOTE_NOTE, UNBACKED_LINE_NOTE } from './narrativeLines';
 import { EvidenceOrigin } from './types';
 
 /**
@@ -15,7 +16,8 @@ import { EvidenceOrigin } from './types';
  * and under it come the transcript snippets the narrative line was written from: what was actually
  * said. A line the generator said on its own, or one the provider wrote, has no snippets, and says so.
  * A quote the planner took from the transcript rather than the narrative has no narrative excerpt: it is
- * shown as a transcript snippet, with a caption saying so.
+ * shown as a transcript snippet, with a caption saying so. One it took from the chart — a resulted test
+ * behind a diagnosis — is shown the same way under a chart glyph, with its own caption.
  */
 
 interface ProvenanceContentProps {
@@ -27,6 +29,8 @@ interface ProvenanceContentProps {
   evidence?: string;
   /** The transcript snippets behind the narrative line the excerpt sits in, or the transcript quote itself. */
   transcriptSources?: string[];
+  /** The chart line the planner quoted, for a recommendation the chart rather than the narrative justifies. */
+  chartSources?: string[];
   evidenceOrigin?: EvidenceOrigin;
 }
 
@@ -35,9 +39,10 @@ export const hasProvenance = ({
   note,
   evidence,
   transcriptSources,
+  chartSources,
   evidenceOrigin,
 }: ProvenanceContentProps): boolean =>
-  Boolean(warning || note || evidence || transcriptSources?.length || evidenceOrigin);
+  Boolean(warning || note || evidence || transcriptSources?.length || chartSources?.length || evidenceOrigin);
 
 // Rendered in the panel and, from AiAddedMark, in the note: the icons take the size of whichever theme is in scope.
 export const ProvenanceContent: FC<ProvenanceContentProps> = ({
@@ -45,6 +50,7 @@ export const ProvenanceContent: FC<ProvenanceContentProps> = ({
   note,
   evidence,
   transcriptSources,
+  chartSources,
   evidenceOrigin,
 }) => (
   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -73,8 +79,19 @@ export const ProvenanceContent: FC<ProvenanceContentProps> = ({
         </Typography>
       </Box>
     ))}
+    {chartSources?.map((source, index) => (
+      <Box key={index} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.25, pl: 1 }}>
+        <DescriptionOutlinedIcon
+          sx={(theme) => ({ fontSize: theme.typography.pxToRem(14), mt: '1px', flexShrink: 0 })}
+        />
+        <Typography variant="caption" sx={{ fontStyle: 'italic' }}>
+          {source}
+        </Typography>
+      </Box>
+    ))}
     {evidenceOrigin === 'unbacked' && <Typography variant="caption">{UNBACKED_LINE_NOTE}</Typography>}
     {evidenceOrigin === 'provider' && <Typography variant="caption">{PROVIDER_EVIDENCE_NOTE}</Typography>}
     {evidenceOrigin === 'transcript' && <Typography variant="caption">{TRANSCRIPT_QUOTE_NOTE}</Typography>}
+    {evidenceOrigin === 'chart' && <Typography variant="caption">{CHART_QUOTE_NOTE}</Typography>}
   </Box>
 );

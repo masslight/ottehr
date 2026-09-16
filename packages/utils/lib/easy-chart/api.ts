@@ -68,7 +68,7 @@ export interface TriggerReport {
   fired: boolean;
   complied: boolean;
   /**
-   * WHICH pattern fired, when the trigger is a family of them (disposition language is nine).
+   * WHICH pattern fired, when the trigger is a family of them (disposition language is eleven).
    *
    * A label, never narrative text — it reaches logs and eval summaries. Without it a run can only say
    * that some disposition language went unaddressed, not whether it was a referral, an ER instruction or
@@ -215,10 +215,12 @@ export interface PlannedAction extends RawAction {
    */
   sourceText?: string;
   /**
-   * Which text `sourceText` was verified against: `narrative` (checked first) or the provider's edited
-   * read-back (`providerEdits.edited`, checked only when one was sent). Absent whenever `sourceText` is.
+   * Which text `sourceText` was verified against: `narrative` (checked first), the provider's edited
+   * read-back (`providerEdits.edited`, checked only when one was sent), or `chart` — a line of the ALREADY
+   * ON THE CHART block, for an action the chart rather than the narrative justifies (a resulted test behind
+   * a diagnosis). Absent whenever `sourceText` is.
    */
-  sourceOrigin?: 'narrative' | 'edited-narrative';
+  sourceOrigin?: 'narrative' | 'edited-narrative' | 'chart';
   /** Set when a guard accepted the action but the provider should look at it. */
   caution?: string;
   /** Set when a guard could not establish a value and the provider must supply it. */

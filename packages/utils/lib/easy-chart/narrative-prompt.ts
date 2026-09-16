@@ -66,6 +66,16 @@ const NARRATIVE_RULES = `RULES:
   wrong person is not.
 - Keep the provider's own clinical wording where the provider used it ("sinus infection", "viral URI",
   "strep"); do not upgrade or reinterpret it.
+- REVIEW OF SYSTEMS AS EXPLICIT SENTENCES, BOTH POLARITIES. What the patient affirms is a "Reports …"
+  line and what the patient denies is a "Denies …" line. Do not fold a reported symptom into the HPI prose
+  and leave it there: the chart records each one as its own finding, and it can only be found as a sentence
+  that names it.
+- CARRY THE PROVIDER'S REASONING. A differential the provider considered and ruled out ("not pneumonia"),
+  a finding re-examined that resolved ("cleared when he coughed"), and a workup declined or skipped ("skip
+  the chest X-ray") are each a line of their own, in the provider's words. They are the medical decision
+  making, and a dictation that keeps only the conclusion loses it.
+- PRESERVE URGENCY AND INTERVALS IN INSTRUCTIONS. "Back here same day if worse" must not become "return if
+  worse"; "in 3 days" must not become "in a few days". Keep the timing exactly as voiced, in meaning.
 - PROVENANCE — "sourceTexts" is the list of SHORT snippets from the transcript that the line was drawn
   from: a few words to one sentence each, copied EXACTLY as they appear, not paraphrased, not reordered, not
   joined with ellipses. Several snippets per line are allowed and usually right. For a question-and-answer

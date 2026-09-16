@@ -155,6 +155,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     narrative,
     // Second text a quote may verify against, after the narrative. See GuardContext.editedNarrative.
     editedNarrative: params.providerEdits?.edited,
+    // Third and last: the chart block exactly as the prompt showed it, for a quote of a resulted test.
+    chartStateText: tail.chartStateSummary,
     chartedItems: [...(params.chartedExamFindings ?? []), ...splitChartState(params.chartState)],
     logPrefix: ZAMBDA_NAME,
     // Read by the primary-diagnosis invariant: on an addendum, an existing primary must not be usurped.

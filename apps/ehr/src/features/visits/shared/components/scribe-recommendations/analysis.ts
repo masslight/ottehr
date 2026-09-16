@@ -144,6 +144,7 @@ function provenanceOf(
   warning?: string;
   note?: string;
   transcriptSources?: string[];
+  chartSources?: string[];
   evidenceOrigin?: EvidenceOrigin;
 } {
   const notes: string[] = [];
@@ -156,11 +157,15 @@ function provenanceOf(
   // A quote verified against the provider's edited narrative is a phrase of the narrative box, highlighted
   // there and traced a hop further by `transcriptProvenance`. One verified against the planner's `narrative`
   // is the same when that narrative was typed by hand, but when it was the transcript the quote is the
-  // transcript's own words: shown as a snippet, and no narrative run is cut for it. Absent origin is an
-  // older server, which only ever verified against the narrative.
+  // transcript's own words: shown as a snippet, and no narrative run is cut for it. One verified against the
+  // CHART is a line of the chart state — a resulted test — and is shown as such; nothing in the narrative
+  // to highlight. Absent origin is an older server, which only ever verified against the narrative.
+  const quotesChart = action.sourceOrigin === 'chart';
   const quotesTranscript = narrativeIsTranscript && action.sourceOrigin !== 'edited-narrative';
   return {
-    ...(sourceText && quotesTranscript
+    ...(sourceText && quotesChart
+      ? { chartSources: [sourceText], evidenceOrigin: 'chart' as const }
+      : sourceText && quotesTranscript
       ? { transcriptSources: [sourceText], evidenceOrigin: 'transcript' as const }
       : { evidence: sourceText }),
     warning: joinWarnings(action.caution, action.needsProvider ? NEEDS_PROVIDER_WARNING : undefined),

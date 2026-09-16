@@ -130,6 +130,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
     note: detail,
     evidence: recommendation.evidence,
     transcriptSources: recommendation.transcriptSources,
+    chartSources: recommendation.chartSources,
     evidenceOrigin: recommendation.evidenceOrigin,
   };
   const showProvenance = hasProvenance(provenance);

@@ -12,6 +12,7 @@
 // identical chart and a unit test can pin what they say about it.
 
 import { buildExamLeafCatalogue } from '../config-helpers/exam-leaves';
+import { formatLabResultForPrompt, formatRadiologyReportForPrompt } from '../helpers/test-results-for-prompt';
 import { DefaultExamComponentsConfig } from '../ottehr-config/examination/default-components.config';
 import { getRosFindingStateFromKey } from '../ottehr-config/review-of-systems';
 import { InPersonRosConfig } from '../ottehr-config/review-of-systems/in-person.config';
@@ -65,13 +66,24 @@ export function buildChartStateSummary(chart: GetChartDataResponse | undefined):
     push('ROS already charted', state ? `${state === 'denies' ? 'Denies' : 'Reports'} ${label}` : label);
   }
 
-  // Orders already placed. Without these the model re-orders a test that is already pending; the narrative
-  // backstop only catches the ones the provider said aloud WITH a result.
-  for (const order of chart.radiologyOrders ?? []) push('Radiology already ordered', order.studyType);
+  // Orders already placed, and what came back. Without the pending ones the model re-orders a test that is
+  // already out; the narrative backstop only catches the ones the provider said aloud WITH a result. The
+  // RESULTED ones are findings of this visit, and used to be listed as "already ordered" — a name with no
+  // value — so a positive rapid strep the provider never read aloud was invisible to the diagnoses and the
+  // MDM. The result lines are formatted by the same helper the billing suggester's prompt uses, so the two
+  // prompts describe a result identically; a report is folded onto one line because everything here is
+  // matched line by line (removals, and the chart-origin quote a diagnosis may cite).
+  for (const order of chart.radiologyOrders ?? []) {
+    const report = formatRadiologyReportForPrompt(order);
+    if (report) push('Radiology reported', report.replace(/\s+/g, ' '));
+    else push('Radiology already ordered', order.studyType);
+  }
+  for (const name of chart.externalLabResults?.resultsPending ?? []) push('External lab already ordered', name);
   for (const result of chart.externalLabResults?.labOrderResults ?? [])
-    push('External lab already ordered', result.name);
+    push('External lab resulted', formatLabResultForPrompt(result, 'external'));
+  for (const name of chart.inHouseLabResults?.resultsPending ?? []) push('In-house lab already ordered', name);
   for (const result of chart.inHouseLabResults?.labOrderResults ?? [])
-    push('In-house lab already ordered', result.name);
+    push('In-house lab resulted', formatLabResultForPrompt(result, 'in-house'));
 
   for (const cpt of chart.cptCodes ?? []) push('CPT', `${cpt.code} ${cpt.display}`);
   push('E&M code already set', chart.emCode?.code);

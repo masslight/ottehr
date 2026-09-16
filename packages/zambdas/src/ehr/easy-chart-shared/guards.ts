@@ -31,6 +31,13 @@ export interface GuardContext {
    * FIRST and against this only when the narrative does not contain it. See ChartPlanRequest.providerEdits.
    */
   editedNarrative?: string;
+  /**
+   * The ALREADY ON THE CHART block exactly as the prompt rendered it, so a quote may be verified against it
+   * LAST — after the narrative and the edited read-back. The model is told it may cite one line of that
+   * block when the chart, not the narrative, justifies an action (a resulted test behind a diagnosis); such
+   * a quote is tagged `chart` and the UI shows it as the chart's words rather than highlighting the narrative.
+   */
+  chartStateText?: string;
   /** Display strings of items already on the chart. A remove-* may only target one of these. */
   chartedItems: string[];
   logPrefix: string;
@@ -138,10 +145,10 @@ export async function applyGuards(raw: RawAction[], context: GuardContext): Prom
       counts[action.sourceOrigin ?? 'none'] += 1;
       return counts;
     },
-    { narrative: 0, 'edited-narrative': 0, none: 0 }
+    { narrative: 0, 'edited-narrative': 0, chart: 0, none: 0 }
   );
   console.log(
-    `[${context.logPrefix}] provenance: narrative=${provenance.narrative} edited-narrative=${provenance['edited-narrative']} inferred=${provenance.none}`
+    `[${context.logPrefix}] provenance: narrative=${provenance.narrative} edited-narrative=${provenance['edited-narrative']} chart=${provenance.chart} inferred=${provenance.none}`
   );
   return { actions: complete, rejected, triggers: buildTriggerReports(context.narrative, complete) };
 }
@@ -183,17 +190,22 @@ async function guardOne(input: RawAction, context: ResolvedGuardContext): Promis
   for (const field of leaked) delete bag[field];
 
   // Provenance: verify the quote actually occurs in the narrative, or failing that in the provider's edited
-  // read-back when one was sent, and tag which. A quote that is in neither is dropped, and the item is then
-  // honestly marked inferred rather than carrying a fabricated citation. Do this before anything else so
-  // every later rejection reason is quote-free.
+  // read-back when one was sent, or failing that in the chart state the prompt showed, and tag which. A
+  // quote that is in none is dropped, and the item is then honestly marked inferred rather than carrying a
+  // fabricated citation. Do this before anything else so every later rejection reason is quote-free.
   const fromNarrative = verifiedSourceText(action.sourceText, context.narrative);
   const fromEdited =
     fromNarrative === undefined && context.editedNarrative
       ? verifiedSourceText(action.sourceText, context.editedNarrative)
       : undefined;
-  action.sourceText = fromNarrative ?? fromEdited;
+  const fromChart =
+    fromNarrative === undefined && fromEdited === undefined && context.chartStateText
+      ? verifiedSourceText(action.sourceText, context.chartStateText)
+      : undefined;
+  action.sourceText = fromNarrative ?? fromEdited ?? fromChart;
   if (fromNarrative !== undefined) action.sourceOrigin = 'narrative';
   else if (fromEdited !== undefined) action.sourceOrigin = 'edited-narrative';
+  else if (fromChart !== undefined) action.sourceOrigin = 'chart';
   else delete action.sourceOrigin;
 
   const missing = missingRequiredFields(kind, action);

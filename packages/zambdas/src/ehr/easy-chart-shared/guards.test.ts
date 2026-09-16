@@ -693,3 +693,51 @@ describe('backstop-appended vitals carry numbers', () => {
     expect(sweep!.value).toBe(94);
   });
 });
+
+describe('chart-origin provenance', () => {
+  // The model may cite one line of the ALREADY ON THE CHART block when the chart, not the narrative, is the
+  // reason for an action — a resulted rapid strep behind a strep diagnosis the provider never read aloud.
+  // Verified LAST, after the narrative and the edited read-back, and tagged so the UI shows it as the
+  // chart's words rather than hunting for it in the narrative.
+  const narrative = 'Sore throat for two days. Will start amoxicillin.';
+  const chartStateText = '- In-house lab resulted: Test: Rapid strep | Result: Positive | Flag: abnormal';
+
+  it('keeps a quote of a chart line and tags it chart', async () => {
+    const { actions } = await run(
+      [
+        {
+          kind: 'add-diagnosis',
+          display: 'Strep throat',
+          code: 'J02.0',
+          sourceText: 'In-house lab resulted: Test: Rapid strep | Result: Positive',
+        },
+      ],
+      narrative,
+      [],
+      { chartStateText }
+    );
+    expect(actions[0].sourceText).toBe('In-house lab resulted: Test: Rapid strep | Result: Positive');
+    expect(actions[0].sourceOrigin).toBe('chart');
+  });
+
+  it('prefers the narrative when the quote is in both', async () => {
+    const { actions } = await run(
+      [{ kind: 'add-diagnosis', display: 'Strep throat', code: 'J02.0', sourceText: 'Sore throat for two days' }],
+      narrative,
+      [],
+      { chartStateText: `${chartStateText}\n- Patient instruction: Sore throat for two days` }
+    );
+    expect(actions[0].sourceOrigin).toBe('narrative');
+  });
+
+  it('drops a quote that is in neither the narrative nor the chart', async () => {
+    const { actions } = await run(
+      [{ kind: 'add-diagnosis', display: 'Strep throat', code: 'J02.0', sourceText: 'the culture grew group A strep' }],
+      narrative,
+      [],
+      { chartStateText }
+    );
+    expect(actions[0].sourceText).toBeUndefined();
+    expect(actions[0].sourceOrigin).toBeUndefined();
+  });
+});

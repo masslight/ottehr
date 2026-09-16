@@ -106,3 +106,39 @@ describe('locateQuote', () => {
     expect(slice('times. Patient: I’m')).toBe('times.\nPatient: I’m');
   });
 });
+
+describe('quote clamp', () => {
+  // Asked for "a few words to one sentence", the model sometimes quotes a whole paragraph. A paragraph
+  // highlighted in the narrative and repeated in a tooltip points at nothing, so an over-long quote is
+  // cut down — and re-verified, because a cut is a new quote.
+  const sentence = (n: number): string => `Sentence number ${n} of the dictation says something more about the visit.`;
+  const long = [1, 2, 3, 4, 5].map(sentence).join(' ');
+  const narrative = `Preamble. ${long} Closing remark.`;
+
+  it('cuts an over-long quote at the first sentence end after the limit', () => {
+    const clamped = verifiedSourceText(long, narrative);
+    expect(clamped).toBeDefined();
+    expect(clamped!.length).toBeLessThan(long.length);
+    expect(clamped!.length).toBeGreaterThan(200);
+    expect(clamped!.endsWith('.')).toBe(true);
+    // Whole sentences only: the cut lands on the end of the sentence that crosses the 200th character.
+    expect(clamped).toBe([1, 2, 3].map(sentence).join(' '));
+    expect(quoteOccursInNarrative(clamped, narrative)).toBe(true);
+  });
+
+  it('cuts at a word boundary at the limit when no sentence ends after it', () => {
+    const words = Array.from({ length: 60 }, (_, i) => `word${i}`).join(' ');
+    const clamped = verifiedSourceText(words, `Intro. ${words} Outro.`);
+    expect(clamped).toBeDefined();
+    expect(clamped!.length).toBeLessThanOrEqual(200);
+    expect(clamped!.endsWith('word')).toBe(false);
+    expect(words.startsWith(clamped!)).toBe(true);
+    // Whole words only.
+    expect(words.charAt(clamped!.length)).toBe(' ');
+  });
+
+  it('leaves a quote within the limit alone, and still drops one the narrative lacks', () => {
+    expect(verifiedSourceText(sentence(1), narrative)).toBe(sentence(1));
+    expect(verifiedSourceText(`${long} Not in the narrative.`, narrative)).toBeUndefined();
+  });
+});

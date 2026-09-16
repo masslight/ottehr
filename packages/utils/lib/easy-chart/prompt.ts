@@ -98,7 +98,10 @@ const SHARED_TRANSCRIPT_RULES = `- Each step is one self-contained action. "add 
   STRING. Never fabricate one. Each quote is checked against the narrative and, when the provider's
   corrections are given, against their edited text, and dropped if it is not really there, and an
   empty sourceText is the signal that tells the provider to look closely, so guessing defeats the
-  purpose.`;
+  purpose.
+  When the CHART, not the narrative, is the reason for an action — a resulted test behind a diagnosis —
+  "sourceText" may instead be ONE line of the ALREADY ON THE CHART block, copied exactly. It is checked
+  against that block the same way.`;
 
 /** What the full planner adds on top: ordering, which only exists when a plan has several sections. */
 /**
@@ -539,6 +542,15 @@ export interface PromptTailInput {
   mustAddress?: string;
 }
 
+/**
+ * Rides directly under a non-empty ALREADY ON THE CHART block. The chart state now carries resulted labs and
+ * radiology reports (see chart-state.ts), and without this the model read them two wrong ways: as things to
+ * order again, and as nothing at all when the narrative never mentioned the result.
+ */
+const CHART_RESULTS_NOTE = `Resulted tests ("… lab resulted: …") and radiology reports ("Radiology reported: …") above are FINDINGS
+of THIS visit. Use them for the ASSESSMENT (diagnoses) and the MEDICAL DECISION MAKING. Do NOT derive
+orders, medications or patient instructions from them — those come only from what the provider said.`;
+
 /** Everything that varies per call, in one block, appended after the static instructions. */
 export function buildVariableTail(surface: Surface, input: PromptTailInput): string {
   const parts: string[] = [];
@@ -598,7 +610,7 @@ export function buildVariableTail(surface: Surface, input: PromptTailInput): str
 
   parts.push(
     input.chartStateSummary?.trim()
-      ? `ALREADY ON THE CHART:\n${input.chartStateSummary.trim()}`
+      ? `ALREADY ON THE CHART:\n${input.chartStateSummary.trim()}\n\n${CHART_RESULTS_NOTE}`
       : 'ALREADY ON THE CHART: nothing. The chart is currently EMPTY — there are no diagnoses, medications, allergies or other items on it, so there is NOTHING to remove. Do NOT emit any remove-* step.'
   );
 

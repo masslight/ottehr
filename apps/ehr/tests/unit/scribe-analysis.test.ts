@@ -142,6 +142,29 @@ describe('buildAnalysis', () => {
     expect(flagged.warning).toMatch(/^Patient-reported, not measured\. The assistant could not establish a value/);
   });
 
+  // A quote the server verified against the chart state — a resulted test behind a diagnosis — is the
+  // chart's words, not the narrative's: shown as such, with nothing in the narrative to highlight.
+  it('shows a quote of the chart as the chart’s words, with no narrative evidence', () => {
+    const chartLine = 'In-house lab resulted: Test: Rapid strep | Result: Positive | Flag: abnormal';
+    const [fromChart] = buildAnalysis(
+      plan([
+        {
+          kind: 'add-diagnosis',
+          code: 'J02.0',
+          display: 'Streptococcal pharyngitis',
+          sourceText: chartLine,
+          sourceOrigin: 'chart',
+        },
+      ]),
+      undefined,
+      { written: {}, narrative: 'Sore throat for two days.', narrativeGenerated: [], narrativeIsTranscript: true }
+    ).recommendations;
+    expect(fromChart).toMatchObject({ chartSources: [chartLine], evidenceOrigin: 'chart' });
+    expect(fromChart.evidence).toBeUndefined();
+    expect(fromChart.transcriptSources).toBeUndefined();
+    expect(fromChart.note).toBeUndefined();
+  });
+
   it('measures the text a note row would go after, and measures nothing for an empty field', () => {
     const edit: PlannedAction = { kind: 'edit-note-text', field: 'medicalDecision', newText: 'New MDM.' };
     const [onto] = analyse([edit], { written: { medicalDecision: 'The MDM the provider typed.' } });
