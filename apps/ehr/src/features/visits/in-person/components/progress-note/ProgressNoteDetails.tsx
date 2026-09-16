@@ -34,8 +34,7 @@ import { RosReviewContainer } from 'src/features/visits/shared/components/ros-ta
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { usePatientInstructionsVisibility } from 'src/features/visits/shared/hooks/usePatientInstructionsVisibility';
-import { useProgressNoteChartFields } from 'src/features/visits/shared/hooks/useProgressNoteChartFields';
-import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useRosObservationsStore } from 'src/features/visits/shared/stores/appointment/ros-observations.store';
 import { useSignAppointmentMutation } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { isEligibleSupervisor } from 'src/helpers';
@@ -45,6 +44,7 @@ import { examConfig } from 'utils/lib/ottehr-config/examination';
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
 import { getSupervisorApprovalStatus } from 'utils/lib/utils/visitUtils';
+import { useVisitNote } from '../../../shared/hooks/useVisitNote';
 import { useGetImmunizationOrders } from '../../hooks/useImmunization';
 import { useMedicationAPI } from '../../hooks/useMedicationOperations';
 import { AllergiesBody } from '../allergies/AllergiesBody';
@@ -88,8 +88,7 @@ export const ProgressNoteDetails: FC = () => {
   const user = useEvolveUser();
   const navigate = useNavigate();
 
-  const { data: chartFields } = useProgressNoteChartFields();
-  const { chartData } = useChartData();
+  const { data: note } = useVisitNote();
   const { medications: inHouseMedications } = useMedicationAPI();
 
   const { data: immunizationOrdersResponse } = useGetImmunizationOrders({
@@ -100,30 +99,30 @@ export const ProgressNoteDetails: FC = () => {
     ['administered', 'administered-partly'].includes(order.status)
   );
 
-  const screeningNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.SCREENING);
-  const vitalsNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
-  const allergyNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.ALLERGY);
-  const intakeMedicationNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.INTAKE_MEDICATION);
-  const hospitalizationNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.HOSPITALIZATION);
-  const medicalConditionNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.MEDICAL_CONDITION);
-  const surgicalHistoryNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY);
-  const inHouseMedicationNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.MEDICATION);
-  const medicalDecision = chartFields?.medicalDecision?.text;
-  const prescriptions = chartFields?.prescribedMedications;
-  const vitalsObservations = chartFields?.vitalsObservations;
-  const externalLabResults = chartFields?.externalLabResults;
-  const inHouseLabResults = chartFields?.inHouseLabResults;
-  const radiologyOrders = chartFields?.radiologyOrders;
-  const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
-  const reasonForVisit = chartFields?.reasonForVisit?.text;
-  const mechanismOfInjury = chartFields?.mechanismOfInjury?.text;
-  const hpi = chartFields?.chiefComplaint?.text;
-  const rosLegacyText = chartFields?.ros?.text;
+  const screeningNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.SCREENING);
+  const vitalsNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
+  const allergyNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.ALLERGY);
+  const intakeMedicationNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.INTAKE_MEDICATION);
+  const hospitalizationNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.HOSPITALIZATION);
+  const medicalConditionNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.MEDICAL_CONDITION);
+  const surgicalHistoryNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY);
+  const inHouseMedicationNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.MEDICATION);
+  const medicalDecision = note?.encounterNotes.medicalDecision?.text;
+  const prescriptions = note?.plan.prescribedMedications;
+  const vitalsObservations = note?.vitalsObservations;
+  const externalLabResults = note?.externalLabResults;
+  const inHouseLabResults = note?.inHouseLabResults;
+  const radiologyOrders = note?.radiologyOrders;
+  const chiefComplaint = note?.encounterNotes.historyOfPresentIllness?.text;
+  const reasonForVisit = note?.encounterNotes.reasonForVisit?.text;
+  const mechanismOfInjury = note?.encounterNotes.mechanismOfInjury?.text;
+  const hpi = note?.encounterNotes.chiefComplaint?.text;
+  const rosLegacyText = note?.encounterNotes.ros?.text;
 
-  const emCode = chartData?.emCode;
-  const cptCodes = chartData?.cptCodes;
-  const diagnoses = chartData?.diagnosis;
-  const observations = chartData?.observations;
+  const emCode = note?.assessment.emCode;
+  const cptCodes = note?.assessment.cptCodes;
+  const diagnoses = note?.assessment.diagnosis;
+  const observations = note?.screening.observations;
 
   const showChiefComplaint = !!(chiefComplaint && chiefComplaint.length > 0);
   const showReasonForVisit = !!(reasonForVisit && reasonForVisit.length > 0);
@@ -156,7 +155,7 @@ export const ProgressNoteDetails: FC = () => {
 
   const showRadiologyContainer = !!(radiologyOrders && radiologyOrders?.length > 0);
 
-  const showProceduresContainer = (chartData?.procedures?.length ?? 0) > 0;
+  const showProceduresContainer = (note?.assessment.procedures?.length ?? 0) > 0;
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
   const { showPatientInstructions } = usePatientInstructionsVisibility();
   const showInHouseMedications =

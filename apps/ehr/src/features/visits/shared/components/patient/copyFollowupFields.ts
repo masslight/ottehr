@@ -1,9 +1,7 @@
+import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types';
-import {
-  ChartDataRequestedFields,
-  GetChartDataRequest,
-  GetChartDataResponse,
-} from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { GetVisitNoteRequest, VisitNoteResponse } from 'utils/lib/types/api/chart-data/get-visit-note.types';
 import { CopyableFollowupField } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 
 export interface CopyableFieldConfig {
@@ -64,35 +62,18 @@ export const COPYABLE_FOLLOWUP_FIELDS: CopyableFieldConfig[] = [
   },
 ];
 
-// These fields return only when explicitly requested; array fields only from the unscoped call.
-const NOTE_FIELD_REQUESTED_FIELDS: ChartDataRequestedFields = {
-  chiefComplaint: { _tag: 'chief-complaint' },
-  historyOfPresentIllness: { _tag: 'history-of-present-illness' },
-  mechanismOfInjury: { _tag: 'mechanism-of-injury' },
-  accident: {},
-  reasonForVisit: {},
-};
-
 export interface ChartDataApiClient {
-  getChartData: (params: GetChartDataRequest) => Promise<GetChartDataResponse>;
+  getVisitNote: (params: GetVisitNoteRequest) => Promise<VisitNoteResponse>;
 }
 
+/** The source visit's chart in the whole-chart shape the copy configs read; one visit-note read. */
 export async function fetchCopySourceChartData(
   apiClient: ChartDataApiClient,
   encounterId: string
 ): Promise<GetChartDataResponse> {
-  const [noteFields, fullChart] = await Promise.all([
-    apiClient.getChartData({ encounterId, requestedFields: NOTE_FIELD_REQUESTED_FIELDS }),
-    apiClient.getChartData({ encounterId }),
-  ]);
-  // get-chart-data inits requested fields to []; a scalar left as [] means "no data".
-  const scalarOrUndefined = <T>(value: T): T | undefined => (Array.isArray(value) ? undefined : value);
+  const note = await apiClient.getVisitNote({ encounterId });
   return {
-    ...fullChart,
-    chiefComplaint: scalarOrUndefined(noteFields.chiefComplaint),
-    historyOfPresentIllness: scalarOrUndefined(noteFields.historyOfPresentIllness),
-    mechanismOfInjury: scalarOrUndefined(noteFields.mechanismOfInjury),
-    reasonForVisit: scalarOrUndefined(noteFields.reasonForVisit),
-    accident: scalarOrUndefined(noteFields.accident),
+    ...visitNoteToLegacyChartData(note, { module: 'in-person' }).chartData,
+    reasonForVisit: note.encounterNotes.reasonForVisit,
   };
 }

@@ -2,17 +2,11 @@ import { Box, CircularProgress, TextField, Typography } from '@mui/material';
 import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useChartFields } from './shared/hooks/useChartFields';
+import { useChartSection } from './shared/hooks/useChartSection';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 
 export const ChiefComplaintField: FC = () => {
-  const { data: chartDataFields, isFetched: isChartDataFetched } = useChartFields({
-    requestedFields: {
-      historyOfPresentIllness: {
-        _tag: 'history-of-present-illness',
-      },
-    },
-  });
+  const { data: chartDataFields, isFetched: isChartDataFetched } = useChartSection('encounterNotes');
 
   const methods = useForm({
     defaultValues: {
@@ -43,9 +37,7 @@ export const ChiefComplaintField: FC = () => {
           value={value}
           onChange={(e) => {
             onChange(e);
-            onChiefComplaintChange(e.target.value, {
-              refetchChartDataOnSave: true,
-            });
+            onChiefComplaintChange(e.target.value);
           }}
           disabled={isChiefComplaintChartDataLoading}
           label="Additional Information"
@@ -72,11 +64,7 @@ interface ChiefComplaintFieldReadOnlyProps {
 export const ChiefComplaintFieldReadOnly: FC<ChiefComplaintFieldReadOnlyProps> = ({
   label = 'Additional information',
 }) => {
-  const { data: chartFields } = useChartFields({
-    requestedFields: {
-      historyOfPresentIllness: { _tag: 'history-of-present-illness' },
-    },
-  });
+  const { data: chartFields } = useChartSection('encounterNotes');
 
   const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
 
