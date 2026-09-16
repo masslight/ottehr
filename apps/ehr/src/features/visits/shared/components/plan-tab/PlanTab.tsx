@@ -1,6 +1,5 @@
 import { Box, CircularProgress } from '@mui/material';
 import { FC } from 'react';
-import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 import { DispositionCard } from '../DispositionCard';
 import { FormsCard } from '../FormsCard';
@@ -40,7 +39,7 @@ export const PlanTab: FC = () => {
       <DispositionCard />
       <PatientEducationCard />
       <SchoolWorkExcuseCard locationName={locationName} />
-      {FEATURE_FLAGS.FORMS_ENABLED && <FormsCard />}
+      <FormsCard />
     </Box>
   );
 };

@@ -21,6 +21,7 @@ import {
   Coverage,
   DocumentReference,
   DomainResource,
+  Encounter,
   FhirResource,
   Identifier,
   List,
@@ -104,6 +105,7 @@ import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { SYSTEM_MANAGED_TAGS, SystemManagedTag } from 'utils/lib/types/data/billing/system-tags';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { sendErrors } from '../shared/errors';
 import { fetchAllPages } from '../shared/fhir';
@@ -595,21 +597,56 @@ export function deriveClaimBillablePeriod(items: ClaimItem[] | undefined): Perio
   return start ? { start, end } : undefined;
 }
 
+// A claim built from an encounter reflects the encounter's actual course of care rather than its
+// service lines: billablePeriod.start is when the visit first became billable (arrived, falling back
+// to intake, falling back to provider, in case an earlier status was never recorded), and
+// billablePeriod.end is when the visit was discharged. Uses the most recent occurrence of each status
+// since a visit's status can move backward and forward through the same status more than once.
+export function deriveClaimBillablePeriodFromEncounter(encounter: Encounter): Period | undefined {
+  const statusHistory = getVisitStatusHistory(encounter);
+  const start =
+    statusHistory.findLast((entry) => entry.status === 'arrived')?.period.start ??
+    statusHistory.findLast((entry) => entry.status === 'intake')?.period.start ??
+    statusHistory.findLast((entry) => entry.status === 'provider')?.period.start;
+  const end = statusHistory.findLast((entry) => entry.status === 'discharged')?.period.start;
+  return start ? { start, end } : undefined;
+}
+
 // Re-point careTeam sequence 1 (the rendering provider) at `provider`, preserving other members,
 // and point every service line at it. The one careTeam shape both the claim editor
 // (update-billing-claim) and the rules engine write.
+// Mark rendering provider as an attending provider.
 export function setClaimRenderingProviderCareTeam(claim: Claim, provider: Reference): void {
   claim.careTeam = [
     {
       sequence: 1,
       provider,
-      role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
+      role: {
+        coding: [
+          {
+            system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+            code: '82',
+          },
+        ],
+      },
     },
-    ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
+    {
+      sequence: 2,
+      provider,
+      role: {
+        coding: [
+          {
+            system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+            code: '71',
+          },
+        ],
+      },
+    },
+    ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1 && member.sequence !== 2),
   ];
   claim.item = claim.item?.map((item) => ({
     ...item,
-    careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
+    careTeamSequence: Array.from(new Set([1, 2, ...(item.careTeamSequence ?? [])])),
   }));
 }
 

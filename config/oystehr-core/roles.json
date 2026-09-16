@@ -328,7 +328,11 @@
             "Zambda:Function:create-billing-non-insurance-org",
             "Zambda:Function:update-billing-non-insurance-org",
             "Zambda:Function:search-billing-non-insurance-orgs",
-            "Zambda:Function:delete-billing-non-insurance-org"
+            "Zambda:Function:delete-billing-non-insurance-org",
+            "Zambda:Function:create-billing-custom-insurance-org",
+            "Zambda:Function:update-billing-custom-insurance-org",
+            "Zambda:Function:search-billing-custom-insurance-orgs",
+            "Zambda:Function:delete-billing-custom-insurance-org"
           ]
         }
       ]

@@ -1,0 +1,193 @@
+import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { DocumentReference } from 'fhir/r4b';
+import {
+  BUCKET_NAMES,
+  FORM_TEMPLATE_ANALYSIS_EXTENSION_URL,
+  FORM_TEMPLATE_FIELD_INVENTORY_EXTENSION_URL,
+  FORM_TEMPLATE_FILLABILITY_SYSTEM,
+  FORM_TEMPLATE_MAPPING_EXTENSION_URL,
+  FormTemplateFillability,
+} from 'utils/lib/fhir/constants';
+import { EMPTY_MAPPING, FormTemplateMapping } from 'utils/lib/form-tokens/mapping';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { ReplaceFormTemplatePdfInput, ReplaceFormTemplatePdfOutput } from 'utils/lib/types/api/form-template.types';
+import { FORM_TEMPLATE_REJECTED_ERRORS, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { z } from 'zod';
+import { checkOrCreateM2MClientToken, requireAdminTierUser } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { topLevelCatch } from '../../shared/lambda';
+import { makeZ3ObjectUrl } from '../../shared/presigned-file-urls/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
+import { createPresignedUrl, deleteZ3Object, uploadObjectToZ3 } from '../../shared/z3Utils';
+import {
+  FORM_TEMPLATE_DOC_STATUS,
+  getFormTemplateOrThrow,
+  isRejectedAnalysis,
+  readExtensionJson,
+  reconcileMappingWithFields,
+} from '../shared/form-template-helpers';
+import { analyzeFormTemplatePdf } from '../shared/form-template-pdf';
+
+const ZAMBDA_NAME = 'replace-form-template-pdf';
+
+let m2mToken: string;
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  try {
+    const validatedInput = validateRequestParameters(input);
+    // Managing templates is an administration action; every clinical role can invoke any zambda,
+    // so the role check has to happen here rather than being inferred from reachability.
+    await requireAdminTierUser(validatedInput.userToken ?? '', validatedInput.secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
+
+    const result = await performEffect(validatedInput, oystehr, m2mToken);
+    return {
+      statusCode: 200,
+      body: JSON.stringify(result),
+    };
+  } catch (error: unknown) {
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+  }
+});
+
+const inputSchema: z.ZodType<ReplaceFormTemplatePdfInput> = z.object({
+  documentReferenceId: z.string().min(1, 'documentReferenceId is required'),
+  objectName: z.string().min(1, 'objectName is required'),
+});
+
+export function validateRequestParameters(
+  input: ZambdaInput
+): ReplaceFormTemplatePdfInput & Pick<ZambdaInput, 'secrets'> & { userToken?: string } {
+  if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
+
+  return {
+    ...safeValidate(inputSchema, safeJsonParse(input.body)),
+    secrets: input.secrets,
+    // Who is asking, as opposed to the machine identity that does the writing.
+    userToken: input.headers?.Authorization?.replace('Bearer ', ''),
+  };
+}
+
+/**
+ * Swaps the PDF behind an existing template, keeping whatever of its mapping still applies.
+ *
+ * Nothing about the template changes until the candidate upload has been fetched and analysed. A
+ * replacement that turns out to be unreadable, encrypted or dynamic-XFA therefore leaves a working
+ * template working — unlike a first upload, where a failure only strands a draft that never worked,
+ * here there is a live template and an authored mapping worth protecting.
+ */
+const performEffect = async (
+  validatedInput: ReplaceFormTemplatePdfInput & Pick<ZambdaInput, 'secrets'> & { userToken?: string },
+  oystehr: Oystehr,
+  token: string
+): Promise<ReplaceFormTemplatePdfOutput> => {
+  const { documentReferenceId, objectName, secrets } = validatedInput;
+
+  // Assembled from the bucket this server chose, not from anything the caller could name.
+  const candidateUrl = makeZ3ObjectUrl({ secrets, bucketName: BUCKET_NAMES.FORM_TEMPLATES, objectName });
+
+  const docRef = await getFormTemplateOrThrow(oystehr, documentReferenceId);
+  const previousUrl = docRef.content?.[0]?.attachment?.url;
+
+  const downloadUrl = await getPresignedURL(candidateUrl, token);
+  const response = await fetch(downloadUrl);
+  if (!response.ok) {
+    throw new Error(`Could not download the replacement PDF (${response.status} ${response.statusText})`);
+  }
+  const { status, fields, normalized } = await analyzeFormTemplatePdf(new Uint8Array(await response.arrayBuffer()));
+
+  if (isRejectedAnalysis(status)) {
+    // Discard the candidate first, then throw. The template is left exactly as it was, so the caller
+    // needs the reason rather than an output object describing a replacement that did not happen.
+    try {
+      await deleteZ3Object(candidateUrl, token);
+    } catch (cleanupErr) {
+      console.warn('Failed to remove a rejected replacement PDF', candidateUrl, cleanupErr);
+      captureException(cleanupErr, { extra: { zambda: ZAMBDA_NAME, documentReferenceId, candidateUrl } });
+    }
+
+    // The reason, plus the one thing it does not know: this endpoint replaces rather than creates, so
+    // the administrator needs telling that the template they were editing is still intact.
+    const rejection = FORM_TEMPLATE_REJECTED_ERRORS[status];
+    throw { ...rejection, message: `${rejection.message} The existing PDF has been kept.` };
+  }
+
+  if (normalized?.changed) {
+    await uploadObjectToZ3(normalized.bytes, await createPresignedUrl(token, candidateUrl, 'upload'));
+  }
+
+  const existingMapping = readExtensionJson<FormTemplateMapping>(docRef, FORM_TEMPLATE_MAPPING_EXTENSION_URL);
+  const { mapping, dropped } = reconcileMappingWithFields(existingMapping ?? EMPTY_MAPPING, fields);
+
+  const extensions = [
+    ...(docRef.extension ?? []).filter(
+      (ext) =>
+        ext.url !== FORM_TEMPLATE_FIELD_INVENTORY_EXTENSION_URL &&
+        ext.url !== FORM_TEMPLATE_ANALYSIS_EXTENSION_URL &&
+        ext.url !== FORM_TEMPLATE_MAPPING_EXTENSION_URL
+    ),
+    {
+      url: FORM_TEMPLATE_ANALYSIS_EXTENSION_URL,
+      valueString: JSON.stringify({ status, analyzedAt: new Date().toISOString() }),
+    },
+    { url: FORM_TEMPLATE_FIELD_INVENTORY_EXTENSION_URL, valueString: JSON.stringify(fields) },
+    { url: FORM_TEMPLATE_MAPPING_EXTENSION_URL, valueString: JSON.stringify(mapping) },
+  ];
+
+  const categories = [
+    ...(docRef.category ?? []).filter(
+      (c) => !(c.coding ?? []).some((coding) => coding.system === FORM_TEMPLATE_FILLABILITY_SYSTEM)
+    ),
+    {
+      coding: [
+        {
+          system: FORM_TEMPLATE_FILLABILITY_SYSTEM,
+          code: status === 'fillable' ? FormTemplateFillability.fillable : FormTemplateFillability.printable,
+        },
+      ],
+    },
+  ];
+
+  // Losing bindings takes the template out of the chart until someone has looked at it. Providers would
+  // otherwise keep opening a form that silently stopped filling in part of itself.
+  const returnedToDraft = dropped.length > 0 && docRef.docStatus === FORM_TEMPLATE_DOC_STATUS.published;
+
+  await oystehr.fhir.patch<DocumentReference>(
+    {
+      resourceType: 'DocumentReference',
+      id: documentReferenceId,
+      operations: [
+        { op: 'replace', path: '/content/0/attachment/url', value: candidateUrl },
+        { op: docRef.extension ? 'replace' : 'add', path: '/extension', value: extensions },
+        { op: 'replace', path: '/category', value: categories },
+        ...(returnedToDraft
+          ? [{ op: 'replace' as const, path: '/docStatus', value: FORM_TEMPLATE_DOC_STATUS.draft }]
+          : []),
+      ],
+    },
+    // Version-locked. The reconciled mapping, the extensions and the draft decision were all derived from
+    // the copy read before the replacement was analysed, which is a long window.
+    { optimisticLockingVersionId: docRef.meta?.versionId }
+  );
+
+  // Only now is the old file genuinely superseded. Failing here leaves an orphaned object rather than a
+  // template pointing at nothing, which is the cheaper of the two failures.
+  if (previousUrl && previousUrl !== candidateUrl) {
+    try {
+      await deleteZ3Object(previousUrl, token);
+    } catch (cleanupErr) {
+      console.warn('Failed to remove the superseded form template PDF', previousUrl, cleanupErr);
+      captureException(cleanupErr, { extra: { zambda: ZAMBDA_NAME, documentReferenceId, previousUrl } });
+    }
+  }
+
+  return { documentReferenceId, status, fields, droppedBindings: dropped, returnedToDraft };
+};
