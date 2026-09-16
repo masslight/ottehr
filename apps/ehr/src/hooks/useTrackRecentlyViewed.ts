@@ -12,15 +12,6 @@ interface TrackRecentlyViewedInput {
   isAppointmentLoading: boolean;
 }
 
-/**
- * Records the current visit in the recently-viewed notes store once appointment
- * data has loaded. Mount on the note pages (ProgressNote / FollowUpNote), which
- * already read useAppointmentData — pass its values through. The recorded path
- * is the page's own pathname + search, so a follow-up encounter view
- * (?encounterId=...) is keyed by its URL from the moment it mounts: the store's
- * selected-encounter transition after mount re-records the same path, which the
- * store dedupes, rather than adding a separate parent-visit entry.
- */
 export function useTrackRecentlyViewed({
   appointment,
   patient,

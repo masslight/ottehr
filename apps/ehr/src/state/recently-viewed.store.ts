@@ -1,10 +1,6 @@
 import { create } from 'zustand';
 
 export interface RecentNote {
-  /** pathname + search of the note page at view time. Replayed verbatim on
-   *  select so follow-up encounter views (?encounterId=...) deep-link exactly
-   *  back; also the dedupe key, so a follow-up view and its parent visit are
-   *  tracked as distinct notes. */
   path: string;
   patientName: string;
   dob?: string;

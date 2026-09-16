@@ -13,13 +13,6 @@ const formatNoteLabel = (note: RecentNote): string => {
     .join(' · ');
 };
 
-/**
- * Registers the most recently viewed progress notes as command-palette items
- * under a "Recent Notes" category. sortWeight both pins the category to the top
- * of the empty-query palette and carries the most-recent-first ordering (the
- * palette alphabetizes otherwise). Registers nothing when no notes have been
- * viewed yet.
- */
 export function useRecentQuickPicks(): void {
   const navigate = useNavigate();
   const recentNotes = useRecentlyViewedStore((state) => state.recentNotes);
