@@ -15,17 +15,19 @@ import {
 import { FHIR_EXTENSION, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { MEDICATION_CPT_CODES_EXTENSION_URL } from 'utils/lib/fhir/medication-administration';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { AdHocBillingOutputSchema } from 'utils/lib/types/adhoc/datasets/billing';
 import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
 import { AdHocPatientsOutputSchema } from 'utils/lib/types/adhoc/datasets/patients';
 import {
+  CVX_CODE_SYSTEM_URL,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
   PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
+  VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils/lib/types/api/medication-administration.constants';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
@@ -196,13 +198,19 @@ const observations: Observation[] = [
   bpObs('obs-bp-2', '2026-07-01T14:20:00.000Z', 122, undefined, 'LX'),
 ];
 
-// One vaccine with a VIS date and a vial (lot + expiry), one administered without either.
+const performer = (code: string): NonNullable<MedicationAdministration['performer']>[number] => ({
+  actor: { reference: 'Practitioner/prac-1' },
+  function: { coding: [{ system: MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM, code }] },
+});
+// One vaccine with a VIS date, a vial (lot + expiry) and the full administration detail (codes,
+// manufacturer, dose, staff), one partially administered without any of it.
 const vaccineAdmin = (
   id: string,
   name: string,
   status: 'completed' | 'on-hold',
   visDate?: string,
-  batch?: { lotNumber: string; expirationDate: string }
+  batch?: { lotNumber: string; expirationDate: string },
+  withDetail = false
 ): MedicationAdministration => ({
   resourceType: 'MedicationAdministration' as const,
   id,
@@ -211,14 +219,40 @@ const vaccineAdmin = (
   context: { reference: 'Encounter/enc-1' },
   subject: { reference: 'Patient/pat-1' },
   effectiveDateTime: '2026-07-01T14:15:00.000Z',
+  ...(withDetail
+    ? {
+        dosage: {
+          dose: { value: 0.5, unit: 'mL', system: 'http://unitsofmeasure.org' },
+          route: { coding: [{ system: MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM, code: 'IM' }] },
+        },
+        performer: [
+          performer(PRACTITIONER_ORDERED_BY_MEDICATION_CODE),
+          performer(PRACTITIONER_ADMINISTERED_MEDICATION_CODE),
+        ],
+      }
+    : {}),
   contained: [
     {
       resourceType: 'Medication' as const,
       id: `med-${id}`,
       identifier: [{ system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: name }],
       ...(batch ? { batch } : {}),
-      ...(visDate ? { extension: [{ url: VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL, valueDate: visDate }] } : {}),
+      ...(withDetail ? { manufacturer: { reference: '#manufacturer-org' } } : {}),
+      extension: [
+        ...(visDate ? [{ url: VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL, valueDate: visDate }] : []),
+        ...(withDetail
+          ? [
+              { system: CODE_SYSTEM_NDC, code: '49281-0421-88' },
+              { system: CVX_CODE_SYSTEM_URL, code: '150' },
+              { system: CODE_SYSTEM_CPT, code: '90686' },
+            ].map((coding) => ({
+              url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
+              valueCodeableConcept: { coding: [coding] },
+            }))
+          : []),
+      ],
     },
+    ...(withDetail ? [{ resourceType: 'Organization' as const, id: 'manufacturer-org', name: 'Sanofi Pasteur' }] : []),
   ],
 });
 
@@ -226,10 +260,6 @@ const vaccineAdmin = (
 // marked as not administered carries no batch at all — nothing was given, so no vial is tied to the
 // patient. `withVial: false` reproduces that. MedicationAdministration.effectiveDateTime is the ORDER
 // CREATION time; the instant the drug was given is on the MedicationStatement (partOf → MA) below.
-const performer = (code: string): NonNullable<MedicationAdministration['performer']>[number] => ({
-  actor: { reference: 'Practitioner/prac-1' },
-  function: { coding: [{ system: MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM, code }] },
-});
 const inHouseAdmin = (
   id: string,
   name: string,
@@ -288,10 +318,14 @@ const administeredStatement: MedicationStatement = {
 };
 
 const medicationAdministrations: FhirResource[] = [
-  vaccineAdmin('ma-1', 'Influenza', 'completed', '2026-07-01', {
-    lotNumber: 'FLU-2026-A',
-    expirationDate: '2027-01-31',
-  }),
+  vaccineAdmin(
+    'ma-1',
+    'Influenza',
+    'completed',
+    '2026-07-01',
+    { lotNumber: 'FLU-2026-A', expirationDate: '2027-01-31' },
+    true
+  ),
   vaccineAdmin('ma-2', 'MMR', 'on-hold'),
   inHouseAdmin('ma-3', 'Ceftriaxone 1 g', 1000, '2026-07-01T15:00:00.000Z', true),
   inHouseAdmin('ma-4', 'Ceftriaxone 500 mg', 500, '2026-07-01T16:00:00.000Z', false),
@@ -465,7 +499,16 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
         visDate: '2026-07-01',
         lotNumber: 'FLU-2026-A',
         expirationDate: '2027-01-31',
-        ...noDetail,
+        ndc: '49281-0421-88',
+        cvx: '150',
+        manufacturer: 'Sanofi Pasteur',
+        dose: 0.5,
+        units: 'mL',
+        route: 'IM',
+        administeredAt: '2026-07-01T14:15:00.000Z',
+        administeredBy: 'Greg House',
+        orderedBy: 'Greg House',
+        cptCodes: ['90686'],
       },
       {
         name: 'MMR',

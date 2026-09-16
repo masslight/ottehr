@@ -212,7 +212,10 @@ export const ENCOUNTER_LAYERS = {
               .string()
               .nullable()
               .describe('Expiry of the vial used (yyyy-MM-dd). Null when not recorded.'),
-            manufacturer: z.string().nullable().describe('Manufacturer entered at administration. Null when none.'),
+            manufacturer: z
+              .string()
+              .nullable()
+              .describe('Manufacturer entered at order or administration. Null when none.'),
             administeredAt: z
               .string()
               .nullable()
@@ -238,9 +241,10 @@ export const ENCOUNTER_LAYERS = {
         .describe(
           'One record per drug, with the detail a recall or an audit needs: status, lot number, NDC, manufacturer, ' +
             'expiry, dose, route, the time it was given, who gave it, who ordered it, and the CPT / ICD-10 tied to ' +
-            'it. Lot, NDC, manufacturer and expiry are recorded ONLY for in-house administration, and only when ' +
-            'staff entered them; they are always null for eRx. They are also absent when status is ' +
-            'not-administered — nothing was given, so no vial is tied to the patient. Empty when no drugs on the visit.'
+            'it. All of these are null for eRx. For in-house orders: lot number and expiry describe the vial and ' +
+            'are null unless the drug was given (administered / partially-administered); NDC and manufacturer ' +
+            'describe the product, are entered by staff and may be present on any status. Empty when no drugs on ' +
+            'the visit.'
         ),
     }),
   },

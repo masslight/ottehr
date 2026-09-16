@@ -26,8 +26,8 @@ import { DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO, DOCUMENT_REFERENCE_SUMMARY_FROM_
 import { dispositionCheckboxOptions } from 'utils/lib/fhir/disposition';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import {
+  getAllCptCodesFromInHouseMedication,
   getAllHcpcsCodesFromInHouseMedication,
-  getCptCodeFromMedication,
   getCptCodesFromMA,
   getCreatedTheOrderProviderId,
   getCurrentOrderedByProviderId,
@@ -718,7 +718,7 @@ export async function fetchAdHocEncounterRows(
         const orderCpts = getCptCodesFromMA(ma)?.map((c) => c.code);
 
         const catalogCpts = medication
-          ? [getCptCodeFromMedication(medication), ...getAllHcpcsCodesFromInHouseMedication(medication)]
+          ? [...getAllCptCodesFromInHouseMedication(medication), ...getAllHcpcsCodesFromInHouseMedication(medication)]
           : [];
 
         const cptCodes = Array.from(new Set((orderCpts ?? catalogCpts).filter((c): c is string => Boolean(c))));
@@ -732,8 +732,10 @@ export async function fetchAdHocEncounterRows(
           units: dosage.units ?? null,
           route: dosage.route ?? null,
           ndc: (medication ? getNdcCodeFromMedication(medication) : undefined) ?? null,
-          lotNumber: medication?.batch?.lotNumber ?? null,
-          expirationDate: expiryDate(medication?.batch?.expirationDate),
+          // Vial data (lot, expiry) is tied to the patient only when something was given; the contained
+          // copy may still carry a stale batch after an order is flipped to not-administered.
+          lotNumber: given ? medication?.batch?.lotNumber ?? null : null,
+          expirationDate: given ? expiryDate(medication?.batch?.expirationDate) : null,
           manufacturer: medication?.manufacturer?.display ?? null,
           administeredAt: given ? inHouseAdministeredAt(ma, statementByMaId) : null,
           administeredBy: given && administeredId ? practitionerDisplayName(practitionerMap.get(administeredId)) : null,
