@@ -4,6 +4,7 @@ import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appoin
 import { FHIR_BASE_URL } from 'utils/lib/fhir/constants';
 import { createConsentResource, createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { getConsentFormsForLocation } from 'utils/lib/ottehr-config/consent-forms';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -236,7 +237,7 @@ describe('createDocumentResources', () => {
   });
 });
 
-describe('createConsentResources', () => {
+describe.skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')('createConsentResources', () => {
   const [HIPAA_FORM, CTT_FORM] = getConsentFormsForLocation();
   const IL_FORMS = getConsentFormsForLocation('IL');
 
