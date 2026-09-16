@@ -236,7 +236,12 @@ const noteText: Handler<'edit-note-text'> = async (action, context) => {
   const field = action.field as NoteTextField;
   // ONE mapping function owns the CC↔HPI storage swap. Do not inline it.
   const chartKey = chartKeyForNoteField(field);
-  const created = await context.writer.save({ [chartKey]: { text: action.newText } });
+  // The row that already holds this field, so the save updates it rather than creating a second one
+  // beside it — the note only ever shows one, and get-chart-data warns about the duplicate.
+  const existing = context.chart.noteFields[chartKey];
+  const created = await context.writer.save({
+    [chartKey]: { ...(existing?.resourceId ? { resourceId: existing.resourceId } : {}), text: action.newText },
+  });
   return applied(created, { note: `${NOTE_FIELD_LABELS[field]} rewritten` });
 };
 

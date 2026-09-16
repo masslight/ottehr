@@ -8,7 +8,9 @@
 // text a provider would recognise — not an id, not a code.
 
 import { buildExamLeafCatalogue } from 'utils/lib/config-helpers/exam-leaves';
+import { NOTE_TEXT_FIELDS, NoteTextField } from 'utils/lib/easy-chart/actions';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
+import { chartKeyForNoteField } from 'utils/lib/easy-chart/note-fields';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { getRosFindingStateFromKey } from 'utils/lib/ottehr-config/review-of-systems';
 import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
@@ -100,6 +102,14 @@ export function buildChartSnapshot(
     })),
 
     hasEmCode: Boolean(chartData?.emCode?.code),
+
+    // Keyed by storage key — `chartKeyForNoteField` owns the CC↔HPI swap — so a note write finds the row
+    // it must update under the same key it writes.
+    noteFields: Object.fromEntries(
+      NOTE_TEXT_FIELDS.map(chartKeyForNoteField)
+        .filter((key) => chartData?.[key])
+        .map((key) => [key, chartData?.[key]])
+    ),
   };
 }
 
@@ -216,6 +226,16 @@ export function advanceSnapshot(snapshot: ChartSnapshot, action: PlannedAction, 
     case 'add-procedure':
       next.procedures.push({ resourceId: id, display });
       break;
+    case 'edit-note-text': {
+      // A second write to the same field in one plan must update the row the first one created.
+      const key = chartKeyForNoteField(action.field as NoteTextField);
+      const resourceId = createdIds[0] ?? snapshot.noteFields[key]?.resourceId;
+      next.noteFields = {
+        ...snapshot.noteFields,
+        [key]: { ...(resourceId ? { resourceId } : {}), text: action.newText },
+      };
+      break;
+    }
     default:
       break;
   }

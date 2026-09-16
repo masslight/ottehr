@@ -16,7 +16,7 @@ import { GET_MEDICATION_ORDERS_QUERY_KEY } from '../../stores/appointment/appoin
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
 import { useListTemplates } from '../templates/useListTemplates';
-import { toPlannedAction } from './analysis';
+import { appendToNoteField, toPlannedAction } from './analysis';
 import {
   applyRecommendations,
   errorMessage,
@@ -140,13 +140,14 @@ export const useApplyRecommendations = (): {
       // A template that just landed changed the chart, and the executor's duplicate checks and its
       // primary-diagnosis rule have to see what it wrote before anything lands on top of it.
       const chart = templateLanded ? await refetchChart() : chartRef.current;
+      const snapshot = buildChartSnapshot(chart);
       const store = useScribeRecommendationsStore.getState();
       const context: HandlerContext = {
         mode,
         encounterId,
         catalogue,
         writer,
-        chart: buildChartSnapshot(chart),
+        chart: snapshot,
         ask: (request) => store.askPick(request),
         // What a handler says instead of writing — a template it can only suggest, a request it could
         // not classify — is kept for the panel to show.
@@ -154,7 +155,9 @@ export const useApplyRecommendations = (): {
       };
       // One executor pass over the batch: the snapshot advances as steps apply, so a lab ordered after the
       // diagnosis it needs sees that diagnosis, and a swap's removal frees the primary before the add.
-      await runPlan(rest.map(toPlannedAction), context, {
+      // Note text is appended to what the field holds now, which is what the template just wrote.
+      const actions = rest.map((rec) => appendToNoteField(toPlannedAction(rec), rec, snapshot));
+      await runPlan(actions, context, {
         onStepStart: (step) => report.start(rest[step.index].id),
         onStepSettled: (step) => {
           if (step.outcome) report.settle(rest[step.index].id, step.outcome);

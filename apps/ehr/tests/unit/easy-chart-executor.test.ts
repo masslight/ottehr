@@ -30,6 +30,7 @@ const emptyChart = (): ChartSnapshot => ({
   procedures: [],
   cptCodes: [],
   hasEmCode: false,
+  noteFields: {},
 });
 
 interface Harness {
@@ -250,6 +251,41 @@ describe('the CC↔HPI storage swap is applied exactly once', () => {
       { historyOfPresentIllness: { text: 'Right ear pain' } },
       { chiefComplaint: { text: '7y M p/w right otalgia x1 day.' } },
       { medicalDecision: { text: 'Consistent with AOM.' } },
+    ]);
+  });
+});
+
+describe('note text updates the row that already holds the field', () => {
+  it('passes the existing row id, so the save updates it rather than creating a second one beside it', async () => {
+    // The chart after a template wrote the HPI (stored under chiefComplaint), then the scribe's appended text.
+    const h = harness({ chart: { noteFields: { chiefComplaint: { resourceId: 'cc-1', text: 'Template HPI.' } } } });
+    await runPlan(
+      [
+        {
+          kind: 'edit-note-text',
+          field: 'historyOfPresentIllness',
+          newText: 'Template HPI.\nSinus pressure x 1 week.',
+        },
+      ],
+      h.context
+    );
+    expect(h.saved).toEqual([
+      { chiefComplaint: { resourceId: 'cc-1', text: 'Template HPI.\nSinus pressure x 1 week.' } },
+    ]);
+  });
+
+  it('carries the row a first write created on to a second write of the same field in one plan', async () => {
+    const h = harness();
+    await runPlan(
+      [
+        { kind: 'edit-note-text', field: 'medicalDecision', newText: 'First.' },
+        { kind: 'edit-note-text', field: 'medicalDecision', newText: 'Second.' },
+      ],
+      h.context
+    );
+    expect(h.saved).toEqual([
+      { medicalDecision: { text: 'First.' } },
+      { medicalDecision: { resourceId: 'res-1', text: 'Second.' } },
     ]);
   });
 });

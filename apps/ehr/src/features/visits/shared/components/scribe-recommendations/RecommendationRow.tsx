@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { FC, FocusEvent, KeyboardEvent, RefObject, useEffect, useRef, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
 import { DiagnosesField } from '../assessment-tab/DiagnosesField';
@@ -31,7 +32,7 @@ import {
   startEditingUnlessAnotherIsOpen,
   useScribeRecommendationsStore,
 } from './scribeRecommendations.store';
-import { describeRecommendation, rosFindingLetter } from './scribeSections';
+import { describeRecommendation, HPI_FIELD, rosFindingLetter } from './scribeSections';
 import { AI_SURFACE } from './ScribeStage';
 import { ScribeRecommendation } from './types';
 
@@ -107,13 +108,9 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
   const isApplying = itemState.status === 'applying';
   // Settled either way: this panel wrote it, or it was there already.
   const isDone = isApplied || charted;
-  // A generic action row is edited by its wording, where the wording is what the executor acts on; a coded
-  // one (an E&M level, a coded history item) has nothing to edit and is applied as is, or unticked.
-  const canEdit =
-    !isDone &&
-    !isApplying &&
-    !locked &&
-    (recommendation.kind !== 'action' || editableActionText(recommendation.action) !== undefined);
+  // Every pending row opens: a generic action row onto its wording, where that is what the executor acts on;
+  // a coded one (an E&M level, a coded history item) onto nothing but its tick, so it can still be left out.
+  const canEdit = !isDone && !isApplying && !locked;
 
   // A template the environment doesn't have can't be applied; say so before the provider tries.
   const templateMissing =
@@ -163,9 +160,8 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
   };
 
   const canStartEditing = canEdit && !isEditing;
-  // A pending row carries its box in the editor. A generic action row has no editor to carry it, so the box
-  // stays on the line — it is still the provider's to leave out.
-  const showCheckbox = isEditing || isDone || recommendation.kind === 'action';
+  // A pending row carries its box in the editor; only a settled row shows one on the line.
+  const showCheckbox = isEditing || isDone;
 
   // Closing is saving: there is nothing to cancel, so an empty patch is simply an untouched row.
   const closeEditor = (patch?: Partial<ScribeRecommendation>): void => {
@@ -547,7 +543,7 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
   const renderField = (): JSX.Element => {
     switch (recommendation.kind) {
       case 'hpi':
-        return textField('HPI text', { multiline: true });
+        return textField(NOTE_FIELD_LABELS[recommendation.field ?? HPI_FIELD], { multiline: true });
       case 'allergy':
         return textField('Allergy');
       case 'medication':
@@ -625,7 +621,7 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
         );
       case 'action': {
         const editable = editableActionText(recommendation.action);
-        // Not reachable from the row, which opens no editor for a coded kind; here for the type's sake.
+        // A coded kind has no wording to edit: the editor is the tick and a word to say so.
         if (!editable) {
           return (
             <Typography variant="body2" color="text.secondary">

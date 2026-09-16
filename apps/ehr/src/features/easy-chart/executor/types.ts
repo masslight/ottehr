@@ -8,6 +8,8 @@
 import { Encounter } from 'fhir/r4b';
 import { Action, ActionKind, ActionOfKind } from 'utils/lib/easy-chart/actions';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
+import { NoteChartKey } from 'utils/lib/easy-chart/note-fields';
+import { FreeTextNoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
   CreateLabPaymentMethod,
   ModifiedOrderingLocation,
@@ -231,6 +233,12 @@ export interface ChartSnapshot {
    * goes when no checkbox can represent it.
    */
   examComments: { resourceId?: string; field: string; note: string }[];
+  /**
+   * The free-text note paragraphs, by STORAGE key, each with the id of the row that holds it. A note
+   * write must carry that id: without it save-chart-data creates a second row beside the first, and
+   * the note only ever shows one.
+   */
+  noteFields: Partial<Record<NoteChartKey, FreeTextNoteDTO>>;
 }
 
 export interface PickerRequest {

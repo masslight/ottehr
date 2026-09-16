@@ -10,6 +10,20 @@ describe('buildChartSnapshot', () => {
     const snapshot = buildChartSnapshot(undefined);
     expect(snapshot.diagnoses).toEqual([]);
     expect(snapshot.hasEmCode).toBe(false);
+    expect(snapshot.noteFields).toEqual({});
+  });
+
+  it('carries each note paragraph under its storage key, with the row that holds it', () => {
+    const snapshot = buildChartSnapshot(
+      chart({
+        chiefComplaint: { resourceId: 'cc-1', text: 'Sinus pressure x 1 week.' },
+        medicalDecision: { resourceId: 'mdm-1', text: 'Likely viral.' },
+      })
+    );
+    expect(snapshot.noteFields).toEqual({
+      chiefComplaint: { resourceId: 'cc-1', text: 'Sinus pressure x 1 week.' },
+      medicalDecision: { resourceId: 'mdm-1', text: 'Likely viral.' },
+    });
   });
 
   it('carries the diagnosis code and primary flag through', () => {

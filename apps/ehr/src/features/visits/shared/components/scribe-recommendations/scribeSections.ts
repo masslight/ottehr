@@ -79,7 +79,8 @@ const detailOf = (rec: ScribeRecommendation, ...parts: (string | undefined)[]): 
   return all.length > 0 ? all.join(' · ') : undefined;
 };
 
-const HPI_FIELD = 'historyOfPresentIllness';
+/** The note field an `hpi` recommendation targets when it names none. */
+export const HPI_FIELD = 'historyOfPresentIllness';
 
 export const describeRecommendation = (rec: ScribeRecommendation): RecommendationText => {
   switch (rec.kind) {

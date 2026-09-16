@@ -9,10 +9,11 @@
 
 import { describeAction } from 'src/features/easy-chart/executor/labels';
 import { classifyMatches } from 'src/features/easy-chart/executor/resolve';
+import { ChartSnapshot } from 'src/features/easy-chart/executor/types';
 import { ActionKind, NoteTextField } from 'utils/lib/easy-chart/actions';
 import { ChartPlanResponse, ChartReviewResponse, PlannedAction, RejectedAction } from 'utils/lib/easy-chart/api';
 import { buildRosCatalogue, findRosMatches, RosCatalogueEntry } from 'utils/lib/easy-chart/matchers';
-import { NOTE_FIELD_LABELS, overwritesWrittenNoteField } from 'utils/lib/easy-chart/note-fields';
+import { chartKeyForNoteField, NOTE_FIELD_LABELS, overwritesWrittenNoteField } from 'utils/lib/easy-chart/note-fields';
 import { findingPolarity } from 'utils/lib/easy-chart/provenance';
 import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
@@ -421,4 +422,21 @@ export function toPlannedAction(rec: ScribeRecommendation): PlannedAction {
     case 'action':
       return rec.action;
   }
+}
+
+/**
+ * The scribe ADDS to a note paragraph: its text goes after whatever the field already says, unless the row
+ * is an explicit rewrite (`confirm`), which replaces it. The executor's own `edit-note-text` rewrites, so
+ * the appending is done here, on the scribe's path only, and read off the chart as it stands at write
+ * time — the template the Chart button applies a moment earlier has usually written the field since the
+ * analysis ran.
+ */
+export function appendToNoteField(
+  action: PlannedAction,
+  rec: ScribeRecommendation,
+  chart: ChartSnapshot
+): PlannedAction {
+  if (rec.kind !== 'hpi' || rec.confirm || action.kind !== 'edit-note-text') return action;
+  const current = chart.noteFields[chartKeyForNoteField(rec.field ?? HPI_FIELD)]?.text?.trim();
+  return current ? { ...action, newText: `${current}\n${action.newText}` } : action;
 }

@@ -249,7 +249,7 @@ const NarrativeRecommendationRow: FC<NarrativeRecommendationRowProps> = ({
         onRetry();
       }}
       // A settled item has nothing left to edit; it opens read-only instead.
-      startEditing={openEditor && !charted && itemState.status !== 'applied' && recommendation.kind !== 'action'}
+      startEditing={openEditor && !charted && itemState.status !== 'applied'}
       // The list holds a row for this same recommendation, and only one editor is open at a time:
       // this copy is the one being worked in, so it is named apart from the one in the list.
       editingKey={`narrative-${id}`}
