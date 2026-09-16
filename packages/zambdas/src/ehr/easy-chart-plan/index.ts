@@ -157,6 +157,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     editedNarrative: params.providerEdits?.edited,
     // Third and last: the chart block exactly as the prompt showed it, for a quote of a resulted test.
     chartStateText: tail.chartStateSummary,
+    // What an aetiology qualifier is judged against. The narrative alone is not enough: a resulted test on
+    // the chart ("Rapid strep — Positive") is exactly what supports "streptococcal" — without it the guard
+    // repaired the model's J02.0 down to J02.9 while quoting the very result that justified it. Same base
+    // the review surface uses, plus the provider's corrections.
+    etiologyEvidence: [
+      narrative,
+      tail.chartStateSummary ?? '',
+      tail.noteContext ?? '',
+      params.providerEdits?.edited ?? '',
+    ]
+      .filter(Boolean)
+      .join(' '),
     chartedItems: [...(params.chartedExamFindings ?? []), ...splitChartState(params.chartState)],
     logPrefix: ZAMBDA_NAME,
     // Read by the primary-diagnosis invariant: on an addendum, an existing primary must not be usurped.

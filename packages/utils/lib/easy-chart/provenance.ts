@@ -108,15 +108,23 @@ export function locateQuote(narrative: string, quote: string): { start: number; 
   return { start: starts[at], end: ends[at + target.length - 1] };
 }
 
-/** Words that structurally negate a clinical finding. */
-export const NEGATION_TOKENS = new Set(['no', 'non', 'not', 'without', 'denies', 'denied', 'absent', 'negative']);
+/**
+ * Words that structurally negate a clinical finding.
+ *
+ * "absent" is deliberately NOT one of them: dictated, it almost always negates a NORMAL — "absent
+ * bowel sounds", "absent pulses", "absent reflexes" — which makes the finding an abnormality. Read as
+ * a negation it became a normal, and the matcher then filed "absent bowel sounds" under Normal Bowel
+ * Sounds.
+ */
+export const NEGATION_TOKENS = new Set(['no', 'non', 'not', 'without', 'denies', 'denied', 'negative']);
 
 /**
  * Phrases that assert normality without a negation word. "Lungs clear" is a normal, not an abnormal
- * finding, and it must not remove the matching normal either.
+ * finding, and it must not remove the matching normal either. "Soft" only counts next to "abdomen":
+ * a soft abdomen is a normal, soft-tissue swelling is not.
  */
 const NORMALCY_PHRASES =
-  /\b(?:clear\s+to\s+auscultation|ctab|clear\b|normal\b|unremarkable\b|intact\b|within\s+normal\s+limits|wnl\b|nontender\b|non-tender\b|nondistended\b|non-distended\b|reactive\b|supple\b|symmetric(?:al)?\b)/i;
+  /\b(?:clear\s+to\s+auscultation|ctab|clear\b|normal\b|unremarkable\b|intact\b|within\s+normal\s+limits|wnl\b|nontender\b|non-tender\b|nondistended\b|non-distended\b|reactive\b|supple\b|symmetric(?:al)?\b|abdomen\s+(?:is\s+)?soft\b|soft\s+abdomen\b)/i;
 
 /**
  * The polarity of a finding as written.

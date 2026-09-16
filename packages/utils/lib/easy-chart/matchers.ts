@@ -6,7 +6,8 @@
 // replay must run offline over committed fixtures.
 //
 // Four guards decide the result before scoring ever does:
-//   1. NEGATION — a negated query ("no wheezing") must never match the positive finding.
+//   1. NEGATION — a negated query ("no wheezing") must never match the positive finding. It is a
+//      NORMAL, and lands only on the normal side of the card ("non-tender" → Nontender, never Tender).
 //   2. NORMALCY VETO — a query reporting a normal must not match the abnormal counterpart.
 //   3. ANATOMY SECTION — a finding must not be filed under a different body-system card. Hits across
 //      more than one card yield NO verdict, which is the conservative direction.
@@ -24,7 +25,7 @@ import {
   NORMALCY_PATTERNS,
   ROS_QUERY_STOPWORDS,
 } from './matcher-tables';
-import { findingPolarity } from './provenance';
+import { findingPolarity, NEGATION_TOKENS } from './provenance';
 
 export interface MatchCandidate {
   id: string;
@@ -48,10 +49,30 @@ export function tokenize(text: string, stopwords: Set<string>): string[] {
     .filter((token) => token.length > 1 && !stopwords.has(token));
 }
 
+/**
+ * Abbreviations the catalogue spells one way and a dictation the other. The descriptor synonym
+ * classes pair whole words ("injected" ↔ "erythematous"); this is applied AFTER stemming so "TM" and
+ * "TMs" both reach "tympanic". Without it "normal tympanic membranes" found nothing, because every
+ * TM leaf says "TM".
+ */
+const EXAM_ABBREVIATIONS: Record<string, string> = { tm: 'tympanic' };
+
 /** Expand a token through the descriptor synonym classes, so "swollen" reaches "edematous". */
 function synonymKey(token: string): string {
   const cls = EXAM_DESCRIPTOR_CLASS_OF.get(token);
-  return cls === undefined ? stem(token) : `syn:${cls}`;
+  if (cls !== undefined) return `syn:${cls}`;
+  const stemmed = stem(token);
+  return EXAM_ABBREVIATIONS[stemmed] ?? stemmed;
+}
+
+/**
+ * The tokens that name the FINDING, with the negators taken out. A negator is structure, not
+ * content: "no wheezing" and "Nontender" say which SIDE of the card a finding sits on, and by the
+ * time scoring runs the polarity filter has already settled that. Left in, "no wheezing" matched "No
+ * signs of respiratory distress" on the word "no".
+ */
+function findingTokens(text: string): string[] {
+  return tokenize(text, EXAM_QUERY_STOPWORDS).filter((token) => !NEGATION_TOKENS.has(token));
 }
 
 /**
@@ -67,9 +88,13 @@ export function anatomySectionOf(query: string): string | undefined {
   return sections.size === 1 ? [...sections][0] : undefined;
 }
 
-/** Does this query assert a normal reading rather than an abnormality? */
+/**
+ * Does this query assert a normal reading rather than an abnormality? A NEGATED finding is a normal
+ * too — "no wheezing" asserts the lungs are clear of it — so the two are one answer here: anything
+ * that is not a positive abnormality belongs to the normal side of the card.
+ */
 export function assertsNormal(query: string): boolean {
-  return findingPolarity(query) === 'normal' || NORMALCY_PATTERNS.test(query);
+  return findingPolarity(query) !== 'positive' || NORMALCY_PATTERNS.test(query);
 }
 
 export function isNegated(query: string): boolean {
@@ -94,11 +119,13 @@ export function findExamLeafMatches(
   leaves: ExamLeaf[],
   options: ExamMatchOptions = {}
 ): MatchCandidate[] {
-  // GUARD 1. A negated finding is not an abnormal finding: it must neither create one nor remove the
-  // matching normal, because it AGREES with the normal.
-  if (isNegated(display)) return [];
-
-  // GUARD 2. A query reporting a normal must not match the abnormal counterpart.
+  // GUARDS 1 and 2. POLARITY. A negated finding ("no wheezing", "non-tender") is not an abnormal
+  // finding — it AGREES with the normal — and neither is an asserted normal ("lungs clear"); both
+  // may match ONLY the normal side of the card, and an abnormality only the abnormal side. A negated
+  // query used to be dropped here outright, which was safe while the server refused every normal;
+  // now that a normal the provider VOICED charts, the negation has to land on the normal it agrees
+  // with — "non-tender" on Nontender, never on Tender — and that is a polarity decision, not a
+  // keyword one: `assertsNormal` reads "no wheezing" and "lungs clear" the same way.
   const wantsNormal = assertsNormal(display);
 
   // GUARD 3. Restrict to one body-system card when the query names anatomy unambiguously.
@@ -113,7 +140,7 @@ export function findExamLeafMatches(
 
     let best = 0;
     for (const term of terms) {
-      best = Math.max(best, scoreLeaf(term, leaf));
+      best = Math.max(best, scoreLeaf(term, leaf, wantsNormal));
     }
     if (best <= 0) continue;
 
@@ -126,11 +153,29 @@ export function findExamLeafMatches(
   return [...scored.values()].sort((a, b) => b.score - a.score || a.display.localeCompare(b.display));
 }
 
-function scoreLeaf(term: string, leaf: ExamLeaf): number {
-  const queryTokens = tokenize(term, EXAM_QUERY_STOPWORDS);
+function scoreLeaf(term: string, leaf: ExamLeaf, wantsNormal: boolean): number {
+  const queryTokens = findingTokens(term);
   if (queryTokens.length === 0) return 0;
 
-  const leafTokens = new Set(tokenize(leaf.leafLabel, EXAM_QUERY_STOPWORDS).map(synonymKey));
+  const leafWords = findingTokens(leaf.leafLabel);
+  const leafTokens = new Set(leafWords.map(synonymKey));
+  const leafSize = leafTokens.size;
+  // A normal spelt as one word carries its negation as a prefix — "Nontender", "Nondistended" — while
+  // the dictation splits it off: "non-tender" and "no tenderness" both tokenize to the bare finding.
+  // Let the leaf answer to the bare finding too; the polarity filter has already kept "tender" away
+  // from the abnormal Tender leaf.
+  if (leaf.polarity === 'normal') {
+    for (const word of leafWords) {
+      const bare = /^non(.{3,})$/.exec(word)?.[1];
+      if (bare) leafTokens.add(synonymKey(bare));
+    }
+  }
+  // A normal leaf whose whole content is ONE word — "Soft", "Nontender", "No edema" — IS that word.
+  // Generic discounting exists because "tender" alone could land on any of a dozen anatomies; a
+  // normal query is already confined to the normal side, and for such a leaf the word is the finding
+  // itself rather than a qualifier of one, so a hit on it is specific. Only the leaf's own words get
+  // this, never its path.
+  const wholeLeafIsOneWord = wantsNormal && leaf.polarity === 'normal' && leafWords.length === 1;
   // Path tokens (the modal section, column header and group) locate the leaf; matching one is real
   // evidence, but weaker than matching the leaf's own words.
   const pathTokens = new Set(tokenize(leaf.path.join(' '), EXAM_QUERY_STOPWORDS).map(synonymKey));
@@ -142,8 +187,9 @@ function scoreLeaf(term: string, leaf: ExamLeaf): number {
     const key = synonymKey(token);
     const generic = GENERIC_FINDING_TOKENS.has(token);
     if (leafTokens.has(key)) {
-      score += generic ? 0.35 : 1;
-      if (!generic) specificHits += 1;
+      const specific = !generic || wholeLeafIsOneWord;
+      score += specific ? 1 : 0.35;
+      if (specific) specificHits += 1;
     } else if (pathTokens.has(key)) {
       score += generic ? 0.15 : 0.5;
       if (!generic) specificHits += 1;
@@ -157,7 +203,7 @@ function scoreLeaf(term: string, leaf: ExamLeaf): number {
   // Normalise by query length so a long phrase does not out-score a precise short one, and reward a
   // leaf whose own words are fully covered.
   const coverage = score / queryTokens.length;
-  const leafCoverage = leafTokens.size > 0 ? Math.min(1, score / leafTokens.size) : 0;
+  const leafCoverage = leafSize > 0 ? Math.min(1, score / leafSize) : 0;
   return coverage * 0.7 + leafCoverage * 0.3;
 }
 

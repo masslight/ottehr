@@ -192,7 +192,8 @@ async function guardOne(input: RawAction, context: ResolvedGuardContext): Promis
   // Provenance: verify the quote actually occurs in the narrative, or failing that in the provider's edited
   // read-back when one was sent, or failing that in the chart state the prompt showed, and tag which. A
   // quote that is in none is dropped, and the item is then honestly marked inferred rather than carrying a
-  // fabricated citation. Do this before anything else so every later rejection reason is quote-free.
+  // fabricated citation. Do this before anything else so every later rejection reason is quote-free —
+  // and because `guardExamFinding` reads the tag: a normal charts only when its quote verified.
   const fromNarrative = verifiedSourceText(action.sourceText, context.narrative);
   const fromEdited =
     fromNarrative === undefined && context.editedNarrative
@@ -493,21 +494,27 @@ async function searchHcpcs(context: ResolvedGuardContext, code: string): Promise
 // ---------------------------------------------------------------------------------------------
 
 /**
- * A negated finding ("no wheezing", "lungs clear", "non-tender") is NOT an abnormal finding: it must
- * not produce one, and it must not remove the matching normal either, since it AGREES with it.
- * Match on polarity, not on the keyword.
+ * A negated finding ("no wheezing", "non-tender") and an asserted normal ("lungs clear") are the same
+ * thing to the chart: the NORMAL side of the card. Neither is an abnormal finding, and neither may
+ * remove the matching normal, since it AGREES with it. Match on polarity, not on the keyword.
+ *
+ * A NORMAL CHARTS ONLY WHEN THE PROVIDER SAID IT. This used to refuse every normal, because the model
+ * padded exams with normals for systems nobody examined. But "abdomen soft, non-tender" is an
+ * examination that happened, and the checkbox for it exists. The provenance check upstream is what
+ * tells the two apart: a voiced normal has a quote that verified against the narrative or the
+ * provider's edited read-back; a padded one has none. A quote verified against the chart-state block
+ * does NOT count — a chart line is not the provider saying it. Positives keep their latitude: an
+ * abnormality is charted even when inferred.
  */
 function guardExamFinding(action: PlannedAction, kind: 'add-exam-finding' | 'remove-exam-finding'): GuardOutcome {
   const polarity = findingPolarity(action.display ?? '');
-  if (kind === 'add-exam-finding' && polarity !== 'positive') {
+  const voiced = action.sourceOrigin === 'narrative' || action.sourceOrigin === 'edited-narrative';
+  if (kind === 'add-exam-finding' && polarity !== 'positive' && !voiced) {
     return {
       rejected: {
         kind,
         display: action.display,
-        reason:
-          polarity === 'negated'
-            ? `"${action.display}" is a negative — exam findings are positive observations only, so nothing was charted`
-            : `"${action.display}" asserts a normal rather than an abnormality`,
+        reason: `"${action.display}" is a normal finding nobody voiced — exam normals chart only when the provider said them`,
       },
     };
   }

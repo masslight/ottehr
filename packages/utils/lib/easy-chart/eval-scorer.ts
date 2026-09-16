@@ -118,12 +118,13 @@ function checkDiagnoses(actions: PlannedAction[], violations: EvalViolation[]): 
 function checkFindings(actions: PlannedAction[], expectations: EvalExpectations, violations: EvalViolation[]): void {
   for (const action of actions) {
     if (action.kind === 'add-exam-finding') {
-      // A negated finding is not an abnormal finding. It must neither create one nor remove the
-      // matching normal.
-      if (findingPolarity(action.display ?? '') !== 'positive') {
+      // A normal or negated finding charts only when the provider VOICED it — the guard keeps one with a
+      // verified quote and drops the rest. So the violation is a normal with NO quote: a padded exam, the
+      // failure this rule exists to catch. A voiced normal ("abdomen non-tender") is a finding like any other.
+      if (findingPolarity(action.display ?? '') !== 'positive' && !action.sourceText) {
         violations.push({
           rule: 'negated-finding-charted',
-          detail: `"${action.display}" is a negative or a normal, but was charted as an exam finding`,
+          detail: `"${action.display}" is a negative or a normal nobody voiced, but was charted as an exam finding`,
         });
       }
       for (const negated of expectations.negatedFindings ?? []) {

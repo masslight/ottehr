@@ -297,11 +297,64 @@ describe('billing codes', () => {
 });
 
 describe('exam and ROS polarity', () => {
-  // "No wheezing" must neither create a wheezing finding nor remove the matching normal.
-  it('refuses to chart a negated finding as an abnormality', async () => {
-    const { actions, rejected } = await run([{ kind: 'add-exam-finding', display: 'No wheezing' }], 'no wheezing');
+  // A normal the provider SAID is an examination that happened and charts; the guard tells it from a
+  // padded one by whether its quote verified. The blanket refusal it replaces existed because the model
+  // padded exams with normals for systems nobody examined — and those still carry no quote.
+  it('charts a normal the provider voiced', async () => {
+    const { actions, rejected } = await run(
+      [{ kind: 'add-exam-finding', display: 'Lungs clear bilaterally', sourceText: 'lungs clear bilaterally' }],
+      'Chest: lungs clear bilaterally, no distress.'
+    );
+    expect(rejected).toEqual([]);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].sourceOrigin).toBe('narrative');
+  });
+
+  // "No wheezing" is a normal, not a wheezing finding; voiced, it charts as the normal it asserts.
+  it('charts a voiced negation as the normal it asserts', async () => {
+    const { actions, rejected } = await run(
+      [{ kind: 'add-exam-finding', display: 'No wheezing', sourceText: 'no wheezing' }],
+      'Lungs: no wheezing, good air movement.'
+    );
+    expect(rejected).toEqual([]);
+    expect(actions).toHaveLength(1);
+  });
+
+  it('refuses a normal nobody voiced', async () => {
+    const { actions, rejected } = await run(
+      [
+        { kind: 'add-exam-finding', display: 'Nontender' },
+        { kind: 'add-exam-finding', display: 'No wheezing', sourceText: 'lungs are totally fine' },
+      ],
+      'Sore throat, otherwise well.'
+    );
     expect(actions).toEqual([]);
-    expect(rejected[0].reason).toMatch(/positive observations only/);
+    expect(rejected).toHaveLength(2);
+    for (const item of rejected) expect(item.reason).toMatch(/is a normal finding nobody voiced/);
+  });
+
+  // A chart line is not the provider saying it: a quote that verifies only against the ALREADY ON THE
+  // CHART block does not make a normal voiced.
+  it('does not count a chart-state quote as the provider voicing a normal', async () => {
+    const { actions, rejected } = await run(
+      [{ kind: 'add-exam-finding', display: 'Nontender', sourceText: 'Exam: Nontender' }],
+      'Sore throat, otherwise well.',
+      [],
+      { chartStateText: '- Exam: Nontender' }
+    );
+    expect(actions).toEqual([]);
+    expect(rejected[0].reason).toMatch(/nobody voiced/);
+  });
+
+  it('accepts a normal voiced only in the edited read-back', async () => {
+    const { actions } = await run(
+      [{ kind: 'add-exam-finding', display: 'Nontender', sourceText: 'abdomen soft and nontender' }],
+      'Sore throat, otherwise well.',
+      [],
+      { editedNarrative: 'Sore throat. Abdomen soft and nontender.' }
+    );
+    expect(actions).toHaveLength(1);
+    expect(actions[0].sourceOrigin).toBe('edited-narrative');
   });
 
   // remove-exam-finding is disabled in this build (its CAPABILITIES entry is commented out); revives when re-enabled.
@@ -317,12 +370,14 @@ describe('exam and ROS polarity', () => {
     }
   );
 
-  it('keeps a genuine abnormality', async () => {
+  // Positives keep their latitude: an abnormality charts even with no quote (this one is inferred).
+  it('keeps a genuine abnormality, quote or no quote', async () => {
     const { actions } = await run(
       [{ kind: 'add-exam-finding', display: 'Right TM erythematous and bulging' }],
       'right TM erythematous and bulging'
     );
     expect(actions).toHaveLength(1);
+    expect(actions[0].sourceOrigin).toBeUndefined();
   });
 
   it('records the ROS polarity from the display verb', async () => {

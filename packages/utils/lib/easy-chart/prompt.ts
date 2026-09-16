@@ -76,12 +76,13 @@ const SHARED_TRANSCRIPT_RULES = `- Each step is one self-contained action. "add 
 - NEGATIVE-CONFIRMATION statements are not chartable items; omit them entirely. "No known drug
   allergies"/"NKDA" → no add-allergy. "No current medications" → no add-medication. "PMH
   unremarkable" → no add-condition. "No prior surgeries" → no add-surgical-history. "No
-  hospitalizations" → no add-hospitalization. "No vomiting", "no rash", "no fever" as EXAM
-  observations → no add-exam-finding. These statements are clinically important and belong in the
-  HPI/MDM free text, not as add-* actions whose pickers would match nothing or, worse, the wrong
-  thing.
-  EXCEPTION — REVIEW OF SYSTEMS: a patient DENYING a symptom in the history IS a chartable ROS
-  finding. See add-ros-finding.
+  hospitalizations" → no add-hospitalization. These statements are clinically important and belong
+  in the HPI/MDM free text, not as add-* actions whose pickers would match nothing or, worse, the
+  wrong thing.
+  EXCEPTION — REVIEW OF SYSTEMS: a patient DENYING a symptom in the history ("no vomiting", "no
+  fever") IS a chartable ROS finding. See add-ros-finding.
+  EXCEPTION — EXAM: a normal the provider VOICED on examination ("no rash", "lungs clear",
+  "non-tender") IS a chartable exam finding, emitted as the normal it asserts. See add-exam-finding.
 - NEVER INVENT NEGATIVES. Do not pad the exam or the ROS with findings nobody addressed.
 - DEMOGRAPHIC, INSURANCE and CONTACT details (address, phone, email, race, ethnicity, language,
   carrier/member ID, PCP info, responsible party, emergency contacts) are NOT chart actions — omit
@@ -115,9 +116,19 @@ const SHARED_TRANSCRIPT_RULES = `- Each step is one self-contained action. "add 
 const EM_LEVEL_TIEBREAK = `- When torn between two E&M levels choose the LOWER — the goal is that a defensible level is always
   present and the provider can adjust.`;
 
+/**
+ * The diagnosis-specificity rule, for the surfaces that AUTHOR a diagnosis: the full plan and the
+ * diagnoses stage. Same policy as the assessment coder's "always prefer the most specific ICD-10
+ * code available".
+ */
+const PREFER_SPECIFIC_CODE = `- Prefer the most specific ICD-10 code the evidence supports: when a result, a finding or the
+  provider's stated diagnosis pins the cause, do not fall back to an unspecified code (a positive
+  strep test → streptococcal pharyngitis, not "acute pharyngitis, unspecified").`;
+
 const PLAN_RULES = `RULES:
 - Steps must be in the canonical order above.
 ${SHARED_TRANSCRIPT_RULES}
+${PREFER_SPECIFIC_CODE}
 ${EM_LEVEL_TIEBREAK}`;
 
 const FINDINGS_PREAMBLE = `You are recording the OBJECTIVE FINDINGS of a clinical encounter from the provider's free-text
@@ -286,6 +297,7 @@ Return a JSON object with an "actions" array.`;
 
 const DIAGNOSES_RULES = `RULES:
 ${SHARED_TRANSCRIPT_RULES}
+${PREFER_SPECIFIC_CODE}
 - Exactly ONE diagnosis carries isPrimary=true across the whole visit. When the chart already has a
   primary, an addition is secondary — do not usurp it.`;
 

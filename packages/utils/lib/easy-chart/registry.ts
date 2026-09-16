@@ -396,11 +396,17 @@ export const CAPABILITIES = {
     }),
     chartField: 'examObservations',
     promptDoc: `matched against the practice's exam-template leaf
-  labels. Exam findings are POSITIVE observations only: there is no "negative" exam observation.
-  NEGATION GUARD — a finding the narrative explicitly negates ("no wheezing", "lungs clear",
-  "non-tender", "without crackles", "no rash") is NOT abnormal. Do NOT emit an add-exam-finding for it,
-  and do NOT remove the matching normal either: the narrative AGREES with the normal. Match on
-  POLARITY, not on the keyword.
+  labels. Emit an add-exam-finding for EVERY finding the provider VOICED — abnormal or normal
+  ("Right TM erythematous and bulging", "abdomen soft", "Nontender", "lungs clear bilaterally", "5/5
+  strength", "normal gait") — each with its verbatim "sourceText" quote. A normal finding with no
+  quote is DROPPED by the server: a normal charts only when the provider said it. Never pad the exam
+  with findings nobody addressed — a normal for a system the provider did not examine is not a
+  finding, it is an invention.
+  NEGATION GUARD — a finding the narrative explicitly negates ("no wheezing", "non-tender", "without
+  crackles", "no rash") is a NORMAL finding, not an abnormal one. Emit it as the normal it asserts,
+  displayed the way the normal leaf would be labelled ("No wheezing" / "Lungs clear", "Nontender", "No
+  rash"), never as the abnormal it negates, and do NOT remove the matching normal either: the
+  narrative AGREES with the normal. Match on POLARITY, not on the keyword.
   Do not bundle a pertinent negative into an abnormal finding — the negated clause drags the match onto
   the wrong (normal) leaf. "Oropharynx mildly injected without exudate" → display "Erythematous
   pharynx", searchTerms ["injected oropharynx","pharyngeal erythema"]; drop the "without exudate".
@@ -408,10 +414,6 @@ export const CAPABILITIES = {
   A single anatomic observation with several modifiers is ONE step, not several: "Right TM erythematous
   and bulging with loss of light reflex" is one add-exam-finding retaining all the modifiers. Emit
   separate steps only for distinctly different anatomic sites or systems.
-  The exam section starts EMPTY, so emit an add-exam-finding for every
-  dictated finding INCLUDING the pertinent normals ("lungs clear bilaterally", "5/5 strength", "normal
-  gait") — anything you do not emit is simply absent from the note.
-  Never pad the exam with findings nobody addressed.
   MATCH STRUCTURE TO STRUCTURE — a finding about ONE structure does not contradict a normal about a
   DIFFERENT structure in the same system. An abnormal tympanic membrane does NOT contradict "Normal
   canals"; remove that only if the narrative describes the CANAL as abnormal.

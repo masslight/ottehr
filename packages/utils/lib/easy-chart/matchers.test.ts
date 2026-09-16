@@ -73,13 +73,49 @@ describe('the exam leaf catalogue', () => {
   });
 });
 
+const polarities = (query: string, options?: { searchTerms?: string[] }): string[] =>
+  findExamLeafMatches(query, LEAVES, options).map((m) => (m.payload as ExamLeaf).polarity);
+
 describe('negation guard', () => {
-  // "No wheezing" must neither create a wheezing finding nor remove the matching normal.
-  it('produces nothing for a negated finding', () => {
-    expect(findExamLeafMatches('no wheezing', LEAVES)).toEqual([]);
-    expect(findExamLeafMatches('without crackles', LEAVES)).toEqual([]);
-    expect(findExamLeafMatches('non-tender abdomen', LEAVES)).toEqual([]);
-    expect(findExamLeafMatches('denies rash', LEAVES)).toEqual([]);
+  // "No wheezing" must neither create a wheezing finding nor remove the matching normal. It is a
+  // NORMAL, and a voiced normal now charts, so the negation must land on the normal side only.
+  it('never matches an abnormal leaf from a negated finding', () => {
+    for (const query of ['no wheezing', 'without crackles', 'non-tender abdomen', 'denies rash', 'not tender']) {
+      for (const polarity of polarities(query)) {
+        expect(polarity, `"${query}" reached an abnormal leaf`).toBe('normal');
+      }
+    }
+    expect(findExamLeafMatches('no wheezing', LEAVES).some((m) => /wheez/i.test(m.display))).toBe(false);
+  });
+
+  // Every spelling of a non-tender abdomen lands on Nontender and never on Tender. "tender" is on the
+  // generic list, so without the one-word-normal rule none of these could reach the leaf at all.
+  it('lands every spelling of non-tender on the Nontender leaf', () => {
+    for (const query of ['non-tender', 'nontender', 'no tenderness', 'not tender', 'abdomen non-tender']) {
+      const matches = findExamLeafMatches(query, LEAVES);
+      expect(top(matches), `"${query}"`).toBe('Nontender');
+      expect(
+        matches.some((m) => m.display === 'Tender'),
+        `"${query}" reached Tender`
+      ).toBe(false);
+    }
+  });
+
+  it('lands a negated abnormal on the normal that agrees with it', () => {
+    expect(top(findExamLeafMatches('no rash', LEAVES))).toBe('No rash');
+    expect(top(findExamLeafMatches('no edema', LEAVES))).toBe('No edema');
+    expect(top(findExamLeafMatches('no acute distress', LEAVES))).toBe('In no acute distress');
+    // The catalogue has no "no wheezing" normal; the model's search terms carry it to the clear-lungs leaf.
+    expect(top(findExamLeafMatches('no wheezing', LEAVES, { searchTerms: ['clear to auscultation'] }))).toBe(
+      'Chest is clear to auscultation bilaterally'
+    );
+  });
+
+  // "absent bowel sounds" negates a NORMAL, which makes it an abnormality — it must not be filed under
+  // Normal Bowel Sounds.
+  it('does not read "absent" as a negation', () => {
+    expect(assertsNormal('absent bowel sounds')).toBe(false);
+    expect(findExamLeafMatches('absent bowel sounds', LEAVES).some((m) => /normal bowel/i.test(m.display))).toBe(false);
   });
 
   it('recognises the negators without over-firing', () => {
@@ -94,21 +130,44 @@ describe('normalcy veto', () => {
     expect(assertsNormal('lungs clear bilaterally')).toBe(true);
     expect(assertsNormal('5/5 strength')).toBe(true);
     expect(assertsNormal('well-appearing')).toBe(true);
+    expect(assertsNormal('abdomen soft')).toBe(true);
+    expect(assertsNormal('no wheezing')).toBe(true);
     expect(assertsNormal('tympanic membrane bulging')).toBe(false);
+    expect(assertsNormal('soft tissue swelling')).toBe(false);
   });
 
   it('never matches an abnormal leaf from a query that reports a normal', () => {
-    for (const match of findExamLeafMatches('lungs clear bilaterally', LEAVES)) {
-      const leaf = match.payload as ExamLeaf;
-      expect(leaf.polarity, `"${leaf.label}" is abnormal but matched a normal query`).toBe('normal');
+    for (const query of ['lungs clear bilaterally', 'abdomen soft', 'normal tympanic membranes']) {
+      for (const polarity of polarities(query)) {
+        expect(polarity, `"${query}" reached an abnormal leaf`).toBe('normal');
+      }
     }
   });
 
+  it('lands a voiced normal on its own leaf', () => {
+    expect(top(findExamLeafMatches('lungs clear bilaterally', LEAVES))).toBe(
+      'Chest is clear to auscultation bilaterally'
+    );
+    expect(top(findExamLeafMatches('abdomen soft', LEAVES))).toBe('Soft');
+    // The catalogue says "TM"; the dictation says "tympanic". Both normal TM leaves must be offered, and
+    // nothing outside the Ears card.
+    const tm = findExamLeafMatches('normal tympanic membranes', LEAVES);
+    expect(tm.map((m) => m.display)).toEqual(
+      expect.arrayContaining([
+        'Right TM pearly with good light reflex, preserved landmarks',
+        'Left TM pearly with good light reflex, preserved landmarks',
+      ])
+    );
+    for (const match of tm) expect((match.payload as ExamLeaf).sectionLabel).toBe('Ears');
+  });
+
   it('never matches a normal leaf from a query that reports an abnormality', () => {
-    for (const match of findExamLeafMatches('scattered wheezes bilaterally', LEAVES)) {
-      const leaf = match.payload as ExamLeaf;
-      expect(leaf.polarity).toBe('abnormal');
+    for (const query of ['scattered wheezes bilaterally', 'tender abdomen', 'abdominal tenderness diffusely']) {
+      for (const polarity of polarities(query)) {
+        expect(polarity, `"${query}" reached a normal leaf`).toBe('abnormal');
+      }
     }
+    expect(findExamLeafMatches('tender abdomen', LEAVES).some((m) => m.display === 'Nontender')).toBe(false);
   });
 });
 
