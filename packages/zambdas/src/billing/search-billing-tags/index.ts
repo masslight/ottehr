@@ -23,32 +23,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 export async function performEffect(oystehr: Oystehr): Promise<{ tags: BillingTag[] }> {
   const basics = await searchTagBasics(oystehr);
 
-  // System-managed tags are always reported, even before their Basic definitions exist (e.g. Hold
-  // before any rules List has been saved). They get synthetic entries with no id/updatedAt — but
-  // real usage counts, since claims can carry a system tag the moment the system applies it.
-  const storedNames = basics.map((b) => b.code?.text).filter((name): name is string => !!name);
-  const unstoredSystemTags = SYSTEM_MANAGED_TAGS.filter((def) => !storedNames.includes(def.name));
+  // System-managed tags are reported from SYSTEM_MANAGED_TAGS, never from storage — they are
+  // defined in code and no longer seeded as Basics. A stored definition carrying a system-managed
+  // name is a leftover from the releases that did seed them (and raced itself into duplicates), so
+  // it is dropped here rather than listed. Usage counts are real either way, since a claim carries
+  // a system tag the moment the system applies it. Listing them first keeps them grouped, since
+  // they have no lastUpdated to sort by.
+  const userTagBasics = basics.filter((b) => !isSystemTag(b));
+  const userTagNames = userTagBasics.map((b) => b.code?.text).filter((name): name is string => !!name);
 
   const usageCounts = await getTagUsageCounts(oystehr, [
-    ...new Set(storedNames),
-    ...unstoredSystemTags.map((def) => def.name),
+    ...SYSTEM_MANAGED_TAGS.map((def) => def.name),
+    ...new Set(userTagNames),
   ]);
 
   const tags: BillingTag[] = [
-    ...basics.map((b) => {
-      const name = b.code?.text ?? '';
-      const systemDef = SYSTEM_MANAGED_TAGS.find((def) => def.name === name);
-      return {
-        id: b.id ?? '',
-        name,
-        description:
-          b.extension?.find((e) => e.url === TAG_DESCRIPTION_URL)?.valueString ?? systemDef?.description ?? '',
-        usage: usageCounts.get(name) ?? 0,
-        updatedAt: b.meta?.lastUpdated ?? '',
-        isSystemTag: isSystemTag(b),
-      };
-    }),
-    ...unstoredSystemTags.map((def) => ({
+    ...SYSTEM_MANAGED_TAGS.map((def) => ({
       id: '',
       name: def.name,
       description: def.description,
@@ -56,6 +46,17 @@ export async function performEffect(oystehr: Oystehr): Promise<{ tags: BillingTa
       updatedAt: '',
       isSystemTag: true,
     })),
+    ...userTagBasics.map((b) => {
+      const name = b.code?.text ?? '';
+      return {
+        id: b.id ?? '',
+        name,
+        description: b.extension?.find((e) => e.url === TAG_DESCRIPTION_URL)?.valueString ?? '',
+        usage: usageCounts.get(name) ?? 0,
+        updatedAt: b.meta?.lastUpdated ?? '',
+        isSystemTag: false,
+      };
+    }),
   ];
 
   return { tags };

@@ -102,7 +102,6 @@ import {
 } from 'utils/lib/types/data/billing/claim-status';
 import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
-import { SYSTEM_MANAGED_TAGS, SystemManagedTag } from 'utils/lib/types/data/billing/system-tags';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
@@ -524,37 +523,15 @@ export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string | u
 
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
-export const TAG_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
 
 // A tag definition is system-managed iff its name (code.text) is in SYSTEM_MANAGED_TAGS — the name
 // is the tag's identity everywhere tags are referenced (claim meta tags, rules), and the
-// code-defined list is the single source of truth. A definition whose name leaves the list (e.g.
-// after a system tag is renamed in code) degrades to an ordinary, editable/deletable tag. The
-// is-system-tag extension written by systemTagBasic records provenance only and deliberately does
-// not drive behavior.
+// code-defined list is the single source of truth. System-managed tags are never stored as Basics
+// (search-billing-tags reports them from the code list), so this only ever matches a definition
+// left behind by an older release; such a definition degrades to an ordinary, editable one as soon
+// as its name leaves the list.
 export function isSystemTag(tag: Basic): boolean {
   return isSystemManagedTagName(tag.code?.text);
-}
-
-// The one FHIR encoding of a system-managed tag definition (see utils' SYSTEM_MANAGED_TAGS).
-export function systemTagBasic(def: SystemManagedTag): Basic {
-  return {
-    resourceType: 'Basic',
-    code: { text: def.name, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
-    extension: [
-      { url: TAG_DESCRIPTION_URL, valueString: def.description },
-      { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
-    ],
-  };
-}
-
-// Create the Basic definition of any system-managed tag that doesn't have one yet. Callers decide
-// whether a failure matters — seeding is cosmetic (search-billing-tags reports system-managed tags
-// whether or not their Basics exist).
-export async function ensureSystemManagedTags(oystehr: Oystehr): Promise<void> {
-  const defined = await fetchDefinedTagNames(oystehr);
-  const missing = SYSTEM_MANAGED_TAGS.filter((def) => !defined.has(def.name));
-  await Promise.all(missing.map((def) => oystehr.fhir.create<Basic>(systemTagBasic(def))));
 }
 
 // All tag definitions in the tags feature (Basic resources; the name lives in code.text), newest

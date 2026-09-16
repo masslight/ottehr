@@ -3,18 +3,12 @@ import { Basic, Bundle, List, Organization, Resource } from 'fhir/r4b';
 import { NIO_KIND_CODE, NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { DEFAULT_RULES_ENGINE, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { BillingRuleInput } from 'utils/lib/types/data/billing/rules-engine.schemas';
-import {
-  AUTO_ACCIDENT_TAG_NAME,
-  HOLD_TAG_NAME,
-  SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
-  SECONDARY_SUBMISSION_TAG_NAME,
-  SYSTEM_MANAGED_TAGS,
-} from 'utils/lib/types/data/billing/system-tags';
+import { AUTO_ACCIDENT_TAG_NAME, HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from '../../../src/billing/rules-engine/constants';
 import { complexValidation, performEffect } from '../../../src/billing/save-billing-rules';
 import { SaveBillingRulesParams } from '../../../src/billing/save-billing-rules/validateRequestParameters';
-import { BILLING_WORKING_COPY_TAG, PROVIDER_ROLE_TAG, TAG_IS_SYSTEM_TAG_URL } from '../../../src/billing/shared';
+import { BILLING_WORKING_COPY_TAG, PROVIDER_ROLE_TAG } from '../../../src/billing/shared';
 
 const search = vi.fn();
 const create = vi.fn();
@@ -42,8 +36,6 @@ describe('save-billing-rules performEffect', () => {
     // Echo the written List back (as the server would), stamping a versionId.
     create.mockImplementation(async (resource: List | Basic) => ({ ...resource, meta: { versionId: '1' } }));
     update.mockImplementation(async (resource: List) => ({ ...resource, meta: { versionId: '2' } }));
-    // ensureSystemManagedTags' tag lookup: no tags exist yet.
-    search.mockResolvedValue({ unbundle: () => [] });
   });
 
   it('assigns server-side ids to rules that arrive without one', async () => {
@@ -64,41 +56,14 @@ describe('save-billing-rules performEffect', () => {
     expect(savedList.entry?.map((e) => e.item?.reference)).toEqual([`#${created.id}`, '#rule-1']);
   });
 
-  it('creates the List and seeds every system-managed tag when no rules List exists yet', async () => {
+  // Regression: this used to seed a Basic per system-managed tag, which raced itself into
+  // duplicates. System tags are reported from the code list now, so nothing is written for them.
+  it('creates the List and no tag definitions when no rules List exists yet', async () => {
     const response = await performEffect(oystehr, params([rule('First rule')]), undefined, 'test');
 
     expect(update).not.toHaveBeenCalled();
-    const createdTypes = create.mock.calls.map(([r]) => r.resourceType);
-    expect(createdTypes).toContain('List');
-    const seededTags = create.mock.calls.map(([r]) => r).filter((r): r is Basic => r.resourceType === 'Basic');
-    expect(seededTags.map((tag) => tag.code?.text)).toEqual(SYSTEM_MANAGED_TAGS.map((def) => def.name));
-    seededTags.forEach((tag) => {
-      expect(tag.extension).toContainEqual({ url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true });
-    });
-    expect(response.versionId).toBe('1');
-  });
-
-  it('seeds only the system-managed tags that are missing', async () => {
-    search.mockResolvedValue({ unbundle: () => [{ resourceType: 'Basic', code: { text: HOLD_TAG_NAME } }] });
-
-    await performEffect(oystehr, params([rule('First rule')]), undefined, 'test');
-
-    const seededTags = create.mock.calls.map(([r]) => r).filter((r): r is Basic => r.resourceType === 'Basic');
-    expect(seededTags.map((tag) => tag.code?.text)).toEqual([
-      AUTO_ACCIDENT_TAG_NAME,
-      SECONDARY_SUBMISSION_TAG_NAME,
-      SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
-    ]);
-  });
-
-  it('does not re-seed system-managed tags that already exist', async () => {
-    search.mockResolvedValue({
-      unbundle: () => SYSTEM_MANAGED_TAGS.map((def) => ({ resourceType: 'Basic', code: { text: def.name } })),
-    });
-
-    await performEffect(oystehr, params([rule('First rule')]), undefined, 'test');
-
     expect(create.mock.calls.map(([r]) => r.resourceType)).toEqual(['List']);
+    expect(response.versionId).toBe('1');
   });
 
   it('updates the existing List with optimistic locking from expectedVersionId', async () => {

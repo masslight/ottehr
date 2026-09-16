@@ -22,7 +22,6 @@ import { rulesToList } from '../rules-engine/serialization';
 import {
   BILLING_WORKING_COPY_TAG,
   createBillingClient,
-  ensureSystemManagedTags,
   fetchDefinedTagNames,
   findRulesEngineList,
   hasTag,
@@ -174,11 +173,6 @@ export async function performEffect(
     );
   } else {
     saved = await oystehr.fhir.create<List>(newList);
-    try {
-      await ensureSystemManagedTags(oystehr);
-    } catch (error) {
-      console.error('Failed to ensure system-managed tags exist:', error);
-    }
   }
 
   return { rules: await listToRulesReportingMalformed(saved, env), versionId: saved.meta?.versionId };

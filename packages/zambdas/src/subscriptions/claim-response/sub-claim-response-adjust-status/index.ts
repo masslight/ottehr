@@ -12,7 +12,7 @@ import {
   SECONDARY_SUBMISSION_TAG_NAME,
 } from 'utils/lib/types/data/billing/system-tags';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../../../billing/provenance';
-import { createBillingClient, ensureSystemManagedTags, getTag } from '../../../billing/shared';
+import { createBillingClient, getTag } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -102,12 +102,6 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
       targetARStatus = 'adjudicated';
       tagsToAdd.push(HOLD_TAG_NAME);
     }
-  }
-
-  try {
-    await ensureSystemManagedTags(oystehr);
-  } catch (error) {
-    console.error('Failed to ensure system-managed tags exist:', error);
   }
 
   await patchWithOptimisticLock(oystehr, claim, (claim) => [
