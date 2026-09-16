@@ -143,7 +143,7 @@ export const TemplateStage: FC<TemplateStageProps> = ({
                   // inside it rather than overflowing the panel.
                   sx={{ ...roundedButtonSx, whiteSpace: 'normal' }}
                 >
-                  {`${itemState.status === 'error' ? 'Try again' : 'Apply template'}: ${recommendation.templateName}`}
+                  {`${itemState.status === 'error' ? 'Try again' : 'Apply'}: ${recommendation.templateName}`}
                 </RoundedButton>
               )}
 

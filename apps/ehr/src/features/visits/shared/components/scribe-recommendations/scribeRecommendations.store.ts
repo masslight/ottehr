@@ -8,6 +8,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { draftFromNarrative, narrativeText } from './narrativeLines';
 import {
   NarrativeSegment,
+  NoteMode,
   OrderSuggestion,
   RecommendationApplyStatus,
   ScribeAnalysis,
@@ -59,6 +60,12 @@ export const narrativeEditingKey = (id: string): string => `narrative-${id}`;
 
 export interface RecommendationItemState {
   selected: boolean;
+  /**
+   * A note row's tick, with a third position: after the field's text, over it, or not at all. Set only on
+   * `hpi` rows. `selected` stays the one thing the rest of the panel reads — it is `noteMode !== 'skip'`
+   * here — so the two are always written together.
+   */
+  noteMode?: NoteMode;
   status: RecommendationApplyStatus;
   /** Why the write failed, for a row in `error`. */
   error?: string;
@@ -140,6 +147,8 @@ interface ScribeRecommendationsState {
 
   setSelected: (id: string, selected: boolean) => void;
   setManySelected: (ids: string[], selected: boolean) => void;
+  /** A note row's way of being ticked: `skip` unticks it, the other two tick it and say how it lands. */
+  setNoteMode: (id: string, mode: NoteMode) => void;
   updateRecommendation: (id: string, patch: Partial<ScribeRecommendation>) => void;
   /** `message` is the error for `error`, the reason for `skipped`, the executor's note for `applied`. */
   setItemStatus: (
@@ -259,9 +268,15 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
           // The visit may have changed while the model was thinking.
           if (get().encounterId !== encounterId) return;
           const itemState: Record<string, RecommendationItemState> = {};
-          // Every structured recommendation starts checked and the provider unchecks what they don't want —
-          // except one that would replace something they wrote, which they opt into instead.
-          analysis.recommendations.forEach((rec) => (itemState[rec.id] = { selected: !rec.confirm, status: 'idle' }));
+          // Every recommendation starts checked and the provider unchecks what they don't want. A note row
+          // starts as an addition — after whatever its field already says — never as a rewrite of it.
+          analysis.recommendations.forEach(
+            (rec) =>
+              (itemState[rec.id] =
+                rec.kind === 'hpi'
+                  ? { selected: true, noteMode: 'append', status: 'idle' }
+                  : { selected: true, status: 'idle' })
+          );
           set({
             phase: 'ready',
             narrativeRuns: analysis.narrativeRuns,
@@ -285,7 +300,7 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
 
       setSelected: (id, selected) =>
         set((state) => ({
-          itemState: { ...state.itemState, [id]: { ...(state.itemState[id] ?? { status: 'idle' }), selected } },
+          itemState: { ...state.itemState, [id]: withSelected(state, id, selected) },
         })),
       setManySelected: (ids, selected) =>
         set((state) => {
@@ -293,10 +308,17 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
           ids.forEach((id) => {
             // Applied items are history, not a choice; leave them alone.
             if (itemState[id]?.status === 'applied') return;
-            itemState[id] = { ...(itemState[id] ?? { status: 'idle' }), selected };
+            itemState[id] = withSelected(state, id, selected);
           });
           return { itemState };
         }),
+      setNoteMode: (id, noteMode) =>
+        set((state) => ({
+          itemState: {
+            ...state.itemState,
+            [id]: { ...(state.itemState[id] ?? { status: 'idle' }), noteMode, selected: noteMode !== 'skip' },
+          },
+        })),
       updateRecommendation: (id, patch) =>
         set((state) => ({
           recommendations: state.recommendations.map((rec) =>
@@ -326,8 +348,10 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
               note: status === 'applied' ? message : undefined,
               lowConfidence: status === 'applied' ? flags?.lowConfidence || undefined : undefined,
               // A skipped row is not going in, and says why; ticking it again is how the provider asks
-              // for another try, so it comes out of the batch on its own.
-              ...(status === 'skipped' ? { selected: false } : {}),
+              // for another try, so it comes out of the batch on its own — a note row through its mode.
+              ...(status === 'skipped'
+                ? { selected: false, ...(state.itemState[id]?.noteMode ? { noteMode: 'skip' as const } : {}) }
+                : {}),
               ...(status === 'applied' ? { appliedAt: Date.now() } : {}),
             },
           },
@@ -360,6 +384,21 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
     }
   )
 );
+
+/**
+ * The item ticked or unticked. A note row is ticked through its mode: unticking it is `skip`, ticking it
+ * back is `append` — unless it was already in as a rewrite, which a "select all" has no reason to undo.
+ */
+const withSelected = (
+  state: Pick<ScribeRecommendationsState, 'recommendations' | 'itemState'>,
+  id: string,
+  selected: boolean
+): RecommendationItemState => {
+  const item = state.itemState[id] ?? { status: 'idle' as const };
+  if (state.recommendations.find((rec) => rec.id === id)?.kind !== 'hpi') return { ...item, selected };
+  const noteMode: NoteMode = !selected ? 'skip' : item.noteMode === 'replace' ? 'replace' : 'append';
+  return { ...item, selected, noteMode };
+};
 
 /**
  * Opens the editor named by `editingKey` — unless another line already holds one. That click is

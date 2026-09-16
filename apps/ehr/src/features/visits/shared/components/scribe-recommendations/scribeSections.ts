@@ -61,6 +61,8 @@ export const getVisitBasePath = (pathname: string): string | undefined => pathna
 
 export const kgFromLbs = (lbs: number): number => Math.round((lbs / 2.20462) * 100) / 100;
 
+export const wordCount = (text: string): number => text.trim().split(/\s+/).filter(Boolean).length;
+
 export interface RecommendationText {
   /** The recommendation itself, always on screen. */
   primary: string;

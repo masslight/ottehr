@@ -3,14 +3,13 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Box, Button, Collapse, Paper, Typography } from '@mui/material';
 import { FC, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { wordCount } from './scribeSections';
 import { scaled } from './scribeTheme';
 
 const testIds = dataTestIds.scribeRecommendations;
 
 /** Enough to read an exchange in; the rest scrolls, so a long recording cannot bury what is under it. */
 const TRANSCRIPT_MAX_HEIGHT = scaled(240);
-
-export const wordCount = (text: string): number => text.trim().split(/\s+/).filter(Boolean).length;
 
 interface TranscriptEvidenceProps {
   transcript: string;

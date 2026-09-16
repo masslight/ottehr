@@ -359,11 +359,7 @@ const ResultsStep: FC = () => {
 
   if (template) {
     stages.push(
-      <ScribeStage
-        key="template"
-        name="template"
-        lead="There’s a template that looks like a good fit. I recommend applying it first."
-      >
+      <ScribeStage key="template" name="template" lead="Template suggestion">
         <TemplateStage
           recommendation={template}
           itemState={itemState[template.id] ?? { selected: true, status: 'idle' }}

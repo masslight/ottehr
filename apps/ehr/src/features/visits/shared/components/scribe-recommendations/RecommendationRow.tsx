@@ -26,6 +26,7 @@ import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.typ
 import { DiagnosesField } from '../assessment-tab/DiagnosesField';
 import { TemplateOption } from '../templates/useListTemplates';
 import { actionEditPatch, editableActionText, withEditedText } from './actionEdits';
+import { NOTE_MODE_MENU_CLASS, NoteModeChip } from './NoteModeChip';
 import { hasProvenance, ProvenanceContent } from './Provenance';
 import {
   RecommendationItemState,
@@ -169,8 +170,9 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
   };
 
   const canStartEditing = canEdit && !isEditing;
-  // A pending row carries its box in the editor; only a settled row shows one on the line.
-  const showCheckbox = isEditing || isDone;
+  // A pending row carries its box in the editor; only a settled row shows one on the line. A note row has
+  // no box at all: its tick is the mode chip, on the line and in the editor alike.
+  const showCheckbox = (isEditing && recommendation.kind !== 'hpi') || isDone;
 
   // Closing is saving: there is nothing to cancel, so an empty patch is simply an untouched row.
   const closeEditor = (patch?: Partial<ScribeRecommendation>): void => {
@@ -290,6 +292,15 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
                     />
                   </Tooltip>
                 )}
+                {/* A note row's tick: how its paragraph lands in the field, chosen here rather than in a box. */}
+                {recommendation.kind === 'hpi' && !isDone && (
+                  <NoteModeChip
+                    id={recommendation.id}
+                    mode={itemState.noteMode ?? 'append'}
+                    existingWords={recommendation.existingWords}
+                    disabled={isApplying || locked}
+                  />
+                )}
               </Box>
             </Box>
             {secondary && (
@@ -395,9 +406,12 @@ export interface RecommendationEditorProps {
   onCommit: (patch?: Partial<ScribeRecommendation>) => void;
 }
 
-/** A dropdown of the ICD-10 or template picker is portalled out of the row, but is still the editor. */
-const isInPicker = (target: EventTarget | Element | null): boolean =>
-  target instanceof Element && Boolean(target.closest('.MuiAutocomplete-popper'));
+/**
+ * A dropdown of the ICD-10 or template picker, or the note row's mode menu, is portalled out of the row,
+ * but is still the editor.
+ */
+const isInPopup = (target: EventTarget | Element | null): boolean =>
+  target instanceof Element && Boolean(target.closest(`.MuiAutocomplete-popper, .${NOTE_MODE_MENU_CLASS}`));
 
 /**
  * Inline editor for the parts of a recommendation a provider is likely to want to correct.
@@ -413,6 +427,8 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
   onCommit,
 }) => {
   const id = recommendation.id;
+  // The note row's tick sits on the editor's header line, as the same chip the line shows when read.
+  const noteMode = useScribeRecommendationsStore((state) => state.itemState[id]?.noteMode ?? 'append');
   const [text, setText] = useState(() => {
     switch (recommendation.kind) {
       case 'hpi':
@@ -529,7 +545,7 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
   // dropdown, is still inside the editor. A blur to nothing is left to the click-away.
   const onBlur = (event: FocusEvent<HTMLElement>): void => {
     const next = event.relatedTarget;
-    if (next && !rowRef.current?.contains(next) && !isInPicker(next)) commit();
+    if (next && !rowRef.current?.contains(next) && !isInPopup(next)) commit();
   };
 
   const textField = (
@@ -562,7 +578,14 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
   const renderField = (): JSX.Element => {
     switch (recommendation.kind) {
       case 'hpi':
-        return textField(NOTE_FIELD_LABELS[recommendation.field ?? HPI_FIELD], { multiline: true });
+        return (
+          <>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <NoteModeChip id={id} mode={noteMode} existingWords={recommendation.existingWords} />
+            </Box>
+            {textField(NOTE_FIELD_LABELS[recommendation.field ?? HPI_FIELD], { multiline: true })}
+          </>
+        );
       case 'allergy':
         return textField('Allergy');
       case 'medication':
@@ -682,7 +705,7 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
     <ClickAwayListener
       onClickAway={(event) => {
         // Anywhere on the line — or in a dropdown the line put on screen — is still in here.
-        if (rowRef.current?.contains(event.target as Node) || isInPicker(event.target)) return;
+        if (rowRef.current?.contains(event.target as Node) || isInPopup(event.target)) return;
         commit();
       }}
     >

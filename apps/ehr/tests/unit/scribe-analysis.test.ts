@@ -3,8 +3,11 @@
 
 import { ChartPlanResponse, ChartReviewResponse, PlannedAction, ReviewSuggestion } from 'utils/lib/easy-chart/api';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { describe, expect, it } from 'vitest';
+import { buildChartSnapshot } from '../../src/features/easy-chart/executor/chartSnapshot';
 import {
+  appendToNoteField,
   buildAnalysis,
   INFERRED_NOTE,
   recommendationKey,
@@ -139,18 +142,14 @@ describe('buildAnalysis', () => {
     expect(flagged.warning).toMatch(/^Patient-reported, not measured\. The assistant could not establish a value/);
   });
 
-  it('starts a rewrite of note text the provider already wrote unticked, with a warning', () => {
-    const rewrite: PlannedAction = { kind: 'edit-note-text', field: 'medicalDecision', newText: 'New MDM.' };
-    const [replacing] = analyse([rewrite], { written: { medicalDecision: 'The MDM the provider typed.' } });
-    expect(replacing).toMatchObject({
-      kind: 'hpi',
-      section: 'assessment',
-      confirm: true,
-      warning: 'Replaces the Medical Decision Making text already in the note.',
-    });
-    // An edit to an empty field has nothing to overwrite and applies like anything else.
-    const [fresh] = analyse([rewrite], { written: {} });
-    expect(fresh.confirm).toBeUndefined();
+  it('measures the text a note row would go after, and measures nothing for an empty field', () => {
+    const edit: PlannedAction = { kind: 'edit-note-text', field: 'medicalDecision', newText: 'New MDM.' };
+    const [onto] = analyse([edit], { written: { medicalDecision: 'The MDM the provider typed.' } });
+    // Not a warning: adding after the provider's words is not overwriting them. The count feeds the row's chip.
+    expect(onto).toMatchObject({ kind: 'hpi', section: 'assessment', existingWords: 5 });
+    expect(onto.warning).toBeUndefined();
+    const [fresh] = analyse([edit], { written: {} });
+    expect(fresh).not.toHaveProperty('existingWords');
     expect(fresh.warning).toBeUndefined();
   });
 
@@ -326,6 +325,32 @@ describe('the narrative is the transcript, with the evidence highlighted', () =>
     expect(
       buildAnalysis(plan(actions), undefined, { written: {}, narrative: 'Allergic to latex.' }).narrativeRuns
     ).toEqual([{ text: 'Allergic to latex.' }]);
+  });
+});
+
+describe('appendToNoteField', () => {
+  const hpi: ScribeRecommendation = { id: 'hpi', kind: 'hpi', section: 'hpi', text: 'Sinus pressure x 1 week.' };
+  const action = toPlannedAction(hpi);
+  // The chart as the executor reads it at write time; the HPI is stored under the chiefComplaint key.
+  const written = buildChartSnapshot({
+    patientId: 'p-1',
+    chiefComplaint: { resourceId: 'cc-1', text: 'Template HPI.' },
+  } as GetChartDataResponse);
+
+  it('lands the text as the row’s mode says: after the field by default, or over it', () => {
+    expect(appendToNoteField(action, hpi, written).newText).toBe('Template HPI.\nSinus pressure x 1 week.');
+    expect(appendToNoteField(action, hpi, written, 'append').newText).toBe('Template HPI.\nSinus pressure x 1 week.');
+    // The executor's own edit-note-text is the rewrite, so replacing is handing the action on untouched.
+    expect(appendToNoteField(action, hpi, written, 'replace')).toBe(action);
+    // A skipped row is unticked and never applied; were it handed over anyway, nothing would be done to it.
+    expect(appendToNoteField(action, hpi, written, 'skip')).toBe(action);
+  });
+
+  it('has nothing to append to in an empty field, and leaves every other kind alone', () => {
+    expect(appendToNoteField(action, hpi, buildChartSnapshot(undefined), 'append')).toBe(action);
+    const allergy: ScribeRecommendation = { id: 'a', kind: 'allergy', section: 'allergies', name: 'Latex' };
+    const add = toPlannedAction(allergy);
+    expect(appendToNoteField(add, allergy, written, 'append')).toBe(add);
   });
 });
 

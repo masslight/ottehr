@@ -53,11 +53,6 @@ interface ScribeRecommendationBase {
   /** How the AI got here, shown with the evidence on hover: inferred rather than quoted, or what the review asked. */
   note?: string;
   /**
-   * Starts unticked. Applying it replaces something the provider wrote — a note paragraph — so they opt in
-   * rather than out. The panel's form of the "proposed edit awaits your confirmation" the chat used to show.
-   */
-  confirm?: boolean;
-  /**
    * The typed action the plan or review endpoint returned, as the executor will run it. `toPlannedAction`
    * overlays whatever the provider edited in the panel onto it. Absent on a recommendation built by hand
    * (fixtures, tests), in which case the typed fields alone describe the action.
@@ -66,12 +61,23 @@ interface ScribeRecommendationBase {
   source?: RecommendationSource;
 }
 
+/**
+ * How a note paragraph lands in a field that may already hold text: after it, over it, or not at all. The
+ * provider picks per row; `skip` is the row's way of being unticked.
+ */
+export type NoteMode = 'append' | 'replace' | 'skip';
+
 /** A free-text note paragraph. Named for the field it most often is; `field` says which one it really targets. */
 export interface HpiRecommendation extends ScribeRecommendationBase {
   kind: 'hpi';
   text: string;
   /** The note field this text goes into. Absent means the History of Present Illness. */
   field?: NoteTextField;
+  /**
+   * How much the field already held when the analysis ran, in words, so the row can say what appending
+   * adds after and what replacing throws away. Absent for an empty field, where the only choice is add or skip.
+   */
+  existingWords?: number;
 }
 
 export interface AllergyRecommendation extends ScribeRecommendationBase {

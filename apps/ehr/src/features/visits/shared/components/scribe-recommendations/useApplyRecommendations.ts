@@ -155,8 +155,11 @@ export const useApplyRecommendations = (): {
       };
       // One executor pass over the batch: the snapshot advances as steps apply, so a lab ordered after the
       // diagnosis it needs sees that diagnosis, and a swap's removal frees the primary before the add.
-      // Note text is appended to what the field holds now, which is what the template just wrote.
-      const actions = rest.map((rec) => appendToNoteField(toPlannedAction(rec), rec, snapshot));
+      // Note text lands as the row's mode says — after what the field holds now, which is what the template
+      // just wrote, or over it.
+      const actions = rest.map((rec) =>
+        appendToNoteField(toPlannedAction(rec), rec, snapshot, store.itemState[rec.id]?.noteMode)
+      );
       await runPlan(actions, context, {
         onStepStart: (step) => report.start(rest[step.index].id),
         onStepSettled: (step) => {

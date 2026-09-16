@@ -141,8 +141,11 @@ const ID = {
 // ============================================================================
 
 const mocks = vi.hoisted(() => ({
-  /** Resolves to nothing for an applied row, to an outcome to settle it another way, or throws to fail it. */
-  applyOne: vi.fn(async (_recommendation: unknown): Promise<unknown> => undefined),
+  /**
+   * Resolves to nothing for an applied row, to an outcome to settle it another way, or throws to fail it.
+   * Also handed the action as the executor would get it, so a test can read what a note row writes.
+   */
+  applyOne: vi.fn(async (_recommendation: unknown, _action?: unknown): Promise<unknown> => undefined),
   plan: vi.fn((): unknown => undefined),
   /** Note fields already written on the chart, keyed by clinical name. */
   written: {} as Record<string, string>,
@@ -168,14 +171,28 @@ vi.mock('../../src/features/visits/shared/components/scribe-recommendations/useA
   const { applyRecommendations, errorMessage, pendingObservationIds } = await import(
     '../../src/features/visits/shared/components/scribe-recommendations/applyRecommendations'
   );
+  const { appendToNoteField, toPlannedAction } = await import(
+    '../../src/features/visits/shared/components/scribe-recommendations/analysis'
+  );
+  const { useScribeRecommendationsStore } = await import(
+    '../../src/features/visits/shared/components/scribe-recommendations/scribeRecommendations.store'
+  );
+  const { buildChartSnapshot } = await import('../../src/features/easy-chart/executor/chartSnapshot');
   const run = async (
-    recommendations: { id: string }[],
+    recommendations: ScribeRecommendation[],
     report: { start(id: string): void; settle(id: string, outcome: StepOutcome): void }
   ): Promise<void> => {
     for (const rec of recommendations) {
       report.start(rec.id);
       try {
-        const outcome = (await mocks.applyOne(rec)) as StepOutcome | undefined;
+        // The action as the real hook hands it to the executor: the row's note mode, over the chart as it stands.
+        const action = appendToNoteField(
+          toPlannedAction(rec),
+          rec,
+          buildChartSnapshot(mocks.chartData as unknown as GetChartDataResponse),
+          useScribeRecommendationsStore.getState().itemState[rec.id]?.noteMode
+        );
+        const outcome = (await mocks.applyOne(rec, action)) as StepOutcome | undefined;
         report.settle(rec.id, outcome ?? { status: 'applied', createdResourceIds: [] });
       } catch (error) {
         report.settle(rec.id, { status: 'failed', reason: errorMessage(error) });
@@ -396,6 +413,13 @@ const observations = (): ScribeRecommendation[] =>
 
 const appliedIds = (): string[] => mocks.applyOne.mock.calls.map(([rec]) => (rec as ScribeRecommendation).id);
 
+/** The action a row went to the executor as — for a note row, its text after or over the field's. */
+const appliedAction = (id: string): unknown =>
+  mocks.applyOne.mock.calls.find(([rec]) => (rec as ScribeRecommendation).id === id)?.[1];
+
+/** What the provider had typed into the HPI before the transcript arrived: nine words. */
+const EXISTING_HPI = 'The HPI the provider typed before the transcript arrived.';
+
 // ============================================================================
 // TESTS
 // ============================================================================
@@ -447,11 +471,11 @@ describe('ScribeRecommendationsDrawer', () => {
         .map((section) => section.getAttribute('data-testid'))
         .filter((id) => id?.startsWith('scribe-stage-'))
     ).toEqual(['scribe-stage-template', 'scribe-stage-observations', 'scribe-stage-rejected']);
-    expect(within(template).getByText(/template that looks like a good fit/)).toBeVisible();
+    expect(within(template).getByText('Template suggestion')).toBeVisible();
     expect(within(observationsStage).getByText(/observations, which I read in the narrative/)).toBeVisible();
 
     // stage one is a single button naming the template the server resolved, not a row in the list below
-    expect(within(template).getByTestId(testIds.templateApplyButton)).toHaveTextContent('Apply template: Sinusitis');
+    expect(within(template).getByTestId(testIds.templateApplyButton)).toHaveTextContent('Apply: Sinusitis');
     expect(within(template).getByTestId(testIds.templateApplyButton)).toBeEnabled();
     expect(within(template).getByTestId(testIds.goToSectionButton('template'))).toBeVisible();
     expect(screen.queryByTestId(testIds.rowCheckbox(ID.template))).toBeNull();
@@ -742,7 +766,7 @@ describe('ScribeRecommendationsDrawer', () => {
     await user.click(screen.getByRole('option', { name: 'Sinusitis: Wait See' }));
     await lookAway(user);
     // picking a different template clears the failure, so this is a fresh apply rather than a retry
-    expect(screen.getByTestId(testIds.templateApplyButton)).toHaveTextContent('Apply template: Sinusitis: Wait See');
+    expect(screen.getByTestId(testIds.templateApplyButton)).toHaveTextContent('Apply: Sinusitis: Wait See');
 
     mocks.applyOne.mockResolvedValue(undefined);
     await user.click(screen.getByTestId(testIds.templateApplyButton));
@@ -831,23 +855,102 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.queryByTestId(testIds.rowNote(ID.fentanyl))).toBeNull();
   });
 
-  it('starts a rewrite of note text the provider already wrote unticked, flagged with what it replaces', async () => {
+  it('starts a note row for a field the provider already wrote as an addition after it, not a rewrite', async () => {
     const user = userEvent.setup();
-    mocks.written = { historyOfPresentIllness: 'The HPI the provider typed before the transcript arrived.' };
+    mocks.written = { historyOfPresentIllness: EXISTING_HPI };
     await openPanelWithRecommendations(user);
     const total = observations().length;
 
-    // it is on the list, but opted into rather than out of
-    expectUnticked(ID.hpi);
-    const row = screen.getByTestId(testIds.row(ID.hpi));
-    expect(
-      within(row).getByLabelText(/Replaces the History of Present Illness text already in the note/)
-    ).toBeVisible();
-    expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 1} of ${total} selected`);
+    // ticked like everything else — no box, no strike — with the chip saying how it lands
+    expect(screen.queryByTestId(testIds.rowCheckbox(ID.hpi))).toBeNull();
+    expect(screen.getByTestId(testIds.rowText(ID.hpi))).not.toHaveStyle({ textDecoration: 'line-through' });
+    expect(screen.getByTestId(testIds.noteModeChip(ID.hpi))).toHaveTextContent('Append');
+    // and nothing flags it: adding after the provider's words is not overwriting them
+    expect(within(screen.getByTestId(testIds.row(ID.hpi))).queryByRole('img')).toBeNull();
+    expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total} of ${total} selected`);
 
+    // applying it puts the scribe's paragraph after the provider's
+    mocks.chartData = { patientId: 'p-1', chiefComplaint: { resourceId: 'cc-1', text: EXISTING_HPI } };
     await user.click(screen.getByTestId(testIds.applyObservationsButton));
-    await waitFor(() => expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 1} added`));
-    expect(appliedIds()).not.toContain(ID.hpi);
+    await waitFor(() => expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total} added`));
+    expect(appliedAction(ID.hpi)).toMatchObject({
+      kind: 'edit-note-text',
+      field: 'historyOfPresentIllness',
+      newText: `${EXISTING_HPI}\nPatient reports having post-nasal drip and sinus pressure for 1 week.`,
+    });
+  });
+
+  it('offers a written field append, replace or skip from its chip, without opening the editor', async () => {
+    const user = userEvent.setup();
+    mocks.written = { historyOfPresentIllness: EXISTING_HPI };
+    await openPanelWithRecommendations(user);
+    const total = observations().length;
+
+    // the chip is the row's own control: it opens the menu, not the line
+    await user.click(screen.getByTestId(testIds.noteModeChip(ID.hpi)));
+    expect(screen.queryByTestId(testIds.rowEditInput(ID.hpi))).toBeNull();
+    const option = (mode: string): HTMLElement =>
+      within(screen.getByTestId(testIds.noteModeMenu(ID.hpi))).getByTestId(testIds.noteModeOption(ID.hpi, mode));
+    expect(option('append')).toHaveTextContent('Adds after the 9 words already there');
+    expect(option('append')).toHaveClass('Mui-selected');
+    expect(option('replace')).toHaveTextContent('Overwrites the current text');
+    expect(option('skip')).toHaveTextContent('Leaves the note as it is');
+
+    // skipping strikes the row through, as unticking any other row does, and takes it out of the batch
+    await user.click(option('skip'));
+    expectUnticked(ID.hpi);
+    expect(screen.getByTestId(testIds.noteModeChip(ID.hpi))).toHaveTextContent('Skip');
+    expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total - 1} of ${total} selected`);
+    expect(screen.queryByTestId(testIds.rowEditInput(ID.hpi))).toBeNull();
+
+    // replacing ticks it back on, and the field is rewritten rather than added to
+    await waitFor(() => expect(screen.queryByTestId(testIds.noteModeMenu(ID.hpi))).toBeNull());
+    await user.click(screen.getByTestId(testIds.noteModeChip(ID.hpi)));
+    await user.click(option('replace'));
+    expect(screen.getByTestId(testIds.rowText(ID.hpi))).not.toHaveStyle({ textDecoration: 'line-through' });
+    expect(screen.getByTestId(testIds.noteModeChip(ID.hpi))).toHaveTextContent('Replace');
+    expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total} of ${total} selected`);
+
+    mocks.chartData = { patientId: 'p-1', chiefComplaint: { resourceId: 'cc-1', text: EXISTING_HPI } };
+    await user.click(screen.getByTestId(testIds.applyObservationsButton));
+    await waitFor(() => expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${total} added`));
+    expect(appliedAction(ID.hpi)).toMatchObject({
+      kind: 'edit-note-text',
+      newText: 'Patient reports having post-nasal drip and sinus pressure for 1 week.',
+    });
+    // once it is in, the chip gives way to the settled row's green tick
+    expectCharted(ID.hpi);
+    expect(screen.queryByTestId(testIds.noteModeChip(ID.hpi))).toBeNull();
+  });
+
+  it('offers a note row for an empty field only add or skip, in the editor as on the line', async () => {
+    const user = userEvent.setup();
+    await openPanelWithRecommendations(user);
+
+    expect(screen.getByTestId(testIds.noteModeChip(ID.hpi))).toHaveTextContent('Add');
+    await user.click(screen.getByTestId(testIds.noteModeChip(ID.hpi)));
+    const menu = screen.getByTestId(testIds.noteModeMenu(ID.hpi));
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent)
+    ).toEqual(['AddAdds to the empty field', 'SkipLeaves the note as it is']);
+    expect(within(menu).queryByTestId(testIds.noteModeOption(ID.hpi, 'replace'))).toBeNull();
+    await user.click(within(menu).getByTestId(testIds.noteModeOption(ID.hpi, 'append')));
+
+    // in the editor the same chip stands in for the tick, on the line above the text
+    await user.click(screen.getByTestId(testIds.rowEditButton(ID.hpi)));
+    const row = screen.getByTestId(testIds.row(ID.hpi));
+    expect(within(row).getByTestId(testIds.rowEditInput(ID.hpi))).toBeVisible();
+    expect(within(row).queryByTestId(testIds.rowCheckbox(ID.hpi))).toBeNull();
+    expect(within(row).getByTestId(testIds.noteModeChip(ID.hpi))).toHaveTextContent('Add');
+
+    // choosing from the menu is not looking away from the editor
+    await user.click(within(row).getByTestId(testIds.noteModeChip(ID.hpi)));
+    await user.click(screen.getByTestId(testIds.noteModeOption(ID.hpi, 'skip')));
+    expect(within(row).getByTestId(testIds.rowEditInput(ID.hpi))).toBeVisible();
+    await lookAway(user);
+    expectUnticked(ID.hpi);
   });
 
   it('marks recommendations the chart already holds and leaves them out of the batch', async () => {
@@ -1227,11 +1330,10 @@ describe('appendToNoteField', () => {
     });
   });
 
-  it('writes the text as is into an empty field, and replaces when the row is an explicit rewrite', () => {
+  it('writes the text as is into an empty field, and over a written one when the row is set to replace', () => {
     const empty = buildExecutorSnapshot(undefined);
     expect(appendToNoteField(toPlannedAction(hpi), hpi, empty).newText).toBe('Sinus pressure x 1 week.');
-    const rewrite: ScribeRecommendation = { ...hpi, confirm: true };
-    expect(appendToNoteField(toPlannedAction(rewrite), rewrite, written).newText).toBe('Sinus pressure x 1 week.');
+    expect(appendToNoteField(toPlannedAction(hpi), hpi, written, 'replace').newText).toBe('Sinus pressure x 1 week.');
   });
 
   it('reads the field the row targets, through the storage swap', () => {

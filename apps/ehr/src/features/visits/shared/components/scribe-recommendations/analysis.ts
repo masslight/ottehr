@@ -19,15 +19,17 @@ import {
   RejectedAction,
 } from 'utils/lib/easy-chart/api';
 import { buildRosCatalogue, findRosMatches, RosCatalogueEntry } from 'utils/lib/easy-chart/matchers';
-import { chartKeyForNoteField, NOTE_FIELD_LABELS, overwritesWrittenNoteField } from 'utils/lib/easy-chart/note-fields';
+import { chartKeyForNoteField, NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
 import { findingPolarity, locateQuote } from 'utils/lib/easy-chart/provenance';
 import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { locateGeneratedLines } from './narrativeLines';
 import { buildNarrativeRuns } from './narrativeRuns';
+import { wordCount } from './scribeSections';
 import {
   EvidenceOrigin,
   LocatedLine,
+  NoteMode,
   RecommendationSource,
   ScribeAnalysis,
   ScribeRecommendation,
@@ -37,8 +39,8 @@ import {
 export interface AnalysisContext {
   /**
    * The free-text note fields as WRITTEN now, keyed by clinical name and carrying only non-empty fields —
-   * exactly what `buildNoteContextFromChart` returns. A rewrite of one of these is the one recommendation
-   * that starts unticked: it replaces prose the provider wrote.
+   * exactly what `buildNoteContextFromChart` returns. A note row measures its field here, so it can say how
+   * much it would add after, or replace.
    */
   written: Record<string, string | undefined>;
   /** Defaults to the ROS config's own catalogue; injectable for tests. */
@@ -222,23 +224,16 @@ function toRecommendation(
     case 'edit-note-text': {
       const field = action.field as NoteTextField | undefined;
       if (field && field in NOTE_FIELD_LABELS && typeof action.newText === 'string') {
-        // A rewrite of prose the provider already wrote is never applied unasked: it starts unticked and
-        // says what it would replace. An edit to an EMPTY field has nothing to overwrite.
-        const replaces = overwritesWrittenNoteField(action, options.written);
+        // Prose the provider already wrote is never overwritten unasked: the row starts as an addition after
+        // it, and says how much is there, so choosing to replace it is a choice. An EMPTY field has nothing to
+        // measure.
+        const existingWords = wordCount(options.written[field] ?? '');
         return {
           ...base,
           kind: 'hpi',
           field,
           text: action.newText,
-          ...(replaces
-            ? {
-                warning: joinWarnings(
-                  base.warning,
-                  `Replaces the ${NOTE_FIELD_LABELS[field]} text already in the note.`
-                ),
-                confirm: true,
-              }
-            : {}),
+          ...(existingWords > 0 ? { existingWords } : {}),
         };
       }
       break;
@@ -507,18 +502,19 @@ export function toPlannedAction(rec: ScribeRecommendation): PlannedAction {
 }
 
 /**
- * The scribe ADDS to a note paragraph: its text goes after whatever the field already says, unless the row
- * is an explicit rewrite (`confirm`), which replaces it. The executor's own `edit-note-text` rewrites, so
- * the appending is done here, on the scribe's path only, and read off the chart as it stands at write
- * time — the template the Chart button applies a moment earlier has usually written the field since the
- * analysis ran.
+ * The scribe ADDS to a note paragraph by default: its text goes after whatever the field already says. The
+ * executor's own `edit-note-text` rewrites, so the appending is done here, on the scribe's path only, and
+ * read off the chart as it stands at write time — the template the Chart button applies a moment earlier
+ * has usually written the field since the analysis ran. A row the provider set to `replace` is handed on
+ * unchanged, which is the rewrite; a `skip` row is unticked and never gets this far.
  */
 export function appendToNoteField(
   action: PlannedAction,
   rec: ScribeRecommendation,
-  chart: ChartSnapshot
+  chart: ChartSnapshot,
+  mode: NoteMode = 'append'
 ): PlannedAction {
-  if (rec.kind !== 'hpi' || rec.confirm || action.kind !== 'edit-note-text') return action;
+  if (rec.kind !== 'hpi' || mode !== 'append' || action.kind !== 'edit-note-text') return action;
   const current = chart.noteFields[chartKeyForNoteField(rec.field ?? HPI_FIELD)]?.text?.trim();
   return current ? { ...action, newText: `${current}\n${action.newText}` } : action;
 }
