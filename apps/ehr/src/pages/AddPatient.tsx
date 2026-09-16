@@ -380,11 +380,16 @@ export default function AddPatient(): JSX.Element {
   // no longer in the merged catalog (e.g., an admin deleted the FHIR service
   // after the user selected it), and the picker is now locked so the cleanup
   // effect below skips — nothing else can rescue the stale selection.
+  //
+  // Waits on isCatalogLoaded for the same reason the cleanup effect below does: while
+  // the FHIR half is pending, a project with a single BOOKING_CONFIG service reports
+  // length === 1 and this effect would overwrite a follow-up's seeded admin-created
+  // code with that lone entry — and nothing restores it once the real catalog lands.
   useEffect(() => {
-    if (mergedSourcedCategories.length !== 1) return;
+    if (!isCatalogLoaded || mergedSourcedCategories.length !== 1) return;
     const only = mergedSourcedCategories[0]?.category.code;
     if (only && serviceCategory !== only) setServiceCategory(only);
-  }, [mergedSourcedCategories, serviceCategory]);
+  }, [mergedSourcedCategories, serviceCategory, isCatalogLoaded]);
 
   // When visit type changes, drop a stale category that's no longer offered.
   // Keep the selection if it's still valid (avoid yanking the user's choice

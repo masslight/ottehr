@@ -514,10 +514,32 @@ export default function BookableSelect({
   // identity comparison is sufficient; until the first load settles AND the caller's
   // category filters are final we leave the selection alone, so neither an unloaded
   // target list nor a half-resolved category filter clobbers a caller-seeded value.
+  //
+  // A caller-seeded Location is the one case where "not in the list" doesn't mean
+  // "no longer bookable". Callers seed the physical Location (it's what a parent
+  // encounter records), but the resolver answers with whichever tier actually vends
+  // the picked service there — for an admin-created service that is usually a Group
+  // or PR surface, never a Location-tier entry. When exactly one option resolves at
+  // that same Location, adopt it: that is already the resolver's silent-pick contract
+  // (a lone passing target is labeled with the bare Location name), so the user sees
+  // the location they expect and the slot loader gets the surface it needs. Two or
+  // more means a genuine choice, so clear and let the user disambiguate.
   useEffect(() => {
     if (!selected || !hasLoaded || !categoryFiltersReady) return;
     const stillValid = filteredTargets.some((t) => targetsAreSame(t, selected));
-    if (!stillValid) setSelected(undefined);
+    if (stillValid) return;
+    if (selected.resourceType === 'Location') {
+      // Options this picker surfaced for the same physical location: a Location-tier
+      // entry is its own origin, Group / PR sub-options carry it in atLocationSlug.
+      const resolvedHere = filteredTargets.filter(
+        (t) => (t.resourceType === 'Location' ? t.slug : t.atLocationSlug) === selected.slug
+      );
+      if (resolvedHere.length === 1) {
+        setSelected(resolvedHere[0]);
+        return;
+      }
+    }
+    setSelected(undefined);
   }, [filteredTargets, hasLoaded, categoryFiltersReady, selected, setSelected]);
 
   const typeChip = (t: BookableTargetType): string =>
