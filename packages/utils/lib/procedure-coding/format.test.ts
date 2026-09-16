@@ -30,7 +30,7 @@ describe('saved procedure findings and CPT lines', () => {
       { wounds: [{ site: 'trunk', length: 2, closure: 'single layer', edgeDebridement: false, sutureCount: 0 }] },
       PROCEDURE_NAMES.laceration[0]
     );
-    expect(text).toContain('Wounds 1: Site: trunk; Length (cm): 2; Closure: single layer');
+    expect(text).toContain('Wound 1: Site: trunk; Length (cm): 2; Closure: single layer');
     expect(text).toContain('Wound-edge debridement: No');
     expect(text).toContain('Suture/staple count: 0');
     expect(text).not.toContain('edgeDebridement');

@@ -84,9 +84,11 @@ export function formatStructuredFacts(facts: StructuredFacts | undefined, proced
       const label = field?.label ?? humanize(key);
       if (Array.isArray(value)) {
         const children = field?.kind === 'rows' ? field.fields : [];
+        // A row is one of the things the group is named after: "Wounds" holds "Wound 1", "Wound 2".
+        const rowLabel = field?.kind === 'rows' ? field.rowLabel : label;
         return value.flatMap((row, index) => {
           const parts = format(row, children);
-          return parts.length ? [`${label} ${index + 1}: ${parts.join('; ')}`] : [];
+          return parts.length ? [`${rowLabel} ${index + 1}: ${parts.join('; ')}`] : [];
         });
       }
       return [`${label}: ${typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value}`];

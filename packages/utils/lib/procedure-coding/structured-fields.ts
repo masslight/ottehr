@@ -42,6 +42,8 @@ export type ScalarCodingField = SelectCodingField | NumberCodingField | Checkbox
 
 export interface RowsCodingField extends CodingFieldBase {
   kind: 'rows';
+  /** Singular name of one row: the group header says "Wounds", a row says "Wound 1". */
+  rowLabel: string;
   fields: readonly ScalarCodingField[];
   defaultValue?: never;
 }

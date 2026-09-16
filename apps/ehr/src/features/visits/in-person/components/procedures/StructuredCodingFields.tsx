@@ -87,12 +87,12 @@ export const StructuredCodingFields: FC<Props> = ({ family, value = {}, onChange
               >
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
                   <Typography sx={{ ...FIELD_TEXT, fontWeight: 600, color: 'text.primary' }}>
-                    {field.label} {index + 1}
+                    {field.rowLabel} {index + 1}
                   </Typography>
                   {!readOnly && (
-                    <Tooltip title={`Remove ${field.label.toLowerCase()} ${index + 1}`}>
+                    <Tooltip title={`Remove ${field.rowLabel.toLowerCase()} ${index + 1}`}>
                       <IconButton
-                        aria-label={`Remove ${field.label} ${index + 1}`}
+                        aria-label={`Remove ${field.rowLabel} ${index + 1}`}
                         onClick={() => change(rows.filter((_, i) => i !== index))}
                         sx={{ color: 'error.main' }}
                       >
@@ -127,7 +127,7 @@ export const StructuredCodingFields: FC<Props> = ({ family, value = {}, onChange
                   ])
                 }
               >
-                Add {field.label === 'Wounds' ? 'wound' : 'administration'}
+                Add {field.rowLabel.toLowerCase()}
               </Button>
             )}
           </Box>

@@ -87,7 +87,13 @@ for (const field of administrationFields) {
   if (['event', 'separateInitial', 'distinctService'].includes(field.key)) field.details = true;
 }
 const fields: CodingField[] = [
-  { key: 'administrations', label: 'Administrations', kind: 'rows', fields: administrationFields },
+  {
+    key: 'administrations',
+    label: 'Administrations',
+    rowLabel: 'Administration',
+    kind: 'rows',
+    fields: administrationFields,
+  },
 ];
 const MINUTES_PER_HOUR = 60;
 const HOURS_PER_DAY = 24;
@@ -199,7 +205,7 @@ export const injectionInfusionFamily: ProcedureFamilyModel<InjectionInfusionCode
     for (const [i, row] of rows.entries()) {
       // Name the row as the form numbers it, and name only what is actually unanswered: several
       // administrations can be on screen at once and a bare "Route" does not say which one is incomplete.
-      const inRow = (label: string): string => `Administrations ${i + 1}: ${label}`;
+      const inRow = (label: string): string => `Administration ${i + 1}: ${label}`;
       const unanswered = [
         ...(Object.values(ADMINISTRATION_ROUTE).some((route) => route === row.route) ? [] : ['Route']),
         ...(row.drug ? [] : ['Drug']),

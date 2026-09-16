@@ -4,7 +4,7 @@ import { resolveFamilyFacts } from 'utils/lib/procedure-coding';
 import { lacerationFamily } from 'utils/lib/procedure-coding/families/laceration';
 import { StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { describe, expect, it } from 'vitest';
-import { StructuredCodingFields } from './StructuredCodingFields';
+import { StructuredCodingFields } from '../../src/features/visits/in-person/components/procedures/StructuredCodingFields';
 
 function Form({ readOnly = false }: { readOnly?: boolean }): ReactElement {
   const [value, setValue] = useState<StructuredFacts>(resolveFamilyFacts(lacerationFamily, {}));
@@ -20,7 +20,7 @@ describe('structured coding form', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Add wound' }));
     expect(screen.getAllByLabelText('Length (cm)')).toHaveLength(2);
-    fireEvent.click(screen.getByRole('button', { name: 'Remove Wounds 2' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Wound 2' }));
     expect(screen.getAllByLabelText('Length (cm)')).toHaveLength(1);
   });
   it('allows incomplete measurements and explicit false answers', () => {
@@ -40,6 +40,6 @@ describe('structured coding form', () => {
     render(<Form readOnly />);
     expect(screen.getByLabelText('Length (cm)')).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Add wound' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Remove Wounds 1' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Remove Wound 1' })).not.toBeInTheDocument();
   });
 });

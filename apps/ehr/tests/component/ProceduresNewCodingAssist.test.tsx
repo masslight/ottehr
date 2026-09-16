@@ -245,7 +245,10 @@ describe('procedure coding assistance presentation', () => {
     expect(findings).toHaveTextContent('Layered closure performed.');
   });
 
-  it('shows supported, reminder, and unassessed code states together', () => {
+  it('shows supported and unassessed code states, and prints a reminder only once', () => {
+    // Both directions evaluate the same answers, so the checklist reminder arrives on both results.
+    // It belongs with the suggested code; repeating it under "Documentation supports" put the same
+    // sentence on the page twice.
     const reminder: Finding = {
       level: 'bestPractice',
       message: 'Splint material is not documented.',
@@ -253,7 +256,13 @@ describe('procedure coding assistance presentation', () => {
       evidence: { source: EvidenceSource.Absence },
     };
     renderAssistance(
-      evaluation({ kind: CodeOutcomeKind.NoCode }),
+      evaluation(
+        {
+          kind: CodeOutcomeKind.Determined,
+          suggestion: { code: '29125', display: '29125 — Short arm splint', justification: 'Static splint applied.' },
+        },
+        { findings: [reminder] }
+      ),
       evaluation(
         { kind: CodeOutcomeKind.NotApplicable },
         {
@@ -267,7 +276,8 @@ describe('procedure coding assistance presentation', () => {
     );
 
     expect(screen.getByTestId('coding-defense-supported')).toHaveTextContent('Documentation supports 29125');
-    expect(screen.getByTestId('coding-defense-findings')).toHaveTextContent('Splint material is not documented.');
+    expect(screen.getAllByText('Splint material is not documented.')).toHaveLength(1);
+    expect(screen.getByTestId('coding-assist-findings')).toHaveTextContent('Splint material is not documented.');
     expect(screen.getByTestId('coding-defense-not-assessed')).toHaveTextContent(
       '99214 — not assessed by documentation checks'
     );

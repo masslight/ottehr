@@ -1001,25 +1001,25 @@ export const UNFINISHED_FORMS: { visit: string; procedure: string; answers: Form
     visit: 'The form was opened and nothing filled in — one wound row is waiting',
     procedure: LACERATION,
     answers: {},
-    asksFor: ['Wounds 1: Site', 'Wounds 1: Closure'],
+    asksFor: ['Wound 1: Site', 'Wound 1: Closure'],
   },
   {
     visit: 'A wound with a length but no site and no closure',
     procedure: LACERATION,
     answers: { Wounds: [{ 'Length (cm)': 2 }] },
-    asksFor: ['Wounds 1: Site', 'Wounds 1: Closure'],
+    asksFor: ['Wound 1: Site', 'Wound 1: Closure'],
   },
   {
     visit: 'A first wound is complete, a second one was added and left blank',
     procedure: LACERATION,
     answers: { Wounds: [{ Site: 'trunk', 'Length (cm)': 2, Closure: 'single layer' }, {}] },
-    asksFor: ['Wounds 2: Site', 'Wounds 2: Closure'],
+    asksFor: ['Wound 2: Site', 'Wound 2: Closure'],
   },
   {
     visit: 'A wound with a site and closure but no length',
     procedure: LACERATION,
     answers: { Wounds: [{ Site: 'trunk', Closure: 'single layer' }] },
-    asksFor: ['Wounds 1: Length (cm)'],
+    asksFor: ['Wound 1: Length (cm)'],
   },
   {
     visit: 'Nothing answered about the drainage',
@@ -1039,13 +1039,13 @@ export const UNFINISHED_FORMS: { visit: string; procedure: string; answers: Form
     answers: {
       Administrations: [{ Route: 'IV push', Drug: 'ketorolac', 'IV access site': 'left arm' }, {}],
     },
-    asksFor: ['Administrations 2: Route', 'Administrations 2: Drug'],
+    asksFor: ['Administration 2: Route', 'Administration 2: Drug'],
   },
   {
     visit: 'An infusion with no start and stop time',
     procedure: INJECTION,
     answers: { Administrations: [{ Route: 'IV infusion', Drug: 'ceftriaxone', 'IV access site': 'left arm' }] },
-    asksFor: ['Administrations 1: Start', 'Administrations 1: Stop'],
+    asksFor: ['Administration 1: Start', 'Administration 1: Stop'],
   },
   {
     visit: 'The burn degree has not been chosen',

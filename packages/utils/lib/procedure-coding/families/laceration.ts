@@ -146,7 +146,9 @@ const woundFields: ScalarCodingField[] = [
 
 for (const field of woundFields) if (!['site', 'side', 'length', 'closure'].includes(field.key)) field.details = true;
 
-const fields: CodingField[] = [{ key: 'wounds', label: 'Wounds', kind: 'rows', fields: woundFields }];
+const fields: CodingField[] = [
+  { key: 'wounds', label: 'Wounds', rowLabel: 'Wound', kind: 'rows', fields: woundFields },
+];
 
 const simpleBody = [
   LACERATION_CODES.SimpleBodyUpTo2Point5Cm,
@@ -277,7 +279,7 @@ export const lacerationFamily: ProcedureFamilyModel<LacerationCode> = {
 
     for (const [index, wound] of wounds.entries()) {
       // Name the wound as the form numbers it: with several rows on screen, a bare "Site" does not say which.
-      const inWound = (label: string): string => `Wounds ${index + 1}: ${label}`;
+      const inWound = (label: string): string => `Wound ${index + 1}: ${label}`;
       const unanswered = [
         ...(sites.includes(String(wound.site)) ? [] : ['Site']),
         ...(wound.closure ? [] : ['Closure']),

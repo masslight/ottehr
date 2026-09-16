@@ -18,8 +18,11 @@ export const DocumentationCheck: FC<DocumentationCheckProps> = ({ evaluation, su
           (finding.level !== 'determines' && finding.level !== 'required')
       )
     : allFindings;
+
+  // Best-practice reminders ("record the suture count", …) belong to the suggested code and are
+  // already printed in the suggestion panel above, which is on screen from the moment a code is
+  // suggested. Repeating them here put the same three lines on the page twice.
   const actionable = actionableFindings(findings);
-  const reminders = findings.filter((finding) => finding.level === 'bestPractice');
   const payerNotes = collectPayerNotes(evaluation);
   const supportedCodes = evaluation == null ? [] : codesWithAssessment(evaluation, CodeAssessmentKind.Supported);
   const notAssessedCodes = evaluation == null ? [] : codesWithAssessment(evaluation, CodeAssessmentKind.NotAssessed);
@@ -43,7 +46,10 @@ export const DocumentationCheck: FC<DocumentationCheckProps> = ({ evaluation, su
           }}
         >
           <Typography sx={{ fontSize: '17px', fontWeight: 700 }}>Documentation check</Typography>
-          <CodingFindingList findings={findings} dataTestId={dataTestIds.documentProcedurePage.codingDefenseFindings} />
+          <CodingFindingList
+            findings={actionable}
+            dataTestId={dataTestIds.documentProcedurePage.codingDefenseFindings}
+          />
           <PayerNoteList notes={payerNotes} />
         </Box>
       )}
@@ -52,10 +58,6 @@ export const DocumentationCheck: FC<DocumentationCheckProps> = ({ evaluation, su
           <Typography sx={{ fontSize: '16px', fontWeight: 600, color: 'success.dark' }}>
             Documentation supports {supportedCodes.join(', ')}
           </Typography>
-          <CodingFindingList
-            findings={reminders}
-            dataTestId={dataTestIds.documentProcedurePage.codingDefenseFindings}
-          />
           <PayerNoteList notes={payerNotes} />
         </Box>
       )}
