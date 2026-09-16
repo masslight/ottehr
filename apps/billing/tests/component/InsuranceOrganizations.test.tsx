@@ -230,7 +230,7 @@ describe('CustomInsuranceOrganizationDetail', () => {
     expect(screen.getAllByText('Portal').length).toBeGreaterThan(0);
     expect(screen.getAllByText('CMS-1500').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Prefers electronic submission').length).toBeGreaterThan(0);
-    expect(screen.getByText('Jane Smith — Claims Manager')).toBeInTheDocument();
+    expect(screen.getByText('Claims Manager - Jane Smith')).toBeInTheDocument();
   });
 
   it('edits and saves with the stored insuranceOrgId, then refetches', async () => {
