@@ -1683,15 +1683,20 @@ export default function VisitDetailsPage(): ReactElement {
           open={Boolean(pendingSave)}
           handleClose={handleCancelPendingSave}
           title={CONSENT_REMINDER_TITLE}
-          description={CONSENT_REMINDER_MESSAGE}
+          description={
+            <Typography variant="body2" data-testid={dataTestIds.dialog.message}>
+              {CONSENT_REMINDER_MESSAGE}
+            </Typography>
+          }
           dataTestId={dataTestIds.visitDetailsPage.consentReminderDialog}
+          maxWidth="xs"
+          fullWidth
           actions={
             <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
               <Button
                 variant="outlined"
                 onClick={handleCancelPendingSave}
                 disabled={pendingSaveIsRunning}
-                sx={{ fontWeight: 500, borderRadius: '100px', textTransform: 'none' }}
                 data-testid={dataTestIds.dialog.cancelButton}
               >
                 Cancel
@@ -1700,7 +1705,6 @@ export default function VisitDetailsPage(): ReactElement {
                 variant="contained"
                 onClick={handleConfirmPendingSave}
                 loading={pendingSaveIsRunning}
-                sx={{ fontWeight: 500, borderRadius: '100px', textTransform: 'none' }}
                 data-testid={dataTestIds.dialog.proceedButton}
               >
                 Save

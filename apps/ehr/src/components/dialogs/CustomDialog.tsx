@@ -6,6 +6,7 @@ import {
   DialogActions,
   DialogContent,
   DialogContentText,
+  DialogProps,
   DialogTitle,
   IconButton,
   SxProps,
@@ -30,6 +31,8 @@ export interface CustomDialogProps {
   disabled?: boolean;
   dataTestId?: string;
   actions?: React.ReactNode;
+  maxWidth?: DialogProps['maxWidth'];
+  fullWidth?: boolean;
   /** Overrides the Dialog's stacking context — e.g. to sit above a non-modal floating panel it's opened from. */
   sx?: SxProps<Theme>;
 }
@@ -48,6 +51,8 @@ export const CustomDialog: FC<CustomDialogProps> = ({
   disabled,
   dataTestId,
   actions,
+  maxWidth,
+  fullWidth,
   sx,
 }) => {
   const theme = useTheme();
@@ -57,6 +62,8 @@ export const CustomDialog: FC<CustomDialogProps> = ({
       open={open}
       onClose={handleClose}
       disableScrollLock
+      maxWidth={maxWidth}
+      fullWidth={fullWidth}
       sx={[
         {
           '.MuiPaper-root': {
