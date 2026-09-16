@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
+import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
@@ -433,10 +434,14 @@ export const Header = (): JSX.Element => {
   }
 
   const handleRoomChange = async (newRoom: string): Promise<void> => {
-    if (!oystehr || !appointment) return;
+    if (!oystehr || !appointment?.id) return;
     setRoomSaving(true);
     try {
-      await updateAppointmentRoom(appointment, newRoom || undefined, oystehr);
+      const appointmentToUpdate = await oystehr.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: appointment.id,
+      });
+      await updateAppointmentRoom(appointmentToUpdate, newRoom || undefined, oystehr);
       await appointmentRefetch();
     } catch (error: any) {
       console.log(error.message);
