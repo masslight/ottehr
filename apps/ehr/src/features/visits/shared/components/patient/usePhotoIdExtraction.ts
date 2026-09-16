@@ -1,5 +1,6 @@
+import Oystehr from '@oystehr/sdk';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { DocumentReference } from 'fhir/r4b';
+import { DocumentReference, QuestionnaireResponse } from 'fhir/r4b';
 import { useEffect, useRef } from 'react';
 import { extractPhotoId } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -11,6 +12,7 @@ import {
   PhotoIdExtractionFields,
 } from 'utils/lib/types/data/documents';
 import { PHOTO_ID_CARD_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { findQuestionnaireResponseItemLinkId } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { CardFieldSuggestion, normalizeForComparison, readStoredExtension } from './useInsuranceCardExtraction';
 
 export interface UsePhotoIdExtractionResult {
@@ -38,6 +40,55 @@ export const readNewestFrontExtractionFields = (
   const extraction = readStoredExtraction(front);
   if (!extraction || extraction.notAPhotoId || !extraction.fields) return null;
   return extraction.fields;
+};
+
+const CONSENT_SIGNER_RELATIONSHIP_LINK_ID = 'consent-form-signer-relationship';
+const SELF_RELATIONSHIP = 'self';
+const CONSENT_SIGNER_PAPERWORK_PAGE_SIZE = 5;
+
+/**
+ * The most recently recorded answer to "Relationship to the patient" across the patient's
+ * paperwork, or undefined when none of these responses answered it. Input is expected newest-first.
+ * Only intake paperwork carries this linkId, so non-paperwork responses are skipped without having
+ * to identify them. Exported for tests.
+ */
+export const readConsentSignerRelationship = (
+  questionnaireResponsesNewestFirst: QuestionnaireResponse[]
+): string | undefined => {
+  for (const questionnaireResponse of questionnaireResponsesNewestFirst) {
+    const answer = findQuestionnaireResponseItemLinkId(
+      CONSENT_SIGNER_RELATIONSHIP_LINK_ID,
+      questionnaireResponse.item ?? []
+    )?.answer?.[0]?.valueString?.trim();
+    if (answer) return answer;
+  }
+  return undefined;
+};
+
+export const photoIdBelongsToPatient = (relationship: string | undefined): boolean =>
+  !relationship || normalizeForComparison(relationship) === SELF_RELATIONSHIP;
+
+export const withoutPhotoIdName = (fields: PhotoIdExtractionFields | null): PhotoIdExtractionFields | null =>
+  fields ? { ...fields, firstName: null, middleName: null, lastName: null } : null;
+
+const hasName = (fields: PhotoIdExtractionFields | null): boolean =>
+  Boolean(fields && (fields.firstName || fields.middleName || fields.lastName));
+
+const resolvePhotoIdBelongsToPatient = async (oystehr: Oystehr, patientId: string): Promise<boolean> => {
+  try {
+    const bundle = await oystehr.fhir.search<QuestionnaireResponse>({
+      resourceType: 'QuestionnaireResponse',
+      params: [
+        { name: 'subject', value: `Patient/${patientId}` },
+        { name: '_sort', value: '-_lastUpdated' },
+        { name: '_count', value: `${CONSENT_SIGNER_PAPERWORK_PAGE_SIZE}` },
+      ],
+    });
+    return photoIdBelongsToPatient(readConsentSignerRelationship(bundle.unbundle()));
+  } catch (error) {
+    console.error(`Failed to read the consent signer relationship for Patient/${patientId}:`, error);
+    return false;
+  }
 };
 
 /**
@@ -68,7 +119,14 @@ export const usePhotoIdExtraction = (patientId: string | undefined): UsePhotoIdE
       const front = docRefsNewestFirst.find(
         (docRef) => docRef.content?.[0]?.attachment?.title === DocumentType.PhotoIdFront
       );
-      return { front, fields: readNewestFrontExtractionFields(docRefsNewestFirst) };
+      const fields = readNewestFrontExtractionFields(docRefsNewestFirst);
+      // Only the name is gated on who signed consent, so an ID that read no name needs no paperwork
+      // lookup at all. Resolved inside this query rather than as a second hook so the fields land
+      // already gated — a name chip must never render and then disappear once paperwork comes back.
+      if (!hasName(fields) || (await resolvePhotoIdBelongsToPatient(oystehr!, patientId!))) {
+        return { front, fields };
+      }
+      return { front, fields: withoutPhotoIdName(fields) };
     },
     enabled,
   });
