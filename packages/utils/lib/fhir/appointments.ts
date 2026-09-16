@@ -258,30 +258,25 @@ export const getReasonForVisitAndAdditionalDetailsFromAppointment = (
   };
 };
 
-export const isAppointmentWorkersComp = (appointment: Appointment): boolean => {
-  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-  return serviceCategory === CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp'];
-};
+/** Code of the appointment's service category under SERVICE_CATEGORY_SYSTEM, if it carries one. */
+export const getServiceCategoryCodeFromAppointment = (appointment?: Appointment): string | undefined =>
+  getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
 
-export const isAppointmentOccupationalMedicine = (appointment: Appointment): boolean => {
-  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-  return serviceCategory === CODE_SYSTEM_SERVICE_CATEGORY_CODES['occupational-medicine'];
-};
+export const isAppointmentWorkersComp = (appointment: Appointment): boolean =>
+  getServiceCategoryCodeFromAppointment(appointment) === CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp'];
 
-export const isAppointmentPreOp = (appointment: Appointment): boolean => {
-  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-  return serviceCategory === CODE_SYSTEM_SERVICE_CATEGORY_CODES['pre-op'];
-};
+export const isAppointmentOccupationalMedicine = (appointment: Appointment): boolean =>
+  getServiceCategoryCodeFromAppointment(appointment) === CODE_SYSTEM_SERVICE_CATEGORY_CODES['occupational-medicine'];
 
-export const isAppointmentUrgentCare = (appointment: Appointment): boolean => {
-  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-  return serviceCategory === CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care'];
-};
+export const isAppointmentPreOp = (appointment: Appointment): boolean =>
+  getServiceCategoryCodeFromAppointment(appointment) === CODE_SYSTEM_SERVICE_CATEGORY_CODES['pre-op'];
+
+export const isAppointmentUrgentCare = (appointment: Appointment): boolean =>
+  getServiceCategoryCodeFromAppointment(appointment) === CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care'];
 
 export const isAppointmentAutoAccident = (appointment: Appointment): boolean => {
-  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
   const { reasonForVisit } = getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
-  return serviceCategory === CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care'] && reasonForVisit === 'Auto accident';
+  return isAppointmentUrgentCare(appointment) && reasonForVisit === 'Auto accident';
 };
 
 export const getCancellationReasonDisplay = (appointment?: Appointment): string | undefined => {

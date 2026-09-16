@@ -24,6 +24,7 @@ import {
 } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { COPYABLE_FOLLOWUP_FIELDS, fetchCopySourceChartData } from './copyFollowupFields';
+import { getFollowupPrefill } from './followupPrefill';
 import { useParentEncounters } from './useParentEncounters';
 
 interface ScheduledFollowupParentSelectorProps {
@@ -96,6 +97,7 @@ export default function ScheduledFollowupParentSelector({
       state: {
         followUpOptions,
         parentLocation: selectedParentEncounter.location,
+        prefill: getFollowupPrefill(selectedParentEncounter.appointment),
         patientId: patientId,
         clientCopyFields,
         patientInfo: {

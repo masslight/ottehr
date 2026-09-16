@@ -1,4 +1,5 @@
 import { FhirResource } from 'fhir/r4b';
+import { FormTemplateRejection } from '../api/form-template.types';
 
 export enum APIErrorCode {
   // 40xx
@@ -69,6 +70,13 @@ export enum APIErrorCode {
   PAPERWORK_FLOW_GENERAL = 4409,
   UNSOLICITED_RESULTS_ALREADY_MATCHED = 4410,
   FILE_STORAGE_REQUEST_REJECTED = 4411,
+  // A PDF offered as a form template that cannot be used as one. The analysis itself succeeded; these
+  // say what it found, and each names a different thing the administrator has to go and fix.
+  FORM_TEMPLATE_ENCRYPTED = 4412,
+  FORM_TEMPLATE_FILLING_NOT_PERMITTED = 4413,
+  FORM_TEMPLATE_CERTIFIED = 4414,
+  FORM_TEMPLATE_DYNAMIC_XFA = 4415,
+  FORM_TEMPLATE_UNREADABLE = 4416,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -88,6 +96,48 @@ export interface APIError {
   message: string;
   statusCode?: number;
 }
+
+/**
+ * Why a PDF cannot be used as a form template, keyed by what the analysis found.
+ *
+ * Server-side because the server is what knows: the client would otherwise receive `certified` and have to
+ * carry its own dictionary of what each status means, which makes the wording a product decision living in
+ * whichever app happens to call the endpoint.
+ *
+ * Thrown rather than returned. `topLevelCatch` recognises an `APIError` and returns it to the caller
+ * without paging anyone, so these reach the administrator as an explanation while staying out of Sentry —
+ * which is the distinction that matters, since an unusable PDF is a fact about the upload rather than a
+ * fault in the service.
+ *
+ * Keyed by `FormTemplateRejection`, so a rejection status added to the analysis union without a message
+ * here fails to compile.
+ */
+export const FORM_TEMPLATE_REJECTED_ERRORS: Record<FormTemplateRejection, APIError> = {
+  encrypted: {
+    code: APIErrorCode.FORM_TEMPLATE_ENCRYPTED,
+    message:
+      'This PDF needs a password to open, so its fields cannot be read. Please upload a copy that opens without one.',
+  },
+  fillingNotPermitted: {
+    code: APIErrorCode.FORM_TEMPLATE_FILLING_NOT_PERMITTED,
+    message:
+      'The publisher of this PDF has disallowed filling in its form fields, so it cannot be prefilled. Please use a copy that permits form filling.',
+  },
+  certified: {
+    code: APIErrorCode.FORM_TEMPLATE_CERTIFIED,
+    message:
+      'This PDF carries a certifying signature, and prefilling it would invalidate that signature — recipients would see the form flagged as altered. Please use an unsigned copy of the form.',
+  },
+  dynamicXfa: {
+    code: APIErrorCode.FORM_TEMPLATE_DYNAMIC_XFA,
+    message:
+      'This PDF uses Adobe’s dynamic XFA format, which browsers cannot display. Please upload a standard PDF version of the form.',
+  },
+  unreadable: {
+    code: APIErrorCode.FORM_TEMPLATE_UNREADABLE,
+    message: 'This file could not be read as a PDF. Please check the file and try again.',
+  },
+};
 
 export const isApiError = (errorObject: unknown | undefined): boolean => {
   if (!errorObject) {

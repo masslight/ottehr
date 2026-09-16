@@ -34,6 +34,7 @@ export async function performEffect(
 ): Promise<AddClaimAttachmentResponse> {
   const nameParts = params.name.split('.');
   const extension = nameParts[nameParts.length - 1];
+  const sanitizedFileName = sanitizeFileNameForZ3(params.name);
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
   const supportingInfo = claim.supportingInfo ?? [];
   const supportingInfoEntry: ClaimSupportingInfo = {
@@ -64,7 +65,7 @@ export async function performEffect(
             params.secrets['PROJECT_API'],
             params.secrets['PROJECT_ID'],
             claim.id,
-            sanitizeFileNameForZ3(params.name)
+            sanitizedFileName
           ),
           contentType: `application/${extension}`,
           title: params.name,
@@ -99,7 +100,7 @@ export async function performEffect(
 
   const presignedUrlResult = await oystehr.z3.getPresignedUrl({
     bucketName: BILLING_APP_BUCKET(params.secrets['PROJECT_ID']),
-    'objectPath+': CLAIM_ATTACHMENT_OBJECT_PATH(claim.id, params.name),
+    'objectPath+': CLAIM_ATTACHMENT_OBJECT_PATH(claim.id, sanitizedFileName),
     action: 'upload',
   });
   return {
