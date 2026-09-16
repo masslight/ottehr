@@ -1,5 +1,6 @@
 import { Appointment, Encounter, Location, MedicationStatement, Patient, Practitioner, Reference } from 'fhir/r4b';
 import { z } from 'zod';
+import { Secrets } from '../../../secrets';
 import { MedicationIntakeInfo } from '../chart-data/chart-data.types';
 
 export type MedicationInfoForPrinting = {
@@ -49,3 +50,8 @@ export const PrintablePdfInputSchema = z.object({
 });
 
 export type PrintablePdfZambdaInput = z.infer<typeof PrintablePdfInputSchema>;
+
+export type PrintablePdfInputValidated = PrintablePdfZambdaInput & {
+  secrets: Secrets | null;
+  userToken: string;
+};

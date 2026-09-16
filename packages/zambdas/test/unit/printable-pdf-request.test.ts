@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { validatePrintablePdfRequest } from '../../src/ehr/print-chart-data/shared/printable-pdf-request';
+import { validateRequestParameters as validateInstructionsRequest } from '../../src/ehr/print-chart-data/make-patient-instructions-pdf/validateRequestParameters';
+import { validateRequestParameters as validateProgressNoteRequest } from '../../src/ehr/print-chart-data/make-progress-note-pdf/validateRequestParameters';
 import { ZambdaInput } from '../../src/shared/types/common';
 
 // Shared by both print endpoints, which return a patient's clinical documents for whatever visit id
@@ -13,7 +14,11 @@ const request = (overrides: Partial<ZambdaInput> = {}): ZambdaInput =>
     ...overrides,
   }) as ZambdaInput;
 
-describe('validatePrintablePdfRequest', () => {
+// Both endpoints validate the same request against the same shared schema, so both are exercised.
+describe.each([
+  ['make-progress-note-pdf', validateProgressNoteRequest],
+  ['make-patient-instructions-pdf', validateInstructionsRequest],
+])('%s validateRequestParameters', (_name, validatePrintablePdfRequest) => {
   it('returns the appointment and the caller token', () => {
     const validated = validatePrintablePdfRequest(request());
 
