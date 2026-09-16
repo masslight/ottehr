@@ -52,6 +52,17 @@ import procedureSupplies from '../../../../../../config/oystehr/procedure-suppli
 import procedureTechniques from '../../../../../../config/oystehr/procedure-techniques.json' assert { type: 'json' };
 import procedureTimeSpent from '../../../../../../config/oystehr/procedure-time-spent.json' assert { type: 'json' };
 import procedureType from '../../../../../../config/oystehr/procedure-type.json' assert { type: 'json' };
+
+interface ProcedureTypeCodingEntry {
+  system: string;
+  code: string;
+  display: string;
+  extension?: Array<{
+    url: string;
+    valueCodeableConcept: { coding: Array<{ system: string; code: string; display: string }> };
+  }>;
+}
+
 interface ProcedureInfo {
   consentChecked: boolean;
   procedureType: string;
@@ -74,7 +85,7 @@ interface ProcedureInfo {
 }
 const PROCEDURE_TYPE_CODINGS = Object.entries(procedureType.fhirResources).find(([key]) =>
   key.startsWith('value-set-procedure-type')
-)?.[1].resource.expansion.contains;
+)?.[1].resource.expansion.contains as ProcedureTypeCodingEntry[] | undefined;
 const PROCEDURE_MEDICATIONS_USED_CODINGS =
   procedureMedicationsUsed.fhirResources['value-set-procedure-medications-used'].resource.expansion.contains;
 const PROCEDURE_BODY_SITES_CODINGS =
