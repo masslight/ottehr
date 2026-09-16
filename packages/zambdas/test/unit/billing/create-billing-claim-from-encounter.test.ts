@@ -20,6 +20,7 @@ import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   BILLING_RESOURCE_TAG,
   ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
+  FHIR_EXTENSION,
   FHIR_IDENTIFIER_NPI,
   FRIENDLY_PATIENT_ID_SYSTEM_BASE,
   PARTICIPATION_CODE_SYSTEM,
@@ -152,6 +153,13 @@ const clinicalResources: {
       {
         url: ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
         valueString: PaymentVariant.insurance,
+      },
+    ],
+    statusHistory: [
+      {
+        status: 'arrived',
+        period: { start: '2026-01-01T08:00:00.000Z' },
+        extension: [{ url: FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url, valueCode: 'arrived' }],
       },
     ],
   },
@@ -2400,6 +2408,18 @@ describe('create-billing-claim-from-encounter', () => {
                     ],
                   },
                   sequence: 1,
+                },
+                {
+                  provider: { reference: 'urn:uuid:claim-rendering-provider' },
+                  role: {
+                    coding: [
+                      {
+                        code: '71',
+                        system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-referring-provider-type',
+                      },
+                    ],
+                  },
+                  sequence: 2,
                 },
               ],
               diagnosis: [

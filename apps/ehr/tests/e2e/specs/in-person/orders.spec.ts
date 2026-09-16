@@ -37,6 +37,8 @@ import {
   convertActivityDefinitionToDataEntryTestItem,
   repeatTestErrorMessage,
 } from 'utils/lib/helpers/in-house-labs';
+import { detectProcedureFamily } from 'utils/lib/procedure-coding/evaluate';
+import { formatProcedureCptCode } from 'utils/lib/procedure-coding/format';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { REPEAT_TEST_CPT_CODE_MODIFIER } from 'utils/lib/types/data/in-house/in-house.constants';
 import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
@@ -75,43 +77,55 @@ interface ProcedureInfo {
 const PROCEDURE_TYPE_CODINGS = Object.entries(procedureType.fhirResources).find(([key]) =>
   key.startsWith('value-set-procedure-type')
 )?.[1].resource.expansion.contains;
+
 const PROCEDURE_MEDICATIONS_USED_CODINGS =
   procedureMedicationsUsed.fhirResources['value-set-procedure-medications-used'].resource.expansion.contains;
-const PROCEDURE_BODY_SITES_CODINGS =
-  procedureBodySites.fhirResources['value-set-procedure-body-sites'].resource.expansion.contains;
+
+const PROCEDURE_BODY_SITES_CODINGS = Object.entries(procedureBodySites.fhirResources).find(([key]) =>
+  key.startsWith('value-set-procedure-body-sites')
+)![1].resource.expansion.contains;
+
 const PROCEDURE_BODY_SIDES_CODINGS =
   procedureBodySides.fhirResources['value-set-procedure-body-sides'].resource.expansion.contains;
-const PROCEDURE_TECHNIQUES_CODINGS =
-  procedureTechniques.fhirResources['value-set-procedure-techniques'].resource.expansion.contains;
-const PROCEDURE_SUPPLIES_CODINGS =
-  procedureSupplies.fhirResources['value-set-procedure-supplies'].resource.expansion.contains;
+
+const PROCEDURE_TECHNIQUES_CODINGS = Object.entries(procedureTechniques.fhirResources).find(([key]) =>
+  key.startsWith('value-set-procedure-techniques')
+)![1].resource.expansion.contains;
+
+const PROCEDURE_SUPPLIES_CODINGS = Object.entries(procedureSupplies.fhirResources).find(([key]) =>
+  key.startsWith('value-set-procedure-supplies')
+)![1].resource.expansion.contains;
+
 const PROCEDURE_COMPLICATIONS_CODINGS =
   procedureComplications.fhirResources['value-set-procedure-complications'].resource.expansion.contains;
+
 const PROCEDURE_PATIENT_RESPONSES_CODINGS =
   procedurePatientResponses.fhirResources['value-set-procedure-patient-responses'].resource.expansion.contains;
+
 const PROCEDURE_POST_INSTRUCTIONS_CODINGS =
   procedurePostInstructions.fhirResources['value-set-procedure-post-instructions'].resource.expansion.contains;
+
 const PROCEDURE_TIME_SPENT_CODINGS =
   procedureTimeSpent.fhirResources['value-set-procedure-time-spent'].resource.expansion.contains;
 
-const CONFIG_PROCEDURES = PROCEDURE_TYPE_CODINGS!.map((procedure) => {
-  const dropDownChoice = procedure.display;
-  const codeableConcept = procedure.extension?.[0].valueCodeableConcept.coding[0];
-  if (!codeableConcept) {
-    return {
-      dropDownChoice,
-    };
-  }
-  return {
-    dropDownChoice,
-    display: codeableConcept.code + ' ' + codeableConcept.display,
-  };
-});
+// Catalog entries no longer supply default CPTs; these scenarios add their codes through search.
+//
+// These scenarios fill every field of the generic procedure form, Site/location and Side of body
+// included. A procedure type whose coding family asks for the site inside its own questions hides
+// those two dropdowns, and a type with no coding family at all reaches out to AI for suggestions —
+// so pick types that keep the generic form and stay on the local rules engine. Picked from the
+// catalog rather than hard-coded, so the spec follows the configuration as the covered set grows.
+const CONFIG_PROCEDURES = PROCEDURE_TYPE_CODINGS!
+  .map((procedure) => ({
+    dropDownChoice: procedure.display,
+    codingFamily: detectProcedureFamily({ procedureType: procedure.display }),
+  }))
+  .filter(({ codingFamily }) => codingFamily && !codingFamily.capturesSite && !codingFamily.capturesSide);
 
 const PROCEDURE_A: ProcedureInfo = {
   consentChecked: true,
   procedureType: CONFIG_PROCEDURES[0].dropDownChoice,
-  cptInfo: [{ procedureTypeCptCode: CONFIG_PROCEDURES[0].display, cptCode: '73000', cptName: 'X-ray of collar bone' }],
+  cptInfo: [{ cptCode: '73000', cptName: 'X-ray of collar bone' }],
   diagnosisCode: 'D51.0',
   diagnosisName: 'Vitamin B12 deficiency anemia due to intrinsic factor deficiency',
   performedBy: 'Healthcare staff',
@@ -134,7 +148,6 @@ const PROCEDURE_B: ProcedureInfo = {
   procedureType: CONFIG_PROCEDURES[1].dropDownChoice,
   cptInfo: [
     {
-      procedureTypeCptCode: CONFIG_PROCEDURES[1].display,
       cptCode: '11900',
       cptName: 'Injection into skin growth, 1-7 growths',
     },
@@ -1095,7 +1108,7 @@ async function verifyProcedureInfo(
   await documentProcedurePage.verifyConsentForProcedureChecked(procedureInfo.consentChecked);
   await documentProcedurePage.verifyProcedureType(procedureInfo.procedureType);
   for (const cpt of procedureInfo.cptInfo) {
-    await documentProcedurePage.verifyCptCode(cpt.cptCode + ' ' + cpt.cptName);
+    await documentProcedurePage.verifyCptCode(formatProcedureCptCode({ code: cpt.cptCode, display: cpt.cptName }));
   }
   await documentProcedurePage.verifyDiagnosis(procedureInfo.diagnosisName + ' ' + procedureInfo.diagnosisCode);
   await documentProcedurePage.verifyPerformedBy(procedureInfo.performedBy);
@@ -1115,7 +1128,7 @@ async function verifyProcedureInfo(
 
 async function verifyProcedureRow(procedureInfo: ProcedureInfo, procedureRow: ProcedureRow): Promise<void> {
   for (const cpt of procedureInfo.cptInfo) {
-    await procedureRow.verifyProcedureCptCode(cpt.cptCode + '-' + cpt.cptName);
+    await procedureRow.verifyProcedureCptCode(formatProcedureCptCode({ code: cpt.cptCode, display: cpt.cptName }));
   }
   await procedureRow.verifyProcedureType(procedureInfo.procedureType);
   await procedureRow.verifyProcedureDiagnosis(procedureInfo.diagnosisCode + '-' + procedureInfo.diagnosisName);
@@ -1128,7 +1141,7 @@ function progressNoteProcedureDetails(procedureInfo: ProcedureInfo): string[] {
     if (cpt.procedureTypeCptCode) {
       cptInfo.push(cpt.procedureTypeCptCode);
     }
-    cptInfo.push(cpt.cptCode + ' ' + cpt.cptName);
+    cptInfo.push(formatProcedureCptCode({ code: cpt.cptCode, display: cpt.cptName }));
   }
   return [
     'CPT:' + cptInfo.join('; '),

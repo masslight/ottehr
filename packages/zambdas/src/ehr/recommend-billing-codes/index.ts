@@ -1,90 +1,75 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
+import { billingCodePrompt, billingCodesSchema, parseAiSuggestions } from 'utils/lib/procedure-coding/ai';
+import { detectProcedureFamily, suggestCode } from 'utils/lib/procedure-coding/evaluate';
+import { ProcedureFactsInput } from 'utils/lib/procedure-coding/model.types';
+import { isStructuredFacts, StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
+import { z } from 'zod';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+
+const schema = z.object({
+  procedureType: z.string().min(1).max(500),
+  structuredFacts: z.custom<StructuredFacts>(isStructuredFacts).optional(),
+  bodySite: z.string().optional(),
+  otherBodySite: z.string().optional(),
+  bodySide: z.string().optional(),
+  technique: z.array(z.string()).optional(),
+  suppliesUsed: z.array(z.string()).optional(),
+  otherSuppliesUsed: z.string().optional(),
+  medicationUsed: z.string().optional(),
+  procedureDetails: z.string().optional(),
+  timeSpent: z.string().optional(),
+  diagnoses: z.array(z.object({ code: z.string(), display: z.string() })).optional(),
+  lengthCm: z.number().optional(),
+  repairDepth: z
+    .enum([
+      'superficial-single',
+      'subcutaneous-single',
+      'subcutaneous-layered',
+      'fascia-muscle-layered',
+      'tissue-adhesive-only',
+      'strips-only',
+    ])
+    .optional(),
+  infusionStartTime: z.string().optional(),
+  infusionStopTime: z.string().optional(),
+  specimenSent: z.boolean().optional(),
+});
 
 export const index = wrapHandler(
   'recommend-billing-codes',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const {
-      procedureType,
-      diagnoses,
-      medicationUsed,
-      bodySite,
-      bodySide,
-      technique,
-      suppliesUsed,
-      procedureDetails,
-      timeSpent,
-      secrets,
-    } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
+    let body: unknown;
 
-    const billingCodesSchema = {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          code: { type: 'string' },
-          description: { type: 'string' },
-          useWhen: { type: 'string' },
-        },
-        required: ['code', 'description', 'useWhen'],
-      },
-    };
-
-    let prompt =
-      'Based on the provided details recommend urgent care CPT billing codes for the procedure. Limit to 5 recommendations. Respond with a JSON array of the recommended CPT codes. Do not include markdown formatting. Each entry in the array should be an object with the following structure: { "code": "CPT_CODE", "description": "DESCRIPTION", "useWhen": "USE_WHEN" }\n\n';
-
-    if (procedureType) {
-      prompt += ` The procedure type is: ${procedureType}.`;
-    }
-    if (diagnoses && diagnoses.length > 0) {
-      prompt += ` The diagnoses associated with the procedure are: ${diagnoses
-        .map((diagnosisTemp) => `${diagnosisTemp.code} - ${diagnosisTemp.display}`)
-        .join(', ')}.`;
-    }
-    if (medicationUsed) {
-      prompt += ` The medications used during the procedure are: ${medicationUsed}.`;
-    }
-    if (bodySite) {
-      prompt += ` The body site of the procedure is: ${bodySite}.`;
-    }
-    if (bodySide) {
-      prompt += ` The side of the body for the procedure is: ${bodySide}.`;
-    }
-    if (technique) {
-      prompt += ` The techniques used in the procedure are: ${technique.join(', ')}.`;
-    }
-    if (suppliesUsed) {
-      prompt += ` The supplies used during the procedure are: ${suppliesUsed}.`;
-    }
-    if (procedureDetails) {
-      prompt += ` Additional procedure details: ${procedureDetails}.`;
-    }
-    if (timeSpent) {
-      prompt += ` The total time spent on the procedure was: ${timeSpent}.`;
-    }
-
-    const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets, billingCodesSchema);
-    console.log(aiResponseString);
-
-    let aiResponseObject;
     try {
-      aiResponseObject = JSON.parse(aiResponseString);
-    } catch (parseError) {
-      console.warn('Failed to parse AI CPT codes response, attempting to fix JSON format:', parseError);
-      aiResponseObject = fixAndParseJsonObjectFromString(aiResponseString);
+      body = JSON.parse(input.body || '{}');
+    } catch {
+      return { statusCode: 400, body: JSON.stringify({ message: 'Invalid procedure data' }) };
     }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(aiResponseObject),
-    };
+    const parsed = schema.safeParse(body);
+
+    if (!parsed.success) return { statusCode: 400, body: JSON.stringify({ message: 'Invalid procedure data' }) };
+
+    const facts: ProcedureFactsInput = parsed.data;
+
+    // Enforce the exact-name boundary on the server too. Missing answers in a known family never call AI.
+    const evaluation = detectProcedureFamily(facts)
+      ? suggestCode(facts)
+      : parseAiSuggestions(
+          // One in-flight generation per recommendation. Retry only after a transient failure.
+          await invokeChatbotVertexAI(
+            [{ text: billingCodePrompt(facts) }],
+            input.secrets,
+            billingCodesSchema,
+            undefined,
+            {
+              retryMode: 'sequential',
+            }
+          )
+        );
+
+    return { statusCode: 200, body: JSON.stringify(evaluation) };
   }
 );

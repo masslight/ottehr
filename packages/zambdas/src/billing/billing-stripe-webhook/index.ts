@@ -44,8 +44,8 @@ let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
-  const { event } = params;
-  console.log('Verified Stripe event:', event.id, event.type, 'connected account:', event.account ?? 'none');
+  const { event, stripeAccount } = params;
+  console.log('Verified Stripe event:', event.id, event.type, 'connected account:', stripeAccount ?? 'none');
 
   // Acknowledge with 200 so Stripe doesn't retry or disable the endpoint.
   if (!shouldUseOttehrBilling(params.secrets)) {
@@ -68,13 +68,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebhookParams): Promise<void> => {
-  const { event, secrets } = params;
+  const { event, secrets, stripeAccount = event.account } = params;
   switch (event.type) {
     case 'charge.succeeded':
     case 'charge.updated': {
       const charge = event.data.object as Stripe.Charge;
       console.log(`Charge event for ${charge.id}, invoice: ${chargeInvoiceId(charge) ?? 'none'}`);
-      await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, event.account, secrets);
+      await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, stripeAccount, secrets);
       break;
     }
     case 'charge.refunded': {
@@ -88,7 +88,7 @@ export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebho
     case 'refund.failed': {
       const refund = event.data.object as Stripe.Refund;
       console.log(`Refund event for ${refund.id}, charge: ${refund.charge}, status: ${refund.status}`);
-      await upsertPaymentNoticeForRefund(oystehr, refund, event.account, secrets);
+      await upsertPaymentNoticeForRefund(oystehr, refund, stripeAccount, secrets);
       break;
     }
     case 'invoice.paid': {
@@ -100,7 +100,7 @@ export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebho
         const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
         await updateInvoiceTaskStripeStatus(clinicalOystehr, invoice.id, 'paid', paidEncounterId);
       }
-      await upsertPaymentNoticeForChargelessInvoice(oystehr, invoice, event.account, secrets);
+      await upsertPaymentNoticeForChargelessInvoice(oystehr, invoice, stripeAccount, secrets);
       break;
     }
     case 'invoice.voided': {

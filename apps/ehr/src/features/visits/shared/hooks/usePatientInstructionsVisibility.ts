@@ -1,7 +1,7 @@
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
 import { NOTHING_TO_EAT_OR_DRINK_FIELD } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useChartData } from '../stores/appointment/appointment.store';
-import { useChartFields } from './useChartFields';
+import { useProgressNoteChartFields } from './useProgressNoteChartFields';
 
 export const usePatientInstructionsVisibility = (): {
   showInstructions: boolean;
@@ -11,9 +11,7 @@ export const usePatientInstructionsVisibility = (): {
   showPatientInstructions: boolean;
 } => {
   const { chartData } = useChartData();
-  const { data: chartFields } = useChartFields({
-    requestedFields: { disposition: {} },
-  });
+  const { data: chartFields } = useProgressNoteChartFields();
   const instructions = chartData?.instructions;
   const disposition = chartFields?.disposition;
   const schoolWorkExcuses = useExcusePresignedFiles(chartData?.schoolWorkNotes);

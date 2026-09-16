@@ -24,7 +24,7 @@ interface FormData {
 export const AccidentField: FC<Props> = ({ readOnly }) => {
   const {
     data: chartDataFields,
-    refetch,
+    setQueryCache,
     isLoading: isChartDataLoading,
   } = useChartFields({
     requestedFields: {
@@ -80,9 +80,14 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
         }
         if (types.length === 0) {
           if (chartDataFields?.accident != null) {
-            deleteChartData({
-              accident: chartDataFields?.accident,
-            });
+            deleteChartData(
+              {
+                accident: chartDataFields?.accident,
+              },
+              {
+                onSuccess: () => setQueryCache({ accident: undefined }),
+              }
+            );
           }
           return;
         }
@@ -115,13 +120,13 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
             },
           },
           {
-            onSuccess: () => void refetch(),
+            onSuccess: (data) => setQueryCache({ accident: data.chartData.accident }),
           }
         );
       },
     });
     return () => callback();
-  }, [methods, chartDataFields, deleteChartData, saveChartData, refetch]);
+  }, [methods, chartDataFields, deleteChartData, saveChartData, setQueryCache]);
 
   const disabled = isChartDataLoading || readOnly;
 

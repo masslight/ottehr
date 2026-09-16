@@ -15,12 +15,21 @@ export const vitalsObservationsRequest: SearchParams = {
     .join(','),
 };
 
+/**
+ * The one chart-fields request behind the Review & Sign and follow-up note pages. Every section summary on
+ * those pages reads from this query (see useProgressNoteChartFields), so it has to stay a superset of what
+ * they need; a section that requests its own fields costs the page an extra get-chart-data call.
+ */
 export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   chiefComplaint: { _tag: 'chief-complaint' },
   reasonForVisit: {},
   mechanismOfInjury: { _tag: 'mechanism-of-injury' },
   historyOfPresentIllness: { _tag: 'history-of-present-illness' },
   ros: { _tag: 'ros' },
+  accident: { _tag: 'accident' },
+  surgicalHistoryNote: { _tag: 'surgical-history-note' },
+  patientInfoConfirmed: {},
+  addendumNote: {},
   episodeOfCare: {},
   prescribedMedications: {},
   disposition: { _tag: 'disposition-follow-up,sub-follow-up' },

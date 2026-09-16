@@ -1892,6 +1892,10 @@ export function formatZipcodeForDisplay(addressOrZip: string): string {
   return addressOrZip.replace(regexPattern, `${zipMatch[1]}-${zipMatch[2]}`);
 }
 
+export function normalizeZipcode(zip: string): string {
+  return zip.replace(/[^0-9]/g, '');
+}
+
 export interface TemplateVariables {
   [key: string]: string | number;
 }

@@ -243,3 +243,42 @@ describe('invokeChatbotVertexAI error handling', () => {
     expect(url).toContain('key=test-key');
   });
 });
+
+describe('procedure recommendations use sequential Vertex retries', () => {
+  const invokeSequentially = (): Promise<string> =>
+    invokeChatbotVertexAI([{ text: 'hello' }], secrets, undefined, undefined, { retryMode: 'sequential' });
+
+  test('keeps one slow successful generation in flight beyond both previous hedge delays', async () => {
+    let finish!: (value: ReturnType<typeof responseOf>) => void;
+    const fetch = vi.fn(
+      () =>
+        new Promise<ReturnType<typeof responseOf>>((resolve) => {
+          finish = resolve;
+        })
+    );
+    vi.stubGlobal('fetch', fetch);
+    const pending = invokeSequentially();
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    finish(responseOf(200, { candidates: [{ content: { parts: [{ text: 'result' }] } }] }));
+    await expect(pending).resolves.toBe('result');
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('retries only after a transient failure and stops at the first success', async () => {
+    respondInSequence([429, { error: 'busy' }], [200, { candidates: [{ content: { parts: [{ text: 'result' }] } }] }]);
+    const pending = invokeSequentially();
+    await vi.advanceTimersByTimeAsync(10_000);
+    await expect(pending).resolves.toBe('result');
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not retry a terminal HTTP error', async () => {
+    respondWith(400, { error: 'invalid' });
+    const pending = invokeSequentially().catch((error: Error) => error);
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(await pending).toBeInstanceOf(Error);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
