@@ -3,6 +3,7 @@ import {
   ADD_SERVICE_LINE_FIELDS,
   addServiceLineFieldProblem,
   collectApplyTagNames,
+  collectSetNioIds,
   collectSetResourceRefs,
   getRuleFieldDef,
   getServiceLinePropertyDef,
@@ -317,7 +318,16 @@ describe('rule value validation', () => {
     expect(serviceLineSetValueProblem(lineDate, undefined, { source: 'firstServiceLineDate' })).toBeUndefined();
     expect(serviceLineSetValueProblem(lineDate, undefined, { source: 'bogus' } as never)).toBe('Unknown date source');
     expect(serviceLineSetValueProblem(units, undefined, { source: 'firstServiceLineDate' } as never)).toBe(
-      'This property does not accept a derived date value'
+      'This property does not accept a derived value'
+    );
+
+    // A derived place-of-service source is only accepted on the placeOfService property.
+    expect(serviceLineSetValueProblem(pos, undefined, { source: 'facilityPlaceOfService' })).toBeUndefined();
+    expect(serviceLineSetValueProblem(pos, undefined, { source: 'bogus' } as never)).toBe(
+      'Unknown place of service source'
+    );
+    expect(serviceLineSetValueProblem(units, undefined, { source: 'facilityPlaceOfService' } as never)).toBe(
+      'This property does not accept a derived value'
     );
   });
 
@@ -442,6 +452,63 @@ describe('rule value validation', () => {
       { field: 'billingProvider.ref', ref: 'Organization/org-1' },
       { field: 'serviceFacility.ref', ref: 'Location/loc-1' },
     ]);
+  });
+
+  it('validates non-insurance organization values as directory ids', () => {
+    const nio = field('nonInsurancePayerId');
+    const uuid = '8f1f6f3e-1111-4222-8333-444455556666';
+    expect(setFieldValueProblem(nio, uuid)).toBeUndefined();
+    expect(setFieldValueProblem(nio, '')).toBeUndefined(); // clear is legal
+    expect(setFieldValueProblem(nio, 'not-a-uuid')).toContain('non-insurance organization id');
+
+    expect(ruleConditionValueProblem(nio, 'eq', uuid)).toBeUndefined();
+    expect(ruleConditionValueProblem(nio, 'in', [uuid, 'nope'])).toContain('non-insurance organization id');
+    expect(ruleConditionValueProblem(nio, 'exists', undefined)).toBeUndefined();
+  });
+
+  it('collects setField NIO ids across nested conditionals, deduped, skipping clears', () => {
+    const uuidA = '8f1f6f3e-1111-4222-8333-444455556666';
+    const uuidB = '2b9c0d1e-2222-4333-9444-555566667777';
+    const ids = collectSetNioIds({
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: {
+              type: 'conditional',
+              conditional: {
+                branches: [
+                  {
+                    condition: { type: 'all' },
+                    outcome: {
+                      type: 'actions',
+                      actions: [
+                        { type: 'setField', field: 'nonInsurancePayerId', value: uuidA },
+                        // Other setFields and clears are not collected.
+                        { type: 'setField', field: 'patient.state', value: 'CA' },
+                        { type: 'setField', field: 'nonInsurancePayerId', value: '' },
+                      ],
+                    },
+                  },
+                ],
+                otherwise: {
+                  type: 'actions',
+                  actions: [{ type: 'setField', field: 'nonInsurancePayerId', value: uuidB }],
+                },
+              },
+            },
+          },
+          {
+            condition: { type: 'all' },
+            outcome: {
+              type: 'actions',
+              actions: [{ type: 'setField', field: 'nonInsurancePayerId', value: uuidA }],
+            },
+          },
+        ],
+      },
+    });
+    expect(ids).toEqual([uuidA, uuidB]);
   });
 
   it('detects applyChargeMasterPrices actions anywhere in the conditional tree', () => {
@@ -718,7 +785,7 @@ describe('validateRuleFieldReferences', () => {
     );
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain('updates service line property "cptCode" with an invalid value');
-    expect(problems[0]).toContain('does not accept a derived date value');
+    expect(problems[0]).toContain('does not accept a derived value');
   });
 
   it('validates the applyChargeMasterPrices line match like the other service-line actions', () => {

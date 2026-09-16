@@ -1,10 +1,11 @@
 import { Box, Typography, useTheme } from '@mui/material';
-import { FC } from 'react';
+import { FC, useMemo } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   SectionHeading,
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
+import { filterActiveMedications } from 'utils/lib/helpers/medications/current-medications.helper';
 import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { AssessmentTitle } from '../../../../../../components/AssessmentTitle';
 import { useChartData } from '../../../stores/appointment/appointment.store';
@@ -14,7 +15,7 @@ export const MedicationsContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
   const { chartData } = useChartData();
   const theme = useTheme();
 
-  const medications = chartData?.medications;
+  const medications = useMemo(() => filterActiveMedications(chartData?.medications), [chartData?.medications]);
 
   return (
     <Box
@@ -22,7 +23,7 @@ export const MedicationsContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
       data-testid={dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer}
     >
       {!titleInCardHeader && <SectionHeading>Medications</SectionHeading>}
-      {medications?.length ? (
+      {medications.length ? (
         medications.map((medication) => {
           const additionalInfo = [
             medication.intakeInfo.dose,

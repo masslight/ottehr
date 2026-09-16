@@ -13,6 +13,7 @@ import {
   ChargeItemDefinition,
   ChargeItemDefinitionPropertyGroup,
   Claim,
+  ClaimItem,
   ClaimResponse,
   ClaimResponseItem,
   ClaimSupportingInfo,
@@ -20,6 +21,7 @@ import {
   Coverage,
   DocumentReference,
   DomainResource,
+  Encounter,
   FhirResource,
   Identifier,
   List,
@@ -28,6 +30,7 @@ import {
   Patient,
   PaymentNotice,
   PaymentReconciliation,
+  Period,
   Person,
   Practitioner,
   Provenance,
@@ -36,6 +39,7 @@ import {
   Resource,
   Task,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { setCoveragePlanType } from 'utils/lib/fhir/billing';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
@@ -101,6 +105,7 @@ import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { SYSTEM_MANAGED_TAGS, SystemManagedTag } from 'utils/lib/types/data/billing/system-tags';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { sendErrors } from '../shared/errors';
 import { fetchAllPages } from '../shared/fhir';
@@ -501,6 +506,16 @@ export function getEraCheckNumber(
   return pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? pr.paymentIdentifier?.value;
 }
 
+export function eraCheckNumberMatches(
+  pr: Pick<PaymentReconciliation, 'identifier' | 'paymentIdentifier'>,
+  checkNumber: string
+): boolean {
+  const normalizedCheckNumber = checkNumber.trim().toLowerCase();
+  if (!normalizedCheckNumber) return false;
+  const stored = getEraCheckNumber(pr)?.trim().toLowerCase();
+  return !!stored && stored === normalizedCheckNumber;
+}
+
 export const CLAIM_PCN_IDENTIFIER_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-claim-patient-control-number';
 
 export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string | undefined {
@@ -564,21 +579,74 @@ export async function fetchDefinedTagNames(oystehr: Oystehr): Promise<Set<string
   return new Set(basics.map((tag) => tag.code?.text).filter((name): name is string => !!name));
 }
 
+// A claim's billable period spans its service lines: the earliest service start and the latest
+// service end across all items. Used at claim creation so UB-04 admission/discharge dates default
+// to the actual span of care rather than being left blank.
+export function deriveClaimBillablePeriod(items: ClaimItem[] | undefined): Period | undefined {
+  const millis = (date: string): number => DateTime.fromISO(date).toMillis();
+  const start = (items ?? [])
+    .map((item) => item.servicedPeriod?.start ?? item.servicedDate)
+    .filter((date): date is string => !!date)
+    .sort((a, b) => millis(a) - millis(b))
+    .at(0);
+  const end = (items ?? [])
+    .map((item) => item.servicedPeriod?.end ?? item.servicedDate)
+    .filter((date): date is string => !!date)
+    .sort((a, b) => millis(a) - millis(b))
+    .at(-1);
+  return start ? { start, end } : undefined;
+}
+
+// A claim built from an encounter reflects the encounter's actual course of care rather than its
+// service lines: billablePeriod.start is when the visit first became billable (arrived, falling back
+// to intake, falling back to provider, in case an earlier status was never recorded), and
+// billablePeriod.end is when the visit was discharged. Uses the most recent occurrence of each status
+// since a visit's status can move backward and forward through the same status more than once.
+export function deriveClaimBillablePeriodFromEncounter(encounter: Encounter): Period | undefined {
+  const statusHistory = getVisitStatusHistory(encounter);
+  const start =
+    statusHistory.findLast((entry) => entry.status === 'arrived')?.period.start ??
+    statusHistory.findLast((entry) => entry.status === 'intake')?.period.start ??
+    statusHistory.findLast((entry) => entry.status === 'provider')?.period.start;
+  const end = statusHistory.findLast((entry) => entry.status === 'discharged')?.period.start;
+  return start ? { start, end } : undefined;
+}
+
 // Re-point careTeam sequence 1 (the rendering provider) at `provider`, preserving other members,
 // and point every service line at it. The one careTeam shape both the claim editor
 // (update-billing-claim) and the rules engine write.
+// Mark rendering provider as an attending provider.
 export function setClaimRenderingProviderCareTeam(claim: Claim, provider: Reference): void {
   claim.careTeam = [
     {
       sequence: 1,
       provider,
-      role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
+      role: {
+        coding: [
+          {
+            system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+            code: '82',
+          },
+        ],
+      },
     },
-    ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
+    {
+      sequence: 2,
+      provider,
+      role: {
+        coding: [
+          {
+            system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+            code: '71',
+          },
+        ],
+      },
+    },
+    ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1 && member.sequence !== 2),
   ];
   claim.item = claim.item?.map((item) => ({
     ...item,
-    careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
+    careTeamSequence: Array.from(new Set([1, 2, ...(item.careTeamSequence ?? [])])),
   }));
 }
 
@@ -679,8 +747,8 @@ export async function listToRulesReportingMalformed(list: List, env: string): Pr
  * The rules engine responsible for a claim, decided by its AR Stage:
  * - Insurance Payer AR -> Claim Submission Rules
  * - Non-insurance Payer AR -> Non-Insurance Payer Pre-Invoice Rules
- * - Patient AR, self-pay only (no real coverage on the claim) -> Patient AR Pre-Invoice Rules
- * Undefined when no engine applies (no AR Stage, or Patient AR with insurance coverage).
+ * - Patient AR -> Patient AR Pre-Invoice Rules
+ * Undefined when no engine applies (no AR Stage).
  *
  * An engine runs automatically only when a claim is created in its stage. Changing an existing
  * claim's AR Stage never runs an engine — set-billing-claim-status holds the claim instead, and the
@@ -690,7 +758,7 @@ export function determineRulesEngineForClaim(claim: Claim): RulesEngineType | un
   const arStage = getClaimStatusFieldValue(claim, CLAIM_STATUS_FIELDS_BY_KEY.arStage);
   if (arStage === AR_STAGE.insurancePayer) return 'claim-submission';
   if (arStage === AR_STAGE.nonInsurancePayer) return 'non-insurance-payer-pre-invoice';
-  if (arStage === AR_STAGE.patient && !claimHasRealCoverage(claim.insurance)) return 'patient-ar-pre-invoice';
+  if (arStage === AR_STAGE.patient) return 'patient-ar-pre-invoice';
   return undefined;
 }
 
@@ -1167,7 +1235,7 @@ export function getClaimService(claim: Claim): string | undefined {
 // aligned. The one intentional difference: the subscriber RelatedPerson is persisted standalone here
 // (so it can be searched), whereas harvest contains it on the Coverage.
 
-function buildPayorReference(payerOrg: Organization): string {
+export function buildPayorReference(payerOrg: Organization): string {
   const payerId = getPayerId(payerOrg);
   if (isValidUUID(payerOrg.id ?? '')) return `Organization/${payerOrg.id}`;
   if (!payerId) throw new Error('payerId unexpectedly missing from payer organization');

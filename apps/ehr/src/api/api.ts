@@ -64,6 +64,10 @@ import {
   UpdateInHouseMedicationInput,
 } from 'utils/lib/types/api/config/in-house-medications';
 import {
+  ConvertVisitToFollowUpInput,
+  ConvertVisitToFollowUpResponse,
+} from 'utils/lib/types/api/convert-visit-to-follow-up/convert-visit-to-follow-up.types';
+import {
   CreateDischargeSummaryInput,
   CreateDischargeSummaryResponse,
 } from 'utils/lib/types/api/create-discharge-summary/create-discharge-summary.types';
@@ -112,6 +116,16 @@ import {
   GetPatientLoginPhoneNumbersOutput,
   UpdatePatientLoginPhoneNumbersInput,
 } from 'utils/lib/types/api/patient-login-phone-numbers.types';
+import {
+  CreatePatientNoteInput,
+  DeletePatientNoteInput,
+  GetPatientNotesCountOutput,
+  GetPatientNotesInput,
+  GetPatientNotesOutput,
+  PatientNoteDTO,
+  SavePatientNoteOutput,
+  UpdatePatientNoteInput,
+} from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import {
   PracticeKpisReportZambdaInput,
   PracticeKpisReportZambdaOutput,
@@ -2265,6 +2279,21 @@ export const updatePatientVisitDetails = async (
   }
 };
 
+export const convertVisitToFollowUp = async (
+  oystehr: Oystehr,
+  parameters: ConvertVisitToFollowUpInput
+): Promise<ConvertVisitToFollowUpResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'convert-visit-to-follow-up',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
+  }
+};
+
 export const updateVisitFiles = async (
   oystehr: Oystehr,
   parameters: UpdateVisitFilesInput
@@ -3716,3 +3745,67 @@ export const deleteInboundFax = async (oystehr: Oystehr, parameters: DeleteInbou
     throw apiErrorToThrow(error);
   }
 };
+
+export const getPatientNotes = async (
+  oystehr: Oystehr,
+  parameters: GetPatientNotesInput
+): Promise<GetPatientNotesOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'get-patient-notes', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getPatientNotesCount = async (
+  oystehr: Oystehr,
+  parameters: { patientId: string }
+): Promise<GetPatientNotesCountOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'get-patient-notes-count', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const createPatientNote = async (
+  oystehr: Oystehr,
+  parameters: CreatePatientNoteInput
+): Promise<SavePatientNoteOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'create-patient-note', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const updatePatientNote = async (
+  oystehr: Oystehr,
+  parameters: UpdatePatientNoteInput
+): Promise<SavePatientNoteOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'update-patient-note', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const deletePatientNote = async (oystehr: Oystehr, parameters: DeletePatientNoteInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({ id: 'delete-patient-note', ...parameters });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+// Re-export for convenience in callers that import from this module
+export type { PatientNoteDTO };

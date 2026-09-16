@@ -1,7 +1,11 @@
 import {
   HISTORY_OBTAINED_FROM_FIELD,
   HistorySourceKeys,
+  PATIENT_BREASTFEEDING_STATUS,
+  PATIENT_PREGNANCY_STATUS,
   PATIENT_VACCINATION_STATUS,
+  PatientBreastfeedingKeys,
+  PatientPregnancyKeys,
   PatientVaccinationKeys,
   RecentVisitKeys,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
@@ -85,6 +89,29 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
         type: 'textarea',
         fhirField: PATIENT_VACCINATION_STATUS,
       },
+    },
+    {
+      id: 'pregnancy_status',
+      type: 'radio',
+      question: 'Is there any chance you could be pregnant?',
+      fhirField: PATIENT_PREGNANCY_STATUS,
+      options: [
+        { value: 'yes', label: 'Yes', fhirValue: PatientPregnancyKeys.Yes },
+        { value: 'no', label: 'No', fhirValue: PatientPregnancyKeys.No },
+        { value: 'not_sure', label: 'Not sure', fhirValue: PatientPregnancyKeys.NotSure },
+        { value: 'not_applicable', label: 'Not applicable', fhirValue: PatientPregnancyKeys.NotApplicable },
+      ],
+    },
+    {
+      id: 'breastfeeding_status',
+      type: 'radio',
+      question: 'Are you currently breastfeeding?',
+      fhirField: PATIENT_BREASTFEEDING_STATUS,
+      options: [
+        { value: 'yes', label: 'Yes', fhirValue: PatientBreastfeedingKeys.Yes },
+        { value: 'no', label: 'No', fhirValue: PatientBreastfeedingKeys.No },
+        { value: 'not_applicable', label: 'Not applicable', fhirValue: PatientBreastfeedingKeys.NotApplicable },
+      ],
     },
     {
       id: 'history_source',

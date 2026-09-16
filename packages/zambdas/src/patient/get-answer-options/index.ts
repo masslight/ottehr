@@ -2,7 +2,9 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { BundleLink, FhirResource, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { ORG_TYPE_CODE_SYSTEM, ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE } from 'utils/lib/types/constants';
 import {
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED,
   APIError,
@@ -12,6 +14,7 @@ import {
 } from 'utils/lib/types/errors';
 import { AnswerOptionSource } from '../../../../config-types/config/fhir';
 import { getAuth0Token } from '../../shared/getAuth0Token';
+import { listNonInsuranceOrganizations } from '../../shared/nio-directory';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 
@@ -52,9 +55,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<QuestionnaireItemAnswerOption[]> => {
+export const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<QuestionnaireItemAnswerOption[]> => {
   const { type } = input;
   if (type === 'query' && input.answerSource.zambdaId === 'get-answer-options') {
+    // In NIO mode the legacy occ-med employer query — recognized by its type token, since intake,
+    // archived questionnaire versions, and the EHR patient record all send it verbatim — is
+    // rerouted to the billing app's NIO directory. Options carry the NIO reference token, so
+    // every downstream save stores tokens with no Questionnaire or config change.
+    if (FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled && isOccMedEmployerQuery(input.answerSource)) {
+      return listNioEmployerAnswerOptions(oystehr);
+    }
     const { resourceType, query, prependedIdentifier } = input.answerSource;
     const paramsObject = new URLSearchParams(query);
     let offset = 0;
@@ -126,6 +136,24 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Ques
     // todo: value sets
     return [];
   }
+};
+
+const OCC_MED_EMPLOYER_QUERY_TOKEN = `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE}`;
+
+// Keyed on the query's type token only: the EHR sends an extra prependedIdentifier field that
+// intake and archived questionnaires do not, so nothing else about the answerSource is stable
+// across callers.
+const isOccMedEmployerQuery = (
+  answerSource: Extract<AnswerOptionSource, { zambdaId: 'get-answer-options' }>
+): boolean => {
+  return answerSource.resourceType === 'Organization' && answerSource.query.includes(OCC_MED_EMPLOYER_QUERY_TOKEN);
+};
+
+const listNioEmployerAnswerOptions = async (oystehr: Oystehr): Promise<QuestionnaireItemAnswerOption[]> => {
+  const organizations = await listNonInsuranceOrganizations(oystehr, { employerOnly: true });
+  return organizations
+    .map((option) => ({ valueReference: { reference: option.reference, display: option.name } }))
+    .sort((r1, r2) => (r1.valueReference.display ?? '').localeCompare(r2.valueReference.display ?? ''));
 };
 
 const formatQueryResult = (

@@ -116,6 +116,7 @@ export type InHouseOrderListPageItemDTO = {
   timezone: string | undefined;
   orderAddedDate: string;
   orderingPhysicianFullName: string;
+  labDetails: DataEntryTestItem; // for showing results in the list page table
 };
 
 export type InHouseOrderDetailPageItemDTO = InHouseOrderListPageItemDTO & {
@@ -123,7 +124,6 @@ export type InHouseOrderDetailPageItemDTO = InHouseOrderListPageItemDTO & {
   currentUserId: string;
   currentUserFullName: string;
   resultsPDFUrl: string | undefined;
-  labDetails: DataEntryTestItem;
   orderHistory: {
     status: TestStatus;
     statusSubtitle: string | undefined;

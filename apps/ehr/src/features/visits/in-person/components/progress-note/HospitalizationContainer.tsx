@@ -6,12 +6,12 @@ import {
   SectionHeading,
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
-import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
+import { useProgressNoteChartFields } from 'src/features/visits/shared/hooks/useProgressNoteChartFields';
 import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 export const HospitalizationContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
-  const { data: chartData } = useChartFields({ requestedFields: { episodeOfCare: {} } });
+  const { data: chartData } = useProgressNoteChartFields();
   const theme = useTheme();
 
   const episodeOfCare = chartData?.episodeOfCare;

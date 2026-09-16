@@ -1,12 +1,13 @@
-export interface ProcedureDetails {
-  procedureDetails: string;
-}
-
-export interface AISuggestionNotesInput {
-  type: string;
-  hpi?: string;
-  details?: ProcedureDetails;
-}
+export type AISuggestionNotesInput =
+  | {
+      type: 'missing-hpi';
+      hpi?: string;
+    }
+  | {
+      type: 'note-review';
+      appointmentId?: string;
+      encounterId?: string;
+    };
 
 export interface AISuggestionNotes {
   suggestions: string[];

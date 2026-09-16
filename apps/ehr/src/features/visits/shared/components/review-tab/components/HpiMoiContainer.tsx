@@ -7,7 +7,7 @@ import {
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { formatISODateToLocaleDate } from 'src/helpers/formatDateTime';
-import { useChartFields } from '../../../hooks/useChartFields';
+import { useProgressNoteChartFields } from '../../../hooks/useProgressNoteChartFields';
 
 // Matches the checkbox labels on the HPI screen's "Patient's condition related to" card.
 const ACCIDENT_TYPE_LABELS: Record<string, string> = {
@@ -20,19 +20,7 @@ export const HpiMoiContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const theme = useTheme();
 
-  const { data: chartFields } = useChartFields({
-    requestedFields: {
-      chiefComplaint: {
-        _tag: 'chief-complaint',
-      },
-      mechanismOfInjury: {
-        _tag: 'mechanism-of-injury',
-      },
-      accident: {
-        _tag: 'accident',
-      },
-    },
-  });
+  const { data: chartFields } = useProgressNoteChartFields();
 
   // Legacy tagging: the history of present illness text is stored under the
   // chief-complaint tag.

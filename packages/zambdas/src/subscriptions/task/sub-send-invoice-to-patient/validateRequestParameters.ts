@@ -5,9 +5,6 @@ import {
   SubSendInvoiceToPatientTaskInput,
   SubSendInvoiceToPatientTaskInputSchema,
 } from 'utils/lib/types/api/invoicing.types';
-import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
-import { ZambdaInput } from '../../../shared/types/common';
-import { safeJsonParse } from '../../../shared/validation';
 
 export function validateRequestParameters(task: Task): {
   encounterId: string;
@@ -26,21 +23,5 @@ export function validateRequestParameters(task: Task): {
   return {
     encounterId,
     invoiceTaskInput: invoiceTaskInputParsed,
-  };
-}
-
-export function getTaskAndSecretsFromInput(input: ZambdaInput): { task: Task } & Pick<ZambdaInput, 'secrets'> {
-  if (!input.body) throw MISSING_REQUEST_BODY;
-
-  const inputRes = safeJsonParse(input.body);
-
-  if (inputRes.resourceType !== 'Task') {
-    throw new Error(`resource parsed should be a Task but was a ${inputRes.resourceType}`);
-  }
-
-  const task = inputRes as Task;
-  return {
-    task,
-    secrets: input.secrets,
   };
 }

@@ -35,7 +35,7 @@ vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
 
 import { index, performEffect } from '../../../src/billing/billing-stripe-webhook';
 import { validateRequestParameters } from '../../../src/billing/billing-stripe-webhook/validateRequestParameters';
-import { createBillingClient } from '../../../src/billing/shared';
+import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../src/shared/auth';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
@@ -129,14 +129,74 @@ const makeOystehr = (
   return { oystehr: { fhir: { search, create, update, patch, batch } } as unknown as Oystehr, create, update, patch };
 };
 
-const signedInput = (event: Stripe.Event, webhookSecret = WEBHOOK_SECRET): ZambdaInput => {
+const signedInput = (event: Stripe.Event, webhookSecret = WEBHOOK_SECRET, overrides?: Secrets): ZambdaInput => {
   const payload = JSON.stringify(event);
   const signature = stripe.webhooks.generateTestHeaderString({ payload, secret: webhookSecret });
-  return { body: payload, headers: { 'Stripe-Signature': signature }, secrets };
+  return { body: payload, headers: { 'Stripe-Signature': signature }, secrets: { ...secrets, ...overrides } };
 };
 
 afterEach(() => {
   vi.clearAllMocks();
+});
+
+describe('billing-stripe-webhook signing secrets', () => {
+  const accountSecrets = Array.from({ length: 12 }, (_, i) => ({
+    accountId: `acct_${i + 1}`,
+    signingSecret: `whsec_${i + 1}`,
+  }));
+  const webhookSecrets = { STRIPE_WEBHOOK_SECRET: JSON.stringify(accountSecrets) };
+
+  it('verifies the last of 12 accounts and uses it for billing and Stripe API calls', async () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const event = makeEvent('charge.succeeded', makeCharge({ metadata: {}, invoice: 'in_1' }));
+    const params = validateRequestParameters(signedInput(event, 'whsec_12', webhookSecrets));
+    const retrieve = vi.fn().mockResolvedValue(makeInvoice());
+    (getStripeClient as Mock).mockReturnValue({ invoices: { retrieve } });
+    const bp = { resourceType: 'Organization', id: 'bp-12' } as Organization;
+    const { oystehr, create } = makeOystehr([[claim]], [[bp]]);
+
+    await performEffect(oystehr, params);
+
+    expect(params.stripeAccount).toBe('acct_12');
+    expect(retrieve).toHaveBeenCalledWith('in_1', undefined, { stripeAccount: 'acct_12' });
+    expect(oystehr.fhir.search).toHaveBeenCalledWith({
+      resourceType: 'Organization',
+      params: [{ name: 'identifier', value: `${STRIPE_ACCOUNT_IDENTIFIER_SYSTEM}|acct_12` }],
+    });
+    expect(create.mock.calls[0][0].payee).toEqual({ reference: 'Organization/bp-12' });
+  });
+
+  it('rejects an event from a different account', () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const input = signedInput(makeEvent('charge.succeeded', makeCharge(), 'acct_2'), 'whsec_12', webhookSecrets);
+
+    expect(() => validateRequestParameters(input)).toThrow(
+      expect.objectContaining(INVALID_INPUT_ERROR('Stripe webhook account does not match the configured account.'))
+    );
+  });
+
+  it.each(['acct_2', undefined])('rejects conflicting mappings across secret settings: %s', (accountId) => {
+    const input = signedInput(makeEvent('charge.succeeded', makeCharge()), 'whsec_12', {
+      ...webhookSecrets,
+      STRIPE_PLATFORM_WEBHOOK_SECRET: JSON.stringify([{ signingSecret: 'whsec_12', accountId }]),
+    });
+
+    expect(() => validateRequestParameters(input)).toThrow(
+      expect.objectContaining(
+        MISCONFIGURED_ENVIRONMENT_ERROR('A Stripe webhook signing secret is mapped to different accounts.')
+      )
+    );
+  });
+
+  it.each(['[', '[{}]'])('rejects invalid signing secret configuration: %s', (value) => {
+    const input = signedInput(makeEvent('charge.succeeded', makeCharge()), WEBHOOK_SECRET, {
+      STRIPE_WEBHOOK_SECRET: value,
+    });
+
+    expect(() => validateRequestParameters(input)).toThrow(
+      expect.objectContaining({ code: MISCONFIGURED_ENVIRONMENT_ERROR('').code })
+    );
+  });
 });
 
 describe('billing-stripe-webhook', () => {

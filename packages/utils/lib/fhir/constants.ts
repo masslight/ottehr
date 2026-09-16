@@ -66,6 +66,8 @@ export const PARTICIPATION_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/
 export const ACCOUNT_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/account-type';
 
 export const RAW_X12_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/rcm-raw-x12';
+export const RAW_RESPONSE_EXTENSION_URL = `${OYSTEHR_EXTENSION_BASE_URL}/raw-response`;
+export const CLAIM_STATUS_RESPONSE_EVENT_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-claim-response-event-id';
 
 export const FHIR_EXTENSION = {
   Appointment: {
@@ -210,6 +212,19 @@ export const FHIR_EXTENSION = {
     },
     procedureDetails: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/procedure-details`,
+    },
+    structuredFacts: { url: `${PRIVATE_EXTENSION_BASE_URL}/procedure-structured-facts` },
+    lengthCm: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/length-cm`,
+    },
+    repairDepth: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/repair-depth`,
+    },
+    infusionStartTime: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/infusion-start-time`,
+    },
+    infusionStopTime: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/infusion-stop-time`,
     },
     specimenSent: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/specimen-sent`,
@@ -636,6 +651,118 @@ export const GroupAllLocationsCoding = {
   },
 };
 
+// ── Form templates ──────────────────────────────────────────────────────────
+
+/**
+ * Broad classification for admin-authored fillable PDF form templates.
+ *
+ * Set membership lives on `DocumentReference.category` (0..*) rather than `type` (0..1) so the single
+ * `type` slot stays free for the document's actual kind.
+ */
+export const DOCUMENT_CATEGORY_SYSTEM = ottehrCodeSystemUrl('document-category');
+
+/**
+ * Every code this system defines, in one place.
+ *
+ * Each code is used twice below — once in the `Coding` written to a resource and once in the `system|code`
+ * string used to search for it — so naming it here is what stops the two drifting apart.
+ */
+export const DOCUMENT_CATEGORY_CODES = {
+  formTemplate: 'form-template',
+  formInstance: 'form-instance',
+} as const;
+
+/**
+ * Typed as `Coding` deliberately: this object is written straight into a FHIR resource, and the server
+ * rejects any property that is not part of the datatype. Keeping the search-parameter string separate
+ * (below) means a convenience field cannot accidentally ride along into a resource.
+ */
+export const FORM_TEMPLATE_CATEGORY_CODING: Coding = {
+  system: DOCUMENT_CATEGORY_SYSTEM,
+  code: DOCUMENT_CATEGORY_CODES.formTemplate,
+  display: 'Form Template',
+};
+
+/** `system|code` form, for `category=` searches. Never written to a resource. */
+export const FORM_TEMPLATE_CATEGORY_SEARCH_PARAM = `${DOCUMENT_CATEGORY_SYSTEM}|${DOCUMENT_CATEGORY_CODES.formTemplate}`;
+
+/**
+ * Marks a document that should stay out of the patient's document list while it is still `preliminary`.
+ *
+ * A meta tag rather than a rule about categories, so the documents explorer does not have to know which
+ * kinds of document have drafts worth hiding. A workflow that produces working copies opts in by tagging
+ * them; everything else is unaffected, and the explorer's filter never changes.
+ *
+ * The status is still what does the hiding. `preliminary` alone is not enough to justify it — an unreviewed
+ * lab result carries that status and a clinician is waiting on it — so the tag says only "this particular
+ * document is not worth reading until it is finished".
+ */
+export const HIDE_WHILE_PRELIMINARY_TAG: Coding = {
+  system: ottehrCodeSystemUrl('document-visibility'),
+  code: 'hide-while-preliminary',
+  display: 'Hide while preliminary',
+};
+
+/**
+ * A prefilled copy of a template, produced for one encounter.
+ *
+ * Distinct from the template category so a chart listing cannot pick up templates, and a template listing
+ * cannot pick up instances — they live in different buckets and mean different things.
+ */
+export const FORM_INSTANCE_CATEGORY_CODING: Coding = {
+  system: DOCUMENT_CATEGORY_SYSTEM,
+  code: DOCUMENT_CATEGORY_CODES.formInstance,
+  display: 'Filled Form',
+};
+
+/** `system|code` form, for `category=` searches. Never written to a resource. */
+export const FORM_INSTANCE_CATEGORY_SEARCH_PARAM = `${DOCUMENT_CATEGORY_SYSTEM}|${DOCUMENT_CATEGORY_CODES.formInstance}`;
+
+/**
+ * Whether a template's PDF has fillable fields, recorded as a second `category` coding.
+ *
+ * This lives in `category` rather than alongside the field inventory in an extension because listings
+ * need it and extensions do not survive an `_elements` projection — FHIR selects whole elements, so
+ * asking for the fillability flag would drag every template's full field inventory back with it. Being
+ * 0..*, `category` accommodates this without displacing the set-membership coding, and it stays
+ * searchable if a listing ever wants to filter on it.
+ */
+export const FORM_TEMPLATE_FILLABILITY_SYSTEM = ottehrCodeSystemUrl('form-template-fillability');
+export const FormTemplateFillability = {
+  fillable: 'fillable',
+  printable: 'printable',
+} as const;
+
+/** Stable per-template business key, so a template survives having its PDF replaced. */
+export const FORM_TEMPLATE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('form-template');
+
+/**
+ * Field inventory extracted from the template PDF, stored as JSON.
+ *
+ * A cache, not a source of truth — it is always re-derivable from the file. It lives in an extension so
+ * list queries can leave it behind via `_elements`; a 200-field form is not something a listing should
+ * carry.
+ */
+export const FORM_TEMPLATE_FIELD_INVENTORY_EXTENSION_URL = ottehrExtensionUrl('form-template-field-inventory');
+
+/** Classification from the last analysis of the template PDF, so the UI can explain what a template supports. */
+export const FORM_TEMPLATE_ANALYSIS_EXTENSION_URL = ottehrExtensionUrl('form-template-analysis');
+
+/**
+ * Admin-authored bindings from chart context to the template's PDF fields, stored as JSON.
+ *
+ * Unlike the inventory this is not re-derivable — it is the authored artifact the whole feature exists
+ * to produce, so it is never rewritten except by an explicit save.
+ */
+export const FORM_TEMPLATE_MAPPING_EXTENSION_URL = ottehrExtensionUrl('form-template-mapping');
+
+/**
+ * Where an imported template's PDF was fetched from.
+ *
+ * Provenance only — the stored copy is the template. Kept so an admin can see where a form came from, and
+ * so a future check for a newer published version has somewhere to look.
+ */
+
 export const BUCKET_NAMES = {
   VISIT_NOTES: 'visit-notes',
   CONSENT_FORMS: 'consent-forms',
@@ -652,6 +779,10 @@ export const BUCKET_NAMES = {
   STATEMENTS: 'statements',
   PATIENT_EDUCATION: 'patient-education',
   PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
+  /** Admin-authored fillable PDF form templates. Org-level: no patient path segment. */
+  FORM_TEMPLATES: 'pdf-form-templates',
+  /** Prefilled copies of those templates, one per encounter. Patient-scoped, unlike the templates. */
+  FORM_INSTANCES: 'pdf-form-instances',
   RADIOLOGY_REPORTS: 'radiology-reports',
   REPORTS: 'invoiceable-patients-reports',
   BILLING_CLAIM_EXPORTS: 'billing-claim-exports',
@@ -760,6 +891,10 @@ export const FOLDERS_CONFIG: ListConfig[] = [
   },
 ];
 
+// Relationships deliberately absent here fall back to 'other' at the call sites. 'Employee' is one:
+// the HL7 subscriber-relationship CodeSystem has no employee code, and mapping it here would give
+// 'other' two keys, making the reverse lookup in the billing rules engine order-dependent. The
+// coding's `display` carries the original label either way.
 export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
   Child: 'child',
   Parent: 'parent',
@@ -771,7 +906,8 @@ export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
 };
 
 // Canonical set of subscriber/policy-holder relationships to the patient, shared across the
-// clinical EHR and billing app so the values stay aligned.
+// clinical EHR and billing app so the values stay aligned. Keep in step with
+// `relationshipToInsuredOptions` in ottehr-config/value-sets, which drives the paperwork dropdown.
 export const SUBSCRIBER_RELATIONSHIPS = [
   'Self',
   'Child',
@@ -779,6 +915,7 @@ export const SUBSCRIBER_RELATIONSHIPS = [
   'Spouse',
   'Common Law Spouse',
   'Injured Party',
+  'Employee',
   'Other',
 ] as const;
 export type SubscriberRelationship = (typeof SUBSCRIBER_RELATIONSHIPS)[number];
@@ -1210,6 +1347,7 @@ export type FeeScheduleDesignation = 'case-rate';
 export const CASE_RATE_CODE = 'case-rate';
 
 export const CPT_MODIFIER_EXTENSION_URL = ottehrExtensionUrl('cpt-modifier');
+export const CPT_BILLABLE_UNITS_EXTENSION_URL = ottehrExtensionUrl('cpt-billable-units');
 export const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';
 
 export const EXAM_MIGRATION_VERSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/exam-migration-version`;
