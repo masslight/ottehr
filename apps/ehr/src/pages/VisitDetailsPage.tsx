@@ -1,5 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import { ArrowDropDown } from '@mui/icons-material';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import CollectionsOutlinedIcon from '@mui/icons-material/CollectionsOutlined';
@@ -1252,6 +1253,7 @@ export default function VisitDetailsPage(): ReactElement {
                   data-testid={dataTestIds.visitDetailsPage.progressNoteButton}
                   disabled={!progressNoteUrl}
                   onClick={() => progressNoteUrl && navigate(progressNoteUrl)}
+                  startIcon={<ArrowForwardIcon />}
                 >
                   Progress Note
                 </RoundedButton>

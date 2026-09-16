@@ -149,6 +149,7 @@ export const convertVisitToScheduledFollowUp = async (
             resourceType: 'Appointment',
             resourceId: appointment.id!,
             patchOperations: appointmentOps,
+            ifMatch: makeOptimisticLockIfMatchHeader(appointment),
           }),
         ]
       : []),
