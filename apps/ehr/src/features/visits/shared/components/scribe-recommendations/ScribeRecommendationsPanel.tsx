@@ -22,9 +22,16 @@ import { FC, ReactNode, useMemo, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { describeAction } from 'src/features/easy-chart/executor/labels';
+import { useEasyChartData } from 'src/features/easy-chart/hooks/useEasyChartData';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { PlannedAction, RejectedAction } from 'utils/lib/easy-chart/api';
+import {
+  buildChartStateSummary,
+  buildNoteContextFromChart,
+  chartedExamFindingLabels,
+} from 'utils/lib/easy-chart/chart-state';
 import { isTranscriptDocument } from 'utils/lib/easy-chart/narrative';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 import { AiDisclaimerTooltip } from '../AiSection';
 import { getDocumentReferenceSource, getSource } from '../OttehrAi';
@@ -264,6 +271,19 @@ const NarrativeStep: FC = () => {
 };
 
 /**
+ * Whether the chart holds anything at all, built out of the three prompt-side readers rather than a fourth
+ * list of sections: `buildChartStateSummary` covers the coded items (diagnoses, conditions, medications,
+ * allergies, procedures, ROS, orders), `chartedExamFindingLabels` the checked exam findings, and
+ * `buildNoteContextFromChart` the free-text note fields. Each returns nothing for a section it finds empty,
+ * so "any of them said something" is exactly "the chart is not blank" — and it stays that way as sections are
+ * added to those helpers, which is why it is not a hand-written field list here.
+ */
+const chartHasContent = (chart: GetChartDataResponse | undefined): boolean =>
+  Boolean(buildChartStateSummary(chart)) ||
+  chartedExamFindingLabels(chart).length > 0 ||
+  Boolean(buildNoteContextFromChart(chart));
+
+/**
  * What the planner made of the narrative, under the narrative it read: the template it would apply, the
  * observations it would add, the orders it would suggest, and what it refused. The narrative itself is not
  * repeated here — it is a few lines up, in the editor, and one copy of it is the one being corrected.
@@ -279,6 +299,10 @@ const ResultsStep: FC = () => {
   const updateRecommendation = useScribeRecommendationsStore((state) => state.updateRecommendation);
   const chartedIds = useScribeRecommendationsStore((state) => state.chartedIds);
   const { templates } = useListTemplates();
+  // The same chart read the analyzer makes — one react-query entry, already mounted above — only to tell
+  // an empty plan's two meanings apart.
+  const { encounter } = useAppointmentData();
+  const { chartData } = useEasyChartData(encounter?.id, Boolean(encounter?.id));
   const { applyObservations, applyRecommendation } = useApplyRecommendations();
 
   // Watches the chart and marks off anything it already holds — whether it was there all along,
@@ -314,11 +338,18 @@ const ResultsStep: FC = () => {
   const stages: ReactNode[] = [];
 
   // A plan that found nothing is still an answer, and has to be given as one rather than as an empty panel.
-  // When it found something, the stages themselves say what it found, so there is nothing to introduce them
-  // with; whatever the assistant said rather than charted is read on its own, above them.
+  // TWO ANSWERS, because an empty plan has two meanings and only one of them is a failure: the planner
+  // de-duplicates against the chart, so a narrative whose every item is already charted comes back just as
+  // empty as one it could read nothing out of. Said the wrong way round — a provider who charted the
+  // recording and then planned the intake chat of the same visit — "nothing chartable" reads as the
+  // assistant having missed the whole visit. A chart with anything on it picks the reassuring sentence;
+  // a blank chart can only mean the narrative itself yielded nothing.
   if (recommendations.length === 0) {
+    const lead = chartHasContent(chartData)
+      ? 'Nothing new to chart — everything in this narrative is already on the chart.'
+      : 'I couldn’t find anything chartable in that narrative.';
     stages.push(
-      <ScribeStage key="summary" name="summary" lead="I couldn’t find anything chartable in that narrative.">
+      <ScribeStage key="summary" name="summary" lead={lead}>
         <AssistantNotes notes={notes} />
       </ScribeStage>
     );

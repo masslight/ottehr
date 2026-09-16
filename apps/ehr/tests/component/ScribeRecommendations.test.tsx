@@ -1032,6 +1032,21 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.queryByTestId(testIds.stage('observations'))).toBeNull();
   });
 
+  it('says the chart is already up to date when an empty plan meets a chart with content', async () => {
+    const user = userEvent.setup();
+    // the planner de-duplicates against the chart, so a second narrative of the same visit plans to nothing
+    mocks.chartData = { diagnosis: [{ code: 'J01.00', display: 'Acute maxillary sinusitis', isPrimary: true }] };
+    mocks.plan.mockReturnValue({ actions: [], rejected: [], ...envelope });
+    render(<ScribeRecommendationsDrawer />, { wrapper: Wrapper });
+    await user.click(screen.getByTestId(testIds.openButton));
+    seedNarrative();
+    await user.click(screen.getByTestId(testIds.analyzeButton));
+
+    expect(await screen.findByText(/already on the chart/)).toBeVisible();
+    expect(screen.queryByText(/couldn’t find anything chartable/)).toBeNull();
+    expect(screen.queryByTestId(testIds.stage('observations'))).toBeNull();
+  });
+
   it('remembers the panel width and open state across mounts, but not the narrative', async () => {
     const user = userEvent.setup();
     const { unmount } = render(<ScribeRecommendationsDrawer />, { wrapper: Wrapper });
