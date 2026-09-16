@@ -58,7 +58,7 @@ export const VirtualAppointmentFooter: FC = () => {
   const isActiveVisitStatus = ['arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(
     appointmentStatus
   );
-  const statusHistory = getVisitStatusHistory(encounter);
+  const statusHistory = getVisitStatusHistory(encounter, appointment ?? undefined);
   const arrivedStart = statusHistory.find((status) => status.status === 'arrived')?.period?.start;
   const waitingTime = arrivedStart ? diffInMinutes(DateTime.now(), DateTime.fromISO(arrivedStart)) : 0;
 

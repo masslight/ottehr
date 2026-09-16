@@ -1,6 +1,8 @@
 import { Appointment, Encounter, EncounterParticipant, EncounterStatusHistory } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { appointmentTypeForAppointment } from '../fhir/appointments';
 import { FHIR_EXTENSION } from '../fhir/constants';
+import { isTelemedAppointment } from '../fhir/moduleIdentification';
 import {
   SupervisorApprovalStatus,
   VisitStatusHistoryEntry,
@@ -137,7 +139,11 @@ export const isVisitFinished = (appointment?: Appointment, encounter?: Encounter
   return FINISHED_VISIT_STATUSES.includes(getInPersonVisitStatus(appointment, encounter, true));
 };
 
-export const getVisitStatusHistory = (encounter: Encounter): VisitStatusHistoryEntry[] => {
+export const getVisitStatusHistory = (encounter: Encounter, appointment?: Appointment): VisitStatusHistoryEntry[] => {
+  const isOnDemandVirtual =
+    appointment != null &&
+    isTelemedAppointment(appointment) &&
+    appointmentTypeForAppointment(appointment) === 'walk-in';
   const visitHistory: VisitStatusHistoryEntry[] = [];
 
   encounter?.statusHistory?.forEach((statusHist: EncounterStatusHistory) => {
@@ -161,7 +167,17 @@ export const getVisitStatusHistory = (encounter: Encounter): VisitStatusHistoryE
       // fallback to old logic
       const curVisitHistory: any = {};
       if (statusHist.status === 'planned') {
-        curVisitHistory.status = 'pending';
+        if (isOnDemandVirtual) {
+          // On-demand virtual visits start as FHIR 'planned' for notification purposes,
+          // but clinically represent 'arrived'. Only show the entry while it is the open
+          // (current) state; once it has been closed by create-waiting-room-notification-task
+          // a proper 'arrived' entry with the ottehr extension is present, so skip this one.
+          if (!statusHist.period.end) {
+            curVisitHistory.status = 'arrived';
+          }
+        } else {
+          curVisitHistory.status = 'pending';
+        }
       } else if (statusHist.status === 'arrived') {
         curVisitHistory.status = 'arrived';
       } else if (statusHist.status === 'cancelled') {

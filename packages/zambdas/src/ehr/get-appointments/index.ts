@@ -893,7 +893,7 @@ const makeAppointmentInformation = (
     },
     participants,
     next,
-    visitStatusHistory: getVisitStatusHistory(encounter),
+    visitStatusHistory: getVisitStatusHistory(encounter, appointment),
     waitingMinutes,
     // Prefer the human-readable display, but fall back to the code: FHIR-backed
     // (non-system) categories are stamped on the slot with only system+code and
