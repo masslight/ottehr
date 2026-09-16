@@ -53,8 +53,17 @@ const lengthCmSchema = z
   .number()
   .refine(isPlausibleLengthCm, { message: `must be greater than 0 and at most ${MAX_PLAUSIBLE_LENGTH_CM} cm` });
 
+const cptCodeSchema = z.object({
+  code: z.string(),
+  display: z.string(),
+  modifier: z.array(z.object({ code: z.string(), display: z.string() })).optional(),
+  billableUnits: z.number().positive().optional(),
+});
+
 const procedureQuickPickSchema = z
   .object({
+    cptCodes: z.array(cptCodeSchema).optional(),
+    diagnoses: z.array(cptCodeSchema).optional(),
     structuredFacts: z.custom<StructuredFacts>(isStructuredFacts).optional(),
     lengthCm: lengthCmSchema.optional(),
     repairDepth: repairDepthSchema.optional(),

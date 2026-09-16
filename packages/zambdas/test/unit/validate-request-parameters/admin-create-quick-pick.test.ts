@@ -58,11 +58,10 @@ describe('admin-create-quick-pick - procedure quick pick payload', () => {
     ).resolves.toBeUndefined();
   });
 
-  test('should leave the rest of ProcedureQuickPickData unchecked', async () => {
+  test('should leave the free-text part of ProcedureQuickPickData unchecked', async () => {
     await expect(
       validateProcedureQuickPick({
         procedureType: 'Laceration Repair',
-        cptCodes: [{ code: '12042', display: 'Intermediate repair' }],
         bodySite: 'Left arm',
         technique: ['Simple interrupted'],
         consentObtained: true,
@@ -79,6 +78,38 @@ describe('admin-create-quick-pick - procedure quick pick payload', () => {
       thrown = error;
     }
     expect(thrown.code).toBe(APIErrorCode.INVALID_INPUT);
+  });
+});
+
+describe('admin-create-quick-pick - procedure CPT codes', () => {
+  test('should accept a code with modifiers and units', async () => {
+    await expect(
+      validateProcedureQuickPick({
+        cptCodes: [
+          { code: '12042', display: 'Intermediate repair' },
+          {
+            code: '13133',
+            display: 'Each additional 5 cm',
+            modifier: [{ code: 'LT', display: 'Left' }],
+            billableUnits: 2,
+          },
+        ],
+      })
+    ).resolves.toBeUndefined();
+  });
+
+  test.each([
+    ['a modifier that is not a list', [{ code: '12042', display: 'Intermediate repair', modifier: 'LT' }]],
+    [
+      'a modifier entry without a display',
+      [{ code: '12042', display: 'Intermediate repair', modifier: [{ code: 'LT' }] }],
+    ],
+    ['zero units', [{ code: '12042', display: 'Intermediate repair', billableUnits: 0 }]],
+    ['units as text', [{ code: '12042', display: 'Intermediate repair', billableUnits: '2' }]],
+    ['a code without a display', [{ code: '12042' }]],
+    ['a bare string instead of a code entry', ['12042']],
+  ])('should throw for %s', async (_label, cptCodes) => {
+    await expectRejected({ cptCodes });
   });
 });
 
