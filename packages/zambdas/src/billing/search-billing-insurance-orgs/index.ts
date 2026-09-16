@@ -1,7 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
-import { INSURANCE_ORG_KIND_CODE, SearchInsuranceOrgsResponse } from 'utils/lib/types/data/billing/insurance-org.types';
+import {
+  INSURANCE_ORG_KIND_CODE,
+  SearchInsuranceOrgsResponse,
+} from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';

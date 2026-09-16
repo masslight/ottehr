@@ -1,7 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { Organization } from 'fhir/r4b';
-import { CreateInsuranceOrgInput } from 'utils/lib/types/data/billing/insurance-org.schemas';
-import { INSURANCE_ORG_ID_SYSTEM, INSURANCE_ORG_TYPE_SYSTEM } from 'utils/lib/types/data/billing/insurance-org.types';
+import { CreateCustomInsuranceOrgInput } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
+import {
+  INSURANCE_ORG_ID_SYSTEM,
+  INSURANCE_ORG_TYPE_SYSTEM,
+} from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect as createInsuranceOrg } from '../../../src/billing/create-billing-insurance-org';
@@ -17,7 +20,7 @@ import { performEffect as updateInsuranceOrg } from '../../../src/billing/update
 
 const ORG_ID = '11111111-1111-4111-8111-111111111111';
 
-const fullInput: CreateInsuranceOrgInput = {
+const fullInput: CreateCustomInsuranceOrgInput = {
   orgId: 'OTR-ACME',
   name: 'Acme Insurance',
   insuranceTypes: ['workers-comp', 'auto'],
@@ -52,7 +55,7 @@ function makeOystehr(): MockOystehr {
 
 describe('insurance-org FHIR mapping', () => {
   it('round-trips a full input through build/map back to the DTO', () => {
-    const input: CreateInsuranceOrgInput = {
+    const input: CreateCustomInsuranceOrgInput = {
       ...fullInput,
       contacts: [{ name: 'Jane Smith', title: 'Claims Manager', phone: '555-123-4567', email: 'jane@acme.com' }],
     };

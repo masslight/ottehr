@@ -5,11 +5,11 @@ import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { BillingPayerOption } from 'utils/lib/types/data/billing/billing.types';
-import { InsuranceOrganizationItem } from 'utils/lib/types/data/billing/insurance-org.types';
-import { deleteBillingInsuranceOrg, searchBillingInsuranceOrgs, searchBillingPayers } from '../api/api';
+import { InsuranceOrganizationItem } from 'utils/lib/types/data/billing/custom-insurance-org.types';
+import { deleteBillingCustomInsuranceOrg, searchBillingCustomInsuranceOrgs, searchBillingPayers } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { InsuranceOrgDetailSection } from '../components/insurance-org/InsuranceOrgDetailSection';
-import { InsuranceOrgDialog } from '../components/insurance-org/InsuranceOrgDialog';
+import { CustomInsuranceOrgDetailSection } from '../components/insurance-org/CustomInsuranceOrgDetailSection';
+import { CustomInsuranceOrgDialog } from '../components/insurance-org/CustomInsuranceOrgDialog';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 
@@ -69,7 +69,7 @@ export function InsuranceOrganizationsList(): ReactElement {
       try {
         const [payersData, customData] = await Promise.all([
           searchBillingPayers(oystehrZambda, { ...(name ? { name } : {}), limit: 50 }),
-          searchBillingInsuranceOrgs(oystehrZambda, { ...(name ? { name } : {}), pageSize: 100 }),
+          searchBillingCustomInsuranceOrgs(oystehrZambda, { ...(name ? { name } : {}), pageSize: 100 }),
         ]);
         setPayers(payersData.payers ?? []);
         setNextCursor(payersData.nextCursor ?? null);
@@ -174,7 +174,7 @@ export function InsuranceOrganizationsList(): ReactElement {
         </Box>
       )}
 
-      <InsuranceOrgDialog
+      <CustomInsuranceOrgDialog
         open={addOpen}
         onClose={() => setAddOpen(false)}
         onCreated={() => void fetchAll(searchName || undefined)}
@@ -197,7 +197,7 @@ export function InsuranceOrganizationDetail(): ReactElement {
     setLoading(true);
     setError(null);
     try {
-      const data = await searchBillingInsuranceOrgs(oystehrZambda, { insuranceOrgId: id });
+      const data = await searchBillingCustomInsuranceOrgs(oystehrZambda, { insuranceOrgId: id });
       setItem((data.organizations ?? [])[0] ?? null);
     } catch (err) {
       setError(getApiError({ error: err, defaultError: 'Failed to load insurance organization' }));
@@ -214,7 +214,7 @@ export function InsuranceOrganizationDetail(): ReactElement {
     if (!oystehrZambda || !item) return;
     if (!window.confirm(`Delete insurance organization "${item.name}"?`)) return;
     try {
-      await deleteBillingInsuranceOrg(oystehrZambda, { insuranceOrgId: item.id });
+      await deleteBillingCustomInsuranceOrg(oystehrZambda, { insuranceOrgId: item.id });
       navigate('/insurance-organizations');
     } catch (err) {
       setError(getApiError({ error: err, defaultError: 'Failed to delete insurance organization' }));
@@ -261,7 +261,7 @@ export function InsuranceOrganizationDetail(): ReactElement {
           Delete
         </Button>
       </Box>
-      <InsuranceOrgDetailSection item={item} onSaved={fetchDetail} />
+      <CustomInsuranceOrgDetailSection item={item} onSaved={fetchDetail} />
     </Box>
   );
 }

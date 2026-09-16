@@ -14,25 +14,25 @@ import {
 import { ReactElement } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import {
-  INSURANCE_ORG_CLAIM_FORMS,
-  INSURANCE_ORG_SUBMISSION_MECHANISMS,
-  INSURANCE_ORG_TYPES,
-} from 'utils/lib/types/data/billing/insurance-org.schemas';
+  CUSTOM_INSURANCE_ORG_CLAIM_FORMS,
+  CUSTOM_INSURANCE_ORG_SUBMISSION_MECHANISMS,
+  CUSTOM_INSURANCE_ORG_TYPES,
+} from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import {
   INSURANCE_ORG_CLAIM_FORM_LABELS,
   INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS,
   INSURANCE_ORG_TYPE_LABELS,
-} from 'utils/lib/types/data/billing/insurance-org.types';
+} from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
-import { InsuranceOrgForm } from '../../constants/insuranceOrg';
+import { CustomInsuranceOrgForm } from '../../constants/customInsuranceOrg';
 import { ContactsPanel } from '../nio/ContactsPanel';
 import { NioAddressFields } from '../nio/NioAddressFields';
 
 // The whole custom Insurance Organization form body — org fields on the left, contacts on the
 // right — shared by the create dialog and the detail page's edit mode. Must render inside a
-// FormProvider whose values are an InsuranceOrgForm.
-export function InsuranceOrgFormFields(): ReactElement {
-  const { control } = useFormContext<InsuranceOrgForm>();
+// FormProvider whose values are an CustomInsuranceOrgForm.
+export function CustomInsuranceOrgFormFields(): ReactElement {
+  const { control } = useFormContext<CustomInsuranceOrgForm>();
   const submissionMechanism = useWatch({ control, name: 'submissionMechanism' });
   return (
     <Box sx={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
@@ -82,7 +82,7 @@ export function InsuranceOrgFormFields(): ReactElement {
           control={control}
           render={({ field }) => (
             <FormGroup row>
-              {INSURANCE_ORG_TYPES.map((type) => (
+              {CUSTOM_INSURANCE_ORG_TYPES.map((type) => (
                 <FormControlLabel
                   key={type}
                   label={INSURANCE_ORG_TYPE_LABELS[type]}
@@ -111,7 +111,7 @@ export function InsuranceOrgFormFields(): ReactElement {
             <FormControl error={!!error}>
               <FormLabel sx={{ fontSize: 14 }}>Submission Mechanism *</FormLabel>
               <RadioGroup row value={field.value} onChange={(e) => field.onChange(e.target.value)}>
-                {INSURANCE_ORG_SUBMISSION_MECHANISMS.map((mechanism) => (
+                {CUSTOM_INSURANCE_ORG_SUBMISSION_MECHANISMS.map((mechanism) => (
                   <FormControlLabel
                     key={mechanism}
                     value={mechanism}
@@ -206,7 +206,7 @@ export function InsuranceOrgFormFields(): ReactElement {
             <FormControl error={!!error}>
               <FormLabel sx={{ fontSize: 14 }}>Accepted Claim Form *</FormLabel>
               <RadioGroup row value={field.value} onChange={(e) => field.onChange(e.target.value)}>
-                {INSURANCE_ORG_CLAIM_FORMS.map((claimForm) => (
+                {CUSTOM_INSURANCE_ORG_CLAIM_FORMS.map((claimForm) => (
                   <FormControlLabel
                     key={claimForm}
                     value={claimForm}

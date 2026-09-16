@@ -1,17 +1,17 @@
 import {
-  CreateInsuranceOrgInput,
-  InsuranceOrgClaimForm,
-  InsuranceOrgSubmissionMechanism,
-  InsuranceOrgType,
-} from 'utils/lib/types/data/billing/insurance-org.schemas';
+  CreateCustomInsuranceOrgInput,
+  CustomInsuranceOrgClaimForm,
+  CustomInsuranceOrgSubmissionMechanism,
+  CustomInsuranceOrgType,
+} from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import {
   InsuranceOrganizationItem,
   InsuranceOrgSubmissionDetails,
-} from 'utils/lib/types/data/billing/insurance-org.types';
+} from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NioContact } from 'utils/lib/types/data/billing/non-insurance-org.schemas';
 import { emptyNioAddressForm, formatNioAddress, NioAddressForm, NioContactForm } from './nonInsuranceOrg';
 
-export interface InsuranceOrgSubmissionDetailsForm {
+export interface CustomInsuranceOrgSubmissionDetailsForm {
   email: string;
   portalUrl: string;
   portalDetails: string;
@@ -19,22 +19,22 @@ export interface InsuranceOrgSubmissionDetailsForm {
   mailAddress: NioAddressForm;
 }
 
-export interface InsuranceOrgForm {
+export interface CustomInsuranceOrgForm {
   orgId: string;
   name: string;
-  insuranceTypes: InsuranceOrgType[];
-  submissionMechanism: '' | InsuranceOrgSubmissionMechanism;
-  submissionDetails: InsuranceOrgSubmissionDetailsForm;
-  acceptedClaimForm: '' | InsuranceOrgClaimForm;
+  insuranceTypes: CustomInsuranceOrgType[];
+  submissionMechanism: '' | CustomInsuranceOrgSubmissionMechanism;
+  submissionDetails: CustomInsuranceOrgSubmissionDetailsForm;
+  acceptedClaimForm: '' | CustomInsuranceOrgClaimForm;
   note: string;
   contacts: NioContactForm[];
 }
 
-function emptySubmissionDetailsForm(): InsuranceOrgSubmissionDetailsForm {
+function emptySubmissionDetailsForm(): CustomInsuranceOrgSubmissionDetailsForm {
   return { email: '', portalUrl: '', portalDetails: '', faxNumber: '', mailAddress: emptyNioAddressForm() };
 }
 
-export function emptyInsuranceOrgForm(): InsuranceOrgForm {
+export function emptyInsuranceOrgForm(): CustomInsuranceOrgForm {
   return {
     orgId: '',
     name: '',
@@ -47,7 +47,7 @@ export function emptyInsuranceOrgForm(): InsuranceOrgForm {
   };
 }
 
-function submissionDetailsToForm(details?: InsuranceOrgSubmissionDetails): InsuranceOrgSubmissionDetailsForm {
+function submissionDetailsToForm(details?: InsuranceOrgSubmissionDetails): CustomInsuranceOrgSubmissionDetailsForm {
   return {
     email: details?.email ?? '',
     portalUrl: details?.portalUrl ?? '',
@@ -65,7 +65,7 @@ function submissionDetailsToForm(details?: InsuranceOrgSubmissionDetails): Insur
   };
 }
 
-export function insuranceOrgItemToFormValues(item?: InsuranceOrganizationItem | null): InsuranceOrgForm {
+export function insuranceOrgItemToFormValues(item?: InsuranceOrganizationItem | null): CustomInsuranceOrgForm {
   const form = emptyInsuranceOrgForm();
   if (!item) return form;
   form.orgId = item.orgId;
@@ -86,7 +86,7 @@ export function insuranceOrgItemToFormValues(item?: InsuranceOrganizationItem | 
 
 // Only the field(s) relevant to the selected mechanism are submitted, so switching mechanisms in
 // the form never leaves stale data from a previously-selected one behind.
-function submissionDetailsToInput(form: InsuranceOrgForm): InsuranceOrgSubmissionDetails | undefined {
+function submissionDetailsToInput(form: CustomInsuranceOrgForm): InsuranceOrgSubmissionDetails | undefined {
   const details = form.submissionDetails;
   if (form.submissionMechanism === 'email') {
     return details.email.trim() ? { email: details.email.trim() } : undefined;
@@ -131,16 +131,16 @@ function contactsToInput(contacts: NioContactForm[]): NioContact[] | undefined {
   return result.length ? result : undefined;
 }
 
-export function insuranceOrgFormToInput(form: InsuranceOrgForm): CreateInsuranceOrgInput {
+export function insuranceOrgFormToInput(form: CustomInsuranceOrgForm): CreateCustomInsuranceOrgInput {
   const submissionDetails = submissionDetailsToInput(form);
   const contacts = contactsToInput(form.contacts);
   return {
     orgId: form.orgId.trim(),
     name: form.name.trim(),
     insuranceTypes: form.insuranceTypes,
-    submissionMechanism: form.submissionMechanism as InsuranceOrgSubmissionMechanism,
+    submissionMechanism: form.submissionMechanism as CustomInsuranceOrgSubmissionMechanism,
     ...(submissionDetails ? { submissionDetails } : {}),
-    acceptedClaimForm: form.acceptedClaimForm as InsuranceOrgClaimForm,
+    acceptedClaimForm: form.acceptedClaimForm as CustomInsuranceOrgClaimForm,
     ...(form.note.trim() ? { note: form.note.trim() } : {}),
     ...(contacts ? { contacts } : {}),
   };

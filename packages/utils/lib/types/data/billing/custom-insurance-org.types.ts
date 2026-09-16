@@ -1,9 +1,9 @@
 import {
-  InsuranceOrgAddress,
-  InsuranceOrgClaimForm,
-  InsuranceOrgSubmissionMechanism,
-  InsuranceOrgType,
-} from './insurance-org.schemas';
+  CustomInsuranceOrgAddress,
+  CustomInsuranceOrgClaimForm,
+  CustomInsuranceOrgSubmissionMechanism,
+  CustomInsuranceOrgType,
+} from './custom-insurance-org.schemas';
 import { NioContact } from './non-insurance-org.schemas';
 
 // --- FHIR systems & extensions (billing workspace) ---
@@ -28,21 +28,21 @@ export const INSURANCE_ORG_NOTE_EXTENSION_URL = 'https://fhir.ottehr.com/billing
 export const INSURANCE_ORG_PORTAL_DETAILS_EXTENSION_URL =
   'https://fhir.ottehr.com/billing/insurance-org-portal-details';
 
-export const INSURANCE_ORG_TYPE_LABELS: Record<InsuranceOrgType, string> = {
+export const INSURANCE_ORG_TYPE_LABELS: Record<CustomInsuranceOrgType, string> = {
   'workers-comp': 'Workers Comp',
   auto: 'Auto',
   medical: 'Medical',
   other: 'Other',
 };
 
-export const INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS: Record<InsuranceOrgSubmissionMechanism, string> = {
+export const INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS: Record<CustomInsuranceOrgSubmissionMechanism, string> = {
   email: 'Email',
   portal: 'Portal',
   fax: 'Fax',
   mail: 'Mail',
 };
 
-export const INSURANCE_ORG_CLAIM_FORM_LABELS: Record<InsuranceOrgClaimForm, string> = {
+export const INSURANCE_ORG_CLAIM_FORM_LABELS: Record<CustomInsuranceOrgClaimForm, string> = {
   'cms-1500': 'CMS-1500',
   'cms-1450': 'CMS-1450',
   other: 'Other',
@@ -55,7 +55,7 @@ export interface InsuranceOrgSubmissionDetails {
   portalUrl?: string;
   portalDetails?: string;
   faxNumber?: string;
-  mailAddress?: InsuranceOrgAddress;
+  mailAddress?: CustomInsuranceOrgAddress;
 }
 
 export interface InsuranceOrganizationItem {
@@ -64,11 +64,11 @@ export interface InsuranceOrganizationItem {
   orgId: string;
   name: string;
   active: boolean;
-  insuranceTypes: InsuranceOrgType[];
-  submissionMechanism: InsuranceOrgSubmissionMechanism;
+  insuranceTypes: CustomInsuranceOrgType[];
+  submissionMechanism: CustomInsuranceOrgSubmissionMechanism;
   // Only the field(s) relevant to submissionMechanism are ever populated.
   submissionDetails?: InsuranceOrgSubmissionDetails;
-  acceptedClaimForm: InsuranceOrgClaimForm;
+  acceptedClaimForm: CustomInsuranceOrgClaimForm;
   note?: string;
   contacts: NioContact[];
 }

@@ -13,20 +13,24 @@ import {
 import { ReactElement, useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { createBillingInsuranceOrg } from '../../api/api';
-import { emptyInsuranceOrgForm, InsuranceOrgForm, insuranceOrgFormToInput } from '../../constants/insuranceOrg';
+import { createBillingCustomInsuranceOrg } from '../../api/api';
+import {
+  CustomInsuranceOrgForm,
+  emptyInsuranceOrgForm,
+  insuranceOrgFormToInput,
+} from '../../constants/customInsuranceOrg';
 import { useApiClients } from '../../hooks/useAppClients';
-import { InsuranceOrgFormFields } from './InsuranceOrgFormFields';
+import { CustomInsuranceOrgFormFields } from './CustomInsuranceOrgFormFields';
 
-interface InsuranceOrgDialogProps {
+interface CustomInsuranceOrgDialogProps {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
 }
 
-export function InsuranceOrgDialog({ open, onClose, onCreated }: InsuranceOrgDialogProps): ReactElement {
+export function CustomInsuranceOrgDialog({ open, onClose, onCreated }: CustomInsuranceOrgDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const methods = useForm<InsuranceOrgForm>({ defaultValues: emptyInsuranceOrgForm() });
+  const methods = useForm<CustomInsuranceOrgForm>({ defaultValues: emptyInsuranceOrgForm() });
   const {
     handleSubmit,
     reset,
@@ -41,11 +45,11 @@ export function InsuranceOrgDialog({ open, onClose, onCreated }: InsuranceOrgDia
     reset(emptyInsuranceOrgForm());
   }, [open, reset]);
 
-  const handleSave = async (data: InsuranceOrgForm): Promise<void> => {
+  const handleSave = async (data: CustomInsuranceOrgForm): Promise<void> => {
     if (!oystehrZambda) return;
     setError(null);
     try {
-      const result = await createBillingInsuranceOrg(oystehrZambda, insuranceOrgFormToInput(data));
+      const result = await createBillingCustomInsuranceOrg(oystehrZambda, insuranceOrgFormToInput(data));
       if (!result.id) throw new Error('Insurance organization was not created');
       onCreated();
       onClose();
@@ -70,7 +74,7 @@ export function InsuranceOrgDialog({ open, onClose, onCreated }: InsuranceOrgDia
         )}
         <FormProvider {...methods}>
           <Box sx={{ mt: 1 }}>
-            <InsuranceOrgFormFields />
+            <CustomInsuranceOrgFormFields />
           </Box>
         </FormProvider>
       </DialogContent>

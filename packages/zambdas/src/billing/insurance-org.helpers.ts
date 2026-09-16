@@ -1,13 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { Address, ContactPoint, Extension, Organization } from 'fhir/r4b';
 import {
-  CreateInsuranceOrgInput,
-  INSURANCE_ORG_TYPES,
-  InsuranceOrgAddress,
-  InsuranceOrgClaimForm,
-  InsuranceOrgSubmissionMechanism,
-  InsuranceOrgType,
-} from 'utils/lib/types/data/billing/insurance-org.schemas';
+  CreateCustomInsuranceOrgInput,
+  CUSTOM_INSURANCE_ORG_TYPES,
+  CustomInsuranceOrgAddress,
+  CustomInsuranceOrgClaimForm,
+  CustomInsuranceOrgSubmissionMechanism,
+  CustomInsuranceOrgType,
+} from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import {
   INSURANCE_ORG_ACCEPTED_CLAIM_FORM_EXTENSION_URL,
   INSURANCE_ORG_ID_SYSTEM,
@@ -18,7 +18,7 @@ import {
   INSURANCE_ORG_TYPE_SYSTEM,
   InsuranceOrganizationItem,
   InsuranceOrgSubmissionDetails,
-} from 'utils/lib/types/data/billing/insurance-org.types';
+} from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NioContact } from 'utils/lib/types/data/billing/non-insurance-org.schemas';
 import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { toFhirContact, toNioContact } from './non-insurance-org.helpers';
@@ -40,7 +40,7 @@ export function getInsuranceOrgBusinessId(org: Organization): string {
 
 // --- Address conversion ---
 
-function toFhirAddress(address: InsuranceOrgAddress | undefined): Address | undefined {
+function toFhirAddress(address: CustomInsuranceOrgAddress | undefined): Address | undefined {
   if (!address) return undefined;
   const line = [address.line1, address.line2].filter((part): part is string => !!part);
   const result: Address = {
@@ -52,9 +52,9 @@ function toFhirAddress(address: InsuranceOrgAddress | undefined): Address | unde
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
-function toInsuranceOrgAddress(address: Address | undefined): InsuranceOrgAddress | undefined {
+function toInsuranceOrgAddress(address: Address | undefined): CustomInsuranceOrgAddress | undefined {
   if (!address) return undefined;
-  const result: InsuranceOrgAddress = {
+  const result: CustomInsuranceOrgAddress = {
     ...(address.line?.[0] ? { line1: address.line[0] } : {}),
     ...(address.line?.[1] ? { line2: address.line[1] } : {}),
     ...(address.city ? { city: address.city } : {}),
@@ -66,7 +66,10 @@ function toInsuranceOrgAddress(address: Address | undefined): InsuranceOrgAddres
 
 // --- Resource builder (full replace: owns every field it writes) ---
 
-export function buildInsuranceOrganization(input: CreateInsuranceOrgInput, existing?: Organization): Organization {
+export function buildInsuranceOrganization(
+  input: CreateCustomInsuranceOrgInput,
+  existing?: Organization
+): Organization {
   const details = input.submissionDetails;
 
   const telecom: ContactPoint[] = [];
@@ -127,12 +130,14 @@ export function mapInsuranceOrganization(org: Organization): InsuranceOrganizati
     .flatMap((concept) => concept.coding ?? [])
     .filter((coding) => coding.system === INSURANCE_ORG_TYPE_SYSTEM)
     .map((coding) => coding.code)
-    .filter((code): code is InsuranceOrgType => (INSURANCE_ORG_TYPES as readonly string[]).includes(code ?? ''));
+    .filter((code): code is CustomInsuranceOrgType =>
+      (CUSTOM_INSURANCE_ORG_TYPES as readonly string[]).includes(code ?? '')
+    );
 
   const submissionMechanism = org.extension?.find((ext) => ext.url === INSURANCE_ORG_SUBMISSION_MECHANISM_EXTENSION_URL)
-    ?.valueCode as InsuranceOrgSubmissionMechanism;
+    ?.valueCode as CustomInsuranceOrgSubmissionMechanism;
   const acceptedClaimForm = org.extension?.find((ext) => ext.url === INSURANCE_ORG_ACCEPTED_CLAIM_FORM_EXTENSION_URL)
-    ?.valueCode as InsuranceOrgClaimForm;
+    ?.valueCode as CustomInsuranceOrgClaimForm;
   const note = org.extension?.find((ext) => ext.url === INSURANCE_ORG_NOTE_EXTENSION_URL)?.valueString;
   const submissionDetails = mapSubmissionDetails(org);
   const contacts = (org.contact ?? [])

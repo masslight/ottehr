@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CreateInsuranceOrgInputSchema,
-  DeleteInsuranceOrgInputSchema,
-  SearchInsuranceOrgsInputSchema,
-  UpdateInsuranceOrgInputSchema,
-} from './insurance-org.schemas';
+  CreateCustomInsuranceOrgInputSchema,
+  DeleteCustomInsuranceOrgInputSchema,
+  SearchCustomInsuranceOrgsInputSchema,
+  UpdateCustomInsuranceOrgInputSchema,
+} from './custom-insurance-org.schemas';
 
 const ORG_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -19,11 +19,11 @@ const fullInput = {
 
 describe('insurance-org input schemas', () => {
   it('accepts a fully-populated create', () => {
-    expect(CreateInsuranceOrgInputSchema.safeParse(fullInput).success).toBe(true);
+    expect(CreateCustomInsuranceOrgInputSchema.safeParse(fullInput).success).toBe(true);
   });
 
   it('accepts the minimal required fields, defaulting insuranceTypes to []', () => {
-    const result = CreateInsuranceOrgInputSchema.safeParse({
+    const result = CreateCustomInsuranceOrgInputSchema.safeParse({
       orgId: 'OTR-ACME',
       name: 'Acme Insurance',
       submissionMechanism: 'email',
@@ -45,44 +45,45 @@ describe('insurance-org input schemas', () => {
     ['unknown acceptedClaimForm', { ...fullInput, acceptedClaimForm: 'cms-9999' }],
     ['unknown insuranceType', { ...fullInput, insuranceTypes: ['dental'] }],
   ])('rejects create with %s', (_label, input) => {
-    expect(CreateInsuranceOrgInputSchema.safeParse(input).success).toBe(false);
+    expect(CreateCustomInsuranceOrgInputSchema.safeParse(input).success).toBe(false);
   });
 
   it('accepts zero insurance types', () => {
-    expect(CreateInsuranceOrgInputSchema.safeParse({ ...fullInput, insuranceTypes: [] }).success).toBe(true);
+    expect(CreateCustomInsuranceOrgInputSchema.safeParse({ ...fullInput, insuranceTypes: [] }).success).toBe(true);
   });
 
   it('requires insuranceOrgId on update', () => {
-    expect(UpdateInsuranceOrgInputSchema.safeParse(fullInput).success).toBe(false);
-    expect(UpdateInsuranceOrgInputSchema.safeParse({ ...fullInput, insuranceOrgId: ORG_ID }).success).toBe(true);
+    expect(UpdateCustomInsuranceOrgInputSchema.safeParse(fullInput).success).toBe(false);
+    expect(UpdateCustomInsuranceOrgInputSchema.safeParse({ ...fullInput, insuranceOrgId: ORG_ID }).success).toBe(true);
   });
 
   it('search accepts an empty object and any combination of filters', () => {
-    expect(SearchInsuranceOrgsInputSchema.safeParse({}).success).toBe(true);
-    expect(SearchInsuranceOrgsInputSchema.safeParse({ insuranceOrgId: ORG_ID, name: 'Acme' }).success).toBe(true);
+    expect(SearchCustomInsuranceOrgsInputSchema.safeParse({}).success).toBe(true);
+    expect(SearchCustomInsuranceOrgsInputSchema.safeParse({ insuranceOrgId: ORG_ID, name: 'Acme' }).success).toBe(true);
   });
 
   it('delete requires insuranceOrgId', () => {
-    expect(DeleteInsuranceOrgInputSchema.safeParse({}).success).toBe(false);
-    expect(DeleteInsuranceOrgInputSchema.safeParse({ insuranceOrgId: ORG_ID }).success).toBe(true);
+    expect(DeleteCustomInsuranceOrgInputSchema.safeParse({}).success).toBe(false);
+    expect(DeleteCustomInsuranceOrgInputSchema.safeParse({ insuranceOrgId: ORG_ID }).success).toBe(true);
   });
 
   it('accepts mechanism-specific submissionDetails', () => {
     expect(
-      CreateInsuranceOrgInputSchema.safeParse({ ...fullInput, submissionDetails: { email: 'claims@acme.com' } }).success
+      CreateCustomInsuranceOrgInputSchema.safeParse({ ...fullInput, submissionDetails: { email: 'claims@acme.com' } })
+        .success
     ).toBe(true);
     expect(
-      CreateInsuranceOrgInputSchema.safeParse({
+      CreateCustomInsuranceOrgInputSchema.safeParse({
         ...fullInput,
         submissionDetails: { portalUrl: 'https://portal.acme.com', portalDetails: 'Use the claims tab' },
       }).success
     ).toBe(true);
     expect(
-      CreateInsuranceOrgInputSchema.safeParse({ ...fullInput, submissionDetails: { faxNumber: '555-123-4567' } })
+      CreateCustomInsuranceOrgInputSchema.safeParse({ ...fullInput, submissionDetails: { faxNumber: '555-123-4567' } })
         .success
     ).toBe(true);
     expect(
-      CreateInsuranceOrgInputSchema.safeParse({
+      CreateCustomInsuranceOrgInputSchema.safeParse({
         ...fullInput,
         submissionDetails: { mailAddress: { line1: '1 Main St', city: 'Springfield', state: 'CA', zip: '90210' } },
       }).success
@@ -90,7 +91,7 @@ describe('insurance-org input schemas', () => {
   });
 
   it('rejects a malformed submissionDetails.email', () => {
-    const result = CreateInsuranceOrgInputSchema.safeParse({
+    const result = CreateCustomInsuranceOrgInputSchema.safeParse({
       ...fullInput,
       submissionDetails: { email: 'not-an-email' },
     });
@@ -98,14 +99,16 @@ describe('insurance-org input schemas', () => {
   });
 
   it('accepts contacts, requiring a name on each but nothing else', () => {
-    expect(CreateInsuranceOrgInputSchema.safeParse({ ...fullInput, contacts: [{ name: 'Jane' }] }).success).toBe(true);
-    expect(CreateInsuranceOrgInputSchema.safeParse({ ...fullInput, contacts: [{ title: 'Manager' }] }).success).toBe(
-      false
+    expect(CreateCustomInsuranceOrgInputSchema.safeParse({ ...fullInput, contacts: [{ name: 'Jane' }] }).success).toBe(
+      true
     );
+    expect(
+      CreateCustomInsuranceOrgInputSchema.safeParse({ ...fullInput, contacts: [{ title: 'Manager' }] }).success
+    ).toBe(false);
   });
 
   it('rejects a malformed contact email', () => {
-    const result = CreateInsuranceOrgInputSchema.safeParse({
+    const result = CreateCustomInsuranceOrgInputSchema.safeParse({
       ...fullInput,
       contacts: [{ name: 'Jane', email: 'not-an-email' }],
     });

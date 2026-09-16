@@ -5,20 +5,20 @@ import {
   INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS,
   INSURANCE_ORG_TYPE_LABELS,
   InsuranceOrganizationItem,
-} from 'utils/lib/types/data/billing/insurance-org.types';
-import { updateBillingInsuranceOrg } from '../../api/api';
+} from 'utils/lib/types/data/billing/custom-insurance-org.types';
+import { updateBillingCustomInsuranceOrg } from '../../api/api';
 import {
+  CustomInsuranceOrgForm,
   formatInsuranceOrgAddress,
-  InsuranceOrgForm,
   insuranceOrgFormToInput,
   insuranceOrgItemToFormValues,
-} from '../../constants/insuranceOrg';
+} from '../../constants/customInsuranceOrg';
 import { useApiClients } from '../../hooks/useAppClients';
 import { EditableSection } from '../claim/EditableSection';
 import { Row } from '../Row';
-import { InsuranceOrgFormFields } from './InsuranceOrgFormFields';
+import { CustomInsuranceOrgFormFields } from './CustomInsuranceOrgFormFields';
 
-export function InsuranceOrgDetailSection({
+export function CustomInsuranceOrgDetailSection({
   item,
   onSaved,
 }: {
@@ -28,10 +28,13 @@ export function InsuranceOrgDetailSection({
   const { oystehrZambda } = useApiClients();
   const defaultValues = useMemo(() => insuranceOrgItemToFormValues(item), [item]);
 
-  const handleSave = async (data: InsuranceOrgForm): Promise<string | null> => {
+  const handleSave = async (data: CustomInsuranceOrgForm): Promise<string | null> => {
     if (!oystehrZambda) return 'Client not ready';
     try {
-      await updateBillingInsuranceOrg(oystehrZambda, { ...insuranceOrgFormToInput(data), insuranceOrgId: item.id });
+      await updateBillingCustomInsuranceOrg(oystehrZambda, {
+        ...insuranceOrgFormToInput(data),
+        insuranceOrgId: item.id,
+      });
     } catch (err) {
       return getApiError({ error: err, defaultError: 'Failed to save changes' });
     }
@@ -49,7 +52,7 @@ export function InsuranceOrgDetailSection({
       title="Organization Details"
       defaultValues={defaultValues}
       onSave={handleSave}
-      editForm={<InsuranceOrgFormFields />}
+      editForm={<CustomInsuranceOrgFormFields />}
     >
       <Row label="Name" value={item.name} />
       <Row label="Id" value={item.orgId} />

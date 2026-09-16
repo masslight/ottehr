@@ -1,30 +1,30 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { InsuranceOrganizationItem } from 'utils/lib/types/data/billing/insurance-org.types';
+import { InsuranceOrganizationItem } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InsuranceOrganizationDetail, InsuranceOrganizationsList } from '../../src/pages/InsuranceOrganizations';
 
 const {
   searchBillingPayersMock,
-  searchBillingInsuranceOrgsMock,
-  createBillingInsuranceOrgMock,
-  updateBillingInsuranceOrgMock,
-  deleteBillingInsuranceOrgMock,
+  searchBillingCustomInsuranceOrgsMock,
+  createBillingCustomInsuranceOrgMock,
+  updateBillingCustomInsuranceOrgMock,
+  deleteBillingCustomInsuranceOrgMock,
 } = vi.hoisted(() => ({
   searchBillingPayersMock: vi.fn(),
-  searchBillingInsuranceOrgsMock: vi.fn(),
-  createBillingInsuranceOrgMock: vi.fn(),
-  updateBillingInsuranceOrgMock: vi.fn(),
-  deleteBillingInsuranceOrgMock: vi.fn(),
+  searchBillingCustomInsuranceOrgsMock: vi.fn(),
+  createBillingCustomInsuranceOrgMock: vi.fn(),
+  updateBillingCustomInsuranceOrgMock: vi.fn(),
+  deleteBillingCustomInsuranceOrgMock: vi.fn(),
 }));
 
 vi.mock('../../src/api/api', () => ({
   searchBillingPayers: searchBillingPayersMock,
-  searchBillingInsuranceOrgs: searchBillingInsuranceOrgsMock,
-  createBillingInsuranceOrg: createBillingInsuranceOrgMock,
-  updateBillingInsuranceOrg: updateBillingInsuranceOrgMock,
-  deleteBillingInsuranceOrg: deleteBillingInsuranceOrgMock,
+  searchBillingCustomInsuranceOrgs: searchBillingCustomInsuranceOrgsMock,
+  createBillingCustomInsuranceOrg: createBillingCustomInsuranceOrgMock,
+  updateBillingCustomInsuranceOrg: updateBillingCustomInsuranceOrgMock,
+  deleteBillingCustomInsuranceOrg: deleteBillingCustomInsuranceOrgMock,
 }));
 
 // A stable client object: the pages' fetch callbacks depend on oystehrZambda's identity, so a
@@ -59,7 +59,7 @@ describe('InsuranceOrganizationsList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     searchBillingPayersMock.mockResolvedValue({ payers: [{ id: 'payer-1', name: 'RCM Payer Co', payerId: 'PAYER1' }] });
-    searchBillingInsuranceOrgsMock.mockResolvedValue({
+    searchBillingCustomInsuranceOrgsMock.mockResolvedValue({
       organizations: [acmeCustomOrg],
       total: 1,
       offset: 0,
@@ -92,7 +92,7 @@ describe('InsuranceOrganizationsList', () => {
     await user.click(dialog.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(dialog.getByText('Id must start with "OTR-"')).toBeInTheDocument());
-    expect(createBillingInsuranceOrgMock).not.toHaveBeenCalled();
+    expect(createBillingCustomInsuranceOrgMock).not.toHaveBeenCalled();
   });
 
   it('defaults Submission Mechanism to Email and Accepted Claim Form to CMS-1500', async () => {
@@ -109,7 +109,7 @@ describe('InsuranceOrganizationsList', () => {
 
   it('creates a custom org and refreshes the list', async () => {
     const user = userEvent.setup();
-    createBillingInsuranceOrgMock.mockResolvedValue({ id: 'org-2' });
+    createBillingCustomInsuranceOrgMock.mockResolvedValue({ id: 'org-2' });
     renderList();
     await screen.findByText('Acme Insurance');
 
@@ -124,8 +124,8 @@ describe('InsuranceOrganizationsList', () => {
     await user.type(dialog.getByLabelText('Email Address'), 'claims@beta.com');
     await user.click(dialog.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() => expect(createBillingInsuranceOrgMock).toHaveBeenCalledTimes(1));
-    expect(createBillingInsuranceOrgMock).toHaveBeenCalledWith(expect.anything(), {
+    await waitFor(() => expect(createBillingCustomInsuranceOrgMock).toHaveBeenCalledTimes(1));
+    expect(createBillingCustomInsuranceOrgMock).toHaveBeenCalledWith(expect.anything(), {
       orgId: 'OTR-BETA',
       name: 'Beta Insurance',
       insuranceTypes: ['medical'],
@@ -134,7 +134,7 @@ describe('InsuranceOrganizationsList', () => {
       acceptedClaimForm: 'cms-1500',
     });
     // Initial load + refresh after create.
-    await waitFor(() => expect(searchBillingInsuranceOrgsMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(searchBillingCustomInsuranceOrgsMock).toHaveBeenCalledTimes(2));
   });
 
   it('swaps the submission-detail field(s) shown as the mechanism radio changes', async () => {
@@ -165,7 +165,7 @@ describe('InsuranceOrganizationsList', () => {
 
   it('adds and removes contacts in the dialog, and creates the org with them', async () => {
     const user = userEvent.setup();
-    createBillingInsuranceOrgMock.mockResolvedValue({ id: 'org-2' });
+    createBillingCustomInsuranceOrgMock.mockResolvedValue({ id: 'org-2' });
     renderList();
     await screen.findByText('Acme Insurance');
 
@@ -188,8 +188,8 @@ describe('InsuranceOrganizationsList', () => {
     await user.type(dialog.getByLabelText('Email Address'), 'claims@beta.com');
     await user.click(dialog.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() => expect(createBillingInsuranceOrgMock).toHaveBeenCalledTimes(1));
-    const [, payload] = createBillingInsuranceOrgMock.mock.calls[0];
+    await waitFor(() => expect(createBillingCustomInsuranceOrgMock).toHaveBeenCalledTimes(1));
+    const [, payload] = createBillingCustomInsuranceOrgMock.mock.calls[0];
     expect(payload.contacts).toEqual([{ name: 'Jane Smith', title: 'Claims Manager' }]);
   });
 });
@@ -197,7 +197,7 @@ describe('InsuranceOrganizationsList', () => {
 describe('InsuranceOrganizationDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    searchBillingInsuranceOrgsMock.mockResolvedValue({
+    searchBillingCustomInsuranceOrgsMock.mockResolvedValue({
       organizations: [acmeCustomOrg],
       total: 1,
       offset: 0,
@@ -235,7 +235,7 @@ describe('InsuranceOrganizationDetail', () => {
 
   it('edits and saves with the stored insuranceOrgId, then refetches', async () => {
     const user = userEvent.setup();
-    updateBillingInsuranceOrgMock.mockResolvedValue({ id: 'org-1' });
+    updateBillingCustomInsuranceOrgMock.mockResolvedValue({ id: 'org-1' });
     renderDetail();
     await screen.findByText('Organization Details');
 
@@ -245,8 +245,8 @@ describe('InsuranceOrganizationDetail', () => {
     await user.type(nameField, 'Acme Insurance Co');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() => expect(updateBillingInsuranceOrgMock).toHaveBeenCalledTimes(1));
-    const [, payload] = updateBillingInsuranceOrgMock.mock.calls[0];
+    await waitFor(() => expect(updateBillingCustomInsuranceOrgMock).toHaveBeenCalledTimes(1));
+    const [, payload] = updateBillingCustomInsuranceOrgMock.mock.calls[0];
     expect(payload.insuranceOrgId).toBe('org-1');
     expect(payload.name).toBe('Acme Insurance Co');
     expect(payload.orgId).toBe('OTR-ACME');
@@ -257,6 +257,6 @@ describe('InsuranceOrganizationDetail', () => {
     });
     // The stored contact round-trips through the edit form unchanged.
     expect(payload.contacts).toEqual([{ name: 'Jane Smith', title: 'Claims Manager' }]);
-    await waitFor(() => expect(searchBillingInsuranceOrgsMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(searchBillingCustomInsuranceOrgsMock).toHaveBeenCalledTimes(2));
   });
 });

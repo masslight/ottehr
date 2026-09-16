@@ -6,8 +6,11 @@ import {
   DeletedResponse,
   SavedResourceResponse,
 } from 'utils/lib/types/data/billing/billing.types';
-import { CreateInsuranceOrgInput } from 'utils/lib/types/data/billing/insurance-org.schemas';
-import { INSURANCE_ORG_KIND_CODE, SearchInsuranceOrgsResponse } from 'utils/lib/types/data/billing/insurance-org.types';
+import { CreateCustomInsuranceOrgInput } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
+import {
+  INSURANCE_ORG_KIND_CODE,
+  SearchInsuranceOrgsResponse,
+} from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { setupIntegrationTest } from '../../helpers/integration-test-seed-data-setup';
@@ -48,7 +51,7 @@ describe('insurance-org CRUD', () => {
   }, 90_000);
 
   it('create-billing-insurance-org creates the org', async () => {
-    const input: CreateInsuranceOrgInput = {
+    const input: CreateCustomInsuranceOrgInput = {
       orgId,
       name: orgName,
       insuranceTypes: ['workers-comp', 'auto'],

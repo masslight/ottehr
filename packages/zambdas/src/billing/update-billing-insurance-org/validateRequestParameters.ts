@@ -1,13 +1,13 @@
 import {
-  UpdateInsuranceOrgInput,
-  UpdateInsuranceOrgInputSchema,
-} from 'utils/lib/types/data/billing/insurance-org.schemas';
+  UpdateCustomInsuranceOrgInput,
+  UpdateCustomInsuranceOrgInputSchema,
+} from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { validateJsonBody } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
 
-export interface UpdateInsuranceOrgParams extends UpdateInsuranceOrgInput {
+export interface UpdateInsuranceOrgParams extends UpdateCustomInsuranceOrgInput {
   secrets: ZambdaInput['secrets'];
 }
 
@@ -15,7 +15,7 @@ export function validateRequestParameters(input: ZambdaInput): UpdateInsuranceOr
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const data = safeValidate(UpdateInsuranceOrgInputSchema, validateJsonBody(input));
+  const data = safeValidate(UpdateCustomInsuranceOrgInputSchema, validateJsonBody(input));
   return {
     ...data,
     secrets: input.secrets,
