@@ -13,6 +13,7 @@ import {
   MedicationRequest,
   MedicationStatement,
   Observation,
+  Organization,
   Patient,
   Practitioner,
   Procedure,
@@ -23,11 +24,19 @@ import { DateTime } from 'luxon';
 import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
 import { DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO, DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT } from 'utils/lib/fhir/constants';
 import { dispositionCheckboxOptions } from 'utils/lib/fhir/disposition';
+import { getCoding } from 'utils/lib/fhir/helpers';
 import {
+  getAllCptCodesFromInHouseMedication,
+  getAllHcpcsCodesFromInHouseMedication,
+  getCptCodesFromMA,
+  getCreatedTheOrderProviderId,
+  getCurrentOrderedByProviderId,
   getDosageUnitsAndRouteOfMedication,
   getMedicationFromMA,
   getMedicationName,
   getNdcCodeFromMedication,
+  getProviderIdAndDateMedicationWasAdministered,
+  mapFhirToOrderStatus,
 } from 'utils/lib/fhir/medication-administration';
 import {
   getEmailForIndividual,
@@ -37,13 +46,16 @@ import {
   mapGenderToLabel,
 } from 'utils/lib/fhir/patient';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
 import { celsiusToFahrenheit, roundTemperatureValue } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
 import { AdHocEncounterRow, AdHocEncountersInput } from 'utils/lib/types/adhoc/datasets/encounters';
 import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
+  CVX_CODE_SYSTEM_URL,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
+  VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils/lib/types/api/medication-administration.constants';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
@@ -122,6 +134,71 @@ const round1 = (n: number): number => Math.round(n * 10) / 10;
 // entry device's offset. An expiry is a calendar date, so take the date AS WRITTEN — converting the
 // zone would move "2026-07-29T00:00:00.000+04:00" back to the 28th and report a wrong expiry.
 const expiryDate = (value?: string): string | null => value?.slice(0, 10) ?? null;
+
+const hasChartTag = (resource: Resource, code: string): boolean =>
+  Boolean(resource.meta?.tag?.some((tag) => tag.code === code));
+
+const practitionerDisplayName = (p?: Practitioner): string | null => {
+  const nm = `${p?.name?.[0]?.given?.[0] || ''} ${p?.name?.[0]?.family || ''}`.trim();
+  return nm || null;
+};
+
+const practitionerIdFromRef = (ref?: string): string | undefined =>
+  ref?.startsWith('Practitioner/') ? ref.replace('Practitioner/', '') : undefined;
+
+const conditionIdFromRef = (ref?: string): string | undefined =>
+  ref?.startsWith('Condition/') ? ref.replace('Condition/', '') : undefined;
+
+const administeredPractitionerId = (ma: MedicationAdministration): string | undefined =>
+  getProviderIdAndDateMedicationWasAdministered(ma)?.administeredProviderId;
+
+const orderedPractitionerId = (ma: MedicationAdministration): string | undefined =>
+  getCurrentOrderedByProviderId(ma) ?? getCreatedTheOrderProviderId(ma);
+
+const icdFromCondition = (condition?: Condition): { icdCode: string | null; icdDisplay: string | null } => {
+  const codings = condition?.code?.coding ?? [];
+  const coding = codings.find((c) => c.system?.toLowerCase().includes('icd-10')) ?? codings[0];
+  if (!coding?.code) return { icdCode: null, icdDisplay: null };
+  return { icdCode: coding.code, icdDisplay: coding.display ?? condition?.code?.text ?? coding.code };
+};
+
+type InHouseDrugStatus = NonNullable<AdHocEncounterRow['drugs']>[number]['status'];
+const inHouseDrugStatus = (ma: MedicationAdministration): InHouseDrugStatus => {
+  switch (mapFhirToOrderStatus(ma)) {
+    case 'administered':
+      return 'administered';
+    case 'administered-partly':
+      return 'partially-administered';
+    case 'administered-not':
+      return 'not-administered';
+    case 'cancelled':
+      return 'cancelled';
+    default:
+      return 'pending';
+  }
+};
+
+// The in-house order's MedicationAdministration.effectiveDateTime is the ORDER CREATION time; the instant
+// the drug was actually given lives on the MedicationStatement created at administration (partOf → MA).
+// Older records carry it as date + time extensions on the administering performer.
+const inHouseAdministeredAt = (
+  ma: MedicationAdministration,
+  statementsByMaId: Map<string, MedicationStatement>
+): string | null => {
+  if (!ma.id) return null;
+
+  const fromStatement = statementsByMaId.get(ma.id)?.effectiveDateTime;
+
+  if (fromStatement) return fromStatement;
+
+  const legacy = getProviderIdAndDateMedicationWasAdministered(ma);
+
+  if (legacy?.dateAdministered && legacy.timeAdministered)
+    return `${legacy.dateAdministered}T${legacy.timeAdministered}`;
+
+  return null;
+};
+
 const SYSTOLIC_CODES = ['271649006', '8480-6'];
 const DIASTOLIC_CODES = ['271650006', '8462-4'];
 
@@ -191,6 +268,7 @@ export async function fetchAdHocEncounterRows(
   const medRequestsByEncounterId = new Map<string, MedicationRequest[]>();
   const medAdminsByEncounterId = new Map<string, MedicationAdministration[]>();
   const medStatementsByEncounterId = new Map<string, MedicationStatement[]>();
+  const statementByMaId = new Map<string, MedicationStatement>();
   const observationsByEncounterId = new Map<string, Observation[]>();
   const serviceRequestsByEncounterId = new Map<string, ServiceRequest[]>();
   const resultsByEncounterId = new Map<string, DiagnosticReport[]>();
@@ -272,12 +350,33 @@ export async function fetchAdHocEncounterRows(
       );
     }
     if (includeMedications || includeImmunizations) {
+      // The in-house administration MedicationStatement has no encounter context — only partOf → MA —
+      // so it rides along the MA search as a revinclude (the same way get-medication-orders reads it).
+      const maAndStatements = await fetchScoped<MedicationAdministration | MedicationStatement>(
+        'MedicationAdministration',
+        'context',
+        encRefs,
+        includeMedications ? [{ name: '_revinclude', value: 'MedicationStatement:part-of' }] : []
+      );
+
       indexByEncounter(
-        await fetchScoped<MedicationAdministration>('MedicationAdministration', 'context', encRefs),
+        maAndStatements.filter((r): r is MedicationAdministration => r.resourceType === 'MedicationAdministration'),
         (m) => stripEnc(m.context?.reference),
         medAdminsByEncounterId
       );
+
+      for (const ms of maAndStatements) {
+        if (ms.resourceType !== 'MedicationStatement' || ms.status === 'entered-in-error') continue;
+
+        const maId = ms.partOf
+          ?.map((r) => r.reference)
+          .find((ref) => ref?.startsWith('MedicationAdministration/'))
+          ?.replace('MedicationAdministration/', '');
+
+        if (maId) statementByMaId.set(maId, ms);
+      }
     }
+
     if (includeImmunizations) {
       indexByEncounter(
         await fetchScoped<MedicationStatement>('MedicationStatement', 'context', encRefs),
@@ -285,6 +384,42 @@ export async function fetchAdHocEncounterRows(
         medStatementsByEncounterId
       );
     }
+
+    if (includeMedications || includeImmunizations) {
+      // Names of the staff who ordered / administered, and the diagnosis each drug was given for.
+      const practitionerIds = new Set<string>();
+      const drugConditionIds = new Set<string>();
+
+      for (const mas of medAdminsByEncounterId.values()) {
+        for (const ma of mas) {
+          for (const id of [administeredPractitionerId(ma), orderedPractitionerId(ma)]) if (id) practitionerIds.add(id);
+          const dxId = conditionIdFromRef(ma.reasonReference?.[0]?.reference);
+          if (dxId) drugConditionIds.add(dxId);
+        }
+      }
+
+      for (const reqs of medRequestsByEncounterId.values()) {
+        for (const req of reqs) {
+          const id = practitionerIdFromRef(req.requester?.reference);
+          if (id) practitionerIds.add(id);
+        }
+      }
+
+      const missingPractitionerIds = Array.from(practitionerIds).filter((id) => !practitionerMap.has(id));
+
+      for (const p of await fetchScoped<Practitioner>('Practitioner', '_id', missingPractitionerIds, [
+        { name: '_elements', value: 'id,name' },
+      ])) {
+        if (p.id) practitionerMap.set(p.id, p);
+      }
+
+      const missingConditionIds = Array.from(drugConditionIds).filter((id) => !conditionById.has(id));
+
+      for (const c of await fetchScoped<Condition>('Condition', '_id', missingConditionIds)) {
+        if (c.id) conditionById.set(c.id, c);
+      }
+    }
+
     if (includeVitals || includeExamRos || includeIntake) {
       indexByEncounter(
         await fetchScoped<Observation>('Observation', 'encounter', encRefs),
@@ -316,9 +451,6 @@ export async function fetchAdHocEncounterRows(
       );
     }
   }
-
-  const hasChartTag = (resource: Resource, code: string): boolean =>
-    Boolean(resource.meta?.tag?.some((tag) => tag.code === code));
 
   const resolveAppointment = (encounter: Encounter): Appointment | undefined =>
     resolveEncounterAppointment(encounter, appointmentMap, encounterById);
@@ -523,12 +655,13 @@ export async function fetchAdHocEncounterRows(
       const medicationIngredients: string[] = [];
       const medicationSources: ('eRx' | 'in-house')[] = [];
       const medicationCodes: string[] = [];
-      const drugs: NonNullable<AdHocEncounterRow['drugs']> = [];
+      type DrugRecord = NonNullable<AdHocEncounterRow['drugs']>[number];
+      const drugs: DrugRecord[] = [];
       const addMed = (
         display: string,
         source: 'eRx' | 'in-house',
-        code?: string,
-        detail?: Omit<NonNullable<AdHocEncounterRow['drugs']>[number], 'name' | 'source'>
+        code: string | undefined,
+        detail: Partial<Omit<DrugRecord, 'name' | 'source'>> & Pick<DrugRecord, 'status'>
       ): void => {
         if (!display) return;
         medications.push(display);
@@ -538,23 +671,36 @@ export async function fetchAdHocEncounterRows(
         drugs.push({
           name: display,
           source,
-          dose: detail?.dose ?? null,
-          units: detail?.units ?? null,
-          route: detail?.route ?? null,
-          ndc: detail?.ndc ?? null,
-          lotNumber: detail?.lotNumber ?? null,
-          expirationDate: detail?.expirationDate ?? null,
-          manufacturer: detail?.manufacturer ?? null,
-          administeredAt: detail?.administeredAt ?? null,
+          status: detail.status,
+          dose: detail.dose ?? null,
+          units: detail.units ?? null,
+          route: detail.route ?? null,
+          ndc: detail.ndc ?? null,
+          lotNumber: detail.lotNumber ?? null,
+          expirationDate: detail.expirationDate ?? null,
+          manufacturer: detail.manufacturer ?? null,
+          administeredAt: detail.administeredAt ?? null,
+          administeredBy: detail.administeredBy ?? null,
+          orderedBy: detail.orderedBy ?? null,
+          cptCodes: detail.cptCodes ?? [],
+          icdCode: detail.icdCode ?? null,
+          icdDisplay: detail.icdDisplay ?? null,
         });
       };
 
       for (const req of encounter.id ? medRequestsByEncounterId.get(encounter.id) ?? [] : []) {
         if (req.status === 'entered-in-error') continue;
+
         const coding = (req.medicationCodeableConcept?.coding ?? []).find(
           (c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID
         );
-        addMed(coding?.display || req.medicationCodeableConcept?.text || '', 'eRx', coding?.code);
+
+        const requesterId = practitionerIdFromRef(req.requester?.reference);
+
+        addMed(coding?.display || req.medicationCodeableConcept?.text || '', 'eRx', coding?.code, {
+          status: 'prescribed',
+          orderedBy: requesterId ? practitionerDisplayName(practitionerMap.get(requesterId)) : null,
+        });
       }
 
       for (const ma of encounter.id ? medAdminsByEncounterId.get(encounter.id) ?? [] : []) {
@@ -567,15 +713,35 @@ export async function fetchAdHocEncounterRows(
           ma.medicationCodeableConcept?.text ||
           '';
         const dosage = getDosageUnitsAndRouteOfMedication(ma);
+        const status = inHouseDrugStatus(ma);
+        const given = status === 'administered' || status === 'partially-administered';
+        const orderCpts = getCptCodesFromMA(ma)?.map((c) => c.code);
+
+        const catalogCpts = medication
+          ? [...getAllCptCodesFromInHouseMedication(medication), ...getAllHcpcsCodesFromInHouseMedication(medication)]
+          : [];
+
+        const cptCodes = Array.from(new Set((orderCpts ?? catalogCpts).filter((c): c is string => Boolean(c))));
+        const administeredId = administeredPractitionerId(ma);
+        const orderedId = orderedPractitionerId(ma);
+        const dxId = conditionIdFromRef(ma.reasonReference?.[0]?.reference);
+
         addMed(name, 'in-house', undefined, {
+          status,
           dose: dosage.dose ?? null,
           units: dosage.units ?? null,
           route: dosage.route ?? null,
           ndc: (medication ? getNdcCodeFromMedication(medication) : undefined) ?? null,
-          lotNumber: medication?.batch?.lotNumber ?? null,
-          expirationDate: expiryDate(medication?.batch?.expirationDate),
+          // Vial data (lot, expiry) is tied to the patient only when something was given; the contained
+          // copy may still carry a stale batch after an order is flipped to not-administered.
+          lotNumber: given ? medication?.batch?.lotNumber ?? null : null,
+          expirationDate: given ? expiryDate(medication?.batch?.expirationDate) : null,
           manufacturer: medication?.manufacturer?.display ?? null,
-          administeredAt: ma.effectiveDateTime ?? null,
+          administeredAt: given ? inHouseAdministeredAt(ma, statementByMaId) : null,
+          administeredBy: given && administeredId ? practitionerDisplayName(practitionerMap.get(administeredId)) : null,
+          orderedBy: orderedId ? practitionerDisplayName(practitionerMap.get(orderedId)) : null,
+          cptCodes,
+          ...icdFromCondition(dxId ? conditionById.get(dxId) : undefined),
         });
       }
       row.medications = medications;
@@ -705,12 +871,21 @@ export async function fetchAdHocEncounterRows(
     }
 
     if (includeImmunizations) {
-      type VaccineRecord = {
-        name: string;
-        status: 'administered' | 'partially-administered' | 'recorded';
-        visDate: string | null;
-        lotNumber: string | null;
-        expirationDate: string | null;
+      type VaccineRecord = NonNullable<AdHocEncounterRow['vaccines']>[number];
+      const emptyVaccineDetail = {
+        visDate: null,
+        lotNumber: null,
+        expirationDate: null,
+        ndc: null,
+        cvx: null,
+        manufacturer: null,
+        dose: null,
+        units: null,
+        route: null,
+        administeredAt: null,
+        administeredBy: null,
+        orderedBy: null,
+        cptCodes: [] as string[],
       };
 
       const vaccines: VaccineRecord[] = [];
@@ -734,6 +909,30 @@ export async function fetchAdHocEncounterRows(
 
         const visDate = medication?.extension?.find((e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL)
           ?.valueDate;
+        const codeExtensions = (medication?.extension ?? []).filter(
+          (e) => e.url === VACCINE_ADMINISTRATION_CODES_EXTENSION_URL
+        );
+
+        const codeOf = (system: string): string | null => {
+          for (const ext of codeExtensions) {
+            const code = getCoding(ext.valueCodeableConcept, system)?.code;
+            if (code) return code;
+          }
+
+          return null;
+        };
+
+        const cptCodes = codeExtensions
+          .map((ext) => getCoding(ext.valueCodeableConcept, CODE_SYSTEM_CPT)?.code)
+          .filter((c): c is string => Boolean(c));
+
+        const manufacturerOrg = ma.contained?.find(
+          (r): r is Organization => r.resourceType === 'Organization' && r.id === 'manufacturer-org'
+        );
+
+        const dosage = getDosageUnitsAndRouteOfMedication(ma);
+        const administeredId = administeredPractitionerId(ma);
+        const orderedId = orderedPractitionerId(ma);
 
         vaccines.push({
           name,
@@ -741,18 +940,35 @@ export async function fetchAdHocEncounterRows(
           visDate: visDate ?? null,
           lotNumber: medication?.batch?.lotNumber ?? null,
           expirationDate: expiryDate(medication?.batch?.expirationDate),
+          ndc: codeOf(CODE_SYSTEM_NDC),
+          cvx: codeOf(CVX_CODE_SYSTEM_URL),
+          manufacturer: manufacturerOrg?.name ?? medication?.manufacturer?.display ?? null,
+          dose: dosage.dose ?? null,
+          units: dosage.units ?? null,
+          route: dosage.route ?? null,
+          administeredAt: ma.effectiveDateTime ?? null,
+          administeredBy: administeredId ? practitionerDisplayName(practitionerMap.get(administeredId)) : null,
+          orderedBy: orderedId ? practitionerDisplayName(practitionerMap.get(orderedId)) : null,
+          cptCodes,
         });
       }
+
       for (const ms of encounter.id ? medStatementsByEncounterId.get(encounter.id) ?? [] : []) {
         if (ms.status === 'entered-in-error' || !hasChartTag(ms, 'immunization')) continue;
+
+        // An administration echo (partOf → MedicationAdministration) is already counted above.
+        if (ms.partOf?.some((r) => r.reference?.startsWith('MedicationAdministration/'))) continue;
+
         const containedMed = ms.contained?.find((c): c is Medication => c.resourceType === 'Medication');
+
         const name =
           ms.medicationCodeableConcept?.coding?.[0]?.display ||
           ms.medicationCodeableConcept?.text ||
           getMedicationName(containedMed) ||
           '';
+
         // Charted history, not an administration on this visit: no VIS and no vial of ours.
-        if (name) vaccines.push({ name, status: 'recorded', visDate: null, lotNumber: null, expirationDate: null });
+        if (name) vaccines.push({ name, status: 'recorded', ...emptyVaccineDetail });
       }
       row.vaccines = vaccines;
     }
