@@ -23,9 +23,9 @@ export interface CustomInsuranceOrgForm {
   orgId: string;
   name: string;
   insuranceTypes: CustomInsuranceOrgType[];
-  submissionMechanism: '' | CustomInsuranceOrgSubmissionMechanism;
+  submissionMechanism: CustomInsuranceOrgSubmissionMechanism;
   submissionDetails: CustomInsuranceOrgSubmissionDetailsForm;
-  acceptedClaimForm: '' | CustomInsuranceOrgClaimForm;
+  acceptedClaimForm: CustomInsuranceOrgClaimForm;
   note: string;
   contacts: NioContactForm[];
 }
@@ -140,9 +140,9 @@ export function customInsuranceOrgFormToInput(form: CustomInsuranceOrgForm): Cre
     orgId: form.orgId.trim(),
     name: form.name.trim(),
     insuranceTypes: form.insuranceTypes,
-    submissionMechanism: form.submissionMechanism as CustomInsuranceOrgSubmissionMechanism,
+    submissionMechanism: form.submissionMechanism,
     ...(submissionDetails ? { submissionDetails } : {}),
-    acceptedClaimForm: form.acceptedClaimForm as CustomInsuranceOrgClaimForm,
+    acceptedClaimForm: form.acceptedClaimForm,
     ...(form.note.trim() ? { note: form.note.trim() } : {}),
     ...(contacts ? { contacts } : {}),
   };
