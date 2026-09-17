@@ -6,8 +6,6 @@ import { lambdaResponse } from '../../src/shared/lambda';
 import { wrapHandler } from '../../src/shared/sentry';
 import { ZambdaInput } from '../../src/shared/types/common';
 
-// Stands in for the SDK the real handler wrapper is built on: captureException is the only call whose
-// arguments matter here, the rest exist so `wrapHandler` runs its actual code instead of a stub.
 const captureException = vi.fn();
 vi.mock('@sentry/aws-serverless', () => ({
   captureException: (...args: unknown[]) => captureException(...args),
@@ -19,7 +17,6 @@ vi.mock('@sentry/aws-serverless', () => ({
   wrapHandler: (handler: unknown) => handler, // the real one only adds tracing
 }));
 
-// Keyed off SecretsKeys so the test breaks if the code starts reading a different secret.
 const secrets: Secrets = {
   [SecretsKeys.GOOGLE_CLOUD_PROJECT_ID]: 'test-project',
   [SecretsKeys.GOOGLE_CLOUD_API_KEY]: 'test-key',
@@ -45,7 +42,37 @@ const respondWith = (status: number, body: unknown): void => {
   );
 };
 
-// One entry per attempt, for the retry paths; the last entry repeats if the ladder runs longer.
+const respondAfter = (...script: [delayMs: number, status: number, body: unknown][]): void => {
+  let call = 0;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => {
+      const [delay, status, body] = script[Math.min(call++, script.length - 1)];
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return responseOf(status, body);
+    })
+  );
+};
+
+const unhandledDuring = async (scenario: () => Promise<void>): Promise<unknown[]> => {
+  const seen: unknown[] = [];
+  const record = (reason: unknown): void => void seen.push(reason);
+  const vitestListeners = process.listeners('unhandledRejection');
+  vitestListeners.forEach((listener) => process.off('unhandledRejection', listener));
+  process.on('unhandledRejection', record);
+  try {
+    await scenario();
+    await vi.advanceTimersByTimeAsync(30_000);
+    vi.useRealTimers();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    vi.useFakeTimers();
+  } finally {
+    process.off('unhandledRejection', record);
+    vitestListeners.forEach((listener) => process.on('unhandledRejection', listener));
+  }
+  return seen;
+};
+
 const respondInSequence = (...responses: [number, unknown][]): void => {
   let attempt = 0;
   vi.stubGlobal(
@@ -80,6 +107,18 @@ const invoke = async (): Promise<string> => {
   return result.value;
 };
 
+const settleDelay = async (): Promise<number> => {
+  const start = Date.now();
+  let elapsed = -1;
+  const record = (): void => {
+    if (elapsed < 0) elapsed = Date.now() - start;
+  };
+  const outcome = invokeChatbotVertexAI([{ text: 'hello' }], secrets).then(record, record);
+  await vi.advanceTimersByTimeAsync(10_000);
+  await outcome;
+  return elapsed;
+};
+
 // The same call as `invoke`, but through the wrapper every zambda is deployed behind — so the assertions
 // below are about what Sentry actually receives in production, not about a hand-rolled catch block.
 const invokeThroughHandler = async (): Promise<APIGatewayProxyResult> => {
@@ -96,13 +135,12 @@ const invokeThroughHandler = async (): Promise<APIGatewayProxyResult> => {
 
 describe('invokeChatbotVertexAI error handling', () => {
   test('a 400 surfaces the status and Vertex message instead of a TypeError', async () => {
-    // The body Vertex returned for the unparseable upload. It used to fall through to `candidates[0]`, so
-    // every failure looked like "TypeError: Cannot read properties of undefined" with an empty stack.
     respondWith(400, {
       error: { code: 400, message: 'Request contains an invalid argument.', status: 'INVALID_ARGUMENT' },
     });
 
     await expect(invoke()).rejects.toThrow(/Vertex AI request failed: 400 Bad Request.*INVALID_ARGUMENT/s);
+    await expect(invoke()).rejects.not.toThrow(/after \d+ attempts/);
   });
 
   test('a non-retryable failure is not retried', async () => {
@@ -113,8 +151,13 @@ describe('invokeChatbotVertexAI error handling', () => {
     expect(globalThis.fetch).toHaveBeenCalledOnce();
   });
 
+  test('a non-retryable failure surfaces at once, not after the backoff sleeps', async () => {
+    respondWith(400, { error: { code: 400, status: 'INVALID_ARGUMENT' } });
+
+    expect(await settleDelay()).toBe(0);
+  });
+
   test('a 200 with no candidate text reports the reason, not the body', async () => {
-    // e.g. a safety block or a MAX_TOKENS finishReason: valid JSON, no text to return.
     // Partial transcript in a sibling part here: the error reaches logs and Sentry, so it must carry none.
     respondWith(200, {
       candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ inlineData: 'patient reports chest pain' }] } }],
@@ -145,7 +188,6 @@ describe('invokeChatbotVertexAI error handling', () => {
   });
 
   test('a 200 that is not JSON is reported as such', async () => {
-    // A proxy's HTML error page or a truncated response: JSON.parse would throw a bare SyntaxError.
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({ ok: true, status: 200, statusText: 'OK', text: async () => '<html>502 Bad Gateway</html>' }))
@@ -199,7 +241,6 @@ describe('invokeChatbotVertexAI error handling', () => {
 
     expect(response.statusCode).toBe(500);
     expect(captureException).toHaveBeenCalledOnce();
-    // And it carries the diagnosis, not a bare AggregateError, so the Sentry issue is actionable.
     const reported = captureException.mock.calls[0][0] as Error;
     expect(reported.message).toMatch(/Vertex AI request failed after 3 attempts/);
     expect(reported.message).toMatch(/503.*currently unavailable/s);
@@ -241,5 +282,337 @@ describe('invokeChatbotVertexAI error handling', () => {
     const url = String(vi.mocked(globalThis.fetch).mock.calls[0][0]);
     expect(url).toContain('/projects/test-project/');
     expect(url).toContain('key=test-key');
+  });
+});
+
+describe('invokeChatbotVertexAI empty-output retries', () => {
+  const EMPTY_200 = {
+    usageMetadata: { promptTokenCount: 1525, totalTokenCount: 1798, thoughtsTokenCount: 273 },
+  };
+  const TEXT_200 = { candidates: [{ content: { parts: [{ text: 'the summary' }] } }] };
+
+  test('a valid 200 wins on the first attempt, with no further request', async () => {
+    respondWith(200, TEXT_200);
+
+    await expect(invoke()).resolves.toBe('the summary');
+    expect(globalThis.fetch).toHaveBeenCalledOnce();
+  });
+
+  test('an empty 200 is retried, and the next attempt wins', async () => {
+    respondInSequence([200, EMPTY_200], [200, TEXT_200]);
+
+    await expect(invoke()).resolves.toBe('the summary');
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  test('an empty 200 fails as a diagnosable error, not a TypeError', async () => {
+    respondWith(200, EMPTY_200);
+
+    const error = await invoke().then(
+      () => null,
+      (error: Error) => error
+    );
+    expect(error).not.toBeInstanceOf(TypeError);
+    expect(error?.message).toMatch(/Vertex AI returned no text/);
+    expect(error?.message).toMatch(/thoughtsTokenCount/);
+  });
+
+  test('a ladder of empty 200s is exhausted rather than resolved with an empty result', async () => {
+    respondWith(200, EMPTY_200);
+
+    const error = await invoke().then(
+      () => null,
+      (error: Error) => error
+    );
+    expect(error?.message).toMatch(/Vertex AI request failed after 3 attempts/);
+    expect(error?.message).toMatch(/Vertex AI returned no text/);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  test.each([
+    ['no candidates property', EMPTY_200],
+    ['an empty candidates array', { candidates: [] }],
+    ['an empty first candidate', { candidates: [{}] }],
+    ['no content', { candidates: [{ finishReason: 'MAX_TOKENS' }] }],
+    ['no parts', { candidates: [{ content: {} }] }],
+    ['an empty parts array', { candidates: [{ content: { parts: [] } }] }],
+    ['a part with no text', { candidates: [{ content: { parts: [{ inlineData: 'x' }] } }] }],
+    ['empty text', { candidates: [{ content: { parts: [{ text: '' }] } }] }],
+    ['whitespace-only text', { candidates: [{ content: { parts: [{ text: '\n  \t' }] } }] }],
+  ])('a 200 with %s stays retryable', async (_name, body) => {
+    respondInSequence([200, body], [200, TEXT_200]);
+
+    await expect(invoke()).resolves.toBe('the summary');
+  });
+
+  test('a whitespace-only ladder fails rather than returning blank text', async () => {
+    respondWith(200, { candidates: [{ content: { parts: [{ text: '\n' }] } }] });
+
+    const error = await invoke().then(
+      () => null,
+      (error: Error) => error
+    );
+    expect(error?.message).toMatch(/Vertex AI returned no text/);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  test('a candidate-less body reports the metadata that names the cause', async () => {
+    respondWith(200, {
+      usageMetadata: { promptTokenCount: 1525, totalTokenCount: 1798, thoughtsTokenCount: 273 },
+      modelVersion: 'gemini-3.1-flash-lite',
+      responseId: 'ddf9bee1-21ef',
+    });
+
+    const error = await invoke().then(
+      () => null,
+      (error: Error) => error
+    );
+    expect(error?.message).toMatch(/thoughtsTokenCount/);
+    expect(error?.message).toMatch(/gemini-3\.1-flash-lite/);
+    expect(error?.message).toMatch(/ddf9bee1-21ef/);
+  });
+
+  test('a candidate carrying content is never quoted', async () => {
+    respondWith(200, {
+      candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ inlineData: 'patient reports chest pain' }] } }],
+    });
+
+    const error = await invoke().then(
+      () => null,
+      (error: Error) => error
+    );
+    expect(error?.message).toMatch(/MAX_TOKENS/);
+    expect(error?.message).not.toContain('chest pain');
+  });
+
+  test('the reason is capped, so a 200 that echoes the request cannot dump it', async () => {
+    respondWith(200, { echoedRequest: 'A'.repeat(20_000) });
+
+    const error = await invoke().then(
+      () => null,
+      (error: Error) => error
+    );
+    expect(error?.message).toMatch(/Vertex AI returned no text/);
+    expect(error?.message.length).toBeLessThan(3500);
+  });
+
+  test.each([['SAFETY'], ['RECITATION'], ['PROHIBITED_CONTENT'], ['BLOCKLIST'], ['SPII']])(
+    'a %s verdict is not retried',
+    async (finishReason) => {
+      respondInSequence([200, { candidates: [{ finishReason }] }], [200, TEXT_200]);
+
+      const error = await invoke().then(
+        () => null,
+        (error: Error) => error
+      );
+      expect(error?.message).toMatch(new RegExp(`Vertex AI returned no text.*${finishReason}`, 's'));
+      expect(error?.message).not.toMatch(/after \d+ attempts/);
+      expect(globalThis.fetch).toHaveBeenCalledOnce();
+    }
+  );
+
+  test('a prompt-level block is not retried either', async () => {
+    respondInSequence(
+      [200, { promptFeedback: { blockReason: 'PROHIBITED_CONTENT' }, usageMetadata: { promptTokenCount: 1525 } }],
+      [200, TEXT_200]
+    );
+
+    const error = await invoke().then(
+      () => null,
+      (error: Error) => error
+    );
+    expect(error?.message).toMatch(/Vertex AI returned no text.*PROHIBITED_CONTENT/s);
+    expect(globalThis.fetch).toHaveBeenCalledOnce();
+  });
+
+  test('a policy verdict surfaces at once, not after the backoff sleeps', async () => {
+    respondWith(200, { candidates: [{ finishReason: 'SAFETY' }] });
+
+    expect(await settleDelay()).toBe(0);
+  });
+
+  test('a later candidate with text is never quoted either', async () => {
+    respondWith(200, {
+      candidates: [{ finishReason: 'SAFETY' }, { content: { parts: [{ text: 'patient reports chest pain' }] } }],
+      usageMetadata: { totalTokenCount: 1798 },
+    });
+
+    const error = await invoke().then(
+      () => null,
+      (error: Error) => error
+    );
+    expect(error?.message).toMatch(/Vertex AI returned no text/);
+    expect(error?.message).toMatch(/SAFETY/);
+    expect(error?.message).not.toContain('chest pain');
+  });
+});
+
+describe('invokeChatbotVertexAI promise lifecycle', () => {
+  const TEXT_200 = { candidates: [{ content: { parts: [{ text: 'the transcript' }] } }] };
+  const EMPTY_200 = { usageMetadata: { totalTokenCount: 1798, thoughtsTokenCount: 273 } };
+
+  const start = (): Promise<string> =>
+    invokeChatbotVertexAI([{ text: 'hello' }], secrets).then(
+      (value) => `resolved: ${value}`,
+      (error: Error) => `rejected: ${error.message}`
+    );
+
+  const settle = async (): Promise<string> => {
+    const outcome = start();
+    await vi.advanceTimersByTimeAsync(30_000);
+    return outcome;
+  };
+
+  test('the watch detects an unhandled rejection, so the assertions below are not vacuous', async () => {
+    const seen = await unhandledDuring(async () => {
+      void Promise.reject(new Error('deliberately unhandled'));
+    });
+
+    expect(seen).toHaveLength(1);
+    expect((seen[0] as Error).message).toBe('deliberately unhandled');
+  });
+
+  test('a valid response wins and the later attempts are superseded', async () => {
+    respondWith(200, TEXT_200);
+    let outcome = '';
+
+    const seen = await unhandledDuring(async () => {
+      outcome = await settle();
+    });
+
+    expect(outcome).toBe('resolved: the transcript');
+    expect(globalThis.fetch).toHaveBeenCalledOnce();
+    expect(seen).toEqual([]);
+  });
+
+  test('an empty 200 rejects its attempt and the next one wins', async () => {
+    respondInSequence([200, EMPTY_200], [200, TEXT_200]);
+    let outcome = '';
+
+    const seen = await unhandledDuring(async () => {
+      outcome = await settle();
+    });
+
+    expect(outcome).toBe('resolved: the transcript');
+    expect(seen).toEqual([]);
+  });
+
+  test('a terminal status settles at once, and its superseded attempts stay handled', async () => {
+    respondAfter([0, 403, { error: { code: 403, status: 'PERMISSION_DENIED' } }]);
+    let outcome = '';
+
+    const seen = await unhandledDuring(async () => {
+      const pending = start();
+      await vi.advanceTimersByTimeAsync(100);
+      outcome = await pending;
+      expect(vi.getTimerCount()).toBe(2);
+    });
+
+    expect(outcome).toMatch(/^rejected: Vertex AI request failed: 403 .*PERMISSION_DENIED/s);
+    expect(globalThis.fetch).toHaveBeenCalledOnce();
+    expect(seen).toEqual([]);
+  });
+
+  test('a policy verdict on a 200 settles at once, and its superseded attempts stay handled', async () => {
+    respondAfter([0, 200, { candidates: [{ finishReason: 'SAFETY' }] }]);
+    let outcome = '';
+
+    const seen = await unhandledDuring(async () => {
+      const pending = start();
+      await vi.advanceTimersByTimeAsync(100);
+      outcome = await pending;
+      expect(vi.getTimerCount()).toBe(2);
+    });
+
+    expect(outcome).toMatch(/^rejected: Vertex AI returned no text.*SAFETY/s);
+    expect(globalThis.fetch).toHaveBeenCalledOnce();
+    expect(seen).toEqual([]);
+  });
+
+  test('an exhausted ladder handles its AggregateError, leaving terminalFailure pending forever', async () => {
+    respondWith(503, { error: { code: 503, message: 'The service is currently unavailable.' } });
+    let outcome = '';
+
+    const seen = await unhandledDuring(async () => {
+      outcome = await settle();
+    });
+
+    expect(outcome).toMatch(/^rejected: Vertex AI request failed after 3 attempts/);
+    expect(outcome).toMatch(/503.*currently unavailable/s);
+    expect(seen).toEqual([]);
+  });
+
+  test('a terminal failure arriving after a success cannot disturb the settled result', async () => {
+    respondAfter([4000, 200, TEXT_200], [2000, 400, { error: { code: 400, status: 'INVALID_ARGUMENT' } }]);
+    let outcome = '';
+
+    const seen = await unhandledDuring(async () => {
+      outcome = await settle();
+    });
+
+    expect(outcome).toBe('resolved: the transcript');
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    expect(seen).toEqual([]);
+  });
+
+  test('backoff timers outlive the settle but do no observable work when they fire', async () => {
+    respondAfter([0, 401, { error: { code: 401, status: 'UNAUTHENTICATED' } }]);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    const pending = start();
+    await vi.advanceTimersByTimeAsync(100);
+    await pending;
+
+    expect(vi.getTimerCount()).toBe(2);
+    const callsAtSettle = { fetch: vi.mocked(globalThis.fetch).mock.calls.length, warn: warn.mock.calls.length };
+
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(callsAtSettle.fetch);
+    expect(warn.mock.calls.length).toBe(callsAtSettle.warn);
+    expect(log).not.toHaveBeenCalled();
+
+    warn.mockRestore();
+    log.mockRestore();
+  });
+});
+
+describe('procedure recommendations use sequential Vertex retries', () => {
+  const invokeSequentially = (): Promise<string> =>
+    invokeChatbotVertexAI([{ text: 'hello' }], secrets, undefined, undefined, { retryMode: 'sequential' });
+
+  test('keeps one slow successful generation in flight beyond both previous hedge delays', async () => {
+    let finish!: (value: ReturnType<typeof responseOf>) => void;
+    const fetch = vi.fn(
+      () =>
+        new Promise<ReturnType<typeof responseOf>>((resolve) => {
+          finish = resolve;
+        })
+    );
+    vi.stubGlobal('fetch', fetch);
+    const pending = invokeSequentially();
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    finish(responseOf(200, { candidates: [{ content: { parts: [{ text: 'result' }] } }] }));
+    await expect(pending).resolves.toBe('result');
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('retries only after a transient failure and stops at the first success', async () => {
+    respondInSequence([429, { error: 'busy' }], [200, { candidates: [{ content: { parts: [{ text: 'result' }] } }] }]);
+    const pending = invokeSequentially();
+    await vi.advanceTimersByTimeAsync(10_000);
+    await expect(pending).resolves.toBe('result');
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not retry a terminal HTTP error', async () => {
+    respondWith(400, { error: 'invalid' });
+    const pending = invokeSequentially().catch((error: Error) => error);
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(await pending).toBeInstanceOf(Error);
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });

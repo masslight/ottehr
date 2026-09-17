@@ -1,0 +1,82 @@
+import { ReactElement, useMemo } from 'react';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import {
+  CUSTOM_INSURANCE_ORG_CLAIM_FORM_LABELS,
+  CUSTOM_INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS,
+  CUSTOM_INSURANCE_ORG_TYPE_LABELS,
+  CustomInsuranceOrgItem,
+} from 'utils/lib/types/data/billing/custom-insurance-org.types';
+import { updateBillingCustomInsuranceOrg } from '../../api/api';
+import {
+  CustomInsuranceOrgForm,
+  customInsuranceOrgFormToInput,
+  customInsuranceOrgItemToFormValues,
+  formatInsuranceOrgAddress,
+} from '../../constants/customInsuranceOrg';
+import { useApiClients } from '../../hooks/useAppClients';
+import { EditableSection } from '../claim/EditableSection';
+import { Row } from '../Row';
+import { CustomInsuranceOrgFormFields } from './CustomInsuranceOrgFormFields';
+
+export function CustomInsuranceOrgDetailSection({
+  item,
+  onSaved,
+}: {
+  item: CustomInsuranceOrgItem;
+  onSaved: () => Promise<void>;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const defaultValues = useMemo(() => customInsuranceOrgItemToFormValues(item), [item]);
+
+  const handleSave = async (data: CustomInsuranceOrgForm): Promise<string | null> => {
+    if (!oystehrZambda) return 'Client not ready';
+    try {
+      await updateBillingCustomInsuranceOrg(oystehrZambda, {
+        ...customInsuranceOrgFormToInput(data),
+        insuranceOrgId: item.id,
+      });
+    } catch (err) {
+      return getApiError({ error: err, defaultError: 'Failed to save changes' });
+    }
+    await onSaved();
+    return null;
+  };
+
+  const insuranceTypesSummary = item.insuranceTypes.map((type) => CUSTOM_INSURANCE_ORG_TYPE_LABELS[type]).join(', ');
+  const contactsSummary = item.contacts
+    .map((contact) => [contact.title, contact.name, contact.email, contact.phone].filter(Boolean).join(' - '))
+    .join('; ');
+
+  return (
+    <EditableSection
+      title="Organization Details"
+      defaultValues={defaultValues}
+      onSave={handleSave}
+      editForm={<CustomInsuranceOrgFormFields />}
+    >
+      <Row label="Name" value={item.name} />
+      <Row label="Id" value={item.orgId} />
+      <Row label="Insurance Type" value={insuranceTypesSummary} />
+      <Row
+        label="Submission Mechanism"
+        value={CUSTOM_INSURANCE_ORG_SUBMISSION_MECHANISM_LABELS[item.submissionMechanism]}
+      />
+      {item.submissionMechanism === 'email' && (
+        <Row label="Email Address" value={item.submissionDetails?.email ?? ''} />
+      )}
+      {item.submissionMechanism === 'portal' && (
+        <>
+          <Row label="Portal URL" value={item.submissionDetails?.portalUrl ?? ''} />
+          <Row label="Portal Details" value={item.submissionDetails?.portalDetails ?? ''} />
+        </>
+      )}
+      {item.submissionMechanism === 'fax' && <Row label="Fax Number" value={item.submissionDetails?.faxNumber ?? ''} />}
+      {item.submissionMechanism === 'mail' && (
+        <Row label="Mail Address" value={formatInsuranceOrgAddress(item.submissionDetails?.mailAddress)} />
+      )}
+      <Row label="Accepted Claim Form" value={CUSTOM_INSURANCE_ORG_CLAIM_FORM_LABELS[item.acceptedClaimForm]} />
+      <Row label="Note" value={item.note ?? ''} />
+      <Row label="Contacts" value={contactsSummary} hideBorder />
+    </EditableSection>
+  );
+}

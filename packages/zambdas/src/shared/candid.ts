@@ -71,12 +71,14 @@ import {
   isAppointmentPreOp,
   isAppointmentWorkersComp,
 } from 'utils/lib/fhir/appointments';
+import { getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
 import { ACCIDENT_STATE_EXTENSION, ACCIDENT_TYPE_SYSTEM, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
 import { createReference } from 'utils/lib/fhir/helpers';
 import {
   getCptCodesFromMA,
   getDosageFromMA,
+  getMedicationCptEntryFromMA,
   getMedicationFromMA,
   getNdcCodeFromMedication,
   MedicationUnitOptions,
@@ -1585,6 +1587,10 @@ export function buildDrugIdentification(
   const ma = medicationAdministrations.find((m) => m.id === maId);
   if (!ma) return undefined;
 
+  // The NDC belongs only to the drug's own code — supporting/admin CPT codes on the same MA get no drug identification
+  const medicationEntry = getMedicationCptEntryFromMA(ma);
+  if (medicationEntry && medicationEntry.code !== procedure.code?.coding?.[0]?.code) return undefined;
+
   const medication = getMedicationFromMA(ma);
   const ndc = medication ? getNdcCodeFromMedication(medication) : undefined;
   if (!ndc) return undefined;
@@ -1604,6 +1610,11 @@ export function getBillableUnitsForProcedure(
   procedure: Procedure,
   medicationAdministrations: MedicationAdministration[]
 ): number | undefined {
+  const procedureCoding = procedure.code?.coding?.[0];
+  const storedBillableUnits = getCptBillableUnitsFromCoding(procedureCoding);
+
+  if (storedBillableUnits != null) return storedBillableUnits;
+
   const maRef = procedure.partOf?.find((ref) => ref.reference?.startsWith('MedicationAdministration/'));
   if (!maRef?.reference) return undefined;
 

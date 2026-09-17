@@ -214,13 +214,21 @@ test.describe('In-person visit', async () => {
       await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
       await assessmentPage.selectEmCode(EM_CODE);
       await patientInfoPage.sideMenu().clickReviewAndSign();
-      await progressNotePage.clickDischargeButton();
-      await progressNotePage.clickReviewAndSignButton();
-      const supervisorCheckbox = page.getByTestId(dataTestIds.progressNotePage.supervisorApprovalCheckbox);
-      if (await supervisorCheckbox.isVisible()) {
-        await supervisorCheckbox.uncheck();
-      }
-      await progressNotePage.clickSignButton();
+      const dischargeDialog = await progressNotePage.openDischargeDialog();
+      await dischargeDialog.verifyPrintOptions();
+      await dischargeDialog.verifyReviewAndSignDefaults();
+      await dischargeDialog.verifyActionLabel('Discharge & Print');
+
+      await dischargeDialog.setDischargeSummary(false);
+      await dischargeDialog.verifyActionLabel('Discharge');
+      await dischargeDialog.setProgressNote(true);
+      await dischargeDialog.verifyActionLabel('Discharge & Print');
+      await dischargeDialog.setSignProgressNote(true);
+      await dischargeDialog.verifyActionLabel('Discharge, Print & Sign');
+      await dischargeDialog.disableSupervisorApprovalIfAvailable();
+      await dischargeDialog.setProgressNote(false);
+      await dischargeDialog.verifyActionLabel('Discharge & Sign');
+      await dischargeDialog.confirm();
       await patientInfoPage.inPersonHeader().verifyStatus('completed');
 
       const visitNoteDocRef = await resourceHandler.waitTillVisitNotePdfCreated();

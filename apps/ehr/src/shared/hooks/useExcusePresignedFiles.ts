@@ -17,12 +17,25 @@ export const useExcusePresignedFiles = (
         return;
       }
 
-      const authToken = await getAccessTokenSilently();
-      const urls = [];
+      let authToken: string;
+      try {
+        authToken = await getAccessTokenSilently();
+      } catch (error) {
+        // Settle with URL-less entries so callers can tell a failed presign from a pending one.
+        console.error('Failed to get a token for school/work note presigning', error);
+        setPresignedFiles(schoolWorkNotes.map((item) => ({ ...item })));
+        return;
+      }
+
+      const urls: SchoolWorkNoteExcuseDocFilePresigned[] = [];
 
       for (const item of schoolWorkNotes) {
-        const presignedUrl = await getPresignedURL(item.url!, authToken);
-        urls.push({ ...item, presignedUrl });
+        try {
+          urls.push({ ...item, presignedUrl: await getPresignedURL(item.url!, authToken) });
+        } catch (error) {
+          console.error(`Failed to presign school/work note ${item.url}`, error);
+          urls.push({ ...item });
+        }
       }
 
       setPresignedFiles(urls);

@@ -591,6 +591,12 @@ export const getLastUpdateTimestampForResource = (resource: Resource): number | 
 
 export const CRITICAL_CHANGE_SYSTEM = 'critical-update-by'; // exists in ehr as well
 export const STATUS_UPDATE_TAG_SYSTEM = 'status-update';
+/**
+ * Marks the Appointment of a visit that was converted in place into a scheduled follow-up.
+ * The activity log only diffs Appointment (and Patient) history, never Encounter history, so
+ * without this tag a conversion — which otherwise only touches the Encounter — leaves no trace.
+ */
+export const FOLLOWUP_CONVERSION_TAG_SYSTEM = 'converted-to-follow-up';
 
 export const createCriticalUpdateTag = (updateBy: string): Coding => {
   return {
@@ -651,6 +657,27 @@ export const getAppointmentMetaTagOpForStatusUpdate = (
   };
   const ops = getPatchOperationsForNewMetaTags(appointment, [statusTag, updateTag]);
   return ops;
+};
+
+/**
+ * Tags the Appointment of a visit converted in place into a scheduled follow-up, so the
+ * conversion shows up in the activity log with an attributed author. Mirrors
+ * {@link getAppointmentMetaTagOpForStatusUpdate}.
+ */
+export const getAppointmentMetaTagOpForFollowUpConversion = (
+  appointment: Appointment,
+  parentEncounterId: string,
+  updatedBy: { user?: User; updatedByOverride?: string }
+): Operation[] => {
+  const { user, updatedByOverride } = updatedBy;
+  const conversionTag = {
+    system: FOLLOWUP_CONVERSION_TAG_SYSTEM,
+    code: parentEncounterId,
+    display: `Converted to a follow-up of encounter ${parentEncounterId}`,
+  };
+  const staffUpdateBy = user ? `Staff ${user?.email ? user.email : `(${user?.id})`}` : 'n/a';
+  const updateTag = createCriticalUpdateTag(updatedByOverride ? updatedByOverride : staffUpdateBy);
+  return getPatchOperationsForNewMetaTags(appointment, [conversionTag, updateTag]);
 };
 
 export const getLocationIdFromAppointment = (appointment: Appointment): string | undefined => {

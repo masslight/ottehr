@@ -1,10 +1,11 @@
 import { InfoOutlined } from '@mui/icons-material';
 import { Box, Button, CircularProgress, TextField, Tooltip, Typography } from '@mui/material';
-import { FC, useEffect } from 'react';
+import { FC } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
+import { useSyncServerNoteToField } from './shared/hooks/useSyncServerNoteToField';
 
 const mechanismOfInjurySuggestion = (
   <Tooltip
@@ -98,11 +99,11 @@ export const MechanismOfInjuryField: FC = () => {
     },
   });
 
-  useEffect(() => {
-    if (chartDataFields?.mechanismOfInjury?.text !== undefined) {
-      methods.setValue('mechanismOfInjury', chartDataFields.mechanismOfInjury.text);
-    }
-  }, [chartDataFields?.mechanismOfInjury?.text, methods]);
+  useSyncServerNoteToField({
+    serverValue: chartDataFields?.mechanismOfInjury?.text,
+    getFieldValue: () => methods.getValues('mechanismOfInjury'),
+    setFieldValue: (value) => methods.setValue('mechanismOfInjury', value),
+  });
 
   const { control } = methods;
 
