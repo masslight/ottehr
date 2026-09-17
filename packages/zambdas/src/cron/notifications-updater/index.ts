@@ -138,14 +138,10 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     addNewSMSCommunicationForPractitioner(practitioner, request.resource as Communication, status, method);
   }
 
-  console.group('validateRequestParameters');
   const { secrets } = validateRequestParameters(input);
-  console.groupEnd();
-  console.debug('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-  console.log('Created zapToken and fhir client');
 
   // Generous 1h lookback; the per-resource idempotency tags — not the window — gate "already notified?".
   const notificationWindowStart = DateTime.utc().minus({ hours: 1 });
@@ -167,12 +163,16 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
   );
   const recentlyCreatedTasks = recentTaskResources.filter((res): res is Task => res.resourceType === 'Task');
   const recentlyAssignedTasksMap = buildRecentlyAssignedTasksMap(recentTaskResources, notificationWindowStart);
-  // these logs produce far too much detail so reducing them to counts
-  console.log('--- Ready or unsigned visits count: ' + Object.keys(readyOrUnsignedVisitPackages).length);
-  console.log('--- Active providers count: ' + Object.keys(activeProvidersMap).length);
-  console.log('--- Recently assigned task ids: ' + Object.keys(recentlyAssignedTasksMap).join(', '));
-  console.log('--- Active staff count: ' + Object.keys(activeStaffMap).length);
-  console.log('--- Recently created tasks count: ' + recentlyCreatedTasks.length);
+  // One line of counts. These were resource dumps, then five count lines; this cron runs often enough
+  // that even the assigned-task id list is worth dropping (the ids are recoverable from FHIR).
+  const runCounts = [
+    `ready or unsigned visits: ${Object.keys(readyOrUnsignedVisitPackages).length}`,
+    `active providers: ${Object.keys(activeProvidersMap).length}`,
+    `active staff: ${Object.keys(activeStaffMap).length}`,
+    `recently created tasks: ${recentlyCreatedTasks.length}`,
+    `recently assigned tasks: ${Object.keys(recentlyAssignedTasksMap).length}`,
+  ];
+  console.log(`--- ${runCounts.join(', ')}`);
 
   // Parse each practitioner's V2 preferences (a JSON.parse of an extension blob) at most once per run.
   const prefsCache = new Map<string, ProviderNotificationPreferencesV2 | undefined>();
@@ -521,15 +521,21 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
   // goes out, so the next run can retry without double-texting.
   const smsToSend = buildSMSSendList(sendSMSPractitionerCommunications);
 
-  console.log(`Update appointment requests: ${JSON.stringify(updateAppointmentRequests)}`);
-  console.log(`Create communications requests: ${JSON.stringify(createCommunicationRequests)}`);
+  // Counts, not payloads: the serialized requests ran to tens of KB per invocation and put notification
+  // text in CloudWatch. Silent on a run with nothing to write, which is most of them.
+  const writeRequestCount =
+    updateAppointmentRequests.length +
+    createCommunicationRequests.length +
+    updateCommunicationRequests.length +
+    updateTaskRequests.length;
 
-  if (
-    updateAppointmentRequests.length > 0 ||
-    createCommunicationRequests.length > 0 ||
-    updateCommunicationRequests.length > 0 ||
-    updateTaskRequests.length > 0
-  ) {
+  if (writeRequestCount > 0) {
+    console.log(
+      `Writing ${updateAppointmentRequests.length} appointment updates, ` +
+        `${createCommunicationRequests.length} new communications, ` +
+        `${updateCommunicationRequests.length} communication updates, ` +
+        `${updateTaskRequests.length} task updates.`
+    );
     await oystehr.fhir.transaction<Appointment | Communication | Task>({
       requests: [
         ...updateAppointmentRequests,
