@@ -32,7 +32,8 @@ export const PatientInstructionsContainer: FC = () => {
 
   const instructions = chartData?.instructions;
   const disposition = chartFields?.disposition;
-  const schoolWorkExcuses = useExcusePresignedFiles(chartData?.schoolWorkNotes);
+  // Entries whose presigning failed come back without a URL and cannot be linked.
+  const schoolWorkExcuses = useExcusePresignedFiles(chartData?.schoolWorkNotes).filter((excuse) => excuse.presignedUrl);
 
   const { showInstructions, showDischargeInstructions, showFollowUp, showSchoolWorkExcuse } =
     usePatientInstructionsVisibility();

@@ -365,6 +365,18 @@ export const dataTestIds = {
     cptCodes: 'cpt-codes-container',
     rosReviewContainer: 'in-person-progress-note-ros-review-container',
   },
+  dischargeDialog: {
+    openButton: 'discharge-dialog-open-button',
+    printDischargeSummaryCheckbox: 'discharge-dialog-print-discharge-summary-checkbox',
+    printWorkNoteCheckbox: 'discharge-dialog-print-work-note-checkbox',
+    printSchoolNoteCheckbox: 'discharge-dialog-print-school-note-checkbox',
+    printPatientInstructionsCheckbox: 'discharge-dialog-print-patient-instructions-checkbox',
+    printProgressNoteCheckbox: 'discharge-dialog-print-progress-note-checkbox',
+    signProgressNoteCheckbox: 'discharge-dialog-sign-progress-note-checkbox',
+    supervisorApprovalCheckbox: 'discharge-dialog-supervisor-approval-checkbox',
+    signDisabledReason: 'discharge-dialog-sign-disabled-reason',
+    confirmButton: 'discharge-dialog-confirm-button',
+  },
   hpiAndTemplatesPage: {
     hpiTitle: 'hpi-title',
     hpiNotes: 'hpi-notes',
