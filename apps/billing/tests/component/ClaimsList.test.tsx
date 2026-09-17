@@ -62,7 +62,7 @@ vi.mock('../../src/utils/pollExportTask', () => ({
   pollExportTask: pollExportTaskMock,
 }));
 
-vi.mock('../../src/utils/downloadTextFile', () => ({
+vi.mock('../../src/utils/downloadFile', () => ({
   downloadTextFile: downloadTextFileMock,
 }));
 
