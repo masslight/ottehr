@@ -109,7 +109,11 @@ import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { sendErrors } from '../shared/errors';
 import { fetchAllPages } from '../shared/fhir';
-import { getCustomInsuranceOrgBusinessId, isCustomInsuranceOrganization } from './custom-insurance-org.helpers';
+import {
+  getCustomInsuranceOrgBusinessId,
+  isCustomInsuranceOrganization,
+  resolvePayerOrganization,
+} from './custom-insurance-org.helpers';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
 import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';
 
@@ -211,7 +215,8 @@ export function ensureClaimInsurance(insurance?: Claim['insurance']): NonNullabl
     .map((entry, idx) => ({ ...entry, sequence: idx + 1, focal: idx === 0 }));
 }
 
-// Resolve Oystehr payer list URLs to payer Organizations via the RCM service
+// Resolve payer references — Oystehr RCM payer list URLs, or a billing-app custom insurance
+// organization's direct Organization/{id} reference (see buildPayorReference) — to their Organizations.
 export async function resolvePayersByRef(
   oystehr: Oystehr,
   refs: (string | undefined)[]
@@ -220,9 +225,12 @@ export async function resolvePayersByRef(
   const uniqueRefs = [...new Set(refs.filter((r): r is string => !!r))];
   await Promise.all(
     uniqueRefs.map(async (ref) => {
-      if (!isPayerUrl(ref)) return;
       try {
-        byRef.set(ref, await oystehr.rcm.getPayerByUrl({ url: ref }));
+        if (isPayerUrl(ref)) {
+          byRef.set(ref, await oystehr.rcm.getPayerByUrl({ url: ref }));
+        } else if (ref.startsWith('Organization/')) {
+          byRef.set(ref, await resolvePayerOrganization(oystehr, ref.slice('Organization/'.length)));
+        }
       } catch (err) {
         console.error(`Failed to resolve payer ${ref}:`, err);
       }
@@ -233,7 +241,8 @@ export async function resolvePayersByRef(
 
 // The identifier shown as a payer's "Payer ID" — the RCM identifier, or for a billing-app custom
 // insurance organization (which has no RCM identifier), its "OTR-" business id.
-function resolvedPayerId(org: Organization): string | undefined {
+export function resolvedPayerId(org: Organization | undefined): string | undefined {
+  if (!org) return undefined;
   return getPayerId(org) ?? (isCustomInsuranceOrganization(org) ? getCustomInsuranceOrgBusinessId(org) : undefined);
 }
 
