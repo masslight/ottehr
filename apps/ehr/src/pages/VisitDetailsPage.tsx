@@ -177,7 +177,7 @@ type EditDialogConfig =
   | {
       type: 'reason-for-visit';
       values: EditReasonForVisitParams;
-      keyTitleMap: { reasonForVisit: 'Reason for Visit'; additionalDetails: 'Additional Details' };
+      keyTitleMap: { reasonForVisit: "Reason for today's visit"; additionalDetails: 'Additional Details' };
       requiredKeys: string[];
     }
   | { type: 'nlg'; values: EditNLGParams; keyTitleMap: { guardians: 'Guardians' }; requiredKeys: string[] }
@@ -1475,7 +1475,7 @@ export default function VisitDetailsPage(): ReactElement {
                                     additionalDetails,
                                   },
                                   keyTitleMap: {
-                                    reasonForVisit: 'Reason for Visit',
+                                    reasonForVisit: "Reason for today's visit",
                                     additionalDetails: 'Additional Details',
                                   },
                                   requiredKeys: [],
