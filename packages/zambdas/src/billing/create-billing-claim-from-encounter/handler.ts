@@ -39,22 +39,12 @@ import {
   getDefaultClaimSubmissionExtensions,
   setCoveragePlanType,
 } from 'utils/lib/fhir/billing';
-import {
-  ACCOUNT_TYPE_CODE_SYSTEM,
-  FHIR_IDENTIFIER_NPI,
-  OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
-  PARTICIPATION_CODE_SYSTEM,
-  SERVICE_CATEGORY_SYSTEM,
-} from 'utils/lib/fhir/constants';
-import {
-  getPaymentVariantFromEncounter,
-  getVisitOccupationalMedicineEmployerFromEncounter,
-  PaymentVariant,
-} from 'utils/lib/fhir/encounter';
+import { FHIR_IDENTIFIER_NPI, PARTICIPATION_CODE_SYSTEM, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { getNPIIdentifier, getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { extractNioIdFromReferenceUrl, getCandidPlanTypeCodeFromCoverage, getPayerId } from 'utils/lib/helpers/helpers';
+import { getCandidPlanTypeCodeFromCoverage, getPayerId } from 'utils/lib/helpers/helpers';
 import { InternalError } from 'utils/lib/helpers/oystehrApi';
 import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -64,7 +54,6 @@ import {
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
-  CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
@@ -97,8 +86,11 @@ import {
   determineRulesEngineForClaim,
   ensureClaimInsurance,
   EXCLUDE_WORKING_COPIES_PARAMS,
+  findOccupationalMedicineAccount,
   findRef,
   getClaimTypeCoding,
+  getNonInsurancePayerReference,
+  isEmployerBilledVisit,
   kickOffRulesEngine,
   payerDisplay,
   prepareCopy,
@@ -108,6 +100,7 @@ import {
   reconcilePaymentNoticesForClaim,
   resourceDisplayName,
   searchPatientsByClinicalIds,
+  selectClaimCoverages,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 import { CreateClaimFromEncounterParams, validateRequestParameters } from './validateRequestParameters';
@@ -545,82 +538,11 @@ export function getClaimCoveragesForEncounter(
   mainPatientAccounts: Account[],
   claimCoverages: Coverage[]
 ): CoverageRefs {
-  switch (service) {
-    case CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care']: {
-      const ucAccount = mainPatientAccounts.find(
-        (mpacc) => mpacc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'PBILLACCT')
-      );
-      let primaryCoverage: Coverage | undefined;
-      let secondaryCoverage: Coverage | undefined;
-      let tertiaryCoverage: Coverage | undefined;
-      let quaternaryCoverage: Coverage | undefined;
-      ucAccount?.coverage?.forEach((uccov) => {
-        const foundClaimCoverage = claimCoverages.find((ccov) => copySourceRef(ccov) === uccov.coverage.reference);
-        if (uccov.priority === 1) {
-          primaryCoverage = foundClaimCoverage;
-        }
-        if (uccov.priority === 2) {
-          secondaryCoverage = foundClaimCoverage;
-        }
-        if (uccov.priority === 3) {
-          tertiaryCoverage = foundClaimCoverage;
-        }
-        if (uccov.priority === 4) {
-          quaternaryCoverage = foundClaimCoverage;
-        }
-      });
-      return [
-        ...(primaryCoverage
-          ? [{ coverageRef: coverageDisplayReference(primaryCoverage), payorRef: primaryCoverage.payor[0] }]
-          : []),
-        ...(secondaryCoverage
-          ? [{ coverageRef: coverageDisplayReference(secondaryCoverage), payorRef: secondaryCoverage.payor[0] }]
-          : []),
-        ...(tertiaryCoverage
-          ? [{ coverageRef: coverageDisplayReference(tertiaryCoverage), payorRef: tertiaryCoverage.payor[0] }]
-          : []),
-        ...(quaternaryCoverage
-          ? [{ coverageRef: coverageDisplayReference(quaternaryCoverage), payorRef: quaternaryCoverage.payor[0] }]
-          : []),
-      ];
-    }
-    case CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp']: {
-      const wcAccount = mainPatientAccounts.find(
-        (mpacc) => mpacc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'WCOMPACCT')
-      );
-      let wcCoverage: Coverage | undefined;
-      wcAccount?.coverage?.forEach((wccov) => {
-        const foundClaimCoverage = claimCoverages.find((ccov) => copySourceRef(ccov) === wccov.coverage.reference);
-        if (foundClaimCoverage) {
-          wcCoverage = foundClaimCoverage;
-        }
-      });
-      return [
-        ...(wcCoverage ? [{ coverageRef: coverageDisplayReference(wcCoverage), payorRef: wcCoverage.payor[0] }] : []),
-      ];
-    }
-    case CODE_SYSTEM_SERVICE_CATEGORY_CODES['occupational-medicine']: {
-      // No insurance
-      // TODO: Support non-insurance payers
-      return [];
-    }
-    case CODE_SYSTEM_SERVICE_CATEGORY_CODES['pre-op']: {
-      // No insurance
-      // TODO: Support non-insurance payers
-      return [];
-    }
-    default: {
-      // "Non-system" service, take no action here
-      return [];
-    }
-  }
+  return selectClaimCoverages(service, mainPatientAccounts, claimCoverages, copySourceRef).map((coverage) => ({
+    coverageRef: coverageDisplayReference(coverage),
+    payorRef: coverage.payor[0],
+  }));
 }
-
-const isOccupationalMedicineAccount = (account: Account): boolean =>
-  !!account.type?.coding?.some(
-    (coding) =>
-      OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE?.coding?.some((c) => c.system === coding.system && c.code === coding.code)
-  );
 
 // The visit's NIO employer: a visit-level selection on the Encounter (pre-op) wins, else the
 // patient's occ-med Account owner (occupational medicine). Only billing-app NIO reference tokens
@@ -631,12 +553,13 @@ export async function resolveNonInsurancePayer(
   billingOystehr: Oystehr,
   clinicalResources: Pick<ClinicalResources, 'encounter' | 'occupationalMedicineAccount'>
 ): Promise<Reference | undefined> {
-  const employerRef =
-    getVisitOccupationalMedicineEmployerFromEncounter(clinicalResources.encounter) ??
-    clinicalResources.occupationalMedicineAccount?.owner;
-  const nioId = extractNioIdFromReferenceUrl(employerRef?.reference);
-  if (!nioId) return undefined;
-  let display = employerRef?.display;
+  const payer = getNonInsurancePayerReference(
+    clinicalResources.encounter,
+    clinicalResources.occupationalMedicineAccount
+  );
+  if (!payer) return undefined;
+  const nioId = payer.reference!.split('/')[1];
+  let display = payer.display;
   if (!display) {
     // Claim history snapshots displays at write time, so backfill a missing one from the NIO itself.
     try {
@@ -913,12 +836,8 @@ async function getClinicalResources(
   // The occ-med Account (owner = the visit's employer) is patient-level and not consistently
   // referenced from the Encounter, so for employer-billed visits fall back to a patient search
   // when the encounter-linked accounts don't include it.
-  let occupationalMedicineAccount = accounts.find(isOccupationalMedicineAccount);
-  if (
-    !occupationalMedicineAccount &&
-    (isAppointmentOccupationalMedicine(appointment) ||
-      getPaymentVariantFromEncounter(encounter) === PaymentVariant.employer)
-  ) {
+  let occupationalMedicineAccount = findOccupationalMedicineAccount(accounts);
+  if (!occupationalMedicineAccount && isEmployerBilledVisit(getService(appointment), encounter)) {
     const patientAccounts = (
       await oystehr.fhir.search<Account>({
         resourceType: 'Account',
@@ -928,7 +847,7 @@ async function getClinicalResources(
         ],
       })
     ).unbundle();
-    occupationalMedicineAccount = patientAccounts.find(isOccupationalMedicineAccount);
+    occupationalMedicineAccount = findOccupationalMedicineAccount(patientAccounts);
   }
 
   const defaultBillingProviderRef = params.secrets.DEFAULT_BILLING_RESOURCE;

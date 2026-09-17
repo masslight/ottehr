@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Patient, Task } from 'fhir/r4b';
+import { Account, Appointment, Encounter, Patient, Task } from 'fhir/r4b';
 import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils/lib/fhir/constants';
 import { buildAppointmentStartMap, getEncounterDateTime } from 'utils/lib/fhir/encounter';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
@@ -12,6 +12,7 @@ import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { createBillingClient, fhirName } from '../shared';
+import { getClaimTaskPayerNames } from './payers';
 import { SearchBillingClaimTasksParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -69,11 +70,12 @@ async function performEffect(
   const [visitResources, patients] = await Promise.all([
     encounterIds.length
       ? clinicalOystehr.fhir
-          .search<Encounter | Appointment>({
+          .search<Encounter | Appointment | Account>({
             resourceType: 'Encounter',
             params: [
               { name: '_id', value: encounterIds.join(',') },
               { name: '_include', value: 'Encounter:appointment' },
+              { name: '_include', value: 'Encounter:account' },
               { name: '_count', value: String(encounterIds.length) },
             ],
           })
@@ -97,6 +99,7 @@ async function performEffect(
   }
   const patientsById = new Map(patients.map((patient) => [patient.id, patient]));
   const appointmentStarts = buildAppointmentStartMap(visitResources);
+  const payerNames = await getClaimTaskPayerNames(clinicalOystehr, oystehr, visitResources);
   const tasks = taskResources.map((task) => {
     const encounterId = task.encounter?.reference?.split('/')[1];
     const patientId = task.for?.reference?.split('/')[1];
@@ -109,6 +112,7 @@ async function performEffect(
       appointmentId: encounter?.appointment?.[0]?.reference?.split('/')[1],
       patientId,
       patientName: fhirName(patientsById.get(patientId)) || undefined,
+      payerNames: payerNames.get(encounterId ?? '') ?? [],
       createdAt: task.authoredOn,
       updatedAt: task.meta?.lastUpdated,
       error: getFailureMessage(task),

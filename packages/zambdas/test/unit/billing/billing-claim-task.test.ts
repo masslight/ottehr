@@ -208,6 +208,7 @@ describe('billing claim tasks', () => {
             status: 'failed',
             encounterId,
             patientId: 'p1',
+            payerNames: [],
             createdAt: task.authoredOn,
             updatedAt: failedTask.meta.lastUpdated,
             error: 'Service facility not found',
@@ -275,6 +276,7 @@ describe('billing claim tasks', () => {
       params: [
         { name: '_id', value: `${encounterId},e2` },
         { name: '_include', value: 'Encounter:appointment' },
+        { name: '_include', value: 'Encounter:account' },
         { name: '_count', value: '2' },
       ],
     });
@@ -302,6 +304,7 @@ describe('billing claim tasks', () => {
         status: 'failed',
         encounterId,
         patientId: 'missing',
+        payerNames: [],
         createdAt: task.authoredOn,
         error: 'Claim creation failed',
       },
