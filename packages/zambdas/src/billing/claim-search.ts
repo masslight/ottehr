@@ -19,6 +19,7 @@ import { CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM } from 'utils/lib/types/data/billi
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { fetchClaimResponsesByClaimIds, fetchPatientPaidByClaimId, summarizeClaimPayments } from './claim-amounts';
+import { resolvePayerIssuerFilter } from './custom-insurance-org.helpers';
 import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
   ClaimSearchParam,
@@ -127,7 +128,9 @@ export async function buildClaimFilterParams({
 }): Promise<ClaimSearchParam[]> {
   let insurerFilter: string | undefined;
   if (params.payerId) {
-    insurerFilter = getPayerUrl(params.payerId);
+    // A business-id-shaped payerId ("OTR-...") names a custom insurance organization rather than an
+    // RCM payer — see resolvePayerIssuerFilter.
+    insurerFilter = await resolvePayerIssuerFilter(oystehr, params.payerId);
   } else if (params.payerName) {
     const result = await oystehr.rcm.listPayers({
       name: params.payerName,

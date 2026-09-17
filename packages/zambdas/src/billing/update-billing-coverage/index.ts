@@ -7,6 +7,7 @@ import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { resolvePayerOrganization } from '../custom-insurance-org.helpers';
 import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../provenance';
 import {
   BillingFhirResource,
@@ -89,7 +90,7 @@ export async function performEffect(
   const effectiveMemberId = params.memberId ?? coverage.subscriberId ?? '';
   if (params.payerId) {
     // Re-pointing the payer rebuilds payor reference, coverage class, and the member-id identifier.
-    const payerOrg = await oystehr.rcm.getPayer({ id: params.payerId });
+    const payerOrg = await resolvePayerOrganization(oystehr, params.payerId);
     setCoveragePayer(coverage, payerOrg, effectiveMemberId);
     coverage.subscriberId = effectiveMemberId;
   } else if (params.memberId !== undefined) {

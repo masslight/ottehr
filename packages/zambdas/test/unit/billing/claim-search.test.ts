@@ -1,10 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import { CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   buildClaimFilterParams,
   CLAIM_LIST_ELEMENTS,
@@ -74,6 +75,37 @@ describe('buildClaimFilterParams: non-insurance payer', () => {
       name: '_tag',
       value: `${CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM}|${nioId}`,
     });
+  });
+});
+
+describe('buildClaimFilterParams: payer', () => {
+  it('builds an RCM payer URL insurer filter for an ordinary payerId, without any FHIR lookup', async () => {
+    const search = vi.fn();
+    const params = await buildClaimFilterParams({
+      oystehr: { fhir: { search } } as unknown as Oystehr,
+      params: { payerId: 'PAYER1' },
+    });
+    expect(params).toContainEqual({ name: 'insurer', value: getPayerUrl('PAYER1') });
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it('resolves a business-id-shaped payerId to the custom org and filters by its Organization reference', async () => {
+    const search = vi.fn().mockResolvedValue({ unbundle: () => [{ resourceType: 'Organization', id: 'org-uuid' }] });
+    const params = await buildClaimFilterParams({
+      oystehr: { fhir: { search } } as unknown as Oystehr,
+      params: { payerId: 'OTR-ACME' },
+    });
+    expect(params).toContainEqual({ name: 'insurer', value: 'Organization/org-uuid' });
+  });
+
+  it('throws when a business-id-shaped payerId matches no custom insurance organization', async () => {
+    const search = vi.fn().mockResolvedValue({ unbundle: () => [] });
+    await expect(
+      buildClaimFilterParams({
+        oystehr: { fhir: { search } } as unknown as Oystehr,
+        params: { payerId: 'OTR-UNKNOWN' },
+      })
+    ).rejects.toThrow();
   });
 });
 
