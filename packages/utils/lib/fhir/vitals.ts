@@ -242,19 +242,20 @@ export const getHeartbeatObservationMethodCodable = (
 
 export const getBloodPressureObservationComponents = (
   bloodPressureDTO: VitalsBloodPressureObservationDTO,
-  patientDOB?: string,
-  vitalsAlertConfig?: VitalsSchema
+  patientDOB: string | undefined,
+  vitalsAlertConfig: VitalsSchema | undefined
 ): ObservationComponent[] => {
   const result: ObservationComponent[] = [];
 
-  const componentAlerts = patientDOB
-    ? getVitalObservationFhirComponentInterpretations({
-        vitalsObservation: bloodPressureDTO,
-        patientDOB,
-        patientSex: undefined,
-        configOverride: vitalsAlertConfig,
-      })
-    : {};
+  const componentAlerts =
+    patientDOB && vitalsAlertConfig
+      ? getVitalObservationFhirComponentInterpretations({
+          vitalsObservation: bloodPressureDTO,
+          patientDOB,
+          patientSex: undefined,
+          config: vitalsAlertConfig,
+        })
+      : {};
 
   const systolicPressure = bloodPressureDTO.systolicPressure;
   if (systolicPressure) {
@@ -943,8 +944,8 @@ export function toVitalOxygenSatObservationMethod(
 export function fillVitalObservationAttributes(
   baseResource: Observation,
   vitalDTO: VitalsObservationDTO,
-  patientDOB?: string,
-  vitalsAlertConfig?: VitalsSchema
+  patientDOB: string | undefined,
+  vitalsAlertConfig: VitalsSchema | undefined
 ): Observation {
   if (isTemperatureVitalObservation(vitalDTO)) {
     const temperatureDTO = vitalDTO as VitalsTemperatureObservationDTO;

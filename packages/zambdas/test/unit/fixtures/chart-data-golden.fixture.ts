@@ -52,6 +52,7 @@ import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-d
 import { MEDICATION_DISPENSABLE_DRUG_ID } from 'utils/lib/types/api/medication-administration.constants';
 import { SCHOOL_WORK_NOTE, SCHOOL_WORK_NOTE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
+import { DEFAULT_VITALS_ALERT_CONFIG, vitalsAlertConfigToVitalsDef } from 'utils/lib/utils/vitals-alert-config';
 import { convertSearchResultsToResponse } from '../../../src/ehr/get-chart-data/helpers';
 import {
   createAccidentCondition,
@@ -501,7 +502,10 @@ export function buildGoldenChartResources(): GoldenChartResources {
       practitionerId,
       undefined,
       { resourceId: 'obs-screening-covid', field: 'covid-symptoms', value: true } as ObservationBooleanFieldDTO,
-      ADDITIONAL_QUESTIONS_META_SYSTEM
+      ADDITIONAL_QUESTIONS_META_SYSTEM,
+      undefined,
+      undefined,
+      undefined
     ),
     makeObservationResource(
       encounterId,
@@ -514,7 +518,10 @@ export function buildGoldenChartResources(): GoldenChartResources {
         value: 'No recent travel',
         note: 'Asked on intake',
       } as ObservationTextFieldDTO,
-      ADDITIONAL_QUESTIONS_META_SYSTEM
+      ADDITIONAL_QUESTIONS_META_SYSTEM,
+      undefined,
+      undefined,
+      undefined
     ),
     makeObservationResource(
       encounterId,
@@ -526,7 +533,10 @@ export function buildGoldenChartResources(): GoldenChartResources {
         field: AiObservationField.HistoryOfPresentIllness,
         value: 'Patient reports three days of sore throat.',
       } as ObservationTextFieldDTO,
-      AI_OBSERVATION_META_SYSTEM
+      AI_OBSERVATION_META_SYSTEM,
+      undefined,
+      undefined,
+      undefined
     ),
     makeObservationResource(
       encounterId,
@@ -536,7 +546,8 @@ export function buildGoldenChartResources(): GoldenChartResources {
       temperature,
       PATIENT_VITALS_META_SYSTEM,
       patient.birthDate,
-      patient.gender
+      patient.gender,
+      vitalsAlertConfigToVitalsDef(DEFAULT_VITALS_ALERT_CONFIG)
     ),
     // notes of every type
     ...Object.values(NOTE_TYPE)

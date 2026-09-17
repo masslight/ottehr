@@ -9,7 +9,7 @@ import {
 } from '../../types/api/chart-data/chart-data.constants';
 import { VitalsObservationDTO } from '../../types/api/chart-data/chart-data.types';
 import { GetVitalsResponseData } from '../../types/api/chart-data/get-vitals.types';
-import { AlertRule, AlertThreshold, DefaultVitalsConfig, VitalsDef, VitalsSchema } from './config-schema';
+import { AlertRule, AlertThreshold, VitalsSchema } from './config-schema';
 
 export const convertVitalsListToMap = (list: VitalsObservationDTO[]): GetVitalsResponseData => {
   const vitalsMap: Partial<GetVitalsResponseData> = {};
@@ -74,24 +74,9 @@ interface CheckForAbnormalValueInput {
   patientDOB: string;
   patientSex: string | undefined; // optional, used for ageSexFunction rules
   vitalsObservation: VitalsObservationDTO;
-  configOverride?: any; // optional override for primarily for testing purposes
+  config: VitalsSchema;
   asOfDate?: string;
 }
-
-const parsedConfigCache = new WeakMap<object, VitalsSchema>();
-
-const resolveVitalsConfig = (configOverride?: any): VitalsSchema => {
-  if (!configOverride || typeof configOverride !== 'object') {
-    return DefaultVitalsConfig;
-  }
-  const cached = parsedConfigCache.get(configOverride);
-  if (cached) {
-    return cached;
-  }
-  const parsed = VitalsDef(configOverride);
-  parsedConfigCache.set(configOverride, parsed);
-  return parsed;
-};
 
 const resolveAsOf = (asOfDate: string | undefined): DateTime => {
   if (!asOfDate) return DateTime.now();
@@ -100,7 +85,7 @@ const resolveAsOf = (asOfDate: string | undefined): DateTime => {
 };
 
 export const getVitalObservationAlertLevel = (input: CheckForAbnormalValueInput): VitalAlertCriticality | undefined => {
-  const { patientDOB: dob, patientSex, vitalsObservation, configOverride, asOfDate } = input;
+  const { patientDOB: dob, patientSex, vitalsObservation, config, asOfDate } = input;
   const vitalsKey = vitalsObservation.field;
   const asOf = resolveAsOf(asOfDate);
   const patientAgeInMonths = asOf.diff(DateTime.fromISO(dob), 'months').months;
@@ -126,7 +111,7 @@ export const getVitalObservationAlertLevel = (input: CheckForAbnormalValueInput)
     return undefined;
   };
 
-  const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob, configOverride, asOf);
+  const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob, config, asOf);
 
   const { type } = rulesOrComponents;
   if (type === 'rules') {
@@ -162,11 +147,11 @@ export const getVitalObservationAlertLevel = (input: CheckForAbnormalValueInput)
 export const getVitalObservationFhirInterpretations = (
   input: CheckForAbnormalValueInput
 ): CodeableConcept[] | undefined => {
-  const { patientDOB: dob, patientSex, vitalsObservation, configOverride, asOfDate } = input;
+  const { patientDOB: dob, patientSex, vitalsObservation, config, asOfDate } = input;
   const vitalsKey = vitalsObservation.field;
   const asOf = resolveAsOf(asOfDate);
   const patientAgeInMonths = asOf.diff(DateTime.fromISO(dob), 'months').months;
-  const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob, configOverride, asOf);
+  const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob, config, asOf);
   // console.log('rules for', vitalsKey, rulesOrComponents.length);
   const { type } = rulesOrComponents;
   console.log('vitals key:', vitalsKey, 'type:', type, patientSex);
@@ -187,12 +172,12 @@ export const getVitalObservationFhirInterpretations = (
 export const getVitalObservationFhirComponentInterpretations = (
   input: CheckForAbnormalValueInput
 ): { [componentName: string]: CodeableConcept[] } | undefined => {
-  const { patientDOB: dob, patientSex, vitalsObservation, configOverride, asOfDate } = input;
+  const { patientDOB: dob, patientSex, vitalsObservation, config, asOfDate } = input;
   const vitalsKey = vitalsObservation.field;
 
   const asOf = resolveAsOf(asOfDate);
   const patientAgeInMonths = asOf.diff(DateTime.fromISO(dob), 'months').months;
-  const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob, configOverride, asOf);
+  const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob, config, asOf);
   const { type } = rulesOrComponents;
   if (type === 'components') {
     const { components } = rulesOrComponents;
@@ -234,7 +219,7 @@ const getAlertLevelsFromInterpretations = (alertLevels: FHIRObservationInterpret
 const findRulesForVitalsKeyAndDOB = (
   key: VitalFieldNames,
   dob: string,
-  configOverride?: any, // optional override for primarily for testing purposes
+  config: VitalsSchema,
   asOf: DateTime = DateTime.now()
 ):
   | { type: 'rules'; rules: AlertRule[] }
@@ -244,7 +229,6 @@ const findRulesForVitalsKeyAndDOB = (
   }
 
   const dateOfBirth = DateTime.fromISO(dob);
-  const config = resolveVitalsConfig(configOverride);
   const alertThresholds: AlertThreshold[] = config[key]?.alertThresholds ?? [];
   const alertComponents: { [componentName: string]: AlertRule[] } = {};
   if (key === 'vital-blood-pressure' || key === 'vital-vision') {

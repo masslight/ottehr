@@ -226,7 +226,7 @@ describe('testing vitals config validation', () => {
         patientDOB,
         patientSex: testPatient.gender,
         vitalsObservation: alertingHighHeartbeat,
-        configOverride: updatedChart,
+        config: vitals,
       });
       expect(highObservationCriticality).toBe('critical');
       const alertingLowHeartbeat: VitalsHeartbeatObservationDTO = {
@@ -238,7 +238,7 @@ describe('testing vitals config validation', () => {
       const lowObservationCriticality = getVitalObservationAlertLevel({
         patientDOB,
         vitalsObservation: alertingLowHeartbeat,
-        configOverride: updatedChart,
+        config: vitals,
         patientSex: testPatient.gender,
       });
       expect(lowObservationCriticality).toBe('critical');
@@ -251,7 +251,7 @@ describe('testing vitals config validation', () => {
       const nonAlertingHeartbeatCriticality = getVitalObservationAlertLevel({
         patientDOB,
         vitalsObservation: nonAlertingHeartbeat,
-        configOverride: updatedChart,
+        config: vitals,
         patientSex: testPatient.gender,
       });
       expect(nonAlertingHeartbeatCriticality).toBeUndefined();
@@ -265,7 +265,7 @@ describe('testing vitals config validation', () => {
       const highTemperatureCriticality = getVitalObservationAlertLevel({
         patientDOB,
         vitalsObservation: alertingHighTemperature,
-        configOverride: updatedChart,
+        config: vitals,
         patientSex: testPatient.gender,
       });
       expect(highTemperatureCriticality).toBe('abnormal');
@@ -279,7 +279,7 @@ describe('testing vitals config validation', () => {
       const lowTemperatureCriticality = getVitalObservationAlertLevel({
         patientDOB,
         vitalsObservation: alertingLowTemperature,
-        configOverride: updatedChart,
+        config: vitals,
         patientSex: testPatient.gender,
       });
       expect(lowTemperatureCriticality).toBe('abnormal');
@@ -292,7 +292,7 @@ describe('testing vitals config validation', () => {
       const nonAlertingTemperatureCriticality = getVitalObservationAlertLevel({
         patientDOB,
         vitalsObservation: nonAlertingTemperature,
-        configOverride: updatedChart,
+        config: vitals,
         patientSex: testPatient.gender,
       });
       expect(nonAlertingTemperatureCriticality).toBeUndefined();
@@ -339,7 +339,7 @@ describe('testing vitals config validation', () => {
       const lowBPHighCriticality = getVitalObservationAlertLevel({
         patientDOB,
         vitalsObservation: alertingLowSystolicBloodPressure,
-        configOverride: updatedChart,
+        config: vitals,
         patientSex: testPatient.gender,
       });
       expect(lowBPHighCriticality).toBe('critical');
@@ -379,7 +379,7 @@ describe('testing vitals config validation', () => {
       const lowObservationCriticality = getVitalObservationAlertLevel({
         patientDOB,
         vitalsObservation: alertingLowDiastolicBloodPressure,
-        configOverride: updatedChart2,
+        config: vitals2,
         patientSex: testPatient.gender,
       });
       expect(lowObservationCriticality).toBe('abnormal');
@@ -393,7 +393,7 @@ describe('testing vitals config validation', () => {
       const nonAlertingBloodPressureCriticality = getVitalObservationAlertLevel({
         patientDOB,
         vitalsObservation: nonAlertingBloodPressure,
-        configOverride: updatedChart2,
+        config: vitals2,
         patientSex: testPatient.gender,
       });
       expect(nonAlertingBloodPressureCriticality).toBeUndefined();
@@ -415,7 +415,7 @@ describe('testing vitals config validation', () => {
       patientDOB,
       vitalsObservation: tachyObservation,
       patientSex: teenPatient.gender,
-      configOverride: testVitalsConfig,
+      config: testVitalsConfig,
     });
 
     expect(criticality).toBe(VitalAlertCriticality.Abnormal);
@@ -436,7 +436,7 @@ describe('testing vitals config validation', () => {
       patientDOB,
       vitalsObservation: highRespObservation,
       patientSex: adultPatient.gender,
-      configOverride: testVitalsConfig,
+      config: testVitalsConfig,
     });
 
     expect(criticality).toBe(VitalAlertCriticality.Abnormal);
@@ -457,7 +457,7 @@ describe('testing vitals config validation', () => {
       patientDOB,
       vitalsObservation: lowWeightObservation,
       patientSex: adultPatient.gender,
-      configOverride: testVitalsConfig,
+      config: testVitalsConfig,
     });
 
     expect(criticality).toBe(VitalAlertCriticality.Abnormal);
@@ -491,7 +491,7 @@ describe('testing vitals config validation', () => {
           patientDOB,
           vitalsObservation: lowResp,
           patientSex: patient.gender,
-          configOverride: testVitalsConfig,
+          config: testVitalsConfig,
         })
       ).toBe(VitalAlertCriticality.Abnormal);
     });
@@ -516,7 +516,7 @@ describe('testing vitals config validation', () => {
           patientDOB,
           vitalsObservation: borderlineResp,
           patientSex: patient.gender,
-          configOverride: testVitalsConfig,
+          config: testVitalsConfig,
         })
       ).toBe(VitalAlertCriticality.Abnormal);
 
@@ -532,7 +532,7 @@ describe('testing vitals config validation', () => {
           patientDOB,
           vitalsObservation: normalResp,
           patientSex: patient.gender,
-          configOverride: testVitalsConfig,
+          config: testVitalsConfig,
         })
       ).toBeUndefined();
     });
@@ -555,7 +555,7 @@ describe('testing vitals config validation', () => {
           patientDOB,
           vitalsObservation: normalResp,
           patientSex: patient.gender,
-          configOverride: testVitalsConfig,
+          config: testVitalsConfig,
         })
       ).toBeUndefined();
     });
@@ -580,7 +580,7 @@ describe('testing vitals config validation', () => {
           patientDOB,
           vitalsObservation: borderlineHighResp,
           patientSex: patient.gender,
-          configOverride: testVitalsConfig,
+          config: testVitalsConfig,
         })
       ).toBe(VitalAlertCriticality.Abnormal);
 
@@ -596,7 +596,7 @@ describe('testing vitals config validation', () => {
           patientDOB,
           vitalsObservation: normalResp,
           patientSex: patient.gender,
-          configOverride: testVitalsConfig,
+          config: testVitalsConfig,
         })
       ).toBeUndefined();
     });
@@ -618,7 +618,7 @@ describe('testing vitals config validation', () => {
           patientDOB,
           vitalsObservation: highResp,
           patientSex: patient.gender,
-          configOverride: testVitalsConfig,
+          config: testVitalsConfig,
         })
       ).toBe(VitalAlertCriticality.Abnormal);
 
@@ -633,7 +633,7 @@ describe('testing vitals config validation', () => {
           patientDOB,
           vitalsObservation: normalResp,
           patientSex: patient.gender,
-          configOverride: testVitalsConfig,
+          config: testVitalsConfig,
         })
       ).toBeUndefined();
     });

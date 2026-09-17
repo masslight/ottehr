@@ -210,7 +210,7 @@ describe('a vital that only alerts low', () => {
       ]);
     });
 
-    const adult = { patientDOB: dobForAgeInMonths(30 * 12), patientSex: 'female', configOverride: engineConfig };
+    const adult = { patientDOB: dobForAgeInMonths(30 * 12), patientSex: 'female', config: engineConfig };
     const alertLevelAt = (value: number): string | undefined =>
       getVitalObservationAlertLevel({
         ...adult,
@@ -266,7 +266,7 @@ describe('gaps in age range coverage', () => {
             patientDOB: fourMonthsOld,
             patientSex: 'female',
             vitalsObservation: makeObservation(field, value),
-            configOverride: engineConfig,
+            config: engineConfig,
           })
         ).toBeUndefined();
       });
@@ -277,7 +277,7 @@ describe('gaps in age range coverage', () => {
         patientDOB: dobForAgeInMonths(2),
         patientSex: 'female',
         vitalsObservation: makeObservation(VitalFieldNames.VitalHeartbeat, 500),
-        configOverride: engineConfig,
+        config: engineConfig,
       })
     ).toBe('critical');
   });

@@ -48,7 +48,7 @@ const roundTrip = (
     ...acuity,
     dotVisionScreening: dot,
   };
-  const observation = fillVitalObservationAttributes(makeVisionBaseObservation(), dto);
+  const observation = fillVitalObservationAttributes(makeVisionBaseObservation(), dto, undefined, undefined);
   const parsed = makeVitalsObservationDTO(observation) as VitalsVisionObservationDTO;
   return { observation, parsed };
 };

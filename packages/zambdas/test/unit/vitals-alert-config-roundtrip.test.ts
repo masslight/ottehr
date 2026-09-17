@@ -1,15 +1,22 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { getVitalObservationAlertLevel } from 'utils/lib/helpers/vitals/utils';
-import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
-import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import {
+  FHIRObservationInterpretation,
+  VitalAlertCriticality,
+  VitalFieldNames,
+} from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { PATIENT_VITALS_META_SYSTEM, VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { VitalsAlertConfig } from 'utils/lib/types/api/vitals-alert-config/vitals-alert-config.types';
 import {
   DEFAULT_VITALS_ALERT_CONFIG,
   VITALS_ALERT_CONFIG_JSON_EXTENSION_URL,
+  vitalsAlertConfigToVitalsDef,
 } from 'utils/lib/utils/vitals-alert-config';
 import { describe, expect, test, vi } from 'vitest';
+import { makeObservationResource } from '../../src/shared/chart-data';
 import {
   getVitalsAlertConfigPayload,
   getVitalsEngineConfig,
@@ -169,7 +176,7 @@ describe('getVitalsEngineConfig', () => {
         patientDOB: DateTime.now().minus({ years: 30 }).toISODate()!,
         patientSex: 'female',
         vitalsObservation: { field: VitalFieldNames.VitalHeartbeat, value: 90 } as VitalsObservationDTO,
-        configOverride: engineConfig,
+        config: engineConfig,
       })
     ).toBe(VitalAlertCriticality.Abnormal);
   });
@@ -196,7 +203,7 @@ describe('getVitalsEngineConfig resilience', () => {
         patientDOB: adultDOB,
         patientSex: 'female',
         vitalsObservation: { field: VitalFieldNames.VitalHeartbeat, value: 90 } as VitalsObservationDTO,
-        configOverride: config,
+        config,
       });
 
     expect(evaluate(await getVitalsEngineConfig(oystehr))).toBeUndefined();
@@ -239,7 +246,7 @@ describe('getVitalsEngineConfig resilience', () => {
         patientDOB: adultDOB,
         patientSex: 'female',
         vitalsObservation: { field: VitalFieldNames.VitalHeartbeat, value: 70 } as VitalsObservationDTO,
-        configOverride: engineConfig,
+        config: engineConfig,
       })
     ).toBeUndefined();
   });
@@ -342,5 +349,40 @@ describe('resolveVitalAlertCriticality', () => {
         vitalsAlertConfig,
       })
     ).toBe(VitalAlertCriticality.Critical);
+  });
+});
+
+describe('makeObservationResource alert interpretations', () => {
+  const adultDOB = DateTime.now().minus({ years: 30 }).toISODate()!;
+
+  const feverDTO = {
+    resourceId: 'obs-vital-temperature',
+    field: VitalFieldNames.VitalTemperature,
+    value: 39.5,
+  } as VitalsObservationDTO;
+
+  const build = (vitalsAlertConfig: VitalsSchema | undefined): Observation =>
+    makeObservationResource(
+      'enc-1',
+      'pat-1',
+      'prac-1',
+      undefined,
+      feverDTO,
+      PATIENT_VITALS_META_SYSTEM,
+      adultDOB,
+      'female',
+      vitalsAlertConfig
+    );
+
+  test('an out-of-range vital is flagged when the engine config is threaded through', () => {
+    const observation = build(vitalsAlertConfigToVitalsDef(DEFAULT_VITALS_ALERT_CONFIG));
+
+    expect(observation.interpretation?.flatMap((concept) => concept.coding ?? []).map((coding) => coding.code)).toEqual(
+      [FHIRObservationInterpretation.AbnormalHigh]
+    );
+  });
+
+  test('the same vital carries no interpretation when no config is supplied', () => {
+    expect(build(undefined).interpretation).toBeUndefined();
   });
 });

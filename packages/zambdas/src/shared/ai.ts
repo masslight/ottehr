@@ -629,7 +629,10 @@ function createObservations(
               value: aiResponse[key],
               items,
             },
-            AI_OBSERVATION_META_SYSTEM
+            AI_OBSERVATION_META_SYSTEM,
+            undefined,
+            undefined,
+            undefined
           )
         ),
       ];

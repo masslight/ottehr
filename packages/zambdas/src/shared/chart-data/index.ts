@@ -403,9 +403,9 @@ export function makeObservationResource(
   documentReferenceCreateUrl: string | undefined,
   data: ObservationDTO,
   metaSystem: string,
-  patientDOB?: string,
-  patientSex?: string,
-  vitalsAlertConfig?: VitalsSchema
+  patientDOB: string | undefined,
+  patientSex: string | undefined,
+  vitalsAlertConfig: VitalsSchema | undefined
 ): Observation {
   const base: Observation = {
     id: data.resourceId,
@@ -434,12 +434,12 @@ export function makeObservationResource(
 
   if (isVitalObservation(data)) {
     let interpretation: Observation['interpretation'];
-    if (patientDOB) {
+    if (patientDOB && vitalsAlertConfig) {
       interpretation = getVitalObservationFhirInterpretations({
         patientDOB,
         vitalsObservation: data,
         patientSex,
-        configOverride: vitalsAlertConfig,
+        config: vitalsAlertConfig,
       });
     }
     return fillVitalObservationAttributes({ ...base, interpretation }, data, patientDOB, vitalsAlertConfig);
