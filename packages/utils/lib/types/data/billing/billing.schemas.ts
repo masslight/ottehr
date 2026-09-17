@@ -488,6 +488,31 @@ export const RetryBillingClaimTaskInputSchema = z.object({
   taskId: z.string().uuid(),
 });
 
+export const SearchBillingClaimTasksInputSchema = z.object({
+  status: z
+    .enum([
+      'draft',
+      'requested',
+      'received',
+      'accepted',
+      'rejected',
+      'ready',
+      'cancelled',
+      'in-progress',
+      'on-hold',
+      'failed',
+      'completed',
+      'entered-in-error',
+    ])
+    .optional(),
+  createdFrom: z.string().date().optional(),
+  createdTo: z.string().date().optional(),
+  // Clinical patient UUID referenced by the task.
+  patientId: z.string().uuid().optional(),
+  offset: nonNegativeInt.default(0),
+  pageSize: z.number().int().min(1).max(100).default(25),
+});
+
 const updatableAddressSchema = z
   .object({
     line1: z.string().optional(),
@@ -832,6 +857,7 @@ export type CreateBillingWorkingCopyInput = z.output<typeof CreateBillingWorking
 export type CreateBillingClaimFromEncounterInput = z.output<typeof CreateBillingClaimFromEncounterInputSchema>;
 export type CreateBillingClaimTaskInput = z.output<typeof CreateBillingClaimTaskInputSchema>;
 export type RetryBillingClaimTaskInput = z.output<typeof RetryBillingClaimTaskInputSchema>;
+export type SearchBillingClaimTasksInput = z.output<typeof SearchBillingClaimTasksInputSchema>;
 export type UpdateBillingResourceInput = z.output<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];
 export type SearchChargeItemDefinitionsInput = z.output<typeof SearchChargeItemDefinitionsInputSchema>;
