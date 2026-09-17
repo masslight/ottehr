@@ -53,5 +53,12 @@ export const scaleScribeTheme = (outer: Theme): Theme => {
       fontSize: scaled(typography.fontSize),
       pxToRem: (px) => typography.pxToRem(scaled(px)),
     },
+    components: {
+      ...outer.components,
+      // Hover provenance reads at the panel's body size, in a box wide enough for a transcript passage.
+      MuiTooltip: {
+        styleOverrides: { tooltip: { maxWidth: 480, '& .MuiTypography-caption': { fontSize: scaled(14) } } },
+      },
+    },
   };
 };
