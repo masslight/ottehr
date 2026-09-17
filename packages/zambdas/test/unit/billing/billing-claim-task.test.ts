@@ -7,6 +7,7 @@ import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/er
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { index as createTask } from '../../../src/billing/create-billing-claim-task/index';
 import { index as retryTask } from '../../../src/billing/retry-billing-claim-task';
+import { index as searchTasks } from '../../../src/billing/search-billing-claim-tasks';
 import { createBillingClient } from '../../../src/billing/shared';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { ZambdaInput } from '../../../src/shared/types/common';
@@ -181,6 +182,98 @@ describe('billing claim tasks', () => {
     expect((await invoke(retryTask, { taskId: task.id })).statusCode).toBeGreaterThanOrEqual(400);
     expect(billing.fhir.patch).toHaveBeenCalledTimes(1);
     expect(billing.fhir.patch.mock.calls[0][1]).toEqual({ optimisticLockingVersionId: '3' });
+  });
+
+  it.each(['Service facility not found', JSON.stringify(INVALID_INPUT_ERROR('Service facility not found'))])(
+    'lists task details and a readable failure message: %s',
+    async (reason) => {
+      const failedTask = {
+        ...task,
+        status: 'failed',
+        statusReason: { text: reason },
+        for: { reference: 'Patient/p1' },
+        meta: { lastUpdated: '2026-09-02T12:00:00Z' },
+      };
+      billing.fhir.search.mockResolvedValueOnce({ unbundle: () => [failedTask], total: 38 });
+      const response = await invoke(searchTasks, {});
+      expect(response.statusCode).toBe(200);
+      expect(JSON.parse(response.body)).toEqual({
+        tasks: [
+          {
+            id: task.id,
+            status: 'failed',
+            encounterId,
+            patientId: 'p1',
+            createdAt: task.authoredOn,
+            updatedAt: failedTask.meta.lastUpdated,
+            error: 'Service facility not found',
+          },
+        ],
+        total: 38,
+        offset: 0,
+        pageSize: 25,
+      });
+      expect(billing.fhir.search).toHaveBeenCalledWith({
+        resourceType: 'Task',
+        params: [
+          { name: 'code', value: `${BILLING_CLAIM_TASK_CODING.system}|${BILLING_CLAIM_TASK_CODING.code}` },
+          { name: '_sort', value: '-authored-on,-_id' },
+          { name: '_count', value: '25' },
+          { name: '_offset', value: '0' },
+          { name: '_total', value: 'accurate' },
+        ],
+      });
+      expect(createBillingClient).toHaveBeenCalledWith('token', input(null).secrets);
+      expect(clinical.fhir.search).not.toHaveBeenCalled();
+    }
+  );
+
+  it('does not display an old failure after a task is requeued', async () => {
+    billing.fhir.search.mockResolvedValueOnce({
+      unbundle: () => [{ ...task, statusReason: { text: 'Previous failure' } }],
+      total: 1,
+    });
+    const response = await invoke(searchTasks, {});
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).tasks[0]).not.toHaveProperty('error');
+  });
+
+  it('applies status, creation dates, patient, and pagination filters even on an empty page', async () => {
+    const filters = {
+      status: 'failed',
+      createdFrom: '2026-09-01',
+      createdTo: '2026-09-17',
+      patientId: encounterId,
+      offset: 50,
+      pageSize: 10,
+    };
+    billing.fhir.search.mockResolvedValueOnce({ unbundle: () => [], total: 38 });
+    const response = await invoke(searchTasks, filters);
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({ tasks: [], total: 38, offset: 50, pageSize: 10 });
+    expect(billing.fhir.search.mock.lastCall?.[0].params).toEqual(
+      expect.arrayContaining([
+        { name: 'status', value: 'failed' },
+        { name: 'authored-on', value: 'ge2026-09-01' },
+        { name: 'authored-on', value: 'le2026-09-17' },
+        { name: 'subject', value: `Patient/${encounterId}` },
+        { name: '_count', value: '10' },
+        { name: '_offset', value: '50' },
+      ])
+    );
+  });
+
+  it.each([
+    { status: 'unknown' },
+    { offset: -1 },
+    { pageSize: 0 },
+    { pageSize: 101 },
+    { patientId: 'invalid' },
+    { createdFrom: '2026-02-30' },
+    { createdFrom: '2026-09-17', createdTo: '2026-09-01' },
+  ])('rejects invalid queue filters before searching: %j', async (filters) => {
+    expect((await invoke(searchTasks, filters)).statusCode).toBe(400);
+    expect(billing.fhir.search).not.toHaveBeenCalled();
   });
 
   it('preserves the clinical client and error format for existing task handlers', async () => {
