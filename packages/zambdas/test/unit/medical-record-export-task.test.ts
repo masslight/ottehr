@@ -17,6 +17,7 @@ import {
   createExportTaskWriter,
   findActiveExportTask,
   isAbandonedExportTask,
+  isMedicalRecordExportTask,
   patientIdFromTask,
   PROGRESS_PATCH_INTERVAL_MS,
   readExportProgress,
@@ -211,6 +212,23 @@ describe('medical record export Task encoding', () => {
     it('reports a failure with nothing authored as having no message', async () => {
       const response = await buildExportStatusResponse(task({ status: 'failed' }), presign);
       expect(response.error).toBeUndefined();
+    });
+  });
+
+  describe('isMedicalRecordExportTask', () => {
+    it('accepts only this feature’s task code, so a poll cannot be pointed at an unrelated task', () => {
+      expect(isMedicalRecordExportTask(task())).toBe(true);
+      expect(isMedicalRecordExportTask(task({ code: undefined }))).toBe(false);
+      expect(
+        isMedicalRecordExportTask(
+          task({ code: { coding: [{ system: MEDICAL_RECORD_EXPORT_TASK_SYSTEM, code: 'export-claims-csv' }] } })
+        )
+      ).toBe(false);
+      expect(
+        isMedicalRecordExportTask(
+          task({ code: { coding: [{ system: 'http://example.com/other', code: MEDICAL_RECORD_EXPORT_TASK_CODE }] } })
+        )
+      ).toBe(false);
     });
   });
 

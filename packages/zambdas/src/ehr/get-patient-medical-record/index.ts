@@ -1,3 +1,4 @@
+import { captureMessage } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { removePrefix } from 'utils/lib/helpers/helpers';
@@ -6,10 +7,15 @@ import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import {
+  ABANDONED_EXPORT_MESSAGE,
   buildExportStatusResponse,
   cancelAbandonedExportTask,
   createExportTask,
   findActiveExportTask,
+  isAbandonedExportTask,
+  isMedicalRecordExportTask,
+  readExportDeadline,
+  readUserFacingFailure,
   toExportStatus,
 } from '../../shared/medical-record-export/task';
 import { wrapHandler } from '../../shared/sentry';
@@ -33,10 +39,31 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if ('taskId' in params) {
     const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: params.taskId });
 
-    if (removePrefix('Patient/', task.for?.reference ?? '') !== params.patientId) {
+    if (!isMedicalRecordExportTask(task) || removePrefix('Patient/', task.for?.reference ?? '') !== params.patientId) {
       throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(
         `Task/${params.taskId} is not a medical record export for Patient/${params.patientId}`
       );
+    }
+
+    if (isAbandonedExportTask(task)) {
+      const msg = `${ZAMBDA_NAME}: export Task/${task.id} was abandoned by its worker; reporting it as failed`;
+      console.error(msg, { patientId: params.patientId, taskStatus: task.status });
+      captureMessage(msg, {
+        level: 'error',
+        extra: {
+          taskId: task.id,
+          patientId: params.patientId,
+          taskStatus: task.status,
+          deadline: readExportDeadline(task)?.toISO(),
+          lastUpdated: task.meta?.lastUpdated,
+        },
+      });
+      const failure: GetPatientMedicalRecordOutput = {
+        taskId: task.id!,
+        status: 'failed',
+        error: readUserFacingFailure(task) ?? ABANDONED_EXPORT_MESSAGE,
+      };
+      return { statusCode: 200, body: JSON.stringify(failure) };
     }
 
     const response = await buildExportStatusResponse(task, presign);

@@ -21,6 +21,8 @@ export const STUCK_REQUESTED_THRESHOLD_MS = 5 * 60_000;
 
 export const STUCK_IN_PROGRESS_THRESHOLD_MS = 16 * 60_000;
 
+export const ABANDONED_EXPORT_MESSAGE = 'This export stopped responding before it finished. Please try again.';
+
 type TaskOutput = NonNullable<Task['output']>[number];
 
 const findOutput = (task: Task, code: string): TaskOutput | undefined =>
@@ -69,6 +71,11 @@ export const toExportStatus = (taskStatus: Task['status']): MedicalRecordExportS
   if (FAILED_TASK_STATUSES.includes(taskStatus)) return 'failed';
   return taskStatus === 'in-progress' ? 'in-progress' : 'requested';
 };
+
+export const isMedicalRecordExportTask = (task: Task): boolean =>
+  task.code?.coding?.some(
+    (coding) => coding.system === MEDICAL_RECORD_EXPORT_TASK_SYSTEM && coding.code === MEDICAL_RECORD_EXPORT_TASK_CODE
+  ) ?? false;
 
 const millisSinceLastUpdate = (task: Task, now: DateTime): number | undefined => {
   const lastUpdated = task.meta?.lastUpdated;
