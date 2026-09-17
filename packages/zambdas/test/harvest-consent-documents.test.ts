@@ -52,11 +52,64 @@ vi.mock('../src/shared/pdf', async (importOriginal) => {
   return { ...original, createPdfBytes: vi.fn() };
 });
 
+// Mock getConsentFormsForLocation so tests are independent of per-project overlay overrides.
+// A default implementation is provided inline so module-level callers (intake-paperwork) don't break.
+vi.mock('utils/lib/ottehr-config/consent-forms', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/consent-forms')>();
+  const hipaa = {
+    id: 'hipaa-acknowledgement',
+    formTitle: 'HIPAA Acknowledgement',
+    resourceTitle: 'HIPAA forms',
+    assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+    publicUrl: '/hipaa_notice_template.pdf',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+      text: 'HIPAA Acknowledgement forms',
+    },
+    createsConsentResource: false,
+  };
+  const cttDefault = {
+    id: 'consent-to-treat',
+    formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
+    resourceTitle: 'Consent forms',
+    assetPath: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf',
+    publicUrl: '/consent_to_treat_template.pdf',
+    type: {
+      coding: [
+        { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+        {
+          system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+          code: 'patient-registration',
+          display: 'Patient Registration Consent',
+        },
+      ],
+      text: 'Consent forms',
+    },
+    createsConsentResource: true,
+  };
+  return {
+    ...original,
+    getConsentFormsForLocation: vi.fn().mockImplementation((locationState?: string) => {
+      if (locationState === 'IL') {
+        return [
+          hipaa,
+          {
+            ...cttDefault,
+            assetPath: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf',
+          },
+        ];
+      }
+      return [hipaa, cttDefault];
+    }),
+  };
+});
+
 const mockCreateFilesDocumentReferences = vi.mocked(createFilesDocumentReferences);
 const mockCreateConsentResource = vi.mocked(createConsentResource);
 const mockGetConsentAndDocRefs = vi.mocked(getConsentAndRelatedDocRefsForAppointment);
 const mockUploadPDF = vi.mocked(uploadPDF);
 const mockCreatePdfBytes = vi.mocked(createPdfBytes);
+const mockGetConsentFormsForLocation = vi.mocked(getConsentFormsForLocation);
 
 const PATIENT_ID = 'pat-1';
 const APPOINTMENT_ID = 'appt-1';
@@ -237,8 +290,43 @@ describe('createDocumentResources', () => {
 });
 
 describe('createConsentResources', () => {
-  const [HIPAA_FORM, CTT_FORM] = getConsentFormsForLocation();
-  const IL_FORMS = getConsentFormsForLocation('IL');
+  // Reference form fixtures — inline so the test is independent of per-project overlay overrides.
+  const HIPAA_FORM = {
+    id: 'hipaa-acknowledgement',
+    formTitle: 'HIPAA Acknowledgement',
+    resourceTitle: 'HIPAA forms',
+    assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+    publicUrl: '/hipaa_notice_template.pdf',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+      text: 'HIPAA Acknowledgement forms',
+    },
+    createsConsentResource: false,
+  };
+  const CTT_FORM = {
+    id: 'consent-to-treat',
+    formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
+    resourceTitle: 'Consent forms',
+    assetPath: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf',
+    publicUrl: '/consent_to_treat_template.pdf',
+    type: {
+      coding: [
+        { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+        {
+          system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+          code: 'patient-registration',
+          display: 'Patient Registration Consent',
+        },
+      ],
+      text: 'Consent forms',
+    },
+    createsConsentResource: true,
+  };
+  const CTT_FORM_IL = {
+    ...CTT_FORM,
+    assetPath: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf',
+  };
+  const IL_FORMS = [HIPAA_FORM, CTT_FORM_IL];
 
   const SECRETS = { PROJECT_ID: 'proj-123', PROJECT_API: 'https://project.api' } as unknown as Secrets;
 
@@ -308,6 +396,13 @@ describe('createConsentResources', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-20T15:00:00Z'));
+    // vi.clearAllMocks() (called globally) resets mock implementations; restore the reference forms.
+    mockGetConsentFormsForLocation.mockImplementation((locationState?: string) => {
+      if (locationState === 'IL') {
+        return [HIPAA_FORM, CTT_FORM_IL] as unknown as ReturnType<typeof getConsentFormsForLocation>;
+      }
+      return [HIPAA_FORM, CTT_FORM] as unknown as ReturnType<typeof getConsentFormsForLocation>;
+    });
     mockGetConsentAndDocRefs.mockResolvedValue({ consents: [], docRefs: [] });
     mockCreatePdfBytes.mockResolvedValue(new Uint8Array([1, 2, 3]));
     mockUploadPDF.mockResolvedValue(undefined);
