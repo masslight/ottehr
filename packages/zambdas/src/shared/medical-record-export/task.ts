@@ -70,11 +70,6 @@ export const toExportStatus = (taskStatus: Task['status']): MedicalRecordExportS
   return taskStatus === 'in-progress' ? 'in-progress' : 'requested';
 };
 
-export const isMedicalRecordExportTask = (task: Task): boolean =>
-  task.code?.coding?.some(
-    (coding) => coding.system === MEDICAL_RECORD_EXPORT_TASK_SYSTEM && coding.code === MEDICAL_RECORD_EXPORT_TASK_CODE
-  ) ?? false;
-
 const millisSinceLastUpdate = (task: Task, now: DateTime): number | undefined => {
   const lastUpdated = task.meta?.lastUpdated;
   if (!lastUpdated) return undefined;

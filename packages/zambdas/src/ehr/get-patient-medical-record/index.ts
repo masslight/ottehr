@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 import { GetPatientMedicalRecordOutput } from 'utils/lib/types/data/get-patient-medical-record.types';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -9,8 +10,6 @@ import {
   cancelAbandonedExportTask,
   createExportTask,
   findActiveExportTask,
-  isMedicalRecordExportTask,
-  patientIdFromTask,
   toExportStatus,
 } from '../../shared/medical-record-export/task';
 import { wrapHandler } from '../../shared/sentry';
@@ -34,7 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if ('taskId' in params) {
     const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: params.taskId });
 
-    if (!isMedicalRecordExportTask(task) || patientIdFromTask(task) !== params.patientId) {
+    if (removePrefix('Patient/', task.for?.reference ?? '') !== params.patientId) {
       throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(
         `Task/${params.taskId} is not a medical record export for Patient/${params.patientId}`
       );
