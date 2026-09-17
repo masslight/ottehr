@@ -64,7 +64,6 @@ const searchBookableLocations = async (
 let oystehrToken: string;
 export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log('this should get logged out if the zambda has been deployed');
-  console.log(`Input: ${JSON.stringify(input)}`);
 
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);

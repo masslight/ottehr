@@ -29,8 +29,6 @@ let m2mToken: string;
 export const index = wrapHandler(
   'create-discharge-summary',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    console.log(`create-discharge-summary started, input: ${JSON.stringify(input)}`);
-
     let validatedParameters: CreateDischargeSummaryInputValidated;
 
     try {

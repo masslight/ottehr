@@ -19,7 +19,6 @@ const ZAMBDA_NAME = 'send-fax';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   console.group('validateRequestParameters()');
   const validatedInput = validateRequestParameters(input);
   console.groupEnd();

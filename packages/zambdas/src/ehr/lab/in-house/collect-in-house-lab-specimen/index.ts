@@ -26,7 +26,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 const ZAMBDA_NAME = 'collect-in-house-lab-specimen';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`collect-in-house-lab-specimen started, input: ${JSON.stringify(input)}`);
   let secrets = input.secrets;
   let validatedParameters: CollectInHouseLabSpecimenParameters & { secrets: Secrets | null; userToken: string };
 

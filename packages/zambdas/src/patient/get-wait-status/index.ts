@@ -25,7 +25,6 @@ const ZAMBDA_NAME = 'get-wait-status';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
-  console.log(JSON.stringify(validatedParameters, null, 4));
   const { appointmentID, secrets, authorization } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');

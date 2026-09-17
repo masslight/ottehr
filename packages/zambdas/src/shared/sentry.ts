@@ -34,12 +34,39 @@ export function configSentry(zambdaName: string, secrets: Secrets | null): void 
   setTags(parseCommaSeparatedTags(secrets?.SENTRY_TAGS));
 }
 
+const MAX_LOGGED_BODY_LENGTH = 500;
+
+/**
+ * The single, central log of an endpoint's input. Individual zambdas must not log the input again.
+ *
+ * Only the request body is logged: headers carry caller credentials and `input.secrets` is the
+ * secrets bag, neither of which belongs in CloudWatch. The body is truncated because full bodies
+ * are the dominant per-invocation log cost.
+ */
+function logInputBody(body: string | null): void {
+  if (!body) {
+    console.log('Input body: <empty>');
+    return;
+  }
+  if (body.length > MAX_LOGGED_BODY_LENGTH) {
+    console.log(
+      `Input body (truncated to ${MAX_LOGGED_BODY_LENGTH} of ${body.length} chars): ${body.slice(
+        0,
+        MAX_LOGGED_BODY_LENGTH
+      )}`
+    );
+    return;
+  }
+  console.log(`Input body: ${body}`);
+}
+
 export function wrapHandler(
   zambdaName: string,
   handler: (input: ZambdaInput) => Promise<APIGatewayProxyResult>
 ): Handler<ZambdaInput, APIGatewayProxyResult> {
   return sentryWrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     configSentry(zambdaName, input.secrets);
+    logInputBody(input.body);
     try {
       return await handler(input);
     } catch (error) {

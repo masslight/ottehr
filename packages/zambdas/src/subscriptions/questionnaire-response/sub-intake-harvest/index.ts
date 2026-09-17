@@ -28,7 +28,6 @@ let oystehrToken: string;
 
 export const index = wrapHandler('sub-intake-harvest', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log('Intake Harvest Hath Been Invoked');
-  console.log(`Input: ${JSON.stringify(input)}`);
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
   const { qr, secrets } = validatedParameters;

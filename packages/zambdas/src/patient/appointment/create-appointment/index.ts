@@ -111,7 +111,6 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
   const { secrets, language } = validatedParameters;
 
   console.groupEnd();
-  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
 
   if (!oystehrToken) {
     console.log('getting token');
@@ -137,7 +136,6 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     attendingPractitioner,
   } = effectInput;
 
-  console.log('effectInput', effectInput);
   console.timeEnd('performing-complex-validation');
 
   let appointmentMetadata = injectMetadataIfNeeded(maybeMetadata);

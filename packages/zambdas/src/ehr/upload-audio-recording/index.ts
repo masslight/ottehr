@@ -24,7 +24,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const validatedInput = validateRequestParameters(input);
     const { secrets, visitID } = validatedInput;
     console.log(`validatedInput => `);
-    console.log(JSON.stringify(validatedInput));
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     console.log(`Got m2mToken`);

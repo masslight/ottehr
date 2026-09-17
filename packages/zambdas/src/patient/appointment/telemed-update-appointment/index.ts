@@ -23,7 +23,6 @@ const ZAMBDA_NAME = 'telemed-update-appointment';
 let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   const validatedParameters = validateUpdateAppointmentParams(input);
 
   oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, input.secrets);
