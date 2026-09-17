@@ -14,6 +14,7 @@ const {
   getBillingClaimHistoryMock,
   addBillingClaimNoteMock,
   createTimelyFilingReportMock,
+  downloadBase64FileMock,
   searchBillingNonInsuranceOrgsMock,
   updateBillingResourceMock,
   oystehrZambdaStub,
@@ -23,6 +24,7 @@ const {
   getBillingClaimHistoryMock: vi.fn(),
   addBillingClaimNoteMock: vi.fn(),
   createTimelyFilingReportMock: vi.fn(),
+  downloadBase64FileMock: vi.fn(),
   searchBillingNonInsuranceOrgsMock: vi.fn(),
   updateBillingResourceMock: vi.fn(),
   oystehrZambdaStub: {},
@@ -42,6 +44,12 @@ vi.mock('../../src/api/api', () => ({
   searchBillingTags: vi.fn().mockResolvedValue({ tags: [] }),
   tagBillingClaim: vi.fn(),
   updateBillingResource: updateBillingResourceMock,
+}));
+
+// jsdom has no URL.createObjectURL, so the download itself is stubbed and asserted on.
+vi.mock('../../src/utils/downloadFile', () => ({
+  downloadBase64File: downloadBase64FileMock,
+  downloadTextFile: vi.fn(),
 }));
 
 vi.mock('../../src/hooks/useAppClients', () => ({
@@ -586,52 +594,52 @@ describe('ClaimDetail: notes drawer', () => {
 });
 
 describe('ClaimDetail: timely filing report', () => {
-  const downloadUrl = 'https://z3/timely-filing-report.pdf';
+  const fileName = 'Timely_Filing_Report_Q78291-A_20260806_1023.pdf';
+  const pdfBase64 = 'JVBERi0xLjc=';
 
   beforeEach(() => {
     getBillingClaimDetailMock.mockReset();
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
     createTimelyFilingReportMock.mockReset();
     createTimelyFilingReportMock.mockResolvedValue({
-      downloadUrl,
-      documentReferenceId: 'doc-1',
-      fileName: 'Timely_Filing_Report_Q78291-A_20260806_1023.pdf',
+      fileName,
+      pdfBase64,
     });
+    downloadBase64FileMock.mockReset();
     enqueueSnackbarMock.mockReset();
   });
 
-  it('opens the generated report and refreshes the claim so the attachment shows', async () => {
+  it('downloads the generated report without filing it against the claim', async () => {
     const user = userEvent.setup();
-    const open = vi.spyOn(window, 'open').mockReturnValue(null);
     renderDetail();
 
-    await user.click(await screen.findByRole('button', { name: 'Timely Filing Report' }));
+    const reportButton = await screen.findByRole('button', { name: 'Timely Filing Report' });
+    await user.click(reportButton);
 
     await waitFor(() =>
       expect(createTimelyFilingReportMock).toHaveBeenCalledWith(oystehrZambdaStub, {
         claimId: 'claim-1',
       })
     );
-    expect(open).toHaveBeenCalledWith(downloadUrl, '_blank');
-    // Once on load, once after the report is filed against the claim.
-    await waitFor(() => expect(getBillingClaimDetailMock).toHaveBeenCalledTimes(2));
+    expect(downloadBase64FileMock).toHaveBeenCalledWith(fileName, pdfBase64, 'application/pdf');
+    // The report changes nothing on the claim, so there is nothing to refetch.
+    expect(getBillingClaimDetailMock).toHaveBeenCalledTimes(1);
     expect(enqueueSnackbarMock).not.toHaveBeenCalled();
-    open.mockRestore();
   });
 
-  it('reports a failure instead of opening a tab', async () => {
+  it('reports a failure instead of downloading', async () => {
     const user = userEvent.setup();
-    const open = vi.spyOn(window, 'open').mockReturnValue(null);
     createTimelyFilingReportMock.mockRejectedValue(new Error('Claim has no acknowledgments'));
     renderDetail();
 
-    await user.click(await screen.findByRole('button', { name: 'Timely Filing Report' }));
+    const reportButton = await screen.findByRole('button', { name: 'Timely Filing Report' });
+    await user.click(reportButton);
 
     await waitFor(() => expect(enqueueSnackbarMock).toHaveBeenCalled());
-    expect(open).not.toHaveBeenCalled();
+    expect(downloadBase64FileMock).not.toHaveBeenCalled();
     // The button comes back so the biller can retry.
-    expect(await screen.findByRole('button', { name: 'Timely Filing Report' })).toBeEnabled();
-    open.mockRestore();
+    const retryButton = await screen.findByRole('button', { name: 'Timely Filing Report' });
+    expect(retryButton).toBeEnabled();
   });
 });
 

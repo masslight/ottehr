@@ -3,17 +3,13 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClaimResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { CreateTimelyFilingReportResponse } from 'utils/lib/types/data/billing/billing.types';
-import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { composeTimelyFilingReportData, renderTimelyFilingReportPdf } from '../../shared/pdf/timely-filing-report-pdf';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { uploadObjectToZ3 } from '../../shared/z3Utils';
 import { fetchClaimAcknowledgmentEvents, fetchClaimTransmitEvent } from '../claim-acknowledgments';
 import { fetchClaimResponsesByClaimIds } from '../claim-amounts';
-import { claimAttachmentUploadTarget, recordClaimAttachment } from '../claim-attachments';
 import {
-  BILLING_APP_BUCKET,
   createBillingClient,
   createEraReadClient,
   ERA_ICN_EXTENSION,
@@ -48,13 +44,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     params,
   });
   console.groupEnd();
-  console.debug('performEffect success', {
-    documentReferenceId: response.documentReferenceId,
-    fileName: response.fileName,
-  });
+  console.debug('performEffect success', { fileName: response.fileName });
 
   return {
-    statusCode: 201,
+    statusCode: 200,
     body: JSON.stringify(response),
   };
 });
@@ -68,7 +61,7 @@ export async function performEffect({
   eraReadClient: Oystehr;
   params: CreateTimelyFilingReportParams;
 }): Promise<CreateTimelyFilingReportResponse> {
-  const { claimId, secrets } = params;
+  const { claimId } = params;
 
   const [graph, acknowledgments, transmit, claimResponsesByClaim] = await Promise.all([
     fetchClaimGraph(oystehr, claimId),
@@ -100,40 +93,9 @@ export async function performEffect({
     now: DateTime.now().toISO(),
   });
 
-  const fileName = timelyFilingReportFileName(claim.id ?? claimId, getClaimPcn(claim));
-  const target = await claimAttachmentUploadTarget({
-    oystehr,
-    claimId: claim.id ?? claimId,
-    name: fileName,
-    secrets,
-  });
-
-  await uploadObjectToZ3(await renderTimelyFilingReportPdf(data), target.uploadUrl);
-
-  const documentReferenceId = await recordClaimAttachment({
-    oystehr,
-    claim: {
-      ...claim,
-      id: claim.id ?? claimId,
-    },
-    name: fileName,
-    fileName: target.fileName,
-    secrets,
-  });
-  if (!documentReferenceId) {
-    throw INVALID_INPUT_ERROR(`Could not record the timely filing report against Claim/${claimId}`);
-  }
-
-  const download = await oystehr.z3.getPresignedUrl({
-    bucketName: BILLING_APP_BUCKET(secrets['PROJECT_ID']),
-    'objectPath+': target.objectPath,
-    action: 'download',
-  });
-
   return {
-    downloadUrl: download.signedUrl,
-    documentReferenceId,
-    fileName,
+    fileName: timelyFilingReportFileName(claim.id ?? claimId, getClaimPcn(claim)),
+    pdfBase64: Buffer.from(await renderTimelyFilingReportPdf(data)).toString('base64'),
   };
 }
 

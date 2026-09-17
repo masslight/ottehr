@@ -151,6 +151,7 @@ import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
 import { otherColors } from '../themes/ottehr/colors';
+import { downloadBase64File } from '../utils/downloadFile';
 import { formatDate, formatDateTime } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
 
@@ -221,11 +222,10 @@ export default function ClaimDetail(): ReactElement {
     if (!oystehrZambda || !id) return;
     setBuildingReport(true);
     try {
-      const { downloadUrl } = await createTimelyFilingReport(oystehrZambda, {
+      const { fileName, pdfBase64 } = await createTimelyFilingReport(oystehrZambda, {
         claimId: id,
       });
-      window.open(downloadUrl, '_blank');
-      await fetchDetail();
+      downloadBase64File(fileName, pdfBase64, 'application/pdf');
     } catch (err) {
       enqueueSnackbar(
         getApiError({
@@ -237,7 +237,7 @@ export default function ClaimDetail(): ReactElement {
     } finally {
       setBuildingReport(false);
     }
-  }, [oystehrZambda, id, fetchDetail]);
+  }, [oystehrZambda, id]);
 
   useEffect(() => {
     setShowCoverageMap({

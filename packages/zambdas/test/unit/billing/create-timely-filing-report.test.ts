@@ -14,10 +14,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchClaimAcknowledgmentEvents, fetchClaimTransmitEvent } from '../../../src/billing/claim-acknowledgments';
 import { performEffect, timelyFilingReportFileName } from '../../../src/billing/create-timely-filing-report';
 
-const { uploadObjectToZ3Mock } = vi.hoisted(() => ({ uploadObjectToZ3Mock: vi.fn() }));
-vi.mock('../../../src/shared/z3Utils', () => ({ uploadObjectToZ3: uploadObjectToZ3Mock }));
-
 const CLAIM_ID = 'claim-1';
+const LAMBDA_RESPONSE_LIMIT_BYTES = 6 * 1024 * 1024;
 
 const claim: Claim = {
   resourceType: 'Claim',
@@ -414,20 +412,8 @@ describe('create-timely-filing-report performEffect', () => {
       }
       return Promise.resolve(pagedBundle([]));
     });
-    const transaction = vi.fn().mockResolvedValue({
-      entry: [
-        {
-          resource: {
-            resourceType: 'DocumentReference',
-            id: 'doc-1',
-          },
-        },
-      ],
-    });
-    const getPresignedUrl = vi
-      .fn()
-      .mockResolvedValueOnce({ signedUrl: 'https://z3/upload' })
-      .mockResolvedValueOnce({ signedUrl: 'https://z3/download' });
+    const transaction = vi.fn();
+    const getPresignedUrl = vi.fn();
     const client = {
       fhir: {
         search,
@@ -453,151 +439,41 @@ describe('create-timely-filing-report performEffect', () => {
     };
   }
 
-  // The upload path is sanitized inside attachClaimDocument. Rebuilding the download path from the
-  // raw file name signs a URL for an object that was never written.
-  it('signs the download for the same object it uploaded when the pcn needs sanitizing', async () => {
-    const { oystehr, eraReadClient, getPresignedUrl } = makeClients({
-      ...claim,
-      identifier: [
-        {
-          system: 'https://identifiers.fhir.oystehr.com/rcm-claim-patient-control-number',
-          value: 'Q7 8291#A',
-        },
-      ],
-    });
+  const params = {
+    claimId: CLAIM_ID,
+    secrets: {
+      PROJECT_API: 'https://project-api.zapehr.com/v1',
+      PROJECT_ID: 'project-id',
+    },
+  };
 
-    await performEffect({
-      oystehr,
-      eraReadClient,
-      params: {
-        claimId: CLAIM_ID,
-        secrets: {
-          PROJECT_API: 'https://project-api.zapehr.com/v1',
-          PROJECT_ID: 'project-id',
-        },
-      },
-    });
-
-    const [[upload], [download]] = getPresignedUrl.mock.calls;
-    expect(upload.action).toBe('upload');
-    expect(download.action).toBe('download');
-    expect(download['objectPath+']).toBe(upload['objectPath+']);
-    expect(upload['objectPath+']).toMatch(/^claim-attachments\/claim-1\/Timely_Filing_Report_Q7_8291_A_/);
-  });
-
-  // A transaction entry may report the write as an absolute location with no inline resource.
-  // Reading fixed positions out of it misses the id after the write has already committed.
-  it('reads the document id from an absolute location url', async () => {
-    const { oystehr, eraReadClient, transaction } = makeClients();
-    transaction.mockResolvedValue({
-      entry: [
-        {
-          response: {
-            location: 'https://fhir-api.zapehr.com/r4/DocumentReference/doc-9/_history/1',
-          },
-        },
-      ],
-    });
-
-    await expect(
-      performEffect({
-        oystehr,
-        eraReadClient,
-        params: {
-          claimId: CLAIM_ID,
-          secrets: {
-            PROJECT_API: 'https://project-api.zapehr.com/v1',
-            PROJECT_ID: 'project-id',
-          },
-        },
-      })
-    ).resolves.toMatchObject({ documentReferenceId: 'doc-9' });
-  });
-
-  it('attaches the rendered report to the claim and hands back a download link', async () => {
-    const { oystehr, eraReadClient, transaction } = makeClients();
+  it('hands back the rendered pdf inline, named after the patient control number', async () => {
+    const { oystehr, eraReadClient } = makeClients();
 
     const result = await performEffect({
       oystehr,
       eraReadClient,
-      params: {
-        claimId: CLAIM_ID,
-        secrets: {
-          PROJECT_API: 'https://project-api.zapehr.com/v1',
-          PROJECT_ID: 'project-id',
-        },
-      },
+      params,
     });
 
-    expect(result).toEqual({
-      downloadUrl: 'https://z3/download',
-      documentReferenceId: 'doc-1',
-      fileName: expect.stringMatching(/^Timely_Filing_Report_Q78291-A_\d{8}_\d{6}\.pdf$/),
-    });
-    // The claim gains a supportingInfo entry pointing at the new DocumentReference.
-    const [{ requests }] = transaction.mock.calls[0];
-    expect(requests.map((request: { method: string }) => request.method)).toEqual(['POST', 'PATCH']);
-    // The PDF bytes are what gets uploaded, to the presigned URL the attachment returned.
-    const [bytes, uploadUrl] = uploadObjectToZ3Mock.mock.calls[0];
-    expect(uploadUrl).toBe('https://z3/upload');
-    expect(Buffer.from(bytes.slice(0, 5)).toString()).toBe('%PDF-');
+    expect(result.fileName).toMatch(/^Timely_Filing_Report_Q78291-A_\d{8}_\d{6}\.pdf$/);
+    expect(Buffer.from(result.pdfBase64, 'base64').subarray(0, 5).toString()).toBe('%PDF-');
+    // The bytes ride back in the response body, which a lambda caps at 6 MB.
+    expect(result.pdfBase64.length).toBeLessThan(LAMBDA_RESPONSE_LIMIT_BYTES);
   });
 
-  it('fails loudly when the attachment did not produce a document to return', async () => {
-    const { oystehr, eraReadClient, transaction } = makeClients();
-    transaction.mockResolvedValue({ entry: [] });
-
-    await expect(
-      performEffect({
-        oystehr,
-        eraReadClient,
-        params: {
-          claimId: CLAIM_ID,
-          secrets: {
-            PROJECT_API: 'https://project-api.zapehr.com/v1',
-            PROJECT_ID: 'project-id',
-          },
-        },
-      })
-    ).rejects.toThrow(/Could not record the timely filing report/);
-    // The upload already happened, leaving an unreferenced object. That is the deliberate trade:
-    // the claim never gains an attachment row pointing at a file that is not there.
-    expect(uploadObjectToZ3Mock).toHaveBeenCalled();
-  });
-
-  it('uploads the rendered report before writing anything to the claim', async () => {
-    const { oystehr, eraReadClient, transaction } = makeClients();
-    const order: string[] = [];
-    uploadObjectToZ3Mock.mockImplementation(() => {
-      order.push('upload');
-      return Promise.resolve();
-    });
-    transaction.mockImplementation(() => {
-      order.push('transaction');
-      return Promise.resolve({
-        entry: [
-          {
-            resource: {
-              resourceType: 'DocumentReference',
-              id: 'doc-1',
-            },
-          },
-        ],
-      });
-    });
+  // The report is a snapshot of a trail the claim already owns. Storing it would leave a stale copy
+  // behind and add an attachment the biller never asked to file.
+  it('leaves no record behind — no upload, no write to the claim', async () => {
+    const { oystehr, eraReadClient, transaction, getPresignedUrl } = makeClients();
 
     await performEffect({
       oystehr,
       eraReadClient,
-      params: {
-        claimId: CLAIM_ID,
-        secrets: {
-          PROJECT_API: 'https://project-api.zapehr.com/v1',
-          PROJECT_ID: 'project-id',
-        },
-      },
+      params,
     });
 
-    expect(order).toEqual(['upload', 'transaction']);
+    expect(transaction).not.toHaveBeenCalled();
+    expect(getPresignedUrl).not.toHaveBeenCalled();
   });
 });
