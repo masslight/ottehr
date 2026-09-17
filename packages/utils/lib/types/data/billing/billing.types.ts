@@ -529,7 +529,10 @@ export interface BillingClaimTaskItem {
   id: string;
   status: Task['status'];
   encounterId?: string;
+  encounterDate?: string;
+  appointmentId?: string;
   patientId?: string;
+  patientName?: string;
   createdAt?: string;
   updatedAt?: string;
   error?: string;

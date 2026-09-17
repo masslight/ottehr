@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { applyPatch } from 'fast-json-patch';
 import { Task } from 'fhir/r4b';
+import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils/lib/fhir/constants';
 import { BILLING_CLAIM_TASK_CODING } from 'utils/lib/types/data/billing/billing.constants';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -50,7 +51,7 @@ const task: Task = {
 const input = (body: unknown): ZambdaInput => ({
   headers: null,
   body: JSON.stringify(body),
-  secrets: { ENVIRONMENT: 'local' },
+  secrets: { ENVIRONMENT: 'local', PROJECT_ID: 'project-1' },
 });
 const invoke = (handler: typeof createTask, body: unknown): Promise<APIGatewayProxyResult> =>
   (handler as (input: ZambdaInput) => Promise<APIGatewayProxyResult>)(input(body));
@@ -59,9 +60,12 @@ const statuses = (): string[] => billing.fhir.patch.mock.calls.map(([request]) =
 describe('billing claim tasks', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    clinical.fhir.search.mockResolvedValue({
-      unbundle: () => [{ resourceType: 'Encounter', id: encounterId, subject: { reference: 'Patient/patient-1' } }],
-    });
+    clinical.fhir.search.mockImplementation(async ({ resourceType }) => ({
+      unbundle: () =>
+        resourceType === 'Encounter'
+          ? [{ resourceType: 'Encounter', id: encounterId, subject: { reference: 'Patient/patient-1' } }]
+          : [],
+    }));
     billing.fhir.create.mockImplementation(async (resource) => ({ ...resource, id: task.id }));
     billing.fhir.search.mockResolvedValue({ unbundle: () => [{ ...task, status: 'failed' }] });
     billing.fhir.patch.mockResolvedValue(undefined);
@@ -224,6 +228,93 @@ describe('billing claim tasks', () => {
         ],
       });
       expect(createBillingClient).toHaveBeenCalledWith('token', input(null).secrets);
+      expect(createClinicalOystehrClient).toHaveBeenCalledWith('token', input(null).secrets);
+    }
+  );
+
+  it('joins clinical names and visit dates by ID with one lookup per resource type', async () => {
+    const first = { ...task, for: { reference: 'Patient/p1' } };
+    const second = {
+      ...task,
+      id: 'task-2',
+      for: { reference: 'Patient/p2' },
+      encounter: { reference: 'Encounter/e2' },
+    };
+    billing.fhir.search.mockResolvedValueOnce({
+      unbundle: () => [first, second, { ...first, id: 'task-3' }],
+      total: 3,
+    });
+    clinical.fhir.search.mockResolvedValueOnce({
+      unbundle: () => [
+        { resourceType: 'Encounter', id: 'e2', period: { start: '2026-09-02T12:00:00Z' } },
+        { resourceType: 'Appointment', id: 'a1', start: '2026-09-01T09:00:00Z' },
+        {
+          resourceType: 'Encounter',
+          id: encounterId,
+          appointment: [{ reference: 'Appointment/a1' }],
+          period: { start: '2026-09-01T09:15:00Z' },
+        },
+      ],
+    });
+    clinical.fhir.search.mockResolvedValueOnce({
+      unbundle: () => [
+        { resourceType: 'Patient', id: 'p2', name: [{ family: 'Jones', given: ['Ben'] }] },
+        { resourceType: 'Patient', id: 'p1', name: [{ family: 'Smith', given: ['Amy'] }] },
+      ],
+    });
+    const response = await invoke(searchTasks, {});
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).tasks).toMatchObject([
+      { id: task.id, patientName: 'Smith, Amy', encounterDate: '2026-09-01T09:00:00Z', appointmentId: 'a1' },
+      { id: 'task-2', patientName: 'Jones, Ben', encounterDate: '2026-09-02T12:00:00Z' },
+      { id: 'task-3', patientName: 'Smith, Amy', encounterDate: '2026-09-01T09:00:00Z', appointmentId: 'a1' },
+    ]);
+    expect(clinical.fhir.search).toHaveBeenCalledTimes(2);
+    expect(clinical.fhir.search).toHaveBeenCalledWith({
+      resourceType: 'Encounter',
+      params: [
+        { name: '_id', value: `${encounterId},e2` },
+        { name: '_include', value: 'Encounter:appointment' },
+        { name: '_count', value: '2' },
+      ],
+    });
+    expect(clinical.fhir.search).toHaveBeenCalledWith({
+      resourceType: 'Patient',
+      params: [
+        { name: '_id', value: 'p1,p2' },
+        { name: '_count', value: '2' },
+      ],
+    });
+    expect(clinical.fhir.patch).not.toHaveBeenCalled();
+    expect(billing.fhir.patch).not.toHaveBeenCalled();
+  });
+
+  it('keeps failed tasks visible when clinical records are missing', async () => {
+    clinical.fhir.search.mockResolvedValue({ unbundle: () => [] });
+    billing.fhir.search.mockResolvedValueOnce({
+      unbundle: () => [{ ...task, status: 'failed', for: { reference: 'Patient/missing' } }],
+    });
+    const response = await invoke(searchTasks, {});
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).tasks).toEqual([
+      {
+        id: task.id,
+        status: 'failed',
+        encounterId,
+        patientId: 'missing',
+        createdAt: task.authoredOn,
+        error: 'Claim creation failed',
+      },
+    ]);
+  });
+
+  it.each([undefined, { reference: 'Encounter/' }])(
+    'skips clinical lookups for empty references: %j',
+    async (encounter) => {
+      billing.fhir.search.mockResolvedValueOnce({
+        unbundle: () => [{ ...task, encounter, for: { reference: 'Patient/' } }],
+      });
+      expect((await invoke(searchTasks, {})).statusCode).toBe(200);
       expect(clinical.fhir.search).not.toHaveBeenCalled();
     }
   );
@@ -251,6 +342,7 @@ describe('billing claim tasks', () => {
     const response = await invoke(searchTasks, filters);
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body)).toEqual({ tasks: [], total: 38, offset: 50, pageSize: 10 });
+    expect(clinical.fhir.search).not.toHaveBeenCalled();
     expect(billing.fhir.search.mock.lastCall?.[0].params).toEqual(
       expect.arrayContaining([
         { name: 'status', value: 'failed' },
@@ -264,7 +356,36 @@ describe('billing claim tasks', () => {
   });
 
   it.each([
+    { patientName: ' Amy  Smith ', terms: ['Amy', 'Smith'] },
+    { patientName: 'Smith, Amy', terms: ['Smith', 'Amy'] },
+    { patientName: 'mit', terms: ['mit'] },
+    { patientName: 'A|B', terms: ['A\\|B'] },
+  ])('filters by full or partial patient name before pagination: $patientName', async ({ patientName, terms }) => {
+    billing.fhir.search.mockResolvedValueOnce({ unbundle: () => [], total: 0 });
+    const response = await invoke(searchTasks, { patientName, offset: 25 });
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({ tasks: [], total: 0, offset: 25, pageSize: 25 });
+    const filters = billing.fhir.search.mock.lastCall?.[0].params;
+    expect(filters.filter(({ name }: { name: string }) => name === 'subject:Patient.name:contains')).toEqual(
+      terms.map((value) => ({ name: 'subject:Patient.name:contains', value }))
+    );
+    expect(clinical.fhir.search).not.toHaveBeenCalled();
+  });
+
+  it('filters by the clinical friendly patient ID in the current project', async () => {
+    billing.fhir.search.mockResolvedValueOnce({ unbundle: () => [], total: 0 });
+    expect((await invoke(searchTasks, { patientIdentifier: ' 1000123 ' })).statusCode).toBe(200);
+    expect(billing.fhir.search.mock.lastCall?.[0].params).toContainEqual({
+      name: 'subject:Patient.identifier',
+      value: `${FRIENDLY_PATIENT_ID_SYSTEM_BASE}/project-1|1000123`,
+    });
+    expect(clinical.fhir.search).not.toHaveBeenCalled();
+  });
+
+  it.each([
     { status: 'unknown' },
+    { patientName: ' , ' },
+    { patientIdentifier: '123,456' },
     { offset: -1 },
     { pageSize: 0 },
     { pageSize: 101 },
