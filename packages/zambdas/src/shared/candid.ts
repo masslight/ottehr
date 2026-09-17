@@ -78,6 +78,7 @@ import { createReference } from 'utils/lib/fhir/helpers';
 import {
   getCptCodesFromMA,
   getDosageFromMA,
+  getMedicationCptEntryFromMA,
   getMedicationFromMA,
   getNdcCodeFromMedication,
   MedicationUnitOptions,
@@ -1585,6 +1586,10 @@ export function buildDrugIdentification(
   const maId = maRef.reference.replace('MedicationAdministration/', '');
   const ma = medicationAdministrations.find((m) => m.id === maId);
   if (!ma) return undefined;
+
+  // The NDC belongs only to the drug's own code — supporting/admin CPT codes on the same MA get no drug identification
+  const medicationEntry = getMedicationCptEntryFromMA(ma);
+  if (medicationEntry && medicationEntry.code !== procedure.code?.coding?.[0]?.code) return undefined;
 
   const medication = getMedicationFromMA(ma);
   const ndc = medication ? getNdcCodeFromMedication(medication) : undefined;
