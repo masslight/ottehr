@@ -30,6 +30,10 @@ export function adHocReportRuntime(): Plugin {
       format: 'iife',
       platform: 'browser',
       target: BUILD_TARGET,
+      // Vite 8 no longer pins esbuild, and esbuild >= 0.27's compat table marks destructuring as
+      // unsupported on the `ios11` target browserslist still emits. esbuild can't lower destructuring,
+      // so the build fails outright; iOS 10.3+ actually supports it, so tell esbuild to leave it alone.
+      supported: { destructuring: true },
       minify: true,
       legalComments: 'none',
       metafile: true,

@@ -267,7 +267,7 @@
     "tsx": "^4.19.2",
     "turbo": "^2.8.16",
     "typescript": "5.8.3",
-    "vite": "^6.3.5",
+    "vite": "^8.3.0",
     "vite-plugin-node-polyfills": "^0.23.0",
     "vite-plugin-static-copy": "^2.3.0",
     "vite-plugin-svgr": "^4.2.0",
