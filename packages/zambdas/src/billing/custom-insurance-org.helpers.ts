@@ -46,9 +46,15 @@ export function isCustomInsuranceOrganization(org: Organization): boolean {
 export async function resolvePayerOrganization(oystehr: Oystehr, payerId: string): Promise<Organization> {
   if (isCustomInsuranceOrgBusinessId(payerId)) {
     const customOrg = await findCustomInsuranceOrgByBusinessId(oystehr, payerId);
-    if (customOrg) return customOrg;
+    if (customOrg) {
+      return customOrg;
+    } else {
+      throw INVALID_INPUT_ERROR(`No custom insurance organization matches id "${payerId}"`);
+    }
   }
-  try:
+  try {
+    return await oystehr.rcm.getPayer({ id: payerId });
+  } catch (error) {
     const org = await oystehr.fhir
       .get<Organization>({ resourceType: 'Organization', id: payerId })
       .catch(() => undefined);
