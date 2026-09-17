@@ -97,6 +97,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             ? await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr)
             : undefined;
           const stripe = getStripeClient(secrets);
+          console.log(`Stripe account and invoice id found: account: ${stripeAccountId}, invoice: ${invoiceId}`);
           const stripeInvoice = await stripe.invoices.retrieve(invoiceId, undefined, {
             stripeAccount: stripeAccountId,
           });
@@ -105,7 +106,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         } catch (err) {
           console.warn(`Could not fetch Stripe invoice ${invoiceId} status during refresh:`, err);
         }
-      }
+      } else console.log('Invoice id was not found in the task, skip updating stripe invoice status');
 
       // Re-reading narrows the window in which a concurrent write can invalidate a path we expect to
       // exist, but it cannot close it. Patching under the version we read turns that lost race into a
