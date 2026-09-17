@@ -44,9 +44,11 @@ export function isCustomInsuranceOrganization(org: Organization): boolean {
 // (the common case, and avoids an extra FHIR read for it), then falls back to a direct FHIR read
 // guarded by the type check so an arbitrary Organization id can't masquerade as a payer.
 export async function resolvePayerOrganization(oystehr: Oystehr, payerId: string): Promise<Organization> {
-  try {
-    return await oystehr.rcm.getPayer({ id: payerId });
-  } catch (error) {
+  if (isCustomInsuranceOrgBusinessId(payerId)) {
+    const customOrg = await findCustomInsuranceOrgByBusinessId(oystehr, payerId);
+    if (customOrg) return customOrg;
+  }
+  try:
     const org = await oystehr.fhir
       .get<Organization>({ resourceType: 'Organization', id: payerId })
       .catch(() => undefined);
