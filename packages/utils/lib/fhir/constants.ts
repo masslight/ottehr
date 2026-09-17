@@ -1236,6 +1236,7 @@ export enum RcmTaskCode {
   sendInvoiceToPatient = 'send-invoice-to-patient',
   sendInvoiceOutputInvoiceId = 'send-invoice-output-invoice-Id',
   sendInvoiceOutputError = 'send-invoice-output-error',
+  stripeInvoiceStatus = 'send-invoice-output-stripe-status',
 }
 export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
   sendInvoiceToPatient: {
@@ -1259,6 +1260,14 @@ export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
       {
         system: RCM_TASK_SYSTEM,
         code: RcmTaskCode.sendInvoiceOutputError,
+      },
+    ],
+  },
+  stripeInvoiceStatus: {
+    coding: [
+      {
+        system: RCM_TASK_SYSTEM,
+        code: RcmTaskCode.stripeInvoiceStatus,
       },
     ],
   },

@@ -279,7 +279,9 @@ describe('billing-stripe-webhook', () => {
     const result = await (index as unknown as (i: ZambdaInput) => Promise<APIGatewayProxyResult>)(input);
 
     expect(result.statusCode).toBe(200);
-    expect(checkOrCreateM2MClientToken).not.toHaveBeenCalled();
+    // M2M token creation runs before the billing gate so invoice task status updates work in
+    // all billing modes; charge events skip the task-update path immediately (not in the map).
+    expect(checkOrCreateM2MClientToken).toHaveBeenCalledOnce();
     expect(create).not.toHaveBeenCalled();
   });
 
