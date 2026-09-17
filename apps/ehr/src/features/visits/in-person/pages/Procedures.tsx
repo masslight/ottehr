@@ -13,8 +13,8 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
 import { TRACKING_BOARD_QUERY_KEY } from 'src/hooks/useGetTrackingBoard';
+import { formatProcedureCptCode } from 'utils/lib/procedure-coding/format';
 import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
-import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
@@ -131,14 +131,14 @@ export function ProceduresBody({ onNewProcedure, onProcedureClick, pageTitle }: 
                 >
                   <TableCell>
                     <Stack>
-                      {procedure.cptCodes?.map((cptCode) => {
+                      {procedure.cptCodes?.map((cptCode, index) => {
                         return (
                           <Typography
                             sx={{ fontSize: '14px' }}
-                            key={cptCode.code}
+                            key={cptCode.resourceId ?? index}
                             data-testid={dataTestIds.proceduresPage.cptCode}
                           >
-                            {cptCode.code}-{cptCode.display}
+                            {formatProcedureCptCode(cptCode)}
                           </Typography>
                         );
                       })}
@@ -185,9 +185,7 @@ export function ProceduresBody({ onNewProcedure, onProcedureClick, pageTitle }: 
                           e.stopPropagation();
                           if (!procedure.resourceId) return;
                           const procedureName =
-                            procedure.cptCodes?.map((c: CPTCodeDTO) => `${c.code}-${c.display}`).join(', ') ||
-                            procedure.procedureType ||
-                            '';
+                            procedure.cptCodes?.map(formatProcedureCptCode).join(', ') || procedure.procedureType || '';
                           showDeleteProcedureDialog({
                             procedureId: procedure.resourceId,
                             procedureName,

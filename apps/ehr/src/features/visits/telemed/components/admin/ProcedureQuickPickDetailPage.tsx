@@ -4,6 +4,15 @@ import React, { ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Row } from 'src/components/layout/Row';
 import { Section } from 'src/components/layout/Section';
+import { useApiClients } from 'src/hooks/useAppClients';
+import {
+  formatInfusionTimeRange,
+  formatProcedureCptCode,
+  formatStructuredFacts,
+  procedureFieldVisibility,
+  repairDepthDisplayLabel,
+} from 'utils';
+import { useProcedureSelectOptions } from '../../../in-person/components/procedures/useProcedureSelectOptions';
 import { useProcedureQuickPicksQuery } from './admin.queries';
 
 function ValueDisplay({ value }: { value: string | undefined | null }): ReactElement {
@@ -29,6 +38,8 @@ export default function ProcedureQuickPickDetailPage(): ReactElement {
   const { quickPickId } = useParams<{ quickPickId: string }>();
   const navigate = useNavigate();
   const theme = useTheme();
+  const { oystehr } = useApiClients();
+  const { data: selectOptions } = useProcedureSelectOptions(oystehr);
 
   const { data: quickPicks = [], isLoading } = useProcedureQuickPicksQuery();
   const quickPick = quickPicks.find((qp) => qp.id === quickPickId);
@@ -68,7 +79,14 @@ export default function ProcedureQuickPickDetailPage(): ReactElement {
     // other is already filtered out at the creation step (see splitOtherForQuickPick)
     ...(quickPick.suppliesUsed ?? []),
     ...(quickPick.otherSuppliesUsed ? [`Other: ${quickPick.otherSuppliesUsed}`] : []),
-  ] as string[];
+  ].filter((item): item is string => item !== undefined);
+
+  // This page displays saved values. The visit form resolves the catalog ID to its display name when applying a pick.
+  const fieldVisibility = procedureFieldVisibility(undefined, quickPick);
+  const procedureType =
+    selectOptions?.procedureTypes.find((type) => type.code === quickPick.procedureType)?.name ??
+    quickPick.procedureType;
+  const findings = formatStructuredFacts(quickPick.structuredFacts, procedureType);
 
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto', py: 3 }}>
@@ -84,25 +102,49 @@ export default function ProcedureQuickPickDetailPage(): ReactElement {
       <Stack spacing={2}>
         <Section title="Procedure Information">
           <Row label="Procedure Type">
-            <ValueDisplay value={quickPick.procedureType} />
+            <ValueDisplay value={procedureType} />
           </Row>
         </Section>
 
         <Section title="CPT Codes">
           {quickPick.cptCodes && quickPick.cptCodes.length > 0 ? (
-            <ChipList items={quickPick.cptCodes.map((c) => `${c.code} — ${c.display}`)} />
+            <ChipList items={quickPick.cptCodes.map(formatProcedureCptCode)} />
           ) : (
             <ValueDisplay value={undefined} />
           )}
         </Section>
 
         <Section title="Clinical Details">
+          {findings && (
+            <Row label="Procedure findings">
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                {findings}
+              </Typography>
+            </Row>
+          )}
           <Row label="Body Site">
             <ValueDisplay value={bodySiteDisplay} />
           </Row>
           <Row label="Body Side">
             <ValueDisplay value={quickPick.bodySide} />
           </Row>
+          {fieldVisibility.length && (
+            <Row label="Wound/Lesion Size">
+              <ValueDisplay value={quickPick.lengthCm != null ? `${quickPick.lengthCm} cm` : undefined} />
+            </Row>
+          )}
+          {fieldVisibility.repairDepth && (
+            <Row label="Repair Depth">
+              <ValueDisplay
+                value={quickPick.repairDepth != null ? repairDepthDisplayLabel(quickPick.repairDepth) : undefined}
+              />
+            </Row>
+          )}
+          {fieldVisibility.infusionTimes && (
+            <Row label="Infusion Time">
+              <ValueDisplay value={formatInfusionTimeRange(quickPick.infusionStartTime, quickPick.infusionStopTime)} />
+            </Row>
+          )}
           <Row label="Medication Used">
             <ValueDisplay value={quickPick.medicationUsed} />
           </Row>

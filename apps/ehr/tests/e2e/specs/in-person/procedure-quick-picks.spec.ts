@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import { DocumentProcedurePage, openDocumentProcedurePage } from 'tests/e2e/page/DocumentProcedurePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
+import { detectProcedureFamily } from 'utils/lib/procedure-coding/evaluate';
 import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json';
 import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json';
 import procedureComplications from '../../../../../../config/oystehr/procedure-complications.json';
@@ -21,20 +22,44 @@ const QUICK_PICK_NAME = `E2E Test Quick Pick ${PROCESS_ID}`;
 const PROCEDURE_TYPE_CODINGS = Object.entries(procedureType.fhirResources).find(([key]) =>
   key.startsWith('value-set-procedure-type')
 )?.[1].resource.expansion.contains;
-const FIRST_PROCEDURE_TYPE = PROCEDURE_TYPE_CODINGS![0].display;
 
-const BODY_SITES = procedureBodySites.fhirResources['value-set-procedure-body-sites'].resource.expansion.contains;
+// This spec fills the generic procedure form, Site/location and Side of body included. A procedure
+// type whose coding family asks for the site inside its own questions hides those two dropdowns,
+// and a type with no coding family at all reaches out to AI for suggestions — so pick the first
+// type that keeps the generic form and stays on the local rules engine.
+const FIRST_PROCEDURE_TYPE = PROCEDURE_TYPE_CODINGS!
+  .map((coding) => ({
+    display: coding.display,
+    codingFamily: detectProcedureFamily({ procedureType: coding.display }),
+  }))
+  .filter(({ codingFamily }) => codingFamily && !codingFamily.capturesSite && !codingFamily.capturesSide)[0].display;
+
+const BODY_SITES = Object.entries(procedureBodySites.fhirResources).find(([key]) =>
+  key.startsWith('value-set-procedure-body-sites')
+)![1].resource.expansion.contains;
+
 const BODY_SIDES = procedureBodySides.fhirResources['value-set-procedure-body-sides'].resource.expansion.contains;
-const TECHNIQUES = procedureTechniques.fhirResources['value-set-procedure-techniques'].resource.expansion.contains;
-const SUPPLIES = procedureSupplies.fhirResources['value-set-procedure-supplies'].resource.expansion.contains;
+
+const TECHNIQUES = Object.entries(procedureTechniques.fhirResources).find(([key]) =>
+  key.startsWith('value-set-procedure-techniques')
+)![1].resource.expansion.contains;
+
+const SUPPLIES = Object.entries(procedureSupplies.fhirResources).find(([key]) =>
+  key.startsWith('value-set-procedure-supplies')
+)![1].resource.expansion.contains;
+
 const MEDICATIONS_USED =
   procedureMedicationsUsed.fhirResources['value-set-procedure-medications-used'].resource.expansion.contains;
+
 const COMPLICATIONS =
   procedureComplications.fhirResources['value-set-procedure-complications'].resource.expansion.contains;
+
 const PATIENT_RESPONSES =
   procedurePatientResponses.fhirResources['value-set-procedure-patient-responses'].resource.expansion.contains;
+
 const POST_INSTRUCTIONS =
   procedurePostInstructions.fhirResources['value-set-procedure-post-instructions'].resource.expansion.contains;
+
 const TIME_SPENT = procedureTimeSpent.fhirResources['value-set-procedure-time-spent'].resource.expansion.contains;
 
 async function fillProcedureForm(documentProcedurePage: DocumentProcedurePage): Promise<void> {

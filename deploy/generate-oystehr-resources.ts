@@ -12,6 +12,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { BRANDING_CONFIG, FEATURE_FLAGS_CONFIG, SENDGRID_CONFIG } from 'utils';
+import { StripeWebhookSigningSecretsSchema } from 'utils/lib/types/data/billing/stripe-webhook.schemas';
 import { SpecFile } from '../packages/spec/src/schema';
 import { Schema20250319 } from '../packages/spec/src/schema-20250319';
 import { Schema20250925 } from '../packages/spec/src/schema-20250925';
@@ -177,6 +178,10 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   }
   if (!isObject(vars)) {
     throw new Error(`Variable file ${varFile} is not a valid JSON map.`);
+  }
+  if (Array.isArray(vars.STRIPE_WEBHOOK_SECRET)) {
+    StripeWebhookSigningSecretsSchema.parse(vars.STRIPE_WEBHOOK_SECRET);
+    vars.STRIPE_WEBHOOK_SECRET = JSON.stringify(vars.STRIPE_WEBHOOK_SECRET);
   }
   const coreVars = { ...BILLING_VAR_DEFAULTS, ...vars };
   const billingVars = { ...BILLING_VAR_DEFAULTS, ...vars };

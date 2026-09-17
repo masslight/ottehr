@@ -7,7 +7,7 @@ import {
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { formatISODateToLocaleDate } from 'src/helpers/formatDateTime';
-import { useChartFields } from '../../../hooks/useChartFields';
+import { useProgressNoteChartFields } from '../../../hooks/useProgressNoteChartFields';
 import { AiAddedMark } from '../../scribe-recommendations/AiAddedMark';
 import { findAiAddedFor, useAiAddedRecommendations } from '../../scribe-recommendations/aiAddedMarks';
 
@@ -22,19 +22,7 @@ export const HpiMoiContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const theme = useTheme();
 
-  const { data: chartFields } = useChartFields({
-    requestedFields: {
-      chiefComplaint: {
-        _tag: 'chief-complaint',
-      },
-      mechanismOfInjury: {
-        _tag: 'mechanism-of-injury',
-      },
-      accident: {
-        _tag: 'accident',
-      },
-    },
-  });
+  const { data: chartFields } = useProgressNoteChartFields();
 
   // Legacy tagging: the history of present illness text is stored under the
   // chief-complaint tag.

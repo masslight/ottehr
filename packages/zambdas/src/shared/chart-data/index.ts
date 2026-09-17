@@ -1,10 +1,12 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import {
   AllergyIntolerance,
   ClinicalImpression,
   CodeableConcept,
+  Coding,
   Communication,
   Condition,
   DiagnosticReport,
@@ -26,11 +28,13 @@ import {
   Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
 import {
   ACCIDENT_STATE_EXTENSION,
   ACCIDENT_TYPE_SYSTEM,
   AMBIENT_SCRIBE_RECORDING_PENDING_CODING,
   BODY_SITE_SYSTEM,
+  CPT_BILLABLE_UNITS_EXTENSION_URL,
   CPT_CODE_SYSTEM,
   ERX_MEDICATION_META_TAG_CODE,
   FHIR_EXTENSION,
@@ -40,7 +44,11 @@ import {
   PROCEDURE_TYPE_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { OTHER_SPECIALTY_TRANSFER_OPTION } from 'utils/lib/fhir/disposition';
-import { createFilesDocumentReferences, getBooleanExtensionValue } from 'utils/lib/fhir/helpers';
+import {
+  createFilesDocumentReferences,
+  getBooleanExtensionValue,
+  sanitizeStringForFhirCode,
+} from 'utils/lib/fhir/helpers';
 import { fillVitalObservationAttributes, isVitalObservation, makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
 import {
   addEmptyArrOperation,
@@ -52,6 +60,7 @@ import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { getVitalObservationFhirInterpretations } from 'utils/lib/helpers/vitals/utils';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import { parseStructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
 import {
   DispositionMetaFieldsNames,
@@ -108,7 +117,7 @@ import {
   ObservationTextFieldDTO,
 } from 'utils/lib/types/data/screening-questions/types';
 import { removePrefix } from '../appointment/helpers';
-import { getCptModifierCodeFromProcedure } from '../candid';
+import { getCptModifierCodeFromProcedure, makeCptModifierExtension } from '../candid';
 import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
 import {
@@ -381,8 +390,23 @@ export function makeProcedureResource(
   if (text !== undefined) {
     result.note = [{ text: text }];
   } else if ('code' in data && 'display' in data) {
+    const coding: Coding = { system: CPT_CODE_SYSTEM, code: data.code, display: data.display };
+    const extensions: Extension[] = [];
+
+    if (data.modifier?.length) {
+      extensions.push(makeCptModifierExtension(data.modifier));
+    }
+
+    if (data.billableUnits != null && Number.isFinite(data.billableUnits) && data.billableUnits > 0) {
+      extensions.push({ url: CPT_BILLABLE_UNITS_EXTENSION_URL, valueDecimal: data.billableUnits });
+    }
+
+    if (extensions.length > 0) {
+      coding.extension = extensions;
+    }
+
     result.code = {
-      coding: [{ system: CPT_CODE_SYSTEM, code: data.code, display: data.display }],
+      coding: [coding],
     };
   }
   if (partOf) {
@@ -548,6 +572,7 @@ export function makeCPTCodeDTO(resource: Procedure): CPTCodeDTO | undefined {
       code: coding?.code,
       display: coding?.display,
       modifier: getCptModifierCodeFromProcedure(resource),
+      billableUnits: getCptBillableUnitsFromCoding(coding),
     };
   }
   return undefined;
@@ -1961,6 +1986,11 @@ export type ProcedureFormFields = Pick<
   | 'technique'
   | 'suppliesUsed'
   | 'procedureDetails'
+  | 'structuredFacts'
+  | 'lengthCm'
+  | 'repairDepth'
+  | 'infusionStartTime'
+  | 'infusionStopTime'
   | 'specimenSent'
   | 'complications'
   | 'patientResponse'
@@ -1989,6 +2019,14 @@ export const readProcedureFormFieldsFromServiceRequest = (sr: ServiceRequest): P
     .filter((value): value is string => value != null),
   suppliesUsed: getExtension(sr, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url)?.valueString,
   procedureDetails: getExtension(sr, FHIR_EXTENSION.ServiceRequest.procedureDetails.url)?.valueString,
+  structuredFacts: parseStructuredFacts(
+    getExtension(sr, FHIR_EXTENSION.ServiceRequest.structuredFacts.url)?.valueString,
+    (error) => captureException(error, { extra: { serviceRequestId: sr.id } })
+  ),
+  lengthCm: getExtension(sr, FHIR_EXTENSION.ServiceRequest.lengthCm.url)?.valueDecimal,
+  repairDepth: getExtension(sr, FHIR_EXTENSION.ServiceRequest.repairDepth.url)?.valueString,
+  infusionStartTime: getExtension(sr, FHIR_EXTENSION.ServiceRequest.infusionStartTime.url)?.valueString,
+  infusionStopTime: getExtension(sr, FHIR_EXTENSION.ServiceRequest.infusionStopTime.url)?.valueString,
   specimenSent: getExtension(sr, FHIR_EXTENSION.ServiceRequest.specimenSent.url)?.valueBoolean,
   complications: getExtension(sr, FHIR_EXTENSION.ServiceRequest.complications.url)?.valueString,
   patientResponse: getExtension(sr, FHIR_EXTENSION.ServiceRequest.patientResponse.url)?.valueString,
@@ -1998,11 +2036,21 @@ export const readProcedureFormFieldsFromServiceRequest = (sr: ServiceRequest): P
   consentObtained: getExtension(sr, FHIR_EXTENSION.ServiceRequest.consentObtained.url)?.valueBoolean,
 });
 
+const toFhirCode = (value: string | undefined): string | undefined => {
+  if (value == null) {
+    return undefined;
+  }
+  return sanitizeStringForFhirCode(value) || undefined;
+};
+
 export const createProcedureServiceRequest = (
   procedure: ProcedureDTO,
   encounterId: string,
   patientId: string
 ): BatchInputPutRequest<ServiceRequest> | BatchInputPostRequest<ServiceRequest> => {
+  const procedureTypeCode = toFhirCode(procedure.procedureType);
+  const performerTypeCode = toFhirCode(procedure.performerType);
+  const bodySiteCode = toFhirCode(procedure.bodySite);
   const extensions: Extension[] = [
     {
       url: FHIR_EXTENSION.ServiceRequest.medicationUsed.url,
@@ -2025,6 +2073,26 @@ export const createProcedureServiceRequest = (
     {
       url: FHIR_EXTENSION.ServiceRequest.procedureDetails.url,
       valueString: procedure.procedureDetails,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.structuredFacts.url,
+      valueString: procedure.structuredFacts === undefined ? undefined : JSON.stringify(procedure.structuredFacts),
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.lengthCm.url,
+      valueDecimal: procedure.lengthCm,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.repairDepth.url,
+      valueString: procedure.repairDepth,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.infusionStartTime.url,
+      valueString: procedure.infusionStartTime,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.infusionStopTime.url,
+      valueString: procedure.infusionStopTime,
     },
     {
       url: FHIR_EXTENSION.ServiceRequest.specimenSent.url,
@@ -2054,7 +2122,9 @@ export const createProcedureServiceRequest = (
       url: FHIR_EXTENSION.ServiceRequest.consentObtained.url,
       valueBoolean: procedure.consentObtained,
     },
-  ].filter((extension) => extension.valueString != null || extension.valueBoolean != null);
+  ].filter(
+    (extension) => extension.valueString != null || extension.valueBoolean != null || extension.valueDecimal != null
+  );
   // Linked Condition/Procedure references are usually plain ids that get the
   // FHIR resource-type prefix. Callers building requests for a FHIR transaction
   // can also pass a urn:uuid pre-formatted reference (e.g. the apply-template
@@ -2077,13 +2147,13 @@ export const createProcedureServiceRequest = (
     status: 'completed',
     intent: 'original-order',
     category:
-      procedure.procedureType != null
+      procedureTypeCode != null
         ? [
             {
               coding: [
                 {
                   system: PROCEDURE_TYPE_SYSTEM,
-                  code: procedure.procedureType,
+                  code: procedureTypeCode,
                 },
               ],
             },
@@ -2092,24 +2162,24 @@ export const createProcedureServiceRequest = (
     occurrenceDateTime: procedure.procedureDateTime,
     authoredOn: procedure.documentedDateTime,
     performerType:
-      procedure.performerType != null
+      performerTypeCode != null
         ? {
             coding: [
               {
                 system: PERFORMER_TYPE_SYSTEM,
-                code: procedure.performerType,
+                code: performerTypeCode,
               },
             ],
           }
         : undefined,
     bodySite:
-      procedure.bodySite != null
+      bodySiteCode != null
         ? [
             {
               coding: [
                 {
                   system: BODY_SITE_SYSTEM,
-                  code: procedure.bodySite,
+                  code: bodySiteCode,
                 },
               ],
             },

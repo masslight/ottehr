@@ -1,9 +1,10 @@
 import { Box, CircularProgress, TextField, Typography } from '@mui/material';
-import { FC, useEffect } from 'react';
+import { FC } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
+import { useSyncServerNoteToField } from './shared/hooks/useSyncServerNoteToField';
 
 export const ChiefComplaintField: FC = () => {
   const { data: chartDataFields, isFetched: isChartDataFetched } = useChartFields({
@@ -20,11 +21,12 @@ export const ChiefComplaintField: FC = () => {
     },
   });
 
-  useEffect(() => {
-    if (isChartDataFetched) {
-      methods.setValue('chiefComplaint', chartDataFields?.historyOfPresentIllness?.text ?? '');
-    }
-  }, [chartDataFields?.historyOfPresentIllness?.text, isChartDataFetched, methods]);
+  useSyncServerNoteToField({
+    serverValue: chartDataFields?.historyOfPresentIllness?.text,
+    getFieldValue: () => methods.getValues('chiefComplaint'),
+    setFieldValue: (value) => methods.setValue('chiefComplaint', value),
+    enabled: isChartDataFetched,
+  });
 
   const { control } = methods;
 

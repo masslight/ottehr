@@ -1,19 +1,26 @@
 /**
- * Manual test script for the recommend-billing-codes zambda.
+ * Manual test script for the recommend-billing-codes zambda, and the source of the "Billing Codes"
+ * card on the AI accuracy dashboard (run nightly by the CI repo's workflow with --json-out).
+ *
+ * The zambda answers from the local rules engine for every procedure type a coding family covers,
+ * so this suite only uses the types that still go to the model — see test-billing-codes-config.ts.
  *
  * Requires the local zambda server to be running on port 3000:
  *   npm run zambdas:start
  *
  * Usage:
- *   npx tsx scripts/test-billing-codes.ts [--env local]
+ *   npx tsx scripts/tests/test-billing-codes.ts [--env local] [--json-out results.json]
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { ProcedureDetail, ProcedureSuggestion } from 'utils';
+import { CodeOutcomeKind, EvaluationResult, ProcedureFactsInput } from 'utils';
 import { getToken } from './shared';
 import { ScenarioChecks, TEST_SCENARIOS } from './test-billing-codes-config';
 
+// One sample per scenario per night, as in the other suites. The model is not deterministic, but
+// the dashboard already samples it repeatedly — once every night — so a scenario the model only
+// sometimes gets right shows up as a line that moves between runs rather than a flat one.
 const RUNS_PER_SCENARIO = 1;
 const ZAMBDA_URL = 'http://localhost:3000/local/zambda/recommend-billing-codes/execute';
 
@@ -28,7 +35,7 @@ const envConfig = JSON.parse(fs.readFileSync(envFilePath, 'utf8'));
 
 // ── Zambda call ───────────────────────────────────────────────────────────────
 
-async function callBillingCodes(token: string, input: ProcedureDetail): Promise<ProcedureSuggestion[]> {
+async function callBillingCodes(token: string, input: ProcedureFactsInput): Promise<EvaluationResult> {
   const response = await fetch(ZAMBDA_URL, {
     method: 'POST',
     headers: {
@@ -40,11 +47,18 @@ async function callBillingCodes(token: string, input: ProcedureDetail): Promise<
   if (!response.ok) {
     throw new Error(`Zambda call failed: ${response.status} ${await response.text()}`);
   }
-  const wrapper = (await response.json()) as { status: number; output: ProcedureSuggestion[] };
+  const wrapper = (await response.json()) as { status: number; output: EvaluationResult };
   if (wrapper.status !== 200) {
     throw new Error(`Zambda returned status ${wrapper.status}: ${JSON.stringify(wrapper.output)}`);
   }
   return wrapper.output;
+}
+
+/** The zambda returns a full evaluation; the model's answers arrive as the suggestions outcome. */
+function suggestedCodes(evaluation: EvaluationResult): string[] {
+  return evaluation.outcome.kind === CodeOutcomeKind.Suggestions
+    ? evaluation.outcome.suggestions.map((suggestion) => suggestion.code)
+    : [];
 }
 
 // ── Test runner ───────────────────────────────────────────────────────────────
@@ -56,14 +70,10 @@ interface TestResult {
   error?: string;
 }
 
-function checkCodes(suggestions: ProcedureSuggestion[], expectAnyCodes: string[]): boolean {
-  return suggestions.some((s) => expectAnyCodes.includes(s.code));
-}
-
 async function runScenario(
   token: string,
   label: string,
-  input: ProcedureDetail,
+  input: ProcedureFactsInput,
   checks: ScenarioChecks
 ): Promise<TestResult[]> {
   console.log(`\n${'─'.repeat(60)}`);
@@ -74,24 +84,32 @@ async function runScenario(
 
   for (let run = 1; run <= RUNS_PER_SCENARIO; run++) {
     let passed = false;
-    let suggestedCodes: string[] = [];
+    let codes: string[] = [];
     let error: string | undefined;
 
     try {
       const output = await callBillingCodes(token, input);
-      suggestedCodes = output.map((s) => s.code);
-      passed = checkCodes(output, checks.expectAnyCodes);
+      codes = suggestedCodes(output);
+      // A rules answer here means the scenario picked a procedure type the engine now covers, so
+      // the run measures the engine rather than the model. Report it instead of silently passing.
+      if (output.source !== 'ai') {
+        error = `Answered by the rules engine, not AI — move this scenario to an uncovered procedure type`;
+      } else {
+        const wanted = checks.expectAnyCodes ? codes.some((code) => checks.expectAnyCodes!.includes(code)) : true;
+        const clean = checks.expectNoneOfCodes ? !codes.some((code) => checks.expectNoneOfCodes!.includes(code)) : true;
+        passed = wanted && clean;
+      }
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     }
 
     const icon = passed ? '✓' : '✗';
-    const codeList = suggestedCodes.length ? suggestedCodes.join(', ') : '(none)';
+    const codeList = codes.length ? codes.join(', ') : '(none)';
     let line = `  Run ${run}: ${icon}  (expected ${checks.expected}): ${codeList}`;
     if (error) line += `  ERROR: ${error}`;
     console.log(line);
 
-    results.push({ run, passed, suggestedCodes, error });
+    results.push({ run, passed, suggestedCodes: codes, error });
   }
 
   const passCount = results.filter((r) => r.passed).length;
@@ -103,7 +121,7 @@ async function runScenario(
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  console.log('Billing Codes – Accuracy Check');
+  console.log('Billing Codes – AI Accuracy Check');
   console.log(`Environment: ${env}`);
   console.log(`Zambda URL:  ${ZAMBDA_URL}`);
 

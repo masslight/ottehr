@@ -1,10 +1,11 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Bundle, FhirResource, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { Bundle, Encounter, FhirResource, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { chunkThings } from 'utils/lib/fhir/chat';
 import { PUBLIC_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { ChartDataRequestedFields, GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { createClinicalOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient, patientIdFromReference } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { configLabRequestsForGetChartData } from '../lab/shared/labs';
@@ -20,6 +21,11 @@ import {
   SupportedResourceType,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+
+// A FHIR batch runs its entries one after another on the server, so one batch of N searches costs roughly
+// the sum of all N. Splitting the chart searches into several concurrent batches turns that sum into a max.
+export const CHART_DATA_BATCH_TARGET_CONCURRENCY = 6;
+export const CHART_DATA_MIN_BATCH_SIZE = 3;
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -203,22 +209,10 @@ export async function getChartData(
     addRequestIfNeeded({ field: 'accident', resourceType: 'Condition', defaultSearchBy: 'encounter' });
   }
 
-  if (requestedFields == null) {
-    // AI chat
-    chartDataRequests.push(
-      createFindResourceRequest(
-        encounterId,
-        'DocumentReference',
-        // {
-        //   type: {
-        //     type: 'string',
-        //     value: '#aiInterviewQuestionnaire',
-        //   },
-        // },
-        {},
-        'encounter'
-      )
-    );
+  // AI chat documents (consult notes and pending-recording markers): part of the default set, and
+  // requestable on their own so the AI polling loops don't have to re-run the whole default set.
+  if (requestedFields == null || requestedFields.aiChat) {
+    chartDataRequests.push(createFindResourceRequest(encounterId, 'DocumentReference', {}, 'encounter'));
   }
 
   // Practitioners
@@ -251,6 +245,9 @@ export async function getChartData(
     chartDataRequests.push(
       createFindResourceRequest(encounterId, 'QuestionnaireResponse', { _search_by: 'encounter' })
     );
+    // The Patient is only read for its contained pharmacy Organizations, so it is fetched only here, and in
+    // the same batch as everything else. Every other use of the patient goes through encounter.subject.
+    chartDataRequests.push({ method: 'GET', url: encounterSubjectScopedSearchUrl('Patient', null, encounterId) });
   }
 
   // Determine if we need to check whether the patient is new
@@ -259,28 +256,23 @@ export async function getChartData(
   console.timeLog('check', 'before resources fetch');
   console.log('Starting a transaction to retrieve chart data...');
 
-  // Fetched concurrently with the chart batch and kept out of the merged bundle, so only the chart
-  // requests' resources feed the response.
-  const patientPromise = oystehr.fhir
-    .batch<Patient>({
-      requests: [{ method: 'GET', url: encounterSubjectScopedSearchUrl('Patient', null, encounterId) }],
-    })
-    .then((result) => {
-      const nested = result.entry?.[0]?.resource as Bundle<Patient> | undefined;
-      return nested?.entry?.map((entry) => entry.resource).find((resource) => resource?.resourceType === 'Patient');
-    });
+  // The searches are independent and the response is assembled by resource type rather than by request
+  // index, so they can be spread over concurrent batches and the entries concatenated back afterwards.
+  const batchGroups = chunkThings(
+    chartDataRequests,
+    Math.max(CHART_DATA_MIN_BATCH_SIZE, Math.ceil(chartDataRequests.length / CHART_DATA_BATCH_TARGET_CONCURRENCY))
+  );
 
-  // Run the chart-data batch, the patient lookup and the patientHasPreviousVisits query in parallel
-  const [batchResult, patient, appointmentCountResult] = await Promise.all([
-    oystehr.fhir
-      .batch<FhirResource>({
-        requests: chartDataRequests,
-      })
-      .catch((error) => {
-        console.log('Error fetching chart data...', error, JSON.stringify(error));
-        throw new Error(`Unable to retrieve chart data for encounter with ID ${encounterId}`);
-      }),
-    patientPromise,
+  // Run the chart-data batches and the patientHasPreviousVisits query in parallel
+  const [batchResults, appointmentCountResult] = await Promise.all([
+    Promise.all(
+      batchGroups.map((requests) =>
+        oystehr.fhir.batch<FhirResource>({ requests }).catch((error) => {
+          console.log('Error fetching chart data...', error, JSON.stringify(error));
+          throw new Error(`Unable to retrieve chart data for encounter with ID ${encounterId}`);
+        })
+      )
+    ),
     shouldFetchPatientHasPreviousVisits
       ? oystehr.fhir
           .batch<FhirResource>({
@@ -299,21 +291,32 @@ export async function getChartData(
       : Promise.resolve(undefined),
   ]);
 
-  const result = batchResult;
+  const result: Bundle<FhirResource> = {
+    resourceType: 'Bundle',
+    type: 'batch-response',
+    entry: batchResults.flatMap((batchResult) => batchResult.entry ?? []),
+  };
   console.log('Retrieved chart data...');
 
   // The encounter must exist and must have a patient as its subject.
-  const encounter = parseChartDataBundle(result).find((resource) => resource.resourceType === 'Encounter');
+  const resources = parseChartDataBundle(result);
+  const encounter = resources.find((resource): resource is Encounter => resource.resourceType === 'Encounter');
   if (encounter === undefined) throw new Error(`Encounter with ID ${encounterId} must exist... `);
-  if (patient === undefined) throw new Error(`Encounter  ${encounterId} must be associated with a patient... `);
-  console.log(`Got encounter with id ${encounter.id} and patient with id ${patient.id}`);
+  const patientId = patientIdFromReference(encounter.subject?.reference);
+  if (patientId === undefined) throw new Error(`Encounter  ${encounterId} must be associated with a patient... `);
+  // Searched only when preferredPharmacies was requested; then it has to be there.
+  const patient = resources.find((resource): resource is Patient => resource.resourceType === 'Patient');
+  if (requestedFields?.preferredPharmacies && patient === undefined) {
+    throw new Error(`Patient ${patientId} of encounter ${encounterId} must exist... `);
+  }
+  console.log(`Got encounter with id ${encounter.id} and patient with id ${patientId}`);
   // console.debug('result JSON\n\n==============\n\n', JSON.stringify(result));
 
   console.timeLog('check', 'after fetch, before converting chart data to response');
   const chartDataResult = await convertSearchResultsToResponse(
     result,
     m2mToken,
-    patient.id!,
+    patientId,
     encounterId,
     requestedFields ? (Object.keys(requestedFields) as (keyof ChartDataRequestedFields)[]) : undefined,
     patient,

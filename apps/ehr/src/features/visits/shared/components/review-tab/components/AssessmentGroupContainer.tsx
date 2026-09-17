@@ -9,7 +9,7 @@ import {
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { makeCptCodeDisplay } from 'utils/lib/fhir/helpers';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { useChartFields } from '../../../hooks/useChartFields';
+import { useProgressNoteChartFields } from '../../../hooks/useProgressNoteChartFields';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 import { AiAddedMark } from '../../scribe-recommendations/AiAddedMark';
 import { findAiAddedFor, useAiAddedRecommendations } from '../../scribe-recommendations/aiAddedMarks';
@@ -20,13 +20,7 @@ export const AssessmentGroupContainer: FC = () => {
   const theme = useTheme();
   const aiAdded = useAiAddedRecommendations();
 
-  const { data: chartFields } = useChartFields({
-    requestedFields: {
-      medicalDecision: {
-        _tag: 'medical-decision',
-      },
-    },
-  });
+  const { data: chartFields } = useProgressNoteChartFields();
 
   const diagnoses = chartData?.diagnosis;
   const primaryDiagnosis = diagnoses?.find((item) => item.isPrimary);

@@ -1,13 +1,15 @@
 import { BatchInputRequest } from '@oystehr/sdk';
-import { Identifier, ServiceRequest, Specimen } from 'fhir/r4b';
+import { Operation } from 'fast-json-patch';
+import { FhirResource, Identifier, ServiceRequest, Task } from 'fhir/r4b';
 import fs from 'fs';
 import { createOrderNumber } from 'utils/lib/helpers/labs/helpers';
 import { OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
+import { parseTaskPST } from '../../ehr/lab/shared/labs';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 
 const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo', 'production', 'etc'];
-const USAGE_STR = `Usage: npm run reset-lab-order [ORDER NUMBER] [${VALID_ENVS.join(' | ')}]\n`;
+const USAGE_STR = `Usage: npm run reset-lab-order [ORDER NUMBER] [${VALID_ENVS.join(' | ')}] [resetCollection]\n`;
 
 main().catch((error) => {
   console.error('Script failed:', error);
@@ -17,9 +19,12 @@ main().catch((error) => {
 /**
  * Resets all tests in the provided order number. ServiceRequests are put back into draft, and a new order number is assigned,
  * allowing us to re-submit the same set of resources. Useful for LabCorp testing.
+ *
+ * If resetCollection is passed (and isn't "false"), the PSC "collect sample" Task (PST) for each ServiceRequest is also
+ * reset to "ready" with its owner and relevantHistory cleared, so specimen collection can be redone from scratch.
  */
 async function main(): Promise<void> {
-  if (process.argv.length !== 4) {
+  if (process.argv.length !== 4 && process.argv.length !== 5) {
     console.error(`exiting, incorrect number of arguments passed\n`);
     console.log(USAGE_STR);
     process.exit(1);
@@ -40,6 +45,9 @@ async function main(): Promise<void> {
     process.exit(2);
   }
 
+  const resetCollectionArg = process.argv[4];
+  const resetCollection = resetCollectionArg !== undefined && resetCollectionArg.toLowerCase() !== 'false';
+
   let envConfig: any | undefined = undefined;
 
   try {
@@ -59,23 +67,32 @@ async function main(): Promise<void> {
   const oystehrClient = createClinicalOystehrClient(token, envConfig);
 
   console.log(`Searching for ServiceRequests matching order number ${orderNumber} on env: ${ENV}`);
-  const serviceRequests = (
-    await oystehrClient.fhir.search<ServiceRequest>({
+  const searchResults = (
+    await oystehrClient.fhir.search<ServiceRequest | Task>({
       resourceType: 'ServiceRequest',
       params: [
         {
           name: 'identifier',
           value: `${OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM}|${orderNumber}`,
         },
+        {
+          name: '_revinclude',
+          value: 'Task:based-on',
+        },
       ],
     })
   ).unbundle();
+
+  const serviceRequests = searchResults.filter(
+    (resource): resource is ServiceRequest => resource.resourceType === 'ServiceRequest'
+  );
+  const tasks = searchResults.filter((resource): resource is Task => resource.resourceType === 'Task');
 
   console.log(`Found ${serviceRequests.length} ServiceRequests`);
   const newOrderNumber = createOrderNumber();
   console.log(`New order number is: ${newOrderNumber}`);
 
-  const requests: BatchInputRequest<Specimen>[] = [];
+  const requests: BatchInputRequest<FhirResource>[] = [];
   serviceRequests.forEach((sr) => {
     if (!sr.identifier) {
       console.error(`ServiceRequest/${sr.id} has no identifier but was returned in the fhir search`);
@@ -108,6 +125,40 @@ async function main(): Promise<void> {
       ],
     });
   });
+
+  if (resetCollection) {
+    serviceRequests.forEach((sr) => {
+      if (!sr.id) return;
+
+      const pstTask = parseTaskPST(tasks, sr.id);
+      if (!pstTask) {
+        console.log(`No PST "collect sample" Task found for ServiceRequest/${sr.id}, skipping collection reset`);
+        return;
+      }
+
+      console.log(`Resetting collection for Task/${pstTask.id}`);
+
+      const operations: Operation[] = [
+        {
+          op: 'replace',
+          path: '/status',
+          value: 'ready',
+        },
+      ];
+      if (pstTask.owner) {
+        operations.push({ op: 'remove', path: '/owner' });
+      }
+      if (pstTask.relevantHistory) {
+        operations.push({ op: 'remove', path: '/relevantHistory' });
+      }
+
+      requests.push({
+        method: 'PATCH',
+        url: `Task/${pstTask.id}`,
+        operations,
+      });
+    });
+  }
 
   console.log(`\n\nThese are the ${requests.length} requests to make: ${JSON.stringify(requests)}\n`);
 

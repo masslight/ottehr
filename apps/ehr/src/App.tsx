@@ -23,6 +23,7 @@ import { RoleType } from 'utils/lib/types/api/user.types';
 import Banner from './components/Banner';
 import { CommandPalette } from './components/CommandPalette';
 import { CommandPaletteCreateTask } from './components/CommandPaletteCreateTask';
+import { CommandPalettePhraseDialog } from './components/CommandPalettePhraseDialog';
 import { CommandPaletteRegistrations } from './components/CommandPaletteRegistrations';
 import LogoutWarning from './components/dialogs/LogoutWarning';
 import { LoadingScreen } from './components/LoadingScreen';
@@ -44,6 +45,7 @@ import { AdminLayout } from './features/admin/AdminSidebar';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
+import { FormTemplateDetailPage } from './features/form-templates/FormTemplateDetailPage';
 import { InboundFaxMatch } from './features/inbound-fax/pages/InboundFaxMatch';
 import LocationConfigPage from './features/locations/LocationConfigPage';
 import { Tasks } from './features/tasks/pages/Tasks';
@@ -255,6 +257,7 @@ function App(): ReactElement {
                   <Route path={`${OUTREACH_URL}/:outreachSubTab/:outreachDetailTab`} element={<AdminPage />} />
                   <Route path="/admin/:adminTab" element={<AdminPage />} />
                   <Route path="/admin/:adminTab/:subTab" element={<AdminPage />} />
+                  <Route path="/admin/form-templates/:templateId" element={<FormTemplateDetailPage />} />
                   <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
                   <Route path="/admin/quick-picks/radiology/:quickPickId" element={<RadiologyQuickPickDetailPage />} />
                   <Route
@@ -339,6 +342,7 @@ function App(): ReactElement {
         <CommandPaletteRegistrations />
         <CommandPalette />
         <CommandPaletteCreateTask />
+        <CommandPalettePhraseDialog />
         <SnackbarProvider maxSnack={5} autoHideDuration={6000} />
       </BrowserRouter>
     </CustomThemeProvider>
