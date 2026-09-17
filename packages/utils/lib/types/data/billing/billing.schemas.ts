@@ -490,6 +490,10 @@ export const CreateBillingClaimTaskInputSchema = z.object({
   encounterId: z.string().uuid(),
 });
 
+export const RetryBillingClaimTaskInputSchema = z.object({
+  taskId: z.string().uuid(),
+});
+
 const updatableAddressSchema = z
   .object({
     line1: z.string().optional(),
@@ -840,6 +844,7 @@ export type UpdateBillingProviderInput = z.output<typeof UpdateBillingProviderIn
 export type CreateBillingWorkingCopyInput = z.output<typeof CreateBillingWorkingCopyInputSchema>;
 export type CreateBillingClaimFromEncounterInput = z.output<typeof CreateBillingClaimFromEncounterInputSchema>;
 export type CreateBillingClaimTaskInput = z.output<typeof CreateBillingClaimTaskInputSchema>;
+export type RetryBillingClaimTaskInput = z.output<typeof RetryBillingClaimTaskInputSchema>;
 export type UpdateBillingResourceInput = z.output<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];
 export type SearchChargeItemDefinitionsInput = z.output<typeof SearchChargeItemDefinitionsInputSchema>;

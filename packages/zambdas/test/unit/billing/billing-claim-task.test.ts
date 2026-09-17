@@ -1,9 +1,12 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { applyPatch } from 'fast-json-patch';
 import { Task } from 'fhir/r4b';
 import { BILLING_CLAIM_TASK_CODING } from 'utils/lib/types/data/billing/billing.constants';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { index as createTask } from '../../../src/billing/create-billing-claim-task/index';
+import { index as retryTask } from '../../../src/billing/retry-billing-claim-task';
 import { createBillingClient } from '../../../src/billing/shared';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { ZambdaInput } from '../../../src/shared/types/common';
@@ -12,7 +15,7 @@ import { index as runTask } from '../../../src/subscriptions/task/sub-billing-cl
 
 const { clinical, billing, createClaim } = vi.hoisted(() => ({
   clinical: { fhir: { search: vi.fn(), patch: vi.fn() } },
-  billing: { fhir: { create: vi.fn(), patch: vi.fn() } },
+  billing: { fhir: { search: vi.fn(), create: vi.fn(), patch: vi.fn() } },
   createClaim: vi.fn(),
 }));
 vi.mock('../../../src/shared/auth', async (original) => ({
@@ -35,9 +38,12 @@ vi.mock('../../../src/shared/errors', () => ({ sendErrors: vi.fn() }));
 const encounterId = 'ed184c50-8001-4e45-89b9-ef848dfda958';
 const task: Task = {
   resourceType: 'Task',
-  id: 'task-1',
+  id: '6e13dbad-28d0-4d5b-8554-59ed0077ca35',
+  meta: { versionId: '3' },
   intent: 'order',
   status: 'requested',
+  code: { coding: [BILLING_CLAIM_TASK_CODING] },
+  authoredOn: '2026-09-01T12:00:00Z',
   encounter: { reference: `Encounter/${encounterId}` },
 };
 const input = (body: unknown): ZambdaInput => ({
@@ -56,6 +62,8 @@ describe('billing claim tasks', () => {
       unbundle: () => [{ resourceType: 'Encounter', id: encounterId, subject: { reference: 'Patient/patient-1' } }],
     });
     billing.fhir.create.mockImplementation(async (resource) => ({ ...resource, id: task.id }));
+    billing.fhir.search.mockResolvedValue({ unbundle: () => [{ ...task, status: 'failed' }] });
+    billing.fhir.patch.mockResolvedValue(undefined);
     createClaim.mockResolvedValue({ claimId: 'claim-1' });
   });
 
@@ -124,6 +132,56 @@ describe('billing claim tasks', () => {
       expect(statuses()).toEqual(['in-progress', 'failed', 'in-progress', 'completed']);
     }
   );
+
+  it.each([undefined, { text: 'Service facility not found' }])(
+    'requeues a failed task with reason %j',
+    async (reason) => {
+      const failedTask = { ...task, status: 'failed', ...(reason ? { statusReason: reason } : {}) };
+      billing.fhir.search.mockResolvedValueOnce({ unbundle: () => [failedTask] });
+      const response = await invoke(retryTask, { taskId: task.id });
+      expect(response.statusCode).toBe(200);
+      expect(JSON.parse(response.body)).toEqual({ taskId: task.id });
+      expect(billing.fhir.patch).toHaveBeenCalledTimes(1);
+      const [request, options] = billing.fhir.patch.mock.calls[0];
+      expect(request).toMatchObject({ resourceType: 'Task', id: task.id });
+      expect(options).toEqual({ optimisticLockingVersionId: '3' });
+      expect(applyPatch(structuredClone(failedTask), request.operations, true).newDocument).toEqual(task);
+      expect(billing.fhir.create).not.toHaveBeenCalled();
+      expect(createClaim).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([{}, null, { taskId: 'invalid' }])('rejects invalid retry input: %j', async (body) => {
+    expect((await invoke(retryTask, body)).statusCode).toBe(400);
+    expect(billing.fhir.search).not.toHaveBeenCalled();
+    expect(billing.fhir.patch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    undefined,
+    { code: undefined },
+    { code: { coding: [{ ...BILLING_CLAIM_TASK_CODING, code: 'send-claim' }] } },
+    { code: { coding: [{ ...BILLING_CLAIM_TASK_CODING, system: 'https://example.com/other-task' }] } },
+    { status: 'requested' },
+    { status: 'in-progress' },
+    { status: 'completed' },
+    { status: 'cancelled' },
+  ])('rejects missing, unrelated, or nonfailed retry tasks: %j', async (overrides) => {
+    billing.fhir.search.mockResolvedValueOnce({
+      unbundle: () => (overrides ? [{ ...task, status: 'failed', ...overrides }] : []),
+    });
+    expect((await invoke(retryTask, { taskId: task.id })).statusCode).toBe(400);
+    expect(billing.fhir.patch).not.toHaveBeenCalled();
+  });
+
+  it('does not retry the write or report success on a version conflict', async () => {
+    billing.fhir.patch.mockRejectedValueOnce(
+      new Oystehr.OystehrSdkError({ message: 'Precondition Failed', code: 412 })
+    );
+    expect((await invoke(retryTask, { taskId: task.id })).statusCode).toBeGreaterThanOrEqual(400);
+    expect(billing.fhir.patch).toHaveBeenCalledTimes(1);
+    expect(billing.fhir.patch.mock.calls[0][1]).toEqual({ optimisticLockingVersionId: '3' });
+  });
 
   it('preserves the clinical client and error format for existing task handlers', async () => {
     const error = INVALID_INPUT_ERROR('Existing failure');
