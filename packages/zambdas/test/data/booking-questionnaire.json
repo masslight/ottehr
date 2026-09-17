@@ -307,7 +307,7 @@
         {
           "linkId": "reason-for-visit",
           "type": "choice",
-          "text": "Reason for visit",
+          "text": "Reason for today's visit",
           "required": true,
           "answerOption": [
             {
