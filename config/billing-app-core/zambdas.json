@@ -330,6 +330,13 @@
       "src": "src/billing/create-billing-claim-task/index",
       "zip": ".dist/zips/create-billing-claim-task.zip"
     },
+    "RETRY-BILLING-CLAIM-TASK": {
+      "name": "retry-billing-claim-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/retry-billing-claim-task/index",
+      "zip": ".dist/zips/retry-billing-claim-task.zip"
+    },
     "SUB-BILLING-CLAIM-TASK": {
       "name": "sub-billing-claim-task",
       "type": "subscription",
