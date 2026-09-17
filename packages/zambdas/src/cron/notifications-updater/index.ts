@@ -730,10 +730,6 @@ const getActiveStaffAndProviders = async (
     ),
   ]);
 
-  console.log(
-    `Fetched ${inactiveRoleMembers.length} Inactive and ${providerRoleMembers.length} Provider role members.`
-  );
-
   const inactiveUsersMap = new Map(inactiveRoleMembers.map((user) => [user.id, user]));
   const providerUsersMap = new Map(providerRoleMembers.map((user) => [user.id, user]));
   const practitionerById = new Map(practitionerResources.map((res) => [res.id, res]));

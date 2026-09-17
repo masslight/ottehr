@@ -99,11 +99,6 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     getResourcesRequest as Promise<Resource[]>,
   ]);
 
-  console.log(
-    `Fetched ${inactiveRoleMembers.length} Inactive role members and ` +
-      assignableRoleMembers.map(({ role, members }) => `${members.length} ${role}`).join(', ')
-  );
-
   const inactiveMemberIds = new Set(inactiveRoleMembers.map((member) => member.id));
 
   // userId -> roles held. Built once so the per-employee mapping below stays a lookup rather than a
