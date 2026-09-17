@@ -333,7 +333,7 @@ describe('invokeChatbotVertexAI empty-output retries', () => {
     ['no candidates property', EMPTY_200],
     ['an empty candidates array', { candidates: [] }],
     ['an empty first candidate', { candidates: [{}] }],
-    ['no content', { candidates: [{ finishReason: 'SAFETY' }] }],
+    ['no content', { candidates: [{ finishReason: 'MAX_TOKENS' }] }],
     ['no parts', { candidates: [{ content: {} }] }],
     ['an empty parts array', { candidates: [{ content: { parts: [] } }] }],
     ['a part with no text', { candidates: [{ content: { parts: [{ inlineData: 'x' }] } }] }],
@@ -396,6 +396,41 @@ describe('invokeChatbotVertexAI empty-output retries', () => {
     expect(error?.message.length).toBeLessThan(3500);
   });
 
+  test.each([['SAFETY'], ['RECITATION'], ['PROHIBITED_CONTENT'], ['BLOCKLIST'], ['SPII']])(
+    'a %s verdict is not retried',
+    async (finishReason) => {
+      respondInSequence([200, { candidates: [{ finishReason }] }], [200, TEXT_200]);
+
+      const error = await invoke().then(
+        () => null,
+        (error: Error) => error
+      );
+      expect(error?.message).toMatch(new RegExp(`Vertex AI returned no text.*${finishReason}`, 's'));
+      expect(error?.message).not.toMatch(/after \d+ attempts/);
+      expect(globalThis.fetch).toHaveBeenCalledOnce();
+    }
+  );
+
+  test('a prompt-level block is not retried either', async () => {
+    respondInSequence(
+      [200, { promptFeedback: { blockReason: 'PROHIBITED_CONTENT' }, usageMetadata: { promptTokenCount: 1525 } }],
+      [200, TEXT_200]
+    );
+
+    const error = await invoke().then(
+      () => null,
+      (error: Error) => error
+    );
+    expect(error?.message).toMatch(/Vertex AI returned no text.*PROHIBITED_CONTENT/s);
+    expect(globalThis.fetch).toHaveBeenCalledOnce();
+  });
+
+  test('a policy verdict surfaces at once, not after the backoff sleeps', async () => {
+    respondWith(200, { candidates: [{ finishReason: 'SAFETY' }] });
+
+    expect(await settleDelay()).toBe(0);
+  });
+
   test('a later candidate with text is never quoted either', async () => {
     respondWith(200, {
       candidates: [{ finishReason: 'SAFETY' }, { content: { parts: [{ text: 'patient reports chest pain' }] } }],
@@ -437,7 +472,7 @@ describe('invokeChatbotVertexAI promise lifecycle', () => {
     expect((seen[0] as Error).message).toBe('deliberately unhandled');
   });
 
-  test('1. a valid response wins and the later attempts are superseded', async () => {
+  test('a valid response wins and the later attempts are superseded', async () => {
     respondWith(200, TEXT_200);
     let outcome = '';
 
@@ -450,7 +485,7 @@ describe('invokeChatbotVertexAI promise lifecycle', () => {
     expect(seen).toEqual([]);
   });
 
-  test('2. an empty 200 rejects its attempt and the next one wins', async () => {
+  test('an empty 200 rejects its attempt and the next one wins', async () => {
     respondInSequence([200, EMPTY_200], [200, TEXT_200]);
     let outcome = '';
 
@@ -462,7 +497,7 @@ describe('invokeChatbotVertexAI promise lifecycle', () => {
     expect(seen).toEqual([]);
   });
 
-  test('3+4. a terminal status settles at once, and its superseded attempts stay handled', async () => {
+  test('a terminal status settles at once, and its superseded attempts stay handled', async () => {
     respondAfter([0, 403, { error: { code: 403, status: 'PERMISSION_DENIED' } }]);
     let outcome = '';
 
@@ -478,7 +513,23 @@ describe('invokeChatbotVertexAI promise lifecycle', () => {
     expect(seen).toEqual([]);
   });
 
-  test('5. an exhausted ladder handles its AggregateError, leaving terminalFailure pending forever', async () => {
+  test('a policy verdict on a 200 settles at once, and its superseded attempts stay handled', async () => {
+    respondAfter([0, 200, { candidates: [{ finishReason: 'SAFETY' }] }]);
+    let outcome = '';
+
+    const seen = await unhandledDuring(async () => {
+      const pending = start();
+      await vi.advanceTimersByTimeAsync(100);
+      outcome = await pending;
+      expect(vi.getTimerCount()).toBe(2);
+    });
+
+    expect(outcome).toMatch(/^rejected: Vertex AI returned no text.*SAFETY/s);
+    expect(globalThis.fetch).toHaveBeenCalledOnce();
+    expect(seen).toEqual([]);
+  });
+
+  test('an exhausted ladder handles its AggregateError, leaving terminalFailure pending forever', async () => {
     respondWith(503, { error: { code: 503, message: 'The service is currently unavailable.' } });
     let outcome = '';
 
@@ -491,7 +542,7 @@ describe('invokeChatbotVertexAI promise lifecycle', () => {
     expect(seen).toEqual([]);
   });
 
-  test('6. a terminal failure arriving after a success cannot disturb the settled result', async () => {
+  test('a terminal failure arriving after a success cannot disturb the settled result', async () => {
     respondAfter([4000, 200, TEXT_200], [2000, 400, { error: { code: 400, status: 'INVALID_ARGUMENT' } }]);
     let outcome = '';
 
@@ -504,7 +555,7 @@ describe('invokeChatbotVertexAI promise lifecycle', () => {
     expect(seen).toEqual([]);
   });
 
-  test('7. backoff timers outlive the settle but do no observable work when they fire', async () => {
+  test('backoff timers outlive the settle but do no observable work when they fire', async () => {
     respondAfter([0, 401, { error: { code: 401, status: 'UNAUTHENTICATED' } }]);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);

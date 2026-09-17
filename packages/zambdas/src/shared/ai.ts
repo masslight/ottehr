@@ -127,6 +127,8 @@ const AI_RESPONSE_KEY_TO_FIELD = {
 
 export const VERTEX_AI_MODEL = 'gemini-3.1-flash-lite';
 
+const TERMINAL_FINISH_REASONS = new Set(['SAFETY', 'RECITATION', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII']);
+
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
@@ -217,7 +219,12 @@ export async function invokeChatbotVertexAI(
       if (typeof text !== 'string' || text.trim().length === 0) {
         const { candidates: _candidates, ...metadata } = parsed ?? {};
         const reason = JSON.stringify({ finishReason: candidate?.finishReason, ...metadata }).slice(0, 1000);
-        throw new Error(`Vertex AI returned no text: ${reason}`);
+        const failure = new Error(`Vertex AI returned no text: ${reason}`);
+        if (TERMINAL_FINISH_REASONS.has(candidate?.finishReason) || parsed?.promptFeedback?.blockReason) {
+          terminal = true;
+          failTerminally(failure);
+        }
+        throw failure;
       }
 
       resolved = true;
