@@ -397,7 +397,7 @@ export const Header = (): JSX.Element => {
     }
   }, [shouldRefetchPractitioners, refetch]);
 
-  const reasonForVisit = formatLabelValue(appointmentValues?.description, 'Reason for Visit');
+  const reasonForVisit = formatLabelValue(appointmentValues?.description, "Reason for today's Visit");
   const userId = formatLabelValue(patient?.id);
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<null | HTMLElement>(null);

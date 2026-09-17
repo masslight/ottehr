@@ -36,7 +36,7 @@ const mapValueToLabel: Record<keyof ChartDataTextValueType, string> = {
   medicalDecision: 'Medical Decision Making note',
   addendumNote: 'Addendum note',
   historyOfPresentIllness: 'HPI note',
-  reasonForVisit: 'Reason for visit',
+  reasonForVisit: "Reason for today's visit",
 };
 
 const requestedFieldsOptions: Partial<Record<keyof ChartDataTextValueType, { _tag?: string }>> = {

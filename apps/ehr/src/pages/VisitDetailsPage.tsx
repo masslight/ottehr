@@ -177,7 +177,7 @@ type EditDialogConfig =
   | {
       type: 'reason-for-visit';
       values: EditReasonForVisitParams;
-      keyTitleMap: { reasonForVisit: 'Reason for Visit'; additionalDetails: 'Additional Details' };
+      keyTitleMap: { reasonForVisit: "Reason for today's visit"; additionalDetails: 'Additional Details' };
       requiredKeys: string[];
     }
   | { type: 'nlg'; values: EditNLGParams; keyTitleMap: { guardians: 'Guardians' }; requiredKeys: string[] }
@@ -193,7 +193,7 @@ const dialogTitleFromType = (type: EditDialogConfig['type']): string => {
     case 'dob':
       return "Please enter patient's confirmed date of birth";
     case 'reason-for-visit':
-      return "Please enter patient's reason for visit";
+      return "Please enter patient's reason for today's visit";
     case 'nlg':
       return "Please enter patient's Authorized Non-Legal Guardians";
     case 'service-category':
@@ -1414,7 +1414,7 @@ export default function VisitDetailsPage(): ReactElement {
                         loading={loading}
                         patientDetails={{
                           'Service category': serviceCategoryLabel,
-                          'Reason for visit': reasonForVisit
+                          "Reason for today's visit": reasonForVisit
                             ? `${reasonForVisit}${additionalDetails ? ` - ${additionalDetails}` : ''}`
                             : undefined,
                           'Authorized non-legal guardian(s)': patient?.extension?.find(
@@ -1462,7 +1462,7 @@ export default function VisitDetailsPage(): ReactElement {
                               sx={{ mr: '5px', padding: '10px' }}
                             />
                           ),
-                          'Reason for visit': (
+                          "Reason for today's visit": (
                             <PencilIconButton
                               onClick={() =>
                                 setEditDialogConfig({
@@ -1475,7 +1475,7 @@ export default function VisitDetailsPage(): ReactElement {
                                     additionalDetails,
                                   },
                                   keyTitleMap: {
-                                    reasonForVisit: 'Reason for Visit',
+                                    reasonForVisit: "Reason for today's visit",
                                     additionalDetails: 'Additional Details',
                                   },
                                   requiredKeys: [],
