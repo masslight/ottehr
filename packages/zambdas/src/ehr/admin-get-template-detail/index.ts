@@ -28,6 +28,7 @@ import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
 import { collectKnownRosFields, getRosFindingStateFromKey } from 'utils/lib/ottehr-config/review-of-systems';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { inHouseMedicationsMedicationApplianceRoutes } from 'utils/lib/types/api/medication-administration.types';
 import {
   AdminGetTemplateDetailInput,
   AdminGetTemplateDetailOutput,
@@ -596,7 +597,7 @@ const performEffect = async (
       medicationName,
       dose,
       units,
-      route: searchRouteByCode(route)?.display,
+      route: searchRouteByCode(route, inHouseMedicationsMedicationApplianceRoutes)?.display,
       instructions: templateMA.dosage?.text,
       cptCodes: maCptCodes,
       diagnoses: maDiagnoses,
