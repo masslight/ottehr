@@ -533,6 +533,7 @@ export interface BillingClaimTaskItem {
   appointmentId?: string;
   patientId?: string;
   patientName?: string;
+  payerNames: string[];
   createdAt?: string;
   updatedAt?: string;
   error?: string;

@@ -21,6 +21,7 @@ import {
   Coverage,
   DocumentReference,
   DomainResource,
+  Encounter,
   FhirResource,
   Identifier,
   List,
@@ -54,6 +55,11 @@ import {
 } from 'utils/lib/fhir/constants';
 import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
 import {
+  getPaymentVariantFromEncounter,
+  getVisitOccupationalMedicineEmployerFromEncounter,
+  PaymentVariant,
+} from 'utils/lib/fhir/encounter';
+import {
   buildCoverageSubscriberRelatedPerson,
   createCoverageMemberIdentifier,
   getNPI,
@@ -63,13 +69,14 @@ import {
 } from 'utils/lib/fhir/helpers';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
+import { extractNioIdFromReferenceUrl, getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
 import {
   CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+  CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
@@ -1336,6 +1343,51 @@ export function findPatientBillingAccount(accounts: Account[]): Account | undefi
 
 export function findPatientWorkersCompAccount(accounts: Account[]): Account | undefined {
   return accounts.find((acc) => accountMatchesCode(acc, 'WCOMPACCT'));
+}
+
+// Both claim creation (billing copies) and its queue (clinical originals) use the same selection rules.
+export function selectClaimCoverages(
+  service: string | undefined,
+  accounts: Account[],
+  coverages: Coverage[],
+  sourceReference: (coverage: Coverage) => string | undefined
+): Coverage[] {
+  const workersComp = service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp'];
+  const account =
+    service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care']
+      ? findPatientBillingAccount(accounts)
+      : workersComp
+      ? findPatientWorkersCompAccount(accounts)
+      : undefined;
+  const selected = new Map<number, Coverage | undefined>();
+  for (const entry of account?.coverage ?? []) {
+    const coverage = coverages.find((c) => sourceReference(c) === entry.coverage.reference);
+    if (workersComp) {
+      if (coverage) selected.set(1, coverage);
+    } else if (entry.priority && [1, 2, 3, 4].includes(entry.priority)) {
+      selected.set(entry.priority, coverage);
+    }
+  }
+  return [1, 2, 3, 4].flatMap((priority) => selected.get(priority) ?? []);
+}
+
+export function findOccupationalMedicineAccount(accounts: Account[]): Account | undefined {
+  return accounts.find((account) => accountMatchesCode(account, 'OCCUPATIONALMEDICINEACCT'));
+}
+
+export function isEmployerBilledVisit(service: string | undefined, encounter: Encounter): boolean {
+  return (
+    service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['occupational-medicine'] ||
+    getPaymentVariantFromEncounter(encounter) === PaymentVariant.employer
+  );
+}
+
+export function getNonInsurancePayerReference(encounter: Encounter, account?: Account): Reference | undefined {
+  const employer = getVisitOccupationalMedicineEmployerFromEncounter(encounter) ?? account?.owner;
+  const nioId = extractNioIdFromReferenceUrl(employer?.reference);
+  return nioId
+    ? { reference: `Organization/${nioId}`, ...(employer?.display ? { display: employer.display } : {}) }
+    : undefined;
 }
 
 // A coverage's insurance type is determined by which account holds it (PBILLACCT priority 1/2 or the
