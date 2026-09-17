@@ -38,9 +38,11 @@ import {
   RecordBillingManualPaymentInputSchema,
   RenameClaimAttachmentInputSchema,
   ReportDateWindowParams,
+  RetryBillingClaimTaskInputSchema,
   SaveBillingTagInputSchema,
   SaveServiceFacilityInputSchema,
   SearchBillingClaimsInputSchema,
+  SearchBillingClaimTasksInputSchema,
   SearchBillingLocationsInputSchema,
   SearchBillingPatientARClaimsInputSchema,
   SearchBillingPatientsInputSchema,
@@ -90,6 +92,7 @@ import {
   RecordBillingManualPaymentResponse,
   SavedResourceResponse,
   SearchBillingClaimsResponse,
+  SearchBillingClaimTasksResponse,
   SearchBillingErasResponse,
   SearchBillingLocationsResponse,
   SearchBillingPatientARClaimsResponse,
@@ -179,6 +182,16 @@ export const updateBillingPatient = (
 ): Promise<CreatedResourceResponse> => executeBillingZambda(oystehr, 'update-billing-patient', parameters);
 
 // --- Claims ---
+
+export const searchBillingClaimTasks = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SearchBillingClaimTasksInputSchema>
+): Promise<SearchBillingClaimTasksResponse> => executeBillingZambda(oystehr, 'search-billing-claim-tasks', parameters);
+
+export const retryBillingClaimTask = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof RetryBillingClaimTaskInputSchema>
+): Promise<{ taskId: string }> => executeBillingZambda(oystehr, 'retry-billing-claim-task', parameters);
 
 export const createBillingClaim = (
   oystehr: Oystehr,
