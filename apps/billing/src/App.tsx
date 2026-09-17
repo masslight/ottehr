@@ -16,6 +16,7 @@ import { useEvolveUser } from './hooks/useEvolveUser';
 import { BillingProviderDetail, BillingProvidersList } from './pages/BillingProviders';
 import CardsOnFileReport from './pages/CardsOnFileReport';
 import { ChargeItemDefinitionDetail, ChargeItemDefinitionList } from './pages/ChargeItemDefinitionsList';
+import ClaimCreationQueue from './pages/ClaimCreationQueue';
 import ClaimDetail from './pages/ClaimDetail';
 import ClaimsList from './pages/ClaimsList';
 import CreateClaim from './pages/CreateClaim';
@@ -78,6 +79,7 @@ export default function App(): ReactElement {
               {/* <Route path="/" element={<Dashboard />} /> */}
               <Route path="/" element={<Navigate to="/claims" replace />} />
               <Route path="/claims" element={<ClaimsList />} />
+              <Route path="/claim-creation-queue" element={<ClaimCreationQueue />} />
               <Route path="/claims/new" element={<CreateClaim />} />
               <Route path="/claims/:id" element={<ClaimDetail />} />
               <Route path="/patients" element={<PatientsList />} />
