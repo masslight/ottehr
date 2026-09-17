@@ -51,10 +51,8 @@ describe('ai-suggestion-notes validateRequestParameters', () => {
     expect(() => validateRequestParameters(makeInput({ type: 'not-a-type' }))).toThrowError(/must be one of/);
   });
 
-  test('rejects a procedure request with no details object at all', () => {
-    expect(() => validateRequestParameters(makeInput({ type: 'procedure' }))).toThrowError(
-      /procedureDetails is required/
-    );
+  test('rejects the retired procedure suggestion request type', () => {
+    expect(() => validateRequestParameters(makeInput({ type: 'procedure' }))).toThrowError(/must be one of/);
   });
 });
 

@@ -672,3 +672,82 @@ describe('BookableSelect — filter props', () => {
     });
   });
 });
+
+// OTR-3299 / PR #9596 QA: the follow-up flow seeds the PHYSICAL Location recorded on
+// the parent encounter, but for an admin-created (FHIR) service the resolver answers
+// with the Group / PR surface that actually vends it at that Location — never a
+// Location-tier entry. Identity comparison therefore always missed, and the seeded
+// location was silently wiped ("Where to book" blank in QA).
+describe('BookableSelect — seeded Location normalization', () => {
+  beforeEach(() => {
+    mockSearch.mockClear();
+  });
+
+  const seededLocationTarget = (id: string, slug: string, name: string): BookableTarget => ({
+    resourceType: 'Location',
+    id,
+    slug,
+    name,
+  });
+
+  it('adopts the single resolved Group surface instead of clearing a seeded Location', async () => {
+    const onSelectedChange = vi.fn();
+    // loc-group-only's own Schedule covers occupational-medicine only, so a
+    // reflexology query falls through to the Group tier, where exactly one Group
+    // qualifies. That lone target is what the user would have seen labeled with the
+    // bare Location name, so adopting it keeps the seeded location visible.
+    render(
+      <Harness
+        resourceTypes={['Location']}
+        serviceCategoryCode="reflexology"
+        serviceCategoryFhirId="cat-reflexology"
+        initialSelected={seededLocationTarget('loc-group-only', 'group-only-clinic', 'Group-Only Clinic')}
+        onSelectedChange={onSelectedChange}
+      />
+    );
+
+    await waitFor(() => expect(onSelectedChange).toHaveBeenCalled());
+    const normalized = onSelectedChange.mock.calls.at(-1)?.[0] as BookableTarget | undefined;
+    expect(normalized).toMatchObject({
+      resourceType: 'HealthcareService',
+      id: 'hs-group-only',
+      atLocationSlug: 'group-only-clinic',
+    });
+    // Never cleared along the way — the seed is replaced, not dropped.
+    expect(onSelectedChange).not.toHaveBeenCalledWith(undefined);
+  });
+
+  it('clears a seeded Location when the service resolves to several surfaces there', async () => {
+    const onSelectedChange = vi.fn();
+    // Two Groups at loc-ambig both vend acupuncture. That is a genuine choice, so
+    // silently picking one would book the wrong surface — the user must disambiguate.
+    render(
+      <Harness
+        resourceTypes={['Location']}
+        serviceCategoryCode="acupuncture"
+        serviceCategoryFhirId="cat-acupuncture"
+        initialSelected={seededLocationTarget('loc-ambig', 'ambiguous-clinic', 'Ambiguous Clinic')}
+        onSelectedChange={onSelectedChange}
+      />
+    );
+
+    await waitFor(() => expect(onSelectedChange).toHaveBeenCalledWith(undefined));
+  });
+
+  it('still clears a seeded Location that the picked service is not offered at', async () => {
+    const onSelectedChange = vi.fn();
+    // Massage Studio vends neither reflexology at its own Schedule nor through any
+    // Group/PR — normalization must not become a way to keep an unbookable target.
+    render(
+      <Harness
+        resourceTypes={['Location']}
+        serviceCategoryCode="reflexology"
+        serviceCategoryFhirId="cat-reflexology"
+        initialSelected={seededLocationTarget('loc-massage', 'massage-studio', 'Massage Studio')}
+        onSelectedChange={onSelectedChange}
+      />
+    );
+
+    await waitFor(() => expect(onSelectedChange).toHaveBeenCalledWith(undefined));
+  });
+});

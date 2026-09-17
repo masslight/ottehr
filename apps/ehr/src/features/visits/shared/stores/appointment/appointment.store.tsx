@@ -118,7 +118,7 @@ export type ChartDataResponse = Omit<
   GetChartDataResponse,
   Exclude<
     RequestedFields,
-    'medications' | 'inhouseMedications' | 'observations' | 'procedures' | 'patientHasPreviousVisits'
+    'medications' | 'inhouseMedications' | 'observations' | 'procedures' | 'patientHasPreviousVisits' | 'aiChat'
   >
 >;
 

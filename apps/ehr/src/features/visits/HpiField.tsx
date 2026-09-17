@@ -1,9 +1,10 @@
 import { Box, CircularProgress, TextField, Typography } from '@mui/material';
-import { FC, useEffect } from 'react';
+import { FC } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
+import { useSyncServerNoteToField } from './shared/hooks/useSyncServerNoteToField';
 
 type HistoryOfPresentIllnessFieldProps = {
   label?: string;
@@ -26,11 +27,11 @@ export const HistoryOfPresentIllnessField: FC<HistoryOfPresentIllnessFieldProps>
     },
   });
 
-  useEffect(() => {
-    if (chartDataFields?.chiefComplaint?.text !== undefined) {
-      methods.setValue('historyOfPresentIllness', chartDataFields.chiefComplaint.text);
-    }
-  }, [chartDataFields?.chiefComplaint?.text, methods]);
+  useSyncServerNoteToField({
+    serverValue: chartDataFields?.chiefComplaint?.text,
+    getFieldValue: () => methods.getValues('historyOfPresentIllness'),
+    setFieldValue: (value) => methods.setValue('historyOfPresentIllness', value),
+  });
 
   const { control } = methods;
 

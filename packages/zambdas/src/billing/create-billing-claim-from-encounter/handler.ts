@@ -35,6 +35,7 @@ import { isAppointmentOccupationalMedicine } from 'utils/lib/fhir/appointments';
 import {
   claimNonInsurancePayerExtension,
   claimNonInsurancePayerTag,
+  getCptBillableUnitsFromCoding,
   getDefaultClaimSubmissionExtensions,
   setCoveragePlanType,
 } from 'utils/lib/fhir/billing';
@@ -92,7 +93,7 @@ import {
   copySourceRef,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
-  deriveClaimBillablePeriod,
+  deriveClaimBillablePeriodFromEncounter,
   determineRulesEngineForClaim,
   ensureClaimInsurance,
   ensureSystemManagedTags,
@@ -1241,6 +1242,14 @@ function buildClaim(resources: ClaimResources): Claim {
             },
             role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
           },
+          {
+            sequence: 2,
+            provider: {
+              ...uuidOrUrnReference('Practitioner', resources.renderingProvider.id),
+              display: resourceDisplayName(resources.renderingProvider),
+            },
+            role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '71' }] },
+          },
         ]
       : undefined,
     diagnosis: resources.diagnoses
@@ -1314,7 +1323,7 @@ function buildClaim(resources: ClaimResources): Claim {
               value: 0,
               currency: 'USD',
             },
-            quantity: { value: 1, unit: 'UN' },
+            quantity: { value: getCptBillableUnitsFromCoding(procedureCode.coding?.[0]) ?? 1, unit: 'UN' },
           };
         })
       : [],
@@ -1324,7 +1333,7 @@ function buildClaim(resources: ClaimResources): Claim {
     },
   };
 
-  claim.billablePeriod = deriveClaimBillablePeriod(claim.item);
+  claim.billablePeriod = deriveClaimBillablePeriodFromEncounter(resources.encounter);
 
   return claim;
 }
