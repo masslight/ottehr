@@ -307,8 +307,9 @@ import {
   VisitDocuments,
 } from 'utils/lib/types/data/documents';
 import {
-  GetPatientMedicalRecordInput,
+  GetMedicalRecordExportStatusInput,
   GetPatientMedicalRecordOutput,
+  StartMedicalRecordExportInput,
 } from 'utils/lib/types/data/get-patient-medical-record.types';
 import { GetScheduleRequestParams, GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
 import {
@@ -2128,13 +2129,31 @@ export const deletePatientDocument = async (
   }
 };
 
-export const getPatientMedicalRecordZip = async (
+const GET_PATIENT_MEDICAL_RECORD_ZAMBDA_ID = 'get-patient-medical-record';
+
+export const startMedicalRecordExport = async (
   oystehr: Oystehr,
-  parameters: GetPatientMedicalRecordInput
+  parameters: StartMedicalRecordExportInput
 ): Promise<GetPatientMedicalRecordOutput> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: 'get-patient-medical-record',
+      id: GET_PATIENT_MEDICAL_RECORD_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getMedicalRecordExportStatus = async (
+  oystehr: Oystehr,
+  parameters: GetMedicalRecordExportStatusInput
+): Promise<GetPatientMedicalRecordOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: GET_PATIENT_MEDICAL_RECORD_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

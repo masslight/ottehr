@@ -370,6 +370,7 @@ export default function PatientPage(): JSX.Element {
           >
             <MenuItem
               data-testid={dataTestIds.patientRecordPage.downloadMedicalRecordArchiveMenuItem}
+              disabled={isDownloadingMedicalRecord}
               onClick={() => {
                 setMedicalRecordMenuAnchor(null);
                 void downloadMedicalRecord();
