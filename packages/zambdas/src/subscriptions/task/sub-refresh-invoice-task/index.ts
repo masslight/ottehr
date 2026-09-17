@@ -139,7 +139,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     console.log('updating task status to failed and output');
     const errorEntry = addErrorToInvoicingTaskOutput(error instanceof Error ? error.message : 'Unknown error');
-    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), [errorEntry]);
+    await updateTaskStatusAndOutput({
+      oystehr,
+      task,
+      status: mapDisplayToInvoiceTaskStatus('error'),
+      outputToAppend: [errorEntry],
+    });
     throw error;
   }
 });

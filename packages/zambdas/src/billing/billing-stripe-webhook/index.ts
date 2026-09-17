@@ -160,7 +160,7 @@ const updateInvoiceTaskStripeStatus = async (
     type: RcmTaskCodings.stripeInvoiceStatus,
     valueString: stripeStatus,
   };
-  await updateTaskStatusAndOutput(oystehr, task, task.status, [statusOutput]);
+  await updateTaskStatusAndOutput({ oystehr, task, outputToAppend: [statusOutput] });
   console.log(`Updated invoice task ${task.id} stripe status to '${stripeStatus}'`);
 };
 
