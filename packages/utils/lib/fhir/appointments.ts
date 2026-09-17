@@ -32,6 +32,9 @@ export async function updateAppointmentRoom(
 
   if (!room) {
     const updatedExtension = existingExtension.filter((ext) => ext.url !== ROOM_EXTENSION_URL);
+    if (updatedExtension.length === existingExtension.length) {
+      return appointment;
+    }
     if (updatedExtension.length === 0) {
       return oystehr.fhir.patch<Appointment>({
         resourceType: 'Appointment',

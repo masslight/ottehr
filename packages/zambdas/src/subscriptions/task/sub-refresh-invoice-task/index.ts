@@ -3,14 +3,17 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
 import { Operation } from 'fast-json-patch';
-import { Encounter, Task } from 'fhir/r4b';
+import { Encounter, Task, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { RcmTaskCodings } from 'utils/lib/fhir/constants';
 import { getStartTimeFromEncounterStatusHistory, patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { findClaimsBy, getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import {
   createInvoiceTaskInput,
   getInvoiceTaskClaimId,
+  getInvoiceTaskOutputs,
   getInvoiceTaskSource,
   getLatestTaskOutput,
   mapDisplayToInvoiceTaskStatus,
@@ -21,6 +24,7 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { getCandidEncounterIdFromEncounter } from '../../../shared/candid';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { getStripeClient } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
 import { addErrorToInvoicingTaskOutput, getTaskAndSecretsFromInput, updateTaskStatusAndOutput } from '../../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -82,12 +86,34 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // patch is built against what is actually stored.
       const currentTask = (await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId })) as Task & { id: string };
 
+      // Fetch the live Stripe invoice status so the Payment Status column stays current on refresh.
+      // Done before patchWithOptimisticLock so a locking retry doesn't re-call Stripe.
+      let refreshedStripeStatus: string | undefined;
+      const { invoiceId } = getInvoiceTaskOutputs(currentTask);
+      if (invoiceId) {
+        try {
+          const encounterId = currentTask.encounter?.reference?.replace('Encounter/', '');
+          const stripeAccountId = encounterId
+            ? await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr)
+            : undefined;
+          const stripe = getStripeClient(secrets);
+          console.log(`Stripe account and invoice id found: account: ${stripeAccountId}, invoice: ${invoiceId}`);
+          const stripeInvoice = await stripe.invoices.retrieve(invoiceId, undefined, {
+            stripeAccount: stripeAccountId,
+          });
+          refreshedStripeStatus = stripeInvoice.status ?? undefined;
+          console.log(`Fetched Stripe invoice ${invoiceId} status: ${refreshedStripeStatus}`);
+        } catch (err) {
+          console.warn(`Could not fetch Stripe invoice ${invoiceId} status during refresh:`, err);
+        }
+      } else console.log('Invoice id was not found in the task, skip updating stripe invoice status');
+
       // Re-reading narrows the window in which a concurrent write can invalidate a path we expect to
       // exist, but it cannot close it. Patching under the version we read turns that lost race into a
       // 412 rather than a patch built on a guess that no longer holds, and since every operation is a
       // pure function of the stored Task, the retry recomputes them against what the winning write left.
       await patchWithOptimisticLock(oystehr, currentTask, (freshTask) =>
-        buildUpdateOperations(freshTask, invoiceTaskInput)
+        buildUpdateOperations(freshTask, invoiceTaskInput, refreshedStripeStatus)
       );
 
       console.log(`Updated task input for task id: "${taskId}"`);
@@ -113,7 +139,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     console.log('updating task status to failed and output');
     const errorEntry = addErrorToInvoicingTaskOutput(error instanceof Error ? error.message : 'Unknown error');
-    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), [errorEntry]);
+    await updateTaskStatusAndOutput({
+      oystehr,
+      task,
+      status: mapDisplayToInvoiceTaskStatus('error'),
+      outputToAppend: [errorEntry],
+    });
     throw error;
   }
 });
@@ -124,7 +155,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
  * output implies — is read off `currentTask` rather than the subscription payload, so re-running this
  * with a re-fetched Task after an optimistic-locking conflict yields a patch valid for that version.
  */
-function buildUpdateOperations(currentTask: Task, invoiceTaskInput: InvoiceTaskInput): Operation[] {
+function buildUpdateOperations(
+  currentTask: Task,
+  invoiceTaskInput: InvoiceTaskInput,
+  stripeStatus?: string
+): Operation[] {
   const isZeroBalance = invoiceTaskInput.amountCents === 0;
   const updateOperations: Operation[] = [
     { op: 'replace', path: '/input', value: createInvoiceTaskInput(invoiceTaskInput) },
@@ -168,6 +203,15 @@ function buildUpdateOperations(currentTask: Task, invoiceTaskInput: InvoiceTaskI
       ? mapDisplayToInvoiceTaskStatus('error')
       : mapDisplayToInvoiceTaskStatus('ready');
   updateOperations.push({ op: currentTask.status ? 'replace' : 'add', path: '/status', value: newStatus });
+
+  if (stripeStatus !== undefined) {
+    const stripeStatusOutput: TaskOutput = {
+      type: RcmTaskCodings.stripeInvoiceStatus,
+      valueString: stripeStatus,
+    };
+    const merged = [...(currentTask.output ?? []), stripeStatusOutput];
+    updateOperations.push({ op: currentTask.output ? 'replace' : 'add', path: '/output', value: merged });
+  }
 
   return updateOperations;
 }

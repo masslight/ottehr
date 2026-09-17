@@ -5,6 +5,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useDebounceNotesField } from '../../hooks/useDebounceNotesField';
+import { useSyncServerNoteToField } from '../../hooks/useSyncServerNoteToField';
 
 type MedicalDecisionFieldProps = {
   loading: boolean;
@@ -26,14 +27,11 @@ export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, s
     },
   });
 
-  useEffect(() => {
-    const newValue = chartData?.medicalDecision?.text || '';
-    const currentValue = methods.getValues('medicalDecision');
-
-    if (newValue !== currentValue) {
-      methods.setValue('medicalDecision', newValue);
-    }
-  }, [chartData?.medicalDecision?.text, methods]);
+  useSyncServerNoteToField({
+    serverValue: chartData?.medicalDecision?.text,
+    getFieldValue: () => methods.getValues('medicalDecision'),
+    setFieldValue: (value) => methods.setValue('medicalDecision', value),
+  });
 
   const { control } = methods;
 
@@ -45,12 +43,6 @@ export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, s
   useEffect(() => {
     setIsUpdating(isLoading);
   }, [isLoading, setIsUpdating]);
-
-  useEffect(() => {
-    if (chartData?.medicalDecision?.text && !methods.getValues('medicalDecision')) {
-      methods.setValue('medicalDecision', chartData.medicalDecision.text);
-    }
-  }, [chartData?.medicalDecision?.text, methods]);
 
   return (
     <Controller

@@ -1,5 +1,6 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
+import { DischargeDialog } from '../DischargeDialog';
 
 export abstract class BaseProgressNotePage {
   #page: Page;
@@ -15,6 +16,14 @@ export abstract class BaseProgressNotePage {
     await dischargeButton.click();
     await expect(dischargeButton).toHaveText('Discharged');
     await expect(dischargeButton).toBeDisabled();
+  }
+
+  async openDischargeDialog(): Promise<DischargeDialog> {
+    const openButton = this.#page.getByTestId(dataTestIds.dischargeDialog.openButton);
+    await expect(openButton).toBeVisible();
+    await expect(openButton).toBeEnabled();
+    await openButton.click();
+    return DischargeDialog.expectOpen(this.#page);
   }
 
   async clickReviewAndSignButton(): Promise<void> {

@@ -52,6 +52,15 @@ export enum RoleType {
   Staff = 'Staff',
 }
 
+/** Roles allowed to print a patient's clinical documents from the EHR. */
+export const CHART_DOCUMENT_ROLES: RoleType[] = [
+  RoleType.Administrator,
+  RoleType.Manager,
+  RoleType.Provider,
+  RoleType.Clinician,
+  RoleType.Staff,
+];
+
 /**
  * Roles allowed into the administration area.
  *
