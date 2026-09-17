@@ -1,8 +1,24 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Identifier, Money, Organization, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
+import {
+  Claim,
+  Identifier,
+  Money,
+  Organization,
+  PaymentNotice,
+  PaymentReconciliation,
+  Reference,
+  Task,
+  TaskOutput,
+} from 'fhir/r4b';
 import Stripe from 'stripe';
-import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import {
+  BILLING_RESOURCE_TAG,
+  PAYMENT_METHOD_EXTENSION_URL,
+  RCM_TASK_SYSTEM,
+  RcmTaskCode,
+  RcmTaskCodings,
+} from 'utils/lib/fhir/constants';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -17,6 +33,7 @@ import {
   stripeRefundToDTO,
 } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
+import { updateTaskStatusAndOutput } from '../../subscriptions/helpers';
 import { claimRequestFor, findBillingClaimForEncounter } from '../payments';
 import { createBillingClient, reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
 import { BillingStripeWebhookParams, validateRequestParameters } from './validateRequestParameters';
@@ -30,7 +47,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { event, stripeAccount } = params;
   console.log('Verified Stripe event:', event.id, event.type, 'connected account:', stripeAccount ?? 'none');
 
-  // Acknowledge with 200 so Stripe doesn't retry or disable the endpoint.
+  // Invoice task Stripe-status updates run for all billing integrations because
+  // sub-send-invoice-to-patient creates Stripe invoices for both Candid and Ottehr Billing tasks.
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
+  await updateInvoiceTaskStripeStatusFromEvent(event, params.secrets);
+
   if (!shouldUseOttehrBilling(params.secrets)) {
     console.log('BILLING_INTEGRATION does not include ottehr; acknowledging event without processing');
     return {
@@ -39,7 +60,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   }
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
   await performEffect(oystehr, params);
@@ -83,6 +103,65 @@ export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebho
     default:
       console.log('Ignoring unhandled event type:', event.type);
   }
+};
+
+const INVOICE_EVENT_STATUS_MAP: Partial<Record<Stripe.Event['type'], string>> = {
+  'invoice.paid': 'paid',
+  'invoice.voided': 'void',
+  'invoice.marked_uncollectible': 'uncollectible',
+};
+
+const updateInvoiceTaskStripeStatusFromEvent = async (
+  event: Stripe.Event,
+  secrets: ZambdaInput['secrets']
+): Promise<void> => {
+  const stripeStatus = INVOICE_EVENT_STATUS_MAP[event.type];
+  if (!stripeStatus) return;
+
+  const invoice = event.data.object as Stripe.Invoice;
+  const encounterId = encounterIdFromStripeMetadata(invoice.metadata);
+  if (!encounterId) return;
+
+  const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
+  await updateInvoiceTaskStripeStatus(clinicalOystehr, invoice.id, stripeStatus, encounterId);
+};
+
+const updateInvoiceTaskStripeStatus = async (
+  oystehr: Oystehr,
+  stripeInvoiceId: string,
+  stripeStatus: string,
+  encounterId: string
+): Promise<void> => {
+  const tasks = (
+    await oystehr.fhir.search<Task>({
+      resourceType: 'Task',
+      params: [
+        { name: 'encounter', value: `Encounter/${encounterId}` },
+        { name: 'code', value: `${RCM_TASK_SYSTEM}|${RcmTaskCode.sendInvoiceToPatient}` },
+      ],
+    })
+  ).unbundle();
+
+  const task = tasks.find(
+    (t) =>
+      t.output?.some(
+        (o) =>
+          o.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputInvoiceId) &&
+          o.valueString === stripeInvoiceId
+      )
+  );
+
+  if (!task?.id || !task.status) {
+    console.warn(`No invoice task found for Stripe invoice ${stripeInvoiceId} / encounter ${encounterId}`);
+    return;
+  }
+
+  const statusOutput: TaskOutput = {
+    type: RcmTaskCodings.stripeInvoiceStatus,
+    valueString: stripeStatus,
+  };
+  await updateTaskStatusAndOutput({ oystehr, task, outputToAppend: [statusOutput] });
+  console.log(`Updated invoice task ${task.id} stripe status to '${stripeStatus}'`);
 };
 
 // picks the billing provider org stamped with the connected account id or default org otherwise,

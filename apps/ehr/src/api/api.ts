@@ -64,6 +64,10 @@ import {
   UpdateInHouseMedicationInput,
 } from 'utils/lib/types/api/config/in-house-medications';
 import {
+  ConvertVisitToFollowUpInput,
+  ConvertVisitToFollowUpResponse,
+} from 'utils/lib/types/api/convert-visit-to-follow-up/convert-visit-to-follow-up.types';
+import {
   CreateDischargeSummaryInput,
   CreateDischargeSummaryResponse,
 } from 'utils/lib/types/api/create-discharge-summary/create-discharge-summary.types';
@@ -131,6 +135,10 @@ import {
   CreateAppointmentResponse,
   CreateSlotParams,
 } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import {
+  PrintablePdfZambdaInput,
+  PrintablePdfZambdaOutput,
+} from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
 import {
   GetProgressNoteConfigInput,
   GetProgressNoteConfigOutput,
@@ -482,6 +490,8 @@ const UPLOAD_AUDIO_RECORDING_ZAMBDA_ID = 'upload-audio-recording';
 const CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID = 'create-resources-from-audio-recording';
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
 const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
+const MAKE_PATIENT_INSTRUCTIONS_PDF = 'make-patient-instructions-pdf';
+const MAKE_PROGRESS_NOTE_PDF = 'make-progress-note-pdf';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 const VISIT_DETAILS_TO_PDF_ZAMBDA_ID = 'visit-details-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
@@ -2011,6 +2021,38 @@ export const createDischargeSummary = async (
   }
 };
 
+export const makePatientInstructionsPdf = async (
+  oystehr: Oystehr,
+  parameters: PrintablePdfZambdaInput
+): Promise<PrintablePdfZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: MAKE_PATIENT_INSTRUCTIONS_PDF,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const makeProgressNotePdf = async (
+  oystehr: Oystehr,
+  parameters: PrintablePdfZambdaInput
+): Promise<PrintablePdfZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: MAKE_PROGRESS_NOTE_PDF,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
 export const generatePaperworkPdf = async (
   oystehr: Oystehr,
   parameters: PaperworkToPDFInput
@@ -2277,6 +2319,21 @@ export const updatePatientVisitDetails = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const convertVisitToFollowUp = async (
+  oystehr: Oystehr,
+  parameters: ConvertVisitToFollowUpInput
+): Promise<ConvertVisitToFollowUpResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'convert-visit-to-follow-up',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
   }
 };
 

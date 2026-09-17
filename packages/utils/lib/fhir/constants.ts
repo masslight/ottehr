@@ -213,6 +213,19 @@ export const FHIR_EXTENSION = {
     procedureDetails: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/procedure-details`,
     },
+    structuredFacts: { url: `${PRIVATE_EXTENSION_BASE_URL}/procedure-structured-facts` },
+    lengthCm: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/length-cm`,
+    },
+    repairDepth: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/repair-depth`,
+    },
+    infusionStartTime: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/infusion-start-time`,
+    },
+    infusionStopTime: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/infusion-stop-time`,
+    },
     specimenSent: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/specimen-sent`,
     },
@@ -1223,6 +1236,7 @@ export enum RcmTaskCode {
   sendInvoiceToPatient = 'send-invoice-to-patient',
   sendInvoiceOutputInvoiceId = 'send-invoice-output-invoice-Id',
   sendInvoiceOutputError = 'send-invoice-output-error',
+  stripeInvoiceStatus = 'send-invoice-output-stripe-status',
 }
 export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
   sendInvoiceToPatient: {
@@ -1246,6 +1260,14 @@ export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
       {
         system: RCM_TASK_SYSTEM,
         code: RcmTaskCode.sendInvoiceOutputError,
+      },
+    ],
+  },
+  stripeInvoiceStatus: {
+    coding: [
+      {
+        system: RCM_TASK_SYSTEM,
+        code: RcmTaskCode.stripeInvoiceStatus,
       },
     ],
   },
@@ -1334,6 +1356,7 @@ export type FeeScheduleDesignation = 'case-rate';
 export const CASE_RATE_CODE = 'case-rate';
 
 export const CPT_MODIFIER_EXTENSION_URL = ottehrExtensionUrl('cpt-modifier');
+export const CPT_BILLABLE_UNITS_EXTENSION_URL = ottehrExtensionUrl('cpt-billable-units');
 export const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';
 
 export const EXAM_MIGRATION_VERSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/exam-migration-version`;

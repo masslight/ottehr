@@ -14,7 +14,7 @@ export const usePatientInstructionsVisibility = (): {
   const { data: chartFields } = useProgressNoteChartFields();
   const instructions = chartData?.instructions;
   const disposition = chartFields?.disposition;
-  const schoolWorkExcuses = useExcusePresignedFiles(chartData?.schoolWorkNotes);
+  const schoolWorkExcuses = useExcusePresignedFiles(chartData?.schoolWorkNotes).filter((excuse) => excuse.presignedUrl);
   const showInstructions = !!(instructions && instructions.length > 0);
 
   const showDischargeInstructions = !!(

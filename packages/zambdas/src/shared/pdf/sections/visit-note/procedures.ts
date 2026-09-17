@@ -1,4 +1,6 @@
 import { DateTime } from 'luxon';
+import { formatInfusionTimeRange, repairDepthDisplayLabel } from 'utils/lib/procedure-coding/format';
+import { formatProcedureCptCode, formatStructuredFacts } from 'utils/lib/procedure-coding/format';
 import { drawBlockHeader } from '../../helpers/render/blockHeader';
 import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
@@ -12,7 +14,7 @@ export const composeProcedures: DataComposer<ProgressNoteVisitDataInput, Procedu
   const { timezone } = appointmentPackage;
   const procedures = chartData?.procedures?.map((procedure) => ({
     procedureType: procedure.procedureType,
-    cptCodes: procedure?.cptCodes?.map((cptCode) => cptCode.code + ' ' + cptCode.display),
+    cptCodes: procedure?.cptCodes?.map(formatProcedureCptCode),
     diagnoses: procedure?.diagnoses?.map((diagnosis) => diagnosis.code + ' ' + diagnosis.display),
     procedureDateTime:
       procedure.procedureDateTime != null
@@ -22,9 +24,14 @@ export const composeProcedures: DataComposer<ProgressNoteVisitDataInput, Procedu
     medicationUsed: procedure.medicationUsed,
     bodySite: procedure.bodySite,
     bodySide: procedure.bodySide,
+    lengthCm: procedure.lengthCm != null ? `${procedure.lengthCm} cm` : undefined,
+    repairDepth: procedure.repairDepth != null ? repairDepthDisplayLabel(procedure.repairDepth) : undefined,
+    infusionTime: formatInfusionTimeRange(procedure.infusionStartTime, procedure.infusionStopTime),
     technique: procedure.technique,
     suppliesUsed: procedure.suppliesUsed,
     procedureDetails: procedure.procedureDetails,
+    // Absent answers read as absent, like every other field here — not as an empty line to render.
+    structuredFacts: formatStructuredFacts(procedure.structuredFacts, procedure.procedureType) || undefined,
     specimenSent: procedure.specimenSent != null ? (procedure.specimenSent ? 'Yes' : 'No') : undefined,
     complications: procedure.complications,
     patientResponse: procedure.patientResponse,
@@ -45,6 +52,7 @@ export const createProceduresSection = <TData extends { procedures?: Procedures 
     render: (client, data, styles) => {
       data.procedures?.forEach((procedure) => {
         drawBlockHeader(client, styles, procedure.procedureType ?? '', styles.textStyles.blockSubHeader);
+        drawRegularText(client, styles, procedure.structuredFacts || undefined);
         drawRegularText(
           client,
           styles,
@@ -83,6 +91,21 @@ export const createProceduresSection = <TData extends { procedures?: Procedures 
           procedure.bodySite != null ? 'Site/location: ' + procedure.bodySite : undefined
         );
         drawRegularText(client, styles, procedure.bodySide != null ? 'Side of body: ' + procedure.bodySide : undefined);
+        drawRegularText(
+          client,
+          styles,
+          procedure.lengthCm != null ? 'Wound/lesion size: ' + procedure.lengthCm : undefined
+        );
+        drawRegularText(
+          client,
+          styles,
+          procedure.repairDepth != null ? 'Repair depth: ' + procedure.repairDepth : undefined
+        );
+        drawRegularText(
+          client,
+          styles,
+          procedure.infusionTime != null ? 'Infusion time: ' + procedure.infusionTime : undefined
+        );
         drawRegularText(
           client,
           styles,
