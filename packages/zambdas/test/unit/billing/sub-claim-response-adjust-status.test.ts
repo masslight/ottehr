@@ -129,6 +129,11 @@ const writtenTags = (): Coding[] => {
 const codesInSystem = (tags: Coding[], system: string): string[] =>
   tags.filter((t) => t.system === system).map((t) => t.code ?? '');
 
+const versionConflict = (): Error =>
+  Object.assign(new Error('Precondition Failed'), {
+    code: 412,
+  });
+
 describe('sub-claim-response-adjust-status performEffect', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -208,8 +213,7 @@ describe('sub-claim-response-adjust-status performEffect', () => {
   });
 
   it('re-reads the claim and retries once the commit hits a version conflict', async () => {
-    const conflict = Object.assign(new Error('Precondition Failed'), { code: 412 });
-    transaction.mockRejectedValueOnce(conflict).mockResolvedValue({ entry: [] });
+    transaction.mockRejectedValueOnce(versionConflict()).mockResolvedValue({ entry: [] });
     // The concurrent writer added a tag between our read and our write.
     get.mockResolvedValue(claimWith([claimTag('customTag')]));
 
@@ -224,5 +228,39 @@ describe('sub-claim-response-adjust-status performEffect', () => {
       SECONDARY_SUBMISSION_TAG_NAME,
       SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
     ]);
+  });
+
+  // Regression: the conflicting writer can be another ClaimResponse landing 'adjudicated'. The retry
+  // re-read the claim but kept the plan built before the conflict, walking the status back to
+  // 'submitted' for a forwarded response.
+  it('skips the retry when a concurrent writer adjudicated the claim', async () => {
+    transaction.mockRejectedValueOnce(versionConflict()).mockResolvedValue({ entry: [] });
+    const adjudicated = claimWith([]);
+    adjudicated.meta!.tag!.push({
+      system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus,
+      code: 'adjudicated',
+    });
+    get.mockResolvedValue(adjudicated);
+
+    await performEffect(oystehr, validated(claimWith([]), forwardedResponse));
+
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  // Regression: same stale plan re-applied the Hold tag to a claim the biller had just moved on.
+  it('skips the retry when a concurrent writer moved the claim off the insurance-payer stage', async () => {
+    transaction.mockRejectedValueOnce(versionConflict()).mockResolvedValue({ entry: [] });
+    const patientArClaim = claimWith([]);
+    patientArClaim.meta!.tag = [
+      {
+        system: CLAIM_STATUS_TAG_SYSTEMS.arStage,
+        code: AR_STAGE.patient,
+      },
+    ];
+    get.mockResolvedValue(patientArClaim);
+
+    await performEffect(oystehr, validated(claimWith([]), notForwardedResponse));
+
+    expect(transaction).toHaveBeenCalledTimes(1);
   });
 });

@@ -77,35 +77,51 @@ export async function complexValidation(
   };
 }
 
+interface StatusAdjustmentPlan {
+  targetARStatus: string;
+  tagsToAdd: string[];
+}
+
+function planStatusAdjustment(claim: Claim, claimResponse: ClaimResponse): StatusAdjustmentPlan | undefined {
+  if (getTag(claim, CLAIM_STATUS_TAG_SYSTEMS.arStage) !== AR_STAGE.insurancePayer) {
+    return undefined;
+  }
+  if (getTag(claim, CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus) === 'adjudicated') {
+    return undefined;
+  }
+  if (claim.insurance.length <= 1) {
+    return {
+      targetARStatus: 'adjudicated',
+      tagsToAdd: [],
+    };
+  }
+  // Flag for secondary submission
+  return claimWasForwarded(claimResponse)
+    ? {
+        // No action necessary by biller
+        targetARStatus: 'submitted',
+        tagsToAdd: [SECONDARY_SUBMISSION_TAG_NAME, SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME],
+      }
+    : {
+        // Hold for biller to manually submit
+        targetARStatus: 'adjudicated',
+        tagsToAdd: [SECONDARY_SUBMISSION_TAG_NAME, HOLD_TAG_NAME],
+      };
+}
+
 export async function performEffect(oystehr: Oystehr, validated: ComplexValidationOutput): Promise<void> {
   const { claim, claimResponse } = validated;
-  const arStage = getTag(claim, CLAIM_STATUS_TAG_SYSTEMS.arStage);
-  if (arStage !== AR_STAGE.insurancePayer) {
-    return;
-  }
-  const insuranceArStatus = getTag(claim, CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus);
-  if (insuranceArStatus === 'adjudicated') {
-    return;
-  }
-  let targetARStatus = 'adjudicated';
-  const tagsToAdd: string[] = [];
-  if (claim.insurance.length > 1) {
-    // Flag for secondary submission
-    tagsToAdd.push(SECONDARY_SUBMISSION_TAG_NAME);
-    if (claimWasForwarded(claimResponse)) {
-      // No action necessary by biller
-      targetARStatus = 'submitted';
-      tagsToAdd.push(SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME);
-    } else {
-      // Hold for biller to manually submit
-      targetARStatus = 'adjudicated';
-      tagsToAdd.push(HOLD_TAG_NAME);
-    }
-  }
 
   await withVersionConflictRetries(async (attempt) => {
     const current = attempt === 1 ? claim : await oystehr.fhir.get<Claim>({ resourceType: 'Claim', id: claim.id });
-    const updatedTags = tagsToAdd.reduce(
+    const plan = planStatusAdjustment(current, claimResponse);
+    if (!plan) {
+      if (attempt > 1) {
+        console.log(`Claim/${current.id} no longer needs this adjustment after the conflict, skipping`);
+      }
+      return;
+    }
+    const updatedTags = plan.tagsToAdd.reduce(
       (tags, name) =>
         tags.some((t) => t.system === CLAIM_TAG_SYSTEM && t.code === name)
           ? tags
@@ -116,7 +132,7 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
                 code: name,
               },
             ],
-      buildUpdatedClaimStatusTags(current, 'insuranceArStatus', targetARStatus)
+      buildUpdatedClaimStatusTags(current, 'insuranceArStatus', plan.targetARStatus)
     );
     await commitClaimMetaTagsWithProvenance(oystehr, current, updatedTags, 'statusChange', validated.agent);
   });
