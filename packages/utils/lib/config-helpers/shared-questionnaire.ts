@@ -950,7 +950,7 @@ export const buildReasonForVisitFromConfig = (
   return {
     reasonForVisit: {
       key: 'reason-for-visit',
-      label: 'Reason for visit',
+      label: "Reason for today's visit",
       type: 'choice',
       options,
       answerDisplayFilters: displayFilters,

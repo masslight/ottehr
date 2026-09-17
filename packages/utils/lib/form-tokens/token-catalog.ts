@@ -91,7 +91,7 @@ const CATALOG = [
     type: 'date',
     description: 'The date of the appointment this form is being filled out for.',
   },
-  { key: 'visit.reasonForVisit', label: 'Reason for visit', group: 'Visit', type: 'string' },
+  { key: 'visit.reasonForVisit', label: "Reason for today's visit", group: 'Visit', type: 'string' },
   { key: 'visit.chiefComplaint', label: 'Chief complaint', group: 'Visit', type: 'string' },
 
   // ── Provider ──────────────────────────────────────────────────────────────
