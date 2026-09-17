@@ -4,6 +4,7 @@
     "ZAMBDAS_ADMIN": {
       "name": "Zambdas Admin",
       "description": "This M2M Client is used inside Ottehr Zambdas",
+      "clientSecretVersion": 1,
       "accessPolicy": [
         {
           "resource": [
