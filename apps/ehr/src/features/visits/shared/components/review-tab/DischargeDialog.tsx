@@ -27,12 +27,9 @@ import { useProgressNoteSigning } from '../../hooks/useProgressNoteSigning';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 import { createAndOpenDischargeSummary, handleDischarge } from './DischargeButton';
 
-// The gaps that stop a note being signed are already itemised on the Progress Note's Missing &
-// Warning card, so the dialog points there instead of restating the list in a second place.
 const MISSING_INFORMATION_MESSAGE =
   'Signing is disabled because you have missing required information on the Progress Note. Please check the Review & Sign tab / Missing & Warning section for more details.';
 
-// Row hints. Both notes use the same two, so they live here rather than being retyped per row.
 const UNAVAILABLE_HINT = 'Unavailable — print from the chart';
 const PREPARING_HINT = 'Preparing…';
 
@@ -56,9 +53,6 @@ interface DischargeSelections {
   requireSupervisorApproval: boolean;
 }
 
-// The documents a discharge nearly always needs are opt-out; the rest, and signing, are opt-in.
-// Patient instructions are already carried inside the discharge summary, so the standalone sheet is
-// an extra a provider asks for rather than something to print by default.
 const DEFAULT_SELECTIONS: DischargeSelections = {
   dischargeSummary: true,
   workNote: true,
@@ -69,18 +63,10 @@ const DEFAULT_SELECTIONS: DischargeSelections = {
   requireSupervisorApproval: true,
 };
 
-/** ["a", "b", "c"] -> "a, b & c". Used for the action label and for naming documents in messages. */
+/** ["a", "b", "c"] -> "a, b & c" */
 const joinWithAmpersand = (parts: string[]): string =>
   parts.length > 1 ? `${parts.slice(0, -1).join(', ')} & ${parts[parts.length - 1]}` : parts[0];
 
-/**
- * Renders a print-time PDF into a tab the click already opened.
- *
- * The tab has to be reserved synchronously in the click handler: awaiting the render first would put
- * `window.open` outside the user-activation window and browsers block it as a popup. Closes the tab
- * and rejects if the render fails, so the caller aborts before discharging — a document the provider
- * asked for must not be quietly dropped.
- */
 const openGeneratedPdf = async (tab: Window, render: () => Promise<{ presignedURL: string }>): Promise<void> => {
   try {
     const { presignedURL } = await render();
@@ -121,12 +107,6 @@ const SelectionCheckbox: FC<{
   />
 );
 
-/**
- * Discharge, optionally printing the visit's documents and signing the note on the way out.
- *
- * Mounted only while it is open (see DischargeButton), which both keeps its data subscriptions off
- * the page the rest of the time and gives every use a fresh set of selections.
- */
 export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId, appointmentId, patientId }) => {
   const { oystehrZambda } = useApiClients();
   const { chartData } = useChartData();
@@ -135,38 +115,26 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
   const { completed, permissionMessages, readinessMessages, supervisorApprovalApplies, isSigning, signNote } =
     useProgressNoteSigning();
 
-  // Memoised because it is the dependency of the presigning effect inside useExcusePresignedFiles,
-  // which sets state on completion — a fresh `[]` each render would restart that effect forever.
+  // Stable reference: useExcusePresignedFiles depends on it and sets state on completion.
   const schoolWorkNotes = useMemo(() => chartData?.schoolWorkNotes ?? [], [chartData?.schoolWorkNotes]);
   const presignedFiles = useExcusePresignedFiles(schoolWorkNotes);
 
-  // Whether a note exists comes from the chart data, which is already loaded when the dialog opens.
-  // Its presigned URL arrives a moment later, so gating the checkbox on the URL would show "Work
-  // Note" greyed out for the first instants after opening — exactly how it looks for a visit that
-  // has no work note at all, which is how a note ends up silently unprinted.
   const hasWorkNote = schoolWorkNotes.some((note) => note.type === WORK_NOTE_CODE);
   const hasSchoolNote = schoolWorkNotes.some((note) => note.type === SCHOOL_NOTE_CODE);
-  // An entry appears once presigning has settled for that note, with no `presignedUrl` if it failed.
-  // That separates "the URL has not arrived yet" from "it never will" — without it, a failed presign
-  // would leave the row waiting and the confirm button disabled forever.
+  // An entry appears once presigning has settled, without `presignedUrl` if it failed.
   const workNoteFile = presignedFiles.find((file) => file.type === WORK_NOTE_CODE);
   const schoolNoteFile = presignedFiles.find((file) => file.type === SCHOOL_NOTE_CODE);
   const workNoteUrl = workNoteFile?.presignedUrl;
   const schoolNoteUrl = schoolNoteFile?.presignedUrl;
   const workNoteUnavailable = Boolean(workNoteFile && !workNoteUrl);
   const schoolNoteUnavailable = Boolean(schoolNoteFile && !schoolNoteUrl);
-  // Every appointment-scoped document is rendered on demand from the visit, so the appointment is
-  // the only thing they need to exist.
   const hasAppointment = Boolean(appointmentId);
   const hasPatientInstructions = chartData?.instructions?.some((instruction) => instruction.text) ?? false;
 
   const [selections, setSelections] = useState<DischargeSelections>(DEFAULT_SELECTIONS);
   const [isDischarging, setIsDischarging] = useState(false);
 
-  // A failure part-way through leaves the dialog open on its completed steps, and the obvious
-  // response is to press the button again. Without this, that retry would regenerate the discharge
-  // summary, reopen tabs and re-issue a discharge that already succeeded. Keyed per document so
-  // newly ticked boxes still print on the second attempt.
+  // Keeps a retry after a partial failure from repeating the steps that already succeeded.
   const completedSteps = useRef({
     dischargeSummary: false,
     workNote: false,
@@ -180,15 +148,12 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
     setSelections((current) => ({ ...current, ...patch }));
   }, []);
 
-  // The visit-status reasons are deliberately left out: this dialog discharges the patient before it
-  // signs, so "you must discharge the patient before signing" is about to stop being true.
+  // Visit-status reasons are excluded: this dialog discharges before it signs.
   const signDisabledReason = completed
     ? 'This visit has already been signed.'
     : permissionMessages[0] ?? (readinessMessages.length > 0 ? MISSING_INFORMATION_MESSAGE : undefined);
   const canSign = !signDisabledReason;
 
-  // Drop a sign selection that has become impossible rather than leaving the intent stored behind a
-  // disabled checkbox; the reason rendered below explains why the option went away.
   useEffect(() => {
     if (!canSign) {
       setSelections((current) => (current.signProgressNote ? { ...current, signProgressNote: false } : current));
@@ -205,9 +170,6 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
   const isPrinting =
     printDischargeSummary || printWorkNote || printSchoolNote || printPatientInstructions || printProgressNote;
 
-  // A selected note whose presigned URL has not arrived yet cannot be opened. Discharging anyway
-  // would strand it: once the visit is discharged, DischargeButton drops the dropdown entirely, so
-  // this dialog can never be reopened to print it.
   const pendingWorkNote = printWorkNote && !workNoteUrl && !workNoteUnavailable;
   const pendingSchoolNote = printSchoolNote && !schoolNoteUrl && !schoolNoteUnavailable;
   const pendingDocuments = useMemo(
@@ -217,8 +179,6 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
 
   const isLoading = isDischarging || isSigning;
 
-  // The workflow carries on after the dialog unmounts, so dismissing it mid-flight would hide a
-  // discharge and a signature that are still running.
   const handleClose = useCallback((): void => {
     if (isLoading) {
       return;
@@ -232,9 +192,6 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
       return;
     }
 
-    // The confirm button is disabled on this same condition, so in practice this cannot be reached.
-    // Kept because the rule — never discharge past a document that was asked for and cannot be
-    // produced — belongs with the workflow rather than living only in a button's props.
     if (pendingDocuments.length > 0) {
       enqueueSnackbar(
         `Still preparing the ${joinWithAmpersand(
@@ -245,10 +202,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
       return;
     }
 
-    // Every tab is reserved here, synchronously, while the click still counts as user activation —
-    // and before anything is filed or discharged. A blocked popup means a document the provider
-    // asked for would never reach them, so the whole workflow stops with nothing done rather than
-    // recording it as printed and discharging past it.
+    // Reserved synchronously, while the click still counts as user activation.
     const reservedTabs: Window[] = [];
     const reserveTab = (url: string): Window | null => {
       const tab = window.open(url, '_blank');
@@ -266,6 +220,8 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
       excusesToOpen.push({ key: 'schoolNote', tab: reserveTab(schoolNoteUrl) });
     }
 
+    const dischargeSummaryTab =
+      printDischargeSummary && appointmentId && !completedSteps.current.dischargeSummary ? reserveTab('') : undefined;
     const instructionsTab =
       printPatientInstructions && appointmentId && !completedSteps.current.patientInstructions
         ? reserveTab('')
@@ -273,7 +229,11 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
     const progressNoteTab =
       printProgressNote && appointmentId && !completedSteps.current.progressNote ? reserveTab('') : undefined;
 
-    const blocked = excusesToOpen.some(({ tab }) => !tab) || instructionsTab === null || progressNoteTab === null;
+    const blocked =
+      excusesToOpen.some(({ tab }) => !tab) ||
+      dischargeSummaryTab === null ||
+      instructionsTab === null ||
+      progressNoteTab === null;
     if (blocked) {
       reservedTabs.forEach((tab) => tab.close());
       enqueueSnackbar(POPUP_BLOCKED_MESSAGE, { variant: 'error' });
@@ -289,14 +249,12 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
     try {
       const printPromises: Promise<void>[] = [];
 
-      if (printDischargeSummary && appointmentId && !completedSteps.current.dischargeSummary) {
+      if (dischargeSummaryTab && appointmentId) {
         printPromises.push(
           createAndOpenDischargeSummary(oystehrZambda, appointmentId, downloadDocument, {
             skipRelated: true,
+            targetTab: dischargeSummaryTab,
           }).then((created) => {
-            // createAndOpenDischargeSummary reports its own failure and resolves, so the rejection
-            // has to be raised here. Without it the workflow carries on and discharges the patient
-            // without the summary they asked for — and the dropdown is gone once discharged.
             if (!created) {
               throw new Error('The discharge summary could not be created');
             }
@@ -305,8 +263,6 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
         );
       }
 
-      // These are rendered on demand, so unlike the excuse notes their tab stays blank until the
-      // round trip finishes. A failure rejects, aborting before the discharge.
       if (instructionsTab && appointmentId) {
         printPromises.push(
           openGeneratedPdf(instructionsTab, () => makePatientInstructionsPdf(oystehrZambda, { appointmentId })).then(
@@ -325,7 +281,11 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
         );
       }
 
-      await Promise.all(printPromises);
+      const printResults = await Promise.allSettled(printPromises);
+      const failedPrint = printResults.find((result) => result.status === 'rejected');
+      if (failedPrint) {
+        throw failedPrint.reason;
+      }
 
       if (!completedSteps.current.discharged) {
         await handleDischarge(encounterId, oystehrZambda);
@@ -333,8 +293,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
       }
 
       if (signProgressNote) {
-        // Signing is only permitted once the visit is discharged, and it refreshes the appointment
-        // itself, so it both follows the discharge and covers the refetch for it.
+        // signNote refetches the appointment itself.
         await signNote({ requireSupervisorApproval });
       } else {
         await appointmentRefetch();
@@ -381,17 +340,10 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
       title="Discharge"
       maxWidth="xs"
       fullWidth
-      // CustomDialog owns its own title/content/actions spacing, which double-insets each row on top
-      // of the paper's padding and leaves the title no larger than the headings inside it. Restyled
-      // from the outside via MUI's exported class constants rather than hand-written
-      // ".MuiDialogContent-root" strings, so a MUI rename breaks the build instead of the layout.
-      // Scoped to this dialog: the other fourteen CustomDialog callers are untouched.
       sx={(theme) => ({
         [`& .${dialogTitleClasses.root}`]: { px: 1, fontSize: theme.typography.h4.fontSize },
         [`& .${dialogContentClasses.root}`]: { pt: 0, px: 1 },
         [`& .${dialogActionsClasses.root}`]: { justifyContent: 'space-between', px: 1 },
-        // Close button: MUI's default 'medium' is a ~40px target. `subtitle1` is 20px, which is what
-        // MUI's own fontSizeSmall resolves to. Keyed off the title so content icons are unaffected.
         [`& .${dialogTitleClasses.root} .${iconButtonClasses.root}`]: {
           p: 0.5,
           [`& .${svgIconClasses.root}`]: { fontSize: theme.typography.subtitle1.fontSize },

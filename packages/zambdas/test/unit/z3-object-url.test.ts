@@ -111,8 +111,6 @@ describe('makeZ3Url stableKey', () => {
     expect(url).toMatch(/\/patient-1\/\d{4}-\d{2}-\d{2}-\d+-DischargeSummary\.pdf$/);
   });
 
-  // Print-only documents have no DocumentReference pointing at them, so a unique key per render
-  // would strand an unreachable PDF in the patient's bucket on every print.
   it('reuses one slot per patient when the key is stable', () => {
     const first = makeZ3Url({ ...base, fileName: 'ProgressNote.pdf', stableKey: true });
     const second = makeZ3Url({ ...base, fileName: 'ProgressNote.pdf', stableKey: true });

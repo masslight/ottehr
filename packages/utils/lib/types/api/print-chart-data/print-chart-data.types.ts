@@ -32,19 +32,12 @@ export const MEDICATION_HISTORY_DOC_REF_CODING = {
   display: 'Active medication list',
 };
 
-/**
- * A PDF rendered on demand for printing and handed back as a presigned URL.
- *
- * Nothing is filed against the chart: these are print-time renders of data that already lives in
- * the record, so creating a DocumentReference for each print would fill the patient's documents
- * with duplicates of the same content.
- */
+/** A PDF rendered on demand for printing. Nothing is filed against the chart. */
 export type PrintablePdfZambdaOutput = {
   presignedURL: string;
   title: string;
 };
 
-/** Every print endpoint is addressed the same way: the visit whose document to render. */
 export const PrintablePdfInputSchema = z.object({
   appointmentId: z.string().uuid(),
 });
@@ -53,5 +46,5 @@ export type PrintablePdfZambdaInput = z.infer<typeof PrintablePdfInputSchema>;
 
 export type PrintablePdfInputValidated = PrintablePdfZambdaInput & {
   secrets: Secrets | null;
-  userToken: string;
+  authorization: string;
 };

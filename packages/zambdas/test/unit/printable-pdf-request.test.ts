@@ -3,9 +3,6 @@ import { validateRequestParameters as validateInstructionsRequest } from '../../
 import { validateRequestParameters as validateProgressNoteRequest } from '../../src/ehr/print-chart-data/make-progress-note-pdf/validateRequestParameters';
 import { ZambdaInput } from '../../src/shared/types/common';
 
-// Shared by both print endpoints, which return a patient's clinical documents for whatever visit id
-// they are handed — so the request has to be rejected before any of that work starts.
-
 const request = (overrides: Partial<ZambdaInput> = {}): ZambdaInput =>
   ({
     headers: { Authorization: 'Bearer token-abc' },
@@ -14,16 +11,15 @@ const request = (overrides: Partial<ZambdaInput> = {}): ZambdaInput =>
     ...overrides,
   }) as ZambdaInput;
 
-// Both endpoints validate the same request against the same shared schema, so both are exercised.
 describe.each([
   ['make-progress-note-pdf', validateProgressNoteRequest],
   ['make-patient-instructions-pdf', validateInstructionsRequest],
 ])('%s validateRequestParameters', (_name, validatePrintablePdfRequest) => {
-  it('returns the appointment and the caller token', () => {
+  it('returns the appointment and the caller authorization', () => {
     const validated = validatePrintablePdfRequest(request());
 
     expect(validated.appointmentId).toBe('3149f8b9-6511-4747-b072-a27388871290');
-    expect(validated.userToken).toBe('token-abc');
+    expect(validated.authorization).toBe('Bearer token-abc');
   });
 
   it('rejects a request with no Authorization header', () => {
@@ -34,8 +30,6 @@ describe.each([
     expect(() => validatePrintablePdfRequest(request({ body: undefined }))).toThrow();
   });
 
-  // The id addresses a patient's chart, so anything that is not a real appointment id is refused
-  // rather than passed through to a FHIR read.
   it('rejects an appointment id that is not a uuid', () => {
     expect(() =>
       validatePrintablePdfRequest(request({ body: JSON.stringify({ appointmentId: 'not-a-uuid' }) }))

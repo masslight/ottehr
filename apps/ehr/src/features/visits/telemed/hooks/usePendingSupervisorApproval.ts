@@ -17,9 +17,7 @@ export const usePendingSupervisorApproval = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  // Throws on every failure path. Callers treat a resolved promise as "the visit is now waiting for
-  // a supervisor" and report success to the user on the strength of it, so swallowing a failure here
-  // would tell a provider their note had been routed for approval when it had not.
+  // Rejects on every failure path: callers report success on a resolved promise.
   const updateVisitStatusToAwaitSupervisorApproval = useCallback(async (): Promise<void> => {
     if (!oystehrZambda) {
       throw new Error('Oystehr Zambda client is not available when requesting supervisor approval');

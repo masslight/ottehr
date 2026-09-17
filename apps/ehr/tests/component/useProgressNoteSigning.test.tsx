@@ -7,12 +7,6 @@ import { NO_SIGN_PERMISSION_MESSAGE } from 'utils/lib/types/api/sign-appointment
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// The hook is the single source of truth for "may this note be signed, and if not why not", shared
-// by the Review & Sign button and by the Discharge dialog. The two gate on different subsets, so
-// what matters here is that the reasons land in the right bucket — in particular that the
-// discharge-status reason is kept out of `readinessMessages`, which is what lets the Discharge
-// dialog offer signing on a visit it is about to discharge.
-
 const signAppointment = vi.fn().mockResolvedValue(undefined);
 const updateVisitStatusToAwaitSupervisorApproval = vi.fn().mockResolvedValue(undefined);
 const appointmentRefetch = vi.fn().mockResolvedValue(undefined);
@@ -140,8 +134,6 @@ describe('useProgressNoteSigning', () => {
     expect(result.current.readinessMessages).toEqual([]);
   });
 
-  // The contract the Discharge dialog depends on: it signs straight after the discharge it is about
-  // to perform, so it reads `readinessMessages` and must not see the not-yet-discharged reason.
   it('keeps the discharge-status reason out of readinessMessages', () => {
     visitStatus = 'provider';
     const { result } = renderHook(() => useProgressNoteSigning());
@@ -216,7 +208,6 @@ describe('useProgressNoteSigning', () => {
     expect(appointmentRefetch).toHaveBeenCalledTimes(1);
   });
 
-  // The Discharge dialog closes itself when signNote resolves, so a failed approval must surface.
   it('propagates a failed supervisor-approval request', async () => {
     updateVisitStatusToAwaitSupervisorApproval.mockRejectedValueOnce(new Error('approval routing failed'));
     const { result } = renderHook(() => useProgressNoteSigning());

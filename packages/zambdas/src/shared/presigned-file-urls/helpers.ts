@@ -8,14 +8,7 @@ type Z3UrlAudioInput = {
   fileName: string;
 };
 
-/**
- * `stableKey` drops the timestamp from the object path.
- *
- * Every other caller wants the timestamp: their objects are filed against a DocumentReference and
- * each version has to survive alongside the last. Print-only documents have no DocumentReference,
- * so a fresh key per render would leave an unreachable PDF in the patient's bucket on every print.
- * A stable key gives each patient one slot per document that the next print overwrites.
- */
+/** `stableKey` drops the date prefix, giving the caller one reusable slot per object name. */
 type Z3UrlInput =
   | {
       secrets: Secrets | null;

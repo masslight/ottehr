@@ -4,10 +4,6 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { SCHOOL_NOTE_CODE, WORK_NOTE_CODE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// The dialog now drives three outcomes off one set of checkboxes — print, discharge and sign — so
-// what is under test is which of those it runs, in what order, and how it labels the action.
-// Whether the note *may* be signed is useProgressNoteSigning's job and is mocked out here.
-
 const signNote = vi.fn().mockResolvedValue(undefined);
 const appointmentRefetch = vi.fn().mockResolvedValue(undefined);
 const downloadDocument = vi.fn().mockResolvedValue(undefined);
@@ -35,7 +31,6 @@ let signing = {
   signNote,
 };
 
-// Which notes the visit has comes from the chart; their presigned URLs arrive separately and later.
 let schoolWorkNotes: { type: string; url: string }[] = [];
 let instructions: { text: string }[] = [];
 type FakeTab = { location: { href: string }; close: ReturnType<typeof vi.fn> };
@@ -185,6 +180,7 @@ describe('DischargeDialog', () => {
 
     expect(createAndOpenDischargeSummary).toHaveBeenCalledWith({}, 'appointment-1', downloadDocument, {
       skipRelated: true,
+      targetTab: expect.anything(),
     });
     expect(window.open).toHaveBeenCalledWith('https://example.test/work-note', '_blank');
     expect(window.open).toHaveBeenCalledWith('https://example.test/school-note', '_blank');
@@ -195,7 +191,6 @@ describe('DischargeDialog', () => {
       handleDischarge.mock.invocationCallOrder[0]
     );
     expect(handleDischarge.mock.invocationCallOrder[0]).toBeLessThan(signNote.mock.invocationCallOrder[0]);
-    // signNote refreshes the appointment itself, so the dialog does not fetch it a second time.
     expect(appointmentRefetch).not.toHaveBeenCalled();
   });
 
@@ -225,8 +220,6 @@ describe('DischargeDialog', () => {
     await user.click(confirmButton());
 
     await waitFor(() => expect(handleDischarge).toHaveBeenCalledTimes(1));
-    // Signing a visit that was never discharged would be rejected by the zambda anyway, and the
-    // dialog has to stay put so the staff member can retry rather than lose the selection.
     expect(signNote).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(confirmButton()).toBeEnabled();
@@ -252,8 +245,6 @@ describe('DischargeDialog', () => {
     const user = userEvent.setup();
     render(<DischargeDialog {...baseProps} />);
 
-    // Both are opt-in: patient instructions already appear inside the discharge summary, and the
-    // progress note is not part of a routine discharge packet.
     expect(checkbox(dataTestIds.dischargeDialog.printPatientInstructionsCheckbox)).not.toBeChecked();
     expect(checkbox(dataTestIds.dischargeDialog.printProgressNoteCheckbox)).not.toBeChecked();
 
@@ -265,8 +256,7 @@ describe('DischargeDialog', () => {
     expect(makePatientInstructionsPdf).toHaveBeenCalledWith({}, { appointmentId: 'appointment-1' });
     expect(makeProgressNotePdf).toHaveBeenCalledWith({}, { appointmentId: 'appointment-1' });
 
-    // Opened blank inside the click, then navigated once the URL arrives — awaiting the render
-    // before window.open would put it outside user activation and get it blocked as a popup.
+    // Opened blank inside the click, then navigated once the URL arrives.
     expect(window.open).toHaveBeenCalledWith('', '_blank');
     const hrefs = openedTabs.map((tab) => tab.location.href);
     expect(hrefs).toContain('https://example.test/instructions');
@@ -282,7 +272,6 @@ describe('DischargeDialog', () => {
     await user.click(confirmButton());
 
     await waitFor(() => expect(makeProgressNotePdf).toHaveBeenCalledTimes(1));
-    // The tab reserved for the progress note must not be left sitting there blank.
     await waitFor(() => expect(openedTabs.some((tab) => tab.close.mock.calls.length > 0)).toBe(true));
     expect(handleDischarge).not.toHaveBeenCalled();
   });
@@ -299,9 +288,49 @@ describe('DischargeDialog', () => {
 
     await user.click(confirmButton());
 
-    // A failed step is not "completed": the retry renders it again rather than discharging without.
     await waitFor(() => expect(makeProgressNotePdf).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(handleDischarge).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not discharge when the discharge summary reports a failure', async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    createAndOpenDischargeSummary.mockResolvedValueOnce(false);
+    render(<DischargeDialog {...baseProps} onClose={onClose} />);
+
+    await user.click(confirmButton());
+
+    await waitFor(() => expect(createAndOpenDischargeSummary).toHaveBeenCalledTimes(1));
+    expect(handleDischarge).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(enqueueSnackbar).toHaveBeenCalledWith('An error occurred. Please try again.', { variant: 'error' });
+  });
+
+  it('waits for every print to settle before a retry is allowed', async () => {
+    const user = userEvent.setup();
+    let releaseSummary = (): void => undefined;
+    createAndOpenDischargeSummary.mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        releaseSummary = () => resolve(true);
+      })
+    );
+    makeProgressNotePdf.mockRejectedValueOnce(new Error('render failed'));
+    render(<DischargeDialog {...baseProps} />);
+
+    await user.click(checkbox(dataTestIds.dischargeDialog.printProgressNoteCheckbox));
+    await user.click(confirmButton());
+
+    await waitFor(() => expect(makeProgressNotePdf).toHaveBeenCalledTimes(1));
+    expect(confirmButton()).toBeDisabled();
+
+    releaseSummary();
+    await waitFor(() => expect(confirmButton()).toBeEnabled());
+
+    await user.click(confirmButton());
+
+    await waitFor(() => expect(handleDischarge).toHaveBeenCalledTimes(1));
+    expect(createAndOpenDischargeSummary).toHaveBeenCalledTimes(1);
+    expect(makeProgressNotePdf).toHaveBeenCalledTimes(2);
   });
 
   it('offers patient instructions only when the visit has some', () => {
@@ -312,8 +341,6 @@ describe('DischargeDialog', () => {
     expect(checkbox(dataTestIds.dischargeDialog.printProgressNoteCheckbox)).toBeEnabled();
   });
 
-  // A rendered document that fails must not be quietly dropped — the visit stays undischarged so the
-  // provider can retry, because the dropdown disappears once the discharge goes through.
   it('does not discharge when a rendered document fails', async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
@@ -339,8 +366,6 @@ describe('DischargeDialog', () => {
     expect(checkbox(dataTestIds.dischargeDialog.printSchoolNoteCheckbox)).toBeDisabled();
   });
 
-  // A note's presigned URL arrives after the chart data. Gating the checkbox on the URL made a visit
-  // that has a work note look exactly like one that has none for the first instants after opening.
   it('offers a note the visit has before its presigned URL arrives', () => {
     presignedFiles = [];
     render(<DischargeDialog {...baseProps} />);
@@ -350,8 +375,6 @@ describe('DischargeDialog', () => {
     expect(checkbox(dataTestIds.dischargeDialog.printSchoolNoteCheckbox)).toBeEnabled();
   });
 
-  // Discharging without a selected note would strand it: DischargeButton drops the dropdown once the
-  // visit is discharged, so this dialog could never be reopened to print it.
   it('will not discharge while a selected note is still being prepared', async () => {
     presignedFiles = [{ type: SCHOOL_NOTE_CODE, presignedUrl: 'https://example.test/school-note' }];
     const user = userEvent.setup();
@@ -360,8 +383,7 @@ describe('DischargeDialog', () => {
     expect(confirmButton()).toBeDisabled();
     expect(screen.getByText('Preparing…')).toBeInTheDocument();
 
-    // fireEvent rather than user.click: the button is genuinely disabled, so this asserts the click
-    // cannot get through at all rather than that the pointer-events guard stopped it.
+    // fireEvent rather than user.click: asserts the click cannot get through at all.
     fireEvent.click(confirmButton());
     expect(handleDischarge).not.toHaveBeenCalled();
     expect(window.open).not.toHaveBeenCalled();
@@ -380,8 +402,6 @@ describe('DischargeDialog', () => {
     expect(window.open).toHaveBeenCalledWith('https://example.test/school-note', '_blank');
   });
 
-  // The escape hatch when a note's URL never arrives: clearing it releases the confirm button, so a
-  // permanently failing presign cannot deadlock the dialog.
   it('releases the confirm button when the unready note is cleared', async () => {
     presignedFiles = [{ type: SCHOOL_NOTE_CODE, presignedUrl: 'https://example.test/school-note' }];
     const user = userEvent.setup();
@@ -395,7 +415,7 @@ describe('DischargeDialog', () => {
     await user.click(confirmButton());
 
     await waitFor(() => expect(handleDischarge).toHaveBeenCalledTimes(1));
-    expect(window.open).toHaveBeenCalledTimes(1);
+    expect(window.open).toHaveBeenCalledTimes(2);
     expect(window.open).toHaveBeenCalledWith('https://example.test/school-note', '_blank');
   });
 
@@ -413,10 +433,9 @@ describe('DischargeDialog', () => {
     await user.click(confirmButton());
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
 
-    // The summary was filed and the patient discharged on the first attempt; only signing was retried.
     expect(createAndOpenDischargeSummary).toHaveBeenCalledTimes(1);
     expect(handleDischarge).toHaveBeenCalledTimes(1);
-    expect(window.open).toHaveBeenCalledTimes(2);
+    expect(window.open).toHaveBeenCalledTimes(3);
     expect(signNote).toHaveBeenCalledTimes(2);
   });
 
@@ -452,7 +471,6 @@ describe('DischargeDialog', () => {
     await user.click(confirmButton());
     await waitFor(() => expect(handleDischarge).toHaveBeenCalledTimes(1));
 
-    // The workflow keeps running after an unmount, so every dismissal route has to be shut off.
     expect(screen.queryByTestId(dataTestIds.dialog.closeButton)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     await user.keyboard('{Escape}');
@@ -481,8 +499,6 @@ describe('DischargeDialog', () => {
     expect(signNote).not.toHaveBeenCalled();
   });
 
-  // A blocked popup means a document the provider asked for never reaches them. Recording it as
-  // printed and discharging anyway would strand it — the dropdown is gone once discharged.
   it('prints and discharges nothing when the browser blocks a popup', async () => {
     const user = userEvent.setup();
     vi.stubGlobal('open', vi.fn().mockReturnValue(null));
@@ -523,8 +539,6 @@ describe('DischargeDialog', () => {
     expect(handleDischarge).not.toHaveBeenCalled();
   });
 
-  // A presign that fails never resolves into a URL. Treating that as "still preparing" left the row
-  // waiting and the confirm button disabled with no way forward.
   it('marks a note whose presigning failed as unavailable rather than pending', async () => {
     schoolWorkNotes = [{ type: WORK_NOTE_CODE, url: 'z3://work-note' }];
     presignedFiles = [{ type: WORK_NOTE_CODE } as (typeof presignedFiles)[number]];
@@ -535,13 +549,11 @@ describe('DischargeDialog', () => {
     expect(screen.getByText(/Unavailable/)).toBeInTheDocument();
     expect(screen.queryByText('Preparing…')).not.toBeInTheDocument();
 
-    // The dialog stays usable: the discharge proceeds without the note it cannot produce.
     expect(confirmButton()).toBeEnabled();
     await user.click(confirmButton());
     await waitFor(() => expect(handleDischarge).toHaveBeenCalledTimes(1));
   });
 
-  // DischargeButton mounts the dialog only while it is open, so closing and reopening is a remount.
   it('starts from the default selection every time it is opened', async () => {
     const user = userEvent.setup();
     const { unmount } = render(<DischargeDialog {...baseProps} />);

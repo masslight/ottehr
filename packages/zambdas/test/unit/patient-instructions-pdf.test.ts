@@ -2,10 +2,6 @@ import { describe, expect, test } from 'vitest';
 import { composePatientInstructionsPdfData } from '../../src/shared/pdf/patient-instructions-pdf';
 import { composePatientInstructions } from '../../src/shared/pdf/sections/discharge-summary/patientInstructions';
 
-// The standalone instructions sheet exists so a patient can be handed their instructions without the
-// whole discharge summary. Both documents must therefore say the same thing — these cover that they
-// are composed from one source rather than two that could drift.
-
 const allChartData = {
   chartData: {
     instructions: [{ text: 'Rest and hydrate' }, { text: 'Return if the fever persists' }, { text: '' }],

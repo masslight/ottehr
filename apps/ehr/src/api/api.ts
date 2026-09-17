@@ -2016,12 +2016,6 @@ export const createDischargeSummary = async (
   }
 };
 
-/**
- * Renders the visit's patient instructions as a standalone sheet for printing.
- *
- * Returns a presigned URL rather than a document id: nothing is filed on the chart, because the
- * instructions already live there and are carried in the discharge summary too.
- */
 export const makePatientInstructionsPdf = async (
   oystehr: Oystehr,
   parameters: PrintablePdfZambdaInput
@@ -2038,12 +2032,6 @@ export const makePatientInstructionsPdf = async (
   }
 };
 
-/**
- * Renders the visit's progress note for printing, before it has been signed.
- *
- * Returns a presigned URL and files nothing, so this can never be confused with the canonical signed
- * note the visit-note subscription creates.
- */
 export const makeProgressNotePdf = async (
   oystehr: Oystehr,
   parameters: PrintablePdfZambdaInput

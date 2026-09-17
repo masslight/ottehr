@@ -15,14 +15,6 @@ import { composeVisitData, createVisitInfoSection } from './sections/visitInfo';
 import { fetchServiceCategoryCatalog } from './service-category-catalog';
 import { PatientInstructionsPdfData, PatientInstructionsPdfInput, PdfResult } from './types';
 
-/**
- * The visit's patient instructions as a document of their own.
- *
- * The discharge summary already renders these as one of its sections and continues to do so — this
- * is the same content as a short take-home sheet, for handing to a patient who does not need the
- * full summary. Both go through `createPatientInstructionsSection`, so the wording a patient reads
- * here is by construction the wording in their summary.
- */
 export const composePatientInstructionsPdfData: DataComposer<
   PatientInstructionsPdfInput,
   PatientInstructionsPdfData
@@ -62,9 +54,7 @@ export const createPatientInstructionsPdf = async (
     patientInstructionsRenderConfig,
     {
       patientId: input.appointmentPackage.patient!.id!,
-      // Keyed by appointment: print-only, so nothing references it and a timestamped key would leave
-      // an unreachable PDF behind on every print — but a patient-wide key would hand a returning
-      // patient the instructions from a different visit. One slot per visit. See make-progress-note-pdf.
+      // One slot per visit: nothing references these, so a unique key per print would leak storage.
       fileName: `PatientInstructions-${input.appointmentPackage.appointment.id}.pdf`,
       bucketName: BUCKET_NAMES.VISIT_NOTES,
       stableKey: true,

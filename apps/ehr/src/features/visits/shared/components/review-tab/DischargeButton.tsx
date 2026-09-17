@@ -10,6 +10,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { DownloadDocumentOptions } from 'src/hooks/useGetPatientDocs';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { DischargeDialog } from './DischargeDialog';
@@ -17,8 +18,8 @@ import { DischargeDialog } from './DischargeDialog';
 export const createAndOpenDischargeSummary = async (
   oystehr: Oystehr,
   appointmentId: string,
-  downloadDocument: (id: string, options?: { skipRelated?: boolean }) => Promise<void>,
-  options?: { skipRelated?: boolean }
+  downloadDocument: (id: string, options?: DownloadDocumentOptions) => Promise<void>,
+  options?: DownloadDocumentOptions
 ): Promise<boolean> => {
   let documentId: string | undefined;
 
@@ -27,17 +28,17 @@ export const createAndOpenDischargeSummary = async (
   } catch (error) {
     console.error('Error creating Discharge Summary:', error);
     enqueueSnackbar('Error creating Discharge Summary.', { variant: 'error' });
+    options?.targetTab?.close();
     return false;
   }
 
-  // Past this point the document is filed, and only opening it can still fail. A caller that
-  // retried on that would file a second copy and supersede the one just created, so these paths
-  // report success and say where to find the document instead.
+  // The document is filed past this point, so a failure to open it is not a failure to create it.
   if (!documentId) {
     enqueueSnackbar(
       'Discharge summary created, but document is not accessible right now. You can find it later in the Patient Record > Review Docs.',
       { variant: 'info' }
     );
+    options?.targetTab?.close();
     return true;
   }
 
@@ -142,8 +143,6 @@ export const DischargeButton: FC = () => {
         </ButtonGroup>
       </Box>
 
-      {/* Mounted only while open: the dialog subscribes to the chart queries and draft stores behind
-          useProgressNoteSigning, which the Review & Sign button on this same page already holds. */}
       {dialogOpen && (
         <DischargeDialog
           onClose={() => setDialogOpen(false)}

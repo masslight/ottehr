@@ -2,14 +2,7 @@ import { StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
 import { AssetPaths } from './types';
 
-/**
- * The shared look of the patient-facing clinical documents — the discharge summary and the
- * standalone patient instructions sheet.
- *
- * Extracted so the two cannot drift apart: a patient handed both in the same visit should not see
- * two different typefaces or separator colours. Values are exactly those the discharge summary has
- * always used, so adopting this changes nothing about how it renders.
- */
+/** Shared look of the patient-facing clinical documents: discharge summary and instructions. */
 export const clinicalDocumentAssetPaths: AssetPaths = {
   fonts: {
     regular: './assets/Rubik-Regular.otf',

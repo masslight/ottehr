@@ -17,16 +17,13 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'make-patient-instructions-pdf';
 
 /**
- * Renders the visit's patient instructions as a standalone sheet and returns a presigned URL to it.
- *
- * Deliberately does not file a DocumentReference: the instructions already live on the chart, and
- * the discharge summary carries them too, so filing one per print would just accumulate duplicates.
+ * Renders the visit's patient instructions as a standalone sheet. Files no DocumentReference: the
+ * instructions already live on the chart and in the discharge summary.
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { appointmentId, secrets } = validateRequestParameters(input);
+  const { appointmentId, authorization, secrets } = validateRequestParameters(input);
 
-  // Renders PHI for whatever appointment id it is handed, and patients hold project tokens too.
-  if (!(await callerHasRole(input.headers?.Authorization, secrets, CHART_DOCUMENT_ROLES))) {
+  if (!(await callerHasRole(authorization, secrets, CHART_DOCUMENT_ROLES))) {
     throw NOT_AUTHORIZED;
   }
 
@@ -38,8 +35,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
   }
 
-  // Guarded here rather than left to the non-null assertions in the PDF layer, which would surface
-  // an opaque TypeError instead of saying which visit is unusable.
   const { encounter, patient } = visitResources;
   if (!patient?.id) {
     throw new Error(`No patient has been found for appointment ${appointmentId}`);

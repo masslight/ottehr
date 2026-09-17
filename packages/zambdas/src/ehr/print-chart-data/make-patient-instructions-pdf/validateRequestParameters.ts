@@ -18,6 +18,6 @@ export function validateRequestParameters(input: ZambdaInput): PrintablePdfInput
   return {
     ...safeValidate(PrintablePdfInputSchema, safeJsonParse(input.body) as unknown),
     secrets: input.secrets,
-    userToken: input.headers.Authorization.replace('Bearer ', ''),
+    authorization: input.headers.Authorization,
   };
 }

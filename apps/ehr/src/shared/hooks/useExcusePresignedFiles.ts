@@ -21,8 +21,7 @@ export const useExcusePresignedFiles = (
       try {
         authToken = await getAccessTokenSilently();
       } catch (error) {
-        // Settle with URL-less entries rather than never resolving: a caller waiting on a URL can
-        // then tell a failed presign from one that has not arrived yet, instead of waiting forever.
+        // Settle with URL-less entries so callers can tell a failed presign from a pending one.
         console.error('Failed to get a token for school/work note presigning', error);
         setPresignedFiles(schoolWorkNotes.map((item) => ({ ...item })));
         return;
@@ -34,7 +33,6 @@ export const useExcusePresignedFiles = (
         try {
           urls.push({ ...item, presignedUrl: await getPresignedURL(item.url!, authToken) });
         } catch (error) {
-          // Per item, so one unreachable note does not cost the others their URL too.
           console.error(`Failed to presign school/work note ${item.url}`, error);
           urls.push({ ...item });
         }

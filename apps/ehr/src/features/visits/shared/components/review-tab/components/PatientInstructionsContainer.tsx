@@ -32,8 +32,7 @@ export const PatientInstructionsContainer: FC = () => {
 
   const instructions = chartData?.instructions;
   const disposition = chartFields?.disposition;
-  // Entries whose presigning failed come back without a URL; a link to `undefined` would just
-  // reload the current page, so they are left out.
+  // Entries whose presigning failed come back without a URL and cannot be linked.
   const schoolWorkExcuses = useExcusePresignedFiles(chartData?.schoolWorkNotes).filter((excuse) => excuse.presignedUrl);
 
   const { showInstructions, showDischargeInstructions, showFollowUp, showSchoolWorkExcuse } =

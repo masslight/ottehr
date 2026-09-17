@@ -30,17 +30,15 @@ import { usePractitionerActions } from './usePractitioner';
 import { useProgressNoteChartFields } from './useProgressNoteChartFields';
 
 export interface ProgressNoteSigning {
-  /** The note is already signed (or awaiting supervisor approval) and cannot be signed again. */
+  /** The note is already signed, or awaiting supervisor approval. */
   completed: boolean;
-  /** Reasons this user may not sign this note at all, whatever state the chart is in. */
+  /** Reasons this user may not sign this note, whatever state the chart is in. */
   permissionMessages: string[];
   /** Reasons the chart itself is not ready to be signed. */
   readinessMessages: string[];
-  /** Every reason the note cannot be signed right now, most fundamental first. */
+  /** Permission, visit-status and readiness reasons combined. */
   errorMessages: string[];
-  /** Whether the supervisor-approval option applies to the signing practitioner. */
   supervisorApprovalApplies: boolean;
-  /** Whether a medical decision is required before the note can be signed. */
   mdmRequired: boolean;
   inPersonStatus: ReturnType<typeof getInPersonVisitStatus> | undefined;
   isSigning: boolean;
@@ -48,13 +46,8 @@ export interface ProgressNoteSigning {
 }
 
 /**
- * Everything needed to sign a visit note: whether it can be signed, why not, and the action itself.
- *
- * Shared by the standalone Review & Sign button and by the Discharge dialog's Review & Sign
- * section, so the two cannot disagree about when a note is signable. The reasons are returned in
- * categories rather than as one list because the callers gate on different subsets — the Discharge
- * dialog signs immediately after the discharge it is about to perform, so the visit-status reason
- * ("you must discharge first") folded into `errorMessages` does not apply to it.
+ * Shared by the Review & Sign button and the Discharge dialog. Reasons are grouped by category
+ * because the two gate on different subsets.
  */
 export const useProgressNoteSigning = (): ProgressNoteSigning => {
   const { appointment, encounter, appointmentRefetch } = useAppointmentData();
@@ -76,10 +69,7 @@ export const useProgressNoteSigning = (): ProgressNoteSigning => {
   const { isAssignedProviderEligible } = useAssignedProvider();
   const user = useEvolveUser();
   const practitioner = user?.profileResource;
-  // Signing is limited to provider-level roles; a Clinician charts the visit but may not sign it.
-  // The sign zambda refuses the same call, so this only spares the round trip and explains why.
-  // Undefined while the user is still loading — treated as permitted so the button isn't briefly
-  // greyed out with a permission message for a provider.
+  // Permitted while the user is still loading, so the button is not briefly greyed out.
   const canSignNote = user ? user.hasRole(VISIT_NOTE_SIGNING_ROLES) : true;
 
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
@@ -125,16 +115,10 @@ export const useProgressNoteSigning = (): ProgressNoteSigning => {
       return [];
     }
 
-    // Reported alone: nothing else the user could fix would make signing possible, so listing the
-    // visit's other gaps alongside it would only obscure the reason.
     if (!canSignNote) {
       return [NO_SIGN_PERMISSION_MESSAGE];
     }
 
-    // The assigned provider is the note's rendering provider, and the sign zambda rejects a visit
-    // whose provider no longer holds the Provider role. Checked here too so the caller reports it
-    // rather than failing the request — the enclosing InPersonLayout normally hides this whole page
-    // in that state, so this only matters if that gate is ever relaxed.
     if (!isAssignedProviderEligible) {
       return ['A provider must be assigned to this visit'];
     }
@@ -248,8 +232,6 @@ export const useProgressNoteSigning = (): ProgressNoteSigning => {
     encounter.id,
   ]);
 
-  // Concatenated rather than short-circuited: every category already returns empty when a more
-  // fundamental one applies, so the order here is the order the reasons are reported in.
   const errorMessages = useMemo(
     () => [...permissionMessages, ...visitStatusMessages, ...readinessMessages],
     [permissionMessages, visitStatusMessages, readinessMessages]

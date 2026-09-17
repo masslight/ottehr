@@ -1,11 +1,6 @@
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// A resolved promise from this hook is read by its caller as "the visit is now waiting for a
-// supervisor", and the Discharge dialog closes itself on the strength of that. Swallowing a failure
-// here would tell a provider their note had been routed for approval when it had not, so every
-// failure path has to reject.
-
 const pendingSupervisorApproval = vi.fn().mockResolvedValue(undefined);
 let oystehrZambda: object | undefined = {};
 

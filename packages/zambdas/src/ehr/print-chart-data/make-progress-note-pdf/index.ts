@@ -20,19 +20,13 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'make-progress-note-pdf';
 
 /**
- * Renders the visit's progress note for printing and returns a presigned URL to it.
- *
- * Callable before the visit is signed, which is the point: staff print the note at discharge, and
- * signing happens afterwards. The bytes are produced by the same assembly the visit-note
- * subscription uses, so what is printed now matches what is persisted at signing — and nothing is
- * filed here, so this can never be mistaken for the canonical signed note.
+ * Renders the visit's progress note for printing, callable before the visit is signed. Files no
+ * DocumentReference, so it cannot be mistaken for the canonical signed note.
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { appointmentId, secrets } = validateRequestParameters(input);
+  const { appointmentId, authorization, secrets } = validateRequestParameters(input);
 
-  // This renders PHI for whatever appointment id it is handed, and every role in the project —
-  // patients included — may invoke zambdas, so the caller has to be clinical staff.
-  if (!(await callerHasRole(input.headers?.Authorization, secrets, CHART_DOCUMENT_ROLES))) {
+  if (!(await callerHasRole(authorization, secrets, CHART_DOCUMENT_ROLES))) {
     throw NOT_AUTHORIZED;
   }
 
@@ -49,6 +43,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw new Error(`No patient has been found for appointment ${appointmentId}`);
   }
 
+  // Once the visit is signed the filed note is the record; regenerating it would restate the
+  // current chart under the original signature.
   const filedNote = (
     await oystehr.fhir.search<DocumentReference>({
       resourceType: 'DocumentReference',
@@ -59,28 +55,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ],
     })
   ).unbundle();
-  const noteIsSigned = filedNote.length > 0;
+  const filedNoteAttachment = filedNote[0]?.content?.[0]?.attachment;
+
+  if (filedNoteAttachment?.url) {
+    const filedResponse: PrintablePdfZambdaOutput = {
+      presignedURL: await getPresignedURL(filedNoteAttachment.url, m2mToken),
+      title: filedNoteAttachment.title ?? 'ProgressNote.pdf',
+    };
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify(filedResponse),
+    };
+  }
 
   const bytes = await buildProgressNoteBytes({
     oystehr,
     token: m2mToken,
     secrets,
     visitResources,
-    // Derived rather than hardcoded false: `composeSignature` treats `signed === false` as an
-    // override that prints "Pending provider signature", so a signed visit printed through this
-    // endpoint would understate its own status. The filed `75498-6` DocumentReference is the same
-    // signal the fax collector uses — it is created when the visit is signed.
-    signed: noteIsSigned,
+    signed: false,
   });
 
   const pdfInfo = await uploadPdfToStorage(
     bytes,
     {
       patientId: patient.id,
-      // Keyed by appointment, not just patient: a timestamped key would strand an unreachable PDF on
-      // every print (nothing references these), but a patient-wide key would let one visit's note
-      // overwrite another's and serve the wrong visit to a presigned URL already handed out. One
-      // slot per visit, overwritten by the next print of that same visit.
+      // One slot per visit: nothing references these, so a unique key per print would leak storage.
       fileName: `ProgressNote-${appointmentId}.pdf`,
       bucketName: BUCKET_NAMES.VISIT_NOTES,
       stableKey: true,
