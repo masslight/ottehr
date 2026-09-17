@@ -33,7 +33,8 @@ interface NarrativeEditorProps {
  * the generator said with nothing in the transcript to show for it underlined, so they can be found without
  * hovering. Clicking into it (or "Edit") swaps in the text area, with the caret where the click landed, and
  * leaving the text area swaps the read view back. The generated sentences are found again in the draft as it
- * is edited, and the unbacked ones are also called out beneath, so they can be checked without leaving the text.
+ * is edited; a line beneath says what the underline means, since the hover that explains each one is invisible until
+ * found.
  */
 export const NarrativeEditor: FC<NarrativeEditorProps> = ({ disabled, onRegenerate, onHoverSources }) => {
   const draft = useScribeRecommendationsStore((state) => state.narrativeDraft);
@@ -150,28 +151,9 @@ export const NarrativeEditor: FC<NarrativeEditorProps> = ({ disabled, onRegenera
       )}
 
       {unbacked.length > 0 && (
-        <Box
-          data-testid={testIds.narrativeUnbackedNote}
-          sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, color: 'warning.main' }}
-        >
-          <Typography variant="caption">
-            ⚠ {unbacked.length} {unbacked.length === 1 ? 'sentence isn’t' : 'sentences aren’t'} an exact match with the
-            transcript:
-          </Typography>
-          {unbacked.map((line, index) => (
-            <Box key={index} sx={{ display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="caption" sx={{ fontStyle: 'italic' }}>
-                “{line.text}”
-              </Typography>
-              {/* What was actually said, when anything close was; otherwise the sentence stands alone as not found. */}
-              <Typography variant="caption" sx={{ color: 'text.secondary', pl: 1.5 }}>
-                {line.original.approximateSource
-                  ? `transcript: “${line.original.approximateSource}”`
-                  : 'not found in the transcript'}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
+        <Typography data-testid={testIds.narrativeUnbackedNote} variant="caption" sx={{ color: 'error.main' }}>
+          Red underline indicates an inexact match with transcript.
+        </Typography>
       )}
     </Box>
   );
@@ -266,7 +248,7 @@ const NarrativeSentence: FC<NarrativeSentenceProps> = ({ index, line, onHoverSou
           ...(isUnbacked
             ? {
                 textDecoration: 'underline dotted',
-                textDecorationColor: theme.palette.warning.main,
+                textDecorationColor: theme.palette.error.main,
                 textUnderlineOffset: '3px',
               }
             : {}),
