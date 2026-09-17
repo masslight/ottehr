@@ -129,11 +129,17 @@ export const VERTEX_AI_MODEL = 'gemini-3.1-flash-lite';
 
 const TERMINAL_FINISH_REASONS = new Set(['SAFETY', 'RECITATION', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII']);
 
+interface VertexAIRequestOptions {
+  /** Sequential retries wait for an error; hedged requests overlap to reduce latency. */
+  retryMode?: 'sequential' | 'hedged';
+}
+
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
   responseSchema?: object,
-  model: string = VERTEX_AI_MODEL
+  model: string = VERTEX_AI_MODEL,
+  options: VertexAIRequestOptions = {}
 ): Promise<string> {
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
@@ -159,7 +165,7 @@ export async function invokeChatbotVertexAI(
   const terminalFailure = new Promise<never>((_resolve, reject) => {
     failTerminally = reject;
   });
-  const requests = backoffTimes.map(async (backoffTime) => {
+  const request = async (backoffTime: number): Promise<string> => {
     await new Promise((resolve) => setTimeout(resolve, backoffTime));
 
     // Reject rather than resolve, so a skipped attempt can never become Promise.any's winning value.
@@ -237,16 +243,30 @@ export async function invokeChatbotVertexAI(
       console.warn('Vertex AI attempt failed:', error);
       throw error;
     }
-  });
+  };
+
+  const requestSequentially = async (): Promise<string> => {
+    const errors: unknown[] = [];
+    for (const backoffTime of backoffTimes) {
+      try {
+        return await request(backoffTime);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    throw new AggregateError(errors, 'All Vertex AI attempts failed');
+  };
 
   try {
-    return await Promise.race([Promise.any(requests), terminalFailure]);
+    const attempts =
+      options.retryMode === 'sequential' ? requestSequentially() : Promise.any(backoffTimes.map(request));
+    return await Promise.race([attempts, terminalFailure]);
   } catch (error) {
     if (!(error instanceof AggregateError)) throw error;
     // AggregateError's own message is just "All promises were rejected", so unpack the reasons — otherwise
     // the most common failure mode stays as opaque as the TypeError this used to throw.
     const reasons = error.errors.map((reason) => (reason instanceof Error ? reason.message : String(reason)));
-    throw new Error(`Vertex AI request failed after ${requests.length} attempts: ${reasons.join('; ')}`);
+    throw new Error(`Vertex AI request failed after ${backoffTimes.length} attempts: ${reasons.join('; ')}`);
   }
 }
 
@@ -340,19 +360,31 @@ async function clearPendingRecordingMarker(
   });
 }
 
+const CHATBOT_TIMEOUT_MS = 10000;
+const CHATBOT_MAX_RETRIES = 1;
+
 export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets | null): Promise<AIMessageChunk> {
   process.env.ANTHROPIC_API_KEY = getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets);
   if (chatbot == null) {
     chatbot = new ChatAnthropic({
       model: 'claude-haiku-4-5-20251001',
       temperature: 0,
+      // Must stay top-level: LangChain forces the SDK client's maxRetries to 0, so clientOptions.maxRetries is ignored.
+      maxRetries: CHATBOT_MAX_RETRIES,
       clientOptions: {
-        timeout: 10000,
-        maxRetries: 1,
+        timeout: CHATBOT_TIMEOUT_MS,
       },
     });
   }
-  return chatbot.invoke(input);
+  const startedAt = Date.now();
+  try {
+    const response = await chatbot.invoke(input);
+    console.log(`chatbot responded in ${Date.now() - startedAt}ms`);
+    return response;
+  } catch (error) {
+    console.error(`chatbot call failed after ${Date.now() - startedAt}ms`, error);
+    throw error;
+  }
 }
 
 export async function createResourcesFromAiInterview(

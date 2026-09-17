@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Organization } from 'fhir/r4b';
 import { getOystehrApiHelpers } from 'utils/lib/helpers/oystehrApi';
+import type { EvaluationResult, ProcedureFactsInput } from 'utils/lib/procedure-coding/model.types';
 import { AISuggestionNotes, AISuggestionNotesInput } from 'utils/lib/types/api/ai-suggestions-notes';
 import {
   DeleteApprovedPatientEducationInput,
@@ -68,7 +69,6 @@ import {
   MakeMedicationHistoryPdfZambdaInput,
   MakeMedicationHistoryPdfZambdaOutput,
 } from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
-import { ProcedureDetail, ProcedureSuggestion } from 'utils/lib/types/api/procedures.types';
 import {
   SignAppointmentInput,
   SignAppointmentResponse,
@@ -402,9 +402,8 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('recommend billing suggestions', parameters);
   };
 
-  const recommendBillingCodes = async (parameters: ProcedureDetail): Promise<ProcedureSuggestion[]> => {
-    return await makeZapRequest('recommend billing codes', parameters);
-  };
+  const recommendBillingCodes = async (parameters: ProcedureFactsInput): Promise<EvaluationResult> =>
+    makeZapRequest('recommend billing codes', parameters);
 
   const createUpdateMedicationOrder = async (
     parameters: UpdateMedicationOrderInput
@@ -432,7 +431,12 @@ export const getOystehrTelemedAPI = (
 
   const getPatientCoverages = async (
     parameters: GetPatientAccountZambdaInput
-  ): Promise<{ coverages: OrderedCoveragesWithSubscribers; insuranceOrgs: Organization[] }> => {
+  ): Promise<{
+    coverages: OrderedCoveragesWithSubscribers;
+    insuranceOrgs: Organization[];
+    employerOrganization?: Organization;
+    occupationalMedicineEmployerOrganization?: Organization;
+  }> => {
     const response = await makeZapRequest<PatientAccountResponse, GetPatientAccountZambdaInput>(
       'get patient account',
       parameters
@@ -440,6 +444,8 @@ export const getOystehrTelemedAPI = (
     return {
       coverages: response.coverages,
       insuranceOrgs: response.insuranceOrgs,
+      employerOrganization: response.employerOrganization,
+      occupationalMedicineEmployerOrganization: response.occupationalMedicineEmployerOrganization,
     };
   };
 

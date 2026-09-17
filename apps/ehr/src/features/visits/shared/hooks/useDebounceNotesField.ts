@@ -90,7 +90,7 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
   const latestValueFromUserRef = useRef<string>('');
 
   const onValueChange = (text: string, { refetchChartDataOnSave }: { refetchChartDataOnSave?: boolean } = {}): void => {
-    latestValueFromUserRef.current = text.trim();
+    latestValueFromUserRef.current = text;
 
     if (inputDebounceRef.current) {
       clearTimeout(inputDebounceRef.current);
@@ -119,7 +119,7 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
         },
       };
 
-      if (latestValueFromUserRef.current) {
+      if (latestValueFromUserRef.current.trim()) {
         saveChartData(variables, {
           onSuccess: (data) => {
             const valueToSave = data.chartData[name];
@@ -150,7 +150,7 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
         deleteChartData(variables, {
           onSuccess: () => {
             // skip ui update if value was changed, we need to set only actual value
-            if (latestValueFromUserRef.current === '') {
+            if (latestValueFromUserRef.current.trim() === '') {
               setQueryCache({ [name]: undefined });
             }
 

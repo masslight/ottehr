@@ -41,6 +41,7 @@ const FIELD_SCREEN: Record<string, ClaimHistoryLink['screen']> = {
   billingProvider: 'billing-providers',
   renderingProvider: 'rendering-providers',
   facility: 'service-facilities',
+  nonInsurancePayer: 'non-insurance-organizations',
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

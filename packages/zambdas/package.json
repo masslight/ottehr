@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.42.4",
+  "version": "1.43.7",
   "private": true,
   "sideEffects": false,
   "scripts": {
@@ -16,6 +16,7 @@
     "recreate-in-house-labs": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/recreate-in-house-labs.ts",
     "recreate-quick-texts": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/recreate-quick-texts.ts",
     "recreate-em-codes": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/recreate-em-codes.ts",
+    "seed-form-templates": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/seed-form-templates.ts",
     "cancel-telemed-appointments": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/cancel-telemed-appointments.ts",
     "charge-due-and-past-due-invoices": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/charge-due-and-past-due-invoices.ts",
     "report-daily-payments": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/report-daily-payments.ts",
@@ -55,7 +56,7 @@
     "probe-outreach-retries": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/probe-outreach-retries.ts",
     "test": "ENV=${ENV:-local} vitest run",
     "test:unit:ci": "ENV=${ENV:-local} vitest run --project unit --maxWorkers=6 --coverage --coverage.reportsDirectory=./coverage/unit --passWithNoTests --reporter=dot --reporter=github-actions",
-    "test:integration:ci": "ENV=${ENV:-local} vitest run --project integration --minWorkers=12 --maxWorkers=12 --no-isolate --coverage --passWithNoTests --reporter=dot --reporter=github-actions",
+    "test:integration:ci": "ENV=${ENV:-local} vitest run --project integration --maxWorkers=12 --no-isolate --coverage --passWithNoTests --reporter=dot --reporter=github-actions",
     "test:watch": "ENV=${ENV:-local} vitest watch",
     "test:coverage": "c8 npm run test",
     "test:integration:coverage": "ENV=${ENV:-local} c8 --src=src --include='src/**' --exclude='src/**/*.test.ts' --exclude='src/local-server/**' --exclude='src/scripts/**' --all --reporter=text-summary --reporter=lcov --reporter=html --reports-dir=coverage/integration vitest run test/integration/",
@@ -84,6 +85,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.272.0",
+    "@cantoo/pdf-lib": "^2.9.1",
     "@sentry/esbuild-plugin": "^3.5.0",
     "archiver": "^7.0.1",
     "commander": "^14.0.0",

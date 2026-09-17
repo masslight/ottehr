@@ -17,7 +17,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
@@ -38,11 +38,13 @@ import { formatDateForLabs } from 'utils/lib/utils/dateUtils';
 import { UnsolicitedPatientMatchSearchCard } from '../components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
 import { UnsolicitedVisitMatchCard } from '../components/unsolicited-results/UnsolicitedVisitMatchCard';
 
+type OystehrSdkError = Oystehr.OystehrSdkError;
+
 export const UnsolicitedResultsMatch: React.FC = () => {
   const { diagnosticReportId } = useParams();
   const queryClient = useQueryClient();
   const { mutate: cancelTask, isPending: isCancelling } = useCancelMatchUnsolicitedResultTask();
-  const { mutate: matchResult, isPending: isMatching } = useFinalizeUnsolicitedResultMatch();
+  const { mutate: matchResult, isPending: isMatching, error: matchError } = useFinalizeUnsolicitedResultMatch();
   const navigate = useNavigate();
   const [selectedPatient, setSelectedPatient] = useState<SearchResultParsedPatient | undefined>();
   const [confirmedSelectedPatient, setConfirmedSelectedPatient] = useState<SearchResultParsedPatient | undefined>();
@@ -61,37 +63,6 @@ export const UnsolicitedResultsMatch: React.FC = () => {
     requestType: UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS,
     diagnosticReportId,
   });
-
-  if (resourceSearchError) {
-    const alreadyMatched =
-      (resourceSearchError as OystehrSdkError)?.code === APIErrorCode.UNSOLICITED_RESULTS_ALREADY_MATCHED;
-
-    return (
-      <PageContainer>
-        <DetailPageContainer>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h4" sx={{ fontWeight: '600px', color: 'primary.dark' }}>
-              {PAGE_TITLE}
-            </Typography>
-          </Box>
-          <Paper sx={{ p: 3, mt: 1 }}>
-            <Typography color="error">There was an error loading the page, please try again.</Typography>
-            {resourceSearchError.message && (
-              <Typography color="error">Error message: {resourceSearchError.message}</Typography>
-            )}
-            {alreadyMatched && (
-              <Link
-                sx={{ mt: 1, cursor: 'pointer' }}
-                onClick={() => navigate(`/unsolicited-results/${diagnosticReportId}/review`)}
-              >
-                Click here to view the results
-              </Link>
-            )}
-          </Paper>
-        </DetailPageContainer>
-      </PageContainer>
-    );
-  }
 
   const labProvidedInfo = [
     {
@@ -174,7 +145,9 @@ export const UnsolicitedResultsMatch: React.FC = () => {
           },
           onError: (error) => {
             console.error('Matching unsolicited result failed:', error);
-            enqueueSnackbar('An error occurred matching this result. Please try again.', { variant: 'error' });
+            if ((error as OystehrSdkError)?.code !== APIErrorCode.UNSOLICITED_RESULTS_ALREADY_MATCHED) {
+              enqueueSnackbar('An error occurred matching this result. Please try again.', { variant: 'error' });
+            }
           },
         }
       );
@@ -183,6 +156,57 @@ export const UnsolicitedResultsMatch: React.FC = () => {
       enqueueSnackbar('An error occurred rejecting this task. Please try again.', { variant: 'error' });
     }
   };
+
+  const renderPageError = (
+    errorMessageGeneral: string,
+    errorMessageAdditional: string | undefined,
+    extraContent?: JSX.Element
+  ): JSX.Element => {
+    return (
+      <PageContainer>
+        <DetailPageContainer>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h4" sx={{ fontWeight: '600px', color: 'primary.dark' }}>
+              {PAGE_TITLE}
+            </Typography>
+          </Box>
+          <Paper sx={{ p: 3, mt: 1 }}>
+            <Typography color="error">{errorMessageGeneral}</Typography>
+            {errorMessageAdditional && <Typography color="error">Error message: {errorMessageAdditional}</Typography>}
+            {extraContent}
+          </Paper>
+        </DetailPageContainer>
+      </PageContainer>
+    );
+  };
+
+  const viewResultsLink = (
+    <Link
+      sx={{ mt: 1, cursor: 'pointer' }}
+      onClick={() => navigate(`/unsolicited-results/${diagnosticReportId}/review`)}
+    >
+      Click here to view the results
+    </Link>
+  );
+
+  if (resourceSearchError) {
+    const link =
+      (resourceSearchError as OystehrSdkError)?.code === APIErrorCode.UNSOLICITED_RESULTS_ALREADY_MATCHED
+        ? viewResultsLink
+        : undefined;
+
+    const errorMessageGeneral = 'There was an error loading the page, please try again.';
+    const errorMessageAdditional = resourceSearchError?.message;
+
+    return renderPageError(errorMessageGeneral, errorMessageAdditional, link);
+  }
+
+  if (matchError && (matchError as OystehrSdkError)?.code === APIErrorCode.UNSOLICITED_RESULTS_ALREADY_MATCHED) {
+    const errorMessageGeneral = 'There was an error matching this result.';
+    const errorMessageAdditional = matchError?.message;
+
+    return renderPageError(errorMessageGeneral, errorMessageAdditional, viewResultsLink);
+  }
 
   return (
     <PageContainer>

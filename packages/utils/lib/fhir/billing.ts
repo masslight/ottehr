@@ -1,5 +1,6 @@
 import {
   Address,
+  Claim,
   Coding,
   Coverage,
   CoverageEligibilityResponse,
@@ -7,6 +8,7 @@ import {
   Location,
   Organization,
   Practitioner,
+  Reference,
 } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CPT_MODIFIER,
@@ -19,6 +21,10 @@ import {
 } from '../helpers/rcm/constants';
 import { ELIGIBILITY_BENEFIT_CODES, INSURANCE_PLAN_ID_CODING } from '../telemed/constants';
 import { CoverageCheckCoverageDetails } from '../types/api/patient-account';
+import {
+  CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+  CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
+} from '../types/data/billing/non-insurance-org.types';
 import { InsuranceEligibilityCheckStatus } from '../types/data/paperwork/paperwork.types';
 import {
   BillingProviderData,
@@ -30,6 +36,7 @@ import {
   PatientPaymentBenefit,
 } from '../types/data/telemed/eligibility.types';
 import { APIErrorCode } from '../types/errors';
+import { CPT_BILLABLE_UNITS_EXTENSION_URL } from './constants';
 import { getNPI, getTaxID } from './helpers';
 import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from './insurance';
 
@@ -434,6 +441,11 @@ export const extractCptCodeModifiersFromCoding = (coding: Coding): { code: strin
   return modifiers;
 };
 
+export const getCptBillableUnitsFromCoding = (coding: Coding | undefined): number | undefined => {
+  const billableUnits = coding?.extension?.find((ext) => ext.url === CPT_BILLABLE_UNITS_EXTENSION_URL)?.valueDecimal;
+  return billableUnits != null && Number.isFinite(billableUnits) && billableUnits > 0 ? billableUnits : undefined;
+};
+
 // Maps the claim.md insurance type code returned by the eligibility check (key)
 // to the candid/availity insurance plan type code used by the insurance form dropdown (value).
 export const INSURANCE_TYPE_CODE_TO_CANDID_CODE: Record<string, string> = {
@@ -481,6 +493,28 @@ export const INSURANCE_TYPE_CODE_TO_CANDID_CODE: Record<string, string> = {
 export const mapInsuranceTypeCodeToCandidCode = (insuranceTypeCode: string | undefined): string | undefined => {
   if (!insuranceTypeCode) return undefined;
   return INSURANCE_TYPE_CODE_TO_CANDID_CODE[insuranceTypeCode];
+};
+
+// The claim's non-insurance payer (e.g. the visit's occupational-medicine employer): a reference to
+// the NIO Organization in the billing workspace. Distinct from claim.insurer, which is reserved for
+// insurance payer URLs.
+export const getClaimNonInsurancePayer = (claim?: Claim): Reference | undefined =>
+  claim?.extension?.find((ext) => ext.url === CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL)?.valueReference;
+
+export const claimNonInsurancePayerExtension = (payer: Reference): Extension => ({
+  url: CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+  valueReference: payer,
+});
+
+export const claimNonInsurancePayerTag = (nioId: string): Coding => ({
+  system: CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
+  code: nioId,
+});
+
+export const applyClaimNonInsurancePayerTag = (claim: Claim, nioId: string | null): void => {
+  const tags = (claim.meta?.tag ?? []).filter((tag) => tag.system !== CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM);
+  if (nioId) tags.push(claimNonInsurancePayerTag(nioId));
+  claim.meta = { ...claim.meta, tag: tags };
 };
 
 export const getDefaultClaimSubmissionExtensions = (): Extension[] => [

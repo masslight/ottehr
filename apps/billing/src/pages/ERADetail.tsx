@@ -27,7 +27,7 @@ import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { EraDetailResponse, EraPayee } from 'utils/lib/types/data/billing/billing.types';
+import { EraClaimListItem, EraDetailResponse, EraPayee } from 'utils/lib/types/data/billing/billing.types';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { getBillingEraDetail, unmatchClaimResponse } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
@@ -66,7 +66,9 @@ export default function ERADetail(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState('1');
   const [claimSearch, setClaimSearch] = useState('');
-  const [claimResponseToMatch, setClaimResponseToMatch] = useState<string | null>(null);
+  const [claimToMatch, setClaimToMatch] = useState<{ claimResponseId: string; eraClaim: EraClaimListItem } | null>(
+    null
+  );
   const [claimResponsesToUnmatch, setClaimResponsesToUnmatch] = useState<string[] | null>(null);
   const [unmatching, setUnmatching] = useState(false);
   const [moreActionsPopoverData, setMoreActionsPopoverData] = useState<{
@@ -86,7 +88,7 @@ export default function ERADetail(): ReactElement {
             <Button
               onClick={(e) => {
                 e.stopPropagation();
-                setClaimResponseToMatch(row.claimResponseIds[0]);
+                setClaimToMatch({ claimResponseId: row.claimResponseIds[0], eraClaim: row });
               }}
             >
               Match
@@ -290,11 +292,12 @@ export default function ERADetail(): ReactElement {
           </TabPanel>
         </TabContext>
       </Box>
-      {claimResponseToMatch && (
+      {claimToMatch && (
         <MatchClaimDialog
-          claimResponseId={claimResponseToMatch}
+          claimResponseId={claimToMatch.claimResponseId}
+          eraClaim={claimToMatch.eraClaim}
           onMatched={() => fetchDetail()}
-          onClose={() => setClaimResponseToMatch(null)}
+          onClose={() => setClaimToMatch(null)}
         />
       )}
       {claimResponsesToUnmatch && (

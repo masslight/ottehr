@@ -1,3 +1,4 @@
+import { SIGN_REVIEW_PROMPT_MAX_LENGTH } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils/lib/utils/progress-note-config';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../../src/ehr/progress-note-config/admin-update-progress-note-config/validateRequestParameters';
@@ -76,5 +77,19 @@ describe('admin-update-progress-note-config - validateRequestParameters', () => 
       vitalsUnitInputOrder: 'something-else',
     });
     expect(() => validateRequestParameters(input)).toThrow('vitalsUnitInputOrder');
+  });
+
+  test('should leave signReviewPrompt undefined when omitted, so the stored prompt is left alone', () => {
+    const { signReviewPrompt: _signReviewPrompt, ...bodyWithoutPrompt } = DEFAULT_PROGRESS_NOTE_CONFIG;
+    const input = createMockZambdaInput(bodyWithoutPrompt);
+    expect(validateRequestParameters(input).signReviewPrompt).toBeUndefined();
+  });
+
+  test('should throw when signReviewPrompt exceeds the maximum length', () => {
+    const input = createMockZambdaInput({
+      ...DEFAULT_PROGRESS_NOTE_CONFIG,
+      signReviewPrompt: 'x'.repeat(SIGN_REVIEW_PROMPT_MAX_LENGTH + 1),
+    });
+    expect(() => validateRequestParameters(input)).toThrow('signReviewPrompt');
   });
 });

@@ -76,6 +76,14 @@ describe('get-appointments - validateRequestParameters', () => {
     expect(result.supervisorApprovalEnabled).toBe(false);
   });
 
+  test('should ignore the retired include field an older client may still send', () => {
+    const input = createMockZambdaInput({ ...validBody, include: { orders: true, vitals: true } });
+    const result = validateRequestParameters(input);
+
+    expect(result).not.toHaveProperty('include');
+    expect(result.locationIds).toEqual(validBody.locationIds);
+  });
+
   test('should throw when body is missing', () => {
     const input = createMockZambdaInput(null, { body: '' });
     expect(() => validateRequestParameters(input)).toThrow();

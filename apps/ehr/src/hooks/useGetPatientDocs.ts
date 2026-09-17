@@ -5,7 +5,7 @@ import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference
 import { DateTime } from 'luxon';
 import { useCallback, useMemo, useState } from 'react';
 import { createCustomFolder, deletePatientDocument, renameCustomFolder } from 'src/api/api';
-import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
+import { FOLDERS_CONFIG, HIDE_WHILE_PRELIMINARY_TAG } from 'utils/lib/fhir/constants';
 import {
   CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
   isCustomFolderList,
@@ -27,6 +27,12 @@ import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
 
 const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = 'create-upload-document-url';
+
+export type DownloadDocumentOptions = {
+  skipRelated?: boolean;
+  /** A tab reserved inside the click; a popup opened after this call's awaits would be blocked. */
+  targetTab?: Window | null;
+};
 
 export type PatientDocumentsFolder = {
   id: string;
@@ -66,7 +72,7 @@ export type PatientDocumentInfo = {
   //TODO: remove
   folderName?: string;
   whenAddedDate?: string;
-  //TODO: where to get data for this field?
+  /** Display name of the practitioner who filed the document, from `DocumentReference.author`. */
   whoAdded?: string;
   attachments?: PatientDocumentAttachment[];
   encounterId?: string;
@@ -150,6 +156,22 @@ const DOCUMENT_SEARCH_PAGE_SIZE = 200;
 // Backstop against an unbounded loop if the server keeps advertising a next page. Far above any
 // real patient chart; reaching it is a bug, not a big chart.
 const DOCUMENT_SEARCH_MAX = 20000;
+
+/**
+ * A working copy its producer has asked to keep hidden until it is finished.
+ *
+ * Both halves are required. The tag alone would hide a document that has since been completed; the status
+ * alone would hide anything unfinished, and `preliminary` is not a synonym for "not worth reading" — an
+ * unreviewed lab result carries it, and burying those would hide results a clinician is waiting on.
+ *
+ * Nothing here knows which kinds of document have drafts. A workflow opts in by tagging what it produces,
+ * which is why this filter has not needed to change as more of them have.
+ */
+const isHiddenDraft = (docRef: DocumentReference): boolean =>
+  docRef.docStatus === 'preliminary' &&
+  (docRef.meta?.tag ?? []).some(
+    (tag) => tag.system === HIDE_WHILE_PRELIMINARY_TAG.system && tag.code === HIDE_WHILE_PRELIMINARY_TAG.code
+  );
 
 /**
  * Every page of a DocumentReference search, concatenated.
@@ -376,113 +398,127 @@ export const useGetPatientDocs = (
   );
 
   const downloadDocument = useCallback(
-    async (documentId: string, options?: { skipRelated?: boolean }): Promise<void> => {
-      const authToken = await getAccessTokenSilently();
-
-      let patientDoc = getDocumentById(documentId);
-      let documentReferenceResource: DocumentReference | undefined;
-
-      if (!patientDoc && oystehr) {
-        documentReferenceResource = (
-          await oystehr.fhir.search<DocumentReference>({
-            resourceType: 'DocumentReference',
-            params: [{ name: '_id', value: documentId }],
-          })
-        ).unbundle()[0];
-        if (documentReferenceResource) {
-          patientDoc = createDocumentInfo(documentReferenceResource);
-          setDocuments([...(documents ?? []), patientDoc]);
+    async (documentId: string, options?: DownloadDocumentOptions): Promise<void> => {
+      let pendingTab = options?.targetTab ?? null;
+      const openFile = (url: string): void => {
+        if (pendingTab) {
+          pendingTab.location.href = url;
+          pendingTab = null;
+          return;
         }
-      }
-
-      if (!documentReferenceResource && oystehr) {
-        documentReferenceResource = (
-          await oystehr.fhir.search<DocumentReference>({
-            resourceType: 'DocumentReference',
-            params: [{ name: '_id', value: documentId }],
-          })
-        ).unbundle()[0];
-      }
-
-      const openAttachments = async (attachments: PatientDocumentAttachment[]): Promise<void> => {
-        const urlSigningRequests = attachments.map(async (attachment) => {
-          let presignedUrl = undefined;
-          if (attachment.z3Url) {
-            presignedUrl = await getPresignedURL(attachment.z3Url, authToken);
-          }
-          return { attachment, presignedUrl };
-        });
-
-        const filesInfoToDownload = (await Promise.all(urlSigningRequests))
-          .filter((signedAttach) => !!signedAttach.presignedUrl)
-          .map((signedAttach) => {
-            const fileTitle = signedAttach.attachment.title;
-            const fileExt = parseFileExtension(signedAttach.attachment.fileNameFromUrl) ?? 'unknown';
-            const fullFileName = fileTitle.includes('.') ? fileTitle : `${fileTitle}.${fileExt}`;
-            return {
-              fileName: fullFileName,
-              urlToDownload: signedAttach.presignedUrl!,
-            };
-          });
-
-        for (const fileInfo of filesInfoToDownload) {
-          await fetch(new URL(fileInfo.urlToDownload), {
-            method: 'GET',
-            headers: { 'Cache-Control': 'no-cache' },
-          })
-            .then((response) => {
-              if (!response.ok) {
-                throw new Error(`failed to download Document attachment [${fileInfo.fileName}]`);
-              }
-              return response.blob();
-            })
-            .then((blob) => {
-              const mimeType = getMimeType(fileInfo.fileName) || blob.type;
-              if (!mimeType) {
-                throw new Error(`Failed to open file: unknown MIME type for file ${fileInfo.fileName}`);
-              }
-              const fileBlob = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
-              window.open(fileBlob, '_blank');
-            })
-            .catch((error) => {
-              console.log(error);
-            });
-        }
+        window.open(url, '_blank');
       };
 
-      const docAttachments = patientDoc?.attachments ?? [];
-      if (docAttachments.length > 0) {
-        await openAttachments(docAttachments);
-      } else {
-        console.error(`No attachments found for a docId=[${documentId}]`);
-      }
+      try {
+        const authToken = await getAccessTokenSilently();
 
-      if (options?.skipRelated) return;
+        let patientDoc = getDocumentById(documentId);
+        let documentReferenceResource: DocumentReference | undefined;
 
-      const attachedDocumentIds =
-        documentReferenceResource?.context?.related
-          ?.map((r) => r?.reference)
-          .filter((ref): ref is string => typeof ref === 'string')
-          .map((ref) => {
-            const [type, id] = ref.split('/');
-            return type === 'DocumentReference' ? id : undefined;
-          })
-          .filter((id): id is string => !!id && id !== documentId) ?? [];
-
-      for (const attachedDocumentId of attachedDocumentIds) {
-        const attachedDocumentReferenceResource = (
-          await oystehr!.fhir.search<DocumentReference>({
-            resourceType: 'DocumentReference',
-            params: [{ name: '_id', value: attachedDocumentId }],
-          })
-        ).unbundle()[0];
-
-        if (attachedDocumentReferenceResource) {
-          const attachedDocumentInfo = createDocumentInfo(attachedDocumentReferenceResource);
-          if (attachedDocumentInfo.attachments?.length) {
-            await openAttachments(attachedDocumentInfo.attachments);
+        if (!patientDoc && oystehr) {
+          documentReferenceResource = (
+            await oystehr.fhir.search<DocumentReference>({
+              resourceType: 'DocumentReference',
+              params: [{ name: '_id', value: documentId }],
+            })
+          ).unbundle()[0];
+          if (documentReferenceResource) {
+            patientDoc = createDocumentInfo(documentReferenceResource);
+            setDocuments([...(documents ?? []), patientDoc]);
           }
         }
+
+        if (!documentReferenceResource && oystehr) {
+          documentReferenceResource = (
+            await oystehr.fhir.search<DocumentReference>({
+              resourceType: 'DocumentReference',
+              params: [{ name: '_id', value: documentId }],
+            })
+          ).unbundle()[0];
+        }
+
+        const openAttachments = async (attachments: PatientDocumentAttachment[]): Promise<void> => {
+          const urlSigningRequests = attachments.map(async (attachment) => {
+            let presignedUrl = undefined;
+            if (attachment.z3Url) {
+              presignedUrl = await getPresignedURL(attachment.z3Url, authToken);
+            }
+            return { attachment, presignedUrl };
+          });
+
+          const filesInfoToDownload = (await Promise.all(urlSigningRequests))
+            .filter((signedAttach) => !!signedAttach.presignedUrl)
+            .map((signedAttach) => {
+              const fileTitle = signedAttach.attachment.title;
+              const fileExt = parseFileExtension(signedAttach.attachment.fileNameFromUrl) ?? 'unknown';
+              const fullFileName = fileTitle.includes('.') ? fileTitle : `${fileTitle}.${fileExt}`;
+              return {
+                fileName: fullFileName,
+                urlToDownload: signedAttach.presignedUrl!,
+              };
+            });
+
+          for (const fileInfo of filesInfoToDownload) {
+            await fetch(new URL(fileInfo.urlToDownload), {
+              method: 'GET',
+              headers: { 'Cache-Control': 'no-cache' },
+            })
+              .then((response) => {
+                if (!response.ok) {
+                  throw new Error(`failed to download Document attachment [${fileInfo.fileName}]`);
+                }
+                return response.blob();
+              })
+              .then((blob) => {
+                const mimeType = getMimeType(fileInfo.fileName) || blob.type;
+                if (!mimeType) {
+                  throw new Error(`Failed to open file: unknown MIME type for file ${fileInfo.fileName}`);
+                }
+                const fileBlob = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
+                openFile(fileBlob);
+              })
+              .catch((error) => {
+                console.log(error);
+              });
+          }
+        };
+
+        const docAttachments = patientDoc?.attachments ?? [];
+        if (docAttachments.length > 0) {
+          await openAttachments(docAttachments);
+        } else {
+          console.error(`No attachments found for a docId=[${documentId}]`);
+        }
+
+        if (options?.skipRelated) return;
+
+        const attachedDocumentIds =
+          documentReferenceResource?.context?.related
+            ?.map((r) => r?.reference)
+            .filter((ref): ref is string => typeof ref === 'string')
+            .map((ref) => {
+              const [type, id] = ref.split('/');
+              return type === 'DocumentReference' ? id : undefined;
+            })
+            .filter((id): id is string => !!id && id !== documentId) ?? [];
+
+        for (const attachedDocumentId of attachedDocumentIds) {
+          const attachedDocumentReferenceResource = (
+            await oystehr!.fhir.search<DocumentReference>({
+              resourceType: 'DocumentReference',
+              params: [{ name: '_id', value: attachedDocumentId }],
+            })
+          ).unbundle()[0];
+
+          if (attachedDocumentReferenceResource) {
+            const attachedDocumentInfo = createDocumentInfo(attachedDocumentReferenceResource);
+            if (attachedDocumentInfo.attachments?.length) {
+              await openAttachments(attachedDocumentInfo.attachments);
+            }
+          }
+        }
+      } finally {
+        pendingTab?.close();
       }
     },
     [documents, getAccessTokenSilently, getDocumentById, oystehr, setDocuments]
@@ -723,6 +759,9 @@ const useSearchPatientDocuments = (
         appointmentId: filters?.visit?.appointmentId,
       },
     ],
+    // Same reason as `useGetDocsFolders` above: without this the guards below are reachable, and the
+    // query fails and error-retries on every mount that precedes a patient or a client.
+    enabled: !!oystehr && !!patientId,
 
     queryFn: async () => {
       if (!oystehr) throw new Error('useSearchPatientDocuments() oystehr not defined');
@@ -767,11 +806,15 @@ const useSearchPatientDocuments = (
       const searchResultsResources: FhirResource[] = data;
       console.log(`useSearchPatientDocuments() search results cnt=[${searchResultsResources.length}]`);
 
-      //&& resource.status === 'current'
       const docRefsResources =
-        searchResultsResources
-          ?.filter((resource: FhirResource) => resource.resourceType === 'DocumentReference')
-          ?.map((docRefResource: FhirResource) => docRefResource as DocumentReference) ?? [];
+        searchResultsResources?.filter(
+          (resource: FhirResource): resource is DocumentReference =>
+            resource.resourceType === 'DocumentReference' &&
+            // `superseded` says a newer copy of this same document exists, so listing it only offers a
+            // way to open the stale one.
+            resource.status !== 'superseded' &&
+            !isHiddenDraft(resource)
+        ) ?? [];
 
       const documents = docRefsResources.map((docRef) => createDocumentInfo(docRef));
 
@@ -1017,6 +1060,9 @@ const createDocumentInfo = (documentReference: DocumentReference): PatientDocume
     typeCodes: documentReference.type?.coding?.flatMap((coding) => (coding.code ? [coding.code] : [])),
     docName: debug__createDisplayedDocumentName(documentReference),
     whenAddedDate: documentReference.date,
+    // The reference carries the practitioner's name alongside the pointer, so a document is attributed
+    // without a second lookup. Blank where the writer recorded no author — which is most of them today.
+    whoAdded: documentReference.author?.find((author) => author.display)?.display,
     attachments: extractDocumentAttachments(documentReference),
     encounterId: removePrefix('Encounter/', documentReference.context?.encounter?.[0]?.reference ?? ''),
     appointmentId: extractRelatedAppointmentId(documentReference),

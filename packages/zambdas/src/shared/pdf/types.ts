@@ -599,6 +599,10 @@ export interface Procedures extends PdfData {
     medicationUsed?: string;
     bodySite?: string;
     bodySide?: string;
+    structuredFacts?: string;
+    lengthCm?: string;
+    repairDepth?: string;
+    infusionTime?: string;
     technique?: string[];
     suppliesUsed?: string;
     procedureDetails?: string;
@@ -778,7 +782,7 @@ export interface VisitDetailsInput {
   emergencyContactResource?: RelatedPerson;
   attorneyRelatedPerson?: RelatedPerson;
   employerOrganization?: Organization;
-  occupationalMedicineEmployerOrganization?: Organization;
+  occupationalMedicineEmployerName?: string;
   consents: Consent[];
   questionnaireResponse?: QuestionnaireResponse;
   payments: PatientPaymentDTO[];
@@ -858,8 +862,10 @@ export interface EmployerDataInput {
   insuranceOrgs?: Organization[];
 }
 
+// Name only: in NIO mode the employer is a billing-app resource the clinical side never reads as
+// FHIR, so the PDF renders from the resolved display name regardless of source.
 export interface OccupationalMedicineEmployerDataInput {
-  employer?: Organization;
+  employerName?: string;
 }
 
 export interface AttorneyDataInput {
@@ -874,6 +880,8 @@ export interface UploadMetadata {
   patientId: string;
   fileName: string;
   bucketName: string;
+  /** Reuse one object per patient instead of writing a new timestamped one. */
+  stableKey?: boolean;
 }
 
 export type PdfResult = {
@@ -905,6 +913,12 @@ export interface ErxMedicationsData extends PdfData {
 
 export interface PatientInstructionsData extends PdfData {
   instructions: string[];
+}
+
+export interface PatientInstructionsPdfData extends PdfData {
+  patient: PatientInfoForDischargeSummary;
+  visit: VisitInfo;
+  patientInstructions?: PatientInstructionsData;
 }
 
 export interface EducationDocumentsData extends PdfData {
@@ -1086,6 +1100,12 @@ export interface ProgressNoteData extends PdfData {
   followupCompleted: FollowupCompleted;
   upcomingVisits: UpcomingVisitsData;
   signature: SignatureData;
+}
+
+export interface PatientInstructionsPdfInput {
+  allChartData: AllChartData;
+  appointmentPackage: FullAppointmentResourcePackage;
+  serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
 export interface DischargeSummaryInput {
