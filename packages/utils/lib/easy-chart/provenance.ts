@@ -162,3 +162,136 @@ export function rosPolarity(display: string, finding?: string): 'reports' | 'den
   if (finding === 'denies' || finding === 'reports') return finding;
   return undefined;
 }
+
+/**
+ * Words that carry no evidence of WHICH passage a quote came from. Excluded from the overlap score, or
+ * "the patient said the" would match everywhere.
+ */
+const PASSAGE_STOP_WORDS = new Set([
+  'the',
+  'a',
+  'an',
+  'and',
+  'or',
+  'of',
+  'to',
+  'in',
+  'on',
+  'for',
+  'with',
+  'is',
+  'was',
+  'are',
+  'were',
+  'be',
+  'it',
+  'that',
+  'this',
+  'i',
+  'you',
+  'he',
+  'she',
+  'we',
+  'they',
+  'my',
+  'your',
+  'his',
+  'her',
+  'so',
+  'um',
+  'uh',
+  'like',
+  'just',
+  'yeah',
+  'okay',
+  'ok',
+  'patient',
+  'provider',
+  'reports',
+  'denies',
+  'has',
+  'have',
+  'had',
+  'not',
+  'no',
+  'at',
+  'as',
+  'by',
+]);
+
+/**
+ * Below this share of a quote's content words found together in one stretch, nothing "matches". A
+ * paraphrase keeps the nouns and swaps the verbs ("completed a course of antibiotics for allergies" vs
+ * "gave me some antibiotics … real bad allergies"), so the bar is deliberately low; the two-word minimum
+ * below keeps a single shared noun from counting.
+ */
+const PASSAGE_MIN_SCORE = 0.4;
+const PASSAGE_MIN_WORDS = 2;
+
+/** Crude stem so "antibiotic"/"antibiotics", "allergy"/"allergies", "complete"/"completed" compare equal. */
+const stem = (word: string): string =>
+  word
+    // Edge punctuation first: the loose normaliser keeps a sentence's final "." on its last word.
+    .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
+    .replace(/ies$/, 'y')
+    .replace(/(es|s)$/, '')
+    .replace(/(ed|ing)$/, '');
+/** A passage is shown in a tooltip; longer than this reads as a wall, not a pointer. */
+const PASSAGE_MAX_CHARS = 320;
+
+/**
+ * The stretch of `narrative` that comes CLOSEST to saying `quote`, for a quote that does not occur in it
+ * verbatim — the model paraphrased ("recently completed a course of antibiotics" for "they gave me some
+ * antibiotics… there's a couple more left"), and the useful thing to show a provider is what was actually
+ * said, not "not found".
+ *
+ * Content words of the quote are scored against every window of the narrative of about the quote's
+ * length; the best window is widened to sentence or speaker-turn boundaries so it reads naturally, and
+ * capped. Undefined when no window reaches PASSAGE_MIN_SCORE — that is the genuinely unsupported case, and
+ * it stays distinguishable from a paraphrase on purpose.
+ */
+export function closestPassage(narrative: string, quote: string): { text: string; score: number } | undefined {
+  const contentWords = (text: string): string[] =>
+    normalizeForQuoteMatch(text)
+      .split(' ')
+      .filter((w) => w.length > 1 && !PASSAGE_STOP_WORDS.has(w))
+      .map(stem);
+  const wanted = new Set(contentWords(quote));
+  if (wanted.size < 2) return undefined;
+
+  // Every word of the narrative with where it sits, so a window maps back to the original text.
+  const tokens: { word: string; start: number; end: number }[] = [];
+  for (const match of narrative.matchAll(/[\p{L}\p{N}'"/%.-]+/gu)) {
+    const raw = normalizeForQuoteMatch(match[0]);
+    if (!raw || PASSAGE_STOP_WORDS.has(raw) || raw.length <= 1) continue;
+    tokens.push({ word: stem(raw), start: match.index ?? 0, end: (match.index ?? 0) + match[0].length });
+  }
+  if (tokens.length === 0) return undefined;
+
+  let best: { score: number; from: number; to: number } | undefined;
+  // A paraphrase is rarely tighter than the quote and often looser; try the quote's length and half again.
+  for (const size of [...new Set([wanted.size, Math.ceil(wanted.size * 1.5), Math.ceil(wanted.size * 2)])]) {
+    const width = Math.min(Math.max(size, 3), tokens.length);
+    for (let i = 0; i + width <= tokens.length; i += 1) {
+      const seen = new Set<string>();
+      for (let j = i; j < i + width; j += 1) if (wanted.has(tokens[j].word)) seen.add(tokens[j].word);
+      if (seen.size < PASSAGE_MIN_WORDS) continue;
+      const score = seen.size / wanted.size;
+      if (!best || score > best.score) best = { score, from: i, to: i + width - 1 };
+    }
+  }
+  if (!best || best.score < PASSAGE_MIN_SCORE) return undefined;
+
+  // Widen to the enclosing sentence or speaker turn, within the cap.
+  const boundary = /[.!?\n]|(?:^|\n)\s*[A-Z][a-z]+:\s/g;
+  let from = tokens[best.from].start;
+  let to = tokens[best.to].end;
+  const before = narrative.slice(Math.max(0, from - PASSAGE_MAX_CHARS / 2), from);
+  const lastBreak = Math.max(...[...before.matchAll(boundary)].map((m) => (m.index ?? 0) + m[0].length), 0);
+  from = Math.max(0, from - PASSAGE_MAX_CHARS / 2) + lastBreak;
+  const after = narrative.slice(to, to + PASSAGE_MAX_CHARS / 2);
+  const nextBreak = after.search(/[.!?](\s|$)|\n/);
+  to = nextBreak >= 0 ? to + nextBreak + 1 : Math.min(narrative.length, to + PASSAGE_MAX_CHARS / 2);
+  const text = narrative.slice(from, to).replace(/\s+/g, ' ').trim();
+  return text ? { text, score: best.score } : undefined;
+}

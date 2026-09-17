@@ -155,13 +155,21 @@ export const NarrativeEditor: FC<NarrativeEditorProps> = ({ disabled, onRegenera
           sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, color: 'warning.main' }}
         >
           <Typography variant="caption">
-            ⚠ {unbacked.length} {unbacked.length === 1 ? 'sentence isn’t' : 'sentences aren’t'} backed by the
+            ⚠ {unbacked.length} {unbacked.length === 1 ? 'sentence isn’t' : 'sentences aren’t'} an exact match with the
             transcript:
           </Typography>
           {unbacked.map((line, index) => (
-            <Typography key={index} variant="caption" sx={{ fontStyle: 'italic' }}>
-              “{line.text}”
-            </Typography>
+            <Box key={index} sx={{ display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="caption" sx={{ fontStyle: 'italic' }}>
+                “{line.text}”
+              </Typography>
+              {/* What was actually said, when anything close was; otherwise the sentence stands alone as not found. */}
+              <Typography variant="caption" sx={{ color: 'text.secondary', pl: 1.5 }}>
+                {line.original.approximateSource
+                  ? `transcript: “${line.original.approximateSource}”`
+                  : 'not found in the transcript'}
+              </Typography>
+            </Box>
           ))}
         </Box>
       )}
@@ -235,7 +243,13 @@ const NarrativeSentence: FC<NarrativeSentenceProps> = ({ index, line, onHoverSou
   return (
     <Tooltip
       title={
-        isUnbacked ? <ProvenanceContent evidenceOrigin="unbacked" /> : <ProvenanceContent transcriptSources={sources} />
+        !isUnbacked ? (
+          <ProvenanceContent transcriptSources={sources} />
+        ) : line.original.approximateSource ? (
+          <ProvenanceContent evidenceOrigin="inexact" transcriptSources={[line.original.approximateSource]} />
+        ) : (
+          <ProvenanceContent evidenceOrigin="unbacked" />
+        )
       }
       placement="top"
       arrow

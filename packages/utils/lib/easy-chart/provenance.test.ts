@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { findingPolarity, locateQuote, quoteOccursInNarrative, rosPolarity, verifiedSourceText } from './provenance';
+import {
+  closestPassage,
+  findingPolarity,
+  locateQuote,
+  quoteOccursInNarrative,
+  rosPolarity,
+  verifiedSourceText,
+} from './provenance';
 
 const NARRATIVE =
   'Seven-year-old male here with two days of sore throat and fever to 102. No cough, no runny nose. ' +
@@ -140,5 +147,26 @@ describe('quote clamp', () => {
   it('leaves a quote within the limit alone, and still drops one the narrative lacks', () => {
     expect(verifiedSourceText(sentence(1), narrative)).toBe(sentence(1));
     expect(verifiedSourceText(`${long} Not in the narrative.`, narrative)).toBeUndefined();
+  });
+});
+
+describe('closestPassage', () => {
+  const transcript =
+    'Provider: What brings you in?\nPatient: And I came about two or three weeks ago because I had real bad allergies and they gave me some antibiotics. And I think there are a couple more left.\nProvider: Any fever?\nPatient: No fever.';
+
+  it('finds the stretch a paraphrase came from and widens it to the sentence', () => {
+    const hit = closestPassage(transcript, 'Patient recently completed a course of antibiotics for allergies.');
+    expect(hit).toBeDefined();
+    expect(hit?.text).toContain('gave me some antibiotics');
+    expect(hit?.text).toContain('allergies');
+    expect(hit?.score).toBeGreaterThanOrEqual(0.4);
+  });
+
+  it('returns nothing when the transcript says nothing close', () => {
+    expect(closestPassage(transcript, 'Patient has a pet giraffe named Bob.')).toBeUndefined();
+  });
+
+  it('needs at least two content words to try', () => {
+    expect(closestPassage(transcript, 'fever')).toBeUndefined();
   });
 });

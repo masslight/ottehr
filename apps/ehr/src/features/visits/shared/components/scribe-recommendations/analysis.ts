@@ -426,9 +426,13 @@ function transcriptProvenance(
   if (!at) return {};
   const overlapping = located.filter((line) => line.start < at.end && line.end > at.start);
   const transcriptSources = [...new Set(overlapping.flatMap((line) => line.original.sources))];
-  const evidenceOrigin: EvidenceOrigin =
-    transcriptSources.length > 0 ? 'backed' : overlapping.length > 0 ? 'unbacked' : 'provider';
-  return { transcriptSources, evidenceOrigin };
+  if (transcriptSources.length > 0) return { transcriptSources, evidenceOrigin: 'backed' };
+  if (overlapping.length === 0) return { transcriptSources, evidenceOrigin: 'provider' };
+  // Generated but unverified: show the closest thing the transcript says, when the generator found one.
+  const approximate = [...new Set(overlapping.flatMap((line) => line.original.approximateSource ?? []))];
+  return approximate.length > 0
+    ? { transcriptSources: approximate, evidenceOrigin: 'inexact' }
+    : { transcriptSources, evidenceOrigin: 'unbacked' };
 }
 
 /**

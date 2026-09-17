@@ -35,7 +35,8 @@ export type RecommendationSource =
  * TRANSCRIPT and quoted it (`transcript`), shown as the transcript's words directly; or it read the CHART
  * — a resulted test behind a diagnosis — and quoted a line of it (`chart`), shown as the chart's words.
  */
-export type EvidenceOrigin = 'backed' | 'unbacked' | 'provider' | 'transcript' | 'chart';
+/** `inexact`: the narrative sentence has no verbatim snippet, but the transcript says something close — shown as what was actually said. */
+export type EvidenceOrigin = 'backed' | 'unbacked' | 'inexact' | 'provider' | 'transcript' | 'chart';
 
 interface ScribeRecommendationBase {
   id: string;

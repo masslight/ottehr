@@ -14,7 +14,7 @@
 
 import { ChartNarrativeResponse, NarrativeLine } from 'utils/lib/easy-chart/api';
 import { buildNarrativePrompt } from 'utils/lib/easy-chart/narrative-prompt';
-import { quoteOccursInNarrative } from 'utils/lib/easy-chart/provenance';
+import { closestPassage, quoteOccursInNarrative } from 'utils/lib/easy-chart/provenance';
 import { CAP } from 'utils/lib/easy-chart/registry';
 import { toWire } from 'utils/lib/easy-chart/schema';
 import { Secrets } from 'utils/lib/secrets';
@@ -81,6 +81,7 @@ export async function generateNarrative(
 
   let snippets = 0;
   let dropped = 0;
+  let approximated = 0;
   const lines: NarrativeLine[] = [];
   for (const raw of parsed) {
     const text = raw.text.trim();
@@ -94,12 +95,24 @@ export async function generateNarrative(
       dropped += 1;
       return false;
     });
-    lines.push({ text, sources });
+    if (sources.length > 0) {
+      lines.push({ text, sources });
+      continue;
+    }
+    // Nothing verified verbatim. The model usually still pointed at the right place and paraphrased it, so
+    // find the transcript stretch closest to what it claimed (or, failing that, to the line itself) and
+    // carry it along: the line stays unbacked, but the provider sees what was actually said.
+    const approximate = [...raw.sourceTexts.map((s) => s.trim()).filter(Boolean), text]
+      .map((candidate) => closestPassage(transcript, candidate))
+      .filter((hit): hit is { text: string; score: number } => hit !== undefined)
+      .sort((a, b) => b.score - a.score)[0];
+    if (approximate) approximated += 1;
+    lines.push({ text, sources, ...(approximate ? { approximateSource: approximate.text } : {}) });
   }
 
   const backed = lines.filter((line) => line.sources.length > 0).length;
   console.log(
-    `[${logPrefix}] narrative lines=${lines.length} backed=${backed} snippets=${snippets} dropped=${dropped} ` +
+    `[${logPrefix}] narrative lines=${lines.length} backed=${backed} approximated=${approximated} snippets=${snippets} dropped=${dropped} ` +
       `escalated=${escalation.escalated} attempts=${escalation.attempts}`
   );
 

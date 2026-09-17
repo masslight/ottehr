@@ -18,6 +18,8 @@ import { LocatedLine } from './types';
  * wrote, or — for a quote the planner took from the transcript itself, or from the chart — those words.
  */
 export const UNBACKED_LINE_NOTE = 'Not found in the transcript — the narrative said this on its own.';
+/** Heads the closest transcript passage for a sentence the generator paraphrased rather than quoted. */
+export const INEXACT_MATCH_NOTE = 'Inexact match — what the transcript says:';
 export const PROVIDER_EVIDENCE_NOTE = 'From your edit to the narrative.';
 export const TRANSCRIPT_QUOTE_NOTE = 'From the transcript.';
 export const CHART_QUOTE_NOTE = 'From the chart.';

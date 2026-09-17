@@ -4,7 +4,13 @@ import MicNoneOutlinedIcon from '@mui/icons-material/MicNoneOutlined';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
-import { CHART_QUOTE_NOTE, PROVIDER_EVIDENCE_NOTE, TRANSCRIPT_QUOTE_NOTE, UNBACKED_LINE_NOTE } from './narrativeLines';
+import {
+  CHART_QUOTE_NOTE,
+  INEXACT_MATCH_NOTE,
+  PROVIDER_EVIDENCE_NOTE,
+  TRANSCRIPT_QUOTE_NOTE,
+  UNBACKED_LINE_NOTE,
+} from './narrativeLines';
 import { EvidenceOrigin } from './types';
 
 /**
@@ -71,6 +77,8 @@ export const ProvenanceContent: FC<ProvenanceContentProps> = ({
         </Typography>
       </Box>
     )}
+    {/* The inexact caption introduces the passage below it, so it comes first; the other origins are read after. */}
+    {evidenceOrigin === 'inexact' && <Typography variant="caption">{INEXACT_MATCH_NOTE}</Typography>}
     {transcriptSources?.map((source, index) => (
       <Box key={index} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.25, pl: 1 }}>
         <MicNoneOutlinedIcon sx={(theme) => ({ fontSize: theme.typography.pxToRem(14), mt: '1px', flexShrink: 0 })} />

@@ -299,6 +299,12 @@ export const EASY_CHART_SURFACES: readonly Surface[] = ['plan', 'review'];
 export interface NarrativeLine {
   text: string;
   sources: string[];
+  /**
+   * For a line with NO verified snippet: the stretch of the transcript that comes closest to saying it —
+   * the model paraphrased, and the provider should see what was actually said rather than "not found".
+   * Absent when nothing in the transcript comes close; the line is unbacked either way.
+   */
+  approximateSource?: string;
 }
 
 export interface ChartNarrativeRequest {

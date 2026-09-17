@@ -476,6 +476,30 @@ describe('exam findings', () => {
   });
 });
 
+describe('transcript provenance for an inexact narrative sentence', () => {
+  it('shows the closest transcript passage when the generated sentence had no verbatim snippet', () => {
+    const narrative = 'Patient recently completed a course of antibiotics for allergies.';
+    const generated = [
+      {
+        text: narrative,
+        sources: [],
+        approximateSource: 'they gave me some antibiotics. And I think there are a couple more left.',
+      },
+    ];
+    const plan = {
+      actions: [{ kind: 'add-medication', display: 'Antibiotic', sourceText: 'completed a course of antibiotics' }],
+      rejected: [],
+      usage: [],
+      escalation: { attempts: 1, escalated: false, failures: [] },
+      triggers: [],
+    } as unknown as ChartPlanResponse;
+    const analysis = buildAnalysis(plan, undefined, { written: {}, narrative, narrativeGenerated: generated });
+    const rec = analysis.recommendations[0];
+    expect(rec.evidenceOrigin).toBe('inexact');
+    expect(rec.transcriptSources).toEqual(['they gave me some antibiotics. And I think there are a couple more left.']);
+  });
+});
+
 describe('appendToNoteField', () => {
   const hpi: ScribeRecommendation = { id: 'hpi', kind: 'hpi', section: 'hpi', text: 'Sinus pressure x 1 week.' };
   const action = toPlannedAction(hpi);
