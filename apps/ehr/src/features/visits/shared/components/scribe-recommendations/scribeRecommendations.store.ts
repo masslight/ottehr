@@ -173,6 +173,20 @@ interface ScribeRecommendationsState {
     generate: NarrativeGenerator,
     analyzer: ScribeAnalyzer
   ) => Promise<void>;
+  /**
+   * Unselects the selected transcript: the transcript and the narrative written from it go, so the transcript
+   * box is blank for a new one. Suggestions already on screen stay, as they do when another transcript is picked.
+   */
+  clearTranscriptSelection: () => void;
+  /**
+   * Selects a transcript document again after its transcript was saved and processed anew: the narrative it
+   * now carries replaces the draft, and the plan read ahead for the old text goes.
+   */
+  reloadTranscriptDocument: (
+    doc: DocumentReference,
+    generate: NarrativeGenerator,
+    analyzer: ScribeAnalyzer
+  ) => Promise<void>;
   /** Writes the narrative again; the plan read ahead for the old text goes, and one for the new text starts. */
   generateNarrative: (generate: NarrativeGenerator, analyzer: ScribeAnalyzer) => Promise<void>;
   setNarrativeDraft: (text: string) => void;
@@ -286,6 +300,24 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
           return;
         }
         await get().generateNarrative(generate, analyzer);
+      },
+
+      clearTranscriptSelection: () =>
+        set({
+          transcript: '',
+          transcriptSource: 'none',
+          sourceDocumentId: undefined,
+          ...NARRATIVE_CLEARED,
+          narrativeError: undefined,
+          analysisError: undefined,
+        }),
+
+      reloadTranscriptDocument: async (doc, generate, analyzer) => {
+        set((state) => ({
+          sourceDocumentId: undefined,
+          speculativePlans: doc.id ? withoutSpeculativePlan(state.speculativePlans, doc.id) : state.speculativePlans,
+        }));
+        await get().selectTranscriptDocument(doc, generate, analyzer);
       },
 
       generateNarrative: async (generate, analyzer) => {

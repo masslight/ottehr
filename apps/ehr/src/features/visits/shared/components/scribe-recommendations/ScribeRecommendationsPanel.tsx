@@ -17,9 +17,11 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { DocumentReference } from 'fhir/r4b';
-import { FC, ReactNode, useMemo, useState } from 'react';
+import { FC, ReactNode, useEffect, useMemo, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { CHART_DATA_QUERY_KEY } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { describeAction } from 'src/features/easy-chart/executor/labels';
 import { useEasyChartData } from 'src/features/easy-chart/hooks/useEasyChartData';
@@ -30,8 +32,9 @@ import {
   buildNoteContextFromChart,
   chartedExamFindingLabels,
 } from 'utils/lib/easy-chart/chart-state';
-import { isTranscriptDocument } from 'utils/lib/easy-chart/narrative';
+import { isTranscriptDocument, transcriptTextOf } from 'utils/lib/easy-chart/narrative';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 import { AiDisclaimerTooltip } from '../AiSection';
 import { getDocumentReferenceSource, getSource } from '../OttehrAi';
@@ -116,8 +119,9 @@ export const ScribeRecommendationsPanel: FC<ScribeRecommendationsPanelProps> = (
 
 /**
  * The input, in two parts, and the one button that reads it. First the TRANSCRIPT — picked from the
- * recordings and chats already on the visit, which is raw dialogue, read-only, and never edited or typed
- * here. Then the NARRATIVE written from it: one provider-voice paragraph the provider corrects, and the only
+ * recordings and chats already on the visit — or typed or pasted into the transcript box, which adds it to the
+ * visit and processes it as a recording would. The box also edits the selected transcript, which is then
+ * processed again. Then the NARRATIVE written from it: one provider-voice paragraph the provider corrects, and the only
  * thing the planner is sent. The split is what makes the recommendations checkable: every one quotes the
  * narrative, and every generated sentence of the narrative is traceable to the transcript words it came
  * from — or is called out as coming from none.
@@ -139,7 +143,8 @@ const NarrativeStep: FC = () => {
   // the rows the executor is still reporting on belonging to a plan nobody asked for.
   const isApplying = useScribeRecommendationsStore((state) => state.isApplying);
   const selectTranscriptDocument = useScribeRecommendationsStore((state) => state.selectTranscriptDocument);
-  const generateNarrative = useScribeRecommendationsStore((state) => state.generateNarrative);
+  const reloadTranscriptDocument = useScribeRecommendationsStore((state) => state.reloadTranscriptDocument);
+  const clearTranscriptSelection = useScribeRecommendationsStore((state) => state.clearTranscriptSelection);
   const analyze = useScribeRecommendationsStore((state) => state.analyze);
   // The narrative and plan endpoints, each behind one function; the store only knows what it gets back.
   const generate = useNarrativeGenerator();
@@ -167,9 +172,38 @@ const NarrativeStep: FC = () => {
 
   // The analyzer goes along with the pick: once the narrative is ready the store reads the plan ahead of the
   // button, so the click has less to wait for. Nothing shows until the click.
+  // Clicking the selected chip again unselects it.
   const pick = (doc: DocumentReference): void => {
+    if (doc.id === sourceDocumentId) {
+      clearTranscriptSelection();
+      return;
+    }
     void selectTranscriptDocument(doc, generate, analyzer);
   };
+
+  // Saving a transcript writes it over the selected document, or adds a new one when none is selected; the
+  // server processes it either way. The saved document is then (re)selected as soon as the refetched chart
+  // data carries the saved text, as if its chip were clicked, so its new narrative replaces the draft.
+  const apiClient = useOystehrAPIClient();
+  const queryClient = useQueryClient();
+  const [savedTranscript, setSavedTranscript] = useState<{ documentId: string; text: string; edited: boolean }>();
+  const saveTranscript = async (text: string): Promise<void> => {
+    if (!apiClient || !encounter?.id) throw new Error('The visit is still loading. Please try again.');
+    const { documentId } = await apiClient.easyChartSaveTranscript({
+      transcript: text,
+      encounterId: encounter.id,
+      documentId: sourceDocumentId,
+    });
+    await queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY, encounter.id] });
+    setSavedTranscript({ documentId, text: text.trim(), edited: Boolean(sourceDocumentId) });
+  };
+  useEffect(() => {
+    if (!savedTranscript) return;
+    const doc = documents.find((d) => d.id === savedTranscript.documentId);
+    if (!doc || transcriptTextOf(doc)?.trim() !== savedTranscript.text) return;
+    setSavedTranscript(undefined);
+    void (savedTranscript.edited ? reloadTranscriptDocument : selectTranscriptDocument)(doc, generate, analyzer);
+  }, [savedTranscript, documents, selectTranscriptDocument, reloadTranscriptDocument, generate, analyzer]);
 
   // Planning again throws the standing suggestions away, and with them every tick and correction the
   // provider has made to them that hasn't been charted yet, so it is asked about first. A MUI dialog
@@ -218,11 +252,16 @@ const NarrativeStep: FC = () => {
         )}
       </Box>
 
-      {/* The picked document's dialogue, read-only and folded away: evidence to check the narrative against,
-          not something to work in. */}
-      {transcript && <TranscriptEvidence transcript={transcript} defaultExpanded={false} />}
+      {/* The picked document's dialogue, folded away: the narrative is what the provider works in. Opened, it
+          edits the selected transcript, or takes a new one when none is selected. */}
+      <TranscriptEvidence
+        transcript={transcript}
+        documentId={sourceDocumentId}
+        disabled={isBusy || isApplying}
+        onSave={saveTranscript}
+      />
 
-      <NarrativeEditor disabled={isBusy} onRegenerate={() => void generateNarrative(generate, analyzer)} />
+      <NarrativeEditor disabled={isBusy} />
 
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
         <RoundedButton

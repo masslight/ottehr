@@ -1,4 +1,5 @@
-import { Alert, Box, Button, LinearProgress, Paper, TextField, Tooltip, Typography } from '@mui/material';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { Alert, Box, IconButton, LinearProgress, Paper, TextField, Tooltip, Typography } from '@mui/material';
 import { FC, Fragment, MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { locateGeneratedLines } from './narrativeLines';
@@ -12,10 +13,8 @@ import { LocatedLine } from './types';
 const testIds = dataTestIds.scribeRecommendations;
 
 interface NarrativeEditorProps {
-  /** Nothing can be typed or regenerated while the narrative is being written or read. */
+  /** Nothing can be typed while the narrative is being written or read. */
   disabled: boolean;
-  /** Writes the narrative from the transcript again, replacing the draft. */
-  onRegenerate: () => void;
   /** The transcript snippets behind the sentence under the pointer; `undefined` once it leaves. */
   onHoverSources?: (sources: string[] | undefined) => void;
 }
@@ -31,17 +30,16 @@ interface NarrativeEditorProps {
  * It is shown two ways. At rest it is READ: the same paragraph, with each generated sentence a run that
  * shows the transcript words it was written from on hover — a text area has nothing to hover — and the ones
  * the generator said with nothing in the transcript to show for it underlined, so they can be found without
- * hovering. Clicking into it (or "Edit") swaps in the text area, with the caret where the click landed, and
+ * hovering. Clicking into it (or the pencil) swaps in the text area, with the caret where the click landed, and
  * leaving the text area swaps the read view back. The generated sentences are found again in the draft as it
  * is edited; a line beneath says what the underline means, since the hover that explains each one is invisible until
  * found.
  */
-export const NarrativeEditor: FC<NarrativeEditorProps> = ({ disabled, onRegenerate, onHoverSources }) => {
+export const NarrativeEditor: FC<NarrativeEditorProps> = ({ disabled, onHoverSources }) => {
   const draft = useScribeRecommendationsStore((state) => state.narrativeDraft);
   const generated = useScribeRecommendationsStore((state) => state.narrativeGenerated);
   const status = useScribeRecommendationsStore((state) => state.narrativeStatus);
   const error = useScribeRecommendationsStore((state) => state.narrativeError);
-  const hasTranscript = useScribeRecommendationsStore((state) => state.transcript.trim() !== '');
   const setNarrativeDraft = useScribeRecommendationsStore((state) => state.setNarrativeDraft);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -83,28 +81,18 @@ export const NarrativeEditor: FC<NarrativeEditorProps> = ({ disabled, onRegenera
         <Typography variant="subtitle2" sx={{ fontSize: scaled(13) }}>
           Narrative
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          {showReadView && (
-            <Button
-              size="small"
-              onClick={() => startEditing()}
-              disabled={disabled}
-              sx={{ textTransform: 'none', minWidth: 0, p: 0, fontSize: scaled(12) }}
-              data-testid={testIds.editNarrativeButton}
-            >
-              Edit
-            </Button>
-          )}
-          <Button
+        {showReadView && (
+          <IconButton
             size="small"
-            onClick={onRegenerate}
-            disabled={disabled || !hasTranscript}
-            sx={{ textTransform: 'none', minWidth: 0, p: 0, fontSize: scaled(12) }}
-            data-testid={testIds.regenerateNarrativeButton}
+            onClick={() => startEditing()}
+            disabled={disabled}
+            aria-label="Edit narrative"
+            data-testid={testIds.editNarrativeButton}
+            sx={{ p: 0.5 }}
           >
-            Regenerate
-          </Button>
-        </Box>
+            <EditOutlinedIcon sx={{ fontSize: scaled(18) }} />
+          </IconButton>
+        )}
       </Box>
       <Typography variant="caption" color="text.secondary">
         The planner reads the transcript. Anything you change here is a correction it follows over the transcript — to

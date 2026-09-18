@@ -324,3 +324,20 @@ export interface ChartNarrativeResponse {
   usage: ModelUsage[];
   escalation: EscalationInfo;
 }
+
+export interface SaveTranscriptRequest {
+  /** The transcript text as the provider left it: pasted in, or edited from an existing transcript. */
+  transcript: string;
+  encounterId: string;
+  /**
+   * The transcript document being edited, which is processed again from the new text. Omitted for a new
+   * transcript, which is added to the visit as a new document. Either way the text goes through the same
+   * pipeline as a recording's.
+   */
+  documentId?: string;
+}
+
+export interface SaveTranscriptResponse {
+  /** The transcript document written, so the client can select it once chart data refetches. */
+  documentId: string;
+}

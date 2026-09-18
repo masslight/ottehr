@@ -7,6 +7,8 @@ import {
   ChartPlanResponse,
   ChartReviewRequest,
   ChartReviewResponse,
+  SaveTranscriptRequest,
+  SaveTranscriptResponse,
 } from 'utils/lib/easy-chart/api';
 import { getOystehrApiHelpers } from 'utils/lib/helpers/oystehrApi';
 import type { EvaluationResult, ProcedureFactsInput } from 'utils/lib/procedure-coding/model.types';
@@ -120,6 +122,7 @@ enum ZambdaNames {
   'easy chart plan' = 'easy chart plan',
   'easy chart review' = 'easy chart review',
   'easy chart narrative' = 'easy chart narrative',
+  'easy chart save transcript' = 'easy chart save transcript',
   'change in person visit status' = 'change in person visit status',
   'assign practitioner' = 'assign practitioner',
   'unassign practitioner' = 'unassign practitioner',
@@ -164,6 +167,7 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'easy chart plan': false,
   'easy chart review': false,
   'easy chart narrative': false,
+  'easy chart save transcript': false,
   'change in person visit status': false,
   'assign practitioner': false,
   'unassign practitioner': false,
@@ -217,6 +221,7 @@ export const getOystehrTelemedAPI = (
   easyChartPlan: typeof easyChartPlan;
   easyChartReview: typeof easyChartReview;
   easyChartNarrative: typeof easyChartNarrative;
+  easyChartSaveTranscript: typeof easyChartSaveTranscript;
   changeInPersonVisitStatus: typeof changeInPersonVisitStatus;
   assignPractitioner: typeof assignPractitioner;
   unassignPractitioner: typeof unassignPractitioner;
@@ -262,6 +267,7 @@ export const getOystehrTelemedAPI = (
     easyChartPlanZambdaID,
     easyChartReviewZambdaID,
     easyChartNarrativeZambdaID,
+    easyChartSaveTranscriptZambdaID,
     changeInPersonVisitStatusZambdaID,
     assignPractitionerZambdaID,
     unassignPractitionerZambdaID,
@@ -306,6 +312,7 @@ export const getOystehrTelemedAPI = (
     'easy chart plan': easyChartPlanZambdaID,
     'easy chart review': easyChartReviewZambdaID,
     'easy chart narrative': easyChartNarrativeZambdaID,
+    'easy chart save transcript': easyChartSaveTranscriptZambdaID,
     'change in person visit status': changeInPersonVisitStatusZambdaID,
     'assign practitioner': assignPractitionerZambdaID,
     'unassign practitioner': unassignPractitionerZambdaID,
@@ -385,6 +392,10 @@ export const getOystehrTelemedAPI = (
 
   const easyChartNarrative = async (parameters: ChartNarrativeRequest): Promise<ChartNarrativeResponse> => {
     return await makeZapRequest('easy chart narrative', parameters);
+  };
+
+  const easyChartSaveTranscript = async (parameters: SaveTranscriptRequest): Promise<SaveTranscriptResponse> => {
+    return await makeZapRequest('easy chart save transcript', parameters);
   };
 
   const changeInPersonVisitStatus = async (
@@ -593,6 +604,7 @@ export const getOystehrTelemedAPI = (
     easyChartPlan,
     easyChartReview,
     easyChartNarrative,
+    easyChartSaveTranscript,
     changeInPersonVisitStatus,
     assignPractitioner,
     unassignPractitioner,

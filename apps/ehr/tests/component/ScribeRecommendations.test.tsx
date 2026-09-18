@@ -158,6 +158,12 @@ const mocks = vi.hoisted(() => ({
   chartData: {} as Record<string, unknown>,
   chartFields: {} as Record<string, unknown>,
   vitals: undefined as Record<string, unknown> | undefined,
+  // The zambda client. Null, as with no Oystehr session, unless a test supplies the endpoints it calls.
+  apiClient: null as unknown,
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useOystehrAPIClient', () => ({
+  useOystehrAPIClient: () => mocks.apiClient,
 }));
 
 // The endpoint is replaced by a fixture; the mapping from its actions to recommendations is the real one.
@@ -337,6 +343,7 @@ const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
 
 const resetStore = (): void => {
   mocks.chartData = {};
+  mocks.apiClient = null;
   mocks.chartFields = {};
   mocks.vitals = undefined;
   mocks.written = {};
@@ -372,8 +379,8 @@ const resetStore = (): void => {
 };
 
 /**
- * The narrative the plan is read from. There is no way to type a transcript into the panel — transcripts are
- * read-only documents the visit already holds — so a test that wants a narrative to plan puts one in the
+ * The narrative the plan is read from. A transcript reaches the panel only as a document on the visit —
+ * recorded, or pasted and stored by the server — so a test that wants a narrative to plan puts one in the
  * store, exactly as picking a transcript chip or typing into the editor would leave it.
  */
 const NARRATIVE =
@@ -454,8 +461,7 @@ describe('ScribeRecommendationsDrawer', () => {
 
     await user.click(screen.getByTestId(testIds.openButton));
     expect(screen.getByTestId(testIds.panel)).toBeVisible();
-    // a visit with no recording says so, and there is nowhere to type a transcript: the narrative box
-    // is the provider's own way in
+    // a visit with no recording says so; the narrative box is the provider's own way in
     expect(screen.getByText('No transcripts on this visit yet.')).toBeVisible();
     expect(screen.getByTestId(testIds.narrativeInput)).toHaveValue('');
     // nothing to analyze yet
@@ -466,6 +472,121 @@ describe('ScribeRecommendationsDrawer', () => {
 
     await user.click(screen.getByTestId(testIds.collapseButton));
     expect(screen.getByTestId(testIds.rail)).toBeVisible();
+  });
+
+  describe('the transcript box', () => {
+    const transcriptDoc = (id: string, text: string, lines: NarrativeLine[]): DocumentReference => ({
+      resourceType: 'DocumentReference',
+      id,
+      status: 'current',
+      content: [{ attachment: { title: TRANSCRIPT_ATTACHMENT_TITLE, data: btoa(unescape(encodeURIComponent(text))) } }],
+      extension: [narrativeExtension(lines)],
+    });
+    const visitWith = (...docs: DocumentReference[]): void => {
+      mocks.chartData = { aiChat: { documents: docs, providers: [] } };
+    };
+    const TEXT_A = 'Provider: What brings you in?\nPatient: Pressure in my sinuses for about a week.';
+    const LINES_A: NarrativeLine[] = [{ text: 'Patient reports sinus pressure for a week.', sources: [] }];
+    const TEXT_B = 'Provider: What brings you in?\nPatient: A sore throat since yesterday.';
+    const LINES_B: NarrativeLine[] = [{ text: 'Patient reports a sore throat since yesterday.', sources: [] }];
+
+    const openTranscriptBox = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+      render(<ScribeRecommendationsDrawer />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId(testIds.openButton));
+      await user.click(screen.getByTestId(testIds.transcriptToggle));
+    };
+    const replaceTranscript = async (user: ReturnType<typeof userEvent.setup>, text: string): Promise<void> => {
+      await user.clear(screen.getByTestId(testIds.transcriptPreview));
+      await user.click(screen.getByTestId(testIds.transcriptPreview));
+      await user.paste(text);
+    };
+
+    it('adds text pasted with no transcript selected as a new transcript, and picks it', async () => {
+      const user = userEvent.setup();
+      // The server writes the document; the refetched chart data is what lists it.
+      const save = vi.fn(async () => {
+        visitWith(transcriptDoc('doc-new', TEXT_A, LINES_A));
+        return { documentId: 'doc-new' };
+      });
+      mocks.apiClient = { easyChartSaveTranscript: save };
+
+      await openTranscriptBox(user);
+      // blank with nothing selected, and nothing to save until something is typed
+      expect(screen.getByTestId(testIds.transcriptPreview)).toHaveValue('');
+      expect(screen.queryByTestId(testIds.transcriptSaveButton)).toBeNull();
+
+      await replaceTranscript(user, TEXT_A);
+      expect(screen.getByTestId(testIds.transcriptSaveButton)).toHaveTextContent('Add transcript');
+      await user.click(screen.getByTestId(testIds.transcriptSaveButton));
+
+      expect(save).toHaveBeenCalledWith({ transcript: TEXT_A, encounterId: 'encounter-1', documentId: undefined });
+      await waitFor(() => expect(useScribeRecommendationsStore.getState().sourceDocumentId).toBe('doc-new'));
+      expect(screen.getByTestId(testIds.transcriptChip('doc-new'))).toBeVisible();
+      expect(useScribeRecommendationsStore.getState().narrativeDraft).toBe(LINES_A[0].text);
+      // saved: the box shows the transcript it now holds, with nothing left to save
+      expect(screen.getByTestId(testIds.transcriptPreview)).toHaveValue(TEXT_A);
+      expect(screen.queryByTestId(testIds.transcriptSaveButton)).toBeNull();
+    });
+
+    it('shows the selected transcript, saves an edit over it, and takes its new narrative', async () => {
+      const user = userEvent.setup();
+      visitWith(transcriptDoc('doc-a', TEXT_A, LINES_A));
+      // Reprocessed on the server: the same document, now carrying the new text and its narrative.
+      const save = vi.fn(async () => {
+        visitWith(transcriptDoc('doc-a', TEXT_B, LINES_B));
+        return { documentId: 'doc-a' };
+      });
+      mocks.apiClient = { easyChartSaveTranscript: save };
+
+      await openTranscriptBox(user);
+      await user.click(screen.getByTestId(testIds.transcriptChip('doc-a')));
+      await waitFor(() => expect(screen.getByTestId(testIds.transcriptPreview)).toHaveValue(TEXT_A));
+      expect(useScribeRecommendationsStore.getState().narrativeDraft).toBe(LINES_A[0].text);
+
+      await replaceTranscript(user, TEXT_B);
+      expect(screen.getByTestId(testIds.transcriptSaveButton)).toHaveTextContent('Save changes');
+      await user.click(screen.getByTestId(testIds.transcriptSaveButton));
+
+      expect(save).toHaveBeenCalledWith({ transcript: TEXT_B, encounterId: 'encounter-1', documentId: 'doc-a' });
+      await waitFor(() => expect(useScribeRecommendationsStore.getState().narrativeDraft).toBe(LINES_B[0].text));
+      expect(useScribeRecommendationsStore.getState().transcript).toBe(TEXT_B);
+      expect(useScribeRecommendationsStore.getState().sourceDocumentId).toBe('doc-a');
+      expect(screen.queryByTestId(testIds.transcriptSaveButton)).toBeNull();
+    });
+
+    it('unselects the selected chip when it is clicked again, leaving the box blank for a new transcript', async () => {
+      const user = userEvent.setup();
+      visitWith(transcriptDoc('doc-a', TEXT_A, LINES_A));
+
+      await openTranscriptBox(user);
+      await user.click(screen.getByTestId(testIds.transcriptChip('doc-a')));
+      await waitFor(() => expect(screen.getByTestId(testIds.transcriptPreview)).toHaveValue(TEXT_A));
+
+      await user.click(screen.getByTestId(testIds.transcriptChip('doc-a')));
+      expect(useScribeRecommendationsStore.getState().sourceDocumentId).toBeUndefined();
+      expect(useScribeRecommendationsStore.getState().narrativeDraft).toBe('');
+      expect(screen.getByTestId(testIds.transcriptPreview)).toHaveValue('');
+      // typing now adds a new transcript rather than editing the one unselected
+      await replaceTranscript(user, TEXT_B);
+      expect(screen.getByTestId(testIds.transcriptSaveButton)).toHaveTextContent('Add transcript');
+    });
+
+    it('keeps the edit and says why when the transcript cannot be saved', async () => {
+      const user = userEvent.setup();
+      mocks.apiClient = {
+        easyChartSaveTranscript: vi.fn(async () => {
+          throw new Error('"transcript" exceeds 60000 characters');
+        }),
+      };
+
+      await openTranscriptBox(user);
+      await replaceTranscript(user, 'Provider: Hello.');
+      await user.click(screen.getByTestId(testIds.transcriptSaveButton));
+
+      expect(await screen.findByTestId(testIds.transcriptSaveError)).toHaveTextContent('exceeds 60000 characters');
+      expect(screen.getByTestId(testIds.transcriptPreview)).toHaveValue('Provider: Hello.');
+      expect(useScribeRecommendationsStore.getState().sourceDocumentId).toBeUndefined();
+    });
   });
 
   it('lays the plan out as stages: what it found, the template, the observations, the refusals', async () => {

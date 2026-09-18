@@ -1280,6 +1280,13 @@
       "src": "src/ehr/easy-chart-narrative/index",
       "zip": ".dist/zips/easy-chart-narrative.zip"
     },
+    "EASY-CHART-SAVE-TRANSCRIPT": {
+      "name": "easy-chart-save-transcript",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/easy-chart-save-transcript/index",
+      "zip": ".dist/zips/easy-chart-save-transcript.zip"
+    },
     "RECOMMEND-BILLING-SUGGESTIONS": {
       "name": "recommend-billing-suggestions",
       "type": "http_auth",

@@ -7,7 +7,11 @@ import { Appointment, Condition, DocumentReference, Encounter, Observation, Pati
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import { NarrativeLine } from 'utils/lib/easy-chart/api';
-import { EASY_CHART_NARRATIVE_EXTENSION_URL, narrativeExtension } from 'utils/lib/easy-chart/narrative';
+import {
+  EASY_CHART_NARRATIVE_EXTENSION_URL,
+  narrativeExtension,
+  TRANSCRIPT_ATTACHMENT_TITLE,
+} from 'utils/lib/easy-chart/narrative';
 import {
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
@@ -571,7 +575,11 @@ function createDocumentReference(
         ],
       },
     ],
-    description: z3URL ? DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO : DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
+    // A provider on the document means a provider supplied the transcript — recorded, or pasted with no audio
+    // behind it (easy-chart-paste-transcript) — so it is labelled as a recording either way. Only the patient
+    // chat arrives with neither.
+    description:
+      z3URL || providerUserProfile ? DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO : DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
     subject: {
       reference: `Patient/${patientID}`,
     },
@@ -625,7 +633,6 @@ function updateDocumentReference(
   transcript: string,
   narrativeLines: NarrativeLine[]
 ): BatchInputPutRequest<DocumentReference> {
-  const existingAttachment = existingDocumentReference.content?.[0]?.attachment;
   const documentReference: DocumentReference = {
     ...existingDocumentReference,
     // The narrative on the document always matches the transcript on the document: any earlier narrative
@@ -642,14 +649,16 @@ function updateDocumentReference(
     type: {
       coding: [VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE],
     },
+    // Every attachment but the transcript is kept — the recording's audio, for one — and the transcript is
+    // replaced, so a document processed again (a pending recording, or an edited transcript) never carries two.
     content: [
-      ...(existingAttachment
-        ? [{ attachment: { ...existingAttachment, contentType: existingAttachment.contentType } }]
-        : []),
+      ...(existingDocumentReference.content ?? []).filter(
+        (content) => content.attachment?.title !== TRANSCRIPT_ATTACHMENT_TITLE
+      ),
       {
         attachment: {
           contentType: MIME_TYPES.TXT,
-          title: 'Transcript',
+          title: TRANSCRIPT_ATTACHMENT_TITLE,
           data: btoa(unescape(encodeURIComponent(transcript))),
         },
       },
