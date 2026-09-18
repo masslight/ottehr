@@ -19,7 +19,7 @@ import {
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { DocumentReference } from 'fhir/r4b';
-import { FC, ReactNode, useEffect, useMemo, useState } from 'react';
+import { FC, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { CHART_DATA_QUERY_KEY } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -197,10 +197,14 @@ const NarrativeStep: FC = () => {
     await queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY, encounter.id] });
     setSavedTranscript({ documentId, text: text.trim(), edited: Boolean(sourceDocumentId) });
   };
+  // Each save is handled once. Selecting updates the store, which re-renders this before the cleared state
+  // lands, and the effect would otherwise select (and plan) the same save again.
+  const handledSave = useRef<typeof savedTranscript>();
   useEffect(() => {
-    if (!savedTranscript) return;
+    if (!savedTranscript || handledSave.current === savedTranscript) return;
     const doc = documents.find((d) => d.id === savedTranscript.documentId);
     if (!doc || transcriptTextOf(doc)?.trim() !== savedTranscript.text) return;
+    handledSave.current = savedTranscript;
     setSavedTranscript(undefined);
     void (savedTranscript.edited ? reloadTranscriptDocument : selectTranscriptDocument)(doc, generate, analyzer);
   }, [savedTranscript, documents, selectTranscriptDocument, reloadTranscriptDocument, generate, analyzer]);

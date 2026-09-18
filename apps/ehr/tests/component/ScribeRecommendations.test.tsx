@@ -526,6 +526,14 @@ describe('ScribeRecommendationsDrawer', () => {
       // saved: the box shows the transcript it now holds, with nothing left to save
       expect(screen.getByTestId(testIds.transcriptPreview)).toHaveValue(TEXT_A);
       expect(screen.queryByTestId(testIds.transcriptSaveButton)).toBeNull();
+      // its plan is read ahead, as for any picked transcript, and "Plan note" uses it rather than asking again
+      await waitFor(() =>
+        expect(useScribeRecommendationsStore.getState().speculativePlans['doc-new']).toMatchObject({ plan: PLAN })
+      );
+      expect(mocks.plan).toHaveBeenCalledTimes(1);
+      await user.click(screen.getByTestId(testIds.analyzeButton));
+      await screen.findByTestId(testIds.applyObservationsButton);
+      expect(mocks.plan).toHaveBeenCalledTimes(1);
     });
 
     it('shows the selected transcript, saves an edit over it, and takes its new narrative', async () => {
@@ -543,6 +551,7 @@ describe('ScribeRecommendationsDrawer', () => {
       await waitFor(() => expect(screen.getByTestId(testIds.transcriptPreview)).toHaveValue(TEXT_A));
       expect(useScribeRecommendationsStore.getState().narrativeDraft).toBe(LINES_A[0].text);
 
+      await waitFor(() => expect(mocks.plan).toHaveBeenCalledTimes(1));
       await replaceTranscript(user, TEXT_B);
       expect(screen.getByTestId(testIds.transcriptSaveButton)).toHaveTextContent('Save changes');
       await user.click(screen.getByTestId(testIds.transcriptSaveButton));
@@ -552,6 +561,16 @@ describe('ScribeRecommendationsDrawer', () => {
       expect(useScribeRecommendationsStore.getState().transcript).toBe(TEXT_B);
       expect(useScribeRecommendationsStore.getState().sourceDocumentId).toBe('doc-a');
       expect(screen.queryByTestId(testIds.transcriptSaveButton)).toBeNull();
+      // the plan read ahead for the old narrative is replaced by one for the new, and "Plan note" uses that
+      await waitFor(() =>
+        expect(useScribeRecommendationsStore.getState().speculativePlans['doc-a']).toMatchObject({
+          narrative: LINES_B[0].text,
+        })
+      );
+      expect(mocks.plan).toHaveBeenCalledTimes(2);
+      await user.click(screen.getByTestId(testIds.analyzeButton));
+      await screen.findByTestId(testIds.applyObservationsButton);
+      expect(mocks.plan).toHaveBeenCalledTimes(2);
     });
 
     it('unselects the selected chip when it is clicked again, leaving the box blank for a new transcript', async () => {
