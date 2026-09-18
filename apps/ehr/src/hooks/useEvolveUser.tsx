@@ -5,7 +5,6 @@ import { Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import { useCallback, useEffect, useMemo } from 'react';
 import { initialsFromName } from 'utils/lib/fhir/chat';
-import { isVersionConflictError } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName, getNPIIdentifier } from 'utils/lib/fhir/patient';
 import { getPatchOperationForNewMetaTag, getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch';
 import { useSuccessQuery } from 'utils/lib/frontend';
@@ -233,7 +232,6 @@ const useSyncPractitioner = (_onSuccess: (data: SyncUserResponse) => void) => {
 
 export interface UpdatePractitionerInput {
   operations: Operation[];
-  optimisticLockingVersionId?: string;
 }
 
 export const useUpdatePractitioner = (): UseMutationResult<void, Error, UpdatePractitionerInput> => {
@@ -243,21 +241,18 @@ export const useUpdatePractitioner = (): UseMutationResult<void, Error, UpdatePr
   return useMutation({
     mutationKey: ['update-practitioner'],
 
-    mutationFn: async ({ operations, optimisticLockingVersionId }: UpdatePractitionerInput): Promise<void> => {
+    mutationFn: async ({ operations }: UpdatePractitionerInput): Promise<void> => {
       if (!oystehr || !user) {
         throw new Error('Cannot update the practitioner before the user profile has loaded.');
       }
 
-      await oystehr.fhir.patch(
-        {
-          resourceType: 'Practitioner',
-          id: user.profile.replace('Practitioner/', ''),
-          operations: [...operations],
-        },
-        { optimisticLockingVersionId }
-      );
+      await oystehr.fhir.patch({
+        resourceType: 'Practitioner',
+        id: user.profile.replace('Practitioner/', ''),
+        operations: [...operations],
+      });
     },
 
-    retry: (failureCount, error) => !isVersionConflictError(error) && failureCount < 3,
+    retry: 3,
   });
 };
