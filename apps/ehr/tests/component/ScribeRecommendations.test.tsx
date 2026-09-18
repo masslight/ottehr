@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DocumentReference } from 'fhir/r4b';
 import { ReactNode } from 'react';
@@ -560,6 +560,27 @@ describe('ScribeRecommendationsDrawer', () => {
     // and the finding reads before the system, not after it
     const firstRow = screen.getByTestId(testIds.row(ID.eyeDischarge));
     expect(firstRow.textContent?.indexOf('R:')).toBeLessThan(firstRow.textContent?.indexOf('Eyes: Discharge') ?? -1);
+  });
+
+  it('keeps a review-of-systems row where it is when its finding is flipped', async () => {
+    const user = userEvent.setup();
+    await openPanelWithRecommendations(user);
+    const rowOrder = (): string[] =>
+      within(screen.getByTestId(testIds.group('ros')))
+        .getAllByTestId(/^scribe-row-finding-/)
+        .map((letter) => letter.getAttribute('data-testid') ?? '');
+    const before = rowOrder();
+    expect(before[0]).toBe(testIds.rowFinding(ID.eyeDischarge));
+
+    // flipping the first positive to a denial used to re-sort it to the bottom, so the next click
+    // landed on whichever row slid up into its place
+    act(() => {
+      useScribeRecommendationsStore
+        .getState()
+        .updateRecommendation(ID.eyeDischarge, { finding: RosFindingState.Denies });
+    });
+    expect(within(screen.getByTestId(testIds.rowFinding(ID.eyeDischarge))).getByText('D:')).toBeVisible();
+    expect(rowOrder()).toEqual(before);
   });
 
   it('applies the template on its own, leaving the observations untouched', async () => {

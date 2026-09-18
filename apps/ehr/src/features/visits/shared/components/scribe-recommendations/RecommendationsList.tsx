@@ -32,13 +32,24 @@ export const RecommendationsList: FC<RecommendationsListProps> = ({ recommendati
   const setSelected = useScribeRecommendationsStore((state) => state.setSelected);
   const updateRecommendation = useScribeRecommendationsStore((state) => state.updateRecommendation);
 
+  // The review order keys on the ROS finding, which the provider toggles; sorting on every render moved
+  // the toggled row and put the next click on a different one. The order is fixed when the set of
+  // recommendations changes and reused while their contents are edited.
+  const idKey = recommendations.map((rec) => rec.id).join('|');
+  const rank = useMemo(
+    () => new Map(sortForReview(recommendations).map((rec, index) => [rec.id, index])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the ids, not the edited contents
+    [idKey]
+  );
   const groups = useMemo(
     () =>
       SCRIBE_SECTION_ORDER.map((section) => ({
         section,
-        items: sortForReview(recommendations.filter((rec) => rec.section === section)),
+        items: recommendations
+          .filter((rec) => rec.section === section)
+          .sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)),
       })).filter((group) => group.items.length > 0),
-    [recommendations]
+    [recommendations, rank]
   );
 
   return (
