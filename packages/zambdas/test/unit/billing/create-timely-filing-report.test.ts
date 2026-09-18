@@ -1,17 +1,14 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, ClaimResponse, Provenance, Resource } from 'fhir/r4b';
-import {
-  CLAIM_STATUS_RESPONSE_EVENT_SYSTEM,
-  RAW_REQUEST_EXTENSION_URL,
-  RAW_RESPONSE_EXTENSION_URL,
-} from 'utils/lib/fhir/constants';
+import { Claim, Provenance, Resource } from 'fhir/r4b';
 import {
   CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
   CLAIM_PROVENANCE_ACTIVITY,
+  CLAIM_PROVENANCE_TRANSMIT_EXTENSION_URL,
   ClaimAcknowledgmentEvent,
+  ClaimTransmitEvent,
 } from 'utils/lib/types/data/billing/claim-history';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchClaimAcknowledgmentEvents, fetchClaimTransmitEvent } from '../../../src/billing/claim-acknowledgments';
+import { claimAcknowledgmentEvents, claimTransmitEvent } from '../../../src/billing/claim-acknowledgments';
 import { performEffect, timelyFilingReportFileName } from '../../../src/billing/create-timely-filing-report';
 
 const CLAIM_ID = 'claim-1';
@@ -124,7 +121,7 @@ const pagedBundle = (resources: Resource[]): unknown => ({
   unbundle: () => resources,
 });
 
-describe('fetchClaimAcknowledgmentEvents', () => {
+describe('claimAcknowledgmentEvents', () => {
   it('returns acknowledgments oldest first and ignores other history', () => {
     const later = acknowledgment({
       responseId: 'id:2',
@@ -154,25 +151,15 @@ describe('fetchClaimAcknowledgmentEvents', () => {
         },
       ],
     } as Provenance;
-    const search = vi
-      .fn()
-      .mockResolvedValue(
-        pagedBundle([acknowledgmentProvenance(later, 'b'), note, acknowledgmentProvenance(earlier, 'a')])
-      );
 
-    return expect(
-      fetchClaimAcknowledgmentEvents({
-        oystehr: {
-          fhir: {
-            search,
-          },
-        } as unknown as Oystehr,
-        claimId: CLAIM_ID,
-      })
-    ).resolves.toEqual([earlier, later]);
+    const events = claimAcknowledgmentEvents({
+      provenances: [acknowledgmentProvenance(later, 'b'), note, acknowledgmentProvenance(earlier, 'a')],
+    });
+
+    expect(events).toEqual([earlier, later]);
   });
 
-  it('orders acknowledgments by instant, not by how the timestamp is written', async () => {
+  it('orders acknowledgments by instant, not by how the timestamp is written', () => {
     // 09:00-04:00 is 13:00Z — an hour after 12:00Z, but it sorts ahead of it as a string.
     const earlier = acknowledgment({
       responseId: 'id:1',
@@ -182,23 +169,15 @@ describe('fetchClaimAcknowledgmentEvents', () => {
       responseId: 'id:2',
       eventTime: '2026-08-06T09:00:00-04:00',
     });
-    const search = vi
-      .fn()
-      .mockResolvedValue(pagedBundle([acknowledgmentProvenance(later, 'b'), acknowledgmentProvenance(earlier, 'a')]));
 
-    await expect(
-      fetchClaimAcknowledgmentEvents({
-        oystehr: {
-          fhir: {
-            search,
-          },
-        } as unknown as Oystehr,
-        claimId: CLAIM_ID,
-      })
-    ).resolves.toEqual([earlier, later]);
+    const events = claimAcknowledgmentEvents({
+      provenances: [acknowledgmentProvenance(later, 'b'), acknowledgmentProvenance(earlier, 'a')],
+    });
+
+    expect(events).toEqual([earlier, later]);
   });
 
-  it('skips a record it cannot read rather than failing the report', async () => {
+  it('skips a record it cannot read rather than failing the report', () => {
     const broken = acknowledgmentProvenance(acknowledgment(), 'broken');
     broken.extension = [
       {
@@ -206,184 +185,136 @@ describe('fetchClaimAcknowledgmentEvents', () => {
         valueString: 'not json',
       },
     ];
-    const search = vi.fn().mockResolvedValue(pagedBundle([broken]));
 
-    await expect(
-      fetchClaimAcknowledgmentEvents({
-        oystehr: {
-          fhir: {
-            search,
-          },
-        } as unknown as Oystehr,
-        claimId: CLAIM_ID,
-      })
-    ).resolves.toEqual([]);
+    const events = claimAcknowledgmentEvents({ provenances: [broken] });
+
+    expect(events).toEqual([]);
   });
 });
 
-describe('fetchClaimTransmitEvent', () => {
-  const submissionResponse = (): ClaimResponse =>
+describe('claimTransmitEvent', () => {
+  const transmitProvenance = (id: string, event: Partial<ClaimTransmitEvent>): Provenance =>
     ({
-      resourceType: 'ClaimResponse',
-      id: 'submission',
-      status: 'active',
-      created: '2026-08-05T11:53:00Z',
-      request: {
-        reference: `Claim/${CLAIM_ID}`,
+      resourceType: 'Provenance',
+      id,
+      recorded: event.transmittedAt,
+      activity: {
+        coding: [CLAIM_PROVENANCE_ACTIVITY.submit],
       },
-      extension: [
+      target: [
         {
-          url: RAW_REQUEST_EXTENSION_URL,
-          valueString: 'ISA*...',
-        },
-        {
-          url: RAW_RESPONSE_EXTENSION_URL,
-          valueString: JSON.stringify({
-            batchid: '20260805123456789',
-            claimmd_id: '48213765',
-            response_time: '2026-08-05 07:53:00AM',
-          }),
+          reference: `Claim/${CLAIM_ID}`,
         },
       ],
-    }) as ClaimResponse;
-
-  it('reads the batch and clearinghouse id off the submission response', async () => {
-    const search = vi.fn().mockResolvedValue(pagedBundle([submissionResponse()]));
-
-    await expect(
-      fetchClaimTransmitEvent({
-        oystehr: {
-          fhir: {
-            search,
+      agent: [
+        {
+          who: {
+            reference: 'Device/rules-engine',
           },
-        } as unknown as Oystehr,
-        claimId: CLAIM_ID,
-      })
-    ).resolves.toEqual({
+        },
+      ],
+      extension: [
+        {
+          url: CLAIM_PROVENANCE_TRANSMIT_EXTENSION_URL,
+          valueString: JSON.stringify(event),
+        },
+      ],
+    }) as Provenance;
+
+  it('reads the batch and clearinghouse id off the transmit provenance', () => {
+    const transmit = claimTransmitEvent({
+      provenances: [
+        transmitProvenance('submission', {
+          transmittedAt: '2026-08-05T11:53:00.000Z',
+          batchId: '20260805123456789',
+          clearinghouseClaimId: '48213765',
+        }),
+      ],
+      claimId: CLAIM_ID,
+    });
+
+    expect(transmit).toEqual({
       transmittedAt: '2026-08-05T11:53:00.000Z',
       batchId: '20260805123456789',
       clearinghouseClaimId: '48213765',
     });
   });
 
-  it('picks the earliest submission by instant', async () => {
-    const submissionAt = (id: string, created: string, responseTime: string): ClaimResponse =>
-      ({
-        ...submissionResponse(),
-        id,
-        created,
-        extension: [
-          {
-            url: RAW_REQUEST_EXTENSION_URL,
-            valueString: 'ISA*...',
-          },
-          {
-            url: RAW_RESPONSE_EXTENSION_URL,
-            valueString: JSON.stringify({ response_time: responseTime }),
-          },
-        ],
-      }) as ClaimResponse;
+  it('picks the earliest transmit by instant', () => {
     // 08:54-04:00 is 12:54Z — an hour after 11:53Z, but it sorts ahead of it as a string.
-    const earliest = submissionAt('earliest', '2026-08-05T11:53:00.000Z', '2026-08-05 07:53:00AM');
-    const resubmission = submissionAt('resubmission', '2026-08-05T08:54:00-04:00', '2026-08-05 08:54:00AM');
-    const search = vi.fn().mockResolvedValue(pagedBundle([resubmission, earliest]));
+    const earliest = transmitProvenance('earliest', { transmittedAt: '2026-08-05T11:53:00.000Z' });
+    const resubmission = transmitProvenance('resubmission', { transmittedAt: '2026-08-05T08:54:00-04:00' });
 
-    await expect(
-      fetchClaimTransmitEvent({
-        oystehr: {
-          fhir: {
-            search,
-          },
-        } as unknown as Oystehr,
-        claimId: CLAIM_ID,
-      })
-    ).resolves.toMatchObject({
-      transmittedAt: '2026-08-05T11:53:00.000Z',
+    const transmit = claimTransmitEvent({
+      provenances: [resubmission, earliest],
+      claimId: CLAIM_ID,
     });
+
+    expect(transmit).toMatchObject({ transmittedAt: '2026-08-05T11:53:00.000Z' });
   });
 
-  // A status response can carry a raw response of its own, so the raw-request extension alone does
-  // not separate the two feeds.
-  it('ignores a status response even when it carries a raw request', async () => {
-    const statusResponse = {
-      ...submissionResponse(),
-      id: 'status',
-      identifier: [
+  // addErrorProvenanceForClaimSubmission records a failed submission under the same activity.
+  it('ignores a submission-error provenance, which carries no transmit event', () => {
+    const submissionError = {
+      resourceType: 'Provenance',
+      id: 'error',
+      recorded: '2026-08-05T11:53:00.000Z',
+      activity: {
+        coding: [CLAIM_PROVENANCE_ACTIVITY.submit],
+      },
+      target: [
         {
-          system: CLAIM_STATUS_RESPONSE_EVENT_SYSTEM,
-          value: 'account:9001',
+          reference: `Claim/${CLAIM_ID}`,
         },
       ],
-    } as ClaimResponse;
-    const search = vi.fn().mockResolvedValue(pagedBundle([statusResponse]));
-
-    await expect(
-      fetchClaimTransmitEvent({
-        oystehr: {
-          fhir: {
-            search,
+      agent: [
+        {
+          who: {
+            reference: 'Device/rules-engine',
           },
-        } as unknown as Oystehr,
-        claimId: CLAIM_ID,
-      })
-    ).resolves.toBeUndefined();
-  });
-
-  it('still dates the transmit event when the raw response is unreadable', async () => {
-    const noRawResponse = {
-      ...submissionResponse(),
-      extension: [
-        {
-          url: RAW_REQUEST_EXTENSION_URL,
-          valueString: 'ISA*...',
         },
       ],
-    } as ClaimResponse;
-    const search = vi.fn().mockResolvedValue(pagedBundle([noRawResponse]));
+    } as Provenance;
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-    await expect(
-      fetchClaimTransmitEvent({
-        oystehr: {
-          fhir: {
-            search,
-          },
-        } as unknown as Oystehr,
-        claimId: CLAIM_ID,
-      })
-    ).resolves.toEqual({ transmittedAt: '2026-08-05T11:53:00Z' });
-    // Silently dropping the ids would leave an unexplained gap in the report.
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('ClaimResponse/submission'));
+    const transmit = claimTransmitEvent({
+      provenances: [submissionError],
+      claimId: CLAIM_ID,
+    });
+
+    expect(transmit).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(`Claim/${CLAIM_ID}`));
   });
 
-  it('ignores status responses, which carry no submitted 837', async () => {
-    const statusResponse = {
-      resourceType: 'ClaimResponse',
-      id: 'status',
-      status: 'active',
-      created: '2026-08-05T15:02:00Z',
-      request: {
-        reference: `Claim/${CLAIM_ID}`,
+  it('skips a transmit payload it cannot read rather than reporting a wrong date', () => {
+    const broken = transmitProvenance('broken', { transmittedAt: '2026-08-05T11:53:00.000Z' });
+    broken.extension = [
+      {
+        url: CLAIM_PROVENANCE_TRANSMIT_EXTENSION_URL,
+        valueString: 'not json',
       },
-      extension: [
-        {
-          url: RAW_RESPONSE_EXTENSION_URL,
-          valueString: '{"status":"A"}',
-        },
-      ],
-    } as ClaimResponse;
-    const search = vi.fn().mockResolvedValue(pagedBundle([statusResponse]));
+    ];
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-    await expect(
-      fetchClaimTransmitEvent({
-        oystehr: {
-          fhir: {
-            search,
-          },
-        } as unknown as Oystehr,
-        claimId: CLAIM_ID,
-      })
-    ).resolves.toBeUndefined();
+    const transmit = claimTransmitEvent({
+      provenances: [broken],
+      claimId: CLAIM_ID,
+    });
+
+    expect(transmit).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Provenance/broken'));
+  });
+
+  it('returns nothing when the claim has no transmit provenance', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const transmit = claimTransmitEvent({
+      provenances: [acknowledgmentProvenance(acknowledgment(), 'a')],
+      claimId: CLAIM_ID,
+    });
+
+    expect(transmit).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(`Claim/${CLAIM_ID}`));
   });
 });
 
@@ -401,7 +332,7 @@ describe('create-timely-filing-report performEffect', () => {
 
   function makeClients(billingClaim: Claim = claim): {
     oystehr: Oystehr;
-    eraReadClient: Oystehr;
+    search: ReturnType<typeof vi.fn>;
     transaction: ReturnType<typeof vi.fn>;
     getPresignedUrl: ReturnType<typeof vi.fn>;
   } {
@@ -433,7 +364,7 @@ describe('create-timely-filing-report performEffect', () => {
     } as unknown as Oystehr;
     return {
       oystehr: client,
-      eraReadClient: client,
+      search,
       transaction,
       getPresignedUrl,
     };
@@ -448,11 +379,10 @@ describe('create-timely-filing-report performEffect', () => {
   };
 
   it('hands back the rendered pdf inline, named after the patient control number', async () => {
-    const { oystehr, eraReadClient } = makeClients();
+    const { oystehr } = makeClients();
 
     const result = await performEffect({
       oystehr,
-      eraReadClient,
       params,
     });
 
@@ -465,15 +395,27 @@ describe('create-timely-filing-report performEffect', () => {
   // The report is a snapshot of a trail the claim already owns. Storing it would leave a stale copy
   // behind and add an attachment the biller never asked to file.
   it('leaves no record behind — no upload, no write to the claim', async () => {
-    const { oystehr, eraReadClient, transaction, getPresignedUrl } = makeClients();
+    const { oystehr, transaction, getPresignedUrl } = makeClients();
 
     await performEffect({
       oystehr,
-      eraReadClient,
       params,
     });
 
     expect(transaction).not.toHaveBeenCalled();
     expect(getPresignedUrl).not.toHaveBeenCalled();
+  });
+
+  // The acknowledgment trail and the transmit event both come from Provenances targeting the claim.
+  it('reads the claim history once rather than searching per event kind', async () => {
+    const { oystehr, search } = makeClients();
+
+    await performEffect({
+      oystehr,
+      params,
+    });
+
+    const provenanceSearches = search.mock.calls.filter(([args]) => args.resourceType === 'Provenance');
+    expect(provenanceSearches).toHaveLength(1);
   });
 });

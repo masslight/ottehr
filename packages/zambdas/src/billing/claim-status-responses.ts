@@ -124,7 +124,7 @@ export function transmitEventFromClaimResponse({
   fallbackTime: string;
 }): ClaimTransmitEvent {
   const fallback = response.created || fallbackTime;
-  const raw = ClaimStatusResponseSchema.safeParse(safeJsonParse(rawResponseOf(response)));
+  const raw = ClaimStatusResponseSchema.safeParse(parseJsonOrUndefined(rawResponseOf(response)));
   if (!raw.success) {
     console.warn(`ClaimResponse/${response.id} has no readable raw response; transmit ids omitted`);
     return { transmittedAt: fallback };
@@ -143,7 +143,7 @@ function rawResponseOf(response: ClaimResponse): string | undefined {
   return response.extension?.find((extension) => extension.url === RAW_RESPONSE_EXTENSION_URL)?.valueString;
 }
 
-function safeJsonParse(value: string | undefined): unknown {
+export function parseJsonOrUndefined(value: string | undefined): unknown {
   if (!value) return undefined;
   try {
     return JSON.parse(value);

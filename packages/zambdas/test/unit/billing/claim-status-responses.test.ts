@@ -9,6 +9,7 @@ import {
   claimStatusMessageIdentity,
   ClaimStatusRawResponse,
   parseClaimStatusResponse,
+  transmitEventFromClaimResponse,
 } from '../../../src/billing/claim-status-responses';
 
 const FALLBACK_TIME = '2026-09-07T12:18:55Z';
@@ -317,5 +318,60 @@ describe('acknowledgmentEventFromMessage', () => {
       responseId: 'id:9002',
       eventTime: FALLBACK_TIME,
     });
+  });
+});
+
+describe('transmitEventFromClaimResponse', () => {
+  const submissionResponse = (extension?: ClaimResponse['extension']): ClaimResponse =>
+    ({
+      resourceType: 'ClaimResponse',
+      id: 'submission',
+      status: 'active',
+      created: '2026-08-05T11:53:00Z',
+      ...(extension ? { extension } : {}),
+    }) as ClaimResponse;
+
+  it('reads the batch and clearinghouse id out of the raw response', () => {
+    const event = transmitEventFromClaimResponse({
+      response: submissionResponse([
+        {
+          url: RAW_RESPONSE_EXTENSION_URL,
+          valueString: JSON.stringify({
+            batchid: '20260805123456789',
+            claimmd_id: '48213765',
+            response_time: '2026-08-05 07:53:00AM',
+          }),
+        },
+      ]),
+      fallbackTime: FALLBACK_TIME,
+    });
+
+    expect(event).toEqual({
+      // 07:53 ET is 11:53Z.
+      transmittedAt: '2026-08-05T11:53:00.000Z',
+      batchId: '20260805123456789',
+      clearinghouseClaimId: '48213765',
+    });
+  });
+
+  it('still dates the transmit when the raw response is missing', () => {
+    expect(
+      transmitEventFromClaimResponse({
+        response: submissionResponse(),
+        fallbackTime: FALLBACK_TIME,
+      })
+    ).toEqual({ transmittedAt: '2026-08-05T11:53:00Z' });
+  });
+
+  it('falls back to the supplied time when the response carries no created', () => {
+    expect(
+      transmitEventFromClaimResponse({
+        response: {
+          resourceType: 'ClaimResponse',
+          id: 'submission',
+        } as ClaimResponse,
+        fallbackTime: FALLBACK_TIME,
+      })
+    ).toEqual({ transmittedAt: FALLBACK_TIME });
   });
 });

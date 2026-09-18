@@ -8,11 +8,10 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { composeTimelyFilingReportData, renderTimelyFilingReportPdf } from '../../shared/pdf/timely-filing-report-pdf';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { fetchClaimAcknowledgmentEvents, fetchClaimTransmitEvent } from '../claim-acknowledgments';
+import { claimAcknowledgmentEvents, claimTransmitEvent, fetchClaimHistoryProvenances } from '../claim-acknowledgments';
 import { fetchClaimResponsesByClaimIds } from '../claim-amounts';
 import {
   createBillingClient,
-  createEraReadClient,
   ERA_ICN_EXTENSION,
   fetchClaimGraph,
   getClaimPcn,
@@ -34,14 +33,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
-  // The status responses and ERAs the trail is read from are written by Oystehr without the billing
-  // tag, so they are read with the untagged client.
-  const eraReadClient = createEraReadClient(m2mToken, secrets);
 
   console.group('performEffect');
   const response = await performEffect({
     oystehr,
-    eraReadClient,
     params,
   });
   console.groupEnd();
@@ -55,27 +50,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export async function performEffect({
   oystehr,
-  eraReadClient,
   params,
 }: {
   oystehr: Oystehr;
-  eraReadClient: Oystehr;
   params: CreateTimelyFilingReportParams;
 }): Promise<CreateTimelyFilingReportResponse> {
   const { claimId } = params;
 
-  const [graph, acknowledgments, transmit, claimResponsesByClaim] = await Promise.all([
+  const [graph, provenances, claimResponsesByClaim] = await Promise.all([
     fetchClaimGraph(oystehr, claimId),
-    fetchClaimAcknowledgmentEvents({
+    fetchClaimHistoryProvenances({
       oystehr,
       claimId,
     }),
-    fetchClaimTransmitEvent({
-      oystehr: eraReadClient,
-      claimId,
-    }),
-    fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
+    fetchClaimResponsesByClaimIds(oystehr, [claimId]),
   ]);
+  const acknowledgments = claimAcknowledgmentEvents({ provenances });
+  const transmit = claimTransmitEvent({
+    provenances,
+    claimId,
+  });
   const { claim, patient, billingProvider, renderingProvider, coverages } = graph;
 
   const payersByRef = await resolvePayersByRef(oystehr, [claim.insurer?.reference]);
