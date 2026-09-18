@@ -28,6 +28,9 @@ export function useApiClients(): ApiClientsState {
   }, [oystehr, token]);
 
   useEffect(() => {
+    if (!token) {
+      return;
+    }
     if (!oystehrZambda || oystehrZambda.config.accessToken !== token) {
       const zambdaConfig: ConstructorParameters<typeof Oystehr>[0] = {
         accessToken: token,
