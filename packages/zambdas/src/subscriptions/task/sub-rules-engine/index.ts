@@ -1,5 +1,6 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import {
+  Account,
   ChargeItemDefinition,
   Claim,
   Coverage,
@@ -10,6 +11,7 @@ import {
   Practitioner,
   ProvenanceAgent,
   RelatedPerson,
+  Resource,
   Task,
   TaskInput,
 } from 'fhir/r4b';
@@ -54,15 +56,17 @@ import {
 } from '../../../billing/rules-engine/serialization';
 import {
   BILLING_WORKING_COPY_TAG,
+  buildPatientCoverageRecords,
   copySourceId,
   createBillingClient,
+  EXCLUDE_WORKING_COPIES_PARAMS,
   fetchById,
   fetchClaimGraph,
-  fetchPatientCoverages,
   findRulesEngineList,
   hasTag,
   listToRulesReportingMalformed,
 } from '../../../billing/shared';
+import { buildSearchUrl } from '../../../ehr/get-appointments/batch-search';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapTaskHandler } from '../helpers';
 import { finalizeEngineRun } from './finalize';
@@ -158,14 +162,8 @@ export async function complexValidation(
 ): Promise<ValidatedRulesRun> {
   console.log(`[rules-engine] ${engine} starting for Claim/${claimId}`);
   const [rules, model] = await Promise.all([loadRules(oystehr, engine, env), loadClaimModel(oystehr, claimId)]);
-  const [referenceResources, chargeMasters, patientCoverageContext, nioOrganizations, customInsuranceOrganizations] =
-    await Promise.all([
-      loadReferenceResources(oystehr, rules),
-      loadChargeMasters(oystehr, rules),
-      loadPatientCoverageContext(oystehr, rules, model.patient),
-      loadNioOrganizations(oystehr, rules),
-      loadCustomInsuranceOrganizations(oystehr, rules),
-    ]);
+  const { referenceResources, chargeMasters, patientCoverageContext, nioOrganizations, customInsuranceOrganizations } =
+    await loadAuxiliaryResources(oystehr, rules, model.patient);
   model.referenceResources = referenceResources;
   model.chargeMasters = chargeMasters;
   model.patientCoverageContext = patientCoverageContext;
@@ -189,124 +187,164 @@ export async function complexValidation(
   return { engine, claimId, rules, model, skipRules: skipRules ?? false };
 }
 
-// The reference resources (provider/facility page originals) named by the rule set's "set
-// provider/facility from list" actions, prefetched so the synchronous writers can copy them. A
-// rule referencing a resource that is missing — deleted, mistyped, or itself a working copy —
-// finds no entry and fails at apply time, holding the claim rather than mis-pointing it.
-async function loadReferenceResources(
+interface AuxiliaryResources {
+  referenceResources: RulesEngineClaimModel['referenceResources'];
+  chargeMasters: RulesEngineClaimModel['chargeMasters'];
+  patientCoverageContext: RulesEngineClaimModel['patientCoverageContext'];
+  nioOrganizations: RulesEngineClaimModel['nioOrganizations'];
+  customInsuranceOrganizations: RulesEngineClaimModel['customInsuranceOrganizations'];
+}
+
+// Every auxiliary resource an enabled rule might need — reference resources (provider/facility page
+// originals), charge masters, the reference patient's coverage context, and the two organization
+// lookup tables (non-insurance, custom insurance) — fetched with a single FHIR batch call instead of
+// one round trip per kind. Each kind still contributes no query, and resolves to undefined, when no
+// enabled rule needs it — same skip behavior the five separate loaders had before.
+async function loadAuxiliaryResources(
   oystehr: Oystehr,
-  rules: BillingRule[]
-): Promise<RulesEngineClaimModel['referenceResources']> {
-  const refs = new Set(
+  rules: BillingRule[],
+  patient: Patient | undefined
+): Promise<AuxiliaryResources> {
+  // The provider/facility page originals named by "set provider/facility from list" actions. A rule
+  // referencing a resource that is missing — deleted, mistyped, or itself a working copy — finds no
+  // entry and fails at apply time, holding the claim rather than mis-pointing it.
+  const referenceRefs = new Set(
     rules.filter((rule) => rule.enabled).flatMap((rule) => collectSetResourceRefs(rule).map((r) => r.ref))
   );
-  const queries: string[] = [];
-  for (const ref of refs) {
+  const referenceQueries: string[] = [];
+  for (const ref of referenceRefs) {
     const [type, id] = ref.split('/');
     if ((type === 'Practitioner' || type === 'Organization' || type === 'Location') && id) {
-      queries.push(`/${type}?_id=${id}`);
+      referenceQueries.push(`/${type}?_id=${id}`);
     }
   }
-  if (!queries.length) return undefined;
-  const resources = await getResourcesFromBatchInlineRequests(oystehr, queries);
-  const map: NonNullable<RulesEngineClaimModel['referenceResources']> = new Map();
-  for (const resource of resources) {
-    const { resourceType } = resource;
-    if (resourceType !== 'Practitioner' && resourceType !== 'Organization' && resourceType !== 'Location') continue;
-    const typed = resource as Practitioner | Organization | Location;
-    if (!typed.id || hasTag(typed, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code)) continue;
-    map.set(`${resourceType}/${typed.id}`, typed);
-  }
-  return map;
-}
 
-// The non-insurance organizations named by the rule set's "set non-insurance organization" actions,
-// prefetched so the synchronous writer can stamp the claim with the payer's name. An id that is
-// missing — deleted, or not a non-insurance organization — finds no entry and fails at apply time,
-// holding the claim rather than stamping a bad payer.
-async function loadNioOrganizations(
-  oystehr: Oystehr,
-  rules: BillingRule[]
-): Promise<RulesEngineClaimModel['nioOrganizations']> {
-  const ids = new Set(rules.filter((rule) => rule.enabled).flatMap((rule) => collectSetNioIds(rule)));
-  if (!ids.size) return undefined;
-  const resources = await getResourcesFromBatchInlineRequests(
-    oystehr,
-    [...ids].map((id) => `/Organization?_id=${id}`)
-  );
-  const map: NonNullable<RulesEngineClaimModel['nioOrganizations']> = new Map();
-  for (const resource of resources) {
-    if (resource.resourceType !== 'Organization') continue;
-    const org = resource as Organization;
-    if (org.id && isNonInsuranceOrganization(org)) map.set(org.id, org);
-  }
-  return map;
-}
+  // The non-insurance organizations named by "set non-insurance organization" actions. An id that is
+  // missing — deleted, or not a non-insurance organization — finds no entry and fails at apply time,
+  // holding the claim rather than stamping a bad payer.
+  const nioIds = new Set(rules.filter((rule) => rule.enabled).flatMap((rule) => collectSetNioIds(rule)));
+  const nioQueries = [...nioIds].map((id) => `/Organization?_id=${id}`);
 
-// The billing-app custom insurance organizations named as a literal value by the rule set's payer-field
-// setField actions, prefetched so the synchronous payerId writer can tell a custom org id apart from an
-// RCM payer id and reference it directly (see payerReferenceForId in claim-model.ts). A collected id
-// that isn't a custom insurance organization (most commonly an ordinary RCM payer id) simply finds no
-// entry, and the writer falls back to the existing RCM payer URL behavior.
-async function loadCustomInsuranceOrganizations(
-  oystehr: Oystehr,
-  rules: BillingRule[]
-): Promise<RulesEngineClaimModel['customInsuranceOrganizations']> {
-  const ids = new Set(
+  // The billing-app custom insurance organizations named as a literal value by payer-field setField
+  // actions. A collected id that isn't a custom insurance organization (most commonly an ordinary
+  // RCM payer id) simply finds no entry, and the writer falls back to the existing RCM payer URL
+  // behavior.
+  const customInsuranceIds = new Set(
     rules
       .filter((rule) => rule.enabled)
       .flatMap((rule) => collectSetPayerIds(rule))
       .filter((payerId) => isValidUUID(payerId))
   );
-  if (!ids.size) return undefined;
-  const resources = await getResourcesFromBatchInlineRequests(
-    oystehr,
-    [...ids].map((id) => `/Organization?_id=${id}`)
-  );
-  const map: NonNullable<RulesEngineClaimModel['customInsuranceOrganizations']> = new Map();
+  const customInsuranceQueries = [...customInsuranceIds].map((id) => `/Organization?_id=${id}`);
+
+  // The candidate charge masters for the applyChargeMasterPrices action: both insurance and self-pay
+  // defaults are fetched because the action picks between them at apply time — earlier rules in the
+  // same run can change the claim's coverage (and therefore its billing type).
+  const needsChargeMasters = rules.some((rule) => rule.enabled && ruleUsesChargeMasterPrices(rule));
+  const chargeMasterQuery = needsChargeMasters
+    ? `/${buildSearchUrl('ChargeItemDefinition', activeDefaultChargeMasterSearchParams(['insurance', 'self-pay']))}`
+    : undefined;
+
+  // The reference patient's coverages, for the "Coverage (from patient)" field. The reference
+  // patient is the source the claim's working-copy Patient was copied from; when there is none (no
+  // working-copy patient, or a copy made before the source extension existed) the context stays
+  // absent — a setField then fails the rule and holds the claim, and a condition reads as empty.
+  const sourcePatientId = rules.some((rule) => rule.enabled && ruleReferencesPatientCoverage(rule))
+    ? copySourceId(patient)
+    : undefined;
+  const coverageQuery = sourcePatientId
+    ? `/${buildSearchUrl('Coverage', [
+        { name: 'beneficiary', value: `Patient/${sourcePatientId}` },
+        ...EXCLUDE_WORKING_COPIES_PARAMS,
+      ])}`
+    : undefined;
+  const subscriberQuery = sourcePatientId
+    ? `/${buildSearchUrl('RelatedPerson', [
+        { name: 'patient', value: `Patient/${sourcePatientId}` },
+        ...EXCLUDE_WORKING_COPIES_PARAMS,
+      ])}`
+    : undefined;
+  const accountQuery = sourcePatientId
+    ? `/${buildSearchUrl('Account', [
+        { name: 'subject', value: `Patient/${sourcePatientId}` },
+        ...EXCLUDE_WORKING_COPIES_PARAMS,
+      ])}`
+    : undefined;
+
+  const queries = [
+    ...referenceQueries,
+    ...nioQueries,
+    ...customInsuranceQueries,
+    ...(chargeMasterQuery ? [chargeMasterQuery] : []),
+    ...(coverageQuery && subscriberQuery && accountQuery ? [coverageQuery, subscriberQuery, accountQuery] : []),
+  ];
+  const resources = queries.length ? await getResourcesFromBatchInlineRequests(oystehr, queries) : [];
+
+  return {
+    referenceResources: referenceQueries.length ? buildReferenceResources(resources, referenceRefs) : undefined,
+    chargeMasters: needsChargeMasters
+      ? resources.filter((r): r is ChargeItemDefinition => r.resourceType === 'ChargeItemDefinition')
+      : undefined,
+    patientCoverageContext: coverageQuery ? buildPatientCoverageContext(resources) : undefined,
+    nioOrganizations: nioQueries.length ? buildNioOrganizations(resources, nioIds) : undefined,
+    customInsuranceOrganizations: customInsuranceQueries.length
+      ? buildCustomInsuranceOrganizations(resources, customInsuranceIds)
+      : undefined,
+  };
+}
+
+function buildReferenceResources(
+  resources: Resource[],
+  refs: Set<string>
+): NonNullable<RulesEngineClaimModel['referenceResources']> {
+  const map: NonNullable<RulesEngineClaimModel['referenceResources']> = new Map();
   for (const resource of resources) {
-    if (resource.resourceType !== 'Organization') continue;
-    const org = resource as Organization;
-    if (org.id && isCustomInsuranceOrganization(org)) map.set(org.id, org);
+    const { resourceType } = resource;
+    if (resourceType !== 'Practitioner' && resourceType !== 'Organization' && resourceType !== 'Location') continue;
+    const typed = resource as Practitioner | Organization | Location;
+    if (!typed.id || !refs.has(`${resourceType}/${typed.id}`)) continue;
+    if (hasTag(typed, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code)) continue;
+    map.set(`${resourceType}/${typed.id}`, typed);
   }
   return map;
 }
 
-// The candidate charge masters for the applyChargeMasterPrices action: every active billing
-// ChargeItemDefinition designated as the insurance or self-pay default, via the same shared search
-// definition the charge master screen's list is built on. Both kinds are fetched because the action
-// picks between them at apply time — earlier rules in the same run can change the claim's coverage
-// (and therefore its billing type). Skipped entirely when no enabled rule applies charge master
-// prices.
-async function loadChargeMasters(
-  oystehr: Oystehr,
-  rules: BillingRule[]
-): Promise<RulesEngineClaimModel['chargeMasters']> {
-  if (!rules.some((rule) => rule.enabled && ruleUsesChargeMasterPrices(rule))) return undefined;
-  const result = await oystehr.fhir.search<ChargeItemDefinition>({
-    resourceType: 'ChargeItemDefinition',
-    params: activeDefaultChargeMasterSearchParams(['insurance', 'self-pay']),
-  });
-  return result.unbundle();
+function buildNioOrganizations(
+  resources: Resource[],
+  ids: Set<string>
+): NonNullable<RulesEngineClaimModel['nioOrganizations']> {
+  const map: NonNullable<RulesEngineClaimModel['nioOrganizations']> = new Map();
+  for (const resource of resources) {
+    if (resource.resourceType !== 'Organization' || !resource.id || !ids.has(resource.id)) continue;
+    const org = resource as Organization;
+    if (isNonInsuranceOrganization(org)) map.set(org.id as string, org);
+  }
+  return map;
+}
+
+function buildCustomInsuranceOrganizations(
+  resources: Resource[],
+  ids: Set<string>
+): NonNullable<RulesEngineClaimModel['customInsuranceOrganizations']> {
+  const map: NonNullable<RulesEngineClaimModel['customInsuranceOrganizations']> = new Map();
+  for (const resource of resources) {
+    if (resource.resourceType !== 'Organization' || !resource.id || !ids.has(resource.id)) continue;
+    const org = resource as Organization;
+    if (isCustomInsuranceOrganization(org)) map.set(org.id as string, org);
+  }
+  return map;
 }
 
 // The reference patient's coverages resolved to their insurance-type slots (primary / secondary /
-// workers comp), for the "Coverage (from patient)" field: the reader maps the claim's current
-// primary coverage back to its slot, and the writer copies the chosen slot's coverage onto the
-// claim. Fetched only when an enabled rule references the field. The reference patient is the
-// source the claim's working-copy Patient was copied from; when there is none (no working-copy
-// patient, or a copy made before the source extension existed) the context stays absent — a
-// setField then fails the rule and holds the claim, and a condition reads as empty.
-async function loadPatientCoverageContext(
-  oystehr: Oystehr,
-  rules: BillingRule[],
-  patient: Patient | undefined
-): Promise<RulesEngineClaimModel['patientCoverageContext']> {
-  if (!rules.some((rule) => rule.enabled && ruleReferencesPatientCoverage(rule))) return undefined;
-  const sourcePatientId = copySourceId(patient);
-  if (!sourcePatientId) return undefined;
-
-  const records = await fetchPatientCoverages(oystehr, sourcePatientId);
+// workers comp): the reader maps the claim's current primary coverage back to its slot, and the
+// writer copies the chosen slot's coverage onto the claim.
+function buildPatientCoverageContext(
+  resources: Resource[]
+): NonNullable<RulesEngineClaimModel['patientCoverageContext']> {
+  const coverages = resources.filter((r): r is Coverage => r.resourceType === 'Coverage');
+  const relatedPersons = resources.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson');
+  const accounts = resources.filter((r): r is Account => r.resourceType === 'Account');
+  const records = buildPatientCoverageRecords(coverages, relatedPersons, accounts);
 
   const context: NonNullable<RulesEngineClaimModel['patientCoverageContext']> = {
     byType: {},

@@ -1423,6 +1423,40 @@ export interface PatientCoverageRecord {
   subscriber?: RelatedPerson;
 }
 
+// Resolves a patient's already-fetched coverages/subscribers/accounts into their billing coverage
+// records. Split out of fetchPatientCoverages so a caller that already has these three resource
+// lists from elsewhere (e.g. a shared batch fetch) can skip the searches and reuse the same
+// combining logic.
+export function buildPatientCoverageRecords(
+  coverages: Coverage[],
+  relatedPersons: RelatedPerson[],
+  accounts: Account[]
+): PatientCoverageRecord[] {
+  const pbillAccount = findPatientBillingAccount(accounts);
+  const wcompAccount = findPatientWorkersCompAccount(accounts);
+  const subscribersById = new Map(relatedPersons.map((rp) => [rp.id ?? '', rp]));
+
+  // Only coverages an account references are the patient's billing coverages; anything else on the
+  // patient is not part of their insurance setup.
+  const referencedByAccount = (coverage: Coverage): boolean => {
+    const ref = `Coverage/${coverage.id}`;
+    return [pbillAccount, wcompAccount].some(
+      (account) => account?.coverage?.some((c) => c.coverage?.reference === ref)
+    );
+  };
+
+  return coverages.filter(referencedByAccount).map((coverage) => {
+    const subscriberRef = coverage.subscriber?.reference;
+    return {
+      coverage,
+      insuranceType: getCoverageInsuranceType(coverage, pbillAccount, wcompAccount),
+      subscriber: subscriberRef?.startsWith('RelatedPerson/')
+        ? subscribersById.get(subscriberRef.slice('RelatedPerson/'.length))
+        : undefined,
+    };
+  });
+}
+
 // Every coverage the patient's billing accounts reference, resolved to its slot and policy holder.
 // Shared by the claim detail coverage picker (get-patient-coverages) and the rules engine's
 // "Coverage (from patient)" prefetch so both read the patient's coverages one way. Working copies
@@ -1440,32 +1474,7 @@ export async function fetchPatientCoverages(oystehr: Oystehr, patientId: string)
     getPatientAccounts(oystehr, patientId),
   ]);
 
-  const pbillAccount = findPatientBillingAccount(accounts);
-  const wcompAccount = findPatientWorkersCompAccount(accounts);
-  const subscribersById = new Map(subscriberBundle.unbundle().map((rp) => [rp.id ?? '', rp]));
-
-  // Only coverages an account references are the patient's billing coverages; anything else on the
-  // patient is not part of their insurance setup.
-  const referencedByAccount = (coverage: Coverage): boolean => {
-    const ref = `Coverage/${coverage.id}`;
-    return [pbillAccount, wcompAccount].some(
-      (account) => account?.coverage?.some((c) => c.coverage?.reference === ref)
-    );
-  };
-
-  return coverageBundle
-    .unbundle()
-    .filter(referencedByAccount)
-    .map((coverage) => {
-      const subscriberRef = coverage.subscriber?.reference;
-      return {
-        coverage,
-        insuranceType: getCoverageInsuranceType(coverage, pbillAccount, wcompAccount),
-        subscriber: subscriberRef?.startsWith('RelatedPerson/')
-          ? subscribersById.get(subscriberRef.slice('RelatedPerson/'.length))
-          : undefined,
-      };
-    });
+  return buildPatientCoverageRecords(coverageBundle.unbundle(), subscriberBundle.unbundle(), accounts);
 }
 
 type AccountWriteRequest = BatchInputPostRequest<Account> | BatchInputPutRequest<Account>;

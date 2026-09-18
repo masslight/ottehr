@@ -53,14 +53,44 @@ const workingCopyTag = { system: BILLING_WORKING_COPY_TAG.system, code: BILLING_
 function makeOystehrMock(): {
   oystehr: Oystehr;
   search: ReturnType<typeof vi.fn>;
+  batch: ReturnType<typeof vi.fn>;
   transaction: ReturnType<typeof vi.fn>;
   submitClaimRcm: ReturnType<typeof vi.fn>;
 } {
   const search = vi.fn().mockResolvedValue({ unbundle: () => [] });
+  const batch = vi.fn().mockResolvedValue({ resourceType: 'Bundle', type: 'batch-response', entry: [] });
   const transaction = vi.fn().mockResolvedValue({ entry: [] });
   const submitClaimRcm = vi.fn().mockResolvedValue({});
-  const oystehr = { fhir: { search, transaction }, rcm: { submitClaim: submitClaimRcm } } as unknown as Oystehr;
-  return { oystehr, search, transaction, submitClaimRcm };
+  const oystehr = { fhir: { search, batch, transaction }, rcm: { submitClaim: submitClaimRcm } } as unknown as Oystehr;
+  return { oystehr, search, batch, transaction, submitClaimRcm };
+}
+
+// loadAuxiliaryResources fetches its prefetches (reference resources, charge masters, patient
+// coverage context, NIO/custom-insurance organizations) with a single `fhir.batch` call of GET
+// search-style requests, each of which the real server answers with a nested searchset Bundle
+// (see getResourcesFromBatchInlineRequests). `resolver` maps a request's resource type to the
+// resources that "matched" its query.
+function dispatchBatch(
+  batch: ReturnType<typeof vi.fn>,
+  resolver: (resourceType: string, url: string) => unknown[]
+): void {
+  batch.mockImplementation(({ requests }: { requests: { url: string }[] }) =>
+    Promise.resolve({
+      resourceType: 'Bundle',
+      type: 'batch-response',
+      entry: requests.map((req) => {
+        const resourceType = req.url.replace(/^\//, '').split('?')[0];
+        return {
+          response: { status: '200', outcome: { resourceType: 'OperationOutcome', id: 'ok' } },
+          resource: {
+            resourceType: 'Bundle',
+            type: 'searchset',
+            entry: resolver(resourceType, req.url).map((resource) => ({ resource })),
+          },
+        };
+      }),
+    })
+  );
 }
 
 function makeModel(arStage: string = AR_STAGE.insurancePayer): RulesEngineClaimModel {
@@ -625,61 +655,56 @@ describe('sub-rules-engine charge master pricing', () => {
     ],
   };
 
-  // complexValidation loads rules (List), the claim graph (Claim), and the prefetches; answer each
-  // search by resource type.
+  // complexValidation loads rules (List) and the claim graph (Claim) via search, and its prefetches
+  // (including charge masters) via a single batch call; answer each by resource type.
   const dispatchSearch = (
     search: ReturnType<typeof vi.fn>,
-    { rules, claim, chargeMasters }: { rules: BillingRule[]; claim: Claim; chargeMasters: ChargeItemDefinition[] }
+    { rules, claim }: { rules: BillingRule[]; claim: Claim }
   ): void => {
     search.mockImplementation(({ resourceType }: { resourceType: string }) => {
       if (resourceType === 'List') {
         return Promise.resolve({ unbundle: () => [rulesToList('claim-submission', rules)] });
       }
       if (resourceType === 'Claim') return Promise.resolve({ unbundle: () => [claim] });
-      if (resourceType === 'ChargeItemDefinition') return Promise.resolve({ unbundle: () => chargeMasters });
       return Promise.resolve({ unbundle: () => [] });
     });
   };
 
-  const chargeMasterSearchCalls = (search: ReturnType<typeof vi.fn>): { resourceType: string; params: unknown }[] =>
-    search.mock.calls.map((call) => call[0]).filter((arg) => arg.resourceType === 'ChargeItemDefinition');
+  const chargeMasterBatchCalls = (batch: ReturnType<typeof vi.fn>): string[] =>
+    batch.mock.calls
+      .flatMap((call) => call[0].requests)
+      .filter((r: { url: string }) => r.url.includes('ChargeItemDefinition'));
 
   it('prefetches the default charge masters only when an enabled rule applies charge master prices', async () => {
-    const { oystehr, search } = makeOystehrMock();
-    dispatchSearch(search, { rules: [priceRule], claim: makeModel().claim, chargeMasters: [selfPayChargeMaster] });
+    const { oystehr, search, batch } = makeOystehrMock();
+    dispatchSearch(search, { rules: [priceRule], claim: makeModel().claim });
+    dispatchBatch(batch, (resourceType) => (resourceType === 'ChargeItemDefinition' ? [selfPayChargeMaster] : []));
 
     const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', null);
 
     expect(validated.model.chargeMasters).toEqual([selfPayChargeMaster]);
-    const calls = chargeMasterSearchCalls(search);
+    const calls = chargeMasterBatchCalls(batch);
     expect(calls).toHaveLength(1);
     // The shared charge-master identity filter (same as the charge master screen's list) plus the
     // pricing scoping.
-    expect(calls[0].params).toContainEqual({
-      name: '_tag',
-      value: `${CHARGE_ITEM_DEFINITION_TYPE_SYSTEM}|charge-master`,
-    });
-    expect(calls[0].params).toContainEqual({
-      name: '_tag',
-      value: `${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|insurance,${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|self-pay`,
-    });
-    expect(calls[0].params).toContainEqual({ name: 'status', value: 'active' });
+    expect(calls[0].url).toContain(`_tag=${CHARGE_ITEM_DEFINITION_TYPE_SYSTEM}|charge-master`);
+    expect(calls[0].url).toContain(
+      `_tag=${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|insurance,${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|self-pay`
+    );
+    expect(calls[0].url).toContain('status=active');
   });
 
   it('skips the prefetch when no enabled rule uses the action', async () => {
-    const { oystehr, search } = makeOystehrMock();
+    const { oystehr, search, batch } = makeOystehrMock();
     const tagRule = alwaysRule('tag', { type: 'actions', actions: [{ type: 'applyTag', tag: 'VIP' }] });
     const disabledPriceRule = { ...priceRule, enabled: false };
-    dispatchSearch(search, {
-      rules: [tagRule, disabledPriceRule],
-      claim: makeModel().claim,
-      chargeMasters: [selfPayChargeMaster],
-    });
+    dispatchSearch(search, { rules: [tagRule, disabledPriceRule], claim: makeModel().claim });
+    dispatchBatch(batch, () => []);
 
     const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', null);
 
     expect(validated.model.chargeMasters).toBeUndefined();
-    expect(chargeMasterSearchCalls(search)).toHaveLength(0);
+    expect(chargeMasterBatchCalls(batch)).toHaveLength(0);
   });
 
   it('re-prices lines onto the claim PUT; charge masters are read-only and never written', async () => {
@@ -835,6 +860,8 @@ describe('sub-rules-engine patient coverage context', () => {
     },
   ];
 
+  // complexValidation loads rules (List) and the claim graph (Claim) via search, and its prefetches
+  // (including the reference patient's Coverage/RelatedPerson/Account) via a single batch call.
   const dispatchContextSearch = (
     search: ReturnType<typeof vi.fn>,
     { rules, claim, patient }: { rules: BillingRule[]; claim: Claim; patient: Patient }
@@ -844,21 +871,28 @@ describe('sub-rules-engine patient coverage context', () => {
         return Promise.resolve({ unbundle: () => [rulesToList('claim-submission', rules)] });
       }
       if (resourceType === 'Claim') return Promise.resolve({ unbundle: () => [claim, patient] });
-      if (resourceType === 'Coverage') {
-        return Promise.resolve({ unbundle: () => [srcWcCancelled, srcPrimary, srcSecondary, srcWcActive] });
-      }
-      if (resourceType === 'RelatedPerson') return Promise.resolve({ unbundle: () => [rpSrc] });
-      if (resourceType === 'Account') return Promise.resolve({ unbundle: () => accounts });
       return Promise.resolve({ unbundle: () => [] });
     });
   };
 
-  const searchedTypes = (search: ReturnType<typeof vi.fn>): string[] =>
-    search.mock.calls.map((call) => call[0].resourceType);
+  const dispatchContextBatch = (batch: ReturnType<typeof vi.fn>): void => {
+    dispatchBatch(batch, (resourceType) => {
+      if (resourceType === 'Coverage') return [srcWcCancelled, srcPrimary, srcSecondary, srcWcActive];
+      if (resourceType === 'RelatedPerson') return [rpSrc];
+      if (resourceType === 'Account') return accounts;
+      return [];
+    });
+  };
+
+  const batchedTypes = (batch: ReturnType<typeof vi.fn>): string[] =>
+    batch.mock.calls
+      .flatMap((call) => call[0].requests)
+      .map((r: { url: string }) => r.url.replace(/^\//, '').split('?')[0]);
 
   it("builds the context from the reference patient's coverages and accounts, skipping cancelled ones", async () => {
-    const { oystehr, search } = makeOystehrMock();
+    const { oystehr, search, batch } = makeOystehrMock();
     dispatchContextSearch(search, { rules: [coverageRule], claim: makeModel().claim, patient: workingPatient(true) });
+    dispatchContextBatch(batch);
 
     const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', false);
 
@@ -876,16 +910,17 @@ describe('sub-rules-engine patient coverage context', () => {
     ]);
 
     // The lookups are scoped to the reference patient and exclude per-claim working copies.
-    const coverageCall = search.mock.calls.map((call) => call[0]).find((arg) => arg.resourceType === 'Coverage');
-    expect(coverageCall.params).toContainEqual({ name: 'beneficiary', value: 'Patient/src-patient' });
-    expect(coverageCall.params).toContainEqual({
-      name: '_tag:not',
-      value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}`,
-    });
+    const coverageRequest = batch.mock.calls
+      .flatMap((call) => call[0].requests)
+      .find((r: { url: string }) => r.url.startsWith('/Coverage?'));
+    expect(coverageRequest.url).toContain('beneficiary=Patient/src-patient');
+    expect(coverageRequest.url).toContain(
+      `_tag:not=${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}`
+    );
   });
 
   it('prefetches for a rule that only references the field in a condition', async () => {
-    const { oystehr, search } = makeOystehrMock();
+    const { oystehr, search, batch } = makeOystehrMock();
     const conditionRule: BillingRule = {
       id: 'cond',
       name: 'Rule cond',
@@ -901,15 +936,16 @@ describe('sub-rules-engine patient coverage context', () => {
       },
     };
     dispatchContextSearch(search, { rules: [conditionRule], claim: makeModel().claim, patient: workingPatient(true) });
+    dispatchContextBatch(batch);
 
     const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', false);
 
     expect(validated.model.patientCoverageContext).toBeDefined();
-    expect(searchedTypes(search)).toContain('Coverage');
+    expect(batchedTypes(batch)).toContain('Coverage');
   });
 
   it('skips the prefetch when no enabled rule references the field, or the patient has no source', async () => {
-    const { oystehr, search } = makeOystehrMock();
+    const { oystehr, search, batch } = makeOystehrMock();
     const tagRule = alwaysRule('tag', { type: 'actions', actions: [{ type: 'applyTag', tag: 'VIP' }] });
     const disabledCoverageRule = { ...coverageRule, enabled: false };
     dispatchContextSearch(search, {
@@ -917,11 +953,12 @@ describe('sub-rules-engine patient coverage context', () => {
       claim: makeModel().claim,
       patient: workingPatient(true),
     });
+    dispatchContextBatch(batch);
 
     let validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', false);
     expect(validated.model.patientCoverageContext).toBeUndefined();
-    expect(searchedTypes(search)).not.toContain('Coverage');
-    expect(searchedTypes(search)).not.toContain('Account');
+    expect(batchedTypes(batch)).not.toContain('Coverage');
+    expect(batchedTypes(batch)).not.toContain('Account');
 
     // A rule that needs the context but a working-copy patient without a source stamp: the context
     // stays absent (the setField later fails the rule) and no lookups run.
@@ -931,9 +968,10 @@ describe('sub-rules-engine patient coverage context', () => {
       claim: makeModel().claim,
       patient: workingPatient(false),
     });
+    dispatchContextBatch(second.batch);
     validated = await complexValidation(second.oystehr, 'claim-submission', 'claim-1', 'test', false);
     expect(validated.model.patientCoverageContext).toBeUndefined();
-    expect(searchedTypes(second.search)).not.toContain('Coverage');
+    expect(batchedTypes(second.batch)).not.toContain('Coverage');
   });
 
   it('attaches the chosen coverage: copies POST with the claim update in one transaction, then submits', async () => {
