@@ -767,6 +767,7 @@ export const RecordBillingManualPaymentInputSchema = z.object({
 export const AddClaimAttachmentInputSchema = z.object({
   claimId: nonEmptyString,
   name: nonEmptyString,
+  fileName: nonEmptyString,
   reportTypeCode: nonEmptyString.optional(),
 });
 

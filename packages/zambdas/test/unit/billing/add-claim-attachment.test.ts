@@ -50,7 +50,8 @@ describe('add-claim-attachment', () => {
     await expect(
       performEffect(oystehr, {
         claimId: 'claim-id',
-        name: 'File.new.pdf',
+        name: 'My Title',
+        fileName: 'File.new.pdf',
         secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' },
       })
     ).resolves.toEqual({ uploadUrl: 'some-presigned-url' });
@@ -69,7 +70,7 @@ describe('add-claim-attachment', () => {
                 attachment: {
                   url: 'https://project-api.zapehr.com/v1/z3/project-id-billing-app/claim-attachments/claim-id/File.new.pdf',
                   contentType: 'application/pdf',
-                  title: 'File.new.pdf',
+                  title: 'My Title',
                 },
               },
             ],
@@ -147,7 +148,8 @@ describe('add-claim-attachment', () => {
     await expect(
       performEffect(oystehr, {
         claimId: 'claim-id',
-        name: 'File.new.pdf',
+        name: 'File Name',
+        fileName: 'File.new.pdf',
         reportTypeCode: 'RR',
         secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' },
       })
@@ -167,7 +169,7 @@ describe('add-claim-attachment', () => {
                 attachment: {
                   url: 'https://project-api.zapehr.com/v1/z3/project-id-billing-app/claim-attachments/claim-id/File.new.pdf',
                   contentType: 'application/pdf',
-                  title: 'File.new.pdf',
+                  title: 'File Name',
                 },
               },
             ],
