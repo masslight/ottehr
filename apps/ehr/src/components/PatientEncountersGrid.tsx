@@ -127,7 +127,7 @@ const columns: TableColumn[] = [
   { id: 'dateTime', label: 'Date & Time', sortable: true, width: 150 },
   { id: 'status', label: 'Status', width: 140 },
   { id: 'type', label: 'Type & Service Category', width: 180 },
-  { id: 'reason', label: 'Reason for visit', width: 150 },
+  { id: 'reason', label: "Reason for today's visit", width: 150 },
   { id: 'provider', label: 'Provider', width: 150 },
   { id: 'office', label: 'Office', width: 150 },
   { id: 'los', label: 'LOS', width: 100 },

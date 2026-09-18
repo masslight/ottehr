@@ -29,6 +29,7 @@ export async function performEffect(
     oystehr,
     claim,
     name: params.name,
+    fileName: params.fileName,
     reportTypeCode: params.reportTypeCode,
     secrets: params.secrets,
   });

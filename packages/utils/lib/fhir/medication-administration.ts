@@ -27,9 +27,11 @@ import {
   AllergyInteraction,
   DrugInteraction,
   ExtendedMedicationDataForResponse,
+  inHouseMedicationsMedicationApplianceRoutes,
   MedicationApplianceLocation,
   medicationApplianceLocations,
   MedicationApplianceRoute,
+  MedicationApplianceRoutes,
   medicationApplianceRoutes,
   MedicationData,
   MedicationInteractions,
@@ -41,14 +43,20 @@ import { getCoding } from './helpers';
 // Local const so that DEPRECATED system doesn't get imported from utils
 const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // formerly used by Ottehr clinical in-house meds
 
-export type MedicationUnitOptions = 'mg' | 'ml' | 'g' | 'cc' | 'unit' | 'application';
-export const UNIT_OPTIONS: { value: MedicationUnitOptions; label: string }[] = [
+export type MedicationUnitOptions = 'mg' | 'ml' | 'g' | 'cc' | 'unit' | 'application' | 'Puff(s)';
+
+export const BASE_UNIT_OPTIONS: { value: MedicationUnitOptions; label: string }[] = [
   { value: 'mg', label: 'mg' },
   { value: 'ml', label: 'mL' },
   { value: 'g', label: 'g' },
   { value: 'cc', label: 'cc' },
   { value: 'unit', label: 'unit' },
   { value: 'application', label: 'application' },
+];
+
+export const IN_HOUSE_MEDICATION_UNIT_OPTIONS: { value: MedicationUnitOptions; label: string }[] = [
+  ...BASE_UNIT_OPTIONS,
+  { value: 'Puff(s)', label: 'Puff(s)' },
 ];
 
 export function mapFhirToOrderStatus(
@@ -205,9 +213,10 @@ export function getCurrentOrderedByProviderId(medicationAdministration: Medicati
 }
 
 export const searchRouteByCode = (
-  code: keyof typeof medicationApplianceRoutes | undefined
+  code: string | undefined,
+  routes: MedicationApplianceRoutes = medicationApplianceRoutes
 ): MedicationApplianceRoute | undefined => {
-  return Object.values(medicationApplianceRoutes).find((route) => route.code === code);
+  return Object.values(routes).find((route) => route.code === code);
 };
 
 export function searchMedicationLocation(
@@ -374,7 +383,7 @@ export const medicationStatusDisplayLabelMap: Record<MedicationOrderStatusesType
 export const createMedicationString = (medication: ExtendedMedicationDataForResponse): string => {
   const name = medication.medicationName;
   const dose = medication.dose && `${medication.dose} ${medication.units}`;
-  const route = searchRouteByCode(medication.route)?.display;
+  const route = searchRouteByCode(medication.route, inHouseMedicationsMedicationApplianceRoutes)?.display;
   const location = medication.location?.name;
   const givenBy = medication.administeredProvider && `given by ${medication.administeredProvider}`;
   const instructions = medication.instructions && `instructions: ${medication.instructions}`;

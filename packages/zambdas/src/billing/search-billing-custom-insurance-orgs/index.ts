@@ -2,6 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
 import {
+  CUSTOM_INSURANCE_ORG_ID_PREFIX,
+  CUSTOM_INSURANCE_ORG_ID_SYSTEM,
   CUSTOM_INSURANCE_ORG_KIND_CODE,
   SearchCustomInsuranceOrgsResponse,
 } from 'utils/lib/types/data/billing/custom-insurance-org.types';
@@ -9,7 +11,7 @@ import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-i
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { mapCustomInsuranceOrganization } from '../custom-insurance-org.helpers';
+import { isCustomInsuranceOrgBusinessId, mapCustomInsuranceOrganization } from '../custom-insurance-org.helpers';
 import { createBillingClient } from '../shared';
 import { SearchInsuranceOrgsParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -52,13 +54,25 @@ export async function performEffect(
     { name: '_offset', value: String(offset) },
     { name: '_total', value: 'accurate' },
   ];
+  // A typed query in the shape of a custom org's business id ("OTR-...") is an id lookup, not a name
+  // search — every business id has this prefix, so a name search would never have matched it anyway.
+  const businessId = params.name?.trim();
+  const isBusinessIdSearch = !!businessId && isCustomInsuranceOrgBusinessId(businessId);
+  // The prefix is always uppercase; normalize a lowercase-typed prefix without touching the
+  // user-entered suffix, whose case may matter for the exact identifier match.
+  const normalizedBusinessId =
+    isBusinessIdSearch && businessId
+      ? CUSTOM_INSURANCE_ORG_ID_PREFIX + businessId.slice(CUSTOM_INSURANCE_ORG_ID_PREFIX.length)
+      : businessId;
   if (params.insuranceOrgId) {
     searchParams.push({ name: '_id', value: params.insuranceOrgId });
   } else {
     searchParams.push({ name: 'active', value: 'true' });
-  }
-  if (params.name) {
-    searchParams.push({ name: 'name', value: params.name });
+    if (isBusinessIdSearch) {
+      searchParams.push({ name: 'identifier', value: `${CUSTOM_INSURANCE_ORG_ID_SYSTEM}|${normalizedBusinessId}` });
+    } else if (params.name) {
+      searchParams.push({ name: 'name', value: params.name });
+    }
   }
 
   const bundle = await oystehr.fhir.search<Organization>({

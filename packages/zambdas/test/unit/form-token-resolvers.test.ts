@@ -17,6 +17,9 @@ const contextWith = (chartData: Record<string, unknown>, extra: Record<string, u
     ...extra,
   }) as unknown as FormFillContext;
 
+const contextWithVitals = (vitalsObservations: Record<string, unknown>[]): FormFillContext =>
+  contextWith({}, { allChartData: { chartData: {}, additionalChartData: { vitalsObservations } } });
+
 describe('visit.date', () => {
   const withVisit = (start: string, timezone?: string): FormFillContext =>
     contextWith({}, { appointmentPackage: { appointment: { resourceType: 'Appointment', start }, timezone } });
@@ -41,7 +44,7 @@ describe('vitals tokens', () => {
   const weight = { field: 'vital-weight', value: 70, lastUpdated: '2026-09-01T10:00:00Z' };
 
   it('converts a stored height into every unit a form might ask for', () => {
-    const ctx = contextWith({ vitalsObservations: [height] });
+    const ctx = contextWithVitals([height]);
 
     // Stored in centimetres; the rest is derived at read time so a form can ask however it likes.
     expect(resolveToken('vitals.heightCm', ctx)).toBe(180);
@@ -52,7 +55,7 @@ describe('vitals tokens', () => {
   });
 
   it('converts a stored weight into pounds', () => {
-    const ctx = contextWith({ vitalsObservations: [weight] });
+    const ctx = contextWithVitals([weight]);
 
     expect(resolveToken('vitals.weightKg', ctx)).toBe(70);
     expect(resolveToken('vitals.weightLbs', ctx)).toBe(154.3);
@@ -60,30 +63,24 @@ describe('vitals tokens', () => {
 
   it('takes the most recent reading, not the first recorded', () => {
     // Vitals accumulate across a visit and arrive in no guaranteed order.
-    const ctx = contextWith({
-      vitalsObservations: [
-        { field: 'vital-height', value: 165, lastUpdated: '2026-09-01T08:00:00Z' },
-        { field: 'vital-height', value: 180, lastUpdated: '2026-09-01T11:00:00Z' },
-        { field: 'vital-height', value: 170, lastUpdated: '2026-09-01T09:00:00Z' },
-      ],
-    });
+    const ctx = contextWithVitals([
+      { field: 'vital-height', value: 165, lastUpdated: '2026-09-01T08:00:00Z' },
+      { field: 'vital-height', value: 180, lastUpdated: '2026-09-01T11:00:00Z' },
+      { field: 'vital-height', value: 170, lastUpdated: '2026-09-01T09:00:00Z' },
+    ]);
 
     expect(resolveToken('vitals.heightCm', ctx)).toBe(180);
   });
 
   it('leaves a refused weight blank rather than writing a number that was never taken', () => {
-    const ctx = contextWith({
-      vitalsObservations: [{ field: 'vital-weight', extraWeightOptions: ['patient_refused'] }],
-    });
+    const ctx = contextWithVitals([{ field: 'vital-weight', extraWeightOptions: ['patient_refused'] }]);
 
     expect(resolveToken('vitals.weightKg', ctx)).toBeUndefined();
     expect(resolveToken('vitals.weightLbs', ctx)).toBeUndefined();
   });
 
   it('reads blood pressure as a pair and as its parts', () => {
-    const ctx = contextWith({
-      vitalsObservations: [{ field: 'vital-blood-pressure', systolicPressure: 128, diastolicPressure: 82 }],
-    });
+    const ctx = contextWithVitals([{ field: 'vital-blood-pressure', systolicPressure: 128, diastolicPressure: 82 }]);
 
     expect(resolveToken('vitals.bloodPressureSystolic', ctx)).toBe(128);
     expect(resolveToken('vitals.bloodPressureDiastolic', ctx)).toBe(82);
@@ -91,7 +88,7 @@ describe('vitals tokens', () => {
   });
 
   it('offers temperature in both units from one Celsius reading', () => {
-    const ctx = contextWith({ vitalsObservations: [{ field: 'vital-temperature', value: 37 }] });
+    const ctx = contextWithVitals([{ field: 'vital-temperature', value: 37 }]);
 
     expect(resolveToken('vitals.temperatureC', ctx)).toBe(37);
     expect(resolveToken('vitals.temperatureF', ctx)).toBe(98.6);
@@ -99,7 +96,7 @@ describe('vitals tokens', () => {
 
   it('treats an empty last menstrual period as absent', () => {
     // Stored as `valueDateTime ?? ''`, so the empty string is the shape of "not recorded".
-    const ctx = contextWith({ vitalsObservations: [{ field: 'vital-last-menstrual-period', value: '' }] });
+    const ctx = contextWithVitals([{ field: 'vital-last-menstrual-period', value: '' }]);
 
     expect(resolveToken('vitals.lastMenstrualPeriod', ctx)).toBeUndefined();
   });
@@ -109,6 +106,32 @@ describe('vitals tokens', () => {
 
     expect(resolveToken('vitals.heightCm', ctx)).toBeUndefined();
     expect(resolveToken('vitals.bloodPressure', ctx)).toBeUndefined();
+  });
+
+  it('reads vitals from additionalChartData, where the chart assembly actually puts them', () => {
+    const ctx = contextWith(
+      {},
+      {
+        allChartData: {
+          chartData: {},
+          additionalChartData: {
+            vitalsObservations: [
+              { field: 'vital-temperature', value: 37 },
+              { field: 'vital-heartbeat', value: 25 },
+              { field: 'vital-respiration-rate', value: 30 },
+              { field: 'vital-blood-pressure', systolicPressure: 120, diastolicPressure: 80 },
+              { field: 'vital-oxygen-sat', value: 97 },
+            ],
+          },
+        },
+      }
+    );
+
+    expect(resolveToken('vitals.temperatureC', ctx)).toBe(37);
+    expect(resolveToken('vitals.pulse', ctx)).toBe(25);
+    expect(resolveToken('vitals.respirationRate', ctx)).toBe(30);
+    expect(resolveToken('vitals.bloodPressure', ctx)).toBe('120/80');
+    expect(resolveToken('vitals.oxygenSaturation', ctx)).toBe(97);
   });
 });
 

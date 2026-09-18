@@ -58,6 +58,7 @@ import {
 } from 'utils/lib/helpers/operations';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
+import { VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { getVitalObservationFhirInterpretations } from 'utils/lib/helpers/vitals/utils';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import { parseStructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
@@ -422,8 +423,9 @@ export function makeObservationResource(
   documentReferenceCreateUrl: string | undefined,
   data: ObservationDTO,
   metaSystem: string,
-  patientDOB?: string,
-  patientSex?: string
+  patientDOB: string | undefined,
+  patientSex: string | undefined,
+  vitalsAlertConfig: VitalsSchema | undefined
 ): Observation {
   const base: Observation = {
     id: data.resourceId,
@@ -452,14 +454,15 @@ export function makeObservationResource(
 
   if (isVitalObservation(data)) {
     let interpretation: Observation['interpretation'];
-    if (patientDOB) {
+    if (patientDOB && vitalsAlertConfig) {
       interpretation = getVitalObservationFhirInterpretations({
         patientDOB,
         vitalsObservation: data,
         patientSex,
+        config: vitalsAlertConfig,
       });
     }
-    return fillVitalObservationAttributes({ ...base, interpretation }, data, patientDOB);
+    return fillVitalObservationAttributes({ ...base, interpretation }, data, patientDOB, vitalsAlertConfig);
   }
 
   if (isObservationBooleanFieldDTO(data)) {

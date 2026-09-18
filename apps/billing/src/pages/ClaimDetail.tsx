@@ -1641,13 +1641,15 @@ function ServiceLinesSection({
 const DropzoneField = ({
   name,
   multiple,
+  accept,
   required,
   ...rest
 }: {
   name: string;
   multiple: boolean;
+  accept?: DropzoneProps['accept'];
   required?: boolean;
-} & Omit<DropzoneProps, 'multiple' | 'onDrop'>): ReactElement => {
+} & Omit<DropzoneProps, 'multiple' | 'onDrop' | 'accept'>): ReactElement => {
   const { control } = useFormContext();
   return (
     <Controller
@@ -1667,12 +1669,14 @@ const DropzoneField = ({
             </ListItem>
           )}
           <Dropzone
+            multiple={multiple}
+            accept={accept}
             onDrop={(acceptedFiles) => {
               onChange(multiple ? acceptedFiles : acceptedFiles[0]);
             }}
             {...rest}
           >
-            {({ getRootProps, getInputProps, isDragActive }) => {
+            {({ getRootProps, getInputProps, isDragActive, fileRejections }) => {
               return (
                 <Card
                   variant="outlined"
@@ -1706,6 +1710,24 @@ const DropzoneField = ({
                           <Typography variant="body1" component="p" textAlign="center">
                             {isDragActive ? 'Drop file here to upload' : 'Click here or drag file to upload'}
                           </Typography>
+                          {accept && Object.values(accept).length ? (
+                            <Typography variant="body2" component="p" textAlign="center">
+                              Accepted types:{' '}
+                              {Object.values(accept)
+                                .flatMap((val) => val)
+                                .join(', ')}
+                            </Typography>
+                          ) : (
+                            <></>
+                          )}
+                          {fileRejections.length ? (
+                            <FormHelperText id={`dropzone-helper-text`} error={true}>
+                              File{multiple ? 's' : ''} could not be uploaded. Please select{' '}
+                              {multiple ? 'files' : 'a file'} with an allowed type.
+                            </FormHelperText>
+                          ) : (
+                            <></>
+                          )}
                           {fieldError ? (
                             <FormHelperText id={`dropzone-helper-text`} error={true}>
                               {fieldError?.message}
@@ -1750,6 +1772,8 @@ function AttachmentsSection({
     reset: addReset,
     handleSubmit: addFormHandleSubmit,
     formState: { isSubmitting: addFormIsSubmitting },
+    watch: addFormWatch,
+    setValue: addFormSetValue,
   } = addFormMethods;
   const renameFormMethods = useForm({ defaultValues: { name: '' } });
   const {
@@ -1768,6 +1792,13 @@ function AttachmentsSection({
   const closeMenu = (): void => {
     setAnchorEl(null);
   };
+
+  const addFormSelectedFile = addFormWatch('file');
+  const addFormName = addFormWatch('name');
+  useEffect(() => {
+    if (addFormName || !addFormSelectedFile) return;
+    addFormSetValue('name', addFormSelectedFile.name);
+  });
 
   const openAddDialog = (): void => {
     addReset({
@@ -1795,6 +1826,7 @@ function AttachmentsSection({
       const { uploadUrl } = await addClaimAttachment(oystehrZambda, {
         claimId: claim.id,
         name,
+        fileName: file.name,
         reportTypeCode: reportTypeCode ? reportTypeCode : undefined,
       });
       await fetch(uploadUrl, {
@@ -2026,7 +2058,12 @@ function AttachmentsSection({
                     </FormControl>
                   )}
                 />
-                <DropzoneField name="file" multiple={false} required={true} />
+                <DropzoneField
+                  name="file"
+                  multiple={false}
+                  required={true}
+                  accept={{ 'image/*': ['.jpeg', '.jpg', '.png'], 'application/pdf': ['.pdf'] }}
+                />
               </Box>
             </Box>
           </FormProvider>

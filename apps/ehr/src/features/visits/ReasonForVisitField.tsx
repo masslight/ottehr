@@ -77,13 +77,13 @@ export const ReasonForVisitField: FC = () => {
   return (
     <Stack spacing={2}>
       <FormControl fullWidth>
-        <InputLabel id="reason-for-visit-label">Reason for visit</InputLabel>
+        <InputLabel id="reason-for-visit-label">Reason for today's visit</InputLabel>
         <Select
           data-testid={dataTestIds.addPatientPage.reasonForVisitDropdown}
           labelId="reason-for-visit-label"
           id="reason-for-visit-select"
           value={safeValue}
-          label="Reason for visit"
+          label="Reason for today's visit"
           onChange={(event) => {
             const value = event.target.value as string;
             setReasonForVisit(value);
@@ -126,8 +126,8 @@ export const ReasonForVisitField: FC = () => {
 type ReasonForVisitSource = 'patient' | 'intake';
 
 const LABEL_BY_SOURCE: Record<ReasonForVisitSource, string> = {
-  patient: 'Reason for visit selected by patient',
-  intake: 'Reason for visit verified on intake',
+  patient: "Reason for today's visit selected by patient",
+  intake: "Reason for today's visit verified on intake",
 };
 
 interface ReasonForVisitFieldReadOnlyProps {

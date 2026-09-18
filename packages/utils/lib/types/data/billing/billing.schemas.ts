@@ -60,6 +60,8 @@ export const SearchErasInputSchema = z.object({
   eraDateFrom: nonEmptyString.optional(),
   eraDateTo: nonEmptyString.optional(),
   eraStatus: nonEmptyString.optional(),
+  // A value shaped like a custom insurance organization's business id ("OTR-...") is resolved to
+  // that org rather than looked up as an RCM payer id (see resolvePayerIssuerFilter).
   payerId: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
   matchingStatus: nonEmptyString.optional(),
@@ -151,6 +153,8 @@ export const SearchBillingClaimsInputSchema = z.object({
   serviceDateFrom: nonEmptyString.optional(),
   serviceDateTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
+  // A value shaped like a custom insurance organization's business id ("OTR-...") is resolved to
+  // that org rather than looked up as an RCM payer id (see resolvePayerIssuerFilter).
   payerId: nonEmptyString.optional(),
   nonInsurancePayerId: nonEmptyString.uuid().optional(),
   service: nonEmptyString.optional(),
@@ -763,6 +767,7 @@ export const RecordBillingManualPaymentInputSchema = z.object({
 export const AddClaimAttachmentInputSchema = z.object({
   claimId: nonEmptyString,
   name: nonEmptyString,
+  fileName: nonEmptyString,
   reportTypeCode: nonEmptyString.optional(),
 });
 

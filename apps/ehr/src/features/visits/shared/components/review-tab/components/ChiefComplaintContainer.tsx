@@ -30,11 +30,11 @@ export const ChiefComplaintContainer: FC = () => {
 
   const subSections = [
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-      <AssessmentTitle>Reason for visit confirmed by staff</AssessmentTitle>
+      <AssessmentTitle>Reason for today's visit confirmed by staff</AssessmentTitle>
       {reasonForVisit ? (
         <Typography data-testid={dataTestIds.progressNotePage.reasonForVisitConfirmed}>{reasonForVisit}</Typography>
       ) : (
-        <Typography color={theme.palette.text.secondary}>No reason for visit</Typography>
+        <Typography color={theme.palette.text.secondary}>No reason for today's visit</Typography>
       )}
     </Box>,
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>

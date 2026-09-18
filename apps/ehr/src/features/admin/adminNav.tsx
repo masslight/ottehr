@@ -289,7 +289,6 @@ export const adminNavGroups: AdminNavGroup[] = [
         label: 'Progress Note',
         path: '/admin/progress-note',
         icon: <ProgressNoteIcon />,
-        centered: true,
         render: () => <ProgressNoteAdminPage />,
       },
       {

@@ -10,8 +10,8 @@ import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks
 import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
 import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
-import { LOCATION_OPTIONS, ROUTE_OPTIONS } from 'src/shared/utils/options';
-import { UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
+import { BASE_ROUTE_OPTIONS, LOCATION_OPTIONS } from 'src/shared/utils/options';
+import { BASE_UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
 
 export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();
@@ -75,8 +75,8 @@ export const OrderDetailsSection: React.FC = () => {
         <SelectInput
           name="details.units"
           label="Units"
-          options={UNIT_OPTIONS.map((option) => option.value)}
-          getOptionLabel={(option) => UNIT_OPTIONS.find((opt) => opt.value === option)?.label ?? option}
+          options={BASE_UNIT_OPTIONS.map((option) => option.value)}
+          getOptionLabel={(option) => BASE_UNIT_OPTIONS.find((opt) => opt.value === option)?.label ?? option}
           required
           dataTestId={dataTestIds.orderVaccinePage.units}
         />
@@ -85,8 +85,8 @@ export const OrderDetailsSection: React.FC = () => {
         <AutocompleteInput
           name="details.route"
           label="Route"
-          options={ROUTE_OPTIONS.map((option) => option.code)}
-          getOptionLabel={(option) => ROUTE_OPTIONS.find((opt) => opt.code === option)?.name ?? option}
+          options={BASE_ROUTE_OPTIONS.map((option) => option.code)}
+          getOptionLabel={(option) => BASE_ROUTE_OPTIONS.find((opt) => opt.code === option)?.name ?? option}
           dataTestId={dataTestIds.orderVaccinePage.route}
         />
       </Grid>

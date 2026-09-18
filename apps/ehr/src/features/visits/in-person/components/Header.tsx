@@ -74,6 +74,7 @@ import { useGroupMemberPractitionerIds } from '../../shared/hooks/useGroupMember
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
 import { usePractitionerActions } from '../../shared/hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { getVisitEmployerDisplay } from '../../shared/visitEmployer';
 import { ChangeStatusDropdown } from './ChangeStatusDropdown';
 import { InternalNotes } from './InternalNotes';
 import { PrintVisitLabelButton } from './PrintVisitLabelButton';
@@ -326,6 +327,9 @@ export const Header = (): JSX.Element => {
   const employerName =
     insuranceData?.occupationalMedicineEmployerOrganization?.name ?? insuranceData?.employerOrganization?.name;
 
+  // Pre-op stores its employer on the Encounter; the Account's employer is another visit's.
+  const preOpEmployerName = isPreOp ? getVisitEmployerDisplay(encounter) : undefined;
+
   const isPaymentUnset = !encounterPaymentVariant && !isPreOp;
 
   const paymentDisplayValue = (() => {
@@ -334,7 +338,7 @@ export const Header = (): JSX.Element => {
     if (isOccMed && encounterPaymentVariant === PaymentVariant.employer) {
       return `${employerName ?? 'Employer'} (Occ-med)`;
     }
-    if (isPreOp) return `${employerName ?? insuranceName ?? 'Insurance'} (Pre-op)`;
+    if (isPreOp) return `${preOpEmployerName ?? insuranceName ?? 'Insurance'} (Pre-op)`;
     if (!canQueryFeeSchedule || !feeScheduleFetched) return insuranceName ?? '';
     if (!payerFeeSchedule) return `${insuranceName} (No Fee Schedule)`;
     return `${insuranceName} (${isCaseRate ? 'Case Rate' : 'Fee for Service'})`;
@@ -397,7 +401,7 @@ export const Header = (): JSX.Element => {
     }
   }, [shouldRefetchPractitioners, refetch]);
 
-  const reasonForVisit = formatLabelValue(appointmentValues?.description, 'Reason for Visit');
+  const reasonForVisit = formatLabelValue(appointmentValues?.description, "Reason for today's Visit");
   const userId = formatLabelValue(patient?.id);
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<null | HTMLElement>(null);

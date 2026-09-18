@@ -1,7 +1,6 @@
 import { useMutation, UseMutationResult, useQueryClient } from '@tanstack/react-query';
 import { Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import {
   applyPhraseChange,
   getPhrasesForPractitioner,
@@ -33,18 +32,15 @@ export function useSavePhrases(): UseMutationResult<void, Error, PhraseChange> {
         throw new Error(PROFILE_LOADING_MESSAGE);
       }
 
-      await withVersionConflictRetries(async () => {
-        const practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: profileId });
-        const result = applyPhraseChange(getPhrasesForPractitioner(practitioner), change);
+      const practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: profileId });
+      const result = applyPhraseChange(getPhrasesForPractitioner(practitioner), change);
 
-        if (!result.ok) {
-          throw new Error(result.reason === 'missing' ? PHRASE_MISSING_MESSAGE : DUPLICATE_KEY_MESSAGE);
-        }
+      if (!result.ok) {
+        throw new Error(result.reason === 'missing' ? PHRASE_MISSING_MESSAGE : DUPLICATE_KEY_MESSAGE);
+      }
 
-        await updatePractitioner.mutateAsync({
-          operations: [getPhrasesPatchOperation(practitioner, result.phrases)],
-          optimisticLockingVersionId: practitioner.meta?.versionId,
-        });
+      await updatePractitioner.mutateAsync({
+        operations: [getPhrasesPatchOperation(practitioner, result.phrases)],
       });
     },
 

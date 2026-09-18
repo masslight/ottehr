@@ -818,13 +818,13 @@ export default function AddPatient(): JSX.Element {
                     </Typography>
                     <Box marginTop={2}>
                       <FormControl fullWidth error={!!errors.reasonForVisit}>
-                        <InputLabel id="reason-for-visit-label">Reason for visit *</InputLabel>
+                        <InputLabel id="reason-for-visit-label">Reason for today's visit *</InputLabel>
                         <Select
                           data-testid={dataTestIds.addPatientPage.reasonForVisitDropdown}
                           labelId="reason-for-visit-label"
                           id="reason-for-visit-select"
                           value={reasonForVisit || ''}
-                          label="Reason for visit *"
+                          label="Reason for today's visit *"
                           required
                           onChange={(event) => {
                             setReasonForVisit(event.target.value);
@@ -839,7 +839,7 @@ export default function AddPatient(): JSX.Element {
                             </MenuItem>
                           ))}
                         </Select>
-                        {errors.reasonForVisit && <FormHelperText>Reason for visit is required</FormHelperText>}
+                        {errors.reasonForVisit && <FormHelperText>Reason for today's visit is required</FormHelperText>}
                       </FormControl>
                     </Box>
                     {isOtherFollowUpReason && (

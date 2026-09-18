@@ -69,6 +69,15 @@ export const CHART_DOCUMENT_ROLES: RoleType[] = [
  */
 export const ADMIN_TIER_ROLES: RoleType[] = [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport];
 
+export const ALL_EHR_STAFF_ROLES: RoleType[] = [
+  RoleType.Administrator,
+  RoleType.Manager,
+  RoleType.CustomerSupport,
+  RoleType.Staff,
+  RoleType.Provider,
+  RoleType.Clinician,
+];
+
 export interface AccessPolicy {
   rule: {
     action: string | string[];
