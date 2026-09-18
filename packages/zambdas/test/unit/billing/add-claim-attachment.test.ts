@@ -249,7 +249,8 @@ describe('add-claim-attachment', () => {
 
     await performEffect(oystehr, {
       claimId: 'claim-id',
-      name: 'Timely Filing Report #7.pdf',
+      name: 'Timely Filing Report #7',
+      fileName: 'Timely Filing Report #7.pdf',
       secrets: {
         PROJECT_API: 'https://project-api.zapehr.com/v1',
         PROJECT_ID: 'project-id',
@@ -267,6 +268,6 @@ describe('add-claim-attachment', () => {
       `https://project-api.zapehr.com/v1/z3/project-id-billing-app/${sanitizedPath}`
     );
     // The human-readable title keeps the name the biller typed.
-    expect(requests[0].resource.content[0].attachment.title).toBe('Timely Filing Report #7.pdf');
+    expect(requests[0].resource.content[0].attachment.title).toBe('Timely Filing Report #7');
   });
 });

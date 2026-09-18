@@ -18,18 +18,20 @@ export async function attachClaimDocument({
   oystehr,
   claim,
   name,
+  fileName,
   reportTypeCode,
   secrets,
 }: {
   oystehr: Oystehr;
   claim: Claim & { id: string };
   name: string;
+  fileName: string;
   reportTypeCode?: string;
   secrets: Secrets;
 }): Promise<{ uploadUrl: string }> {
-  const fileName = sanitizeFileNameForZ3(name);
-  const objectPath = CLAIM_ATTACHMENT_OBJECT_PATH(claim.id, fileName);
-  const extension = fileName.split('.').pop() ?? '';
+  const sanitizedFileName = sanitizeFileNameForZ3(fileName);
+  const objectPath = CLAIM_ATTACHMENT_OBJECT_PATH(claim.id, sanitizedFileName);
+  const extension = sanitizedFileName.split('.').pop() ?? '';
   const supportingInfo = claim.supportingInfo ?? [];
   const supportingInfoEntry: ClaimSupportingInfo = {
     sequence: supportingInfo.length + 1,
@@ -60,7 +62,7 @@ export async function attachClaimDocument({
     content: [
       {
         attachment: {
-          url: getClaimAttachmentUrl(secrets['PROJECT_API'], secrets['PROJECT_ID'], claim.id, fileName),
+          url: getClaimAttachmentUrl(secrets['PROJECT_API'], secrets['PROJECT_ID'], claim.id, sanitizedFileName),
           contentType: `application/${extension}`,
           title: name,
         },
