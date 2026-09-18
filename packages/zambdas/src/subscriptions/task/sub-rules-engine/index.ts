@@ -32,6 +32,7 @@ import {
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { BillingRule, RULE_ACTION_TYPE } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { activeDefaultChargeMasterSearchParams } from '../../../billing/charge-master.helpers';
 import { isCustomInsuranceOrganization } from '../../../billing/custom-insurance-org.helpers';
 import { isNonInsuranceOrganization } from '../../../billing/non-insurance-org.helpers';
@@ -251,7 +252,12 @@ async function loadCustomInsuranceOrganizations(
   oystehr: Oystehr,
   rules: BillingRule[]
 ): Promise<RulesEngineClaimModel['customInsuranceOrganizations']> {
-  const ids = new Set(rules.filter((rule) => rule.enabled).flatMap((rule) => collectSetPayerIds(rule)));
+  const ids = new Set(
+    rules
+      .filter((rule) => rule.enabled)
+      .flatMap((rule) => collectSetPayerIds(rule))
+      .filter((payerId) => isValidUUID(payerId))
+  );
   if (!ids.size) return undefined;
   const resources = await getResourcesFromBatchInlineRequests(
     oystehr,
