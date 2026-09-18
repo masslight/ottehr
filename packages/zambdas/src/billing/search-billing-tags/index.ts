@@ -23,12 +23,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 export async function performEffect(oystehr: Oystehr): Promise<{ tags: BillingTag[] }> {
   const basics = await searchTagBasics(oystehr);
 
-  // System-managed tags are reported from SYSTEM_MANAGED_TAGS, never from storage — they are
-  // defined in code and no longer seeded as Basics. A stored definition carrying a system-managed
-  // name is a leftover from the releases that did seed them (and raced itself into duplicates), so
-  // it is dropped here rather than listed. Usage counts are real either way, since a claim carries
-  // a system tag the moment the system applies it. Listing them first keeps them grouped, since
-  // they have no lastUpdated to sort by.
+  // System-managed tags are listed first because they have no lastUpdated to sort by.
   const userTagBasics = basics.filter((b) => !isSystemTag(b));
   const userTagNames = userTagBasics.map((b) => b.code?.text).filter((name): name is string => !!name);
 

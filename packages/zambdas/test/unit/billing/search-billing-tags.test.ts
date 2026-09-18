@@ -90,8 +90,6 @@ describe('search-billing-tags', () => {
     expect(tags.find((tag) => tag.name === AUTO_ACCIDENT_TAG_NAME)?.usage).toBe(0);
   });
 
-  // Regression: releases that seeded system tags raced themselves into many duplicate definitions.
-  // Those leftovers must not reach the Tags page, whether or not they have been deleted yet.
   it('reports one entry per system-managed tag however many leftover definitions are stored', async () => {
     const leftovers = [
       userTag('aa-1', AUTO_ACCIDENT_TAG_NAME),

@@ -7,8 +7,6 @@
 // - save-billing-tag / delete-billing-tag refuse to edit or delete them, and refuse to create or
 //   rename another tag onto their names,
 // - tag validations (save-billing-rules, tag-billing-claim) always accept them,
-// - they are never stored as Basic definitions; one left behind by a release that did seed them is
-//   ignored in favour of the entry here,
 // - the billing app's TagSelect offers them even while the tag list is unavailable.
 // It lives in utils because both the billing app and the zambdas consume it.
 

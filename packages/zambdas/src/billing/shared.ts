@@ -525,12 +525,6 @@ export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string | u
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
 
-// A tag definition is system-managed iff its name (code.text) is in SYSTEM_MANAGED_TAGS — the name
-// is the tag's identity everywhere tags are referenced (claim meta tags, rules), and the
-// code-defined list is the single source of truth. System-managed tags are never stored as Basics
-// (search-billing-tags reports them from the code list), so this only ever matches a definition
-// left behind by an older release; such a definition degrades to an ordinary, editable one as soon
-// as its name leaves the list.
 export function isSystemTag(tag: Basic): boolean {
   return isSystemManagedTagName(tag.code?.text);
 }

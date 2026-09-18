@@ -56,8 +56,7 @@ describe('save-billing-rules performEffect', () => {
     expect(savedList.entry?.map((e) => e.item?.reference)).toEqual([`#${created.id}`, '#rule-1']);
   });
 
-  // Regression: this used to seed a Basic per system-managed tag, which raced itself into
-  // duplicates. System tags are reported from the code list now, so nothing is written for them.
+  // Regression: system tags are reported from the code list, so nothing is written for them.
   it('creates the List and no tag definitions when no rules List exists yet', async () => {
     const response = await performEffect(oystehr, params([rule('First rule')]), undefined, 'test');
 

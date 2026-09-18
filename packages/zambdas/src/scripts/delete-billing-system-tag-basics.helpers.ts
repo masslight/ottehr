@@ -18,8 +18,8 @@ export interface SystemTagBasicCleanupPlan {
   // Deletion count per system-managed name, so a run reports the damage it is undoing.
   deletionsByName: Map<string, number>;
   // Definitions whose name merely resembles a system-managed one (e.g. a pre-rename
-  // "auto-accident"). These are ordinary editable tags now and may be in use, so they are only
-  // reported — deciding their fate is a human call.
+  // "auto-accident"). These are ordinary editable tags and may be in use, so they are only reported
+  // — deciding their fate is a human call.
   nearMisses: TagBasicRef[];
   // User tags stored more than once. Reported, never deleted: unlike system tags these are the only
   // record the tag exists, and picking a survivor is not this script's business.
