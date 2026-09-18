@@ -24,6 +24,7 @@ import {
   fhirName,
   findRef,
   getEraCheckNumber,
+  referenceKey,
   resolvePayersByRef,
   sortClaimInsurance,
 } from '../shared';
@@ -60,13 +61,10 @@ export async function performEffect(
 
   // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on the
   // ClaimResponses
-  const payersByRef = await resolvePayersByRef(oystehr, [
-    pr.paymentIssuer?.reference,
-    ...claimResponses.map((cr) => cr.insurer?.reference),
-  ]);
-  const payerRef =
-    pr.paymentIssuer?.reference ?? claimResponses.find((cr) => cr.insurer?.reference)?.insurer?.reference;
-  const payerOrg = payerRef ? payersByRef.get(payerRef) : undefined;
+  const payersByRef = await resolvePayersByRef(oystehr, [pr.paymentIssuer, ...claimResponses.map((cr) => cr.insurer)]);
+  const payerRef = pr.paymentIssuer ?? claimResponses.find((cr) => referenceKey(cr.insurer))?.insurer;
+  const payerRefKey = referenceKey(payerRef);
+  const payerOrg = payerRefKey ? payersByRef.get(payerRefKey) : undefined;
 
   // Group matched responses by claim id; an ERA can adjudicate the same claim more than once
   // (reversal + correction), and unmatched responses only carry a contained '#request' claim so

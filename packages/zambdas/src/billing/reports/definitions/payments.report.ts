@@ -126,8 +126,8 @@ async function computeInsurancePayments(
   // process-era PaymentReconciliations carry no paymentIssuer; fall back to the ClaimResponses' payer
   const [payersByRef, partialClaimsById] = await Promise.all([
     resolvePayersByRef(oystehr, [
-      ...allEras.map((pr) => pr.paymentIssuer?.reference),
-      ...allClaimResponses.map((cr) => cr.insurer?.reference),
+      ...allEras.map((pr) => pr.paymentIssuer),
+      ...allClaimResponses.map((cr) => cr.insurer),
     ]),
     fetchPartialClaimsById(oystehr, allClaimResponses.map(claimResponseClaimId).filter(Boolean) as string[]),
   ]);

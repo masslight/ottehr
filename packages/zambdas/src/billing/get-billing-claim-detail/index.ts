@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Organization, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
+import { Claim, Organization, PaymentNotice, PaymentReconciliation, Person, Reference, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getClaimNonInsurancePayer, getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { SubscriberRelationship } from 'utils/lib/fhir/constants';
@@ -49,6 +49,7 @@ import {
   getClaimType,
   getEraCheckNumber,
   getTaxonomy,
+  referenceKey,
   resolvedPayerId,
   resolvePayersByRef,
   toAddressParts,
@@ -118,29 +119,27 @@ export async function performEffect(
 
   // Resolve primary, secondary, remit, and insurance payment payers from the Oystehr payer list
   const payersByRef = await resolvePayersByRef(oystehr, [
-    claim.insurer?.reference,
-    secondaryCoverage?.payor?.[0]?.reference,
-    tertiaryCoverage?.payor?.[0]?.reference,
-    quaternaryCoverage?.payor?.[0]?.reference,
-    ...claimResponses.map((cr) => cr.insurer?.reference),
-    ...paymentReconciliations.map((pr) => pr.paymentIssuer?.reference),
+    claim.insurer,
+    secondaryCoverage?.payor?.[0],
+    tertiaryCoverage?.payor?.[0],
+    quaternaryCoverage?.payor?.[0],
+    ...claimResponses.map((cr) => cr.insurer),
+    ...paymentReconciliations.map((pr) => pr.paymentIssuer),
   ]);
-  const insurer = claim.insurer?.reference ? payersByRef.get(claim.insurer.reference) : undefined;
-  const secondaryInsurer = secondaryCoverage?.payor?.[0]?.reference
-    ? payersByRef.get(secondaryCoverage.payor[0].reference)
-    : undefined;
-  const tertiaryInsurer = tertiaryCoverage?.payor?.[0]?.reference
-    ? payersByRef.get(tertiaryCoverage.payor[0].reference)
-    : undefined;
-  const quaternaryInsurer = quaternaryCoverage?.payor?.[0]?.reference
-    ? payersByRef.get(quaternaryCoverage.payor[0].reference)
-    : undefined;
+  const getPayer = (ref?: Reference): Organization | undefined => {
+    const key = referenceKey(ref);
+    return key ? payersByRef.get(key) : undefined;
+  };
+  const insurer = getPayer(claim.insurer);
+  const secondaryInsurer = getPayer(secondaryCoverage?.payor?.[0]);
+  const tertiaryInsurer = getPayer(tertiaryCoverage?.payor?.[0]);
+  const quaternaryInsurer = getPayer(quaternaryCoverage?.payor?.[0]);
 
   const billed = claim.total?.value ?? 0;
   const payments = summarizeClaimPayments(claimResponses, billed, patientPaid);
   const remits = [...claimResponses].reverse().map((cr) => {
     const amounts = extractClaimResponseAmounts(cr);
-    const payer = cr.insurer?.reference ? payersByRef.get(cr.insurer.reference) : undefined;
+    const payer = getPayer(cr.insurer);
     return {
       claimResponseId: cr.id ?? '',
       date: cr.created ?? '',
@@ -163,8 +162,7 @@ export async function performEffect(
       // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on one
       // of this ERA's ClaimResponses
       const linkedCr = claimResponseByPrId.get(pr.id ?? '');
-      const payerRef = pr.paymentIssuer?.reference ?? linkedCr?.insurer?.reference;
-      const payer = payerRef ? payersByRef.get(payerRef) : undefined;
+      const payer = getPayer(pr.paymentIssuer ?? linkedCr?.insurer);
       return {
         paymentReconciliationId: pr.id ?? '',
         checkNumber: getEraCheckNumber(pr) ?? '',
@@ -369,17 +367,21 @@ async function fetchOtherClaims(
 
   const payersByRef = await resolvePayersByRef(
     oystehr,
-    otherClaims.map((c) => c.insurer?.reference)
+    otherClaims.map((c) => c.insurer)
   );
 
-  return otherClaims.map((c) => ({
-    id: c.id ?? '',
-    type: getClaimType(c),
-    status: getClaimStatus(c),
-    arStage: getClaimStatusValues(c).arStage,
-    serviceDate: c.item?.[0]?.servicedPeriod?.start ?? c.created ?? '',
-    payerName: (c.insurer?.reference ? payersByRef.get(c.insurer.reference) : undefined)?.name ?? '',
-    billed: c.total?.value ?? 0,
-    cptCodes: (c.item ?? []).map((item) => item.productOrService?.coding?.[0]?.code ?? '').filter(Boolean),
-  }));
+  return otherClaims.map((c) => {
+    const insurerRefKey = referenceKey(c.insurer);
+    const insurer = insurerRefKey ? payersByRef.get(insurerRefKey) : undefined;
+    return {
+      id: c.id ?? '',
+      type: getClaimType(c),
+      status: getClaimStatus(c),
+      arStage: getClaimStatusValues(c).arStage,
+      serviceDate: c.item?.[0]?.servicedPeriod?.start ?? c.created ?? '',
+      payerName: insurer?.name ?? '',
+      billed: c.total?.value ?? 0,
+      cptCodes: (c.item ?? []).map((item) => item.productOrService?.coding?.[0]?.code ?? '').filter(Boolean),
+    };
+  });
 }

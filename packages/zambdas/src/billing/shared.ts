@@ -100,6 +100,7 @@ import {
   isValidClaimStatusValue,
   withArStageInitialization,
 } from 'utils/lib/types/data/billing/claim-status';
+import { CUSTOM_INSURANCE_ORG_ID_SYSTEM } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { SYSTEM_MANAGED_TAGS, SystemManagedTag } from 'utils/lib/types/data/billing/system-tags';
@@ -110,6 +111,7 @@ import { isValidUUID } from 'utils/lib/validation/helper';
 import { sendErrors } from '../shared/errors';
 import { fetchAllPages } from '../shared/fhir';
 import {
+  findCustomInsuranceOrgByBusinessId,
   getCustomInsuranceOrgBusinessId,
   isCustomInsuranceOrganization,
   resolvePayerOrganization,
@@ -215,28 +217,28 @@ export function ensureClaimInsurance(insurance?: Claim['insurance']): NonNullabl
     .map((entry, idx) => ({ ...entry, sequence: idx + 1, focal: idx === 0 }));
 }
 
-// Resolve payer references — Oystehr RCM payer list URLs, or a billing-app custom insurance
-// organization's direct Organization/{id} reference (see buildPayorReference) — to their Organizations.
+// Resolve payer references — Oystehr RCM payer list URLs, a direct Organization/{id} reference, or a
+// billing-app custom insurance organization's identifier reference (see buildPayorReference) — to
+// their Organizations, keyed by referenceKey.
 export async function resolvePayersByRef(
   oystehr: Oystehr,
-  refs: (string | undefined)[]
+  refs: (Reference | undefined)[]
 ): Promise<Map<string, Organization>> {
-  const byRef = new Map<string, Organization>();
-  const uniqueRefs = [...new Set(refs.filter((r): r is string => !!r))];
+  const byKey = new Map<string, Organization>();
+  const uniqueRefs = new Map(
+    refs.map((ref) => [referenceKey(ref), ref] as const).filter((entry): entry is [string, Reference] => !!entry[0])
+  );
   await Promise.all(
-    uniqueRefs.map(async (ref) => {
+    [...uniqueRefs.entries()].map(async ([key, ref]) => {
       try {
-        if (isPayerUrl(ref)) {
-          byRef.set(ref, await oystehr.rcm.getPayerByUrl({ url: ref }));
-        } else if (ref.startsWith('Organization/')) {
-          byRef.set(ref, await resolvePayerOrganization(oystehr, ref.slice('Organization/'.length)));
-        }
+        const org = await resolvePayorReference(oystehr, ref);
+        if (org) byKey.set(key, org);
       } catch (err) {
-        console.error(`Failed to resolve payer ${ref}:`, err);
+        console.error(`Failed to resolve payer ${key}:`, err);
       }
     })
   );
-  return byRef;
+  return byKey;
 }
 
 // The identifier shown as a payer's "Payer ID" — the RCM identifier, or for a billing-app custom
@@ -1215,6 +1217,31 @@ export function findRef<T extends Resource>(resources: Resource[], reference?: s
   return resources.find((r) => r.id === id) as T | undefined;
 }
 
+// Canonical map key for a payor/insurer Reference: a literal reference (Organization/{id} or an RCM
+// payer URL) keys off itself, while a logical reference (a custom insurance organization's business
+// id — see buildPayorReference) keys off its identifier, since it carries no `.reference` string.
+export function referenceKey(ref?: Reference): string | undefined {
+  if (ref?.reference) return ref.reference;
+  if (ref?.identifier?.system && ref.identifier.value)
+    return `identifier:${ref.identifier.system}|${ref.identifier.value}`;
+  return undefined;
+}
+
+// Resolve a *stored* payor/insurer Reference back to its Organization — the read-side counterpart of
+// buildPayorReference. A logical reference (identifier) names a custom insurance organization; a
+// literal reference is either an RCM payer URL or a direct Organization/{id}.
+export async function resolvePayorReference(oystehr: Oystehr, ref?: Reference): Promise<Organization | undefined> {
+  if (ref?.identifier?.system === CUSTOM_INSURANCE_ORG_ID_SYSTEM && ref.identifier.value) {
+    return findCustomInsuranceOrgByBusinessId(oystehr, ref.identifier.value);
+  }
+  if (!ref?.reference) return undefined;
+  if (isPayerUrl(ref.reference)) return oystehr.rcm.getPayerByUrl({ url: ref.reference });
+  if (ref.reference.startsWith('Organization/')) {
+    return resolvePayerOrganization(oystehr, ref.reference.slice('Organization/'.length));
+  }
+  return undefined;
+}
+
 export function getClaimType(claim: Claim): keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES {
   const code = claim.type.coding?.find((c) => c.system === CODE_SYSTEM_CLAIM_TYPE)?.code;
   if (!code) {
@@ -1251,11 +1278,14 @@ export function getClaimService(claim: Claim): string | undefined {
 // aligned. The one intentional difference: the subscriber RelatedPerson is persisted standalone here
 // (so it can be searched), whereas harvest contains it on the Coverage.
 
-export function buildPayorReference(payerOrg: Organization): string {
+export function buildPayorReference(payerOrg: Organization): Reference {
+  if (isCustomInsuranceOrganization(payerOrg)) {
+    return { identifier: { system: CUSTOM_INSURANCE_ORG_ID_SYSTEM, value: getCustomInsuranceOrgBusinessId(payerOrg) } };
+  }
   const payerId = getPayerId(payerOrg);
-  if (isValidUUID(payerOrg.id ?? '')) return `Organization/${payerOrg.id}`;
+  if (isValidUUID(payerOrg.id ?? '')) return { reference: `Organization/${payerOrg.id}` };
   if (!payerId) throw new Error('payerId unexpectedly missing from payer organization');
-  return getPayerUrl(payerId);
+  return { reference: getPayerUrl(payerId) };
 }
 
 export function setCoverageRelationship(coverage: Coverage, relationship: BillingSubscriberRelationship): void {
@@ -1283,7 +1313,7 @@ export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, mem
   const payerId = resolvedPayerId(payerOrg);
   if (!payerId && !isValidUUID(payerOrg.id ?? ''))
     throw new Error('payerId unexpectedly missing from payer organization');
-  coverage.payor = [{ reference: buildPayorReference(payerOrg) }];
+  coverage.payor = [buildPayorReference(payerOrg)];
   coverage.class = [
     {
       type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] },
@@ -1352,7 +1382,7 @@ export function attachCoverageToClaim(params: {
   coverageReference: string;
   type: ClaimCoverageType;
   display?: string;
-  payerReference?: string;
+  payerReference?: Reference;
 }): void {
   const { claim, coverageReference, display, payerReference } = params;
   const sequence = params.type === 'primary' ? 1 : params.type === 'secondary' ? 2 : params.type === 'tertiary' ? 3 : 4;
@@ -1361,7 +1391,7 @@ export function attachCoverageToClaim(params: {
     { sequence, focal, coverage: { reference: coverageReference, display } },
     ...(claim.insurance ?? []).filter((i) => i.sequence !== sequence),
   ]);
-  if (payerReference) claim.insurer = { reference: payerReference, display };
+  if (payerReference) claim.insurer = { ...payerReference, display };
 }
 
 // Account type + priority an insurance type maps to. primary/secondary share the patient billing

@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Organization } from 'fhir/r4b';
+import { Coverage, Organization } from 'fhir/r4b';
 import { CreateCustomInsuranceOrgInput } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import {
   CUSTOM_INSURANCE_ORG_ID_SYSTEM,
@@ -13,9 +13,16 @@ import {
   findCustomInsuranceOrgByBusinessId,
   isCustomInsuranceOrganization,
   mapCustomInsuranceOrganization,
+  resolvePayerIssuerFilter,
 } from '../../../src/billing/custom-insurance-org.helpers';
 import { performEffect as deleteInsuranceOrg } from '../../../src/billing/delete-billing-custom-insurance-org';
 import { performEffect as searchInsuranceOrgs } from '../../../src/billing/search-billing-custom-insurance-orgs';
+import {
+  buildPayorReference,
+  referenceKey,
+  resolvePayorReference,
+  setCoveragePayer,
+} from '../../../src/billing/shared';
 import { performEffect as updateInsuranceOrg } from '../../../src/billing/update-billing-custom-insurance-org';
 
 const ORG_ID = '11111111-1111-4111-8111-111111111111';
@@ -312,5 +319,46 @@ describe('search-billing-custom-insurance-orgs', () => {
 
     const params = search.mock.calls[0][0].params;
     expect(params).toContainEqual({ name: 'identifier', value: `${CUSTOM_INSURANCE_ORG_ID_SYSTEM}|OTR-AcMe` });
+  });
+});
+
+describe('custom insurance organization payor referencing', () => {
+  it('buildPayorReference points at the org by its business-id identifier, not its FHIR id', () => {
+    expect(buildPayorReference(orgResource)).toEqual({
+      identifier: { system: CUSTOM_INSURANCE_ORG_ID_SYSTEM, value: 'OTR-ACME' },
+    });
+  });
+
+  it('setCoveragePayer stores that identifier reference on Coverage.payor', () => {
+    const coverage = { resourceType: 'Coverage', status: 'active' } as Coverage;
+    setCoveragePayer(coverage, orgResource, 'MEMBER-1');
+    expect(coverage.payor).toEqual([{ identifier: { system: CUSTOM_INSURANCE_ORG_ID_SYSTEM, value: 'OTR-ACME' } }]);
+  });
+
+  it('resolvePayorReference resolves the identifier reference back to the org by a FHIR search', async () => {
+    const { oystehr, search } = makeOystehr();
+    search.mockResolvedValue({ unbundle: () => [orgResource] });
+
+    const resolved = await resolvePayorReference(oystehr, buildPayorReference(orgResource));
+
+    expect(resolved).toEqual(orgResource);
+    expect(search.mock.calls[0][0].params).toContainEqual({
+      name: 'identifier',
+      value: `${CUSTOM_INSURANCE_ORG_ID_SYSTEM}|OTR-ACME`,
+    });
+  });
+
+  it('resolvePayerIssuerFilter builds the :identifier search modifier with no FHIR lookup', () => {
+    expect(resolvePayerIssuerFilter('insurer', 'OTR-ACME')).toEqual({
+      name: 'insurer:identifier',
+      value: `${CUSTOM_INSURANCE_ORG_ID_SYSTEM}|OTR-ACME`,
+    });
+  });
+
+  it('referenceKey keys an identifier reference distinctly from a literal reference', () => {
+    expect(referenceKey(buildPayorReference(orgResource))).toBe(
+      `identifier:${CUSTOM_INSURANCE_ORG_ID_SYSTEM}|OTR-ACME`
+    );
+    expect(referenceKey({ reference: 'Organization/some-id' })).toBe('Organization/some-id');
   });
 });

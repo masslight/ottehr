@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Address, ContactPoint, Extension, Organization, OrganizationAffiliation, Reference } from 'fhir/r4b';
-import { extractPayerIdFromUrl, getNioReferenceUrl, getPayerId, isPayerUrl } from 'utils/lib/helpers/helpers';
+import { extractPayerIdFromUrl, getNioReferenceUrl, getPayerId } from 'utils/lib/helpers/helpers';
 import { BillingPayerOption } from 'utils/lib/types/data/billing/billing.types';
+import { CUSTOM_INSURANCE_ORG_ID_SYSTEM } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import {
   CreateNonInsuranceOrgInput,
   NIO_COVERAGE_CATEGORIES,
@@ -34,7 +35,7 @@ import {
   isCustomInsuranceOrganization,
   resolvePayerOrganization,
 } from './custom-insurance-org.helpers';
-import { buildPayorReference, payerDisplay } from './shared';
+import { buildPayorReference, payerDisplay, referenceKey, resolvePayorReference } from './shared';
 
 export type OrganizationContact = NonNullable<Organization['contact']>[number];
 
@@ -165,10 +166,7 @@ export function buildNioOrganization(input: CreateNonInsuranceOrgInput, existing
   };
 }
 
-export interface NioPayerReference {
-  reference: string;
-  display?: string;
-}
+export type NioPayerReference = Reference;
 
 export function buildCoverageOrganization(params: {
   nioName: string;
@@ -184,7 +182,7 @@ export function buildCoverageOrganization(params: {
     if (payerRef) {
       extension.push({
         url: NIO_WC_PAYER_EXTENSION_URL,
-        valueReference: { reference: payerRef.reference, ...(payerRef.display ? { display: payerRef.display } : {}) },
+        valueReference: payerRef,
       });
     }
   }
@@ -244,6 +242,9 @@ export function buildNioAffiliation(params: {
 // --- FHIR → DTO mapping ---
 
 function fallbackPayerOption(ref: Reference): BillingPayerOption {
+  if (ref.identifier?.system === CUSTOM_INSURANCE_ORG_ID_SYSTEM && ref.identifier.value) {
+    return { id: '', name: ref.display ?? '', payerId: ref.identifier.value };
+  }
   const reference = ref.reference ?? '';
   return {
     id: reference.startsWith('Organization/') ? reference.slice('Organization/'.length) : '',
@@ -264,9 +265,8 @@ function mapCoverageDetail(
       ? (modeCode as (typeof NIO_WC_BILLING_MODES)[number])
       : 'direct';
     const payerRef = coverageOrg ? getExtension(coverageOrg, NIO_WC_PAYER_EXTENSION_URL)?.valueReference : undefined;
-    const payer = payerRef?.reference
-      ? payerOptionsByRef?.get(payerRef.reference) ?? fallbackPayerOption(payerRef)
-      : undefined;
+    const payerRefKey = referenceKey(payerRef);
+    const payer = payerRefKey ? payerOptionsByRef?.get(payerRefKey) ?? fallbackPayerOption(payerRef!) : undefined;
     return { category, billingMode, ...(payer ? { payer } : {}), ...(submission ? { submission } : {}) };
   }
   if (category === 'other') {
@@ -414,7 +414,7 @@ export async function resolveWcPayerReference(
     console.error(`Failed to look up payer ${workersComp.payerId}:`, error);
   }
   if (!payerOrg) throw INVALID_INPUT_ERROR(`Unknown payer id ${workersComp.payerId}`);
-  return { reference: buildPayorReference(payerOrg), display: payerDisplay(payerOrg) };
+  return { ...buildPayorReference(payerOrg), display: payerDisplay(payerOrg) };
 }
 
 // Resolve stored WC payer references back to live BillingPayerOptions so the edit form's
@@ -424,31 +424,27 @@ export async function resolvePayerOptionsByRef(
   oystehr: Oystehr,
   coverageOrgs: Organization[]
 ): Promise<Map<string, BillingPayerOption>> {
-  const refs = new Set<string>();
+  const refs = new Map<string, Reference>();
   coverageOrgs.forEach((org) => {
-    const reference = getExtension(org, NIO_WC_PAYER_EXTENSION_URL)?.valueReference?.reference;
-    if (reference) refs.add(reference);
+    const reference = getExtension(org, NIO_WC_PAYER_EXTENSION_URL)?.valueReference;
+    const key = referenceKey(reference);
+    if (reference && key) refs.set(key, reference);
   });
   const byRef = new Map<string, BillingPayerOption>();
   await Promise.all(
-    [...refs].map(async (ref) => {
+    [...refs.entries()].map(async ([key, ref]) => {
       try {
-        let payerOrg: Organization | undefined;
-        if (isPayerUrl(ref)) {
-          payerOrg = await oystehr.rcm.getPayerByUrl({ url: ref });
-        } else if (ref.startsWith('Organization/')) {
-          payerOrg = await resolvePayerOrganization(oystehr, ref.slice('Organization/'.length));
-        }
+        const payerOrg = await resolvePayorReference(oystehr, ref);
         if (payerOrg) {
           // Custom insurance orgs have no RCM payer id; fall back to their "OTR-" business id, the
           // same value PayerSelect's option list shows in its place.
           const payerId = isCustomInsuranceOrganization(payerOrg)
             ? getCustomInsuranceOrgBusinessId(payerOrg)
             : getPayerId(payerOrg) ?? '';
-          byRef.set(ref, { id: payerOrg.id ?? '', name: payerOrg.name ?? '', payerId });
+          byRef.set(key, { id: payerOrg.id ?? '', name: payerOrg.name ?? '', payerId });
         }
       } catch (error) {
-        console.error(`Failed to resolve NIO payer ${ref}:`, error);
+        console.error(`Failed to resolve NIO payer ${key}:`, error);
       }
     })
   );

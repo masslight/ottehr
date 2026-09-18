@@ -16,6 +16,7 @@ import {
   CURRENT_STATUS_TAG_SYSTEM,
   eraCheckNumberMatches,
   getEraCheckNumber,
+  referenceKey,
   resolvePayersByRef,
 } from '../shared';
 import { SearchErasParams, validateRequestParameters } from './validateRequestParameters';
@@ -43,17 +44,17 @@ export async function performEffect(
   const hasClaimFilters = params.claimStatus || params.dosFrom || params.dosTo || params.patientId || params.searchText;
 
   // Resolve the payer filter to Oystehr payer list URLs
-  let payerIssuerFilter: string | undefined;
+  let payerIssuerFilter: SearchParam | undefined;
   if (params.payerId) {
     // A business-id-shaped payerId ("OTR-...") names a custom insurance organization rather than an
     // RCM payer (see resolvePayerIssuerFilter). ERAs only ever come from RCM/clearinghouse remittance,
     // so that case correctly matches nothing today — kept for filter-UI consistency with the claims list.
-    payerIssuerFilter = await resolvePayerIssuerFilter(oystehr, params.payerId);
+    payerIssuerFilter = resolvePayerIssuerFilter('payment-issuer', params.payerId);
   } else if (params.payerName) {
     const result = await oystehr.rcm.listPayers({ name: params.payerName, limit: 50 });
     const payerIds = result.data.map((p) => getPayerId(p)).filter(Boolean) as string[];
     if (payerIds.length === 0) return { eras: [], total: 0, offset, pageSize };
-    payerIssuerFilter = payerIds.map((id) => getPayerUrl(id)).join(',');
+    payerIssuerFilter = { name: 'payment-issuer', value: payerIds.map((id) => getPayerUrl(id)).join(',') };
   }
 
   // ERA-level FHIR search, without the paging the server can only apply to the filters it runs
@@ -61,7 +62,7 @@ export async function performEffect(
   if (params.eraDateFrom) filterParams.push({ name: 'created', value: `ge${params.eraDateFrom}` });
   if (params.eraDateTo) filterParams.push({ name: 'created', value: `le${params.eraDateTo}` });
   if (params.eraStatus) filterParams.push({ name: 'outcome', value: params.eraStatus });
-  if (payerIssuerFilter) filterParams.push({ name: 'payment-issuer', value: payerIssuerFilter });
+  if (payerIssuerFilter) filterParams.push(payerIssuerFilter);
 
   if (hasClaimFilters) {
     const claimIds = await findMatchingClaimIds(oystehr, params);
@@ -92,8 +93,8 @@ export async function performEffect(
   // process-era PaymentReconciliations carry no paymentIssuer; resolve the ClaimResponses' payers
   // as the fallback
   const payersByRef = await resolvePayersByRef(oystehr, [
-    ...payments.map((pr) => pr.paymentIssuer?.reference),
-    ...[...claimResponsesByPrId.values()].flat().map((cr) => cr.insurer?.reference),
+    ...payments.map((pr) => pr.paymentIssuer),
+    ...[...claimResponsesByPrId.values()].flat().map((cr) => cr.insurer),
   ]);
   const eras = payments.map((pr) => mapEra(pr, payersByRef, claimResponsesByPrId));
 
@@ -269,9 +270,9 @@ function mapEra(
   claimResponsesByPrId: Map<string, ClaimResponse[]>
 ): EraListItem {
   const claimResponses = claimResponsesByPrId.get(pr.id ?? '') ?? [];
-  const payerRef =
-    pr.paymentIssuer?.reference ?? claimResponses.find((cr) => cr.insurer?.reference)?.insurer?.reference;
-  const payerOrg = payerRef ? payersByRef.get(payerRef) : undefined;
+  const payerRef = pr.paymentIssuer ?? claimResponses.find((cr) => referenceKey(cr.insurer))?.insurer;
+  const payerRefKey = referenceKey(payerRef);
+  const payerOrg = payerRefKey ? payersByRef.get(payerRefKey) : undefined;
 
   const checkNumber = getEraCheckNumber(pr) ?? '';
   const counts = countEraClaims(claimResponses);

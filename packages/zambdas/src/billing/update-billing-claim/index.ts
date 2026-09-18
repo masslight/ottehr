@@ -52,6 +52,7 @@ import {
   getClaimTypeCoding,
   payerDisplay,
   prepareWorkingCopy,
+  referenceKey,
   resolvePayersByRef,
   resourceDisplayName,
   setClaimRenderingProviderCareTeam,
@@ -273,8 +274,11 @@ async function attachClaimResources(
       copy.subscriber = { reference: `RelatedPerson/${createdSubscriber.id}` };
     }
     const created = await oystehr.fhir.create(copy);
-    const payerRef = created.payor?.[0]?.reference;
-    const display = payerRef ? payerDisplay((await resolvePayersByRef(oystehr, [payerRef])).get(payerRef)) : undefined;
+    const payerRef = created.payor?.[0];
+    const payerRefKey = referenceKey(payerRef);
+    const display = payerRefKey
+      ? payerDisplay((await resolvePayersByRef(oystehr, [payerRef])).get(payerRefKey))
+      : undefined;
     attachCoverageToClaim({
       claim,
       coverageReference: `Coverage/${created.id}`,
@@ -366,7 +370,7 @@ async function attachClaimResources(
     const payerReference = payerOrg ? buildPayorReference(payerOrg) : undefined;
     const display = payerOrg ? payerDisplay(payerOrg) : undefined;
     // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
-    if (payerReference && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerReference, display };
+    if (payerReference && claimHasRealCoverage(claim.insurance)) claim.insurer = { ...payerReference, display };
   }
 
   if (fields.nonInsurancePayer !== undefined) {

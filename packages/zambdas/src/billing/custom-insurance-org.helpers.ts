@@ -212,16 +212,14 @@ export function isCustomInsuranceOrgBusinessId(value: string): boolean {
   return value.trim().toUpperCase().startsWith(CUSTOM_INSURANCE_ORG_ID_PREFIX);
 }
 
-// The Claim.insurer / PaymentReconciliation payment-issuer filter value for a chosen "payer id" —
-// claims/ERAs never store a custom insurance organization's business id directly (Claim.insurer
-// references it by Organization/{id}, see buildPayorReference), so a business-id-shaped value is
-// resolved to that org first. An ordinary RCM payer id needs no lookup: getPayerUrl builds its
-// filter value directly from the id.
-export async function resolvePayerIssuerFilter(oystehr: Oystehr, payerId: string): Promise<string> {
+// The Claim.insurer / PaymentReconciliation payment-issuer search param for a chosen "payer id" —
+// claims/ERAs reference a custom insurance organization by its business-id identifier (see
+// buildPayorReference in shared.ts), so a business-id-shaped value is matched with the `:identifier`
+// search modifier and needs no FHIR lookup. An ordinary RCM payer id needs no lookup either:
+// getPayerUrl builds its filter value directly from the id.
+export function resolvePayerIssuerFilter(paramName: string, payerId: string): { name: string; value: string } {
   if (isCustomInsuranceOrgBusinessId(payerId)) {
-    const org = await findCustomInsuranceOrgByBusinessId(oystehr, payerId);
-    if (!org?.id) throw INVALID_INPUT_ERROR(`No custom insurance organization matches id "${payerId}"`);
-    return `Organization/${org.id}`;
+    return { name: `${paramName}:identifier`, value: `${CUSTOM_INSURANCE_ORG_ID_SYSTEM}|${payerId}` };
   }
-  return getPayerUrl(payerId);
+  return { name: paramName, value: getPayerUrl(payerId) };
 }

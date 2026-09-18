@@ -9,6 +9,7 @@ import {
   Organization,
   Patient,
   Practitioner,
+  Reference,
   RelatedPerson,
 } from 'fhir/r4b';
 import {
@@ -48,11 +49,13 @@ import {
   getClaimStatusFieldValue,
   isValidClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
+import { CUSTOM_INSURANCE_ORG_ID_SYSTEM } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { ServiceLineSetOperation, ServiceLineSetValue } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
 import { updateExtension } from '../../shared/helpers';
+import { getCustomInsuranceOrgBusinessId } from '../custom-insurance-org.helpers';
 import { getCLIA, getPlaceOfServiceCode } from '../service-facility.helpers';
 import {
   attachCoverageToClaim,
@@ -359,10 +362,25 @@ const readRelationship = (coverage?: Coverage): string | undefined => {
 type FieldReader = (m: RulesEngineClaimModel) => string | string[] | undefined;
 
 // A coverage's payor reference is either an RCM payer URL or, for a billing-app custom insurance
-// organization, a direct Organization/{id} reference (same convention as
-// getClaimNonInsurancePayer's reference and buildPayorReference in shared.ts).
-const extractPayerIdFromCoverageRef = (reference?: string): string | undefined =>
-  isPayerUrl(reference) ? extractPayerIdFromUrl(reference) : reference?.replace('Organization/', '');
+// organization, an identifier reference (see buildPayorReference in shared.ts). The rules engine's
+// own "payerId" convention for a custom org is its uuid (matching payerReferenceForId below and what
+// PayerSelect/RuleBuilder store), so an identifier reference is resolved back to the uuid via the
+// engine's prefetched customInsuranceOrganizations map (a business id absent from that map — because
+// no rule in this set names it — correctly yields undefined, same as today).
+const extractPayerIdFromCoverageRef = (
+  ref: Reference | undefined,
+  model: RulesEngineClaimModel
+): string | undefined => {
+  if (ref?.identifier?.system === CUSTOM_INSURANCE_ORG_ID_SYSTEM) {
+    const businessId = ref.identifier.value;
+    return [...(model.customInsuranceOrganizations ?? [])].find(
+      ([, org]) => getCustomInsuranceOrgBusinessId(org) === businessId
+    )?.[0];
+  }
+  return isPayerUrl(ref?.reference)
+    ? extractPayerIdFromUrl(ref?.reference)
+    : ref?.reference?.replace('Organization/', '');
+};
 
 // Readers for the name / birth date / gender / address fields a person-shaped resource (patient or
 // policy holder) contributes; ids mirror the personFields entries in RULE_FIELD_CATALOG.
@@ -391,7 +409,7 @@ const coverageReaders = (
     const source = copySourceRef(resolve(m));
     return source ? m.patientCoverageContext?.typeByCoverageRef.get(source) : undefined;
   },
-  [`${prefix}.payerId`]: (m) => extractPayerIdFromCoverageRef(resolve(m)?.payor?.[0]?.reference),
+  [`${prefix}.payerId`]: (m) => extractPayerIdFromCoverageRef(resolve(m)?.payor?.[0], m),
   [`${prefix}.memberId`]: (m) => resolve(m)?.subscriberId,
   [`${prefix}.planType`]: (m) => getCoveragePlanType(resolve(m)),
   [`${prefix}.relationship`]: (m) => readRelationship(resolve(m)),
@@ -430,7 +448,7 @@ const statusFieldReaders = (): Record<string, FieldReader> =>
 const READERS: Record<string, FieldReader> = {
   // The payer is the payor reference on the working-copy Coverage — either an Oystehr payer URL, or
   // for a custom insurance organization, a direct Organization/{id} reference.
-  payerId: (m) => extractPayerIdFromCoverageRef(primaryCoverage(m)?.payor?.[0]?.reference),
+  payerId: (m) => extractPayerIdFromCoverageRef(primaryCoverage(m)?.payor?.[0], m),
   nonInsurancePayerId: (m) => getClaimNonInsurancePayer(m.claim)?.reference?.replace('Organization/', ''),
   type: (m) => getClaimType(m.claim),
   service: (m) => getClaimService(m.claim),
@@ -565,12 +583,15 @@ const setPersonGender = (person: Patient | RelatedPerson | undefined, value: str
   return true;
 };
 
-// The payor/insurer reference for a chosen payer id: Organization/{id} when it names one of the
-// engine's prefetched custom insurance organizations (see loadCustomInsuranceOrganizations), else the
-// existing RCM payer URL form — no RCM lookup is needed there, getPayerUrl builds it from the id alone.
-const payerReferenceForId = (model: RulesEngineClaimModel, id: string): string => {
+// The payor/insurer reference for a chosen payer id: an identifier reference to the org's business
+// id when it names one of the engine's prefetched custom insurance organizations (see
+// loadCustomInsuranceOrganizations and buildPayorReference in shared.ts), else the existing RCM payer
+// URL form — no RCM lookup is needed there, getPayerUrl builds it from the id alone.
+const payerReferenceForId = (model: RulesEngineClaimModel, id: string): Reference => {
   const customOrg = model.customInsuranceOrganizations?.get(id);
-  return customOrg ? `Organization/${customOrg.id}` : getPayerUrl(id);
+  return customOrg
+    ? { identifier: { system: CUSTOM_INSURANCE_ORG_ID_SYSTEM, value: getCustomInsuranceOrgBusinessId(customOrg) } }
+    : { reference: getPayerUrl(id) };
 };
 
 // Re-point the primary coverage's payor and the claim's insurer.
@@ -579,8 +600,8 @@ const setPayerId = (model: RulesEngineClaimModel, value: string | null): boolean
   const coverage = primaryCoverage(model);
   if (!coverage) return false;
   const payerRef = payerReferenceForId(model, value);
-  coverage.payor = [{ reference: payerRef }];
-  model.claim.insurer = { reference: payerRef };
+  coverage.payor = [payerRef];
+  model.claim.insurer = payerRef;
   return true;
 };
 
@@ -697,8 +718,9 @@ const setCoverageFromPatient = (
   const reference = registerCreatedCopy(model, replacedPrimary, copy);
   model.coverages = [copy, ...model.coverages.slice(1)];
 
-  const payorRef = copy.payor?.[0]?.reference;
-  const payerLabel = coveragePayerDisplay(copy) ?? extractPayerIdFromUrl(payorRef);
+  const payorRef = copy.payor?.[0];
+  const payerLabel =
+    coveragePayerDisplay(copy) ?? extractPayerIdFromUrl(payorRef?.reference) ?? payorRef?.identifier?.value;
   attachCoverageToClaim({
     claim: model.claim,
     coverageReference: reference,
@@ -710,7 +732,7 @@ const setCoverageFromPatient = (
     payerReference: payorRef,
   });
   // The insurer carries the payer label alone — never the coverage-reference fallback.
-  if (payorRef) model.claim.insurer = { reference: payorRef, display: payerLabel };
+  if (payorRef?.reference || payorRef?.identifier) model.claim.insurer = { ...payorRef, display: payerLabel };
   return true;
 };
 
@@ -878,9 +900,9 @@ const coverageWriters = (
     const coverage = resolve(m);
     if (!coverage) return false;
     const payerRef = payerReferenceForId(m, v);
-    coverage.payor = [{ reference: payerRef }];
+    coverage.payor = [payerRef];
     if (m.claim.insurance.find((ins) => ins.coverage.reference?.replace('Coverage/', '') === coverage.id)?.focal) {
-      m.claim.insurer = { reference: payerRef };
+      m.claim.insurer = payerRef;
     }
     return true;
   },

@@ -7,7 +7,7 @@ import { BillingCoverageOption, GetBillingCoverageResponse } from 'utils/lib/typ
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { createBillingClient, resolvedPayerId, resolvePayersByRef, toAddressParts } from '../shared';
+import { createBillingClient, referenceKey, resolvedPayerId, resolvePayersByRef, toAddressParts } from '../shared';
 import { GetBillingCoverageParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -52,11 +52,11 @@ async function performEffect(oystehr: Oystehr, params: GetBillingCoverageParams)
   const coverage = coverages[0];
   const payersByRef = await resolvePayersByRef(
     oystehr,
-    coverages.map((coverage) => coverage.payor?.[0]?.reference)
+    coverages.map((coverage) => coverage.payor?.[0])
   );
 
-  const payorRef = coverage.payor?.[0]?.reference;
-  const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
+  const payorRefKey = referenceKey(coverage.payor?.[0]);
+  const payorOrg = payorRefKey ? payersByRef.get(payorRefKey) : undefined;
 
   return {
     id: coverage.id,

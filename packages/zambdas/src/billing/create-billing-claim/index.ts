@@ -49,6 +49,7 @@ import {
   kickOffRulesEngine,
   payerDisplay,
   prepareWorkingCopy,
+  referenceKey,
   resolvePayersByRef,
   resourceDisplayName,
 } from '../shared';
@@ -96,8 +97,11 @@ async function performEffect(
 
   // Resolve the payer's display up front so the claim's references (and therefore its history
   // records) carry friendly names.
-  const payerRef = copies.coverage?.payor?.[0]?.reference;
-  const payerName = payerRef ? payerDisplay((await resolvePayersByRef(oystehr, [payerRef])).get(payerRef)) : undefined;
+  const payerRef = copies.coverage?.payor?.[0];
+  const payerRefKey = referenceKey(payerRef);
+  const payerName = payerRefKey
+    ? payerDisplay((await resolvePayersByRef(oystehr, [payerRef])).get(payerRefKey))
+    : undefined;
   const claim = buildClaim(copies, params, payerName);
 
   // Create the claim and its creation Provenance atomically; the Provenance targets the claim's
@@ -262,8 +266,10 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams, payerN
     ? [{ sequence: 1, focal: true, coverage: { reference: `Coverage/${copies.coverage.id}`, display: payerName } }]
     : [];
   claim.insurance = ensureClaimInsurance(realInsurance);
-  const payerRef = copies.coverage?.payor?.[0]?.reference;
-  if (payerRef && copies.coverage?.id) claim.insurer = { reference: payerRef, display: payerName };
+  const payerRef = copies.coverage?.payor?.[0];
+  if ((payerRef?.reference || payerRef?.identifier) && copies.coverage?.id) {
+    claim.insurer = { ...payerRef, display: payerName };
+  }
   if (copies.facility?.id) {
     claim.facility = { reference: `Location/${copies.facility.id}`, display: resourceDisplayName(copies.facility) };
   }

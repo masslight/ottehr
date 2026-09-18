@@ -350,7 +350,7 @@ describe('get-billing-claim-detail performEffect: custom insurance organization 
 
   const claimWithCustomInsurer = {
     ...claim,
-    insurer: { reference: `Organization/${PAYER_ORG_ID}` },
+    insurer: { identifier: { system: CUSTOM_INSURANCE_ORG_ID_SYSTEM, value: 'OTR-ACME' } },
   } as Claim;
 
   beforeEach(() => {
@@ -365,7 +365,9 @@ describe('get-billing-claim-detail performEffect: custom insurance organization 
       subscribers: [],
       documentReferences: [],
     });
-    (resolvePayersByRef as Mock).mockResolvedValue(new Map([[`Organization/${PAYER_ORG_ID}`, customPayerOrg]]));
+    (resolvePayersByRef as Mock).mockResolvedValue(
+      new Map([[`identifier:${CUSTOM_INSURANCE_ORG_ID_SYSTEM}|OTR-ACME`, customPayerOrg]])
+    );
     (fetchClaimResponsesByClaimIds as Mock).mockResolvedValue(new Map());
     (fetchClaimEraLinks as Mock).mockResolvedValue({
       paymentReconciliations: [],

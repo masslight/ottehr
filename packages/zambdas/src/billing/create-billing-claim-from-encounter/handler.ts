@@ -107,6 +107,8 @@ import {
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
   reconcilePaymentNoticesForClaim,
+  referenceKey,
+  resolvePayorReference,
   resourceDisplayName,
   searchPatientsByClinicalIds,
   SOURCE_IDENTIFIER_SYSTEM,
@@ -894,21 +896,17 @@ async function getClinicalResources(
     ).unbundle();
   }
   coverages = coverages.filter(
-    (c) => c.payor?.[0]?.reference && c.payor[0].reference !== oystehr.rcm.constructPayerUrl({ id: '00000' })
+    (c) => referenceKey(c.payor?.[0]) && c.payor?.[0]?.reference !== oystehr.rcm.constructPayerUrl({ id: '00000' })
   );
 
-  // Manually look up payors because they may be internal Organization resources or Oystehr RCM payer URLs
+  // Manually look up payors because they may be internal Organization resources, Oystehr RCM payer
+  // URLs, or (for a billing-app custom insurance organization) an identifier reference.
   const payors = await Promise.all(
     coverages.map<Promise<Organization>>(async (c) => {
       // Assume single payor per coverage
-      const payorRef = c.payor?.[0]?.reference;
-      if (!payorRef) throw FHIR_RESOURCE_NOT_FOUND('Organization');
-      return isValidUUID(payorRef.replace('Organization/', ''))
-        ? oystehr.fhir.get<Organization>({
-            resourceType: 'Organization',
-            id: payorRef.replace('Organization/', ''),
-          })
-        : oystehr.rcm.getPayerByUrl({ url: payorRef });
+      const payorOrg = await resolvePayorReference(oystehr, c.payor?.[0]);
+      if (!payorOrg) throw FHIR_RESOURCE_NOT_FOUND('Organization');
+      return payorOrg;
     })
   );
 

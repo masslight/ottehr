@@ -245,7 +245,10 @@ async function attachLinksAndFallbackNames(oystehr: Oystehr, entries: ClaimHisto
       });
     }),
   ]);
-  const payersByRef = await resolvePayersByRef(oystehr, [...payerUrls]);
+  const payersByRef = await resolvePayersByRef(
+    oystehr,
+    [...payerUrls].map((url) => ({ reference: url }))
+  );
 
   const enrich = (
     field: string,

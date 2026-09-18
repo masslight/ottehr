@@ -30,6 +30,7 @@ import {
   getClaimStatus,
   getClaimType,
   patientSearchParam,
+  referenceKey,
   resolvedPayerId,
   resolveLinkedPatientIds,
   resolvePayersByRef,
@@ -127,11 +128,11 @@ export async function buildClaimFilterParams({
   params: ClaimFilterInput;
   sort?: string;
 }): Promise<ClaimSearchParam[]> {
-  let insurerFilter: string | undefined;
+  let insurerFilter: ClaimSearchParam | undefined;
   if (params.payerId) {
     // A business-id-shaped payerId ("OTR-...") names a custom insurance organization rather than an
     // RCM payer — see resolvePayerIssuerFilter.
-    insurerFilter = await resolvePayerIssuerFilter(oystehr, params.payerId);
+    insurerFilter = resolvePayerIssuerFilter('insurer', params.payerId);
   } else if (params.payerName) {
     const result = await oystehr.rcm.listPayers({
       name: params.payerName,
@@ -139,7 +140,7 @@ export async function buildClaimFilterParams({
     });
     const payerIds = result.data.map((p) => getPayerId(p)).filter(Boolean) as string[];
     if (payerIds.length === 0) throw INVALID_INPUT_ERROR(`No payer matches the payer name "${params.payerName}"`);
-    insurerFilter = payerIds.map((id) => getPayerUrl(id)).join(',');
+    insurerFilter = { name: 'insurer', value: payerIds.map((id) => getPayerUrl(id)).join(',') };
   }
 
   const filterParams: ClaimSearchParam[] = [
@@ -202,11 +203,7 @@ export async function buildClaimFilterParams({
       name: '_tag',
       value: `${CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM}|${params.service}`,
     });
-  if (insurerFilter)
-    filterParams.push({
-      name: 'insurer',
-      value: insurerFilter,
-    });
+  if (insurerFilter) filterParams.push(insurerFilter);
   if (params.tag)
     filterParams.push({
       name: '_tag',
@@ -553,7 +550,7 @@ export async function enrichAndMapClaims({
   const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId] = await Promise.all([
     resolvePayersByRef(
       oystehr,
-      claims.map((c) => c.insurer?.reference)
+      claims.map((c) => c.insurer)
     ),
     fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
     fetchPatientPaidByClaimId({
@@ -586,7 +583,8 @@ export interface ClaimLookups {
 
 export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
   const patient = findRef<Patient>(lookups.patients, claim.patient?.reference);
-  const insurer = claim.insurer?.reference ? lookups.payersByRef.get(claim.insurer.reference) : undefined;
+  const insurerRefKey = referenceKey(claim.insurer);
+  const insurer = insurerRefKey ? lookups.payersByRef.get(insurerRefKey) : undefined;
   const facility = findRef<Location>(lookups.locations, claim.facility?.reference);
   const sortedInsurance = sortClaimInsurance(claim);
   const coverage = findRef<Coverage>(lookups.coverages, sortedInsurance[0]?.coverage?.reference);

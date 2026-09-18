@@ -241,7 +241,7 @@ describe('attachCoverageToClaim', () => {
       coverageReference: 'Coverage/new-primary',
       type: 'primary',
       display: 'Prime Health (111222)',
-      payerReference: getPayerUrl('111222'),
+      payerReference: { reference: getPayerUrl('111222') },
     });
 
     expect(claim.insurance).toEqual([

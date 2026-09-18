@@ -10,6 +10,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import {
   createBillingClient,
   fetchPatientCoverages,
+  referenceKey,
   resolvedPayerId,
   resolvePayersByRef,
   toAddressParts,
@@ -51,12 +52,12 @@ async function performEffect(
   const records = await fetchPatientCoverages(oystehr, params.patientId);
   const payersByRef = await resolvePayersByRef(
     oystehr,
-    records.map(({ coverage }) => coverage.payor?.[0]?.reference)
+    records.map(({ coverage }) => coverage.payor?.[0])
   );
 
   const result = records.map(({ coverage, insuranceType, subscriber }): BillingCoverageOption => {
-    const payorRef = coverage.payor?.[0]?.reference;
-    const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
+    const payorRefKey = referenceKey(coverage.payor?.[0]);
+    const payorOrg = payorRefKey ? payersByRef.get(payorRefKey) : undefined;
 
     return {
       id: coverage.id,

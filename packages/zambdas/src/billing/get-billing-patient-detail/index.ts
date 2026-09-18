@@ -19,6 +19,7 @@ import {
   formatAddress,
   getClaimStatus,
   patientSearchParam,
+  referenceKey,
   resolveClinicalPatientIds,
   resolveLinkedPatientIds,
   resolvePayersByRef,
@@ -105,7 +106,7 @@ async function fetchPatientClaims(
   const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId] = await Promise.all([
     resolvePayersByRef(
       oystehr,
-      claims.map((c) => c.insurer?.reference)
+      claims.map((c) => c.insurer)
     ),
     fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
     fetchPatientPaidByClaimId({
@@ -124,11 +125,13 @@ async function fetchPatientClaims(
 
   const claimItems = claims.map((c, idx) => {
     const payments = summaries[idx];
+    const insurerRefKey = referenceKey(c.insurer);
+    const insurer = insurerRefKey ? payersByRef.get(insurerRefKey) : undefined;
     return {
       id: c.id ?? '',
       status: getClaimStatus(c),
       serviceDate: c.item?.[0]?.servicedPeriod?.start ?? c.created ?? '',
-      payerName: (c.insurer?.reference ? payersByRef.get(c.insurer.reference) : undefined)?.name ?? '',
+      payerName: insurer?.name ?? '',
       billed: c.total?.value ?? 0,
       allowed: payments.allowed,
       insurancePaid: payments.insurancePaid,

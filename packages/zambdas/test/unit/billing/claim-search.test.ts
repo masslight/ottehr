@@ -96,23 +96,14 @@ describe('buildClaimFilterParams: payer', () => {
     expect(search).not.toHaveBeenCalled();
   });
 
-  it('resolves a business-id-shaped payerId to the custom org and filters by its Organization reference', async () => {
-    const search = vi.fn().mockResolvedValue({ unbundle: () => [{ resourceType: 'Organization', id: 'org-uuid' }] });
+  it('builds an insurer:identifier filter for a business-id-shaped payerId, without any FHIR lookup', async () => {
+    const search = vi.fn();
     const params = await buildClaimFilterParams({
       oystehr: { fhir: { search } } as unknown as Oystehr,
       params: { payerId: 'OTR-ACME' },
     });
-    expect(params).toContainEqual({ name: 'insurer', value: 'Organization/org-uuid' });
-  });
-
-  it('throws when a business-id-shaped payerId matches no custom insurance organization', async () => {
-    const search = vi.fn().mockResolvedValue({ unbundle: () => [] });
-    await expect(
-      buildClaimFilterParams({
-        oystehr: { fhir: { search } } as unknown as Oystehr,
-        params: { payerId: 'OTR-UNKNOWN' },
-      })
-    ).rejects.toThrow();
+    expect(params).toContainEqual({ name: 'insurer:identifier', value: `${CUSTOM_INSURANCE_ORG_ID_SYSTEM}|OTR-ACME` });
+    expect(search).not.toHaveBeenCalled();
   });
 });
 
@@ -142,7 +133,7 @@ describe('mapClaimToItem: payer columns', () => {
     const payerOrgId = 'a1b2c3d4-1111-4111-8111-abcdefabcdef';
     const claim = {
       ...makeClaim('claim-1', 100),
-      insurer: { reference: `Organization/${payerOrgId}` },
+      insurer: { identifier: { system: CUSTOM_INSURANCE_ORG_ID_SYSTEM, value: 'OTR-ACME' } },
     } as Claim;
     const customOrg = {
       resourceType: 'Organization',
@@ -154,7 +145,7 @@ describe('mapClaimToItem: payer columns', () => {
 
     const item = mapClaimToItem(claim, {
       ...makeLookups(new Map()),
-      payersByRef: new Map([[`Organization/${payerOrgId}`, customOrg]]),
+      payersByRef: new Map([[`identifier:${CUSTOM_INSURANCE_ORG_ID_SYSTEM}|OTR-ACME`, customOrg]]),
     });
 
     expect(item.payerName).toBe('Acme Custom Insurance');
