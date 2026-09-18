@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
-import { RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
+import { CREATE_TIMELY_FILING_REPORT_ZAMBDA, RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
 import {
   AddClaimAttachmentInputSchema,
   AddClaimNoteInputSchema,
@@ -625,4 +625,4 @@ export const createTimelyFilingReport = (
   oystehr: Oystehr,
   parameters: z.input<typeof CreateTimelyFilingReportInputSchema>
 ): Promise<CreateTimelyFilingReportResponse> =>
-  executeBillingZambda(oystehr, 'create-timely-filing-report', parameters);
+  executeBillingZambda(oystehr, CREATE_TIMELY_FILING_REPORT_ZAMBDA, parameters);

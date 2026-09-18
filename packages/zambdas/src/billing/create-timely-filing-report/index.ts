@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClaimResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { CREATE_TIMELY_FILING_REPORT_ZAMBDA } from 'utils/lib/types/data/billing/billing.constants';
 import { CreateTimelyFilingReportResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { composeTimelyFilingReportData, renderTimelyFilingReportPdf } from '../../shared/pdf/timely-filing-report-pdf';
@@ -20,7 +21,7 @@ import {
 } from '../shared';
 import { CreateTimelyFilingReportParams, validateRequestParameters } from './validateRequestParameters';
 
-const ZAMBDA_NAME = 'create-timely-filing-report';
+const ZAMBDA_NAME = CREATE_TIMELY_FILING_REPORT_ZAMBDA;
 
 let m2mToken: string;
 
