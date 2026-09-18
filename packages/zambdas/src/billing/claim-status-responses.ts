@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import { ClaimResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, RAW_RESPONSE_EXTENSION_URL } from 'utils/lib/fhir/constants';
-import { ClaimAcknowledgmentEvent } from 'utils/lib/types/data/billing/claim-history';
+import { ClaimAcknowledgmentEvent, ClaimTransmitEvent } from 'utils/lib/types/data/billing/claim-history';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
 
@@ -108,6 +108,48 @@ export function claimStatusEventTime({
     zone: CLAIMMD_RESPONSE_TIMEZONE,
   });
   return parsed.isValid ? parsed.toUTC().toISO() : fallback;
+}
+
+export const ClaimTransmitEventSchema = z.object({
+  transmittedAt: z.string(),
+  batchId: z.string().optional(),
+  clearinghouseClaimId: z.string().optional(),
+}) satisfies z.ZodType<ClaimTransmitEvent>;
+
+export function transmitEventFromClaimResponse({
+  response,
+  fallbackTime,
+}: {
+  response: ClaimResponse;
+  fallbackTime: string;
+}): ClaimTransmitEvent {
+  const fallback = response.created || fallbackTime;
+  const raw = ClaimStatusResponseSchema.safeParse(safeJsonParse(rawResponseOf(response)));
+  if (!raw.success) {
+    console.warn(`ClaimResponse/${response.id} has no readable raw response; transmit ids omitted`);
+    return { transmittedAt: fallback };
+  }
+  return {
+    transmittedAt: claimStatusEventTime({
+      raw: raw.data,
+      fallback,
+    }),
+    ...(raw.data.batchid ? { batchId: raw.data.batchid } : {}),
+    ...(raw.data.claimmd_id ? { clearinghouseClaimId: raw.data.claimmd_id } : {}),
+  };
+}
+
+function rawResponseOf(response: ClaimResponse): string | undefined {
+  return response.extension?.find((extension) => extension.url === RAW_RESPONSE_EXTENSION_URL)?.valueString;
+}
+
+function safeJsonParse(value: string | undefined): unknown {
+  if (!value) return undefined;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
 }
 
 const CLEARINGHOUSE_SENDER_PATTERN = /claim\.?md/i;

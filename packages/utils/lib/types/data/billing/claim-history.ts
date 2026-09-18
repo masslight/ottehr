@@ -54,6 +54,9 @@ export const CLAIM_NOTE_MAX_LENGTH = 2000;
 // Extension on the Provenance whose valueString holds a JSON-serialized ClaimAcknowledgmentEvent.
 export const CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL = ottehrExtensionUrl('claim-history-acknowledgment');
 
+// Extension on the Provenance whose valueString holds a JSON-serialized ClaimTransmitEvent.
+export const CLAIM_PROVENANCE_TRANSMIT_EXTENSION_URL = ottehrExtensionUrl('claim-history-transmit');
+
 // Extension on a Provenance.entity linking its Reference-typed `what` back to a change in the diff
 // JSON — see changeRefEntities in packages/zambdas/src/billing/provenance.ts.
 export const CLAIM_PROVENANCE_CHANGE_REF_URL = ottehrExtensionUrl('claim-history-change-ref');
@@ -133,6 +136,15 @@ export interface ClaimAcknowledgmentEvent {
   clearinghouseClaimId?: string;
   payerClaimControlNumber?: string;
   eventTime: string;
+}
+
+// The moment the claim left Ottehr for the clearinghouse, recorded at submission (see submitClaim)
+// so the timely filing report can cite the transmit date without re-reading the ClaimResponse
+// Oystehr wrote.
+export interface ClaimTransmitEvent {
+  transmittedAt: string;
+  batchId?: string;
+  clearinghouseClaimId?: string;
 }
 
 // One row in the claim history view, assembled by get-billing-claim-history.

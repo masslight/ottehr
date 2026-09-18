@@ -4,7 +4,7 @@ import { Color } from 'pdf-lib';
 import { getNPI, getTaxID } from 'utils/lib/fhir/helpers';
 import { getPayerId } from 'utils/lib/helpers/helpers';
 import { otherColors, palette } from 'utils/lib/theme/billing-palette';
-import { ClaimAcknowledgmentEvent } from 'utils/lib/types/data/billing/claim-history';
+import { ClaimAcknowledgmentEvent, ClaimTransmitEvent } from 'utils/lib/types/data/billing/claim-history';
 import { formatCurrency, formatTaxId } from 'utils/lib/utils/convert';
 import { CLAIMMD_RESPONSE_TIMEZONE, CLAIMMD_RESPONSE_TIMEZONE_LABEL } from '../../billing/claim-status-responses';
 import { deriveClaimBillablePeriod, getClaimPcn } from '../../billing/shared';
@@ -52,12 +52,6 @@ export interface TimelyFilingReportData {
   history: TimelyFilingReportRow[];
 }
 
-export interface TimelyFilingTransmitEvent {
-  transmittedAt: string;
-  batchId?: string;
-  clearinghouseClaimId?: string;
-}
-
 export interface ComposeTimelyFilingReportInput {
   claim: Claim;
   patient?: Patient;
@@ -66,7 +60,7 @@ export interface ComposeTimelyFilingReportInput {
   coverage?: Coverage;
   payer?: Organization;
   acknowledgments: ClaimAcknowledgmentEvent[];
-  transmit?: TimelyFilingTransmitEvent;
+  transmit?: ClaimTransmitEvent;
   eraPayerClaimControlNumber?: string;
   now: string;
 }
@@ -206,7 +200,7 @@ const formatServiceDates = (claim: Claim): string => {
 
 const orNotAvailable = (value: string | undefined): string => (value?.trim() ? value.trim() : NOT_AVAILABLE);
 
-const transmitRow = (transmit: TimelyFilingTransmitEvent, payerName: string): TimelyFilingReportRow => {
+const transmitRow = (transmit: ClaimTransmitEvent, payerName: string): TimelyFilingReportRow => {
   const target = payerName ? ` to ${payerName}` : '';
   const claimId = transmit.clearinghouseClaimId ? ` #${transmit.clearinghouseClaimId}` : '';
   const batch = transmit.batchId ? ` — Batch ID: ${transmit.batchId}` : '';

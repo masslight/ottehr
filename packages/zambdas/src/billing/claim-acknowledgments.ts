@@ -1,23 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, Provenance } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  CLAIM_STATUS_RESPONSE_EVENT_SYSTEM,
-  RAW_REQUEST_EXTENSION_URL,
-  RAW_RESPONSE_EXTENSION_URL,
-} from 'utils/lib/fhir/constants';
+import { CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, RAW_REQUEST_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
   CLAIM_PROVENANCE_ACTIVITY_CODES,
   ClaimAcknowledgmentEvent,
+  ClaimTransmitEvent,
 } from 'utils/lib/types/data/billing/claim-history';
-import type { TimelyFilingTransmitEvent } from '../shared/pdf/timely-filing-report-pdf';
-import {
-  ClaimAcknowledgmentEventSchema,
-  claimStatusEventTime,
-  ClaimStatusResponseSchema,
-} from './claim-status-responses';
+import { ClaimAcknowledgmentEventSchema, transmitEventFromClaimResponse } from './claim-status-responses';
 
 export type StoredAcknowledgment =
   | {
@@ -100,7 +92,7 @@ export async function fetchClaimTransmitEvent({
 }: {
   oystehr: Oystehr;
   claimId: string;
-}): Promise<TimelyFilingTransmitEvent | undefined> {
+}): Promise<ClaimTransmitEvent | undefined> {
   const responses = await getAllFhirSearchPages<ClaimResponse>(
     {
       resourceType: 'ClaimResponse',
@@ -126,30 +118,8 @@ export async function fetchClaimTransmitEvent({
     return undefined;
   }
 
-  const raw = ClaimStatusResponseSchema.safeParse(safeJson(rawResponseOf(submission)));
-  if (!raw.success) {
-    console.warn(`ClaimResponse/${submission.id} has no readable raw response; transmit ids omitted`);
-    return { transmittedAt: submission.created };
-  }
-  return {
-    transmittedAt: claimStatusEventTime({
-      raw: raw.data,
-      fallback: submission.created,
-    }),
-    ...(raw.data.batchid ? { batchId: raw.data.batchid } : {}),
-    ...(raw.data.claimmd_id ? { clearinghouseClaimId: raw.data.claimmd_id } : {}),
-  };
-}
-
-function rawResponseOf(response: ClaimResponse): string | undefined {
-  return response.extension?.find((extension) => extension.url === RAW_RESPONSE_EXTENSION_URL)?.valueString;
-}
-
-function safeJson(value: string | undefined): unknown {
-  if (!value) return undefined;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return undefined;
-  }
+  return transmitEventFromClaimResponse({
+    response: submission,
+    fallbackTime: submission.created,
+  });
 }

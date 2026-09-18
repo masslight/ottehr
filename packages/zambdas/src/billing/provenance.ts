@@ -2,6 +2,7 @@ import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk'
 import { Operation } from 'fast-json-patch';
 import {
   Claim,
+  ClaimResponse,
   Coding,
   Coverage,
   Device,
@@ -33,6 +34,7 @@ import {
   CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
+  CLAIM_PROVENANCE_TRANSMIT_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
   CLAIM_SYSTEM_DEVICE_IDENTIFIER,
@@ -41,6 +43,7 @@ import {
   ClaimFieldChange,
   ClaimHistoryRuleRef,
   ClaimProvenanceActivityKey,
+  ClaimTransmitEvent,
 } from 'utils/lib/types/data/billing/claim-history';
 import {
   buildClaimStatusDateExtensions,
@@ -50,6 +53,7 @@ import {
   getClaimStatusValues,
 } from 'utils/lib/types/data/billing/claim-status';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
+import { transmitEventFromClaimResponse } from './claim-status-responses';
 import { getCLIA, getPlaceOfServiceCode } from './service-facility.helpers';
 import {
   buildUpdatedClaimStatusTags,
@@ -433,6 +437,8 @@ export interface ClaimProvenanceArgs {
   // An acknowledgment reported by the clearinghouse or payer, stored so the timely filing report and
   // the history view can render it without re-parsing the originating ClaimResponse.
   acknowledgment?: ClaimAcknowledgmentEvent;
+  // The transmit facts captured when the claim was submitted, stored for the same reason.
+  transmit?: ClaimTransmitEvent;
 }
 
 // Multi-reference fields (the claim's coverage field) join their references with ', '.
@@ -497,6 +503,7 @@ export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPos
     args.activity !== 'delete' &&
     !args.note &&
     !args.acknowledgment &&
+    !args.transmit &&
     changes.length === 0
   )
     return null;
@@ -532,6 +539,14 @@ export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPos
           {
             url: CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
             valueString: JSON.stringify(args.acknowledgment),
+          },
+        ]
+      : []),
+    ...(args.transmit
+      ? [
+          {
+            url: CLAIM_PROVENANCE_TRANSMIT_EXTENSION_URL,
+            valueString: JSON.stringify(args.transmit),
           },
         ]
       : []),
@@ -694,6 +709,35 @@ export function claimMetaTagsWithProvenanceRequests(
     ifMatch: makeOptimisticLockIfMatchHeader(claim),
   });
   return [patch, ...(provenance ? [provenance] : [])];
+}
+
+export async function recordClaimTransmit({
+  oystehr,
+  claimId,
+  claimResponse,
+  agent,
+}: {
+  oystehr: Oystehr;
+  claimId: string;
+  claimResponse: ClaimResponse;
+  agent: ProvenanceAgent | ProvenanceAgent[];
+}): Promise<void> {
+  const claimReference = `Claim/${claimId}`;
+  const recorded = recordedNow();
+  const provenance = claimProvenanceRequest({
+    targetReference: claimReference,
+    claimReference,
+    ...(claimResponse.id ? { sourceReference: `ClaimResponse/${claimResponse.id}` } : {}),
+    agent,
+    activity: 'submit',
+    recorded,
+    transmit: transmitEventFromClaimResponse({
+      response: claimResponse,
+      fallbackTime: recorded,
+    }),
+  });
+  if (!provenance) throw new Error('Transmit provenance unexpectedly null');
+  await oystehr.fhir.create<Provenance>(provenance.resource);
 }
 
 /**
