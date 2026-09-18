@@ -314,6 +314,13 @@ export default function ReportBuilderPage(): React.ReactElement {
                     </Paper>
                   </Collapse>
 
+                  {rb.loadingLayers.length > 0 && (
+                    <Alert severity="info" icon={<CircularProgress size={18} />} sx={{ mb: 2 }}>
+                      This report is incomplete — it needs {rb.loadingLayers.join(', ')} data that was not loaded.
+                      Loading it and rebuilding the report…
+                    </Alert>
+                  )}
+
                   {rb.renderError && (
                     <Alert severity="warning" sx={{ mb: 2 }}>
                       The report failed to run: {rb.renderError}.{' '}

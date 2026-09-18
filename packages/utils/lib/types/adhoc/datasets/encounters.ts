@@ -27,7 +27,15 @@ export const EncounterBaseRowSchema = z.object({
     .string()
     .describe(
       'CURRENT visit status only (completed / arrived / cancelled / no-show …). It carries NO history — ' +
-        'for the order of statuses use statusHistory.'
+        'for the order of statuses use statusHistory. A visit from an earlier day can still sit in an ' +
+        'intermediate status (e.g. arrived) if it was never completed.'
+    ),
+  visitStatusSince: z
+    .string()
+    .nullable()
+    .describe(
+      'Full ISO instant the CURRENT visitStatus began (null when unknown); the time spent in the current ' +
+        'status so far runs from here to now.'
     ),
   statusHistory: z
     .array(
@@ -43,7 +51,10 @@ export const EncounterBaseRowSchema = z.object({
         end: z
           .string()
           .nullable()
-          .describe('Full ISO instant this status ended; null while it is still the current status.'),
+          .describe(
+            'Full ISO instant this status ended; null while it is still the current status — an open ' +
+              'interval that runs to now, not a zero-length one.'
+          ),
       })
     )
     .describe(
@@ -52,7 +63,7 @@ export const EncounterBaseRowSchema = z.object({
         'workflow) or how long a status lasted. Empty when no history was recorded.'
     ),
   encounterType: z.enum(['main', 'follow-up', 'scheduled-follow-up']).describe('Kind of encounter row.'),
-  reason: z.string().describe('Reason for visit (free text).'),
+  reason: z.string().describe('Reason for visit as entered at booking (free text). "" when not given.'),
   scheduledSlotMinutes: z.number().nullable().describe('Booked slot length in minutes.'),
   // --- Patient ---
   patientId: z.string().describe('Patient id; rows are per-encounter, so count UNIQUE patientId for a patient count.'),
@@ -132,6 +143,7 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
   'followUpTypes',
   'asqScreen',
   'accidentType',
+  'screeningQuestions',
   'workSchoolNotes',
 ];
 
@@ -199,9 +211,8 @@ export const ENCOUNTER_LAYERS = {
                 'prescribed',
               ])
               .describe(
-                'In-house order status: administered / partially-administered = the drug WAS given; ' +
-                  'not-administered, pending, cancelled = nothing was given. eRx rows are always "prescribed". ' +
-                  'For "administered to patients" keep administered + partially-administered only.'
+                'In-house order status: administered / partially-administered = the drug was given; ' +
+                  'not-administered, pending, cancelled = nothing was given. eRx rows are always "prescribed".'
               ),
             dose: z.number().nullable().describe('Amount given. Null for eRx.'),
             units: z.string().nullable().describe('Unit of dose, e.g. "mg"/"mL". Null for eRx.'),
@@ -333,10 +344,29 @@ export const ENCOUNTER_LAYERS = {
   },
   imaging: {
     label: 'Radiology orders',
-    description: 'Radiology studies ordered on the visit (names + counts).',
+    description: "Radiology studies ordered on the visit: names, counts, and each order's status timeline.",
     schema: z.object({
       imagingOrders: z.array(z.string()).describe('Radiology studies ordered (excl. cancelled).'),
       imagingOrderCount: z.number().describe('Number of radiology studies ordered. 0 when none.'),
+      imagingStudies: z
+        .array(
+          z.object({
+            name: z
+              .string()
+              .describe('Study name, same value as the corresponding radiology order (including cancelled orders).'),
+            status: z
+              .enum(['pending', 'performed', 'preliminary', 'final', 'cancelled'])
+              .describe('Current order status: pending → performed → preliminary (read) → final (read).'),
+            orderedAt: z.string().nullable().describe('Full ISO instant the order was placed (status pending).'),
+            performedAt: z.string().nullable().describe('Full ISO instant the study was performed. Null until then.'),
+            preliminaryAt: z
+              .string()
+              .nullable()
+              .describe('Full ISO instant the preliminary read was saved. Null until then.'),
+            finalAt: z.string().nullable().describe('Full ISO instant the final read was issued. Null until then.'),
+          })
+        )
+        .describe('One record per radiology order with its status timestamps. Empty when no radiology on the visit.'),
     }),
   },
   immunizations: {
@@ -441,11 +471,27 @@ export const ENCOUNTER_LAYERS = {
   },
   intake: {
     label: 'Intake & screenings',
-    description: 'ASQ screen, accident type, and birth history.',
+    description:
+      'ASQ screen, accident type, birth history, and the "Ask the patient" screening questions answered on the ' +
+      'visit (e.g. pregnancy, breastfeeding, seen in the last 3 years, vaccination status, history obtained from).',
     schema: z.object({
       asqScreen: z.string().describe('ASQ screen: Negative/Positive/Declined/NotOffered/"".'),
       accidentType: z.string().describe('Accident type when accident-related, else "".'),
       birthHistory: z.array(z.string()).describe('Birth-history items (peds), when present.'),
+      screeningQuestions: z
+        .array(z.string())
+        .describe(
+          'Screening questions answered on this visit, by question text as shown to staff. A question absent ' +
+            'here was not filled out on this visit.'
+        ),
+      screeningAnswers: z
+        .array(
+          z.object({
+            question: z.string().describe('Question text, same value as in screeningQuestions[].'),
+            answer: z.string().describe('Answer as a label ("Yes", "No", "Not applicable", …) or free text.'),
+          })
+        )
+        .describe('One record per screening question answered on this visit. Empty when none.'),
     }),
   },
   documents: {
