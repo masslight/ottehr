@@ -1,8 +1,7 @@
 import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, ClaimResponse, Provenance, ProvenanceAgent } from 'fhir/r4b';
-import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
-import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
+import { Claim, ClaimResponse, ProvenanceAgent } from 'fhir/r4b';
+import { withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
@@ -11,8 +10,8 @@ import {
   SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
   SECONDARY_SUBMISSION_TAG_NAME,
 } from 'utils/lib/types/data/billing/system-tags';
-import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../../../billing/provenance';
-import { createBillingClient, ensureSystemManagedTags, getTag } from '../../../billing/shared';
+import { commitClaimMetaTagsWithProvenance, resolveClaimActor } from '../../../billing/provenance';
+import { buildUpdatedClaimStatusTags, createBillingClient, getTag } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -78,58 +77,65 @@ export async function complexValidation(
   };
 }
 
+interface StatusAdjustmentPlan {
+  targetARStatus: string;
+  tagsToAdd: string[];
+}
+
+function planStatusAdjustment(claim: Claim, claimResponse: ClaimResponse): StatusAdjustmentPlan | undefined {
+  if (getTag(claim, CLAIM_STATUS_TAG_SYSTEMS.arStage) !== AR_STAGE.insurancePayer) {
+    return undefined;
+  }
+  if (getTag(claim, CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus) === 'adjudicated') {
+    return undefined;
+  }
+  if (claim.insurance.length <= 1) {
+    return {
+      targetARStatus: 'adjudicated',
+      tagsToAdd: [],
+    };
+  }
+  // Flag for secondary submission
+  return claimWasForwarded(claimResponse)
+    ? {
+        // No action necessary by biller
+        targetARStatus: 'submitted',
+        tagsToAdd: [SECONDARY_SUBMISSION_TAG_NAME, SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME],
+      }
+    : {
+        // Hold for biller to manually submit
+        targetARStatus: 'adjudicated',
+        tagsToAdd: [SECONDARY_SUBMISSION_TAG_NAME, HOLD_TAG_NAME],
+      };
+}
+
 export async function performEffect(oystehr: Oystehr, validated: ComplexValidationOutput): Promise<void> {
   const { claim, claimResponse } = validated;
-  const arStage = getTag(claim, CLAIM_STATUS_TAG_SYSTEMS.arStage);
-  if (arStage !== AR_STAGE.insurancePayer) {
-    return;
-  }
-  const insuranceArStatus = getTag(claim, CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus);
-  if (insuranceArStatus === 'adjudicated') {
-    return;
-  }
-  let targetARStatus = 'adjudicated';
-  const tagsToAdd: string[] = [];
-  if (claim.insurance.length > 1) {
-    // Flag for secondary submission
-    tagsToAdd.push(SECONDARY_SUBMISSION_TAG_NAME);
-    if (claimWasForwarded(claimResponse)) {
-      // No action necessary by biller
-      targetARStatus = 'submitted';
-      tagsToAdd.push(SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME);
-    } else {
-      // Hold for biller to manually submit
-      targetARStatus = 'adjudicated';
-      tagsToAdd.push(HOLD_TAG_NAME);
+
+  await withVersionConflictRetries(async (attempt) => {
+    const current = attempt === 1 ? claim : await oystehr.fhir.get<Claim>({ resourceType: 'Claim', id: claim.id });
+    const plan = planStatusAdjustment(current, claimResponse);
+    if (!plan) {
+      if (attempt > 1) {
+        console.log(`Claim/${current.id} no longer needs this adjustment after the conflict, skipping`);
+      }
+      return;
     }
-  }
-
-  try {
-    await ensureSystemManagedTags(oystehr);
-  } catch (error) {
-    console.error('Failed to ensure system-managed tags exist:', error);
-  }
-
-  await patchWithOptimisticLock(oystehr, claim, (claim) => [
-    getPatchOperationForNewMetaTag(claim, {
-      system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus,
-      code: targetARStatus,
-    }),
-    ...tagsToAdd.map((t) => getPatchOperationForNewMetaTag(claim, { system: CLAIM_TAG_SYSTEM, code: t })),
-  ]);
-  const updatedClaim = await oystehr.fhir.get<Claim>({ resourceType: 'Claim', id: claim.id });
-  const provRequest = claimProvenanceRequest({
-    targetReference: `Claim/${claim.id}`,
-    claimReference: `Claim/${claim.id}`,
-    before: claim,
-    after: updatedClaim,
-    agent: validated.agent,
-    activity: 'update',
-    recorded: recordedNow(),
+    const updatedTags = plan.tagsToAdd.reduce(
+      (tags, name) =>
+        tags.some((t) => t.system === CLAIM_TAG_SYSTEM && t.code === name)
+          ? tags
+          : [
+              ...tags,
+              {
+                system: CLAIM_TAG_SYSTEM,
+                code: name,
+              },
+            ],
+      buildUpdatedClaimStatusTags(current, 'insuranceArStatus', plan.targetARStatus)
+    );
+    await commitClaimMetaTagsWithProvenance(oystehr, current, updatedTags, 'statusChange', validated.agent);
   });
-  if (provRequest) {
-    await oystehr.fhir.create<Provenance>(provRequest.resource);
-  }
 }
 
 function claimWasForwarded(claimResponse: ClaimResponse): boolean {
