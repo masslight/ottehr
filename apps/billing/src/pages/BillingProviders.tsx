@@ -14,6 +14,7 @@ import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-p
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { formatTaxId } from 'utils/lib/utils/convert';
 import { deleteBillingProvider, searchBillingProviders } from '../api/api';
 import { AddProviderDialog } from '../components/AddProviderDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
@@ -21,7 +22,6 @@ import { ProviderDetailSection } from '../components/ProviderDetailSection';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 import { useProvider } from '../hooks/useProvider';
-import { formatTaxId } from '../utils/format';
 
 interface ProviderRow {
   id: string;
