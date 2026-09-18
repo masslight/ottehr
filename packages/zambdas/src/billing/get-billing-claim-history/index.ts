@@ -118,11 +118,11 @@ function parseChanges(provenance: Provenance, environment: string): ClaimFieldCh
 }
 
 function parseAcknowledgment(provenance: Provenance, environment: string): ClaimAcknowledgmentEvent | undefined {
-  const { event, error } = parseStoredAcknowledgment(provenance);
-  if (error) {
-    reportAnomaly(`Malformed acknowledgment on Provenance/${provenance.id}`, environment, error);
+  const stored = parseStoredAcknowledgment(provenance);
+  if (stored.kind === 'invalid') {
+    reportAnomaly(`Malformed acknowledgment on Provenance/${provenance.id}`, environment, stored.error);
   }
-  return event;
+  return stored.kind === 'parsed' ? stored.event : undefined;
 }
 
 // The raw references behind reference-typed changes are stored as Provenance.entity entries tagged
