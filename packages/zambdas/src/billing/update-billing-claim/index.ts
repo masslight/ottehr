@@ -14,7 +14,6 @@ import {
 } from 'fhir/r4b';
 import { applyClaimNonInsurancePayerTag, claimNonInsurancePayerExtension } from 'utils/lib/fhir/billing';
 import { codeableConcept, setNpi } from 'utils/lib/fhir/helpers';
-import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import {
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -30,6 +29,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { removeExtension, updateExtension } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { resolvePayerOrganization } from '../custom-insurance-org.helpers';
 import { isNonInsuranceOrganization } from '../non-insurance-org.helpers';
 import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../provenance';
 import {
@@ -37,6 +37,7 @@ import {
   buildAddress,
   buildClaimCoverageCopies,
   buildDiagnosisSequence,
+  buildPayorReference,
   buildSubscriberRelatedPerson,
   claimHasRealCoverage,
   CODE_SYSTEM_NUBC_REVENUE,
@@ -361,10 +362,11 @@ async function attachClaimResources(
   claim.insurance = ensureClaimInsurance(claim.insurance);
 
   if (fields.payerId || fields.planType) {
-    const payerUrl = fields.payerId ? getPayerUrl(fields.payerId) : undefined;
-    const display = fields.payerId ? payerDisplay(await oystehr.rcm.getPayer({ id: fields.payerId })) : undefined;
+    const payerOrg = fields.payerId ? await resolvePayerOrganization(oystehr, fields.payerId) : undefined;
+    const payerReference = payerOrg ? buildPayorReference(payerOrg) : undefined;
+    const display = payerOrg ? payerDisplay(payerOrg) : undefined;
     // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
-    if (payerUrl && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl, display };
+    if (payerReference && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerReference, display };
   }
 
   if (fields.nonInsurancePayer !== undefined) {

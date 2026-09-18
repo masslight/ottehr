@@ -109,6 +109,11 @@ import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { sendErrors } from '../shared/errors';
 import { fetchAllPages } from '../shared/fhir';
+import {
+  getCustomInsuranceOrgBusinessId,
+  isCustomInsuranceOrganization,
+  resolvePayerOrganization,
+} from './custom-insurance-org.helpers';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
 import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';
 
@@ -210,7 +215,8 @@ export function ensureClaimInsurance(insurance?: Claim['insurance']): NonNullabl
     .map((entry, idx) => ({ ...entry, sequence: idx + 1, focal: idx === 0 }));
 }
 
-// Resolve Oystehr payer list URLs to payer Organizations via the RCM service
+// Resolve payer references — Oystehr RCM payer list URLs, or a billing-app custom insurance
+// organization's direct Organization/{id} reference (see buildPayorReference) — to their Organizations.
 export async function resolvePayersByRef(
   oystehr: Oystehr,
   refs: (string | undefined)[]
@@ -219,9 +225,12 @@ export async function resolvePayersByRef(
   const uniqueRefs = [...new Set(refs.filter((r): r is string => !!r))];
   await Promise.all(
     uniqueRefs.map(async (ref) => {
-      if (!isPayerUrl(ref)) return;
       try {
-        byRef.set(ref, await oystehr.rcm.getPayerByUrl({ url: ref }));
+        if (isPayerUrl(ref)) {
+          byRef.set(ref, await oystehr.rcm.getPayerByUrl({ url: ref }));
+        } else if (ref.startsWith('Organization/')) {
+          byRef.set(ref, await resolvePayerOrganization(oystehr, ref.slice('Organization/'.length)));
+        }
       } catch (err) {
         console.error(`Failed to resolve payer ${ref}:`, err);
       }
@@ -230,11 +239,18 @@ export async function resolvePayersByRef(
   return byRef;
 }
 
+// The identifier shown as a payer's "Payer ID" — the RCM identifier, or for a billing-app custom
+// insurance organization (which has no RCM identifier), its "OTR-" business id.
+export function resolvedPayerId(org: Organization | undefined): string | undefined {
+  if (!org) return undefined;
+  return getPayerId(org) ?? (isCustomInsuranceOrganization(org) ? getCustomInsuranceOrgBusinessId(org) : undefined);
+}
+
 // Payer display string used across billing: "Name (Payer ID)".
 export function payerDisplay(org: Organization | undefined): string | undefined {
   if (!org) return undefined;
   const name = org.name ?? '';
-  const payerId = getPayerId(org) ?? '';
+  const payerId = resolvedPayerId(org) ?? '';
   if (name && payerId) return `${name} (${payerId})`;
   return name || payerId || undefined;
 }
@@ -1261,13 +1277,17 @@ export function buildSubscriberRelatedPerson(
 
 // Set payor reference + coverage class + member-id identifier from a payer Organization.
 export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, memberId: string): void {
-  const payerId = getPayerId(payerOrg);
-  if (!payerId) throw new Error('payerId unexpectedly missing from payer organization');
+  // A UUID-backed org (RCM payer with a real FHIR resource, or a custom insurance organization)
+  // references itself directly and doesn't need an RCM payer id; only a pure RCM payer (no backing
+  // resource) requires one, since buildPayorReference falls back to an RCM payer URL for it.
+  const payerId = resolvedPayerId(payerOrg);
+  if (!payerId && !isValidUUID(payerOrg.id ?? ''))
+    throw new Error('payerId unexpectedly missing from payer organization');
   coverage.payor = [{ reference: buildPayorReference(payerOrg) }];
   coverage.class = [
     {
       type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] },
-      value: payerId,
+      value: payerId ?? '',
       name: payerOrg.name ?? '',
     },
   ];

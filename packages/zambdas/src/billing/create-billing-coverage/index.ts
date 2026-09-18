@@ -6,6 +6,7 @@ import { APIErrorCode } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { resolvePayerOrganization } from '../custom-insurance-org.helpers';
 import {
   BillingFhirResource,
   buildBillingCoverage,
@@ -49,7 +50,7 @@ async function complexValidation(params: CreateBillingCoverageParams, oystehr: O
 
 async function performEffect(oystehr: Oystehr, params: CreateBillingCoverageParams): Promise<{ id: string }> {
   const [payerOrg, accounts] = await Promise.all([
-    oystehr.rcm.getPayer({ id: params.payerId }),
+    resolvePayerOrganization(oystehr, params.payerId),
     getPatientAccounts(oystehr, params.patientId),
   ]);
 

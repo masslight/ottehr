@@ -179,7 +179,12 @@ describe('update-billing-claim performEffect', () => {
       return Promise.resolve({ unbundle: () => [] });
     });
     const transaction = vi.fn().mockResolvedValue({ entry: [] });
-    const getPayer = vi.fn().mockResolvedValue({ resourceType: 'Organization', id: 'payer-1', name: 'Payer One' });
+    const getPayer = vi.fn().mockResolvedValue({
+      resourceType: 'Organization',
+      id: 'payer-1',
+      name: 'Payer One',
+      identifier: [{ system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id', value: 'PAYER1' }],
+    });
     return {
       oystehr: { fhir: { search, transaction }, rcm: { getPayer } } as unknown as Oystehr,
       search,
