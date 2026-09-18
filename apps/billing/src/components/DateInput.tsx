@@ -269,7 +269,9 @@ export const DateRangeInput = (props: DateRangeInputProps): ReactElement => {
 };
 
 /**
- * Date-and-time input backed by an ISO-8601 datetime string.
+ * Date-and-time input backed by an offset-less ISO-8601 datetime string (e.g. "2026-01-15T10:30").
+ * The offset is intentionally stripped on commit so the entered wall-clock date/time is preserved
+ * verbatim regardless of the timezone of whoever later reads or re-renders it.
  */
 export const DateTimeInput = (props: DateTimeInputProps): ReactElement => {
   const dateTimeValue = parseIsoDate(props.value);
@@ -278,7 +280,11 @@ export const DateTimeInput = (props: DateTimeInputProps): ReactElement => {
     <LocalizationProvider dateAdapter={AdapterLuxon}>
       <DateTimePicker
         label={props.label}
-        onChange={(value) => props.onChange(value?.toISO() ?? '')}
+        onChange={(value) =>
+          props.onChange(
+            value?.toISO({ includeOffset: false, suppressMilliseconds: true, suppressSeconds: true }) ?? ''
+          )
+        }
         format={DISPLAY_DATE_AND_TIME_FORMAT}
         slotProps={{
           textField: {
