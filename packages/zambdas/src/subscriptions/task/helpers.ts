@@ -85,7 +85,6 @@ export const sendText = async (
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
-let oystehr: Oystehr;
 
 export function wrapTaskHandler(
   zambdaName: string,
@@ -93,9 +92,13 @@ export function wrapTaskHandler(
     input: { task: Task; secrets: Secrets },
     oystehr: Oystehr
   ) => Promise<{ taskStatus: Task['status']; statusReason?: string }>,
-  options: { retry: boolean } = { retry: false }
+  options: {
+    retry?: boolean;
+    createClient?: (token: string, secrets: Secrets) => Oystehr;
+  } = { retry: false }
 ): Handler<ZambdaInput, APIGatewayProxyResult> {
   return wrapHandler(zambdaName, async (input: ZambdaInput) => {
+    let oystehr: Oystehr;
     let params: TaskSubscriptionInput;
     let taskId: string;
     let ENVIRONMENT: string;
@@ -108,7 +111,7 @@ export function wrapTaskHandler(
       taskId = taskIdParam;
       ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
       oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, input.secrets);
-      oystehr = createClinicalOystehrClient(oystehrToken, input.secrets);
+      oystehr = (options.createClient ?? createClinicalOystehrClient)(oystehrToken, params.secrets);
     } catch (error) {
       console.log('Error validating request parameters:', error);
       return topLevelCatch(zambdaName, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
