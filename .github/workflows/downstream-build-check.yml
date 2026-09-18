@@ -36,6 +36,12 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           CORE_SHA: ${{ github.event.pull_request.head.sha }}
+          # Branch names for the downstream's matching-branch waterfall: it
+          # looks for a branch named after this PR's head branch first, then
+          # one named after its target branch, then falls through to its own
+          # default. The code built is always CORE_SHA, not these.
+          CORE_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          CORE_BASE_REF: ${{ github.event.pull_request.base.ref }}
           DOWNSTREAM_REPO: ${{ github.repository_owner }}/${{ vars.DOWNSTREAM_BUILD_REPO }}
           DOWNSTREAM_WORKFLOW: ${{ vars.DOWNSTREAM_BUILD_WORKFLOW }}
           # `--ref` selects which version of the downstream workflow file to
@@ -48,8 +54,10 @@ jobs:
           gh workflow run "$DOWNSTREAM_WORKFLOW" \
             -R "$DOWNSTREAM_REPO" \
             --ref "$DOWNSTREAM_REF" \
-            -f core_sha="$CORE_SHA"
-          echo "Dispatched downstream build for $CORE_SHA"
+            -f core_sha="$CORE_SHA" \
+            -f core_head_ref="$CORE_HEAD_REF" \
+            -f core_base_ref="$CORE_BASE_REF"
+          echo "Dispatched downstream build for $CORE_SHA ($CORE_HEAD_REF -> $CORE_BASE_REF)"
 
       - name: Find dispatched run
         id: find-run
