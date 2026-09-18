@@ -32,9 +32,9 @@ export async function performEffect(
   oystehr: Oystehr,
   params: AddClaimAttachmentParams
 ): Promise<AddClaimAttachmentResponse> {
-  const nameParts = params.name.split('.');
-  const extension = nameParts[nameParts.length - 1];
-  const sanitizedFileName = sanitizeFileNameForZ3(params.name);
+  const fileNameParts = params.fileName.split('.');
+  const fileNameExtension = fileNameParts[fileNameParts.length - 1];
+  const sanitizedFileName = sanitizeFileNameForZ3(params.fileName);
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
   const supportingInfo = claim.supportingInfo ?? [];
   const supportingInfoEntry: ClaimSupportingInfo = {
@@ -67,7 +67,7 @@ export async function performEffect(
             claim.id,
             sanitizedFileName
           ),
-          contentType: `application/${extension}`,
+          contentType: `application/${fileNameExtension}`,
           title: params.name,
         },
       },
