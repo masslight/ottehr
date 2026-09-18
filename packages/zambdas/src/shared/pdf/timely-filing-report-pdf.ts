@@ -6,6 +6,7 @@ import { getPayerId } from 'utils/lib/helpers/helpers';
 import { otherColors, palette } from 'utils/lib/theme/billing-palette';
 import { ClaimAcknowledgmentEvent } from 'utils/lib/types/data/billing/claim-history';
 import { formatCurrency, formatTaxId } from 'utils/lib/utils/convert';
+import { CLAIMMD_RESPONSE_TIMEZONE, CLAIMMD_RESPONSE_TIMEZONE_LABEL } from '../../billing/claim-status-responses';
 import { deriveClaimBillablePeriod, getClaimPcn } from '../../billing/shared';
 import { loadPdfAssets, StyleFactory } from './pdf-common';
 import { PDF_CLIENT_STYLES } from './pdf-consts';
@@ -17,8 +18,6 @@ export const TIMELY_FILING_CONFIDENTIALITY_STATEMENT =
   'copy only. Do not transmit to the payer or any external party until it has been reviewed and approved ' +
   'by authorized personnel.';
 
-const REPORT_TIMEZONE = 'America/New_York';
-const REPORT_TIMEZONE_LABEL = 'ET';
 const HEADER_DATE_FORMAT = 'MM/dd/yyyy hh:mm a';
 const ROW_DATE_FORMAT = 'MM/dd/yy hh:mm a';
 const NOT_AVAILABLE = 'N/A';
@@ -179,12 +178,12 @@ const createTimelyFilingStyles: StyleFactory = (assets) => ({
 });
 
 const formatReportDateTime = (iso: string, format: string): string => {
-  const parsed = DateTime.fromISO(iso, { zone: REPORT_TIMEZONE });
-  return parsed.isValid ? `${parsed.toFormat(format)} ${REPORT_TIMEZONE_LABEL}` : iso;
+  const parsed = DateTime.fromISO(iso, { zone: CLAIMMD_RESPONSE_TIMEZONE });
+  return parsed.isValid ? `${parsed.toFormat(format)} ${CLAIMMD_RESPONSE_TIMEZONE_LABEL}` : iso;
 };
 
 const formatRowDateTime = (iso: string): string => {
-  const parsed = DateTime.fromISO(iso, { zone: REPORT_TIMEZONE });
+  const parsed = DateTime.fromISO(iso, { zone: CLAIMMD_RESPONSE_TIMEZONE });
   return parsed.isValid ? parsed.toFormat(ROW_DATE_FORMAT) : iso;
 };
 

@@ -93,6 +93,7 @@ export function claimStatusMessageIdentity({
 
 // ! Claim.MD timezone unverified
 export const CLAIMMD_RESPONSE_TIMEZONE = 'America/New_York';
+export const CLAIMMD_RESPONSE_TIMEZONE_LABEL = 'ET';
 const CLAIMMD_RESPONSE_TIME_FORMAT = 'yyyy-MM-dd hh:mm:ssa';
 
 export function claimStatusEventTime({
