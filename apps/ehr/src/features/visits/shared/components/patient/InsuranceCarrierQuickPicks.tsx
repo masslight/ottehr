@@ -42,7 +42,7 @@ export const InsuranceCarrierQuickPicks: FC<InsuranceCarrierQuickPicksProps> = (
   return (
     // Mirror the form's Row layout (30% label / 70% input + 5px gap) so the
     // button aligns with the Insurance carrier input column it controls.
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '5px', mb: -1.5 }}>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '5px', mt: 1 }}>
       <Box sx={{ flex: '0 1 30%' }} />
       <Box sx={{ flex: '1 1 70%' }}>
         <QuickPicksButton<InsuranceQuickPickData>

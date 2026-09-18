@@ -82,7 +82,7 @@ describe('InsuranceCarrierQuickPicks', () => {
 
   it('renders nothing when there are no insurance quick picks configured', () => {
     renderComponent();
-    expect(screen.queryByRole('button', { name: /insurance carrier quick picks/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /insurance carrier quick picks/i })).not.toBeInTheDocument();
   });
 
   it('sets carrier (from the payer display), insurance type, and relationship when a full pick is selected', async () => {
@@ -90,7 +90,7 @@ describe('InsuranceCarrierQuickPicks', () => {
     const user = userEvent.setup();
     renderComponent();
 
-    await user.click(screen.getByRole('button', { name: /insurance carrier quick picks/i }));
+    await user.click(screen.getByRole('textbox', { name: /insurance carrier quick picks/i }));
     await user.click(screen.getByRole('menuitem', { name: 'Nomastin Medicaid' }));
 
     expect(screen.getByTestId('carrier-value').textContent).toBe(
@@ -105,7 +105,7 @@ describe('InsuranceCarrierQuickPicks', () => {
     const user = userEvent.setup();
     renderComponent();
 
-    await user.click(screen.getByRole('button', { name: /insurance carrier quick picks/i }));
+    await user.click(screen.getByRole('textbox', { name: /insurance carrier quick picks/i }));
     await user.click(screen.getByRole('menuitem', { name: 'Nomastin PPO' }));
 
     expect(screen.getByTestId('carrier-value').textContent).toBe(
