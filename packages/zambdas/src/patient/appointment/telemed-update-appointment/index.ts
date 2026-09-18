@@ -13,6 +13,7 @@ import {
 import { RequiredProps } from 'utils/lib/types/typescript-helpers';
 import { createUpdateUserRelatedResources, creatingPatientUpdateRequest } from '../../../shared/appointment/helpers';
 import { checkOrCreateM2MClientToken, getUser, userHasAccessToPatient } from '../../../shared/auth';
+import { truncateForLog } from '../../../shared/logging';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateUpdateAppointmentParams } from './validateRequestParameters';
@@ -64,7 +65,7 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
   const { appointmentId } = await updateAppointment(params, oystehr, user);
 
   const response = { appointmentId };
-  console.log(`fhirAppointment = ${JSON.stringify(response)}`, 'Telemed visit');
+  console.log(`fhirAppointment = ${truncateForLog(response)}`, 'Telemed visit');
   return {
     statusCode: 200,
     body: JSON.stringify(response),

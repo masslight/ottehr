@@ -59,6 +59,7 @@ import { generatePatientRelatedRequests } from '../../../shared/appointment/help
 import { getM2MClientId, getUser, isM2MClient, isTestUser } from '../../../shared/auth';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { truncateForLog } from '../../../shared/logging';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
@@ -210,7 +211,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     relatedPersonId,
   };
 
-  console.log(`fhirAppointment = ${JSON.stringify(response)}`, visitType);
+  console.log(`fhirAppointment = ${truncateForLog(response)}`, visitType);
 
   return {
     statusCode: 200,

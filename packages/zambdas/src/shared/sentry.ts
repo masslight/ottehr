@@ -3,6 +3,7 @@ import { APIGatewayProxyResult, Handler } from 'aws-lambda';
 import { parseCommaSeparatedTags } from 'utils/lib/helpers/parseCommaSeparatedTags';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { topLevelCatch } from './lambda';
+import { truncateForLog } from './logging';
 import { ZambdaInput } from './types/common';
 
 export function configSentry(zambdaName: string, secrets: Secrets | null): void {
@@ -34,30 +35,14 @@ export function configSentry(zambdaName: string, secrets: Secrets | null): void 
   setTags(parseCommaSeparatedTags(secrets?.SENTRY_TAGS));
 }
 
-const MAX_LOGGED_BODY_LENGTH = 500;
-
 /**
  * The single, central log of an endpoint's input. Individual zambdas must not log the input again.
  *
  * Only the request body is logged: headers carry caller credentials and `input.secrets` is the
- * secrets bag, neither of which belongs in CloudWatch. The body is truncated because full bodies
- * are the dominant per-invocation log cost.
+ * secrets bag, neither of which belongs in CloudWatch.
  */
 function logInputBody(body: string | null): void {
-  if (!body) {
-    console.log('Input body: <empty>');
-    return;
-  }
-  if (body.length > MAX_LOGGED_BODY_LENGTH) {
-    console.log(
-      `Input body (truncated to ${MAX_LOGGED_BODY_LENGTH} of ${body.length} chars): ${body.slice(
-        0,
-        MAX_LOGGED_BODY_LENGTH
-      )}`
-    );
-    return;
-  }
-  console.log(`Input body: ${body}`);
+  console.log(`Input body: ${body ? truncateForLog(body) : '<empty>'}`);
 }
 
 export function wrapHandler(

@@ -17,6 +17,7 @@ import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { topLevelCatch } from '../../../../shared/lambda';
+import { truncateForLog } from '../../../../shared/logging';
 import { parseCreatedResourcesBundle } from '../../../../shared/resources.helpers';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
@@ -60,7 +61,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
 
     const response: AdminInHouseLabConfigOutput = makeAdminInHouseLabConfigOutput(mutatedActivityDefinition);
-    console.log('admin-update-in-house-lab response', JSON.stringify(response));
+    console.log('admin-update-in-house-lab response', truncateForLog(response));
 
     return {
       statusCode: 200,

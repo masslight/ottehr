@@ -9,6 +9,7 @@ import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwor
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { truncateForLog } from '../../shared/logging';
 import { sendFaxAttempt, SendFaxAttemptInput } from '../../shared/send-fax-attempt';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -42,7 +43,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('performEffect()');
   const response = await performEffect(effectInput, oystehr, user);
   console.groupEnd();
-  console.debug('performEffect() success', JSON.stringify(response));
+  console.debug('performEffect() success', truncateForLog(response));
 
   return response;
 });

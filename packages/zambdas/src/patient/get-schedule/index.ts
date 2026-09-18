@@ -36,6 +36,7 @@ import {
 import { getSchedules } from '../../shared/fhir';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { isEntryAtBookableLocation } from './helpers';
@@ -568,7 +569,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     timezone,
   };
 
-  console.log('response to return: ', response);
+  console.log('response to return: ', truncateForLog(response));
 
   return {
     statusCode: 200,

@@ -54,7 +54,7 @@ describe('wrapHandler input logging', () => {
     await invoke(makeInput(body));
 
     const [logged] = inputLogs();
-    expect(logged).toBe(`Input body (truncated to 500 of 2000 chars): ${'x'.repeat(500)}`);
+    expect(logged).toBe(`Input body: ${'x'.repeat(500)}... [truncated, 2000 chars total]`);
   });
 
   it('logs a body at the limit in full, without a truncation notice', async () => {
