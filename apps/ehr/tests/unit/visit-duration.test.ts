@@ -1,9 +1,11 @@
 // import { DateTime } from 'luxon';
 // import { getDurationOfStatus, getVisitTotalTime } from 'utils';
 import { Encounter } from 'fhir/r4b';
-import { PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { FHIR_EXTENSION, PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { describe, expect, test } from 'vitest';
+
+const OTTEHR_VISIT_STATUS_URL = FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url;
 
 const finishedEncounter: Encounter = {
   resourceType: 'Encounter',
@@ -197,5 +199,95 @@ describe('visit duration tests', () => {
   test('test visitStatusHistory for encounter with an unexpected Practitioner', () => {
     const visitStatusHistory = getVisitStatusHistory(unexpectedPractitioner);
     expect(visitStatusHistory.length).toEqual(3);
+  });
+});
+
+describe('getVisitStatusHistory — in-person arrived status preservation', () => {
+  // Reproduces the bug: pre-booked in-person visit where the encounter transitioned directly
+  // from 'planned' to 'arrived'(ext='ready') without an explicit 'arrived'(ext='arrived') entry.
+  // This happens when the appointment becomes 'arrived' but the encounter is not updated
+  // before the visit is moved to 'ready'.
+  test('injects synthetic arrived entry when encounter skipped arrived state before ready', () => {
+    const encounter: Encounter = {
+      resourceType: 'Encounter',
+      status: 'arrived',
+      statusHistory: [
+        {
+          status: 'planned',
+          period: { start: '2024-12-10T15:00:00.000Z', end: '2024-12-10T16:00:00.000Z' },
+        },
+        {
+          status: 'arrived',
+          period: { start: '2024-12-10T16:00:00.000Z' },
+          extension: [{ url: OTTEHR_VISIT_STATUS_URL, valueCode: 'ready' }],
+        },
+      ],
+      class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+      subject: { reference: 'Patient/test' },
+    };
+
+    const history = getVisitStatusHistory(encounter);
+    const statuses = history.map((h) => h.status);
+
+    expect(statuses).toContain('arrived');
+    expect(statuses).toContain('ready');
+    // 'arrived' must appear before 'ready'
+    expect(statuses.indexOf('arrived')).toBeLessThan(statuses.indexOf('ready'));
+  });
+
+  test('does not duplicate arrived when encounter has explicit arrived entry', () => {
+    const encounter: Encounter = {
+      resourceType: 'Encounter',
+      status: 'arrived',
+      statusHistory: [
+        {
+          status: 'planned',
+          period: { start: '2024-12-10T15:00:00.000Z', end: '2024-12-10T16:00:00.000Z' },
+        },
+        {
+          status: 'arrived',
+          period: { start: '2024-12-10T16:00:00.000Z', end: '2024-12-10T16:30:00.000Z' },
+          extension: [{ url: OTTEHR_VISIT_STATUS_URL, valueCode: 'arrived' }],
+        },
+        {
+          status: 'arrived',
+          period: { start: '2024-12-10T16:30:00.000Z' },
+          extension: [{ url: OTTEHR_VISIT_STATUS_URL, valueCode: 'ready' }],
+        },
+      ],
+      class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+      subject: { reference: 'Patient/test' },
+    };
+
+    const history = getVisitStatusHistory(encounter);
+    const arrivedEntries = history.filter((h) => h.status === 'arrived');
+
+    expect(arrivedEntries.length).toEqual(1);
+    expect(history.map((h) => h.status)).toEqual(['pending', 'arrived', 'ready']);
+  });
+
+  test('does not inject arrived for walk-in visits that start as arrived', () => {
+    const encounter: Encounter = {
+      resourceType: 'Encounter',
+      status: 'arrived',
+      statusHistory: [
+        {
+          // Walk-in initial entry: FHIR 'arrived' with no ottehr extension
+          status: 'arrived',
+          period: { start: '2024-12-10T16:00:00.000Z', end: '2024-12-10T16:30:00.000Z' },
+        },
+        {
+          status: 'arrived',
+          period: { start: '2024-12-10T16:30:00.000Z' },
+          extension: [{ url: OTTEHR_VISIT_STATUS_URL, valueCode: 'ready' }],
+        },
+      ],
+      class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+      subject: { reference: 'Patient/test' },
+    };
+
+    const history = getVisitStatusHistory(encounter);
+    // Path 3 handles the initial no-ext arrived entry; no duplicate injection
+    expect(history.map((h) => h.status)).toEqual(['arrived', 'ready']);
   });
 });
