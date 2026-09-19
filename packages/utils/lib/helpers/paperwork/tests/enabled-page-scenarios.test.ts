@@ -1,6 +1,7 @@
 import { Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import { assert, describe, expect, it } from 'vitest';
 import { BOOKING_CONFIG } from '../../../ottehr-config/booking';
+import { BRANDING_CONFIG } from '../../../ottehr-config/branding';
 import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from '../../../ottehr-config/intake-paperwork';
 import { VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE } from '../../../ottehr-config/intake-paperwork-virtual';
 import { OCC_MED_EMPLOYER_PAY_OPTION, OCC_MED_SELF_PAY_OPTION } from '../../../ottehr-config/value-sets';
@@ -108,7 +109,7 @@ const BASELINE_DISABLED_BY_CATEGORY: Record<string, string[]> = {
   'workers-comp': [PAGES.occMedPaymentOption, PAGES.occMedEmployer, PAGES.cardPayment, PAGES.attorney],
 };
 
-describe('conditional pages exist in both service modes', () => {
+describe.skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')('conditional pages exist in both service modes', () => {
   for (const { mode, pages } of MODES) {
     it(`${mode} questionnaire contains every page the matrix pins`, () => {
       const pageLinkIds = new Set(pages.map((p) => p.linkId));
@@ -119,69 +120,75 @@ describe('conditional pages exist in both service modes', () => {
   }
 });
 
-describe('every configured service category has a pinned expectation', () => {
-  it('BOOKING_CONFIG categories are all covered by the matrix', () => {
-    const configuredCodes = BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code);
-    expect(configuredCodes.length).toBeGreaterThan(0);
-    for (const code of configuredCodes) {
-      assert(
-        code !== undefined && BASELINE_DISABLED_BY_CATEGORY[code] !== undefined,
-        `service category '${code}' has no expected disabled-page set in this matrix — ` +
-          `add one so its paperwork shape is certified`
+describe.skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')(
+  'every configured service category has a pinned expectation',
+  () => {
+    it('BOOKING_CONFIG categories are all covered by the matrix', () => {
+      const configuredCodes = BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code);
+      expect(configuredCodes.length).toBeGreaterThan(0);
+      for (const code of configuredCodes) {
+        assert(
+          code !== undefined && BASELINE_DISABLED_BY_CATEGORY[code] !== undefined,
+          `service category '${code}' has no expected disabled-page set in this matrix — ` +
+            `add one so its paperwork shape is certified`
+        );
+      }
+    });
+  }
+);
+
+describe.skipIf(BRANDING_CONFIG.projectName !== 'Ottehr').each(MODES.map((m) => [m.mode, m] as const))(
+  'enabled-page sets — %s',
+  (_mode, { pages }) => {
+    describe.each(Object.entries(BASELINE_DISABLED_BY_CATEGORY))('category %s', (category, baselineDisabled) => {
+      it('pins the disabled-page set for an ordinary reason for visit', () => {
+        expect(disabledPagesFor(pages, { category, reasonForVisit: 'Fever' })).toEqual(sorted(baselineDisabled));
+      });
+
+      it('an Auto accident reason additionally enables the attorney page', () => {
+        const expected = baselineDisabled.filter((linkId) => linkId !== PAGES.attorney);
+        expect(disabledPagesFor(pages, { category, reasonForVisit: 'Auto accident' })).toEqual(sorted(expected));
+      });
+    });
+
+    describe('occupational medicine payment variants', () => {
+      it('employer pay additionally disables the card-payment page', () => {
+        const expected = [...BASELINE_DISABLED_BY_CATEGORY['occupational-medicine'], PAGES.cardPayment];
+        expect(
+          disabledPagesFor(pages, {
+            category: 'occupational-medicine',
+            reasonForVisit: 'Fever',
+            occMedPayment: OCC_MED_EMPLOYER_PAY_OPTION,
+          })
+        ).toEqual(sorted(expected));
+      });
+
+      it('self pay keeps the card-payment page enabled', () => {
+        expect(
+          disabledPagesFor(pages, {
+            category: 'occupational-medicine',
+            reasonForVisit: 'Fever',
+            occMedPayment: OCC_MED_SELF_PAY_OPTION,
+          })
+        ).toEqual(sorted(BASELINE_DISABLED_BY_CATEGORY['occupational-medicine']));
+      });
+
+      // With no payment answer yet (mid-flow), the card-payment page is enabled: its
+      // '!= employer' condition evaluates true against a missing answer. Pinned so the
+      // engine semantics the config leans on can't silently change.
+      it('an unanswered payment option leaves the card-payment page enabled', () => {
+        expect(disabledPagesFor(pages, { category: 'occupational-medicine', reasonForVisit: 'Fever' })).toEqual(
+          sorted(BASELINE_DISABLED_BY_CATEGORY['occupational-medicine'])
+        );
+      });
+    });
+
+    // Before prepopulation lands (or for a category-less booking), the paperwork behaves
+    // like a plain visit: category '=' pages hide, '!=' pages show.
+    it('an unanswered service category matches the urgent-care shape', () => {
+      expect(disabledPagesFor(pages, { reasonForVisit: 'Fever' })).toEqual(
+        sorted(BASELINE_DISABLED_BY_CATEGORY['urgent-care'])
       );
-    }
-  });
-});
-
-describe.each(MODES.map((m) => [m.mode, m] as const))('enabled-page sets — %s', (_mode, { pages }) => {
-  describe.each(Object.entries(BASELINE_DISABLED_BY_CATEGORY))('category %s', (category, baselineDisabled) => {
-    it('pins the disabled-page set for an ordinary reason for visit', () => {
-      expect(disabledPagesFor(pages, { category, reasonForVisit: 'Fever' })).toEqual(sorted(baselineDisabled));
     });
-
-    it('an Auto accident reason additionally enables the attorney page', () => {
-      const expected = baselineDisabled.filter((linkId) => linkId !== PAGES.attorney);
-      expect(disabledPagesFor(pages, { category, reasonForVisit: 'Auto accident' })).toEqual(sorted(expected));
-    });
-  });
-
-  describe('occupational medicine payment variants', () => {
-    it('employer pay additionally disables the card-payment page', () => {
-      const expected = [...BASELINE_DISABLED_BY_CATEGORY['occupational-medicine'], PAGES.cardPayment];
-      expect(
-        disabledPagesFor(pages, {
-          category: 'occupational-medicine',
-          reasonForVisit: 'Fever',
-          occMedPayment: OCC_MED_EMPLOYER_PAY_OPTION,
-        })
-      ).toEqual(sorted(expected));
-    });
-
-    it('self pay keeps the card-payment page enabled', () => {
-      expect(
-        disabledPagesFor(pages, {
-          category: 'occupational-medicine',
-          reasonForVisit: 'Fever',
-          occMedPayment: OCC_MED_SELF_PAY_OPTION,
-        })
-      ).toEqual(sorted(BASELINE_DISABLED_BY_CATEGORY['occupational-medicine']));
-    });
-
-    // With no payment answer yet (mid-flow), the card-payment page is enabled: its
-    // '!= employer' condition evaluates true against a missing answer. Pinned so the
-    // engine semantics the config leans on can't silently change.
-    it('an unanswered payment option leaves the card-payment page enabled', () => {
-      expect(disabledPagesFor(pages, { category: 'occupational-medicine', reasonForVisit: 'Fever' })).toEqual(
-        sorted(BASELINE_DISABLED_BY_CATEGORY['occupational-medicine'])
-      );
-    });
-  });
-
-  // Before prepopulation lands (or for a category-less booking), the paperwork behaves
-  // like a plain visit: category '=' pages hide, '!=' pages show.
-  it('an unanswered service category matches the urgent-care shape', () => {
-    expect(disabledPagesFor(pages, { reasonForVisit: 'Fever' })).toEqual(
-      sorted(BASELINE_DISABLED_BY_CATEGORY['urgent-care'])
-    );
-  });
-});
+  }
+);

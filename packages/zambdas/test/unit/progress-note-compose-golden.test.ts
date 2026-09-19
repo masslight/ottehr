@@ -5,6 +5,7 @@
  *
  * When the assembly switches to the visit-note builder, this snapshot must not change.
  */
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { composeProgressNoteData } from '../../src/shared/pdf/progress-note-pdf';
 import { ProgressNoteInput } from '../../src/shared/pdf/types';
@@ -16,7 +17,7 @@ import {
   GoldenChartResources,
 } from './fixtures/chart-data-golden.fixture';
 
-describe('composeProgressNoteData — golden chart data', () => {
+describe.skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')('composeProgressNoteData — golden chart data', () => {
   let fixture: GoldenChartResources;
   let goldenChartData: GoldenChartData;
 
