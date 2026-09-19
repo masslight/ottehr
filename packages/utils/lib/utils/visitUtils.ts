@@ -145,6 +145,10 @@ export const getVisitStatusHistory = (encounter: Encounter, appointment?: Appoin
     isTelemedAppointment(appointment) &&
     appointmentTypeForAppointment(appointment) === 'walk-in';
   const visitHistory: VisitStatusHistoryEntry[] = [];
+  // Tracks whether we've seen a closed 'planned' FHIR entry (i.e., the visit had a 'pending' phase).
+  // Used to detect in-person pre-booked visits where the encounter skipped the explicit 'arrived'
+  // state because the appointment became 'arrived' but the encounter status was never updated.
+  let hadClosedPlanned = false;
 
   encounter?.statusHistory?.forEach((statusHist: EncounterStatusHistory) => {
     const ottehrStatusFromExtension = statusHist.extension?.find(
@@ -152,6 +156,24 @@ export const getVisitStatusHistory = (encounter: Encounter, appointment?: Appoin
     )?.valueCode;
 
     if (ottehrStatusFromExtension) {
+      // For in-person pre-booked visits: when the encounter transitions directly from a
+      // FHIR 'planned' state to a FHIR 'arrived' state with a post-'arrived' ottehr status
+      // (e.g., 'ready') — meaning the appointment became 'arrived' but the encounter was
+      // not updated — inject a synthetic 'arrived' entry to preserve the status history.
+      if (
+        !isOnDemandVirtual &&
+        statusHist.status === 'arrived' &&
+        ottehrStatusFromExtension !== 'arrived' &&
+        hadClosedPlanned &&
+        !visitHistory.some((h) => h.status === 'arrived')
+      ) {
+        visitHistory.push({
+          status: 'arrived' as VisitStatusHistoryLabel,
+          period: {
+            ...(statusHist.period.start && { start: statusHist.period.start, end: statusHist.period.start }),
+          },
+        });
+      }
       visitHistory.push({
         status: ottehrStatusFromExtension as VisitStatusHistoryLabel,
         period: {
@@ -177,6 +199,9 @@ export const getVisitStatusHistory = (encounter: Encounter, appointment?: Appoin
           }
         } else {
           curVisitHistory.status = 'pending';
+          if (statusHist.period.end) {
+            hadClosedPlanned = true;
+          }
         }
       } else if (statusHist.status === 'arrived') {
         curVisitHistory.status = 'arrived';
