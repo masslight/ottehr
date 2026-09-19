@@ -32,7 +32,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
   console.groupEnd();
-  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
   const { secrets } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
@@ -180,7 +179,6 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     throw MISSING_REQUEST_BODY;
   }
 
-  console.log('input', JSON.stringify(input, null, 2));
   const { secrets } = input;
   const {
     fileType: maybeFileType,

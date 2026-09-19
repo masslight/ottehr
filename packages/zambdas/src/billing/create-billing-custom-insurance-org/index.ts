@@ -4,6 +4,7 @@ import { InternalError } from 'utils/lib/helpers/oystehrApi';
 import { CreatedResourceResponse } from 'utils/lib/types/data/billing/billing.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { buildCustomInsuranceOrganization, findCustomInsuranceOrgByBusinessId } from '../custom-insurance-org.helpers';
@@ -16,9 +17,8 @@ const ZAMBDA_NAME = 'create-billing-custom-insurance-org';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   const params = validateRequestParameters(input);
-  const { secrets, ...restOfParams } = params;
+  const { secrets } = params;
   console.groupEnd();
-  console.debug('validateRequestParameters success', restOfParams);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
@@ -31,7 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('performEffect');
   const response = await performEffect(oystehr, params);
   console.groupEnd();
-  console.debug('performEffect success', response);
+  console.debug('performEffect success', truncateForLog(response));
 
   return {
     statusCode: 200,

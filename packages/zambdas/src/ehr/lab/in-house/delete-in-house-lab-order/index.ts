@@ -147,8 +147,6 @@ const getInHouseLabOrderRelatedResources = async (
 const ZAMBDA_NAME = 'delete-in-house-lab-order';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`delete-in-house-lab-order started, input: ${JSON.stringify(input)}`);
-
   let secrets = input.secrets;
   let validatedParameters: DeleteInHouseLabOrderParameters & { secrets: Secrets | null; userToken: string };
 
