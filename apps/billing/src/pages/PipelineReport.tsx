@@ -22,6 +22,7 @@ import {
 } from 'utils/lib/types/data/billing/claim-status';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { getBillingPipelineReport, searchBillingClaims } from '../api/api';
+import { CardActionHint } from '../components/CardActionHint';
 import { ReportStatusBar, sameWindow, windowParamsOf } from '../components/ReportStatusBar';
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingReport } from '../hooks/useBillingReport';
@@ -413,10 +414,6 @@ export default function PipelineReport(): ReactElement {
           <Typography variant="h4" color="primary.dark" fontWeight={600}>
             Pipeline Report
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Overview of claims by AR stage and status. Bars show claim counts; amounts in parentheses.
-            {hasPrevious && ` Deltas and light bars compare with ${previousDateLabel}.`}
-          </Typography>
         </Box>
         <ReportStatusBar
           status={status}
@@ -457,6 +454,7 @@ export default function PipelineReport(): ReactElement {
             flex: 1,
             display: 'block',
             textAlign: 'left',
+            position: 'relative',
             bgcolor: 'background.paper',
             border: `1px solid ${otherColors.lightDivider}`,
             borderRadius: 2,
@@ -464,8 +462,10 @@ export default function PipelineReport(): ReactElement {
             py: 2,
             cursor: 'pointer',
             '&:hover': { bgcolor: otherColors.apptHover },
+            '&:hover .card-action-hint': { color: 'primary.main' },
           }}
         >
+          <CardActionHint kind="drilldown" />
           <Typography variant="body2" color="text.secondary">
             No AR Stage
           </Typography>
@@ -520,6 +520,7 @@ export default function PipelineReport(): ReactElement {
                 minWidth: 0,
                 display: 'block',
                 textAlign: 'left',
+                position: 'relative',
                 bgcolor: 'background.paper',
                 border: `1px solid ${otherColors.lightDivider}`,
                 borderRadius: 2,
@@ -527,8 +528,10 @@ export default function PipelineReport(): ReactElement {
                 py: 2.5,
                 cursor: 'pointer',
                 '&:hover': { bgcolor: otherColors.apptHover },
+                '&:hover .card-action-hint': { color: 'primary.main' },
               }}
             >
+              <CardActionHint kind="drilldown" />
               <Box mb={2}>
                 <Typography variant="h6" color="primary.dark" fontWeight={600}>
                   {arStageLabel(group.arStageCode)}
@@ -643,14 +646,17 @@ export default function PipelineReport(): ReactElement {
                 flex: 1,
                 display: 'block',
                 textAlign: 'left',
+                position: 'relative',
                 border: `1px solid ${otherColors.lightDivider}`,
                 borderRadius: 2,
                 px: 2.5,
                 py: 2,
                 cursor: 'pointer',
                 '&:hover': { bgcolor: otherColors.apptHover },
+                '&:hover .card-action-hint': { color: 'primary.main' },
               }}
             >
+              <CardActionHint kind="drilldown" />
               <Typography variant="body2" color="text.secondary">
                 {bucket.label}
               </Typography>

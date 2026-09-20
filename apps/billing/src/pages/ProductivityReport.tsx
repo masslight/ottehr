@@ -24,7 +24,7 @@ import {
 import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
 import { getBillingProductivityReport } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { dateRangeLabel, ReportStatusBar, sameWindow, windowParamsOf } from '../components/ReportStatusBar';
+import { ReportStatusBar, sameWindow, windowParamsOf } from '../components/ReportStatusBar';
 import { useBillingReport } from '../hooks/useBillingReport';
 import { useBillingReportHistory } from '../hooks/useBillingReportHistory';
 import { otherColors } from '../themes/ottehr/colors';
@@ -202,10 +202,6 @@ export default function ProductivityReport(): ReactElement {
         <Box sx={{ flex: 1 }}>
           <Typography variant="h4" color="primary.dark" fontWeight={600}>
             Productivity Report
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Claim actions by user, from the claim change history
-            {dateRangeLabel(dateFrom, dateTo) ? ` — ${dateRangeLabel(dateFrom, dateTo).toLowerCase()}` : ''}.
           </Typography>
         </Box>
         <ReportStatusBar

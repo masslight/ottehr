@@ -52,6 +52,7 @@ import {
   getBillingPaymentsReportDrilldown,
 } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { CardActionHint } from '../components/CardActionHint';
 import { mergeReportStatuses, ReportStatusBar, sameWindow, windowParamsOf } from '../components/ReportStatusBar';
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingReport } from '../hooks/useBillingReport';
@@ -188,14 +189,22 @@ function StatCard({
       sx={{
         flex: 1,
         minWidth: 160,
+        position: 'relative',
         bgcolor: active ? reportPalette.activeCardBg : 'background.paper',
         border: `1px solid ${active ? reportPalette.activeCardBorder : otherColors.lightDivider}`,
         borderRadius: 2,
         px: 2.5,
         py: 2,
-        ...(onClick ? { cursor: 'pointer', '&:hover': { borderColor: reportPalette.activeCardBorder } } : {}),
+        ...(onClick
+          ? {
+              cursor: 'pointer',
+              '&:hover': { borderColor: reportPalette.activeCardBorder, bgcolor: otherColors.apptHover },
+              '&:hover .card-action-hint': { color: 'primary.main' },
+            }
+          : {}),
       }}
     >
+      {onClick && <CardActionHint kind="filter" active={active} />}
       <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.4 }}>
         {label}
       </Typography>
@@ -636,7 +645,7 @@ function WaterfallMatrix({
       }}
     >
       <Typography variant="subtitle2" color="primary.dark" fontWeight={600}>
-        Insurance Payments Waterfall — Check Date (X), DOS (Y)
+        Insurance Payments Waterfall — Service Date (down), Check Date (across)
       </Typography>
       <Typography variant="caption" color="text.secondary">
         Insurance paid by claim date of service (rows) and ERA check month (columns), across all ERAs
@@ -823,7 +832,7 @@ export default function PaymentsReport(): ReactElement {
             Payments Report
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Insurance payments from posted ERAs, grouped by payer.
+            A consolidated view of insurance and patient payments.
           </Typography>
         </Box>
         <ReportStatusBar

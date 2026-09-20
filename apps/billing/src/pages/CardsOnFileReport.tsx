@@ -238,7 +238,7 @@ export default function CardsOnFileReport(): ReactElement {
             Credit Cards on File
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            All Stripe customers matched to Oystehr patients, with card-on-file status and last visit.
+            List of patients with card-on-file status.
           </Typography>
         </Box>
         <ReportStatusBar
