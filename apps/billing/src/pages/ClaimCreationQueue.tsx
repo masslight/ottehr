@@ -1,12 +1,11 @@
 import { Refresh as RefreshIcon } from '@mui/icons-material';
 import { Alert, Box, Button, Chip, Link, MenuItem, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { BillingClaimTaskItem } from 'utils/lib/types/data/billing/billing.types';
+import { BillingClaimTaskItem, SearchBillingClaimTasksResponse } from 'utils/lib/types/data/billing/billing.types';
 import { formatAntCaseString } from 'utils/lib/types/data/billing/claim-status';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { retryBillingClaimTask, searchBillingClaimTasks } from '../api/api';
@@ -16,105 +15,109 @@ import { DateRangeInput } from '../components/DateInput';
 import { useApiClients } from '../hooks/useAppClients';
 
 const EHR_URL = import.meta.env.VITE_APP_EHR_URL;
-const QUERY_KEY = ['billing-claim-tasks'];
 const formatDate = (value?: string): string =>
   value ? DateTime.fromISO(value).toLocaleString(DateTime.DATETIME_SHORT) : '—';
 
-export function RetryTaskButton({ taskId }: { taskId: string }): ReactElement {
+export function RetryTaskButton({ taskId, onRetried }: { taskId: string; onRetried: () => void }): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const queryClient = useQueryClient();
-  const retry = useMutation({
-    mutationFn: () => retryBillingClaimTask(oystehrZambda!, { taskId }),
-    onSuccess: async () => {
+  const [retrying, setRetrying] = useState(false);
+  const retry = async (): Promise<void> => {
+    if (!oystehrZambda || retrying) return;
+    setRetrying(true);
+    try {
+      await retryBillingClaimTask(oystehrZambda, { taskId });
       enqueueSnackbar('Claim creation queued', { variant: 'success' });
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-    },
-    onError: (error) => {
+      onRetried();
+    } catch (error) {
       enqueueSnackbar(getApiError({ error, defaultError: 'Failed to retry claim creation' }), { variant: 'error' });
-    },
-  });
+    } finally {
+      setRetrying(false);
+    }
+  };
   return (
-    <Button size="small" disabled={!oystehrZambda || retry.isPending} onClick={() => retry.mutate()}>
-      {retry.isPending ? 'Retrying…' : 'Retry'}
+    <Button size="small" disabled={!oystehrZambda || retrying} onClick={() => void retry()}>
+      {retrying ? 'Retrying…' : 'Retry'}
     </Button>
   );
 }
 
-const columns = (
-  [
-    {
-      field: 'status',
-      headerName: 'Status',
-      width: 150,
-      renderCell: ({ row }) => (
-        <Chip
-          size="small"
-          label={formatAntCaseString(row.status)}
-          color={row.status === 'failed' ? 'error' : row.status === 'completed' ? 'success' : 'default'}
-        />
-      ),
-    },
-    {
-      field: 'encounterDate',
-      headerName: 'Encounter',
-      width: 220,
-      renderCell: ({ row }) => (
-        <Tooltip title={row.encounterId ? `Encounter ID: ${row.encounterId}` : ''}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            {EHR_URL && row.appointmentId ? (
-              <Link href={`${EHR_URL}/visit/${row.appointmentId}`} target="_blank" rel="noopener noreferrer">
-                {formatDate(row.encounterDate)}
-              </Link>
-            ) : (
-              formatDate(row.encounterDate)
-            )}
-            {row.encounterId && <CopyButton value={row.encounterId} label="encounter ID" />}
-          </Stack>
-        </Tooltip>
-      ),
-    },
-    {
-      field: 'patientName',
-      headerName: 'Patient',
-      minWidth: 180,
-      flex: 1,
-      renderCell: ({ row }) =>
-        EHR_URL && row.patientId ? (
-          <Link href={`${EHR_URL}/patient/${row.patientId}`} target="_blank" rel="noopener noreferrer">
-            {row.patientName || row.patientId}
-          </Link>
-        ) : (
-          row.patientName || row.patientId || '—'
+const getColumns = (onRetried: () => void): GridColDef<BillingClaimTaskItem>[] =>
+  (
+    [
+      {
+        field: 'status',
+        headerName: 'Status',
+        width: 150,
+        renderCell: ({ row }) => (
+          <Chip
+            size="small"
+            label={formatAntCaseString(row.status)}
+            color={row.status === 'failed' ? 'error' : row.status === 'completed' ? 'success' : 'default'}
+          />
         ),
-    },
-    {
-      field: 'payerNames',
-      headerName: 'Payers',
-      minWidth: 180,
-      flex: 1,
-      valueGetter: ({ row }) => row.payerNames.join(', ') || '—',
-    },
-    { field: 'createdAt', headerName: 'Created', width: 170, valueFormatter: ({ value }) => formatDate(value) },
-    { field: 'updatedAt', headerName: 'Updated', width: 170, valueFormatter: ({ value }) => formatDate(value) },
-    {
-      field: 'error',
-      headerName: 'Error',
-      minWidth: 260,
-      flex: 1,
-      renderCell: ({ row }) => (
-        <Typography variant="body2" sx={{ whiteSpace: 'normal', py: 1 }}>
-          {row.error || '—'}
-        </Typography>
-      ),
-    },
-    {
-      field: 'actions',
-      headerName: '',
-      width: 95,
-      renderCell: ({ row }) => (row.status === 'failed' ? <RetryTaskButton taskId={row.id} /> : null),
-    },
-  ] satisfies GridColDef<BillingClaimTaskItem>[]
-).map((column) => ({ ...column, sortable: false, filterable: false }));
+      },
+      {
+        field: 'encounterDate',
+        headerName: 'Encounter',
+        width: 220,
+        renderCell: ({ row }) => (
+          <Tooltip title={row.encounterId ? `Encounter ID: ${row.encounterId}` : ''}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              {EHR_URL && row.appointmentId ? (
+                <Link href={`${EHR_URL}/visit/${row.appointmentId}`} target="_blank" rel="noopener noreferrer">
+                  {formatDate(row.encounterDate)}
+                </Link>
+              ) : (
+                formatDate(row.encounterDate)
+              )}
+              {row.encounterId && <CopyButton value={row.encounterId} label="encounter ID" />}
+            </Stack>
+          </Tooltip>
+        ),
+      },
+      {
+        field: 'patientName',
+        headerName: 'Patient',
+        minWidth: 180,
+        flex: 1,
+        renderCell: ({ row }) =>
+          EHR_URL && row.patientId ? (
+            <Link href={`${EHR_URL}/patient/${row.patientId}`} target="_blank" rel="noopener noreferrer">
+              {row.patientName || row.patientId}
+            </Link>
+          ) : (
+            row.patientName || row.patientId || '—'
+          ),
+      },
+      {
+        field: 'payerNames',
+        headerName: 'Payers',
+        minWidth: 180,
+        flex: 1,
+        valueGetter: ({ row }) => row.payerNames.join(', ') || '—',
+      },
+      { field: 'createdAt', headerName: 'Created', width: 170, valueFormatter: ({ value }) => formatDate(value) },
+      { field: 'updatedAt', headerName: 'Updated', width: 170, valueFormatter: ({ value }) => formatDate(value) },
+      {
+        field: 'error',
+        headerName: 'Error',
+        minWidth: 260,
+        flex: 1,
+        renderCell: ({ row }) => (
+          <Typography variant="body2" sx={{ whiteSpace: 'normal', py: 1 }}>
+            {row.error || '—'}
+          </Typography>
+        ),
+      },
+      {
+        field: 'actions',
+        headerName: '',
+        width: 95,
+        renderCell: ({ row }) =>
+          row.status === 'failed' ? <RetryTaskButton taskId={row.id} onRetried={onRetried} /> : null,
+      },
+    ] satisfies GridColDef<BillingClaimTaskItem>[]
+  ).map((column) => ({ ...column, sortable: false, filterable: false }));
 
 export default function ClaimCreationQueue(): ReactElement {
   const { oystehrZambda } = useApiClients();
@@ -125,18 +128,28 @@ export default function ClaimCreationQueue(): ReactElement {
   const [patient, setPatient] = useState('');
   const [payerText, setPayerText] = useState('');
   const [payerName, setPayerName] = useState('');
-  const patientFilter = !patient
-    ? {}
-    : isValidUUID(patient)
-    ? { patientId: patient }
-    : /^\d+$/.test(patient)
-    ? { patientIdentifier: patient }
-    : { patientName: patient };
-  const query = useQuery({
-    queryKey: [...QUERY_KEY, status, dates, patient, payerName, pagination],
-    enabled: !!oystehrZambda,
-    queryFn: () =>
-      searchBillingClaimTasks(oystehrZambda!, {
+  const [data, setData] = useState<SearchBillingClaimTasksResponse>();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshCount, setRefreshCount] = useState(0);
+  const generation = useRef(0);
+  const refresh = useCallback(() => setRefreshCount((count) => count + 1), []);
+  const columns = useMemo(() => getColumns(refresh), [refresh]);
+
+  const fetchTasks = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda) return;
+    const current = ++generation.current;
+    setLoading(true);
+    setError(null);
+    try {
+      const patientFilter = !patient
+        ? {}
+        : isValidUUID(patient)
+        ? { patientId: patient }
+        : /^\d+$/.test(patient)
+        ? { patientIdentifier: patient }
+        : { patientName: patient };
+      const result = await searchBillingClaimTasks(oystehrZambda, {
         status: status || undefined,
         createdFrom: dates.from || undefined,
         createdTo: dates.to || undefined,
@@ -144,19 +157,36 @@ export default function ClaimCreationQueue(): ReactElement {
         payerName: payerName || undefined,
         offset: pagination.page * pagination.pageSize,
         pageSize: pagination.pageSize,
-      }),
-    placeholderData: keepPreviousData,
-    refetchInterval: payerName ? false : 15_000,
-  });
+      });
+      if (generation.current === current) setData(result);
+    } catch (err) {
+      if (generation.current === current) {
+        setError(getApiError({ error: err, defaultError: 'Failed to load claim creation queue' }));
+      }
+    } finally {
+      if (generation.current === current) setLoading(false);
+    }
+  }, [oystehrZambda, status, dates, patient, payerName, pagination]);
+
+  useEffect(() => {
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async (): Promise<void> => {
+      await fetchTasks();
+      if (active && !payerName) timer = setTimeout(() => void poll(), 15_000);
+    };
+    void poll();
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      generation.current += 1;
+    };
+  }, [fetchTasks, payerName, refreshCount]);
   return (
     <Stack spacing={3}>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
         <Typography variant="h4">Claim Creation Queue</Typography>
-        <Button
-          startIcon={<RefreshIcon />}
-          disabled={!oystehrZambda || query.isFetching}
-          onClick={() => void query.refetch()}
-        >
+        <Button startIcon={<RefreshIcon />} disabled={!oystehrZambda || loading} onClick={refresh}>
           Refresh
         </Button>
       </Stack>
@@ -226,17 +256,13 @@ export default function ClaimCreationQueue(): ReactElement {
           Clear filters
         </Button>
       </Stack>
-      {query.isError && (
-        <Alert severity="error">
-          {getApiError({ error: query.error, defaultError: 'Failed to load claim creation queue' })}
-        </Alert>
-      )}
+      {error && <Alert severity="error">{error}</Alert>}
       <Box sx={{ height: 650, width: '100%' }}>
         <DataGridPro
-          rows={query.data?.tasks ?? []}
+          rows={data?.tasks ?? []}
           columns={columns}
-          rowCount={query.data?.total ?? 0}
-          loading={!oystehrZambda || query.isPending}
+          rowCount={data?.total ?? 0}
+          loading={!oystehrZambda || (loading && !data)}
           pagination
           paginationMode="server"
           paginationModel={pagination}
