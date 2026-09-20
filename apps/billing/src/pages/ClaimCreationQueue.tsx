@@ -146,7 +146,7 @@ export default function ClaimCreationQueue(): ReactElement {
         pageSize: pagination.pageSize,
       }),
     placeholderData: keepPreviousData,
-    refetchInterval: payerName ? 60_000 : 15_000,
+    refetchInterval: payerName ? false : 15_000,
   });
   return (
     <Stack spacing={3}>
@@ -236,7 +236,7 @@ export default function ClaimCreationQueue(): ReactElement {
           rows={query.data?.tasks ?? []}
           columns={columns}
           rowCount={query.data?.total ?? 0}
-          loading={!oystehrZambda || query.isFetching}
+          loading={!oystehrZambda || query.isPending}
           pagination
           paginationMode="server"
           paginationModel={pagination}
@@ -246,7 +246,7 @@ export default function ClaimCreationQueue(): ReactElement {
           disableColumnFilter
           getRowHeight={() => 'auto'}
           slots={dataGridSlots()}
-          sx={dataGridSx}
+          sx={{ ...dataGridSx, '& .MuiDataGrid-row': { cursor: 'default' } }}
         />
       </Box>
     </Stack>

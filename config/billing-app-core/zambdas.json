@@ -589,7 +589,17 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-BILLING-CLAIM-TASK/id}"
-        }
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
       }
     },
     "SUB_EXPORT_BILLING_CLAIMS_CSV_SUBSCRIPTION": {

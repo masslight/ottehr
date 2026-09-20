@@ -1374,7 +1374,7 @@ export function findPatientWorkersCompAccount(accounts: Account[]): Account | un
   return accounts.find((acc) => accountMatchesCode(acc, 'WCOMPACCT'));
 }
 
-// Both claim creation (billing copies) and its queue (clinical originals) use the same selection rules.
+// Share coverage selection between claim creation and the queue.
 export function selectClaimCoverages(
   service: string | undefined,
   accounts: Account[],

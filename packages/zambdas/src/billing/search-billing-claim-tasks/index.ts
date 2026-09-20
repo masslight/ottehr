@@ -78,7 +78,7 @@ async function searchByPayer(
   searchParams: SearchParam[],
   { payerName, offset, pageSize }: SearchBillingClaimTasksParams
 ): Promise<SearchBillingClaimTasksResponse> {
-  // Apply the payer filter before pagination, including tasks whose claims do not exist yet.
+  // Include tasks that have no claim yet.
   const filterParams = searchParams.filter(({ name }) => !['_count', '_offset', '_total'].includes(name));
   const matching: BillingClaimTaskItem[] = [];
   const payer = payerName!.toLowerCase();
@@ -173,7 +173,7 @@ function getFailureMessage(task: Task): string | undefined {
       return error.message;
     }
   } catch {
-    // Task failures may already be stored as plain text.
+    // The reason can be plain text.
   }
   return reason;
 }

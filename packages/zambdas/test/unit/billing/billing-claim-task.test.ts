@@ -65,7 +65,9 @@ describe('billing claim tasks', () => {
           : [],
     }));
     billing.fhir.create.mockImplementation(async (resource) => ({ ...resource, id: task.id }));
-    billing.fhir.search.mockResolvedValue({ unbundle: () => [{ ...task, status: 'failed' }] });
+    billing.fhir.search.mockImplementation(async ({ resourceType }) => ({
+      unbundle: () => (resourceType === 'Task' ? [{ ...task, status: 'failed' }] : []),
+    }));
     billing.fhir.patch.mockResolvedValue(undefined);
     createClaim.mockResolvedValue({ claimId: 'claim-1' });
   });
@@ -87,6 +89,21 @@ describe('billing claim tasks', () => {
     const { ifNoneExist } = billing.fhir.create.mock.calls[0][1];
     expect(ifNoneExist).toContainEqual({ name: 'encounter', value: task.encounter?.reference });
     expect(createClaim).not.toHaveBeenCalled();
+  });
+
+  it('reuses the failed task when the encounter is signed again', async () => {
+    expect(JSON.parse((await invoke(createTask, { encounterId })).body)).toEqual({ taskId: task.id });
+    const filters = billing.fhir.search.mock.lastCall![0].params;
+    expect(filters.find(({ name }: { name: string }) => name === 'status').value.split(',')).toContain('failed');
+    expect(billing.fhir.create).not.toHaveBeenCalled();
+  });
+
+  it('completes a retry when the claim was already saved', async () => {
+    createClaim.mockRejectedValueOnce(INVALID_INPUT_ERROR('Claim has already been created for this encounter'));
+    billing.fhir.search.mockResolvedValueOnce({ unbundle: () => [{ resourceType: 'Claim', id: 'existing' }] });
+    expect((await invoke(runTask, task)).statusCode).toBe(200);
+    expect(statuses()).toEqual(['in-progress', 'completed']);
+    expect(billing.fhir.create).not.toHaveBeenCalled();
   });
 
   it.each(['Claim', 'Task'])('reuses an existing %s instead of enqueueing again', async (type) => {

@@ -158,7 +158,7 @@ export const performEffect = async (
     if (useOttehrBilling) {
       tasks.push(
         oystehr.zambda.execute({ id: 'create-billing-claim-task', encounterId }).catch(async (error) => {
-          // Signing is already saved; a billing failure must not tell the provider to sign again.
+          // The visit is already signed. Report billing failures without failing the sign request.
           console.error('Failed to enqueue billing claim task', { encounterId, error });
           await sendErrors(error, getOptionalSecret(SecretsKeys.ENVIRONMENT, secrets) ?? '', {
             zambda: ZAMBDA_NAME,

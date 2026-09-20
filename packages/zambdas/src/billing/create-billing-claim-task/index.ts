@@ -1,12 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Encounter, Task } from 'fhir/r4b';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { Encounter, Task } from 'fhir/r4b';
 import { BILLING_CLAIM_TASK_CODING } from 'utils/lib/types/data/billing/billing.constants';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { findBillingClaimForEncounter } from '../payments';
 import { createBillingClient, fetchById } from '../shared';
 import { CreateBillingClaimTaskParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -33,22 +33,13 @@ async function performEffect(
   params: CreateBillingClaimTaskParams,
   encounter: Encounter
 ): Promise<{ taskId: string } | { claimId: string }> {
-  const existingClaim = (
-    await oystehr.fhir.search<Claim>({
-      resourceType: 'Claim',
-      params: [
-        { name: 'identifier', value: `${ottehrIdentifierSystem('claim-encounter-id')}|${params.encounterId}` },
-        { name: '_count', value: '1' },
-      ],
-    })
-  ).unbundle()[0];
+  const existingClaim = await findBillingClaimForEncounter(oystehr, params.encounterId);
   if (existingClaim?.id) return { claimId: existingClaim.id };
 
-  // Include completed tasks so a task finishing during this request still prevents a duplicate.
   const taskParams = [
     { name: 'code', value: `${BILLING_CLAIM_TASK_CODING.system}|${BILLING_CLAIM_TASK_CODING.code}` },
     { name: 'encounter', value: `Encounter/${params.encounterId}` },
-    { name: 'status', value: 'draft,requested,received,accepted,ready,in-progress,on-hold,completed' },
+    { name: 'status', value: 'draft,requested,received,accepted,ready,in-progress,on-hold,completed,failed' },
   ];
   const existingTask = (
     await oystehr.fhir.search<Task>({ resourceType: 'Task', params: [...taskParams, { name: '_count', value: '1' }] })
