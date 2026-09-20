@@ -51,13 +51,13 @@ import {
   getBillingPaymentsReport,
   getBillingPaymentsReportDrilldown,
 } from '../api/api';
-import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { dataGridSlots, dataGridSx, drilldownIndicatorColumn } from '../components/BillingDataGrid';
 import { CardActionHint } from '../components/CardActionHint';
 import { mergeReportStatuses, ReportStatusBar, sameWindow, windowParamsOf } from '../components/ReportStatusBar';
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingReport } from '../hooks/useBillingReport';
 import { useBillingReportHistory } from '../hooks/useBillingReportHistory';
-import { otherColors, palette } from '../themes/ottehr/colors';
+import { otherColors } from '../themes/ottehr/colors';
 import { reportPalette } from '../themes/ottehr/reportPalette';
 
 const currencyCol = (field: string, headerName: string, width = 130): GridColDef => ({
@@ -648,7 +648,8 @@ function WaterfallMatrix({
         Insurance Payments Waterfall — Service Date (down), Check Date (across)
       </Typography>
       <Typography variant="caption" color="text.secondary">
-        Insurance paid by claim date of service (rows) and ERA check month (columns), across all ERAs
+        Insurance paid by claim date of service (rows) and ERA check month (columns), across all ERAs — click any amount
+        to see its ERAs
       </Typography>
       {cells.length === 0 ? (
         <Box sx={{ py: 5, textAlign: 'center' }}>
@@ -680,23 +681,18 @@ function WaterfallMatrix({
                       {paid === undefined ? (
                         ''
                       ) : (
-                        <button
+                        <Link
+                          component="button"
                           type="button"
+                          underline="always"
                           onClick={() => onCellClick(serviceMonth, checkMonth)}
                           aria-label={`View ERAs for ${monthLabel(serviceMonth)} service, ${monthLabel(
                             checkMonth
                           )} checks`}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            padding: 0,
-                            font: 'inherit',
-                            cursor: 'pointer',
-                            color: palette.primary.main,
-                          }}
+                          sx={{ font: 'inherit', textDecorationColor: 'inherit' }}
                         >
                           {formatCurrency(paid)}
-                        </button>
+                        </Link>
                       )}
                     </td>
                   );
@@ -910,7 +906,9 @@ export default function PaymentsReport(): ReactElement {
         autoHeight
         rows={report?.rows ?? []}
         getRowId={(row) => `${row.payerId}|${row.payerName}`}
-        columns={payerColumns}
+        columns={[...payerColumns, drilldownIndicatorColumn]}
+        // pinned right so the clickability arrow stays visible when the grid scrolls horizontally
+        pinnedColumns={{ right: [drilldownIndicatorColumn.field] }}
         loading={loading}
         disableRowSelectionOnClick
         disableColumnMenu
@@ -1028,31 +1026,34 @@ export default function PaymentsReport(): ReactElement {
         />
       </Stack>
 
-      <DataGridPro
-        autoHeight
-        rows={filteredPatientRows}
-        getRowId={(row) => `${row.locationId || row.locationName}|${row.paymentMethod}`}
-        columns={patientPaymentColumns}
-        loading={patientLoading}
-        disableRowSelectionOnClick
-        disableColumnMenu
-        hideFooter
-        onRowClick={(gridRow) => {
-          const row = gridRow.row as PatientPaymentsReportRow;
-          setPatientDrilldown({
-            title: `${row.locationName} — ${methodLabel(row.paymentMethod)} Payments`,
-            params: {
-              // 'none' selects payments with no resolvable location
-              locationId: row.locationId || 'none',
-              paymentMethod: row.paymentMethod,
-              ...(dateFrom ? { dateFrom } : {}),
-              ...(dateTo ? { dateTo } : {}),
-            },
-          });
-        }}
-        sx={dataGridSx}
-        slots={dataGridSlots()}
-      />
+      {/* fixed height so switching method filters never shrinks the page and jumps the scroll */}
+      <Box sx={{ height: 480 }}>
+        <DataGridPro
+          rows={filteredPatientRows}
+          getRowId={(row) => `${row.locationId || row.locationName}|${row.paymentMethod}`}
+          columns={[...patientPaymentColumns, drilldownIndicatorColumn]}
+          pinnedColumns={{ right: [drilldownIndicatorColumn.field] }}
+          loading={patientLoading}
+          disableRowSelectionOnClick
+          disableColumnMenu
+          hideFooter
+          onRowClick={(gridRow) => {
+            const row = gridRow.row as PatientPaymentsReportRow;
+            setPatientDrilldown({
+              title: `${row.locationName} — ${methodLabel(row.paymentMethod)} Payments`,
+              params: {
+                // 'none' selects payments with no resolvable location
+                locationId: row.locationId || 'none',
+                paymentMethod: row.paymentMethod,
+                ...(dateFrom ? { dateFrom } : {}),
+                ...(dateTo ? { dateTo } : {}),
+              },
+            });
+          }}
+          sx={dataGridSx}
+          slots={dataGridSlots()}
+        />
+      </Box>
 
       <PatientPaymentsDrawer criteria={patientDrilldown} onClose={() => setPatientDrilldown(null)} />
     </Box>
