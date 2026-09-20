@@ -14,8 +14,9 @@ import {
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
-import { ReactElement, useCallback, useMemo, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ReportDateWindowParams } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   GetBillingProductivityReportResponse,
   ProductivityReportRow,
@@ -23,25 +24,12 @@ import {
 import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
 import { getBillingProductivityReport } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { ReportStatusBar } from '../components/ReportStatusBar';
+import { dateRangeLabel, ReportStatusBar, sameWindow, windowParamsOf } from '../components/ReportStatusBar';
 import { useBillingReport } from '../hooks/useBillingReport';
+import { useBillingReportHistory } from '../hooks/useBillingReportHistory';
 import { otherColors } from '../themes/ottehr/colors';
 
-type WindowPreset = '7d' | '30d' | '90d' | 'all';
 type ActorTypeFilter = 'all' | 'human' | 'system';
-
-const WINDOW_LABELS: Record<WindowPreset, string> = {
-  '7d': 'Last 7 days',
-  '30d': 'Last 30 days',
-  '90d': 'Last 90 days',
-  all: 'All time',
-};
-
-const windowDateFrom = (preset: WindowPreset): string | undefined => {
-  if (preset === 'all') return undefined;
-  const days = { '7d': 6, '30d': 29, '90d': 89 }[preset];
-  return DateTime.now().minus({ days }).toISODate() ?? undefined;
-};
 
 // column per activity, in workflow order
 const ACTIVITY_COLUMNS: { code: string; label: string }[] = [
@@ -144,21 +132,35 @@ function StatCard({ label, value }: { label: string; value: string }): ReactElem
 export default function ProductivityReport(): ReactElement {
   const navigate = useNavigate();
 
-  const [window, setWindow] = useState<WindowPreset>('30d');
   const [actorTypeFilter, setActorTypeFilter] = useState<ActorTypeFilter>('all');
   const [selectedActors, setSelectedActors] = useState<ProductivityReportRow[]>([]);
 
-  const { report, status, loading, error, clearError, refresh } =
+  const { entries: history, reload: reloadHistory } = useBillingReportHistory('productivity');
+  // null until the latest cached run (or the empty state) is adopted from history
+  const [range, setRange] = useState<ReportDateWindowParams | null>(null);
+  useEffect(() => {
+    if (history) setRange((current) => current ?? windowParamsOf(history[0]?.params));
+  }, [history]);
+  const { dateFrom, dateTo } = range ?? {};
+
+  const { report, status, loading, error, clearError, refresh, refreshNext } =
     useBillingReport<GetBillingProductivityReportResponse>({
       fetch: useCallback(
-        (client: Oystehr, refresh?: boolean) => {
-          const dateFrom = windowDateFrom(window);
-          return getBillingProductivityReport(client, dateFrom ? { dateFrom } : {}, refresh);
-        },
-        [window]
+        (client: Oystehr, refresh?: boolean) => getBillingProductivityReport(client, range ?? {}, refresh),
+        [range]
       ),
       errorMessage: 'Failed to load productivity report',
+      enabled: range !== null,
     });
+
+  const runReport = (params: ReportDateWindowParams): void => {
+    if (sameWindow(params, range)) {
+      refresh();
+      return;
+    }
+    refreshNext();
+    setRange(params);
+  };
 
   const filteredRows = useMemo(() => {
     let rows = report?.rows ?? [];
@@ -202,10 +204,23 @@ export default function ProductivityReport(): ReactElement {
             Productivity Report
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Claim actions by user, from the claim change history — {WINDOW_LABELS[window].toLowerCase()}.
+            Claim actions by user, from the claim change history
+            {dateRangeLabel(dateFrom, dateTo) ? ` — ${dateRangeLabel(dateFrom, dateTo).toLowerCase()}` : ''}.
           </Typography>
         </Box>
-        <ReportStatusBar status={status} loading={loading} onRefresh={refresh} dateFrom={windowDateFrom(window)} />
+        <ReportStatusBar
+          status={status}
+          loading={loading}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          history={{
+            entries: history,
+            onOpen: reloadHistory,
+            onView: setRange,
+            onRun: runReport,
+            rangeLabel: 'Action Date Range',
+          }}
+        />
       </Stack>
 
       {error && (
@@ -216,24 +231,6 @@ export default function ProductivityReport(): ReactElement {
 
       <Stack direction="row" alignItems="center" gap={1} mb={2} flexWrap="wrap">
         <Typography variant="body2" color="text.secondary">
-          Window:
-        </Typography>
-        <ToggleButtonGroup
-          size="small"
-          exclusive
-          value={window}
-          onChange={(_e, value: WindowPreset | null) => {
-            if (!value) return;
-            setWindow(value);
-          }}
-        >
-          {(Object.keys(WINDOW_LABELS) as WindowPreset[]).map((preset) => (
-            <ToggleButton key={preset} value={preset} sx={{ px: 1.5, py: 0.5, textTransform: 'none' }}>
-              {WINDOW_LABELS[preset]}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
-        <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
           Show:
         </Typography>
         <ToggleButtonGroup

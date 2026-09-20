@@ -36,7 +36,7 @@ flowchart LR
     end
 
     subgraph HTTP["get-billing-report (HTTP, thin)"]
-        GetReport["{ kind, params, refresh?, drilldown? }"]
+        GetReport["{ kind, params, refresh?, drilldown?, history? }"]
     end
 
     subgraph FHIR["FHIR store"]
@@ -44,7 +44,7 @@ flowchart LR
     end
 
     subgraph Z3["Z3 (billing-app bucket)"]
-        Cache["payload object (.json.gz)<br/>+ meta sidecar"]
+        Cache["payload object (.json.gz)<br/>+ meta DocumentReference"]
         Detail["detail object (:detail)"]
     end
 
@@ -80,7 +80,7 @@ packages/zambdas/src/billing/reports/
 │   ├── types.ts          # ReportDefinition contract, ReportContext, ReportPayload
 │   ├── registry.ts       # reportRegistry: RefreshReportKind → definition
 │   ├── refresh-task.ts   # Task queue: kickoff (race-free), find active/failed, progress writer
-│   └── report-cache.ts   # Z3 gzip object load/save, presigned URLs, cache keys, meta sidecar
+│   └── report-cache.ts   # Z3 gzip object load/save, presigned URLs, cache keys, meta DocumentReference, history
 ├── definitions/
 │   └── *.report.ts       # one self-contained ReportDefinition per kind (see billing-reports.md)
 ├── get-billing-report/   # the HTTP zambda
@@ -136,14 +136,18 @@ clinical resources (`untaggedClient`), and `secrets` for external systems (Strip
 
 ## 5. Request/response protocol
 
-`POST get-billing-report` with `{ kind, params?, refresh?, drilldown? }`
+`POST get-billing-report` with `{ kind, params?, refresh?, drilldown?, history? }`
 ([GetBillingReportInputSchema](../packages/utils/lib/types/data/billing/billing.schemas.ts)):
 
 - **Fetch** (`{ kind, params }`): serve `status` plus a short-lived presigned `downloadUrl`
   for the cached payload object; the frontend fetches and gunzips it directly from Z3. A fresh
   URL is minted on every request — display time, not save time. If the report has never been
-  computed, queue the first refresh and serve `emptyPayload()` inline.
+  computed, serve `emptyPayload()` inline — nothing is queued; a compute runs only on an
+  explicit refresh.
 - **Refresh** (`refresh: true`): queue a refresh (idempotent, §6) and fall through to fetch.
+- **History** (`history: true`): list this kind's cached runs — one FHIR search over the meta
+  DocumentReferences (§7) — as `{ entries: [{ params, generatedAt, sizeBytes }] }`, newest
+  first. Entries at a stale `cacheVersion` are filtered out.
 - **Drilldown** (`drilldown: {…}`): validate against the definition's drilldown schema, load
   the detail cache, return `drilldown.select(detail, drillParams)` inline + `status`. Empty
   result until the first refresh has written the detail object.
@@ -198,28 +202,35 @@ stateDiagram-v2
 
 ## 7. Caching
 
-All caches are **gzipped JSON objects in the billing-app Z3 bucket** under a `billing-reports/`
-prefix, written by
+Payloads are **gzipped JSON objects in the billing-app Z3 bucket** under a `billing-reports/`
+prefix; each cache entry is committed by a **meta DocumentReference**, written by
 [framework/report-cache.ts](../packages/zambdas/src/billing/reports/framework/report-cache.ts):
 
-| Object | Path | Contents |
+| Piece | Where | Contents |
 |---|---|---|
-| payload | `billing-reports/<cacheKey>/<revision>.json.gz` | the raw report payload (rows, totals, resume state) |
-| public payload | `…/<revision>.public.json.gz` | sanitized copy — only when the definition has `sanitizePayload`; download URLs point here |
-| meta (commit pointer) | `billing-reports/<cacheKey>.meta.json` | `{ generatedAt, sizeBytes, objectPath, publicObjectPath? }` |
+| payload | Z3 `billing-reports/<cacheKey>/<revision>.json.gz` | the raw report payload (rows, totals, resume state) |
+| public payload | Z3 `…/<revision>.public.json.gz` | sanitized copy — only when the definition has `sanitizePayload`; download URLs point here |
+| meta (commit pointer) | DocumentReference, `identifier = ottehrIdentifierSystem('billing-report-cache')\|<cacheKey>` | `date` = generatedAt, `content[]` = attachments pointing at the raw/public object paths + sizes |
 | detail | same scheme under `<kind>:<cacheVersion>:<detailParamsKey>:detail` | `{ generatedAt, detail }` drilldown dataset |
 
-(`<cacheKey>` is `<kind>:<cacheVersion>:<paramsKey>` sanitized to the Z3 object-name charset.)
+(`<cacheKey>` is `<kind>:<cacheVersion>:<paramsKey>`; object paths sanitize it to the Z3
+object-name charset.)
 
-- Parameterized reports get one payload object per params combination (e.g. per date window).
+- Parameterized reports get one cache entry per params combination (e.g. per date window) —
+  which is exactly what the report history lists. Primary entries additionally carry
+  `type = billing-report-kind|<kind>`, the JSON params in an extension, and the date window in
+  `context.period`; detail and internal entries have no kind coding, keeping them out of
+  history.
 - There is no size cap; reports can be arbitrarily large.
 - **Writes are committed, not in-place.** Each save uploads new generation-addressed objects,
-  then a single fixed-path meta PUT atomically switches readers to them (readers always resolve
-  object paths through the meta). A torn write leaves the previous generation live; the
-  superseded generation is deleted best-effort after the commit.
+  then a single DocumentReference write (conditional create the first time, version-locked
+  update after) atomically switches readers to them — readers always resolve object paths
+  through the meta doc. A torn write leaves the previous generation live; the superseded
+  generation is deleted best-effort after the commit, and a save that loses a concurrent
+  create race deletes its own orphaned upload.
 - **A failed save fails the refresh Task** (`REPORT_CACHE_WRITE_FAILED`): the cache is the
   delivery mechanism, so completing over a failed write would show idle status over stale data.
-- `cacheVersion` bumps orphan old objects rather than migrating them.
+- `cacheVersion` bumps orphan old entries rather than migrating them (history filters them out).
 - Serving is by **presigned download URL minted per request** (`z3.getPresignedUrl`), issued
   only after the zambda's RBAC check — the URL is short-lived and each poll/display gets a
   fresh one against the committed object.
@@ -269,15 +280,23 @@ streaming counts (e.g. every 250–1,000 items). Totals are only shown when know
 ## 9. Frontend
 
 - [useBillingReport](../apps/billing/src/hooks/useBillingReport.ts): initial load, refetch on
-  params change (generation-counter guarded against races/unmount), `refresh()` action, and a
-  ~4 s polling loop while `status.state === 'running'`. Resolves `downloadUrl` envelopes by
-  fetching the gzip object from Z3 (`DecompressionStream`) and skips the re-download when a
-  poll serves an unchanged `generatedAt`.
+  params change (generation-counter guarded against races/unmount), `refresh()` action,
+  `refreshNext()` to arm the next params-change reload as a recompute, and a ~4 s polling loop
+  while `status.state === 'running'`. Resolves `downloadUrl` envelopes by fetching the gzip
+  object from Z3 (`DecompressionStream`) and skips the re-download when a poll serves an
+  unchanged `generatedAt`.
+- [useBillingReportHistory](../apps/billing/src/hooks/useBillingReportHistory.ts): loads a
+  kind's cached runs. Pages start with a `null` range, adopt the newest entry's params once
+  history resolves (or the empty state when there are none), and only then fetch.
 - [ReportStatusBar](../apps/billing/src/components/ReportStatusBar.tsx): one widget for every
   report header — de-emphasized "Updated 12 minutes ago · 1.2 MB" when idle (absolute time in
-  tooltip), phase text over a slim indeterminate bar when running, warning + Retry on error.
-  `mergeReportStatuses` collapses several statuses (running > error > oldest idle) for pages
-  hosting more than one kind.
+  tooltip), phase text over a slim indeterminate bar when running, warning + Retry on error —
+  plus the **History dropdown**: a popover listing cached runs (date range + generated
+  timestamp + size; click to view that snapshot instantly) with a "Run a new report" section
+  (range presets + custom range) underneath. Re-running the current range refreshes it in
+  place; a new range rides `refreshNext()` + a params change. `mergeReportStatuses` collapses
+  several statuses (running > error > oldest idle) for pages hosting more than one kind
+  (PaymentsReport anchors its history on the `payments` kind and runs both kinds together).
 - [api.ts](../apps/billing/src/api/api.ts) keeps compile-time payload types via thin per-kind
   wrappers that all call the same endpoint.
 

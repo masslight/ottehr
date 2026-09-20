@@ -52,61 +52,12 @@ import {
   getBillingPaymentsReportDrilldown,
 } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { DateRangeInput } from '../components/DateInput';
-import { mergeReportStatuses, ReportStatusBar } from '../components/ReportStatusBar';
+import { mergeReportStatuses, ReportStatusBar, sameWindow, windowParamsOf } from '../components/ReportStatusBar';
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingReport } from '../hooks/useBillingReport';
+import { useBillingReportHistory } from '../hooks/useBillingReportHistory';
 import { otherColors, palette } from '../themes/ottehr/colors';
 import { reportPalette } from '../themes/ottehr/reportPalette';
-
-type DateRangePreset =
-  | 'previous-month'
-  | 'current-month'
-  | 'previous-quarter'
-  | 'this-quarter'
-  | 'year-to-date'
-  | 'trailing-30-days'
-  | 'trailing-12-months'
-  | 'custom';
-
-const DATE_RANGE_PRESETS: { value: DateRangePreset; label: string }[] = [
-  { value: 'previous-month', label: 'Previous Month' },
-  { value: 'current-month', label: 'Current Month' },
-  { value: 'previous-quarter', label: 'Previous Quarter' },
-  { value: 'this-quarter', label: 'This Quarter' },
-  { value: 'year-to-date', label: 'Year-to-Date' },
-  { value: 'trailing-30-days', label: 'Trailing 30 Days' },
-  { value: 'trailing-12-months', label: 'Trailing 12 Months' },
-  { value: 'custom', label: 'Custom Range' },
-];
-
-const presetRange = (preset: DateRangePreset): { from: string; to: string } => {
-  const now = DateTime.now();
-  switch (preset) {
-    case 'previous-month': {
-      const month = now.minus({ months: 1 });
-      return { from: month.startOf('month').toISODate() ?? '', to: month.endOf('month').toISODate() ?? '' };
-    }
-    case 'current-month':
-      return { from: now.startOf('month').toISODate() ?? '', to: now.toISODate() ?? '' };
-    case 'previous-quarter': {
-      const quarter = now.minus({ quarters: 1 });
-      return { from: quarter.startOf('quarter').toISODate() ?? '', to: quarter.endOf('quarter').toISODate() ?? '' };
-    }
-    case 'this-quarter':
-      return { from: now.startOf('quarter').toISODate() ?? '', to: now.toISODate() ?? '' };
-    case 'year-to-date':
-      return { from: now.startOf('year').toISODate() ?? '', to: now.toISODate() ?? '' };
-    case 'trailing-30-days':
-      return { from: now.minus({ days: 30 }).toISODate() ?? '', to: now.toISODate() ?? '' };
-    case 'trailing-12-months':
-      return { from: now.minus({ months: 12 }).toISODate() ?? '', to: now.toISODate() ?? '' };
-    case 'custom':
-      return { from: '', to: '' };
-  }
-};
-
-const DEFAULT_PRESET: DateRangePreset = 'trailing-30-days';
 
 const currencyCol = (field: string, headerName: string, width = 130): GridColDef => ({
   field,
@@ -767,14 +718,20 @@ function WaterfallMatrix({
 export default function PaymentsReport(): ReactElement {
   const navigate = useNavigate();
 
-  const [dateFrom, setDateFrom] = useState(() => presetRange(DEFAULT_PRESET).from);
-  const [dateTo, setDateTo] = useState(() => presetRange(DEFAULT_PRESET).to);
-  const [rangePreset, setRangePreset] = useState<DateRangePreset>(DEFAULT_PRESET);
   const [drilldown, setDrilldown] = useState<DrilldownCriteria | null>(null);
   const [patientDrilldown, setPatientDrilldown] = useState<PatientPaymentsCriteria | null>(null);
   const [methodFilter, setMethodFilter] = useState<string | null>(null);
   // empty = all locations
   const [locationFilter, setLocationFilter] = useState<string[]>([]);
+
+  // insurance + patient payments always run together over one window; payments anchors the history
+  const { entries: history, reload: reloadHistory } = useBillingReportHistory('payments');
+  // null until the latest cached run (or the empty state) is adopted from history
+  const [range, setRange] = useState<ReportDateWindowParams | null>(null);
+  useEffect(() => {
+    if (history) setRange((current) => current ?? windowParamsOf(history[0]?.params));
+  }, [history]);
+  const { dateFrom, dateTo } = range ?? {};
 
   const windowParams = useMemo(
     () => ({ ...(dateFrom ? { dateFrom } : {}), ...(dateTo ? { dateTo } : {}) }),
@@ -788,12 +745,14 @@ export default function PaymentsReport(): ReactElement {
     error,
     clearError,
     refresh: refreshInsurance,
+    refreshNext: refreshInsuranceNext,
   } = useBillingReport<GetBillingPaymentsReportResponse>({
     fetch: useCallback(
       (client: Oystehr, refresh?: boolean) => getBillingPaymentsReport(client, windowParams, refresh),
       [windowParams]
     ),
     errorMessage: 'Failed to load payments report',
+    enabled: range !== null,
   });
 
   const {
@@ -803,13 +762,26 @@ export default function PaymentsReport(): ReactElement {
     error: patientError,
     clearError: clearPatientError,
     refresh: refreshPatient,
+    refreshNext: refreshPatientNext,
   } = useBillingReport<GetBillingPatientPaymentsReportResponse>({
     fetch: useCallback(
       (client: Oystehr, refresh?: boolean) => getBillingPatientPaymentsReport(client, windowParams, refresh),
       [windowParams]
     ),
     errorMessage: 'Failed to load patient payments',
+    enabled: range !== null,
   });
+
+  const runReport = (params: ReportDateWindowParams): void => {
+    if (sameWindow(params, range)) {
+      refreshInsurance();
+      refreshPatient();
+      return;
+    }
+    refreshInsuranceNext();
+    refreshPatientNext();
+    setRange(params);
+  };
 
   const totals = report?.totals;
   const insurancePaid = totals?.insurancePaid ?? 0;
@@ -857,52 +829,16 @@ export default function PaymentsReport(): ReactElement {
         <ReportStatusBar
           status={mergeReportStatuses(insuranceStatus, patientStatus)}
           loading={loading || patientLoading}
-          onRefresh={() => {
-            refreshInsurance();
-            refreshPatient();
-          }}
           dateFrom={dateFrom}
           dateTo={dateTo}
+          history={{
+            entries: history,
+            onOpen: reloadHistory,
+            onView: setRange,
+            onRun: runReport,
+            rangeLabel: 'Check Date Range',
+          }}
         />
-      </Stack>
-
-      <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} alignItems={{ sm: 'center' }} mb={2.5}>
-        <FormControl size="small" sx={{ width: { xs: '100%', sm: 220 } }}>
-          <InputLabel>Check Date Range</InputLabel>
-          <Select
-            label="Check Date Range"
-            value={rangePreset}
-            onChange={(e) => {
-              const preset = e.target.value as DateRangePreset;
-              setRangePreset(preset);
-              if (preset === 'custom') return; // wait for the user to pick dates
-              const { from, to } = presetRange(preset);
-              setDateFrom(from);
-              setDateTo(to);
-            }}
-          >
-            {DATE_RANGE_PRESETS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        {rangePreset === 'custom' && (
-          <Box sx={{ width: { xs: '100%', sm: 320 } }}>
-            <DateRangeInput
-              label="Check Date"
-              size="small"
-              fullWidth
-              valueFrom={dateFrom}
-              valueTo={dateTo}
-              onChange={(from, to) => {
-                setDateFrom(from);
-                setDateTo(to);
-              }}
-            />
-          </Box>
-        )}
       </Stack>
 
       {error && (

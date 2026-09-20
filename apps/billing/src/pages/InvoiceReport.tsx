@@ -28,6 +28,7 @@ import { getBillingInvoiceReport } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ReportStatusBar } from '../components/ReportStatusBar';
 import { useBillingReport } from '../hooks/useBillingReport';
+import { useBillingReportHistory } from '../hooks/useBillingReportHistory';
 import { otherColors } from '../themes/ottehr/colors';
 import { reportPalette } from '../themes/ottehr/reportPalette';
 
@@ -271,6 +272,7 @@ export default function InvoiceReport(): ReactElement {
   const [agingFilter, setAgingFilter] = useState<AgingFilter>('all');
   const [tab, setTab] = useState<'delinquency' | 'aging'>('delinquency');
 
+  const { entries: history, reload: reloadHistory } = useBillingReportHistory('invoice');
   const { report, status, loading, error, clearError, refresh } = useBillingReport<GetBillingInvoiceReportResponse>({
     fetch: useCallback((client: Oystehr, refresh?: boolean) => getBillingInvoiceReport(client, undefined, refresh), []),
     errorMessage: 'Failed to load invoice report',
@@ -410,7 +412,17 @@ export default function InvoiceReport(): ReactElement {
             All due and past-due Stripe invoices, broken down by collectability.
           </Typography>
         </Box>
-        <ReportStatusBar status={status} loading={loading} onRefresh={refresh} />
+        <ReportStatusBar
+          status={status}
+          loading={loading}
+          history={{
+            entries: history,
+            onOpen: reloadHistory,
+            onView: () => undefined,
+            onRun: () => refresh(),
+            windowed: false,
+          }}
+        />
       </Stack>
 
       <Tabs

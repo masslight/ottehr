@@ -48,7 +48,7 @@ export const patientPaymentsReport: ReportDefinition<
   PatientPaymentsDrilldownParams
 > = {
   kind: 'patient-payments',
-  cacheVersion: 'v2',
+  cacheVersion: 'v3',
   paramsSchema: ReportDateWindowParamsSchema,
   cacheKeyOf: (params) => `${params.dateFrom ?? 'all'}:${params.dateTo ?? 'all'}`,
   emptyPayload: () => ({ rows: [], totals: emptyTotals(), generatedAt: '' }),

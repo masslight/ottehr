@@ -83,6 +83,7 @@ import {
   GetBillingPaymentsReportResponse,
   GetBillingPipelineReportResponse,
   GetBillingProductivityReportResponse,
+  GetBillingReportHistoryResponse,
   GetPatientCoveragesResponse,
   OkResponse,
   PatientDetailResponse,
@@ -500,6 +501,13 @@ export const getBillingProductivityReport = (
   refresh?: boolean
 ): Promise<GetBillingProductivityReportResponse> =>
   getBillingReport(oystehr, 'productivity', params as Record<string, unknown>, refresh);
+
+// this kind's cached runs, newest first
+export const getBillingReportHistory = (
+  oystehr: Oystehr,
+  kind: RefreshReportKind
+): Promise<GetBillingReportHistoryResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-report', { kind, history: true });
 
 // ERA drilldown over the payments report's cached detail
 export const getBillingPaymentsReportDrilldown = (

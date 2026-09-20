@@ -42,7 +42,11 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, _oystehr) => {
     onProgress
   );
   if (!definition.savesOwnCache) {
-    await saveReportCache(oystehr, secrets, definition, fullCacheKey(definition, params), payload);
+    // history info makes this run discoverable in the kind's report history
+    await saveReportCache(oystehr, secrets, definition, fullCacheKey(definition, params), payload, {
+      kind: definition.kind,
+      params,
+    });
   }
   if (detail !== undefined && definition.drilldown) {
     // envelope gives the generic cache a generatedAt
