@@ -21,11 +21,10 @@ async function performEffect(
   oystehr: Oystehr,
   params: BillingClaimTaskParams
 ): Promise<{ taskStatus: Task['status']; statusReason: string }> {
-  try {
-    await createClaimFromEncounter(params);
-  } catch (error) {
-    // The claim may have been saved before the task could be marked completed.
-    if (!(await findBillingClaimForEncounter(oystehr, params.encounterId))) throw error;
+  const existingClaim = await findBillingClaimForEncounter(oystehr, params.encounterId);
+  if (existingClaim) {
+    return { taskStatus: 'completed', statusReason: 'Claim already exists for this encounter' };
   }
+  await createClaimFromEncounter(params);
   return { taskStatus: 'completed', statusReason: 'Claim created successfully' };
 }

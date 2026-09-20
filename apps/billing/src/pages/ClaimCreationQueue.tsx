@@ -257,6 +257,12 @@ export default function ClaimCreationQueue(): ReactElement {
         </Button>
       </Stack>
       {error && <Alert severity="error">{error}</Alert>}
+      {data?.incomplete && !error && (
+        <Alert severity="warning">
+          Some tasks may be missing from these results. Narrow the created date, status, or patient filters to see all
+          matches.
+        </Alert>
+      )}
       <Box sx={{ height: 650, width: '100%' }}>
         <DataGridPro
           rows={data?.tasks ?? []}

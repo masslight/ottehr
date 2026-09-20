@@ -36,6 +36,7 @@ async function performEffect(
   const existingClaim = await findBillingClaimForEncounter(oystehr, params.encounterId);
   if (existingClaim?.id) return { claimId: existingClaim.id };
 
+  // Re-signing reuses the task. Failed tasks are retried from the billing queue.
   const taskParams = [
     { name: 'code', value: `${BILLING_CLAIM_TASK_CODING.system}|${BILLING_CLAIM_TASK_CODING.code}` },
     { name: 'encounter', value: `Encounter/${params.encounterId}` },

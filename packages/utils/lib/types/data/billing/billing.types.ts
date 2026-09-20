@@ -541,6 +541,7 @@ export interface BillingClaimTaskItem {
 
 export interface SearchBillingClaimTasksResponse extends Paginated {
   tasks: BillingClaimTaskItem[];
+  incomplete?: boolean;
 }
 
 export interface BillingClaimsExportKickOffResponse {

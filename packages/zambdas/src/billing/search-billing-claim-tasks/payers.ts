@@ -17,7 +17,8 @@ import {
 export async function getClaimTaskPayerNames(
   clinical: Oystehr,
   billing: Oystehr,
-  resources: (Encounter | Appointment | Account)[]
+  resources: (Encounter | Appointment | Account)[],
+  payerCache = new Map<string, Organization>()
 ): Promise<Map<string, string[]>> {
   const visits = resources
     .filter((r): r is Encounter => r.resourceType === 'Encounter')
@@ -85,8 +86,11 @@ export async function getClaimTaskPayerNames(
   const organizations = coverageResources.filter((r): r is Organization => r.resourceType === 'Organization');
   const nioIds = [...new Set(visits.flatMap((v) => v.payer?.reference?.split('/')[1] || []))];
   const payerRefs = coverages.map((c) => c.payor[0].reference);
-  const [rcmPayers, nonInsurancePayers] = await Promise.all([
-    resolvePayersByRef(clinical, payerRefs),
+  const [resolvedPayers, nonInsurancePayers] = await Promise.all([
+    resolvePayersByRef(
+      clinical,
+      payerRefs.filter((ref) => ref && !payerCache.has(ref))
+    ),
     nioIds.length
       ? getAllFhirSearchPages<Organization>(
           { resourceType: 'Organization', params: [{ name: '_id', value: nioIds.join(',') }] },
@@ -94,12 +98,13 @@ export async function getClaimTaskPayerNames(
         )
       : [],
   ]);
+  resolvedPayers.forEach((payer, ref) => payerCache.set(ref, payer));
   return new Map(
     visits.map((visit) => {
       const selected = selectClaimCoverages(visit.service, visit.accounts, coverages, (c) => `Coverage/${c.id}`);
       const names = selected.flatMap((coverage) => {
         const payor = coverage.payor[0];
-        const organization = rcmPayers.get(payor.reference!) ?? findRef<Organization>(organizations, payor.reference);
+        const organization = payerCache.get(payor.reference!) ?? findRef<Organization>(organizations, payor.reference);
         return organization?.name || payor.display || [];
       });
       const employerName =

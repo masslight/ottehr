@@ -1,10 +1,13 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Account, Appointment, Encounter, Patient, Task } from 'fhir/r4b';
+import { Account, Appointment, Encounter, Organization, Patient, Task } from 'fhir/r4b';
 import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils/lib/fhir/constants';
 import { buildAppointmentStartMap, getEncounterDateTime } from 'utils/lib/fhir/encounter';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { BILLING_CLAIM_TASK_CODING } from 'utils/lib/types/data/billing/billing.constants';
+import {
+  BILLING_CLAIM_TASK_CODING,
+  BILLING_CLAIM_TASK_PAYER_SCAN_LIMIT,
+} from 'utils/lib/types/data/billing/billing.constants';
 import { BillingClaimTaskItem, SearchBillingClaimTasksResponse } from 'utils/lib/types/data/billing/billing.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -81,7 +84,9 @@ async function searchByPayer(
   // Include tasks that have no claim yet.
   const filterParams = searchParams.filter(({ name }) => !['_count', '_offset', '_total'].includes(name));
   const matching: BillingClaimTaskItem[] = [];
+  const payerCache = new Map<string, Organization>();
   const payer = payerName!.toLowerCase();
+  let incomplete = false;
   await fetchAllPages(
     async (scanOffset, count) => {
       const bundle = await billing.fhir.search<Task>({
@@ -93,20 +98,22 @@ async function searchByPayer(
           { name: '_total', value: 'accurate' },
         ],
       });
-      const rows = await getTaskRows(billing, clinical, bundle.unbundle());
+      const rows = await getTaskRows(billing, clinical, bundle.unbundle(), payerCache);
       matching.push(...rows.filter((row) => row.payerNames.some((name) => name.toLowerCase().includes(payer))));
+      incomplete = bundle.link?.some(({ relation }) => relation === 'next') ?? false;
       return bundle;
     },
     100,
-    { failOnLimit: true }
+    { maxItems: BILLING_CLAIM_TASK_PAYER_SCAN_LIMIT }
   );
-  return { tasks: matching.slice(offset, offset + pageSize), total: matching.length, offset, pageSize };
+  return { tasks: matching.slice(offset, offset + pageSize), total: matching.length, offset, pageSize, incomplete };
 }
 
 async function getTaskRows(
   oystehr: Oystehr,
   clinicalOystehr: Oystehr,
-  taskResources: Task[]
+  taskResources: Task[],
+  payerCache?: Map<string, Organization>
 ): Promise<BillingClaimTaskItem[]> {
   const encounterIds = [...new Set(taskResources.flatMap((task) => task.encounter?.reference?.split('/')[1] || []))];
   const patientIds = [...new Set(taskResources.flatMap((task) => task.for?.reference?.split('/')[1] || []))];
@@ -142,7 +149,7 @@ async function getTaskRows(
   }
   const patientsById = new Map(patients.map((patient) => [patient.id, patient]));
   const appointmentStarts = buildAppointmentStartMap(visitResources);
-  const payerNames = await getClaimTaskPayerNames(clinicalOystehr, oystehr, visitResources);
+  const payerNames = await getClaimTaskPayerNames(clinicalOystehr, oystehr, visitResources, payerCache);
   return taskResources.map((task) => {
     const encounterId = task.encounter?.reference?.split('/')[1];
     const patientId = task.for?.reference?.split('/')[1];

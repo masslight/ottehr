@@ -99,11 +99,11 @@ describe('billing claim tasks', () => {
   });
 
   it('completes a retry when the claim was already saved', async () => {
-    createClaim.mockRejectedValueOnce(INVALID_INPUT_ERROR('Claim has already been created for this encounter'));
     billing.fhir.search.mockResolvedValueOnce({ unbundle: () => [{ resourceType: 'Claim', id: 'existing' }] });
     expect((await invoke(runTask, task)).statusCode).toBe(200);
     expect(statuses()).toEqual(['in-progress', 'completed']);
-    expect(billing.fhir.create).not.toHaveBeenCalled();
+    expect(createClaim).not.toHaveBeenCalled();
+    expect(billing.fhir.patch.mock.lastCall![0].operations[1].value.text).toContain('Claim already exists');
   });
 
   it.each(['Claim', 'Task'])('reuses an existing %s instead of enqueueing again', async (type) => {
@@ -125,7 +125,10 @@ describe('billing claim tasks', () => {
       expect(billing.fhir.patch.mock.lastCall?.[0].operations[1].value.text).toBe(reason);
 
       const failedTask = { ...task, status: 'failed', statusReason: { text: reason } };
-      billing.fhir.search.mockResolvedValue({ unbundle: () => [failedTask], total: 1 });
+      billing.fhir.search.mockImplementation(async ({ resourceType }) => ({
+        unbundle: () => (resourceType === 'Task' ? [failedTask] : []),
+        total: 1,
+      }));
       clinical.fhir.search.mockResolvedValue({ unbundle: () => [] });
       const listed = JSON.parse((await invoke(searchTasks, {})).body);
       expect(listed.tasks).toMatchObject([{ id: task.id, status: 'failed', error: error.message }]);
@@ -245,7 +248,7 @@ describe('billing claim tasks', () => {
     );
   });
 
-  it('finds payer matches beyond 1,000 tasks before paginating results', async () => {
+  it('bounds payer search to 1,000 tasks and reports incomplete results', async () => {
     const payerLookup = vi.spyOn(payers, 'getClaimTaskPayerNames');
     payerLookup.mockResolvedValue(new Map([[encounterId, ['Acclaim']]]));
     billing.fhir.search.mockImplementation(async ({ params }) => {
@@ -253,13 +256,14 @@ describe('billing claim tasks', () => {
       const tasks = Array.from({ length: Math.min(100, 1002 - offset) }, (_, i) => ({
         ...task,
         id: `task-${offset + i}`,
-        encounter: offset + i >= 1000 ? task.encounter : undefined,
+        encounter: offset + i >= 999 ? task.encounter : undefined,
       }));
-      return { unbundle: () => tasks, link: offset < 1000 ? [{ relation: 'next', url: 'next' }] : [] };
+      return { unbundle: () => tasks, link: [{ relation: 'next', url: 'next' }] };
     });
-    const result = JSON.parse((await invoke(searchTasks, { payerName: 'accl', offset: 1, pageSize: 1 })).body);
+    const result = JSON.parse((await invoke(searchTasks, { payerName: 'accl', offset: 0, pageSize: 1 })).body);
     payerLookup.mockRestore();
-    expect(result).toMatchObject({ total: 2, tasks: [{ id: 'task-1001' }], offset: 1, pageSize: 1 });
+    expect(result).toMatchObject({ total: 1, tasks: [{ id: 'task-999' }], incomplete: true });
+    expect(billing.fhir.search).toHaveBeenCalledTimes(10);
   });
 
   it('preserves the clinical client and error format for existing task handlers', async () => {
