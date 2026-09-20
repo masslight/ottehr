@@ -6,7 +6,6 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { SearchBillingClaimTasksInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingClaimTaskItem } from 'utils/lib/types/data/billing/billing.types';
 import { formatAntCaseString } from 'utils/lib/types/data/billing/claim-status';
 import { isValidUUID } from 'utils/lib/validation/helper';
@@ -207,7 +206,7 @@ export default function ClaimCreationQueue(): ReactElement {
           }}
         >
           <MenuItem value="">All statuses</MenuItem>
-          {SearchBillingClaimTasksInputSchema.shape.status.unwrap().options.map((value) => (
+          {['requested', 'in-progress', 'completed', 'failed'].map((value) => (
             <MenuItem key={value} value={value}>
               {formatAntCaseString(value)}
             </MenuItem>
@@ -230,12 +229,6 @@ export default function ClaimCreationQueue(): ReactElement {
       {query.isError && (
         <Alert severity="error">
           {getApiError({ error: query.error, defaultError: 'Failed to load claim creation queue' })}
-        </Alert>
-      )}
-      {query.data?.incomplete && !query.isError && (
-        <Alert severity="warning">
-          Some tasks may be missing from these results. Narrow the created date, status, or patient filters to see all
-          matches.
         </Alert>
       )}
       <Box sx={{ height: 650, width: '100%' }}>

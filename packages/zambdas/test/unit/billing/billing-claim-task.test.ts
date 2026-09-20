@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { index as createTask } from '../../../src/billing/create-billing-claim-task/index';
 import { index as retryTask } from '../../../src/billing/retry-billing-claim-task';
 import { index as searchTasks } from '../../../src/billing/search-billing-claim-tasks';
+import * as payers from '../../../src/billing/search-billing-claim-tasks/payers';
 import { ZambdaInput } from '../../../src/shared/types/common';
 import { wrapTaskHandler } from '../../../src/subscriptions/task/helpers';
 import { index as runTask } from '../../../src/subscriptions/task/sub-billing-claim-task/index';
@@ -225,6 +226,23 @@ describe('billing claim tasks', () => {
     expect(filters.filter(({ name }: { name: string }) => name === 'subject:Patient.name:contains')).toEqual(
       terms.map((value) => ({ name: 'subject:Patient.name:contains', value }))
     );
+  });
+
+  it('finds payer matches beyond 1,000 tasks before paginating results', async () => {
+    const payerLookup = vi.spyOn(payers, 'getClaimTaskPayerNames');
+    payerLookup.mockResolvedValue(new Map([[encounterId, ['Acclaim']]]));
+    billing.fhir.search.mockImplementation(async ({ params }) => {
+      const offset = Number(params.find(({ name }: { name: string }) => name === '_offset').value);
+      const tasks = Array.from({ length: Math.min(100, 1002 - offset) }, (_, i) => ({
+        ...task,
+        id: `task-${offset + i}`,
+        encounter: offset + i >= 1000 ? task.encounter : undefined,
+      }));
+      return { unbundle: () => tasks, link: offset < 1000 ? [{ relation: 'next', url: 'next' }] : [] };
+    });
+    const result = JSON.parse((await invoke(searchTasks, { payerName: 'accl', offset: 1, pageSize: 1 })).body);
+    payerLookup.mockRestore();
+    expect(result).toMatchObject({ total: 2, tasks: [{ id: 'task-1001' }], offset: 1, pageSize: 1 });
   });
 
   it('preserves the clinical client and error format for existing task handlers', async () => {

@@ -3,15 +3,12 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Appointment, Encounter, Patient, Task } from 'fhir/r4b';
 import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils/lib/fhir/constants';
 import { buildAppointmentStartMap, getEncounterDateTime } from 'utils/lib/fhir/encounter';
-import { searchPageWithSizeRetry } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import {
-  BILLING_CLAIM_TASK_CODING,
-  BILLING_CLAIM_TASK_PAYER_SCAN_LIMIT,
-} from 'utils/lib/types/data/billing/billing.constants';
+import { BILLING_CLAIM_TASK_CODING } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingClaimTaskItem, SearchBillingClaimTasksResponse } from 'utils/lib/types/data/billing/billing.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { fetchAllPages } from '../../shared/fhir';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -84,32 +81,26 @@ async function searchByPayer(
   // Apply the payer filter before pagination, including tasks whose claims do not exist yet.
   const filterParams = searchParams.filter(({ name }) => !['_count', '_offset', '_total'].includes(name));
   const matching: BillingClaimTaskItem[] = [];
-  const seen = new Set<string>();
   const payer = payerName!.toLowerCase();
-  let scanned = 0;
-  let incomplete = false;
-  let batchSize = 100;
-  while (scanned < BILLING_CLAIM_TASK_PAYER_SCAN_LIMIT) {
-    const { bundle, count } = await searchPageWithSizeRetry<Task>(
-      billing,
-      { resourceType: 'Task', params: filterParams },
-      { offset: scanned, count: Math.min(batchSize, BILLING_CLAIM_TASK_PAYER_SCAN_LIMIT - scanned) }
-    );
-    batchSize = count;
-    const tasks = bundle.unbundle();
-    scanned += tasks.length;
-    const unique = tasks.filter((task) => !seen.has(task.id!));
-    if (tasks.length && !unique.length) {
-      incomplete = true;
-      break;
-    }
-    tasks.forEach((task) => seen.add(task.id!));
-    incomplete = bundle.total === undefined ? tasks.length === count : seen.size < bundle.total;
-    const rows = await getTaskRows(billing, clinical, unique);
-    matching.push(...rows.filter((row) => row.payerNames.some((name) => name.toLowerCase().includes(payer))));
-    if (!tasks.length || !incomplete) break;
-  }
-  return { tasks: matching.slice(offset, offset + pageSize), total: matching.length, offset, pageSize, incomplete };
+  await fetchAllPages(
+    async (scanOffset, count) => {
+      const bundle = await billing.fhir.search<Task>({
+        resourceType: 'Task',
+        params: [
+          ...filterParams,
+          { name: '_count', value: String(count) },
+          { name: '_offset', value: String(scanOffset) },
+          { name: '_total', value: 'accurate' },
+        ],
+      });
+      const rows = await getTaskRows(billing, clinical, bundle.unbundle());
+      matching.push(...rows.filter((row) => row.payerNames.some((name) => name.toLowerCase().includes(payer))));
+      return bundle;
+    },
+    100,
+    { failOnLimit: true }
+  );
+  return { tasks: matching.slice(offset, offset + pageSize), total: matching.length, offset, pageSize };
 }
 
 async function getTaskRows(

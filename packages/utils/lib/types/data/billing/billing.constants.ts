@@ -9,9 +9,6 @@ export const BILLING_CLAIM_TASK_CODING = {
   code: 'billing-claim',
 };
 
-// Payer filtering hydrates clinical visit data; bound each scan and report incomplete results.
-export const BILLING_CLAIM_TASK_PAYER_SCAN_LIMIT = 1_000;
-
 export const CLAIM_STATUS_PROCESSED_TAG = {
   system: 'https://fhir.ottehr.com/billing/claim-status-processed',
   code: 'processed',
