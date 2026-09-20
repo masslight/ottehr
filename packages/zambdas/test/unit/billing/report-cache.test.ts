@@ -129,6 +129,18 @@ describe('report-cache DocumentReference meta store', () => {
     expect(deleteObject).toHaveBeenCalledWith(expect.objectContaining({ 'objectPath+': uploads[0].path }));
   });
 
+  it('a 412 on the version-locked update is a lost race, not a failure', async () => {
+    const { oystehr, uploads, update, deleteObject } = clientWith([committedDoc()]);
+    update.mockRejectedValue(new Oystehr.OystehrSdkError({ message: 'Precondition Failed', code: 412 }));
+
+    const committed = await saveReportCache(oystehr, secrets, {}, CACHE_KEY, payload);
+    expect(committed).toBe(false);
+
+    // only this attempt's upload is deleted; the winner's committed generation stays
+    expect(deleteObject).toHaveBeenCalledTimes(1);
+    expect(deleteObject).toHaveBeenCalledWith(expect.objectContaining({ 'objectPath+': uploads[0].path }));
+  });
+
   it('a failed commit throws REPORT_CACHE_WRITE_FAILED', async () => {
     const { oystehr, create } = clientWith([]);
     create.mockRejectedValue(new Error('boom'));

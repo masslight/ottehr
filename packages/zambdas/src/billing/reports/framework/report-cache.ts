@@ -8,6 +8,7 @@ import { REPORT_CACHE_WRITE_FAILED_ERROR } from 'utils/lib/types/errors';
 import { gunzipSync, gzipSync } from 'zlib';
 import { fetchAllPages } from '../../../shared/fhir';
 import { BILLING_APP_BUCKET } from '../../shared';
+import { isVersionConflict } from './refresh-task';
 import { ReportPayload } from './types';
 
 // Gzipped JSON cache objects in the billing-app Z3 bucket, committed through a DocumentReference
@@ -319,17 +320,27 @@ export async function saveReportCache<Payload extends ReportPayload>(
     });
     // the DocumentReference write atomically commits the new generation; version-locked so a
     // concurrent save can never be silently overwritten
-    const committed = previousMeta?.docId
-      ? await oystehr.fhir.update<DocumentReference>(
-          { ...doc, id: previousMeta.docId },
-          { optimisticLockingVersionId: previousMeta.docVersionId }
-        )
-      : await oystehr.fhir.create<DocumentReference>(doc, {
-          ifNoneExist: [
-            { name: 'identifier', value: `${REPORT_CACHE_IDENTIFIER_SYSTEM}|${cacheKey}` },
-            { name: 'status', value: 'current' },
-          ],
-        });
+    let committed: DocumentReference;
+    try {
+      committed = previousMeta?.docId
+        ? await oystehr.fhir.update<DocumentReference>(
+            { ...doc, id: previousMeta.docId },
+            { optimisticLockingVersionId: previousMeta.docVersionId }
+          )
+        : await oystehr.fhir.create<DocumentReference>(doc, {
+            ifNoneExist: [
+              { name: 'identifier', value: `${REPORT_CACHE_IDENTIFIER_SYSTEM}|${cacheKey}` },
+              { name: 'status', value: 'current' },
+            ],
+          });
+    } catch (err) {
+      // 412: a concurrent save re-committed since our meta read — the same benign lost race
+      // as a conditional-create mismatch, not a failure
+      if (!isVersionConflict(err)) throw err;
+      await deleteObjectQuietly(oystehr, secrets, objectPath);
+      if (publicCopy) await deleteObjectQuietly(oystehr, secrets, publicCopy.url);
+      return false;
+    }
     // conditional create can return a concurrent writer's commit; then our generation lost the race
     if (attachmentByTitle(committed, 'raw')?.url !== objectPath) {
       await deleteObjectQuietly(oystehr, secrets, objectPath);

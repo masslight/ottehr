@@ -1,5 +1,5 @@
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
-import { Alert, Box, Button, Chip, Link, Stack, Tab, Tabs, Typography } from '@mui/material';
+import { Alert, Box, Button, ButtonBase, Chip, Link, Stack, Tab, Tabs, Typography } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
@@ -231,41 +231,52 @@ function StatCard({
   active?: boolean;
   onClick?: () => void;
 }): ReactElement {
-  return (
-    <Box
-      onClick={onClick}
-      sx={{
-        flex: 1,
-        minWidth: 160,
-        position: 'relative',
-        bgcolor: active ? reportPalette.activeCardBg : 'background.paper',
-        border: `1px solid ${active ? reportPalette.activeCardBorder : otherColors.lightDivider}`,
-        borderRadius: 2,
-        px: 2.5,
-        py: 2,
-        ...(onClick
-          ? {
-              cursor: 'pointer',
-              '&:hover': { borderColor: reportPalette.activeCardBorder, bgcolor: otherColors.apptHover },
-              '&:hover .card-action-hint': { color: 'primary.main' },
-            }
-          : {}),
-      }}
-    >
+  const cardSx = {
+    flex: 1,
+    minWidth: 160,
+    position: 'relative',
+    bgcolor: active ? reportPalette.activeCardBg : 'background.paper',
+    border: `1px solid ${active ? reportPalette.activeCardBorder : otherColors.lightDivider}`,
+    borderRadius: 2,
+    px: 2.5,
+    py: 2,
+  } as const;
+  const content = (
+    <>
       {onClick && <CardActionHint kind="filter" active={active} />}
       <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.4 }}>
         {label}
       </Typography>
-      <Typography variant="h5" fontWeight={600} sx={{ mt: 0.5, color: color ?? 'primary.dark' }}>
+      <Typography variant="h5" fontWeight={600} sx={{ mt: 0.5, color: color ?? 'primary.dark' }} component="div">
         {value}
       </Typography>
       {hint && (
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" color="text.secondary" component="div">
           {hint}
         </Typography>
       )}
-    </Box>
+    </>
   );
+  // filter cards are toggles: a real button keeps them keyboard/AT-operable
+  if (onClick) {
+    return (
+      <ButtonBase
+        focusRipple
+        onClick={onClick}
+        aria-pressed={!!active}
+        sx={{
+          ...cardSx,
+          display: 'block',
+          textAlign: 'left',
+          '&:hover': { borderColor: reportPalette.activeCardBorder, bgcolor: otherColors.apptHover },
+          '&:hover .card-action-hint': { color: 'primary.main' },
+        }}
+      >
+        {content}
+      </ButtonBase>
+    );
+  }
+  return <Box sx={cardSx}>{content}</Box>;
 }
 
 export default function InvoiceReport(): ReactElement {
