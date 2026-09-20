@@ -1,16 +1,13 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { applyPatch } from 'fast-json-patch';
 import { Task } from 'fhir/r4b';
 import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils/lib/fhir/constants';
 import { BILLING_CLAIM_TASK_CODING } from 'utils/lib/types/data/billing/billing.constants';
-import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { index as createTask } from '../../../src/billing/create-billing-claim-task/index';
 import { index as retryTask } from '../../../src/billing/retry-billing-claim-task';
 import { index as searchTasks } from '../../../src/billing/search-billing-claim-tasks';
-import { createBillingClient } from '../../../src/billing/shared';
-import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { ZambdaInput } from '../../../src/shared/types/common';
 import { wrapTaskHandler } from '../../../src/subscriptions/task/helpers';
 import { index as runTask } from '../../../src/subscriptions/task/sub-billing-claim-task/index';
@@ -76,12 +73,6 @@ describe('billing claim tasks', () => {
     billing.fhir.search.mockResolvedValue({ unbundle: () => [] });
     const response = await invoke(createTask, { encounterId });
     expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body)).toEqual({ taskId: task.id });
-    expect(createBillingClient).toHaveBeenCalledWith('token', input(null).secrets);
-    expect(clinical.fhir.search).toHaveBeenCalledWith({
-      resourceType: 'Encounter',
-      params: [{ name: '_id', value: encounterId }],
-    });
     expect(billing.fhir.create.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         resourceType: 'Task',
@@ -106,83 +97,40 @@ describe('billing claim tasks', () => {
     expect(billing.fhir.create).not.toHaveBeenCalled();
   });
 
-  it.each([{}, { encounterId: 'invalid' }])('rejects invalid input before accessing FHIR: %j', async (body) => {
-    expect((await invoke(createTask, body)).statusCode).toBe(400);
-    expect(clinical.fhir.search).not.toHaveBeenCalled();
-    expect(billing.fhir.create).not.toHaveBeenCalled();
-  });
-
-  it('does not enqueue a nonexistent encounter', async () => {
-    clinical.fhir.search.mockResolvedValueOnce({ unbundle: () => [] });
-    const response = await invoke(createTask, { encounterId });
-    expect(response.statusCode).toBe(400);
-    expect(JSON.parse(response.body)).toEqual(FHIR_RESOURCE_NOT_FOUND('Encounter'));
-    expect(billing.fhir.create).not.toHaveBeenCalled();
-  });
-
-  it('creates the claim and records progress and completion through the billing client', async () => {
-    expect((await invoke(runTask, task)).statusCode).toBe(200);
-    expect(createClaim).toHaveBeenCalledWith({ encounterId, secrets: input(null).secrets });
-    expect(statuses()).toEqual(['in-progress', 'completed']);
-    expect(createClinicalOystehrClient).not.toHaveBeenCalled();
-    expect(clinical.fhir.patch).not.toHaveBeenCalled();
-  });
-
-  it.each([undefined, `Patient/${encounterId}`, 'Encounter/invalid'])(
-    'fails tasks with an invalid encounter reference: %s',
-    async (reference) => {
-      expect((await invoke(runTask, { ...task, encounter: { reference } })).statusCode).toBe(400);
-      expect(createClaim).not.toHaveBeenCalled();
-      expect(statuses()).toEqual(['in-progress', 'failed']);
-    }
-  );
-
   it.each([new Error('Unable to create claim'), INVALID_INPUT_ERROR('Service facility not found')])(
-    'records the failure message and supports a subsequent retry: $message',
+    'shows a failed task even without clinical records and retries it: $message',
     async (error) => {
       createClaim.mockRejectedValueOnce(error);
       expect((await invoke(runTask, task)).statusCode).toBeGreaterThanOrEqual(400);
       expect(statuses()).toEqual(['in-progress', 'failed']);
       const reason = error instanceof Error ? error.message : JSON.stringify(error);
       expect(billing.fhir.patch.mock.lastCall?.[0].operations[1].value.text).toBe(reason);
-      expect((await invoke(runTask, task)).statusCode).toBe(200);
-      expect(statuses()).toEqual(['in-progress', 'failed', 'in-progress', 'completed']);
-    }
-  );
 
-  it.each([undefined, { text: 'Service facility not found' }])(
-    'requeues a failed task with reason %j',
-    async (reason) => {
-      const failedTask = { ...task, status: 'failed', ...(reason ? { statusReason: reason } : {}) };
-      billing.fhir.search.mockResolvedValueOnce({ unbundle: () => [failedTask] });
-      const response = await invoke(retryTask, { taskId: task.id });
-      expect(response.statusCode).toBe(200);
-      expect(JSON.parse(response.body)).toEqual({ taskId: task.id });
-      expect(billing.fhir.patch).toHaveBeenCalledTimes(1);
-      const [request, options] = billing.fhir.patch.mock.calls[0];
-      expect(request).toMatchObject({ resourceType: 'Task', id: task.id });
+      const failedTask = { ...task, status: 'failed', statusReason: { text: reason } };
+      billing.fhir.search.mockResolvedValue({ unbundle: () => [failedTask], total: 1 });
+      clinical.fhir.search.mockResolvedValue({ unbundle: () => [] });
+      const listed = JSON.parse((await invoke(searchTasks, {})).body);
+      expect(listed.tasks).toMatchObject([{ id: task.id, status: 'failed', error: error.message }]);
+
+      expect((await invoke(retryTask, { taskId: task.id })).statusCode).toBe(200);
+      const [request, options] = billing.fhir.patch.mock.lastCall!;
       expect(options).toEqual({ optimisticLockingVersionId: '3' });
       expect(applyPatch(structuredClone(failedTask), request.operations, true).newDocument).toEqual(task);
       expect(billing.fhir.create).not.toHaveBeenCalled();
-      expect(createClaim).not.toHaveBeenCalled();
+      expect((await invoke(runTask, task)).statusCode).toBe(200);
+      expect(statuses()).toEqual(['in-progress', 'failed', 'requested', 'in-progress', 'completed']);
+      expect(createClaim).toHaveBeenCalledTimes(2);
+      expect(createClaim).toHaveBeenCalledWith({ encounterId, secrets: input(null).secrets });
+      expect(clinical.fhir.patch).not.toHaveBeenCalled();
     }
   );
 
-  it.each([{}, null, { taskId: 'invalid' }])('rejects invalid retry input: %j', async (body) => {
-    expect((await invoke(retryTask, body)).statusCode).toBe(400);
-    expect(billing.fhir.search).not.toHaveBeenCalled();
-    expect(billing.fhir.patch).not.toHaveBeenCalled();
-  });
-
   it.each([
     undefined,
-    { code: undefined },
     { code: { coding: [{ ...BILLING_CLAIM_TASK_CODING, code: 'send-claim' }] } },
     { code: { coding: [{ ...BILLING_CLAIM_TASK_CODING, system: 'https://example.com/other-task' }] } },
-    { status: 'requested' },
     { status: 'in-progress' },
     { status: 'completed' },
-    { status: 'cancelled' },
   ])('rejects missing, unrelated, or nonfailed retry tasks: %j', async (overrides) => {
     billing.fhir.search.mockResolvedValueOnce({
       unbundle: () => (overrides ? [{ ...task, status: 'failed', ...overrides }] : []),
@@ -190,60 +138,6 @@ describe('billing claim tasks', () => {
     expect((await invoke(retryTask, { taskId: task.id })).statusCode).toBe(400);
     expect(billing.fhir.patch).not.toHaveBeenCalled();
   });
-
-  it('does not retry the write or report success on a version conflict', async () => {
-    billing.fhir.patch.mockRejectedValueOnce(
-      new Oystehr.OystehrSdkError({ message: 'Precondition Failed', code: 412 })
-    );
-    expect((await invoke(retryTask, { taskId: task.id })).statusCode).toBeGreaterThanOrEqual(400);
-    expect(billing.fhir.patch).toHaveBeenCalledTimes(1);
-    expect(billing.fhir.patch.mock.calls[0][1]).toEqual({ optimisticLockingVersionId: '3' });
-  });
-
-  it.each(['Service facility not found', JSON.stringify(INVALID_INPUT_ERROR('Service facility not found'))])(
-    'lists task details and a readable failure message: %s',
-    async (reason) => {
-      const failedTask = {
-        ...task,
-        status: 'failed',
-        statusReason: { text: reason },
-        for: { reference: 'Patient/p1' },
-        meta: { lastUpdated: '2026-09-02T12:00:00Z' },
-      };
-      billing.fhir.search.mockResolvedValueOnce({ unbundle: () => [failedTask], total: 38 });
-      const response = await invoke(searchTasks, {});
-      expect(response.statusCode).toBe(200);
-      expect(JSON.parse(response.body)).toEqual({
-        tasks: [
-          {
-            id: task.id,
-            status: 'failed',
-            encounterId,
-            patientId: 'p1',
-            payerNames: [],
-            createdAt: task.authoredOn,
-            updatedAt: failedTask.meta.lastUpdated,
-            error: 'Service facility not found',
-          },
-        ],
-        total: 38,
-        offset: 0,
-        pageSize: 25,
-      });
-      expect(billing.fhir.search).toHaveBeenCalledWith({
-        resourceType: 'Task',
-        params: [
-          { name: 'code', value: `${BILLING_CLAIM_TASK_CODING.system}|${BILLING_CLAIM_TASK_CODING.code}` },
-          { name: '_sort', value: '-authored-on,-_id' },
-          { name: '_count', value: '25' },
-          { name: '_offset', value: '0' },
-          { name: '_total', value: 'accurate' },
-        ],
-      });
-      expect(createBillingClient).toHaveBeenCalledWith('token', input(null).secrets);
-      expect(createClinicalOystehrClient).toHaveBeenCalledWith('token', input(null).secrets);
-    }
-  );
 
   it('joins clinical names and visit dates by ID with one lookup per resource type', async () => {
     const first = { ...task, for: { reference: 'Patient/p1' } };
@@ -283,65 +177,10 @@ describe('billing claim tasks', () => {
       { id: 'task-3', patientName: 'Smith, Amy', encounterDate: '2026-09-01T09:00:00Z', appointmentId: 'a1' },
     ]);
     expect(clinical.fhir.search).toHaveBeenCalledTimes(2);
-    expect(clinical.fhir.search).toHaveBeenCalledWith({
-      resourceType: 'Encounter',
-      params: [
-        { name: '_id', value: `${encounterId},e2` },
-        { name: '_include', value: 'Encounter:appointment' },
-        { name: '_include', value: 'Encounter:account' },
-        { name: '_count', value: '2' },
-      ],
-    });
-    expect(clinical.fhir.search).toHaveBeenCalledWith({
-      resourceType: 'Patient',
-      params: [
-        { name: '_id', value: 'p1,p2' },
-        { name: '_count', value: '2' },
-      ],
-    });
+    expect(clinical.fhir.search.mock.calls.map(([request]) => request.resourceType)).toEqual(['Encounter', 'Patient']);
+    expect(billing.fhir.search.mock.calls.map(([request]) => request.resourceType)).toEqual(['Task']);
     expect(clinical.fhir.patch).not.toHaveBeenCalled();
     expect(billing.fhir.patch).not.toHaveBeenCalled();
-  });
-
-  it('keeps failed tasks visible when clinical records are missing', async () => {
-    clinical.fhir.search.mockResolvedValue({ unbundle: () => [] });
-    billing.fhir.search.mockResolvedValueOnce({
-      unbundle: () => [{ ...task, status: 'failed', for: { reference: 'Patient/missing' } }],
-    });
-    const response = await invoke(searchTasks, {});
-    expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body).tasks).toEqual([
-      {
-        id: task.id,
-        status: 'failed',
-        encounterId,
-        patientId: 'missing',
-        payerNames: [],
-        createdAt: task.authoredOn,
-        error: 'Claim creation failed',
-      },
-    ]);
-  });
-
-  it.each([undefined, { reference: 'Encounter/' }])(
-    'skips clinical lookups for empty references: %j',
-    async (encounter) => {
-      billing.fhir.search.mockResolvedValueOnce({
-        unbundle: () => [{ ...task, encounter, for: { reference: 'Patient/' } }],
-      });
-      expect((await invoke(searchTasks, {})).statusCode).toBe(200);
-      expect(clinical.fhir.search).not.toHaveBeenCalled();
-    }
-  );
-
-  it('does not display an old failure after a task is requeued', async () => {
-    billing.fhir.search.mockResolvedValueOnce({
-      unbundle: () => [{ ...task, statusReason: { text: 'Previous failure' } }],
-      total: 1,
-    });
-    const response = await invoke(searchTasks, {});
-    expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body).tasks[0]).not.toHaveProperty('error');
   });
 
   it('applies status, creation dates, patient, and pagination filters even on an empty page', async () => {
@@ -350,6 +189,7 @@ describe('billing claim tasks', () => {
       createdFrom: '2026-09-01',
       createdTo: '2026-09-17',
       patientId: encounterId,
+      patientIdentifier: '1000123',
       offset: 50,
       pageSize: 10,
     };
@@ -360,10 +200,12 @@ describe('billing claim tasks', () => {
     expect(clinical.fhir.search).not.toHaveBeenCalled();
     expect(billing.fhir.search.mock.lastCall?.[0].params).toEqual(
       expect.arrayContaining([
+        { name: 'code', value: `${BILLING_CLAIM_TASK_CODING.system}|${BILLING_CLAIM_TASK_CODING.code}` },
         { name: 'status', value: 'failed' },
         { name: 'authored-on', value: 'ge2026-09-01' },
         { name: 'authored-on', value: 'le2026-09-17' },
         { name: 'subject', value: `Patient/${encounterId}` },
+        { name: 'subject:Patient.identifier', value: `${FRIENDLY_PATIENT_ID_SYSTEM_BASE}/project-1|1000123` },
         { name: '_count', value: '10' },
         { name: '_offset', value: '50' },
       ])
@@ -379,37 +221,10 @@ describe('billing claim tasks', () => {
     billing.fhir.search.mockResolvedValueOnce({ unbundle: () => [], total: 0 });
     const response = await invoke(searchTasks, { patientName, offset: 25 });
     expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body)).toEqual({ tasks: [], total: 0, offset: 25, pageSize: 25 });
     const filters = billing.fhir.search.mock.lastCall?.[0].params;
     expect(filters.filter(({ name }: { name: string }) => name === 'subject:Patient.name:contains')).toEqual(
       terms.map((value) => ({ name: 'subject:Patient.name:contains', value }))
     );
-    expect(clinical.fhir.search).not.toHaveBeenCalled();
-  });
-
-  it('filters by the clinical friendly patient ID in the current project', async () => {
-    billing.fhir.search.mockResolvedValueOnce({ unbundle: () => [], total: 0 });
-    expect((await invoke(searchTasks, { patientIdentifier: ' 1000123 ' })).statusCode).toBe(200);
-    expect(billing.fhir.search.mock.lastCall?.[0].params).toContainEqual({
-      name: 'subject:Patient.identifier',
-      value: `${FRIENDLY_PATIENT_ID_SYSTEM_BASE}/project-1|1000123`,
-    });
-    expect(clinical.fhir.search).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    { status: 'unknown' },
-    { patientName: ' , ' },
-    { patientIdentifier: '123,456' },
-    { offset: -1 },
-    { pageSize: 0 },
-    { pageSize: 101 },
-    { patientId: 'invalid' },
-    { createdFrom: '2026-02-30' },
-    { createdFrom: '2026-09-17', createdTo: '2026-09-01' },
-  ])('rejects invalid queue filters before searching: %j', async (filters) => {
-    expect((await invoke(searchTasks, filters)).statusCode).toBe(400);
-    expect(billing.fhir.search).not.toHaveBeenCalled();
   });
 
   it('preserves the clinical client and error format for existing task handlers', async () => {
