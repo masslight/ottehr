@@ -43,10 +43,15 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, _oystehr) => {
   );
   if (!definition.savesOwnCache) {
     // history info makes this run discoverable in the kind's report history
-    await saveReportCache(oystehr, secrets, definition, fullCacheKey(definition, params), payload, {
+    const committed = await saveReportCache(oystehr, secrets, definition, fullCacheKey(definition, params), payload, {
       kind: definition.kind,
       params,
     });
+    // a concurrent refresh won the commit: writing our detail or chaining a continuation would
+    // pair the winner's report with this run's data
+    if (!committed) {
+      return { taskStatus: 'completed', statusReason: 'superseded by a concurrent refresh' };
+    }
   }
   if (detail !== undefined && definition.drilldown) {
     // envelope gives the generic cache a generatedAt

@@ -72,10 +72,11 @@ describe('report-cache DocumentReference meta store', () => {
   it('first save uploads a generation and commits it via conditional create with history metadata', async () => {
     const { oystehr, uploads, create, update } = clientWith([]);
 
-    await saveReportCache(oystehr, secrets, {}, CACHE_KEY, payload, {
+    const committed = await saveReportCache(oystehr, secrets, {}, CACHE_KEY, payload, {
       kind: 'pipeline',
       params: { dateFrom: '2026-01-01', dateTo: '2026-01-31' },
     });
+    expect(committed).toBe(true);
 
     expect(uploads).toHaveLength(1);
     expect(uploads[0].path).toMatch(/^billing-reports\/pipeline_v2_2026-01-01_2026-01-31\/.*\.json\.gz$/);
@@ -116,12 +117,13 @@ describe('report-cache DocumentReference meta store', () => {
     expect(uploads[0].path).not.toBe('billing-reports/pipeline_v2_2026-01-01_2026-01-31/old-rev.json.gz');
   });
 
-  it('losing a concurrent create race deletes its own orphaned upload and keeps the winner', async () => {
+  it('losing a concurrent create race reports not-committed and deletes its own orphaned upload', async () => {
     const { oystehr, uploads, create, deleteObject } = clientWith([]);
     // conditional create answers with the concurrent winner's doc
     create.mockImplementation(async () => committedDoc());
 
-    await saveReportCache(oystehr, secrets, {}, CACHE_KEY, payload);
+    const committed = await saveReportCache(oystehr, secrets, {}, CACHE_KEY, payload);
+    expect(committed).toBe(false);
 
     expect(deleteObject).toHaveBeenCalledTimes(1);
     expect(deleteObject).toHaveBeenCalledWith(expect.objectContaining({ 'objectPath+': uploads[0].path }));
@@ -159,5 +161,21 @@ describe('report-cache DocumentReference meta store', () => {
     expect(entries).toEqual([
       { params: { dateFrom: '2026-01-01' }, generatedAt: '2026-02-01T09:00:00.000Z', sizeBytes: 111 },
     ]);
+  });
+
+  it('listReportCacheHistory follows pagination links so runs past the first page are not dropped', async () => {
+    const runFor = (day: string): DocumentReference =>
+      committedDoc({ extension: [{ url: PARAMS_EXTENSION_URL, valueString: `{"dateFrom":"${day}"}` }] });
+    const search = vi.fn(async ({ params }: { params: { name: string; value: string }[] }) => {
+      const offset = Number(params.find((param) => param.name === '_offset')?.value ?? '0');
+      return offset === 0
+        ? { link: [{ relation: 'next', url: 'next-page' }], unbundle: () => [runFor('2026-01-01')] }
+        : { unbundle: () => [runFor('2026-02-01')] };
+    });
+    const oystehr = { fhir: { search } } as unknown as Oystehr;
+
+    const entries = await listReportCacheHistory(oystehr, { kind: 'pipeline', cacheVersion: 'v2' });
+    expect(search).toHaveBeenCalledTimes(2);
+    expect(entries.map((entry) => entry.params.dateFrom)).toEqual(['2026-01-01', '2026-02-01']);
   });
 });

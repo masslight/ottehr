@@ -6,6 +6,7 @@ import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { BillingReportHistoryEntry } from 'utils/lib/types/data/billing/billing.types';
 import { REPORT_CACHE_WRITE_FAILED_ERROR } from 'utils/lib/types/errors';
 import { gunzipSync, gzipSync } from 'zlib';
+import { fetchAllPages } from '../../../shared/fhir';
 import { BILLING_APP_BUCKET } from '../../shared';
 import { ReportPayload } from './types';
 
@@ -203,24 +204,29 @@ const paramsOf = (doc: DocumentReference): Record<string, unknown> => {
   }
 };
 
-// All cached runs of one kind at its current cacheVersion, newest first. One FHIR search:
-// primary saves stamp kind + params on their meta DocumentReference.
+// All cached runs of one kind at its current cacheVersion, newest first. Meta DocumentReferences
+// are tiny, so every page is fetched — the popover list scrolls, and nothing is silently dropped.
 export async function listReportCacheHistory(
   oystehr: Oystehr,
   definition: { kind: string; cacheVersion: string }
 ): Promise<BillingReportHistoryEntry[]> {
-  const bundle = await oystehr.fhir.search<DocumentReference>({
-    resourceType: 'DocumentReference',
-    params: [
-      { name: 'type', value: `${REPORT_CACHE_KIND_SYSTEM}|${definition.kind}` },
-      { name: 'status', value: 'current' },
-      { name: '_sort', value: '-date' },
-      { name: '_count', value: '100' },
-    ],
-  });
+  const docs: DocumentReference[] = [];
+  await fetchAllPages(async (offset, count) => {
+    const bundle = await oystehr.fhir.search<DocumentReference>({
+      resourceType: 'DocumentReference',
+      params: [
+        { name: 'type', value: `${REPORT_CACHE_KIND_SYSTEM}|${definition.kind}` },
+        { name: 'status', value: 'current' },
+        { name: '_sort', value: '-date' },
+        { name: '_count', value: String(count) },
+        { name: '_offset', value: String(offset) },
+      ],
+    });
+    docs.push(...bundle.unbundle());
+    return bundle;
+  }, 100);
   const keyPrefix = `${definition.kind}:${definition.cacheVersion}:`;
-  return bundle
-    .unbundle()
+  return docs
     .filter(
       (doc) =>
         doc.identifier?.some(
@@ -279,8 +285,10 @@ function buildCacheDoc(input: {
   } as DocumentReference;
 }
 
-// a failed write throws: the cache is the delivery mechanism, so the refresh Task must fail
-// visibly instead of completing over stale or missing data
+// A failed write throws: the cache is the delivery mechanism, so the refresh Task must fail
+// visibly instead of completing over stale or missing data. Returns false when a concurrent
+// save won the commit — the caller must then discard its sibling artifacts (detail cache,
+// continuation) so the winner's snapshot never pairs with a loser's data.
 export async function saveReportCache<Payload extends ReportPayload>(
   oystehr: Oystehr,
   secrets: Secrets | null,
@@ -288,7 +296,7 @@ export async function saveReportCache<Payload extends ReportPayload>(
   cacheKey: string,
   payload: Payload,
   history?: ReportCacheHistoryInfo
-): Promise<void> {
+): Promise<boolean> {
   let previousMeta: ReportCacheMeta | undefined;
   try {
     previousMeta = await loadReportCacheMeta(oystehr, cacheKey);
@@ -326,7 +334,7 @@ export async function saveReportCache<Payload extends ReportPayload>(
     if (attachmentByTitle(committed, 'raw')?.url !== objectPath) {
       await deleteObjectQuietly(oystehr, secrets, objectPath);
       if (publicCopy) await deleteObjectQuietly(oystehr, secrets, publicCopy.url);
-      return;
+      return false;
     }
   } catch (err) {
     console.error(`Failed to save report cache ${cacheKey}:`, err);
@@ -338,4 +346,5 @@ export async function saveReportCache<Payload extends ReportPayload>(
   // superseded generation is unreachable once the DocumentReference committed
   if (previousMeta?.objectPath) await deleteObjectQuietly(oystehr, secrets, previousMeta.objectPath);
   if (previousMeta?.publicObjectPath) await deleteObjectQuietly(oystehr, secrets, previousMeta.publicObjectPath);
+  return true;
 }

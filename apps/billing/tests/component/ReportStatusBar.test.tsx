@@ -57,7 +57,8 @@ describe('ReportStatusBar history control', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Run report' }));
     expect(onRun).toHaveBeenCalledTimes(1);
     const params = onRun.mock.calls[0][0];
-    expect(params.dateFrom).toBe(DateTime.now().minus({ days: 30 }).toISODate());
+    // inclusive bounds: 29 back + today = 30 days
+    expect(params.dateFrom).toBe(DateTime.now().minus({ days: 29 }).toISODate());
     expect(params.dateTo).toBe(DateTime.now().toISODate());
   });
 

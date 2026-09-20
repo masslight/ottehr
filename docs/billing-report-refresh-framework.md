@@ -145,7 +145,7 @@ clinical resources (`untaggedClient`), and `secrets` for external systems (Strip
   computed, serve `emptyPayload()` inline — nothing is queued; a compute runs only on an
   explicit refresh.
 - **Refresh** (`refresh: true`): queue a refresh (idempotent, §6) and fall through to fetch.
-- **History** (`history: true`): list this kind's cached runs — one FHIR search over the meta
+- **History** (`history: true`): list this kind's cached runs — a paginated search over the meta
   DocumentReferences (§7) — as `{ entries: [{ params, generatedAt, sizeBytes }] }`, newest
   first. Entries at a stale `cacheVersion` are filtered out.
 - **Drilldown** (`drilldown: {…}`): validate against the definition's drilldown schema, load
@@ -226,8 +226,9 @@ object-name charset.)
   then a single DocumentReference write (conditional create the first time, version-locked
   update after) atomically switches readers to them — readers always resolve object paths
   through the meta doc. A torn write leaves the previous generation live; the superseded
-  generation is deleted best-effort after the commit, and a save that loses a concurrent
-  create race deletes its own orphaned upload.
+  generation is deleted best-effort after the commit. A save that loses a concurrent create
+  race deletes its own orphaned upload and reports not-committed — the worker then skips its
+  detail save and continuation so the winner's report never pairs with the loser's data.
 - **A failed save fails the refresh Task** (`REPORT_CACHE_WRITE_FAILED`): the cache is the
   delivery mechanism, so completing over a failed write would show idle status over stale data.
 - `cacheVersion` bumps orphan old entries rather than migrating them (history filters them out).
