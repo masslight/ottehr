@@ -6,6 +6,16 @@
  * When the assembly switches to the visit-note builder, this snapshot must not change.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Use the base (project-agnostic) screening questions config so this characterization
+// test is independent of any project-specific overlay that narrows the question set.
+vi.mock('utils/lib/ottehr-config/screening-questions', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/screening-questions')>();
+  return {
+    ...original,
+    patientScreeningQuestionsConfig: original.baseScreeningQuestionsConfig,
+  };
+});
 import { composeProgressNoteData } from '../../src/shared/pdf/progress-note-pdf';
 import { ProgressNoteInput } from '../../src/shared/pdf/types';
 import {
