@@ -517,6 +517,7 @@ export const SearchBillingClaimTasksInputSchema = z.object({
   patientId: z.string().uuid().optional(),
   patientName: nonEmptyString.regex(/[^\s,]/, 'Patient name cannot be blank').optional(),
   patientIdentifier: nonEmptyString.regex(/^\d+$/, 'Expected a numeric patient ID').optional(),
+  payerName: nonEmptyString.optional(),
   offset: nonNegativeInt.default(0),
   pageSize: z.number().int().min(1).max(100).default(25),
 });

@@ -124,6 +124,8 @@ export default function ClaimCreationQueue(): ReactElement {
   const [dates, setDates] = useState({ from: '', to: '' });
   const [patientText, setPatientText] = useState('');
   const [patient, setPatient] = useState('');
+  const [payerText, setPayerText] = useState('');
+  const [payerName, setPayerName] = useState('');
   const patientFilter = !patient
     ? {}
     : isValidUUID(patient)
@@ -132,7 +134,7 @@ export default function ClaimCreationQueue(): ReactElement {
     ? { patientIdentifier: patient }
     : { patientName: patient };
   const query = useQuery({
-    queryKey: [...QUERY_KEY, status, dates, patient, pagination],
+    queryKey: [...QUERY_KEY, status, dates, patient, payerName, pagination],
     enabled: !!oystehrZambda,
     queryFn: () =>
       searchBillingClaimTasks(oystehrZambda!, {
@@ -140,11 +142,12 @@ export default function ClaimCreationQueue(): ReactElement {
         createdFrom: dates.from || undefined,
         createdTo: dates.to || undefined,
         ...patientFilter,
+        payerName: payerName || undefined,
         offset: pagination.page * pagination.pageSize,
         pageSize: pagination.pageSize,
       }),
     placeholderData: keepPreviousData,
-    refetchInterval: 15_000,
+    refetchInterval: payerName ? 60_000 : 15_000,
   });
   return (
     <Stack spacing={3}>
@@ -165,6 +168,7 @@ export default function ClaimCreationQueue(): ReactElement {
           onSubmit={(event) => {
             event.preventDefault();
             setPatient(patientText.trim());
+            setPayerName(payerText.trim());
             setPagination((previous) => ({ ...previous, page: 0 }));
           }}
         >
@@ -173,6 +177,12 @@ export default function ClaimCreationQueue(): ReactElement {
             label="Patient ID or name"
             value={patientText}
             onChange={(event) => setPatientText(event.target.value)}
+          />
+          <TextField
+            size="small"
+            label="Payer name"
+            value={payerText}
+            onChange={(event) => setPayerText(event.target.value)}
           />
           <Button type="submit">Search</Button>
         </Box>
@@ -207,6 +217,8 @@ export default function ClaimCreationQueue(): ReactElement {
           onClick={() => {
             setPatientText('');
             setPatient('');
+            setPayerText('');
+            setPayerName('');
             setStatus('');
             setDates({ from: '', to: '' });
             setPagination((previous) => ({ ...previous, page: 0 }));
@@ -218,6 +230,12 @@ export default function ClaimCreationQueue(): ReactElement {
       {query.isError && (
         <Alert severity="error">
           {getApiError({ error: query.error, defaultError: 'Failed to load claim creation queue' })}
+        </Alert>
+      )}
+      {query.data?.incomplete && !query.isError && (
+        <Alert severity="warning">
+          Some tasks may be missing from these results. Narrow the created date, status, or patient filters to see all
+          matches.
         </Alert>
       )}
       <Box sx={{ height: 650, width: '100%' }}>

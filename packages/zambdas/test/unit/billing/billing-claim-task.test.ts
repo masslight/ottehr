@@ -73,6 +73,7 @@ describe('billing claim tasks', () => {
   });
 
   it('creates a billing-owned task with clinical references and a creation timestamp', async () => {
+    billing.fhir.search.mockResolvedValue({ unbundle: () => [] });
     const response = await invoke(createTask, { encounterId });
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body)).toEqual({ taskId: task.id });
@@ -81,7 +82,7 @@ describe('billing claim tasks', () => {
       resourceType: 'Encounter',
       params: [{ name: '_id', value: encounterId }],
     });
-    expect(billing.fhir.create).toHaveBeenCalledWith(
+    expect(billing.fhir.create.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         resourceType: 'Task',
         status: 'requested',
@@ -91,7 +92,18 @@ describe('billing claim tasks', () => {
         authoredOn: expect.any(String),
       })
     );
+    const { ifNoneExist } = billing.fhir.create.mock.calls[0][1];
+    expect(ifNoneExist).toContainEqual({ name: 'encounter', value: task.encounter?.reference });
     expect(createClaim).not.toHaveBeenCalled();
+  });
+
+  it.each(['Claim', 'Task'])('reuses an existing %s instead of enqueueing again', async (type) => {
+    billing.fhir.search.mockImplementation(async ({ resourceType }) => ({
+      unbundle: () => (resourceType === type ? [{ resourceType, id: 'existing' }] : []),
+    }));
+    const response = await invoke(createTask, { encounterId });
+    expect(JSON.parse(response.body)).toEqual({ [type === 'Claim' ? 'claimId' : 'taskId']: 'existing' });
+    expect(billing.fhir.create).not.toHaveBeenCalled();
   });
 
   it.each([{}, { encounterId: 'invalid' }])('rejects invalid input before accessing FHIR: %j', async (body) => {

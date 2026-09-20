@@ -15,6 +15,7 @@ import {
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
@@ -29,6 +30,7 @@ import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
 import { shouldUseCandid, shouldUseOttehrBilling } from '../../shared/candid';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
+import { sendErrors } from '../../shared/errors';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
@@ -154,7 +156,16 @@ export const performEffect = async (
       tasks.push(oystehr.fhir.create(sendClaimTaskResource));
     }
     if (useOttehrBilling) {
-      tasks.push(oystehr.zambda.execute({ id: 'create-billing-claim-task', encounterId }));
+      tasks.push(
+        oystehr.zambda.execute({ id: 'create-billing-claim-task', encounterId }).catch(async (error) => {
+          // Signing is already saved; a billing failure must not tell the provider to sign again.
+          console.error('Failed to enqueue billing claim task', { encounterId, error });
+          await sendErrors(error, getOptionalSecret(SecretsKeys.ENVIRONMENT, secrets) ?? '', {
+            zambda: ZAMBDA_NAME,
+            encounterId,
+          }).catch((reportError) => console.error('Failed to report billing enqueue error', reportError));
+        })
+      );
     }
 
     // Determine whether this sign call is a supervisor approving a visit that was pending approval.

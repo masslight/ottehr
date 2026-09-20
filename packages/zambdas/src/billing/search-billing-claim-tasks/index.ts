@@ -1,11 +1,15 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Appointment, Encounter, Patient, Task } from 'fhir/r4b';
 import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils/lib/fhir/constants';
 import { buildAppointmentStartMap, getEncounterDateTime } from 'utils/lib/fhir/encounter';
+import { searchPageWithSizeRetry } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { BILLING_CLAIM_TASK_CODING } from 'utils/lib/types/data/billing/billing.constants';
-import { SearchBillingClaimTasksResponse } from 'utils/lib/types/data/billing/billing.types';
+import {
+  BILLING_CLAIM_TASK_CODING,
+  BILLING_CLAIM_TASK_PAYER_SCAN_LIMIT,
+} from 'utils/lib/types/data/billing/billing.constants';
+import { BillingClaimTaskItem, SearchBillingClaimTasksResponse } from 'utils/lib/types/data/billing/billing.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -63,8 +67,56 @@ async function performEffect(
     });
   }
 
+  if (params.payerName) {
+    return searchByPayer(oystehr, clinicalOystehr, searchParams, params);
+  }
   const bundle = await oystehr.fhir.search<Task>({ resourceType: 'Task', params: searchParams });
-  const taskResources = bundle.unbundle();
+  const tasks = await getTaskRows(oystehr, clinicalOystehr, bundle.unbundle());
+  return { tasks, total: bundle.total ?? 0, offset, pageSize };
+}
+
+async function searchByPayer(
+  billing: Oystehr,
+  clinical: Oystehr,
+  searchParams: SearchParam[],
+  { payerName, offset, pageSize }: SearchBillingClaimTasksParams
+): Promise<SearchBillingClaimTasksResponse> {
+  // Apply the payer filter before pagination, including tasks whose claims do not exist yet.
+  const filterParams = searchParams.filter(({ name }) => !['_count', '_offset', '_total'].includes(name));
+  const matching: BillingClaimTaskItem[] = [];
+  const seen = new Set<string>();
+  const payer = payerName!.toLowerCase();
+  let scanned = 0;
+  let incomplete = false;
+  let batchSize = 100;
+  while (scanned < BILLING_CLAIM_TASK_PAYER_SCAN_LIMIT) {
+    const { bundle, count } = await searchPageWithSizeRetry<Task>(
+      billing,
+      { resourceType: 'Task', params: filterParams },
+      { offset: scanned, count: Math.min(batchSize, BILLING_CLAIM_TASK_PAYER_SCAN_LIMIT - scanned) }
+    );
+    batchSize = count;
+    const tasks = bundle.unbundle();
+    scanned += tasks.length;
+    const unique = tasks.filter((task) => !seen.has(task.id!));
+    if (tasks.length && !unique.length) {
+      incomplete = true;
+      break;
+    }
+    tasks.forEach((task) => seen.add(task.id!));
+    incomplete = bundle.total === undefined ? tasks.length === count : seen.size < bundle.total;
+    const rows = await getTaskRows(billing, clinical, unique);
+    matching.push(...rows.filter((row) => row.payerNames.some((name) => name.toLowerCase().includes(payer))));
+    if (!tasks.length || !incomplete) break;
+  }
+  return { tasks: matching.slice(offset, offset + pageSize), total: matching.length, offset, pageSize, incomplete };
+}
+
+async function getTaskRows(
+  oystehr: Oystehr,
+  clinicalOystehr: Oystehr,
+  taskResources: Task[]
+): Promise<BillingClaimTaskItem[]> {
   const encounterIds = [...new Set(taskResources.flatMap((task) => task.encounter?.reference?.split('/')[1] || []))];
   const patientIds = [...new Set(taskResources.flatMap((task) => task.for?.reference?.split('/')[1] || []))];
   const [visitResources, patients] = await Promise.all([
@@ -100,7 +152,7 @@ async function performEffect(
   const patientsById = new Map(patients.map((patient) => [patient.id, patient]));
   const appointmentStarts = buildAppointmentStartMap(visitResources);
   const payerNames = await getClaimTaskPayerNames(clinicalOystehr, oystehr, visitResources);
-  const tasks = taskResources.map((task) => {
+  return taskResources.map((task) => {
     const encounterId = task.encounter?.reference?.split('/')[1];
     const patientId = task.for?.reference?.split('/')[1];
     const encounter = encounterId ? encountersById.get(encounterId) : undefined;
@@ -118,7 +170,6 @@ async function performEffect(
       error: getFailureMessage(task),
     };
   });
-  return { tasks, total: bundle.total ?? 0, offset, pageSize };
 }
 
 function getFailureMessage(task: Task): string | undefined {

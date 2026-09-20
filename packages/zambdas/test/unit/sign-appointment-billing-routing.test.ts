@@ -8,6 +8,7 @@ import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../src/ehr/sign-appointment/index';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM } from '../../src/shared/candid';
+import { sendErrors } from '../../src/shared/errors';
 import { FullAppointmentResourcePackage } from '../../src/shared/pdf/visit-details-pdf/types';
 
 const { getUser, getPractitionerRoles, getVisit } = vi.hoisted(() => ({
@@ -26,6 +27,8 @@ vi.mock('../../src/shared/pdf/visit-details-pdf/get-video-resources', () => ({
 vi.mock('utils/lib/ottehr-config/feature-flags', () => ({
   FEATURE_FLAGS_CONFIG: { nonInsuranceOrganizationsEnabled: false },
 }));
+
+vi.mock('../../src/shared/errors', () => ({ sendErrors: vi.fn().mockResolvedValue(undefined) }));
 
 const appointmentId = '00fb4bbf-dafe-41ee-8e4c-82c96be32f78';
 const encounterId = '0a5aff96-d166-4900-833b-cde74c62249a';
@@ -107,7 +110,8 @@ describe('sign-appointment billing routing', () => {
   it('reports a billing enqueue failure while still creating the clinical tasks', async () => {
     const error = INVALID_INPUT_ERROR('Billing task could not be created');
     client.zambda.execute.mockRejectedValueOnce(error);
-    await expect(sign('all')).rejects.toEqual(error);
+    await expect(sign('all')).resolves.toBeDefined();
+    expect(sendErrors).toHaveBeenCalledWith(error, '', expect.objectContaining({ encounterId }));
     expect(createdTaskCodes()).toEqual([TaskIndicator.sendClaim.code, TaskIndicator.visitNotePDFAndEmail.code]);
   });
 
