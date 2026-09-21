@@ -1,7 +1,14 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { FaxDocumentAvailability } from 'utils/lib/types/api/fax.types';
 import { describe, expect, it, vi } from 'vitest';
 import { SendFaxForm } from '../../src/features/fax/ui/SendFaxForm';
+
+// The recipient-name picker reads the address book; keep it empty and offline here.
+vi.mock('src/features/address-book/addressBook.api', () => ({
+  searchAddressBook: vi.fn().mockResolvedValue({ contacts: [] }),
+}));
+vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {} }) }));
 
 const documents: FaxDocumentAvailability[] = [
   { kind: 'progress-note', available: true },
@@ -16,13 +23,15 @@ const renderForm = (
   senderFaxNumber?: string
 ): void => {
   render(
-    <SendFaxForm
-      preview={preview}
-      senderFaxNumber={senderFaxNumber}
-      isSending={false}
-      onSubmit={vi.fn()}
-      onCancel={vi.fn()}
-    />
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <SendFaxForm
+        preview={preview}
+        senderFaxNumber={senderFaxNumber}
+        isSending={false}
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    </QueryClientProvider>
   );
 };
 
