@@ -38,18 +38,22 @@ export const DropzoneField = ({
       rules={required ? { required: REQUIRED_FIELD_ERROR_MESSAGE } : undefined}
       render={({ field: { value, onChange, onBlur }, fieldState: { error: fieldError } }) => {
         const errorMessage = error ?? fieldError?.message;
+        const selectedFiles: File[] = Array.isArray(value) ? value : value ? [value] : [];
         return (
           <>
-            {!value ? (
-              <></>
-            ) : (
-              <ListItem disablePadding disableGutters>
-                <ListItemIcon sx={{ minWidth: 0, mr: 1.5 }}>
+            {selectedFiles.map((file) => (
+              <ListItem key={`${file.name}-${file.size}-${file.lastModified}`} disablePadding disableGutters>
+                <ListItemIcon
+                  sx={{
+                    minWidth: 0,
+                    mr: 1.5,
+                  }}
+                >
                   <DescriptionIcon />
                 </ListItemIcon>
-                <ListItemText primary={value.name} />
+                <ListItemText primary={file.name} />
               </ListItem>
-            )}
+            ))}
             <Dropzone
               multiple={multiple}
               accept={accept}

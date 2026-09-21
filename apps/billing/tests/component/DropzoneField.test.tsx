@@ -70,6 +70,15 @@ describe('DropzoneField', () => {
     expect(await screen.findByText('remit.835')).toBeVisible();
   });
 
+  it('lists every file name in multiple mode', async () => {
+    render(<Harness multiple />);
+
+    dropFiles([textFile('first.835'), textFile('second.835')]);
+
+    expect(await screen.findByText('first.835')).toBeVisible();
+    expect(screen.getByText('second.835')).toBeVisible();
+  });
+
   it('rejects a file whose type is not accepted', async () => {
     render(<Harness />);
 
