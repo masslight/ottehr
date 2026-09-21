@@ -32,7 +32,7 @@ import { CANDID_PLAN_TYPE_SYSTEM } from 'utils/lib/fhir/insurance';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getNioReferenceUrl } from 'utils/lib/helpers/helpers';
 import {
-  CODE_SYSTEM_ACT_CODE_V3,
+  CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -40,9 +40,12 @@ import {
   CODE_SYSTEM_CPT_MODIFIER,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
+  CODE_SYSTEM_OYSTEHR_CLAIM_DATE_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
   CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
+  EXTENSION_CLAIM_AUTO_ACCIDENT,
+  EXTENSION_CLAIM_AUTO_ACCIDENT_STATE,
   EXTENSION_CLAIM_INSURANCE_TYPE,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
@@ -582,7 +585,9 @@ describe('create-billing-claim-from-encounter', () => {
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [],
         }),
-        expectedError: FHIR_RESOURCE_NOT_FOUND('Practitioner'),
+        expectedError: INVALID_INPUT_ERROR(
+          'The encounter has no attending provider. Set the attending provider in the clinical app, then retry.'
+        ),
       },
       {
         name: 'throws error when account does not exist',
@@ -1014,7 +1019,7 @@ describe('create-billing-claim-from-encounter', () => {
               clinicalResources.practitioner,
               clinicalResources.account,
               clinicalResources.coverage,
-              ...clinicalResources.conditions,
+              ...clinicalResources.conditions.concat(clinicalResources.conditions),
               createAccidentCondition(autoAccident, 'encounter-123', 'patient-123').resource,
               clinicalResources.procedure,
             ],
@@ -3227,7 +3232,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
-      const searchFn = vi.fn().mockResolvedValue({ unbundle: () => [] });
+      const searchFn = vi.fn().mockRejectedValue(new Error('FHIR is down'));
       const createFn = vi.fn().mockImplementation(async (resource: Basic) => resource);
       const billingOystehr = {
         fhir: { transaction: txFn, search: searchFn, create: createFn },
@@ -3290,12 +3295,17 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
-              accident: {
-                date: autoAccident.date,
-                type: codeableConcept('MVA', CODE_SYSTEM_ACT_CODE_V3),
-                locationAddress: { state: autoAccident.state },
-              },
-              extension: getDefaultClaimSubmissionExtensions(),
+              supportingInfo: [
+                expect.objectContaining({
+                  category: codeableConcept('info', CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY),
+                  code: codeableConcept('439', CODE_SYSTEM_OYSTEHR_CLAIM_DATE_TYPE),
+                  timingDate: autoAccident.date,
+                }),
+              ],
+              extension: expect.arrayContaining([
+                { url: EXTENSION_CLAIM_AUTO_ACCIDENT, valueBoolean: true },
+                { url: EXTENSION_CLAIM_AUTO_ACCIDENT_STATE, valueString: autoAccident.state },
+              ]),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
