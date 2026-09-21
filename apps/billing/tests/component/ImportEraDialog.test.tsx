@@ -27,7 +27,7 @@ const JPEG_ERROR = 'This file is image/jpeg, not a text-based 835/X12 file.';
 const TOO_LARGE_ERROR = `File is too large. The maximum ERA file size is 5 MB.`;
 
 function dropFile(file: File): void {
-  const fileInput = screen.getByLabelText('file upload');
+  const fileInput = screen.getByLabelText('Upload ERA file');
   // In jsdom, the files property has to be defined before the change event fires
   Object.defineProperty(fileInput, 'files', {
     value: [file],

@@ -13,9 +13,10 @@ const SINGULAR_REJECTION = 'File could not be uploaded. Please select a file wit
 interface HarnessProps {
   multiple?: boolean;
   required?: boolean;
+  ariaLabel?: string;
 }
 
-function Harness({ multiple = false, required = false }: HarnessProps): ReactElement {
+function Harness({ multiple = false, required = false, ariaLabel }: HarnessProps): ReactElement {
   const methods = useForm<{ file: File | File[] | null }>({
     defaultValues: {
       file: null,
@@ -24,17 +25,16 @@ function Harness({ multiple = false, required = false }: HarnessProps): ReactEle
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(() => {})}>
-        <DropzoneField name="file" multiple={multiple} required={required} accept={ACCEPT} />
+        <DropzoneField name="file" multiple={multiple} required={required} accept={ACCEPT} ariaLabel={ariaLabel} />
         <button type="submit">Submit</button>
       </form>
     </FormProvider>
   );
 }
 
-// react-dropzone labels its hidden input "file upload"; in jsdom the files property has to be
-// defined before the change event fires.
-function dropFiles(files: File[]): void {
-  const fileInput = screen.getByLabelText('file upload');
+// In jsdom the files property has to be defined before the change event fires.
+function dropFiles(files: File[], label = 'Upload file'): void {
+  const fileInput = screen.getByLabelText(label);
   Object.defineProperty(fileInput, 'files', {
     value: files,
     writable: false,
@@ -60,6 +60,21 @@ describe('DropzoneField', () => {
     render(<Harness />);
 
     expect(screen.getByText('Accepted types: .835, .txt')).toBeInTheDocument();
+  });
+
+  it('labels the file input so it is not reliant on the react-dropzone default', () => {
+    render(<Harness />);
+
+    expect(screen.getByLabelText('Upload file')).toHaveAttribute('type', 'file');
+    expect(screen.queryByLabelText('file upload')).not.toBeInTheDocument();
+  });
+
+  it('lets the caller name what is being uploaded', async () => {
+    render(<Harness ariaLabel="Upload ERA file" />);
+
+    dropFiles([textFile('remit.835')], 'Upload ERA file');
+
+    expect(await screen.findByText('remit.835')).toBeVisible();
   });
 
   it('lists the file name once a file is accepted', async () => {

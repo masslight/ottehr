@@ -22,6 +22,7 @@ export const DropzoneField = ({
   accept,
   required,
   error,
+  ariaLabel = 'Upload file',
   ...rest
 }: {
   name: string;
@@ -29,6 +30,7 @@ export const DropzoneField = ({
   accept?: DropzoneProps['accept'];
   required?: boolean;
   error?: string | null;
+  ariaLabel?: string;
 } & Omit<DropzoneProps, 'multiple' | 'onDrop' | 'accept'>): ReactElement => {
   const { control } = useFormContext();
   return (
@@ -79,6 +81,7 @@ export const DropzoneField = ({
                         component="input"
                         {...getInputProps({
                           onBlur,
+                          'aria-label': ariaLabel,
                         })}
                       />
                       <Grid

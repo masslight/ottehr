@@ -136,7 +136,13 @@ export function ImportEraDialog({ onClose }: Props): ReactElement {
           <FormProvider {...methods}>
             <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                <DropzoneField name="eraFile" multiple={false} accept={ERA_FILE_ACCEPT} error={fileError} />
+                <DropzoneField
+                  name="eraFile"
+                  multiple={false}
+                  accept={ERA_FILE_ACCEPT}
+                  error={fileError}
+                  ariaLabel="Upload ERA file"
+                />
                 <Typography variant="body2" color="text.secondary">
                   Or paste the ERA text below.
                 </Typography>
