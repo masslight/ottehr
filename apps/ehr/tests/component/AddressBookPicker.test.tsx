@@ -75,8 +75,8 @@ describe('AddressBookPicker', () => {
     await user.click(screen.getByLabelText("Recipient's name"));
 
     const options = await screen.findAllByRole('option');
-    expect(options[0]).toHaveTextContent('Jane Doe, MD');
-    expect(options[0]).toHaveTextContent('Springfield Cardiology · Fax (212) 555-4321');
+    expect(options[0]).toHaveTextContent('Springfield Cardiology');
+    expect(options[0]).toHaveTextContent('Jane Doe, MD · Fax (212) 555-4321');
     expect(options[1]).toHaveTextContent('Acme Imaging');
     expect(options[options.length - 1]).toHaveTextContent('Add new contact');
   });
@@ -124,7 +124,7 @@ describe('AddressBookPicker', () => {
     expect(screen.queryByRole('button', { name: 'Edit contact' })).toBeNull();
   });
 
-  it('opens the new-contact dialog seeded from the typed name', async () => {
+  it('opens the new-contact dialog seeded with the typed text as the organization', async () => {
     const user = userEvent.setup();
     render(<Harness onSelect={vi.fn()} />);
 
@@ -132,8 +132,7 @@ describe('AddressBookPicker', () => {
     await user.click(await screen.findByRole('option', { name: /Add new contact/ }));
 
     expect(await screen.findByText('New contact')).toBeInTheDocument();
-    expect(screen.getByLabelText('First name')).toHaveValue('Jane');
-    expect(screen.getByLabelText('Last name')).toHaveValue('Roe');
+    expect(screen.getByLabelText('Organization')).toHaveValue('Jane Roe');
   });
 
   it('tags a contact created from a tagged picker with that tag', async () => {

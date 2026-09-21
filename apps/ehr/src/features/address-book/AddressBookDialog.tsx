@@ -141,6 +141,7 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
           <DialogTitle>{contact ? 'Edit contact' : 'New contact'}</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ pt: 1 }}>
+              <TextInput name="organizationName" label="Organization" />
               <TextInput name="firstName" label="First name" />
               <TextInput
                 name="lastName"
@@ -156,7 +157,6 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
                   !value.trim() || !!getValues('lastName').trim() || ADDRESS_BOOK_CREDENTIAL_NEEDS_LAST_NAME_MESSAGE
                 }
               />
-              <TextInput name="organizationName" label="Organization" />
               <TextInput name="line1" label="Address line 1" />
               <TextInput
                 name="line2"

@@ -26,15 +26,17 @@ const filterContacts = createFilterOptions<AddressBookContact>({
   stringify: (contact) => [addressBookContactLabel(contact), contact.organizationName, contact.fax].join(' '),
 });
 
-/** "Jane Doe" typed into the picker seeds the new-contact form as first/last. */
-const prefillFromText = (text: string): Partial<AddressBookContactInput> => {
-  const [first, ...rest] = text.trim().split(/\s+/);
-  return rest.length ? { firstName: first, lastName: rest.join(' ') } : { lastName: first };
-};
+/** Whatever was typed into the picker seeds the new-contact form as the organization. */
+const prefillFromText = (text: string): Partial<AddressBookContactInput> => ({ organizationName: text.trim() });
 
+/** The organization leads the row; the person (when there is one) and the fax sit underneath. */
+const primaryText = (contact: AddressBookContact): string =>
+  contact.organizationName || addressBookContactLabel(contact);
 const secondaryText = (contact: AddressBookContact): string =>
   [
-    contact.organizationName !== addressBookContactLabel(contact) && contact.organizationName,
+    contact.organizationName &&
+      addressBookContactLabel(contact) !== contact.organizationName &&
+      addressBookContactLabel(contact),
     contact.fax && `Fax ${formatPhoneNumberDisplay(contact.fax)}`,
   ]
     .filter(Boolean)
@@ -109,7 +111,7 @@ export const AddressBookPicker: FC<AddressBookPickerProps> = ({
               renderOption={(props, option) => (
                 <li {...props} key={option.id}>
                   <Box>
-                    <Typography variant="body2">{optionLabel(option)}</Typography>
+                    <Typography variant="body2">{isAddNew(option) ? option.label : primaryText(option)}</Typography>
                     {!isAddNew(option) && (
                       <Typography variant="caption" color="text.secondary">
                         {secondaryText(option)}
