@@ -99,20 +99,14 @@ export const DropzoneField = ({
                             <></>
                           )}
                           {fileRejections.length ? (
-                            <FormHelperText id={`dropzone-helper-text`} error={true}>
+                            <FormHelperText error={true}>
                               File{multiple ? 's' : ''} could not be uploaded. Please select{' '}
                               {multiple ? 'files' : 'a file'} with an allowed type.
                             </FormHelperText>
                           ) : (
                             <></>
                           )}
-                          {fieldError ? (
-                            <FormHelperText id={`dropzone-helper-text`} error={true}>
-                              {fieldError?.message}
-                            </FormHelperText>
-                          ) : (
-                            <></>
-                          )}
+                          {fieldError ? <FormHelperText error={true}>{fieldError?.message}</FormHelperText> : <></>}
                         </Stack>
                       </Grid>
                     </Grid>
