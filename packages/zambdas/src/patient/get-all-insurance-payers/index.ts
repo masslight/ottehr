@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { createOystehrClient, getPayerId } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { ClinicalCustomInsuranceOrgOption } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import {
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED,
   APIError,
@@ -11,6 +12,7 @@ import {
   MISSING_REQUEST_SECRETS,
   MISSING_REQUIRED_PARAMETERS,
 } from 'utils/lib/types/errors';
+import { listCustomInsuranceOrganizations } from '../../shared/custom-insurance-org-directory';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -94,6 +96,15 @@ export async function getAllInsurancePayers(
   if (mappedResults.length === 0 && error) {
     throw error;
   }
+
+  // Custom insurance organizations are user-defined payers not present in RCM's payer directory —
+  // shown and selectable alongside the RCM payers above, via the clinical directory's one door into
+  // billing (see custom-insurance-org-directory.ts), the same way NIOs are surfaced clinically.
+  console.group('listCustomInsuranceOrganizations');
+  const customOrgs = await listCustomInsuranceOrganizations(oystehr, {});
+  console.groupEnd();
+  mappedResults.push(...customOrgs.map((org) => formatCustomInsuranceOrgAsAnswerOption(org, prependIdentifier)));
+
   mappedResults.push({
     valueReference: {
       reference: oystehr.rcm.constructPayerUrl({ id: '00000' }),
@@ -131,6 +142,22 @@ const formatPayerAsAnswerOption = (
     };
   }
   throw ANSWER_OPTION_FROM_RESOURCE_UNDEFINED('Organization');
+};
+
+const formatCustomInsuranceOrgAsAnswerOption = (
+  org: ClinicalCustomInsuranceOrgOption,
+  prependIdentifier?: boolean
+): QuestionnaireItemAnswerOption => {
+  // org.reference is a reference token (see getCustomInsuranceOrgReferenceUrl), not a direct
+  // "Organization/<id>" reference — harvest resolves it through the billing zambda interface when
+  // the paperwork answer is turned into a Coverage.
+  const name = prependIdentifier && org.orgId ? `${org.orgId} - ${org.name}` : org.name;
+  return {
+    valueReference: {
+      reference: org.reference,
+      display: name,
+    },
+  };
 };
 
 function validateInput(input: ZambdaInput): Input {

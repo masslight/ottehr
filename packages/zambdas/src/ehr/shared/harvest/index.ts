@@ -105,10 +105,14 @@ import {
   normalizePhoneNumber,
 } from 'utils/lib/fhir/resourcePatch';
 import {
+  extractCustomInsuranceOrgIdFromReferenceUrl,
   findOrgMatchingReference,
   formatPhoneNumber,
+  getCustomInsuranceOrgBusinessId,
+  getCustomInsuranceOrgReferenceUrl,
   getPayerId,
   getPayerUrl,
+  isCustomInsuranceOrgReferenceUrl,
   isNioReferenceUrl,
   isPayerUrl,
 } from 'utils/lib/helpers/helpers';
@@ -124,6 +128,7 @@ import {
   OrderedCoveragesWithSubscribers,
   PatientAccountAndCoverageResources,
 } from 'utils/lib/types/data/account';
+import { CUSTOM_INSURANCE_ORG_ID_SYSTEM } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import {
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
@@ -155,6 +160,7 @@ import { uploadPDF } from 'utils/lib/utils/pdf';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
 import { getInsuranceOverrideList, ListName } from '../../../rcm/get-insurance-override-list/handler';
+import { getCustomInsuranceOrganizationById } from '../../../shared/custom-insurance-org-directory';
 import { createPdfBytes } from '../../../shared/pdf';
 
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
@@ -1820,6 +1826,9 @@ export async function searchInsuranceInformation(
         }
         return oystehr.rcm.getPayerByUrl({ url: ref });
       }
+      if (isCustomInsuranceOrgReferenceUrl(ref)) {
+        return resolveCustomInsuranceOrgReference(oystehr, ref);
+      }
       const orgFromFhir = findOrgMatchingReference(ref, resources);
       if (orgFromFhir) {
         return orgFromFhir;
@@ -1827,6 +1836,26 @@ export async function searchInsuranceInformation(
       return oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: ref.split('/')[1] });
     })
   );
+}
+
+// A custom insurance organization is a billing-app-owned FHIR resource: the clinical app never
+// reads it directly, only through the billing zambda interface (see custom-insurance-org-directory
+// and its clinical-facing DTO, ClinicalCustomInsuranceOrgOption). This stand-in Organization carries
+// just enough (name + business id) for downstream Coverage building — the same door pattern NIOs
+// use, but resolved eagerly here instead of stored raw.
+async function resolveCustomInsuranceOrgReference(oystehr: Oystehr, ref: string): Promise<Organization> {
+  const insuranceOrgId = extractCustomInsuranceOrgIdFromReferenceUrl(ref);
+  const option = insuranceOrgId ? await getCustomInsuranceOrganizationById(oystehr, insuranceOrgId) : undefined;
+  if (!option) {
+    throw new Error(`No custom insurance organization matches reference "${ref}"`);
+  }
+  return {
+    resourceType: 'Organization',
+    id: option.id,
+    name: option.name,
+    active: option.active,
+    identifier: [{ system: CUSTOM_INSURANCE_ORG_ID_SYSTEM, value: option.orgId }],
+  };
 }
 
 const getCoverageGroups = (items: QuestionnaireResponseItem[]): QuestionnaireResponseItem[][] => {
@@ -2541,7 +2570,11 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   const { org, policyHolder, additionalInformation, typeCode } = insurance;
   const memberId = policyHolder.memberId;
 
-  const payerId = getPayerId(org);
+  // A custom insurance organization carries no RCM payer identifier; its business id ("OTR-...")
+  // takes its place as the coverage class value, matching how billing's own Coverage builder
+  // resolves the same organization (see resolvedPayerId in packages/zambdas/src/billing/shared.ts).
+  const customOrgBusinessId = getCustomInsuranceOrgBusinessId(org);
+  const payerId = getPayerId(org) ?? customOrgBusinessId;
   if (!payerId) {
     throw new Error('payerId unexpectedly missing from insuranceOrg');
   }
@@ -2581,7 +2614,13 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
     type: typeCode !== undefined ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
     payor: [
       {
-        reference: isValidUUID(org.id ?? '') ? `Organization/${org.id}` : getPayerUrl(payerId),
+        // A custom insurance organization is a billing-app-owned resource: it's referenced by
+        // token, never directly, the same way an NIO reference works (see getNioReferenceUrl).
+        reference: customOrgBusinessId
+          ? getCustomInsuranceOrgReferenceUrl(org.id ?? '')
+          : isValidUUID(org.id ?? '')
+          ? `Organization/${org.id}`
+          : getPayerUrl(payerId),
       },
     ],
     subscriberId: policyHolder.memberId,

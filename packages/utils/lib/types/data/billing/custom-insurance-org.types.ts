@@ -83,3 +83,26 @@ export interface SearchCustomInsuranceOrgsResponse {
   offset: number;
   pageSize: number;
 }
+
+// --- Clinical interface DTOs ---
+// The stable contract the clinical app consumes; deliberately minimal (no submission mechanism, no
+// contacts) so billing internals can evolve freely. Mirrors ClinicalNioOption in
+// non-insurance-org.types.ts.
+
+export interface ClinicalCustomInsuranceOrgOption {
+  id: string;
+  // A reference token (see getCustomInsuranceOrgReferenceUrl) — what clinical code stores in
+  // Reference.reference, never a direct "Organization/{id}" FHIR reference. Clinical code holds
+  // only this token plus name/orgId and resolves the org through the billing zambda interface, the
+  // same way an NIO reference works (see ClinicalNioOption).
+  reference: string;
+  orgId: string;
+  name: string;
+  // A stored reference can point at a since-deleted org; lookups by id still resolve it, with
+  // active=false, so clinical validation and display both work.
+  active: boolean;
+}
+
+export interface ListCustomInsuranceOrganizationsResponse {
+  organizations: ClinicalCustomInsuranceOrgOption[];
+}

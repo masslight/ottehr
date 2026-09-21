@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters as validateCreate } from '../../../src/billing/create-billing-custom-insurance-org/validateRequestParameters';
 import { validateRequestParameters as validateDelete } from '../../../src/billing/delete-billing-custom-insurance-org/validateRequestParameters';
+import { validateRequestParameters as validateList } from '../../../src/billing/list-custom-insurance-organizations/validateRequestParameters';
 import { validateRequestParameters as validateSearch } from '../../../src/billing/search-billing-custom-insurance-orgs/validateRequestParameters';
 import { validateRequestParameters as validateUpdate } from '../../../src/billing/update-billing-custom-insurance-org/validateRequestParameters';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
@@ -175,6 +176,18 @@ describe('insurance-org zambdas - validateRequestParameters', () => {
     expect(() => validateDelete(createMockZambdaInput({}, { secrets }))).toThrow();
     expect(validateDelete(createMockZambdaInput({ insuranceOrgId: ORG_ID }, { secrets }))).toEqual({
       insuranceOrgId: ORG_ID,
+      secrets,
+    });
+  });
+
+  test('list accepts an empty object body', () => {
+    expect(validateList(createMockZambdaInput({}, { secrets }))).toEqual({ secrets });
+  });
+
+  test('list accepts insuranceOrgId and search', () => {
+    expect(validateList(createMockZambdaInput({ insuranceOrgId: ORG_ID, search: 'Acme' }, { secrets }))).toEqual({
+      insuranceOrgId: ORG_ID,
+      search: 'Acme',
       secrets,
     });
   });
