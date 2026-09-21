@@ -1,10 +1,11 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ImportEraDialog } from '../../src/components/ImportEraDialog';
-import { MAX_ERA_FILE_SIZE_BYTES } from '../../src/utils/eraFile';
+import { MAX_ERA_FILE_SIZE_BYTES, ReadEraFileResult } from '../../src/utils/eraFile';
 
-const { importEraMock } = vi.hoisted(() => ({
+const { importEraMock, readEraFileMock } = vi.hoisted(() => ({
   importEraMock: vi.fn(),
+  readEraFileMock: vi.fn(),
 }));
 
 vi.mock('../../src/api/api', () => ({
@@ -15,13 +16,18 @@ vi.mock('../../src/hooks/useAppClients', () => ({
     oystehrZambda: {},
   }),
 }));
+vi.mock('../../src/utils/eraFile', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/utils/eraFile')>()),
+  readEraFile: readEraFileMock,
+}));
 
 const X12 = 'ISA*00*          *00*          *ZZ*SENDER~GS*HP*SENDER*RECEIVER~ST*835*0001~';
 
 const JPEG_ERROR = 'This file is image/jpeg, not a text-based 835/X12 file.';
+const TOO_LARGE_ERROR = `File is too large. The maximum ERA file size is 5 MB.`;
 
 function dropFile(file: File): void {
-  const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+  const fileInput = screen.getByLabelText('file upload');
   // In jsdom, the files property has to be defined before the change event fires
   Object.defineProperty(fileInput, 'files', {
     value: [file],
@@ -31,17 +37,34 @@ function dropFile(file: File): void {
   fireEvent.change(fileInput);
 }
 
+function textFile(name: string, content: BlobPart = X12): File {
+  return new File([content], name, {
+    type: 'text/plain',
+  });
+}
+
+function oversizedFile(): File {
+  const file = textFile('remit.835');
+  Object.defineProperty(file, 'size', {
+    value: MAX_ERA_FILE_SIZE_BYTES + 1,
+  });
+  return file;
+}
+
 function getEraTextarea(): HTMLTextAreaElement {
   return screen.getByRole('textbox', { name: /ERA in X12 Format/i }) as HTMLTextAreaElement;
 }
 
 describe('ImportEraDialog', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     importEraMock.mockReset();
     importEraMock.mockResolvedValue({
       resourceType: 'Bundle',
       entry: [],
     });
+    const actual = await vi.importActual<typeof import('../../src/utils/eraFile')>('../../src/utils/eraFile');
+    readEraFileMock.mockReset();
+    readEraFileMock.mockImplementation(actual.readEraFile);
   });
 
   it('requires the ERA and sends no request when nothing is pasted or uploaded', async () => {
@@ -76,11 +99,7 @@ describe('ImportEraDialog', () => {
   it('fills the textarea with the contents of an uploaded file', async () => {
     render(<ImportEraDialog onClose={() => {}} />);
 
-    dropFile(
-      new File([X12], 'remit.835', {
-        type: 'text/plain',
-      })
-    );
+    dropFile(textFile('remit.835'));
 
     await waitFor(() => expect(getEraTextarea()).toHaveValue(X12));
     expect(screen.getByText('remit.835')).toBeInTheDocument();
@@ -88,11 +107,7 @@ describe('ImportEraDialog', () => {
 
   it('imports the edited text rather than the uploaded file', async () => {
     render(<ImportEraDialog onClose={() => {}} />);
-    dropFile(
-      new File([X12], 'remit.835', {
-        type: 'text/plain',
-      })
-    );
+    dropFile(textFile('remit.835'));
     await waitFor(() => expect(getEraTextarea()).toHaveValue(X12));
 
     const edited = `${X12}SE*10*0001~`;
@@ -113,48 +128,77 @@ describe('ImportEraDialog', () => {
 
   it('shows a size error and leaves the textarea untouched for an oversized file', async () => {
     render(<ImportEraDialog onClose={() => {}} />);
-    const file = new File([X12], 'remit.835', {
-      type: 'text/plain',
-    });
-    Object.defineProperty(file, 'size', {
-      value: MAX_ERA_FILE_SIZE_BYTES + 1,
-    });
 
-    dropFile(file);
+    dropFile(oversizedFile());
 
-    expect(await screen.findByText('File is too large. The maximum ERA file size is 5 MB.')).toBeInTheDocument();
+    expect(await screen.findByText(TOO_LARGE_ERROR)).toBeVisible();
     expect(getEraTextarea()).toHaveValue('');
   });
 
   it('shows a format error for a binary file', async () => {
     render(<ImportEraDialog onClose={() => {}} />);
 
-    dropFile(
-      new File([new Uint8Array([0xff, 0xd8, 0xff])], 'remit.txt', {
-        type: 'text/plain',
-      })
-    );
+    dropFile(textFile('remit.txt', new Uint8Array([0xff, 0xd8, 0xff])));
 
-    expect(await screen.findByText(JPEG_ERROR)).toBeInTheDocument();
+    expect(await screen.findByText(JPEG_ERROR)).toBeVisible();
     expect(getEraTextarea()).toHaveValue('');
+  });
+
+  it('does not list a rejected file as if it had been accepted', async () => {
+    render(<ImportEraDialog onClose={() => {}} />);
+
+    dropFile(oversizedFile());
+
+    await screen.findByText(TOO_LARGE_ERROR);
+    expect(screen.queryByText('remit.835')).not.toBeInTheDocument();
+  });
+
+  it('keeps the file error visible across a submit attempt', async () => {
+    render(<ImportEraDialog onClose={() => {}} />);
+    dropFile(oversizedFile());
+    await screen.findByText(TOO_LARGE_ERROR);
+    const importButton = screen.getByRole('button', { name: 'Import' });
+
+    fireEvent.click(importButton);
+
+    expect(await screen.findByText('This field is required')).toBeVisible();
+    expect(screen.getByText(TOO_LARGE_ERROR)).toBeVisible();
+    expect(importEraMock).not.toHaveBeenCalled();
   });
 
   it('clears the error when a valid file follows a rejected one', async () => {
     render(<ImportEraDialog onClose={() => {}} />);
-    dropFile(
-      new File([new Uint8Array([0xff, 0xd8, 0xff])], 'remit.txt', {
-        type: 'text/plain',
-      })
-    );
+    dropFile(textFile('remit.txt', new Uint8Array([0xff, 0xd8, 0xff])));
     await screen.findByText(JPEG_ERROR);
 
-    dropFile(
-      new File([X12], 'remit.835', {
-        type: 'text/plain',
-      })
-    );
+    dropFile(textFile('remit.835'));
 
     await waitFor(() => expect(getEraTextarea()).toHaveValue(X12));
     expect(screen.queryByText(JPEG_ERROR)).not.toBeInTheDocument();
+  });
+
+  it('ignores a read that a newer file has superseded', async () => {
+    const pendingReads: Array<(result: ReadEraFileResult) => void> = [];
+    readEraFileMock.mockImplementation(() => new Promise<ReadEraFileResult>((resolve) => pendingReads.push(resolve)));
+    render(<ImportEraDialog onClose={() => {}} />);
+
+    dropFile(textFile('first.835'));
+    await waitFor(() => expect(pendingReads).toHaveLength(1));
+    dropFile(textFile('second.835'));
+    await waitFor(() => expect(pendingReads).toHaveLength(2));
+
+    pendingReads[1]({
+      ok: true,
+      text: 'SECOND',
+    });
+    await waitFor(() => expect(getEraTextarea()).toHaveValue('SECOND'));
+    await act(async () => {
+      pendingReads[0]({
+        ok: true,
+        text: 'FIRST',
+      });
+    });
+
+    expect(getEraTextarea()).toHaveValue('SECOND');
   });
 });

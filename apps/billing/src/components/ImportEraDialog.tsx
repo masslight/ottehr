@@ -50,33 +50,35 @@ export function ImportEraDialog({ onClose }: Props): ReactElement {
     handleSubmit,
     watch,
     setValue,
-    setError: setFieldError,
-    clearErrors,
     formState: { isSubmitting },
   } = methods;
 
   const [error, setError] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
 
   const eraFile = watch('eraFile');
   useEffect(() => {
     if (!eraFile) return;
+    let cancelled = false;
     void (async () => {
       const result = await readEraFile(eraFile);
+      if (cancelled) return;
       if (!result.ok) {
-        setFieldError('eraFile', {
-          type: 'manual',
-          message: result.error,
-        });
+        setFileError(result.error);
+        setValue('eraFile', null);
         return;
       }
-      clearErrors('eraFile');
+      setFileError(null);
       setValue('era', result.text, {
         shouldValidate: true,
         shouldDirty: true,
       });
     })();
-  }, [eraFile, setValue, setFieldError, clearErrors]);
+    return () => {
+      cancelled = true;
+    };
+  }, [eraFile, setValue]);
 
   const handleImport = async (data: EraFormValues): Promise<void> => {
     if (!oystehrZambda) return;
@@ -128,7 +130,7 @@ export function ImportEraDialog({ onClose }: Props): ReactElement {
           <FormProvider {...methods}>
             <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                <DropzoneField name="eraFile" multiple={false} accept={ERA_FILE_ACCEPT} />
+                <DropzoneField name="eraFile" multiple={false} accept={ERA_FILE_ACCEPT} error={fileError} />
                 <Typography variant="body2" color="text.secondary">
                   Or paste the ERA text below.
                 </Typography>
