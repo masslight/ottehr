@@ -165,6 +165,7 @@ const clinicalResources: {
   patient: {
     resourceType: 'Patient',
     id: 'patient-123',
+    address: [{ line: ['123 Main St'], city: 'Boston', state: 'MA', postalCode: '02101' }],
   },
   appointment: {
     resourceType: 'Appointment',
@@ -323,6 +324,7 @@ const billingResources: {
   patient: {
     resourceType: 'Patient',
     id: 'billing-patient-123',
+    address: clinicalResources.patient.address,
     extension: [
       { url: 'https://fhir.ottehr.com/billing/source-resource', valueReference: { reference: 'Patient/patient-123' } },
     ],
@@ -495,6 +497,16 @@ describe('create-billing-claim-from-encounter', () => {
           unbundle: () => [],
         }),
         expectedError: FHIR_RESOURCE_NOT_FOUND('Patient'),
+      },
+      {
+        name: 'throws error when patient address is missing',
+        clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
+          unbundle: () => [clinicalResources.encounter, { ...clinicalResources.patient, address: undefined }],
+        }),
+        billingOystehrSearch: vi.fn().mockResolvedValueOnce({ unbundle: () => [] }),
+        expectedError: INVALID_INPUT_ERROR(
+          'Patient address is required. Add street, city, state, and ZIP code in the clinical app, then retry.'
+        ),
       },
       {
         name: 'throws error when appointment does not exist',
@@ -3766,6 +3778,7 @@ describe('create-billing-claim-from-encounter', () => {
             fullUrl: 'urn:uuid:main-patient',
             resource: {
               resourceType: 'Patient',
+              address: clinicalResources.patient.address,
               extension: [
                 { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Patient/patient-123' } },
                 { url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: '123456' },
@@ -3782,6 +3795,7 @@ describe('create-billing-claim-from-encounter', () => {
             fullUrl: 'urn:uuid:claim-patient',
             resource: {
               resourceType: 'Patient',
+              address: clinicalResources.patient.address,
               extension: [
                 { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'urn:uuid:main-patient' } },
                 { url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: '123456' },

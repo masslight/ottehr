@@ -764,6 +764,12 @@ async function getClinicalResources(
 
   const patient = findRef<Patient>(resources, encounter.subject?.reference);
   if (!patient) throw FHIR_RESOURCE_NOT_FOUND('Patient');
+  const patientAddress = patient.address?.[0];
+  if (!patientAddress?.line?.[0] || !patientAddress.city || !patientAddress.state || !patientAddress.postalCode) {
+    throw INVALID_INPUT_ERROR(
+      'Patient address is required. Add street, city, state, and ZIP code in the clinical app, then retry.'
+    );
+  }
 
   const appointment = findRef<Appointment>(resources, encounter.appointment?.[0].reference);
   if (!appointment) throw FHIR_RESOURCE_NOT_FOUND('Appointment');
