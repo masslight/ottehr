@@ -29,6 +29,9 @@ const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   // legacy Employers mode with Candid sync; unit/component tests pin the flag themselves, so
   // both paths stay covered either way.
   nonInsuranceOrganizationsEnabled: false,
+  // OFF by default: clinical insurance-carrier pickers offer only Oystehr payers until a
+  // deployment opts in. See the schema comment in config-types for details.
+  customInsuranceOrganizationsEnabled: false,
 };
 
 export const FEATURE_FLAGS_CONFIG = Object.freeze(FeatureFlagsConfigSchema.parse(FEATURE_FLAGS_DATA));

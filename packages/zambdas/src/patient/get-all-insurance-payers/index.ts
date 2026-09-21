@@ -2,6 +2,7 @@ import Oystehr, { RcmListPayersResponse } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { createOystehrClient, getPayerId } from 'utils/lib/helpers/helpers';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { ClinicalCustomInsuranceOrgOption } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import {
@@ -99,11 +100,15 @@ export async function getAllInsurancePayers(
 
   // Custom insurance organizations are user-defined payers not present in RCM's payer directory —
   // shown and selectable alongside the RCM payers above, via the clinical directory's one door into
-  // billing (see custom-insurance-org-directory.ts), the same way NIOs are surfaced clinically.
-  console.group('listCustomInsuranceOrganizations');
-  const customOrgs = await listCustomInsuranceOrganizations(oystehr, {});
-  console.groupEnd();
-  mappedResults.push(...customOrgs.map((org) => formatCustomInsuranceOrgAsAnswerOption(org, prependIdentifier)));
+  // billing (see custom-insurance-org-directory.ts), the same way NIOs are surfaced clinically. Gated
+  // per-deployment: with the flag off, only Oystehr payers are offered (existing coverages that
+  // already reference a custom insurance organization still resolve and display correctly).
+  if (FEATURE_FLAGS_CONFIG.customInsuranceOrganizationsEnabled) {
+    console.group('listCustomInsuranceOrganizations');
+    const customOrgs = await listCustomInsuranceOrganizations(oystehr, {});
+    console.groupEnd();
+    mappedResults.push(...customOrgs.map((org) => formatCustomInsuranceOrgAsAnswerOption(org, prependIdentifier)));
+  }
 
   mappedResults.push({
     valueReference: {

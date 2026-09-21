@@ -31,6 +31,12 @@ export const FeatureFlagsConfigSchema = z.object({
   // Candid non-insurance payer sync — stays active. Per-deployment so customers
   // can migrate at different times.
   nonInsuranceOrganizationsEnabled: z.boolean().optional(),
+  // When true, clinical insurance-carrier pickers (EHR and Intake) also offer
+  // billing-app-managed custom insurance organizations alongside Oystehr's payer
+  // list. When false/omitted, only Oystehr payers are offered — existing
+  // coverages already referencing a custom insurance organization still display
+  // correctly either way. Off by default, matching nonInsuranceOrganizationsEnabled.
+  customInsuranceOrganizationsEnabled: z.boolean().optional(),
 });
 
 export type FeatureFlagsConfig = z.infer<typeof FeatureFlagsConfigSchema>;

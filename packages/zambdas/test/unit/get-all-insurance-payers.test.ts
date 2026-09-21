@@ -1,6 +1,12 @@
 import Oystehr from '@oystehr/sdk';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getAllInsurancePayers } from '../../src/patient/get-all-insurance-payers';
+
+const flags = vi.hoisted(() => ({ customInsuranceOrganizationsEnabled: true }));
+vi.mock('utils/lib/ottehr-config/feature-flags', () => ({ FEATURE_FLAGS_CONFIG: flags }));
+
+const CUSTOM_ORG_REFERENCE =
+  'https://fhir.ottehr.com/billing/custom-insurance-organization/11111111-1111-4111-8111-111111111111';
 
 function makeOystehr(): { oystehr: Oystehr; listPayers: ReturnType<typeof vi.fn>; execute: ReturnType<typeof vi.fn> } {
   const listPayers = vi.fn().mockResolvedValue({
@@ -13,7 +19,19 @@ function makeOystehr(): { oystehr: Oystehr; listPayers: ReturnType<typeof vi.fn>
     ],
     metadata: { nextCursor: null },
   });
-  const execute = vi.fn().mockResolvedValue({ output: { organizations: [] } });
+  const execute = vi.fn().mockResolvedValue({
+    output: {
+      organizations: [
+        {
+          id: '11111111-1111-4111-8111-111111111111',
+          reference: CUSTOM_ORG_REFERENCE,
+          orgId: 'OTR-ACME',
+          name: 'Acme Insurance',
+          active: true,
+        },
+      ],
+    },
+  });
   const oystehr = {
     rcm: {
       listPayers,
@@ -25,31 +43,18 @@ function makeOystehr(): { oystehr: Oystehr; listPayers: ReturnType<typeof vi.fn>
 }
 
 describe('getAllInsurancePayers', () => {
-  it('lists custom insurance organizations alongside RCM payers', async () => {
+  beforeEach(() => {
+    flags.customInsuranceOrganizationsEnabled = true;
+  });
+
+  it('lists custom insurance organizations alongside RCM payers when the flag is on', async () => {
     const { oystehr, execute } = makeOystehr();
-    execute.mockResolvedValue({
-      output: {
-        organizations: [
-          {
-            id: '11111111-1111-4111-8111-111111111111',
-            reference:
-              'https://fhir.ottehr.com/billing/custom-insurance-organization/11111111-1111-4111-8111-111111111111',
-            orgId: 'OTR-ACME',
-            name: 'Acme Insurance',
-            active: true,
-          },
-        ],
-      },
-    });
 
     const options = await getAllInsurancePayers(oystehr);
 
     expect(execute).toHaveBeenCalledWith({ id: 'list-custom-insurance-organizations' });
     expect(options).toContainEqual({
-      valueReference: {
-        reference: 'https://fhir.ottehr.com/billing/custom-insurance-organization/11111111-1111-4111-8111-111111111111',
-        display: 'Acme Insurance',
-      },
+      valueReference: { reference: CUSTOM_ORG_REFERENCE, display: 'Acme Insurance' },
     });
     // Still includes the real RCM payer and the "Other" fallback.
     expect(options.some((o) => o.valueReference?.display === 'Aetna')).toBe(true);
@@ -57,34 +62,28 @@ describe('getAllInsurancePayers', () => {
   });
 
   it('prepends the business id to the display name when prependIdentifier is set', async () => {
-    const { oystehr, execute } = makeOystehr();
-    execute.mockResolvedValue({
-      output: {
-        organizations: [
-          {
-            id: '11111111-1111-4111-8111-111111111111',
-            reference:
-              'https://fhir.ottehr.com/billing/custom-insurance-organization/11111111-1111-4111-8111-111111111111',
-            orgId: 'OTR-ACME',
-            name: 'Acme Insurance',
-            active: true,
-          },
-        ],
-      },
-    });
+    const { oystehr } = makeOystehr();
 
     const options = await getAllInsurancePayers(oystehr, true);
 
     expect(options).toContainEqual({
-      valueReference: {
-        reference: 'https://fhir.ottehr.com/billing/custom-insurance-organization/11111111-1111-4111-8111-111111111111',
-        display: 'OTR-ACME - Acme Insurance',
-      },
+      valueReference: { reference: CUSTOM_ORG_REFERENCE, display: 'OTR-ACME - Acme Insurance' },
     });
   });
 
+  it('does not offer custom insurance organizations when the flag is off', async () => {
+    flags.customInsuranceOrganizationsEnabled = false;
+    const { oystehr, execute } = makeOystehr();
+
+    const options = await getAllInsurancePayers(oystehr);
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(options.map((o) => o.valueReference?.display)).toEqual(['Aetna', 'Other']);
+  });
+
   it('returns just the RCM payers and "Other" when there are no custom orgs', async () => {
-    const { oystehr } = makeOystehr();
+    const { oystehr, execute } = makeOystehr();
+    execute.mockResolvedValue({ output: { organizations: [] } });
 
     const options = await getAllInsurancePayers(oystehr);
 
