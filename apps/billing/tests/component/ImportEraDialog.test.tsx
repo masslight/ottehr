@@ -16,18 +16,6 @@ vi.mock('../../src/hooks/useAppClients', () => ({
   }),
 }));
 
-// jsdom does not implement File.text()
-if (!File.prototype.text) {
-  File.prototype.text = function () {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(reader.error);
-      reader.readAsText(this);
-    });
-  };
-}
-
 const X12 = 'ISA*00*          *00*          *ZZ*SENDER~GS*HP*SENDER*RECEIVER~ST*835*0001~';
 
 function dropFile(file: File): void {
