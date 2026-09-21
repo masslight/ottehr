@@ -28,7 +28,7 @@ import { ZambdaInput } from '../../../shared/types/common';
 import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM } from '../../payments';
 import { BILLING_WORKING_COPY_TAG, fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
 import { ReportDefinition } from '../framework/types';
-import { listStripeAccounts, toDay } from '../shared';
+import { listStripeAccounts, toDay, toMonth } from '../shared';
 
 const NOTICE_PAGE_SIZE = 200;
 const RESOURCE_BATCH_SIZE = 100;
@@ -75,6 +75,27 @@ export const patientPaymentsReport: ReportDefinition<
 };
 
 const noticeDay = (notice: PaymentNotice): string | null => toDay(notice.created);
+
+// Net patient collections (payments minus refunds) for the window, total and by payment month.
+// Shares loadNoticeContext with the main report so both agree on what counts as collected.
+export async function patientNetCollections(
+  oystehr: Oystehr,
+  untaggedClient: Oystehr,
+  params: ReportDateWindowParams,
+  secrets: ZambdaInput['secrets'],
+  onProgress?: (message: string) => Promise<void>
+): Promise<{ net: number; byMonth: Map<string, number> }> {
+  const context = await loadNoticeContext(oystehr, untaggedClient, params, secrets, onProgress);
+  const byMonth = new Map<string, number>();
+  let net = 0;
+  for (const notice of context.notices) {
+    const amount = notice.amount?.value ?? 0;
+    net += amount;
+    const month = toMonth(noticeDay(notice) ?? undefined);
+    if (month) byMonth.set(month, (byMonth.get(month) ?? 0) + amount);
+  }
+  return { net: roundNumberToDecimalPlaces(net, 2), byMonth };
+}
 
 const noticeInWindow = (notice: PaymentNotice, from?: string, to?: string): boolean => {
   if (!from && !to) return true;
