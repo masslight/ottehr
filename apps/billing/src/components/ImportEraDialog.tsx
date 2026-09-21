@@ -55,15 +55,18 @@ export function ImportEraDialog({ onClose }: Props): ReactElement {
 
   const [error, setError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [isReadingFile, setIsReadingFile] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
 
   const eraFile = watch('eraFile');
   useEffect(() => {
     if (!eraFile) return;
     let cancelled = false;
+    setIsReadingFile(true);
     void (async () => {
       const result = await readEraFile(eraFile);
       if (cancelled) return;
+      setIsReadingFile(false);
       if (!result.ok) {
         setFileError(result.error);
         setValue('eraFile', null);
@@ -147,8 +150,9 @@ export function ImportEraDialog({ onClose }: Props): ReactElement {
                       value={field.value}
                       minRows={20}
                       onChange={(e) => field.onChange(e.target.value)}
+                      disabled={isReadingFile}
                       error={!!fieldError}
-                      helperText={fieldError?.message}
+                      helperText={isReadingFile ? 'Reading file...' : fieldError?.message}
                     />
                   )}
                 />
@@ -169,7 +173,7 @@ export function ImportEraDialog({ onClose }: Props): ReactElement {
             variant="contained"
             startIcon={isSubmitting ? <CircularProgress size={14} /> : <SaveIcon fontSize="small" />}
             onClick={handleSubmit(handleImport)}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isReadingFile}
           >
             {isSubmitting ? 'Importing...' : 'Import'}
           </Button>

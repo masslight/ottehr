@@ -51,6 +51,13 @@ function oversizedFile(): File {
   return file;
 }
 
+// Hands back the resolvers for every read started from here on, so a test can land them out of order.
+function deferReads(): Array<(result: ReadEraFileResult) => void> {
+  const pendingReads: Array<(result: ReadEraFileResult) => void> = [];
+  readEraFileMock.mockImplementation(() => new Promise<ReadEraFileResult>((resolve) => pendingReads.push(resolve)));
+  return pendingReads;
+}
+
 function getEraTextarea(): HTMLTextAreaElement {
   return screen.getByRole('textbox', { name: /ERA in X12 Format/i }) as HTMLTextAreaElement;
 }
@@ -177,9 +184,47 @@ describe('ImportEraDialog', () => {
     expect(screen.queryByText(JPEG_ERROR)).not.toBeInTheDocument();
   });
 
+  it('locks the era field and the import button while a file is being read', async () => {
+    const pendingReads = deferReads();
+    render(<ImportEraDialog onClose={() => {}} />);
+
+    dropFile(textFile('remit.835'));
+
+    await waitFor(() => expect(getEraTextarea()).toBeDisabled());
+    expect(screen.getByRole('button', { name: 'Import' })).toBeDisabled();
+    expect(screen.getByText('Reading file...')).toBeVisible();
+
+    await act(async () => {
+      pendingReads[0]({
+        ok: true,
+        text: X12,
+      });
+    });
+
+    expect(getEraTextarea()).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Import' })).toBeEnabled();
+    expect(screen.queryByText('Reading file...')).not.toBeInTheDocument();
+  });
+
+  it('unlocks the era field when a read fails', async () => {
+    const pendingReads = deferReads();
+    render(<ImportEraDialog onClose={() => {}} />);
+    dropFile(textFile('remit.835'));
+    await waitFor(() => expect(getEraTextarea()).toBeDisabled());
+
+    await act(async () => {
+      pendingReads[0]({
+        ok: false,
+        error: TOO_LARGE_ERROR,
+      });
+    });
+
+    expect(getEraTextarea()).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Import' })).toBeEnabled();
+  });
+
   it('ignores a read that a newer file has superseded', async () => {
-    const pendingReads: Array<(result: ReadEraFileResult) => void> = [];
-    readEraFileMock.mockImplementation(() => new Promise<ReadEraFileResult>((resolve) => pendingReads.push(resolve)));
+    const pendingReads = deferReads();
     render(<ImportEraDialog onClose={() => {}} />);
 
     dropFile(textFile('first.835'));
