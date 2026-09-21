@@ -2038,6 +2038,22 @@ export const readProcedureFormFieldsFromServiceRequest = (sr: ServiceRequest): P
   consentObtained: getExtension(sr, FHIR_EXTENSION.ServiceRequest.consentObtained.url)?.valueBoolean,
 });
 
+/** An extension that states its content as a value[x], with no nested extensions. */
+type ValueOnlyExtension = Extension & { extension?: never };
+
+/**
+ * FHIR invariant ext-1: an extension carries either a value or nested extensions. Our array is flat
+ * today, so only the value half is checked here. The parameter type is what keeps that safe: adding
+ * a nested extension to the array fails to compile, and this function can be updated to handle it.
+ */
+const extensionCarriesValue = (extension: ValueOnlyExtension): boolean =>
+  Object.entries(extension).some(([key, value]) => {
+    if (!key.startsWith('value')) return false;
+    if (typeof value === 'string') return value.trim().length > 0;
+    if (typeof value === 'number') return Number.isFinite(value);
+    return value != null;
+  });
+
 const toFhirCode = (value: string | undefined): string | undefined => {
   if (value == null) {
     return undefined;
@@ -2053,7 +2069,7 @@ export const createProcedureServiceRequest = (
   const procedureTypeCode = toFhirCode(procedure.procedureType);
   const performerTypeCode = toFhirCode(procedure.performerType);
   const bodySiteCode = toFhirCode(procedure.bodySite);
-  const extensions: Extension[] = [
+  const extensions: ValueOnlyExtension[] = [
     {
       url: FHIR_EXTENSION.ServiceRequest.medicationUsed.url,
       valueString: procedure.medicationUsed,
@@ -2124,9 +2140,7 @@ export const createProcedureServiceRequest = (
       url: FHIR_EXTENSION.ServiceRequest.consentObtained.url,
       valueBoolean: procedure.consentObtained,
     },
-  ].filter(
-    (extension) => extension.valueString != null || extension.valueBoolean != null || extension.valueDecimal != null
-  );
+  ].filter(extensionCarriesValue);
   // Linked Condition/Procedure references are usually plain ids that get the
   // FHIR resource-type prefix. Callers building requests for a FHIR transaction
   // can also pass a urn:uuid pre-formatted reference (e.g. the apply-template
