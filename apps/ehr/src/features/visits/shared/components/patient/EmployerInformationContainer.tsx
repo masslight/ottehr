@@ -1,7 +1,11 @@
 import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
+import { useFormContext } from 'react-hook-form';
 import { Row } from 'src/components/layout/Row';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { AddressBookContact } from 'utils/lib/types/data/address-book';
+import { PatientRecordAddressBookField } from './PatientRecordAddressBookField';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
 import { SectionSaveButton } from './SectionSaveButton';
@@ -22,6 +26,24 @@ export const EmployerInformationContainer: FC<EmployerInformationContainerProps>
 }) => {
   const { items, hiddenFields, requiredFields } = usePatientRecordFormSection({ formSection: employerInformation });
   const theme = useTheme();
+  const { setValue } = useFormContext();
+
+  // Every field is set (to '' when the contact lacks it) so a re-pick leaves nothing stale.
+  const fillFromContact = (contact: AddressBookContact): void => {
+    const set = (item: { key: string }, value: string): void => setValue(item.key, value, { shouldDirty: true });
+    set(items.addressLine1, contact.address?.line1 ?? '');
+    set(items.addressLine2, contact.address?.line2 ?? '');
+    set(items.city, contact.address?.city ?? '');
+    set(items.state, contact.address?.state ?? '');
+    set(items.zip, contact.address?.zip ?? '');
+    set(items.contactFirstName, contact.firstName ?? '');
+    set(items.contactLastName, contact.lastName ?? '');
+    // The directory has no job title; the credential is the closest thing to one.
+    set(items.contactTitle, contact.credential ?? '');
+    set(items.contactEmail, contact.email ?? '');
+    set(items.contactPhone, formatPhoneNumberDisplay(contact.phone));
+    set(items.contactFax, formatPhoneNumberDisplay(contact.fax));
+  };
   return (
     <PatientRecordFormSection
       formSection={employerInformation}
@@ -41,11 +63,13 @@ export const EmployerInformationContainer: FC<EmployerInformationContainerProps>
         requiredFormFields={requiredFields}
       />
       <Typography sx={{ color: theme.palette.primary.dark, fontWeight: 600 }}>Employer Information</Typography>
-      <PatientRecordFormField
+      <PatientRecordAddressBookField
         item={items.employerName}
         isLoading={isLoading}
         hiddenFormFields={hiddenFields}
         requiredFormFields={requiredFields}
+        tag="employer"
+        onSelect={fillFromContact}
       />
       <PatientRecordFormField
         item={items.addressLine1}

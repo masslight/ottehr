@@ -1,5 +1,13 @@
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Autocomplete, Box, createFilterOptions, IconButton, TextField, Typography } from '@mui/material';
+import {
+  Autocomplete,
+  Box,
+  createFilterOptions,
+  IconButton,
+  TextField,
+  TextFieldProps,
+  Typography,
+} from '@mui/material';
 import { FC, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
@@ -35,16 +43,27 @@ const secondaryText = (contact: AddressBookContact): string =>
 interface AddressBookPickerProps {
   /** react-hook-form field holding the recipient name; free text keeps working as before. */
   name: string;
-  label: string;
+  label?: string;
+  variant?: TextFieldProps['variant'];
   /** Narrows the search to contacts with this tag, and tags contacts created from this picker with it. */
   tag?: string;
+  /** What a pick writes into the field; defaults to the contact's label (the person, else the organization). */
+  fieldValue?: (contact: AddressBookContact) => string;
   onSelect: (contact: AddressBookContact) => void;
   dataTestId?: string;
 }
 
 type DialogState = Pick<React.ComponentProps<typeof AddressBookDialog>, 'contact' | 'initialValues'>;
 
-export const AddressBookPicker: FC<AddressBookPickerProps> = ({ name, label, tag, onSelect, dataTestId }) => {
+export const AddressBookPicker: FC<AddressBookPickerProps> = ({
+  name,
+  label,
+  variant,
+  tag,
+  fieldValue = addressBookContactLabel,
+  onSelect,
+  dataTestId,
+}) => {
   const { control } = useFormContext();
   const { data } = useSearchAddressBookQuery(tag);
   const contacts = data?.contacts ?? [];
@@ -57,13 +76,13 @@ export const AddressBookPicker: FC<AddressBookPickerProps> = ({ name, label, tag
       name={name}
       control={control}
       defaultValue=""
-      render={({ field }) => {
+      render={({ field, fieldState: { error } }) => {
         const text: string = field.value ?? '';
         const picked = contacts.find((contact) => contact.id === pickedId);
-        const match = picked && addressBookContactLabel(picked) === text ? picked : undefined;
+        const match = picked && fieldValue(picked) === text ? picked : undefined;
         const pick = (contact: AddressBookContact): void => {
           setPickedId(contact.id);
-          field.onChange(addressBookContactLabel(contact));
+          field.onChange(fieldValue(contact));
           onSelect(contact);
         };
         return (
@@ -101,8 +120,12 @@ export const AddressBookPicker: FC<AddressBookPickerProps> = ({ name, label, tag
               renderInput={(params) => (
                 <TextField
                   {...params}
+                  name={name}
                   label={label}
+                  variant={variant}
                   size="small"
+                  error={!!error}
+                  helperText={error?.message}
                   data-testid={dataTestId}
                   InputProps={{
                     ...params.InputProps,
