@@ -41,12 +41,13 @@ import {
 } from 'utils/lib/fhir/billing';
 import { FHIR_IDENTIFIER_NPI, PARTICIPATION_CODE_SYSTEM, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
-import { getCoding } from 'utils/lib/fhir/helpers';
+import { codeableConcept, getCoding } from 'utils/lib/fhir/helpers';
 import { getNPIIdentifier, getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getCandidPlanTypeCodeFromCoverage, getPayerId } from 'utils/lib/helpers/helpers';
 import { InternalError } from 'utils/lib/helpers/oystehrApi';
 import {
+  CODE_SYSTEM_ACT_CODE_V3,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT_MODIFIER,
   CODE_SYSTEM_HL7_HCPCS,
@@ -58,6 +59,7 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { AccidentDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
@@ -70,7 +72,7 @@ import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/er
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { chartDataResourceHasMetaTagByCode } from '../../shared/chart-data';
+import { chartDataResourceHasMetaTagByCode, makeAccidentDTOFromFhirResources } from '../../shared/chart-data';
 import { sendErrors } from '../../shared/errors';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types/common';
@@ -124,6 +126,7 @@ interface ClinicalResources {
   payors: Organization[];
   diagnoses: Array<Condition>;
   procedures: Array<Procedure>;
+  accident?: AccidentDTO;
   /** The patient's occ-med Account (owner = the visit's employer); resolved only for employer-billed visits. */
   occupationalMedicineAccount?: Account;
 }
@@ -159,6 +162,7 @@ interface ClaimResources {
   diagnoses?: Array<Condition>;
   procedures?: Array<Procedure>;
   billingTags?: Array<string>;
+  accident?: Claim['accident'];
 }
 
 export type CreateClaimFromEncounterRequests = Array<
@@ -437,8 +441,15 @@ export async function performEffect(
   }
 
   const billingTags = [];
-  if (clinicalResources.appointment.description?.toLowerCase() === 'auto accident') {
+  const accident = clinicalResources.accident;
+  let claimAccident: Claim['accident'];
+  if (accident?.type.includes('AA') && accident.date && accident.state) {
     billingTags.push(AUTO_ACCIDENT_TAG_NAME);
+    claimAccident = {
+      date: accident.date,
+      type: codeableConcept('MVA', CODE_SYSTEM_ACT_CODE_V3),
+      locationAddress: { state: accident.state },
+    };
   }
 
   const claim = buildClaim({
@@ -453,6 +464,7 @@ export async function performEffect(
     serviceFacility: claimServiceFacility,
     billingProvider: claimBillingProvider,
     billingTags,
+    accident: claimAccident,
   });
   const claimUrn = 'urn:uuid:claim';
   requests.push({ method: 'POST', url: '/Claim', resource: claim, fullUrl: claimUrn });
@@ -750,6 +762,7 @@ async function getClinicalResources(
           name: '_include',
           value: 'Encounter:diagnosis',
         },
+        { name: '_revinclude', value: 'Condition:encounter' },
         {
           // Reverse include procedures
           name: '_revinclude',
@@ -784,7 +797,11 @@ async function getClinicalResources(
   const accounts = resources.filter((r): r is Account => r.resourceType === 'Account');
   if (!accounts.length) throw FHIR_RESOURCE_NOT_FOUND('Account');
 
-  let diagnoses = resources.filter((r): r is Condition => r.resourceType === 'Condition');
+  let diagnoses = resources.filter(
+    (r): r is Condition =>
+      r.resourceType === 'Condition' &&
+      !!encounter.diagnosis?.some((diagnosis) => diagnosis.condition.reference === `Condition/${r.id}`)
+  );
   if (!diagnoses.length) throw FHIR_RESOURCE_NOT_FOUND('Condition');
   const primaryDiagnosisId = encounter.diagnosis
     ?.find((d) => d.rank === 1)
@@ -871,6 +888,7 @@ async function getClinicalResources(
   ).unbundle();
   if (!billingProviders.length) throw FHIR_RESOURCE_NOT_FOUND('Organization');
 
+  const accident = makeAccidentDTOFromFhirResources(resources);
   return {
     encounter,
     patient,
@@ -883,6 +901,7 @@ async function getClinicalResources(
     payors,
     diagnoses,
     procedures,
+    ...(accident ? { accident } : {}),
     ...(occupationalMedicineAccount ? { occupationalMedicineAccount } : {}),
   };
 }
@@ -1132,6 +1151,7 @@ function buildClaim(resources: ClaimResources): Claim {
     type: { coding: [getClaimTypeCoding()] },
     use: 'claim',
     created: now,
+    ...(resources.accident ? { accident: resources.accident } : {}),
     extension: [
       ...getDefaultClaimSubmissionExtensions(),
       ...(resources.nonInsurancePayer ? [claimNonInsurancePayerExtension(resources.nonInsurancePayer)] : []),

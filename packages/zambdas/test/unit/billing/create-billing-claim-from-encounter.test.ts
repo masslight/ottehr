@@ -27,10 +27,12 @@ import {
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { getEncounterVisitOccupationalMedicineEmployerExtension, PaymentVariant } from 'utils/lib/fhir/encounter';
+import { codeableConcept } from 'utils/lib/fhir/helpers';
 import { CANDID_PLAN_TYPE_SYSTEM } from 'utils/lib/fhir/insurance';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getNioReferenceUrl } from 'utils/lib/helpers/helpers';
 import {
+  CODE_SYSTEM_ACT_CODE_V3,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -82,6 +84,7 @@ import {
   SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../src/billing/shared';
+import { createAccidentCondition } from '../../../src/shared/chart-data';
 
 // Local const so that DEPRECATED system doesn't get imported from utils
 const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // formerly used by Ottehr clinical in-house meds
@@ -401,6 +404,7 @@ const oystehrResources: { payor: Organization } = {
   payor: { resourceType: 'Organization', id: 'payer-123' },
 };
 
+const autoAccident = { resourceId: 'accident-123', type: ['AA'], date: '2026-01-01', state: 'MA' };
 const emptyAccount = { ...structuredClone(clinicalResources.account), coverage: [] };
 
 describe('create-billing-claim-from-encounter', () => {
@@ -1007,6 +1011,7 @@ describe('create-billing-claim-from-encounter', () => {
               clinicalResources.account,
               clinicalResources.coverage,
               ...clinicalResources.conditions,
+              createAccidentCondition(autoAccident, 'encounter-123', 'patient-123').resource,
               clinicalResources.procedure,
             ],
           })
@@ -1048,6 +1053,7 @@ describe('create-billing-claim-from-encounter', () => {
         expectedError: null,
         expectedResult: {
           clinicalResources: {
+            accident: autoAccident,
             accounts: [clinicalResources.account],
             appointment: clinicalResources.appointment,
             billingProvider: clinicalResources.billingProvider,
@@ -3194,7 +3200,7 @@ describe('create-billing-claim-from-encounter', () => {
         ]),
       });
     });
-    it('creates claim with auto accident tag, writing no tag definition', async () => {
+    it('copies progress-note auto accident data onto the claim', async () => {
       const txFn = vi.fn().mockResolvedValue({
         entry: [
           { resource: { resourceType: 'Patient', id: 'billing-patient' } },
@@ -3219,10 +3225,8 @@ describe('create-billing-claim-from-encounter', () => {
       const cvo: ComplexValidationOutput = {
         clinicalResources: {
           accounts: [clinicalResources.account],
-          appointment: {
-            ...clinicalResources.appointment,
-            description: 'Auto accident',
-          },
+          appointment: clinicalResources.appointment,
+          accident: autoAccident,
           billingProvider: clinicalResources.billingProvider,
           coverages: [clinicalResources.coverage],
           diagnoses: [...clinicalResources.conditions],
@@ -3275,6 +3279,11 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              accident: {
+                date: autoAccident.date,
+                type: codeableConcept('MVA', CODE_SYSTEM_ACT_CODE_V3),
+                locationAddress: { state: autoAccident.state },
+              },
               extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
@@ -3338,8 +3347,7 @@ describe('create-billing-claim-from-encounter', () => {
         ]),
       });
     });
-    // Applying a system tag reads nothing from the tag store, so an outage there cannot block a claim.
-    it('still creates the auto accident claim when tag definition lookups fail', async () => {
+    it('does not treat the reason for visit as auto accident data', async () => {
       const txFn = vi.fn().mockResolvedValue({
         entry: [
           { resource: { resourceType: 'Patient', id: 'billing-patient' } },
@@ -3397,7 +3405,8 @@ describe('create-billing-claim-from-encounter', () => {
       const claimRequest = txFn.mock.calls[0][0].requests.find(
         (r: { url: string }) => r.url === '/Claim'
       ) as BatchInputPostRequest<Claim>;
-      expect(claimRequest.resource.meta?.tag).toContainEqual({
+      expect(claimRequest.resource.accident).toBeUndefined();
+      expect(claimRequest.resource.meta?.tag).not.toContainEqual({
         system: CLAIM_TAG_SYSTEM,
         code: AUTO_ACCIDENT_TAG_NAME,
       });
