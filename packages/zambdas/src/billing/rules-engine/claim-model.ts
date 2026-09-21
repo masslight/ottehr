@@ -21,7 +21,13 @@ import {
 import { SUBSCRIBER_RELATIONSHIP_CODE_MAP } from 'utils/lib/fhir/constants';
 import { codeableConcept, getCoding, getExtension, getNPI, getTaxID, setNpi } from 'utils/lib/fhir/helpers';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from 'utils/lib/fhir/insurance';
-import { extractPayerIdFromUrl, getPayerUrl, isCLIAValid, isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
+import {
+  extractPayerIdFromUrl,
+  getPayerUrl,
+  isCLIAValid,
+  isNPIValidWithChecksum,
+  isPayerUrl,
+} from 'utils/lib/helpers/helpers';
 import {
   CMS_PLACE_OF_SERVICE_CODE_SET,
   CODE_SYSTEM_CLAIM_TYPE,
@@ -106,6 +112,11 @@ export interface RulesEngineClaimModel {
   // with the payer's name. Read-only reference data like referenceResources — claims reference
   // these masters directly, so no working copy is made.
   nioOrganizations?: Map<string, Organization>;
+  // The billing-app custom insurance organizations (plain FHIR Organizations, not RCM payers) named
+  // as a literal value by the rule set's payer-field setField actions, keyed by id, prefetched by the
+  // engine so the synchronous payerId writer can tell them apart from an RCM payer id and stamp the
+  // claim's coverage with the right reference form (Organization/{id} rather than an RCM payer URL).
+  customInsuranceOrganizations?: Map<string, Organization>;
   // Local placeholder ids of working copies minted by writers during this run. persistModel
   // POSTs them (fullUrl urn:uuid:<id>) in the same transaction as the claim's update; the
   // server resolves the claim's temporary urn references to the created ids, and the model
@@ -347,6 +358,12 @@ const readRelationship = (coverage?: Coverage): string | undefined => {
 
 type FieldReader = (m: RulesEngineClaimModel) => string | string[] | undefined;
 
+// A coverage's payor reference is either an RCM payer URL or, for a billing-app custom insurance
+// organization, a direct Organization/{id} reference (same convention as
+// getClaimNonInsurancePayer's reference and buildPayorReference in shared.ts).
+const extractPayerIdFromCoverageRef = (reference?: string): string | undefined =>
+  isPayerUrl(reference) ? extractPayerIdFromUrl(reference) : reference?.replace('Organization/', '');
+
 // Readers for the name / birth date / gender / address fields a person-shaped resource (patient or
 // policy holder) contributes; ids mirror the personFields entries in RULE_FIELD_CATALOG.
 const personReaders = (
@@ -374,7 +391,7 @@ const coverageReaders = (
     const source = copySourceRef(resolve(m));
     return source ? m.patientCoverageContext?.typeByCoverageRef.get(source) : undefined;
   },
-  [`${prefix}.payerId`]: (m) => extractPayerIdFromUrl(resolve(m)?.payor?.[0]?.reference),
+  [`${prefix}.payerId`]: (m) => extractPayerIdFromCoverageRef(resolve(m)?.payor?.[0]?.reference),
   [`${prefix}.memberId`]: (m) => resolve(m)?.subscriberId,
   [`${prefix}.planType`]: (m) => getCoveragePlanType(resolve(m)),
   [`${prefix}.relationship`]: (m) => readRelationship(resolve(m)),
@@ -411,9 +428,9 @@ const statusFieldReaders = (): Record<string, FieldReader> =>
   );
 
 const READERS: Record<string, FieldReader> = {
-  // The payer is the payor reference on the working-copy Coverage — always an Oystehr payer URL
-  // encoding the id in the billing workspace.
-  payerId: (m) => extractPayerIdFromUrl(primaryCoverage(m)?.payor?.[0]?.reference),
+  // The payer is the payor reference on the working-copy Coverage — either an Oystehr payer URL, or
+  // for a custom insurance organization, a direct Organization/{id} reference.
+  payerId: (m) => extractPayerIdFromCoverageRef(primaryCoverage(m)?.payor?.[0]?.reference),
   nonInsurancePayerId: (m) => getClaimNonInsurancePayer(m.claim)?.reference?.replace('Organization/', ''),
   type: (m) => getClaimType(m.claim),
   service: (m) => getClaimService(m.claim),
@@ -548,15 +565,22 @@ const setPersonGender = (person: Patient | RelatedPerson | undefined, value: str
   return true;
 };
 
-// Re-point the primary coverage's payor and the claim's insurer. No RCM lookup is needed —
-// getPayerUrl builds the payer reference directly from the id.
+// The payor/insurer reference for a chosen payer id: Organization/{id} when it names one of the
+// engine's prefetched custom insurance organizations (see loadCustomInsuranceOrganizations), else the
+// existing RCM payer URL form — no RCM lookup is needed there, getPayerUrl builds it from the id alone.
+const payerReferenceForId = (model: RulesEngineClaimModel, id: string): string => {
+  const customOrg = model.customInsuranceOrganizations?.get(id);
+  return customOrg ? `Organization/${customOrg.id}` : getPayerUrl(id);
+};
+
+// Re-point the primary coverage's payor and the claim's insurer.
 const setPayerId = (model: RulesEngineClaimModel, value: string | null): boolean => {
   if (!value) return false;
   const coverage = primaryCoverage(model);
   if (!coverage) return false;
-  const payerUrl = getPayerUrl(value);
-  coverage.payor = [{ reference: payerUrl }];
-  model.claim.insurer = { reference: payerUrl };
+  const payerRef = payerReferenceForId(model, value);
+  coverage.payor = [{ reference: payerRef }];
+  model.claim.insurer = { reference: payerRef };
   return true;
 };
 
@@ -853,10 +877,10 @@ const coverageWriters = (
     if (!v) return false;
     const coverage = resolve(m);
     if (!coverage) return false;
-    const payerUrl = getPayerUrl(v);
-    coverage.payor = [{ reference: payerUrl }];
+    const payerRef = payerReferenceForId(m, v);
+    coverage.payor = [{ reference: payerRef }];
     if (m.claim.insurance.find((ins) => ins.coverage.reference?.replace('Coverage/', '') === coverage.id)?.focal) {
-      m.claim.insurer = { reference: payerUrl };
+      m.claim.insurer = { reference: payerRef };
     }
     return true;
   },

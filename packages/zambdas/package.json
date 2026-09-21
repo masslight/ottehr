@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.43.13",
+  "version": "1.43.16",
   "private": true,
   "sideEffects": false,
   "scripts": {
@@ -75,6 +75,7 @@
     "reset-lab-order": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/labs/reset-lab-order.ts",
     "seed-runtime-resources": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/seed-runtime-resources.ts",
     "dedupe-scheduling-resources": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/dedupe-scheduling-resources.ts",
+    "delete-billing-system-tag-basics": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/delete-billing-system-tag-basics.ts",
     "regenerate-questionnaire-json": "NODE_OPTIONS='--preserve-symlinks' tsx ./scripts/regenerate-questionnaire-json.ts",
     "lint:barrels": "tsx scripts/debarrel.ts src --check && tsx scripts/debarrel.ts test --check",
     "resolve-slug-duplicates": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/resolve-slug-duplicates.ts"

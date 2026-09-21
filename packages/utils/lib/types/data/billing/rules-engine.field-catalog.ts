@@ -1364,6 +1364,20 @@ export function collectSetNioIds(rule: { conditional: RuleConditional }): string
   return ids;
 }
 
+// The payer id values a rule's setField actions assign to a "payer" field (deduped, in tree order) —
+// the engine prefetches any of these that name a custom insurance organization (a plain FHIR
+// Organization, not an RCM payer) so the synchronous payerId writer can tell them apart from an RCM
+// payer id and reference it directly instead of building an RCM payer URL.
+export function collectSetPayerIds(rule: { conditional: RuleConditional }): string[] {
+  const ids: string[] = [];
+  forEachRuleAction(rule, (action) => {
+    if (action.type !== 'setField' || CATALOG_BY_ID.get(action.field)?.valueType !== 'payer') return;
+    const id = action.value?.trim();
+    if (id && !ids.includes(id)) ids.push(id);
+  });
+  return ids;
+}
+
 export function collectSetResourceRefs(rule: { conditional: RuleConditional }): SetResourceRef[] {
   const refs: SetResourceRef[] = [];
   const seen = new Set<string>();

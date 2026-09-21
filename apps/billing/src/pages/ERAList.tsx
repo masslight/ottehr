@@ -22,10 +22,11 @@ import { SearchErasInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingPatientOption, BillingPayerOption, EraListItem } from 'utils/lib/types/data/billing/billing.types';
 import { formatAntCaseString } from 'utils/lib/types/data/billing/claim-status';
 import { formatCurrency } from 'utils/lib/utils/convert';
-import { searchBillingEras, searchBillingPayers } from '../api/api';
+import { searchBillingEras } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { DateRangeInput } from '../components/DateInput';
 import { ImportEraDialog } from '../components/ImportEraDialog';
+import { usePayerSearch } from '../components/PayerSelect';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 
@@ -93,7 +94,7 @@ export default function ERAList(): ReactElement {
   const [eraDateTo, setEraDateTo] = useState('');
   const [eraStatus, setEraStatus] = useState('');
   const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
-  const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
+  const { options: payerOptions, search: searchPayers } = usePayerSearch();
   const [matchingStatus, setMatchingStatus] = useState('');
 
   // Claim-level filters
@@ -136,21 +137,6 @@ export default function ERAList(): ReactElement {
       }
     },
     [oystehrZambda]
-  );
-
-  const searchPayers = useCallback(
-    (query: string): void => {
-      if (!oystehrZambda) return;
-      debounce(async () => {
-        try {
-          const res = await searchBillingPayers(oystehrZambda, query ? { name: query } : {});
-          setPayerOptions(res.payers ?? []);
-        } catch {
-          setPayerOptions([]);
-        }
-      }, 'payer');
-    },
-    [oystehrZambda, debounce]
   );
 
   const initialLoadDone = useRef(false);
@@ -308,7 +294,7 @@ export default function ERAList(): ReactElement {
             applyFilters({ payerId: v?.payerId ?? '' });
           }}
           renderInput={(params) => <TextField {...params} label="Payer" />}
-          isOptionEqualToValue={(o, v) => o.payerId === v.payerId}
+          isOptionEqualToValue={(o, v) => o.id === v.id}
           sx={{ minWidth: 200 }}
         />
         <FormControl size="small" sx={{ minWidth: 200 }}>

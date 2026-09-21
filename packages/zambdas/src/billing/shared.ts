@@ -54,6 +54,7 @@ import {
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils/lib/fhir/constants';
 import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   buildCoverageSubscriberRelatedPerson,
   createCoverageMemberIdentifier,
@@ -102,13 +103,17 @@ import {
 } from 'utils/lib/types/data/billing/claim-status';
 import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
-import { SYSTEM_MANAGED_TAGS, SystemManagedTag } from 'utils/lib/types/data/billing/system-tags';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { sendErrors } from '../shared/errors';
 import { fetchAllPages } from '../shared/fhir';
+import {
+  getCustomInsuranceOrgBusinessId,
+  isCustomInsuranceOrganization,
+  resolvePayerOrganization,
+} from './custom-insurance-org.helpers';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
 import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';
 
@@ -210,7 +215,8 @@ export function ensureClaimInsurance(insurance?: Claim['insurance']): NonNullabl
     .map((entry, idx) => ({ ...entry, sequence: idx + 1, focal: idx === 0 }));
 }
 
-// Resolve Oystehr payer list URLs to payer Organizations via the RCM service
+// Resolve payer references — Oystehr RCM payer list URLs, or a billing-app custom insurance
+// organization's direct Organization/{id} reference (see buildPayorReference) — to their Organizations.
 export async function resolvePayersByRef(
   oystehr: Oystehr,
   refs: (string | undefined)[]
@@ -219,9 +225,12 @@ export async function resolvePayersByRef(
   const uniqueRefs = [...new Set(refs.filter((r): r is string => !!r))];
   await Promise.all(
     uniqueRefs.map(async (ref) => {
-      if (!isPayerUrl(ref)) return;
       try {
-        byRef.set(ref, await oystehr.rcm.getPayerByUrl({ url: ref }));
+        if (isPayerUrl(ref)) {
+          byRef.set(ref, await oystehr.rcm.getPayerByUrl({ url: ref }));
+        } else if (ref.startsWith('Organization/')) {
+          byRef.set(ref, await resolvePayerOrganization(oystehr, ref.slice('Organization/'.length)));
+        }
       } catch (err) {
         console.error(`Failed to resolve payer ${ref}:`, err);
       }
@@ -230,11 +239,18 @@ export async function resolvePayersByRef(
   return byRef;
 }
 
+// The identifier shown as a payer's "Payer ID" — the RCM identifier, or for a billing-app custom
+// insurance organization (which has no RCM identifier), its "OTR-" business id.
+export function resolvedPayerId(org: Organization | undefined): string | undefined {
+  if (!org) return undefined;
+  return getPayerId(org) ?? (isCustomInsuranceOrganization(org) ? getCustomInsuranceOrgBusinessId(org) : undefined);
+}
+
 // Payer display string used across billing: "Name (Payer ID)".
 export function payerDisplay(org: Organization | undefined): string | undefined {
   if (!org) return undefined;
   const name = org.name ?? '';
-  const payerId = getPayerId(org) ?? '';
+  const payerId = resolvedPayerId(org) ?? '';
   if (name && payerId) return `${name} (${payerId})`;
   return name || payerId || undefined;
 }
@@ -524,52 +540,25 @@ export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string | u
 
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
-export const TAG_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
 
-// A tag definition is system-managed iff its name (code.text) is in SYSTEM_MANAGED_TAGS — the name
-// is the tag's identity everywhere tags are referenced (claim meta tags, rules), and the
-// code-defined list is the single source of truth. A definition whose name leaves the list (e.g.
-// after a system tag is renamed in code) degrades to an ordinary, editable/deletable tag. The
-// is-system-tag extension written by systemTagBasic records provenance only and deliberately does
-// not drive behavior.
 export function isSystemTag(tag: Basic): boolean {
   return isSystemManagedTagName(tag.code?.text);
-}
-
-// The one FHIR encoding of a system-managed tag definition (see utils' SYSTEM_MANAGED_TAGS).
-export function systemTagBasic(def: SystemManagedTag): Basic {
-  return {
-    resourceType: 'Basic',
-    code: { text: def.name, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
-    extension: [
-      { url: TAG_DESCRIPTION_URL, valueString: def.description },
-      { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
-    ],
-  };
-}
-
-// Create the Basic definition of any system-managed tag that doesn't have one yet. Callers decide
-// whether a failure matters — seeding is cosmetic (search-billing-tags reports system-managed tags
-// whether or not their Basics exist).
-export async function ensureSystemManagedTags(oystehr: Oystehr): Promise<void> {
-  const defined = await fetchDefinedTagNames(oystehr);
-  const missing = SYSTEM_MANAGED_TAGS.filter((def) => !defined.has(def.name));
-  await Promise.all(missing.map((def) => oystehr.fhir.create<Basic>(systemTagBasic(def))));
 }
 
 // All tag definitions in the tags feature (Basic resources; the name lives in code.text), newest
 // first. The one search behind both the Tags page (search-billing-tags) and the tag-existence
 // validations, so the two can't diverge.
 export async function searchTagBasics(oystehr: Oystehr): Promise<Basic[]> {
-  const bundle = await oystehr.fhir.search<Basic>({
-    resourceType: 'Basic',
-    params: [
-      { name: 'code', value: `${TAG_CODE_SYSTEM}|tag` },
-      { name: '_sort', value: '-_lastUpdated' },
-      { name: '_count', value: '200' },
-    ],
-  });
-  return bundle.unbundle();
+  return getAllFhirSearchPages<Basic>(
+    {
+      resourceType: 'Basic',
+      params: [
+        { name: 'code', value: `${TAG_CODE_SYSTEM}|tag` },
+        { name: '_sort', value: '-_lastUpdated' },
+      ],
+    },
+    oystehr
+  );
 }
 
 // Names of the defined tags — used to validate tag references before they are written onto claims
@@ -1261,13 +1250,17 @@ export function buildSubscriberRelatedPerson(
 
 // Set payor reference + coverage class + member-id identifier from a payer Organization.
 export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, memberId: string): void {
-  const payerId = getPayerId(payerOrg);
-  if (!payerId) throw new Error('payerId unexpectedly missing from payer organization');
+  // A UUID-backed org (RCM payer with a real FHIR resource, or a custom insurance organization)
+  // references itself directly and doesn't need an RCM payer id; only a pure RCM payer (no backing
+  // resource) requires one, since buildPayorReference falls back to an RCM payer URL for it.
+  const payerId = resolvedPayerId(payerOrg);
+  if (!payerId && !isValidUUID(payerOrg.id ?? ''))
+    throw new Error('payerId unexpectedly missing from payer organization');
   coverage.payor = [{ reference: buildPayorReference(payerOrg) }];
   coverage.class = [
     {
       type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] },
-      value: payerId,
+      value: payerId ?? '',
       name: payerOrg.name ?? '',
     },
   ];

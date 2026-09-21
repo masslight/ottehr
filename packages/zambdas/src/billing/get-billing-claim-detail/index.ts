@@ -6,7 +6,6 @@ import { getClaimNonInsurancePayer, getCoveragePlanType } from 'utils/lib/fhir/b
 import { SubscriberRelationship } from 'utils/lib/fhir/constants';
 import { getCoding, getExtension, getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { getPayerId } from 'utils/lib/helpers/helpers';
 import { asEraClaimStatusCode, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
   BillingPolicyHolderSummary,
@@ -50,6 +49,7 @@ import {
   getClaimType,
   getEraCheckNumber,
   getTaxonomy,
+  resolvedPayerId,
   resolvePayersByRef,
   toAddressParts,
 } from '../shared';
@@ -215,7 +215,7 @@ export async function performEffect(
     coverageFhirId: coverage?.id ?? '',
     payorFhirId: insurer?.id ?? '',
     payerName: insurer?.name ?? '',
-    payerId: getPayerId(insurer) ?? '',
+    payerId: resolvedPayerId(insurer) ?? '',
     memberId: coverage?.subscriberId ?? '',
     subscriberId: coverage?.subscriberId ?? '',
     planType: getCoveragePlanType(coverage) ?? '',
@@ -224,15 +224,15 @@ export async function performEffect(
     responsibleParty: 'Primary',
     secondaryCoverageFhirId: secondaryCoverage?.id ?? '',
     secondaryPayerName: secondaryInsurer?.name ?? '',
-    secondaryPayerId: getPayerId(secondaryInsurer) ?? '',
+    secondaryPayerId: resolvedPayerId(secondaryInsurer) ?? '',
     secondaryMemberId: secondaryCoverage?.subscriberId ?? '',
     tertiaryCoverageFhirId: tertiaryCoverage?.id ?? '',
     tertiaryPayerName: tertiaryInsurer?.name ?? '',
-    tertiaryPayerId: getPayerId(tertiaryInsurer) ?? '',
+    tertiaryPayerId: resolvedPayerId(tertiaryInsurer) ?? '',
     tertiaryMemberId: tertiaryCoverage?.subscriberId ?? '',
     quaternaryCoverageFhirId: quaternaryCoverage?.id ?? '',
     quaternaryPayerName: quaternaryInsurer?.name ?? '',
-    quaternaryPayerId: getPayerId(quaternaryInsurer) ?? '',
+    quaternaryPayerId: resolvedPayerId(quaternaryInsurer) ?? '',
     quaternaryMemberId: quaternaryCoverage?.subscriberId ?? '',
     nonInsurancePayerFhirId: nonInsurancePayer.fhirId,
     nonInsurancePayerName: nonInsurancePayer.name,

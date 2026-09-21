@@ -15,6 +15,7 @@ const {
   pollExportTaskMock,
   downloadTextFileMock,
   searchBillingPatientsMock,
+  mockOystehrZambda,
 } = vi.hoisted(() => ({
   searchBillingClaimsMock: vi.fn(),
   runBillingRulesEngineMock: vi.fn(),
@@ -24,6 +25,7 @@ const {
   pollExportTaskMock: vi.fn(),
   downloadTextFileMock: vi.fn(),
   searchBillingPatientsMock: vi.fn().mockResolvedValue({ patients: [] }),
+  mockOystehrZambda: {},
 }));
 
 vi.mock('../../src/api/api', () => ({
@@ -34,15 +36,19 @@ vi.mock('../../src/api/api', () => ({
   searchBillingNonInsuranceOrgs: searchBillingNonInsuranceOrgsMock,
   searchBillingPatients: searchBillingPatientsMock,
   searchBillingPayers: vi.fn().mockResolvedValue({ payers: [] }),
+  searchBillingCustomInsuranceOrgs: vi.fn().mockResolvedValue({ organizations: [] }),
   // Preloaded on mount behind a debounce timer — without this export the timer explodes on slow
   // (CI) runners after the test body has already finished.
   searchBillingServices: vi.fn().mockResolvedValue({ services: [] }),
   searchBillingTags: vi.fn().mockResolvedValue({ tags: [] }),
 }));
 
+// mockOystehrZambda is a stable reference, like the real store-backed hook returns — a fresh object on
+// every call would change identity on every render, making every oystehrZambda-dependent useCallback
+// (and therefore every "search on mount" useEffect keyed on it) re-fire on every render, forever.
 vi.mock('../../src/hooks/useAppClients', () => ({
   useApiClients: () => ({
-    oystehrZambda: {},
+    oystehrZambda: mockOystehrZambda,
   }),
 }));
 
@@ -62,7 +68,7 @@ vi.mock('../../src/utils/pollExportTask', () => ({
   pollExportTask: pollExportTaskMock,
 }));
 
-vi.mock('../../src/utils/downloadTextFile', () => ({
+vi.mock('../../src/utils/downloadFile', () => ({
   downloadTextFile: downloadTextFileMock,
 }));
 

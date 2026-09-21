@@ -6,16 +6,19 @@ import {
   Coverage,
   Organization,
   Patient,
+  Provenance,
   ProvenanceAgent,
   RelatedPerson,
 } from 'fhir/r4b';
-import { ACCOUNT_TYPE_CODE_SYSTEM, CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { ACCOUNT_TYPE_CODE_SYSTEM, CPT_CODE_SYSTEM, RAW_RESPONSE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
 import {
+  CLAIM_PROVENANCE_ACTIVITY_CODES,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+  CLAIM_PROVENANCE_TRANSMIT_EXTENSION_URL,
   ClaimFieldChange,
   ClaimHistoryRuleRef,
 } from 'utils/lib/types/data/billing/claim-history';
@@ -54,13 +57,30 @@ function makeOystehrMock(): {
   oystehr: Oystehr;
   search: ReturnType<typeof vi.fn>;
   transaction: ReturnType<typeof vi.fn>;
+  create: ReturnType<typeof vi.fn>;
   submitClaimRcm: ReturnType<typeof vi.fn>;
 } {
   const search = vi.fn().mockResolvedValue({ unbundle: () => [] });
   const transaction = vi.fn().mockResolvedValue({ entry: [] });
+  const create = vi.fn().mockResolvedValue({});
   const submitClaimRcm = vi.fn().mockResolvedValue({});
-  const oystehr = { fhir: { search, transaction }, rcm: { submitClaim: submitClaimRcm } } as unknown as Oystehr;
-  return { oystehr, search, transaction, submitClaimRcm };
+  const oystehr = {
+    fhir: {
+      search,
+      transaction,
+      create,
+    },
+    rcm: {
+      submitClaim: submitClaimRcm,
+    },
+  } as unknown as Oystehr;
+  return {
+    oystehr,
+    search,
+    transaction,
+    create,
+    submitClaimRcm,
+  };
 }
 
 function makeModel(arStage: string = AR_STAGE.insurancePayer): RulesEngineClaimModel {
@@ -155,6 +175,65 @@ describe('sub-rules-engine performEffect', () => {
     expect(result.statusReason).toContain('submitted');
     // Status change (insuranceArStatus -> submitted) commits with its Provenance.
     expect(transaction).toHaveBeenCalled();
+  });
+
+  it('records the transmit provenance from the submission ClaimResponse', async () => {
+    const { oystehr, search, create, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    search.mockResolvedValue({ unbundle: () => [model.claim] });
+    submitClaimRcm.mockResolvedValue({
+      resourceType: 'ClaimResponse',
+      id: 'cr-1',
+      created: '2026-08-06T12:00:00.000Z',
+      extension: [
+        {
+          url: RAW_RESPONSE_EXTENSION_URL,
+          valueString: JSON.stringify({
+            response_time: '2026-08-06 09:30:00am',
+            batchid: '55512',
+            claimmd_id: '987654',
+          }),
+        },
+      ],
+    });
+
+    await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
+      [AGENT]
+    );
+
+    const provenance = create.mock.calls[0][0] as Provenance;
+    expect(provenance.activity?.coding?.[0].code).toBe(CLAIM_PROVENANCE_ACTIVITY_CODES.submit);
+    expect(provenance.target).toContainEqual({ reference: 'Claim/claim-1' });
+    const transmit = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_TRANSMIT_EXTENSION_URL);
+    expect(JSON.parse(transmit?.valueString ?? '')).toEqual({
+      // Claim.MD reports a naive local time, read as ET.
+      transmittedAt: '2026-08-06T13:30:00.000Z',
+      batchId: '55512',
+      clearinghouseClaimId: '987654',
+    });
+  });
+
+  it('falls back to the ClaimResponse created time when the raw response is unreadable', async () => {
+    const { oystehr, search, create, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    search.mockResolvedValue({ unbundle: () => [model.claim] });
+    submitClaimRcm.mockResolvedValue({
+      resourceType: 'ClaimResponse',
+      id: 'cr-1',
+      created: '2026-08-06T12:00:00.000Z',
+    });
+
+    await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
+      [AGENT]
+    );
+
+    const provenance = create.mock.calls[0][0] as Provenance;
+    const transmit = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_TRANSMIT_EXTENSION_URL);
+    expect(JSON.parse(transmit?.valueString ?? '')).toEqual({ transmittedAt: '2026-08-06T12:00:00.000Z' });
   });
 
   it('submits the claim when skipping rules and it is in Insurance Payer AR', async () => {

@@ -25,13 +25,16 @@ import { ClaimHistoryRuleRef } from 'utils/lib/types/data/billing/claim-history'
 import { RULES_ENGINES, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   collectSetNioIds,
+  collectSetPayerIds,
   collectSetResourceRefs,
   ruleReferencesPatientCoverage,
   ruleUsesChargeMasterPrices,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { BillingRule, RULE_ACTION_TYPE } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { activeDefaultChargeMasterSearchParams } from '../../../billing/charge-master.helpers';
+import { isCustomInsuranceOrganization } from '../../../billing/custom-insurance-org.helpers';
 import { isNonInsuranceOrganization } from '../../../billing/non-insurance-org.helpers';
 import {
   addErrorProvenanceForClaimSubmission,
@@ -155,16 +158,19 @@ export async function complexValidation(
 ): Promise<ValidatedRulesRun> {
   console.log(`[rules-engine] ${engine} starting for Claim/${claimId}`);
   const [rules, model] = await Promise.all([loadRules(oystehr, engine, env), loadClaimModel(oystehr, claimId)]);
-  const [referenceResources, chargeMasters, patientCoverageContext, nioOrganizations] = await Promise.all([
-    loadReferenceResources(oystehr, rules),
-    loadChargeMasters(oystehr, rules),
-    loadPatientCoverageContext(oystehr, rules, model.patient),
-    loadNioOrganizations(oystehr, rules),
-  ]);
+  const [referenceResources, chargeMasters, patientCoverageContext, nioOrganizations, customInsuranceOrganizations] =
+    await Promise.all([
+      loadReferenceResources(oystehr, rules),
+      loadChargeMasters(oystehr, rules),
+      loadPatientCoverageContext(oystehr, rules, model.patient),
+      loadNioOrganizations(oystehr, rules),
+      loadCustomInsuranceOrganizations(oystehr, rules),
+    ]);
   model.referenceResources = referenceResources;
   model.chargeMasters = chargeMasters;
   model.patientCoverageContext = patientCoverageContext;
   model.nioOrganizations = nioOrganizations;
+  model.customInsuranceOrganizations = customInsuranceOrganizations;
   console.log(
     `[rules-engine] loaded ${rules.length} rule(s); patient=${model.patient?.id ?? 'none'}, ` +
       `coverages=${model.coverages.length}, renderingProvider=${model.renderingProvider?.id ?? 'none'}, ` +
@@ -175,7 +181,10 @@ export async function complexValidation(
       (model.patientCoverageContext
         ? `, patientCoverages=${model.patientCoverageContext.typeByCoverageRef.size}`
         : '') +
-      (model.nioOrganizations ? `, nioOrganizations=${model.nioOrganizations.size}` : '')
+      (model.nioOrganizations ? `, nioOrganizations=${model.nioOrganizations.size}` : '') +
+      (model.customInsuranceOrganizations
+        ? `, customInsuranceOrganizations=${model.customInsuranceOrganizations.size}`
+        : '')
   );
   return { engine, claimId, rules, model, skipRules: skipRules ?? false };
 }
@@ -230,6 +239,35 @@ async function loadNioOrganizations(
     if (resource.resourceType !== 'Organization') continue;
     const org = resource as Organization;
     if (org.id && isNonInsuranceOrganization(org)) map.set(org.id, org);
+  }
+  return map;
+}
+
+// The billing-app custom insurance organizations named as a literal value by the rule set's payer-field
+// setField actions, prefetched so the synchronous payerId writer can tell a custom org id apart from an
+// RCM payer id and reference it directly (see payerReferenceForId in claim-model.ts). A collected id
+// that isn't a custom insurance organization (most commonly an ordinary RCM payer id) simply finds no
+// entry, and the writer falls back to the existing RCM payer URL behavior.
+async function loadCustomInsuranceOrganizations(
+  oystehr: Oystehr,
+  rules: BillingRule[]
+): Promise<RulesEngineClaimModel['customInsuranceOrganizations']> {
+  const ids = new Set(
+    rules
+      .filter((rule) => rule.enabled)
+      .flatMap((rule) => collectSetPayerIds(rule))
+      .filter((payerId) => isValidUUID(payerId))
+  );
+  if (!ids.size) return undefined;
+  const resources = await getResourcesFromBatchInlineRequests(
+    oystehr,
+    [...ids].map((id) => `/Organization?_id=${id}`)
+  );
+  const map: NonNullable<RulesEngineClaimModel['customInsuranceOrganizations']> = new Map();
+  for (const resource of resources) {
+    if (resource.resourceType !== 'Organization') continue;
+    const org = resource as Organization;
+    if (org.id && isCustomInsuranceOrganization(org)) map.set(org.id, org);
   }
   return map;
 }
