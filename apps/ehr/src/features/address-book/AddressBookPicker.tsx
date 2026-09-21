@@ -23,7 +23,7 @@ const optionLabel = (option: PickerOption): string =>
   isAddNew(option) ? option.label : addressBookContactLabel(option);
 
 const filterContacts = createFilterOptions<AddressBookContact>({
-  stringify: (contact) => [addressBookContactLabel(contact), contact.organizationName, contact.fax].join(' '),
+  stringify: (contact) => [contact.organizationName, addressBookContactLabel(contact)].join(' '),
 });
 
 /** Whatever was typed into the picker seeds the new-contact form as the organization. */
