@@ -18,6 +18,8 @@ vi.mock('../../src/hooks/useAppClients', () => ({
 
 const X12 = 'ISA*00*          *00*          *ZZ*SENDER~GS*HP*SENDER*RECEIVER~ST*835*0001~';
 
+const JPEG_ERROR = 'This file is image/jpeg, not a text-based 835/X12 file.';
+
 function dropFile(file: File): void {
   const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
   // In jsdom, the files property has to be defined before the change event fires
@@ -133,7 +135,7 @@ describe('ImportEraDialog', () => {
       })
     );
 
-    expect(await screen.findByText('This file does not look like a text-based 835/X12 file.')).toBeInTheDocument();
+    expect(await screen.findByText(JPEG_ERROR)).toBeInTheDocument();
     expect(getEraTextarea()).toHaveValue('');
   });
 
@@ -144,7 +146,7 @@ describe('ImportEraDialog', () => {
         type: 'text/plain',
       })
     );
-    await screen.findByText('This file does not look like a text-based 835/X12 file.');
+    await screen.findByText(JPEG_ERROR);
 
     dropFile(
       new File([X12], 'remit.835', {
@@ -153,6 +155,6 @@ describe('ImportEraDialog', () => {
     );
 
     await waitFor(() => expect(getEraTextarea()).toHaveValue(X12));
-    expect(screen.queryByText('This file does not look like a text-based 835/X12 file.')).not.toBeInTheDocument();
+    expect(screen.queryByText(JPEG_ERROR)).not.toBeInTheDocument();
   });
 });

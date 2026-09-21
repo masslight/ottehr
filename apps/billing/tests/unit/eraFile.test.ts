@@ -28,6 +28,18 @@ describe('readEraFile', () => {
     });
   });
 
+  it('decodes multi-byte characters rather than mistaking them for binary', async () => {
+    // cSpell:ignore CLÍNICA MÉDICA
+    const accented = `${X12}N1*PE*CLÍNICA MÉDICA~`;
+
+    const result = await readEraFile(makeFile(accented));
+
+    expect(result).toEqual({
+      ok: true,
+      text: accented,
+    });
+  });
+
   it('rejects a file over the size limit without reading it', async () => {
     const file = makeFile(X12);
     Object.defineProperty(file, 'size', {
@@ -51,12 +63,21 @@ describe('readEraFile', () => {
     });
   });
 
-  it('rejects a JPEG renamed to a text extension', async () => {
+  it('names the format of a JPEG renamed to a text extension', async () => {
     const result = await readEraFile(makeFile(new Uint8Array([0xff, 0xd8, 0xff]), 'remit.txt'));
 
     expect(result).toEqual({
       ok: false,
-      error: 'This file does not look like a text-based 835/X12 file.',
+      error: 'This file is image/jpeg, not a text-based 835/X12 file.',
+    });
+  });
+
+  it('names the format of a PDF renamed to a text extension', async () => {
+    const result = await readEraFile(makeFile(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31]), 'remit.txt'));
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'This file is application/pdf, not a text-based 835/X12 file.',
     });
   });
 });
