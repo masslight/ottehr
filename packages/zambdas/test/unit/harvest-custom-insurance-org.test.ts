@@ -39,6 +39,10 @@ describe('searchInsuranceInformation — custom insurance organizations', () => 
       name: 'Acme Insurance',
       active: true,
       identifier: [{ system: CUSTOM_INSURANCE_ORG_ID_SYSTEM, value: 'OTR-ACME' }],
+      // The "pay" organization-type coding every payer org carries — without it, a resolved custom
+      // org would be filtered out of any downstream selection of payer-type Organizations (e.g.
+      // getCoverageUpdateResourcesFromUnbundled's insuranceOrgs filter).
+      type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/organization-type', code: 'pay' }] }],
     });
   });
 

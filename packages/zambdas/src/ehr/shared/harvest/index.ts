@@ -122,7 +122,11 @@ import { getConsentFormsForLocation } from 'utils/lib/ottehr-config/consent-form
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { ConsentSigner, DateComponents } from 'utils/lib/types/common';
-import { COVERAGE_ADDITIONAL_INFORMATION_URL, RESPONSIBLE_PARTY_NO_EMAIL_URL } from 'utils/lib/types/constants';
+import {
+  COVERAGE_ADDITIONAL_INFORMATION_URL,
+  ORG_TYPE_PAYER_CODE,
+  RESPONSIBLE_PARTY_NO_EMAIL_URL,
+} from 'utils/lib/types/constants';
 import {
   OrderedCoverages,
   OrderedCoveragesWithSubscribers,
@@ -1855,6 +1859,11 @@ async function resolveCustomInsuranceOrgReference(oystehr: Oystehr, ref: string)
     name: option.name,
     active: option.active,
     identifier: [{ system: CUSTOM_INSURANCE_ORG_ID_SYSTEM, value: option.orgId }],
+    // The "pay" organization-type coding is how every payer org is recognized downstream (RCM
+    // payers carry it too — see the dummy "00000/Other" org above); without it, a custom org would
+    // be filtered out of the resolved insuranceOrgs list wherever callers select payer-type
+    // Organizations from a broader resource set (e.g. getCoverageUpdateResourcesFromUnbundled).
+    type: [codeableConcept(ORG_TYPE_PAYER_CODE, FHIR_EXTENSION.Organization.organizationType.url)],
   };
 }
 
