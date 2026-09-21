@@ -7,9 +7,7 @@ import { ZambdaInput } from './types/common';
 
 export function configSentry(zambdaName: string, secrets: Secrets | null): void {
   const environment = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-  if (isInitialized()) {
-    console.log('Sentry is all ready initialized');
-  } else {
+  if (!isInitialized()) {
     console.log('Initializing sentry now');
     init({
       environment: environment,
