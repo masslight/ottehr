@@ -237,8 +237,10 @@ describe('createDocumentResources', () => {
 });
 
 describe('createConsentResources', () => {
-  const [HIPAA_FORM, CTT_FORM] = getConsentFormsForLocation();
+  const forms = getConsentFormsForLocation();
+  const [HIPAA_FORM, CTT_FORM] = forms;
   const IL_FORMS = getConsentFormsForLocation('IL');
+  const cttFormIndex = forms.findIndex((f) => f.id === 'consent-to-treat');
 
   const SECRETS = { PROJECT_ID: 'proj-123', PROJECT_API: 'https://project.api' } as unknown as Secrets;
 
@@ -341,15 +343,15 @@ describe('createConsentResources', () => {
   test('creates, uploads, and files one PDF per configured consent form', async () => {
     await run();
 
-    // One PDF per form in the reference config (HIPAA + consent-to-treat)
-    expect(mockCreatePdfBytes).toHaveBeenCalledTimes(2);
+    // One PDF per configured form
+    expect(mockCreatePdfBytes).toHaveBeenCalledTimes(forms.length);
     const pdfInfos = mockCreatePdfBytes.mock.calls.map((call) => call[3]);
-    expect(pdfInfos.map((info) => info.formTitle)).toEqual([HIPAA_FORM.formTitle, CTT_FORM.formTitle]);
-    expect(pdfInfos[1].copyFromPath).toBe(CTT_FORM.assetPath);
+    expect(pdfInfos.map((info) => info.formTitle)).toEqual(forms.map((f) => f.formTitle));
+    expect(pdfInfos[cttFormIndex].copyFromPath).toBe(CTT_FORM.assetPath);
 
     // Upload URLs are keyed by project bucket, patient, timestamp, and form id
     const expectedBase = `https://project.api/z3/proj-123-consent-forms/${PATIENT_ID}/${Date.now()}`;
-    expect(mockUploadPDF).toHaveBeenCalledTimes(2);
+    expect(mockUploadPDF).toHaveBeenCalledTimes(forms.length);
     expect(mockUploadPDF).toHaveBeenCalledWith(
       expect.any(Uint8Array),
       `${expectedBase}-${HIPAA_FORM.id}.pdf`,
@@ -366,12 +368,15 @@ describe('createConsentResources', () => {
       });
     }
 
-    // Only the consent-to-treat form creates a Consent resource, linked to its docref
-    expect(mockCreateConsentResource).toHaveBeenCalledTimes(1);
-    const [consentPatientId, consentDocRefId, consentDate] = mockCreateConsentResource.mock.calls[0];
-    expect(consentPatientId).toBe(PATIENT_ID);
-    expect(consentDocRefId).toBe(`dr-${CTT_FORM.type.text}-0`);
-    expect(consentDate).toContain('2026-08-20T15:00:00');
+    // Consent resource created for each form with createsConsentResource: true
+    const formsWithConsent = forms.filter((f) => f.createsConsentResource);
+    expect(mockCreateConsentResource).toHaveBeenCalledTimes(formsWithConsent.length);
+    // CTT always creates a consent resource linked to its docref
+    const cttConsentCall = mockCreateConsentResource.mock.calls.find((call) =>
+      call[1].startsWith(`dr-${CTT_FORM.type.text}-`)
+    );
+    expect(cttConsentCall?.[0]).toBe(PATIENT_ID);
+    expect(cttConsentCall?.[2]).toContain('2026-08-20T15:00:00');
   });
 
   test('supersedes prior consent DocumentReferences and inactivates prior Consents', async () => {
@@ -397,9 +402,12 @@ describe('createConsentResources', () => {
 
   test('resolves state-specific consent form assets (the Illinois variant)', async () => {
     await run({ location: makeLocation('IL') });
-    const cttPdfInfo = mockCreatePdfBytes.mock.calls[1][3];
-    expect(cttPdfInfo.copyFromPath).toBe(IL_FORMS[1].assetPath);
-    expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
+    const cttPdfInfo = mockCreatePdfBytes.mock.calls[cttFormIndex][3];
+    expect(cttPdfInfo.copyFromPath).toBe(IL_FORMS[cttFormIndex].assetPath);
+    // When an IL-specific path is configured, it must differ from the default
+    if (IL_FORMS[cttFormIndex].assetPath !== CTT_FORM.assetPath) {
+      expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
+    }
   });
 
   test('labels telemed visits with the telemedicine facility name', async () => {
