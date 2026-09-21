@@ -10,8 +10,8 @@ import {
   formatAddressBookPersonName,
 } from 'utils/lib/types/data/address-book';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { normalizeAddress, normalizeTelecom } from '../../rcm/employers/helpers';
 import { isFhirNotFoundError } from '../../shared/errors';
+import { normalizeAddress, normalizeTelecom } from '../../shared/organization';
 
 const ADDRESS_BOOK_TAG_SYSTEMS: (string | undefined)[] = [ADDRESS_BOOK_TAG_SYSTEM, ADDRESS_BOOK_USER_TAG_SYSTEM];
 

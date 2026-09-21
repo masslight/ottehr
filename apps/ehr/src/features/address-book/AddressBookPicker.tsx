@@ -7,8 +7,12 @@ import { AddressBookContact, AddressBookContactInput } from 'utils/lib/types/dat
 import { useSearchAddressBookQuery } from './addressBook.queries';
 import { addressBookContactLabel, AddressBookDialog } from './AddressBookDialog';
 
-/** Sentinel option pinned to the end of the list. */
-const ADD_NEW: AddressBookContact = { id: 'add-new-contact', organizationName: 'Add new contact…' };
+/** Sentinel row pinned to the end of the list; never part of `options`, only of what filterOptions returns. */
+const ADD_NEW = { id: 'add-new-contact', label: 'Add new contact…' };
+type PickerOption = AddressBookContact | typeof ADD_NEW;
+const isAddNew = (option: PickerOption): option is typeof ADD_NEW => option === ADD_NEW;
+const optionLabel = (option: PickerOption): string =>
+  isAddNew(option) ? option.label : addressBookContactLabel(option);
 
 const filterContacts = createFilterOptions<AddressBookContact>({
   stringify: (contact) => [addressBookContactLabel(contact), contact.organizationName, contact.fax].join(' '),
@@ -63,34 +67,28 @@ export const AddressBookPicker: FC<AddressBookPickerProps> = ({ name, label, tag
         };
         return (
           <>
-            <Autocomplete<AddressBookContact, false, false, true>
+            <Autocomplete<PickerOption, false, false, true>
               freeSolo
               // No clear X: it would empty only this field and leave the fax/phone the pick filled in.
               componentsProps={{ clearIndicator: { sx: { display: 'none' } } }}
               value={null}
               inputValue={text}
-              options={[...contacts, ADD_NEW]}
-              filterOptions={(options, state) => [
-                ...filterContacts(
-                  options.filter((option) => option !== ADD_NEW),
-                  state
-                ),
-                ADD_NEW,
-              ]}
-              getOptionLabel={(option) => (typeof option === 'string' ? option : addressBookContactLabel(option))}
+              options={contacts}
+              filterOptions={(_options, state) => [...filterContacts(contacts, state), ADD_NEW]}
+              getOptionLabel={(option) => (typeof option === 'string' ? option : optionLabel(option))}
               onInputChange={(_event, value, reason) => {
                 if (reason !== 'reset') field.onChange(value);
               }}
               onChange={(_event, option) => {
                 if (!option || typeof option === 'string') return;
-                if (option === ADD_NEW) setDialog({ initialValues: prefillFromText(text) });
+                if (isAddNew(option)) setDialog({ initialValues: prefillFromText(text) });
                 else pick(option);
               }}
               renderOption={(props, option) => (
                 <li {...props} key={option.id}>
                   <Box>
-                    <Typography variant="body2">{addressBookContactLabel(option)}</Typography>
-                    {option !== ADD_NEW && (
+                    <Typography variant="body2">{optionLabel(option)}</Typography>
+                    {!isAddNew(option) && (
                       <Typography variant="caption" color="text.secondary">
                         {secondaryText(option)}
                       </Typography>
