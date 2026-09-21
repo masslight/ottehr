@@ -237,6 +237,23 @@ describe('ImportEraDialog', () => {
     expect(screen.getByRole('button', { name: 'Import' })).toBeEnabled();
   });
 
+  it('unlocks the era field when a rejected file interrupts a pending read', async () => {
+    deferReads();
+    render(<ImportEraDialog onClose={() => {}} />);
+    dropFile(textFile('remit.835'));
+    await waitFor(() => expect(getEraTextarea()).toBeDisabled());
+
+    // react-dropzone reports no accepted files, so the field is cleared and the read never lands
+    dropFile(
+      new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], 'scan.pdf', {
+        type: 'application/pdf',
+      })
+    );
+
+    await waitFor(() => expect(getEraTextarea()).toBeEnabled());
+    expect(screen.getByRole('button', { name: 'Import' })).toBeEnabled();
+  });
+
   it('ignores a read that a newer file has superseded', async () => {
     const pendingReads = deferReads();
     render(<ImportEraDialog onClose={() => {}} />);

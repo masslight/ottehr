@@ -60,7 +60,10 @@ export function ImportEraDialog({ onClose }: Props): ReactElement {
 
   const eraFile = watch('eraFile');
   useEffect(() => {
-    if (!eraFile) return;
+    if (!eraFile) {
+      setIsReadingFile(false);
+      return;
+    }
     let cancelled = false;
     setIsReadingFile(true);
     void (async () => {
