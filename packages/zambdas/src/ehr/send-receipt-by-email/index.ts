@@ -16,7 +16,6 @@ const ZAMBDA_NAME = 'send-receipt-by-email';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   console.group('validateRequestParameters');
   const { recipientFullName, email, receiptDocRefId, secrets } = validateRequestParameters(input);
   console.groupEnd();

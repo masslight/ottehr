@@ -3,6 +3,7 @@ import { APIGatewayProxyResult, Handler } from 'aws-lambda';
 import { parseCommaSeparatedTags } from 'utils/lib/helpers/parseCommaSeparatedTags';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { topLevelCatch } from './lambda';
+import { truncateForLog } from './logging';
 import { ZambdaInput } from './types/common';
 
 export function configSentry(zambdaName: string, secrets: Secrets | null): void {
@@ -32,12 +33,23 @@ export function configSentry(zambdaName: string, secrets: Secrets | null): void 
   setTags(parseCommaSeparatedTags(secrets?.SENTRY_TAGS));
 }
 
+/**
+ * The single, central log of an endpoint's input. Individual zambdas must not log the input again.
+ *
+ * Only the request body is logged: headers carry caller credentials and `input.secrets` is the
+ * secrets bag, neither of which belongs in CloudWatch.
+ */
+function logInputBody(body: string | null): void {
+  console.log(`Input body: ${body ? truncateForLog(body) : '<empty>'}`);
+}
+
 export function wrapHandler(
   zambdaName: string,
   handler: (input: ZambdaInput) => Promise<APIGatewayProxyResult>
 ): Handler<ZambdaInput, APIGatewayProxyResult> {
   return sentryWrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     configSentry(zambdaName, input.secrets);
+    logInputBody(input.body);
     try {
       return await handler(input);
     } catch (error) {
