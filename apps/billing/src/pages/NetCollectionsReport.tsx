@@ -1,9 +1,9 @@
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
-import { Alert, Box, Button, Stack, Tooltip, Typography } from '@mui/material';
+import { Alert, Box, Button, Stack, Typography } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
-import { ReactElement, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Chart } from 'react-google-charts';
 import { useNavigate } from 'react-router-dom';
 import { ReportDateWindowParams } from 'utils/lib/types/data/billing/billing.schemas';
@@ -16,6 +16,7 @@ import { formatCurrency } from 'utils/lib/utils/convert';
 import { getBillingNetCollectionsReport } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ReportStatusBar, sameWindow, windowParamsOf } from '../components/ReportStatusBar';
+import { RichTooltip } from '../components/RichTooltip';
 import { useBillingReport } from '../hooks/useBillingReport';
 import { useBillingReportHistory } from '../hooks/useBillingReportHistory';
 import { otherColors } from '../themes/ottehr/colors';
@@ -73,32 +74,67 @@ const payerColumns: GridColDef[] = [
   },
 ];
 
-// stat card with the formula (and its substituted values) as the hover tooltip
+// one labeled quantity inside a formula (label above its dollar amounts)
+function Term({ label, value }: { label: string; value: string }): ReactElement {
+  return (
+    <Stack alignItems="center" sx={{ px: 1 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+        {label}
+      </Typography>
+      <Typography variant="body2" fontWeight={600} sx={{ whiteSpace: 'nowrap' }}>
+        {value}
+      </Typography>
+    </Stack>
+  );
+}
+
+interface FormulaTerm {
+  label: string;
+  value: string;
+}
+
+// proper fraction: numerator over a rule over denominator, '= rate' alongside
+function FractionFormula({
+  numerator,
+  denominator,
+  rate,
+}: {
+  numerator: FormulaTerm;
+  denominator: FormulaTerm;
+  rate: number | null;
+}): ReactElement {
+  return (
+    <Stack direction="row" alignItems="center" gap={1} sx={{ p: 1 }}>
+      <Stack alignItems="center">
+        <Term {...numerator} />
+        <Box sx={{ borderTop: '1.5px solid', borderColor: 'text.primary', alignSelf: 'stretch', my: 0.75 }} />
+        <Term {...denominator} />
+      </Stack>
+      <Typography variant="h6" color="text.secondary">
+        =
+      </Typography>
+      <Typography variant="h6" fontWeight={600} sx={{ color: ncrColor(rate) }}>
+        {rateLabel(rate)}
+      </Typography>
+    </Stack>
+  );
+}
+
+// stat card with the formula as a proper fraction in a rich hover panel
 function RateCard({
   label,
   bucket,
-  formula,
-  substitution,
+  numerator,
+  denominator,
 }: {
   label: string;
   bucket: NetCollectionsBucket;
-  formula: string;
-  substitution: ReactNode;
+  numerator: FormulaTerm;
+  denominator: FormulaTerm;
 }): ReactElement {
   const rate = rateOf(bucket);
   return (
-    <Tooltip
-      title={
-        <Box sx={{ textAlign: 'center' }}>
-          <Typography variant="caption" component="div">
-            {formula}
-          </Typography>
-          <Typography variant="caption" component="div" sx={{ opacity: 0.85 }}>
-            {substitution}
-          </Typography>
-        </Box>
-      }
-    >
+    <RichTooltip title={<FractionFormula numerator={numerator} denominator={denominator} rate={rate} />}>
       <Box
         sx={{
           flex: 1,
@@ -120,7 +156,7 @@ function RateCard({
           {`${formatCurrency(bucket.collected)} of ${formatCurrency(bucket.expected)}`}
         </Typography>
       </Box>
-    </Tooltip>
+    </RichTooltip>
   );
 }
 
@@ -211,38 +247,48 @@ export default function NetCollectionsReport(): ReactElement {
         <RateCard
           label="Overall NCR"
           bucket={overall}
-          formula="(insurance paid + patient collected) / allowed"
-          substitution={`(${formatCurrency(insurance.collected)} + ${formatCurrency(
-            patient.collected
-          )}) / ${formatCurrency(overall.expected)}`}
+          numerator={{
+            label: 'insurance paid + patient collected',
+            value: `${formatCurrency(insurance.collected)} + ${formatCurrency(patient.collected)}`,
+          }}
+          denominator={{ label: 'allowed', value: formatCurrency(overall.expected) }}
         />
         <RateCard
           label="Insurance NCR"
           bucket={insurance}
-          formula="insurance paid / (allowed − patient responsibility)"
-          substitution={`${formatCurrency(insurance.collected)} / (${formatCurrency(
-            overall.expected
-          )} − ${formatCurrency(patient.expected)})`}
+          numerator={{ label: 'insurance paid', value: formatCurrency(insurance.collected) }}
+          denominator={{
+            label: 'allowed − patient responsibility',
+            value: `${formatCurrency(overall.expected)} − ${formatCurrency(patient.expected)}`,
+          }}
         />
         <RateCard
           label="Patient NCR"
           bucket={patient}
-          formula="patient collected (net of refunds) / patient responsibility"
-          substitution={`${formatCurrency(patient.collected)} / ${formatCurrency(patient.expected)}`}
+          numerator={{ label: 'patient collected (net of refunds)', value: formatCurrency(patient.collected) }}
+          denominator={{ label: 'patient responsibility', value: formatCurrency(patient.expected) }}
         />
-        <Tooltip
+        <RichTooltip
           title={
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="caption" component="div">
-                allowed − insurance paid − patient collected
+            <Stack direction="row" alignItems="center" gap={0.5} sx={{ p: 1 }}>
+              <Term label="allowed" value={formatCurrency(overall.expected)} />
+              <Typography variant="h6" color="text.secondary">
+                −
               </Typography>
-              <Typography variant="caption" component="div" sx={{ opacity: 0.85 }}>
-                {`${formatCurrency(overall.expected)} − ${formatCurrency(insurance.collected)} − ${formatCurrency(
-                  patient.collected
-                )}`}
+              <Term label="insurance paid" value={formatCurrency(insurance.collected)} />
+              <Typography variant="h6" color="text.secondary">
+                −
               </Typography>
-            </Box>
+              <Term label="patient collected" value={formatCurrency(patient.collected)} />
+              <Typography variant="h6" color="text.secondary">
+                =
+              </Typography>
+              <Typography variant="h6" fontWeight={600}>
+                {formatCurrency(uncollected)}
+              </Typography>
+            </Stack>
           }
+          customWidth={520}
         >
           <Box
             sx={{
@@ -269,7 +315,7 @@ export default function NetCollectionsReport(): ReactElement {
               {overall.expected > 0 ? `${((uncollected / overall.expected) * 100).toFixed(1)}% of allowed` : '—'}
             </Typography>
           </Box>
-        </Tooltip>
+        </RichTooltip>
       </Stack>
 
       <Box
