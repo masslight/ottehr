@@ -334,7 +334,7 @@ describe('mapClinicalCustomInsuranceOrgOption', () => {
 });
 
 describe('list-custom-insurance-organizations', () => {
-  it('returns minimal clinical options carrying a direct Organization reference', async () => {
+  it('returns minimal clinical options carrying a reference token', async () => {
     const { oystehr, search } = makeOystehr();
     search.mockResolvedValue({ unbundle: () => [orgResource] });
 
