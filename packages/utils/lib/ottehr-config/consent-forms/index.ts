@@ -6,10 +6,10 @@ const CONSENT_FORMS_DATA: ConsentFormsConfig = {
   forms: [
     {
       id: 'hipaa-acknowledgement',
-      formTitle: 'HIPAA Acknowledgement',
+      formTitle: 'Notice of Privacy Practices',
       resourceTitle: 'HIPAA forms',
-      assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
-      publicUrl: '/hipaa_notice_template.pdf',
+      assetPath: './assets/Notice_of_Privacy_Practices.pdf',
+      publicUrl: '/Notice_of_Privacy_Practices.pdf',
       type: {
         coding: [
           {
@@ -23,16 +23,16 @@ const CONSENT_FORMS_DATA: ConsentFormsConfig = {
       createsConsentResource: false,
     },
     {
-      id: 'consent-to-treat',
-      formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
+      id: 'authorization-for-ai-assistance-payment-processing-communications',
+      formTitle: 'Authorization for AI Assistance, Payment Processing & Communications',
       resourceTitle: 'Consent forms',
       assetPath: {
-        default: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf',
+        default: './assets/Authorization_for_AI_Assistance_Payment_Processing_and_Communications.pdf',
         byState: {
           IL: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf',
         },
       },
-      publicUrl: '/consent_to_treat_template.pdf',
+      publicUrl: '/Authorization_for_AI_Assistance_Payment_Processing_and_Communications.pdf',
       type: {
         coding: [
           {
