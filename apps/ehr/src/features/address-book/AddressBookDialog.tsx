@@ -8,6 +8,7 @@ import {
   DialogTitle,
   Stack,
   TextField,
+  Typography,
 } from '@mui/material';
 import { captureException } from '@sentry/react';
 import { enqueueSnackbar } from 'notistack';
@@ -21,6 +22,7 @@ import { formatPhoneNumberDisplay, isEmailValid } from 'utils/lib/helpers/helper
 import { AllStates } from 'utils/lib/types/common';
 import {
   ADDRESS_BOOK_CREDENTIAL_NEEDS_LAST_NAME_MESSAGE,
+  ADDRESS_BOOK_KNOWN_TAGS,
   ADDRESS_BOOK_LINE2_NEEDS_LINE1_MESSAGE,
   ADDRESS_BOOK_ORG_OR_LAST_NAME_MESSAGE,
   AddressBookContact,
@@ -39,6 +41,7 @@ export const addressBookContactLabel = (contact: AddressBookContactInput): strin
   formatAddressBookPersonName(contact) || contact.organizationName || '';
 
 const STATE_OPTIONS = AllStates.map((state) => state.value);
+const KNOWN_TAGS = ADDRESS_BOOK_KNOWN_TAGS.map(({ tag }) => tag);
 
 interface FormValues {
   firstName: string;
@@ -72,7 +75,9 @@ const toFormValues = (contact?: Partial<AddressBookContactInput>): FormValues =>
   tags: contact?.tags ?? [],
 });
 
-const normalizeTags = (tags: string[]): string[] => Array.from(new Set(tags.map((tag) => tag.trim()).filter(Boolean)));
+/** Mirrors the schema's tag normalization so the chips show what will be stored. */
+const normalizeTags = (tags: string[]): string[] =>
+  Array.from(new Set(tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean)));
 
 /** `pendingTag` is what sits typed in the tags box without Enter; Save must not lose it. */
 const toInput = (
@@ -104,7 +109,9 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
   const methods = useForm<FormValues>({ defaultValues: toFormValues(contact ?? initialValues) });
   const { control, getValues, handleSubmit } = methods;
   const { data } = useSearchAddressBookQuery();
-  const tagSuggestions = Array.from(new Set((data?.contacts ?? []).flatMap((entry) => entry.tags ?? [])));
+  const tagSuggestions = Array.from(
+    new Set([...KNOWN_TAGS, ...(data?.contacts ?? []).flatMap((entry) => entry.tags ?? [])])
+  );
   const createMutation = useCreateAddressBookContactMutation();
   const updateMutation = useUpdateAddressBookContactMutation();
   const deleteMutation = useDeleteAddressBookContactMutation();
@@ -182,6 +189,14 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
                     onChange={(_event, value) => field.onChange(normalizeTags(value))}
                     inputValue={pendingTag}
                     onInputChange={(_event, value) => setPendingTag(value)}
+                    renderOption={(props, tag) => (
+                      <li {...props} key={tag}>
+                        {tag}
+                        <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                          {ADDRESS_BOOK_KNOWN_TAGS.find((known) => known.tag === tag)?.label}
+                        </Typography>
+                      </li>
+                    )}
                     renderInput={(params) => (
                       <TextField {...params} label="Tags" size="small" placeholder="Type a tag and press Enter" />
                     )}

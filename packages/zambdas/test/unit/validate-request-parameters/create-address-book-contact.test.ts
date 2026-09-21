@@ -60,11 +60,11 @@ describe('create-address-book-contact - validateRequestParameters', () => {
     );
   });
 
-  test('should trim tags and reject FHIR token separators in them', () => {
+  test('should trim, lowercase and dedupe tags, and reject FHIR token separators in them', () => {
     const accepted = validateRequestParameters(
-      createMockZambdaInput({ lastName: 'Doe', tags: [" O'Neil-Peds_1. "] }, { secrets })
+      createMockZambdaInput({ lastName: 'Doe', tags: [" O'Neil-Peds_1. ", 'PCP ', 'pcp'] }, { secrets })
     );
-    expect(accepted.contact.tags).toEqual(["O'Neil-Peds_1."]);
+    expect(accepted.contact.tags).toEqual(["o'neil-peds_1.", 'pcp']);
 
     for (const tag of ['Peds,Ortho', 'a|b']) {
       expect(() =>

@@ -37,14 +37,15 @@ vi.mock('ui-components/lib/components/InputMask', () => ({
   InputMask: (props: any) => <input {...props} onChange={(e) => props.onChange(e)} />,
 }));
 
-const Harness: FC<{ onSelect: (contact: AddressBookContact) => void; onParentSubmit?: () => void }> = ({
-  onSelect,
-  onParentSubmit,
-}) => {
+const Harness: FC<{
+  onSelect: (contact: AddressBookContact) => void;
+  onParentSubmit?: () => void;
+  tag?: string;
+}> = ({ onSelect, onParentSubmit, tag }) => {
   const methods = useForm({ defaultValues: { name: '' } });
   const picker = (
     <FormProvider {...methods}>
-      <AddressBookPicker name="name" label="Recipient's name" onSelect={onSelect} />
+      <AddressBookPicker name="name" label="Recipient's name" tag={tag} onSelect={onSelect} />
       <span data-testid="field-value">{methods.watch('name')}</span>
     </FormProvider>
   );
@@ -133,6 +134,17 @@ describe('AddressBookPicker', () => {
     expect(await screen.findByText('New contact')).toBeInTheDocument();
     expect(screen.getByLabelText('First name')).toHaveValue('Jane');
     expect(screen.getByLabelText('Last name')).toHaveValue('Roe');
+  });
+
+  it('tags a contact created from a tagged picker with that tag', async () => {
+    const user = userEvent.setup();
+    render(<Harness onSelect={vi.fn()} tag="pcp" />);
+
+    await user.click(screen.getByLabelText("Recipient's name"));
+    await user.click(await screen.findByRole('option', { name: /Add new contact/ }));
+
+    expect(await screen.findByText('New contact')).toBeInTheDocument();
+    expect(screen.getByText('pcp')).toHaveClass('MuiChip-label');
   });
 
   it('saving a new contact does not submit a form the picker sits inside (the fax form)', async () => {

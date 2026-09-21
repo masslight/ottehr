@@ -95,6 +95,38 @@ describe('AddressBookDialog', () => {
     expect(screen.getByText('referral')).toBeInTheDocument();
   });
 
+  it('lowercases a typed tag so the chip shows what will be stored', async () => {
+    const user = userEvent.setup();
+    renderDialog(<AddressBookDialog onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await user.type(screen.getByLabelText('Tags'), 'Cardiology{Enter}');
+
+    expect(screen.getByText('cardiology')).toBeInTheDocument();
+    expect(screen.queryByText('Cardiology')).toBeNull();
+  });
+
+  it('suggests the well-known tags first, then the tags in use', async () => {
+    const user = userEvent.setup();
+    renderDialog(<AddressBookDialog onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await user.click(screen.getByLabelText('Tags'));
+
+    const options = await screen.findAllByRole('option');
+    expect(options[0]).toHaveTextContent('pcp');
+    expect(options[0]).toHaveTextContent('Primary care physician');
+    expect(options[options.length - 1]).toHaveTextContent('cardiology');
+  });
+
+  it('suggests the well-known tags even when the address book is empty', async () => {
+    const user = userEvent.setup();
+    api.searchAddressBook.mockResolvedValue({ contacts: [] });
+    renderDialog(<AddressBookDialog onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await user.click(screen.getByLabelText('Tags'));
+
+    expect((await screen.findAllByRole('option'))[0]).toHaveTextContent('pcp');
+  });
+
   it('ignores a blank tag', async () => {
     const user = userEvent.setup();
     renderDialog(<AddressBookDialog onClose={vi.fn()} onSaved={vi.fn()} />);

@@ -36,6 +36,7 @@ interface AddressBookPickerProps {
   /** react-hook-form field holding the recipient name; free text keeps working as before. */
   name: string;
   label: string;
+  /** Narrows the search to contacts with this tag, and tags contacts created from this picker with it. */
   tag?: string;
   onSelect: (contact: AddressBookContact) => void;
   dataTestId?: string;
@@ -81,8 +82,9 @@ export const AddressBookPicker: FC<AddressBookPickerProps> = ({ name, label, tag
               }}
               onChange={(_event, option) => {
                 if (!option || typeof option === 'string') return;
-                if (isAddNew(option)) setDialog({ initialValues: prefillFromText(text) });
-                else pick(option);
+                if (isAddNew(option)) {
+                  setDialog({ initialValues: { ...prefillFromText(text), tags: tag ? [tag] : undefined } });
+                } else pick(option);
               }}
               renderOption={(props, option) => (
                 <li {...props} key={option.id}>
