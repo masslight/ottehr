@@ -8,7 +8,6 @@ import {
   DialogTitle,
   Stack,
   TextField,
-  Typography,
 } from '@mui/material';
 import { captureException } from '@sentry/react';
 import { enqueueSnackbar } from 'notistack';
@@ -41,7 +40,6 @@ export const addressBookContactLabel = (contact: AddressBookContactInput): strin
   formatAddressBookPersonName(contact) || contact.organizationName || '';
 
 const STATE_OPTIONS = AllStates.map((state) => state.value);
-const KNOWN_TAGS = ADDRESS_BOOK_KNOWN_TAGS.map(({ tag }) => tag);
 
 interface FormValues {
   firstName: string;
@@ -110,7 +108,7 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
   const { control, getValues, handleSubmit } = methods;
   const { data } = useSearchAddressBookQuery();
   const tagSuggestions = Array.from(
-    new Set([...KNOWN_TAGS, ...(data?.contacts ?? []).flatMap((entry) => entry.tags ?? [])])
+    new Set([...ADDRESS_BOOK_KNOWN_TAGS, ...(data?.contacts ?? []).flatMap((entry) => entry.tags ?? [])])
   );
   const createMutation = useCreateAddressBookContactMutation();
   const updateMutation = useUpdateAddressBookContactMutation();
@@ -189,14 +187,6 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
                     onChange={(_event, value) => field.onChange(normalizeTags(value))}
                     inputValue={pendingTag}
                     onInputChange={(_event, value) => setPendingTag(value)}
-                    renderOption={(props, tag) => (
-                      <li {...props} key={tag}>
-                        {tag}
-                        <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                          {ADDRESS_BOOK_KNOWN_TAGS.find((known) => known.tag === tag)?.label}
-                        </Typography>
-                      </li>
-                    )}
                     renderInput={(params) => (
                       <TextField {...params} label="Tags" size="small" placeholder="Type a tag and press Enter" />
                     )}

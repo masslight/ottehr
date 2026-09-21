@@ -113,7 +113,6 @@ describe('AddressBookDialog', () => {
 
     const options = await screen.findAllByRole('option');
     expect(options[0]).toHaveTextContent('pcp');
-    expect(options[0]).toHaveTextContent('Primary care physician');
     expect(options[options.length - 1]).toHaveTextContent('cardiology');
   });
 

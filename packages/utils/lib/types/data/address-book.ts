@@ -15,17 +15,17 @@ export const ADDRESS_BOOK_TAG_MESSAGE =
 
 /** Tags the app itself filters on (pickers pass them as `tag`); always suggested, and also free-typable. */
 export const ADDRESS_BOOK_KNOWN_TAGS = [
-  { tag: 'pcp', label: 'Primary care physician' },
-  { tag: 'specialist', label: 'Specialist' },
-  { tag: 'imaging', label: 'Imaging' },
-  { tag: 'lab', label: 'Lab' },
-  { tag: 'employer', label: 'Employer' },
-  { tag: 'attorney', label: 'Attorney' },
-  { tag: 'school', label: 'School' },
-  { tag: 'pharmacy', label: 'Pharmacy' },
-  { tag: 'hospital', label: 'Hospital' },
+  'pcp',
+  'specialist',
+  'imaging',
+  'lab',
+  'employer',
+  'attorney',
+  'school',
+  'pharmacy',
+  'hospital',
 ] as const;
-export type AddressBookKnownTag = (typeof ADDRESS_BOOK_KNOWN_TAGS)[number]['tag'];
+export type AddressBookKnownTag = (typeof ADDRESS_BOOK_KNOWN_TAGS)[number];
 
 const optionalString = z.string().trim().optional();
 // Tags go verbatim into a FHIR `_tag` search token, so keep the token separators out of them.
