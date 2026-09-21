@@ -61,6 +61,8 @@ export const AddressBookPicker: FC<AddressBookPickerProps> = ({ name, label, tag
           <>
             <Autocomplete<AddressBookContact, false, false, true>
               freeSolo
+              // No clear X: it would empty only this field and leave the fax/phone the pick filled in.
+              componentsProps={{ clearIndicator: { sx: { display: 'none' } } }}
               value={null}
               inputValue={text}
               options={[...contacts, ADD_NEW]}
