@@ -115,7 +115,13 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="xs">
       <FormProvider {...methods}>
-        <form onSubmit={handleSubmit(submit)}>
+        {/* The dialog can sit inside another form (the fax form); the submit must not bubble up to it. */}
+        <form
+          onSubmit={(event) => {
+            event.stopPropagation();
+            void handleSubmit(submit)(event);
+          }}
+        >
           <DialogTitle>{contact ? 'Edit contact' : 'New contact'}</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ pt: 1 }}>

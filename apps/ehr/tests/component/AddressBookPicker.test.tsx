@@ -23,21 +23,40 @@ const contacts: AddressBookContact[] = vi.hoisted(() => [
 
 vi.mock('src/features/address-book/addressBook.api', () => ({
   searchAddressBook: vi.fn().mockResolvedValue({ contacts }),
-  createAddressBookContact: vi.fn(),
+  createAddressBookContact: vi.fn().mockResolvedValue({
+    contact: { id: 'c3', firstName: 'Jane', lastName: 'Roe', tags: [] },
+  }),
   updateAddressBookContact: vi.fn(),
   deleteAddressBookContact: vi.fn(),
 }));
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {} }) }));
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
 
-const Harness: FC<{ onSelect: (contact: AddressBookContact) => void }> = ({ onSelect }) => {
+const Harness: FC<{ onSelect: (contact: AddressBookContact) => void; onParentSubmit?: () => void }> = ({
+  onSelect,
+  onParentSubmit,
+}) => {
   const methods = useForm({ defaultValues: { name: '' } });
+  const picker = (
+    <FormProvider {...methods}>
+      <AddressBookPicker name="name" label="Recipient's name" onSelect={onSelect} />
+      <span data-testid="field-value">{methods.watch('name')}</span>
+    </FormProvider>
+  );
   return (
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <FormProvider {...methods}>
-        <AddressBookPicker name="name" label="Recipient's name" onSelect={onSelect} />
-        <span data-testid="field-value">{methods.watch('name')}</span>
-      </FormProvider>
+      {onParentSubmit ? (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            onParentSubmit();
+          }}
+        >
+          {picker}
+        </form>
+      ) : (
+        picker
+      )}
     </QueryClientProvider>
   );
 };
@@ -91,5 +110,19 @@ describe('AddressBookPicker', () => {
     expect(await screen.findByText('New contact')).toBeInTheDocument();
     expect(screen.getByLabelText('First name')).toHaveValue('Jane');
     expect(screen.getByLabelText('Last name')).toHaveValue('Roe');
+  });
+
+  it('saving a new contact does not submit a form the picker sits inside (the fax form)', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const onParentSubmit = vi.fn();
+    render(<Harness onSelect={onSelect} onParentSubmit={onParentSubmit} />);
+
+    await user.type(screen.getByLabelText("Recipient's name"), 'Jane Roe');
+    await user.click(await screen.findByRole('option', { name: /Add new contact/ }));
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'c3' })));
+    expect(onParentSubmit).not.toHaveBeenCalled();
   });
 });
