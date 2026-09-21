@@ -1005,18 +1005,21 @@ async function findExistingBillingResources(
   const matchingPractitioners = (
     await Promise.all(
       clinicalResources.practitioners.map<Promise<Practitioner | undefined>>(async (p) => {
+        const npi = getNPIIdentifier(p)?.value;
+        if (!npi) return undefined;
         const practitionerSearch = (
           await billingOystehr.fhir.search<Practitioner>({
             resourceType: 'Practitioner',
             params: [
               {
                 name: 'identifier',
-                value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(p)?.value}`,
+                value: `${FHIR_IDENTIFIER_NPI}|${npi}`,
               },
               {
                 name: '_tag',
                 value: `${PROVIDER_ROLE_TAG}|${PROVIDER_ROLE_RENDERING}`,
               },
+              ...EXCLUDE_WORKING_COPIES_PARAMS,
             ],
           })
         ).unbundle();
@@ -1296,6 +1299,11 @@ export async function complexValidation(
   if (!billingResources.serviceFacility) {
     throw INVALID_INPUT_ERROR(
       `No active billing service facility named "${clinicalResources.location.name}". Add it in billing or fix the visit location, then retry.`
+    );
+  }
+  if (!billingResources.renderingProvider) {
+    throw INVALID_INPUT_ERROR(
+      'No billing rendering provider matches the attending provider NPI. Add a matching provider in billing or correct the clinical provider NPI, then retry.'
     );
   }
   return { clinicalResources, billingResources };

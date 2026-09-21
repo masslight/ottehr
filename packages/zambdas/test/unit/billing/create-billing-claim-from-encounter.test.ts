@@ -807,7 +807,7 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [billingResources.location],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [billingResources.practitioner],
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
@@ -840,8 +840,8 @@ describe('create-billing-claim-from-encounter', () => {
             coverages: [],
             mainPatient: undefined,
             person: undefined,
-            practitioners: [],
-            renderingProvider: undefined,
+            practitioners: [billingResources.practitioner],
+            renderingProvider: billingResources.practitioner,
             serviceFacility: billingResources.location,
             subscribers: [],
             billingService: undefined,
@@ -890,7 +890,7 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [billingResources.location],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [billingResources.practitioner],
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
@@ -923,8 +923,8 @@ describe('create-billing-claim-from-encounter', () => {
             coverages: [],
             mainPatient: undefined,
             person: undefined,
-            practitioners: [],
-            renderingProvider: undefined,
+            practitioners: [billingResources.practitioner],
+            renderingProvider: billingResources.practitioner,
             serviceFacility: billingResources.location,
             subscribers: [],
             billingService: undefined,
@@ -932,7 +932,7 @@ describe('create-billing-claim-from-encounter', () => {
         },
       },
       {
-        name: 'succeeds with empty patient account and matching billing facility',
+        name: 'fails when the rendering provider NPI does not match',
         clinicalOystehrSearch: vi
           .fn()
           .mockResolvedValueOnce({
@@ -965,7 +965,7 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [billingResources.location],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [{ ...billingResources.practitioner, identifier: [] }],
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
@@ -977,34 +977,9 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           }),
         secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
-        expectedError: null,
-        expectedResult: {
-          clinicalResources: {
-            accounts: [emptyAccount],
-            appointment: clinicalResources.appointment,
-            billingProvider: clinicalResources.billingProvider,
-            coverages: [],
-            diagnoses: [clinicalResources.conditions[1], clinicalResources.conditions[0]],
-            encounter: clinicalResources.encounter,
-            location: clinicalResources.location,
-            patient: clinicalResources.patient,
-            payors: [],
-            practitioners: [clinicalResources.practitioner],
-            procedures: [clinicalResources.procedure],
-          },
-          billingResources: {
-            accounts: [],
-            billingProvider: undefined,
-            coverages: [],
-            mainPatient: undefined,
-            person: undefined,
-            practitioners: [],
-            renderingProvider: undefined,
-            serviceFacility: billingResources.location,
-            subscribers: [],
-            billingService: undefined,
-          },
-        },
+        expectedError: INVALID_INPUT_ERROR(
+          'No billing rendering provider matches the attending provider NPI. Add a matching provider in billing or correct the clinical provider NPI, then retry.'
+        ),
       },
       {
         name: 'succeeds with required data and all found billing resources',
@@ -1111,6 +1086,14 @@ describe('create-billing-claim-from-encounter', () => {
         );
         expect(facilitySearch?.[0].params).toContainEqual({ name: 'name:exact', value: 'Test Clinic' });
         expect(facilitySearch?.[0].params).toEqual(expect.arrayContaining(EXCLUDE_WORKING_COPIES_PARAMS));
+        const providerSearch = tc.billingOystehrSearch.mock.calls.find(
+          ([search]) => search.resourceType === 'Practitioner'
+        );
+        expect(providerSearch?.[0].params).toContainEqual({
+          name: 'identifier',
+          value: `${FHIR_IDENTIFIER_NPI}|11111111111`,
+        });
+        expect(providerSearch?.[0].params).toEqual(expect.arrayContaining(EXCLUDE_WORKING_COPIES_PARAMS));
         expect(tc.billingOystehrSearch).toHaveBeenCalledWith(
           expect.objectContaining({
             resourceType: 'Patient',
