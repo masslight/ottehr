@@ -89,6 +89,7 @@ export const AddressBookPicker: FC<AddressBookPickerProps> = ({
           <>
             <Autocomplete<PickerOption, false, false, true>
               freeSolo
+              fullWidth
               // No clear X: it would empty only this field and leave the fax/phone the pick filled in.
               componentsProps={{ clearIndicator: { sx: { display: 'none' } } }}
               value={null}
@@ -120,6 +121,7 @@ export const AddressBookPicker: FC<AddressBookPickerProps> = ({
               renderInput={(params) => (
                 <TextField
                   {...params}
+                  fullWidth
                   name={name}
                   label={label}
                   variant={variant}

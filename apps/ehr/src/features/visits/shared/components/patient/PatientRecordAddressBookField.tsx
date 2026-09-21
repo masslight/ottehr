@@ -15,12 +15,19 @@ type PatientRecordAddressBookFieldProps = Pick<
   'item' | 'isLoading' | 'hiddenFormFields' | 'requiredFormFields'
 > & {
   tag: string;
+  /** What the pick writes into this field; defaults to the contact's organization. */
+  fieldValue?: (contact: AddressBookContact) => string;
   /** Fills the section's other fields from the picked contact. */
   onSelect: (contact: AddressBookContact) => void;
 };
 
 /** A section's organization field backed by the directory; picking a contact fills the fields around it. */
-export const PatientRecordAddressBookField: FC<PatientRecordAddressBookFieldProps> = ({ tag, onSelect, ...props }) => {
+export const PatientRecordAddressBookField: FC<PatientRecordAddressBookFieldProps> = ({
+  tag,
+  fieldValue,
+  onSelect,
+  ...props
+}) => {
   const { watch } = useFormContext();
   const { item, isLoading, hiddenFormFields, requiredFormFields } = props;
   const triggeredEffects = item && evaluateFieldTriggers(item, watch(), item.enableBehavior);
@@ -41,7 +48,7 @@ export const PatientRecordAddressBookField: FC<PatientRecordAddressBookFieldProp
         name={key}
         variant="standard"
         tag={tag}
-        fieldValue={organizationFieldValue}
+        fieldValue={fieldValue ?? organizationFieldValue}
         onSelect={onSelect}
       />
     </Row>

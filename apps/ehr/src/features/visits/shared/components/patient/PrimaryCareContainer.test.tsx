@@ -248,7 +248,7 @@ describe('PrimaryCareContainer', () => {
       </TestWrapper>
     );
 
-    await user.click(within(getFieldById(pcp.practiceName.key)).getByRole('combobox'));
+    await user.click(within(getFieldById(pcp.firstName.key)).getByRole('combobox'));
     await user.click(await screen.findByRole('option', { name: /Jane Doe, MD/ }));
 
     expect(getFieldInput(pcp.practiceName.key)).toHaveValue('Springfield Cardiology');
@@ -268,10 +268,10 @@ describe('PrimaryCareContainer', () => {
       </TestWrapper>
     );
 
-    await user.type(within(getFieldById(pcp.practiceName.key)).getByRole('combobox'), 'Some Clinic');
+    await user.type(within(getFieldById(pcp.firstName.key)).getByRole('combobox'), 'Some Doctor');
 
-    await waitFor(() => expect(getFieldInput(pcp.practiceName.key)).toHaveValue('Some Clinic'));
-    expect(getFieldInput(pcp.firstName.key)).toHaveValue('');
+    await waitFor(() => expect(getFieldInput(pcp.firstName.key)).toHaveValue('Some Doctor'));
+    expect(getFieldInput(pcp.practiceName.key)).toHaveValue('');
   });
 
   it('should validate required fields based on config triggers', async () => {
