@@ -103,7 +103,7 @@ export async function getAllInsurancePayers(
   // billing (see custom-insurance-org-directory.ts), the same way NIOs are surfaced clinically. Gated
   // per-deployment: with the flag off, only Oystehr payers are offered (existing coverages that
   // already reference a custom insurance organization still resolve and display correctly).
-  if (FEATURE_FLAGS_CONFIG.customInsuranceOrganizationsEnabled) {
+  if (FEATURE_FLAGS_CONFIG.customOrganizationsEnabled) {
     console.group('listCustomInsuranceOrganizations');
     const customOrgs = await listCustomInsuranceOrganizations(oystehr, {});
     console.groupEnd();

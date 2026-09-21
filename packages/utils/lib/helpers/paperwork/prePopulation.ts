@@ -1264,10 +1264,10 @@ export const mapOccupationalMedicineEmployerToQuestionnaireResponseItems = (
 
   let occupationalMedicineEmployerReference: Reference | undefined = referenceOverride;
 
-  if (!occupationalMedicineEmployerReference && FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled) {
-    // NIO mode prefills only from an NIO token owner — the name comes from the stored display, no
-    // FHIR read. A legacy employer org stays visible on historical visits but never prefills
-    // forward.
+  if (!occupationalMedicineEmployerReference && FEATURE_FLAGS_CONFIG.customOrganizationsEnabled) {
+    // Custom-organizations mode prefills only from an NIO token owner — the name comes from the
+    // stored display, no FHIR read. A legacy employer org stays visible on historical visits but
+    // never prefills forward.
     const owner = occupationalMedicineAccount?.owner;
     if (isNioReferenceUrl(owner?.reference)) {
       occupationalMedicineEmployerReference = {

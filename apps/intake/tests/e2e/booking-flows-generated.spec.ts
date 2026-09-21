@@ -78,10 +78,10 @@ test.describe('Complete booking flows', () => {
     _walkinSchedule = walkinResult.schedule;
     console.log(`✓ Created walk-in location: ${walkinLocation.name}`);
 
-    // Seed an occupational-medicine employer. In NIO mode the picker lists billing-app NIOs
-    // (seeded per env by config/oystehr/env/<env>/nio-organizations.json), so a legacy clinical
-    // Organization would never appear in the dropdown.
-    if (FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled) {
+    // Seed an occupational-medicine employer. In custom-organizations mode the picker lists
+    // billing-app NIOs (seeded per env by config/oystehr/env/<env>/nio-organizations.json), so a
+    // legacy clinical Organization would never appear in the dropdown.
+    if (FEATURE_FLAGS_CONFIG.customOrganizationsEnabled) {
       console.log('⊘ Skipped legacy occupational-medicine employer - non-insurance organizations are enabled');
     } else {
       const occMedEmployer = await testLocationManager.ensureOccMedEmployer();

@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getAllInsurancePayers } from '../../src/patient/get-all-insurance-payers';
 
-const flags = vi.hoisted(() => ({ customInsuranceOrganizationsEnabled: true }));
+const flags = vi.hoisted(() => ({ customOrganizationsEnabled: true }));
 vi.mock('utils/lib/ottehr-config/feature-flags', () => ({ FEATURE_FLAGS_CONFIG: flags }));
 
 const CUSTOM_ORG_REFERENCE =
@@ -44,7 +44,7 @@ function makeOystehr(): { oystehr: Oystehr; listPayers: ReturnType<typeof vi.fn>
 
 describe('getAllInsurancePayers', () => {
   beforeEach(() => {
-    flags.customInsuranceOrganizationsEnabled = true;
+    flags.customOrganizationsEnabled = true;
   });
 
   it('lists custom insurance organizations alongside RCM payers when the flag is on', async () => {
@@ -72,7 +72,7 @@ describe('getAllInsurancePayers', () => {
   });
 
   it('does not offer custom insurance organizations when the flag is off', async () => {
-    flags.customInsuranceOrganizationsEnabled = false;
+    flags.customOrganizationsEnabled = false;
     const { oystehr, execute } = makeOystehr();
 
     const options = await getAllInsurancePayers(oystehr);

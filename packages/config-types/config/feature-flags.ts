@@ -25,18 +25,15 @@ export const FeatureFlagsConfigSchema = z.object({
   // The admin UI is unaffected (it queries `admin-list-service-categories`,
   // not the patient-facing `get-service-categories`).
   dynamicServiceCategoriesEnabled: z.boolean().optional(),
-  // When true, this deployment runs in NIO mode: the billing app manages
-  // non-insurance organizations (and clinical employer pickers will source from
-  // them). When false/omitted, the legacy clinical Employers feature — with its
-  // Candid non-insurance payer sync — stays active. Per-deployment so customers
-  // can migrate at different times.
-  nonInsuranceOrganizationsEnabled: z.boolean().optional(),
-  // When true, clinical insurance-carrier pickers (EHR and Intake) also offer
-  // billing-app-managed custom insurance organizations alongside Oystehr's payer
-  // list. When false/omitted, only Oystehr payers are offered — existing
-  // coverages already referencing a custom insurance organization still display
-  // correctly either way. Off by default, matching nonInsuranceOrganizationsEnabled.
-  customInsuranceOrganizationsEnabled: z.boolean().optional(),
+  // When true, this deployment runs in custom-organizations mode: the billing app manages
+  // non-insurance organizations (employers) and custom insurance organizations, and clinical
+  // pickers source from them — employer pickers exclusively, insurance-carrier pickers (EHR and
+  // Intake) alongside Oystehr's payer list. When false/omitted, the legacy clinical Employers
+  // feature — with its Candid non-insurance payer sync — stays active, and insurance-carrier
+  // pickers offer only Oystehr payers. Existing coverages/visits already referencing a custom
+  // organization still resolve and display correctly either way. Per-deployment so customers can
+  // migrate at different times.
+  customOrganizationsEnabled: z.boolean().optional(),
 });
 
 export type FeatureFlagsConfig = z.infer<typeof FeatureFlagsConfigSchema>;
