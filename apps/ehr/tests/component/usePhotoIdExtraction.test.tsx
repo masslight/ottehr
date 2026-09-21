@@ -58,6 +58,9 @@ const makeFields = (overrides: Partial<PhotoIdExtractionFields> = {}): PhotoIdEx
   ...overrides,
 });
 
+const makeIdentitylessFields = (): PhotoIdExtractionFields =>
+  makeFields({ firstName: null, middleName: null, lastName: null, suffix: null, dateOfBirth: null, sex: null });
+
 const makePhotoIdFront = (fields: PhotoIdExtractionFields): DocumentReference => {
   const extraction: PhotoIdExtraction = {
     version: 1,
@@ -126,13 +129,12 @@ describe('usePhotoIdExtraction consent-signer gate', () => {
     mockExtractPhotoId.mockReset();
   });
 
-  it('strips the whole name when someone other than the patient signed consent', async () => {
+  it('strips the holder’s identity when someone other than the patient signed consent', async () => {
     arrangeSearches({ docRefs: [makePhotoIdFront(makeFields())], tagged: [makePaperwork('Parent')] });
 
     const fields = await renderAndSettle();
 
-    expect(fields).toEqual(makeFields({ firstName: null, middleName: null, lastName: null, suffix: null }));
-    // The ID is still the best source for everything that isn't the holder's name.
+    expect(fields).toEqual(makeIdentitylessFields());
     expect(fields?.addressLine1).toBe('742 EVERGREEN TER');
     expect(mockExtractPhotoId).not.toHaveBeenCalled();
   });
@@ -151,13 +153,13 @@ describe('usePhotoIdExtraction consent-signer gate', () => {
     ]);
   });
 
-  it('keeps the name when the patient signed their own consent', async () => {
+  it('keeps the identity when the patient signed their own consent', async () => {
     arrangeSearches({ docRefs: [makePhotoIdFront(makeFields())], tagged: [makePaperwork('Self')] });
 
     expect(await renderAndSettle()).toEqual(makeFields());
   });
 
-  it('keeps the name when no paperwork has recorded a relationship yet', async () => {
+  it('keeps the identity when no paperwork has recorded a relationship yet', async () => {
     arrangeSearches({ docRefs: [makePhotoIdFront(makeFields())], tagged: [] });
 
     expect(await renderAndSettle()).toEqual(makeFields());
@@ -172,28 +174,23 @@ describe('usePhotoIdExtraction consent-signer gate', () => {
 
     const fields = await renderAndSettle();
 
-    expect(fields?.firstName).toBeNull();
-    expect(fields?.lastName).toBeNull();
+    expect(fields).toEqual(makeIdentitylessFields());
     const calls = paperworkSearchCalls();
     expect(calls).toHaveLength(2);
     expect(calls[1].params.some((param: any) => param.name === '_tag')).toBe(false);
   });
 
-  it('never reads paperwork when the ID produced no name to gate', async () => {
-    const nameless = makeFields({ firstName: null, middleName: null, lastName: null, suffix: null });
-    arrangeSearches({ docRefs: [makePhotoIdFront(nameless)], tagged: [makePaperwork('Parent')] });
+  it('never reads paperwork when the ID produced no identity to gate', async () => {
+    const addressOnly = makeIdentitylessFields();
+    arrangeSearches({ docRefs: [makePhotoIdFront(addressOnly)], tagged: [makePaperwork('Parent')] });
 
-    expect(await renderAndSettle()).toEqual(nameless);
+    expect(await renderAndSettle()).toEqual(addressOnly);
     expect(paperworkSearchCalls()).toHaveLength(0);
   });
 
-  it('withholds the name when the paperwork read fails', async () => {
+  it('withholds the identity when the paperwork read fails', async () => {
     arrangeSearches({ docRefs: [makePhotoIdFront(makeFields())], paperworkError: new Error('FHIR down') });
 
-    const fields = await renderAndSettle();
-
-    expect(fields?.firstName).toBeNull();
-    expect(fields?.suffix).toBeNull();
-    expect(fields?.addressLine1).toBe('742 EVERGREEN TER');
+    expect(await renderAndSettle()).toEqual(makeIdentitylessFields());
   });
 });
