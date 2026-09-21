@@ -8,6 +8,7 @@ import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { countEraClaims, fetchClaimEraLinks, fetchClaimResponsesByPaymentReconciliations } from '../claim-amounts';
+import { resolvePayerIssuerFilter } from '../custom-insurance-org.helpers';
 import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
   createBillingClient,
@@ -44,7 +45,10 @@ export async function performEffect(
   // Resolve the payer filter to Oystehr payer list URLs
   let payerIssuerFilter: string | undefined;
   if (params.payerId) {
-    payerIssuerFilter = getPayerUrl(params.payerId);
+    // A business-id-shaped payerId ("OTR-...") names a custom insurance organization rather than an
+    // RCM payer (see resolvePayerIssuerFilter). ERAs only ever come from RCM/clearinghouse remittance,
+    // so that case correctly matches nothing today — kept for filter-UI consistency with the claims list.
+    payerIssuerFilter = await resolvePayerIssuerFilter(oystehr, params.payerId);
   } else if (params.payerName) {
     const result = await oystehr.rcm.listPayers({ name: params.payerName, limit: 50 });
     const payerIds = result.data.map((p) => getPayerId(p)).filter(Boolean) as string[];

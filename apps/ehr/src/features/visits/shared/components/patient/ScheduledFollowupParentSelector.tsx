@@ -12,12 +12,13 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Patient, Person } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { convertVisitToFollowUp } from 'src/api/api';
+import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
@@ -55,6 +56,7 @@ export default function ScheduledFollowupParentSelector({
   const patientId = patient?.id;
   const apiClient = useOystehrAPIClient();
   const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
   const copyChartDataToFollowup = useCopyChartDataToFollowup();
 
   const { previousEncounters, selectedParentEncounter, setSelectedParentEncounter } = useParentEncounters(
@@ -141,6 +143,17 @@ export default function ScheduledFollowupParentSelector({
           copyFailed = true;
         }
       }
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: [CHART_DATA_QUERY_KEY, convertFrom.encounterId],
+          refetchType: 'none',
+        }),
+        queryClient.invalidateQueries({
+          queryKey: [CHART_FIELDS_QUERY_KEY, convertFrom.encounterId],
+          refetchType: 'none',
+        }),
+      ]);
 
       return { copyFailed };
     },

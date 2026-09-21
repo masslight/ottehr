@@ -120,7 +120,7 @@ const latestVital = <T extends VitalsObservationDTO>(
   ctx: FormFillContext,
   isMatch: (observation: VitalsObservationDTO) => observation is T
 ): T | undefined =>
-  (ctx.allChartData?.chartData?.vitalsObservations ?? [])
+  (ctx.allChartData?.additionalChartData?.vitalsObservations ?? [])
     .filter(isMatch)
     .reduce<T | undefined>(
       (latest, o) => (!latest || (o.lastUpdated ?? '') > (latest.lastUpdated ?? '') ? o : latest),

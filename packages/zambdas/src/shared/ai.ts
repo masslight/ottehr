@@ -127,6 +127,8 @@ const AI_RESPONSE_KEY_TO_FIELD = {
 
 export const VERTEX_AI_MODEL = 'gemini-3.1-flash-lite';
 
+const TERMINAL_FINISH_REASONS = new Set(['SAFETY', 'RECITATION', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII']);
+
 interface VertexAIRequestOptions {
   /** Sequential retries wait for an error; hedged requests overlap to reduce latency. */
   retryMode?: 'sequential' | 'hedged';
@@ -159,7 +161,11 @@ export async function invokeChatbotVertexAI(
 
   let resolved = false;
   let terminal = false; // a non-retryable status came back; further attempts would just resend the payload
-  const request = async (backoffTime: number): Promise<Response> => {
+  let failTerminally: (error: Error) => void = () => undefined;
+  const terminalFailure = new Promise<never>((_resolve, reject) => {
+    failTerminally = reject;
+  });
+  const request = async (backoffTime: number): Promise<string> => {
     await new Promise((resolve) => setTimeout(resolve, backoffTime));
 
     // Reject rather than resolve, so a skipped attempt can never become Promise.any's winning value.
@@ -188,17 +194,47 @@ export async function invokeChatbotVertexAI(
         }
       );
 
-      if (!response.ok && shouldRetry(response.status)) {
-        // Carry Vertex's own message: if every attempt fails this is all the caller gets to go on.
-        throw new Error(`Retryable error: ${response.status} ${(await response.text()).slice(0, 500)}`);
+      if (!response.ok) {
+        const errorBody = await response.text();
+        if (shouldRetry(response.status)) {
+          // Carry Vertex's own message: if every attempt fails this is all the caller gets to go on.
+          throw new Error(`Retryable error: ${response.status} ${errorBody.slice(0, 500)}`);
+        }
+        terminal = true;
+        const failure = new Error(
+          `Vertex AI request failed: ${response.status} ${response.statusText} ${errorBody.slice(0, 1000)}`
+        );
+        failTerminally(failure);
+        throw failure;
       }
 
-      if (response.ok) {
-        resolved = true;
-      } else {
-        terminal = true;
+      const body = await response.text();
+      // Size only: on a transcription call the body is the transcript, which is PHI.
+      console.log(`Vertex AI responded with ${body.length} bytes`);
+
+      let parsed: any;
+      try {
+        parsed = JSON.parse(body);
+      } catch {
+        // A proxy's HTML error page or a truncated response would otherwise throw a bare SyntaxError.
+        throw new Error(`Vertex AI returned a non-JSON body: ${body.slice(0, 1000)}`);
       }
-      return response;
+
+      const candidate = parsed?.candidates?.[0];
+      const text = candidate?.content?.parts?.[0]?.text;
+      if (typeof text !== 'string' || text.trim().length === 0) {
+        const { candidates: _candidates, ...metadata } = parsed ?? {};
+        const reason = JSON.stringify({ finishReason: candidate?.finishReason, ...metadata }).slice(0, 1000);
+        const failure = new Error(`Vertex AI returned no text: ${reason}`);
+        if (TERMINAL_FINISH_REASONS.has(candidate?.finishReason) || parsed?.promptFeedback?.blockReason) {
+          terminal = true;
+          failTerminally(failure);
+        }
+        throw failure;
+      }
+
+      resolved = true;
+      return text;
     } catch (error) {
       // One attempt failing is not an incident — the ladder exists because Vertex sheds load with 429s and a
       // later attempt usually succeeds. Keep it in the log for the trace, but don't report it: reporting here
@@ -209,7 +245,7 @@ export async function invokeChatbotVertexAI(
     }
   };
 
-  const requestSequentially = async (): Promise<Response> => {
+  const requestSequentially = async (): Promise<string> => {
     const errors: unknown[] = [];
     for (const backoffTime of backoffTimes) {
       try {
@@ -221,49 +257,17 @@ export async function invokeChatbotVertexAI(
     throw new AggregateError(errors, 'All Vertex AI attempts failed');
   };
 
-  let settled: Response;
   try {
-    settled = await (options.retryMode === 'sequential'
-      ? requestSequentially()
-      : Promise.any(backoffTimes.map(request)));
+    const attempts =
+      options.retryMode === 'sequential' ? requestSequentially() : Promise.any(backoffTimes.map(request));
+    return await Promise.race([attempts, terminalFailure]);
   } catch (error) {
+    if (!(error instanceof AggregateError)) throw error;
     // AggregateError's own message is just "All promises were rejected", so unpack the reasons — otherwise
     // the most common failure mode stays as opaque as the TypeError this used to throw.
-    const reasons =
-      error instanceof AggregateError
-        ? error.errors.map((reason) => (reason instanceof Error ? reason.message : String(reason)))
-        : [error instanceof Error ? error.message : String(error)];
+    const reasons = error.errors.map((reason) => (reason instanceof Error ? reason.message : String(reason)));
     throw new Error(`Vertex AI request failed after ${backoffTimes.length} attempts: ${reasons.join('; ')}`);
   }
-
-  const body = await settled.text();
-  // Unchecked, an error body fell through to `candidates[0]` and every Vertex failure surfaced as
-  // `TypeError: Cannot read properties of undefined` with an empty stack.
-  if (!settled.ok) {
-    throw new Error(`Vertex AI request failed: ${settled.status} ${settled.statusText} ${body.slice(0, 1000)}`);
-  }
-
-  // Size only: on a transcription call the body is the transcript, which is PHI.
-  console.log(`Vertex AI responded with ${body.length} bytes`);
-  let response: any;
-  try {
-    response = JSON.parse(body);
-  } catch {
-    // A proxy's HTML error page or a truncated response would otherwise throw a bare SyntaxError.
-    throw new Error(`Vertex AI returned a non-JSON body: ${body.slice(0, 1000)}`);
-  }
-  const text = response?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (typeof text !== 'string') {
-    // No candidate text means the model refused or was cut off (safety block, MAX_TOKENS finishReason).
-    // Report the reason, not the body — a cut-off candidate can still carry partial transcript.
-    const reason = JSON.stringify({
-      finishReason: response?.candidates?.[0]?.finishReason,
-      promptFeedback: response?.promptFeedback,
-      usageMetadata: response?.usageMetadata,
-    });
-    throw new Error(`Vertex AI returned no text: ${reason}`);
-  }
-  return text;
 }
 
 /**
@@ -649,7 +653,10 @@ function createObservations(
               value: aiResponse[key],
               items,
             },
-            AI_OBSERVATION_META_SYSTEM
+            AI_OBSERVATION_META_SYSTEM,
+            undefined,
+            undefined,
+            undefined
           )
         ),
       ];

@@ -1,6 +1,11 @@
 import { enqueueSnackbar } from 'notistack';
-import { useCallback, useState } from 'react';
-import { getPatientMedicalRecordZip } from 'src/api/api';
+import { useCallback } from 'react';
+import { startMedicalRecordExport } from 'src/api/api';
+import {
+  selectWatchedExport,
+  useMedicalRecordExportStore,
+  watchExport,
+} from '../features/medical-record-export/store/medicalRecordExport.store';
 import { useApiClients } from './useAppClients';
 
 export type UseDownloadMedicalRecordReturn = {
@@ -8,13 +13,9 @@ export type UseDownloadMedicalRecordReturn = {
   isDownloading: boolean;
 };
 
-/**
- * Collects all of a patient's documents into a single zip (server-side) and
- * triggers a browser download of the resulting archive.
- */
 export const useDownloadMedicalRecord = (patientId: string | undefined): UseDownloadMedicalRecordReturn => {
   const { oystehrZambda } = useApiClients();
-  const [isDownloading, setIsDownloading] = useState(false);
+  const watched = useMedicalRecordExportStore(selectWatchedExport(patientId));
 
   const downloadMedicalRecord = useCallback(async (): Promise<void> => {
     if (!oystehrZambda) {
@@ -25,39 +26,18 @@ export const useDownloadMedicalRecord = (patientId: string | undefined): UseDown
       enqueueSnackbar('Missing patient id.', { variant: 'error' });
       return;
     }
+    if (watched) return;
 
-    setIsDownloading(true);
     try {
-      const { downloadUrl, fileName, documentCount } = await getPatientMedicalRecordZip(oystehrZambda, { patientId });
-
-      if (documentCount === 0 || !downloadUrl) {
-        enqueueSnackbar('This patient has no documents to download.', { variant: 'info' });
-        return;
-      }
-
-      const response = await fetch(downloadUrl, { headers: { 'Cache-Control': 'no-cache' } });
-      if (!response.ok) {
-        throw new Error(`Failed to download archive [${response.status}]`);
-      }
-      const blob = await response.blob();
-      const objectUrl = window.URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = objectUrl;
-      anchor.download = fileName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.URL.revokeObjectURL(objectUrl);
+      const job = await startMedicalRecordExport(oystehrZambda, { patientId });
+      watchExport({ patientId, taskId: job.taskId });
     } catch (error) {
       console.error(error);
-      // Surface a specific server message when provided (e.g. record too large); otherwise a generic one.
       const message =
         (error as { message?: string })?.message || 'Failed to generate the medical record. Please try again.';
       enqueueSnackbar(message, { variant: 'error' });
-    } finally {
-      setIsDownloading(false);
     }
-  }, [oystehrZambda, patientId]);
+  }, [oystehrZambda, patientId, watched]);
 
-  return { downloadMedicalRecord, isDownloading };
+  return { downloadMedicalRecord, isDownloading: Boolean(watched) };
 };

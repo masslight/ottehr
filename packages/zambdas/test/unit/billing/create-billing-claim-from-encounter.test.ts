@@ -50,7 +50,7 @@ import {
   CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
   CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
 } from 'utils/lib/types/data/billing/non-insurance-org.types';
-import { AUTO_ACCIDENT_SYSTEM_TAG, AUTO_ACCIDENT_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
+import { AUTO_ACCIDENT_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import {
   APIError,
   FHIR_RESOURCE_NOT_FOUND,
@@ -81,7 +81,6 @@ import {
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
   SOURCE_IDENTIFIER_SYSTEM,
-  systemTagBasic,
 } from '../../../src/billing/shared';
 
 // Local const so that DEPRECATED system doesn't get imported from utils
@@ -3217,7 +3216,7 @@ describe('create-billing-claim-from-encounter', () => {
         ]),
       });
     });
-    it('creates claim with auto accident tag, seeding the tag definition along the way', async () => {
+    it('creates claim with auto accident tag, writing no tag definition', async () => {
       const txFn = vi.fn().mockResolvedValue({
         entry: [
           { resource: { resourceType: 'Patient', id: 'billing-patient' } },
@@ -3233,7 +3232,6 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
-      // ensureSystemManagedTags: no tag definitions exist yet, so the missing ones get created.
       const searchFn = vi.fn().mockResolvedValue({ unbundle: () => [] });
       const createFn = vi.fn().mockImplementation(async (resource: Basic) => resource);
       const billingOystehr = {
@@ -3271,7 +3269,8 @@ describe('create-billing-claim-from-encounter', () => {
       };
       const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
-      expect(createFn).toHaveBeenCalledWith(systemTagBasic(AUTO_ACCIDENT_SYSTEM_TAG));
+      // The tag is applied to the claim from the code list; no Basic definition is seeded for it.
+      expect(createFn).not.toHaveBeenCalled();
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
@@ -3361,7 +3360,8 @@ describe('create-billing-claim-from-encounter', () => {
         ]),
       });
     });
-    it('still creates the auto accident claim when seeding the tag definition fails', async () => {
+    // Applying a system tag reads nothing from the tag store, so an outage there cannot block a claim.
+    it('still creates the auto accident claim when tag definition lookups fail', async () => {
       const txFn = vi.fn().mockResolvedValue({
         entry: [
           { resource: { resourceType: 'Patient', id: 'billing-patient' } },

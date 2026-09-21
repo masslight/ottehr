@@ -96,7 +96,6 @@ import {
   deriveClaimBillablePeriodFromEncounter,
   determineRulesEngineForClaim,
   ensureClaimInsurance,
-  ensureSystemManagedTags,
   EXCLUDE_WORKING_COPIES_PARAMS,
   findRef,
   getClaimTypeCoding,
@@ -443,11 +442,6 @@ export async function performEffect(
   const billingTags = [];
   if (clinicalResources.appointment.description?.toLowerCase() === 'auto accident') {
     billingTags.push(AUTO_ACCIDENT_TAG_NAME);
-    try {
-      await ensureSystemManagedTags(billingOystehr);
-    } catch (error) {
-      console.error('Failed to ensure system-managed tags exist:', error);
-    }
   }
 
   const claim = buildClaim({

@@ -4,7 +4,11 @@ import { ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL } from 'ut
 import { getVisitOccupationalMedicineEmployerFromEncounter } from 'utils/lib/fhir/encounter';
 import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
 import { describe, expect, test } from 'vitest';
-import { applyVisitEmployerToVisitDetailsCache, buildVisitEmployerUpdate } from './visitEmployer';
+import {
+  applyVisitEmployerToVisitDetailsCache,
+  buildVisitEmployerUpdate,
+  getVisitEmployerDisplay,
+} from './visitEmployer';
 
 describe('buildVisitEmployerUpdate', () => {
   test('passes a selected employer reference through', () => {
@@ -85,5 +89,50 @@ describe('applyVisitEmployerToVisitDetailsCache', () => {
     applyVisitEmployerToVisitDetailsCache(queryClient, 'appt-1', NEW_EMPLOYER);
 
     expect(queryClient.getQueryData(['get-visit-details', 'appt-1'])).toBeUndefined();
+  });
+});
+
+describe('getVisitEmployerDisplay', () => {
+  const encounterWith = (extension: Encounter['extension']): Encounter =>
+    ({ resourceType: 'Encounter', id: 'enc-1', status: 'in-progress', extension }) as Encounter;
+
+  test('returns the display of the employer stored on the encounter', () => {
+    expect(
+      getVisitEmployerDisplay(
+        encounterWith([
+          {
+            url: ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL,
+            valueReference: { reference: 'Organization/abc', display: 'Acme Surgical' },
+          },
+        ])
+      )
+    ).toBe('Acme Surgical');
+  });
+
+  test('returns the display of an NIO-token employer', () => {
+    expect(
+      getVisitEmployerDisplay(
+        encounterWith([
+          {
+            url: ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL,
+            valueReference: {
+              reference:
+                'https://fhir.ottehr.com/billing/non-insurance-organization/11111111-1111-4111-8111-111111111111',
+              display: 'FedEx',
+            },
+          },
+        ])
+      )
+    ).toBe('FedEx');
+  });
+
+  // The header falls back to insurance from here; it must never reach for the patient Account's
+  // workers-comp / occ-med employer, which belongs to another visit.
+  test('returns undefined when the visit has no employer of its own', () => {
+    expect(
+      getVisitEmployerDisplay(encounterWith([{ url: 'https://example.com/unrelated', valueString: 'x' }]))
+    ).toBeUndefined();
+    expect(getVisitEmployerDisplay(encounterWith(undefined))).toBeUndefined();
+    expect(getVisitEmployerDisplay(undefined)).toBeUndefined();
   });
 });

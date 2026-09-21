@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
-import { RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
+import { CREATE_TIMELY_FILING_REPORT_ZAMBDA, RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
 import {
   AddClaimAttachmentInputSchema,
   AddClaimNoteInputSchema,
@@ -10,6 +10,7 @@ import {
   CreateBillingPatientInputSchema,
   CreateBillingProviderInputSchema,
   CreateChargeItemDefinitionInputSchema,
+  CreateTimelyFilingReportInputSchema,
   DeleteBillingCoverageInputSchema,
   DeleteBillingProviderInputSchema,
   DeleteBillingTagInputSchema,
@@ -67,6 +68,7 @@ import {
   ClaimDetailResponse,
   CreatedClaimResponse,
   CreatedResourceResponse,
+  CreateTimelyFilingReportResponse,
   DeletedResponse,
   DownloadClaimAttachmentResponse,
   EraDetailResponse,
@@ -618,3 +620,9 @@ export const downloadClaimAttachment = (
   oystehr: Oystehr,
   parameters: z.input<typeof DownloadClaimAttachmentInputSchema>
 ): Promise<DownloadClaimAttachmentResponse> => executeBillingZambda(oystehr, 'download-claim-attachment', parameters);
+
+export const createTimelyFilingReport = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof CreateTimelyFilingReportInputSchema>
+): Promise<CreateTimelyFilingReportResponse> =>
+  executeBillingZambda(oystehr, CREATE_TIMELY_FILING_REPORT_ZAMBDA, parameters);

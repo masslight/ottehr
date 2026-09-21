@@ -5,7 +5,7 @@ import {
   CLAIM_STATUS_FIELDS_BY_KEY,
   getClaimStatusFieldValue,
 } from 'utils/lib/types/data/billing/claim-status';
-import { applyClaimStatusFieldClearingHold } from '../../../billing/provenance';
+import { applyClaimStatusFieldClearingHold, recordClaimTransmit } from '../../../billing/provenance';
 import { assertValidClaimStatusField, fetchById } from '../../../billing/shared';
 import { FinalizeRunInput, FinalizeRunResult } from './finalize';
 
@@ -56,6 +56,13 @@ export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunR
         .join(', ') ?? 'An unknown error occurred'
     );
   }
+
+  await recordClaimTransmit({
+    oystehr,
+    claimId,
+    claimResponse,
+    agent,
+  });
 
   const value = assertValidClaimStatusField('insuranceArStatus', 'submitted');
   // Re-fetch so the status patch locks against the version the engine just wrote.
