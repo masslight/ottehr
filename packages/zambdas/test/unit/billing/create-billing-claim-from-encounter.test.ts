@@ -177,6 +177,7 @@ const clinicalResources: {
   location: {
     resourceType: 'Location',
     id: 'location-123',
+    name: 'Test Clinic',
   },
   practitioner: {
     resourceType: 'Practitioner',
@@ -371,6 +372,7 @@ const billingResources: {
   location: {
     resourceType: 'Location',
     id: 'billing-location-123',
+    name: 'Test Clinic',
     extension: [
       {
         url: CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -698,7 +700,7 @@ describe('create-billing-claim-from-encounter', () => {
         expectedError: FHIR_RESOURCE_NOT_FOUND('Organization'),
       },
       {
-        name: 'succeeds with required data and no found billing resources',
+        name: 'fails when the billing facility name does not match exactly',
         clinicalOystehrSearch: vi
           .fn()
           .mockResolvedValueOnce({
@@ -732,7 +734,7 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [{ ...billingResources.location, name: 'Test Clinic Annex' }],
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
@@ -747,34 +749,9 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           }),
         secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
-        expectedError: null,
-        expectedResult: {
-          clinicalResources: {
-            accounts: [clinicalResources.account],
-            appointment: clinicalResources.appointment,
-            billingProvider: clinicalResources.billingProvider,
-            coverages: [clinicalResources.coverage],
-            diagnoses: [clinicalResources.conditions[1], clinicalResources.conditions[0]],
-            encounter: clinicalResources.encounter,
-            location: clinicalResources.location,
-            patient: clinicalResources.patient,
-            payors: [oystehrResources.payor],
-            practitioners: [clinicalResources.practitioner],
-            procedures: [clinicalResources.procedure],
-          },
-          billingResources: {
-            accounts: [],
-            billingProvider: undefined,
-            coverages: [],
-            mainPatient: undefined,
-            person: undefined,
-            practitioners: [],
-            renderingProvider: undefined,
-            serviceFacility: undefined,
-            subscribers: [],
-            billingService: undefined,
-          },
-        },
+        expectedError: INVALID_INPUT_ERROR(
+          'No active billing service facility named "Test Clinic". Add it in billing or fix the visit location, then retry.'
+        ),
       },
       {
         name: 'filters out non-cpt-, non-em-code-tagged procedures',
@@ -827,7 +804,7 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [billingResources.location],
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
@@ -865,7 +842,7 @@ describe('create-billing-claim-from-encounter', () => {
             person: undefined,
             practitioners: [],
             renderingProvider: undefined,
-            serviceFacility: undefined,
+            serviceFacility: billingResources.location,
             subscribers: [],
             billingService: undefined,
           },
@@ -910,7 +887,7 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [billingResources.location],
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
@@ -948,14 +925,14 @@ describe('create-billing-claim-from-encounter', () => {
             person: undefined,
             practitioners: [],
             renderingProvider: undefined,
-            serviceFacility: undefined,
+            serviceFacility: billingResources.location,
             subscribers: [],
             billingService: undefined,
           },
         },
       },
       {
-        name: 'succeeds with empty patient account and no found billing resources',
+        name: 'succeeds with empty patient account and matching billing facility',
         clinicalOystehrSearch: vi
           .fn()
           .mockResolvedValueOnce({
@@ -985,7 +962,7 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [billingResources.location],
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
@@ -1023,7 +1000,7 @@ describe('create-billing-claim-from-encounter', () => {
             person: undefined,
             practitioners: [],
             renderingProvider: undefined,
-            serviceFacility: undefined,
+            serviceFacility: billingResources.location,
             subscribers: [],
             billingService: undefined,
           },
@@ -1129,6 +1106,11 @@ describe('create-billing-claim-from-encounter', () => {
       if (tc.expectedError) await expectPromise.rejects.toThrow(expect.objectContaining(tc.expectedError));
       else {
         await expectPromise.resolves.toStrictEqual(tc.expectedResult);
+        const facilitySearch = tc.billingOystehrSearch.mock.calls.find(
+          ([search]) => search.resourceType === 'Location'
+        );
+        expect(facilitySearch?.[0].params).toContainEqual({ name: 'name:exact', value: 'Test Clinic' });
+        expect(facilitySearch?.[0].params).toEqual(expect.arrayContaining(EXCLUDE_WORKING_COPIES_PARAMS));
         expect(tc.billingOystehrSearch).toHaveBeenCalledWith(
           expect.objectContaining({
             resourceType: 'Patient',
@@ -2386,6 +2368,7 @@ describe('create-billing-claim-from-encounter', () => {
               provider: { reference: 'urn:uuid:claim-billing-provider' },
               facility: {
                 reference: 'urn:uuid:claim-service-facility',
+                display: 'Test Clinic',
               },
               insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
               insurance: [

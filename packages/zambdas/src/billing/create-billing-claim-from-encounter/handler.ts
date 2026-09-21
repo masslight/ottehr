@@ -980,23 +980,26 @@ async function findExistingBillingResources(
     existingSubscribers = coverageSearch.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson');
   }
 
-  // Look for a service facility matching the clinical Location's NPI
+  // Match the service facility by exact name.
   const serviceFacilitySearch = (
     await billingOystehr.fhir.search<Location>({
       resourceType: 'Location',
       params: [
         {
-          name: 'identifier',
-          value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(clinicalResources.location)?.value}`,
+          name: 'name:exact',
+          value: clinicalResources.location.name!,
         },
         {
           name: 'status',
           value: 'active',
         },
+        ...EXCLUDE_WORKING_COPIES_PARAMS,
       ],
     })
   ).unbundle();
-  const matchingServiceFacility = serviceFacilitySearch.length > 0 ? serviceFacilitySearch[0] : undefined;
+  const matchingServiceFacility = serviceFacilitySearch.find(
+    (facility) => facility.name === clinicalResources.location.name
+  );
 
   // Look for rendering providers that match NPIs for Practitioners involved in the Encounter
   const matchingPractitioners = (
@@ -1286,7 +1289,15 @@ export async function complexValidation(
     throw INVALID_INPUT_ERROR('Claim has already been created for this encounter');
   }
   const clinicalResources = await getClinicalResources(clinicalOystehr, params);
+  if (!clinicalResources.location.name) {
+    throw INVALID_INPUT_ERROR('The encounter location has no name. Add its name in the clinical app, then retry.');
+  }
   const billingResources = await findExistingBillingResources(billingOystehr, clinicalResources, params.secrets);
+  if (!billingResources.serviceFacility) {
+    throw INVALID_INPUT_ERROR(
+      `No active billing service facility named "${clinicalResources.location.name}". Add it in billing or fix the visit location, then retry.`
+    );
+  }
   return { clinicalResources, billingResources };
 }
 
