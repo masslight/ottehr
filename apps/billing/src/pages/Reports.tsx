@@ -4,6 +4,7 @@ import {
   CreditCard as CreditCardIcon,
   Groups as GroupsIcon,
   Paid as PaidIcon,
+  Percent as PercentIcon,
   ReceiptLong as ReceiptLongIcon,
 } from '@mui/icons-material';
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
@@ -159,6 +160,54 @@ export default function Reports(): ReactElement {
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
             All due and past-due Stripe invoices, broken down by upcoming, past due without a card, and failed payments.
+          </Typography>
+        </Box>
+        <ChevronRightIcon sx={{ color: 'action.disabled' }} />
+      </Box>
+
+      <Box
+        component={ButtonBase}
+        focusRipple
+        onClick={() => navigate('/reports/net-collections')}
+        sx={{
+          width: '100%',
+          textAlign: 'left',
+          bgcolor: 'background.paper',
+          border: `1px solid ${otherColors.lightDivider}`,
+          borderRadius: 2,
+          px: 3,
+          py: 2.5,
+          mb: 3,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          '&:hover': { bgcolor: otherColors.apptHover },
+        }}
+      >
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: 2,
+            bgcolor: 'primary.dark',
+            display: 'grid',
+            placeItems: 'center',
+            color: 'primary.contrastText',
+            flexShrink: 0,
+          }}
+        >
+          <PercentIcon />
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="h6" color="primary.dark" fontWeight={600}>
+              Net Collections Report
+            </Typography>
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+            Net collection rate — overall, per payer, and by month — comparing collections against contractual
+            expectations from posted ERAs.
           </Typography>
         </Box>
         <ChevronRightIcon sx={{ color: 'action.disabled' }} />

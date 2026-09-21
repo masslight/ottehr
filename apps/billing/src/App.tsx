@@ -24,6 +24,7 @@ import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
 import { CustomInsuranceOrganizationDetail, InsuranceOrganizationsList } from './pages/InsuranceOrganizations';
 import InvoiceReport from './pages/InvoiceReport';
+import NetCollectionsReport from './pages/NetCollectionsReport';
 import { NonInsuranceOrganizationDetail, NonInsuranceOrganizationsList } from './pages/NonInsuranceOrganizations';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
@@ -111,6 +112,7 @@ export default function App(): ReactElement {
               <Route path="/reports/invoices" element={<InvoiceReport />} />
               <Route path="/reports/pipeline" element={<PipelineReport />} />
               <Route path="/reports/productivity" element={<ProductivityReport />} />
+              <Route path="/reports/net-collections" element={<NetCollectionsReport />} />
               {/* Rules routes are per engine; bare /rules lands on the Claim Submission engine. */}
               <Route path="/rules" element={<Navigate to={`/rules/${DEFAULT_RULES_ENGINE}`} replace />} />
               <Route path="/rules/:engine" element={<Rules />} />

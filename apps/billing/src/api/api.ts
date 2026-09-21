@@ -76,6 +76,7 @@ import {
   GetBillingCardsOnFileReportResponse,
   GetBillingCoverageResponse,
   GetBillingInvoiceReportResponse,
+  GetBillingNetCollectionsReportResponse,
   GetBillingPatientBalanceResponse,
   GetBillingPatientPaymentsDrilldownResponse,
   GetBillingPatientPaymentsReportResponse,
@@ -501,6 +502,13 @@ export const getBillingProductivityReport = (
   refresh?: boolean
 ): Promise<GetBillingProductivityReportResponse> =>
   getBillingReport(oystehr, 'productivity', params as Record<string, unknown>, refresh);
+
+export const getBillingNetCollectionsReport = (
+  oystehr: Oystehr,
+  params?: ReportDateWindowParams,
+  refresh?: boolean
+): Promise<GetBillingNetCollectionsReportResponse> =>
+  getBillingReport(oystehr, 'net-collections', params as Record<string, unknown>, refresh);
 
 // this kind's cached runs, newest first
 export const getBillingReportHistory = (

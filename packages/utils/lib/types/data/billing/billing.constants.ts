@@ -32,6 +32,7 @@ export const REFRESH_REPORT_KINDS = [
   'cards-on-file',
   'pipeline',
   'productivity',
+  'net-collections',
 ] as const;
 export type RefreshReportKind = (typeof REFRESH_REPORT_KINDS)[number];
 

@@ -631,6 +631,44 @@ export interface GetBillingReportHistoryResponse {
   entries: BillingReportHistoryEntry[];
 }
 
+// collected vs. what was collectible; the rate is derived client-side (collected / expected)
+export interface NetCollectionsBucket {
+  collected: number;
+  expected: number;
+}
+
+export interface NetCollectionsPayerRow {
+  payerId: string;
+  payerName: string;
+  claimCount: number;
+  allowed: number;
+  patientResp: number;
+  // allowed − patient responsibility: the insurance-collectible amount
+  expected: number;
+  paid: number;
+}
+
+// 'YYYY-MM' cash-basis buckets: insurance by ERA check month, patient by payment month
+export interface NetCollectionsMonthlyPoint {
+  month: string;
+  insurance: NetCollectionsBucket;
+  patient: NetCollectionsBucket;
+}
+
+export interface GetBillingNetCollectionsReportResponse {
+  // collected = insurance paid + patient net; expected = allowed
+  overall: NetCollectionsBucket;
+  // collected = insurance paid; expected = allowed − patient responsibility
+  insurance: NetCollectionsBucket;
+  // collected = patient payments net of refunds; expected = patient responsibility
+  patient: NetCollectionsBucket;
+  payerRows: NetCollectionsPayerRow[];
+  monthly: NetCollectionsMonthlyPoint[];
+  generatedAt: string;
+  fromCache: boolean;
+  status?: ReportRefreshStatus;
+}
+
 // Refresh state of a cached billing report.
 export interface ReportRefreshStatus {
   state: 'idle' | 'running' | 'error';
