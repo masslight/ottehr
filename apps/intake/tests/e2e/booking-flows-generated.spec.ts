@@ -82,7 +82,7 @@ test.describe('Complete booking flows', () => {
     // billing-app NIOs (seeded per env by config/oystehr/env/<env>/nio-organizations.json), so a
     // legacy clinical Organization would never appear in the dropdown.
     if (FEATURE_FLAGS_CONFIG.customOrganizationsEnabled) {
-      console.log('⊘ Skipped legacy occupational-medicine employer - non-insurance organizations are enabled');
+      console.log('⊘ Skipped legacy occupational-medicine employer - custom organizations are enabled');
     } else {
       const occMedEmployer = await testLocationManager.ensureOccMedEmployer();
       console.log(`✓ Created occupational-medicine employer: ${occMedEmployer.name}`);
