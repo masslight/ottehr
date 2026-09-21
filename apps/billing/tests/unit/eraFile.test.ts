@@ -63,6 +63,46 @@ describe('readEraFile', () => {
     });
   });
 
+  it('rejects control bytes that no signature identifies and no NUL accompanies', async () => {
+    const result = await readEraFile(makeFile(new Uint8Array([1, 2, 3])));
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'This file does not look like a text-based 835/X12 file.',
+    });
+  });
+
+  it('rejects invalid UTF-8 that no signature identifies', async () => {
+    const result = await readEraFile(makeFile(new Uint8Array([0xc3, 0x28, 0x41])));
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'This file does not look like a text-based 835/X12 file.',
+    });
+  });
+
+  it('accepts an X12 file delimited with information separators', async () => {
+    const separatorDelimited = 'ISA*00*SENDER\u001dGS*HP*SENDER*RECEIVER\u001dST*835*0001\u001d';
+
+    const result = await readEraFile(makeFile(separatorDelimited));
+
+    expect(result).toEqual({
+      ok: true,
+      text: separatorDelimited,
+    });
+  });
+
+  it('accepts an X12 file with CRLF line endings', async () => {
+    const withCrlf = 'ISA*00*SENDER~\r\nGS*HP*SENDER*RECEIVER~\r\n';
+
+    const result = await readEraFile(makeFile(withCrlf));
+
+    expect(result).toEqual({
+      ok: true,
+      text: withCrlf,
+    });
+  });
+
   it('names the format of a JPEG renamed to a text extension', async () => {
     const result = await readEraFile(makeFile(new Uint8Array([0xff, 0xd8, 0xff]), 'remit.txt'));
 

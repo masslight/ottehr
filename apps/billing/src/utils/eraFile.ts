@@ -13,8 +13,11 @@ export type ReadEraFileResult =
       error: string;
     };
 
+// eslint-disable-next-line no-control-regex
+const BINARY_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001b\uFFFD]/;
+
 function looksLikeBinary(text: string): boolean {
-  return text.includes('\u0000') || text.includes('�');
+  return BINARY_CHARACTERS.test(text);
 }
 
 export async function readEraFile(file: File): Promise<ReadEraFileResult> {
