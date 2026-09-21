@@ -44,6 +44,8 @@ export const AddressBookPicker: FC<AddressBookPickerProps> = ({ name, label, tag
   const { data } = useSearchAddressBookQuery(tag);
   const contacts = data?.contacts ?? [];
   const [dialog, setDialog] = useState<DialogState>();
+  // Which contact the text came from: two contacts can share a label, so the label alone can't say.
+  const [pickedId, setPickedId] = useState<string>();
 
   return (
     <Controller
@@ -52,8 +54,10 @@ export const AddressBookPicker: FC<AddressBookPickerProps> = ({ name, label, tag
       defaultValue=""
       render={({ field }) => {
         const text: string = field.value ?? '';
-        const match = contacts.find((contact) => addressBookContactLabel(contact) === text);
+        const picked = contacts.find((contact) => contact.id === pickedId);
+        const match = picked && addressBookContactLabel(picked) === text ? picked : undefined;
         const pick = (contact: AddressBookContact): void => {
+          setPickedId(contact.id);
           field.onChange(addressBookContactLabel(contact));
           onSelect(contact);
         };

@@ -9,8 +9,9 @@ import {
   Stack,
   TextField,
 } from '@mui/material';
+import { captureException } from '@sentry/react';
 import { enqueueSnackbar } from 'notistack';
-import { FC } from 'react';
+import { FC, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { PhoneInput } from 'src/components/input/PhoneInput';
@@ -19,6 +20,8 @@ import { TextInput } from 'src/components/input/TextInput';
 import { formatPhoneNumberDisplay, isEmailValid } from 'utils/lib/helpers/helpers';
 import { AllStates } from 'utils/lib/types/common';
 import {
+  ADDRESS_BOOK_CREDENTIAL_NEEDS_LAST_NAME_MESSAGE,
+  ADDRESS_BOOK_LINE2_NEEDS_LINE1_MESSAGE,
   ADDRESS_BOOK_ORG_OR_LAST_NAME_MESSAGE,
   AddressBookContact,
   AddressBookContactInput,
@@ -69,9 +72,16 @@ const toFormValues = (contact?: Partial<AddressBookContactInput>): FormValues =>
   tags: contact?.tags ?? [],
 });
 
-const toInput = ({ line1, line2, city, state, zip, ...rest }: FormValues): AddressBookContactInput => ({
+const normalizeTags = (tags: string[]): string[] => Array.from(new Set(tags.map((tag) => tag.trim()).filter(Boolean)));
+
+/** `pendingTag` is what sits typed in the tags box without Enter; Save must not lose it. */
+const toInput = (
+  { line1, line2, city, state, zip, tags, ...rest }: FormValues,
+  pendingTag: string
+): AddressBookContactInput => ({
   ...rest,
   address: { line1, line2, city, state: state ?? '', zip },
+  tags: normalizeTags([...tags, pendingTag]),
 });
 
 interface AddressBookDialogProps {
@@ -98,16 +108,17 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
   const createMutation = useCreateAddressBookContactMutation();
   const updateMutation = useUpdateAddressBookContactMutation();
   const deleteMutation = useDeleteAddressBookContactMutation();
+  const [pendingTag, setPendingTag] = useState('');
 
   const submit = async (values: FormValues): Promise<void> => {
-    const input = toInput(values);
+    const input = toInput(values, pendingTag);
     try {
       const { contact: saved } = contact
         ? await updateMutation.mutateAsync({ contactId: contact.id, ...input })
         : await createMutation.mutateAsync(input);
       onSaved(saved);
     } catch (error) {
-      console.error(error);
+      captureException(error);
       enqueueSnackbar('Failed to save the contact. Please try again.', { variant: 'error' });
     }
   };
@@ -133,10 +144,22 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
                   !!value.trim() || !!getValues('organizationName').trim() || ADDRESS_BOOK_ORG_OR_LAST_NAME_MESSAGE
                 }
               />
-              <TextInput name="credential" label="Credential" />
+              <TextInput
+                name="credential"
+                label="Credential"
+                validate={(value) =>
+                  !value.trim() || !!getValues('lastName').trim() || ADDRESS_BOOK_CREDENTIAL_NEEDS_LAST_NAME_MESSAGE
+                }
+              />
               <TextInput name="organizationName" label="Organization" />
               <TextInput name="line1" label="Address line 1" />
-              <TextInput name="line2" label="Address line 2" />
+              <TextInput
+                name="line2"
+                label="Address line 2"
+                validate={(value) =>
+                  !value.trim() || !!getValues('line1').trim() || ADDRESS_BOOK_LINE2_NEEDS_LINE1_MESSAGE
+                }
+              />
               <TextInput name="city" label="City" />
               <SelectInput name="state" label="State" options={STATE_OPTIONS} />
               <TextInput name="zip" label="ZIP" />
@@ -156,7 +179,9 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
                     freeSolo
                     options={tagSuggestions}
                     value={field.value}
-                    onChange={(_event, value) => field.onChange(value)}
+                    onChange={(_event, value) => field.onChange(normalizeTags(value))}
+                    inputValue={pendingTag}
+                    onInputChange={(_event, value) => setPendingTag(value)}
                     renderInput={(params) => (
                       <TextField {...params} label="Tags" size="small" placeholder="Type a tag and press Enter" />
                     )}

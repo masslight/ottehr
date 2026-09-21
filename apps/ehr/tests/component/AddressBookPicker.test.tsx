@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
+import { searchAddressBook } from 'src/features/address-book/addressBook.api';
 import { AddressBookPicker } from 'src/features/address-book/AddressBookPicker';
 import { AddressBookContact } from 'utils/lib/types/data/address-book';
 import { describe, expect, it, vi } from 'vitest';
@@ -31,6 +32,10 @@ vi.mock('src/features/address-book/addressBook.api', () => ({
 }));
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {} }) }));
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
+// Plain <input> so the test doesn't fight react-imask.
+vi.mock('ui-components/lib/components/InputMask', () => ({
+  InputMask: (props: any) => <input {...props} onChange={(e) => props.onChange(e)} />,
+}));
 
 const Harness: FC<{ onSelect: (contact: AddressBookContact) => void; onParentSubmit?: () => void }> = ({
   onSelect,
@@ -86,6 +91,24 @@ describe('AddressBookPicker', () => {
     expect(onSelect).toHaveBeenCalledWith(contacts[0]);
     expect(screen.getByTestId('field-value')).toHaveTextContent('Jane Doe, MD');
     expect(screen.getByRole('button', { name: 'Edit contact' })).toBeInTheDocument();
+  });
+
+  it('edits the contact that was picked, not the first one with the same label', async () => {
+    const user = userEvent.setup();
+    const twins: AddressBookContact[] = [
+      { id: 't1', firstName: 'Jane', lastName: 'Doe', fax: '+12125551111', tags: [] },
+      { id: 't2', firstName: 'Jane', lastName: 'Doe', fax: '+12125552222', tags: [] },
+    ];
+    vi.mocked(searchAddressBook).mockResolvedValueOnce({ contacts: twins });
+    render(<Harness onSelect={vi.fn()} />);
+
+    await user.click(screen.getByLabelText("Recipient's name"));
+    const options = await screen.findAllByRole('option', { name: /Jane Doe/ });
+    await user.click(options[1]);
+    await user.click(screen.getByRole('button', { name: 'Edit contact' }));
+
+    expect(await screen.findByText('Edit contact')).toBeInTheDocument();
+    expect(screen.getByLabelText('Fax')).toHaveValue('(212) 555-2222');
   });
 
   it('keeps working as a free-text field', async () => {

@@ -2,13 +2,12 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { AddressBookContactOutput } from 'utils/lib/types/data/address-book';
-import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { topLevelCatch } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { buildAddressBookOrganization, isAddressBookOrganization, mapAddressBookContact } from '../helpers';
+import { buildAddressBookOrganization, getAddressBookOrganizationOrThrow, mapAddressBookContact } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -21,10 +20,7 @@ export const index = wrapHandler(
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
       const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-      const existing = await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: contactId });
-      if (!isAddressBookOrganization(existing)) {
-        throw INVALID_INPUT_ERROR(`Organization ${contactId} is not an address book contact`);
-      }
+      const existing = await getAddressBookOrganizationOrThrow(oystehr, contactId);
 
       const updated = await oystehr.fhir.update<Organization>(buildAddressBookOrganization(contact, existing), {
         optimisticLockingVersionId: existing.meta?.versionId,

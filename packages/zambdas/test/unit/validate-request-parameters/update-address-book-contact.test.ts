@@ -1,3 +1,4 @@
+import { ADDRESS_BOOK_CREDENTIAL_NEEDS_LAST_NAME_MESSAGE } from 'utils/lib/types/data/address-book';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../../src/ehr/address-book/update-address-book-contact/validateRequestParameters';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
@@ -26,5 +27,13 @@ describe('update-address-book-contact - validateRequestParameters', () => {
 
   test('should throw when body is missing', () => {
     expect(() => validateRequestParameters(createMockZambdaInput(null, { secrets }))).toThrow();
+  });
+
+  test('should throw when a credential is given without a last name', () => {
+    const body = { contactId: VALID_UUID, organizationName: 'Acme', credential: 'MD' };
+
+    expect(() => validateRequestParameters(createMockZambdaInput(body, { secrets }))).toThrow(
+      ADDRESS_BOOK_CREDENTIAL_NEEDS_LAST_NAME_MESSAGE
+    );
   });
 });

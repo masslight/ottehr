@@ -1,3 +1,8 @@
+import {
+  ADDRESS_BOOK_CREDENTIAL_NEEDS_LAST_NAME_MESSAGE,
+  ADDRESS_BOOK_LINE2_NEEDS_LINE1_MESSAGE,
+  ADDRESS_BOOK_TAG_MESSAGE,
+} from 'utils/lib/types/data/address-book';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../../src/ehr/address-book/create-address-book-contact/validateRequestParameters';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
@@ -37,5 +42,34 @@ describe('create-address-book-contact - validateRequestParameters', () => {
     expect(() =>
       validateRequestParameters(createMockZambdaInput({ lastName: 'Doe', email: 'nope' }, { secrets }))
     ).toThrow();
+  });
+
+  test('should throw when address line 2 is given without line 1', () => {
+    const body = { lastName: 'Doe', address: { line1: ' ', line2: 'Suite 100' } };
+
+    expect(() => validateRequestParameters(createMockZambdaInput(body, { secrets }))).toThrow(
+      ADDRESS_BOOK_LINE2_NEEDS_LINE1_MESSAGE
+    );
+  });
+
+  test('should throw when a credential is given without a last name', () => {
+    const body = { organizationName: 'Acme', credential: 'MD' };
+
+    expect(() => validateRequestParameters(createMockZambdaInput(body, { secrets }))).toThrow(
+      ADDRESS_BOOK_CREDENTIAL_NEEDS_LAST_NAME_MESSAGE
+    );
+  });
+
+  test('should trim tags and reject FHIR token separators in them', () => {
+    const accepted = validateRequestParameters(
+      createMockZambdaInput({ lastName: 'Doe', tags: [" O'Neil-Peds_1. "] }, { secrets })
+    );
+    expect(accepted.contact.tags).toEqual(["O'Neil-Peds_1."]);
+
+    for (const tag of ['Peds,Ortho', 'a|b']) {
+      expect(() =>
+        validateRequestParameters(createMockZambdaInput({ lastName: 'Doe', tags: [tag] }, { secrets }))
+      ).toThrow(ADDRESS_BOOK_TAG_MESSAGE);
+    }
   });
 });

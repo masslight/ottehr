@@ -1,12 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { FaxDocumentAvailability } from 'utils/lib/types/api/fax.types';
 import { describe, expect, it, vi } from 'vitest';
 import { SendFaxForm } from '../../src/features/fax/ui/SendFaxForm';
 
-// The recipient-name picker reads the address book; keep it empty and offline here.
+// The recipient-name picker reads the address book; keep it small and offline here.
 vi.mock('src/features/address-book/addressBook.api', () => ({
-  searchAddressBook: vi.fn().mockResolvedValue({ contacts: [] }),
+  searchAddressBook: vi.fn().mockResolvedValue({
+    contacts: [
+      { id: 'c1', firstName: 'Jane', lastName: 'Doe', organizationName: 'Springfield Cardiology', tags: [] },
+      { id: 'c2', organizationName: 'Acme Imaging', fax: '+12125550000', tags: [] },
+    ],
+  }),
 }));
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {} }) }));
 
@@ -66,5 +72,30 @@ describe('SendFaxForm sender', () => {
     renderForm(undefined, '+12125550000');
 
     expect(screen.getByLabelText(/Recipient Fax/)).toBeVisible();
+  });
+});
+
+describe('SendFaxForm recipient picker', () => {
+  it('fills the organization from a person contact', async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.click(screen.getByLabelText("Recipient's name"));
+    await user.click(await screen.findByRole('option', { name: /Jane Doe/ }));
+
+    expect(screen.getByLabelText("Recipient's name")).toHaveValue('Jane Doe');
+    expect(screen.getByLabelText('Organization')).toHaveValue('Springfield Cardiology');
+  });
+
+  it('does not repeat an org-only contact as the organization', async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.click(screen.getByLabelText("Recipient's name"));
+    await user.click(await screen.findByRole('option', { name: /Acme Imaging/ }));
+
+    expect(screen.getByLabelText("Recipient's name")).toHaveValue('Acme Imaging');
+    expect(screen.getByLabelText('Organization')).toHaveValue('');
+    expect(screen.getByLabelText(/Recipient Fax/)).toHaveValue('(212) 555-0000');
   });
 });

@@ -1,15 +1,23 @@
+import Oystehr from '@oystehr/sdk';
 import { Organization } from 'fhir/r4b';
 import {
   ADDRESS_BOOK_TAG_CODE,
   ADDRESS_BOOK_TAG_SYSTEM,
   AddressBookContactInput,
 } from 'utils/lib/types/data/address-book';
-import { describe, expect, test } from 'vitest';
+import { APIErrorCode } from 'utils/lib/types/errors';
+import { describe, expect, test, vi } from 'vitest';
 import {
   buildAddressBookOrganization,
+  getAddressBookOrganizationOrThrow,
   isAddressBookOrganization,
   mapAddressBookContact,
 } from '../../src/ehr/address-book/helpers';
+
+/** The shape `@oystehr/sdk` throws for a missing resource: the HTTP status on `code`. */
+const notFoundError = Object.assign(new Error('Resource not found'), { code: 404 });
+const oystehrWhoseGet = (get: () => Promise<Organization>): Oystehr =>
+  ({ fhir: { get: vi.fn(get) } }) as unknown as Oystehr;
 
 const fullInput: AddressBookContactInput = {
   firstName: 'Jane',
@@ -101,5 +109,49 @@ describe('address-book helpers', () => {
 
   test('isAddressBookOrganization rejects organizations without the marker tag', () => {
     expect(isAddressBookOrganization({ resourceType: 'Organization', name: 'Employer' })).toBe(false);
+  });
+
+  describe('getAddressBookOrganizationOrThrow', () => {
+    test('returns the contact organization', async () => {
+      const org = { ...buildAddressBookOrganization({ organizationName: 'Acme' }), id: 'org-5' };
+
+      await expect(
+        getAddressBookOrganizationOrThrow(
+          oystehrWhoseGet(async () => org),
+          'org-5'
+        )
+      ).resolves.toBe(org);
+    });
+
+    test('turns a FHIR not-found into a structured not-found error rather than a 500', async () => {
+      const oystehr = oystehrWhoseGet(() => Promise.reject(notFoundError));
+
+      await expect(getAddressBookOrganizationOrThrow(oystehr, 'gone')).rejects.toMatchObject({
+        code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
+        message: 'Contact gone not found',
+      });
+    });
+
+    test('lets other FHIR failures propagate untouched', async () => {
+      const failure = new Error('boom');
+
+      await expect(
+        getAddressBookOrganizationOrThrow(
+          oystehrWhoseGet(() => Promise.reject(failure)),
+          'x'
+        )
+      ).rejects.toBe(failure);
+    });
+
+    test('rejects an organization that is not an address book contact', async () => {
+      const employer: Organization = { resourceType: 'Organization', id: 'org-6', name: 'Employer' };
+
+      await expect(
+        getAddressBookOrganizationOrThrow(
+          oystehrWhoseGet(async () => employer),
+          'org-6'
+        )
+      ).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
+    });
   });
 });

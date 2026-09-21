@@ -41,7 +41,9 @@ export const RecipientFields: FC<RecipientFieldsProps> = ({ index, isPcp, onSave
         label="Recipient's name"
         dataTestId={`${dataTestIds.faxDialog.recipientName}-${index}`}
         onSelect={(contact) => {
-          setValue(`recipients.${index}.organization`, contact.organizationName ?? '');
+          // An org-only contact is already named in the recipient field; don't repeat it here.
+          const hasPerson = !!(contact.firstName || contact.lastName);
+          setValue(`recipients.${index}.organization`, (hasPerson && contact.organizationName) || '');
           setValue(`recipients.${index}.faxNumber`, formatPhoneNumberDisplay(contact.fax), { shouldValidate: true });
           setValue(`recipients.${index}.phoneNumber`, formatPhoneNumberDisplay(contact.phone));
         }}

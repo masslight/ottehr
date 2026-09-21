@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Coding, Organization } from 'fhir/r4b';
 import { formatPhoneNumber } from 'utils/lib/helpers/helpers';
 import {
@@ -8,13 +9,30 @@ import {
   AddressBookContactInput,
   formatAddressBookPersonName,
 } from 'utils/lib/types/data/address-book';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { normalizeAddress, normalizeTelecom } from '../../rcm/employers/helpers';
+import { isFhirNotFoundError } from '../../shared/errors';
 
 const ADDRESS_BOOK_TAG_SYSTEMS: (string | undefined)[] = [ADDRESS_BOOK_TAG_SYSTEM, ADDRESS_BOOK_USER_TAG_SYSTEM];
 
 export const isAddressBookOrganization = (organization: Organization): boolean =>
   organization.meta?.tag?.some((tag) => tag.system === ADDRESS_BOOK_TAG_SYSTEM && tag.code === ADDRESS_BOOK_TAG_CODE) ??
   false;
+
+/** The contact's Organization; a contact deleted elsewhere is a client error, not a 500. */
+export const getAddressBookOrganizationOrThrow = async (oystehr: Oystehr, contactId: string): Promise<Organization> => {
+  let organization: Organization;
+  try {
+    organization = await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: contactId });
+  } catch (error) {
+    if (isFhirNotFoundError(error)) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Contact ${contactId} not found`);
+    throw error;
+  }
+  if (!isAddressBookOrganization(organization)) {
+    throw INVALID_INPUT_ERROR(`Organization ${contactId} is not an address book contact`);
+  }
+  return organization;
+};
 
 /** Full replacement; only the id and meta tags from other systems survive from `existing`. */
 export const buildAddressBookOrganization = (input: AddressBookContactInput, existing?: Organization): Organization => {
