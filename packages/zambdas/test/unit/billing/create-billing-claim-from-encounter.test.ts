@@ -295,6 +295,7 @@ const clinicalResources: {
   billingProvider: {
     resourceType: 'Organization',
     id: 'organization-123',
+    identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '2222222222' }],
   },
 };
 
@@ -393,6 +394,7 @@ const billingResources: {
   billingProvider: {
     resourceType: 'Organization',
     id: 'billing-organization-123',
+    identifier: clinicalResources.billingProvider.identifier,
   },
   billingService: {
     resourceType: 'Basic',
@@ -826,7 +828,7 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [billingResources.practitioner],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [billingResources.billingProvider],
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
@@ -852,7 +854,7 @@ describe('create-billing-claim-from-encounter', () => {
           },
           billingResources: {
             accounts: [],
-            billingProvider: undefined,
+            billingProvider: billingResources.billingProvider,
             coverages: [],
             mainPatient: undefined,
             person: undefined,
@@ -909,7 +911,7 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [billingResources.practitioner],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [billingResources.billingProvider],
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
@@ -935,7 +937,7 @@ describe('create-billing-claim-from-encounter', () => {
           },
           billingResources: {
             accounts: [],
-            billingProvider: undefined,
+            billingProvider: billingResources.billingProvider,
             coverages: [],
             mainPatient: undefined,
             person: undefined,
@@ -947,8 +949,8 @@ describe('create-billing-claim-from-encounter', () => {
           },
         },
       },
-      {
-        name: 'fails when the rendering provider NPI does not match',
+      ...['rendering', 'billing'].map((missingProvider) => ({
+        name: `fails when no matching ${missingProvider} provider exists`,
         clinicalOystehrSearch: vi
           .fn()
           .mockResolvedValueOnce({
@@ -981,7 +983,7 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [billingResources.location],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [{ ...billingResources.practitioner, identifier: [] }],
+            unbundle: () => (missingProvider === 'rendering' ? [] : [billingResources.practitioner]),
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
@@ -994,9 +996,11 @@ describe('create-billing-claim-from-encounter', () => {
           }),
         secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
         expectedError: INVALID_INPUT_ERROR(
-          'No billing rendering provider matches the attending provider NPI. Add a matching provider in billing or correct the clinical provider NPI, then retry.'
+          missingProvider === 'rendering'
+            ? 'No billing rendering provider matches the attending provider NPI. Add a matching provider in billing or correct the clinical provider NPI, then retry.'
+            : 'No billing provider matches the clinical default provider NPI. Add a billing provider with that NPI in the billing app, then retry.'
         ),
-      },
+      })),
       {
         name: 'succeeds with required data and all found billing resources',
         clinicalOystehrSearch: vi
@@ -1112,6 +1116,13 @@ describe('create-billing-claim-from-encounter', () => {
           value: `${FHIR_IDENTIFIER_NPI}|11111111111`,
         });
         expect(providerSearch?.[0].params).toEqual(expect.arrayContaining(EXCLUDE_WORKING_COPIES_PARAMS));
+        const billingProviderSearch = tc.billingOystehrSearch.mock.calls.find(
+          ([search]) => search.resourceType === 'Organization'
+        );
+        expect(billingProviderSearch?.[0].params).toContainEqual({
+          name: 'identifier',
+          value: `${FHIR_IDENTIFIER_NPI}|2222222222`,
+        });
         expect(tc.billingOystehrSearch).toHaveBeenCalledWith(
           expect.objectContaining({
             resourceType: 'Patient',

@@ -97,6 +97,7 @@ import {
   payerDisplay,
   prepareCopy,
   prepareWorkingCopy,
+  PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
   reconcilePaymentNoticesForClaim,
@@ -1075,6 +1076,8 @@ async function findExistingBillingResources(
           name: 'identifier',
           value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(clinicalResources.billingProvider)?.value}`,
         },
+        { name: '_tag', value: `${PROVIDER_ROLE_TAG}|${PROVIDER_ROLE_BILLING}` },
+        ...EXCLUDE_WORKING_COPIES_PARAMS,
       ],
     })
   ).unbundle();
@@ -1321,6 +1324,9 @@ export async function complexValidation(
   if (!clinicalResources.location.name) {
     throw INVALID_INPUT_ERROR('The encounter location has no name. Add its name in the clinical app, then retry.');
   }
+  if (!getNPIIdentifier(clinicalResources.billingProvider)?.value) {
+    throw INVALID_INPUT_ERROR('The clinical default billing provider has no NPI. Add its NPI, then retry.');
+  }
   const billingResources = await findExistingBillingResources(billingOystehr, clinicalResources, params.secrets);
   if (!billingResources.serviceFacility) {
     throw INVALID_INPUT_ERROR(
@@ -1330,6 +1336,11 @@ export async function complexValidation(
   if (!billingResources.renderingProvider) {
     throw INVALID_INPUT_ERROR(
       'No billing rendering provider matches the attending provider NPI. Add a matching provider in billing or correct the clinical provider NPI, then retry.'
+    );
+  }
+  if (!billingResources.billingProvider) {
+    throw INVALID_INPUT_ERROR(
+      'No billing provider matches the clinical default provider NPI. Add a billing provider with that NPI in the billing app, then retry.'
     );
   }
   return { clinicalResources, billingResources };
