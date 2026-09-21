@@ -149,7 +149,10 @@ export function ImportEraDialog({ onClose }: Props): ReactElement {
                       label="ERA in X12 Format *"
                       value={field.value}
                       minRows={20}
-                      onChange={(e) => field.onChange(e.target.value)}
+                      onChange={(e) => {
+                        setFileError(null);
+                        field.onChange(e.target.value);
+                      }}
                       disabled={isReadingFile}
                       error={!!fieldError}
                       helperText={isReadingFile ? 'Reading file...' : fieldError?.message}

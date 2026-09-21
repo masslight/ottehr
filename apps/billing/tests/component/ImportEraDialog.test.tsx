@@ -173,6 +173,20 @@ describe('ImportEraDialog', () => {
     expect(importEraMock).not.toHaveBeenCalled();
   });
 
+  it('clears a stale file error once the era text is edited', async () => {
+    render(<ImportEraDialog onClose={() => {}} />);
+    dropFile(oversizedFile());
+    await screen.findByText(TOO_LARGE_ERROR);
+
+    fireEvent.change(getEraTextarea(), {
+      target: {
+        value: X12,
+      },
+    });
+
+    expect(screen.queryByText(TOO_LARGE_ERROR)).not.toBeInTheDocument();
+  });
+
   it('clears the error when a valid file follows a rejected one', async () => {
     render(<ImportEraDialog onClose={() => {}} />);
     dropFile(textFile('remit.txt', new Uint8Array([0xff, 0xd8, 0xff])));
