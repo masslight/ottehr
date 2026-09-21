@@ -157,23 +157,29 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
   };
 
   const deleteCondition = (): void => {
+    const removeFromCache = (): void => {
+      chartDataSetState(
+        (prevState) => ({
+          chartData: {
+            ...prevState.chartData!,
+            conditions: prevState.chartData?.conditions?.filter(
+              (condition) => condition.resourceId !== value.resourceId
+            ),
+          },
+        }),
+        { invalidateQueries: false }
+      );
+    };
     // Optimistic update
-    chartDataSetState(
-      (prevState) => ({
-        chartData: {
-          ...prevState.chartData!,
-          conditions: prevState.chartData?.conditions?.filter((condition) => condition.resourceId !== value.resourceId),
-        },
-      }),
-      { invalidateQueries: false }
-    );
+    removeFromCache();
     deleteChartData(
       {
         conditions: [value],
       },
       {
         onSuccess: () => {
-          // No need to update again, optimistic update already applied
+          // Re-apply the removal in case a background refetch overwrote the optimistic update
+          removeFromCache();
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while deleting medical condition. Please try again.', {

@@ -1,4 +1,5 @@
 import { expect, Page } from '@playwright/test';
+import { clickAndWaitForChartDataDeletion } from 'test-utils';
 import { dataTestIds } from './../../../src/constants/data-test-ids';
 import { InPersonHeader } from './InPersonHeader';
 import { SideMenu } from './SideMenu';
@@ -36,7 +37,7 @@ export class MedicalConditionsPage {
       .getByTestId(dataTestIds.deleteOutlinedIcon)
       .first();
     await expect(deleteButton).toBeEnabled({ timeout: 30000 });
-    await deleteButton.click();
+    await clickAndWaitForChartDataDeletion(this.#page, deleteButton);
     await expect(this.#page.getByTestId(dataTestIds.medicalConditions.medicalConditionsList)).not.toBeVisible();
   }
 }
