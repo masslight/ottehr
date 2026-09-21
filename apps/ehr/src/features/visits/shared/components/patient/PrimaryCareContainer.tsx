@@ -28,8 +28,8 @@ export const PrimaryCareContainer: FC<PrimaryCareContainerProps> = ({ isLoading,
   // Every field is set (to '' when the contact lacks it) so a re-pick leaves nothing stale.
   const fillFromContact = (contact: AddressBookContact): void => {
     const set = (item: { key: string }, value: string): void => setValue(item.key, value, { shouldDirty: true });
+    set(items.firstName, contact.firstName ?? '');
     set(items.lastName, contact.lastName ?? '');
-    set(items.practiceName, contact.organizationName ?? '');
     set(items.address, contact.address ? formatContactAddress(contact.address) : '');
     set(items.phone, formatPhoneNumberDisplay(contact.phone));
     set(items.fax, formatPhoneNumberDisplay(contact.fax));
@@ -41,7 +41,7 @@ export const PrimaryCareContainer: FC<PrimaryCareContainerProps> = ({ isLoading,
       titleWidget={<SectionSaveButton fieldKeys={FIELD_KEYS} patientId={patientId} encounterId={encounterId} />}
     >
       {Object.values(items).map((item) =>
-        item.key === items.firstName.key ? (
+        item.key === items.practiceName.key ? (
           <PatientRecordAddressBookField
             key={item.key}
             item={item}
@@ -49,7 +49,6 @@ export const PrimaryCareContainer: FC<PrimaryCareContainerProps> = ({ isLoading,
             hiddenFormFields={hiddenFields}
             requiredFormFields={requiredFields}
             tag="pcp"
-            fieldValue={(contact) => contact.firstName ?? ''}
             onSelect={fillFromContact}
           />
         ) : (
