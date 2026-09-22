@@ -1,3 +1,4 @@
+import { Task } from 'fhir/r4b';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import type { EraClaimStatusCode, X12AdjustmentGroupCode } from './billing.constants';
@@ -521,6 +522,25 @@ export interface SearchBillingPatientsResponse extends Paginated {
 
 export interface SearchBillingClaimsResponse extends Paginated {
   claims: BillingClaimItem[];
+  incomplete?: boolean;
+}
+
+export interface BillingClaimTaskItem {
+  id: string;
+  status: Task['status'];
+  encounterId?: string;
+  encounterDate?: string;
+  appointmentId?: string;
+  patientId?: string;
+  patientName?: string;
+  payerNames: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  error?: string;
+}
+
+export interface SearchBillingClaimTasksResponse extends Paginated {
+  tasks: BillingClaimTaskItem[];
   incomplete?: boolean;
 }
 

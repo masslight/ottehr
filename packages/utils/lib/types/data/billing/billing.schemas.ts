@@ -5,7 +5,7 @@ import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { STATE_CODES } from '../../common';
-import { BILLING_MANUAL_PAYMENT_METHODS, REFRESH_REPORT_KINDS } from './billing.constants';
+import { BILLING_MANUAL_PAYMENT_METHODS, BILLING_TASK_STATUSES, REFRESH_REPORT_KINDS } from './billing.constants';
 import { CLAIM_NOTE_MAX_LENGTH } from './claim-history';
 import {
   CLAIM_STATUS_FIELD_KEYS,
@@ -486,6 +486,26 @@ export const CreateBillingClaimFromEncounterInputSchema = z.object({
   encounterId: z.string().uuid(),
 });
 
+export const CreateBillingClaimTaskInputSchema = z.object({
+  encounterId: z.string().uuid(),
+});
+
+export const RetryBillingClaimTaskInputSchema = z.object({
+  taskId: z.string().uuid(),
+});
+
+export const SearchBillingClaimTasksInputSchema = z.object({
+  status: z.enum(BILLING_TASK_STATUSES).optional(),
+  createdFrom: z.string().date().optional(),
+  createdTo: z.string().date().optional(),
+  patientId: z.string().uuid().optional(),
+  patientName: nonEmptyString.regex(/[^\s,]/, 'Patient name cannot be blank').optional(),
+  patientIdentifier: nonEmptyString.regex(/^\d+$/, 'Expected a numeric patient ID').optional(),
+  payerName: nonEmptyString.optional(),
+  offset: nonNegativeInt.default(0),
+  pageSize: z.number().int().min(1).max(100).default(25),
+});
+
 const updatableAddressSchema = z
   .object({
     line1: z.string().optional(),
@@ -835,6 +855,9 @@ export type BillingPolicyHolderInput = z.output<typeof BillingPolicyHolderSchema
 export type UpdateBillingProviderInput = z.output<typeof UpdateBillingProviderInputSchema>;
 export type CreateBillingWorkingCopyInput = z.output<typeof CreateBillingWorkingCopyInputSchema>;
 export type CreateBillingClaimFromEncounterInput = z.output<typeof CreateBillingClaimFromEncounterInputSchema>;
+export type CreateBillingClaimTaskInput = z.output<typeof CreateBillingClaimTaskInputSchema>;
+export type RetryBillingClaimTaskInput = z.output<typeof RetryBillingClaimTaskInputSchema>;
+export type SearchBillingClaimTasksInput = z.output<typeof SearchBillingClaimTasksInputSchema>;
 export type UpdateBillingResourceInput = z.output<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];
 export type SearchChargeItemDefinitionsInput = z.output<typeof SearchChargeItemDefinitionsInputSchema>;
