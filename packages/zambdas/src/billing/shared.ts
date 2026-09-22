@@ -1,5 +1,6 @@
 import { deepStrictEqual } from 'node:assert';
 import Oystehr, {
+  BatchInputGetRequest,
   BatchInputPostRequest,
   BatchInputPutRequest,
   FhirResourceReturnValue,
@@ -10,6 +11,7 @@ import {
   Account,
   Address,
   Basic,
+  Bundle,
   ChargeItemDefinition,
   ChargeItemDefinitionPropertyGroup,
   Claim,
@@ -76,6 +78,7 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
   BillingInsuranceType,
   BillingPolicyHolderInput,
@@ -566,6 +569,25 @@ export async function searchTagBasics(oystehr: Oystehr): Promise<Basic[]> {
 export async function fetchDefinedTagNames(oystehr: Oystehr): Promise<Set<string>> {
   const basics = await searchTagBasics(oystehr);
   return new Set(basics.map((tag) => tag.code?.text).filter((name): name is string => !!name));
+}
+
+export async function countClaimsByTag(oystehr: Oystehr, tagNames: string[]): Promise<Map<string, number | undefined>> {
+  const counts = new Map<string, number | undefined>();
+  if (tagNames.length === 0) return counts;
+
+  const requests: BatchInputGetRequest[] = tagNames.map((name) => ({
+    method: 'GET',
+    url: `Claim?_tag=${CLAIM_TAG_SYSTEM}|${name}&_total=accurate&_count=0`,
+  }));
+
+  const batchResult = await oystehr.fhir.batch<FhirResource>({ requests });
+
+  tagNames.forEach((name, index) => {
+    const searchset = batchResult.entry?.[index]?.resource as Bundle | undefined;
+    counts.set(name, searchset?.resourceType === 'Bundle' ? searchset.total : undefined);
+  });
+
+  return counts;
 }
 
 // A claim's billable period spans its service lines: the earliest service start and the latest
