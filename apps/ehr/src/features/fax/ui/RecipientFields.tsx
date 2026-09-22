@@ -89,14 +89,8 @@ export const RecipientFields: FC<RecipientFieldsProps> = ({ index, isPcp, onSave
             value={field.value}
             aria-label="Send by"
             data-testid={`${dataTestIds.faxDialog.channel}-${index}`}
-            onChange={(event) => {
-              const next = event.target.value as FaxRecipientChannel;
-              field.onChange(next);
-              // One channel per recipient: whatever was typed for the other one is discarded.
-              setValue(field(next === 'email' ? 'faxNumber' : 'email'), '', {
-                shouldValidate: true,
-              });
-            }}
+            // Both addresses stay in the form while the user switches; only the chosen channel's is sent.
+            onChange={(event) => field.onChange(event.target.value as FaxRecipientChannel)}
           >
             <FormControlLabel value="fax" control={<Radio size="small" />} label="Fax" />
             <FormControlLabel value="email" control={<Radio size="small" />} label="Email" />

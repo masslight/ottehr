@@ -157,6 +157,22 @@ describe('SendFaxForm delivery channel', () => {
     expect(screen.queryByLabelText(/Recipient Fax/)).toBeNull();
   });
 
+  it('keeps the typed fax number and email while switching channels', async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByLabelText(/Recipient Fax/), '2125550000');
+    const typedFax = (screen.getByLabelText(/Recipient Fax/) as HTMLInputElement).value;
+
+    await user.click(screen.getByRole('radio', { name: 'Email' }));
+    await user.type(screen.getByLabelText(/Recipient Email/), 'olivia@example.com');
+    await user.click(screen.getByRole('radio', { name: 'Fax' }));
+    expect(screen.getByLabelText(/Recipient Fax/)).toHaveValue(typedFax);
+
+    await user.click(screen.getByRole('radio', { name: 'Email' }));
+    expect(screen.getByLabelText(/Recipient Email/)).toHaveValue('olivia@example.com');
+  });
+
   it('submits an email recipient with its address and no fax number', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
