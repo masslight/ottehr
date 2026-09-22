@@ -7,6 +7,7 @@ import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../
 import { STATE_CODES } from '../../common';
 import {
   BILLING_MANUAL_PAYMENT_METHODS,
+  BILLING_TASK_STATUSES,
   REFRESH_REPORT_KINDS,
   TAG_NAME_FORBIDDEN_CHARACTERS,
   TAG_NAME_FORBIDDEN_CHARACTERS_ERROR,
@@ -493,6 +494,26 @@ export const CreateBillingClaimFromEncounterInputSchema = z.object({
   encounterId: z.string().uuid(),
 });
 
+export const CreateBillingClaimTaskInputSchema = z.object({
+  encounterId: z.string().uuid(),
+});
+
+export const RetryBillingClaimTaskInputSchema = z.object({
+  taskId: z.string().uuid(),
+});
+
+export const SearchBillingClaimTasksInputSchema = z.object({
+  status: z.enum(BILLING_TASK_STATUSES).optional(),
+  createdFrom: z.string().date().optional(),
+  createdTo: z.string().date().optional(),
+  patientId: z.string().uuid().optional(),
+  patientName: nonEmptyString.regex(/[^\s,]/, 'Patient name cannot be blank').optional(),
+  patientIdentifier: nonEmptyString.regex(/^\d+$/, 'Expected a numeric patient ID').optional(),
+  payerName: nonEmptyString.optional(),
+  offset: nonNegativeInt.default(0),
+  pageSize: z.number().int().min(1).max(100).default(25),
+});
+
 const updatableAddressSchema = z
   .object({
     line1: z.string().optional(),
@@ -725,6 +746,8 @@ export const GetBillingReportInputSchema = z.object({
   refresh: z.boolean().optional(),
   // filtered slice of the report's cached detail dataset
   drilldown: z.record(z.unknown()).optional(),
+  // list this kind's cached runs instead of serving a report
+  history: z.boolean().optional(),
 });
 
 // date window shared by the parameterized report kinds
@@ -840,6 +863,9 @@ export type BillingPolicyHolderInput = z.output<typeof BillingPolicyHolderSchema
 export type UpdateBillingProviderInput = z.output<typeof UpdateBillingProviderInputSchema>;
 export type CreateBillingWorkingCopyInput = z.output<typeof CreateBillingWorkingCopyInputSchema>;
 export type CreateBillingClaimFromEncounterInput = z.output<typeof CreateBillingClaimFromEncounterInputSchema>;
+export type CreateBillingClaimTaskInput = z.output<typeof CreateBillingClaimTaskInputSchema>;
+export type RetryBillingClaimTaskInput = z.output<typeof RetryBillingClaimTaskInputSchema>;
+export type SearchBillingClaimTasksInput = z.output<typeof SearchBillingClaimTasksInputSchema>;
 export type UpdateBillingResourceInput = z.output<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];
 export type SearchChargeItemDefinitionsInput = z.output<typeof SearchChargeItemDefinitionsInputSchema>;

@@ -24,6 +24,7 @@ import { getBillingCardsOnFileReport } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ReportStatusBar } from '../components/ReportStatusBar';
 import { useBillingReport } from '../hooks/useBillingReport';
+import { useBillingReportHistory } from '../hooks/useBillingReportHistory';
 import { otherColors } from '../themes/ottehr/colors';
 
 type CardFilter = 'all' | 'with-card' | 'without-card';
@@ -194,6 +195,7 @@ export default function CardsOnFileReport(): ReactElement {
   const [cardFilter, setCardFilter] = useState<CardFilter>('all');
   const [dueInvoicesOnly, setDueInvoicesOnly] = useState(true);
 
+  const { entries: history, reload: reloadHistory } = useBillingReportHistory('cards-on-file');
   const { report, status, loading, error, clearError, refresh } = useBillingReport<GetBillingCardsOnFileReportResponse>(
     {
       fetch: useCallback(
@@ -236,10 +238,20 @@ export default function CardsOnFileReport(): ReactElement {
             Credit Cards on File
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            All Stripe customers matched to Oystehr patients, with card-on-file status and last visit.
+            List of patients with card-on-file status.
           </Typography>
         </Box>
-        <ReportStatusBar status={status} loading={loading} onRefresh={refresh} />
+        <ReportStatusBar
+          status={status}
+          loading={loading}
+          history={{
+            entries: history,
+            onOpen: reloadHistory,
+            onView: () => undefined,
+            onRun: () => refresh(),
+            windowed: false,
+          }}
+        />
       </Stack>
 
       {error && (

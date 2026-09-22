@@ -9,6 +9,7 @@ interface CopyChartDataInput {
   sourceEncounterId: string;
   targetEncounterId: string;
   fields: CopyableFollowupField[];
+  overwriteExisting?: boolean;
 }
 
 // Copies the client-side chart fields onto the new follow-up via save-chart-data. Diagnosis is
@@ -17,19 +18,35 @@ export const useCopyChartDataToFollowup = (): UseMutationResult<void, Error, Cop
   const apiClient = useOystehrAPIClient();
 
   return useMutation({
-    mutationFn: async ({ sourceEncounterId, targetEncounterId, fields }): Promise<void> => {
+    mutationFn: async ({ sourceEncounterId, targetEncounterId, fields, overwriteExisting }): Promise<void> => {
       const configs = COPYABLE_FOLLOWUP_FIELDS.filter(
         (config) => fields.includes(config.key) && config.extract !== undefined
       );
       if (configs.length === 0) return;
       if (!apiClient) throw new Error('api client not defined');
 
-      const chartData = await fetchCopySourceChartData(apiClient, sourceEncounterId);
+      const [chartData, targetChartData] = await Promise.all([
+        fetchCopySourceChartData(apiClient, sourceEncounterId),
+        overwriteExisting ? fetchCopySourceChartData(apiClient, targetEncounterId) : undefined,
+      ]);
+
       const payload: SaveChartDataRequest = {
         encounterId: targetEncounterId,
-        ...Object.assign({} as Partial<AllChartValues>, ...configs.map((c) => c.extract!(chartData))),
+        ...Object.assign(
+          {} as Partial<AllChartValues>,
+          ...configs.map((config) => config.extract!(chartData, targetChartData))
+        ),
       };
       await apiClient.saveChartData(payload);
+
+      if (!targetChartData) return;
+      const stale = Object.assign(
+        {} as Partial<AllChartValues>,
+        ...configs.map((config) => config.stale?.(chartData, targetChartData) ?? {})
+      ) as Partial<AllChartValues>;
+      if (Object.keys(stale).length > 0) {
+        await apiClient.deleteChartData({ encounterId: targetEncounterId, ...stale });
+      }
     },
   });
 };
