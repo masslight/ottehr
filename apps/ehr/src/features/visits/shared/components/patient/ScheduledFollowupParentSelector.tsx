@@ -137,6 +137,7 @@ export default function ScheduledFollowupParentSelector({
             sourceEncounterId: parentEncounterId,
             targetEncounterId: convertFrom.encounterId,
             fields,
+            overwriteExisting: true,
           });
         } catch (e) {
           console.error('Failed to copy chart data to the converted visit:', e);
@@ -284,7 +285,8 @@ export default function ScheduledFollowupParentSelector({
                         <>
                           {field.label}{' '}
                           <Typography component="span" variant="body2" color="text.secondary">
-                            (this visit already has {field.label})
+                            (this visit already has {field.label}
+                            {field.extract ? '; copying replaces it' : '; only new codes are added'})
                           </Typography>
                         </>
                       ) : (

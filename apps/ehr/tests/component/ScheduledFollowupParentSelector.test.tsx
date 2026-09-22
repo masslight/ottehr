@@ -329,6 +329,7 @@ describe('ScheduledFollowupParentSelector', () => {
         sourceEncounterId: 'enc-1',
         targetEncounterId: 'enc-target',
         fields: ['chiefComplaint', 'historyOfPresentIllness', 'examObservations'],
+        overwriteExisting: true,
       });
       await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/visit/appt-9'));
     });
@@ -349,7 +350,7 @@ describe('ScheduledFollowupParentSelector', () => {
       await waitFor(() => expect(cc).toBeEnabled());
       expect(cc).toBeChecked();
       // The collision is surfaced on the label rather than blocking the copy.
-      expect(screen.getByText('(this visit already has Chief Complaint)')).toBeVisible();
+      expect(screen.getByText('(this visit already has Chief Complaint; copying replaces it)')).toBeVisible();
 
       await user.click(screen.getByRole('button', { name: /Convert to Follow-up/i }));
 
@@ -367,6 +368,8 @@ describe('ScheduledFollowupParentSelector', () => {
       renderWithProviders({ convertFrom: CONVERT_FROM });
 
       await waitFor(() => expect(screen.getByRole('checkbox', { name: /Diagnosis/ })).toBeEnabled());
+      expect(screen.getByText('(this visit already has Diagnosis; only new codes are added)')).toBeVisible();
+
       await user.click(screen.getByRole('button', { name: /Convert to Follow-up/i }));
 
       await waitFor(() => expect(convertVisitToFollowUpMock).toHaveBeenCalled());
