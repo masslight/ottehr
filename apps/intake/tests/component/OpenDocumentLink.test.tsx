@@ -54,9 +54,10 @@ describe('OpenDocumentLink', () => {
     // StrictMode mounts twice; an expired link would re-send on every call, so exactly one call is allowed.
     expect(mockExecutePublic).toHaveBeenCalledTimes(1);
     expect(mockExecutePublic).toHaveBeenCalledWith(OPEN_DOCUMENT_LINK_ZAMBDA_ID, { token: 'tok.en.value' });
-    expect(screen.getByRole('link', { name: 'Open document' }).getAttribute('href')).toBe(
-      'https://z3.example.test/signed.pdf'
-    );
+    // The fallback button repeats the redirect for browsers that blocked it.
+    replace.mockClear();
+    screen.getByRole('button', { name: 'Open document' }).click();
+    expect(replace).toHaveBeenCalledWith('https://z3.example.test/signed.pdf');
   });
 
   test('points at the inbox when a newer link is still live instead of re-sending', async () => {

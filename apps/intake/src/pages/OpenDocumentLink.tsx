@@ -84,7 +84,8 @@ const OpenDocumentLink = (): JSX.Element => {
                 <Typography variant="h2" color="primary.main" textAlign="center">
                   Opening your documents
                 </Typography>
-                <Button variant="contained" href={state.url}>
+                {/* onClick rather than href: an anchor picks up the app's link colour and loses its label. */}
+                <Button variant="contained" color="secondary" onClick={() => window.location.replace(state.url)}>
                   Open document
                 </Button>
               </>
