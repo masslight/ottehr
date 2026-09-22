@@ -56,6 +56,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import Dropzone, { DropzoneProps } from 'react-dropzone';
@@ -154,7 +155,6 @@ import { otherColors } from '../themes/ottehr/colors';
 import { downloadBase64File } from '../utils/downloadFile';
 import { formatDate, formatDateTime } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
-import { DateTime } from 'luxon';
 
 type UpdateFn = (
   resourceType: string,
