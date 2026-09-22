@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { ServiceRequest } from 'fhir/r4b';
+import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -133,5 +133,35 @@ describe('radiology-save-preliminary-report integration', () => {
       'E11.9',
     ]);
     expect(serviceRequest.performer?.map((ref) => ref.reference)).toEqual([`Practitioner/${orderingPractitionerId}`]);
+  });
+
+  const findReports = async (): Promise<DiagnosticReport[]> =>
+    (
+      await oystehrAdmin.fhir.search<DiagnosticReport>({
+        resourceType: 'DiagnosticReport',
+        params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequestId}` }],
+      })
+    ).unbundle();
+
+  it('rejects a preliminary report when the order already has an entered-in-error report', async () => {
+    const [existingReport] = await findReports();
+    expect(existingReport?.id).toBeDefined();
+
+    await oystehrAdmin.fhir.patch<DiagnosticReport>({
+      resourceType: 'DiagnosticReport',
+      id: existingReport.id!,
+      operations: [{ op: 'replace', path: '/status', value: 'entered-in-error' }],
+    });
+
+    await expect(
+      oystehrZambdas.zambda.execute({
+        id: 'radiology-save-preliminary-report',
+        serviceRequestId,
+        report: 'Integration test replacement preliminary report',
+        diagnosisCodes: ['E11.9'],
+      })
+    ).rejects.toThrow();
+
+    expect(await findReports()).toHaveLength(1);
   });
 });

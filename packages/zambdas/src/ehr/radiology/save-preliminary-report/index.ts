@@ -158,9 +158,7 @@ const validateOrderAcceptsPreliminaryReport = async (
       resourceType: 'DiagnosticReport',
       params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequest.id}` }],
     })
-  )
-    .unbundle()
-    .filter((report) => report.status !== 'entered-in-error');
+  ).unbundle();
   if (existingReports.length > 0) {
     throw RADIOLOGY_ERROR('This report has already been saved, please refresh the page.');
   }
