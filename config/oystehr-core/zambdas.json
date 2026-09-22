@@ -1446,6 +1446,13 @@
       "src": "src/ehr/get-document-packet-preview/index",
       "zip": ".dist/zips/get-document-packet-preview.zip"
     },
+    "OPEN-DOCUMENT-LINK": {
+      "name": "open-document-link",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/open-document-link/index",
+      "zip": ".dist/zips/open-document-link.zip"
+    },
     "CREATE-SLOT": {
       "name": "create-slot",
       "type": "http_open",
