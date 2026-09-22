@@ -1,6 +1,6 @@
 import { FAX_MAX_VISITS } from 'utils/lib/types/api/fax.types';
 import { describe, expect, test } from 'vitest';
-import { validateRequestParameters } from '../../../src/ehr/send-fax-packet/validateRequestParameters';
+import { validateRequestParameters } from '../../../src/ehr/send-document-packet/validateRequestParameters';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
 
 const APPOINTMENT_ID = '550e8400-e29b-41d4-a716-446655440000';
@@ -8,7 +8,7 @@ const PATIENT_ID = '650e8400-e29b-41d4-a716-446655440000';
 const DOCUMENT_ID = '750e8400-e29b-41d4-a716-446655440000';
 const VISIT_SOURCE = { type: 'visit', appointmentId: APPOINTMENT_ID };
 
-describe('send-fax-packet - validateRequestParameters', () => {
+describe('send-document-packet - validateRequestParameters', () => {
   const secrets = createMockSecrets();
 
   const body = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({

@@ -64,13 +64,13 @@ Page count is resolved in two passes: the body is merged first, the cover render
 Building and transmitting the packet is too slow for the 27 s API Gateway limit on `http_auth` zambdas, so it
 runs as a background Task — the same pattern as merge-patients:
 
-1. `send-fax-packet` (http_auth) validates, resolves the patient, creates a `send-fax-packet` **Task**
+1. `send-document-packet` (http_auth) validates, resolves the patient, creates a `send-document-packet` **Task**
    (`status: requested`, recipients carried as JSON on `Task.input`) and returns `{ taskId }` immediately.
-2. A FHIR subscription fires `sub-send-fax-packet` (subscription zambda, up to 300 s / 3008 MB), which builds
+2. A FHIR subscription fires `sub-send-document-packet` (subscription zambda, up to 300 s / 3008 MB), which builds
    the packet once, sends it to each recipient, saves the recipient as PCP if requested, and writes the
    per-recipient results onto the Task's `output`. The raw cause of any failure stays in the server logs and
    `Task.statusReason`; it is never returned to the UI.
-3. The UI polls `get-fax-packet-status` (2 s interval, stops on a terminal state). On completion it shows a
+3. The UI polls `get-document-packet-status` (2 s interval, stops on a terminal state). On completion it shows a
    success snackbar, or a dialog naming the recipients that failed (name + number only, no cause). A hard job
    failure shows a generic error.
 
@@ -120,8 +120,8 @@ organization empty. Free text works as before.
 | Cover sheet | `packages/zambdas/src/shared/pdf/fax-cover-sheet-pdf.ts` |
 | PDF merge helpers | `packages/zambdas/src/shared/pdf/merge-pdfs.ts` |
 | Delivery core (build body, send, cover, save PCP) | `packages/zambdas/src/shared/fax/run-fax-packet.ts` |
-| Zambdas | `packages/zambdas/src/ehr/{send-fax-packet,get-fax-packet-preview,get-fax-packet-status}` |
-| Subscription | `packages/zambdas/src/subscriptions/task/sub-send-fax-packet` |
+| Zambdas | `packages/zambdas/src/ehr/{send-document-packet,get-document-packet-preview,get-document-packet-status}` |
+| Subscription | `packages/zambdas/src/subscriptions/task/sub-send-document-packet` |
 | EHR feature slice | `apps/ehr/src/features/fax` (public API: `SendFaxDialog`, `useSendFax`) |
 
 The EHR slice keeps business rules in `model/` as pure functions, data access in `hooks/` and `api/`, and the

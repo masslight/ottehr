@@ -520,7 +520,7 @@ type Task_Visit_Note_PDF_And_Email_Codes = 'visit-note-pdf-and-email';
 type Task_Patient_Payment_Candid_Sync_And_Receipt_Codes = 'patient-payment-candid-sync-and-receipt';
 type Task_Harvest_Paperwork_Codes = 'harvest-paperwork';
 type Task_Merge_Patients_Codes = 'merge-patients';
-type Task_Send_Fax_Packet_Codes = 'send-fax-packet';
+type Task_Send_Document_Packet_Codes = 'send-document-packet';
 type Task_Generate_Patient_Statement_Codes = 'generate-statement' | 'send-invoice-to-patient';
 type Task_Send_Patient_Statement_By_Mail_Codes = 'send-patient-statement-by-mail';
 type Task_Codes =
@@ -533,7 +533,7 @@ type Task_Codes =
   | Task_Patient_Payment_Candid_Sync_And_Receipt_Codes
   | Task_Harvest_Paperwork_Codes
   | Task_Merge_Patients_Codes
-  | Task_Send_Fax_Packet_Codes;
+  | Task_Send_Document_Packet_Codes;
 
 export const Task_Email_Communication_Url = 'urgent-care-email';
 export const Task_Text_Communication_Url = 'urgent-care-text';
@@ -634,7 +634,7 @@ export const TaskIndicator: TaskIndicator = {
   },
   sendFaxPacket: {
     system: OttehrTaskSystem,
-    code: 'send-fax-packet',
+    code: 'send-document-packet',
   },
 };
 

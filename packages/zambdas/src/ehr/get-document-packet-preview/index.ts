@@ -15,7 +15,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
-const ZAMBDA_NAME = 'get-fax-packet-preview';
+const ZAMBDA_NAME = 'get-document-packet-preview';
 
 /** The contained Practitioner id `getPCPPatchOps` writes the patient's primary care physician under. */
 const CONTAINED_PCP_ID = 'primary-care-physician';
@@ -62,7 +62,7 @@ export const mapPcpToRecipient = (pcp: Practitioner | undefined): FaxRecipient |
 
 /**
  * The number outbound faxes are transmitted from: the fax telecom of the organization
- * `sub-send-fax-packet` hands to the fax service as the sender. Never fails the preview — the dialog is
+ * `sub-send-document-packet` hands to the fax service as the sender. Never fails the preview — the dialog is
  * still usable when the number cannot be resolved, it just cannot name the sender.
  */
 export const resolveSenderFaxNumber = async (

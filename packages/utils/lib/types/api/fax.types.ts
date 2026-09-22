@@ -130,7 +130,7 @@ export const SendFaxPacketInputSchema = z
   );
 export type SendFaxPacketInput = z.infer<typeof SendFaxPacketInputSchema>;
 
-/** The send is queued as a Task; the caller polls its status with `get-fax-packet-status`. */
+/** The send is queued as a Task; the caller polls its status with `get-document-packet-status`. */
 export interface SendFaxPacketOutput {
   taskId: string;
 }
