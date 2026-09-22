@@ -10,7 +10,6 @@ import {
   Edit as EditIcon,
   EditOutlined as EditOutlinedIcon,
   FileDownloadOutlined as FileDownloadIcon,
-  FileUpload as FileUploadIcon,
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
   Save as SaveIcon,
@@ -33,11 +32,9 @@ import {
   FormControl,
   FormControlLabel,
   FormHelperText,
-  Grid,
   IconButton,
   InputLabel,
   Link as MuiLink,
-  ListItem,
   ListItemIcon,
   ListItemText,
   Menu,
@@ -56,10 +53,10 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import Dropzone, { DropzoneProps } from 'react-dropzone';
-import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
+import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
@@ -125,6 +122,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
 import { DateInput } from '../components/DateInput';
+import { DropzoneField } from '../components/DropzoneField';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import {
   InstitutionalClaimAdditionalFields,
@@ -1426,8 +1424,8 @@ function InstitutionalClaimAdditionalFieldsSection({
         patientDischargeStatusCode: data.patientDischargeStatusCode,
         admissionType: data.admissionType,
         admissionSource: data.admissionSource,
-        admissionDate: data.admissionDate,
-        dischargeDate: data.dischargeDate,
+        admissionDate: DateTime.fromISO(data.admissionDate).toLocal().toISO() ?? data.admissionDate,
+        dischargeDate: DateTime.fromISO(data.dischargeDate).toLocal().toISO() ?? data.dischargeDate,
       });
       if (error) return error;
       return null;
@@ -1637,117 +1635,6 @@ function ServiceLinesSection({
     </EditableSection>
   );
 }
-
-const DropzoneField = ({
-  name,
-  multiple,
-  accept,
-  required,
-  ...rest
-}: {
-  name: string;
-  multiple: boolean;
-  accept?: DropzoneProps['accept'];
-  required?: boolean;
-} & Omit<DropzoneProps, 'multiple' | 'onDrop' | 'accept'>): ReactElement => {
-  const { control } = useFormContext();
-  return (
-    <Controller
-      name={name}
-      control={control}
-      rules={required ? { required: REQUIRED_FIELD_ERROR_MESSAGE } : undefined}
-      render={({ field: { value, onChange, onBlur }, fieldState: { error: fieldError } }) => (
-        <>
-          {!value ? (
-            <></>
-          ) : (
-            <ListItem disablePadding disableGutters>
-              <ListItemIcon sx={{ minWidth: 0, mr: 1.5 }}>
-                <DescriptionIcon />
-              </ListItemIcon>
-              <ListItemText primary={value.name} />
-            </ListItem>
-          )}
-          <Dropzone
-            multiple={multiple}
-            accept={accept}
-            onDrop={(acceptedFiles) => {
-              onChange(multiple ? acceptedFiles : acceptedFiles[0]);
-            }}
-            {...rest}
-          >
-            {({ getRootProps, getInputProps, isDragActive, fileRejections }) => {
-              return (
-                <Card
-                  variant="outlined"
-                  component="div"
-                  elevation={0}
-                  sx={{
-                    px: 4,
-                    backgroundColor: 'lightgrey',
-                  }}
-                  {...getRootProps()}
-                >
-                  <CardContent>
-                    <Box
-                      component="input"
-                      {...getInputProps({
-                        onBlur,
-                      })}
-                    />
-                    <Grid
-                      item
-                      container
-                      direction="column"
-                      justifyContent="center"
-                      alignItems="strech"
-                      rowGap={2}
-                      wrap="nowrap"
-                    >
-                      <Grid item xs={12}>
-                        <Stack direction="column" width="100%" justifyContent="center" alignItems="center" gap={1}>
-                          <FileUploadIcon />
-                          <Typography variant="body1" component="p" textAlign="center">
-                            {isDragActive ? 'Drop file here to upload' : 'Click here or drag file to upload'}
-                          </Typography>
-                          {accept && Object.values(accept).length ? (
-                            <Typography variant="body2" component="p" textAlign="center">
-                              Accepted types:{' '}
-                              {Object.values(accept)
-                                .flatMap((val) => val)
-                                .join(', ')}
-                            </Typography>
-                          ) : (
-                            <></>
-                          )}
-                          {fileRejections.length ? (
-                            <FormHelperText id={`dropzone-helper-text`} error={true}>
-                              File{multiple ? 's' : ''} could not be uploaded. Please select{' '}
-                              {multiple ? 'files' : 'a file'} with an allowed type.
-                            </FormHelperText>
-                          ) : (
-                            <></>
-                          )}
-                          {fieldError ? (
-                            <FormHelperText id={`dropzone-helper-text`} error={true}>
-                              {fieldError?.message}
-                            </FormHelperText>
-                          ) : (
-                            <></>
-                          )}
-                        </Stack>
-                      </Grid>
-                    </Grid>
-                  </CardContent>
-                </Card>
-              );
-            }}
-          </Dropzone>
-        </>
-      )}
-    />
-  );
-};
 
 function AttachmentsSection({
   claim,

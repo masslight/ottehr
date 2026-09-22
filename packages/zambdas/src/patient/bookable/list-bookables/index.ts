@@ -15,6 +15,7 @@ import {
   stateCodeToFullName,
 } from 'utils/lib/types/common';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { truncateForLog } from '../../../shared/logging';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse } from '../../../shared/validation';
@@ -47,7 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   response.items = response.items.sort((i1, i2) => i1.label.localeCompare(i2.label));
-  console.log('response items', response.items);
+  console.log('response items', truncateForLog(response.items));
   return {
     statusCode: 200,
     body: JSON.stringify(response),

@@ -108,7 +108,7 @@ describe('COPYABLE_FOLLOWUP_FIELDS', () => {
       expect(field.isEmpty(chartWith({ accident: { type: [{ code: { coding: [{ code: 'WORK' }] } }] } }))).toBe(false);
     });
 
-    it('extract returns both mechanismOfInjury and accident, with resourceIds stripped', () => {
+    it('extract returns both mechanismOfInjury and accident, with resourceIds dropped', () => {
       const data = chartWith({
         mechanismOfInjury: { resourceId: 'm1', text: 'slip' },
         accident: { resourceId: 'a1', date: '2025-01-01', type: [] },
@@ -130,7 +130,7 @@ describe('COPYABLE_FOLLOWUP_FIELDS', () => {
       }
     );
 
-    it('examObservations extract strips resourceIds from every element', () => {
+    it('examObservations extract drops resourceIds when there is no target to overwrite', () => {
       const data = chartWith({
         examObservations: [
           { resourceId: 'e1', field: 'hr', value: true },
@@ -211,5 +211,131 @@ describe('fetchCopySourceChartData', () => {
     const { client } = makeClient({}, { accident: { resourceId: 'other-visit', date: '2020-01-01' } });
     const result = await fetchCopySourceChartData(client, 'enc-1');
     expect(result.accident).toBeUndefined();
+  });
+});
+
+describe('copying onto an already-documented encounter', () => {
+  const exam = fieldByKey('examObservations');
+  const ros = fieldByKey('rosObservations');
+
+  it('reuses the target observation id for a field both visits documented', () => {
+    const source = chartWith({ examObservations: [{ resourceId: 'src-1', field: 'hr', value: true }] });
+    const target = chartWith({ examObservations: [{ resourceId: 'tgt-1', field: 'hr', value: false }] });
+    expect(exam.extract!(source, target)).toEqual({
+      examObservations: [{ resourceId: 'tgt-1', field: 'hr', value: true }],
+    });
+    expect(exam.stale!(source, target)).toEqual({});
+  });
+
+  it('creates a fresh observation for a field only the initial visit has', () => {
+    const source = chartWith({ examObservations: [{ resourceId: 'src-1', field: 'hr', value: true }] });
+    const target = chartWith({ examObservations: [{ resourceId: 'tgt-2', field: 'rr', value: true }] });
+    expect(exam.extract!(source, target)).toEqual({
+      examObservations: [{ resourceId: undefined, field: 'hr', value: true }],
+    });
+  });
+
+  it('marks target observations the initial visit never touched as stale', () => {
+    const source = chartWith({ examObservations: [{ resourceId: 'src-1', field: 'hr', value: true }] });
+    const target = chartWith({
+      examObservations: [
+        { resourceId: 'tgt-1', field: 'hr', value: false },
+        { resourceId: 'tgt-2', field: 'rr', value: true },
+      ],
+    });
+    expect(exam.stale!(source, target)).toEqual({
+      examObservations: [{ resourceId: 'tgt-2', field: 'rr', value: true }],
+    });
+  });
+
+  it('sweeps a duplicate row an earlier copy left behind', () => {
+    const source = chartWith({ examObservations: [{ resourceId: 'src-1', field: 'hr', value: true }] });
+    const target = chartWith({
+      examObservations: [
+        { resourceId: 'tgt-1', field: 'hr', value: false },
+        { resourceId: 'tgt-1-dup', field: 'hr', value: true },
+      ],
+    });
+    const written = exam.extract!(source, target).examObservations!;
+    expect(written).toHaveLength(1);
+    // Exactly one of the two is overwritten; the other has to go or the field stays doubled up.
+    expect(exam.stale!(source, target).examObservations).toEqual([
+      target.examObservations!.find((o) => o.resourceId !== written[0].resourceId),
+    ]);
+  });
+
+  it('treats ROS the same way as the exam', () => {
+    const source = chartWith({ rosObservations: [{ resourceId: 'src-1', field: 'general', value: true }] });
+    const target = chartWith({
+      rosObservations: [
+        { resourceId: 'tgt-1', field: 'general', value: false },
+        { resourceId: 'tgt-2', field: 'skin', value: true },
+      ],
+    });
+    expect(ros.extract!(source, target)).toEqual({
+      rosObservations: [{ resourceId: 'tgt-1', field: 'general', value: true }],
+    });
+    expect(ros.stale!(source, target)).toEqual({
+      rosObservations: [{ resourceId: 'tgt-2', field: 'skin', value: true }],
+    });
+  });
+
+  it('overwrites the target Conditions behind Chief Complaint and HPI', () => {
+    const source = chartWith({
+      reasonForVisit: { text: 'ear pain' },
+      historyOfPresentIllness: { resourceId: 'src-hpi', text: 'from the initial visit' },
+      chiefComplaint: { resourceId: 'src-cc', text: 'narrative' },
+    });
+    const target = chartWith({
+      reasonForVisit: { text: 'sore throat' },
+      historyOfPresentIllness: { resourceId: 'tgt-hpi', text: 'typed on this visit' },
+      chiefComplaint: { resourceId: 'tgt-cc', text: 'also typed here' },
+    });
+    expect(fieldByKey('chiefComplaint').extract!(source, target)).toEqual({
+      reasonForVisit: { resourceId: undefined, text: 'ear pain' },
+      historyOfPresentIllness: { resourceId: 'tgt-hpi', text: 'from the initial visit' },
+    });
+    expect(fieldByKey('historyOfPresentIllness').extract!(source, target)).toEqual({
+      chiefComplaint: { resourceId: 'tgt-cc', text: 'narrative' },
+    });
+  });
+
+  it("keeps the visit's own reason for visit when the initial visit has none", () => {
+    const source = chartWith({ historyOfPresentIllness: { resourceId: 'src-hpi', text: 'sore throat' } });
+    const target = chartWith({
+      reasonForVisit: { text: 'ear pain' },
+      historyOfPresentIllness: { resourceId: 'tgt-hpi', text: 'typed on this visit' },
+    });
+    const field = fieldByKey('chiefComplaint');
+    expect(field.isEmpty(source)).toBe(false);
+    expect(field.extract!(source, target)).not.toHaveProperty('reasonForVisit');
+    expect(field.stale!(source, target)).not.toHaveProperty('reasonForVisit');
+  });
+
+  it('drops the target Additional Information when the initial visit has none', () => {
+    // The checkbox is still offered: the initial visit has a reason for visit to copy.
+    const source = chartWith({ reasonForVisit: { text: 'ear pain' } });
+    const target = chartWith({ historyOfPresentIllness: { resourceId: 'tgt-hpi', text: 'typed on this visit' } });
+    expect(fieldByKey('chiefComplaint').stale!(source, target)).toEqual({
+      historyOfPresentIllness: { resourceId: 'tgt-hpi', text: 'typed on this visit' },
+    });
+  });
+
+  it('drops the target accident when the initial visit only has a mechanism', () => {
+    const source = chartWith({ mechanismOfInjury: { resourceId: 'src-m', text: 'slip' } });
+    const target = chartWith({
+      mechanismOfInjury: { resourceId: 'tgt-m', text: 'fall' },
+      accident: { resourceId: 'tgt-a', date: '2025-01-01', type: [] },
+    });
+    expect(fieldByKey('mechanismOfInjury').extract!(source, target)).toEqual({
+      mechanismOfInjury: { resourceId: 'tgt-m', text: 'slip' },
+    });
+    expect(fieldByKey('mechanismOfInjury').stale!(source, target)).toEqual({
+      accident: { resourceId: 'tgt-a', date: '2025-01-01', type: [] },
+    });
+  });
+
+  it('leaves diagnosis alone — create-appointment merges codes server-side', () => {
+    expect(fieldByKey('diagnosis').stale).toBeUndefined();
   });
 });

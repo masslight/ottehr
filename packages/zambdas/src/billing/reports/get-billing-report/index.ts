@@ -29,32 +29,32 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
 
-  const response = history
-    ? await listHistory(oystehr, kind)
-    : await performEffect(oystehr, secrets, kind, params, refresh, drilldown);
+  const response = await performEffect(oystehr, secrets, kind, params, refresh, drilldown, history);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-// this kind's cached runs, newest first — one meta DocumentReference search
-export async function listHistory(oystehr: Oystehr, kind: RefreshReportKind): Promise<GetBillingReportHistoryResponse> {
-  const definition = reportRegistry[kind];
-  if (!definition) throw INVALID_INPUT_ERROR(`No report definition registered for kind '${kind}'`);
-  return { entries: await listReportCacheHistory(oystehr, definition) };
-}
-
 // Serves the cache and queues async refreshes; the worker computes. The full payload is served
 // as a short-lived presigned Z3 download URL minted per request; drilldowns are pure filters
-// over the cached detail, returned inline (they are small).
+// over the cached detail, returned inline (they are small). `history` lists the kind's cached
+// runs (one meta DocumentReference search) instead of serving a report.
 export async function performEffect(
   oystehr: Oystehr,
   secrets: ZambdaInput['secrets'],
   kind: RefreshReportKind,
   rawParams: unknown,
   refresh: boolean | undefined,
-  rawDrilldown?: unknown
-): Promise<Record<string, unknown> & { fromCache: boolean; status: ReportRefreshStatus }> {
+  rawDrilldown?: unknown,
+  history?: boolean
+): Promise<
+  GetBillingReportHistoryResponse | (Record<string, unknown> & { fromCache: boolean; status: ReportRefreshStatus })
+> {
   const definition = reportRegistry[kind];
   if (!definition) throw INVALID_INPUT_ERROR(`No report definition registered for kind '${kind}'`);
+
+  if (history) {
+    return { entries: await listReportCacheHistory(oystehr, definition) };
+  }
+
   const params = safeValidate(definition.paramsSchema, rawParams ?? {});
   const cacheKey = fullCacheKey(definition, params);
 

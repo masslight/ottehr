@@ -28,8 +28,6 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'get-label-printing-config';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
-
   const validatedParameters: GetLabelPrintingConfigInput & { secrets: Secrets | null; userToken: string } =
     validateRequestParameters(input);
 
