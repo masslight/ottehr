@@ -493,6 +493,18 @@ export default function VisitDetailsPage(): ReactElement {
   const hasOwnFollowUps = (ownFollowUpCount ?? 0) > 0;
   const isOwnFollowUpsUnresolved = ownFollowUpsQueryEnabled && isOwnFollowUpCountPending;
 
+  const parentEncounterId = encounter?.partOf?.reference?.replace('Encounter/', '');
+  const parentAppointmentQueryEnabled = Boolean(oystehr) && Boolean(parentEncounterId);
+  const { data: parentAppointmentId, isPending: isParentAppointmentPending } = useQuery({
+    queryKey: ['visit-details-parent-appointment', parentEncounterId],
+    queryFn: async (): Promise<string | undefined> =>
+      (
+        await oystehr!.fhir.get<Encounter>({ resourceType: 'Encounter', id: parentEncounterId! })
+      ).appointment?.[0]?.reference?.replace('Appointment/', ''),
+    enabled: parentAppointmentQueryEnabled,
+  });
+  const isParentAppointmentUnresolved = parentAppointmentQueryEnabled && isParentAppointmentPending;
+
   const {
     data: paymentData,
     refetch: refetchPaymentList,
@@ -832,9 +844,9 @@ export default function VisitDetailsPage(): ReactElement {
   const docsMenuOpen = Boolean(docsMenuAnchor);
 
   const progressNoteUrl =
-    appointment?.id && encounter?.id
+    appointment?.id && encounter?.id && !isParentAppointmentUnresolved
       ? getInPersonUrlByAppointmentType(
-          { id: appointment.id, encounterId: encounter.id, isFollowUp: !!encounter.partOf },
+          { id: appointment.id, parentAppointmentId, encounterId: encounter.id, isFollowUp: !!encounter.partOf },
           isFollowupEncounter(encounter)
             ? getFollowUpProgressNotePathSegment(getFollowupSubtype(encounter))
             : ROUTER_PATH.REVIEW_AND_SIGN
