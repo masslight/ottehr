@@ -59,6 +59,9 @@ const OpenDocumentLink = (): JSX.Element => {
       });
   }, [zambdaClient, linkToken]);
 
+  // LoadingScreen brings its own page chrome, so it must not be nested inside the card below.
+  if (state.status === 'loading') return <LoadingScreen />;
+
   return (
     <CustomContainer title="" useEmptyBody>
       <Container maxWidth="md" sx={{ mb: 5 }}>
@@ -76,7 +79,6 @@ const OpenDocumentLink = (): JSX.Element => {
               gap: 3,
             }}
           >
-            {state.status === 'loading' && <LoadingScreen />}
             {state.status === 'ok' && (
               <>
                 <Typography variant="h2" color="primary.main" textAlign="center">
