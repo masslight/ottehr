@@ -19,7 +19,7 @@ interface SendFaxButtonProps {
 /**
  * Single-number fax button used by the radiology order flow.
  *
- * Visit documents are faxed from the encounter header ("Fax Documents") instead — see `features/fax`.
+ * Visit documents are sent from the encounter header ("Send Documents") instead — see `features/fax`.
  */
 export const SendFaxButton: FC<SendFaxButtonProps> = ({ onSend, initialFaxNumber }) => {
   const [faxNumber, setFaxNumber] = useState(initialFaxNumber ?? '');

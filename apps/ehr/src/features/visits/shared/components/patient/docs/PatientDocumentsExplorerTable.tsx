@@ -2,8 +2,8 @@
 import DeleteIcon from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import {
   Box,
   IconButton,
@@ -141,13 +141,13 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
         )}
 
         {isActionAllowed(docInfo.id, DocumentTableActionType.ActionFax) && isDocumentFaxable(docInfo) && (
-          <Tooltip title="Send Fax">
+          <Tooltip title="Send Document">
             <IconButton
-              aria-label="Send Fax"
+              aria-label="Send Document"
               onClick={() => onDocumentFax(docInfo.id)}
               data-testid={dataTestIds.patientDocsPage.faxDocumentButton(docInfo.id)}
             >
-              <FaxOutlinedIcon fontSize="small" sx={{ verticalAlign: 'middle', color: lineColor }} />
+              <SendOutlinedIcon fontSize="small" sx={{ verticalAlign: 'middle', color: lineColor }} />
             </IconButton>
           </Tooltip>
         )}
