@@ -10,7 +10,15 @@ import { OpenDocumentLinkOutput } from 'utils/lib/types/api/fax.types';
 
 export const OPEN_DOCUMENT_LINK_ZAMBDA_ID = 'open-document-link';
 
-type LinkState = { status: 'loading' } | { status: 'ok'; url: string } | { status: 'expired' } | { status: 'invalid' };
+type LinkState =
+  | { status: 'loading' }
+  | { status: 'ok'; url: string }
+  | { status: 'expired' }
+  | { status: 'already-sent'; sentAt: string }
+  | { status: 'invalid' };
+
+/** Shown in the reader's own timezone. */
+const localTime = (iso: string): string => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 /**
  * Landing page for the document links emailed from the EHR. Exchanges the path token for a short-lived
@@ -39,8 +47,10 @@ const OpenDocumentLink = (): JSX.Element => {
         if (output.status === 'ok') {
           setState({ status: 'ok', url: output.url });
           window.location.replace(output.url);
-        } else {
+        } else if (output.resent) {
           setState({ status: 'expired' });
+        } else {
+          setState({ status: 'already-sent', sentAt: output.sentAt });
         }
       })
       .catch((error) => {
@@ -80,6 +90,12 @@ const OpenDocumentLink = (): JSX.Element => {
             {state.status === 'expired' && (
               <Typography variant="h2" color="primary.main" textAlign="center">
                 This link has expired. A new link has been emailed to you.
+              </Typography>
+            )}
+            {state.status === 'already-sent' && (
+              <Typography variant="h2" color="primary.main" textAlign="center">
+                This link has expired. A newer link was emailed to you at {localTime(state.sentAt)}; please check your
+                inbox.
               </Typography>
             )}
             {state.status === 'invalid' && (

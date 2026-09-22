@@ -59,6 +59,17 @@ describe('OpenDocumentLink', () => {
     );
   });
 
+  test('points at the inbox when a newer link is still live instead of re-sending', async () => {
+    mockExecutePublic.mockResolvedValue({
+      output: { status: 'expired', resent: false, sentAt: '2026-09-21T14:05:00.000Z' },
+    });
+
+    renderAt('expired.token');
+
+    expect(await screen.findByText(/A newer link was emailed to you at .*; please check your inbox\./)).toBeDefined();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   test('tells the recipient a fresh link was emailed when the token has expired', async () => {
     mockExecutePublic.mockResolvedValue({ output: { status: 'expired', resent: true } });
 

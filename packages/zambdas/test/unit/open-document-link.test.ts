@@ -9,7 +9,8 @@ import { createMockSecrets, createMockZambdaInput } from './validate-request-par
 
 const mockFhirGet = vi.fn();
 const mockFhirPatch = vi.fn();
-const mockOystehrClient = { fhir: { get: mockFhirGet, patch: mockFhirPatch } };
+const mockFhirSearch = vi.fn();
+const mockOystehrClient = { fhir: { get: mockFhirGet, patch: mockFhirPatch, search: mockFhirSearch } };
 
 vi.mock('../../src/shared/auth', async (importOriginal) => ({
   ...((await importOriginal()) as Record<string, unknown>),
@@ -84,8 +85,15 @@ const expiredToken = (): Promise<string> => {
     .sign(secretKey);
 };
 
-const call = (token: string): Promise<any> =>
-  (index as any)(createMockZambdaInput({ token }, { secrets })).then((response: any) => JSON.parse(response.body));
+const call = (token: string, headers: Record<string, string> = {}): Promise<any> =>
+  (index as any)(createMockZambdaInput({ token }, { secrets, headers })).then((response: any) =>
+    JSON.parse(response.body)
+  );
+
+const hoursAgo = (hours: number): string => new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+/** A later attempt in the resend chain, `partOf` the given parent. */
+const childAttempt = (id: string, parentId: string, authoredOn: string): Task =>
+  emailAttempt({ id, authoredOn, partOf: [{ reference: `Task/${parentId}` }] });
 
 describe('open-document-link', () => {
   beforeEach(() => {
@@ -97,6 +105,7 @@ describe('open-document-link', () => {
       throw new Error(`unexpected get ${resourceType}`);
     });
     mockFhirPatch.mockResolvedValue({});
+    mockFhirSearch.mockResolvedValue({ unbundle: () => [] });
     mockSendDocumentLinkEmailAttempt.mockResolvedValue({ resourceType: 'Task', id: 'attempt-2' });
     vi.stubGlobal(
       'fetch',
@@ -154,6 +163,60 @@ describe('open-document-link', () => {
     // Nothing about the document is handed out on an expired link.
     expect(mockFhirGet).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'DocumentReference' }));
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('records who opened the link when the gateway forwards the caller', async () => {
+    await call(await mintDocumentLinkToken('attempt-1', secrets), {
+      'X-Forwarded-For': '203.0.113.9, 10.0.0.1',
+      'User-Agent': 'TestBrowser/1.0',
+    });
+
+    const added = mockFhirPatch.mock.calls[0][0].operations[0].value;
+    const opened = Array.isArray(added) ? added[0] : added;
+    expect(opened.extension).toEqual([
+      {
+        url: 'https://fhir.ottehr.com/Extension/link-opened-client',
+        valueString: 'ip=203.0.113.9; ua=TestBrowser/1.0',
+      },
+    ]);
+  });
+
+  it('does not re-send while the newest link in the chain is still live', async () => {
+    const live = childAttempt('attempt-2', 'attempt-1', hoursAgo(0.5));
+    mockFhirSearch.mockImplementation(async ({ params }: { params: { name: string; value: string }[] }) => ({
+      unbundle: () => (params.some((p) => p.value === 'Task/attempt-1') ? [live] : []),
+    }));
+
+    const output = await call(await expiredToken());
+
+    expect(output).toEqual({ status: 'expired', resent: false, sentAt: live.authoredOn });
+    expect(mockSendDocumentLinkEmailAttempt).not.toHaveBeenCalled();
+  });
+
+  it('re-sends from the newest attempt once every link in the chain has expired', async () => {
+    const stale = childAttempt('attempt-2', 'attempt-1', hoursAgo(3));
+    mockFhirSearch.mockImplementation(async ({ params }: { params: { name: string; value: string }[] }) => ({
+      unbundle: () => (params.some((p) => p.value === 'Task/attempt-1') ? [stale] : []),
+    }));
+
+    const output = await call(await expiredToken());
+
+    expect(output).toEqual({ status: 'expired', resent: true });
+    expect(mockSendDocumentLinkEmailAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({ parentAttemptId: 'attempt-2' })
+    );
+  });
+
+  it('ignores a failed newest attempt and re-sends', async () => {
+    const failed = childAttempt('attempt-2', 'attempt-1', hoursAgo(0.1));
+    failed.status = 'failed';
+    mockFhirSearch.mockImplementation(async ({ params }: { params: { name: string; value: string }[] }) => ({
+      unbundle: () => (params.some((p) => p.value === 'Task/attempt-1') ? [failed] : []),
+    }));
+
+    const output = await call(await expiredToken());
+
+    expect(output).toEqual({ status: 'expired', resent: true });
   });
 
   it('rejects a tampered token with 401 before touching FHIR', async () => {
