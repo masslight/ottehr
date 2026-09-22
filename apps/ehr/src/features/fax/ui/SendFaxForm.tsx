@@ -57,7 +57,7 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({
 
   const recipients = watch('recipients');
   const selectedAppointmentIds = watch('selectedAppointmentIds') ?? [];
-  // A single visit is faxed without asking; the picker only earns its space when there is a choice.
+  // A single visit is sent without asking; the picker only earns its space when there is a choice.
   const showVisitPicker = (visits?.length ?? 0) > 1;
   const visitSelectionValid = !visits?.length || selectedAppointmentIds.length > 0;
   const tooManyVisits = selectedAppointmentIds.length > FAX_MAX_VISITS;
@@ -80,7 +80,7 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({
         </>
       ) : (
         <Typography variant="caption" sx={{ display: 'block' }}>
-          No documents to fax for this visit yet.
+          No documents to send for this visit yet.
         </Typography>
       )}
       {excluded.length > 0 && (
@@ -104,7 +104,7 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({
         <DialogContent>
           {preview && (
             <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 2 }}>
-              <Typography>Fax all visit-related documents</Typography>
+              <Typography>Send all visit-related documents</Typography>
               <Tooltip title={documentsTooltip} placement="top">
                 <InfoOutlinedIcon fontSize="small" sx={{ color: theme.palette.text.secondary }} />
               </Tooltip>
@@ -213,7 +213,7 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({
             sx={{ borderRadius: '100px', textTransform: 'none', fontWeight: 500 }}
             data-testid={dataTestIds.faxDialog.sendButton}
           >
-            Send Fax
+            Send
           </LoadingButton>
         </DialogActions>
       </form>

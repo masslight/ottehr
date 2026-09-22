@@ -457,7 +457,7 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
       </Grid>
 
       <ScannerModal open={isScanModalOpen} onClose={handleCloseScanModal} onScanComplete={handleScanComplete} />
-      <SendFaxDialog controller={faxController} title="Fax Document" />
+      <SendFaxDialog controller={faxController} title="Send Document" />
     </Stack>
   );
 };

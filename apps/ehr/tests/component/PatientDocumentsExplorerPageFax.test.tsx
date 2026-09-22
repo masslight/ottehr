@@ -89,7 +89,7 @@ describe('PatientDocumentsExplorerPage fax action', () => {
       documentReferenceId: DOCUMENT_ID,
     });
     expect(mockOpen).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('fax-dialog')).toHaveAttribute('data-title', 'Fax Document');
+    expect(screen.getByTestId('fax-dialog')).toHaveAttribute('data-title', 'Send Document');
   });
 
   it('names no source until a row is picked', () => {

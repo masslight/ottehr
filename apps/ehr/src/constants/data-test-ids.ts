@@ -135,6 +135,8 @@ export const dataTestIds = {
     credential: 'fax-dialog-recipient-credential',
     organization: 'fax-dialog-recipient-organization',
     faxNumber: 'fax-dialog-recipient-fax-number',
+    channel: 'fax-dialog-recipient-channel',
+    email: 'fax-dialog-recipient-email',
     senderFax: 'fax-dialog-sender-fax',
     phoneNumber: 'fax-dialog-recipient-phone-number',
     saveAsPcp: 'fax-dialog-save-as-pcp',

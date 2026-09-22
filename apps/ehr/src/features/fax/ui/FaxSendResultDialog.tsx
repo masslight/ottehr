@@ -11,7 +11,7 @@ interface FaxSendResultDialogProps {
 
 /**
  * Shown when some recipients failed. The successful sends already happened and are not rolled back, so the
- * point of this dialog is to name exactly who did not receive the fax.
+ * point of this dialog is to name exactly who did not receive the documents.
  */
 export const FaxSendResultDialog: FC<FaxSendResultDialogProps> = ({ failures, onClose }) => {
   const theme = useTheme();
@@ -25,17 +25,18 @@ export const FaxSendResultDialog: FC<FaxSendResultDialogProps> = ({ failures, on
       data-testid={dataTestIds.faxResultDialog.root}
     >
       <DialogTitle sx={{ color: theme.palette.primary.dark, fontWeight: 600, fontSize: '24px' }}>
-        Some faxes could not be sent
+        Some documents could not be sent
       </DialogTitle>
       <DialogContent>
         <Typography sx={{ mb: 2 }}>The following recipient(s) could not be reached:</Typography>
         {failures.map((failure, index) => (
           <Typography
-            key={`${failure.faxNumber}-${index}`}
+            key={`${failure.faxNumber ?? failure.email}-${index}`}
             sx={{ fontWeight: 600, mb: 1 }}
             data-testid={dataTestIds.faxResultDialog.failedRecipient}
           >
-            {failure.name || 'Unnamed recipient'} — {formatPhoneNumberDisplay(failure.faxNumber)}
+            {failure.name || 'Unnamed recipient'} —{' '}
+            {failure.email ?? (failure.faxNumber ? formatPhoneNumberDisplay(failure.faxNumber) : '')}
           </Typography>
         ))}
       </DialogContent>

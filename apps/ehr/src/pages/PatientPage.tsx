@@ -411,7 +411,7 @@ export default function PatientPage(): JSX.Element {
 
           <SendFaxDialog
             controller={faxController}
-            title={faxDialog === 'medical-record' ? 'Fax Medical Record' : 'Fax Patient Docs'}
+            title={faxDialog === 'medical-record' ? 'Send Medical Record' : 'Send Patient Docs'}
             visits={faxDialog === 'patient-docs' ? faxableVisits : undefined}
           />
 

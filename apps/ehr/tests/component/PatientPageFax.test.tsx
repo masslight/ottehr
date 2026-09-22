@@ -86,7 +86,7 @@ describe('PatientPage fax actions', () => {
       appointmentIds: ['appointment-1', 'appointment-2'],
     });
     expect(mockOpen).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('fax-dialog')).toHaveAttribute('data-title', 'Fax Patient Docs');
+    expect(screen.getByTestId('fax-dialog')).toHaveAttribute('data-title', 'Send Patient Docs');
     // Visits are offered in the office's own timezone, not the reader's.
     expect(screen.getByText('04/11/2026 09:30 AM ET')).toBeInTheDocument();
   });

@@ -10,14 +10,14 @@ import { SendFaxForm } from './SendFaxForm';
 
 interface SendFaxDialogProps {
   controller: UseSendFaxResult;
-  /** Names what is being faxed, e.g. "Fax Medical Record". Defaults to the plain send title. */
+  /** Names what is being sent, e.g. "Send Medical Record". Defaults to the plain send title. */
   title?: string;
   /** When given, the user picks which of these visits to fax. */
   visits?: FaxVisitOption[];
 }
 
 /** Dialog shell: shows the loading/error/empty states, and mounts the form once the preview has loaded. */
-export const SendFaxDialog: FC<SendFaxDialogProps> = ({ controller, title = 'Send Fax', visits }) => {
+export const SendFaxDialog: FC<SendFaxDialogProps> = ({ controller, title = 'Send Documents', visits }) => {
   const theme = useTheme();
   const { preview } = controller;
   const nothingToSend = Boolean(preview) && hasNothingToSend(preview!.documents);
@@ -56,7 +56,7 @@ export const SendFaxDialog: FC<SendFaxDialogProps> = ({ controller, title = 'Sen
 
         {preview && nothingToSend && (
           <DialogContent>
-            <Alert severity="info">There are no documents to fax for this visit yet.</Alert>
+            <Alert severity="info">There are no documents to send for this visit yet.</Alert>
           </DialogContent>
         )}
 
