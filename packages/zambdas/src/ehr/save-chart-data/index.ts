@@ -479,6 +479,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (procedures) {
     procedures?.forEach((procedure) => {
       saveOrUpdateRequests.push(createProcedureServiceRequest(procedure, encounterId, patient.id!));
+      // Stamp the procedure's own date onto its CPT-code Procedure resources so billing can use
+      // it as a claim service line's date of service, instead of falling back to the encounter
+      // date. Only existing (already-saved) CPT Procedures can be patched here; ones still being
+      // created in this same transaction (referenced by a urn:uuid) get their date some other way.
+      if (procedure.procedureDateTime) {
+        procedure.cptCodes
+          ?.filter((cptCode) => cptCode.resourceId && !cptCode.resourceId.startsWith('urn:uuid:'))
+          .forEach((cptCode) => {
+            saveOrUpdateRequests.push(
+              getPatchBinary({
+                resourceId: cptCode.resourceId!,
+                resourceType: 'Procedure',
+                patchOperations: [{ op: 'add', path: '/performedDateTime', value: procedure.procedureDateTime }],
+              })
+            );
+          });
+      }
     });
     additionalResourcesForResponse.push(encounter);
   }
