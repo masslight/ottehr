@@ -14,6 +14,7 @@ import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import {
+  ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
   LATERALITY_SELECTORS,
   LateralityValue,
   RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID,
@@ -24,14 +25,17 @@ import {
   SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
 } from 'utils/lib/fhir/radiology';
 import { removePrefix } from 'utils/lib/helpers/helpers';
+import { Secrets } from 'utils/lib/secrets';
 import {
   RadiologyDTO,
   RadiologyPerformedBy,
   RadiologyPerformingOrganization,
+  RadiologyReportType,
   RadiologySafetyFlag,
 } from 'utils/lib/types/api/radiology';
 import { RADIOLOGY_TASK } from 'utils/lib/types/data/tasks/types';
 import { RADIOLOGY_ERROR } from 'utils/lib/types/errors';
+import { getMyPractitionerId } from './practitioners';
 
 // The single definition of "this radiology order has an uploaded result": a current DocumentReference
 // with the radiology-result type coding, related to the ServiceRequest. All radiology consumers must agree.
@@ -183,6 +187,32 @@ export const getMostRecentReport = (reports: DiagnosticReport[]): DiagnosticRepo
   });
 };
 
+export const getPacsReportId = (report: DiagnosticReport): string | undefined =>
+  report.identifier?.find((identifier) => identifier.system === ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM)?.value;
+
+export const pickPacsMirrorToKeep = (mirrors: DiagnosticReport[]): DiagnosticReport =>
+  mirrors.find((report) => !!getReportAuthor(report)) ?? getMostRecentReport(mirrors) ?? mirrors[0];
+
+export const collapsePacsMirrorReports = (reports: DiagnosticReport[]): DiagnosticReport[] => {
+  const mirrorsByPacsId = new Map<string, DiagnosticReport[]>();
+  const keep = new Set<DiagnosticReport>();
+
+  for (const report of reports) {
+    const pacsReportId = getPacsReportId(report);
+    if (!pacsReportId) {
+      keep.add(report);
+      continue;
+    }
+    mirrorsByPacsId.set(pacsReportId, [...(mirrorsByPacsId.get(pacsReportId) ?? []), report]);
+  }
+
+  for (const mirrors of mirrorsByPacsId.values()) {
+    keep.add(pickPacsMirrorToKeep(mirrors));
+  }
+
+  return reports.filter((report) => keep.has(report));
+};
+
 export const takeMostRecentPreliminaryReport = (
   diagnosticReports: DiagnosticReport[]
 ): DiagnosticReport | undefined => {
@@ -190,7 +220,9 @@ export const takeMostRecentPreliminaryReport = (
     return undefined;
   }
 
-  const preliminaryReports = diagnosticReports.filter((report) => report.status === 'preliminary');
+  const preliminaryReports = collapsePacsMirrorReports(diagnosticReports).filter(
+    (report) => report.status === 'preliminary'
+  );
 
   return getMostRecentReport(preliminaryReports);
 };
@@ -202,12 +234,14 @@ export const takeTheBestFinalDiagnosticReport = (
     return undefined;
   }
 
+  const collapsedReports = collapsePacsMirrorReports(diagnosticReports);
+
   // Filter reports by status priority
-  const amendedCorrectedAppended = diagnosticReports.filter(
+  const amendedCorrectedAppended = collapsedReports.filter(
     (report) => report.status === 'amended' || report.status === 'corrected' || report.status === 'appended'
   );
 
-  const finalReports = diagnosticReports.filter((report) => report.status === 'final');
+  const finalReports = collapsedReports.filter((report) => report.status === 'final');
 
   // Apply priority logic
   if (amendedCorrectedAppended.length > 0) {
@@ -333,4 +367,85 @@ const extractOrderDetailValue = (serviceRequest: ServiceRequest, code: string): 
   );
 
   return valueStringExt?.valueString;
+};
+
+export type ReportAction = 'edit' | 'delete';
+
+const REPORT_ACTION_PAST_PARTICIPLE: Record<ReportAction, string> = { edit: 'edited', delete: 'deleted' };
+
+export const fetchOrderResources = async (
+  serviceRequestId: string,
+  oystehr: Oystehr
+): Promise<{
+  serviceRequest: ServiceRequest;
+  diagnosticReports: DiagnosticReport[];
+  encounter: Encounter | undefined;
+  tasks: Task[];
+}> => {
+  const resources = (
+    await oystehr.fhir.search<ServiceRequest | DiagnosticReport | Encounter | Task>({
+      resourceType: 'ServiceRequest',
+      params: [
+        { name: '_id', value: serviceRequestId },
+        { name: '_revinclude', value: 'DiagnosticReport:based-on' },
+        { name: '_revinclude', value: 'Task:based-on' },
+        { name: '_include', value: 'ServiceRequest:encounter' },
+      ],
+    })
+  ).unbundle();
+
+  const serviceRequest = resources.find(
+    (resource): resource is ServiceRequest => resource.resourceType === 'ServiceRequest'
+  );
+  if (!serviceRequest) {
+    throw RADIOLOGY_ERROR('This radiology order could not be found.');
+  }
+
+  return {
+    serviceRequest,
+    diagnosticReports: resources.filter(
+      (resource): resource is DiagnosticReport =>
+        resource.resourceType === 'DiagnosticReport' &&
+        resource.status !== 'entered-in-error' &&
+        !!resource.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequestId}`)
+    ),
+    encounter: resources.find((resource): resource is Encounter => resource.resourceType === 'Encounter'),
+    tasks: resources.filter((resource): resource is Task => resource.resourceType === 'Task'),
+  };
+};
+
+export const resolveReportForCaller = async (
+  reportType: RadiologyReportType,
+  diagnosticReports: DiagnosticReport[],
+  serviceRequest: ServiceRequest,
+  encounter: Encounter | undefined,
+  auth: { callerAccessToken: string; secrets: Secrets },
+  verb: ReportAction = 'edit'
+): Promise<{ report: DiagnosticReport; callerPractitionerId: string }> => {
+  const past = REPORT_ACTION_PAST_PARTICIPLE[verb];
+  const report =
+    reportType === 'preliminary'
+      ? takeMostRecentPreliminaryReport(diagnosticReports)
+      : takeTheBestFinalDiagnosticReport(diagnosticReports);
+
+  if (!report?.id) {
+    throw RADIOLOGY_ERROR(`This order has no ${reportType} read to ${verb}.`);
+  }
+
+  const authorId = getReportAuthorId(report);
+  if (!authorId) {
+    throw RADIOLOGY_ERROR(`This ${reportType} read was not written here, so it cannot be ${past}.`);
+  }
+
+  const callerPractitionerId = await getMyPractitionerId(auth.callerAccessToken, auth.secrets);
+  const wroteIt = authorId === callerPractitionerId;
+  const orderedIt = getOrderingProviderIds(serviceRequest, encounter).includes(callerPractitionerId);
+
+  if (!wroteIt && !orderedIt) {
+    throw RADIOLOGY_ERROR(
+      `Only the practitioner who wrote this ${reportType} read, or the provider who ordered the study, can ${verb} it.`
+    );
+  }
+
+  return { report, callerPractitionerId };
 };

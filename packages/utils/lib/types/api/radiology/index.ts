@@ -236,6 +236,16 @@ export type UpdateRadiologyReportZambdaInput = z.infer<typeof UpdateRadiologyRep
 
 export type UpdateRadiologyReportZambdaOutput = Record<string, never>;
 
+export const DeleteRadiologyReportZambdaInputSchema = z.object({
+  serviceRequestId: z.string().min(1, 'serviceRequestId is required and must be a string'),
+  reportType: z.literal('preliminary', {
+    errorMap: () => ({ message: 'Only a preliminary read can be deleted' }),
+  }),
+});
+export type DeleteRadiologyReportZambdaInput = z.infer<typeof DeleteRadiologyReportZambdaInputSchema>;
+
+export type DeleteRadiologyReportZambdaOutput = Record<string, never>;
+
 export const SendForFinalReadZambdaInputSchema = z.object({
   serviceRequestId: z.string().min(1, 'serviceRequestId is required and must be a string'),
 });

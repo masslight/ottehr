@@ -1056,6 +1056,13 @@
       "src": "src/ehr/radiology/update-report/index",
       "zip": ".dist/zips/radiology-update-report.zip"
     },
+    "RADIOLOGY-DELETE-REPORT": {
+      "name": "radiology-delete-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/delete-report/index",
+      "zip": ".dist/zips/radiology-delete-report.zip"
+    },
     "RADIOLOGY-SEND-FOR-FINAL-READ": {
       "name": "radiology-send-for-final-read",
       "type": "http_auth",

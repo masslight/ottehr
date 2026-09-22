@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { readErrorBody } from '../../src/ehr/radiology/update-report';
+import { readErrorBody } from '../../src/ehr/radiology/shared/advapacs';
 
 // A failing AdvaPACS response is not guaranteed to be FHIR, or even JSON: a gateway in front of it answers
 // with HTML, and empty bodies are common. Reading it must never throw, or the thrown parse error would

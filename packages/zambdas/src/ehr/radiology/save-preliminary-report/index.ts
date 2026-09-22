@@ -18,7 +18,11 @@ import { RADIOLOGY_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { resolveCallerPractitionerRef } from '../../../shared/practitioners';
-import { savePerformedBy } from '../../../shared/radiology';
+import {
+  savePerformedBy,
+  takeMostRecentPreliminaryReport,
+  takeTheBestFinalDiagnosticReport,
+} from '../../../shared/radiology';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateICD10Codes } from '../create-order/validation';
@@ -29,6 +33,9 @@ import { ValidatedInput, validateInput, validateSecrets } from './validation';
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'save-preliminary-report';
+
+const MISSING_ACCESSION_NUMBER_MESSAGE =
+  'No accession number found in service request, cannot save preliminary report to AdvaPACS.';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const secrets = validateSecrets(unsafeInput.secrets);
@@ -67,7 +74,7 @@ async function performEffect(
   console.debug('Service request fetched successfully');
 
   console.group('Validating the order accepts a preliminary report');
-  await validateOrderAcceptsPreliminaryReport(serviceRequest, oystehr);
+  const { hasFinalRead } = await validateOrderAcceptsPreliminaryReport(serviceRequest, oystehr);
   console.groupEnd();
 
   // Record who performed the study before writing the report; a report failure downstream then leaves the
@@ -85,8 +92,8 @@ async function performEffect(
     (identifier) => identifier.system === ACCESSION_NUMBER_CODE_SYSTEM
   )?.value;
 
-  if (!accessionNumber) {
-    throw new Error('No accession number found in service request, cannot save preliminary report to AdvaPACS.');
+  if (!accessionNumber && !hasFinalRead) {
+    throw new Error(MISSING_ACCESSION_NUMBER_MESSAGE);
   }
 
   // Persist the diagnosis onto the order *before* creating the DiagnosticReport. AdvaPACS report
@@ -108,21 +115,18 @@ async function performEffect(
   console.groupEnd();
   console.debug('Service request diagnosis updated successfully');
 
-  // Fetch the corresponding service request from AdvaPACS using the accession number
-  console.group('Fetching service request from AdvaPACS');
-  const advaPacsServiceRequest = await fetchServiceRequestFromAdvaPACS(accessionNumber, secrets);
-  console.groupEnd();
-  console.debug('AdvaPACS service request fetched successfully');
+  let advaPacsDiagnosticReport: DiagnosticReport4B | undefined = undefined;
 
-  // Create a DiagnosticReport in AdvaPACS with the preliminary report
-  console.group('Creating DiagnosticReport in AdvaPACS');
-  const advaPacsDiagnosticReport = await createDiagnosticReportInAdvaPACS(
-    advaPacsServiceRequest,
-    preliminaryReport,
-    secrets
-  );
-  console.groupEnd();
-  console.debug('DiagnosticReport created successfully in AdvaPACS');
+  if (hasFinalRead) {
+    console.log(
+      `ServiceRequest/${serviceRequestId} already has a final read, which owns the AdvaPACS report; writing the preliminary read here only.`
+    );
+  } else {
+    console.group('Creating DiagnosticReport in AdvaPACS');
+    advaPacsDiagnosticReport = await createPreliminaryReportInAdvaPACS(accessionNumber, preliminaryReport, secrets);
+    console.groupEnd();
+    console.debug('DiagnosticReport created successfully in AdvaPACS');
+  }
 
   // Credited to whoever wrote it — the report's own author, distinct from `ServiceRequest.performer` (who
   // performed the study), so the "preliminary" and "performed" history rows never read the same field.
@@ -141,7 +145,7 @@ async function performEffect(
 const validateOrderAcceptsPreliminaryReport = async (
   serviceRequest: ServiceRequest,
   oystehr: Oystehr
-): Promise<void> => {
+): Promise<{ hasFinalRead: boolean }> => {
   const isExternal = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.externalRadiologyOrder.url)
     ?.valueBoolean;
   if (isExternal) {
@@ -159,9 +163,34 @@ const validateOrderAcceptsPreliminaryReport = async (
       params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequest.id}` }],
     })
   ).unbundle();
-  if (existingReports.length > 0) {
+
+  if (takeMostRecentPreliminaryReport(existingReports)) {
     throw RADIOLOGY_ERROR('This report has already been saved, please refresh the page.');
   }
+
+  const hasFinalRead = !!takeTheBestFinalDiagnosticReport(existingReports);
+  if (!hasFinalRead && existingReports.length > 0) {
+    throw RADIOLOGY_ERROR('This report has already been saved, please refresh the page.');
+  }
+
+  return { hasFinalRead };
+};
+
+const createPreliminaryReportInAdvaPACS = async (
+  accessionNumber: string | undefined,
+  preliminaryReport: string,
+  secrets: Secrets
+): Promise<DiagnosticReport4B> => {
+  if (!accessionNumber) {
+    throw new Error(MISSING_ACCESSION_NUMBER_MESSAGE);
+  }
+
+  console.group('Fetching service request from AdvaPACS');
+  const advaPacsServiceRequest = await fetchServiceRequestFromAdvaPACS(accessionNumber, secrets);
+  console.groupEnd();
+  console.debug('AdvaPACS service request fetched successfully');
+
+  return createDiagnosticReportInAdvaPACS(advaPacsServiceRequest, preliminaryReport, secrets);
 };
 
 /**

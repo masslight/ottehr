@@ -170,7 +170,7 @@ export const fetchServiceRequestFromAdvaPACS = async (
 
 export const createOurDiagnosticReport = async (
   serviceRequest: ServiceRequest,
-  pacsDiagnosticReport: DiagnosticReport,
+  pacsDiagnosticReport: DiagnosticReport | undefined,
   preliminaryReport: string | undefined,
   oystehr: Oystehr,
   /**
@@ -184,22 +184,28 @@ export const createOurDiagnosticReport = async (
     preliminaryReportAsBase64 = encodeRadiologyReport(preliminaryReport);
   }
 
+  const status = pacsDiagnosticReport?.status ?? 'preliminary';
+
   const diagnosticReportToCreate: DiagnosticReport = {
     resourceType: 'DiagnosticReport',
-    status: pacsDiagnosticReport.status,
+    status,
     subject: serviceRequest.subject,
     basedOn: [
       {
         reference: `ServiceRequest/${serviceRequest.id}`,
       },
     ],
-    identifier: [
-      {
-        system: ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
-        value: pacsDiagnosticReport.id,
-      },
-    ],
-    code: pacsDiagnosticReport.code ?? {
+    ...(pacsDiagnosticReport
+      ? {
+          identifier: [
+            {
+              system: ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
+              value: pacsDiagnosticReport.id,
+            },
+          ],
+        }
+      : {}),
+    code: pacsDiagnosticReport?.code ?? {
       // Advapacs does not send a code even though it is required in the FHIR spec
       coding: [
         {
@@ -209,7 +215,7 @@ export const createOurDiagnosticReport = async (
         },
       ],
     },
-    presentedForm: pacsDiagnosticReport.presentedForm ?? [
+    presentedForm: pacsDiagnosticReport?.presentedForm ?? [
       {
         contentType: 'text/html',
         data: preliminaryReportAsBase64,
@@ -218,7 +224,7 @@ export const createOurDiagnosticReport = async (
     ...(author ? { performer: [author] } : {}),
   };
 
-  if (pacsDiagnosticReport.status === 'preliminary') {
+  if (status === 'preliminary') {
     diagnosticReportToCreate.extension = [
       {
         url: DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,

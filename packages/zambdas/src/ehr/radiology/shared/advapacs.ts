@@ -35,3 +35,27 @@ export const advaPacsFetch = async (url: string, init: RequestInit): Promise<Res
     });
   });
 };
+
+export const throwIfNotOk = async (response: Response, attempted: string): Promise<void> => {
+  if (response.ok) return;
+  throw new Error(
+    `AdvaPACS DiagnosticReport ${attempted} errored out with statusCode ${response.status}, status text ${
+      response.statusText
+    }, and body ${await readErrorBody(response)}`
+  );
+};
+
+export const readErrorBody = async (response: Response): Promise<string> => {
+  let body: string;
+  try {
+    body = await response.text();
+  } catch (error) {
+    return `<unreadable: ${error instanceof Error ? error.message : String(error)}>`;
+  }
+  if (!body) return '<empty>';
+  try {
+    return JSON.stringify(JSON.parse(body), null, 2);
+  } catch {
+    return body;
+  }
+};

@@ -168,6 +168,7 @@ const makeHookResult = (overrides = {}): ReturnType<typeof usePatientRadiologyOr
   DeleteOrderDialog: null,
   handleSaveReport: vi.fn(),
   handleUpdateReport: vi.fn().mockResolvedValue(true),
+  handleDeletePreliminaryReport: vi.fn().mockResolvedValue(true),
   handleSavePerformedBy: vi.fn().mockResolvedValue(true),
   handleSendForFinalRead: vi.fn(),
   isSavingReport: false,
@@ -333,6 +334,36 @@ describe('RadiologyOrderDetailsPage - final report', () => {
 
       expect(screen.getByTestId('report-dx-field')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL })).toBeInTheDocument();
+    });
+
+    it('offers them again on a final order whose preliminary read was deleted', () => {
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [makeMockOrder({ status: RadiologyOrderStatus.final, finalReport: btoa('Final read') })],
+        })
+      );
+      renderPage();
+
+      expect(screen.getByTestId('report-dx-field')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL })).toBeInTheDocument();
+    });
+
+    it('does not offer them while the final order still has its preliminary read', () => {
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [
+            makeMockOrder({
+              status: RadiologyOrderStatus.final,
+              finalReport: btoa('Final read'),
+              preliminaryReport: btoa('Preliminary read'),
+            }),
+          ],
+        })
+      );
+      renderPage();
+
+      expect(screen.queryByTestId('report-dx-field')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL })).not.toBeInTheDocument();
     });
 
     it('shows a validation error and does not call handleSaveReport when no diagnosis is selected', async () => {
@@ -993,6 +1024,104 @@ describe('RadiologyOrderDetailsPage - final report', () => {
 
           await user.type(editField('preliminary'), '!');
           expect(save).toBeEnabled();
+        });
+      });
+
+      describe('deleting the preliminary read', () => {
+        const deletePrelimButton = (): HTMLElement | null =>
+          screen.queryByTestId(dataTestIds.radiologyPage.deleteReportButton('preliminary'));
+
+        it('offers the trash beside the pencil when the read may be corrected', () => {
+          mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [editablePrelimOrder()] }));
+          renderPage();
+          expect(deletePrelimButton()).toBeInTheDocument();
+        });
+
+        it('does not offer it when the order says the read may not be corrected', () => {
+          mockUsePatientRadiologyOrders.mockReturnValue(
+            makeHookResult({ orders: [editablePrelimOrder({ canEditPreliminaryReport: false })] })
+          );
+          renderPage();
+          expect(deletePrelimButton()).not.toBeInTheDocument();
+        });
+
+        it('still offers it once the order has a final read', () => {
+          mockUsePatientRadiologyOrders.mockReturnValue(
+            makeHookResult({
+              orders: [ownFinalOrder({ preliminaryReport: btoa(PRELIM_TEXT), canEditPreliminaryReport: true })],
+            })
+          );
+          renderPage();
+          expect(deletePrelimButton()).toBeInTheDocument();
+        });
+
+        it('warns that the order returns to Performed when it will', async () => {
+          const user = userEvent.setup();
+          mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [editablePrelimOrder()] }));
+          renderPage();
+
+          await user.click(deletePrelimButton()!);
+
+          expect(screen.getByText(/returns to Performed/)).toBeInTheDocument();
+        });
+
+        it('warns that a final order stays Final instead', async () => {
+          const user = userEvent.setup();
+          mockUsePatientRadiologyOrders.mockReturnValue(
+            makeHookResult({
+              orders: [ownFinalOrder({ preliminaryReport: btoa(PRELIM_TEXT), canEditPreliminaryReport: true })],
+            })
+          );
+          renderPage();
+
+          await user.click(deletePrelimButton()!);
+
+          expect(screen.getByText(/stays Final/)).toBeInTheDocument();
+        });
+
+        it('never offers it on the final read', () => {
+          mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [ownFinalOrder()] }));
+          renderPage();
+          expect(screen.queryByTestId(dataTestIds.radiologyPage.deleteReportButton('final'))).not.toBeInTheDocument();
+        });
+
+        it('confirms before deleting, and only then calls the handler', async () => {
+          const user = userEvent.setup();
+          const mockHandleDelete = vi.fn().mockResolvedValue(true);
+          mockUsePatientRadiologyOrders.mockReturnValue(
+            makeHookResult({ orders: [editablePrelimOrder()], handleDeletePreliminaryReport: mockHandleDelete })
+          );
+          renderPage();
+
+          await user.click(deletePrelimButton()!);
+          expect(mockHandleDelete).not.toHaveBeenCalled();
+
+          await user.click(screen.getByTestId(dataTestIds.dialog.proceedButton));
+          await waitFor(() => expect(mockHandleDelete).toHaveBeenCalledWith(SERVICE_REQUEST_ID));
+        });
+
+        it('leaves the read alone when the confirmation is cancelled', async () => {
+          const user = userEvent.setup();
+          const mockHandleDelete = vi.fn().mockResolvedValue(true);
+          mockUsePatientRadiologyOrders.mockReturnValue(
+            makeHookResult({ orders: [editablePrelimOrder()], handleDeletePreliminaryReport: mockHandleDelete })
+          );
+          renderPage();
+
+          await user.click(deletePrelimButton()!);
+          await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+          expect(mockHandleDelete).not.toHaveBeenCalled();
+          expect(screen.getByText(PRELIM_TEXT)).toBeInTheDocument();
+        });
+
+        it('hides while the read is being edited', async () => {
+          const user = userEvent.setup();
+          mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [editablePrelimOrder()] }));
+          renderPage();
+
+          await user.click(editPrelimButton()!);
+          expect(deletePrelimButton()).not.toBeInTheDocument();
         });
       });
     });

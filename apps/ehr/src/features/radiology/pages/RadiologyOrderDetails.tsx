@@ -85,6 +85,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
     orders,
     handleSaveReport,
     handleUpdateReport,
+    handleDeletePreliminaryReport,
     handleSavePerformedBy,
     handleSendForFinalRead,
     handleUpdateConsent,
@@ -145,6 +146,14 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order?.serviceRequestId]);
 
+  const handleDeleteReport = async (): Promise<boolean> => {
+    const deleted = await handleDeletePreliminaryReport(serviceRequestId);
+    if (deleted) {
+      setPreliminaryReportDx(order?.diagnoses?.map((d) => ({ code: d.code, display: d.display })) ?? []);
+    }
+    return deleted;
+  };
+
   // The diagnosis captured with the preliminary read is also written to the encounter's chart /
   // Assessment (the billing/claims diagnosis list), mirroring what the order form does at order time.
   // The save-preliminary-report zambda separately stores it on the order's reasonCode; without this
@@ -172,7 +181,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
     });
   };
 
-  const handleSavePreliminaryReport = async (performedById: string): Promise<void> => {
+  const handleSavePreliminaryReport = async (performedById?: string): Promise<void> => {
     // Write the diagnosis to the encounter first; a failure here must block the read so the two never
     // diverge. The dedupe above makes a re-save safe after a partial failure.
     try {
@@ -203,6 +212,10 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
   // and only until the order is signed off. The order list decides both (`canCallerEditReport`) and the
   // zambda enforces the same rule on save — these only offer the pencil.
   const canEditPreliminaryReport = !isReadOnly && !!order?.canEditPreliminaryReport;
+
+  const canWritePreliminaryReport =
+    !order?.preliminaryReport &&
+    (order?.status === RadiologyOrderStatus.performed || order?.status === RadiologyOrderStatus.final);
   const canEditFinalReport = !isReadOnly && !!order?.canEditFinalReport;
 
   // e.g. "LT (left side)" — the modifier the order carries, plus the wording the order form used for it.
@@ -397,7 +410,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
                 )
               )}
 
-              {order.status === 'performed' && !order.preliminaryReport && (
+              {canWritePreliminaryReport && (
                 <>
                   <Box sx={{ mt: 2 }}>
                     <RadiologyDiagnosisField
@@ -439,6 +452,8 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
                   report={order.preliminaryReport}
                   canEdit={canEditPreliminaryReport}
                   onSave={(report) => handleUpdateReport(serviceRequestId, report, 'preliminary')}
+                  onDelete={() => handleDeleteReport()}
+                  deleteReturnsOrderToPerformed={order.finalReport == null}
                 />
               )}
 
@@ -552,19 +567,18 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
               Back
             </Button>
 
-            {order.status === 'performed' &&
-              !order.preliminaryReport &&
+            {canWritePreliminaryReport &&
               saveReportButton('Save Preliminary Report', isSavingReport, () => {
                 if (preliminaryReportDx.length === 0) {
                   setMissingPreliminaryReportDx(true);
                   return;
                 }
                 // This is the only screen that records the performer, so it's captured here or never.
-                if (!selectedPerformedBy) {
+                if (!selectedPerformedBy && !order.performedBy) {
                   setMissingPerformedBy(true);
                   return;
                 }
-                void handleSavePreliminaryReport(selectedPerformedBy.id);
+                void handleSavePreliminaryReport(selectedPerformedBy?.id);
               })}
 
             {order.status === 'preliminary' &&

@@ -11,6 +11,7 @@ import {
 import { EMPTY_PAGINATION } from 'utils/lib/types/data/labs/labs.constants';
 import {
   cancelRadiologyOrder,
+  deleteRadiologyReport,
   getRadiologyOrders,
   saveFinalReport,
   savePreliminaryReport,
@@ -49,6 +50,8 @@ interface UsePatientRadiologyOrdersResult {
   ) => Promise<void>;
   /** Corrects a read that was already saved. Resolves `true` only when the edit was persisted. */
   handleUpdateReport: (serviceRequestId: string, report: string, reportType: RadiologyReportType) => Promise<boolean>;
+  /** Removes the preliminary read outright. Resolves `true` only when the delete was persisted. */
+  handleDeletePreliminaryReport: (serviceRequestId: string) => Promise<boolean>;
   /** Records who performed the study, on its own. Resolves `true` only when it was persisted. */
   handleSavePerformedBy: (serviceRequestId: string, performedById: string) => Promise<boolean>;
   handleSendForFinalRead: (serviceRequestId: string) => Promise<void>;
@@ -315,6 +318,15 @@ export const usePatientRadiologyOrders = (options: {
     [runOrderAction]
   );
 
+  const handleDeletePreliminaryReport = useCallback(
+    async (serviceRequestId: string): Promise<boolean> =>
+      runOrderAction({
+        call: (client) => deleteRadiologyReport(client, { serviceRequestId, reportType: 'preliminary' }),
+        defaultError: 'Failed to delete preliminary report',
+      }),
+    [runOrderAction]
+  );
+
   const handleSavePerformedBy = useCallback(
     async (serviceRequestId: string, performedById: string): Promise<boolean> =>
       runOrderAction({
@@ -369,6 +381,7 @@ export const usePatientRadiologyOrders = (options: {
     getCurrentSearchParams: getCurrentSearchParamsWithoutPageIndex,
     handleSaveReport,
     handleUpdateReport,
+    handleDeletePreliminaryReport,
     handleSavePerformedBy,
     handleSendForFinalRead,
     handleUpdateConsent,

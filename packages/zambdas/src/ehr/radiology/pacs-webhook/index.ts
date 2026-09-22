@@ -26,7 +26,7 @@ import {
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
-import { buildPreliminaryReportSnapshot } from '../../../shared/radiology';
+import { buildPreliminaryReportSnapshot, pickPacsMirrorToKeep } from '../../../shared/radiology';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import {
@@ -233,14 +233,11 @@ const handleDiagnosticReport = async (
 
   if (diagnosticReports.length > 1) {
     console.log(
-      `Found ${diagnosticReports.length} DiagnosticReports with the given advaPacs DR id: ${advaPacsDiagnosticReport.id}; updating the most recent and retiring the rest`
+      `Found ${diagnosticReports.length} DiagnosticReports with the given advaPacs DR id: ${advaPacsDiagnosticReport.id}; updating the read written here (or the most recent) and retiring the rest`
     );
 
-    const [drToUpdate, ...drsToRetire] = [...diagnosticReports].sort((a, b) => {
-      const aLastIssued = a.issued ? DateTime.fromISO(a.issued).toMillis() : 0;
-      const bLastIssued = b.issued ? DateTime.fromISO(b.issued).toMillis() : 0;
-      return bLastIssued - aLastIssued;
-    });
+    const drToUpdate = pickPacsMirrorToKeep(diagnosticReports);
+    const drsToRetire = diagnosticReports.filter((report) => report !== drToUpdate);
 
     const retireRequests = drsToRetire.map(buildRetireDiagnosticReportRequest);
 

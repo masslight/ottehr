@@ -209,6 +209,8 @@ import {
   CancelRadiologyOrderZambdaOutput,
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
+  DeleteRadiologyReportZambdaInput,
+  DeleteRadiologyReportZambdaOutput,
   DeleteRadiologyResultZambdaInput,
   DeleteRadiologyResultZambdaOutput,
   GetRadiologyOrderListZambdaInput,
@@ -1606,6 +1608,22 @@ export const updateRadiologyReport = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-update-report',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const deleteRadiologyReport = async (
+  oystehr: Oystehr,
+  parameters: DeleteRadiologyReportZambdaInput
+): Promise<DeleteRadiologyReportZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-delete-report',
       ...parameters,
     });
     return chooseJson(response);

@@ -837,6 +837,7 @@ export const dataTestIds = {
     savePerformedByButton: 'radiology-save-performed-by-button',
     markAsReviewedButton: 'radiology-mark-as-reviewed-button',
     editReportButton: (reportType: RadiologyReportType) => `radiology-edit-${reportType}-report-button`,
+    deleteReportButton: (reportType: RadiologyReportType) => `radiology-delete-${reportType}-report-button`,
     editReportInput: (reportType: RadiologyReportType) => `radiology-edit-${reportType}-report-input`,
     saveEditedReportButton: (reportType: RadiologyReportType) => `radiology-save-${reportType}-report-button`,
     radiologyOrderRow: (serviceRequestId: string) => `radiology-order-row-${serviceRequestId}`,

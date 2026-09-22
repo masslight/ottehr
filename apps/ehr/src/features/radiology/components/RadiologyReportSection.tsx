@@ -1,7 +1,9 @@
 import CheckIcon from '@mui/icons-material/Check';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Box, CircularProgress, IconButton, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, CircularProgress, IconButton, TextField, Tooltip, Typography, useTheme } from '@mui/material';
 import React, { useState } from 'react';
+import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { decodeRadiologyReportText } from 'utils/lib/fhir/radiology';
 import { RadiologyReportType } from 'utils/lib/types/api/radiology';
@@ -16,6 +18,8 @@ interface RadiologyReportSectionProps {
   canEdit: boolean;
   /** Resolves true when the edit was persisted; only then does the field close. */
   onSave: (report: string) => Promise<boolean>;
+  onDelete?: () => Promise<boolean>;
+  deleteReturnsOrderToPerformed?: boolean;
 }
 
 /**
@@ -28,7 +32,10 @@ export const RadiologyReportSection: React.FC<RadiologyReportSectionProps> = ({
   report,
   canEdit,
   onSave,
+  onDelete,
+  deleteReturnsOrderToPerformed = true,
 }) => {
+  const theme = useTheme();
   const [draft, setDraft] = useState<string | undefined>();
   // Local to this read: the two reads can be open at once, and saving one must not put the other into a
   // saving state it isn't in.
@@ -133,6 +140,36 @@ export const RadiologyReportSection: React.FC<RadiologyReportSectionProps> = ({
                 <EditOutlinedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
+          )}
+          {canEdit && onDelete && (
+            <ConfirmationDialog
+              title={`Delete ${label.toLowerCase()}`}
+              description={
+                deleteReturnsOrderToPerformed
+                  ? 'This cannot be undone. The order returns to Performed and a new preliminary read can be written.'
+                  : 'This cannot be undone. The order stays Final and a new preliminary read can be written.'
+              }
+              response={() => void onDelete()}
+              actionButtons={{
+                proceed: { text: 'Delete', color: 'error' },
+                back: { text: 'Cancel' },
+                reverse: true,
+              }}
+            >
+              {(showDialog) => (
+                <Tooltip placement="top" title={`Delete ${label.toLowerCase()}`}>
+                  <IconButton
+                    data-testid={dataTestIds.radiologyPage.deleteReportButton(reportType)}
+                    aria-label={`Delete ${label.toLowerCase()}`}
+                    size="small"
+                    sx={{ p: 0.25 }}
+                    onClick={showDialog}
+                  >
+                    <DeleteOutlinedIcon fontSize="small" sx={{ color: theme.palette.error.main }} />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </ConfirmationDialog>
           )}
         </>
       )}

@@ -1311,6 +1311,19 @@ export const FAX_SENT_PROVENANCE_ACTIVITY_CODING: Coding = {
   system: PROVENANCE_FAX_SYSTEM,
 };
 
+export const PROVENANCE_RADIOLOGY_SYSTEM = ottehrCodeSystemUrl('radiology');
+export const PROVENANCE_RADIOLOGY_ACTIVITY_CODES = {
+  preliminaryReadDeleted: 'preliminary-read-deleted',
+} as const;
+export const PROVENANCE_RADIOLOGY_ACTIVITY_DISPLAY = {
+  preliminaryReadDeleted: 'Preliminary Read Deleted',
+} as const;
+export const PRELIMINARY_READ_DELETED_PROVENANCE_ACTIVITY_CODING: Coding = {
+  code: PROVENANCE_RADIOLOGY_ACTIVITY_CODES.preliminaryReadDeleted,
+  display: PROVENANCE_RADIOLOGY_ACTIVITY_DISPLAY.preliminaryReadDeleted,
+  system: PROVENANCE_RADIOLOGY_SYSTEM,
+};
+
 /** Identifier system Oystehr stamps on the Communication resources it creates for outbound faxes. */
 export const OYSTEHR_FAX_COMMUNICATION_IDENTIFIER_SYSTEM = 'https://identifiers.oystehr.com/fax';
 /** Extension on those Communications whose CodeableConcept code Oystehr updates as the fax progresses. */
