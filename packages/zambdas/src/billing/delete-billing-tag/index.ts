@@ -1,12 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Basic, Claim } from 'fhir/r4b';
-import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { Basic } from 'fhir/r4b';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { createBillingClient, isSystemTag, TAG_CODE_SYSTEM } from '../shared';
+import { countClaimsByTag, createBillingClient, isSystemTag, TAG_CODE_SYSTEM } from '../shared';
 import { DeleteBillingTagParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -37,18 +36,11 @@ export async function performEffect(oystehr: Oystehr, params: DeleteBillingTagPa
 
   const tagName = tag.code?.text ?? '';
   if (tagName) {
-    const claimBundle = await oystehr.fhir.search<Claim>({
-      resourceType: 'Claim',
-      params: [
-        { name: '_tag', value: `${CLAIM_TAG_SYSTEM}|${tagName}` },
-        { name: '_total', value: 'accurate' },
-        { name: '_count', value: '0' },
-      ],
-    });
-    if (claimBundle.total === undefined) {
+    const usage = (await countClaimsByTag(oystehr, [tagName])).get(tagName);
+    if (usage === undefined) {
       throw INVALID_INPUT_ERROR('Unable to verify tag usage — FHIR server did not return a total count');
     }
-    if (claimBundle.total > 0) {
+    if (usage > 0) {
       throw INVALID_INPUT_ERROR('Cannot delete tag — it is associated with one or more claims');
     }
   }
