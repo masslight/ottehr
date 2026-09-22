@@ -31,7 +31,6 @@ export const CHART_DATA_MIN_BATCH_SIZE = 3;
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-chart-data';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   console.log('Validating input');
   const { encounterId, secrets, requestedFields } = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);

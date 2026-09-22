@@ -34,7 +34,6 @@ export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): 
   const { secrets } = validatedParams;
   console.groupEnd();
   console.debug('validateRequestParameters success');
-  console.log('validatedParameters', JSON.stringify(validatedParameters));
 
   if (!oystehrToken) {
     console.log('getting token');

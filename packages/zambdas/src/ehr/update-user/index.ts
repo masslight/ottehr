@@ -24,7 +24,6 @@ let m2mToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
-  console.log('validatedParameters:', JSON.stringify(validatedParameters, null, 4));
   const {
     secrets,
     userId,

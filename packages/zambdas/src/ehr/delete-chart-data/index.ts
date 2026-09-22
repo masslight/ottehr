@@ -64,7 +64,6 @@ type ChartData =
 
 export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
     const {
       encounterId,
