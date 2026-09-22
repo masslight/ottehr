@@ -21,6 +21,8 @@ import {
   GetActionLogsOutput,
   RetryActionLogInput,
   RetryActionLogOutput,
+  RevokeActionLogInput,
+  RevokeActionLogOutput,
 } from 'utils/lib/types/api/action-logs.types';
 import {
   AiAssistedEncountersReportZambdaInput,
@@ -2347,6 +2349,18 @@ export const retryActionLog = async (
 ): Promise<RetryActionLogOutput> => {
   try {
     const response = await oystehr.zambda.execute({ id: 'retry-action-log', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const revokeActionLog = async (
+  oystehr: Oystehr,
+  parameters: RevokeActionLogInput
+): Promise<RevokeActionLogOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'revoke-action-log', ...parameters });
     return chooseJson(response);
   } catch (error: unknown) {
     throw apiErrorToThrow(error);

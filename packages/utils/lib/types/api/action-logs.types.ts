@@ -40,7 +40,7 @@ export const GetActionLogsInputValidatedSchema = GetActionLogsInputSchema.extend
 });
 export type GetActionLogsInputValidated = z.infer<typeof GetActionLogsInputValidatedSchema>;
 
-export type ActionLogStatus = 'sent' | 'failed' | 'pending';
+export type ActionLogStatus = 'sent' | 'failed' | 'pending' | 'revoked';
 
 export interface ActionLogEntry {
   attemptId: string;
@@ -56,6 +56,8 @@ export interface ActionLogEntry {
   documentReferenceId?: string;
   documentTitle?: string;
   canRetry: boolean;
+  /** A sent document link that staff can revoke, which stops it opening and stops it re-sending. */
+  canRevoke: boolean;
 }
 
 export interface GetActionLogsOutput {
@@ -74,6 +76,21 @@ export type RetryActionLogInputValidated = z.infer<typeof RetryActionLogInputVal
 
 export interface RetryActionLogOutput {
   attemptId: string;
+}
+
+export const RevokeActionLogInputSchema = z.object({
+  attemptId: z.string().uuid(),
+});
+export type RevokeActionLogInput = z.infer<typeof RevokeActionLogInputSchema>;
+export const RevokeActionLogInputValidatedSchema = RevokeActionLogInputSchema.extend({
+  secrets: z.custom<Secrets>().nullable(),
+});
+export type RevokeActionLogInputValidated = z.infer<typeof RevokeActionLogInputValidatedSchema>;
+
+export interface RevokeActionLogOutput {
+  attemptId: string;
+  /** The attempt plus every later attempt in its resend chain. */
+  revokedCount: number;
 }
 
 export interface OutboundDeliveryAttemptData {

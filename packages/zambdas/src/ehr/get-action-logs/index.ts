@@ -246,6 +246,7 @@ function composeEntry(
       Boolean(channel === 'fax' ? recipient.documentReferenceId || appointmentId : appointmentId) &&
       Boolean(recipient.address?.trim()) &&
       !retriedAttemptIds.has(task.id!),
+    canRevoke: channel === 'email' && status === 'sent' && Boolean(recipient.documentReferenceId),
   };
 }
 

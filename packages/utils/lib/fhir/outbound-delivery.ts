@@ -160,6 +160,7 @@ export function getOutboundDeliveryFaxPacketSnapshot(task: Task): OutboundDelive
 
 export function getOutboundDeliveryAttemptStatus(task: Task, communication?: Communication): ActionLogStatus {
   if (getOutboundDeliveryChannel(task) === 'email') {
+    if (task.status === 'cancelled') return 'revoked';
     if (task.status === 'completed') return 'sent';
     if (task.status === 'failed') return 'failed';
     return 'pending';
