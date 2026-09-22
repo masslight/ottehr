@@ -1155,6 +1155,8 @@ const CopyableProperties: ResourceProperties<CopyableBillingResource> = {
     'relationship',
     'class',
     'type',
+    // extension carries the insurance type for oystehr rcm service
+    'extension',
   ],
   // extension carries the CMS place-of-service and timezone, which claim building derives from.
   Location: ['resourceType', 'extension', 'identifier', 'address', 'description', 'name', 'telecom', 'type'],
