@@ -396,7 +396,7 @@ describe('ScheduledFollowupParentSelector', () => {
       await user.click(await screen.findByRole('button', { name: /Convert to Follow-up/i }));
 
       await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/visit/appt-9'));
-      expect(enqueueSnackbarMock).toHaveBeenCalledWith(expect.stringContaining('could not be copied'), {
+      expect(enqueueSnackbarMock).toHaveBeenCalledWith(expect.stringContaining('did not fully complete'), {
         variant: 'warning',
       });
     });

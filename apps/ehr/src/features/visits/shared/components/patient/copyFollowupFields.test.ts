@@ -300,6 +300,18 @@ describe('copying onto an already-documented encounter', () => {
     });
   });
 
+  it("keeps the visit's own reason for visit when the initial visit has none", () => {
+    const source = chartWith({ historyOfPresentIllness: { resourceId: 'src-hpi', text: 'sore throat' } });
+    const target = chartWith({
+      reasonForVisit: { text: 'ear pain' },
+      historyOfPresentIllness: { resourceId: 'tgt-hpi', text: 'typed on this visit' },
+    });
+    const field = fieldByKey('chiefComplaint');
+    expect(field.isEmpty(source)).toBe(false);
+    expect(field.extract!(source, target)).not.toHaveProperty('reasonForVisit');
+    expect(field.stale!(source, target)).not.toHaveProperty('reasonForVisit');
+  });
+
   it('drops the target Additional Information when the initial visit has none', () => {
     // The checkbox is still offered: the initial visit has a reason for visit to copy.
     const source = chartWith({ reasonForVisit: { text: 'ear pain' } });

@@ -161,7 +161,7 @@ export default function ScheduledFollowupParentSelector({
     onSuccess: ({ copyFailed }) => {
       enqueueSnackbar(
         copyFailed
-          ? 'Visit converted to a follow-up, but some information could not be copied from the initial visit'
+          ? 'Visit converted to a follow-up, but copying information from the initial visit did not fully complete'
           : 'Visit converted to a scheduled follow-up',
         { variant: copyFailed ? 'warning' : 'success' }
       );
