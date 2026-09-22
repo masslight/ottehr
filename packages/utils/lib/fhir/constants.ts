@@ -1344,6 +1344,8 @@ export const OUTBOUND_DELIVERY_OUTPUT_SYSTEM = ottehrCodeSystemUrl('outbound-del
 export const OUTBOUND_DELIVERY_OUTPUT_CODES = {
   communication: 'communication',
   error: 'error',
+  /** An emailed document link was opened; valueDateTime is when. */
+  linkOpened: 'link-opened',
 } as const;
 export const OUTBOUND_DELIVERY_SOURCE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-source');
 export const OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-retry');

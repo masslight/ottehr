@@ -13,6 +13,11 @@ vi.mock('../../src/shared/send-fax-attempt', () => ({
   sendFaxAttempt: (...args: unknown[]) => mockSendFaxAttempt(...args),
 }));
 
+const mockSendDocumentLinkEmailAttempt = vi.fn();
+vi.mock('../../src/shared/document-link-email', () => ({
+  sendDocumentLinkEmailAttempt: (...args: unknown[]) => mockSendDocumentLinkEmailAttempt(...args),
+}));
+
 import {
   buildSharedCoverSheetFields,
   deliverFaxPacket,
@@ -144,14 +149,68 @@ describe('deliverFaxPacket', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockBuildAndUploadPacketForRecipient.mockImplementation(async ({ recipient }: any) => ({
-      pdfInfo: { title: 'packet.pdf', uploadURL: `https://z3/${recipient.faxNumber}.pdf` },
-      documentReference: { resourceType: 'DocumentReference', id: `docref-${recipient.faxNumber}` },
+      pdfInfo: { title: 'packet.pdf', uploadURL: `https://z3/${recipient.faxNumber ?? recipient.email}.pdf` },
+      documentReference: { resourceType: 'DocumentReference', id: `docref-${recipient.faxNumber ?? recipient.email}` },
       pageCount: 5,
     }));
     mockSendFaxAttempt.mockImplementation(async (input: any) => ({
       resourceType: 'Task',
       id: `task-${input.faxNumber}`,
     }));
+    mockSendDocumentLinkEmailAttempt.mockImplementation(async (input: any) => ({
+      resourceType: 'Task',
+      id: `task-${input.email}`,
+    }));
+  });
+
+  it('emails a link for an email recipient and faxes the others, one packet each', async () => {
+    const results = await deliverFaxPacket(
+      deliverArgs([
+        { faxNumber: '+12125551111' },
+        { name: 'Olivia Green', organization: 'Green FP', email: 'olivia@example.com', phoneNumber: '(212) 555-9999' },
+      ])
+    );
+
+    expect(results).toEqual([
+      { faxNumber: '+12125551111', status: 'sent' },
+      {
+        name: 'Olivia Green',
+        organization: 'Green FP',
+        email: 'olivia@example.com',
+        phoneNumber: '(212) 555-9999',
+        status: 'sent',
+      },
+    ]);
+    expect(mockSendFaxAttempt).toHaveBeenCalledTimes(1);
+    expect(mockSendDocumentLinkEmailAttempt).toHaveBeenCalledTimes(1);
+    expect(mockSendDocumentLinkEmailAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'olivia@example.com',
+        recipientName: 'Olivia Green',
+        recipientOrganization: 'Green FP',
+        recipientPhone: '(212) 555-9999',
+        documentReferenceId: 'docref-olivia@example.com',
+        organizationId: 'org-1',
+        organizationName: 'Ottehr Urgent Care',
+        senderDisplay: 'Sam Stone',
+        requesterReference: 'Practitioner/prac-1',
+        senderId: 'user-1',
+        appointmentId: 'appt-1',
+      })
+    );
+    // The email recipient still gets a cover sheet in the packet.
+    expect(mockBuildAndUploadPacketForRecipient).toHaveBeenCalledWith(
+      expect.objectContaining({ recipient: expect.objectContaining({ email: 'olivia@example.com' }) })
+    );
+  });
+
+  it('records a failure when the link email is rejected, without blocking other recipients', async () => {
+    mockSendDocumentLinkEmailAttempt.mockRejectedValue(new Error('sendgrid rejected'));
+
+    const results = await deliverFaxPacket(deliverArgs([{ email: 'a@example.com' }, { faxNumber: '+12125551111' }]));
+
+    expect(results.map((r) => r.status)).toEqual(['failed', 'sent']);
+    expect(results[0].email).toBe('a@example.com');
   });
 
   it('returns a sent result per recipient', async () => {

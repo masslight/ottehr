@@ -38,6 +38,7 @@ This directory contains per-environment configuration files for Ottehr. The file
 | `AUTH0_SECRET` | Auth0 client secret corresponding to `AUTH0_CLIENT`. **Keep this confidential.** |
 | `AUTH0_CLIENT_TESTS` | Separate Auth0 client ID used exclusively by integration/E2E tests. |
 | `AUTH0_SECRET_TESTS` | Auth0 client secret corresponding to `AUTH0_CLIENT_TESTS`. **Keep this confidential.** |
+| `DOCUMENT_LINK_SECRET` | HMAC key that signs the expiring document links emailed from the EHR. Any long random string; rotating it invalidates every outstanding link. **Keep this confidential.** |
 
 ### Application Identity
 

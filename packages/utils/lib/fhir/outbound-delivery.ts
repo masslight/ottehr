@@ -180,11 +180,12 @@ export function getOutboundDeliveryAttemptStatus(task: Task, communication?: Com
 
 export function makeOutboundDeliveryOutput(
   code: (typeof OUTBOUND_DELIVERY_OUTPUT_CODES)[keyof typeof OUTBOUND_DELIVERY_OUTPUT_CODES],
-  value: { valueString?: string; reference?: string }
+  value: { valueString?: string; reference?: string; valueDateTime?: string }
 ): TaskOutput {
   return {
     type: { coding: [{ system: OUTBOUND_DELIVERY_OUTPUT_SYSTEM, code }] },
     ...(value.valueString ? { valueString: value.valueString } : {}),
     ...(value.reference ? { valueReference: { reference: value.reference } } : {}),
+    ...(value.valueDateTime ? { valueDateTime: value.valueDateTime } : {}),
   };
 }

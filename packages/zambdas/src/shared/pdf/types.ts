@@ -1167,7 +1167,8 @@ export interface FaxCoverSheetSubject {
 }
 
 export interface FaxCoverSheetData extends PdfData {
-  recipient: { name?: string; organization?: string; faxNumber: string; phoneNumber?: string };
+  /** Exactly one of `faxNumber` / `email` is set, matching the recipient's delivery channel. */
+  recipient: { name?: string; organization?: string; faxNumber?: string; email?: string; phoneNumber?: string };
   sender: {
     practitionerName: string;
     npi?: string;

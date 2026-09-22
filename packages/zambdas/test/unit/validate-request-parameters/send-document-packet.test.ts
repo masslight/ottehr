@@ -154,6 +154,56 @@ describe('send-document-packet - validateRequestParameters', () => {
     });
   });
 
+  test('accepts an email recipient, trimmed and lowercased', () => {
+    const result = validateRequestParameters(
+      createMockZambdaInput(
+        body({ recipients: [{ name: 'Olivia Green', email: '  Olivia@Example.COM ', phoneNumber: '+12125559999' }] }),
+        { secrets }
+      )
+    );
+
+    expect(result.recipients[0]).toEqual({
+      name: 'Olivia Green',
+      email: 'olivia@example.com',
+      phoneNumber: '(212) 555-9999',
+    });
+  });
+
+  test('accepts fax and email recipients in the same request', () => {
+    const result = validateRequestParameters(
+      createMockZambdaInput(body({ recipients: [{ faxNumber: '2125551234' }, { email: 'a@example.com' }] }), {
+        secrets,
+      })
+    );
+
+    expect(result.recipients).toEqual([
+      { faxNumber: '+12125551234', phoneNumber: undefined },
+      { email: 'a@example.com', phoneNumber: undefined },
+    ]);
+  });
+
+  test('throws when a recipient email is not a valid address', () => {
+    expect(() =>
+      validateRequestParameters(createMockZambdaInput(body({ recipients: [{ email: 'not-an-email' }] }), { secrets }))
+    ).toThrow();
+  });
+
+  test('throws when a recipient carries both a fax number and an email', () => {
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(body({ recipients: [{ faxNumber: '2125551234', email: 'a@example.com' }] }), {
+          secrets,
+        })
+      )
+    ).toThrow();
+  });
+
+  test('throws when a recipient has neither a fax number nor an email', () => {
+    expect(() =>
+      validateRequestParameters(createMockZambdaInput(body({ recipients: [{ name: 'Nobody' }] }), { secrets }))
+    ).toThrow();
+  });
+
   test('throws when a recipient fax number is not a valid phone number', () => {
     expect(() =>
       validateRequestParameters(createMockZambdaInput(body({ recipients: [{ faxNumber: '123' }] }), { secrets }))

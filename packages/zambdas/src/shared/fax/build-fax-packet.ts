@@ -220,6 +220,7 @@ export async function buildAndUploadPacketForRecipient(args: {
     name: formatFaxRecipientName(recipient),
     organization: recipient.organization,
     faxNumber: recipient.faxNumber,
+    email: recipient.email,
     phoneNumber: recipient.phoneNumber,
   };
 

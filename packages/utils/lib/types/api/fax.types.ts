@@ -56,18 +56,26 @@ export const HIPAA_FAX_CONFIDENTIALITY_STATEMENT =
 
 export const FAX_RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE = 'A credential needs a recipient name';
 
+const FaxRecipientBaseSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  // Professional credential shown after the name ("MD", "DO").
+  credential: z.string().trim().min(1).optional(),
+  // Practice or facility the recipient belongs to. Maps to the PCP's `practice-name` extension.
+  organization: z.string().trim().min(1).optional(),
+  phoneNumber: z.string().optional(),
+  // Persist this recipient as the patient's primary care physician. At most one recipient may set it.
+  saveAsPcp: z.boolean().optional(),
+});
+
+/**
+ * One delivery channel per recipient: a fax number, or an email address that receives an expiring link to
+ * the packet. Never both.
+ */
 export const FaxRecipientSchema = z
-  .object({
-    name: z.string().trim().min(1).optional(),
-    // Professional credential shown after the name ("MD", "DO").
-    credential: z.string().trim().min(1).optional(),
-    // Practice or facility the recipient belongs to. Maps to the PCP's `practice-name` extension.
-    organization: z.string().trim().min(1).optional(),
-    faxNumber: z.string().min(1),
-    phoneNumber: z.string().optional(),
-    // Persist this recipient as the patient's primary care physician. At most one recipient may set it.
-    saveAsPcp: z.boolean().optional(),
-  })
+  .union([
+    FaxRecipientBaseSchema.extend({ faxNumber: z.string().min(1), email: z.undefined() }),
+    FaxRecipientBaseSchema.extend({ email: z.string().trim().toLowerCase().email(), faxNumber: z.undefined() }),
+  ])
   // The credential is shown after the name ("Jane Doe, MD"); without a name it would be dropped silently.
   .refine((recipient) => !recipient.credential || !!recipient.name, {
     message: FAX_RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE,
@@ -75,6 +83,25 @@ export const FaxRecipientSchema = z
   });
 
 export type FaxRecipient = z.infer<typeof FaxRecipientSchema>;
+export type EmailFaxRecipient = Extract<FaxRecipient, { email: string }>;
+
+export const isEmailRecipient = (recipient: FaxRecipient): recipient is EmailFaxRecipient =>
+  typeof recipient.email === 'string';
+
+/** Lifetime of an emailed document link, as a `jose` duration string. */
+export const DOCUMENT_LINK_TTL = '1h';
+/** JWT audience of an emailed document link token. */
+export const DOCUMENT_LINK_AUDIENCE = 'document-link';
+
+export const OpenDocumentLinkInputSchema = z.object({
+  token: z.string().min(1).max(2048),
+});
+export type OpenDocumentLinkInput = z.infer<typeof OpenDocumentLinkInputSchema>;
+
+/** `ok` carries a short-lived download URL; `expired` means a fresh link was emailed to the recorded recipient. */
+export type OpenDocumentLinkOutput =
+  | { status: 'ok'; url: string; title?: string }
+  | { status: 'expired'; resent: true };
 
 /** How a recipient is addressed on the cover sheet and in the logs: "Jane Doe, MD", or the name alone. */
 export const formatFaxRecipientName = (recipient: Pick<FaxRecipient, 'name' | 'credential'>): string | undefined =>
@@ -141,7 +168,8 @@ export type FaxDeliveryStatus = 'sent' | 'failed';
 export interface FaxRecipientResult {
   name?: string;
   organization?: string;
-  faxNumber: string;
+  faxNumber?: string;
+  email?: string;
   phoneNumber?: string;
   status: FaxDeliveryStatus;
 }

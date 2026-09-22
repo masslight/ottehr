@@ -5,6 +5,7 @@
   "AUTH0_AUDIENCE": "https://api.zapehr.com",
   "AUTH0_CLIENT": "AUTH0_CLIENT",
   "AUTH0_SECRET": "AUTH0_SECRET",
+  "DOCUMENT_LINK_SECRET": "DOCUMENT_LINK_SECRET",
   "FHIR_API": "https://fhir-api.zapehr.com/r4",
   "PROJECT_API": "https://project-api.zapehr.com/v1",
   "ENVIRONMENT": "local",
