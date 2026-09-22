@@ -159,7 +159,9 @@ async function computeInsuranceSide(
     for (const claimResponse of claimResponses) {
       const amounts = extractClaimResponseAmounts(claimResponse);
       const allowed = amounts.allowed ?? 0;
-      const patientResp = amounts.patientResp ?? 0;
+      // no CAS data falls back to allowed-but-unpaid, floored — summarizeClaimPayments semantics;
+      // coalescing to 0 would count the whole allowed amount as insurance-collectible
+      const patientResp = Math.max(amounts.patientResp ?? allowed - amounts.paid, 0);
       row.allowed += allowed;
       row.patientResp += patientResp;
       row.paid += amounts.paid;

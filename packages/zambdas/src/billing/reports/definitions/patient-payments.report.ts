@@ -253,6 +253,8 @@ async function loadNoticeContext(
     }
     const knownStripeIds = new Set(notices.flatMap(stripeIdsOf));
     for (const syntheticNotice of syntheticNoticesFor(charges, knownStripeIds)) {
+      // refund rows carry the refund's own date, which can fall outside the charge's window
+      if (!noticeInWindow(syntheticNotice, params.dateFrom, params.dateTo)) continue;
       synthetic.add(syntheticNotice);
       notices.push(syntheticNotice);
     }
@@ -346,7 +348,7 @@ async function listWindowCharges(
     const listing = stripe.charges.list(
       {
         limit: 100,
-        expand: ['data.invoice'],
+        expand: ['data.invoice', 'data.refunds'],
         ...(Object.keys(createdWindow).length > 0 ? { created: createdWindow } : {}),
       },
       { stripeAccount }
@@ -383,12 +385,12 @@ function syntheticNoticesFor(charges: Stripe.Charge[], knownStripeIds: Set<strin
       extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'card' }],
       ...(encounterId ? { request: { identifier: { system: CLAIM_ENCOUNTER_ID_SYSTEM, value: encounterId } } } : {}),
     };
-    const containedFor = (value: number, disposition: string): PaymentNotice['contained'] => [
+    const containedFor = (value: number, disposition: string, whenISO = createdISO): PaymentNotice['contained'] => [
       {
         resourceType: 'PaymentReconciliation',
         status: 'active',
-        created: createdISO,
-        paymentDate: createdISO.slice(0, 10),
+        created: whenISO,
+        paymentDate: whenISO.slice(0, 10),
         paymentAmount: { value, currency: 'USD' },
         disposition,
       },
@@ -399,14 +401,33 @@ function syntheticNoticesFor(charges: Stripe.Charge[], knownStripeIds: Set<strin
       contained: containedFor((charge.amount ?? 0) / 100, `Stripe charge ${charge.id} with no recorded PaymentNotice`),
     });
     if ((charge.amount_refunded ?? 0) > 0) {
-      syntheticNotices.push({
-        ...base,
-        amount: { value: -((charge.amount_refunded ?? 0) / 100), currency: 'USD' },
-        contained: containedFor(
-          -((charge.amount_refunded ?? 0) / 100),
-          `Stripe refund for charge ${charge.id} with no recorded PaymentNotice`
-        ),
-      });
+      // one row per refund, dated when the refund happened — not when the charge was made — so
+      // cross-month refunds land in the right monthly bucket; anything the refund list doesn't
+      // cover falls back to a charge-dated remainder row
+      let remaining = (charge.amount_refunded ?? 0) / 100;
+      for (const refund of charge.refunds?.data ?? []) {
+        const value = (refund.amount ?? 0) / 100;
+        if (value <= 0 || refund.status === 'failed' || refund.status === 'canceled') continue;
+        remaining = roundNumberToDecimalPlaces(remaining - value, 2);
+        const refundISO = DateTime.fromSeconds(refund.created).toUTC().toISO() ?? createdISO;
+        syntheticNotices.push({
+          ...base,
+          created: refundISO,
+          amount: { value: -value, currency: 'USD' },
+          contained: containedFor(
+            -value,
+            `Stripe refund ${refund.id} for charge ${charge.id} with no recorded PaymentNotice`,
+            refundISO
+          ),
+        });
+      }
+      if (remaining > 0) {
+        syntheticNotices.push({
+          ...base,
+          amount: { value: -remaining, currency: 'USD' },
+          contained: containedFor(-remaining, `Stripe refund for charge ${charge.id} with no recorded PaymentNotice`),
+        });
+      }
     }
   }
   return syntheticNotices;
