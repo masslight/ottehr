@@ -4,19 +4,16 @@ import { SaveBillingTagInputSchema } from './billing.schemas';
 import { SYSTEM_MANAGED_TAGS } from './system-tags';
 
 describe('SaveBillingTagInputSchema', () => {
-  it.each(['&', '=', ':', ',', '|', '\\', '$'])('rejects a name containing %s', (character) => {
+  it.each(['&', '=', ':', ',', '|', '\\', '$', '#', '%'])('rejects a name containing %s', (character) => {
     const result = SaveBillingTagInputSchema.safeParse({ name: `Medicare ${character} Medicaid` });
     expect(result.success).toBe(false);
     expect(result.error?.issues[0].message).toBe(TAG_NAME_FORBIDDEN_CHARACTERS_ERROR);
   });
 
-  it.each(['.', '/', '(', ')', '_', '#', '%', '+', '-', "'", 'é'])(
-    'accepts a name containing %s, which round-trips through a batch search',
-    (character) => {
-      const result = SaveBillingTagInputSchema.safeParse({ name: `Medicare ${character} Medicaid` });
-      expect(result.success).toBe(true);
-    }
-  );
+  it.each(['.', '/', '(', ')', '_', '+', '-', "'", 'é'])('accepts a name containing %s', (character) => {
+    const result = SaveBillingTagInputSchema.safeParse({ name: `Medicare ${character} Medicaid` });
+    expect(result.success).toBe(true);
+  });
 
   it('rejects a rename onto a forbidden name, not just a create', () => {
     const result = SaveBillingTagInputSchema.safeParse({
