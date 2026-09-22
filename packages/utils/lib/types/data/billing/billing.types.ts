@@ -620,6 +620,17 @@ export interface PaymentsReportWaterfallCell {
   paid: number;
 }
 
+// One cached run of a report kind; params re-request that run (dateFrom/dateTo for windowed kinds)
+export interface BillingReportHistoryEntry {
+  params: Record<string, unknown>;
+  generatedAt: string;
+  sizeBytes: number;
+}
+
+export interface GetBillingReportHistoryResponse {
+  entries: BillingReportHistoryEntry[];
+}
+
 // Refresh state of a cached billing report.
 export interface ReportRefreshStatus {
   state: 'idle' | 'running' | 'error';

@@ -718,6 +718,8 @@ export const GetBillingReportInputSchema = z.object({
   refresh: z.boolean().optional(),
   // filtered slice of the report's cached detail dataset
   drilldown: z.record(z.unknown()).optional(),
+  // list this kind's cached runs instead of serving a report
+  history: z.boolean().optional(),
 });
 
 // date window shared by the parameterized report kinds
