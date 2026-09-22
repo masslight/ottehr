@@ -10,15 +10,17 @@ import {
   getOutboundDeliveryRecipientSnapshot,
   makeOutboundDeliveryAttempt,
 } from 'utils/lib/fhir/outbound-delivery';
-import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { FAX_PACKET_CODE, VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockSendEmail = vi.fn();
+const mockSendGenericOutreachEmail = vi.fn();
 vi.mock('../../src/shared/communication', () => ({
   getEmailClient: () => ({
     getFeatureFlag: () => true,
     sendVirtualCompletionEmail: mockSendEmail,
     sendInPersonCompletionEmail: mockSendEmail,
+    sendGenericOutreachEmail: mockSendGenericOutreachEmail,
   }),
   makeAddressUrl: (address: string) => `https://maps.example.test/?q=${encodeURIComponent(address)}`,
 }));
@@ -298,6 +300,70 @@ describe('retry-action-log eligibility', () => {
     const retryTask = create.mock.calls[0][0] as Task;
     expect(retryTask.partOf).toEqual([{ reference: 'Task/attempt-1' }]);
     expect(retryTask.requester?.reference).toBe('Practitioner/practitioner-1');
+    expect(getOutboundDeliveryInput(retryTask, OUTBOUND_DELIVERY_INPUT_CODES.senderId)?.valueString).toBe('user-1');
+  });
+
+  it('re-sends a document packet link, not a visit note, when the failed email carried a packet', async () => {
+    mockSendEmail.mockClear();
+    const original: Task = {
+      ...makeOutboundDeliveryAttempt({
+        channel: 'email',
+        patientId: 'patient-1',
+        recipientAddress: 'olivia@example.com',
+        recipientName: 'Olivia Green',
+        recipientOrganization: 'Green FP',
+        documentReferenceId: 'packet-1',
+        senderOrganizationReference: 'Organization/org-1',
+      }),
+      id: 'attempt-1',
+      status: 'failed',
+    };
+    const packet: DocumentReference = {
+      resourceType: 'DocumentReference',
+      id: 'packet-1',
+      status: 'current',
+      type: { coding: [{ code: FAX_PACKET_CODE }] },
+      content: [{ attachment: { url: 'https://example.test/packet.pdf' } }],
+    };
+    const get = vi.fn(async ({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'Task') return original;
+      if (resourceType === 'DocumentReference') return packet;
+      if (resourceType === 'Organization') return { resourceType: 'Organization', id: 'org-1', name: 'Ottehr UC' };
+      return retryingPractitioner;
+    });
+    const search = vi.fn().mockResolvedValue({ unbundle: () => [] });
+    const create = vi.fn(async (candidate: Task) => ({ ...candidate, id: 'retry-1' }));
+    const patch = vi.fn(async () => ({ ...original, id: 'retry-1', status: 'completed' }));
+    const secrets = {
+      ...createMockSecrets(),
+      DOCUMENT_LINK_SECRET: 'test-document-link-secret-with-enough-length',
+      WEBSITE_URL: 'https://patient.example.test',
+    };
+
+    const result = await performEffect(
+      { attemptId: 'attempt-1', secrets },
+      { fhir: { get, search, create, patch } } as any,
+      { id: 'user-1', profile: 'Practitioner/practitioner-1' } as any,
+      'token'
+    );
+
+    expect(result).toEqual({ attemptId: 'retry-1' });
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    const [to, templateData] = mockSendGenericOutreachEmail.mock.calls[0];
+    expect(to).toBe('olivia@example.com');
+    expect(templateData['subject-text']).toBe('Documents from Ottehr UC');
+    expect(templateData.content).toContain('https://patient.example.test/documents/');
+    const retryTask = create.mock.calls[0][0] as Task;
+    expect(retryTask.partOf).toEqual([{ reference: 'Task/attempt-1' }]);
+    expect(retryTask.identifier).toEqual(
+      expect.arrayContaining([{ system: OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM, value: 'Task/attempt-1' }])
+    );
+    expect(getOutboundDeliveryRecipientSnapshot(retryTask)).toMatchObject({
+      address: 'olivia@example.com',
+      name: 'Olivia Green',
+      organization: 'Green FP',
+      documentReferenceId: 'packet-1',
+    });
     expect(getOutboundDeliveryInput(retryTask, OUTBOUND_DELIVERY_INPUT_CODES.senderId)?.valueString).toBe('user-1');
   });
 

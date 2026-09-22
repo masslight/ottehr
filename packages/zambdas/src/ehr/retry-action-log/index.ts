@@ -1,6 +1,6 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Communication, DocumentReference, Practitioner, Task } from 'fhir/r4b';
+import { Appointment, Communication, DocumentReference, Organization, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
 import { getAddressStringForScheduleResource } from 'utils/lib/fhir/helpers';
@@ -10,6 +10,7 @@ import {
   getOutboundDeliveryChannel,
   getOutboundDeliveryFaxPacketSnapshot,
   getOutboundDeliveryRecipientSnapshot,
+  getOutboundDeliverySenderOrganizationId,
   makeOutboundDeliveryAttempt,
 } from 'utils/lib/fhir/outbound-delivery';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
@@ -26,11 +27,13 @@ import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwor
 import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
 import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../shared/auth';
 import { getEmailClient } from '../../shared/communication';
+import { deliverDocumentLinkEmailAttempt } from '../../shared/document-link-email';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import {
   createOutboundDeliveryAttemptIdempotently,
   requireOutboundDeliveryValue,
 } from '../../shared/outbound-delivery';
+import { isFaxPacket } from '../../shared/patient-documents';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { deliverFaxAttempt, SendFaxAttemptInput } from '../../shared/send-fax-attempt';
 import { wrapHandler } from '../../shared/sentry';
@@ -68,12 +71,7 @@ export async function performEffect(
   }
 
   const emailClient = channel === 'email' ? getEmailClient(parameters.secrets, oystehr) : undefined;
-  if (channel === 'email') {
-    if (FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled) {
-      throw new Error('Visit note email delivery is disabled while the patient portal feature flag is on');
-    }
-    if (!emailClient?.getFeatureFlag()) throw new Error('Visit note email delivery is disabled');
-  }
+  if (channel === 'email' && !emailClient?.getFeatureFlag()) throw new Error('Email delivery is disabled');
 
   const originalId = requireOutboundDeliveryValue(original.id, 'attempt id');
   const patientId = requireOutboundDeliveryValue(
@@ -137,8 +135,58 @@ export async function performEffect(
     );
     if (claim.status === 'existing') throw new Error('This delivery attempt has already been retried');
     retried = await deliverFaxAttempt(faxInput, oystehr, claim.attempt);
+  } else if (isFaxPacket(documentReference)) {
+    if (!emailClient) throw new Error('Email client was not initialized');
+    // A document packet link: re-send a fresh link to the same recipient, same identity as a visit-note retry.
+    const organizationId =
+      getOutboundDeliverySenderOrganizationId(original) || getSecret(SecretsKeys.ORGANIZATION_ID, parameters.secrets);
+    const organization = await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: organizationId });
+    const claim = await createOutboundDeliveryAttemptIdempotently(
+      oystehr,
+      makeOutboundDeliveryAttempt({
+        channel,
+        patientId,
+        appointmentId,
+        recipientAddress,
+        recipientName,
+        recipientOrganization: recipient.organization,
+        recipientPhone: recipient.phone,
+        documentReferenceId,
+        requesterReference,
+        senderOrganizationReference: `Organization/${organizationId}`,
+        parentAttemptId: originalId,
+        senderId: user.id,
+        senderDisplay,
+      }),
+      { system: OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM, value: `Task/${originalId}` }
+    );
+    if (claim.status === 'existing') throw new Error('This delivery attempt has already been retried');
+    retried = await deliverDocumentLinkEmailAttempt(
+      {
+        oystehr,
+        secrets: parameters.secrets,
+        patientId,
+        appointmentId,
+        email: recipientAddress,
+        recipientName,
+        recipientOrganization: recipient.organization,
+        recipientPhone: recipient.phone,
+        documentReferenceId,
+        organizationId,
+        organizationName: organization.name ?? '',
+        senderDisplay,
+        requesterReference,
+        senderId: user.id,
+        parentAttemptId: originalId,
+      },
+      claim.attempt,
+      emailClient
+    );
   } else {
     if (!emailClient) throw new Error('Visit note email client was not initialized');
+    if (FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled) {
+      throw new Error('Visit note email delivery is disabled while the patient portal feature flag is on');
+    }
     const emailAppointmentId = requireOutboundDeliveryValue(appointmentId, 'appointment reference');
     const visit = await getAppointmentAndRelatedResources(oystehr, emailAppointmentId, true);
     if (!visit?.patient || !visit.location) throw new Error('Visit resources are incomplete');
