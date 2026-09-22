@@ -61,7 +61,7 @@ import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import Dropzone, { DropzoneProps } from 'react-dropzone';
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
-import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES } from 'utils';
+import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
@@ -99,6 +99,7 @@ import {
   addClaimAttachment,
   createBillingCoverage,
   createBillingProvider,
+  createTimelyFilingReport,
   deleteClaimAttachment,
   downloadClaimAttachment,
   exportClaimX12,
@@ -150,6 +151,7 @@ import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
 import { otherColors } from '../themes/ottehr/colors';
+import { downloadBase64File } from '../utils/downloadFile';
 import { formatDate, formatDateTime } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
 
@@ -182,6 +184,7 @@ export default function ClaimDetail(): ReactElement {
   const [tab, setTab] = useState('1');
   const [exportOpen, setExportOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [buildingReport, setBuildingReport] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
   const [editingHeader, setEditingHeader] = useState(false);
   const [savingHeader, setSavingHeader] = useState(false);
@@ -214,6 +217,27 @@ export default function ClaimDetail(): ReactElement {
   useEffect(() => {
     void fetchDetail();
   }, [fetchDetail]);
+
+  const onCreateTimelyFilingReport = useCallback(async () => {
+    if (!oystehrZambda || !id) return;
+    setBuildingReport(true);
+    try {
+      const { fileName, pdfBase64 } = await createTimelyFilingReport(oystehrZambda, {
+        claimId: id,
+      });
+      downloadBase64File(fileName, pdfBase64, 'application/pdf');
+    } catch (err) {
+      enqueueSnackbar(
+        getApiError({
+          error: err,
+          defaultError: 'Failed to create the timely filing report',
+        }),
+        { variant: 'error' }
+      );
+    } finally {
+      setBuildingReport(false);
+    }
+  }, [oystehrZambda, id]);
 
   useEffect(() => {
     setShowCoverageMap({
@@ -493,6 +517,16 @@ export default function ClaimDetail(): ReactElement {
           sx={{ mt: 0.5 }}
         >
           Export X12
+        </Button>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<DescriptionIcon />}
+          onClick={() => void onCreateTimelyFilingReport()}
+          disabled={buildingReport}
+          sx={{ mt: 0.5 }}
+        >
+          {buildingReport ? 'Building…' : 'Timely Filing Report'}
         </Button>
         <Button
           size="small"
@@ -1607,13 +1641,15 @@ function ServiceLinesSection({
 const DropzoneField = ({
   name,
   multiple,
+  accept,
   required,
   ...rest
 }: {
   name: string;
   multiple: boolean;
+  accept?: DropzoneProps['accept'];
   required?: boolean;
-} & Omit<DropzoneProps, 'multiple' | 'onDrop'>): ReactElement => {
+} & Omit<DropzoneProps, 'multiple' | 'onDrop' | 'accept'>): ReactElement => {
   const { control } = useFormContext();
   return (
     <Controller
@@ -1633,12 +1669,14 @@ const DropzoneField = ({
             </ListItem>
           )}
           <Dropzone
+            multiple={multiple}
+            accept={accept}
             onDrop={(acceptedFiles) => {
               onChange(multiple ? acceptedFiles : acceptedFiles[0]);
             }}
             {...rest}
           >
-            {({ getRootProps, getInputProps, isDragActive }) => {
+            {({ getRootProps, getInputProps, isDragActive, fileRejections }) => {
               return (
                 <Card
                   variant="outlined"
@@ -1672,6 +1710,24 @@ const DropzoneField = ({
                           <Typography variant="body1" component="p" textAlign="center">
                             {isDragActive ? 'Drop file here to upload' : 'Click here or drag file to upload'}
                           </Typography>
+                          {accept && Object.values(accept).length ? (
+                            <Typography variant="body2" component="p" textAlign="center">
+                              Accepted types:{' '}
+                              {Object.values(accept)
+                                .flatMap((val) => val)
+                                .join(', ')}
+                            </Typography>
+                          ) : (
+                            <></>
+                          )}
+                          {fileRejections.length ? (
+                            <FormHelperText id={`dropzone-helper-text`} error={true}>
+                              File{multiple ? 's' : ''} could not be uploaded. Please select{' '}
+                              {multiple ? 'files' : 'a file'} with an allowed type.
+                            </FormHelperText>
+                          ) : (
+                            <></>
+                          )}
                           {fieldError ? (
                             <FormHelperText id={`dropzone-helper-text`} error={true}>
                               {fieldError?.message}
@@ -1716,6 +1772,8 @@ function AttachmentsSection({
     reset: addReset,
     handleSubmit: addFormHandleSubmit,
     formState: { isSubmitting: addFormIsSubmitting },
+    watch: addFormWatch,
+    setValue: addFormSetValue,
   } = addFormMethods;
   const renameFormMethods = useForm({ defaultValues: { name: '' } });
   const {
@@ -1735,8 +1793,18 @@ function AttachmentsSection({
     setAnchorEl(null);
   };
 
+  const addFormSelectedFile = addFormWatch('file');
+  const addFormName = addFormWatch('name');
+  useEffect(() => {
+    if (addFormName || !addFormSelectedFile) return;
+    addFormSetValue('name', addFormSelectedFile.name);
+  });
+
   const openAddDialog = (): void => {
-    addReset({ name: '', reportTypeCode: 'OZ' });
+    addReset({
+      name: '',
+      reportTypeCode: DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE,
+    });
     setShowAddDialog(true);
   };
   const closeAddDialog = (): void => {
@@ -1758,6 +1826,7 @@ function AttachmentsSection({
       const { uploadUrl } = await addClaimAttachment(oystehrZambda, {
         claimId: claim.id,
         name,
+        fileName: file.name,
         reportTypeCode: reportTypeCode ? reportTypeCode : undefined,
       });
       await fetch(uploadUrl, {
@@ -1848,10 +1917,11 @@ function AttachmentsSection({
                     <TableCell>{line.sequence}</TableCell>
                     <TableCell>{line.fileName}</TableCell>
                     <TableCell>
-                      {line.reportTypeCode ?? 'OZ'} &mdash;{' '}
+                      {line.reportTypeCode ?? DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE} &mdash;{' '}
                       {
-                        CLAIM_ATTACHMENT_REPORT_TYPE_CODES.find(({ code }) => code === (line.reportTypeCode ?? 'OZ'))
-                          ?.label
+                        CLAIM_ATTACHMENT_REPORT_TYPE_CODES.find(
+                          ({ code }) => code === (line.reportTypeCode ?? DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE)
+                        )?.label
                       }
                     </TableCell>
                     <TableCell>{formatDateTime(line.dateAdded)}</TableCell>
@@ -1988,7 +2058,12 @@ function AttachmentsSection({
                     </FormControl>
                   )}
                 />
-                <DropzoneField name="file" multiple={false} required={true} />
+                <DropzoneField
+                  name="file"
+                  multiple={false}
+                  required={true}
+                  accept={{ 'image/*': ['.jpeg', '.jpg', '.png'], 'application/pdf': ['.pdf'] }}
+                />
               </Box>
             </Box>
           </FormProvider>

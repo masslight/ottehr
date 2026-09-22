@@ -67,7 +67,7 @@ const AiBadge: FC = () => (
 
 export const MissingCard: FC = () => {
   const { id: appointmentIdFromUrl } = useParams();
-  const { encounter } = useAppointmentData();
+  const { encounter, appointment } = useAppointmentData();
   const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { hasDraft: hasExternalLabDraft } = useCreateExternalLabStore();
   const { hasDraft: hasInHouseLabDraft } = useCreateInHouseLabStore();
@@ -155,17 +155,17 @@ export const MissingCard: FC = () => {
     isError: isNoteReviewError,
     error: noteReviewError,
   } = useQuery<AISuggestionNotes>({
-    queryKey: ['note-review-suggestions', encounter?.id, promptHash, noteStateHash],
+    queryKey: ['note-review-suggestions', appointment?.id, encounter?.id, promptHash, noteStateHash],
     queryFn: () =>
       apiClient!.aiSuggestionNotes({
         type: 'note-review',
-        appointmentId: appointmentIdFromUrl!,
+        appointmentId: appointment!.id!,
         encounterId: encounter!.id!,
       }),
     enabled:
       !!apiClient &&
       !!signReviewPrompt &&
-      !!appointmentIdFromUrl &&
+      !!appointment?.id &&
       !!encounter?.id &&
       !isAppointmentReadOnly &&
       isNoteStateSettled,

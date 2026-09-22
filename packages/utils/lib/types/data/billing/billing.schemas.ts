@@ -767,6 +767,7 @@ export const RecordBillingManualPaymentInputSchema = z.object({
 export const AddClaimAttachmentInputSchema = z.object({
   claimId: nonEmptyString,
   name: nonEmptyString,
+  fileName: nonEmptyString,
   reportTypeCode: nonEmptyString.optional(),
 });
 
@@ -783,6 +784,10 @@ export const DeleteClaimAttachmentInputSchema = z.object({
 export const DownloadClaimAttachmentInputSchema = z.object({
   claimId: nonEmptyString,
   documentReferenceId: nonEmptyString,
+});
+
+export const CreateTimelyFilingReportInputSchema = z.object({
+  claimId: nonEmptyString.uuid(),
 });
 
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
@@ -851,3 +856,4 @@ export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSch
 export type RenameClaimAttachmentInput = z.output<typeof RenameClaimAttachmentInputSchema>;
 export type DeleteClaimAttachmentInput = z.output<typeof DeleteClaimAttachmentInputSchema>;
 export type DownloadClaimAttachmentInput = z.output<typeof DownloadClaimAttachmentInputSchema>;
+export type CreateTimelyFilingReportInput = z.output<typeof CreateTimelyFilingReportInputSchema>;

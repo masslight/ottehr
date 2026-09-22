@@ -245,7 +245,10 @@ export const FormTemplatePdfPreview: FC<Props> = ({
       {/* The page is usually taller than the window, which is what stops the sticky column from helping:
           a sticky element taller than the viewport still scrolls away. Bounding it here and scrolling
           inside means the preview stays put however far down the field list you are. */}
-      <Box ref={scrollRef} sx={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+      <Box
+        ref={scrollRef}
+        sx={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', scrollbarGutter: 'stable' }}
+      >
         <Box ref={containerRef} sx={{ position: 'relative', width: '100%' }}>
           {isRendering && <CircularProgress size={20} sx={{ position: 'absolute', top: 8, left: 8, zIndex: 2 }} />}
           <canvas ref={canvasRef} style={{ display: 'block', maxWidth: '100%' }} />

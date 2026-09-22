@@ -22,6 +22,7 @@ import {
   Location,
   Organization,
   Patient,
+  Period,
   Person,
   Practitioner,
   Procedure,
@@ -96,7 +97,6 @@ import {
   deriveClaimBillablePeriodFromEncounter,
   determineRulesEngineForClaim,
   ensureClaimInsurance,
-  ensureSystemManagedTags,
   EXCLUDE_WORKING_COPIES_PARAMS,
   findRef,
   getClaimTypeCoding,
@@ -443,11 +443,6 @@ export async function performEffect(
   const billingTags = [];
   if (clinicalResources.appointment.description?.toLowerCase() === 'auto accident') {
     billingTags.push(AUTO_ACCIDENT_TAG_NAME);
-    try {
-      await ensureSystemManagedTags(billingOystehr);
-    } catch (error) {
-      console.error('Failed to ensure system-managed tags exist:', error);
-    }
   }
 
   const claim = buildClaim({
@@ -1293,15 +1288,7 @@ function buildClaim(resources: ClaimResources): Claim {
                   : undefined
               )
               .filter((cca): cca is CodeableConcept => !!cca),
-            servicedPeriod: {
-              start: getLocalDateOfService(
-                assertDefined(resources.appointment.start, 'Encounter start'),
-                resources.serviceFacility
-              ),
-              end: resources.appointment.end
-                ? getLocalDateOfService(resources.appointment.end, resources.serviceFacility)
-                : undefined,
-            },
+            servicedPeriod: getProcedureServicedPeriod(p, resources),
             locationCodeableConcept:
               resources.serviceFacility &&
               resources.serviceFacility.extension?.some((ext) => ext.url === CODE_SYSTEM_CMS_PLACE_OF_SERVICE)
@@ -1341,6 +1328,23 @@ function buildClaim(resources: ClaimResources): Claim {
 function getLocalDateOfService(appointmentStart: string, location: Location | undefined): string {
   const timezone = location ? getTimezone(location) : TIMEZONES[0];
   return DateTime.fromISO(appointmentStart).setZone(timezone).toISODate()!;
+}
+
+function getProcedureServicedPeriod(procedure: Procedure, resources: ClaimResources): Period {
+  const location = resources.serviceFacility;
+  if (procedure.performedPeriod?.start) {
+    return {
+      start: getLocalDateOfService(procedure.performedPeriod.start, location),
+      end: procedure.performedPeriod.end ? getLocalDateOfService(procedure.performedPeriod.end, location) : undefined,
+    };
+  }
+  if (procedure.performedDateTime) {
+    return { start: getLocalDateOfService(procedure.performedDateTime, location) };
+  }
+  return {
+    start: getLocalDateOfService(assertDefined(resources.appointment.start, 'Encounter start'), location),
+    end: resources.appointment.end ? getLocalDateOfService(resources.appointment.end, location) : undefined,
+  };
 }
 
 function getServiceCoding(appointment: Appointment): Coding | undefined {

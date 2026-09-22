@@ -9,6 +9,8 @@ export const CLAIM_STATUS_PROCESSED_TAG = {
   code: 'processed',
 };
 
+export const CREATE_TIMELY_FILING_REPORT_ZAMBDA = 'create-timely-filing-report';
+
 // Task code (under EXPORT_TASK_SYSTEM) for a claims-list CSV export, and the codes its Task inputs
 // and outputs carry. The Subscription that runs the export matches on the code.
 export const EXPORT_CLAIMS_CSV_TASK_CODE = 'export-billing-claims-csv';

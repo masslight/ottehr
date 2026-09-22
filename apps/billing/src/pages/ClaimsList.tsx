@@ -59,7 +59,7 @@ import { usePayerSearch } from '../components/PayerSelect';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
 import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
-import { downloadTextFile } from '../utils/downloadTextFile';
+import { downloadTextFile } from '../utils/downloadFile';
 import { pollExportTask } from '../utils/pollExportTask';
 
 interface Filters {
