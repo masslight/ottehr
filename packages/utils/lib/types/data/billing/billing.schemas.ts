@@ -5,7 +5,7 @@ import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { STATE_CODES } from '../../common';
-import { BILLING_MANUAL_PAYMENT_METHODS, REFRESH_REPORT_KINDS } from './billing.constants';
+import { BILLING_MANUAL_PAYMENT_METHODS, BILLING_TASK_STATUSES, REFRESH_REPORT_KINDS } from './billing.constants';
 import { CLAIM_NOTE_MAX_LENGTH } from './claim-history';
 import {
   CLAIM_STATUS_FIELD_KEYS,
@@ -495,22 +495,7 @@ export const RetryBillingClaimTaskInputSchema = z.object({
 });
 
 export const SearchBillingClaimTasksInputSchema = z.object({
-  status: z
-    .enum([
-      'draft',
-      'requested',
-      'received',
-      'accepted',
-      'rejected',
-      'ready',
-      'cancelled',
-      'in-progress',
-      'on-hold',
-      'failed',
-      'completed',
-      'entered-in-error',
-    ])
-    .optional(),
+  status: z.enum(BILLING_TASK_STATUSES).optional(),
   createdFrom: z.string().date().optional(),
   createdTo: z.string().date().optional(),
   patientId: z.string().uuid().optional(),

@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { BILLING_CLAIM_TASK_FILTER_STATUSES } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingClaimTaskItem, SearchBillingClaimTasksResponse } from 'utils/lib/types/data/billing/billing.types';
 import { formatAntCaseString } from 'utils/lib/types/data/billing/claim-status';
 import { isValidUUID } from 'utils/lib/validation/helper';
@@ -138,6 +139,7 @@ export default function ClaimCreationQueue(): ReactElement {
 
   const fetchTasks = useCallback(async (): Promise<void> => {
     if (!oystehrZambda) return;
+    // Ignore older responses after the filters or page change.
     const current = ++generation.current;
     setLoading(true);
     setError(null);
@@ -236,7 +238,7 @@ export default function ClaimCreationQueue(): ReactElement {
           }}
         >
           <MenuItem value="">All statuses</MenuItem>
-          {['requested', 'in-progress', 'completed', 'failed'].map((value) => (
+          {BILLING_CLAIM_TASK_FILTER_STATUSES.map((value) => (
             <MenuItem key={value} value={value}>
               {formatAntCaseString(value)}
             </MenuItem>

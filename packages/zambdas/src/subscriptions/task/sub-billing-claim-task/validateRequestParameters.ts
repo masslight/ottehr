@@ -11,11 +11,9 @@ export interface BillingClaimTaskParams extends CreateBillingClaimFromEncounterI
 }
 
 export function validateRequestParameters(input: TaskSubscriptionInput): BillingClaimTaskParams {
-  const reference = input.task.encounter?.reference;
-  if (!reference?.startsWith('Encounter/')) throw INVALID_INPUT_ERROR('Task must reference an Encounter');
+  const [resourceType, encounterId, ...rest] = input.task.encounter?.reference?.split('/') ?? [];
+  if (resourceType !== 'Encounter' || rest.length) throw INVALID_INPUT_ERROR('Task must reference an Encounter');
 
-  const data = safeValidate(CreateBillingClaimFromEncounterInputSchema, {
-    encounterId: reference.slice('Encounter/'.length),
-  });
+  const data = safeValidate(CreateBillingClaimFromEncounterInputSchema, { encounterId });
   return { ...data, secrets: input.secrets };
 }
