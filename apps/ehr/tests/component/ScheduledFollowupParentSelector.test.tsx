@@ -7,6 +7,7 @@ import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { VisitNoteResponse } from 'utils/lib/types/api/chart-data/get-visit-note.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConvertFromVisit } from '../../src/features/visits/shared/components/patient/AddPatientFollowup';
 import ScheduledFollowupParentSelector from '../../src/features/visits/shared/components/patient/ScheduledFollowupParentSelector';
@@ -287,39 +288,34 @@ describe('ScheduledFollowupParentSelector', () => {
 
   describe('convert mode', () => {
     // Keyed by encounter so the parent and the visit being converted can differ.
-    const chartDataByEncounter = (
-      byEncounter: Record<string, { scoped?: Record<string, unknown>; unscoped?: Record<string, unknown> }>
-    ): void => {
-      getChartDataMock.mockImplementation((params: { encounterId: string; requestedFields?: unknown }) => {
-        const entry = byEncounter[params.encounterId] ?? {};
-        return Promise.resolve((params.requestedFields ? entry.scoped : entry.unscoped) ?? {});
-      });
+    const visitNotesByEncounter = (byEncounter: Record<string, Partial<VisitNoteResponse>>): void => {
+      getVisitNoteMock.mockImplementation(({ encounterId }: { encounterId: string }) =>
+        Promise.resolve(emptyVisitNote(byEncounter[encounterId] ?? {}))
+      );
     };
 
     const POPULATED_PARENT = {
-      scoped: {
+      encounterNotes: {
         chiefComplaint: { resourceId: 'r1', text: 'narrative' },
         historyOfPresentIllness: { resourceId: 'r2', text: 'sore throat' },
       },
-      unscoped: {
-        diagnosis: [{ resourceId: 'd1', display: 'Dx' }],
-        examObservations: [{ resourceId: 'e1', field: 'hr' }],
-      },
-    };
+      assessment: { diagnosis: [{ resourceId: 'd1', display: 'Dx' }], cptCodes: [], procedures: [] },
+      exam: { examObservations: [{ resourceId: 'e1', field: 'hr' }], rosObservations: [] },
+    } as unknown as Partial<VisitNoteResponse>;
 
     beforeEach(() => {
       mockParentEncounters(parentEncounterRow);
     });
 
     it('excludes the visit being converted from the parent options', () => {
-      chartDataByEncounter({});
+      visitNotesByEncounter({});
       renderWithProviders({ convertFrom: CONVERT_FROM });
       expect(useParentEncountersMock).toHaveBeenCalledWith('pat-1', undefined, 'enc-target');
     });
 
     it('converts in place instead of navigating to Add Visit', async () => {
       const user = userEvent.setup();
-      chartDataByEncounter({ 'enc-1': POPULATED_PARENT });
+      visitNotesByEncounter({ 'enc-1': POPULATED_PARENT });
       renderWithProviders({ convertFrom: CONVERT_FROM });
 
       await user.click(await screen.findByRole('button', { name: /Convert to Follow-up/i }));
@@ -340,13 +336,15 @@ describe('ScheduledFollowupParentSelector', () => {
 
     it('keeps fields the visit already documents copyable, flagging them instead of disabling', async () => {
       const user = userEvent.setup();
-      chartDataByEncounter({
+      visitNotesByEncounter({
         'enc-1': POPULATED_PARENT,
         // The visit being converted already has a "Chief Complaint" recorded. Note the storage
         // keys are swapped relative to the labels (see copyFollowupFields.ts): the "Chief
         // Complaint" checkbox reads reasonForVisit/historyOfPresentIllness, and "HPI" reads
         // chiefComplaint. Populating historyOfPresentIllness therefore collides with CC only.
-        'enc-target': { scoped: { historyOfPresentIllness: { resourceId: 'x1', text: 'already here' } } },
+        'enc-target': {
+          encounterNotes: { historyOfPresentIllness: { resourceId: 'x1', text: 'already here' } },
+        } as unknown as Partial<VisitNoteResponse>,
       });
       renderWithProviders({ convertFrom: CONVERT_FROM });
 
@@ -365,9 +363,11 @@ describe('ScheduledFollowupParentSelector', () => {
 
     it('still carries diagnosis over when the visit already has one', async () => {
       const user = userEvent.setup();
-      chartDataByEncounter({
+      visitNotesByEncounter({
         'enc-1': POPULATED_PARENT,
-        'enc-target': { unscoped: { diagnosis: [{ resourceId: 'dx-existing', display: 'Existing' }] } },
+        'enc-target': {
+          assessment: { diagnosis: [{ resourceId: 'dx-existing', display: 'Existing' }], cptCodes: [], procedures: [] },
+        } as unknown as Partial<VisitNoteResponse>,
       });
       renderWithProviders({ convertFrom: CONVERT_FROM });
 
@@ -380,7 +380,7 @@ describe('ScheduledFollowupParentSelector', () => {
 
     it('never touches the reason for visit', async () => {
       const user = userEvent.setup();
-      chartDataByEncounter({ 'enc-1': POPULATED_PARENT });
+      visitNotesByEncounter({ 'enc-1': POPULATED_PARENT });
       renderWithProviders({ convertFrom: CONVERT_FROM });
 
       await user.click(await screen.findByRole('button', { name: /Convert to Follow-up/i }));
@@ -391,7 +391,7 @@ describe('ScheduledFollowupParentSelector', () => {
 
     it('still lands on the converted visit when the copy fails', async () => {
       const user = userEvent.setup();
-      chartDataByEncounter({ 'enc-1': POPULATED_PARENT });
+      visitNotesByEncounter({ 'enc-1': POPULATED_PARENT });
       copyChartDataMock.mockRejectedValue(new Error('save-chart-data blew up'));
       renderWithProviders({ convertFrom: CONVERT_FROM });
 
@@ -405,7 +405,7 @@ describe('ScheduledFollowupParentSelector', () => {
 
     it('does not navigate away when the conversion itself fails', async () => {
       const user = userEvent.setup();
-      chartDataByEncounter({ 'enc-1': POPULATED_PARENT });
+      visitNotesByEncounter({ 'enc-1': POPULATED_PARENT });
       convertVisitToFollowUpMock.mockRejectedValue(new Error('conflict'));
       renderWithProviders({ convertFrom: CONVERT_FROM });
 
@@ -418,10 +418,11 @@ describe('ScheduledFollowupParentSelector', () => {
 
     it("stays usable when the converted visit's own chart data fails to load", async () => {
       const user = userEvent.setup();
-      getChartDataMock.mockImplementation((params: { encounterId: string; requestedFields?: unknown }) => {
-        if (params.encounterId === 'enc-target') return Promise.reject(new Error('get-chart-data blew up'));
-        return Promise.resolve(params.requestedFields ? POPULATED_PARENT.scoped : POPULATED_PARENT.unscoped);
-      });
+      getVisitNoteMock.mockImplementation(({ encounterId }: { encounterId: string }) =>
+        encounterId === 'enc-target'
+          ? Promise.reject(new Error('get-visit-note blew up'))
+          : Promise.resolve(emptyVisitNote(POPULATED_PARENT))
+      );
       renderWithProviders({ convertFrom: CONVERT_FROM });
 
       // The spinner clears and the parent's copyable fields still render.
