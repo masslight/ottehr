@@ -21,6 +21,8 @@ const ZAMBDA_NAME = 'sub-refresh-billing-report';
 
 // Async worker for all billing-report refreshes: routes the Task to its ReportDefinition,
 // computes, and writes the payload + detail caches.
+// TODO(OTR-3041 follow-up): wrapTaskHandler marks Task statuses with a clinical client; once it
+// accepts { createClient }, pass createBillingClient so billing Tasks are updated as billing.
 export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, _oystehr) => {
   const { kind, paramsJson, taskId, secrets } = validateRequestParameters(input);
   const definition = reportRegistry[kind];
