@@ -182,6 +182,11 @@ describe('SendFaxForm delivery channel', () => {
     await user.type(screen.getByLabelText(/Recipient Email/), 'Olivia@Example.com');
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
+    // Email sends show the addresses once more before anything goes out.
+    expect(await screen.findByText(/Documents will be emailed to: Olivia@Example.com/)).toBeVisible();
+    expect(onSubmit).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Send email' }));
+
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit.mock.calls[0][0].recipients[0]).toMatchObject({
       channel: 'email',
