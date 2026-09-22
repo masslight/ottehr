@@ -352,7 +352,7 @@ describe('retry-action-log eligibility', () => {
     const [to, templateData] = mockSendGenericOutreachEmail.mock.calls[0];
     expect(to).toBe('olivia@example.com');
     expect(templateData['subject-text']).toBe('Documents from Ottehr UC');
-    expect(templateData.content).toContain('https://patient.example.test/documents/');
+    expect(templateData.content).toContain('https://patient.example.test/documents#');
     const retryTask = create.mock.calls[0][0] as Task;
     expect(retryTask.partOf).toEqual([{ reference: 'Task/attempt-1' }]);
     expect(retryTask.identifier).toEqual(

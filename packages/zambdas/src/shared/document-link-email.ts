@@ -6,7 +6,7 @@ import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
 import { GenericOutreachTemplateData } from 'utils/lib/ottehr-config/sendgrid';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { DOCUMENT_LINK_AUDIENCE, DOCUMENT_LINK_TTL } from 'utils/lib/types/api/fax.types';
-import { getEmailClient } from './communication';
+import { EmailSendOptions, getEmailClient } from './communication';
 import {
   completeOutboundDeliveryAttempt,
   createOutboundDeliveryAttempt,
@@ -38,7 +38,11 @@ export interface DocumentLinkEmailInput {
 
 export interface DocumentLinkEmailClient {
   getFeatureFlag(): boolean;
-  sendGenericOutreachEmail(to: string, templateData: GenericOutreachTemplateData): Promise<void>;
+  sendGenericOutreachEmail(
+    to: string,
+    templateData: GenericOutreachTemplateData,
+    options?: EmailSendOptions
+  ): Promise<void>;
 }
 
 /**
@@ -57,9 +61,12 @@ export async function mintDocumentLinkToken(attemptTaskId: string, secrets: Secr
     .sign(secret);
 }
 
-/** The token travels in the path: the intake client treats a `?token=` query parameter as a bearer token. */
+/**
+ * The token travels in the URL fragment: it never reaches the intake host's access logs, proxies or error
+ * telemetry, and the intake client treats a `?token=` query parameter as a bearer token.
+ */
 export const makeDocumentLinkUrl = (token: string, secrets: Secrets | null): string =>
-  `${getSecret(SecretsKeys.WEBSITE_URL, secrets)}/documents/${token}`;
+  `${getSecret(SecretsKeys.WEBSITE_URL, secrets)}/documents#${token}`;
 
 export function buildDocumentLinkEmail(input: {
   organizationName: string;
@@ -123,7 +130,9 @@ export async function deliverDocumentLinkEmailAttempt(
         organizationName: input.organizationName,
         senderDisplay: input.senderDisplay,
         url: makeDocumentLinkUrl(token, input.secrets),
-      })
+      }),
+      // Click tracking would route the link (a live credential) through SendGrid's redirect service and logs.
+      { disableClickTracking: true }
     );
   } catch (error) {
     await failOutboundDeliveryAttempt(input.oystehr, attempt.id, error);

@@ -20,9 +20,9 @@ vi.mock('../../src/telemed/features/common/LoadingScreen', () => ({
 const renderAt = (token: string): ReturnType<typeof render> =>
   render(
     <StrictMode>
-      <MemoryRouter initialEntries={[`/documents/${token}`]}>
+      <MemoryRouter initialEntries={[`/documents#${token}`]}>
         <Routes>
-          <Route path="/documents/:linkToken" element={<OpenDocumentLink />} />
+          <Route path="/documents" element={<OpenDocumentLink />} />
         </Routes>
       </MemoryRouter>
     </StrictMode>

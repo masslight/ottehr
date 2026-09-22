@@ -81,13 +81,14 @@ describe('document link email attempt', () => {
     ).toBe('Organization/org-1');
     expect(task.requester?.reference).toBe('Practitioner/prac-1');
 
-    const [to, templateData] = mockSendEmail.mock.calls[0];
+    const [to, templateData, options] = mockSendEmail.mock.calls[0];
+    expect(options).toEqual({ disableClickTracking: true });
     expect(to).toBe('olivia@example.com');
     expect(templateData['subject-text']).toBe('Documents from Ottehr Urgent Care');
     const href = /href="([^"]+)"/.exec(templateData.content)?.[1];
-    expect(href?.startsWith('https://patient.example.test/documents/')).toBe(true);
+    expect(href?.startsWith('https://patient.example.test/documents#')).toBe(true);
     // The token's subject is the attempt that was just created.
-    const token = href!.split('/documents/')[1];
+    const token = href!.split('/documents#')[1];
     const { payload } = await jwtVerify(token, new TextEncoder().encode(secrets.DOCUMENT_LINK_SECRET), {
       issuer: PROJECT_WEBSITE,
       audience: DOCUMENT_LINK_AUDIENCE,
@@ -146,18 +147,18 @@ describe('document link token and email body', () => {
   });
 
   it('puts the token in the path, never in a query parameter', () => {
-    expect(makeDocumentLinkUrl('abc.def.ghi', secrets)).toBe('https://patient.example.test/documents/abc.def.ghi');
+    expect(makeDocumentLinkUrl('abc.def.ghi', secrets)).toBe('https://patient.example.test/documents#abc.def.ghi');
   });
 
   it('escapes the sender and organization in the HTML body', () => {
     const { content, 'subject-text': subject } = buildDocumentLinkEmail({
       organizationName: 'Green & Co <Clinic>',
       senderDisplay: 'Sam "Doc" Stone',
-      url: 'https://patient.example.test/documents/t',
+      url: 'https://patient.example.test/documents#t',
     });
 
     expect(subject).toBe('Documents from Green & Co <Clinic>');
     expect(content).toContain('Sam &quot;Doc&quot; Stone at Green &amp; Co &lt;Clinic&gt; has sent you documents.');
-    expect(content).toContain('<a href="https://patient.example.test/documents/t">Open documents</a>');
+    expect(content).toContain('<a href="https://patient.example.test/documents#t">Open documents</a>');
   });
 });

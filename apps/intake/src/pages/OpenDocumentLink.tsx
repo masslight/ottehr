@@ -1,7 +1,7 @@
 import { Button, Card, Typography, useTheme } from '@mui/material';
 import { Box, Container } from '@mui/system';
 import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
 import { CustomContainer } from 'src/telemed/features/common/CustomContainer';
 import { LoadingScreen } from 'src/telemed/features/common/LoadingScreen';
@@ -17,7 +17,8 @@ type LinkState = { status: 'loading' } | { status: 'ok'; url: string } | { statu
  * download URL and navigates to it; an expired token has already triggered a fresh email server-side.
  */
 const OpenDocumentLink = (): JSX.Element => {
-  const { linkToken } = useParams<{ linkToken: string }>();
+  // The token rides in the fragment so it never reaches a server log; only this page ever reads it.
+  const linkToken = useLocation().hash.replace(/^#/, '') || undefined;
   const zambdaClient = useUCZambdaClient({ tokenless: true });
   const theme = useTheme();
   const [state, setState] = useState<LinkState>({ status: 'loading' });

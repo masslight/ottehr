@@ -190,7 +190,7 @@ export const intakeFlowPageRoute = {
     getPage: () => <CallEndedPage />,
   },
   OpenDocumentLink: {
-    path: '/documents/:linkToken',
+    path: '/documents',
     getPage: () => <OpenDocumentLink />,
   },
 
