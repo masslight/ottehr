@@ -9,19 +9,11 @@ import { FC, useEffect, useRef, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { cleanUncheckedFromMarkdown, hasUncheckedInMarkdown, normalizeMarkdown } from 'src/helpers/rosMarkdown';
-import { useChartFields } from './shared/hooks/useChartFields';
+import { useChartSection } from './shared/hooks/useChartSection';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 
 export const RosField: FC = () => {
-  const {
-    data: chartDataFields,
-    isFetching,
-    isFetched,
-  } = useChartFields({
-    requestedFields: {
-      ros: { _tag: 'ros' },
-    },
-  });
+  const { data: chartDataFields, isFetching, isFetched } = useChartSection('encounterNotes');
 
   const {
     onValueChange: onRosChange,
@@ -271,11 +263,7 @@ export const RosField: FC = () => {
 };
 
 export const RosFieldReadOnly: FC = () => {
-  const { data: chartFields } = useChartFields({
-    requestedFields: {
-      ros: { _tag: 'ros' },
-    },
-  });
+  const { data: chartFields } = useChartSection('encounterNotes');
 
   const ros = chartFields?.ros?.text;
 
