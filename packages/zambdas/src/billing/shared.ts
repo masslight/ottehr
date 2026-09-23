@@ -21,6 +21,7 @@ import {
   Coverage,
   DocumentReference,
   DomainResource,
+  Encounter,
   FhirResource,
   Identifier,
   List,
@@ -54,6 +55,12 @@ import {
 } from 'utils/lib/fhir/constants';
 import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
 import {
+  getPaymentVariantFromEncounter,
+  getVisitOccupationalMedicineEmployerFromEncounter,
+  PaymentVariant,
+} from 'utils/lib/fhir/encounter';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import {
   buildCoverageSubscriberRelatedPerson,
   createCoverageMemberIdentifier,
   getNPI,
@@ -63,13 +70,14 @@ import {
 } from 'utils/lib/fhir/helpers';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
+import { extractNioIdFromReferenceUrl, getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
 import {
   CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+  CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
@@ -101,12 +109,17 @@ import {
 } from 'utils/lib/types/data/billing/claim-status';
 import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
-import { SYSTEM_MANAGED_TAGS, SystemManagedTag } from 'utils/lib/types/data/billing/system-tags';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { sendErrors } from '../shared/errors';
 import { fetchAllPages } from '../shared/fhir';
+import {
+  getCustomInsuranceOrgBusinessId,
+  isCustomInsuranceOrganization,
+  resolvePayerOrganization,
+} from './custom-insurance-org.helpers';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
 import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';
 
@@ -208,7 +221,8 @@ export function ensureClaimInsurance(insurance?: Claim['insurance']): NonNullabl
     .map((entry, idx) => ({ ...entry, sequence: idx + 1, focal: idx === 0 }));
 }
 
-// Resolve Oystehr payer list URLs to payer Organizations via the RCM service
+// Resolve payer references — Oystehr RCM payer list URLs, or a billing-app custom insurance
+// organization's direct Organization/{id} reference (see buildPayorReference) — to their Organizations.
 export async function resolvePayersByRef(
   oystehr: Oystehr,
   refs: (string | undefined)[]
@@ -217,9 +231,12 @@ export async function resolvePayersByRef(
   const uniqueRefs = [...new Set(refs.filter((r): r is string => !!r))];
   await Promise.all(
     uniqueRefs.map(async (ref) => {
-      if (!isPayerUrl(ref)) return;
       try {
-        byRef.set(ref, await oystehr.rcm.getPayerByUrl({ url: ref }));
+        if (isPayerUrl(ref)) {
+          byRef.set(ref, await oystehr.rcm.getPayerByUrl({ url: ref }));
+        } else if (ref.startsWith('Organization/')) {
+          byRef.set(ref, await resolvePayerOrganization(oystehr, ref.slice('Organization/'.length)));
+        }
       } catch (err) {
         console.error(`Failed to resolve payer ${ref}:`, err);
       }
@@ -228,11 +245,18 @@ export async function resolvePayersByRef(
   return byRef;
 }
 
+// The identifier shown as a payer's "Payer ID" — the RCM identifier, or for a billing-app custom
+// insurance organization (which has no RCM identifier), its "OTR-" business id.
+export function resolvedPayerId(org: Organization | undefined): string | undefined {
+  if (!org) return undefined;
+  return getPayerId(org) ?? (isCustomInsuranceOrganization(org) ? getCustomInsuranceOrgBusinessId(org) : undefined);
+}
+
 // Payer display string used across billing: "Name (Payer ID)".
 export function payerDisplay(org: Organization | undefined): string | undefined {
   if (!org) return undefined;
   const name = org.name ?? '';
-  const payerId = getPayerId(org) ?? '';
+  const payerId = resolvedPayerId(org) ?? '';
   if (name && payerId) return `${name} (${payerId})`;
   return name || payerId || undefined;
 }
@@ -522,52 +546,25 @@ export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string | u
 
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
-export const TAG_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
 
-// A tag definition is system-managed iff its name (code.text) is in SYSTEM_MANAGED_TAGS — the name
-// is the tag's identity everywhere tags are referenced (claim meta tags, rules), and the
-// code-defined list is the single source of truth. A definition whose name leaves the list (e.g.
-// after a system tag is renamed in code) degrades to an ordinary, editable/deletable tag. The
-// is-system-tag extension written by systemTagBasic records provenance only and deliberately does
-// not drive behavior.
 export function isSystemTag(tag: Basic): boolean {
   return isSystemManagedTagName(tag.code?.text);
-}
-
-// The one FHIR encoding of a system-managed tag definition (see utils' SYSTEM_MANAGED_TAGS).
-export function systemTagBasic(def: SystemManagedTag): Basic {
-  return {
-    resourceType: 'Basic',
-    code: { text: def.name, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
-    extension: [
-      { url: TAG_DESCRIPTION_URL, valueString: def.description },
-      { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
-    ],
-  };
-}
-
-// Create the Basic definition of any system-managed tag that doesn't have one yet. Callers decide
-// whether a failure matters — seeding is cosmetic (search-billing-tags reports system-managed tags
-// whether or not their Basics exist).
-export async function ensureSystemManagedTags(oystehr: Oystehr): Promise<void> {
-  const defined = await fetchDefinedTagNames(oystehr);
-  const missing = SYSTEM_MANAGED_TAGS.filter((def) => !defined.has(def.name));
-  await Promise.all(missing.map((def) => oystehr.fhir.create<Basic>(systemTagBasic(def))));
 }
 
 // All tag definitions in the tags feature (Basic resources; the name lives in code.text), newest
 // first. The one search behind both the Tags page (search-billing-tags) and the tag-existence
 // validations, so the two can't diverge.
 export async function searchTagBasics(oystehr: Oystehr): Promise<Basic[]> {
-  const bundle = await oystehr.fhir.search<Basic>({
-    resourceType: 'Basic',
-    params: [
-      { name: 'code', value: `${TAG_CODE_SYSTEM}|tag` },
-      { name: '_sort', value: '-_lastUpdated' },
-      { name: '_count', value: '200' },
-    ],
-  });
-  return bundle.unbundle();
+  return getAllFhirSearchPages<Basic>(
+    {
+      resourceType: 'Basic',
+      params: [
+        { name: 'code', value: `${TAG_CODE_SYSTEM}|tag` },
+        { name: '_sort', value: '-_lastUpdated' },
+      ],
+    },
+    oystehr
+  );
 }
 
 // Names of the defined tags — used to validate tag references before they are written onto claims
@@ -595,21 +592,56 @@ export function deriveClaimBillablePeriod(items: ClaimItem[] | undefined): Perio
   return start ? { start, end } : undefined;
 }
 
+// A claim built from an encounter reflects the encounter's actual course of care rather than its
+// service lines: billablePeriod.start is when the visit first became billable (arrived, falling back
+// to intake, falling back to provider, in case an earlier status was never recorded), and
+// billablePeriod.end is when the visit was discharged. Uses the most recent occurrence of each status
+// since a visit's status can move backward and forward through the same status more than once.
+export function deriveClaimBillablePeriodFromEncounter(encounter: Encounter): Period | undefined {
+  const statusHistory = getVisitStatusHistory(encounter);
+  const start =
+    statusHistory.findLast((entry) => entry.status === 'arrived')?.period.start ??
+    statusHistory.findLast((entry) => entry.status === 'intake')?.period.start ??
+    statusHistory.findLast((entry) => entry.status === 'provider')?.period.start;
+  const end = statusHistory.findLast((entry) => entry.status === 'discharged')?.period.start;
+  return start ? { start, end } : undefined;
+}
+
 // Re-point careTeam sequence 1 (the rendering provider) at `provider`, preserving other members,
 // and point every service line at it. The one careTeam shape both the claim editor
 // (update-billing-claim) and the rules engine write.
+// Mark rendering provider as an attending provider.
 export function setClaimRenderingProviderCareTeam(claim: Claim, provider: Reference): void {
   claim.careTeam = [
     {
       sequence: 1,
       provider,
-      role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
+      role: {
+        coding: [
+          {
+            system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+            code: '82',
+          },
+        ],
+      },
     },
-    ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
+    {
+      sequence: 2,
+      provider,
+      role: {
+        coding: [
+          {
+            system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+            code: '71',
+          },
+        ],
+      },
+    },
+    ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1 && member.sequence !== 2),
   ];
   claim.item = claim.item?.map((item) => ({
     ...item,
-    careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
+    careTeamSequence: Array.from(new Set([1, 2, ...(item.careTeamSequence ?? [])])),
   }));
 }
 
@@ -1123,6 +1155,8 @@ const CopyableProperties: ResourceProperties<CopyableBillingResource> = {
     'relationship',
     'class',
     'type',
+    // extension carries the insurance type for oystehr rcm service
+    'extension',
   ],
   // extension carries the CMS place-of-service and timezone, which claim building derives from.
   Location: ['resourceType', 'extension', 'identifier', 'address', 'description', 'name', 'telecom', 'type'],
@@ -1198,7 +1232,7 @@ export function getClaimService(claim: Claim): string | undefined {
 // aligned. The one intentional difference: the subscriber RelatedPerson is persisted standalone here
 // (so it can be searched), whereas harvest contains it on the Coverage.
 
-function buildPayorReference(payerOrg: Organization): string {
+export function buildPayorReference(payerOrg: Organization): string {
   const payerId = getPayerId(payerOrg);
   if (isValidUUID(payerOrg.id ?? '')) return `Organization/${payerOrg.id}`;
   if (!payerId) throw new Error('payerId unexpectedly missing from payer organization');
@@ -1224,13 +1258,17 @@ export function buildSubscriberRelatedPerson(
 
 // Set payor reference + coverage class + member-id identifier from a payer Organization.
 export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, memberId: string): void {
-  const payerId = getPayerId(payerOrg);
-  if (!payerId) throw new Error('payerId unexpectedly missing from payer organization');
+  // A UUID-backed org (RCM payer with a real FHIR resource, or a custom insurance organization)
+  // references itself directly and doesn't need an RCM payer id; only a pure RCM payer (no backing
+  // resource) requires one, since buildPayorReference falls back to an RCM payer URL for it.
+  const payerId = resolvedPayerId(payerOrg);
+  if (!payerId && !isValidUUID(payerOrg.id ?? ''))
+    throw new Error('payerId unexpectedly missing from payer organization');
   coverage.payor = [{ reference: buildPayorReference(payerOrg) }];
   coverage.class = [
     {
       type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] },
-      value: payerId,
+      value: payerId ?? '',
       name: payerOrg.name ?? '',
     },
   ];
@@ -1336,6 +1374,51 @@ export function findPatientBillingAccount(accounts: Account[]): Account | undefi
 
 export function findPatientWorkersCompAccount(accounts: Account[]): Account | undefined {
   return accounts.find((acc) => accountMatchesCode(acc, 'WCOMPACCT'));
+}
+
+// Share coverage selection between claim creation and the queue.
+export function selectClaimCoverages(
+  service: string | undefined,
+  accounts: Account[],
+  coverages: Coverage[],
+  sourceReference: (coverage: Coverage) => string | undefined
+): Coverage[] {
+  const workersComp = service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp'];
+  const account =
+    service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care']
+      ? findPatientBillingAccount(accounts)
+      : workersComp
+      ? findPatientWorkersCompAccount(accounts)
+      : undefined;
+  const selected = new Map<number, Coverage | undefined>();
+  for (const entry of account?.coverage ?? []) {
+    const coverage = coverages.find((c) => sourceReference(c) === entry.coverage.reference);
+    if (workersComp) {
+      if (coverage) selected.set(1, coverage);
+    } else if (entry.priority && [1, 2, 3, 4].includes(entry.priority)) {
+      selected.set(entry.priority, coverage);
+    }
+  }
+  return [1, 2, 3, 4].flatMap((priority) => selected.get(priority) ?? []);
+}
+
+export function findOccupationalMedicineAccount(accounts: Account[]): Account | undefined {
+  return accounts.find((account) => accountMatchesCode(account, 'OCCUPATIONALMEDICINEACCT'));
+}
+
+export function isEmployerBilledVisit(service: string | undefined, encounter: Encounter): boolean {
+  return (
+    service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['occupational-medicine'] ||
+    getPaymentVariantFromEncounter(encounter) === PaymentVariant.employer
+  );
+}
+
+export function getNonInsurancePayerReference(encounter: Encounter, account?: Account): Reference | undefined {
+  const employer = getVisitOccupationalMedicineEmployerFromEncounter(encounter) ?? account?.owner;
+  const nioId = extractNioIdFromReferenceUrl(employer?.reference);
+  return nioId
+    ? { reference: `Organization/${nioId}`, ...(employer?.display ? { display: employer.display } : {}) }
+    : undefined;
 }
 
 // A coverage's insurance type is determined by which account holds it (PBILLACCT priority 1/2 or the

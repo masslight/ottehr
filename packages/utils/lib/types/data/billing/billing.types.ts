@@ -1,3 +1,4 @@
+import { Task } from 'fhir/r4b';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import type { EraClaimStatusCode, X12AdjustmentGroupCode } from './billing.constants';
@@ -285,6 +286,7 @@ export interface BillingClaimItem {
   patientDob: string;
   payerName: string;
   payerId: string;
+  nonInsurancePayerName: string;
   memberId: string;
   service: string | undefined;
   serviceDate: string;
@@ -523,6 +525,25 @@ export interface SearchBillingClaimsResponse extends Paginated {
   incomplete?: boolean;
 }
 
+export interface BillingClaimTaskItem {
+  id: string;
+  status: Task['status'];
+  encounterId?: string;
+  encounterDate?: string;
+  appointmentId?: string;
+  patientId?: string;
+  patientName?: string;
+  payerNames: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  error?: string;
+}
+
+export interface SearchBillingClaimTasksResponse extends Paginated {
+  tasks: BillingClaimTaskItem[];
+  incomplete?: boolean;
+}
+
 export interface BillingClaimsExportKickOffResponse {
   taskId: string;
 }
@@ -587,6 +608,8 @@ export interface SearchBillingServicesResponse {
 
 export interface SearchBillingPayersResponse {
   payers: BillingPayerOption[];
+  // Present when listing (no name/payerId filter) — pass back as `cursor` to fetch the next page.
+  nextCursor?: string | null;
 }
 
 export interface SearchCodeResponse {
@@ -615,6 +638,17 @@ export interface PaymentsReportWaterfallCell {
   // 'YYYY-MM' of the ERA check date
   checkMonth: string;
   paid: number;
+}
+
+// One cached run of a report kind; params re-request that run (dateFrom/dateTo for windowed kinds)
+export interface BillingReportHistoryEntry {
+  params: Record<string, unknown>;
+  generatedAt: string;
+  sizeBytes: number;
+}
+
+export interface GetBillingReportHistoryResponse {
+  entries: BillingReportHistoryEntry[];
 }
 
 // Refresh state of a cached billing report.
@@ -950,4 +984,9 @@ export interface AddClaimAttachmentResponse {
 
 export interface DownloadClaimAttachmentResponse {
   downloadUrl: string;
+}
+
+export interface CreateTimelyFilingReportResponse {
+  fileName: string;
+  pdfBase64: string;
 }

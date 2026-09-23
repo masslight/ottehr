@@ -1,9 +1,20 @@
+import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
-import { describe, expect, it } from 'vitest';
 import {
+  CUSTOM_INSURANCE_ORG_ID_SYSTEM,
+  CUSTOM_INSURANCE_ORG_KIND_CODE,
+} from 'utils/lib/types/data/billing/custom-insurance-org.types';
+import {
+  CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
+  NIO_ORGANIZATION_KIND_SYSTEM,
+} from 'utils/lib/types/data/billing/non-insurance-org.types';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  buildClaimFilterParams,
   CLAIM_LIST_ELEMENTS,
   claimMatchesServiceDateRange,
   getClaimServiceDate,
@@ -58,6 +69,97 @@ const makeLookups = (
   coverages: [],
   claimResponsesByClaimId,
   patientPaidByClaimId,
+});
+
+describe('buildClaimFilterParams: non-insurance payer', () => {
+  it('filters by the NIO meta.tag mirror', async () => {
+    const nioId = '5b0261af-71c6-4f7e-9a51-e0d16a468980';
+    const params = await buildClaimFilterParams({
+      oystehr: {} as unknown as Oystehr,
+      params: { nonInsurancePayerId: nioId },
+    });
+    expect(params).toContainEqual({
+      name: '_tag',
+      value: `${CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM}|${nioId}`,
+    });
+  });
+});
+
+describe('buildClaimFilterParams: payer', () => {
+  it('builds an RCM payer URL insurer filter for an ordinary payerId, without any FHIR lookup', async () => {
+    const search = vi.fn();
+    const params = await buildClaimFilterParams({
+      oystehr: { fhir: { search } } as unknown as Oystehr,
+      params: { payerId: 'PAYER1' },
+    });
+    expect(params).toContainEqual({ name: 'insurer', value: getPayerUrl('PAYER1') });
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it('resolves a business-id-shaped payerId to the custom org and filters by its Organization reference', async () => {
+    const search = vi.fn().mockResolvedValue({ unbundle: () => [{ resourceType: 'Organization', id: 'org-uuid' }] });
+    const params = await buildClaimFilterParams({
+      oystehr: { fhir: { search } } as unknown as Oystehr,
+      params: { payerId: 'OTR-ACME' },
+    });
+    expect(params).toContainEqual({ name: 'insurer', value: 'Organization/org-uuid' });
+  });
+
+  it('throws when a business-id-shaped payerId matches no custom insurance organization', async () => {
+    const search = vi.fn().mockResolvedValue({ unbundle: () => [] });
+    await expect(
+      buildClaimFilterParams({
+        oystehr: { fhir: { search } } as unknown as Oystehr,
+        params: { payerId: 'OTR-UNKNOWN' },
+      })
+    ).rejects.toThrow();
+  });
+});
+
+describe('mapClaimToItem: payer columns', () => {
+  it('shows the stamped non-insurance payer in its own column, never under payerName', () => {
+    const claim = {
+      ...makeClaim('claim-1', 100),
+      extension: [
+        {
+          url: 'https://fhir.ottehr.com/billing/non-insurance-payer',
+          valueReference: { reference: 'Organization/nio-1', display: 'FedEx' },
+        },
+      ],
+    } as Claim;
+    const item = mapClaimToItem(claim, makeLookups(new Map()));
+    expect(item.nonInsurancePayerName).toBe('FedEx');
+    expect(item.payerName).toBe('');
+  });
+
+  it('leaves both payer columns blank when the claim has neither insurer nor non-insurance payer', () => {
+    const item = mapClaimToItem(makeClaim('claim-1', 100), makeLookups(new Map()));
+    expect(item.payerName).toBe('');
+    expect(item.nonInsurancePayerName).toBe('');
+  });
+
+  it('shows a custom insurance organization payer by name and business id', () => {
+    const payerOrgId = 'a1b2c3d4-1111-4111-8111-abcdefabcdef';
+    const claim = {
+      ...makeClaim('claim-1', 100),
+      insurer: { reference: `Organization/${payerOrgId}` },
+    } as Claim;
+    const customOrg = {
+      resourceType: 'Organization',
+      id: payerOrgId,
+      name: 'Acme Custom Insurance',
+      type: [{ coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: CUSTOM_INSURANCE_ORG_KIND_CODE }] }],
+      identifier: [{ system: CUSTOM_INSURANCE_ORG_ID_SYSTEM, value: 'OTR-ACME' }],
+    } as unknown as Organization;
+
+    const item = mapClaimToItem(claim, {
+      ...makeLookups(new Map()),
+      payersByRef: new Map([[`Organization/${payerOrgId}`, customOrg]]),
+    });
+
+    expect(item.payerName).toBe('Acme Custom Insurance');
+    expect(item.payerId).toBe('OTR-ACME');
+  });
 });
 
 describe('mapClaimToItem: patient payments', () => {

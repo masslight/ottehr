@@ -16,13 +16,16 @@ import { useEvolveUser } from './hooks/useEvolveUser';
 import { BillingProviderDetail, BillingProvidersList } from './pages/BillingProviders';
 import CardsOnFileReport from './pages/CardsOnFileReport';
 import { ChargeItemDefinitionDetail, ChargeItemDefinitionList } from './pages/ChargeItemDefinitionsList';
+import ClaimCreationQueue from './pages/ClaimCreationQueue';
 import ClaimDetail from './pages/ClaimDetail';
 import ClaimsList from './pages/ClaimsList';
 import CreateClaim from './pages/CreateClaim';
 import EraClaimDetail from './pages/EraClaimDetail';
 import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
+import { CustomInsuranceOrganizationDetail, InsuranceOrganizationsList } from './pages/InsuranceOrganizations';
 import InvoiceReport from './pages/InvoiceReport';
+import { NonInsuranceOrganizationDetail, NonInsuranceOrganizationsList } from './pages/NonInsuranceOrganizations';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
 import PaymentsReport from './pages/PaymentsReport';
@@ -77,16 +80,21 @@ export default function App(): ReactElement {
               {/* <Route path="/" element={<Dashboard />} /> */}
               <Route path="/" element={<Navigate to="/claims" replace />} />
               <Route path="/claims" element={<ClaimsList />} />
+              <Route path="/claim-creation-queue" element={<ClaimCreationQueue />} />
               <Route path="/claims/new" element={<CreateClaim />} />
               <Route path="/claims/:id" element={<ClaimDetail />} />
               <Route path="/patients" element={<PatientsList />} />
               <Route path="/patients/:id" element={<PatientDetail />} />
+              <Route path="/insurance-organizations" element={<InsuranceOrganizationsList />} />
+              <Route path="/insurance-organizations/:id" element={<CustomInsuranceOrganizationDetail />} />
               <Route path="/billing-providers" element={<BillingProvidersList />} />
               <Route path="/billing-providers/:id" element={<BillingProviderDetail />} />
               <Route path="/rendering-providers" element={<RenderingProvidersList />} />
               <Route path="/rendering-providers/:id" element={<RenderingProviderDetail />} />
               <Route path="/service-facilities" element={<ServiceFacilitiesList />} />
               <Route path="/service-facilities/:id" element={<ServiceFacilityDetail />} />
+              <Route path="/non-insurance-organizations" element={<NonInsuranceOrganizationsList />} />
+              <Route path="/non-insurance-organizations/:id" element={<NonInsuranceOrganizationDetail />} />
               <Route
                 path={`/${ChargeItemDefinitionLabels['charge-master'].pathComponent}`}
                 element={<ChargeItemDefinitionList type="charge-master" />}

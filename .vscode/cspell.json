@@ -37,7 +37,7 @@
     "packages/zambdas/src/scripts/data/insurance-payers-WITH-ERROR-LINES.csv",
     "packages/zambdas/src/scripts/data/lowers_practitioners.json",
     "packages/zambdas/test/data/questionnaire-responses.json",
-    "scripts/data/payers-addresses.csv",
+    "scripts/data/payers-addresses.csv"
   ],
   "flagWords": ["hte"],
   "ignoreRegExpList": ["/\\..*\\(\\(([^)]+)\\)\\s*=>/"],
@@ -60,6 +60,7 @@
     "champus",
     "chartjs",
     "checkin",
+    "claimmd",
     "clav",
     "clia",
     "clinitek",

@@ -10,7 +10,6 @@ import {
   Edit as EditIcon,
   EditOutlined as EditOutlinedIcon,
   FileDownloadOutlined as FileDownloadIcon,
-  FileUpload as FileUploadIcon,
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
   Save as SaveIcon,
@@ -33,10 +32,9 @@ import {
   FormControl,
   FormControlLabel,
   FormHelperText,
-  Grid,
   IconButton,
   InputLabel,
-  ListItem,
+  Link as MuiLink,
   ListItemIcon,
   ListItemText,
   Menu,
@@ -55,12 +53,12 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import Dropzone, { DropzoneProps } from 'react-dropzone';
-import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
-import { useNavigate, useParams } from 'react-router-dom';
-import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES } from 'utils';
+import { Controller, FormProvider, useForm } from 'react-hook-form';
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
@@ -98,6 +96,7 @@ import {
   addClaimAttachment,
   createBillingCoverage,
   createBillingProvider,
+  createTimelyFilingReport,
   deleteClaimAttachment,
   downloadClaimAttachment,
   exportClaimX12,
@@ -123,11 +122,13 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
 import { DateInput } from '../components/DateInput';
+import { DropzoneField } from '../components/DropzoneField';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import {
   InstitutionalClaimAdditionalFields,
   InstitutionalClaimAdditionalFieldsData,
 } from '../components/InstitutionalClaimAdditionalFields';
+import { NioOption, NioSelect } from '../components/NioSelect';
 import { ProviderDetailForm } from '../components/ProviderDetailSection';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
@@ -148,6 +149,7 @@ import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
 import { otherColors } from '../themes/ottehr/colors';
+import { downloadBase64File } from '../utils/downloadFile';
 import { formatDate, formatDateTime } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
 
@@ -180,6 +182,7 @@ export default function ClaimDetail(): ReactElement {
   const [tab, setTab] = useState('1');
   const [exportOpen, setExportOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [buildingReport, setBuildingReport] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
   const [editingHeader, setEditingHeader] = useState(false);
   const [savingHeader, setSavingHeader] = useState(false);
@@ -212,6 +215,27 @@ export default function ClaimDetail(): ReactElement {
   useEffect(() => {
     void fetchDetail();
   }, [fetchDetail]);
+
+  const onCreateTimelyFilingReport = useCallback(async () => {
+    if (!oystehrZambda || !id) return;
+    setBuildingReport(true);
+    try {
+      const { fileName, pdfBase64 } = await createTimelyFilingReport(oystehrZambda, {
+        claimId: id,
+      });
+      downloadBase64File(fileName, pdfBase64, 'application/pdf');
+    } catch (err) {
+      enqueueSnackbar(
+        getApiError({
+          error: err,
+          defaultError: 'Failed to create the timely filing report',
+        }),
+        { variant: 'error' }
+      );
+    } finally {
+      setBuildingReport(false);
+    }
+  }, [oystehrZambda, id]);
 
   useEffect(() => {
     setShowCoverageMap({
@@ -495,6 +519,16 @@ export default function ClaimDetail(): ReactElement {
         <Button
           size="small"
           variant="outlined"
+          startIcon={<DescriptionIcon />}
+          onClick={() => void onCreateTimelyFilingReport()}
+          disabled={buildingReport}
+          sx={{ mt: 0.5 }}
+        >
+          {buildingReport ? 'Building…' : 'Timely Filing Report'}
+        </Button>
+        <Button
+          size="small"
+          variant="outlined"
           startIcon={<StickyNote2Icon />}
           onClick={() => setNotesOpen(true)}
           sx={{ mt: 0.5 }}
@@ -659,6 +693,7 @@ export default function ClaimDetail(): ReactElement {
             ) : (
               <></>
             )}
+            <NonInsurancePayerSection claim={claim} updateResource={updateResource} />
             <RenderingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
             <FacilitySection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
             <BillingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
@@ -965,6 +1000,130 @@ export function InsuranceSection({
   );
 }
 
+export function NonInsurancePayerSection({
+  claim,
+  updateResource,
+}: {
+  claim: ClaimDetailResponse;
+  updateResource: UpdateFn;
+}): ReactElement {
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
+  const currentPayer = useMemo<NioOption | null>(
+    () =>
+      claim.nonInsurancePayerFhirId
+        ? {
+            id: claim.nonInsurancePayerFhirId,
+            name: claim.nonInsurancePayerName || claim.nonInsurancePayerFhirId,
+          }
+        : null,
+    [claim.nonInsurancePayerFhirId, claim.nonInsurancePayerName]
+  );
+  const [selectedId, setSelectedId] = useState<string>(currentPayer?.id ?? '');
+  useEffect(() => {
+    setSelectedId(currentPayer?.id ?? '');
+  }, [currentPayer]);
+
+  const handleSave = async (): Promise<string | null> => {
+    if (!selectedId) return 'Choose a non-insurance organization';
+    return updateResource('Claim', claim.id, { nonInsurancePayer: { id: selectedId } });
+  };
+
+  const handleRemove = async (): Promise<void> => {
+    setRemoving(true);
+    setRemoveError(null);
+    const err = await updateResource('Claim', claim.id, { nonInsurancePayer: null });
+    setRemoving(false);
+    setConfirmingRemove(false);
+    if (err) setRemoveError(err);
+  };
+
+  const hasPayer = Boolean(claim.nonInsurancePayerFhirId || claim.nonInsurancePayerName);
+
+  return (
+    <EditableSection
+      title="Non-insurance Payer"
+      onSave={handleSave}
+      onCancel={() => setSelectedId(currentPayer?.id ?? '')}
+      editForm={
+        <Box sx={{ maxWidth: 480 }}>
+          <NioSelect
+            multiple={false}
+            activeOnly
+            value={selectedId}
+            onChange={(v) => setSelectedId(typeof v === 'string' ? v : v[0] ?? '')}
+            label={hasPayer ? 'Payer' : 'Choose payer'}
+            initialOptions={currentPayer ? [currentPayer] : []}
+          />
+        </Box>
+      }
+    >
+      {hasPayer ? (
+        <Box sx={{ display: 'flex', py: 0.75 }}>
+          <Typography variant="body2" color="primary.dark" sx={{ width: 180, flexShrink: 0 }}>
+            Payer
+          </Typography>
+          {claim.nonInsurancePayerFhirId ? (
+            <MuiLink
+              component={RouterLink}
+              to={`/non-insurance-organizations/${claim.nonInsurancePayerFhirId}`}
+              variant="body2"
+              sx={{ fontWeight: 500 }}
+            >
+              {claim.nonInsurancePayerName || claim.nonInsurancePayerFhirId}
+            </MuiLink>
+          ) : (
+            <Typography variant="body2">{claim.nonInsurancePayerName}</Typography>
+          )}
+        </Box>
+      ) : (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
+          No non-insurance payer specified
+        </Typography>
+      )}
+      {hasPayer && (
+        <Box sx={{ mt: 1.5 }}>
+          {removeError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {removeError}
+            </Alert>
+          )}
+          {confirmingRemove ? (
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Remove payer?
+              </Typography>
+              <Button size="small" onClick={() => setConfirmingRemove(false)} disabled={removing}>
+                Cancel
+              </Button>
+              <Button
+                size="small"
+                color="error"
+                variant="contained"
+                onClick={() => void handleRemove()}
+                disabled={removing}
+              >
+                {removing ? 'Removing...' : 'Confirm'}
+              </Button>
+            </Box>
+          ) : (
+            <Button
+              size="small"
+              color="error"
+              startIcon={<DeleteOutlineIcon fontSize="small" />}
+              onClick={() => setConfirmingRemove(true)}
+            >
+              Remove payer
+            </Button>
+          )}
+        </Box>
+      )}
+    </EditableSection>
+  );
+}
+
 function RenderingProviderSection({
   claim,
   updateResource,
@@ -1265,8 +1424,8 @@ function InstitutionalClaimAdditionalFieldsSection({
         patientDischargeStatusCode: data.patientDischargeStatusCode,
         admissionType: data.admissionType,
         admissionSource: data.admissionSource,
-        admissionDate: data.admissionDate,
-        dischargeDate: data.dischargeDate,
+        admissionDate: DateTime.fromISO(data.admissionDate).toLocal().toISO() ?? data.admissionDate,
+        dischargeDate: DateTime.fromISO(data.dischargeDate).toLocal().toISO() ?? data.dischargeDate,
       });
       if (error) return error;
       return null;
@@ -1394,6 +1553,7 @@ function ServiceLinesSection({
     for (const row of rows) {
       if (!row.cptCode.trim()) return 'Each service line needs a CPT code';
       if (!row.serviceDate) return 'Each service line needs a date of service';
+      if (!row.placeOfService.trim()) return 'Each service line needs a place of service';
       if (!(Number(row.units) > 0)) return 'Units must be a positive number';
       if (row.charges.trim() === '' || !Number.isFinite(Number(row.charges))) return 'Charges must be a number';
     }
@@ -1408,7 +1568,7 @@ function ServiceLinesSection({
           units: Number(row.units),
           charges: Number(row.charges),
           serviceDate: row.serviceDate,
-          ...(row.placeOfService.trim() ? { placeOfService: row.placeOfService.trim() } : {}),
+          placeOfService: row.placeOfService.trim(),
           ...(modifiers.length ? { modifiers } : {}),
           ...(row.diagnosisPointers.length ? { diagnosisPointers: row.diagnosisPointers } : {}),
           revenueCode: row.revenueCode,
@@ -1476,95 +1636,6 @@ function ServiceLinesSection({
   );
 }
 
-const DropzoneField = ({
-  name,
-  multiple,
-  required,
-  ...rest
-}: {
-  name: string;
-  multiple: boolean;
-  required?: boolean;
-} & Omit<DropzoneProps, 'multiple' | 'onDrop'>): ReactElement => {
-  const { control } = useFormContext();
-  return (
-    <Controller
-      name={name}
-      control={control}
-      rules={required ? { required: REQUIRED_FIELD_ERROR_MESSAGE } : undefined}
-      render={({ field: { value, onChange, onBlur }, fieldState: { error: fieldError } }) => (
-        <>
-          {!value ? (
-            <></>
-          ) : (
-            <ListItem disablePadding disableGutters>
-              <ListItemIcon sx={{ minWidth: 0, mr: 1.5 }}>
-                <DescriptionIcon />
-              </ListItemIcon>
-              <ListItemText primary={value.name} />
-            </ListItem>
-          )}
-          <Dropzone
-            onDrop={(acceptedFiles) => {
-              onChange(multiple ? acceptedFiles : acceptedFiles[0]);
-            }}
-            {...rest}
-          >
-            {({ getRootProps, getInputProps, isDragActive }) => {
-              return (
-                <Card
-                  variant="outlined"
-                  component="div"
-                  elevation={0}
-                  sx={{
-                    px: 4,
-                    backgroundColor: 'lightgrey',
-                  }}
-                  {...getRootProps()}
-                >
-                  <CardContent>
-                    <Box
-                      component="input"
-                      {...getInputProps({
-                        onBlur,
-                      })}
-                    />
-                    <Grid
-                      item
-                      container
-                      direction="column"
-                      justifyContent="center"
-                      alignItems="strech"
-                      rowGap={2}
-                      wrap="nowrap"
-                    >
-                      <Grid item xs={12}>
-                        <Stack direction="column" width="100%" justifyContent="center" alignItems="center" gap={1}>
-                          <FileUploadIcon />
-                          <Typography variant="body1" component="p" textAlign="center">
-                            {isDragActive ? 'Drop file here to upload' : 'Click here or drag file to upload'}
-                          </Typography>
-                          {fieldError ? (
-                            <FormHelperText id={`dropzone-helper-text`} error={true}>
-                              {fieldError?.message}
-                            </FormHelperText>
-                          ) : (
-                            <></>
-                          )}
-                        </Stack>
-                      </Grid>
-                    </Grid>
-                  </CardContent>
-                </Card>
-              );
-            }}
-          </Dropzone>
-        </>
-      )}
-    />
-  );
-};
-
 function AttachmentsSection({
   claim,
   refetchClaim,
@@ -1588,6 +1659,8 @@ function AttachmentsSection({
     reset: addReset,
     handleSubmit: addFormHandleSubmit,
     formState: { isSubmitting: addFormIsSubmitting },
+    watch: addFormWatch,
+    setValue: addFormSetValue,
   } = addFormMethods;
   const renameFormMethods = useForm({ defaultValues: { name: '' } });
   const {
@@ -1607,8 +1680,18 @@ function AttachmentsSection({
     setAnchorEl(null);
   };
 
+  const addFormSelectedFile = addFormWatch('file');
+  const addFormName = addFormWatch('name');
+  useEffect(() => {
+    if (addFormName || !addFormSelectedFile) return;
+    addFormSetValue('name', addFormSelectedFile.name);
+  });
+
   const openAddDialog = (): void => {
-    addReset({ name: '', reportTypeCode: 'OZ' });
+    addReset({
+      name: '',
+      reportTypeCode: DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE,
+    });
     setShowAddDialog(true);
   };
   const closeAddDialog = (): void => {
@@ -1630,6 +1713,7 @@ function AttachmentsSection({
       const { uploadUrl } = await addClaimAttachment(oystehrZambda, {
         claimId: claim.id,
         name,
+        fileName: file.name,
         reportTypeCode: reportTypeCode ? reportTypeCode : undefined,
       });
       await fetch(uploadUrl, {
@@ -1720,10 +1804,11 @@ function AttachmentsSection({
                     <TableCell>{line.sequence}</TableCell>
                     <TableCell>{line.fileName}</TableCell>
                     <TableCell>
-                      {line.reportTypeCode ?? 'OZ'} &mdash;{' '}
+                      {line.reportTypeCode ?? DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE} &mdash;{' '}
                       {
-                        CLAIM_ATTACHMENT_REPORT_TYPE_CODES.find(({ code }) => code === (line.reportTypeCode ?? 'OZ'))
-                          ?.label
+                        CLAIM_ATTACHMENT_REPORT_TYPE_CODES.find(
+                          ({ code }) => code === (line.reportTypeCode ?? DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE)
+                        )?.label
                       }
                     </TableCell>
                     <TableCell>{formatDateTime(line.dateAdded)}</TableCell>
@@ -1860,7 +1945,12 @@ function AttachmentsSection({
                     </FormControl>
                   )}
                 />
-                <DropzoneField name="file" multiple={false} required={true} />
+                <DropzoneField
+                  name="file"
+                  multiple={false}
+                  required={true}
+                  accept={{ 'image/*': ['.jpeg', '.jpg', '.png'], 'application/pdf': ['.pdf'] }}
+                />
               </Box>
             </Box>
           </FormProvider>

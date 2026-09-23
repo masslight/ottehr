@@ -1,10 +1,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { VisitType } from 'config-types';
 import { Patient } from 'fhir/r4b';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ConvertFromVisit } from '../../src/features/visits/shared/components/patient/AddPatientFollowup';
 import ScheduledFollowupParentSelector from '../../src/features/visits/shared/components/patient/ScheduledFollowupParentSelector';
 
 const navigateMock = vi.fn();
@@ -25,6 +29,28 @@ vi.mock('../../src/features/visits/shared/components/patient/useParentEncounters
 const getChartDataMock = vi.fn();
 vi.mock('../../src/features/visits/shared/hooks/useOystehrAPIClient', () => ({
   useOystehrAPIClient: () => ({ getChartData: getChartDataMock }),
+}));
+
+const convertVisitToFollowUpMock = vi.fn();
+const updatePatientVisitDetailsMock = vi.fn();
+vi.mock('../../src/api/api', () => ({
+  convertVisitToFollowUp: (...args: unknown[]) => convertVisitToFollowUpMock(...args),
+  updatePatientVisitDetails: (...args: unknown[]) => updatePatientVisitDetailsMock(...args),
+}));
+
+const oystehrZambda = { id: 'zambda-client' };
+vi.mock('../../src/hooks/useAppClients', () => ({
+  useApiClients: () => ({ oystehrZambda }),
+}));
+
+const copyChartDataMock = vi.fn();
+vi.mock('../../src/features/visits/shared/components/patient/useCopyChartDataToFollowup', () => ({
+  useCopyChartDataToFollowup: () => ({ mutateAsync: copyChartDataMock }),
+}));
+
+const enqueueSnackbarMock = vi.fn();
+vi.mock('notistack', () => ({
+  enqueueSnackbar: (...args: unknown[]) => enqueueSnackbarMock(...args),
 }));
 
 const patient: Patient = {
@@ -52,14 +78,16 @@ const mockParentEncounters = (selected: typeof parentEncounterRow | undefined): 
   });
 };
 
-const renderWithProviders = (): void => {
+const CONVERT_FROM: ConvertFromVisit = { appointmentId: 'appt-9', encounterId: 'enc-target' };
+
+const renderWithProviders = (props: { convertFrom?: ConvertFromVisit } = {}): void => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>{children}</BrowserRouter>
     </QueryClientProvider>
   );
-  render(<ScheduledFollowupParentSelector patient={patient} />, { wrapper });
+  render(<ScheduledFollowupParentSelector patient={patient} {...props} />, { wrapper });
 };
 
 describe('ScheduledFollowupParentSelector', () => {
@@ -67,6 +95,13 @@ describe('ScheduledFollowupParentSelector', () => {
     navigateMock.mockReset();
     getChartDataMock.mockReset();
     useParentEncountersMock.mockReset();
+    convertVisitToFollowUpMock.mockReset();
+    convertVisitToFollowUpMock.mockResolvedValue({ encounterId: 'enc-target', diagnosesCarriedOver: 0 });
+    updatePatientVisitDetailsMock.mockReset();
+    updatePatientVisitDetailsMock.mockResolvedValue(undefined);
+    copyChartDataMock.mockReset();
+    copyChartDataMock.mockResolvedValue(undefined);
+    enqueueSnackbarMock.mockReset();
   });
 
   it('does NOT render the copy section before a parent visit is selected', () => {
@@ -191,6 +226,210 @@ describe('ScheduledFollowupParentSelector', () => {
         parentEncounterId: 'enc-1',
         skipPatientDiagnosis: true,
       });
+    });
+  });
+  // OTR-3299: the Add Visit page seeds its Visit type / Service controls from whatever
+  // this selector hands over, so assert the derived payload rather than its mere presence.
+  describe('prefill derived from the parent visit (OTR-3299)', () => {
+    const parentWithAppointment = {
+      ...parentEncounterRow,
+      appointment: {
+        resourceType: 'Appointment',
+        id: 'appt-1',
+        status: 'fulfilled',
+        meta: { tag: [{ code: OTTEHR_MODULE.IP }] },
+        appointmentType: { text: 'prebook' },
+        serviceCategory: [{ coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: 'urgent-care' }] }],
+      },
+    };
+
+    beforeEach(() => {
+      getChartDataMock.mockResolvedValue({});
+    });
+
+    const continueToAddVisit = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+      const button = await screen.findByRole('button', { name: /Continue to Add Visit/i });
+      await waitFor(() => expect(button).toBeEnabled());
+      await user.click(button);
+      await waitFor(() => expect(navigateMock).toHaveBeenCalled());
+    };
+
+    it('carries the parent visit type and service into navigation state', async () => {
+      const user = userEvent.setup();
+      mockParentEncounters(parentWithAppointment);
+      renderWithProviders();
+
+      await continueToAddVisit(user);
+
+      const [, options] = navigateMock.mock.calls[0];
+      expect(options.state.prefill).toEqual({
+        visitType: VisitType.InPersonPreBook,
+        serviceCategoryCode: 'urgent-care',
+      });
+    });
+
+    it('sends an empty prefill when the parent encounter has no appointment', async () => {
+      const user = userEvent.setup();
+      mockParentEncounters(parentEncounterRow);
+      renderWithProviders();
+
+      await continueToAddVisit(user);
+
+      const [, options] = navigateMock.mock.calls[0];
+      expect(options.state.prefill).toEqual({});
+    });
+  });
+
+  describe('convert mode', () => {
+    // Keyed by encounter so the parent and the visit being converted can differ.
+    const chartDataByEncounter = (
+      byEncounter: Record<string, { scoped?: Record<string, unknown>; unscoped?: Record<string, unknown> }>
+    ): void => {
+      getChartDataMock.mockImplementation((params: { encounterId: string; requestedFields?: unknown }) => {
+        const entry = byEncounter[params.encounterId] ?? {};
+        return Promise.resolve((params.requestedFields ? entry.scoped : entry.unscoped) ?? {});
+      });
+    };
+
+    const POPULATED_PARENT = {
+      scoped: {
+        chiefComplaint: { resourceId: 'r1', text: 'narrative' },
+        historyOfPresentIllness: { resourceId: 'r2', text: 'sore throat' },
+      },
+      unscoped: {
+        diagnosis: [{ resourceId: 'd1', display: 'Dx' }],
+        examObservations: [{ resourceId: 'e1', field: 'hr' }],
+      },
+    };
+
+    beforeEach(() => {
+      mockParentEncounters(parentEncounterRow);
+    });
+
+    it('excludes the visit being converted from the parent options', () => {
+      chartDataByEncounter({});
+      renderWithProviders({ convertFrom: CONVERT_FROM });
+      expect(useParentEncountersMock).toHaveBeenCalledWith('pat-1', undefined, 'enc-target');
+    });
+
+    it('converts in place instead of navigating to Add Visit', async () => {
+      const user = userEvent.setup();
+      chartDataByEncounter({ 'enc-1': POPULATED_PARENT });
+      renderWithProviders({ convertFrom: CONVERT_FROM });
+
+      await user.click(await screen.findByRole('button', { name: /Convert to Follow-up/i }));
+
+      await waitFor(() => expect(convertVisitToFollowUpMock).toHaveBeenCalled());
+      expect(convertVisitToFollowUpMock).toHaveBeenCalledWith(oystehrZambda, {
+        encounterId: 'enc-target',
+        parentEncounterId: 'enc-1',
+      });
+      // The visit keeps its own encounter — the copy targets it, not a freshly created one.
+      expect(copyChartDataMock).toHaveBeenCalledWith({
+        sourceEncounterId: 'enc-1',
+        targetEncounterId: 'enc-target',
+        fields: ['chiefComplaint', 'historyOfPresentIllness', 'examObservations'],
+        overwriteExisting: true,
+      });
+      await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/visit/appt-9'));
+    });
+
+    it('keeps fields the visit already documents copyable, flagging them instead of disabling', async () => {
+      const user = userEvent.setup();
+      chartDataByEncounter({
+        'enc-1': POPULATED_PARENT,
+        // The visit being converted already has a "Chief Complaint" recorded. Note the storage
+        // keys are swapped relative to the labels (see copyFollowupFields.ts): the "Chief
+        // Complaint" checkbox reads reasonForVisit/historyOfPresentIllness, and "HPI" reads
+        // chiefComplaint. Populating historyOfPresentIllness therefore collides with CC only.
+        'enc-target': { scoped: { historyOfPresentIllness: { resourceId: 'x1', text: 'already here' } } },
+      });
+      renderWithProviders({ convertFrom: CONVERT_FROM });
+
+      const cc = await screen.findByRole('checkbox', { name: /Chief Complaint/ });
+      await waitFor(() => expect(cc).toBeEnabled());
+      expect(cc).toBeChecked();
+      // The collision is surfaced on the label rather than blocking the copy.
+      expect(screen.getByText('(this visit already has Chief Complaint; copying replaces it)')).toBeVisible();
+
+      await user.click(screen.getByRole('button', { name: /Convert to Follow-up/i }));
+
+      await waitFor(() => expect(copyChartDataMock).toHaveBeenCalled());
+      expect(copyChartDataMock.mock.calls[0][0].fields).toContain('chiefComplaint');
+      expect(copyChartDataMock.mock.calls[0][0].fields).toContain('historyOfPresentIllness');
+    });
+
+    it('still carries diagnosis over when the visit already has one', async () => {
+      const user = userEvent.setup();
+      chartDataByEncounter({
+        'enc-1': POPULATED_PARENT,
+        'enc-target': { unscoped: { diagnosis: [{ resourceId: 'dx-existing', display: 'Existing' }] } },
+      });
+      renderWithProviders({ convertFrom: CONVERT_FROM });
+
+      await waitFor(() => expect(screen.getByRole('checkbox', { name: /Diagnosis/ })).toBeEnabled());
+      expect(screen.getByText('(this visit already has Diagnosis; only new codes are added)')).toBeVisible();
+
+      await user.click(screen.getByRole('button', { name: /Convert to Follow-up/i }));
+
+      await waitFor(() => expect(convertVisitToFollowUpMock).toHaveBeenCalled());
+      expect(convertVisitToFollowUpMock.mock.calls[0][1]).not.toHaveProperty('skipPatientDiagnosis');
+    });
+
+    it('never touches the reason for visit', async () => {
+      const user = userEvent.setup();
+      chartDataByEncounter({ 'enc-1': POPULATED_PARENT });
+      renderWithProviders({ convertFrom: CONVERT_FROM });
+
+      await user.click(await screen.findByRole('button', { name: /Convert to Follow-up/i }));
+
+      await waitFor(() => expect(convertVisitToFollowUpMock).toHaveBeenCalled());
+      expect(updatePatientVisitDetailsMock).not.toHaveBeenCalled();
+    });
+
+    it('still lands on the converted visit when the copy fails', async () => {
+      const user = userEvent.setup();
+      chartDataByEncounter({ 'enc-1': POPULATED_PARENT });
+      copyChartDataMock.mockRejectedValue(new Error('save-chart-data blew up'));
+      renderWithProviders({ convertFrom: CONVERT_FROM });
+
+      await user.click(await screen.findByRole('button', { name: /Convert to Follow-up/i }));
+
+      await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/visit/appt-9'));
+      expect(enqueueSnackbarMock).toHaveBeenCalledWith(expect.stringContaining('did not fully complete'), {
+        variant: 'warning',
+      });
+    });
+
+    it('does not navigate away when the conversion itself fails', async () => {
+      const user = userEvent.setup();
+      chartDataByEncounter({ 'enc-1': POPULATED_PARENT });
+      convertVisitToFollowUpMock.mockRejectedValue(new Error('conflict'));
+      renderWithProviders({ convertFrom: CONVERT_FROM });
+
+      await user.click(await screen.findByRole('button', { name: /Convert to Follow-up/i }));
+
+      await waitFor(() => expect(enqueueSnackbarMock).toHaveBeenCalledWith(expect.any(String), { variant: 'error' }));
+      expect(navigateMock).not.toHaveBeenCalled();
+      expect(copyChartDataMock).not.toHaveBeenCalled();
+    });
+
+    it("stays usable when the converted visit's own chart data fails to load", async () => {
+      const user = userEvent.setup();
+      getChartDataMock.mockImplementation((params: { encounterId: string; requestedFields?: unknown }) => {
+        if (params.encounterId === 'enc-target') return Promise.reject(new Error('get-chart-data blew up'));
+        return Promise.resolve(params.requestedFields ? POPULATED_PARENT.scoped : POPULATED_PARENT.unscoped);
+      });
+      renderWithProviders({ convertFrom: CONVERT_FROM });
+
+      // The spinner clears and the parent's copyable fields still render.
+      const cc = await screen.findByRole('checkbox', { name: 'Chief Complaint' });
+      expect(cc).toBeEnabled();
+      expect(screen.queryByText(/Checking the initial visit/i)).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /Convert to Follow-up/i }));
+
+      await waitFor(() => expect(convertVisitToFollowUpMock).toHaveBeenCalled());
     });
   });
 });

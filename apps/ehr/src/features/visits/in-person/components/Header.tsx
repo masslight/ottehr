@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
+import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
@@ -73,6 +74,7 @@ import { useGroupMemberPractitionerIds } from '../../shared/hooks/useGroupMember
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
 import { usePractitionerActions } from '../../shared/hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { getVisitEmployerDisplay } from '../../shared/visitEmployer';
 import { ChangeStatusDropdown } from './ChangeStatusDropdown';
 import { InternalNotes } from './InternalNotes';
 import { PrintVisitLabelButton } from './PrintVisitLabelButton';
@@ -325,6 +327,9 @@ export const Header = (): JSX.Element => {
   const employerName =
     insuranceData?.occupationalMedicineEmployerOrganization?.name ?? insuranceData?.employerOrganization?.name;
 
+  // Pre-op stores its employer on the Encounter; the Account's employer is another visit's.
+  const preOpEmployerName = isPreOp ? getVisitEmployerDisplay(encounter) : undefined;
+
   const isPaymentUnset = !encounterPaymentVariant && !isPreOp;
 
   const paymentDisplayValue = (() => {
@@ -333,7 +338,7 @@ export const Header = (): JSX.Element => {
     if (isOccMed && encounterPaymentVariant === PaymentVariant.employer) {
       return `${employerName ?? 'Employer'} (Occ-med)`;
     }
-    if (isPreOp) return `${employerName ?? insuranceName ?? 'Insurance'} (Pre-op)`;
+    if (isPreOp) return `${preOpEmployerName ?? insuranceName ?? 'Insurance'} (Pre-op)`;
     if (!canQueryFeeSchedule || !feeScheduleFetched) return insuranceName ?? '';
     if (!payerFeeSchedule) return `${insuranceName} (No Fee Schedule)`;
     return `${insuranceName} (${isCaseRate ? 'Case Rate' : 'Fee for Service'})`;
@@ -396,7 +401,7 @@ export const Header = (): JSX.Element => {
     }
   }, [shouldRefetchPractitioners, refetch]);
 
-  const reasonForVisit = formatLabelValue(appointmentValues?.description, 'Reason for Visit');
+  const reasonForVisit = formatLabelValue(appointmentValues?.description, "Reason for today's Visit");
   const userId = formatLabelValue(patient?.id);
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<null | HTMLElement>(null);
@@ -433,10 +438,14 @@ export const Header = (): JSX.Element => {
   }
 
   const handleRoomChange = async (newRoom: string): Promise<void> => {
-    if (!oystehr || !appointment) return;
+    if (!oystehr || !appointment?.id) return;
     setRoomSaving(true);
     try {
-      await updateAppointmentRoom(appointment, newRoom || undefined, oystehr);
+      const appointmentToUpdate = await oystehr.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: appointment.id,
+      });
+      await updateAppointmentRoom(appointmentToUpdate, newRoom || undefined, oystehr);
       await appointmentRefetch();
     } catch (error: any) {
       console.log(error.message);

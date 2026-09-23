@@ -14,6 +14,7 @@ import {
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
+  ClaimAcknowledgmentEvent,
   ClaimFieldChange,
   ClaimHistoryEntry,
   ClaimHistoryLink,
@@ -23,6 +24,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { sendErrors } from '../../shared/errors';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { parseStoredAcknowledgment } from '../claim-acknowledgments';
 import {
   copySourceId,
   createBillingClient,
@@ -41,6 +43,7 @@ const FIELD_SCREEN: Record<string, ClaimHistoryLink['screen']> = {
   billingProvider: 'billing-providers',
   renderingProvider: 'rendering-providers',
   facility: 'service-facilities',
+  nonInsurancePayer: 'non-insurance-organizations',
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -112,6 +115,14 @@ function parseChanges(provenance: Provenance, environment: string): ClaimFieldCh
     reportAnomaly(`Malformed change set on Provenance/${provenance.id}`, environment, err);
     return [];
   }
+}
+
+function parseAcknowledgment(provenance: Provenance, environment: string): ClaimAcknowledgmentEvent | undefined {
+  const stored = parseStoredAcknowledgment(provenance);
+  if (stored.kind === 'invalid') {
+    reportAnomaly(`Malformed acknowledgment on Provenance/${provenance.id}`, environment, stored.error);
+  }
+  return stored.kind === 'parsed' ? stored.event : undefined;
 }
 
 // The raw references behind reference-typed changes are stored as Provenance.entity entries tagged
@@ -186,6 +197,7 @@ function toHistoryEntry(
 
   const resourceType = targetRef?.split('/')[0] ?? '';
   const message = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_NOTE_EXTENSION_URL)?.valueString;
+  const acknowledgment = parseAcknowledgment(provenance, environment);
   return {
     id: provenance.id ?? '',
     recorded: provenance.recorded ?? '',
@@ -196,6 +208,7 @@ function toHistoryEntry(
     },
     changes: parseChanges(provenance, environment),
     ...(message ? { message } : {}),
+    ...(acknowledgment ? { acknowledgment } : {}),
   };
 }
 
@@ -296,6 +309,8 @@ function activityDisplay(code: string, resourceType: string): string {
       return `Submit ${label}`;
     case CLAIM_PROVENANCE_ACTIVITY_CODES.note:
       return 'Note';
+    case CLAIM_PROVENANCE_ACTIVITY_CODES.acknowledgment:
+      return 'Acknowledgment';
     default:
       return label;
   }

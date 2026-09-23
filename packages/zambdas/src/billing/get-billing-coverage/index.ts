@@ -3,12 +3,11 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage, RelatedPerson } from 'fhir/r4b';
 import { getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { getMemberIdFromCoverage } from 'utils/lib/fhir/helpers';
-import { getPayerId } from 'utils/lib/helpers/helpers';
 import { BillingCoverageOption, GetBillingCoverageResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { createBillingClient, resolvePayersByRef, toAddressParts } from '../shared';
+import { createBillingClient, resolvedPayerId, resolvePayersByRef, toAddressParts } from '../shared';
 import { GetBillingCoverageParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -64,7 +63,7 @@ async function performEffect(oystehr: Oystehr, params: GetBillingCoverageParams)
     status: coverage.status,
     subscriberId: coverage.subscriberId ?? '',
     payorName: payorOrg?.name ?? '',
-    payorId: getPayerId(payorOrg) ?? '',
+    payorId: resolvedPayerId(payorOrg) ?? '',
     payorFhirId: payorOrg?.id ?? '',
     planType: getCoveragePlanType(coverage),
     relationship: coverage.relationship?.coding?.[0]?.display as BillingCoverageOption['relationship'],

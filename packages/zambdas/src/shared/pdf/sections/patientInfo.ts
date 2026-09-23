@@ -130,7 +130,7 @@ export const createPatientInfoSection = <TData extends { patient?: PatientInfo }
         });
       }
       client.drawLabelValueRow(
-        'Reason for visit',
+        "Reason for today's visit",
         patientInfo.reasonForVisit,
         styles.textStyles.regular,
         styles.textStyles.regular,

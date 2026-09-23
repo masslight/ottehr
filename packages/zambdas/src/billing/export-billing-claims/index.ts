@@ -25,9 +25,8 @@ const ZAMBDA_NAME = 'export-billing-claims';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   const params = validateRequestParameters(input);
-  const { secrets, ...restOfParams } = params;
+  const { secrets } = params;
   console.groupEnd();
-  console.debug('validateRequestParameters success', restOfParams);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);

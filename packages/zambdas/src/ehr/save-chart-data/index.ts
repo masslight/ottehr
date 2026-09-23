@@ -13,6 +13,7 @@ import {
 } from 'fhir/r4b';
 import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { isVitalObservation } from 'utils/lib/fhir/vitals';
 import { addEmptyArrOperation } from 'utils/lib/helpers/operations';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -28,6 +29,7 @@ import {
   createAccidentCondition,
   createDispositionServiceRequest,
   createProcedureServiceRequest,
+  findAccidentConditions,
   followUpToPerformerMap,
   followUpTypeFromPerformerType,
   makeAllergyResource,
@@ -61,6 +63,7 @@ import { getMyPractitionerId } from '../../shared/practitioners';
 import { saveOrUpdateResourceRequest } from '../../shared/resources.helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { getVitalsEngineConfig } from '../../shared/vitals-alert-config';
 import {
   createExamObservationComments,
   getAllExamFieldsMetadata,
@@ -80,7 +83,6 @@ const ZAMBDA_NAME = 'save-chart-data';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   console.log('Validating input');
   const {
     encounterId,
@@ -133,9 +135,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   //   getChartData(oystehr, encounterId),
   // ]);
 
-  const [allResources, currentPractitioner] = await Promise.all([
+  const hasVitalObservations = [...(vitalsObservations ?? []), ...(observations ?? [])].some(isVitalObservation);
+
+  const [allResources, currentPractitioner, vitalsAlertConfig] = await Promise.all([
     getEncounterAndRelatedResources(oystehr, encounterId),
     getUserPractitioner(oystehr, userToken, secrets),
+    hasVitalObservations ? getVitalsEngineConfig(oystehr) : undefined,
   ]);
 
   const encounter = allResources.filter((resource) => resource.resourceType === 'Encounter')[0] as Encounter;
@@ -234,7 +239,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           element,
           ADDITIONAL_QUESTIONS_META_SYSTEM,
           patient.birthDate,
-          patient.gender
+          patient.gender,
+          vitalsAlertConfig
         )
       )
     );
@@ -251,7 +257,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           element,
           PATIENT_VITALS_META_SYSTEM,
           patient.birthDate,
-          patient.gender
+          patient.gender,
+          vitalsAlertConfig
         )
       )
     );
@@ -484,7 +491,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   if (accident) {
-    saveOrUpdateRequests.push(createAccidentCondition(accident, encounterId, patient.id!));
+    const existingAccidentConditions = findAccidentConditions(allResources);
+    const accidentId = accident.resourceId ?? existingAccidentConditions[0]?.id;
+    saveOrUpdateRequests.push(
+      createAccidentCondition({ ...accident, resourceId: accidentId }, encounterId, patient.id!)
+    );
+    existingAccidentConditions
+      .filter((condition) => condition.id != null && condition.id !== accidentId)
+      .forEach((condition) => saveOrUpdateRequests.push(deleteResourceRequest('Condition', condition.id!)));
+    if (!additionalResourcesForResponse.includes(encounter)) {
+      additionalResourcesForResponse.push(encounter);
+    }
   }
 
   console.log('Starting a transaction update of chart data...');

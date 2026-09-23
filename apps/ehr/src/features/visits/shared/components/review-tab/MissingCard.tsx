@@ -34,9 +34,9 @@ import {
 } from 'src/state/draft-data.store';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { AISuggestionNotes } from 'utils/lib/types/api/ai-suggestions-notes';
-import { useChartFields } from '../../hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
+import { useProgressNoteChartFields } from '../../hooks/useProgressNoteChartFields';
 import { useAiSuggestionNotes } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 import {
@@ -67,7 +67,7 @@ const AiBadge: FC = () => (
 
 export const MissingCard: FC = () => {
   const { id: appointmentIdFromUrl } = useParams();
-  const { encounter } = useAppointmentData();
+  const { encounter, appointment } = useAppointmentData();
   const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { hasDraft: hasExternalLabDraft } = useCreateExternalLabStore();
   const { hasDraft: hasInHouseLabDraft } = useCreateInHouseLabStore();
@@ -78,27 +78,7 @@ export const MissingCard: FC = () => {
   const { hasDraft: hasMedDraft } = useInHouseMedicationOrderStore();
   const { hasDraft: hasVitalsDraft } = useVitalsDraftStore();
 
-  const {
-    data: chartFields,
-    isFetching,
-    isFetched: isChartFieldsFetched,
-  } = useChartFields({
-    requestedFields: {
-      medicalDecision: {
-        _tag: 'medical-decision',
-      },
-      chiefComplaint: {
-        _tag: 'chief-complaint',
-      },
-      historyOfPresentIllness: {
-        _tag: 'history-of-present-illness',
-      },
-      patientInfoConfirmed: {},
-      accident: {
-        _tag: 'accident',
-      },
-    },
-  });
+  const { data: chartFields, isFetching, isFetched: isChartFieldsFetched } = useProgressNoteChartFields();
 
   const { mutateAsync: aiSuggestionNotes } = useAiSuggestionNotes();
   const { data: progressNoteConfig } = useProgressNoteConfig();
@@ -175,17 +155,17 @@ export const MissingCard: FC = () => {
     isError: isNoteReviewError,
     error: noteReviewError,
   } = useQuery<AISuggestionNotes>({
-    queryKey: ['note-review-suggestions', encounter?.id, promptHash, noteStateHash],
+    queryKey: ['note-review-suggestions', appointment?.id, encounter?.id, promptHash, noteStateHash],
     queryFn: () =>
       apiClient!.aiSuggestionNotes({
         type: 'note-review',
-        appointmentId: appointmentIdFromUrl!,
+        appointmentId: appointment!.id!,
         encounterId: encounter!.id!,
       }),
     enabled:
       !!apiClient &&
       !!signReviewPrompt &&
-      !!appointmentIdFromUrl &&
+      !!appointment?.id &&
       !!encounter?.id &&
       !isAppointmentReadOnly &&
       isNoteStateSettled,

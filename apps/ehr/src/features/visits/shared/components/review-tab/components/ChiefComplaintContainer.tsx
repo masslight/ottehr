@@ -8,7 +8,7 @@ import {
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { getSpentTime } from 'utils/lib/fhir/encounter';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
-import { useChartFields } from '../../../hooks/useChartFields';
+import { useProgressNoteChartFields } from '../../../hooks/useProgressNoteChartFields';
 import { useAppointmentData, useChartData } from '../../../stores/appointment/appointment.store';
 
 // Chief complaint groups everything captured on the Chief Complaint screen: the reason for
@@ -19,14 +19,7 @@ export const ChiefComplaintContainer: FC = () => {
   const { chartData } = useChartData();
   const theme = useTheme();
 
-  const { data: chartFields } = useChartFields({
-    requestedFields: {
-      historyOfPresentIllness: {
-        _tag: 'history-of-present-illness',
-      },
-      reasonForVisit: {},
-    },
-  });
+  const { data: chartFields } = useProgressNoteChartFields();
 
   // Legacy tagging: the "additional information" free text is stored under the
   // history-of-present-illness tag.
@@ -37,11 +30,11 @@ export const ChiefComplaintContainer: FC = () => {
 
   const subSections = [
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-      <AssessmentTitle>Reason for visit confirmed by staff</AssessmentTitle>
+      <AssessmentTitle>Reason for today's visit confirmed by staff</AssessmentTitle>
       {reasonForVisit ? (
         <Typography data-testid={dataTestIds.progressNotePage.reasonForVisitConfirmed}>{reasonForVisit}</Typography>
       ) : (
-        <Typography color={theme.palette.text.secondary}>No reason for visit</Typography>
+        <Typography color={theme.palette.text.secondary}>No reason for today's visit</Typography>
       )}
     </Box>,
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>

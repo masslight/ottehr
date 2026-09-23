@@ -116,7 +116,7 @@ export function ServiceLinesEditor({
               </Box>
             )}
             isOptionEqualToValue={(o, v) => o.code === v.code}
-            renderInput={(p) => <TextField {...p} label="Place of Service" />}
+            renderInput={(p) => <TextField {...p} label="Place of Service" required />}
             sx={{ width: 170 }}
           />
           {claimType === 'institutional' && (

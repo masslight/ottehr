@@ -3,10 +3,8 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
-import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
 import { AppointmentInsuranceRelatedResourcesExtension, FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 import { createPatientDocumentLists } from 'utils/lib/fhir/list';
-import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import {
   createUserResourcesForPatient,
   getPatientResourceWithVerifiedPhoneNumber,
@@ -26,11 +24,6 @@ export function getPatientFromAppointment(appointment: Appointment): string | un
   return appointment.participant
     .find((participantTemp) => participantTemp.actor?.reference?.startsWith('Patient/'))
     ?.actor?.reference?.split('/')[1];
-}
-
-// on-demand virtual visits override so they're shown on the 'Active' tab
-export function isOnDemandVirtualAppointment(appointment: Appointment): boolean {
-  return isTelemedAppointment(appointment) && appointmentTypeForAppointment(appointment) === 'walk-in';
 }
 
 export async function patchAppointmentResource(

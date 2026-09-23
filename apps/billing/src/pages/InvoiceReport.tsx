@@ -1,17 +1,5 @@
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  Link,
-  Stack,
-  Tab,
-  Tabs,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Button, ButtonBase, Chip, Link, Stack, Tab, Tabs, Typography } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
@@ -26,8 +14,10 @@ import {
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { getBillingInvoiceReport } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { CardActionHint } from '../components/CardActionHint';
 import { ReportStatusBar } from '../components/ReportStatusBar';
 import { useBillingReport } from '../hooks/useBillingReport';
+import { useBillingReportHistory } from '../hooks/useBillingReportHistory';
 import { otherColors } from '../themes/ottehr/colors';
 import { reportPalette } from '../themes/ottehr/reportPalette';
 
@@ -231,37 +221,62 @@ function StatCard({
   value,
   hint,
   color,
+  active,
+  onClick,
 }: {
   label: string;
   value: string;
   hint?: string;
   color?: string;
+  active?: boolean;
+  onClick?: () => void;
 }): ReactElement {
-  return (
-    <Box
-      sx={{
-        flex: 1,
-        minWidth: 160,
-        bgcolor: 'background.paper',
-        border: `1px solid ${otherColors.lightDivider}`,
-        borderRadius: 2,
-        px: 2.5,
-        py: 2,
-      }}
-    >
+  const cardSx = {
+    flex: 1,
+    minWidth: 160,
+    position: 'relative',
+    bgcolor: active ? reportPalette.activeCardBg : 'background.paper',
+    border: `1px solid ${active ? reportPalette.activeCardBorder : otherColors.lightDivider}`,
+    borderRadius: 2,
+    px: 2.5,
+    py: 2,
+  } as const;
+  const content = (
+    <>
+      {onClick && <CardActionHint kind="filter" active={active} />}
       <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.4 }}>
         {label}
       </Typography>
-      <Typography variant="h5" fontWeight={600} sx={{ mt: 0.5, color: color ?? 'primary.dark' }}>
+      <Typography variant="h5" fontWeight={600} sx={{ mt: 0.5, color: color ?? 'primary.dark' }} component="div">
         {value}
       </Typography>
       {hint && (
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" color="text.secondary" component="div">
           {hint}
         </Typography>
       )}
-    </Box>
+    </>
   );
+  // filter cards are toggles: a real button keeps them keyboard/AT-operable
+  if (onClick) {
+    return (
+      <ButtonBase
+        focusRipple
+        onClick={onClick}
+        aria-pressed={!!active}
+        sx={{
+          ...cardSx,
+          display: 'block',
+          textAlign: 'left',
+          '&:hover': { borderColor: reportPalette.activeCardBorder, bgcolor: otherColors.apptHover },
+          '&:hover .card-action-hint': { color: 'primary.main' },
+        }}
+      >
+        {content}
+      </ButtonBase>
+    );
+  }
+  return <Box sx={cardSx}>{content}</Box>;
 }
 
 export default function InvoiceReport(): ReactElement {
@@ -271,6 +286,7 @@ export default function InvoiceReport(): ReactElement {
   const [agingFilter, setAgingFilter] = useState<AgingFilter>('all');
   const [tab, setTab] = useState<'delinquency' | 'aging'>('delinquency');
 
+  const { entries: history, reload: reloadHistory } = useBillingReportHistory('invoice');
   const { report, status, loading, error, clearError, refresh } = useBillingReport<GetBillingInvoiceReportResponse>({
     fetch: useCallback((client: Oystehr, refresh?: boolean) => getBillingInvoiceReport(client, undefined, refresh), []),
     errorMessage: 'Failed to load invoice report',
@@ -407,10 +423,20 @@ export default function InvoiceReport(): ReactElement {
             Invoice Report
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            All due and past-due Stripe invoices, broken down by collectability.
+            Patient invoice reports, by delinquency and aging buckets.
           </Typography>
         </Box>
-        <ReportStatusBar status={status} loading={loading} onRefresh={refresh} />
+        <ReportStatusBar
+          status={status}
+          loading={loading}
+          history={{
+            entries: history,
+            onOpen: reloadHistory,
+            onView: () => undefined,
+            onRun: () => refresh(),
+            windowed: false,
+          }}
+        />
       </Stack>
 
       <Tabs
@@ -483,7 +509,7 @@ export default function InvoiceReport(): ReactElement {
               Aging Trend — Month-End Snapshots
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', pl: 1 }}>
-              Reconstructed from all Stripe invoices via status history — invoices paid since are counted in the months
+              Reconstructed from open patient invoices via status history. Invoices paid since are counted in the months
               they were open.
             </Typography>
             <Chart
@@ -507,6 +533,8 @@ export default function InvoiceReport(): ReactElement {
               label="Total Unpaid"
               value={formatCurrency(agingRows.reduce((sum, row) => sum + row.amountDue, 0))}
               hint={`${agingRows.length.toLocaleString('en-US')} invoices`}
+              active={agingFilter === 'all'}
+              onClick={() => setAgingFilter('all')}
             />
             {AGING_BUCKETS.map((bucket) => (
               <StatCard
@@ -515,47 +543,30 @@ export default function InvoiceReport(): ReactElement {
                 value={formatCurrency(agingTotals.get(bucket.key)?.amountDue ?? 0)}
                 hint={`${(agingTotals.get(bucket.key)?.count ?? 0).toLocaleString('en-US')} invoices`}
                 color={bucket.color}
+                active={agingFilter === bucket.key}
+                onClick={() => setAgingFilter(agingFilter === bucket.key ? 'all' : bucket.key)}
               />
             ))}
           </Stack>
 
-          <Stack direction="row" alignItems="center" gap={1} mb={2} flexWrap="wrap">
-            <Typography variant="body2" color="text.secondary">
-              Show:
-            </Typography>
-            <ToggleButtonGroup
-              size="small"
-              exclusive
-              value={agingFilter}
-              onChange={(_e, value: AgingFilter | null) => value && setAgingFilter(value)}
-            >
-              <ToggleButton value="all" sx={{ px: 1.5, py: 0.5, textTransform: 'none' }}>
-                All
-              </ToggleButton>
-              {AGING_BUCKETS.map((bucket) => (
-                <ToggleButton key={bucket.key} value={bucket.key} sx={{ px: 1.5, py: 0.5, textTransform: 'none' }}>
-                  {bucket.label}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-          </Stack>
-
-          <DataGridPro
-            // remount on filter change so pagination resets to the first page
-            key={agingFilter}
-            autoHeight
-            rows={filteredAgingRows}
-            getRowId={(row) => `${row.stripeAccountId}|${row.stripeInvoiceId}`}
-            columns={agingColumns}
-            loading={loading}
-            disableRowSelectionOnClick
-            disableColumnMenu
-            pagination
-            initialState={{ pagination: { paginationModel: { pageSize: 50 } } }}
-            pageSizeOptions={[25, 50, 100]}
-            sx={dataGridSx}
-            slots={dataGridSlots()}
-          />
+          {/* fixed height so switching filters never shrinks the page and jumps the scroll */}
+          <Box sx={{ height: 640 }}>
+            <DataGridPro
+              // remount on filter change so pagination resets to the first page
+              key={agingFilter}
+              rows={filteredAgingRows}
+              getRowId={(row) => `${row.stripeAccountId}|${row.stripeInvoiceId}`}
+              columns={agingColumns}
+              loading={loading}
+              disableRowSelectionOnClick
+              disableColumnMenu
+              pagination
+              initialState={{ pagination: { paginationModel: { pageSize: 50 } } }}
+              pageSizeOptions={[25, 50, 100]}
+              sx={dataGridSx}
+              slots={dataGridSlots()}
+            />
+          </Box>
         </>
       )}
 
@@ -614,48 +625,31 @@ export default function InvoiceReport(): ReactElement {
                   value={formatCurrency(report?.totals[category]?.amountDue ?? 0)}
                   hint={`${(report?.totals[category]?.count ?? 0).toLocaleString('en-US')} invoices`}
                   color={CATEGORY_META[category].color}
+                  active={categoryFilter === category}
+                  onClick={() => setCategoryFilter(categoryFilter === category ? 'all' : category)}
                 />
               ))}
             </Stack>
           </Stack>
 
-          <Stack direction="row" alignItems="center" gap={1} mb={2} flexWrap="wrap">
-            <Typography variant="body2" color="text.secondary">
-              Show:
-            </Typography>
-            <ToggleButtonGroup
-              size="small"
-              exclusive
-              value={categoryFilter}
-              onChange={(_e, value: CategoryFilter | null) => value && setCategoryFilter(value)}
-            >
-              <ToggleButton value="all" sx={{ px: 1.5, py: 0.5, textTransform: 'none' }}>
-                All
-              </ToggleButton>
-              {CATEGORY_ORDER.map((category) => (
-                <ToggleButton key={category} value={category} sx={{ px: 1.5, py: 0.5, textTransform: 'none' }}>
-                  {CATEGORY_META[category].label}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-          </Stack>
-
-          <DataGridPro
-            // remount on filter change so pagination resets to the first page
-            key={categoryFilter}
-            autoHeight
-            rows={filteredRows}
-            getRowId={(row) => `${row.stripeAccountId}|${row.stripeInvoiceId}`}
-            columns={columns}
-            loading={loading}
-            disableRowSelectionOnClick
-            disableColumnMenu
-            pagination
-            initialState={{ pagination: { paginationModel: { pageSize: 50 } } }}
-            pageSizeOptions={[25, 50, 100]}
-            sx={dataGridSx}
-            slots={dataGridSlots()}
-          />
+          {/* fixed height so switching filters never shrinks the page and jumps the scroll */}
+          <Box sx={{ height: 640 }}>
+            <DataGridPro
+              // remount on filter change so pagination resets to the first page
+              key={categoryFilter}
+              rows={filteredRows}
+              getRowId={(row) => `${row.stripeAccountId}|${row.stripeInvoiceId}`}
+              columns={columns}
+              loading={loading}
+              disableRowSelectionOnClick
+              disableColumnMenu
+              pagination
+              initialState={{ pagination: { paginationModel: { pageSize: 50 } } }}
+              pageSizeOptions={[25, 50, 100]}
+              sx={dataGridSx}
+              slots={dataGridSlots()}
+            />
+          </Box>
         </>
       )}
     </Box>

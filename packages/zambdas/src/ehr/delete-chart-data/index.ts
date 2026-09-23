@@ -35,6 +35,7 @@ import {
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,
   deleteEncounterDiagnosis,
+  findAccidentConditions,
   updateEncounterDischargeDisposition,
 } from '../../shared/chart-data';
 import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
@@ -64,7 +65,6 @@ type ChartData =
 
 export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
     const {
       encounterId,
@@ -267,7 +267,12 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     });
 
     if (accident) {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', accident.resourceId!));
+      const accidentIds = new Set(
+        [...findAccidentConditions(allResources).map((condition) => condition.id), accident.resourceId].filter(
+          (id): id is string => id != null
+        )
+      );
+      accidentIds.forEach((id) => deleteOrUpdateRequests.push(deleteResourceRequest('Condition', id)));
     }
 
     if (updateEncounterOperations.length > 0) {
