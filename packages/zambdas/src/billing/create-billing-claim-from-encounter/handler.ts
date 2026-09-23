@@ -87,6 +87,7 @@ import { sendErrors } from '../../shared/errors';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types/common';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
+import { findServiceFacilityForLocation } from '../service-facility.helpers';
 import {
   billingCopyMatches,
   BillingFhirResource,
@@ -1071,10 +1072,11 @@ async function findExistingBillingResources(
           name: 'status',
           value: 'active',
         },
+        ...EXCLUDE_WORKING_COPIES_PARAMS,
       ],
     })
   ).unbundle();
-  const matchingServiceFacility = serviceFacilitySearch.length > 0 ? serviceFacilitySearch[0] : undefined;
+  const matchingServiceFacility = findServiceFacilityForLocation(serviceFacilitySearch, clinicalResources.location);
 
   // Look for rendering providers that match NPIs for Practitioners involved in the Encounter
   const matchingPractitioners = (

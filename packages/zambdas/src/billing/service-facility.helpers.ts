@@ -39,6 +39,25 @@ export function mapServiceFacility(location: Location): ServiceFacilityItem {
   };
 }
 
+const normalizeAddress = (location: Location): string => {
+  const { line = [], city, state, postalCode } = location.address ?? {};
+  return [...line, city, state, postalCode]
+    .map((part) => part?.trim().replace(/\s+/g, ' ').toLowerCase())
+    .filter(Boolean)
+    .join(', ');
+};
+
+export function findServiceFacilityForLocation(
+  candidates: Location[],
+  clinicalLocation: Location
+): Location | undefined {
+  if (candidates.length <= 1) return candidates[0];
+  const clinicalAddress = normalizeAddress(clinicalLocation);
+  if (!clinicalAddress) return undefined;
+  const addressMatches = candidates.filter((candidate) => normalizeAddress(candidate) === clinicalAddress);
+  return addressMatches.length === 1 ? addressMatches[0] : undefined;
+}
+
 // Pass `existing` for updates (read-modify-write); omit it to build a new active facility.
 // Defined params will overwrite existing values, null params will clear them, and undefined will leave them unchanged.
 export function applyServiceFacilityInput(params: SaveServiceFacilityInput, existing?: Location): Location {

@@ -1135,6 +1135,12 @@ describe('create-billing-claim-from-encounter', () => {
             params: expect.arrayContaining([...EXCLUDE_WORKING_COPIES_PARAMS]),
           })
         );
+        expect(tc.billingOystehrSearch).toHaveBeenCalledWith(
+          expect.objectContaining({
+            resourceType: 'Location',
+            params: expect.arrayContaining([...EXCLUDE_WORKING_COPIES_PARAMS]),
+          })
+        );
       }
     });
   });
