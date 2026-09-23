@@ -81,6 +81,9 @@ const { mockSaveChartData, mockSetPartialChartData } = vi.hoisted(() => ({
 
 vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useSaveChartData: () => ({ mutate: mockSaveChartData }),
+}));
+
+vi.mock('src/features/visits/shared/hooks/useChartData', () => ({
   useChartData: () => ({ chartData: { diagnosis: [] }, setPartialChartData: mockSetPartialChartData }),
 }));
 

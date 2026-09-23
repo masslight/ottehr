@@ -16,8 +16,11 @@ vi.mock('../../src/features/visits/shared/components/PageTitle', () => ({
 
 // Mock the hooks and stores
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
-  useChartData: vi.fn(),
   useDeleteChartData: vi.fn(),
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
+  useChartData: vi.fn(),
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({

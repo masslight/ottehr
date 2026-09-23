@@ -23,15 +23,18 @@ const mockChartDataSetState = vi.fn();
 let mockChartData: Pick<GetChartDataResponse, 'schoolWorkNotes'> = {};
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
-  useChartData: () => ({
-    chartData: mockChartData,
-    setPartialChartData: mockSetPartialChartData,
-    chartDataSetState: mockChartDataSetState,
-  }),
   useSaveChartData: vi.fn(),
   useDeleteChartData: vi.fn(),
   useAppointmentData: () => ({
     questionnaireResponse: {},
+  }),
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
+  useChartData: () => ({
+    chartData: mockChartData,
+    setPartialChartData: mockSetPartialChartData,
+    chartDataSetState: mockChartDataSetState,
   }),
 }));
 

@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createTaskForEncounter } from '../../src/cron/create-invoices-tasks/index';
 import type { ParsedInvoicingConfig } from '../../src/rcm/invoice-config/helpers';
 
-vi.mock('../../src/shared', async (importOriginal) => {
+vi.mock('../../src/shared/sentry', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,

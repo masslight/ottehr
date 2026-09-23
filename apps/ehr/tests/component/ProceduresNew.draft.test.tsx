@@ -59,9 +59,12 @@ const { mockSaveChartData, mockDeleteChartData } = vi.hoisted(() => ({
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ encounter: { id: 'enc-procedure-test' } }),
-  useChartData: () => ({ chartData: {}, setPartialChartData: vi.fn() }),
   useSaveChartData: () => ({ mutateAsync: mockSaveChartData }),
   useDeleteChartData: () => ({ mutateAsync: mockDeleteChartData }),
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
+  useChartData: () => ({ chartData: {}, setPartialChartData: vi.fn() }),
 }));
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({

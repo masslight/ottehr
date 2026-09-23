@@ -107,11 +107,7 @@ vi.mock('src/hooks/usePendingQuickPick', () => ({
   usePendingQuickPick: vi.fn(),
 }));
 
-vi.mock('../../src/components/dialogs', () => ({
-  CustomDialog: () => <div />,
-}));
-
-vi.mock('src/components/dialogs', () => ({
+vi.mock('../../src/components/dialogs/CustomDialog', () => ({
   CustomDialog: () => <div />,
 }));
 

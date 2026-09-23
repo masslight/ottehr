@@ -28,7 +28,7 @@ vi.mock('src/features/visits/shared/hooks/useMainEncounterChartData', () => ({
   useMainEncounterChartData: mockUseMainEncounterChartData,
 }));
 
-vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
+vi.mock('src/features/visits/shared/hooks/useChartData', () => ({
   useChartData: mockUseChartData,
 }));
 

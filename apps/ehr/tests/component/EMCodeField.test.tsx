@@ -22,12 +22,15 @@ const mockSetPartialChartData = vi.fn();
 let mockChartData: { emCode?: { code: string; display: string; resourceId?: string } } = {};
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
+  useSaveChartData: vi.fn(),
+  useDeleteChartData: vi.fn(),
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
   useChartData: () => ({
     chartData: mockChartData,
     setPartialChartData: mockSetPartialChartData,
   }),
-  useSaveChartData: vi.fn(),
-  useDeleteChartData: vi.fn(),
 }));
 
 const mockEnqueueSnackbar = vi.fn();

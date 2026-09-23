@@ -28,12 +28,15 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
   useAppointmentData: () => ({
     encounter: { id: 'test-encounter-id' },
   }),
+  useSaveChartData: vi.fn(),
+  useDeleteChartData: vi.fn(),
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
   useChartData: () => ({
     chartData: mockChartData,
     setPartialChartData: mockSetPartialChartData,
   }),
-  useSaveChartData: vi.fn(),
-  useDeleteChartData: vi.fn(),
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
@@ -61,14 +64,6 @@ const mockEnqueueSnackbar = vi.fn();
 vi.mock('notistack', () => ({
   enqueueSnackbar: (...args: any[]) => mockEnqueueSnackbar(...args),
 }));
-
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('utils')>();
-  return {
-    ...actual,
-    APIErrorCode: { MISSING_NLM_API_KEY_ERROR: 'MISSING_NLM_API_KEY' },
-  };
-});
 
 vi.mock('../../src/features/visits/shared/hooks/useEMCodes', () => ({
   useEMCodes: () => ({

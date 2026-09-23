@@ -47,6 +47,9 @@ vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () =>
     isAppointmentLoading: false,
     appointmentError: null,
   }),
+}));
+
+vi.mock('src/features/visits/shared/hooks/useChartData', () => ({
   useChartData: () => ({ isChartDataLoading: false, chartDataError: null }),
 }));
 

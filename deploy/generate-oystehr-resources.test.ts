@@ -8,11 +8,9 @@ vi.mock('node:fs/promises');
 // hoisted mutable object. Default off: existing tests describe the flag-off deploy path.
 const featureFlags = vi.hoisted(() => ({ nonInsuranceOrganizationsEnabled: false }));
 
-vi.mock('utils', () => ({
-  BRANDING_CONFIG: { projectName: 'test-project' },
-  SENDGRID_CONFIG: { templates: {} },
-  FEATURE_FLAGS_CONFIG: featureFlags,
-}));
+vi.mock('utils/lib/ottehr-config/branding', () => ({ BRANDING_CONFIG: { projectName: 'test-project' } }));
+vi.mock('utils/lib/ottehr-config/sendgrid', () => ({ SENDGRID_CONFIG: { templates: {} } }));
+vi.mock('utils/lib/ottehr-config/feature-flags', () => ({ FEATURE_FLAGS_CONFIG: featureFlags }));
 
 // Import after mocks are set up
 import {

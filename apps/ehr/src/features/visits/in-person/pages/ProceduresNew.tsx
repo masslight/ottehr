@@ -49,7 +49,6 @@ import { DocumentationCheck } from '../components/procedures/coding-assist/Docum
 import { ConditionalCodingFields } from '../components/procedures/ConditionalCodingFields';
 import { ProcedureCptCodesField } from '../components/procedures/ProcedureCptCodesField';
 import { ProcedureDiagnosesField } from '../components/procedures/ProcedureDiagnosesField';
-import {} from '../components/procedures/procedureFieldVisibility';
 import {
   ProcedureDropdown,
   ProcedureMultiSelect,

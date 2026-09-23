@@ -11,8 +11,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: vi.fn(),
-  useChartData: vi.fn(),
   useSaveChartData: vi.fn(),
+}));
+
+vi.mock('src/features/visits/shared/hooks/useChartData', () => ({
+  useChartData: vi.fn(),
 }));
 
 vi.mock('src/hooks/useEvolveUser', () => ({ default: vi.fn() }));

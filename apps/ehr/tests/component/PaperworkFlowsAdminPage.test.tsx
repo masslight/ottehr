@@ -34,7 +34,7 @@ vi.mock('notistack', async () => {
   return { ...actual, enqueueSnackbar: vi.fn() };
 });
 
-vi.mock('utils', async (importOriginal) => {
+vi.mock('utils/lib/ottehr-config/booking', async (importOriginal) => {
   const actual = (await importOriginal()) as any;
   return {
     ...actual,

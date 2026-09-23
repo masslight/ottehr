@@ -45,6 +45,9 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
       patient: { id: 'pat-1' },
     },
   }),
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
   useChartData: () => ({ chartData: undefined }),
 }));
 
@@ -64,7 +67,7 @@ vi.mock('../../src/components/BaseBreadcrumbs', () => ({
   BaseBreadcrumbs: () => <div />,
 }));
 
-vi.mock('../../src/components/dialogs', () => ({
+vi.mock('../../src/components/dialogs/CustomDialog', () => ({
   CustomDialog: () => <div />,
 }));
 
