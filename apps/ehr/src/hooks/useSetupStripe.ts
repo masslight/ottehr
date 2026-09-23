@@ -1,5 +1,5 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { PaymentMethodSetupZambdaOutput } from 'utils/lib/types/data/payment/payment-method-types';
 import { useApiClients } from './useAppClients';

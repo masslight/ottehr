@@ -20,7 +20,8 @@
  * contracts change, new zambdas are added to the pipeline, or new clinical
  * features need representation.
  */
-import { followUpInOptions, OTHER_SPECIALTY_TRANSFER_OPTION, specialtyTransferOptions } from 'utils';
+import { OTHER_SPECIALTY_TRANSFER_OPTION, specialtyTransferOptions } from 'utils/lib/fhir/disposition';
+import { followUpInOptions } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { z } from 'zod';
 
 // ── Primitives ────────────────────────────────────────────────────────────────

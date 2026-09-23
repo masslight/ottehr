@@ -30,13 +30,13 @@ import { buildPreliminaryReportSnapshot } from '../../../shared/radiology';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import {
-  advaPacsFetch,
   AllRadTaskResources,
   configReviewResultTask,
   parseRadiologyResourcesForTask,
   ResourcesForTask,
   validateResourcesAgainstDR,
 } from '../shared';
+import { advaPacsFetch } from '../shared/advapacs';
 import { validateInput, validateSecrets } from './validation';
 
 // Types

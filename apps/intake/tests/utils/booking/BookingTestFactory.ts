@@ -11,7 +11,7 @@
  */
 
 import { Page } from '@playwright/test';
-import { isTelemedEnabled } from 'test-utils';
+import { isTelemedEnabled } from 'test-utils/lib/telemed-config';
 import { serviceCategorySupportsContext } from 'utils/lib/config-helpers/booking';
 import { CONFIG_INJECTION_KEYS } from 'utils/lib/config-helpers/helpers';
 import { BOOKING_CONFIG, BookingConfig } from 'utils/lib/ottehr-config/booking';

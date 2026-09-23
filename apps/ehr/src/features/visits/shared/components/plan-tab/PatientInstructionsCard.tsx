@@ -8,9 +8,10 @@ import { AccordionCard } from '../../../../../components/AccordionCard';
 import { ActionsList } from '../../../../../components/ActionsList';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { RoundedButton } from '../../../../../components/RoundedButton';
+import { useChartData } from '../../hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useSavePatientInstruction } from '../../stores/appointment/appointment.queries';
-import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
+import { useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
 import { PatientInstructionsTemplatesDialog } from './components/PatientInstructionsTemplatesDialog';
 
 export const PatientInstructionsCard: FC = () => {

@@ -11,7 +11,8 @@ import {
 } from 'src/telemed/features/paperwork/paperwork.queries';
 import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
 import { PaperworkContext } from 'ui-components/lib/components/paperwork/context';
-import { ControlButtons, FileInput } from 'ui-components/lib/components/paperwork/form-components';
+import { ControlButtons } from 'ui-components/lib/components/paperwork/form-components/ControlButtons';
+import FileInput from 'ui-components/lib/components/paperwork/form-components/FileInput';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { useUploadPhotosStore } from './UploadPhotosListItemButton';
 

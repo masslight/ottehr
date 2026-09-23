@@ -3,7 +3,8 @@ import { useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { QUERY_STALE_TIME } from 'src/constants';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
+import { useErrorQuery } from 'utils/lib/frontend/hooks/useErrorQuery';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import {
   ChartSection,
   ChartSectionData,

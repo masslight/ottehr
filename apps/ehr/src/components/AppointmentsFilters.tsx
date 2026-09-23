@@ -1,6 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import { Box, Button, Paper, Stack, Typography } from '@mui/material';
-import { VisitType } from 'config-types';
+import { VisitType } from 'config-types/config/booking';
 import { DateTime } from 'luxon';
 import { ReactElement, useEffect, useMemo } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';

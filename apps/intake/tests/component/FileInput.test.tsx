@@ -3,11 +3,10 @@ import imageCompression from 'browser-image-compression';
 import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { PaperworkContext } from 'ui-components/lib/components/paperwork/context';
-import {
+import FileInput, {
   COMPRESS_TARGET_MB,
   COMPRESS_THRESHOLD_MB,
-  FileInput,
-} from 'ui-components/lib/components/paperwork/form-components';
+} from 'ui-components/lib/components/paperwork/form-components/FileInput';
 import { describe, expect, test, vi } from 'vitest';
 
 vi.mock('browser-image-compression', () => ({

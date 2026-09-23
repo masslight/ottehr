@@ -3,7 +3,8 @@ import { FC } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { CPTCodeDTO, formatProcedureCptCode } from 'utils';
+import { formatProcedureCptCode } from 'utils/lib/procedure-coding/format';
+import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 interface ProcedureCptCodesFieldProps {
   codes: CPTCodeDTO[];

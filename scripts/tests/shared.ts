@@ -1,6 +1,8 @@
 import { Location, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { CreateAppointmentResponse, createOystehrClient, ServiceMode } from 'utils';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ServiceMode } from 'utils/lib/types/common';
 
 const BASE_URL = 'http://localhost:3000/local/zambda';
 const OPEN_ZAMBDAS = new Set(['create-slot']);

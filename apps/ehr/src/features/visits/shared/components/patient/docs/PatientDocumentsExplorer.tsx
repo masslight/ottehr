@@ -8,7 +8,8 @@ import { ChangeEvent, FC, useCallback, useEffect, useMemo, useState } from 'reac
 import DateSearch, { CustomFormEventHandler } from 'src/components/DateSearch';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
-import { SendFaxDialog, useSendFax } from 'src/features/fax';
+import { useSendFax } from 'src/features/fax/hooks/useSendFax';
+import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
 import {
   DocumentVisitRef,
   hasVisitRef,

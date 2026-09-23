@@ -1,6 +1,7 @@
 import { Paper, Typography } from '@mui/material';
 import React from 'react';
-import { formatValue, ValueFormat } from './format';
+import { ValueFormat } from 'utils/lib/types/adhoc/generation/runtime-scope.catalog';
+import { formatValue } from './format';
 
 export interface KpiProps {
   label: string;

@@ -9,7 +9,7 @@ import Version from 'src/pages/Version';
 import { ProtectedRoute } from 'src/telemed/features/auth/ProtectedRoute';
 import { ErrorFallbackScreen } from 'src/telemed/features/common/ErrorFallbackScreen';
 import { LoadingScreen } from 'src/telemed/features/common/LoadingScreen';
-import { setupSentry } from 'utils/lib/frontend';
+import { setupSentry } from 'utils/lib/frontend/configurations/sentry';
 import { parseCommaSeparatedTags } from 'utils/lib/helpers/parseCommaSeparatedTags';
 import { ScrollToTop } from './components/ScrollToTop';
 import { TestErrorPage } from './components/TestErrorPage';

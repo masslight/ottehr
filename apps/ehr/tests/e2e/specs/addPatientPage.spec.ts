@@ -1,12 +1,13 @@
 import { Page, test } from '@playwright/test';
 import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { addProcessIdMetaTagToAppointment, waitForResponseWithData } from 'test-utils';
+import { addProcessIdMetaTagToAppointment } from 'test-utils/lib/e2e/clean-appointment';
+import { waitForResponseWithData } from 'test-utils/lib/e2e/response-utils';
 import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import { unpackFhirResponse } from 'utils/lib/fhir/helpers';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
-import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment';
+import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import {
   PATIENT_BIRTH_DATE_LONG,

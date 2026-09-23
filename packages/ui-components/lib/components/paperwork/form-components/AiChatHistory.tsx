@@ -3,7 +3,7 @@ import { Box } from '@mui/system';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
-import { defaultSecondaryIcon } from '../../intake/icons';
+import defaultSecondaryIcon from '../../intake/icons/ottehr-dark-blue.svg';
 const MESSAGES_CONTAINER_ID = 'messages-container';
 
 // todo we should probably move up all the icons into ui-components

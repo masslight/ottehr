@@ -1,5 +1,5 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { ListPatientPaymentInput, ListPatientPaymentResponse } from 'utils/lib/types/api/patient-payment-types';
 import { PromiseReturnType } from 'utils/lib/types/common';
 import { useApiClients } from './useAppClients';

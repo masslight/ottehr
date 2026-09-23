@@ -1,5 +1,5 @@
+import { palette } from 'utils/lib/theme/billing-palette';
 import { InvoiceReportCategory } from 'utils/lib/types/data/billing/billing.types';
-import { palette } from './colors';
 
 // Shared visual vocabulary for the report pages. react-google-charts needs concrete hex
 // values at render time, so chart series live here as named tokens — derived from the app

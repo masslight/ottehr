@@ -11,7 +11,8 @@ import {
   PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
   PATIENT_INFO_META_DATA_SYSTEM,
 } from 'utils/lib/types/constants';
-import { ChartDataResponse, useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
+import { useChartData } from '../../hooks/useChartData';
+import { ChartDataResponse, useAppointmentData } from '../../stores/appointment/appointment.store';
 import { AdditionalQuestionView } from '../medical-history-tab/components/AdditionalQuestionRow';
 
 export function getReturningPatient(

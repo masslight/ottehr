@@ -1,4 +1,4 @@
-import { QuestionnaireDataType } from 'config-types';
+import { QuestionnaireDataType } from 'config-types/config/questionnaire';
 import { FormItemType } from 'utils/lib/types/common';
 import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
 

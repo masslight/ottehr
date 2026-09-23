@@ -98,7 +98,7 @@ import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_CPT_MODIFIER,
   EXTENSION_URL_CPT_MODIFIER,
-} from 'utils/lib/helpers/rcm';
+} from 'utils/lib/helpers/rcm/constants';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { Secrets } from 'utils/lib/secrets';
 import { EmCodeOption } from 'utils/lib/types/api/config/em-codes';

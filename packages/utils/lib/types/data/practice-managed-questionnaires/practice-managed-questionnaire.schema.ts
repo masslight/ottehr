@@ -1,4 +1,4 @@
-import { QuestionnaireBaseSchema } from 'config-types';
+import { QuestionnaireBaseSchema } from 'config-types/config/questionnaire';
 import z from 'zod';
 import {
   OTTEHR_DATA_TYPES,

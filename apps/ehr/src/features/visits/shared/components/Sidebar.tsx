@@ -21,8 +21,9 @@ import { EncounterSwitcher } from '../../in-person/components/EncounterSwitcher'
 import { RouteInPerson, useInPersonNavigationContext } from '../../in-person/context/InPersonNavigationContext';
 import { useCompleteIntake } from '../../in-person/hooks/useCompleteIntake';
 import { ROUTER_PATH, routesInPerson } from '../../in-person/routing/routesInPerson';
+import { useChartData } from '../hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
-import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
+import { useAppointmentData } from '../stores/appointment/appointment.store';
 import { sidebarMenuIcons } from './sidebarMenuIcons';
 
 export const ArrowIcon = ({

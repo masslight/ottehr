@@ -1,4 +1,4 @@
-import type { ExamCardComponent } from 'config-types';
+import type { ExamCardComponent } from 'config-types/config/examination';
 import { CodeableConcept, QuestionnaireResponse } from 'fhir/r4b';
 import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import { examConfig } from 'utils/lib/ottehr-config/examination';

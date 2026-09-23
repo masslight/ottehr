@@ -3,8 +3,9 @@ import { FC, useCallback, useState } from 'react';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
 import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
+import { useChartData } from './shared/hooks/useChartData';
 import { useChartSection } from './shared/hooks/useChartSection';
-import { useChartData, useSaveChartData } from './shared/stores/appointment/appointment.store';
+import { useSaveChartData } from './shared/stores/appointment/appointment.store';
 
 export const AiHpiSuggestion: FC = () => {
   const { chartData } = useChartData();

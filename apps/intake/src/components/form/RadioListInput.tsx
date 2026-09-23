@@ -14,8 +14,8 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
 import { RadioOption } from 'src/types/types';
-import { LightToolTip } from 'ui-components/lib/components/paperwork/form-components';
-import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components/BoldPurpleInputLabel';
+import { LightToolTip } from 'ui-components/lib/components/paperwork/form-components/LightToolTip';
 import { useLabelDimensions } from '../../hooks/useLabelDimensions';
 import { InputHelperText } from './InputHelperText';
 

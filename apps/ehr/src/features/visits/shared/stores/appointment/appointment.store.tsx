@@ -25,7 +25,7 @@ import {
 } from 'src/features/visits/telemed/utils/appointments';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import {
   AllChartValues,
   NOTE_TYPE,

@@ -1,6 +1,6 @@
 import { useMutation, UseMutationResult, useQueryClient } from '@tanstack/react-query';
-import { UpdatePatientNoteRequest } from 'utils/lib/types/api/patient-notes/patient-notes.types';
-import { PatientNoteDTO, updatePatientNote } from '../../../api/api';
+import { PatientNoteDTO, UpdatePatientNoteRequest } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { updatePatientNote } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 
 export const useUpdatePatientNote = (

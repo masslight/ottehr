@@ -368,7 +368,7 @@ import {
   PaperworkFlowDeleteInput,
   PaperworkFlowListOutput,
   PaperworkFlowUpdateInput,
-} from 'utils/lib/types/data/paperwork-flows';
+} from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
 import {
   GetPatientBalancesZambdaInput,
   GetPatientBalancesZambdaOutput,

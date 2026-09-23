@@ -11,7 +11,7 @@ import {
   getPatientVisitFiles,
   updateVisitFiles,
 } from 'src/api/api';
-import { downscaleImageForUpload } from 'utils/lib/frontend';
+import { downscaleImageForUpload } from 'utils/lib/frontend/downscaleImageForUpload';
 import { UpdateVisitFilesInput } from 'utils/lib/types/api/update-visit-details.types';
 import { DocumentInfo, DocumentType, VisitDocuments } from 'utils/lib/types/data/documents';
 import { useApiClients } from './useAppClients';

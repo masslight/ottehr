@@ -1,4 +1,4 @@
-import type { ExamItemConfig } from 'config-types';
+import type { ExamItemConfig } from 'config-types/config/examination';
 import { describe, expect, it } from 'vitest';
 import { buildExamFieldToSectionMap } from './exam-observations';
 

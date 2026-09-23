@@ -7,8 +7,8 @@ import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { useChartData } from '../../../hooks/useChartData';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
-import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
 import { SURGICAL_HISTORY_OPTIONS } from './surgicalHistoryOptions';
 

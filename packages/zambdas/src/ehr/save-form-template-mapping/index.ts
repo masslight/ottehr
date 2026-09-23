@@ -5,6 +5,7 @@ import {
   FORM_TEMPLATE_FIELD_INVENTORY_EXTENSION_URL,
   FORM_TEMPLATE_MAPPING_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
+import { withExtensionJson } from 'utils/lib/fhir/extensions';
 import { FormTemplateMapping } from 'utils/lib/form-tokens/mapping';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
@@ -20,12 +21,7 @@ import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
-import {
-  getFormTemplateOrThrow,
-  readExtensionJson,
-  reconcileMappingWithFields,
-  withExtensionJson,
-} from '../shared/form-template-helpers';
+import { getFormTemplateOrThrow, readExtensionJson, reconcileMappingWithFields } from '../shared/form-template-helpers';
 
 const ZAMBDA_NAME = 'save-form-template-mapping';
 

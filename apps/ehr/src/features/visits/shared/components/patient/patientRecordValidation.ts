@@ -1,4 +1,4 @@
-import { FormFieldsDisplayItem, FormFieldsInputItem } from 'config-types';
+import { FormFieldsDisplayItem, FormFieldsInputItem } from 'config-types/config/form-fields';
 import { DateTime } from 'luxon';
 import { FieldError, RegisterOptions } from 'react-hook-form';
 import { evaluateFieldTriggers } from 'utils/lib/config-helpers/patient-record';

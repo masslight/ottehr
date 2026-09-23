@@ -1,4 +1,4 @@
-import { type AnswerLoadingOptions } from 'config-types';
+import type { AnswerLoadingOptions } from 'config-types/config/fhir';
 import {
   QuestionnaireItem,
   QuestionnaireResponse,
@@ -41,11 +41,11 @@ export interface QuestionnaireItemTextWhen extends QuestionnaireItemConditionDef
 }
 
 // Re-export from config-types for backwards compatibility
+import type { QuestionnaireDataType as _QuestionnaireDataType } from 'config-types/config/questionnaire';
 import {
-  type QuestionnaireDataType as _QuestionnaireDataType,
   QuestionnaireDataTypes as _QuestionnaireDataTypes,
   QuestionnaireDataTypeSchema as _QuestionnaireDataTypeSchema,
-} from 'config-types';
+} from 'config-types/config/questionnaire';
 export const QuestionnaireDataTypeSchema = _QuestionnaireDataTypeSchema;
 export const QuestionnaireDataTypes = _QuestionnaireDataTypes;
 export type QuestionnaireDataType = _QuestionnaireDataType;

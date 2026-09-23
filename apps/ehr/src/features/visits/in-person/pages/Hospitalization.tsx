@@ -3,7 +3,8 @@ import React from 'react';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
-import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { useChartData } from '../../shared/hooks/useChartData';
+import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 import { HospitalizationBody } from '../components/hospitalization/HospitalizationBody';
 import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
 interface HospitalizationProps {

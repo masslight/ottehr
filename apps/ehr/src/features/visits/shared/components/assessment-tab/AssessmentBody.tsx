@@ -3,7 +3,7 @@ import { FC } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
-import { LabPaymentMethod } from 'utils';
+import { LabPaymentMethod } from 'utils/lib/types/data/labs/labs.types';
 import { useBillingSuggestions } from '../../hooks/useBillingSuggestions';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { AiPotentialDiagnosesCard } from '../AiPotentialDiagnosesCard';

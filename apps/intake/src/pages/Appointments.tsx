@@ -16,7 +16,7 @@ import ottehrApi from 'src/api/ottehrApi';
 import { PageContainer } from 'src/components/CustomContainer';
 import LinkedButtonWithIcon from 'src/components/LinkedButtonWithIcon';
 import { useIntakeCommonStore } from 'src/features/common/intake-common.store';
-import { i18n } from 'utils/lib/frontend';
+import i18n from 'utils/lib/frontend/i18n-lib/i18n';
 import { PatientAppointmentDTO } from 'utils/lib/types/api/appointment.types';
 import { ServiceMode } from 'utils/lib/types/common';
 import { VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';

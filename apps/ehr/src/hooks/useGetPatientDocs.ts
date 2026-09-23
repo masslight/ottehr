@@ -12,7 +12,7 @@ import {
   parseCustomFoldersCatalogIncludingDeleted,
   PATIENT_FOLDERS_CODE,
 } from 'utils/lib/fhir/list';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';

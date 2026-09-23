@@ -1,6 +1,7 @@
 import { MessagingGetMessagingConfigResponse, TransactionalSMSSendResponse } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
-import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
+import { useErrorQuery } from 'utils/lib/frontend/hooks/useErrorQuery';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { replaceTemplateVariablesHandlebars } from 'utils/lib/helpers/helpers';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { ConversationMessage, SMSRecipient } from 'utils/lib/types/api/messaging.types';

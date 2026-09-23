@@ -16,7 +16,7 @@ import { Observation } from 'fhir/r4b';
 import * as fs from 'fs';
 import { DateTime } from 'luxon';
 import * as path from 'path';
-import { createOystehrClient } from 'utils';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { createResourcesFromAiInterview } from '../../packages/zambdas/src/shared/ai';
 import {
   callGemini,

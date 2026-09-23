@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ServiceCategoryConfig } from 'config-types';
+import type { ServiceCategoryConfig } from 'config-types/config/booking';
 import { Coding } from 'fhir/r4b';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';

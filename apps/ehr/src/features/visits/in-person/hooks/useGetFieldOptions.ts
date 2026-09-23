@@ -10,10 +10,11 @@ import { RoleType } from 'utils/lib/types/api/user.types';
 import { getEmployees } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import useEvolveUser from '../../../../hooks/useEvolveUser';
+import { useChartData } from '../../shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useMainEncounterChartData } from '../../shared/hooks/useMainEncounterChartData';
 import { useGetMedicationList } from '../../shared/stores/appointment/appointment.queries';
-import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 import { Option } from '../components/medication-administration/medicationTypes';
 
 const getRoutesArray = (routes: MedicationApplianceRoutes): Option[] => {

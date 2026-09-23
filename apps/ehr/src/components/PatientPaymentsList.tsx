@@ -35,8 +35,8 @@ import { FC, Fragment, ReactElement, useCallback, useEffect, useMemo, useState }
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { STATUS_TO_STYLE_MAP } from 'src/features/visits/shared/components/patient/InsuranceContainer';
 import { getEligibilityCheckDetailsForCoverage } from 'src/features/visits/shared/components/patient/InsuranceSection';
+import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { structureQuestionnaireResponse } from 'src/helpers/qr-structure';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useEncounterReceipt, useGetEncounter } from 'src/hooks/useEncounter';

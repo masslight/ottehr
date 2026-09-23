@@ -1,4 +1,4 @@
-import type { ExamCardComponent, ExamItemConfig } from 'config-types';
+import type { ExamCardComponent, ExamItemConfig } from 'config-types/config/examination';
 import { DefaultExamComponentsConfig } from '../ottehr-config/examination/default-components.config';
 import { isDropdownComponent, isMultiSelectComponent } from '../ottehr-config/examination/examination.schema';
 import type { ExamObservationComponentDTO, ExamObservationDTO } from '../types/api/chart-data/chart-data.types';

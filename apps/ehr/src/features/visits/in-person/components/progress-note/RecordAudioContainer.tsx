@@ -3,7 +3,7 @@ import { Grid, IconButton, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement, useEffect, useRef } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import {
   audioRecordingActions,
   AudioRecordingStatus,

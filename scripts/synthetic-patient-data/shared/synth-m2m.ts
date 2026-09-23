@@ -13,7 +13,7 @@
 // to authenticate as it by overwriting AUTH0_CLIENT/AUTH0_SECRET in process.env —
 // which spawned harness children inherit.
 import type Oystehr from '@oystehr/sdk';
-import { FHIR_IDENTIFIER_NPI } from 'utils';
+import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { makeValidNpi } from './npi';
 import { createOystehrFromToken, mintAccessTokenForClient } from './oystehr-client';
 

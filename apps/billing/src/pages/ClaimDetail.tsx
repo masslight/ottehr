@@ -61,13 +61,14 @@ import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import Dropzone, { DropzoneProps } from 'react-dropzone';
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
-import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils';
+import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils/lib/fhir/billing';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
 } from 'utils/lib/helpers/rcm/constants';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import {
   CreateBillingProviderInput,
   SaveServiceFacilityInput,
@@ -150,7 +151,6 @@ import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/use
 import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
-import { otherColors } from '../themes/ottehr/colors';
 import { downloadBase64File } from '../utils/downloadFile';
 import { formatDate, formatDateTime } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';

@@ -24,24 +24,22 @@ import { sortQuickPicks, useMergedProcedureQuickPicks } from 'src/hooks/useMerge
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { useMarkDraftNavigatedAway, useProcedureStore } from 'src/state/draft-data.store';
-import {
-  CodeOutcomeKind,
-  CPTCodeDTO,
-  detectProcedureFamily,
-  FHIR_CODE_REGEX,
-  IcdSearchResponse,
-  ProcedureQuickPickData,
-  PROCEDURES_CONFIG,
-  RoleType,
-} from 'utils';
-import { resolveFamilyFacts } from 'utils/lib/procedure-coding';
+import { PROCEDURES_CONFIG } from 'utils/lib/ottehr-config/procedures';
+import { detectProcedureFamily } from 'utils/lib/procedure-coding/evaluate';
+import { resolveFamilyFacts } from 'utils/lib/procedure-coding/family-support';
+import { CodeOutcomeKind } from 'utils/lib/procedure-coding/model.types';
+import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
+import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { FHIR_CODE_REGEX } from 'utils/lib/types/constants';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
+import { useChartData } from '../../shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useGetCPTHCPCSSearch } from '../../shared/stores/appointment/appointment.queries';
 import {
   useAppointmentData,
-  useChartData,
   useDeleteChartData,
   useSaveChartData,
 } from '../../shared/stores/appointment/appointment.store';

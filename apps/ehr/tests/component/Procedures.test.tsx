@@ -40,11 +40,9 @@ vi.mock('notistack', () => ({
 
 import { enqueueSnackbar } from 'notistack';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useChartData } from '../../src/features/visits/shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../src/features/visits/shared/hooks/useGetAppointmentAccessibility';
-import {
-  useChartData,
-  useDeleteChartData,
-} from '../../src/features/visits/shared/stores/appointment/appointment.store';
+import { useDeleteChartData } from '../../src/features/visits/shared/stores/appointment/appointment.store';
 
 const mockUseChartData = vi.mocked(useChartData);
 const mockUseDeleteChartData = vi.mocked(useDeleteChartData);

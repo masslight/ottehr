@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { initialsFromName } from 'utils/lib/fhir/chat';
 import { getFullestAvailableName, getNPIIdentifier } from 'utils/lib/fhir/patient';
 import { getPatchOperationForNewMetaTag, getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { SyncUserResponse } from 'utils/lib/types/api/sync-user/sync-user.types';
 import { RoleType, User } from 'utils/lib/types/api/user.types';

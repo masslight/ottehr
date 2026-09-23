@@ -2,7 +2,7 @@ import { CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 import { InventoryRecord } from 'candidhealth/api/resources/patientAr/resources/v1';
 import fs from 'fs';
 import { DateTime } from 'luxon';
-import { getCandidInventoryPages } from 'utils';
+import { getCandidInventoryPages } from 'utils/lib/helpers/candidApi';
 
 async function createCandid(
   zambdaEnv: Record<string, string>,

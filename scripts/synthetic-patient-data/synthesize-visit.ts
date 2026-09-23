@@ -126,7 +126,7 @@ import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import * as path from 'path';
 import { resolve } from 'path';
-import { createQuestionnaireItemsMap } from 'utils';
+import { createQuestionnaireItemsMap } from 'utils/lib/types/data/paperwork/createQuestionnaireItemsMap';
 import { finalizeInHouseLabs, finalizeRadiology, LAB_NAME_ALIASES, normalizeLabName } from './finalize-visit-orders';
 import { type History as ScenarioHistory, type VisitScenario, VisitScenarioSchema } from './schema';
 import { arg } from './shared/cli';

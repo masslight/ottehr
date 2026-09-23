@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { advaPacsFetch } from '../../src/ehr/radiology/shared';
+import { advaPacsFetch } from '../../src/ehr/radiology/shared/advapacs';
 
 // How fetch surfaces a refused connection: a generic TypeError with the real code on `cause`.
 function connectionError(code = 'ECONNREFUSED'): TypeError {

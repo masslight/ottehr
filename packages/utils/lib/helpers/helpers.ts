@@ -12,7 +12,6 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../config-helpers/shared-questionnaire';
 import {
   BILLING_RESOURCE_TAG,
   FHIR_IDENTIFIER_SYSTEM,
@@ -32,6 +31,7 @@ import {
 import { getPaymentNoticeSubmitterRef } from '../fhir/payments';
 import { CONSENT_FORMS_CONFIG } from '../ottehr-config/consent-forms';
 import { patientScreeningQuestionsConfig } from '../ottehr-config/screening-questions';
+import { INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../ottehr-config/value-sets';
 import { CashPaymentDTO } from '../types/api/patient-payment-types';
 import {
   PHYSICIAN_TYPES,

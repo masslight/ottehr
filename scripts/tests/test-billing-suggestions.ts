@@ -10,7 +10,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { BillingSuggestionInput, BillingSuggestionOutput } from 'utils';
+import { BillingSuggestionInput, BillingSuggestionOutput } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { getToken } from './shared';
 import { ScenarioChecks, TEST_SCENARIOS } from './test-billing-suggestions-config';
 

@@ -7,7 +7,7 @@ import { FieldValues } from 'react-hook-form';
 import { generatePath, Outlet, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { PageContainer } from 'src/components/CustomContainer';
 import { getPatientInfoFullName } from 'utils/lib/fhir/patient';
-import { useErrorQuery } from 'utils/lib/frontend';
+import { useErrorQuery } from 'utils/lib/frontend/hooks/useErrorQuery';
 import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { APIError, isApiError } from 'utils/lib/types/errors';
 import ottehrApi from '../api/ottehrApi';

@@ -1,5 +1,5 @@
 import { expect, Page } from '@playwright/test';
-import { clickAndWaitForChartDataDeletion } from 'test-utils';
+import { clickAndWaitForChartDataDeletion } from 'test-utils/lib/e2e/response-utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { BaseAssessmentPage } from '../abstract/BaseAssessmentPage';
 

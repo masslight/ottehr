@@ -23,7 +23,8 @@ import { spawn } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { resolve } from 'path';
-import { APPOINTMENT_LOCKED_META_TAG, APPOINTMENT_LOCKED_META_TAG_SYSTEM, isCustomerSupport, isProvider } from 'utils';
+import { APPOINTMENT_LOCKED_META_TAG, APPOINTMENT_LOCKED_META_TAG_SYSTEM } from 'utils/lib/fhir/constants';
+import { isCustomerSupport, isProvider } from 'utils/lib/types/api/get-employees/get-employees.types';
 import {
   AuthoredResultsByTest,
   finalizeInHouseLabs,

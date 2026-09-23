@@ -11,18 +11,15 @@ import {
 import { expectAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmentPage';
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
-import {
-  FinalResultPage,
-  InHouseLabsPage,
-  MockReflexTestConfig,
-  OrderInHouseLabPage,
-  PerformTestPage,
-  RadioSelectionResult,
-} from 'tests/e2e/page/lab';
 import { ExternalLabDetailPage } from 'tests/e2e/page/lab/external/ExternalLabDetailPage';
 import { ExternalLabsPage } from 'tests/e2e/page/lab/external/ExternalLabsPage';
 import { MOCK_LAB_RESULTS } from 'tests/e2e/page/lab/external/mock-data';
+import { FinalResultPage } from 'tests/e2e/page/lab/in-house/FinalResultPage';
+import { InHouseLabsPage } from 'tests/e2e/page/lab/in-house/InHouseLabsPage';
 import { buildRunScopedInhouseLabData, MOCK_E2E_AD_TAG } from 'tests/e2e/page/lab/in-house/mock-data';
+import { OrderInHouseLabPage } from 'tests/e2e/page/lab/in-house/OrderInHouseLabPage';
+import { PerformTestPage } from 'tests/e2e/page/lab/in-house/PerformTestPage';
+import { MockReflexTestConfig, RadioSelectionResult } from 'tests/e2e/page/lab/in-house/types';
 import { LabelPrintingConfigAdminPage } from 'tests/e2e/page/LabelPrintingConfigAdminPage';
 import { expectNursingOrderCreatePage } from 'tests/e2e/page/NursingOrderCreatePage';
 import { expectNursingOrderDetailsPage } from 'tests/e2e/page/NursingOrderDetailsPage';

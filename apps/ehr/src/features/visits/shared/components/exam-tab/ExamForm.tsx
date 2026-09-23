@@ -1,6 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import { Autocomplete, Box, FormControlLabel, Radio, RadioGroup, TextField, Typography } from '@mui/material';
-import type { ExamCardFormComponent } from 'config-types';
+import type { ExamCardFormComponent } from 'config-types/config/examination';
 import React, { FC, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm, UseFormWatch } from 'react-hook-form';
 import { ActionsList } from 'src/components/ActionsList';

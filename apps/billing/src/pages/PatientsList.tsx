@@ -3,9 +3,9 @@ import { Alert, Box, Button, InputAdornment, TextField, Typography } from '@mui/
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { isValidUUID } from 'utils';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { SearchBillingPatientsInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { searchBillingPatients } from '../api/api';
 import { AddPatientDialog } from '../components/AddPatientDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';

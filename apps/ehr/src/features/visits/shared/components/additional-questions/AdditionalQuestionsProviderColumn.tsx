@@ -1,7 +1,7 @@
 import { Box, Skeleton, TextField, Typography } from '@mui/material';
 import { FC } from 'react';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
-import { useChartData } from '../../stores/appointment/appointment.store';
+import { useChartData } from '../../hooks/useChartData';
 import { AdditionalQuestionEdit } from '../medical-history-tab/components/AdditionalQuestionRow';
 
 // todo: support only boolean values, update when new question types will be required

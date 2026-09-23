@@ -7,9 +7,9 @@ import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ProviderSideListSkeleton } from 'src/features/visits/shared/components/ProviderSideListSkeleton';
+import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
-import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { HospitalizationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { HospitalizationOptions } from './hospitalizationOptions';
 

@@ -26,7 +26,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { Fragment, ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useErrorQuery } from 'utils/lib/frontend';
+import { useErrorQuery } from 'utils/lib/frontend/hooks/useErrorQuery';
 import { ScheduleListItem, SchedulesAndOwnerListItem } from 'utils/lib/types/api/schedules';
 import { APIError, isApiError } from 'utils/lib/types/errors';
 import { listScheduleOwners } from '../../api/api';

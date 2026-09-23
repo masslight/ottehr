@@ -1,5 +1,5 @@
+import { Age as VitalsAge } from 'config-types/config/vitals';
 import { z } from 'zod';
-import { VitalsAge } from '../config-helpers/vitals';
 import { VitalsDef, VitalsSchema } from '../helpers/vitals/config-schema';
 import { VitalAlertCriticality } from '../types/api/chart-data/chart-data.constants';
 import {

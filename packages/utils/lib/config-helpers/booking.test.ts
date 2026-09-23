@@ -1,4 +1,4 @@
-import { type ServiceCategoryConfig } from 'config-types';
+import type { ServiceCategoryConfig } from 'config-types/config/booking';
 import { describe, expect, it } from 'vitest';
 import { SERVICE_CATEGORY_SYSTEM } from '../fhir/constants';
 import { resolveReasonForVisitOptions, serviceCategorySupportsContext } from './booking';

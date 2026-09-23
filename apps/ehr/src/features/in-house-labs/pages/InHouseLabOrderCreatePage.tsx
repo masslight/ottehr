@@ -26,6 +26,7 @@ import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { LabSets } from 'src/features/external-labs/components/LabSets';
+import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -34,11 +35,11 @@ import {
   useGetCreateInHouseLabResources,
   useICD10SearchNew,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { useCreateInHouseLabStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
-import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
 import { LabSetDTO } from 'utils/lib/types/data/labs/lab-set.schema';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';

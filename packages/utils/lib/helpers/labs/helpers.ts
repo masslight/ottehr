@@ -11,7 +11,7 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { CPT_CODE_SYSTEM } from '../../fhir';
+import { CPT_CODE_SYSTEM } from '../../fhir/constants';
 import { getPatientFirstName, getPatientFriendlyId, getPatientLastName } from '../../fhir/patient';
 import { LabSetStatus } from '../../types/data/labs/lab-set.schema';
 import {

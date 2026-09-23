@@ -2,7 +2,11 @@ import { BrowserContext, expect, Locator, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { HospitalizationOptions } from 'src/features/visits/in-person/components/hospitalization/hospitalizationOptions';
-import { clickAndWaitForChartDataDeletion, waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
+import {
+  clickAndWaitForChartDataDeletion,
+  waitForChartDataDeletion,
+  waitForSaveChartDataResponse,
+} from 'test-utils/lib/e2e/response-utils';
 import { HospitalizationPage } from 'tests/e2e/page/HospitalizationPage';
 import { InPersonAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmentPage';
 import { expectExamPage } from 'tests/e2e/page/in-person/InPersonExamsPage';

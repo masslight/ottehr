@@ -1,4 +1,4 @@
-import { FormFieldItemRecord } from 'config-types';
+import { FormFieldItemRecord } from 'config-types/config/form-fields';
 import { FC } from 'react';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import PatientRecordFormField from './PatientRecordFormField';

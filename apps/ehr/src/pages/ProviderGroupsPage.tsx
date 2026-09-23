@@ -19,7 +19,7 @@ import { useQuery } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useErrorQuery } from 'utils/lib/frontend';
+import { useErrorQuery } from 'utils/lib/frontend/hooks/useErrorQuery';
 import { ProviderGroupListItem } from 'utils/lib/types/api/schedules';
 import { APIError, isApiError } from 'utils/lib/types/errors';
 import { listProviderGroups } from '../api/api';

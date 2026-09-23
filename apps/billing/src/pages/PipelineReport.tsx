@@ -24,6 +24,7 @@ import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import { BillingClaimItem, GetBillingPipelineReportResponse } from 'utils/lib/types/data/billing/billing.types';
 import {
   AR_STAGE,
@@ -39,7 +40,6 @@ import { DateRangeInput } from '../components/DateInput';
 import { ReportStatusBar } from '../components/ReportStatusBar';
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingReport } from '../hooks/useBillingReport';
-import { otherColors } from '../themes/ottehr/colors';
 import { reportPalette } from '../themes/ottehr/reportPalette';
 
 const DRILLDOWN_PAGE_SIZE = 100;

@@ -1,6 +1,6 @@
 import { FC } from 'react';
+import { useChartData } from '../../../hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
-import { useChartData } from '../../../stores/appointment/appointment.store';
 import { MedicalHistoryDoubleCard } from '../MedicalHistoryDoubleCard';
 import { ChiefComplaintPatientColumn } from './ChiefComplaintPatientColumn';
 import {

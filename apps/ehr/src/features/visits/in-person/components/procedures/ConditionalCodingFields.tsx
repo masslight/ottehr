@@ -16,9 +16,10 @@ import { LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { isPlausibleLengthCm, MAX_PLAUSIBLE_LENGTH_CM, REPAIR_DEPTH_OPTIONS } from 'utils';
 import { infusionMinutes } from 'utils/lib/procedure-coding/families/injection-infusion';
-import { ProcedureFieldVisibility } from './procedureFieldVisibility';
+import { ProcedureFieldVisibility } from 'utils/lib/procedure-coding/fields';
+import { REPAIR_DEPTH_OPTIONS } from 'utils/lib/procedure-coding/format';
+import { isPlausibleLengthCm, MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/validation';
 
 const timeStringToDateTime = (value: string | undefined): DateTime | null =>
   value ? DateTime.fromFormat(value, 'HH:mm') : null;

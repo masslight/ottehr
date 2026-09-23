@@ -1,11 +1,7 @@
-import {
-  type FormFieldSection,
-  type FormFieldTrigger,
-  HomepageOptions,
-  type QuestionnaireBase,
-  type QuestionnaireConfigType,
-  type ServiceCategoryConfig,
-} from 'config-types';
+import type { ServiceCategoryConfig } from 'config-types/config/booking';
+import type { FormFieldSection, QuestionnaireConfigType } from 'config-types/config/form-fields';
+import { HomepageOptions } from 'config-types/config/homepage-options';
+import type { FormFieldTrigger, QuestionnaireBase } from 'config-types/config/questionnaire';
 import { Coding, Questionnaire, Slot } from 'fhir/r4b';
 import z from 'zod';
 import {

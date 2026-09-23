@@ -1,4 +1,4 @@
-import { RadiologyStudy } from 'config-types';
+import { RadiologyStudy } from 'config-types/config/radiology';
 
 export const baseRadiologyStudiesConfig: RadiologyStudy[] = [
   { code: '71045', display: 'X-ray of chest, 1 view' },

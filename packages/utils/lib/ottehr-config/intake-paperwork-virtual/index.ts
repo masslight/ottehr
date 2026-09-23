@@ -1,12 +1,9 @@
-import {
-  type PaperworkConfig,
-  PaperworkConfigSchema,
-  type PaperworkFormFields,
-  type QuestionnaireBase,
-  type QuestionnaireConfigType,
-  type ResolvedConsentFormConfig,
-  type ValueSetsConfig,
-} from 'config-types';
+import type { ResolvedConsentFormConfig } from 'config-types/config/consent-forms';
+import type { QuestionnaireConfigType } from 'config-types/config/form-fields';
+import type { PaperworkConfig, PaperworkFormFields } from 'config-types/config/intake-paperwork';
+import { PaperworkConfigSchema } from 'config-types/config/intake-paperwork';
+import type { QuestionnaireBase } from 'config-types/config/questionnaire';
+import type { ValueSetsConfig } from 'config-types/config/value-sets';
 import { Questionnaire } from 'fhir/r4b';
 import { camelCase } from 'lodash-es';
 import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';

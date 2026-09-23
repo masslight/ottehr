@@ -5,7 +5,7 @@ import { ChangeEvent, FC, useContext, useState } from 'react';
 import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
 import { findMissingNumber } from 'src/helpers/form/photos-upload.helper';
 import { MultipleFileUploadOptions } from 'src/types/file-upload-options';
-import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components/BoldPurpleInputLabel';
 import { convertHeicToJpegIfNeeded } from 'ui-components/lib/utils/heic';
 import { FileURLs } from 'utils/lib/types/common';
 import { PATIENT_PHOTOS_MAX_COUNT_TELEMED } from 'utils/lib/types/data/paperwork/paperwork.constants';

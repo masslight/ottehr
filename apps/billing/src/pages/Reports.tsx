@@ -9,7 +9,7 @@ import {
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { otherColors } from '../themes/ottehr/colors';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 
 export default function Reports(): ReactElement {
   const navigate = useNavigate();

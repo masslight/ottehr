@@ -6,7 +6,8 @@
 // vocabulary) we IMPORT it from `utils` rather than copy it, so a change upstream
 // propagates here instead of silently drifting. The synthetic-data tag/identifier
 // systems below are owned by THIS pipeline, so they're defined here.
-import { FHIR_EXTENSION, visitStatusArray } from 'utils';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { visitStatusArray } from 'utils/lib/types/api/appointment.types';
 
 /** Patient.identifier system marking a synthetic patient (idempotent reuse + cleanup scope). */
 export const SYNTHETIC_PATIENT_ID_SYSTEM = 'https://fhir.ottehr.com/sid/synthetic-patient-id';

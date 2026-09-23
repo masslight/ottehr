@@ -16,7 +16,9 @@ import {
   isWeightVitalObservation,
 } from 'utils/lib/fhir/vitals';
 import { FormTokenKey } from 'utils/lib/form-tokens/token-catalog';
-import { celsiusToFahrenheit, HeightMeasurement, kgToLbs } from 'utils/lib/helpers/vitals';
+import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import { celsiusToFahrenheit } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
+import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import {
   AllergyDTO,
   VitalsBloodPressureObservationDTO,

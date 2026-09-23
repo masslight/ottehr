@@ -5,7 +5,7 @@ import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined
 import MedicalInformationOutlinedIcon from '@mui/icons-material/MedicalInformationOutlined';
 import VideoCameraFrontOutlinedIcon from '@mui/icons-material/VideoCameraFrontOutlined';
 import { Box, Button, Skeleton, Typography } from '@mui/material';
-import { HomepageOptions } from 'config-types';
+import { HomepageOptions } from 'config-types/config/homepage-options';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
 import { CancelVisitDialog } from 'src/telemed/components/CancelVisitDialog';

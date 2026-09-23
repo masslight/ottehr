@@ -24,7 +24,12 @@ export type {
 } from 'config-types';
 
 // Backwards compatibility aliases for existing code
-import type { ScreeningField, ScreeningFieldOption, ScreeningFieldType, ScreeningNoteField } from 'config-types';
+import type {
+  ScreeningField,
+  ScreeningFieldOption,
+  ScreeningFieldType,
+  ScreeningNoteField,
+} from 'config-types/config/screening-questions';
 
 export type Field = ScreeningField;
 export type FieldType = ScreeningFieldType;

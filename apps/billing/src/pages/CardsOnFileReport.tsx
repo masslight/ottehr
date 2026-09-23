@@ -18,13 +18,13 @@ import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import { CardOnFileReportRow, GetBillingCardsOnFileReportResponse } from 'utils/lib/types/data/billing/billing.types';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { getBillingCardsOnFileReport } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ReportStatusBar } from '../components/ReportStatusBar';
 import { useBillingReport } from '../hooks/useBillingReport';
-import { otherColors } from '../themes/ottehr/colors';
 
 type CardFilter = 'all' | 'with-card' | 'without-card';
 

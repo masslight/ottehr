@@ -7,10 +7,11 @@ import {
   BillingBaseRowSchema,
 } from 'utils/lib/types/adhoc/datasets/billing';
 import { layerOptions } from 'utils/lib/types/adhoc/datasets/dataset';
+import { AdHocRow } from 'utils/lib/types/adhoc/datasets/llm-schema';
 import { AdHocLayer } from 'utils/lib/types/adhoc/query/layers';
 import { ADHOC_QUERY_STALE_MS, runAdHocReport, toLocalYmd } from '../query/dataset-query';
 import { buildLlmDatasetSchema } from './schema';
-import { AdHocDataset, AdHocRow, FetchContext } from './types';
+import { AdHocDataset, FetchContext } from './types';
 
 export const ADHOC_BILLING_OPTIONS: AdHocLayer[] = layerOptions(BILLING_LAYERS);
 

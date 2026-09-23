@@ -1,4 +1,4 @@
-import { ProcedurePageState } from 'utils';
+import { ProcedurePageState } from 'utils/lib/types/api/procedures.types';
 import { describe, expect, it } from 'vitest';
 import { applyProcedureQuickPick, buildProcedureQuickPick, mergeProcedureCptCodes } from './procedureQuickPick';
 

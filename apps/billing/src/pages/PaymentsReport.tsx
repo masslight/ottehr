@@ -30,6 +30,7 @@ import { Fragment, ReactElement, useCallback, useEffect, useMemo, useState } fro
 import { Chart } from 'react-google-charts';
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { otherColors, palette } from 'utils/lib/theme/billing-palette';
 import {
   GetBillingPaymentsReportDrilldownInput,
   PatientPaymentsDrilldownParams,
@@ -56,7 +57,6 @@ import { DateRangeInput } from '../components/DateInput';
 import { mergeReportStatuses, ReportStatusBar } from '../components/ReportStatusBar';
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingReport } from '../hooks/useBillingReport';
-import { otherColors, palette } from '../themes/ottehr/colors';
 import { reportPalette } from '../themes/ottehr/reportPalette';
 
 type DateRangePreset =

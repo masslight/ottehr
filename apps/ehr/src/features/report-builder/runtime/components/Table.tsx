@@ -11,10 +11,11 @@ import {
   useGridApiRef,
 } from '@mui/x-data-grid-pro';
 import React, { useCallback, useMemo, useState } from 'react';
+import { ValueFormat } from 'utils/lib/types/adhoc/generation/runtime-scope.catalog';
 import type { AdHocLinkRoute } from 'utils/lib/types/adhoc/sandbox/events';
 import { MAX_EXPORT_CSV_LENGTH } from 'utils/lib/types/adhoc/sandbox/limits';
 import { sendFrameEvent } from '../messaging';
-import { cellText, formatValue, ValueFormat } from './format';
+import { cellText, formatValue } from './format';
 import { Link } from './Link';
 
 export interface TableColumn {

@@ -1,19 +1,21 @@
+import type { ServiceCategoryConfig } from 'config-types/config/booking';
+import type {
+  FormFieldsAttachmentItem,
+  FormFieldsDisplayItem,
+  FormFieldsGroupItem,
+  FormFieldsInputItem,
+  FormFieldsItem,
+  FormFieldsLogicalItem,
+  FormFieldsValueType,
+  QuestionnaireConfigType,
+} from 'config-types/config/form-fields';
 import {
   ComplexValidationSchema,
-  type FormFieldsAttachmentItem,
-  type FormFieldsDisplayItem,
-  type FormFieldsGroupItem,
-  type FormFieldsInputItem,
-  type FormFieldsItem,
-  type FormFieldsLogicalItem,
-  type FormFieldsValueType,
-  type FormFieldTrigger,
   FormSectionArraySchema,
   FormSectionSimpleSchema,
-  type QuestionnaireConfigType,
   ReferenceDataSource,
-  type ServiceCategoryConfig,
-} from 'config-types';
+} from 'config-types/config/form-fields';
+import type { FormFieldTrigger } from 'config-types/config/questionnaire';
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
 import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../fhir/constants';

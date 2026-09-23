@@ -4,7 +4,7 @@ import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion'
 import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
 import { ERxContainer } from '../../../shared/components/plan-tab/ERxContainer';
-import { useChartData } from '../../../shared/stores/appointment/appointment.store';
+import { useChartData } from '../../../shared/hooks/useChartData';
 
 export const ERXBody: FC = () => {
   const { chartData } = useChartData();

@@ -1,4 +1,4 @@
-import type { MedicalHistoryConfig } from 'config-types';
+import type { MedicalHistoryConfig } from 'config-types/config/medical-history';
 
 const MEDICAL_HISTORY_DATA: MedicalHistoryConfig = {
   medicalConditions: {

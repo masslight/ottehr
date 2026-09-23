@@ -5,7 +5,8 @@ import { PageTitle } from '../../shared/components/PageTitle';
 import { AddendumCard } from '../../shared/components/review-tab/AddendumCard';
 import { ReviewAndSignButton } from '../../shared/components/review-tab/ReviewAndSignButton';
 import { UnlockAppointmentButton } from '../../shared/components/review-tab/UnlockAppointmentButton';
-import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { useChartData } from '../../shared/hooks/useChartData';
+import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 import { FollowUpNoteDetails } from '../components/follow-up-note/FollowUpNoteDetails';
 import { FollowUpSummaryCard } from '../components/follow-up-note/FollowUpSummaryCard';
 

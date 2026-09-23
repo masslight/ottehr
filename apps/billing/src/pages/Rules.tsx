@@ -10,6 +10,7 @@ import { Alert, Box, Button, Chip, CircularProgress, IconButton, Switch, Typogra
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import {
   DEFAULT_RULES_ENGINE,
   isRulesEngineType,
@@ -19,7 +20,6 @@ import {
 import { BillingRuleInput } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { getBillingRules, saveBillingRules } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
-import { otherColors } from '../themes/ottehr/colors';
 
 export default function Rules(): ReactElement {
   const { engine: engineParam } = useParams<{ engine: string }>();

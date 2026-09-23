@@ -3,11 +3,8 @@ import { Box, Checkbox, darken, FormControlLabel, Typography } from '@mui/materi
 import { DateTime, Duration } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useState } from 'react';
-import {
-  useAppointmentData,
-  useChartData,
-  useSaveChartData,
-} from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
+import { useAppointmentData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { formatVideoTimerTime } from '../../utils/appointments';
 import { InnerStatePopover } from '../InnerStatePopover';
 

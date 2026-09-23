@@ -3,7 +3,7 @@ import { DateTime } from 'luxon';
 import { useContext, useEffect, useMemo, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
-import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components/BoldPurpleInputLabel';
 import { months } from 'utils/lib/types/common';
 import { InputHelperText } from './InputHelperText';
 

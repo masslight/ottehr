@@ -1,6 +1,6 @@
 import { createTheme } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
-import { palette } from './colors';
+import { palette } from 'utils/lib/theme/billing-palette';
 
 const fontFamily = ['Rubik', 'sans-serif'].join(',');
 

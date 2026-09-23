@@ -65,7 +65,7 @@ import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPa
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
-import { DEFAULT_TAB_TITLE, formatPatientTabTitle } from 'src/shared/utils';
+import { DEFAULT_TAB_TITLE, formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
 import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import {
   getCancellationReasonDisplay,
@@ -81,7 +81,7 @@ import {
   SCHEDULED_FOLLOWUP_OTHER_REASON,
   SCHEDULED_FOLLOWUP_REASONS,
 } from 'utils/lib/fhir/encounter';
-import { getCoding } from 'utils/lib/fhir/helpers';
+import { getCoding, getCriticalUpdateTagOp } from 'utils/lib/fhir/helpers';
 import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getFormattedPatientFullName, getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
@@ -122,7 +122,6 @@ import {
   formatActivityLogs,
   formatNotesHistory,
   getAppointmentAndPatientHistory,
-  getCriticalUpdateTagOp,
   NoteHistory,
 } from '../helpers/activityLogsUtils';
 import { useApiClients } from '../hooks/useAppClients';

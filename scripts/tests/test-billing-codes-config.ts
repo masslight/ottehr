@@ -1,4 +1,4 @@
-import { ProcedureFactsInput } from 'utils';
+import { ProcedureFactsInput } from 'utils/lib/procedure-coding/model.types';
 
 /**
  * Scenarios for the AI accuracy dashboard's "Billing Codes" suite.

@@ -1,4 +1,9 @@
-import type { ConsentFormConfig, ConsentFormsConfig, PathConfig, ResolvedConsentFormConfig } from 'config-types';
+import type {
+  ConsentFormConfig,
+  ConsentFormsConfig,
+  PathConfig,
+  ResolvedConsentFormConfig,
+} from 'config-types/config/consent-forms';
 
 const PRIVACY_POLICY_CODE = '64292-6';
 

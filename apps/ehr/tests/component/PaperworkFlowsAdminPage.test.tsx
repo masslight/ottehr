@@ -2,7 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
-import { PaperworkFlow, ServiceMode } from 'utils';
+import { ServiceMode } from 'utils/lib/types/common';
+import { PaperworkFlow } from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockListPaperworkFlows = vi.fn<(...args: any[]) => Promise<any>>();

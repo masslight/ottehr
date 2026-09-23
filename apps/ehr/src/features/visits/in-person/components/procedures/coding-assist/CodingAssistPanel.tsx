@@ -1,7 +1,8 @@
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import { FC, ReactNode } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { CodeOutcome, CodeOutcomeKind, CPTCodeDTO, EvaluationResult } from 'utils';
+import { CodeOutcome, CodeOutcomeKind, EvaluationResult } from 'utils/lib/procedure-coding/model.types';
+import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { CodeCandidateList } from './CodeCandidateList';
 import { CodeSuggestionRow } from './CodeSuggestionRow';
 import { CodingFindingList, collectPayerNotes, PayerNoteList } from './CodingFindingList';

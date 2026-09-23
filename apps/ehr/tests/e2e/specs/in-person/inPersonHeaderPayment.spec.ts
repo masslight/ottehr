@@ -3,11 +3,8 @@ import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
-import {
-  ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
-  PaymentVariant,
-  updateEncounterPaymentVariantExtension,
-} from 'utils/lib/fhir';
+import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { PaymentVariant, updateEncounterPaymentVariantExtension } from 'utils/lib/fhir/encounter';
 import { hasAttorneyInformationPage, hasEmployerInformationPage } from 'utils/lib/helpers/create-demo-visits';
 import {
   getAttorneyInformationStepAnswers,

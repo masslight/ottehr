@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
-import { EraClaimListItem } from 'utils';
+import { EraClaimListItem } from 'utils/lib/types/data/billing/billing.types';
 import { describe, expect, it, vi } from 'vitest';
 import { MatchClaimDialog } from '../../src/components/MatchClaimDialog';
 

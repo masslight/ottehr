@@ -1,7 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Patient } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { useApiClients } from '../../hooks/useAppClients';
 
 export const useGetPatientsForMerge = (

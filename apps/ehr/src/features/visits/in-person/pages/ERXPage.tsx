@@ -1,7 +1,8 @@
 import { Typography } from '@mui/material';
 import React from 'react';
 import { Loader } from '../../shared/components/Loader';
-import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { useChartData } from '../../shared/hooks/useChartData';
+import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 import { ERXBody } from '../components/erx/ERXBody';
 
 interface ERXProps {

@@ -2,7 +2,7 @@ import { FileDownloadOutlined as FileDownloadOutlinedIcon } from '@mui/icons-mat
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import { DataGridProProps, GridPagination, GridToolbarExport } from '@mui/x-data-grid-pro';
 import { ReactElement } from 'react';
-import { otherColors } from '../themes/ottehr/colors';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 
 export const dataGridSx = {
   bgcolor: 'background.paper',

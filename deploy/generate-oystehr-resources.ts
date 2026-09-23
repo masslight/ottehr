@@ -11,7 +11,9 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { BRANDING_CONFIG, FEATURE_FLAGS_CONFIG, SENDGRID_CONFIG } from 'utils';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { SENDGRID_CONFIG } from 'utils/lib/ottehr-config/sendgrid';
 import { StripeWebhookSigningSecretsSchema } from 'utils/lib/types/data/billing/stripe-webhook.schemas';
 import { SpecFile } from '../packages/spec/src/schema';
 import { Schema20250319 } from '../packages/spec/src/schema-20250319';

@@ -1,4 +1,4 @@
-import type { LocationConfig, SupportDialog, SupportScheduleGroup } from 'config-types';
+import type { LocationConfig, SupportDialog, SupportScheduleGroup } from 'config-types/config/locations';
 
 const DEFAULT_SUPPORT_DIALOG_TITLE = 'Need help?';
 const DEFAULT_SUPPORT_DIALOG_EMERGENCY_NOTICE = 'If this is an emergency, please call 911.';

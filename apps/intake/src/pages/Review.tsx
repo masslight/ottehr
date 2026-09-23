@@ -14,7 +14,7 @@ import {
   mapBookingQRItemToPatientInfo,
   normalizeFormDataToQRItems,
 } from 'utils/lib/config-helpers/booking';
-import { i18n } from 'utils/lib/frontend';
+import i18n from 'utils/lib/frontend/i18n-lib/i18n';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { ServiceMode } from 'utils/lib/types/common';
 import { PatientInfo, VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';

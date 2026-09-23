@@ -6,7 +6,8 @@ import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/pa
 import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
 import { PatientSideListSkeleton } from '../../../../../components/PatientSideListSkeleton';
-import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
+import { useChartData } from '../../hooks/useChartData';
+import { useAppointmentData } from '../../stores/appointment/appointment.store';
 
 export const KnownAllergiesPatientColumn: FC = () => {
   const theme = useTheme();

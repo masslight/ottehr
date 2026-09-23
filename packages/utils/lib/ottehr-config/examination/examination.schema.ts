@@ -1,4 +1,8 @@
-import type { ExamCardComponent, ExamCardDropdownComponent, ExamCardMultiSelectComponent } from 'config-types';
+import type {
+  ExamCardComponent,
+  ExamCardDropdownComponent,
+  ExamCardMultiSelectComponent,
+} from 'config-types/config/examination';
 
 // Type guard functions for better type narrowing
 export function isDropdownComponent(component: ExamCardComponent): component is ExamCardDropdownComponent {

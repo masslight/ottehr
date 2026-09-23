@@ -13,7 +13,7 @@ import { getValueBoolean } from 'src/helpers/form/boolean.helper';
 import { useCreateInviteMutation } from 'src/telemed/features/waiting-room/waiting-room.queries';
 import { ReviewItem } from 'src/types/form/review-item-type';
 import { usePaperworkContext } from 'ui-components/lib/components/paperwork/context';
-import { i18n } from 'utils/lib/frontend';
+import i18n from 'utils/lib/frontend/i18n-lib/i18n';
 import { convertQRItemToLinkIdMap, pickFirstValueFromAnswerItem } from 'utils/lib/helpers/paperwork/paperwork';
 import { evalEnableWhen, makeValidationSchema } from 'utils/lib/helpers/paperwork/validation';
 import { ServiceMode } from 'utils/lib/types/common';

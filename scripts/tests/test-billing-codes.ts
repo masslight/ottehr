@@ -14,7 +14,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { CodeOutcomeKind, EvaluationResult, ProcedureFactsInput } from 'utils';
+import { CodeOutcomeKind, EvaluationResult, ProcedureFactsInput } from 'utils/lib/procedure-coding/model.types';
 import { getToken } from './shared';
 import { ScenarioChecks, TEST_SCENARIOS } from './test-billing-codes-config';
 
