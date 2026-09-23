@@ -1,5 +1,5 @@
 import { Autocomplete, AutocompleteInputChangeReason, AutocompleteRenderInputParams, TextField } from '@mui/material';
-import { HTMLAttributes, ReactElement, ReactNode, Ref, SyntheticEvent, useState } from 'react';
+import { HTMLAttributes, ReactElement, ReactNode, Ref, SyntheticEvent, useEffect, useRef, useState } from 'react';
 import { searchBillingNonInsuranceOrgs } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
@@ -36,9 +36,11 @@ interface NioSelectProps {
 const optionLabel = (o: NioOption): string => o.name || o.id;
 
 // Debounced server-side search plus a memory of organizations we've seen, so a selected
-// organization keeps its label even after the option list changes (or on edit, once it shows up in
-// a search).
+// organization keeps its label even after the option list changes. Stored ids no search has
+// surfaced (e.g. an existing rule opened after a page reload) are resolved by id once — that lookup
+// also finds inactive organizations, so a stored value renders faithfully.
 function useNioSearch(
+  value: string | string[] | null | undefined,
   initialOptions?: NioOption[],
   activeOnly?: boolean
 ): {
@@ -52,6 +54,24 @@ function useNioSearch(
   const [known, setKnown] = useState<Record<string, NioOption>>(() =>
     Object.fromEntries((initialOptions ?? []).filter((o) => o.id).map((o) => [o.id, o]))
   );
+
+  // Ids we've already tried to resolve — a deleted organization must not be re-fetched forever.
+  const attempted = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!oystehrZambda) return;
+    const stored = Array.isArray(value) ? value : value ? [value] : [];
+    for (const id of stored) {
+      if (!id || known[id] || attempted.current.has(id)) continue;
+      attempted.current.add(id);
+      searchBillingNonInsuranceOrgs(oystehrZambda, { nioId: id })
+        .then((res) => {
+          const match = (res.organizations ?? []).find((org) => org.id === id);
+          if (match) setKnown((prev) => ({ ...prev, [match.id]: { id: match.id, name: match.name } }));
+        })
+        .catch(() => undefined);
+    }
+  }, [value, known, oystehrZambda]);
 
   const runSearch = async (query?: string): Promise<void> => {
     if (!oystehrZambda) return;
@@ -90,7 +110,7 @@ export function NioSelect({
   helperText,
   inputRef,
 }: NioSelectProps): ReactElement {
-  const { options, known, search } = useNioSearch(initialOptions, activeOnly);
+  const { options, known, search } = useNioSearch(value, initialOptions, activeOnly);
 
   // Props shared by the single- and multi-select variants. Callbacks are typed with their own
   // (narrower) signatures so the object is assignable to both Autocomplete generic instantiations.

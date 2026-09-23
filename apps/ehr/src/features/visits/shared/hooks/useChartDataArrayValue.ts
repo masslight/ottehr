@@ -1,17 +1,12 @@
 import { enqueueSnackbar } from 'notistack';
-import { SearchParams } from 'utils/lib/fhir/uri';
-import { SaveableDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
-import {
-  ChartDataResponse,
-  useChartData,
-  useDeleteChartData,
-  useSaveChartData,
-} from '../stores/appointment/appointment.store';
-import { useChartFields } from './useChartFields';
+import { filterActiveMedications } from 'utils/lib/helpers/medications/current-medications.helper';
+import { MedicationDTO, SaveableDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { HistorySectionData } from 'utils/lib/types/api/chart-data/chart-sections.types';
+import { useDeleteChartData, useSaveChartData } from '../stores/appointment/appointment.store';
+import { useChartSection } from './useChartSection';
 
 type ChartDataArrayValueType = Pick<
-  GetChartDataResponse,
+  HistorySectionData,
   'episodeOfCare' | 'allergies' | 'medications' | 'conditions' | 'surgicalHistory'
 >;
 
@@ -25,13 +20,30 @@ const mapValueToLabel: Record<keyof ChartDataArrayValueType, string> = {
   surgicalHistory: 'surgical history',
 };
 
+/** What the screens list: for medications, the active current ones (prescriptions are listed elsewhere). */
+const shownValues = <T extends keyof ChartDataArrayValueType>(
+  name: T,
+  history: HistorySectionData | undefined
+): ChartDataArrayValueType[T] => {
+  const list = history?.[name] ?? [];
+  if (name === 'medications') {
+    const current = (list as MedicationDTO[]).filter((medication) => medication.type !== 'prescribed-medication');
+    return filterActiveMedications(current) as ChartDataArrayValueType[T];
+  }
+  return list as ChartDataArrayValueType[T];
+};
+
+/**
+ * One of the patient-level history lists, with add and remove. The list is the history section's; the
+ * section's cache entry is patched with what the server returned, so every reader of the list, this
+ * screen's and the visit note's alike, sees the change without another request.
+ */
 export const useChartDataArrayValue = <
   T extends keyof ChartDataArrayValueType,
   K extends NonNullable<ChartDataArrayValueType[T]>,
 >(
   name: T,
   reset?: () => void,
-  customParams?: SearchParams,
   onRemoveCallback?: () => any
 ): {
   isLoading: boolean;
@@ -41,41 +53,9 @@ export const useChartDataArrayValue = <
 } => {
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
-  const { chartData, chartDataSetState } = useChartData();
+  const { isLoading: isChartDataLoading, data: history, setSectionData } = useChartSection('history');
 
-  const {
-    isLoading: isChartDataLoading,
-    data: currentFieldData,
-    setQueryCache,
-  } = useChartFields({
-    requestedFields: { [name]: customParams || {} },
-    enabled: !!customParams,
-  });
-
-  const unscopedValues = ((chartData as ChartDataArrayValueType)?.[name] || []) as K & SaveableDTO[];
-  const values = (customParams ? currentFieldData?.[name] || [] : unscopedValues) as K;
-
-  // Both caches are patched from the save/delete response. Each patch reads the cache's current value, so
-  // two responses that land before a re-render both apply. The unscoped query is marked stale (not
-  // refetched) so the next screen that mounts it starts from the server.
-  const patchCaches = (update: (current: SaveableDTO[]) => SaveableDTO[]): void => {
-    if (customParams) {
-      setQueryCache(
-        (state) =>
-          ({ [name]: update(((state as Record<string, unknown>)?.[name] ?? []) as SaveableDTO[]) }) as Partial<
-            typeof state
-          >
-      );
-    }
-    chartDataSetState(
-      (state) => {
-        const current = ((state.chartData as ChartDataArrayValueType | undefined)?.[name] ?? []) as SaveableDTO[];
-        const next = { [name]: update(current) } as Partial<ChartDataResponse>;
-        return { chartData: { ...state.chartData, patientId: state.chartData?.patientId || '', ...next } };
-      },
-      { invalidateQueries: false }
-    );
-  };
+  const values = shownValues(name, history) as K;
 
   const onSubmit = (data: ElementType<K>): Promise<boolean> => {
     return new Promise((resolve, reject) => {
@@ -84,10 +64,18 @@ export const useChartDataArrayValue = <
           [name]: [data],
         },
         {
-          onSuccess: (data) => {
-            const saved = (data.chartData[name] ?? []) as unknown as SaveableDTO[];
-            // Items without a resourceId are a caller's optimistic placeholders; the saved items take their place.
-            patchCaches((current) => [...current.filter((item) => item.resourceId !== undefined), ...saved]);
+          onSuccess: (response) => {
+            const saved = (response.chartData[name] ?? []) as unknown as SaveableDTO[];
+            setSectionData(
+              (previous) =>
+                ({
+                  // Items without a resourceId are a caller's optimistic placeholders; the saved items take their place.
+                  [name]: [
+                    ...(previous[name] as unknown as SaveableDTO[]).filter((item) => item.resourceId !== undefined),
+                    ...saved,
+                  ],
+                }) as Partial<HistorySectionData>
+            );
             resolve(true);
           },
           onError: (error) => {
@@ -105,14 +93,19 @@ export const useChartDataArrayValue = <
   };
 
   const onRemove = async (resourceId: string): Promise<void> => {
-    const newState = (values as K & SaveableDTO[]).filter((value) => value.resourceId === resourceId);
+    const toDelete = (values as unknown as SaveableDTO[]).filter((value) => value.resourceId === resourceId);
     return deleteChartData(
       {
-        [name]: newState,
+        [name]: toDelete,
       },
       {
         onSuccess: () => {
-          patchCaches((current) => current.filter((value) => value.resourceId !== resourceId));
+          setSectionData(
+            (previous) =>
+              ({
+                [name]: (previous[name] as unknown as SaveableDTO[]).filter((value) => value.resourceId !== resourceId),
+              }) as Partial<HistorySectionData>
+          );
           onRemoveCallback?.();
         },
         onError: () => {
