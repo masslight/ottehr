@@ -8,7 +8,7 @@ import {
 } from 'utils/lib/fhir/constants';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm/constants';
 import { SaveServiceFacilityInput } from 'utils/lib/types/data/billing/billing.schemas';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
 import { validateRequestParameters } from '../../src/billing/save-billing-service-facility/validateRequestParameters';
 import {
   applyServiceFacilityInput,
@@ -544,6 +544,14 @@ describe('findServiceFacilityForLocation', () => {
   const mainStreet = makeLocation('sf-main', ['123 Main St']);
   const elmStreet = makeLocation('sf-elm', ['9 Elm St']);
 
+  let consoleWarn: MockInstance<typeof console.warn>;
+  beforeEach(() => {
+    consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  });
+  afterEach(() => {
+    consoleWarn.mockRestore();
+  });
+
   it('returns undefined when no facility has the NPI', () => {
     expect(findServiceFacilityForLocation([], clinicalLocation)).toBeUndefined();
   });
@@ -583,6 +591,21 @@ describe('findServiceFacilityForLocation', () => {
   it('returns undefined when more than one facility is at the clinical address', () => {
     const otherMainStreet = makeLocation('sf-main-2', ['123 Main St']);
     expect(findServiceFacilityForLocation([mainStreet, otherMainStreet], clinicalLocation)).toBeUndefined();
+  });
+
+  it('warns with the candidate facilities when none can be selected', () => {
+    const otherMainStreet = makeLocation('sf-main-2', ['123 Main St']);
+    findServiceFacilityForLocation([mainStreet, otherMainStreet], clinicalLocation);
+
+    expect(consoleWarn).toHaveBeenCalledTimes(1);
+    expect(consoleWarn.mock.calls[0][0]).toContain('Location/clinical-1');
+    expect(consoleWarn.mock.calls[0][0]).toContain('Location/sf-main, Location/sf-main-2');
+  });
+
+  it('does not warn when exactly one facility is at the clinical address', () => {
+    findServiceFacilityForLocation([elmStreet, mainStreet], clinicalLocation);
+
+    expect(consoleWarn).not.toHaveBeenCalled();
   });
 
   it('returns undefined when the clinical Location has no address', () => {

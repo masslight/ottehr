@@ -56,9 +56,17 @@ export function findServiceFacilityForLocation(
 ): Location | undefined {
   if (candidates.length <= 1) return candidates[0];
   const clinicalAddress = normalizeAddress(clinicalLocation);
-  if (!clinicalAddress) return undefined;
-  const addressMatches = candidates.filter((candidate) => normalizeAddress(candidate) === clinicalAddress);
-  return addressMatches.length === 1 ? addressMatches[0] : undefined;
+  const addressMatches = clinicalAddress
+    ? candidates.filter((candidate) => normalizeAddress(candidate) === clinicalAddress)
+    : [];
+  if (addressMatches.length === 1) return addressMatches[0];
+
+  const candidateRefs = candidates.map((candidate) => `Location/${candidate.id}`).join(', ');
+  console.warn(
+    `${candidates.length} service facilities share the NPI of Location/${clinicalLocation.id} ` +
+      `(${candidateRefs}) and ${addressMatches.length} match its address; no service facility selected`
+  );
+  return undefined;
 }
 
 // Pass `existing` for updates (read-modify-write); omit it to build a new active facility.
