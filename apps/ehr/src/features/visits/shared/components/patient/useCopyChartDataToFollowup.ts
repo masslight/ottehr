@@ -3,6 +3,8 @@ import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types'
 import { SaveChartDataRequest } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import { CopyableFollowupField } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
+import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
+import { resetRosObservationsStore } from '../../stores/appointment/reset-ros-observations';
 import { COPYABLE_FOLLOWUP_FIELDS, fetchCopySourceChartData } from './copyFollowupFields';
 
 interface CopyChartDataInput {
@@ -38,6 +40,10 @@ export const useCopyChartDataToFollowup = (): UseMutationResult<void, Error, Cop
         ),
       };
       await apiClient.saveChartData(payload);
+
+      const copied = new Set(configs.map((config) => config.key));
+      if (copied.has('examObservations')) resetExamObservationsStore();
+      if (copied.has('rosObservations')) resetRosObservationsStore();
 
       if (!targetChartData) return;
       const stale = Object.assign(
