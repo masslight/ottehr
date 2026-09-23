@@ -1,8 +1,9 @@
-// Where each data element prints on the CMS-1500 (02/12). The form is laid out for Pica type: 10
-// characters per inch and 6 lines per inch, so every value sits on a character cell of a 85 x 66 grid.
-// `line` is the 1-based print line from the top of the page (line n covers (n - 1)/6" to n/6") and
-// `col` the 1-based character column from the left edge (column c covers (c - 1)/10" to c/10").
-// `width` is how many characters fit before the next rule; longer values are cut off.
+// The boxes of the CMS-1500 (02/12) and where their data prints on the pre-printed red form. The form is
+// laid out for Pica type: 10 characters per inch and 6 lines per inch, so every value sits on a
+// character cell of a 85 x 66 grid. `line` is the 1-based print line from the top of the page (line n
+// covers (n - 1)/6" to n/6") and `col` the 1-based character column from the left edge (column c covers
+// (c - 1)/10" to c/10"). `width` is how many characters fit before the next rule; longer values are cut
+// off. Each box is known by its path in CMS1500_LAYOUT, e.g. "patientBirthDate.mm" (see CMS1500_BOXES).
 
 export const CMS1500_PAGE = {
   width: 612,
@@ -20,6 +21,14 @@ export interface Cms1500Field {
   align?: 'left' | 'right';
 }
 
+// Check boxes on one print line, of which the one for the claim's value gets an "X".
+export interface Cms1500Choice<T extends string = string> {
+  line: number;
+  cols: Readonly<Record<T, number>>;
+}
+
+export type Cms1500Box = Cms1500Field | Cms1500Choice;
+
 const field = (line: number, col: number, width: number, align?: 'right'): Cms1500Field => ({
   line,
   col,
@@ -27,8 +36,7 @@ const field = (line: number, col: number, width: number, align?: 'right'): Cms15
   ...(align ? { align } : {}),
 });
 
-// An "X" in a check box
-const box = (line: number, col: number): Cms1500Field => field(line, col, 1);
+const choice = <T extends string>(line: number, cols: Record<T, number>): Cms1500Choice<T> => ({ line, cols });
 
 export interface Cms1500DateField {
   mm: Cms1500Field;
@@ -42,23 +50,17 @@ const date = (line: number, mm: number, dd: number, year: number, yearWidth = 4)
   year: field(line, year, yearWidth),
 });
 
+const yesNo = (line: number, yes: number, no: number): Cms1500Choice<'yes' | 'no'> => choice(line, { yes, no });
+
 export const CMS1500_LAYOUT = {
   carrier: [field(3, 46, 36), field(4, 46, 36), field(5, 46, 36), field(6, 46, 36)],
   // 1, 1a
-  insuranceType: {
-    medicare: box(10, 4),
-    medicaid: box(10, 11),
-    tricare: box(10, 18),
-    champva: box(10, 27),
-    group: box(10, 34),
-    feca: box(10, 42),
-    other: box(10, 48),
-  },
+  insuranceType: choice(10, { medicare: 4, medicaid: 11, tricare: 18, champva: 27, group: 34, feca: 42, other: 48 }),
   insuredId: field(10, 53, 29),
   // 2, 3, 4
   patientName: field(12, 4, 28),
   patientBirthDate: date(12, 34, 37, 40),
-  patientSex: { M: box(12, 45), F: box(12, 50) },
+  patientSex: choice(12, { M: 45, F: 50 }),
   insuredName: field(12, 53, 29),
   // 5, 6, 7
   patientStreet: field(14, 4, 28),
@@ -66,7 +68,7 @@ export const CMS1500_LAYOUT = {
   patientState: field(16, 29, 3),
   patientZip: field(18, 4, 12),
   patientPhone: { areaCode: field(18, 18, 3), number: field(18, 22, 10) },
-  relationship: { self: box(14, 36), spouse: box(14, 41), child: box(14, 45), other: box(14, 50) },
+  relationship: choice(14, { self: 36, spouse: 41, child: 45, other: 50 }),
   insuredStreet: field(14, 53, 29),
   insuredCity: field(16, 53, 23),
   insuredState: field(16, 77, 4),
@@ -77,18 +79,18 @@ export const CMS1500_LAYOUT = {
   otherInsuredPolicyOrGroupNumber: field(22, 4, 28),
   otherInsuredPlanName: field(28, 4, 28),
   // 10a-10d
-  employment: { yes: box(22, 38), no: box(22, 44) },
-  autoAccident: { yes: box(24, 38), no: box(24, 44) },
+  employment: yesNo(22, 38, 44),
+  autoAccident: yesNo(24, 38, 44),
   autoAccidentState: field(24, 48, 2),
-  otherAccident: { yes: box(26, 38), no: box(26, 44) },
+  otherAccident: yesNo(26, 38, 44),
   claimCodes: field(28, 33, 19),
   // 11, 11a-11d
   insuredPolicyGroupNumber: field(20, 53, 29),
   insuredBirthDate: date(22, 56, 59, 62),
-  insuredSex: { M: box(22, 71), F: box(22, 78) },
+  insuredSex: choice(22, { M: 71, F: 78 }),
   otherClaimId: { qualifier: field(24, 53, 2), value: field(24, 56, 26) },
   insuredPlanName: field(26, 53, 29),
-  anotherHealthBenefitPlan: { yes: box(28, 55), no: box(28, 60) },
+  anotherHealthBenefitPlan: yesNo(28, 55, 60),
   // 12, 13
   patientSignature: field(32, 10, 24),
   patientSignatureDate: field(32, 40, 12),
@@ -107,7 +109,7 @@ export const CMS1500_LAYOUT = {
   hospitalizationTo: date(36, 71, 74, 77),
   // 19, 20
   additionalClaimInformation: field(38, 4, 48),
-  outsideLab: { yes: box(38, 55), no: box(38, 60) },
+  outsideLab: yesNo(38, 55, 60),
   outsideLabCharges: { dollars: field(38, 65, 8, 'right'), cents: field(38, 74, 2) },
   // 21: A-D, E-H and I-L on consecutive lines
   icdIndicator: field(39, 45, 1),
@@ -141,9 +143,9 @@ export const CMS1500_LAYOUT = {
   },
   // 25-30
   federalTaxId: field(58, 4, 15),
-  federalTaxIdType: { SSN: box(58, 20), EIN: box(58, 22) },
+  federalTaxIdType: choice(58, { SSN: 20, EIN: 22 }),
   patientAccountNumber: field(58, 26, 14),
-  acceptAssignment: { yes: box(58, 41), no: box(58, 46) },
+  acceptAssignment: yesNo(58, 41, 46),
   totalCharge: { dollars: field(58, 55, 6, 'right'), cents: field(58, 61, 2) },
   amountPaid: { dollars: field(58, 67, 4, 'right'), cents: field(58, 71, 2) },
   // 31: line 62 is the only free line in the box, so the date goes between the SIGNED and DATE captions
@@ -159,3 +161,48 @@ export const CMS1500_LAYOUT = {
   billingProviderNpi: field(63, 54, 10),
   billingProviderOtherId: field(63, 66, 16),
 } as const;
+
+export interface Cms1500NamedBox {
+  // Path in CMS1500_LAYOUT with list items numbered from 1, e.g. "carrier.1" or
+  // "serviceLines.2.charges.dollars"
+  name: string;
+  box: Cms1500Box;
+}
+
+const isBox = (value: object): value is Cms1500Box => 'col' in value || 'cols' in value;
+
+function namedBoxes(value: unknown, path: string[] = []): { path: string[]; box: Cms1500Box }[] {
+  if (!value || typeof value !== 'object') return [];
+  if (isBox(value)) return [{ path, box: value }];
+  const children = Array.isArray(value)
+    ? value.map((child, i): [string, unknown] => [String(i + 1), child])
+    : Object.entries(value);
+  return children.flatMap(([key, child]) => namedBoxes(child, [...path, key]));
+}
+
+const { serviceLines: SERVICE_LINES, ...CLAIM_ITEMS } = CMS1500_LAYOUT;
+const claimBoxes = namedBoxes(CLAIM_ITEMS);
+const serviceLineBoxes = namedBoxes(SERVICE_LINES);
+
+// Every box on one form, with each service line's boxes moved to its print lines.
+export const CMS1500_BOXES: readonly Cms1500NamedBox[] = [
+  ...claimBoxes.map(({ path, box }) => ({ name: path.join('.'), box })),
+  ...Array.from({ length: SERVICE_LINES.count }, (_, i) =>
+    serviceLineBoxes.map(({ path, box }) => ({
+      name: ['serviceLines', String(i + 1), ...path].join('.'),
+      box: { ...box, line: box.line + SERVICE_LINES.firstLine + i * SERVICE_LINES.lineStep },
+    }))
+  ).flat(),
+];
+
+const BOX_NAMES = new Map<Cms1500Box, string>(
+  [...claimBoxes, ...serviceLineBoxes].map(({ path, box }) => [box, path.join('.')])
+);
+
+// The name of a box of CMS1500_LAYOUT; for the boxes of CMS1500_LAYOUT.serviceLines, relative to its
+// service line, e.g. "charges.dollars".
+export function cms1500BoxName(box: Cms1500Box): string {
+  const name = BOX_NAMES.get(box);
+  if (!name) throw new Error('Not a box of CMS1500_LAYOUT');
+  return name;
+}

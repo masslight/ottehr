@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { ReactElement, useEffect, useRef, useState } from 'react';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import cms1500TemplateUrl from 'utils/lib/helpers/rcm/cms1500/cms1500-template.pdf?url';
 import { Cms1500FormData } from 'utils/lib/types/data/billing/cms1500.types';
 import { getBillingClaimCms1500 } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
@@ -86,6 +87,15 @@ function OffsetField({ label, value, onChange }: OffsetFieldProps): ReactElement
 // Loaded on first use so pdf-lib stays out of the main bundle.
 let renderer: Promise<typeof import('utils/lib/helpers/rcm/cms1500/render')> | undefined;
 const loadRenderer = (): NonNullable<typeof renderer> => (renderer ??= import('utils/lib/helpers/rcm/cms1500/render'));
+let templateFiller: Promise<typeof import('utils/lib/helpers/rcm/cms1500/template')> | undefined;
+const loadTemplateFiller = (): NonNullable<typeof templateFiller> =>
+  (templateFiller ??= import('utils/lib/helpers/rcm/cms1500/template'));
+
+async function downloadTemplate(): Promise<ArrayBuffer> {
+  const response = await fetch(cms1500TemplateUrl);
+  if (!response.ok) throw new Error(`Failed to download the CMS-1500 form (${response.status})`);
+  return response.arrayBuffer();
+}
 
 interface Cms1500DialogProps {
   open: boolean;
@@ -101,6 +111,8 @@ export function Cms1500Dialog({ open, onClose, claimId }: Cms1500DialogProps): R
   const [offset, setOffset] = useState<PrintOffset>(loadOffset);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const previewRef = useRef<HTMLIFrameElement>(null);
+  // The blank form, downloaded the first time it's needed
+  const template = useRef<Promise<ArrayBuffer> | undefined>(undefined);
 
   useEffect(() => {
     setForm(null);
@@ -129,20 +141,28 @@ export function Cms1500Dialog({ open, onClose, claimId }: Cms1500DialogProps): R
     }
 
     let cancelled = false;
-    void (async () => {
-      try {
+    const render = async (): Promise<Uint8Array | undefined> => {
+      if (mode === 'data-only') {
         const { renderCms1500Pdf } = await loadRenderer();
-        if (cancelled) return;
-        const bytes = await renderCms1500Pdf(
-          [form],
-          mode === 'form' ? {} : { includeForm: false, offset: { x: offset.right * 72, y: offset.down * 72 } }
-        );
-        if (cancelled) return;
-        setPdfUrl(URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })));
-      } catch (err) {
-        if (!cancelled) setError(getApiError({ error: err, defaultError: 'Failed to create the CMS-1500' }));
+        if (cancelled) return undefined;
+        return renderCms1500Pdf([form], { offset: { x: offset.right * 72, y: offset.down * 72 } });
       }
-    })();
+      template.current ??= downloadTemplate();
+      const [{ fillCms1500Template }, blank] = await Promise.all([loadTemplateFiller(), template.current]);
+      if (cancelled) return undefined;
+      return fillCms1500Template(blank, [form]);
+    };
+    render()
+      .then((bytes) => {
+        if (bytes && !cancelled) {
+          setPdfUrl(URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })));
+        }
+      })
+      .catch((err) => {
+        // Try the download again next time.
+        template.current = undefined;
+        if (!cancelled) setError(getApiError({ error: err, defaultError: 'Failed to create the CMS-1500' }));
+      });
     return () => {
       cancelled = true;
     };
@@ -188,6 +208,12 @@ export function Cms1500Dialog({ open, onClose, claimId }: Cms1500DialogProps): R
             <ToggleButton value="form">Form with claim data</ToggleButton>
             <ToggleButton value="data-only">Data only, for pre-printed forms</ToggleButton>
           </ToggleButtonGroup>
+          {mode === 'form' && (
+            <Typography variant="body2" color="text.secondary">
+              Every box is an editable field, so anything that&apos;s cut off or in the wrong place can be fixed by hand
+              in the PDF before printing.
+            </Typography>
+          )}
           {mode === 'data-only' && (
             <Box>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
