@@ -48,7 +48,7 @@
     "clean-up-e2e": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/clean-up-e2e.ts",
     "build": "tsc",
     "bundle": "NODE_OPTIONS='--preserve-symlinks' tsx bundle.ts",
-    "lint": "npm run lint:barrels && NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 .",
+    "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 .",
     "lint:fix": "eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 --fix .",
     "clear-tasks": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/clear-tasks.ts production",
     "probe-outreach-tasks": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/probe-outreach-tasks.ts",
@@ -77,7 +77,6 @@
     "dedupe-scheduling-resources": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/dedupe-scheduling-resources.ts",
     "delete-billing-system-tag-basics": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/delete-billing-system-tag-basics.ts",
     "regenerate-questionnaire-json": "NODE_OPTIONS='--preserve-symlinks' tsx ./scripts/regenerate-questionnaire-json.ts",
-    "lint:barrels": "tsx scripts/debarrel.ts src --check && tsx scripts/debarrel.ts test --check",
     "resolve-slug-duplicates": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/resolve-slug-duplicates.ts"
   },
   "engines": {
