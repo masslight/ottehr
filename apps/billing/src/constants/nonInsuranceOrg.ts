@@ -157,6 +157,7 @@ export function nioItemToFormValues(item?: NonInsuranceOrganizationItem | null):
       entry.billingMode = coverage.billingMode;
       entry.payerId = coverage.payer?.id ?? '';
       entry.payerOption = coverage.payer ?? null;
+      entry.sameAsOrgAddress = coverage.sameAsOrgAddress ?? false;
     } else if (coverage.category === 'other') {
       entry.name = coverage.name ?? '';
     }
@@ -185,7 +186,12 @@ export function nioFormToInput(form: NonInsuranceOrgForm): CreateNonInsuranceOrg
         covers.push({ category, billingMode: 'insurance', ...(entry.payerId ? { payerId: entry.payerId } : {}) });
       } else {
         const submission = submissionToInput(entry.submission, entry.sameAsOrgAddress ? orgAddress : undefined);
-        covers.push({ category, billingMode: 'direct', ...(submission ? { submission } : {}) });
+        covers.push({
+          category,
+          billingMode: 'direct',
+          ...(submission ? { submission } : {}),
+          ...(entry.sameAsOrgAddress ? { sameAsOrgAddress: true } : {}),
+        });
       }
     } else {
       const submission = submissionToInput(entry.submission);
