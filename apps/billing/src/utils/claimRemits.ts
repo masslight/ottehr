@@ -8,31 +8,41 @@ import { PATIENT_RESP_CARC } from 'utils/lib/types/data/billing/carc';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { ERA_STATUS_LABELS } from '../constants/era';
 
-// The claim ledger's money columns a CAS adjustment can land in: whatever the payer adjusted off
-// goes to Ins adj; patient responsibility splits into the PR-1/2/3 buckets and Other PR.
-export type LedgerColumn = 'insuranceAdjustment' | 'deductible' | 'coinsurance' | 'copay' | 'otherPatientResp';
+// The claim ledger's money columns: what the payer adjusted off (Ins adj), the deductible /
+// coinsurance / copay patient-responsibility buckets, and Patient, the line's whole patient
+// responsibility (not what the patient has paid).
+export type LedgerColumn = 'insuranceAdjustment' | 'deductible' | 'coinsurance' | 'copay' | 'patientResp';
 
 export type LedgerAmounts = Record<LedgerColumn, number>;
 
+// The one column a CAS adjustment's own row shows its amount in. Patient responsibility goes to its
+// PR-1/2/3 bucket, or straight to Patient when it's none of those (e.g. PR-96 non-covered).
 export function adjustmentColumn(adjustment: ClaimRemitAdjustment): LedgerColumn {
   if (adjustment.groupCode !== X12_ADJUSTMENT_GROUP_CODE.patientResponsibility) return 'insuranceAdjustment';
   if (adjustment.reasonCode === PATIENT_RESP_CARC.deductible) return 'deductible';
   if (adjustment.reasonCode === PATIENT_RESP_CARC.coinsurance) return 'coinsurance';
   if (adjustment.reasonCode === PATIENT_RESP_CARC.copay) return 'copay';
-  return 'otherPatientResp';
+  return 'patientResp';
 }
 
-// Per-column sums of a remit line's adjustments, so its response row always adds up to its CARC rows.
+// A remit line's amounts per ledger column. Patient totals every patient-responsibility adjustment,
+// the buckets included, so it's the line's patient responsibility rather than a sum of the rows below.
 export function ledgerAmounts(adjustments: ClaimRemitAdjustment[]): LedgerAmounts {
   const sums: LedgerAmounts = {
     insuranceAdjustment: 0,
     deductible: 0,
     coinsurance: 0,
     copay: 0,
-    otherPatientResp: 0,
+    patientResp: 0,
   };
   for (const adjustment of adjustments) {
-    sums[adjustmentColumn(adjustment)] += adjustment.amount;
+    const column = adjustmentColumn(adjustment);
+    if (column === 'insuranceAdjustment') {
+      sums.insuranceAdjustment += adjustment.amount;
+      continue;
+    }
+    if (column !== 'patientResp') sums[column] += adjustment.amount;
+    sums.patientResp += adjustment.amount;
   }
   for (const column of Object.keys(sums) as LedgerColumn[]) {
     sums[column] = roundNumberToDecimalPlaces(sums[column], 2);

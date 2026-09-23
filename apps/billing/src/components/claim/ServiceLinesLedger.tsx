@@ -34,7 +34,7 @@ import {
 import { formatDate } from '../../utils/format';
 import { AdjustmentChip, AmountChip, EraStatusChip } from '../EraChips';
 import { thSx } from '../ReadOnlySection';
-import { useRemitHighlight, useRemitHighlightTarget } from './RemitHighlight';
+import { useRemitHighlightTarget } from './RemitHighlight';
 
 type ServiceLine = ClaimDetailResponse['serviceLines'][number];
 
@@ -42,10 +42,10 @@ const PATIENT_RESP_COLUMNS: { key: Exclude<LedgerColumn, 'insuranceAdjustment'>;
   { key: 'deductible', label: 'Deductible' },
   { key: 'coinsurance', label: 'Co-ins' },
   { key: 'copay', label: 'Copay' },
-  { key: 'otherPatientResp', label: 'Other PR' },
+  { key: 'patientResp', label: 'Patient' },
 ];
 
-// Date, Type, Billed, Allowed, Ins adj, Ins paid, then the patient responsibility buckets
+// Date, Type, Billed, Allowed, Ins adj, Ins paid, then the patient responsibility columns
 const LEDGER_COLUMN_COUNT = 6 + PATIENT_RESP_COLUMNS.length;
 
 const ledgerThSx = { ...thSx, fontSize: 12, borderBottom: 'none' };
@@ -274,16 +274,28 @@ function PatientRespAmount({ amount }: { amount: number }): ReactElement {
   );
 }
 
-// One remit's response to a line and the adjustments behind it, shaded while one of its CARC labels
-// has the line's card open.
+// One remit's response to a line and the adjustments behind it. Hovering (or focusing into) it lights
+// it up along with its remit and check further down the page; only its CARC labels open the card.
 function LedgerGroup({ entry, claimLineUnits }: { entry: RemitLineEntry; claimLineUnits?: number }): ReactElement {
   const { remit, line } = entry;
-  const cardOpen = useRemitHighlight()?.lineKey === entry.key;
+  const { highlighted, highlight, clearHighlight } = useRemitHighlightTarget({
+    key: entry.key,
+    claimResponseId: remit.claimResponseId,
+    paymentReconciliationId: remit.paymentReconciliationId,
+  });
   const amounts = ledgerAmounts(line.adjustments);
   const date = formatDate(remit.date) || '-';
 
   return (
-    <TableBody sx={{ bgcolor: cardOpen ? 'action.hover' : undefined }}>
+    <TableBody
+      onMouseEnter={highlight}
+      onMouseLeave={clearHighlight}
+      onFocus={highlight}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) clearHighlight();
+      }}
+      sx={{ bgcolor: highlighted ? 'action.hover' : undefined }}
+    >
       <TableRow sx={ledgerRowSx}>
         <TableCell>{date}</TableCell>
         <TableCell>
@@ -317,7 +329,7 @@ function LedgerGroup({ entry, claimLineUnits }: { entry: RemitLineEntry; claimLi
           <TableRow key={index} sx={ledgerRowSx}>
             <TableCell>{date}</TableCell>
             <TableCell>
-              <CarcLabel entry={entry} targetKey={`${entry.key}:${index}`} claimLineUnits={claimLineUnits}>
+              <CarcLabel entry={entry} claimLineUnits={claimLineUnits}>
                 <AdjustmentChip groupCode={adjustment.groupCode} label={adjustmentCode(adjustment)} />
               </CarcLabel>
             </TableCell>
@@ -337,30 +349,18 @@ function LedgerGroup({ entry, claimLineUnits }: { entry: RemitLineEntry; claimLi
   );
 }
 
-// A CARC label in the ledger. Hovering (or focusing) it opens its remit line's card and lights up the
-// remit and check further down the page.
+// A CARC label in the ledger; hovering (or focusing) it opens its remit line's card.
 function CarcLabel({
   entry,
-  targetKey,
   claimLineUnits,
   children,
 }: {
   entry: RemitLineEntry;
-  targetKey: string;
   claimLineUnits?: number;
   children: ReactNode;
 }): ReactElement {
-  const { open, onOpen, onClose } = useRemitHighlightTarget({
-    key: targetKey,
-    lineKey: entry.key,
-    claimResponseId: entry.remit.claimResponseId,
-    paymentReconciliationId: entry.remit.paymentReconciliationId,
-  });
   return (
     <Tooltip
-      open={open}
-      onOpen={onOpen}
-      onClose={onClose}
       title={<RemitLineCard entry={entry} claimLineUnits={claimLineUnits} />}
       describeChild
       disableInteractive

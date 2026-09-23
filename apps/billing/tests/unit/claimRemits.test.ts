@@ -60,12 +60,12 @@ describe('adjustmentColumn', () => {
     expect(adjustmentColumn(adjustment('CR', '45', 1))).toBe('insuranceAdjustment');
   });
 
-  it('splits patient responsibility into deductible, coinsurance, copay, and other', () => {
+  it('puts patient responsibility in its deductible, coinsurance, or copay bucket, else under Patient', () => {
     expect(adjustmentColumn(adjustment('PR', '1', 1))).toBe('deductible');
     expect(adjustmentColumn(adjustment('PR', '2', 1))).toBe('coinsurance');
     expect(adjustmentColumn(adjustment('PR', '3', 1))).toBe('copay');
-    expect(adjustmentColumn(adjustment('PR', '27', 1))).toBe('otherPatientResp');
-    expect(adjustmentColumn(adjustment('PR', '', 1))).toBe('otherPatientResp');
+    expect(adjustmentColumn(adjustment('PR', '96', 1))).toBe('patientResp');
+    expect(adjustmentColumn(adjustment('PR', '', 1))).toBe('patientResp');
   });
 });
 
@@ -83,11 +83,11 @@ describe('ledgerAmounts', () => {
       deductible: -15,
       coinsurance: 0,
       copay: 25,
-      otherPatientResp: 0,
+      patientResp: 10,
     });
   });
 
-  it('agrees with the backend patient responsibility buckets', () => {
+  it("totals the line's whole patient responsibility under Patient, matching the backend buckets", () => {
     const adjustments = [
       adjustment('PR', '1', 10),
       adjustment('PR', '2', 5.55),
@@ -98,12 +98,13 @@ describe('ledgerAmounts', () => {
     const amounts = ledgerAmounts(adjustments);
     const buckets = patientRespBuckets(adjustments);
 
-    expect([amounts.deductible, amounts.coinsurance, amounts.copay, amounts.otherPatientResp]).toEqual([
+    expect([amounts.deductible, amounts.coinsurance, amounts.copay]).toEqual([
       buckets.deductible,
       buckets.coinsurance,
       buckets.copay,
-      buckets.other,
     ]);
+    expect(amounts.patientResp).toBe(42.55);
+    expect(amounts.patientResp).toBeCloseTo(buckets.deductible + buckets.coinsurance + buckets.copay + buckets.other);
   });
 });
 
