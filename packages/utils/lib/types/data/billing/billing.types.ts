@@ -1,6 +1,6 @@
 import { Task } from 'fhir/r4b';
 import { SubscriberRelationship } from '../../../fhir/constants';
-import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
+import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import type { EraClaimStatusCode, X12AdjustmentGroupCode } from './billing.constants';
 import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
@@ -507,6 +507,9 @@ export interface ClaimDetailResponse {
   admissionSource: string;
   admissionDate: string;
   dischargeDate: string;
+  accidentType: CLAIM_ACCIDENT_TYPE[];
+  accidentState: string;
+  accidentDate: string;
   attachments: ClaimAttachment[];
 }
 
