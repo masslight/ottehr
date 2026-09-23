@@ -27,10 +27,12 @@ import {
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { getEncounterVisitOccupationalMedicineEmployerExtension, PaymentVariant } from 'utils/lib/fhir/encounter';
+import { codeableConcept } from 'utils/lib/fhir/helpers';
 import { CANDID_PLAN_TYPE_SYSTEM } from 'utils/lib/fhir/insurance';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getNioReferenceUrl } from 'utils/lib/helpers/helpers';
 import {
+  CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -38,9 +40,12 @@ import {
   CODE_SYSTEM_CPT_MODIFIER,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
+  CODE_SYSTEM_OYSTEHR_CLAIM_DATE_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
   CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
+  EXTENSION_CLAIM_AUTO_ACCIDENT,
+  EXTENSION_CLAIM_AUTO_ACCIDENT_STATE,
   EXTENSION_CLAIM_INSURANCE_TYPE,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
@@ -82,6 +87,7 @@ import {
   SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../src/billing/shared';
+import { createAccidentCondition } from '../../../src/shared/chart-data';
 
 // Local const so that DEPRECATED system doesn't get imported from utils
 const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // formerly used by Ottehr clinical in-house meds
@@ -165,6 +171,7 @@ const clinicalResources: {
   patient: {
     resourceType: 'Patient',
     id: 'patient-123',
+    address: [{ line: ['123 Main St'], city: 'Boston', state: 'MA', postalCode: '02101' }],
   },
   appointment: {
     resourceType: 'Appointment',
@@ -177,6 +184,7 @@ const clinicalResources: {
   location: {
     resourceType: 'Location',
     id: 'location-123',
+    name: 'Test Clinic',
   },
   practitioner: {
     resourceType: 'Practitioner',
@@ -290,6 +298,7 @@ const clinicalResources: {
   billingProvider: {
     resourceType: 'Organization',
     id: 'organization-123',
+    identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '2222222222' }],
   },
 };
 
@@ -322,6 +331,7 @@ const billingResources: {
   patient: {
     resourceType: 'Patient',
     id: 'billing-patient-123',
+    address: clinicalResources.patient.address,
     extension: [
       { url: 'https://fhir.ottehr.com/billing/source-resource', valueReference: { reference: 'Patient/patient-123' } },
     ],
@@ -371,6 +381,7 @@ const billingResources: {
   location: {
     resourceType: 'Location',
     id: 'billing-location-123',
+    name: 'Test Clinic',
     extension: [
       {
         url: CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -386,6 +397,7 @@ const billingResources: {
   billingProvider: {
     resourceType: 'Organization',
     id: 'billing-organization-123',
+    identifier: clinicalResources.billingProvider.identifier,
   },
   billingService: {
     resourceType: 'Basic',
@@ -397,6 +409,7 @@ const oystehrResources: { payor: Organization } = {
   payor: { resourceType: 'Organization', id: 'payer-123' },
 };
 
+const autoAccident = { resourceId: 'accident-123', type: ['AA'], date: '2026-01-01', state: 'MA' };
 const emptyAccount = { ...structuredClone(clinicalResources.account), coverage: [] };
 
 describe('create-billing-claim-from-encounter', () => {
@@ -495,6 +508,16 @@ describe('create-billing-claim-from-encounter', () => {
         expectedError: FHIR_RESOURCE_NOT_FOUND('Patient'),
       },
       {
+        name: 'throws error when patient address is missing',
+        clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
+          unbundle: () => [clinicalResources.encounter, { ...clinicalResources.patient, address: undefined }],
+        }),
+        billingOystehrSearch: vi.fn().mockResolvedValueOnce({ unbundle: () => [] }),
+        expectedError: INVALID_INPUT_ERROR(
+          'Patient address is required. Add street, city, state, and ZIP code in the clinical app, then retry.'
+        ),
+      },
+      {
         name: 'throws error when appointment does not exist',
         clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [clinicalResources.encounter, clinicalResources.patient],
@@ -562,7 +585,9 @@ describe('create-billing-claim-from-encounter', () => {
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [],
         }),
-        expectedError: FHIR_RESOURCE_NOT_FOUND('Practitioner'),
+        expectedError: INVALID_INPUT_ERROR(
+          'The encounter has no attending provider. Set the attending provider in the clinical app, then retry.'
+        ),
       },
       {
         name: 'throws error when account does not exist',
@@ -698,7 +723,7 @@ describe('create-billing-claim-from-encounter', () => {
         expectedError: FHIR_RESOURCE_NOT_FOUND('Organization'),
       },
       {
-        name: 'succeeds with required data and no found billing resources',
+        name: 'fails when the billing facility name does not match exactly',
         clinicalOystehrSearch: vi
           .fn()
           .mockResolvedValueOnce({
@@ -732,7 +757,7 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [{ ...billingResources.location, name: 'Test Clinic Annex' }],
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
@@ -747,34 +772,9 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           }),
         secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
-        expectedError: null,
-        expectedResult: {
-          clinicalResources: {
-            accounts: [clinicalResources.account],
-            appointment: clinicalResources.appointment,
-            billingProvider: clinicalResources.billingProvider,
-            coverages: [clinicalResources.coverage],
-            diagnoses: [clinicalResources.conditions[1], clinicalResources.conditions[0]],
-            encounter: clinicalResources.encounter,
-            location: clinicalResources.location,
-            patient: clinicalResources.patient,
-            payors: [oystehrResources.payor],
-            practitioners: [clinicalResources.practitioner],
-            procedures: [clinicalResources.procedure],
-          },
-          billingResources: {
-            accounts: [],
-            billingProvider: undefined,
-            coverages: [],
-            mainPatient: undefined,
-            person: undefined,
-            practitioners: [],
-            renderingProvider: undefined,
-            serviceFacility: undefined,
-            subscribers: [],
-            billingService: undefined,
-          },
-        },
+        expectedError: INVALID_INPUT_ERROR(
+          'No active billing service facility named "Test Clinic". Add it in billing or fix the visit location, then retry.'
+        ),
       },
       {
         name: 'filters out non-cpt-, non-em-code-tagged procedures',
@@ -827,13 +827,13 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [billingResources.location],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [billingResources.practitioner],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [billingResources.billingProvider],
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
@@ -859,13 +859,13 @@ describe('create-billing-claim-from-encounter', () => {
           },
           billingResources: {
             accounts: [],
-            billingProvider: undefined,
+            billingProvider: billingResources.billingProvider,
             coverages: [],
             mainPatient: undefined,
             person: undefined,
-            practitioners: [],
-            renderingProvider: undefined,
-            serviceFacility: undefined,
+            practitioners: [billingResources.practitioner],
+            renderingProvider: billingResources.practitioner,
+            serviceFacility: billingResources.location,
             subscribers: [],
             billingService: undefined,
           },
@@ -910,13 +910,13 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [billingResources.location],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [billingResources.practitioner],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [billingResources.billingProvider],
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
@@ -942,20 +942,20 @@ describe('create-billing-claim-from-encounter', () => {
           },
           billingResources: {
             accounts: [],
-            billingProvider: undefined,
+            billingProvider: billingResources.billingProvider,
             coverages: [],
             mainPatient: undefined,
             person: undefined,
-            practitioners: [],
-            renderingProvider: undefined,
-            serviceFacility: undefined,
+            practitioners: [billingResources.practitioner],
+            renderingProvider: billingResources.practitioner,
+            serviceFacility: billingResources.location,
             subscribers: [],
             billingService: undefined,
           },
         },
       },
-      {
-        name: 'succeeds with empty patient account and no found billing resources',
+      ...['rendering', 'billing'].map((missingProvider) => ({
+        name: `fails when no matching ${missingProvider} provider exists`,
         clinicalOystehrSearch: vi
           .fn()
           .mockResolvedValueOnce({
@@ -985,10 +985,10 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => [billingResources.location],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
+            unbundle: () => (missingProvider === 'rendering' ? [] : [billingResources.practitioner]),
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
@@ -1000,35 +1000,12 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           }),
         secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
-        expectedError: null,
-        expectedResult: {
-          clinicalResources: {
-            accounts: [emptyAccount],
-            appointment: clinicalResources.appointment,
-            billingProvider: clinicalResources.billingProvider,
-            coverages: [],
-            diagnoses: [clinicalResources.conditions[1], clinicalResources.conditions[0]],
-            encounter: clinicalResources.encounter,
-            location: clinicalResources.location,
-            patient: clinicalResources.patient,
-            payors: [],
-            practitioners: [clinicalResources.practitioner],
-            procedures: [clinicalResources.procedure],
-          },
-          billingResources: {
-            accounts: [],
-            billingProvider: undefined,
-            coverages: [],
-            mainPatient: undefined,
-            person: undefined,
-            practitioners: [],
-            renderingProvider: undefined,
-            serviceFacility: undefined,
-            subscribers: [],
-            billingService: undefined,
-          },
-        },
-      },
+        expectedError: INVALID_INPUT_ERROR(
+          missingProvider === 'rendering'
+            ? 'No billing rendering provider matches the attending provider NPI. Add a matching provider in billing or correct the clinical provider NPI, then retry.'
+            : 'No billing provider matches the clinical default provider NPI. Add a billing provider with that NPI in the billing app, then retry.'
+        ),
+      })),
       {
         name: 'succeeds with required data and all found billing resources',
         clinicalOystehrSearch: vi
@@ -1042,7 +1019,8 @@ describe('create-billing-claim-from-encounter', () => {
               clinicalResources.practitioner,
               clinicalResources.account,
               clinicalResources.coverage,
-              ...clinicalResources.conditions,
+              ...clinicalResources.conditions.concat(clinicalResources.conditions),
+              createAccidentCondition(autoAccident, 'encounter-123', 'patient-123').resource,
               clinicalResources.procedure,
             ],
           })
@@ -1084,6 +1062,7 @@ describe('create-billing-claim-from-encounter', () => {
         expectedError: null,
         expectedResult: {
           clinicalResources: {
+            accident: autoAccident,
             accounts: [clinicalResources.account],
             appointment: clinicalResources.appointment,
             billingProvider: clinicalResources.billingProvider,
@@ -1129,6 +1108,26 @@ describe('create-billing-claim-from-encounter', () => {
       if (tc.expectedError) await expectPromise.rejects.toThrow(expect.objectContaining(tc.expectedError));
       else {
         await expectPromise.resolves.toStrictEqual(tc.expectedResult);
+        const facilitySearch = tc.billingOystehrSearch.mock.calls.find(
+          ([search]) => search.resourceType === 'Location'
+        );
+        expect(facilitySearch?.[0].params).toContainEqual({ name: 'name:exact', value: 'Test Clinic' });
+        expect(facilitySearch?.[0].params).toEqual(expect.arrayContaining(EXCLUDE_WORKING_COPIES_PARAMS));
+        const providerSearch = tc.billingOystehrSearch.mock.calls.find(
+          ([search]) => search.resourceType === 'Practitioner'
+        );
+        expect(providerSearch?.[0].params).toContainEqual({
+          name: 'identifier',
+          value: `${FHIR_IDENTIFIER_NPI}|11111111111`,
+        });
+        expect(providerSearch?.[0].params).toEqual(expect.arrayContaining(EXCLUDE_WORKING_COPIES_PARAMS));
+        const billingProviderSearch = tc.billingOystehrSearch.mock.calls.find(
+          ([search]) => search.resourceType === 'Organization'
+        );
+        expect(billingProviderSearch?.[0].params).toContainEqual({
+          name: 'identifier',
+          value: `${FHIR_IDENTIFIER_NPI}|2222222222`,
+        });
         expect(tc.billingOystehrSearch).toHaveBeenCalledWith(
           expect.objectContaining({
             resourceType: 'Patient',
@@ -2386,6 +2385,7 @@ describe('create-billing-claim-from-encounter', () => {
               provider: { reference: 'urn:uuid:claim-billing-provider' },
               facility: {
                 reference: 'urn:uuid:claim-service-facility',
+                display: 'Test Clinic',
               },
               insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
               insurance: [
@@ -3216,7 +3216,7 @@ describe('create-billing-claim-from-encounter', () => {
         ]),
       });
     });
-    it('creates claim with auto accident tag, writing no tag definition', async () => {
+    it('copies progress-note auto accident data onto the claim', async () => {
       const txFn = vi.fn().mockResolvedValue({
         entry: [
           { resource: { resourceType: 'Patient', id: 'billing-patient' } },
@@ -3232,7 +3232,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
-      const searchFn = vi.fn().mockResolvedValue({ unbundle: () => [] });
+      const searchFn = vi.fn().mockRejectedValue(new Error('FHIR is down'));
       const createFn = vi.fn().mockImplementation(async (resource: Basic) => resource);
       const billingOystehr = {
         fhir: { transaction: txFn, search: searchFn, create: createFn },
@@ -3241,10 +3241,8 @@ describe('create-billing-claim-from-encounter', () => {
       const cvo: ComplexValidationOutput = {
         clinicalResources: {
           accounts: [clinicalResources.account],
-          appointment: {
-            ...clinicalResources.appointment,
-            description: 'Auto accident',
-          },
+          appointment: clinicalResources.appointment,
+          accident: autoAccident,
           billingProvider: clinicalResources.billingProvider,
           coverages: [clinicalResources.coverage],
           diagnoses: [...clinicalResources.conditions],
@@ -3297,7 +3295,17 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
-              extension: getDefaultClaimSubmissionExtensions(),
+              supportingInfo: [
+                expect.objectContaining({
+                  category: codeableConcept('info', CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY),
+                  code: codeableConcept('439', CODE_SYSTEM_OYSTEHR_CLAIM_DATE_TYPE),
+                  timingDate: autoAccident.date,
+                }),
+              ],
+              extension: expect.arrayContaining([
+                { url: EXTENSION_CLAIM_AUTO_ACCIDENT, valueBoolean: true },
+                { url: EXTENSION_CLAIM_AUTO_ACCIDENT_STATE, valueString: autoAccident.state },
+              ]),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -3360,8 +3368,7 @@ describe('create-billing-claim-from-encounter', () => {
         ]),
       });
     });
-    // Applying a system tag reads nothing from the tag store, so an outage there cannot block a claim.
-    it('still creates the auto accident claim when tag definition lookups fail', async () => {
+    it('does not treat the reason for visit as auto accident data', async () => {
       const txFn = vi.fn().mockResolvedValue({
         entry: [
           { resource: { resourceType: 'Patient', id: 'billing-patient' } },
@@ -3419,7 +3426,8 @@ describe('create-billing-claim-from-encounter', () => {
       const claimRequest = txFn.mock.calls[0][0].requests.find(
         (r: { url: string }) => r.url === '/Claim'
       ) as BatchInputPostRequest<Claim>;
-      expect(claimRequest.resource.meta?.tag).toContainEqual({
+      expect(claimRequest.resource.accident).toBeUndefined();
+      expect(claimRequest.resource.meta?.tag).not.toContainEqual({
         system: CLAIM_TAG_SYSTEM,
         code: AUTO_ACCIDENT_TAG_NAME,
       });
@@ -3800,6 +3808,7 @@ describe('create-billing-claim-from-encounter', () => {
             fullUrl: 'urn:uuid:main-patient',
             resource: {
               resourceType: 'Patient',
+              address: clinicalResources.patient.address,
               extension: [
                 { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Patient/patient-123' } },
                 { url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: '123456' },
@@ -3816,6 +3825,7 @@ describe('create-billing-claim-from-encounter', () => {
             fullUrl: 'urn:uuid:claim-patient',
             resource: {
               resourceType: 'Patient',
+              address: clinicalResources.patient.address,
               extension: [
                 { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'urn:uuid:main-patient' } },
                 { url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: '123456' },

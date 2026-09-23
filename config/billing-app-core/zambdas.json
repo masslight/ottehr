@@ -323,6 +323,34 @@
       "src": "src/billing/delete-billing-provider/index",
       "zip": ".dist/zips/delete-billing-provider.zip"
     },
+    "CREATE-BILLING-CLAIM-TASK": {
+      "name": "create-billing-claim-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-billing-claim-task/index",
+      "zip": ".dist/zips/create-billing-claim-task.zip"
+    },
+    "SEARCH-BILLING-CLAIM-TASKS": {
+      "name": "search-billing-claim-tasks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-claim-tasks/index",
+      "zip": ".dist/zips/search-billing-claim-tasks.zip"
+    },
+    "RETRY-BILLING-CLAIM-TASK": {
+      "name": "retry-billing-claim-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/retry-billing-claim-task/index",
+      "zip": ".dist/zips/retry-billing-claim-task.zip"
+    },
+    "SUB-BILLING-CLAIM-TASK": {
+      "name": "sub-billing-claim-task",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-billing-claim-task/index",
+      "zip": ".dist/zips/sub-billing-claim-task.zip"
+    },
     "CREATE-BILLING-CLAIM-FROM-ENCOUNTER": {
       "name": "create-billing-claim-from-encounter",
       "type": "http_auth",
@@ -552,6 +580,28 @@
     }
   },
   "fhirResources": {
+    "SUB_BILLING_CLAIM_TASK_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Create billing claims from signed encounters, including retried tasks",
+        "criteria": "Task?code=https://fhir.ottehr.com/billing/task|billing-claim&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-BILLING-CLAIM-TASK/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
     "SUB_EXPORT_BILLING_CLAIMS_CSV_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
