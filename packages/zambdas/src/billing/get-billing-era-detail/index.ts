@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Coverage, Patient, PaymentReconciliation } from 'fhir/r4b';
 import { RAW_X12_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { codeableConcept, getExtension } from 'utils/lib/fhir/helpers';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_PROCESS_PRIORITY } from 'utils/lib/helpers/rcm/constants';
 import { EraDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
@@ -97,33 +98,55 @@ export async function performEffect(
     patients.push(...claimResources.filter((r): r is Patient => r.resourceType === 'Patient'));
   }
 
-  claimResponses
-    .filter((claimResponse) => !isMatchedToClaim(claimResponse))
-    .forEach((claimResponse) => {
-      const claim = claimResponse.contained?.find((resource) => resource.resourceType === 'Claim') ?? {
-        resourceType: 'Claim',
-        created: '',
-        insurance: [],
-        patient: { display: 'Unknown' },
-        priority: codeableConcept('normal', CODE_SYSTEM_PROCESS_PRIORITY, 'Normal'),
-        provider: { display: 'Unknown' },
-        status: 'active',
-        type: codeableConcept('unknown', CODE_SYSTEM_CLAIM_TYPE, 'Unknown'),
-        use: 'claim',
-      };
-      const patient: Patient = claimResponse.contained?.find((resource) => resource.resourceType === 'Patient') ?? {
-        resourceType: 'Patient',
-      };
+  const unmatchedResponses = claimResponses.filter((claimResponse) => !isMatchedToClaim(claimResponse));
 
-      const id = 'unmatched-' + claimResponse.id;
-      claim.id = id;
-      patient.id = id;
-      claim.patient.reference = 'Patient/' + id;
-      responsesByClaimId.set(id, [claimResponse]);
-
-      claims.push(claim);
-      patients.push(patient);
+  const referencedPatientIds = [
+    ...new Set(
+      unmatchedResponses
+        .map((claimResponse) => removePrefix('Patient/', claimResponse.patient?.reference ?? ''))
+        .filter((id): id is string => !!id)
+    ),
+  ];
+  const referencedPatients: Patient[] = [];
+  if (referencedPatientIds.length > 0) {
+    const patientResult = await oystehr.fhir.search<Patient>({
+      resourceType: 'Patient',
+      params: [
+        {
+          name: '_id',
+          value: referencedPatientIds.join(','),
+        },
+      ],
     });
+    referencedPatients.push(...patientResult.unbundle());
+  }
+
+  unmatchedResponses.forEach((claimResponse) => {
+    const claim = claimResponse.contained?.find((resource) => resource.resourceType === 'Claim') ?? {
+      resourceType: 'Claim',
+      created: '',
+      insurance: [],
+      patient: { display: 'Unknown' },
+      priority: codeableConcept('normal', CODE_SYSTEM_PROCESS_PRIORITY, 'Normal'),
+      provider: { display: 'Unknown' },
+      status: 'active',
+      type: codeableConcept('unknown', CODE_SYSTEM_CLAIM_TYPE, 'Unknown'),
+      use: 'claim',
+    };
+    const patient: Patient = claimResponse.contained?.find((resource) => resource.resourceType === 'Patient') ?? {
+      resourceType: 'Patient',
+    };
+    patient.birthDate ??= findRef<Patient>(referencedPatients, claimResponse.patient?.reference)?.birthDate;
+
+    const id = 'unmatched-' + claimResponse.id;
+    claim.id = id;
+    patient.id = id;
+    claim.patient.reference = 'Patient/' + id;
+    responsesByClaimId.set(id, [claimResponse]);
+
+    claims.push(claim);
+    patients.push(patient);
+  });
 
   // Focal coverage per claim -> member id, the same field the claim detail screen shows.
   // Self-pay stubs use logical references (no Coverage/<id>), so they drop out here.
