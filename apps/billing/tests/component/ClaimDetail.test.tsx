@@ -473,7 +473,8 @@ describe('ClaimDetail — service line remit details', () => {
     ).toEqual(['Date', 'Type', 'Billed', 'Allowed', 'Ins adj', 'Ins paid', 'Deductible', 'Co-ins', 'Copay', 'Patient']);
     expect(cellTexts(within(line1).getByText('Charge').closest('tr'))).toEqual(['08/15/2026', 'Charge', '$201.04', '']);
     // Patient is the line's patient responsibility: here all of it is the copay
-    expect(cellTexts(within(line1).getByText('Employers Mutual').closest('tr'))).toEqual([
+    const payerRow = within(line1).getByText('Employers Mutual').closest('tr') as HTMLElement;
+    expect(cellTexts(payerRow)).toEqual([
       '08/18/2026',
       'Employers Mutual',
       '$201.04',
@@ -482,6 +483,11 @@ describe('ClaimDetail — service line remit details', () => {
       '$135.83',
       '$0.00',
       '$0.00',
+      '$25.00',
+      '$25.00',
+    ]);
+    // what the patient owes is boxed in orange like the allowed and paid amounts; nothing owed stays plain
+    expect(Array.from(payerRow.querySelectorAll('.MuiChip-colorWarning'), (chip) => chip.textContent)).toEqual([
       '$25.00',
       '$25.00',
     ]);

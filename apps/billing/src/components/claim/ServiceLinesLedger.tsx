@@ -317,16 +317,9 @@ function RemitLedger({
   );
 }
 
+// What the patient owes, boxed like the allowed and paid amounts; nothing owed stays plain.
 function PatientRespAmount({ amount }: { amount: number }): ReactElement {
-  return (
-    <Typography
-      variant="body2"
-      component="span"
-      sx={amount !== 0 ? { color: 'warning.main', fontWeight: 600 } : undefined}
-    >
-      {formatCurrency(amount)}
-    </Typography>
-  );
+  return amount !== 0 ? <AmountChip label={formatCurrency(amount)} color="warning" /> : <>{formatCurrency(amount)}</>;
 }
 
 // One remit's response to a line and the adjustments behind it. Hovering (or focusing into) it lights
