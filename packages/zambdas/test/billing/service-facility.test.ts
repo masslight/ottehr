@@ -527,7 +527,7 @@ describe('mapServiceFacility', () => {
 });
 
 describe('findServiceFacilityForLocation', () => {
-  const makeLocation = (id: string, line?: string[]): Location => ({
+  const makeLocation = (id: string, line?: string[], postalCode = '02118'): Location => ({
     resourceType: 'Location',
     id,
     status: 'active',
@@ -536,7 +536,7 @@ describe('findServiceFacilityForLocation', () => {
         line,
         city: 'Boston',
         state: 'MA',
-        postalCode: '02118',
+        postalCode,
       },
     }),
   });
@@ -555,6 +555,24 @@ describe('findServiceFacilityForLocation', () => {
   it('picks the facility at the clinical address, ignoring case and whitespace', () => {
     const shoutedMainStreet = makeLocation('sf-main-shouted', ['  123   MAIN st ']);
     expect(findServiceFacilityForLocation([elmStreet, shoutedMainStreet], clinicalLocation)).toBe(shoutedMainStreet);
+  });
+
+  it('matches a ZIP+4 facility to a clinical Location with a 5-digit ZIP', () => {
+    const zipPlusFourMainStreet = makeLocation('sf-main-zip-plus-four', ['123 Main St'], '02118-1234');
+    expect(findServiceFacilityForLocation([elmStreet, zipPlusFourMainStreet], clinicalLocation)).toBe(
+      zipPlusFourMainStreet
+    );
+  });
+
+  it('does not match a facility whose 5-digit ZIP differs', () => {
+    const otherZipMainStreet = makeLocation('sf-main-other-zip', ['123 Main St'], '02119-1234');
+    expect(findServiceFacilityForLocation([elmStreet, otherZipMainStreet], clinicalLocation)).toBeUndefined();
+  });
+
+  it('ignores punctuation and how the street is split across address lines', () => {
+    const suiteClinicalLocation = makeLocation('clinical-suite', ['123 Main St', 'Ste 100']);
+    const oneLineSuite = makeLocation('sf-main-suite', ['123 Main St., Ste. 100']);
+    expect(findServiceFacilityForLocation([elmStreet, oneLineSuite], suiteClinicalLocation)).toBe(oneLineSuite);
   });
 
   it('returns undefined when no facility is at the clinical address', () => {

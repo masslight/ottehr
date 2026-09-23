@@ -9,7 +9,7 @@ import { getNPI } from 'utils/lib/fhir/helpers';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm/constants';
 import { SaveServiceFacilityInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
-import { copySourceId, isWorkingCopy } from './shared';
+import { copySourceId, formatAddress, isWorkingCopy } from './shared';
 
 export function getCLIA(location: Location): string | undefined {
   return location.identifier?.find((identifier) => identifier.system === FHIR_IDENTIFIER_CLIA)?.value;
@@ -40,11 +40,14 @@ export function mapServiceFacility(location: Location): ServiceFacilityItem {
 }
 
 const normalizeAddress = (location: Location): string => {
-  const { line = [], city, state, postalCode } = location.address ?? {};
-  return [...line, city, state, postalCode]
-    .map((part) => part?.trim().replace(/\s+/g, ' ').toLowerCase())
-    .filter(Boolean)
-    .join(', ');
+  const address = location.address;
+  return formatAddress({
+    ...address,
+    postalCode: address?.postalCode?.slice(0, 5),
+  })
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
 };
 
 export function findServiceFacilityForLocation(
