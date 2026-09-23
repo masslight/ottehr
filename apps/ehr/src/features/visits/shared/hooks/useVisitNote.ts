@@ -76,9 +76,12 @@ export const useVisitNote = (options: UseVisitNoteOptions = {}): UseVisitNoteRes
 
   const note = useQuery({
     queryKey: visitNoteQueryKey(encounterId),
-    queryFn: async (): Promise<VisitNoteResponse> => {
+    queryFn: async ({ signal }): Promise<VisitNoteResponse> => {
       if (!apiClient || !encounterId) throw new Error('API client not defined or encounterId not provided');
       const response = await apiClient.getVisitNote({ encounterId });
+      // A save made while this read was in flight cancelled it (cancelChartReads): its sections predate the
+      // save, so they stay out of the entries, and react-query drops the response.
+      if (signal.aborted) return response;
       // Seeded before the note lands in its own entry, so a section observer waiting on this read finds
       // its data in place.
       seedChartSectionsFromVisitNote(queryClient, encounterId, response);

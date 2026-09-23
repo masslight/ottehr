@@ -254,6 +254,74 @@ describe('the chart caches', () => {
     await waitFor(() => expect(next.result.current.isFetching).toBe(false));
     expect(apiClient.getVisitNote).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps a save made while the section was being re-read, and drops that read', async () => {
+    const first = renderHook(() => useChartSection('history'), { wrapper: wrapperFor(queryClient) });
+    await waitFor(() => expect(first.result.current.data).toBeDefined());
+    await act(async () => {
+      await markChartStale(queryClient, ENCOUNTER_ID);
+    });
+
+    // The next screen's re-read is held open; it carries the rows from before the save.
+    let finishRead: (value: unknown) => void = () => undefined;
+    apiClient.getChartSection.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishRead = resolve;
+        })
+    );
+    const next = renderHook(() => useChartSection('history'), { wrapper: wrapperFor(queryClient) });
+    await waitFor(() => expect(next.result.current.isFetching).toBe(true));
+
+    const saved = { resourceId: 'condition-1', display: 'Asthma', current: true };
+    act(() => {
+      next.result.current.setSectionData({ conditions: [saved] });
+    });
+    await waitFor(() => expect(next.result.current.isFetching).toBe(false));
+    expect(next.result.current.data?.conditions).toEqual([saved]);
+
+    await act(async () => {
+      finishRead({ section: 'history', data: note.history });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(next.result.current.data?.conditions).toEqual([saved]);
+    expect(first.result.current.data?.conditions).toEqual([saved]);
+    expect(apiClient.getChartSection).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a save made while the visit note was being re-read, and drops that read's seed", async () => {
+    const { result } = renderHook(() => ({ visitNote: useVisitNote(), history: useChartSection('history') }), {
+      wrapper: wrapperFor(queryClient),
+    });
+    await waitFor(() => expect(result.current.visitNote.data).toBeDefined());
+
+    let finishRead: (value: VisitNoteResponse) => void = () => undefined;
+    apiClient.getVisitNote.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishRead = resolve;
+        })
+    );
+    act(() => {
+      void result.current.visitNote.refetch();
+    });
+    await waitFor(() => expect(result.current.visitNote.isFetching).toBe(true));
+
+    const saved = { resourceId: 'condition-1', display: 'Asthma', current: true };
+    act(() => {
+      result.current.history.setSectionData({ conditions: [saved] });
+    });
+    await waitFor(() => expect(result.current.visitNote.isFetching).toBe(false));
+    expect(result.current.history.data?.conditions).toEqual([saved]);
+
+    await act(async () => {
+      finishRead(goldenNote());
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(result.current.history.data?.conditions).toEqual([saved]);
+    expect(result.current.visitNote.data?.history.conditions).toEqual([saved]);
+    expect(apiClient.getChartSection).not.toHaveBeenCalled();
+  });
 });
 
 describe('the legacy chart shape over the section caches', () => {

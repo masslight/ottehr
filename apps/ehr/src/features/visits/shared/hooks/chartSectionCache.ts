@@ -22,7 +22,9 @@ import { OystehrTelemedAPIClient } from '../api/oystehrApi';
  *   ['chart-section', encounterId, section, params]   one entry per section and option set (get-chart-section).
  *
  * The section entries are the single source of truth for section data. A visit-note read seeds them; a
- * screen that shows a section refreshes it on its own; a save patches or invalidates the section it changed.
+ * screen that shows a section refreshes it on its own; a save patches or invalidates the section it changed,
+ * after cancelling the reads in flight for it (cancelChartReads), so a read that started before the save
+ * cannot land its older rows over the save.
  */
 
 export const visitNoteQueryKey = (encounterId: string | undefined): QueryKey => [VISIT_NOTE_QUERY_KEY, encounterId];
@@ -138,13 +140,29 @@ export function seedChartSectionsFromVisitNote(
   });
 }
 
-/** Applies `update` to every cached variant of a section; the variant's own params are passed along. */
+/**
+ * Cancels the reads in flight for a section's entries and for the encounter's visit note, whose seed writes
+ * the same entries. Called before a write: a read that started before the save carries the rows the save
+ * changed, and react-query would write them over the save when the read landed. Cancelling reverts each
+ * entry to its state from before its read started, before this returns, so the write that follows lands on
+ * that state; the cancelled visit-note read sees its abort signal and skips its seed.
+ */
+export function cancelChartReads(queryClient: QueryClient, encounterId: string, section: ChartSection): void {
+  void queryClient.cancelQueries({ queryKey: chartSectionsQueryKey(encounterId, section) });
+  void queryClient.cancelQueries({ queryKey: visitNoteQueryKey(encounterId), exact: true });
+}
+
+/**
+ * Applies `update` to every cached variant of a section; the variant's own params are passed along. Reads in
+ * flight for the section are cancelled first (cancelChartReads).
+ */
 export function patchChartSection<S extends ChartSection>(
   queryClient: QueryClient,
   encounterId: string,
   section: S,
   update: (previous: ChartSectionData<S>, params: ChartSectionParams<S>) => ChartSectionData<S>
 ): void {
+  cancelChartReads(queryClient, encounterId, section);
   queryClient
     .getQueryCache()
     .findAll({ queryKey: chartSectionsQueryKey(encounterId, section) })
