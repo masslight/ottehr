@@ -4,6 +4,8 @@ import { ReactElement } from 'react';
 import { Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { emptyNioContactForm } from '../../constants/nonInsuranceOrg';
+import { EmailInput } from '../input/EmailInput';
+import { PhoneInput } from '../input/PhoneInput';
 
 export function ContactsPanel(): ReactElement {
   const { control } = useFormContext();
@@ -63,38 +65,8 @@ export function ContactsPanel(): ReactElement {
               />
             )}
           />
-          <Controller
-            name={`contacts.${index}.phone`}
-            control={control}
-            render={({ field: phoneField }) => (
-              <TextField
-                label="Phone"
-                size="small"
-                fullWidth
-                value={phoneField.value}
-                onChange={(e) => phoneField.onChange(e.target.value)}
-              />
-            )}
-          />
-          <Controller
-            name={`contacts.${index}.email`}
-            control={control}
-            rules={{
-              validate: (value: string) =>
-                !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()) || 'Invalid email address',
-            }}
-            render={({ field: emailField, fieldState: { error } }) => (
-              <TextField
-                label="Email"
-                size="small"
-                fullWidth
-                value={emailField.value}
-                onChange={(e) => emailField.onChange(e.target.value)}
-                error={!!error}
-                helperText={error?.message}
-              />
-            )}
-          />
+          <PhoneInput name={`contacts.${index}.phone`} label="Phone" />
+          <EmailInput name={`contacts.${index}.email`} label="Email" />
         </Paper>
       ))}
     </Box>
