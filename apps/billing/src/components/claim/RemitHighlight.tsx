@@ -11,7 +11,6 @@ import {
   useState,
 } from 'react';
 
-// The remit line being hovered, and so the Remits and Insurance Payments rows to light up.
 export interface RemitHighlight {
   key: string;
   claimResponseId: string;
@@ -40,9 +39,7 @@ export function useRemitHighlight(): RemitHighlight | null {
   return useContext(RemitHighlightContext).highlight;
 }
 
-// Lights up one remit line, and its remit and check, while it's hovered or focused. It only ever clears
-// its own highlight, so a late leave from the line the pointer just left can't wipe out the one it
-// entered; unmounting (collapse, edit mode, tab switch) clears it too.
+// Lights up one remit line, and its remit and check, while it's hovered or focused.
 export function useRemitHighlightTarget({ key, claimResponseId, paymentReconciliationId }: RemitHighlight): {
   highlighted: boolean;
   highlight: () => void;

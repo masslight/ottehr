@@ -26,7 +26,6 @@ const openEraInNewTab = (paymentReconciliationId: string): void => {
   window.open(eraHref(paymentReconciliationId), '_blank', 'noopener');
 };
 
-// Rows open their ERA in a new tab, and are outlined while a service line's hover card points at them.
 const eraRowSx = (clickable: boolean, highlighted: boolean): SxProps<Theme> => ({
   ...(clickable ? { cursor: 'pointer', '&:hover': { bgcolor: otherColors.apptHover } } : {}),
   ...(highlighted ? { outline: (theme: Theme) => `2px solid ${theme.palette.primary.main}`, outlineOffset: -2 } : {}),

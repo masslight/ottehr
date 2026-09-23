@@ -100,8 +100,7 @@ export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): Re
     </>
   );
 
-  // A service line as the ERA reports it: the payer's procedure code, units, and charge; what only the
-  // claim knows (modifiers, diagnoses, place of service) stays blank.
+  // For era lines that do not match onto any of the claim's service lines
   const unmatchedLineCells = (eraLine: UnmatchedRemitLine): ReactElement => (
     <>
       <TableCell>
@@ -322,8 +321,7 @@ function PatientRespAmount({ amount }: { amount: number }): ReactElement {
   return amount !== 0 ? <AmountChip label={formatCurrency(amount)} color="warning" /> : <>{formatCurrency(amount)}</>;
 }
 
-// One remit's response to a line and the adjustments behind it. Hovering (or focusing into) it lights
-// it up along with its remit and check further down the page; only its CARC labels open the card.
+// One remit's response to a line and the adjustments behind it.
 function LedgerGroup({ entry, claimLineUnits }: { entry: RemitLineEntry; claimLineUnits?: number }): ReactElement {
   const { remit, line } = entry;
   const { highlighted, highlight, clearHighlight } = useRemitHighlightTarget({
