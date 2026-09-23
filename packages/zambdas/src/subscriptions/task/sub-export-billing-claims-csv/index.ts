@@ -20,6 +20,7 @@ import {
 } from '../../../billing/claim-search';
 import { createBillingClient } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { truncateForLog } from '../../../shared/logging';
 import { wrapTaskHandler } from '../helpers';
 import { ExportBillingClaimsCsvParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -31,9 +32,8 @@ const ZAMBDA_NAME = 'sub-export-billing-claims-csv';
 export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, _oystehr) => {
   console.group('validateRequestParameters');
   const params = validateRequestParameters(input);
-  const { secrets, ...restOfParams } = params;
+  const { secrets } = params;
   console.groupEnd();
-  console.debug('validateRequestParameters success', restOfParams);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
@@ -41,7 +41,7 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, _oystehr) => {
   console.group('performEffect');
   const response = await performEffect(oystehr, params);
   console.groupEnd();
-  console.debug('performEffect success', response);
+  console.debug('performEffect success', truncateForLog(response));
 
   return response;
 });

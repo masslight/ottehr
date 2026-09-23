@@ -54,7 +54,6 @@ export async function validateRequestParameters(input: ZambdaInput): Promise<Val
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
-  console.log('input', JSON.stringify(input, null, 2));
 
   const parsedBody = safeJsonParse(input.body);
 

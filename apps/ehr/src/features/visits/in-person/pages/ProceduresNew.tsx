@@ -544,8 +544,12 @@ export default function ProceduresNew({
         values: true,
       },
       callback: ({ values }) => {
+        // Empty procedure type (e.g. "Clear Form" reset) must not touch page state
+        if (!values.procedureType) return;
+
         const previousName = previousProcedureType.current;
         previousProcedureType.current = values.procedureType;
+
         if (
           previousName !== undefined &&
           detectProcedureFamily({ procedureType: previousName })?.id !==
@@ -555,14 +559,16 @@ export default function ProceduresNew({
             state.structuredFacts = undefined;
           });
         }
-        if (!values.procedureType) return;
+
         if (!procedureId && encounter.id) {
           setDraft(encounter.id, { procedureType: values.procedureType });
         }
+
         updateState((state) => {
           const selected = selectOptions?.procedureTypes.find(
             (procedureType) => procedureType.name === values.procedureType
           );
+
           if (selected) {
             applyProcedurePrepopulation(state, PROCEDURES_CONFIG.prepopulation[selected.code] ?? {});
           }

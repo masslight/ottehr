@@ -6,6 +6,14 @@ import { getClaimNonInsurancePayer, getCoveragePlanType } from 'utils/lib/fhir/b
 import { SubscriberRelationship } from 'utils/lib/fhir/constants';
 import { getCoding, getExtension, getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import {
+  CLAIM_ACCIDENT_STATE_EXTENSION_URL,
+  CLAIM_ACCIDENT_TYPE,
+  CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
+  CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+} from 'utils/lib/helpers/rcm/constants';
 import { asEraClaimStatusCode, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
   BillingPolicyHolderSummary,
@@ -46,6 +54,7 @@ import {
   getClaimPcn,
   getClaimService,
   getClaimStatus,
+  getClaimSupportingInfo,
   getClaimType,
   getEraCheckNumber,
   getTaxonomy,
@@ -302,6 +311,18 @@ export async function performEffect(
     admissionSource: getExtension(claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',
     admissionDate: claim.billablePeriod?.start ?? '',
     dischargeDate: claim.billablePeriod?.end ?? '',
+    accidentType: Object.entries(CLAIM_ACCIDENT_TYPE_EXTENSION_URLS).flatMap(([type, url]) =>
+      getExtension(claim, url)?.valueBoolean ? [type as CLAIM_ACCIDENT_TYPE] : []
+    ),
+    accidentState: getExtension(claim, CLAIM_ACCIDENT_STATE_EXTENSION_URL)?.valueString ?? '',
+    accidentDate:
+      getClaimSupportingInfo(
+        claim,
+        CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+        'info',
+        CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+        CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE
+      )?.timingDate ?? '',
     attachments,
   };
 }

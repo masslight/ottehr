@@ -54,6 +54,11 @@ import {
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils/lib/fhir/constants';
 import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
+import {
+  getPaymentVariantFromEncounter,
+  getVisitOccupationalMedicineEmployerFromEncounter,
+  PaymentVariant,
+} from 'utils/lib/fhir/encounter';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   buildCoverageSubscriberRelatedPerson,
@@ -65,13 +70,14 @@ import {
 } from 'utils/lib/fhir/helpers';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
+import { extractNioIdFromReferenceUrl, getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
 import {
   CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+  CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
@@ -1149,6 +1155,8 @@ const CopyableProperties: ResourceProperties<CopyableBillingResource> = {
     'relationship',
     'class',
     'type',
+    // extension carries the insurance type for oystehr rcm service
+    'extension',
   ],
   // extension carries the CMS place-of-service and timezone, which claim building derives from.
   Location: ['resourceType', 'extension', 'identifier', 'address', 'description', 'name', 'telecom', 'type'],
@@ -1366,6 +1374,51 @@ export function findPatientBillingAccount(accounts: Account[]): Account | undefi
 
 export function findPatientWorkersCompAccount(accounts: Account[]): Account | undefined {
   return accounts.find((acc) => accountMatchesCode(acc, 'WCOMPACCT'));
+}
+
+// Share coverage selection between claim creation and the queue.
+export function selectClaimCoverages(
+  service: string | undefined,
+  accounts: Account[],
+  coverages: Coverage[],
+  sourceReference: (coverage: Coverage) => string | undefined
+): Coverage[] {
+  const workersComp = service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp'];
+  const account =
+    service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care']
+      ? findPatientBillingAccount(accounts)
+      : workersComp
+      ? findPatientWorkersCompAccount(accounts)
+      : undefined;
+  const selected = new Map<number, Coverage | undefined>();
+  for (const entry of account?.coverage ?? []) {
+    const coverage = coverages.find((c) => sourceReference(c) === entry.coverage.reference);
+    if (workersComp) {
+      if (coverage) selected.set(1, coverage);
+    } else if (entry.priority && [1, 2, 3, 4].includes(entry.priority)) {
+      selected.set(entry.priority, coverage);
+    }
+  }
+  return [1, 2, 3, 4].flatMap((priority) => selected.get(priority) ?? []);
+}
+
+export function findOccupationalMedicineAccount(accounts: Account[]): Account | undefined {
+  return accounts.find((account) => accountMatchesCode(account, 'OCCUPATIONALMEDICINEACCT'));
+}
+
+export function isEmployerBilledVisit(service: string | undefined, encounter: Encounter): boolean {
+  return (
+    service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['occupational-medicine'] ||
+    getPaymentVariantFromEncounter(encounter) === PaymentVariant.employer
+  );
+}
+
+export function getNonInsurancePayerReference(encounter: Encounter, account?: Account): Reference | undefined {
+  const employer = getVisitOccupationalMedicineEmployerFromEncounter(encounter) ?? account?.owner;
+  const nioId = extractNioIdFromReferenceUrl(employer?.reference);
+  return nioId
+    ? { reference: `Organization/${nioId}`, ...(employer?.display ? { display: employer.display } : {}) }
+    : undefined;
 }
 
 // A coverage's insurance type is determined by which account holds it (PBILLACCT priority 1/2 or the
@@ -1729,4 +1782,81 @@ export function getClaimAttachmentUrl(
   fileName: string
 ): string {
   return `${projectApi}/z3/${BILLING_APP_BUCKET(projectId)}/${CLAIM_ATTACHMENT_OBJECT_PATH(claimId, fileName)}`;
+}
+
+function getClaimSupportingInfoIndex(
+  claim: Claim,
+  categorySystem: string,
+  categoryCode: string,
+  codingSystem: string,
+  codingCode: string
+): number {
+  return (
+    claim.supportingInfo?.findIndex(
+      (info) =>
+        info.category.coding?.some(
+          (catCoding) => catCoding.system === categorySystem && catCoding.code === categoryCode
+        ) &&
+        info.code?.coding?.some((codeCoding) => codeCoding.system === codingSystem && codeCoding.code === codingCode)
+    ) ?? -1
+  );
+}
+
+export function getClaimSupportingInfo(
+  claim: Claim,
+  categorySystem: string,
+  categoryCode: string,
+  codingSystem: string,
+  codingCode: string
+): ClaimSupportingInfo | undefined {
+  const infoIndex = getClaimSupportingInfoIndex(claim, categorySystem, categoryCode, codingSystem, codingCode);
+  if (infoIndex >= 0) {
+    return claim.supportingInfo?.[infoIndex];
+  }
+  return undefined;
+}
+
+export function updateClaimSupportingInfo(
+  claim: Claim,
+  categorySystem: string,
+  categoryCode: string,
+  codingSystem: string,
+  codingCode: string,
+  newInfo: Partial<ClaimSupportingInfo>
+): void {
+  claim.supportingInfo ??= [];
+  const infoIndex = getClaimSupportingInfoIndex(claim, categorySystem, categoryCode, codingSystem, codingCode);
+  if (infoIndex >= 0) {
+    claim.supportingInfo[infoIndex] = {
+      ...claim.supportingInfo[infoIndex],
+      ...newInfo,
+    };
+  } else {
+    claim.supportingInfo.push({
+      sequence: claim.supportingInfo.length + 1,
+      category: { coding: [{ system: categorySystem, code: categoryCode }] },
+      code: { coding: [{ system: codingSystem, code: codingCode }] },
+      ...newInfo,
+    });
+  }
+}
+
+export function removeClaimSupportingInfo(
+  claim: Claim,
+  categorySystem: string,
+  categoryCode: string,
+  codingSystem: string,
+  codingCode: string
+): void {
+  claim.supportingInfo ??= [];
+  const infoIndex = getClaimSupportingInfoIndex(claim, categorySystem, categoryCode, codingSystem, codingCode);
+  if (infoIndex >= 0) {
+    claim.supportingInfo = [
+      ...claim.supportingInfo.slice(0, infoIndex),
+      ...claim.supportingInfo.slice(infoIndex + 1).map((info) => {
+        info.sequence -= 1;
+        return info;
+      }),
+    ];
+  }
 }

@@ -63,7 +63,7 @@ export const paymentsReport: ReportDefinition<
   GetBillingPaymentsReportDrilldownInput
 > = {
   kind: 'payments',
-  cacheVersion: 'v2',
+  cacheVersion: 'v3',
   paramsSchema: ReportDateWindowParamsSchema,
   cacheKeyOf: (params) => `${params.dateFrom ?? 'all'}:${params.dateTo ?? 'all'}`,
   // detail spans all ERAs regardless of the window

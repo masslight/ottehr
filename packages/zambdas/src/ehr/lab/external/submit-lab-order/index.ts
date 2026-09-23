@@ -29,7 +29,6 @@ const ZAMBDA_NAME = 'submit-lab-order';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   console.log('Validating input');
   const { serviceRequestIDs, manualOrder, secrets } = validateRequestParameters(input);
   console.log('manualOrder', serviceRequestIDs, manualOrder);
