@@ -58,9 +58,10 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
-import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils';
+import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils/lib/fhir/billing';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
+  CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
 } from 'utils/lib/helpers/rcm/constants';
@@ -112,6 +113,7 @@ import {
   updateBillingProvider,
   updateBillingResource,
 } from '../api/api';
+import { AccidentInfoFields } from '../components/AccidentInfoFields';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimNotesDrawer } from '../components/claim/ClaimNotesDrawer';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
@@ -134,6 +136,7 @@ import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
+import { AccidentInfoData } from '../constants/accidentInfo';
 import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import {
   CoverageForm,
@@ -697,6 +700,7 @@ export default function ClaimDetail(): ReactElement {
             <RenderingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
             <FacilitySection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
             <BillingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
+            <AccidentInfoSection claim={claim} updateResource={updateResource} />
             {claim.type === 'institutional' && (
               <InstitutionalClaimAdditionalFieldsSection claim={claim} updateResource={updateResource} />
             )}
@@ -1407,6 +1411,52 @@ function BillingProviderSection({
       }}
       showSourceLink
     />
+  );
+}
+
+function AccidentInfoSection({
+  claim,
+  updateResource,
+}: {
+  claim: ClaimDetailResponse;
+  updateResource: UpdateFn;
+}): ReactElement {
+  const handleSave = async (data: AccidentInfoData): Promise<string | null> => {
+    try {
+      const error = await updateResource('Claim', claim.id, {
+        accidentType: data.accidentType,
+        accidentState: data.accidentState,
+        accidentDate: data.accidentDate,
+      });
+      if (error) return error;
+      return null;
+    } catch (err) {
+      return getApiError({ error: err, defaultError: 'Failed to save changes' });
+    }
+  };
+
+  const defaultValues = useMemo<AccidentInfoData>(() => {
+    return {
+      accidentType: claim.accidentType,
+      accidentState: claim.accidentState,
+      accidentDate: claim.accidentDate,
+    };
+  }, [claim]);
+
+  return (
+    <EditableSection
+      title="Accident Info"
+      defaultValues={defaultValues}
+      onSave={handleSave}
+      editForm={<AccidentInfoFields />}
+    >
+      <Row
+        label="Accident Type"
+        value={claim.accidentType.map((type) => CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES[type]).join(', ')}
+      />
+      {claim.accidentType.includes('auto') ? <Row label="Accident State" value={claim.accidentState} /> : <></>}
+      <Row label="Accident Date" value={claim.accidentDate ? formatDate(claim.accidentDate) : ''} />
+    </EditableSection>
   );
 }
 
