@@ -3,6 +3,14 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCopyChartDataToFollowup } from '../../src/features/visits/shared/components/patient/useCopyChartDataToFollowup';
+import {
+  useExamObservationsInitializationStore,
+  useExamObservationsStore,
+} from '../../src/features/visits/shared/stores/appointment/exam-observations.store';
+import {
+  useRosObservationsInitializationStore,
+  useRosObservationsStore,
+} from '../../src/features/visits/shared/stores/appointment/ros-observations.store';
 
 const getChartDataMock = vi.fn();
 const saveChartDataMock = vi.fn();
@@ -63,6 +71,11 @@ describe('useCopyChartDataToFollowup', () => {
     deleteChartDataMock.mockReset();
     deleteChartDataMock.mockResolvedValue(undefined);
     chartDataByEncounter({ 'enc-source': SOURCE, 'enc-target': TARGET });
+    // The state the chart left behind for the visit being converted.
+    useExamObservationsStore.setState({ rr: { field: 'rr', value: true, resourceId: 'tgt-rr' } }, true);
+    useExamObservationsInitializationStore.setState({ hasInitialData: true });
+    useRosObservationsStore.setState({ 'ros-cough': { field: 'ros-cough', value: true, resourceId: 'tgt-ros' } }, true);
+    useRosObservationsInitializationStore.setState({ hasInitialData: true });
   });
 
   describe('copying onto a freshly booked follow-up', () => {
@@ -164,6 +177,64 @@ describe('useCopyChartDataToFollowup', () => {
         })
       ).rejects.toThrow('delete-chart-data blew up');
       expect(saveChartDataMock).toHaveBeenCalled();
+    });
+  });
+
+  describe('re-reading the sections held outside react-query', () => {
+    it('clears the exam store so the chart re-reads it from the server', async () => {
+      await copy({
+        sourceEncounterId: 'enc-source',
+        targetEncounterId: 'enc-target',
+        fields: ['examObservations'],
+        overwriteExisting: true,
+      });
+
+      expect(useExamObservationsStore.getState()).toEqual({});
+      expect(useExamObservationsInitializationStore.getState().hasInitialData).toBe(false);
+    });
+
+    it('clears the ROS store so the chart re-reads it from the server', async () => {
+      chartDataByEncounter({
+        'enc-source': { unscoped: { rosObservations: [{ resourceId: 'src-ros', field: 'ros-fever', value: true }] } },
+        'enc-target': { unscoped: { rosObservations: [{ resourceId: 'tgt-ros', field: 'ros-cough', value: true }] } },
+      });
+
+      await copy({
+        sourceEncounterId: 'enc-source',
+        targetEncounterId: 'enc-target',
+        fields: ['rosObservations'],
+        overwriteExisting: true,
+      });
+
+      expect(useRosObservationsStore.getState()).toEqual({});
+      expect(useRosObservationsInitializationStore.getState().hasInitialData).toBe(false);
+    });
+
+    it('clears the store even when the cleanup fails', async () => {
+      deleteChartDataMock.mockRejectedValue(new Error('delete-chart-data blew up'));
+
+      await expect(
+        copy({
+          sourceEncounterId: 'enc-source',
+          targetEncounterId: 'enc-target',
+          fields: ['examObservations'],
+          overwriteExisting: true,
+        })
+      ).rejects.toThrow();
+      // The save landed, so the store is out of date whether or not the leftovers were swept.
+      expect(useExamObservationsStore.getState()).toEqual({});
+    });
+
+    it('leaves both stores alone when neither section was copied', async () => {
+      await copy({
+        sourceEncounterId: 'enc-source',
+        targetEncounterId: 'enc-target',
+        fields: ['historyOfPresentIllness'],
+        overwriteExisting: true,
+      });
+
+      expect(useExamObservationsStore.getState()).toHaveProperty('rr');
+      expect(useRosObservationsStore.getState()).toHaveProperty('ros-cough');
     });
   });
 
