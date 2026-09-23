@@ -13,6 +13,9 @@ export const i18nextCreator = (resources?: Resource, debug = false): i18n => {
       ...(debug && {
         parseMissingKeyHandler: (key: string) => `No translation found for "${key}"`,
       }),
+      interpolation: {
+        escapeValue: false,
+      },
       resources: resources,
     })
     .catch((error) => {
