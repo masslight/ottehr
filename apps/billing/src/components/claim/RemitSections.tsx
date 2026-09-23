@@ -8,6 +8,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableRowProps,
   Theme,
   Typography,
 } from '@mui/material';
@@ -26,10 +27,28 @@ const openEraInNewTab = (paymentReconciliationId: string): void => {
   window.open(eraHref(paymentReconciliationId), '_blank', 'noopener');
 };
 
+const rowOutline = { outline: (theme: Theme) => `2px solid ${theme.palette.primary.main}`, outlineOffset: -2 };
+
 const eraRowSx = (clickable: boolean, highlighted: boolean): SxProps<Theme> => ({
-  ...(clickable ? { cursor: 'pointer', '&:hover': { bgcolor: otherColors.apptHover } } : {}),
-  ...(highlighted ? { outline: (theme: Theme) => `2px solid ${theme.palette.primary.main}`, outlineOffset: -2 } : {}),
+  ...(clickable
+    ? { cursor: 'pointer', '&:hover': { bgcolor: otherColors.apptHover }, '&:focus-visible': rowOutline }
+    : {}),
+  ...(highlighted ? rowOutline : {}),
 });
+
+function eraRowProps(paymentReconciliationId: string): Pick<TableRowProps, 'tabIndex' | 'onClick' | 'onKeyDown'> {
+  if (!paymentReconciliationId) return {};
+  return {
+    tabIndex: 0,
+    onClick: () => openEraInNewTab(paymentReconciliationId),
+    onKeyDown: (event) => {
+      // keys pressed on the check link inside are the link's own
+      if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return;
+      event.preventDefault();
+      openEraInNewTab(paymentReconciliationId);
+    },
+  };
+}
 
 function CheckLink({
   paymentReconciliationId,
@@ -87,7 +106,7 @@ export function RemitsSection({ remits }: { remits: ClaimRemit[] }): ReactElemen
                   <TableRow
                     key={remit.claimResponseId}
                     selected={highlighted}
-                    onClick={eraId ? () => openEraInNewTab(eraId) : undefined}
+                    {...eraRowProps(eraId)}
                     sx={eraRowSx(!!eraId, highlighted)}
                   >
                     <TableCell>{formatDate(remit.date) || '-'}</TableCell>
@@ -175,7 +194,7 @@ export function InsurancePaymentsSection({ payments }: { payments: ClaimInsuranc
                   <TableRow
                     key={eraId}
                     selected={highlighted}
-                    onClick={eraId ? () => openEraInNewTab(eraId) : undefined}
+                    {...eraRowProps(eraId)}
                     sx={eraRowSx(!!eraId, highlighted)}
                   >
                     <TableCell>{formatDate(payment.remitDate) || '-'}</TableCell>

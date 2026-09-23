@@ -307,6 +307,41 @@ describe('ClaimDetail — remits', () => {
     openSpy.mockRestore();
   });
 
+  it('opens the ERA behind a focused remit row from Enter or Space', async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.insurancePayer),
+      remits: [
+        makeRemit({
+          claimResponseId: 'cr-linked',
+          payerName: 'Linked Payer',
+          paymentReconciliationId: 'pr-1',
+          checkNumber: 'CHK1',
+        }),
+        makeRemit({ claimResponseId: 'cr-unlinked', payerName: 'Unlinked Payer' }),
+      ],
+    });
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Dx, Service Lines & Remits' }));
+
+    expect((await screen.findByText('Unlinked Payer')).closest('tr')).not.toHaveAttribute('tabindex');
+    const row = screen.getByText('Linked Payer').closest('tr') as HTMLElement;
+    expect(row).toHaveAttribute('tabindex', '0');
+
+    act(() => row.focus());
+    await user.keyboard('{Enter}');
+    await user.keyboard(' ');
+    expect(openSpy).toHaveBeenCalledTimes(2);
+    expect(openSpy).toHaveBeenLastCalledWith('/eras/pr-1', '_blank', 'noopener');
+
+    // the check link opens the ERA itself; its keys do not reach the row
+    fireEvent.keyDown(within(row).getByRole('link', { name: 'CHK1' }), { key: 'Enter' });
+    expect(openSpy).toHaveBeenCalledTimes(2);
+    openSpy.mockRestore();
+  });
+
   it('shows the empty state when the claim has no remits', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
     renderDetail();
@@ -322,7 +357,8 @@ describe('ClaimDetail — insurance payments', () => {
     getBillingClaimDetailMock.mockReset();
   });
 
-  it('lists insurance payments and opens the ERA in a new tab on row click', async () => {
+  it('lists insurance payments and opens the ERA in a new tab on row click or Enter', async () => {
+    const user = userEvent.setup();
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     getBillingClaimDetailMock.mockResolvedValue({
       ...makeClaim(AR_STAGE.insurancePayer),
@@ -343,6 +379,11 @@ describe('ClaimDetail — insurance payments', () => {
     fireEvent.click(row as HTMLElement);
     expect(openSpy).toHaveBeenCalledWith('/eras/pr-1', '_blank', 'noopener');
     expect(screen.queryByText('ERA page')).not.toBeInTheDocument();
+
+    act(() => row?.focus());
+    await user.keyboard('{Enter}');
+    expect(openSpy).toHaveBeenCalledTimes(2);
+    expect(openSpy).toHaveBeenLastCalledWith('/eras/pr-1', '_blank', 'noopener');
     openSpy.mockRestore();
   });
 });
