@@ -1,3 +1,4 @@
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { BillingPayerOption } from 'utils/lib/types/data/billing/billing.types';
 import {
   CreateNonInsuranceOrgInput,
@@ -119,7 +120,7 @@ function submissionToForm(submission?: NioSubmission): NioSubmissionForm {
   return {
     preferredMechanism: submission?.preferredMechanism ?? '',
     email: submission?.email ?? '',
-    fax: submission?.fax ?? '',
+    fax: standardizePhoneNumber(submission?.fax) ?? submission?.fax ?? '',
     portalNotes: submission?.portalNotes ?? '',
     mailAddress: addressToForm(submission?.mailAddress),
   };
@@ -146,7 +147,7 @@ export function nioItemToFormValues(item?: NonInsuranceOrganizationItem | null):
   form.contacts = item.contacts.map((contact) => ({
     name: contact.name,
     title: contact.title ?? '',
-    phone: contact.phone ?? '',
+    phone: standardizePhoneNumber(contact.phone) ?? contact.phone ?? '',
     email: contact.email ?? '',
   }));
   for (const coverage of item.covers) {

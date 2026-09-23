@@ -1,3 +1,4 @@
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import {
   CreateCustomInsuranceOrgInput,
   CustomInsuranceOrgClaimForm,
@@ -54,7 +55,7 @@ function submissionDetailsToForm(
     email: details?.email ?? '',
     portalUrl: details?.portalUrl ?? '',
     portalDetails: details?.portalDetails ?? '',
-    faxNumber: details?.faxNumber ?? '',
+    faxNumber: standardizePhoneNumber(details?.faxNumber) ?? details?.faxNumber ?? '',
     mailAddress: details?.mailAddress
       ? {
           line1: details.mailAddress.line1 ?? '',
@@ -80,7 +81,7 @@ export function customInsuranceOrgItemToFormValues(item?: CustomInsuranceOrgItem
   form.contacts = item.contacts.map((contact) => ({
     name: contact.name,
     title: contact.title ?? '',
-    phone: contact.phone ?? '',
+    phone: standardizePhoneNumber(contact.phone) ?? contact.phone ?? '',
     email: contact.email ?? '',
   }));
   return form;
