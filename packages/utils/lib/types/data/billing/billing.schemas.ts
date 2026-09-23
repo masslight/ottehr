@@ -83,9 +83,11 @@ export const SearchErasInputSchema = z.object({
 
 export const SaveBillingTagInputSchema = z.object({
   tagId: nonEmptyString.optional(),
-  name: nonEmptyString
-    .transform((name) => name.replace(/ {2,}/g, ' '))
-    .refine((name) => !TAG_NAME_FORBIDDEN_CHARACTERS.test(name), TAG_NAME_FORBIDDEN_CHARACTERS_ERROR),
+  name: z
+    .string()
+    .refine((name) => !TAG_NAME_FORBIDDEN_CHARACTERS.test(name), TAG_NAME_FORBIDDEN_CHARACTERS_ERROR)
+    .transform((name) => name.trim().replace(/ {2,}/g, ' '))
+    .pipe(z.string().min(1)),
   description: z.string().optional(),
 });
 
