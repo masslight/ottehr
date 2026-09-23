@@ -363,12 +363,12 @@ describe('get-billing-era-detail performEffect', () => {
 
     expect(billingClient.fhir.search).toHaveBeenCalledWith({
       resourceType: 'Patient',
-      params: [
+      params: expect.arrayContaining([
         {
           name: '_id',
           value: 'p1',
         },
-      ],
+      ]),
     });
     expect(response.claims[0]).toMatchObject({
       matched: false,

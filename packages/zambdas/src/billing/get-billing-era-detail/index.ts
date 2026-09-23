@@ -14,6 +14,7 @@ import {
   countEraClaims,
   extractReportedCharge,
   fetchClaimResponsesByPaymentReconciliations,
+  fetchResourcesGrouped,
   isMatchedToClaim,
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
@@ -100,26 +101,21 @@ export async function performEffect(
 
   const unmatchedResponses = claimResponses.filter((claimResponse) => !isMatchedToClaim(claimResponse));
 
-  const referencedPatientIds = [
-    ...new Set(
-      unmatchedResponses
-        .map((claimResponse) => removePrefix('Patient/', claimResponse.patient?.reference ?? ''))
-        .filter((id): id is string => !!id)
-    ),
-  ];
-  const referencedPatients: Patient[] = [];
-  if (referencedPatientIds.length > 0) {
-    const patientResult = await oystehr.fhir.search<Patient>({
-      resourceType: 'Patient',
-      params: [
-        {
-          name: '_id',
-          value: referencedPatientIds.join(','),
-        },
-      ],
-    });
-    referencedPatients.push(...patientResult.unbundle());
-  }
+  const referencedPatientsById = await fetchResourcesGrouped<Patient>({
+    oystehr,
+    resourceType: 'Patient',
+    ids: unmatchedResponses
+      .map((claimResponse) => removePrefix('Patient/', claimResponse.patient?.reference ?? ''))
+      .filter((id): id is string => !!id),
+    buildParam: (batch) => [
+      {
+        name: '_id',
+        value: batch.join(','),
+      },
+    ],
+    groupKeyOf: (patient) => patient.id,
+  });
+  const referencedPatients = [...referencedPatientsById.values()].flat();
 
   unmatchedResponses.forEach((claimResponse) => {
     const claim = claimResponse.contained?.find((resource) => resource.resourceType === 'Claim') ?? {
