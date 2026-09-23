@@ -1,15 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location, ProvenanceAgent } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
-import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { commitClaimResourceChange, resolveClaimActor } from '../provenance';
 import { applyServiceFacilityInput } from '../service-facility.helpers';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, fetchById, isWorkingCopy } from '../shared';
+import { createBillingClient, fetchById } from '../shared';
 import { SaveServiceFacilityParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -41,36 +39,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function complexValidation(
+export async function complexValidation(
   oystehr: Oystehr,
   params: SaveServiceFacilityParams,
   authorizationHeader: string | undefined
 ): Promise<{ existing: Location | undefined; agent: ProvenanceAgent | undefined }> {
-  const { facilityId, npi } = params;
+  const { facilityId } = params;
 
   const existing = facilityId ? await fetchById<Location>(oystehr, 'Location', facilityId) : undefined;
-
-  // Don't validate claim-level copies for NPI conflicts
-  if (npi && (!existing || !isWorkingCopy(existing))) {
-    const bundle = await oystehr.fhir.search<Location>({
-      resourceType: 'Location',
-      params: [
-        {
-          name: 'identifier',
-          value: `${FHIR_IDENTIFIER_NPI}|${npi}`,
-        },
-        {
-          name: 'status',
-          value: 'active',
-        },
-        ...EXCLUDE_WORKING_COPIES_PARAMS,
-      ],
-    });
-    const conflict = bundle.unbundle().some((location) => location.id !== facilityId);
-    if (conflict) {
-      throw INVALID_INPUT_ERROR(`An active service facility with NPI ${npi} already exists`);
-    }
-  }
 
   // A claim-scoped edit (the claim screen editing the claim's facility working copy) is recorded in
   // that claim's history, so it needs the acting user; master-screen edits carry no claim context

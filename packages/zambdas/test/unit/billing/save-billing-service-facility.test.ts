@@ -1,9 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { Location, Provenance, ProvenanceAgent } from 'fhir/r4b';
+import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { SaveServiceFacilityInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
 import { describe, expect, it, vi } from 'vitest';
-import { performEffect } from '../../../src/billing/save-billing-service-facility';
+import { complexValidation, performEffect } from '../../../src/billing/save-billing-service-facility';
 
 const CLAIM_ID = '33333333-3333-4333-8333-333333333333';
 const agent: ProvenanceAgent = { who: { reference: 'Practitioner/test-user' } };
@@ -26,8 +27,22 @@ const baseInput: SaveServiceFacilityInput = {
   zip: '90210',
 };
 
+const SHARED_NPI = '1234567893';
+
+const sharedNpiFacility: Location = {
+  ...facility,
+  id: 'fac-2',
+  identifier: [
+    {
+      system: FHIR_IDENTIFIER_NPI,
+      value: SHARED_NPI,
+    },
+  ],
+};
+
 function makeOystehr(): {
   oystehr: Oystehr;
+  search: ReturnType<typeof vi.fn>;
   update: ReturnType<typeof vi.fn>;
   create: ReturnType<typeof vi.fn>;
   transaction: ReturnType<typeof vi.fn>;
@@ -37,7 +52,13 @@ function makeOystehr(): {
   const create = vi.fn().mockImplementation((resource: Location) => Promise.resolve({ ...resource, id: 'fac-new' }));
   const transaction = vi.fn().mockResolvedValue({ entry: [] });
   const oystehr = { fhir: { search, update, create, transaction } } as unknown as Oystehr;
-  return { oystehr, update, create, transaction };
+  return {
+    oystehr,
+    search,
+    update,
+    create,
+    transaction,
+  };
 }
 
 const parseChanges = (provenance: Provenance): ClaimFieldChange[] =>
@@ -98,5 +119,64 @@ describe('save-billing-service-facility', () => {
     expect(result).toEqual({ id: 'fac-new' });
     expect(create).toHaveBeenCalledTimes(1);
     expect(transaction).not.toHaveBeenCalled();
+  });
+
+  describe('complexValidation', () => {
+    it('allows creating a facility with an NPI another active facility already has', async () => {
+      const { oystehr, search } = makeOystehr();
+      search.mockResolvedValue({
+        unbundle: () => [sharedNpiFacility],
+      });
+
+      const result = await complexValidation(
+        oystehr,
+        {
+          ...baseInput,
+          facilityId: undefined,
+          npi: SHARED_NPI,
+          secrets: null,
+        },
+        undefined
+      );
+
+      expect(result).toEqual({
+        existing: undefined,
+        agent: undefined,
+      });
+      expect(search).not.toHaveBeenCalled();
+    });
+
+    it('allows updating a facility to an NPI another active facility already has', async () => {
+      const { oystehr, search } = makeOystehr();
+      search
+        .mockResolvedValueOnce({
+          unbundle: () => [structuredClone(facility)],
+        })
+        .mockResolvedValue({
+          unbundle: () => [sharedNpiFacility],
+        });
+
+      const result = await complexValidation(
+        oystehr,
+        {
+          ...baseInput,
+          npi: SHARED_NPI,
+          secrets: null,
+        },
+        undefined
+      );
+
+      expect(result).toEqual({
+        existing: facility,
+        agent: undefined,
+      });
+      expect(search).toHaveBeenCalledTimes(1);
+      expect(search.mock.calls[0][0].params).toEqual([
+        {
+          name: '_id',
+          value: 'fac-1',
+        },
+      ]);
+    });
   });
 });
