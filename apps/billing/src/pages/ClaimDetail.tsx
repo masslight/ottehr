@@ -13,6 +13,7 @@ import {
   FileUpload as FileUploadIcon,
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
+  PrintOutlined as PrintIcon,
   Save as SaveIcon,
   StickyNote2Outlined as StickyNote2Icon,
 } from '@mui/icons-material';
@@ -116,6 +117,7 @@ import {
 import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimNotesDrawer } from '../components/claim/ClaimNotesDrawer';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
+import { Cms1500Dialog } from '../components/claim/Cms1500Dialog';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
@@ -179,6 +181,7 @@ export default function ClaimDetail(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState('1');
   const [exportOpen, setExportOpen] = useState(false);
+  const [cms1500Open, setCms1500Open] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
   const [editingHeader, setEditingHeader] = useState(false);
@@ -492,6 +495,17 @@ export default function ClaimDetail(): ReactElement {
         >
           Export X12
         </Button>
+        {claim.type === 'professional' && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<PrintIcon />}
+            onClick={() => setCms1500Open(true)}
+            sx={{ mt: 0.5 }}
+          >
+            CMS-1500
+          </Button>
+        )}
         <Button
           size="small"
           variant="outlined"
@@ -516,6 +530,7 @@ export default function ClaimDetail(): ReactElement {
           x12Provider={() => exportClaimX12(oystehrZambda, { claimId: claim.id }).then((data) => data.x12)}
         />
       )}
+      <Cms1500Dialog open={cms1500Open} onClose={() => setCms1500Open(false)} claimId={claim.id} />
 
       <ClaimNotesDrawer
         key={claim.id}

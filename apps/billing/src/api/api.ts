@@ -25,6 +25,7 @@ import {
   GetBillingPaymentsReportDrilldownInputSchema,
   GetBillingProviderInputSchema,
   GetChargeItemDefinitionInputSchema,
+  GetClaimCms1500InputSchema,
   GetClaimDetailInputSchema,
   GetClaimHistoryInputSchema,
   GetEraDetailInputSchema,
@@ -101,6 +102,7 @@ import {
   ServiceFacilityItem,
 } from 'utils/lib/types/data/billing/billing.types';
 import { GetClaimHistoryResponse } from 'utils/lib/types/data/billing/claim-history';
+import { Cms1500FormData } from 'utils/lib/types/data/billing/cms1500.types';
 import {
   BillingRulesResponse,
   GetBillingRulesInputSchema,
@@ -209,6 +211,11 @@ export const exportClaimX12 = (
   oystehr: Oystehr,
   parameters: z.input<typeof ExportClaimX12InputSchema>
 ): Promise<ExportClaimX12Response> => executeBillingZambda(oystehr, 'export-billing-claim-x12', parameters);
+
+export const getBillingClaimCms1500 = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetClaimCms1500InputSchema>
+): Promise<Cms1500FormData> => executeBillingZambda(oystehr, 'get-billing-claim-cms1500', parameters);
 
 export const updateBillingResource = (
   oystehr: Oystehr,
