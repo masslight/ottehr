@@ -24,7 +24,8 @@ import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
 import { SCHOOL_NOTE_CODE, WORK_NOTE_CODE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useProgressNoteSigning } from '../../hooks/useProgressNoteSigning';
-import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
+import { useVisitNote } from '../../hooks/useVisitNote';
+import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { createAndOpenDischargeSummary, handleDischarge } from './DischargeButton';
 
 const MISSING_INFORMATION_MESSAGE =
@@ -109,14 +110,14 @@ const SelectionCheckbox: FC<{
 
 export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId, appointmentId, patientId }) => {
   const { oystehrZambda } = useApiClients();
-  const { chartData } = useChartData();
+  const { data: note } = useVisitNote();
   const { appointmentRefetch } = useAppointmentData();
   const { downloadDocument } = useGetPatientDocs(patientId ?? '');
   const { completed, permissionMessages, readinessMessages, supervisorApprovalApplies, isSigning, signNote } =
     useProgressNoteSigning();
 
   // Stable reference: useExcusePresignedFiles depends on it and sets state on completion.
-  const schoolWorkNotes = useMemo(() => chartData?.schoolWorkNotes ?? [], [chartData?.schoolWorkNotes]);
+  const schoolWorkNotes = useMemo(() => note?.plan.schoolWorkNotes ?? [], [note?.plan.schoolWorkNotes]);
   const presignedFiles = useExcusePresignedFiles(schoolWorkNotes);
 
   const hasWorkNote = schoolWorkNotes.some((note) => note.type === WORK_NOTE_CODE);
@@ -129,7 +130,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
   const workNoteUnavailable = Boolean(workNoteFile && !workNoteUrl);
   const schoolNoteUnavailable = Boolean(schoolNoteFile && !schoolNoteUrl);
   const hasAppointment = Boolean(appointmentId);
-  const hasPatientInstructions = chartData?.instructions?.some((instruction) => instruction.text) ?? false;
+  const hasPatientInstructions = note?.plan.instructions?.some((instruction) => instruction.text) ?? false;
 
   const [selections, setSelections] = useState<DischargeSelections>(DEFAULT_SELECTIONS);
   const [isDischarging, setIsDischarging] = useState(false);

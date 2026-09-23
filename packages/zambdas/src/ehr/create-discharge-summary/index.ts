@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
+import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { Secrets } from 'utils/lib/secrets';
 import {
   CreateDischargeSummaryInputValidated,
@@ -10,6 +10,7 @@ import {
 } from 'utils/lib/types/api/create-discharge-summary/create-discharge-summary.types';
 import { PATIENT_EDUCATION_DOC_TYPE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { buildVisitNote } from '../../shared/chart-sections/visit-note';
 import { fetchErxPharmacies } from '../../shared/erx';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { createDischargeSummaryPdf } from '../../shared/pdf/discharge-summary-pdf';
@@ -20,7 +21,6 @@ import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-detail
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
-import { getChartData } from '../get-chart-data';
 import { getMedicationOrders } from '../get-medication-orders';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -75,13 +75,7 @@ export const performEffect = async (
   }
   const { encounter, patient, listResources } = visitResources;
 
-  const chartDataPromise = getChartData(oystehr, m2mToken, encounter.id!);
-  const additionalChartDataPromise = getChartData(
-    oystehr,
-    m2mToken,
-    encounter.id!,
-    progressNoteChartDataRequestedFields
-  );
+  const visitNotePromise = buildVisitNote({ oystehr, m2mToken }, encounter.id!);
 
   const medicationOrdersPromise = getMedicationOrders(oystehr, {
     searchBy: {
@@ -98,14 +92,13 @@ export const performEffect = async (
     encounter.id
   );
 
-  const [chartDataResult, additionalChartDataResult, medicationOrdersData, upcomingFollowUps] = await Promise.all([
-    chartDataPromise,
-    additionalChartDataPromise,
+  const [visitNote, medicationOrdersData, upcomingFollowUps] = await Promise.all([
+    visitNotePromise,
     medicationOrdersPromise,
     upcomingFollowUpsPromise,
   ]);
-  const chartData = chartDataResult.response;
-  const additionalChartData = additionalChartDataResult.response;
+  // The discharge summary composers read the two whole-chart shapes; the adapter presents the note as both.
+  const { chartData, additionalChartData } = visitNoteToLegacyChartData(visitNote, { module: 'in-person' });
   const medicationOrders = medicationOrdersData?.orders.filter((order) => order.status !== 'cancelled');
 
   console.log('Chart data received');

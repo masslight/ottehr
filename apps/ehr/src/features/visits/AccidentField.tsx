@@ -6,7 +6,7 @@ import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { DateInput } from 'src/components/input/DateInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { AllStates } from 'utils/lib/types/common';
-import { useChartFields } from './shared/hooks/useChartFields';
+import { useChartSection } from './shared/hooks/useChartSection';
 import { useDeleteChartData, useSaveChartData } from './shared/stores/appointment/appointment.store';
 
 interface Props {
@@ -74,17 +74,7 @@ interface FormData {
 }
 
 export const AccidentField: FC<Props> = ({ readOnly }) => {
-  const {
-    data: chartDataFields,
-    setQueryCache,
-    isLoading: isChartDataLoading,
-  } = useChartFields({
-    requestedFields: {
-      accident: {
-        _tag: 'accident',
-      },
-    },
-  });
+  const { data: chartDataFields, setSectionData, isLoading: isChartDataLoading } = useChartSection('encounterNotes');
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
 
@@ -151,7 +141,7 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
                   accident: chartDataFields?.accident,
                 },
                 {
-                  onSuccess: () => setQueryCache({ accident: undefined }),
+                  onSuccess: () => setSectionData({ accident: undefined }),
                   onSettled: done,
                 }
               )
@@ -204,7 +194,7 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
               // Writing an accident the save did not echo back would drop its resource id.
               onSuccess: (data) => {
                 if (data.chartData.accident) {
-                  setQueryCache({ accident: data.chartData.accident });
+                  setSectionData({ accident: data.chartData.accident });
                 }
               },
               onSettled: done,
@@ -214,7 +204,7 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
       },
     });
     return () => callback();
-  }, [methods, chartDataFields, deleteChartData, saveChartData, setQueryCache, writes]);
+  }, [methods, chartDataFields, deleteChartData, saveChartData, setSectionData, writes]);
 
   const disabled = isChartDataLoading || readOnly;
 

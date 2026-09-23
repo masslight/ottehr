@@ -137,6 +137,8 @@ describe('ConditionalEditor', () => {
   });
 
   it('uses the searchable NIO picker for the non-insurance organization field in both the condition and the action', () => {
+    searchBillingNonInsuranceOrgsMock.mockReset();
+    searchBillingNonInsuranceOrgsMock.mockResolvedValue({ organizations: [], total: 0 });
     const conditional: RuleConditional = {
       branches: [
         {
@@ -147,6 +149,29 @@ describe('ConditionalEditor', () => {
     };
     render(<ConditionalForm conditional={conditional} />);
     expect(screen.getAllByPlaceholderText(/Search non-insurance organizations/)).toHaveLength(2);
+  });
+
+  it('shows the name (not the id) of a stored NIO before any search has run', async () => {
+    const nioId = '8f1f6f3e-1111-4222-8333-444455556666';
+    searchBillingNonInsuranceOrgsMock.mockReset();
+    searchBillingNonInsuranceOrgsMock.mockResolvedValue({
+      organizations: [{ id: nioId, name: 'Acme Trucking', employer: true, active: false, contacts: [], covers: [] }],
+      total: 1,
+    });
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'field', field: 'nonInsurancePayerId', operator: 'eq', value: nioId },
+          outcome: { type: 'actions', actions: [] },
+        },
+      ],
+    };
+    render(<ConditionalForm conditional={conditional} />);
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText(/Search non-insurance organizations/)).toHaveValue('Acme Trucking')
+    );
+    expect(searchBillingNonInsuranceOrgsMock).toHaveBeenCalledWith(expect.anything(), { nioId });
   });
 
   it('offers directory organizations in the set-NIO picker and stores the organization id', async () => {
