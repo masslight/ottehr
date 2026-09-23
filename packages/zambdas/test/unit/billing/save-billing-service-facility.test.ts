@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
 import { Location, Provenance, ProvenanceAgent } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { SaveServiceFacilityInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
 import { describe, expect, it, vi } from 'vitest';
@@ -28,17 +27,6 @@ const baseInput: SaveServiceFacilityInput = {
 };
 
 const SHARED_NPI = '1234567893';
-
-const sharedNpiFacility: Location = {
-  ...facility,
-  id: 'fac-2',
-  identifier: [
-    {
-      system: FHIR_IDENTIFIER_NPI,
-      value: SHARED_NPI,
-    },
-  ],
-};
 
 function makeOystehr(): {
   oystehr: Oystehr;
@@ -124,9 +112,6 @@ describe('save-billing-service-facility', () => {
   describe('complexValidation', () => {
     it('allows creating a facility with an NPI another active facility already has', async () => {
       const { oystehr, search } = makeOystehr();
-      search.mockResolvedValue({
-        unbundle: () => [sharedNpiFacility],
-      });
 
       const result = await complexValidation(
         oystehr,
@@ -148,13 +133,6 @@ describe('save-billing-service-facility', () => {
 
     it('allows updating a facility to an NPI another active facility already has', async () => {
       const { oystehr, search } = makeOystehr();
-      search
-        .mockResolvedValueOnce({
-          unbundle: () => [structuredClone(facility)],
-        })
-        .mockResolvedValue({
-          unbundle: () => [sharedNpiFacility],
-        });
 
       const result = await complexValidation(
         oystehr,
